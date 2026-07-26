@@ -8,47 +8,69 @@ import { APP_STORE_URL } from '../data/pocketGenesPublic';
   description="Download Pocket Genes for iPhone. Google Play support is coming soon."
   canonicalPath="/pocket-genes/download"
   showFooter={false}
+  image="/pocket-genes/banner.png"
 >
   <main id="main" class="download-page">
-    <section class="download-center" aria-labelledby="download-title">
+    <section class="download-hero" aria-labelledby="download-title">
+      <div class="download-ambient" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+
       <div class="download-shell">
-        <p class="download-eyebrow">Pocket Genes</p>
-        <h1 id="download-title">Download Pocket Genes</h1>
-        <p class="download-lead">Available on iPhone. Android is coming soon.</p>
+        <div class="download-copy">
+          <div class="app-identity">
+            <img src="/pocket-genes/icon.png" alt="" width="96" height="96" />
+            <div>
+              <p class="download-eyebrow">Pocket Genes</p>
+              <p class="download-status">Available on iPhone</p>
+            </div>
+          </div>
 
-        <div class="store-grid" aria-label="Pocket Genes download options">
-          <a class="store-card store-card-live" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-            <span class="store-icon app-store-icon" aria-hidden="true">
-              <svg viewBox="0 0 72 72" role="img">
-                <rect width="72" height="72" rx="18"></rect>
-                <path d="M27 47.5 43.4 18" />
-                <path d="M28.7 18 45 47.5" />
-                <path d="M21.5 42h29" />
-              </svg>
-            </span>
-            <span class="store-copy">
-              <span class="store-kicker">Download on the</span>
-              <strong>App Store</strong>
+          <h1 id="download-title">
+            <span>Download</span>
+            <span>Pocket Genes</span>
+          </h1>
+          <p class="download-lead">
+            Keep genetic reports, learning, and rare-gene community context close at hand.
+          </p>
+
+          <div class="store-grid" aria-label="Pocket Genes download options">
+            <a class="store-card store-card-live" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+              <span class="store-card-glow" aria-hidden="true"></span>
+              <span class="store-kicker">Available now</span>
+              <img class="store-badge app-store-badge" src="/pocket-genes/app-store-badge.svg" alt="Download on the App Store" width="180" height="60" />
               <span class="store-note">For iPhone</span>
-            </span>
-          </a>
+            </a>
 
-          <article class="store-card store-card-soon" aria-disabled="true">
-            <span class="store-icon play-store-icon" aria-hidden="true">
-              <svg viewBox="0 0 72 72" role="img">
-                <rect width="72" height="72" rx="18"></rect>
-                <path class="play-blue" d="M24 18v36l16.8-18z" />
-                <path class="play-green" d="M24 18 52 34.8 40.8 36z" />
-                <path class="play-yellow" d="M40.8 36 52 37.2 24 54z" />
-                <path class="play-red" d="M40.8 36 52 34.8v2.4z" />
-              </svg>
-            </span>
-            <span class="store-copy">
-              <span class="store-kicker">Coming soon on</span>
-              <strong>Google Play</strong>
-              <span class="store-note">Android</span>
-            </span>
-          </article>
+            <article class="store-card store-card-soon" aria-disabled="true">
+              <span class="store-card-glow" aria-hidden="true"></span>
+              <span class="store-kicker">Android next</span>
+              <span class="play-badge-wrap">
+                <img class="store-badge google-play-badge" src="/pocket-genes/google-play-badge.png" alt="Get it on Google Play" width="194" height="75" />
+                <span>Coming soon</span>
+              </span>
+              <span class="store-note">Google Play release is being prepared</span>
+            </article>
+          </div>
+        </div>
+
+        <div class="download-visual" aria-hidden="true">
+          <div class="orbit-ring orbit-one"></div>
+          <div class="orbit-ring orbit-two"></div>
+          <div class="phone-stage">
+            <div class="phone-card phone-card-left">
+              <img src="/pocket-genes/screenshots/sample-01.webp" alt="" width="560" height="1218" />
+            </div>
+            <div class="phone-card phone-card-main">
+              <img src="/pocket-genes/screenshots/sample-09.webp" alt="" width="560" height="1218" />
+            </div>
+            <div class="phone-card phone-card-right">
+              <img src="/pocket-genes/screenshots/sample-07.webp" alt="" width="560" height="1218" />
+            </div>
+            <img class="floating-icon" src="/pocket-genes/icon.png" alt="" width="120" height="120" />
+          </div>
         </div>
       </div>
     </section>
@@ -58,166 +80,490 @@ import { APP_STORE_URL } from '../data/pocketGenesPublic';
 <style>
   .download-page {
     min-height: 100vh;
+    overflow: hidden;
     background:
-      radial-gradient(circle at 50% 8%, rgba(20, 149, 143, 0.1), transparent 34rem),
-      linear-gradient(180deg, #f9fbfc 0%, #ffffff 58%, #f7fafb 100%);
-    color: #172033;
+      radial-gradient(circle at 14% 18%, rgba(0, 218, 216, 0.22), transparent 28rem),
+      radial-gradient(circle at 86% 16%, rgba(228, 80, 128, 0.2), transparent 28rem),
+      linear-gradient(135deg, #050811 0%, #111827 48%, #071f2c 100%);
+    color: #ffffff;
   }
 
-  .download-center {
+  .download-hero {
+    position: relative;
     min-height: 100vh;
+    min-height: 100svh;
     display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 6.75rem 1.25rem 3rem;
+    align-items: center;
+    padding: clamp(7rem, 12vw, 8.5rem) 0 clamp(3rem, 7vw, 5rem);
   }
 
   .download-shell {
-    width: min(900px, 100%);
-    text-align: center;
+    position: relative;
+    z-index: 1;
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 0.92fr) minmax(420px, 1.08fr);
+    gap: clamp(2.5rem, 6vw, 5rem);
+    align-items: center;
+  }
+
+  .download-copy {
+    position: relative;
+    min-width: 0;
+  }
+
+  .app-identity {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 10px 14px 10px 10px;
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .app-identity img {
+    width: 54px;
+    height: 54px;
+    border-radius: 8px;
+    box-shadow: 0 12px 30px rgba(228, 80, 128, 0.22);
+  }
+
+  .download-eyebrow,
+  .download-status,
+  .store-kicker,
+  .store-note {
+    margin: 0;
+    letter-spacing: 0;
   }
 
   .download-eyebrow {
-    margin: 0 0 0.8rem;
-    color: #14958f;
+    color: #7de4d7;
     font-size: 0.78rem;
-    font-weight: 850;
-    letter-spacing: 0;
+    font-weight: 900;
     text-transform: uppercase;
   }
 
-  .download-shell h1 {
-    margin: 0;
-    font-size: clamp(2.9rem, 6.3vw, 5rem);
-    font-weight: 850;
-    line-height: 0.98;
+  .download-status {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.94rem;
+    font-weight: 720;
+  }
+
+  .download-copy h1 {
+    max-width: 760px;
+    margin: clamp(1.5rem, 4vw, 2.35rem) 0 0;
+    font-size: clamp(3.35rem, 8vw, 7.2rem);
+    font-weight: 900;
+    line-height: 0.9;
     letter-spacing: 0;
   }
 
+  .download-copy h1 span {
+    display: block;
+  }
+
   .download-lead {
-    margin: 1rem auto 0;
-    max-width: 520px;
-    color: #68758b;
-    font-size: clamp(1.08rem, 2vw, 1.28rem);
+    max-width: 610px;
+    margin: 1.35rem 0 0;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: clamp(1.1rem, 2.1vw, 1.35rem);
     line-height: 1.55;
   }
 
   .store-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(1rem, 3vw, 1.5rem);
-    width: min(660px, 100%);
-    margin: clamp(2rem, 4vw, 3rem) auto 0;
+    gap: 14px;
+    margin-top: clamp(2rem, 5vw, 3rem);
+    min-width: 0;
   }
 
   .store-card {
-    aspect-ratio: 1;
-    min-height: 250px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1.5rem;
-    border: 1px solid rgba(197, 210, 223, 0.82);
-    border-radius: 32px;
-    background: rgba(255, 255, 255, 0.82);
-    box-shadow: 0 20px 60px rgba(23, 32, 51, 0.1);
-    color: inherit;
+    position: relative;
+    isolation: isolate;
+    min-height: 210px;
+    overflow: hidden;
+    display: grid;
+    align-content: center;
+    justify-items: start;
+    gap: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.07)),
+      rgba(255, 255, 255, 0.08);
+    padding: clamp(1.1rem, 3vw, 1.55rem);
+    color: #ffffff;
     text-decoration: none;
+    min-width: 0;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
     transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
   }
 
+  .store-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(110deg, transparent 0 34%, rgba(255, 255, 255, 0.14) 48%, transparent 64%);
+    transform: translateX(-130%);
+    transition: transform 520ms ease;
+  }
+
   .store-card-live:hover {
-    transform: translateY(-4px);
-    border-color: rgba(20, 149, 143, 0.38);
-    box-shadow: 0 28px 76px rgba(23, 32, 51, 0.16);
+    transform: translateY(-5px);
+    border-color: rgba(125, 228, 215, 0.5);
+    box-shadow: 0 30px 86px rgba(0, 218, 216, 0.18);
+  }
+
+  .store-card-live:hover::before {
+    transform: translateX(130%);
   }
 
   .store-card-soon {
-    color: #66758d;
+    color: rgba(255, 255, 255, 0.7);
   }
 
-  .store-icon {
-    width: clamp(4.8rem, 10vw, 6.4rem);
-    height: clamp(4.8rem, 10vw, 6.4rem);
-    display: inline-flex;
+  .store-card-glow {
+    position: absolute;
+    inset: auto -20% -44% 18%;
+    z-index: -1;
+    height: 140px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(0, 218, 216, 0.38), transparent 70%);
+    filter: blur(18px);
   }
 
-  .store-icon svg {
-    width: 100%;
-    height: 100%;
-    overflow: visible;
+  .store-card-soon .store-card-glow {
+    background: radial-gradient(circle, rgba(228, 80, 128, 0.32), transparent 70%);
   }
 
-  .app-store-icon rect {
-    fill: #111827;
+  .store-kicker {
+    color: #7de4d7;
+    font-size: 0.76rem;
+    font-weight: 900;
+    text-transform: uppercase;
   }
 
-  .app-store-icon path {
-    fill: none;
-    stroke: #ffffff;
-    stroke-width: 5.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+  .store-badge {
+    display: block;
+    width: min(100%, 188px);
+    height: auto;
   }
 
-  .play-store-icon rect {
-    fill: #ffffff;
-    stroke: #dce4ec;
+  .app-store-badge {
+    filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.2));
   }
 
-  .play-blue {
-    fill: #1a73e8;
+  .google-play-badge {
+    width: min(100%, 204px);
+    margin: -12px 0;
+    filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.2));
   }
 
-  .play-green {
-    fill: #34a853;
+  .play-badge-wrap {
+    position: relative;
+    display: inline-block;
   }
 
-  .play-yellow {
-    fill: #fbbc04;
+  .play-badge-wrap span {
+    position: absolute;
+    right: 0;
+    top: -6px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    background: #e45080;
+    padding: 5px 9px;
+    color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 900;
+    line-height: 1;
+    text-transform: uppercase;
+    box-shadow: 0 10px 24px rgba(228, 80, 128, 0.34);
   }
 
-  .play-red {
-    fill: #ea4335;
-  }
-
-  .store-copy {
-    display: grid;
-    gap: 0.2rem;
-  }
-
-  .store-kicker,
   .store-note {
-    color: #68758b;
+    color: rgba(255, 255, 255, 0.68);
     font-size: 0.95rem;
-    font-weight: 700;
+    font-weight: 760;
   }
 
-  .store-copy strong {
-    color: #172033;
-    font-size: clamp(1.8rem, 4vw, 2.35rem);
-    line-height: 1.05;
-    letter-spacing: 0;
+  .download-visual {
+    position: relative;
+    min-height: 590px;
   }
 
-  @media (max-width: 720px) {
-    .download-center {
-      padding-top: 7.75rem;
+  .download-visual::before {
+    content: "";
+    position: absolute;
+    inset: 11% 0 5%;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle, rgba(0, 218, 216, 0.2), transparent 60%),
+      radial-gradient(circle at 72% 28%, rgba(228, 80, 128, 0.28), transparent 42%);
+    filter: blur(4px);
+  }
+
+  .phone-stage {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    perspective: 1200px;
+  }
+
+  .phone-card {
+    position: absolute;
+    width: clamp(150px, 17vw, 220px);
+    overflow: hidden;
+    border: 6px solid #050811;
+    border-radius: 28px;
+    background: #050811;
+    box-shadow:
+      0 32px 74px rgba(0, 0, 0, 0.42),
+      0 0 0 1px rgba(255, 255, 255, 0.12);
+    animation: phoneFloat 6.5s ease-in-out infinite;
+  }
+
+  .phone-card img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .phone-card-left {
+    transform: translate3d(-120px, 38px, -80px) rotate(-10deg);
+    opacity: 0.78;
+    animation-delay: -1.4s;
+  }
+
+  .phone-card-main {
+    width: clamp(176px, 20vw, 264px);
+    transform: translate3d(10px, -10px, 0) rotate(3deg);
+    z-index: 2;
+  }
+
+  .phone-card-right {
+    transform: translate3d(142px, 34px, -90px) rotate(11deg);
+    opacity: 0.78;
+    animation-delay: -2.7s;
+  }
+
+  .floating-icon {
+    position: absolute;
+    z-index: 4;
+    left: 50%;
+    bottom: 8%;
+    width: clamp(74px, 9vw, 116px);
+    height: clamp(74px, 9vw, 116px);
+    border-radius: 24px;
+    box-shadow:
+      0 24px 58px rgba(228, 80, 128, 0.34),
+      0 0 0 1px rgba(255, 255, 255, 0.16);
+    transform: translateX(-50%);
+    animation: iconPulse 4.8s ease-in-out infinite;
+  }
+
+  .orbit-ring {
+    position: absolute;
+    border: 1px solid rgba(125, 228, 215, 0.28);
+    border-radius: 999px;
+    animation: orbitDrift 9s ease-in-out infinite;
+  }
+
+  .orbit-one {
+    width: 86%;
+    height: 58%;
+    top: 17%;
+    left: 7%;
+    transform: rotate(-14deg);
+  }
+
+  .orbit-two {
+    width: 64%;
+    height: 46%;
+    top: 28%;
+    left: 19%;
+    border-color: rgba(228, 80, 128, 0.26);
+    animation-delay: -3.6s;
+  }
+
+  .download-ambient {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .download-ambient span {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #7de4d7;
+    box-shadow: 0 0 22px rgba(125, 228, 215, 0.9);
+    animation: sparkFloat 8s ease-in-out infinite;
+  }
+
+  .download-ambient span:nth-child(1) {
+    top: 17%;
+    left: 9%;
+  }
+
+  .download-ambient span:nth-child(2) {
+    top: 22%;
+    right: 13%;
+    background: #e45080;
+    box-shadow: 0 0 22px rgba(228, 80, 128, 0.9);
+    animation-delay: -2s;
+  }
+
+  .download-ambient span:nth-child(3) {
+    left: 47%;
+    bottom: 15%;
+    background: #2176ae;
+    box-shadow: 0 0 22px rgba(33, 118, 174, 0.9);
+    animation-delay: -4.4s;
+  }
+
+  @keyframes phoneFloat {
+    0%,
+    100% {
+      margin-top: 0;
+    }
+    50% {
+      margin-top: -16px;
+    }
+  }
+
+  @keyframes iconPulse {
+    0%,
+    100% {
+      transform: translateX(-50%) translateY(0) scale(1);
+    }
+    50% {
+      transform: translateX(-50%) translateY(-10px) scale(1.04);
+    }
+  }
+
+  @keyframes orbitDrift {
+    0%,
+    100% {
+      opacity: 0.5;
+      transform: rotate(-14deg) scale(1);
+    }
+    50% {
+      opacity: 0.85;
+      transform: rotate(-8deg) scale(1.04);
+    }
+  }
+
+  @keyframes sparkFloat {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0);
+      opacity: 0.48;
+    }
+    50% {
+      transform: translate3d(16px, -20px, 0);
+      opacity: 1;
+    }
+  }
+
+  @media (max-width: 980px) {
+    .download-shell {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    .download-visual {
+      min-height: 480px;
+    }
+
+    .download-copy {
+      text-align: center;
+    }
+
+    .download-lead {
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .app-identity {
+      margin: 0 auto;
     }
 
     .store-grid {
-      grid-template-columns: 1fr;
-      max-width: 390px;
+      max-width: 620px;
       margin-left: auto;
       margin-right: auto;
     }
   }
 
-  @media (max-width: 420px) {
+  @media (max-width: 640px) {
+    .download-hero {
+      align-items: flex-start;
+      padding-top: 7.5rem;
+    }
+
+    .download-visual {
+      min-height: 360px;
+    }
+
+    .store-grid {
+      grid-template-columns: 1fr;
+    }
+
     .store-card {
-      min-height: 250px;
-      border-radius: 28px;
+      min-height: 180px;
+      justify-items: center;
+      text-align: center;
+    }
+
+    .phone-card-left {
+      transform: translate3d(-72px, 30px, -80px) rotate(-10deg);
+    }
+
+    .phone-card-right {
+      transform: translate3d(82px, 30px, -90px) rotate(11deg);
+    }
+  }
+
+  @media (max-width: 420px) {
+    .app-identity {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .download-copy h1 {
+      font-size: clamp(2.35rem, 10.5vw, 2.85rem);
+      line-height: 0.95;
+    }
+
+    .play-badge-wrap span {
+      right: 4px;
+      top: -10px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .download-ambient span,
+    .phone-card,
+    .floating-icon,
+    .orbit-ring {
+      animation: none;
+    }
+
+    .store-card,
+    .store-card::before {
+      transition: none;
     }
   }
 </style>
