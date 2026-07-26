@@ -169,7 +169,7 @@ export const en = {
   pocketGenes: {
     title: 'Pocket Genes - Genomic Companion for Rare Disease Families',
     integrationTitle: 'Pocket Genes - Genomic Integration for Providers',
-    integrationCtaTitle: 'Bring your reports into Pocket Genes',
+    integrationCtaTitle: 'BRING YOUR REPORTS INTO POCKET GENES',
     integrationCtaDesc: 'Share a sample report structure and we will review how it can connect with the mobile experience, RareFriends™, provider discovery, and post-result support.',
     integrationCtaButton: 'Book an integration review',
   },
@@ -309,7 +309,7 @@ export const en = {
   hero: {
     brand: 'Golden Crow VS',
     product: 'Pocket Genes',
-    tagline: 'Genomic integration for providers',
+    tagline: 'GENOMIC INTEGRATION FOR PROVIDERS',
     description: 'Do not build a genetic app from scratch. Bring your reports to Pocket Genes and add ',
     highlight: "a mobile experience, help your patients connect with the RareFriends™ community, and become part of the platform's provider offering.",
     primaryCta: 'REQUEST AN INTEGRATION MEETING',
@@ -328,8 +328,8 @@ export const en = {
 
   // Layout components - Panels
   panels: {
-    title1: 'After the Report',
-    title2: 'A Better User Journey',
+    title1: 'AFTER THE REPORT',
+    title2: 'A BETTER USER JOURNEY',
     description: 'Pocket Genes does not stop at PDF delivery. It helps genetic information stay organized, easier to understand, and more useful in prepared medical conversations.',
     healthTitle: 'Organized reports',
     healthDesc: 'Users can revisit results, panels, genes, dates, and documents from a clear mobile experience.',
@@ -352,35 +352,35 @@ export const en = {
 
   // Layout components - AppScreenshots
   appScreenshots: {
-    eyebrow: 'App preview',
-    title1: 'Real app screens',
-    title2: 'from Pocket Genes',
+    eyebrow: 'APP PREVIEW',
+    title1: 'REAL APP SCREENS',
+    title2: 'FROM POCKET GENES',
     description: 'A closer look at how users explore reports, filters, learning paths, saved interests, RareFriends™, and genetic insights inside the app.',
     galleryLabel: 'Pocket Genes app screenshot gallery',
     imageAlt: 'Pocket Genes app screenshot',
     captions: [
-      'Explore',
-      'Discover',
-      'Pathology',
-      'Ancestry',
-      'Filters',
-      'Neurology',
-      'Learning',
-      'Gene bag',
-      'RareFriends™',
-      'Nutrition',
-      'Genetic insight',
+      'EXPLORE',
+      'DISCOVER',
+      'PATHOLOGY',
+      'ANCESTRY',
+      'FILTERS',
+      'NEUROLOGY',
+      'LEARNING',
+      'GENE BAG',
+      'RAREFRIENDS™',
+      'NUTRITION',
+      'GENETIC INSIGHT',
     ],
   },
 
   // Layout components - Integration Revamp
   integrationRevamp: {
     outcome: {
-      eyebrow: 'Why integrate now',
-      title1: 'From PDF',
-      title2: 'to Mobile Ecosystem',
+      eyebrow: 'WHY INTEGRATE NOW',
+      title1: 'FROM PDF',
+      title2: 'TO MOBILE ECOSYSTEM',
       description: 'Genetic services are becoming more accessible, but the post-report experience is still fragmented. Pocket Genes helps modernize that journey without asking your team to build, maintain, and scale a mobile app from scratch.',
-      beforeTitle: 'Before Pocket Genes',
+      beforeTitle: 'BEFORE POCKET GENES',
       beforeItems: [
         'Users receive PDFs that are hard to revisit.',
         'Reports get scattered across emails, portals, and folders.',
@@ -389,7 +389,7 @@ export const en = {
         'Community support and resources sit outside the report experience.',
         'Providers are hard to discover when someone needs next steps.',
       ],
-      afterTitle: 'After Pocket Genes',
+      afterTitle: 'AFTER POCKET GENES',
       afterItems: [
         'Reports become visual, mobile, and easier to revisit.',
         'Genes, panels, documents, dates, and notes stay better organized.',
@@ -420,9 +420,9 @@ export const en = {
       ],
     },
     discovery: {
-      eyebrow: 'Network and discovery',
-      title1: 'Make your service',
-      title2: 'easier to find',
+      eyebrow: 'NETWORK AND DISCOVERY',
+      title1: 'MAKE YOUR SERVICE',
+      title2: 'EASIER TO FIND',
       description: 'Integration does more than improve report delivery. It lets your organization participate in an ecosystem where people can search for resources, genetic services, and next steps with more context.',
       loopTitle: 'A value loop for users and providers',
       loopItems: [
@@ -445,9 +445,9 @@ export const en = {
       ],
     },
     journey: {
-      eyebrow: 'How it works',
-      title1: 'A clear process',
-      title2: 'for your team',
+      eyebrow: 'HOW IT WORKS',
+      title1: 'A CLEAR PROCESS',
+      title2: 'FOR YOUR TEAM',
       description: 'Integration is organized around your report structure, your validation standards, and the level of branding or customization you need.',
       steps: [
         {
@@ -477,9 +477,9 @@ export const en = {
       ],
     },
     trust: {
-      eyebrow: 'Integration trust',
-      title1: 'Sensitive data',
-      title2: 'with a secure experience',
+      eyebrow: 'INTEGRATION TRUST',
+      title1: 'SENSITIVE DATA',
+      title2: 'WITH A SECURE EXPERIENCE',
       description: 'Genetics requires care. Pocket Genes and RareFriends™ help your organization deliver a clearer, more organized, and more trusted experience from the first access.',
       cards: [
         {
@@ -504,8 +504,8 @@ export const en = {
 
   // Layout components - MoreToCome
   moreToCome: {
-    title1: 'More',
-    title2: 'to come',
+    title1: 'MORE',
+    title2: 'TO COME',
     description: 'Pocket Genes will continuously add new panels and tools to enhance user experience and genomic discovery.',
     sportsTitle: 'Sports & Performance',
     sportsDesc: 'Customized workout plans based on strength, endurance, and recovery traits.',
@@ -527,8 +527,8 @@ export const en = {
 
   // Layout components - IntroPlan
   introPlan: {
-    title1: 'Integration',
-    title2: 'Models',
+    title1: 'INTEGRATION',
+    title2: 'MODELS',
     subtitle: 'Choose how far you want to go: from validating reports in Pocket Genes to a complete branded experience.',
     selectorLabel: 'Available integration models',
     instantIntegration: 'Mobile report',
@@ -547,8 +547,8 @@ export const en = {
 
   // Layout components - Plan
   plan: {
-    eyebrow: 'Compare benefits',
-    title: 'Flexible plans to integrate your service',
+    eyebrow: 'COMPARE BENEFITS',
+    title: 'FLEXIBLE PLANS TO INTEGRATE YOUR SERVICE',
     subtitle: 'Each level adds a different way to deliver reports, sustain engagement, and make your organization more visible.',
     tapHint: 'Tap a plan to compare benefits',
     showDetails: 'View benefits',
@@ -573,8 +573,8 @@ export const en = {
 
   // Layout components - SecondSection
   secondSection: {
-    title1: 'Your reports',
-    title2: 'in a mobile experience',
+    title1: 'YOUR REPORTS',
+    title2: 'IN A MOBILE EXPERIENCE',
     description: 'Turn complex results into a visual, organized experience users can revisit, without putting mobile development and maintenance on your team.',
     interactiveReports: 'Interactive Reports',
     beautifulUI: 'No app from scratch',
@@ -583,8 +583,8 @@ export const en = {
 
   // Layout components - ThirdSection
   thirdSection: {
-    title1: 'One integration',
-    title2: 'four connected outcomes',
+    title1: 'ONE INTEGRATION',
+    title2: 'FOUR CONNECTED OUTCOMES',
     description: 'The four pieces work together: a mobile experience for your reports, lower operational load, RareFriends™, and provider discovery inside the ecosystem.',
     launchFaster: 'Mobile experience',
     launchFasterDesc: 'Your reports move from static PDFs into cards, filters, panels, and explanations users can explore.',
@@ -598,8 +598,8 @@ export const en = {
 
   // Layout components - IntroAboutUs
   introAboutUs: {
-    title1: 'Bringing Genomic',
-    title2: 'Data to Life',
+    title1: 'BRINGING GENOMIC',
+    title2: 'DATA TO LIFE',
     description: 'Who we are, what we do, and our roadmap for the year ahead.',
     missionTitle: 'Our Mission',
     missionDesc: 'Making genomics accessible and actionable for everyone',
@@ -609,7 +609,7 @@ export const en = {
 
   // Layout components - Timeline
   timeline: {
-    title: 'Our Timeline for 2026',
+    title: 'OUR TIMELINE FOR 2026',
     q1Period: 'Q1 JAN-MAR',
     q1Title1: 'Product Development',
     q1Title2: 'Partner Integrations',
@@ -630,8 +630,8 @@ export const en = {
 
   // Layout components - ChoosePlan
   choosePlan: {
-    title1: 'Compare',
-    title2: 'plan benefits',
+    title1: 'COMPARE',
+    title2: 'PLAN BENEFITS',
     subtitle: 'Plans combine mobile experience, branding, technical support, RareFriends™, and visibility inside the ecosystem.',
     freePlan: 'Free',
     freeDesc: '<b>Validate at no cost,</b> bringing selected reports into a mobile experience inside Pocket Genes.',
@@ -646,8 +646,8 @@ export const en = {
 
   // Layout components - IntegrationProcess
   integrationProcess: {
-    title: 'Integration Process',
-    freeSubtitle: 'Free Program',
+    title: 'INTEGRATION PROCESS',
+    freeSubtitle: 'FREE PROGRAM',
     freeAmount: '$0',
     freeDescription: 'Effortless integration - convert your genomic reports to our format for instant user access to interactive, intuitive panels.',
     freeItem1Title: 'DATA INPUT FORMATTING',
@@ -656,7 +656,7 @@ export const en = {
     freeItem2Desc: 'We collaborate with you to define the data structure and visual presentation, ensuring your reports are engaging and easy to explore.',
     freeItem3Title: 'USER ACCESS AND FEEDBACK',
     freeItem3Desc: 'We collaborate with you to define the data structure and visual presentation, ensuring your reports are engaging and easy to explore.',
-    plusSubtitle: 'Plus Program',
+    plusSubtitle: 'PLUS PROGRAM',
     plusAmount: '$999 / month',
     plusDescription: 'The Plus Plan delivers a high level of customization, featuring branded integration, tailored data formatting, and custom features all within the app.',
     plusItem1Title: 'COLLABORATIVE DATA INPUT',
@@ -669,8 +669,8 @@ export const en = {
 
   // Layout components - Experience
   experience: {
-    title1: 'Our',
-    title2: 'Experience',
+    title1: 'OUR',
+    title2: 'EXPERIENCE',
     years: '4+',
     yearsLabel: 'Years',
     decade: '10+',
