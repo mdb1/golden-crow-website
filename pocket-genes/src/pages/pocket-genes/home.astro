@@ -2,9 +2,10 @@
 import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro';
 import { APP_STORE_URL, POCKET_GENES_EMAILS, trustDocuments } from '../../data/pocketGenesPublic';
 
-const trustPreview = trustDocuments.slice(0, 6);
+const trustPreview = trustDocuments.filter((document) => document.category !== 'Community').slice(0, 6);
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
-const integrationHref = isEnglish ? '/en/pocket-genes/integration/' : '/pocket-genes/integration/';
+const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
+const integrationHref = localizePath('/pocket-genes/integration/');
 
 const productPillars = [
   {
@@ -17,7 +18,7 @@ const productPillars = [
   },
   {
     title: 'Belonging',
-    body: 'RareFriends by Pocket Genes can connect you by gene, condition, symptoms, role, language, country, or journey stage.',
+    body: 'Optional community tools help you connect by gene, condition, symptoms, role, language, country, or journey stage.',
   },
   {
     title: 'Navigation and action',
@@ -31,17 +32,16 @@ const productPillars = [
 
 const identityFacts = [
   {
-    label: 'Canonical description',
+    label: 'What it is',
     value:
       'Pocket Genes is a personal genomic companion that helps people organize genetic reports, understand key concepts, and prepare safer next steps.',
   },
   {
-    label: 'Public web presence',
-    value:
-      'Current public route: /pocket-genes/home. Dedicated canonical domain target: pocketgenes.com.',
+    label: 'Website',
+    value: 'Official Pocket Genes public pages live under /pocket-genes.',
   },
   {
-    label: 'Company-domain contact',
+    label: 'Contact',
     value: `${POCKET_GENES_EMAILS.hello} | ${POCKET_GENES_EMAILS.trust} | ${POCKET_GENES_EMAILS.security}`,
   },
 ];
@@ -68,6 +68,7 @@ const leaders = [
 
 <PocketGenesPublicLayout
   title="Pocket Genes - Personal genomic companion"
+  description="Pocket Genes helps people organize genetic reports, understand key concepts, and prepare safer next steps."
   canonicalPath="/pocket-genes/home"
 >
   <main id="main" class="pg-page pg-home">
@@ -89,7 +90,7 @@ const leaders = [
             <a class="pg-button pg-button-primary" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
               Download on the App Store
             </a>
-            <a class="pg-button pg-button-secondary" href="/pocket-genes/rarefriends">
+            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/rarefriends')}>
               Explore community
             </a>
           </div>
@@ -109,9 +110,9 @@ const leaders = [
       <div class="pg-container pg-home-split">
         <div class="pg-section-heading">
           <p class="pg-eyebrow">Clear identity</p>
-          <h2>A standalone Pocket Genes presence for users and institutions.</h2>
+          <h2>Pocket Genes in one place.</h2>
           <p>
-            The public site should make the product, operator, contacts, leadership, and trust boundaries visible before a hospital, lab, patient organization, or family replies to an outreach message.
+            Learn what the app does, where to download it, how to contact the team, and how Pocket Genes handles trust and privacy.
           </p>
         </div>
 
@@ -143,43 +144,11 @@ const leaders = [
       </div>
     </section>
 
-    <section class="pg-section pg-home-rarefriends">
-      <div class="pg-container pg-home-relationship">
-        <div>
-          <p class="pg-eyebrow">Community relationship</p>
-          <h2>RareFriends by Pocket Genes</h2>
-          <p>
-            RareFriends by Pocket Genes is the optional connection layer attached to the private Pocket Genes experience. It helps people find relevant peers, caregivers, organizations, events, and practical support without turning uploaded reports into public community content.
-          </p>
-          <p class="pg-home-note">
-            Naming note: RareFriends already has public search ambiguity. Before heavy expansion, Pocket Genes should run trademark clearance in target jurisdictions and keep the full phrase "RareFriends by Pocket Genes" visible.
-          </p>
-        </div>
-        <div class="pg-relationship-list">
-          <article>
-            <span>1</span>
-            <h3>Match by useful context</h3>
-            <p>Exact gene, condition family, symptoms, role, language, country, and journey stage can all make support more relevant.</p>
-          </article>
-          <article>
-            <span>2</span>
-            <h3>Find an action path</h3>
-            <p>Community can point to an organization, provider, event, learning resource, appointment question, or useful update.</p>
-          </article>
-          <article>
-            <span>3</span>
-            <h3>Keep sharing intentional</h3>
-            <p>Sharing a lesson, event, or resource should never accidentally share a genetic finding or original report.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
     <section class="pg-section pg-home-leadership">
       <div class="pg-container">
         <div class="pg-section-heading">
           <p class="pg-eyebrow">Leadership</p>
-          <h2>Founder and leadership profiles should be visible on the product site.</h2>
+          <h2>Who is behind Pocket Genes.</h2>
         </div>
         <div class="pg-leader-grid">
           {leaders.map((leader) => (
@@ -201,14 +170,14 @@ const leaders = [
       <div class="pg-container">
         <div class="pg-section-heading">
           <p class="pg-eyebrow">Trust Center</p>
-          <h2>Trust material should be a visible page, not a footer graveyard.</h2>
+          <h2>Privacy, safety, and data handling in one place.</h2>
           <p>
             The Trust Center links privacy, safety, security, scientific methodology, intended use, data handling, and incident reporting from one place.
           </p>
         </div>
         <div class="pg-trust-preview-grid">
           {trustPreview.map((document) => (
-            <a class="pg-trust-preview" href={`/pocket-genes/trust-center/${document.slug}`}>
+            <a class="pg-trust-preview" href={localizePath(`/pocket-genes/trust-center/${document.slug}`)}>
               <span>{document.category}</span>
               <strong>{document.title}</strong>
               <p>{document.summary}</p>
@@ -216,7 +185,7 @@ const leaders = [
           ))}
         </div>
         <div class="pg-home-inline-action">
-          <a class="pg-button pg-button-secondary" href="/pocket-genes/trust-center">Open the full Trust Center</a>
+          <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>Open the full Trust Center</a>
         </div>
       </div>
     </section>
@@ -225,12 +194,12 @@ const leaders = [
       <div class="pg-container pg-home-demo-grid">
         <div class="pg-section-heading">
           <p class="pg-eyebrow">Public demo</p>
-          <h2>Show the complete path from synthetic report to Pocket Genes experience.</h2>
+          <h2>See a synthetic sample report in Pocket Genes.</h2>
           <p>
-            Institutional visitors should be able to inspect what came from a lab, what Pocket Genes reformatted, what education was added, and what the user can or cannot share.
+            The demo shows what came from the sample PDF, what Pocket Genes reformatted, and what educational context was added.
           </p>
           <div class="pg-button-row">
-            <a class="pg-button pg-button-primary" href="/pocket-genes/demo">View public demo</a>
+            <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/demo')}>View public demo</a>
             <a class="pg-button pg-button-secondary" href="/pocket-genes/demo/sample-report.pdf">Open sample PDF</a>
           </div>
         </div>
@@ -453,76 +422,6 @@ const leaders = [
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
-  .pg-home-rarefriends {
-    background: #172033;
-    color: #ffffff;
-  }
-
-  .pg-home-relationship {
-    display: grid;
-    grid-template-columns: minmax(0, 0.85fr) minmax(360px, 1.15fr);
-    gap: 44px;
-    align-items: center;
-  }
-
-  .pg-home-relationship h2 {
-    margin: 0;
-    font-size: 2.8rem;
-    line-height: 1.08;
-    letter-spacing: 0;
-  }
-
-  .pg-home-relationship p {
-    color: rgba(255, 255, 255, 0.78);
-    font-size: 1.08rem;
-  }
-
-  .pg-home-rarefriends .pg-eyebrow {
-    color: #7de4d7;
-  }
-
-  .pg-home-note {
-    border-left: 4px solid var(--pg-amber);
-    padding-left: 16px;
-  }
-
-  .pg-relationship-list {
-    display: grid;
-    gap: 14px;
-  }
-
-  .pg-relationship-list article {
-    display: grid;
-    grid-template-columns: 48px minmax(0, 1fr);
-    gap: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.08);
-    padding: 20px;
-  }
-
-  .pg-relationship-list span {
-    width: 38px;
-    height: 38px;
-    border-radius: 8px;
-    background: #ffffff;
-    color: var(--pg-rose);
-    display: inline-grid;
-    place-items: center;
-    font-weight: 900;
-  }
-
-  .pg-relationship-list h3 {
-    margin: 0 0 4px;
-    color: #ffffff;
-    font-size: 1.08rem;
-  }
-
-  .pg-relationship-list p {
-    margin: 0;
-    font-size: 0.98rem;
-  }
-
   .pg-leader-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -716,7 +615,6 @@ const leaders = [
   @media (max-width: 1040px) {
     .pg-home-hero-grid,
     .pg-home-split,
-    .pg-home-relationship,
     .pg-home-demo-grid,
     .pg-store-band {
       grid-template-columns: 1fr;
@@ -796,10 +694,6 @@ const leaders = [
       height: 92px;
     }
 
-    .pg-home-relationship h2 {
-      font-size: 2.15rem;
-    }
-
     .pg-store-actions,
     .pg-store-app,
     .pg-store-disabled {
@@ -834,8 +728,5 @@ const leaders = [
       top: 48px;
     }
 
-    .pg-relationship-list article {
-      grid-template-columns: 1fr;
-    }
   }
 </style>
