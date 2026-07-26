@@ -5,26 +5,56 @@ import { APP_STORE_URL, POCKET_GENES_EMAILS } from '../../data/pocketGenesPublic
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 
-const productPillars = [
+const productMoments = [
   {
-    title: 'Private personal context',
-    body: 'Your report, genes, saved findings, interests, and journey stage give every resource more relevance.',
+    eyebrow: 'Private context',
+    title: 'Start from your own report',
+    body: 'Keep genes, notes, findings, interests, and journey stage organized in a private space.',
+    detail: 'Pocket Genes keeps the original report private while turning the important pieces into a clearer personal workspace.',
+    chip: 'Report organized',
+    accent: '#1d8f8f',
+    pastel: '#e8faf7',
+    soft: '#f6fffd',
   },
   {
+    eyebrow: 'Learning',
     title: 'Understanding',
-    body: 'Plain-language explanations and guided learning help you understand your own information better than before.',
+    body: 'Plain-language explanations and guided learning help report terms become easier to revisit.',
+    detail: 'Definitions, context labels, and saved learning paths help you come back to the same result with less friction.',
+    chip: 'Terms explained',
+    accent: '#d85b7f',
+    pastel: '#fff0f5',
+    soft: '#fff8fb',
   },
   {
+    eyebrow: 'Community',
     title: 'Belonging',
-    body: 'Optional community tools help you connect by gene, condition, symptoms, role, language, country, or journey stage.',
+    body: 'Find people, caregivers, groups, and updates by gene, condition, symptoms, role, language, or journey stage.',
+    detail: 'Community discovery can broaden from exact matches to related groups, events, and lived-experience support.',
+    chip: 'Relevant people',
+    accent: '#2176ae',
+    pastel: '#ecf5ff',
+    soft: '#f7fbff',
   },
   {
+    eyebrow: 'Action',
     title: 'Navigation and action',
-    body: 'Move from result to explanation, learning, community, events, and saved questions for an appointment.',
+    body: 'Move from a result to learning, community, events, saved questions, and clearer next steps.',
+    detail: 'Save practical questions, follow resources, register interest in events, or prepare for a future appointment.',
+    chip: 'Next step saved',
+    accent: '#d99232',
+    pastel: '#fff6dd',
+    soft: '#fffdf5',
   },
   {
+    eyebrow: 'Updates',
     title: 'Relevant updates',
     body: 'Follow updates that match your gene, condition, country, organization, event interests, or stage of the journey.',
+    detail: 'Pocket Genes can keep useful signals close to the context that made them relevant in the first place.',
+    chip: 'Updates matched',
+    accent: '#3c9b68',
+    pastel: '#edf9ef',
+    soft: '#f8fff9',
   },
 ];
 
@@ -41,45 +71,6 @@ const identityFacts = [
   {
     label: 'Contact',
     value: POCKET_GENES_EMAILS.hello,
-  },
-];
-
-const trustPreview = [
-  {
-    title: 'Privacy Policy',
-    category: 'Privacy',
-    summary: 'What Pocket Genes collects, stores, and lets you control.',
-    href: '/pocket-genes/trust-center/privacy-policy',
-  },
-  {
-    title: 'Security Overview',
-    category: 'Security',
-    summary: 'How Pocket Genes protects report and account information.',
-    href: '/pocket-genes/trust-center/security-overview',
-  },
-  {
-    title: 'Data Flow',
-    category: 'Data',
-    summary: 'How a report becomes a private Pocket Genes experience.',
-    href: '/pocket-genes/trust-center/data-flow-diagram',
-  },
-  {
-    title: 'Retention and Deletion',
-    category: 'Data',
-    summary: 'How stored information can be removed or retained.',
-    href: '/pocket-genes/trust-center/data-retention-deletion',
-  },
-  {
-    title: 'Incident Reporting',
-    category: 'Safety',
-    summary: 'Where to report privacy, safety, or security concerns.',
-    href: '/pocket-genes/trust-center/incident-reporting',
-  },
-  {
-    title: 'Intended Use',
-    category: 'Product',
-    summary: 'What Pocket Genes is built to do, and what it is not.',
-    href: '/pocket-genes/trust-center/regulatory-intended-use',
   },
 ];
 
@@ -145,41 +136,53 @@ const trustPreview = [
 
     <section class="pg-section pg-home-product">
       <div class="pg-container">
-        <div class="pg-section-heading">
+        <div class="pg-home-product-header">
           <p class="pg-eyebrow">What the product does</p>
-          <h2>A private result becomes understanding, belonging, and a useful next step.</h2>
-        </div>
-        <div class="pg-card-grid pg-pillar-grid">
-          {productPillars.map((pillar) => (
-            <article class="pg-card">
-              <h3>{pillar.title}</h3>
-              <p>{pillar.body}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <section class="pg-section pg-home-trust">
-      <div class="pg-container">
-        <div class="pg-section-heading">
-          <p class="pg-eyebrow">Trust Center</p>
-          <h2>Privacy, safety, and data handling in one place.</h2>
+          <h2>
+            <span>A private result becomes</span>
+            <strong>understanding, belonging, and a useful next step.</strong>
+          </h2>
           <p>
-            See the privacy, security, data, and safety pages for Pocket Genes.
+            Pocket Genes connects the private report, plain-language learning, relevant people, and practical follow-up into one flow.
           </p>
         </div>
-        <div class="pg-trust-preview-grid">
-          {trustPreview.map((document) => (
-            <a class="pg-trust-preview" href={localizePath(document.href)}>
-              <span>{document.category}</span>
-              <strong>{document.title}</strong>
-              <p>{document.summary}</p>
-            </a>
-          ))}
-        </div>
-        <div class="pg-home-inline-action">
-          <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>Open the full Trust Center</a>
+
+        <div class="pg-moment-layout">
+          <div class="pg-moment-grid" aria-label="Pocket Genes product flow">
+            {productMoments.map((moment, index) => (
+              <article
+                class:list={['pg-moment-card', { 'is-active': index === 0 }]}
+                tabindex="0"
+                data-moment-card
+                data-title={moment.title}
+                data-detail={moment.detail}
+                data-chip={moment.chip}
+                style={`--moment-accent: ${moment.accent}; --moment-pastel: ${moment.pastel}; --moment-soft: ${moment.soft};`}
+              >
+                <span class="pg-moment-number">{String(index + 1).padStart(2, '0')}</span>
+                <p>{moment.eyebrow}</p>
+                <h3>{moment.title}</h3>
+                <span>{moment.body}</span>
+              </article>
+            ))}
+          </div>
+
+          <aside
+            class="pg-moment-focus"
+            aria-live="polite"
+            data-moment-focus
+            style={`--moment-accent: ${productMoments[0].accent}; --moment-pastel: ${productMoments[0].pastel}; --moment-soft: ${productMoments[0].soft};`}
+          >
+            <span data-moment-focus-chip>{productMoments[0].chip}</span>
+            <h3 data-moment-focus-title>{productMoments[0].title}</h3>
+            <p data-moment-focus-detail>{productMoments[0].detail}</p>
+            <div class="pg-moment-flow" aria-label="Pocket Genes flow">
+              <strong>Report</strong>
+              <strong>Learn</strong>
+              <strong>Connect</strong>
+              <strong>Act</strong>
+            </div>
+          </aside>
         </div>
       </div>
     </section>
@@ -207,6 +210,39 @@ const trustPreview = [
     </section>
   </main>
 </PocketGenesPublicLayout>
+
+<script>
+  const productSection = document.querySelector('.pg-home-product');
+
+  if (productSection) {
+    const cards = Array.from(productSection.querySelectorAll('[data-moment-card]'));
+    const focusPanel = productSection.querySelector('[data-moment-focus]');
+    const focusChip = productSection.querySelector('[data-moment-focus-chip]');
+    const focusTitle = productSection.querySelector('[data-moment-focus-title]');
+    const focusDetail = productSection.querySelector('[data-moment-focus-detail]');
+
+    const setActiveCard = (card) => {
+      for (const item of cards) {
+        item.classList.toggle('is-active', item === card);
+      }
+
+      if (!focusPanel || !focusChip || !focusTitle || !focusDetail) return;
+
+      focusPanel.style.setProperty('--moment-accent', card.style.getPropertyValue('--moment-accent'));
+      focusPanel.style.setProperty('--moment-pastel', card.style.getPropertyValue('--moment-pastel'));
+      focusPanel.style.setProperty('--moment-soft', card.style.getPropertyValue('--moment-soft'));
+      focusChip.textContent = card.dataset.chip || '';
+      focusTitle.textContent = card.dataset.title || '';
+      focusDetail.textContent = card.dataset.detail || '';
+    };
+
+    for (const card of cards) {
+      card.addEventListener('pointerenter', () => setActiveCard(card));
+      card.addEventListener('focusin', () => setActiveCard(card));
+      card.addEventListener('click', () => setActiveCard(card));
+    }
+  }
+</script>
 
 <style>
   .pg-home-hero {
@@ -366,61 +402,216 @@ const trustPreview = [
   }
 
   .pg-home-product {
-    background: #ffffff;
+    background:
+      linear-gradient(135deg, rgba(232, 250, 247, 0.82), rgba(255, 240, 245, 0.72) 44%, rgba(236, 245, 255, 0.82));
+    overflow: hidden;
   }
 
-  .pg-pillar-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+  .pg-home-product-header {
+    max-width: 860px;
+    margin-bottom: 34px;
   }
 
-  .pg-home-trust {
-    background: #eef5f7;
+  .pg-home-product-header h2 {
+    margin: 0;
+    color: var(--pg-ink);
+    font-size: clamp(2.3rem, 5vw, 4.15rem);
+    line-height: 1.04;
+    letter-spacing: 0;
   }
 
-  .pg-trust-preview-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-  }
-
-  .pg-trust-preview {
-    min-height: 100%;
-    border: 1px solid var(--pg-border-strong);
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 20px;
-    text-decoration: none;
-    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
-  }
-
-  .pg-trust-preview:hover {
-    transform: translateY(-2px);
-    border-color: var(--pg-teal);
-    box-shadow: 0 12px 28px rgba(20, 149, 143, 0.12);
-  }
-
-  .pg-trust-preview span {
+  .pg-home-product-header h2 span,
+  .pg-home-product-header h2 strong {
     display: block;
-    margin-bottom: 8px;
-    color: var(--pg-teal);
-    font-size: 0.78rem;
-    font-weight: 850;
+  }
+
+  .pg-home-product-header h2 span {
+    color: var(--pg-ink-soft);
+    font-size: 0.58em;
+    font-weight: 760;
     text-transform: uppercase;
   }
 
-  .pg-trust-preview strong {
-    display: block;
-    font-size: 1.06rem;
-    line-height: 1.25;
+  .pg-home-product-header h2 strong {
+    font-weight: 900;
   }
 
-  .pg-trust-preview p {
-    margin: 10px 0 0;
+  .pg-home-product-header p:last-child {
+    max-width: 730px;
+    margin: 18px 0 0;
     color: var(--pg-ink-soft);
+    font-size: 1.08rem;
+    line-height: 1.7;
   }
 
-  .pg-home-inline-action {
-    margin-top: 24px;
+  .pg-moment-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+    gap: 18px;
+    align-items: stretch;
+  }
+
+  .pg-moment-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .pg-moment-card {
+    position: relative;
+    isolation: isolate;
+    min-height: 218px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--moment-accent), white 68%);
+    border-radius: 8px;
+    background: linear-gradient(145deg, var(--moment-soft), var(--moment-pastel));
+    box-shadow: 0 14px 34px rgba(23, 32, 51, 0.08);
+    padding: 22px;
+    outline: none;
+    cursor: pointer;
+    transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease, background 220ms ease;
+  }
+
+  .pg-moment-card::before,
+  .pg-moment-card::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 220ms ease, transform 220ms ease;
+  }
+
+  .pg-moment-card::before {
+    inset: 0;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--moment-accent), transparent 84%), transparent 58%);
+  }
+
+  .pg-moment-card::after {
+    right: -44px;
+    top: -44px;
+    width: 130px;
+    height: 130px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--moment-accent), transparent 78%);
+    transform: scale(0.7);
+  }
+
+  .pg-moment-card:hover,
+  .pg-moment-card:focus-visible,
+  .pg-moment-card.is-active {
+    transform: translateY(-6px);
+    border-color: color-mix(in srgb, var(--moment-accent), white 18%);
+    box-shadow: 0 24px 58px rgba(23, 32, 51, 0.14);
+  }
+
+  .pg-moment-card:hover::before,
+  .pg-moment-card:hover::after,
+  .pg-moment-card:focus-visible::before,
+  .pg-moment-card:focus-visible::after,
+  .pg-moment-card.is-active::before,
+  .pg-moment-card.is-active::after {
+    opacity: 1;
+  }
+
+  .pg-moment-card:hover::after,
+  .pg-moment-card:focus-visible::after,
+  .pg-moment-card.is-active::after {
+    transform: scale(1);
+  }
+
+  .pg-moment-number {
+    display: inline-grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--moment-accent);
+    font-weight: 900;
+  }
+
+  .pg-moment-card p {
+    margin: 18px 0 0;
+    color: var(--moment-accent);
+    font-size: 0.78rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .pg-moment-card h3 {
+    margin: 8px 0 0;
+    color: var(--pg-ink);
+    font-size: 1.35rem;
+    line-height: 1.18;
+  }
+
+  .pg-moment-card > span:last-child {
+    display: block;
+    margin-top: 10px;
+    color: var(--pg-ink-soft);
+    line-height: 1.6;
+  }
+
+  .pg-moment-focus {
+    position: sticky;
+    top: 104px;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 28px;
+    border: 1px solid color-mix(in srgb, var(--moment-accent), white 58%);
+    border-radius: 8px;
+    background:
+      linear-gradient(150deg, rgba(255, 255, 255, 0.92), color-mix(in srgb, var(--moment-pastel), white 28%)),
+      var(--moment-soft);
+    box-shadow: 0 24px 58px rgba(23, 32, 51, 0.11);
+    padding: clamp(24px, 4vw, 34px);
+    transition: border-color 220ms ease, background 220ms ease;
+  }
+
+  .pg-moment-focus > span {
+    width: fit-content;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--moment-accent), white 84%);
+    color: var(--moment-accent);
+    font-size: 0.78rem;
+    font-weight: 900;
+    padding: 8px 12px;
+    text-transform: uppercase;
+  }
+
+  .pg-moment-focus h3 {
+    margin: auto 0 0;
+    color: var(--pg-ink);
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.06;
+  }
+
+  .pg-moment-focus p {
+    margin: 0;
+    color: var(--pg-ink-soft);
+    font-size: 1.08rem;
+    line-height: 1.68;
+  }
+
+  .pg-moment-flow {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .pg-moment-flow strong {
+    min-height: 46px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.68);
+    color: var(--pg-ink);
+    font-size: 0.82rem;
+    line-height: 1.1;
+    text-align: center;
   }
 
   .pg-home-store {
@@ -498,6 +689,7 @@ const trustPreview = [
   @media (max-width: 1040px) {
     .pg-home-hero-grid,
     .pg-home-split,
+    .pg-moment-layout,
     .pg-store-band {
       grid-template-columns: 1fr;
     }
@@ -516,9 +708,14 @@ const trustPreview = [
       right: auto;
     }
 
-    .pg-pillar-grid,
-    .pg-trust-preview-grid {
+    .pg-moment-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pg-moment-focus {
+      position: relative;
+      top: auto;
+      min-height: 340px;
     }
 
     .pg-store-actions {
@@ -560,8 +757,8 @@ const trustPreview = [
       top: 54px;
     }
 
-    .pg-pillar-grid,
-    .pg-trust-preview-grid {
+    .pg-moment-grid,
+    .pg-moment-flow {
       grid-template-columns: 1fr;
     }
 
