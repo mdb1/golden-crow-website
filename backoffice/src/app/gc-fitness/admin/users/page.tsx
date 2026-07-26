@@ -19,6 +19,7 @@ import {
   type UserSearchResultRow,
 } from "@/lib/gc-fitness/admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
+import { resolveDisplayTier } from "@/lib/gc-fitness/coachless-user-model";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 // Tab title: "GC Fitness - <adminPanel>" (issue #170).
@@ -150,6 +151,17 @@ export default async function AdminUserSearchPage({
                           <div className="text-xs text-muted-foreground">
                             {row.email}
                           </div>
+                          <div className="mt-0.5">
+                            {resolveDisplayTier(row.entitlement) === "premium" ? (
+                              <span className="inline-flex rounded-full border border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)] px-2 py-0.5 text-[10px] font-medium text-[color:var(--badge-success-fg)]">
+                                Premium
+                              </span>
+                            ) : (
+                              <span className="inline-flex rounded-full border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                Free
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </TableCell>
@@ -186,6 +198,15 @@ export default async function AdminUserSearchPage({
                             <div>
                               <span className="text-muted-foreground">Roles:</span>{" "}
                               {row.roles.join(", ") || "—"}
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Subscription:</span>{" "}
+                              {resolveDisplayTier(row.entitlement) === "premium"
+                                ? "Premium"
+                                : "Free"}
+                              {row.entitlement?.source
+                                ? ` (${row.entitlement.source})`
+                                : ""}
                             </div>
                           </div>
                         </details>
