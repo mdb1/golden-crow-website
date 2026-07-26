@@ -8,12 +8,39 @@ const categories = Array.from(new Set(trustDocuments.map((document) => document.
 }));
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
+
+const trustedOrganizationCriteria = [
+  {
+    title: 'Clear public identity',
+    body: 'We look for an accountable organization, a real mission, and a clear way for members to understand who is publishing.',
+  },
+  {
+    title: 'Relevant community value',
+    body: 'Priority goes to organizations that can help people learn, find resources, attend events, or navigate rare-disease and genetics journeys.',
+  },
+  {
+    title: 'Curated content standards',
+    body: 'Posts should be useful, reviewed before publishing, and appropriate for a community that includes patients, families, caregivers, and learners.',
+  },
+  {
+    title: 'Safety and trust fit',
+    body: 'Organizations must respect privacy boundaries, avoid medical pressure, and keep promotional content clearly separated from support material.',
+  },
+];
+
+const trustedOrganizationOutputs = [
+  'A trusted organization profile inside the Pocket Genes environment.',
+  'Curated posts, event announcements, resources, and education updates for the Pocket Genes community.',
+  'A review path for organizations that want to become visible to users looking for trustworthy next steps.',
+  'Up to 5 curated posts per week for free as a trusted organization.',
+];
 ---
 
 <PocketGenesPublicLayout
   title="Pocket Genes Trust Center"
-  description="Privacy, safety, security, data handling, scientific methodology, and intended-use material for Pocket Genes."
+  description="Privacy, safety, security, data handling, scientific methodology, trusted organizations, and intended-use material for Pocket Genes."
   canonicalPath="/pocket-genes/trust-center"
+  extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}
 >
   <main id="main" class="pg-page pg-trust-page">
     <section class="pg-trust-hero">
@@ -22,7 +49,7 @@ const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
           <p class="pg-eyebrow">Trust Center</p>
           <h1>Pocket Genes Trust Center</h1>
           <p>
-            Pocket Genes keeps privacy, security, community safety, scientific methodology, intended use, data retention, subprocessors, accessibility, and incident reporting in one place.
+            Pocket Genes keeps privacy, security, community safety, scientific methodology, intended use, trusted organizations, data retention, subprocessors, accessibility, and incident reporting in one place.
           </p>
           <div class="pg-button-row">
             <a class="pg-button pg-button-primary" href={`mailto:${POCKET_GENES_EMAILS.trust}`}>Contact Trust</a>
@@ -42,10 +69,42 @@ const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
             <p>Use this address for Pocket Genes support, trust, accessibility, and incident reporting.</p>
           </article>
           <article>
-            <span>Incident reporting</span>
-            <strong>{POCKET_GENES_EMAILS.security}</strong>
-            <p>Use this address for privacy, security, or community safety incidents.</p>
+            <span>Trusted organizations</span>
+            <strong>Carefully reviewed</strong>
+            <p>Selected organizations can publish curated posts, events, and resources for the Pocket Genes community.</p>
           </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section pg-trusted-orgs">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">Trusted Organizations Hub</p>
+          <h2>We review organizations before giving them a trusted place in the community.</h2>
+          <p>
+            Pocket Genes is not only a document library. It is also a controlled environment where selected organizations can share useful posts, events, resources, and education updates with the broader Pocket Genes community.
+          </p>
+        </div>
+
+        <div class="pg-trusted-orgs-grid">
+          <div class="pg-trusted-criteria">
+            {trustedOrganizationCriteria.map((item) => (
+              <article>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </article>
+            ))}
+          </div>
+
+          <aside class="pg-trusted-hub-card">
+            <p class="pg-eyebrow">What trusted organizations can receive</p>
+            <h3>A curated publishing space inside Pocket Genes.</h3>
+            <ul>
+              {trustedOrganizationOutputs.map((item) => <li>{item}</li>)}
+            </ul>
+            <a class="pg-button pg-button-primary" href="#trusted-organization-meeting">I want to be a trusted organization</a>
+          </aside>
         </div>
       </div>
     </section>
@@ -87,6 +146,21 @@ const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
         </div>
         <div class="pg-contact-list">
           <a href={`mailto:${POCKET_GENES_EMAILS.hello}`}>{POCKET_GENES_EMAILS.hello}</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="trusted-organization-meeting" class="pg-section pg-trusted-booking">
+      <div class="pg-container pg-trusted-booking-grid">
+        <div>
+          <p class="pg-eyebrow">I want to be a trusted organization</p>
+          <h2>Coordinate a trusted organization review.</h2>
+          <p>
+            If your organization supports genetics, rare disease, patient advocacy, education, or care navigation, schedule a meeting with us. We will review fit, publishing standards, and how curated posts or events can appear inside Pocket Genes.
+          </p>
+        </div>
+        <div class="pg-trusted-calendar-wrapper">
+          <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
         </div>
       </div>
     </section>
@@ -165,6 +239,86 @@ const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
   .pg-trust-snapshot p {
     margin: 8px 0 0;
     font-size: 0.96rem;
+  }
+
+  .pg-trusted-orgs {
+    background: #eef8f7;
+  }
+
+  .pg-trusted-orgs-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 0.82fr);
+    gap: 28px;
+    align-items: start;
+  }
+
+  .pg-trusted-criteria {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .pg-trusted-criteria article {
+    min-height: 100%;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 20px;
+  }
+
+  .pg-trusted-criteria h3 {
+    margin: 0 0 8px;
+    font-size: 1.05rem;
+    line-height: 1.25;
+  }
+
+  .pg-trusted-criteria p {
+    margin: 0;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-trusted-hub-card {
+    border: 1px solid rgba(20, 149, 143, 0.28);
+    border-radius: 8px;
+    background: #172033;
+    color: #ffffff;
+    padding: 28px;
+    box-shadow: var(--pg-shadow);
+  }
+
+  .pg-trusted-hub-card .pg-eyebrow {
+    color: #7de4d7;
+  }
+
+  .pg-trusted-hub-card h3 {
+    margin: 0;
+    font-size: 2rem;
+    line-height: 1.12;
+  }
+
+  .pg-trusted-hub-card ul {
+    display: grid;
+    gap: 12px;
+    margin: 22px 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pg-trusted-hub-card li {
+    position: relative;
+    padding-left: 22px;
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .pg-trusted-hub-card li::before {
+    content: "";
+    position: absolute;
+    top: 0.67em;
+    left: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #7de4d7;
   }
 
   .pg-trust-category-stack {
@@ -256,12 +410,54 @@ const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
     text-decoration: none;
   }
 
+  .pg-trusted-booking {
+    background: #ffffff;
+  }
+
+  .pg-trusted-booking-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.78fr) minmax(420px, 1.22fr);
+    gap: 32px;
+    align-items: start;
+  }
+
+  .pg-trusted-booking h2 {
+    max-width: 560px;
+    margin: 0;
+    font-size: 3rem;
+    line-height: 1.04;
+    letter-spacing: 0;
+  }
+
+  .pg-trusted-booking p:not(.pg-eyebrow) {
+    max-width: 620px;
+    margin: 18px 0 0;
+    color: var(--pg-ink-soft);
+    font-size: 1.08rem;
+  }
+
+  .pg-trusted-calendar-wrapper {
+    min-height: 600px;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: clamp(1rem, 3vw, 2rem);
+    box-shadow: 0 18px 48px rgba(23, 32, 51, 0.1);
+  }
+
+  .pg-trusted-calendar-wrapper iframe {
+    min-height: 550px;
+  }
+
   @media (max-width: 960px) {
     .pg-trust-hero-grid,
+    .pg-trusted-orgs-grid,
+    .pg-trusted-booking-grid,
     .pg-trust-contact-band {
       grid-template-columns: 1fr;
     }
 
+    .pg-trusted-criteria,
     .pg-trust-doc-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -279,6 +475,14 @@ const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 
     .pg-trust-doc-grid {
       grid-template-columns: 1fr;
+    }
+
+    .pg-trusted-criteria {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-trusted-booking h2 {
+      font-size: 2.35rem;
     }
   }
 </style>
