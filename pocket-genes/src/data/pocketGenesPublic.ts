@@ -1,10 +1,11 @@
 export const APP_STORE_URL = 'https://apps.apple.com/ar/app/pocket-genes/id6748587627';
+export const POCKET_GENES_SUPPORT_EMAIL = 'support@goldencrowvs.com';
 
 export const POCKET_GENES_EMAILS = {
-  hello: 'hello@pocketgenes.com',
-  trust: 'trust@pocketgenes.com',
-  security: 'security@pocketgenes.com',
-  accessibility: 'accessibility@pocketgenes.com',
+  hello: POCKET_GENES_SUPPORT_EMAIL,
+  trust: POCKET_GENES_SUPPORT_EMAIL,
+  security: POCKET_GENES_SUPPORT_EMAIL,
+  accessibility: POCKET_GENES_SUPPORT_EMAIL,
 };
 
 export const publicNavItems = [
@@ -154,7 +155,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Security questions',
         body:
-          'Security questions can be sent to security@pocketgenes.com.',
+          `Security questions can be sent to ${POCKET_GENES_SUPPORT_EMAIL}.`,
       },
     ],
   },
@@ -237,7 +238,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Contact',
         body:
-          'Security and privacy incidents can be sent to security@pocketgenes.com. General trust questions can be sent to trust@pocketgenes.com.',
+          `Security, privacy, and trust questions can be sent to ${POCKET_GENES_SUPPORT_EMAIL}.`,
       },
       {
         heading: 'What to include',
@@ -264,7 +265,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Feedback',
         body:
-          'Accessibility barriers can be reported to accessibility@pocketgenes.com with the page, device, assistive technology if relevant, and a description of the issue.',
+          `Accessibility barriers can be reported to ${POCKET_GENES_SUPPORT_EMAIL} with the page, device, assistive technology if relevant, and a description of the issue.`,
       },
     ],
   },
