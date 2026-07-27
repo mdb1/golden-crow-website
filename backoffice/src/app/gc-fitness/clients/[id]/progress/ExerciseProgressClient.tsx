@@ -6,10 +6,18 @@
 // switching exercise / metric / range costs ZERO extra Firestore reads — all
 // filtering happens locally.
 //
-// Controls: an exercise picker (only exercises the client actually logged), a
-// metric segmented control (top-set weight / estimated 1RM / volume), and the
-// shared All/90d/30d/7d range selector. Chart styling mirrors
+// Controls: a SEARCHABLE exercise picker (#574 — Popover + Command, the same
+// primitive the template form's exercise picker uses; only exercises the client
+// actually logged), a metric segmented control (top-set weight / estimated 1RM /
+// volume), and the shared All/90d/30d/7d range selector. Chart styling mirrors
 // BodyWeightTrendChartClient (gold AreaChart, recharts, token colors).
+//
+// #574 also adds the "Series registradas" breakdown under the chart: the
+// selected exercise's sessions newest-first, each listing its logged sets
+// ("1 · 8 reps × 70 kg"), revealed 3 at a time via "Ver más". The rows ride the
+// SAME server payload as the chart, so paging costs zero Firestore reads. The
+// list is deliberately NOT filtered by the chart's range selector — it is the
+// exercise's history, and pagination is what keeps it manageable.
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -21,10 +29,25 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Check, ChevronsUpDown, Trophy } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
 import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
+import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -32,8 +55,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { normalizeSearchText } from "@/lib/gc-fitness/exercise-search";
+import { SET_TYPE_TEXT_CLASS } from "@/lib/gc-fitness/set-type";
+import {
+  SET_HISTORY_PAGE_SIZE,
+  sessionSetLines,
+} from "@/lib/gc-fitness/exercise-set-history";
 import type {
   ExerciseSessionPoint,
+  ExerciseSetSession,
   LoggedExerciseOption,
 } from "@/lib/gc-fitness/exercise-progress-actions";
 import {
@@ -47,6 +77,10 @@ type MetricKey = "topSet" | "e1rm" | "volume";
 export interface ExerciseProgressClientProps {
   exercises: LoggedExerciseOption[];
   points: ExerciseSessionPoint[];
+  /** #574 — per-exercise session set breakdowns, newest session first. */
+  setSessions: ExerciseSetSession[];
+  /** #574 — exerciseIds whose breakdown was capped server-side. */
+  truncatedSetHistoryExerciseIds: string[];
   today: string;
   rangeStarts: Record<TrendRangeKey, string>;
   labels: {
@@ -78,9 +112,16 @@ function formatMuscleGroup(group: string): string {
   return group.replace(/_/g, " ").replace(/^[a-z]/, (c) => c.toUpperCase());
 }
 
+/** #574 — set-row weight: whole kg when it is one, else one decimal. */
+function formatSetWeight(kg: number): string {
+  return Number.isInteger(kg) ? String(kg) : kg.toFixed(1);
+}
+
 export function ExerciseProgressClient({
   exercises,
   points,
+  setSessions,
+  truncatedSetHistoryExerciseIds,
   today,
   rangeStarts,
   labels,
@@ -93,6 +134,9 @@ export function ExerciseProgressClient({
   );
   const [metric, setMetric] = useState<MetricKey>("topSet");
   const [range, setRange] = useState<TrendRangeKey>(DEFAULT_TREND_RANGE);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  // #574 — how many of the selected exercise's sessions the list reveals.
+  const [visibleSessions, setVisibleSessions] = useState(SET_HISTORY_PAGE_SIZE);
 
   // Distinct muscle groups present across the client's logged exercises.
   const muscleGroups = useMemo(() => {
@@ -119,6 +163,25 @@ export function ExerciseProgressClient({
       setExerciseId(visibleExercises[0].exerciseId);
     }
   }, [visibleExercises, exerciseId]);
+
+  const selectedExercise = useMemo(
+    () => exercises.find((ex) => ex.exerciseId === exerciseId) ?? null,
+    [exercises, exerciseId],
+  );
+
+  // #574 — every session of the selected exercise, newest first (the server
+  // already emits them in that order). NOT range-filtered: this is the
+  // exercise's history, and "Ver más" is what keeps it manageable.
+  const exerciseSessions = useMemo(
+    () => setSessions.filter((s) => s.exerciseId === exerciseId),
+    [setSessions, exerciseId],
+  );
+  const isTruncated = truncatedSetHistoryExerciseIds.includes(exerciseId);
+
+  // A new exercise starts the list back at the first page.
+  useEffect(() => {
+    setVisibleSessions(SET_HISTORY_PAGE_SIZE);
+  }, [exerciseId]);
 
   const metricOptions: Array<{ key: MetricKey; label: string }> = [
     { key: "topSet", label: labels.metricTopSet },
@@ -212,21 +275,80 @@ export function ExerciseProgressClient({
             >
               {labels.exercisePickerLabel}
             </label>
-            <Select value={exerciseId} onValueChange={setExerciseId}>
-              <SelectTrigger
-                id="exercise-progress-picker"
-                className="w-full sm:max-w-sm"
+            {/* #574 — searchable picker. A client with dozens of logged
+                exercises made the plain <Select> unusable; Command's fuzzy
+                filter runs over the diacritic-normalized name so "sentadilla"
+                and "Sentadílla" both match. */}
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="exercise-progress-picker"
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={pickerOpen}
+                  className="w-full justify-between font-normal sm:max-w-sm"
+                >
+                  <span className="truncate">
+                    {selectedExercise?.name ?? labels.exercisePickerLabel}
+                  </span>
+                  <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[--radix-popover-trigger-width] p-0"
               >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {visibleExercises.map((ex) => (
-                  <SelectItem key={ex.exerciseId} value={ex.exerciseId}>
-                    {ex.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Command
+                  // `value` below is ALREADY normalized, so the filter is a
+                  // plain substring test on normalized text — predictable
+                  // ("press" matches "Press de banca") instead of cmdk's
+                  // default fuzzy scoring.
+                  filter={(value, search) => {
+                    const q = normalizeSearchText(search);
+                    return !q || value.includes(q) ? 1 : 0;
+                  }}
+                >
+                  <CommandInput placeholder={t("exerciseSearchPlaceholder")} />
+                  <CommandList>
+                    <CommandEmpty>{t("exerciseSearchEmpty")}</CommandEmpty>
+                    <CommandGroup>
+                      {visibleExercises.map((ex) => (
+                        <CommandItem
+                          key={ex.exerciseId}
+                          // What Command filters on. Normalized (lowercase +
+                          // no diacritics) so "sentadilla" matches
+                          // "Sentadílla", and suffixed with the id so two
+                          // same-named library twins (the known double-seed)
+                          // stay DISTINCT items — cmdk keys its registry on
+                          // `value`, so a collision would merge the rows.
+                          value={normalizeSearchText(
+                            `${ex.name} ${ex.exerciseId}`,
+                          )}
+                          onSelect={() => {
+                            setExerciseId(ex.exerciseId);
+                            setPickerOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 size-4",
+                              ex.exerciseId === exerciseId
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                          <span className="flex-1 truncate">{ex.name}</span>
+                          <span className="ml-2 shrink-0 text-xs tabular-nums text-muted-foreground">
+                            {ex.sessionCount}
+                          </span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
@@ -365,6 +487,94 @@ export function ExerciseProgressClient({
           </div>
         </>
       )}
+
+      {/* #574 — per-session set breakdown for the selected exercise. */}
+      {exerciseSessions.length > 0 ? (
+        <div className="flex flex-col gap-3 border-t pt-4">
+          <div className="flex flex-col gap-0.5">
+            <h3 className="text-sm font-semibold text-foreground">
+              {t("setHistory.title")}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {t("setHistory.subtitle", { count: exerciseSessions.length })}
+            </p>
+          </div>
+
+          <ul className="flex flex-col gap-2">
+            {exerciseSessions.slice(0, visibleSessions).map((session) => (
+              <li
+                key={`${session.logId}-${session.exerciseId}`}
+                className="rounded-lg border bg-muted/20 p-3"
+              >
+                <p className="text-xs font-medium text-foreground">
+                  {formatCivilDateLabel(
+                    session.date,
+                    { year: "numeric", month: "long", day: "numeric" },
+                    locale,
+                  )}
+                </p>
+                <ul className="mt-1.5 flex flex-col gap-1">
+                  {sessionSetLines(session.sets).map((line, i) => (
+                    <li
+                      key={`${session.logId}-${i}`}
+                      className="flex items-center gap-2 text-xs text-muted-foreground"
+                    >
+                      <span
+                        className={cn(
+                          "w-5 shrink-0 text-center font-semibold tabular-nums",
+                          line.setType === "normal"
+                            ? "text-muted-foreground"
+                            : SET_TYPE_TEXT_CLASS[line.setType],
+                        )}
+                      >
+                        {line.label}
+                      </span>
+                      <span className="tabular-nums text-foreground">
+                        {line.kind === "time"
+                          ? t("setHistory.lineTime", {
+                              seconds: line.durationSeconds ?? 0,
+                            })
+                          : line.kind === "weighted"
+                            ? t("setHistory.lineWeighted", {
+                                reps: line.reps,
+                                weight: formatSetWeight(line.weightKg),
+                              })
+                            : t("setHistory.lineReps", { reps: line.reps })}
+                      </span>
+                      {line.isPR ? (
+                        <Trophy
+                          className="size-3 text-amber-500"
+                          aria-label={t("setHistory.prLabel")}
+                        />
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+
+          {visibleSessions < exerciseSessions.length ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() =>
+                setVisibleSessions((n) => n + SET_HISTORY_PAGE_SIZE)
+              }
+            >
+              {t("setHistory.loadMore", {
+                remaining: exerciseSessions.length - visibleSessions,
+              })}
+            </Button>
+          ) : isTruncated ? (
+            <p className="text-[11px] text-muted-foreground">
+              {t("setHistory.truncated", { count: exerciseSessions.length })}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }

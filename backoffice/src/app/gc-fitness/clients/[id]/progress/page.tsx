@@ -89,6 +89,8 @@ export default async function ClientExerciseProgressPage({
     muscleGroupWeeks,
     availableMuscleGroups,
     currentWeekStart,
+    exerciseSetSessions,
+    truncatedSetHistoryExerciseIds,
   } = await getClientExerciseProgress(id, timezone);
 
   // Anchor each range to today so the local filter windows match the other
@@ -115,6 +117,8 @@ export default async function ClientExerciseProgressPage({
       <ExerciseProgressClient
         exercises={exercises}
         points={points}
+        setSessions={exerciseSetSessions}
+        truncatedSetHistoryExerciseIds={truncatedSetHistoryExerciseIds}
         today={today}
         rangeStarts={rangeStarts}
         labels={{

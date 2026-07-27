@@ -261,6 +261,18 @@
       "title": "Per-exercise progress",
       "subtitle": "Pick an exercise to see this client's progression over time.",
       "exercisePickerLabel": "Exercise",
+      "exerciseSearchPlaceholder": "Search exercise…",
+      "exerciseSearchEmpty": "No exercise matches that search.",
+      "setHistory": {
+        "title": "Logged sets",
+        "subtitle": "{count, plural, one {# session recorded} other {# sessions recorded}}, newest first. Not affected by the range selector above.",
+        "lineWeighted": "{reps} reps × {weight} kg",
+        "lineReps": "{reps} reps",
+        "lineTime": "{seconds} s",
+        "loadMore": "See more ({remaining})",
+        "prLabel": "Personal record",
+        "truncated": "Showing the {count} most recent sessions for this exercise."
+      },
       "muscleGroupLabel": "Muscle group",
       "muscleGroupAll": "All",
       "metricTopSet": "Top set",
