@@ -32,6 +32,10 @@ import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateFormat, civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { effectiveSetType, type SetType } from "@/lib/gc-fitness/set-type";
 import {
+  collectExerciseNameVariants,
+  searchAliasesFor,
+} from "@/lib/gc-fitness/exercise-name-variants";
+import {
   PROJECTION_WEEKS,
   buildMuscleGroupWeeks,
   civilWeekStart,
@@ -47,6 +51,15 @@ import {
 export interface LoggedExerciseOption {
   exerciseId: string;
   name: string;
+  /**
+   * #581 — the OTHER language(s) this exercise is known by, for the picker's
+   * search only (never displayed). `name` above is a single ES-first pick, so
+   * without this the coach could not find "Press de banca" by typing "bench
+   * press". Collected from every scanned log's snapshot name plus the
+   * `exercises` doc already read for `muscleGroups` — no extra Firestore read.
+   * Empty when the exercise is known by exactly one name.
+   */
+  searchAliases: string[];
   /** How many sessions logged this exercise (helps order the picker). */
   sessionCount: number;
   /**
@@ -237,6 +250,20 @@ export async function getClientExerciseProgress(
     { name: string; sessionCount: number; hasData: boolean }
   >();
 
+  // #581 — exerciseId → normalized-key → display-cased name, every language
+  // variant seen for that exercise across the scanned logs. The display name is
+  // one ES-first pick; these are what make the picker searchable in the OTHER
+  // language (and by an older name, if the exercise was renamed mid-history).
+  const nameVariantsById = new Map<string, Map<string, string>>();
+  const rememberNameVariants = (exId: string, rawName: unknown): void => {
+    let variants = nameVariantsById.get(exId);
+    if (!variants) {
+      variants = new Map<string, string>();
+      nameVariantsById.set(exId, variants);
+    }
+    collectExerciseNameVariants(variants, rawName);
+  };
+
   // #480 — every completed set (bodyweight and warm-ups included, #565), tagged
   // with its session civil date + per-set volume, for the muscle-group
   // aggregation. The exercise→muscle-group join happens after the batched
@@ -270,7 +297,11 @@ export async function getClientExerciseProgress(
     const nameById = new Map<string, string>();
     for (const ex of templateExercises) {
       const exId = typeof ex.exerciseId === "string" ? ex.exerciseId : "";
-      if (exId) nameById.set(exId, localizedName(ex.name, exId));
+      if (!exId) continue;
+      nameById.set(exId, localizedName(ex.name, exId));
+      // #581 — the snapshot name is `{en, es}`; keep BOTH for search even
+      // though only one is displayed.
+      rememberNameVariants(exId, ex.name);
     }
 
     const date = civilDateFormat(startedAt, timezone);
@@ -473,6 +504,10 @@ export async function getClientExerciseProgress(
     const exerciseDocs = await db.getAll(...refs);
     for (const exDoc of exerciseDocs) {
       if (!exDoc.exists) continue;
+      // #581 — fold the canonical doc's bilingual name into the search
+      // variants. Free (this read already happens for muscleGroups) and it
+      // covers logs whose snapshot carried only one language.
+      rememberNameVariants(exDoc.id, exDoc.get("name"));
       const mgRaw = exDoc.get("muscleGroups");
       const secRaw = exDoc.get("secondaryMuscles");
       const primaryRaw = exDoc.get("primaryMuscleGroup");
@@ -511,6 +546,12 @@ export async function getClientExerciseProgress(
     .map(([exerciseId, m]) => ({
       exerciseId,
       name: m.name,
+      // #581 — search-only: everything this exercise is called EXCEPT the name
+      // already displayed, so the picker matches in Spanish and English alike.
+      searchAliases: searchAliasesFor(
+        m.name,
+        nameVariantsById.get(exerciseId) ?? new Map<string, string>(),
+      ),
       sessionCount: m.sessionCount,
       muscleGroups: muscleById.get(exerciseId) ?? [],
     }))
