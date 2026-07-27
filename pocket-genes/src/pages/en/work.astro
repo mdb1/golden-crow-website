@@ -1,11 +1,18 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import CategorySection from '../../components/CategorySection.astro';
+import WorkFilterGrid from '../../components/WorkFilterGrid.astro';
 import { useTranslations } from '../../i18n/index';
 import { categories, getCategoryTitle, getCategoryDescription } from '../../data/categories';
-import { getProjectsByCategory } from '../../data/projects';
+import { getProjects } from '../../data/projects';
 
 const t = useTranslations(Astro.currentLocale);
+
+const projects = getProjects(t);
+const filters = categories.map((c) => ({
+  id: c.id,
+  label: getCategoryTitle(t, c.id),
+  description: getCategoryDescription(t, c.id),
+}));
 ---
 
 <BaseLayout title={t.work.title}>
@@ -19,13 +26,12 @@ const t = useTranslations(Astro.currentLocale);
 
     <section class="work-content">
       <div class="container">
-        {categories.map((category) => (
-          <CategorySection
-            title={getCategoryTitle(t, category.id)}
-            description={getCategoryDescription(t, category.id)}
-            projects={getProjectsByCategory(t, category.id)}
-          />
-        ))}
+        <WorkFilterGrid
+          projects={projects}
+          filters={filters}
+          allLabel={t.work.filterAll}
+          groupLabel={t.work.filterLabel}
+        />
       </div>
     </section>
   </main>

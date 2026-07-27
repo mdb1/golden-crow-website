@@ -182,7 +182,9 @@ export const es: Translations = {
   work: {
     title: 'Golden Crow VS - Nuestros Trabajos',
     heroTitle: 'Nuestros Trabajos',
-    heroSubtitle: 'Una década de apps móviles nativas lanzadas a producción. Explorá nuestro trabajo por industria.',
+    heroSubtitle: 'Una década de apps móviles nativas lanzadas a producción. Filtrá por sector para ver el trabajo de cada industria.',
+    filterAll: 'Todas',
+    filterLabel: 'Filtrar por sector',
     links: {
       site: 'Sitio web',
       download: 'Descargar',

@@ -1,0 +1,172 @@
+---
+// Grilla única de /work con píldoras para filtrar por sector.
+//
+// Antes la página partía los proyectos en una sección por categoría, lo que
+// dejaba filas de una sola card y obligaba a scrollear para ver todo el
+// trabajo. Ahora van todos juntos y el sector es un filtro.
+//
+// El filtrado es progresivo: sin JS se ven todas las cards (que es el estado
+// por defecto), y las píldoras solo agregan la posibilidad de recortar.
+import ProjectCard from './ProjectCard.astro';
+import type { Project } from '../data/projects';
+import type { CategoryId } from '../data/categories';
+
+interface FilterOption {
+  id: CategoryId;
+  label: string;
+  description?: string;
+}
+
+interface Props {
+  projects: Project[];
+  filters: FilterOption[];
+  allLabel: string;
+  groupLabel: string;
+}
+
+const { projects, filters, allLabel, groupLabel } = Astro.props;
+
+// Un sector sin proyectos no merece una píldora que devuelva una grilla vacía.
+const available = filters
+  .map((f) => ({ ...f, count: projects.filter((p) => p.category === f.id).length }))
+  .filter((f) => f.count > 0);
+---
+
+<div class="work-filter" data-work-filter>
+  <div class="work-filters" role="group" aria-label={groupLabel}>
+    <button type="button" class="work-pill is-active" data-filter="all" aria-pressed="true">
+      {allLabel}
+      <span class="work-pill-count">{projects.length}</span>
+    </button>
+    {available.map((f) => (
+      <button
+        type="button"
+        class="work-pill"
+        data-filter={f.id}
+        data-description={f.description}
+        aria-pressed="false"
+      >
+        {f.label}
+        <span class="work-pill-count">{f.count}</span>
+      </button>
+    ))}
+  </div>
+
+  <!-- La descripción del sector elegido. Vacía en "Todas", que ya está
+       descripta por la bajada del hero. -->
+  <p class="work-filter-note" data-work-note hidden></p>
+
+  <div class="work-grid">
+    {projects.map((project) => (
+      <div class="work-item" data-category={project.category}>
+        <ProjectCard project={project} />
+      </div>
+    ))}
+  </div>
+</div>
+
+<script>
+  function initWorkFilter(root: HTMLElement) {
+    const pills = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
+    const items = Array.from(root.querySelectorAll<HTMLElement>('.work-item'));
+    const note = root.querySelector<HTMLElement>('[data-work-note]');
+
+    pills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        const filter = pill.dataset.filter;
+
+        pills.forEach((p) => {
+          const active = p === pill;
+          p.classList.toggle('is-active', active);
+          p.setAttribute('aria-pressed', String(active));
+        });
+
+        items.forEach((item) => {
+          item.hidden = filter !== 'all' && item.dataset.category !== filter;
+        });
+
+        if (note) {
+          const description = pill.dataset.description || '';
+          note.textContent = description;
+          note.hidden = description === '';
+        }
+      });
+    });
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-work-filter]').forEach(initWorkFilter);
+</script>
+
+<style>
+  .work-filters {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+  }
+
+  .work-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.15rem;
+    border-radius: 999px;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: clamp(0.9rem, 2vw, 1rem);
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .work-pill:hover {
+    color: var(--text-primary);
+    border-color: var(--brand-color);
+    transform: translateY(-1px);
+  }
+
+  .work-pill.is-active {
+    background: var(--brand-color);
+    border-color: var(--brand-color);
+    color: #fff;
+  }
+
+  .work-pill-count {
+    font-size: 0.8em;
+    font-weight: 700;
+    opacity: 0.7;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .work-filter-note {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: clamp(0.95rem, 2vw, 1.1rem);
+    line-height: 1.6;
+    max-width: 700px;
+    margin: -1rem auto clamp(2rem, 4vw, 3rem);
+  }
+
+  /* auto-FILL, not auto-fit: con auto-fit, un filtro que deja una sola card
+     colapsa las columnas vacías y la estira a lo ancho de la fila, recortando
+     su imagen de 220px a una franja. auto-fill mantiene las columnas. */
+  .work-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: clamp(1.5rem, 3vw, 2rem);
+  }
+
+  @media (min-width: 1200px) {
+    .work-grid {
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    }
+  }
+
+  .work-item[hidden] {
+    display: none;
+  }
+</style>
