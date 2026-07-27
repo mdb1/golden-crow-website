@@ -5,12 +5,13 @@ import { defaultLang } from '../i18n/ui';
 
 interface Props {
   title: string;
+  description?: string;
   showFooter?: boolean;
   showNav?: boolean;
   extraHeadScripts?: string[];
 }
 
-const { title, showFooter = true, showNav = true, extraHeadScripts = [] } = Astro.props;
+const { title, description, showFooter = true, showNav = true, extraHeadScripts = [] } = Astro.props;
 const lang = (Astro.currentLocale || defaultLang) as Lang;
 const t = useTranslations(Astro.currentLocale);
 
@@ -38,9 +39,11 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{title}</title>
+  {description && <meta name="description" content={description} />}
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content={title} />
+  {description && <meta property="og:description" content={description} />}
   <meta property="og:url" content={`${siteBase}${Astro.url.pathname}`} />
   <meta property="og:image" content={`${siteBase}/og-image.png`} />
   <meta property="og:image:width" content="1200" />
@@ -49,6 +52,7 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={title} />
+  {description && <meta name="twitter:description" content={description} />}
   <meta name="twitter:image" content={`${siteBase}/og-image.png`} />
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
