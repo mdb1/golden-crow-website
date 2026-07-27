@@ -30,6 +30,7 @@ import {
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateFormat, civilDateToday } from "@/lib/gc-fitness/civil-date";
+import { effectiveSetType, type SetType } from "@/lib/gc-fitness/set-type";
 import {
   PROJECTION_WEEKS,
   buildMuscleGroupWeeks,
@@ -54,6 +55,40 @@ export interface LoggedExerciseOption {
    * (e.g. deleted) or carries no groups.
    */
   muscleGroups: string[];
+}
+
+/**
+ * #574 — ONE logged set of the selected exercise, for the coach's per-session
+ * set breakdown ("set 1: 8 reps × 70 kg"). Optional fields are OMITTED when
+ * they carry the default so the payload stays small — a plain reps set
+ * serializes as `{setIndex, weightKg, reps}`.
+ */
+export interface ExerciseSetRow {
+  /** 0-based wire `set_index`. The DISPLAY label is derived from the set types
+   *  via `setDisplayLabels` (Hevy rule: W/F/D letters, normal sets numbered). */
+  setIndex: number;
+  weightKg: number;
+  reps: number;
+  /** Present only for time-metric sets. */
+  durationSeconds?: number;
+  /** Omitted when "normal". */
+  setType?: SetType;
+  /** Omitted when false — this set matched a row in the log's `prs[]`. */
+  isPR?: boolean;
+}
+
+/**
+ * #574 — one SESSION's logged sets for a single exercise, newest-first in
+ * `exerciseSetSessions`. Bounded by `MAX_SET_DETAIL_SESSIONS` per exercise
+ * (see the constant) so a heavily-repeated lift can't blow up the payload.
+ */
+export interface ExerciseSetSession {
+  exerciseId: string;
+  /** civilDate YYYY-MM-DD of the session start (client timezone). */
+  date: string;
+  /** `workout_logs` doc id — lets the coach jump to the full session. */
+  logId: string;
+  sets: ExerciseSetRow[];
 }
 
 /** One session's aggregated metrics for a single exercise. */
@@ -84,6 +119,17 @@ export interface ClientExerciseProgress {
   /** Coarse groups with any data in the window, in `COARSE_MUSCLE_GROUPS` order. */
   availableMuscleGroups: string[];
   /**
+   * #574 — per-exercise session→sets breakdown, newest session first, for the
+   * "Series registradas" list under the chart. Shipped with the SAME single
+   * read as everything else, so paging through it costs zero Firestore reads.
+   */
+  exerciseSetSessions: ExerciseSetSession[];
+  /**
+   * #574 — exerciseIds whose breakdown hit `MAX_SET_DETAIL_SESSIONS`, so the
+   * UI can say the list is truncated instead of silently ending.
+   */
+  truncatedSetHistoryExerciseIds: string[];
+  /**
    * #568 — Monday of the week containing today (client timezone). The chart
    * draws its "today" divider here and anchors the weekly readout on it.
    */
@@ -97,6 +143,16 @@ function isReservedId(id: string): boolean {
 
 const MAX_LOOKBACK_DAYS = 365;
 const LOG_FETCH_LIMIT = 300;
+
+/**
+ * #574 — how many SESSIONS per exercise carry a full set breakdown. The whole
+ * breakdown rides the existing single read (no extra Firestore cost, and
+ * switching exercise stays instant), so the only thing to bound is the RSC
+ * payload: worst case ≈ exercises × 30 × sets-per-session. 30 sessions is
+ * ~7 months of a once-a-week lift — well past what "ver más" is for — and the
+ * UI tells the coach when a list was truncated (`truncatedSetHistoryExerciseIds`).
+ */
+const MAX_SET_DETAIL_SESSIONS = 30;
 
 function toDate(v: unknown): Date | null {
   if (v && typeof (v as { toDate?: () => Date }).toDate === "function") {
@@ -156,6 +212,8 @@ export async function getClientExerciseProgress(
       muscleGroupWeeks: [],
       availableMuscleGroups: [],
       currentWeekStart,
+      exerciseSetSessions: [],
+      truncatedSetHistoryExerciseIds: [],
     };
   }
 
@@ -185,6 +243,12 @@ export async function getClientExerciseProgress(
   // exercise read below.
   const muscleSetInputs: MuscleSetInput[] = [];
   const muscleExerciseIds = new Set<string>();
+
+  // #574 — exerciseId → its sessions' set breakdowns. `snap.docs` is already
+  // newest-first, so pushing in iteration order keeps each list newest-first
+  // and lets the `MAX_SET_DETAIL_SESSIONS` cap drop the OLDEST sessions.
+  const setSessionsByExercise = new Map<string, ExerciseSetSession[]>();
+  const truncatedSetHistory = new Set<string>();
 
   for (const doc of snap.docs) {
     const data = doc.data() as Record<string, unknown>;
@@ -219,6 +283,16 @@ export async function getClientExerciseProgress(
       hasCompleted: boolean;
     }
     const byExercise = new Map<string, Acc>();
+
+    // #574 — this session's set rows per exercise, in wire order. Collected
+    // alongside the metric accumulation so the breakdown costs no extra read.
+    const setRowsByExercise = new Map<string, ExerciseSetRow[]>();
+    // setLogId → true for the sets that earned a PR in this session.
+    const prSetLogIds = new Set(
+      (Array.isArray(data.prs) ? (data.prs as Array<Record<string, unknown>>) : [])
+        .map((pr) => (typeof pr.setLogId === "string" ? pr.setLogId : ""))
+        .filter((id) => id.length > 0),
+    );
 
     for (const s of rawSets) {
       const exId = typeof s.exerciseId === "string" ? s.exerciseId : "";
@@ -255,6 +329,27 @@ export async function getClientExerciseProgress(
         : weight * reps;
       muscleSetInputs.push({ date, exerciseId: exId, volumeKg: setVolume });
       muscleExerciseIds.add(exId);
+
+      // #574 — the coach-facing set row. Optional fields are omitted at their
+      // default so a plain reps set stays `{setIndex, weightKg, reps}`.
+      const row: ExerciseSetRow = {
+        setIndex: Math.max(0, Math.trunc(numeric(s.set_index ?? s.setIndex))),
+        weightKg: weight,
+        reps,
+      };
+      if (hasDuration) row.durationSeconds = numeric(durRaw);
+      const setType = effectiveSetType({
+        set_type: typeof s.set_type === "string" ? s.set_type : null,
+        setType: typeof s.setType === "string" ? s.setType : null,
+        is_warmup: s.is_warmup === true || s.isWarmup === true,
+      });
+      if (setType !== "normal") row.setType = setType;
+      const setLogId = typeof s.id === "string" ? s.id : "";
+      if (setLogId && prSetLogIds.has(setLogId)) row.isPR = true;
+
+      const rows = setRowsByExercise.get(exId);
+      if (rows) rows.push(row);
+      else setRowsByExercise.set(exId, [row]);
 
       if (weight > 0) {
         acc.topWeight =
@@ -294,6 +389,19 @@ export async function getClientExerciseProgress(
           acc.bestE1rm === null ? null : Math.round(acc.bestE1rm * 10) / 10,
         volumeKg: Math.round(acc.volume),
       });
+
+      // #574 — file this session's set breakdown, newest-first, capped.
+      const rows = setRowsByExercise.get(exId);
+      if (rows && rows.length > 0) {
+        const sessions = setSessionsByExercise.get(exId) ?? [];
+        if (sessions.length >= MAX_SET_DETAIL_SESSIONS) {
+          truncatedSetHistory.add(exId);
+        } else {
+          rows.sort((a, b) => a.setIndex - b.setIndex);
+          sessions.push({ exerciseId: exId, date, logId: doc.id, sets: rows });
+          setSessionsByExercise.set(exId, sessions);
+        }
+      }
     }
   }
 
@@ -415,6 +523,14 @@ export async function getClientExerciseProgress(
   // stays lean (those exercises can never be selected anyway).
   const leanPoints = points.filter((p) => withDataIds.has(p.exerciseId));
 
+  // #574 — same lean-payload rule for the set breakdown: only exercises the
+  // picker can actually select ship their sessions.
+  const exerciseSetSessions: ExerciseSetSession[] = [];
+  for (const [exId, sessions] of setSessionsByExercise) {
+    if (!withDataIds.has(exId)) continue;
+    exerciseSetSessions.push(...sessions);
+  }
+
   return {
     clientId,
     exercises,
@@ -422,5 +538,9 @@ export async function getClientExerciseProgress(
     muscleGroupWeeks,
     availableMuscleGroups,
     currentWeekStart,
+    exerciseSetSessions,
+    truncatedSetHistoryExerciseIds: Array.from(truncatedSetHistory).filter((id) =>
+      withDataIds.has(id),
+    ),
   };
 }
