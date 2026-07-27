@@ -64,6 +64,12 @@ interface ProjectEnvKeys {
   readonly privateKeyIsBase64: boolean;
 }
 
+interface ResolvedProjectCredentials {
+  readonly projectId: string;
+  readonly clientEmail: string;
+  readonly privateKey: string;
+}
+
 /**
  * Per-project env-var table. The arrays are ordered: the first defined
  * value wins. This lets `mydnamap` accept BOTH the legacy single-project
@@ -144,10 +150,7 @@ function warnIfLegacyMydnamapEnv(): void {
  * with a descriptive error listing the missing env-var names if any of
  * the three required credentials are absent (no silent half-init).
  */
-function getOrInit(project: ProjectKey): App {
-  const existing = getApps().find((a) => a.name === project);
-  if (existing) return existing;
-
+function resolveProjectCredentials(project: ProjectKey): ResolvedProjectCredentials {
   warnIfLegacyMydnamapEnv();
 
   const keys = ENV_KEYS_BY_PROJECT[project];
@@ -168,6 +171,15 @@ function getOrInit(project: ProjectKey): App {
 
   const privateKey = decodePrivateKey(privateKeyRaw, keys.privateKeyIsBase64);
 
+  return { projectId, clientEmail, privateKey };
+}
+
+function getOrInit(project: ProjectKey): App {
+  const existing = getApps().find((a) => a.name === project);
+  if (existing) return existing;
+
+  const { projectId, clientEmail, privateKey } = resolveProjectCredentials(project);
+
   return initializeApp(
     {
       credential: cert({ projectId, clientEmail, privateKey }),
@@ -186,6 +198,28 @@ function getOrInit(project: ProjectKey): App {
  */
 export function adminAppFor(project: ProjectKey): App {
   return getOrInit(project);
+}
+
+export function adminProjectIdFor(project: ProjectKey): string {
+  return resolveProjectCredentials(project).projectId;
+}
+
+export async function adminAccessTokenFor(project: ProjectKey): Promise<string> {
+  const credential = adminAppFor(project).options.credential;
+  if (!credential) {
+    throw new Error(
+      `goldencrow-sdk firebase: missing credential for project '${project}'`
+    );
+  }
+
+  const token = await credential.getAccessToken();
+  if (!token.access_token) {
+    throw new Error(
+      `goldencrow-sdk firebase: could not mint access token for project '${project}'`
+    );
+  }
+
+  return token.access_token;
 }
 
 function lazyAdminHandle<T extends object>(factory: () => T): T {
