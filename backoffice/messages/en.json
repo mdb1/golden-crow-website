@@ -286,6 +286,12 @@
         "volumeTitle": "Volume by muscle group",
         "volumeUnit": "kg",
         "setsReadout": "{sets} sets this week",
+        "setsReadoutProjected": "{sets} sets this week → {projected} projected",
+        "projection": {
+          "caption": "Dashed lines project the scheduled workouts that haven't been done yet (this week and the next 4).",
+          "today": "Today",
+          "tooltipSuffix": "{group} (projected)"
+        },
         "selectHint": "Select muscle groups above to compare them.",
         "empty": "This client hasn't logged any completed sets yet.",
         "footnote": "Each set counts as 1 for the primary muscle and ½ for each secondary muscle. Warm-up sets are excluded.",

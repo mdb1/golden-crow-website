@@ -83,8 +83,13 @@ export default async function ClientExerciseProgressPage({
 
   const t = await getTranslations("clients.exerciseProgress");
 
-  const { exercises, points, muscleGroupWeeks, availableMuscleGroups } =
-    await getClientExerciseProgress(id, timezone);
+  const {
+    exercises,
+    points,
+    muscleGroupWeeks,
+    availableMuscleGroups,
+    currentWeekStart,
+  } = await getClientExerciseProgress(id, timezone);
 
   // Anchor each range to today so the local filter windows match the other
   // client-detail trend widgets.
@@ -137,7 +142,7 @@ export default async function ClientExerciseProgressPage({
       <MuscleGroupProgressClient
         weeks={muscleGroupWeeks}
         availableGroups={availableMuscleGroups}
-        today={today}
+        currentWeekStart={currentWeekStart}
         rangeStarts={rangeStarts}
       />
     </div>
