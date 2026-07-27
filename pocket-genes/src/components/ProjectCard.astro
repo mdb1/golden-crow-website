@@ -6,19 +6,26 @@ interface Props {
 }
 
 const { project } = Astro.props;
-const hasLink = !!project.websiteUrl;
-const isExternal = hasLink && !project.websiteUrl!.startsWith('/');
-const Tag = hasLink ? 'a' : 'div';
-const linkProps = hasLink
+const hasStoreBadges = Boolean(project.appStoreUrl || project.googlePlayUrl);
+const extraLinks = project.links ?? [];
+
+// A card that carries its own links inside cannot itself be an <a> — nested
+// anchors are invalid HTML and browsers unnest them, breaking both the outer
+// and the inner link. Cards defined the legacy way (a single `websiteUrl`, no
+// badges, no extra links) keep the whole surface clickable exactly as before;
+// `projects.ts` asserts the two styles are never mixed.
+const wholeCardIsLink = Boolean(project.websiteUrl);
+const isExternal = (href: string) => !href.startsWith('/');
+const Tag = wholeCardIsLink ? 'a' : 'div';
+const linkProps = wholeCardIsLink
   ? {
       href: project.websiteUrl,
-      ...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {}),
+      ...(isExternal(project.websiteUrl!) ? { target: '_blank', rel: 'noopener noreferrer' } : {}),
     }
   : {};
-const hasStoreBadges = project.appStoreUrl || project.googlePlayUrl;
 ---
 
-<Tag class:list={['project-card', { 'project-card--clickable': hasLink }]} {...linkProps}>
+<Tag class:list={['project-card', { 'project-card--clickable': wholeCardIsLink }]} {...linkProps}>
   <div class="card-image">
     <img src={project.image} alt={project.title} loading="lazy" />
   </div>
@@ -34,14 +41,28 @@ const hasStoreBadges = project.appStoreUrl || project.googlePlayUrl;
       <div class="card-links">
         {project.appStoreUrl && (
           <a href={project.appStoreUrl} target="_blank" rel="noopener noreferrer" class="store-badge">
-            <img src="/appStore.png" alt="App Store" />
+            <img src="/appStore.png" alt="App Store" loading="lazy" />
           </a>
         )}
         {project.googlePlayUrl && (
           <a href={project.googlePlayUrl} target="_blank" rel="noopener noreferrer" class="store-badge">
-            Google Play
+            <img src="/googlePlay.png" alt="Google Play" loading="lazy" />
           </a>
         )}
+      </div>
+    )}
+
+    {extraLinks.length > 0 && (
+      <div class="card-pills">
+        {extraLinks.map((link) => (
+          <a
+            href={link.href}
+            class="card-pill"
+            {...(isExternal(link.href) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+          >
+            {link.label}
+          </a>
+        ))}
       </div>
     )}
   </div>
@@ -121,6 +142,35 @@ const hasStoreBadges = project.appStoreUrl || project.googlePlayUrl;
   .store-badge img {
     height: 36px;
     width: auto;
+  }
+
+  .card-pills {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding-top: 0.75rem;
+  }
+
+  .card-links + .card-pills {
+    border-top: none;
+  }
+
+  .card-pill {
+    border: 1px solid var(--card-border);
+    border-radius: 1rem;
+    padding: 0.3rem 0.85rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+  }
+
+  .card-pill:hover {
+    border-color: var(--brand-color);
+    background: rgba(175, 130, 50, 0.08);
+    color: var(--brand-color);
   }
 
   a.project-card {

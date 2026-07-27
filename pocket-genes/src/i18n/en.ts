@@ -54,6 +54,16 @@ export const en = {
     project3AppStore: '',
     project3GooglePlay: '',
     project3Website: '/en/anytime-fitness',
+    project4Title: 'GC Fitness',
+    project4Desc: 'Our own fitness coaching platform: coaches build workouts, habits and nutrition from the backoffice, and clients run and log them from their phone or Apple Watch. A Golden Crow product, on iOS and Android.',
+    project4Image: '/gc-fitness-card.webp',
+    project4Tags: ['iOS', 'Android', 'Apple Watch', 'Own product'] as unknown as string[],
+    project4AppStore: 'https://apps.apple.com/app/id6771836254',
+    project4GooglePlay: 'https://play.google.com/store/apps/details?id=com.goldencrow.fitness',
+    project4Website: '',
+    project4Download: '/en/gc-fitness/download/',
+    project4Instagram: 'https://www.instagram.com/gcfitness/',
+    project4Wiki: 'https://golden-crow-backoffice.vercel.app/gc-fitness/wiki',
     // Stats / Why Us
     statsTitle: 'Why Choose Us',
     statsSubtitle: 'A senior engineering team with a track record at scale.',
@@ -137,6 +147,14 @@ export const en = {
     title: 'Golden Crow VS - Our Work',
     heroTitle: 'Our Work',
     heroSubtitle: 'A decade of native mobile apps shipped to production. Browse our work by industry.',
+    // Labels for the extra link pills under a project card. Same wording for
+    // every project — only the URLs differ (see project<N>Download / …Instagram
+    // / …Wiki in the index bundle above).
+    links: {
+      download: 'Download',
+      instagram: 'Instagram',
+      wiki: 'Coach wiki',
+    },
   },
 
   // About page
