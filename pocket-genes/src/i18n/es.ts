@@ -195,13 +195,7 @@ export const es: Translations = {
   about: {
     title: 'Golden Crow VS - Nosotros',
     heroTitle: 'Sobre Golden Crow VS',
-    heroDesc: 'Somos una empresa de tecnología enfocada en crear soluciones innovadoras para el análisis y visualización de datos genómicos.',
-    missionTitle: 'Nuestra Misión',
-    missionDesc: 'Hacer que la información genética sea accesible, comprensible y útil para más personas.',
-    visionTitle: 'Nuestra Visión',
-    visionDesc: 'Un mundo donde la información genética ayude a las personas a llegar mejor preparadas a sus conversaciones de salud.',
-    technologyTitle: 'Nuestra Tecnología',
-    technologyDesc: 'Usamos tecnología para transformar información genética compleja en experiencias claras, visuales e interactivas.',
+    heroDesc: 'Una software boutique que construye productos mobile premium. Quiénes somos, por qué existimos y el equipo que lo hace.',
   },
 
   // Contact page
