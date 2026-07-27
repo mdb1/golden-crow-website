@@ -286,6 +286,12 @@
         "volumeTitle": "Volumen por grupo muscular",
         "volumeUnit": "kg",
         "setsReadout": "{sets} series esta semana",
+        "setsReadoutProjected": "{sets} series esta semana → {projected} proyectadas",
+        "projection": {
+          "caption": "Las líneas punteadas proyectan los entrenamientos agendados que todavía no se hicieron (esta semana y las próximas 4).",
+          "today": "Hoy",
+          "tooltipSuffix": "{group} (proyección)"
+        },
         "selectHint": "Elegí grupos musculares arriba para compararlos.",
         "empty": "Este cliente todavía no registró series completadas.",
         "footnote": "Cada serie cuenta 1 para el músculo principal y ½ para cada músculo secundario. Las series de calentamiento se excluyen.",

@@ -7,9 +7,16 @@
 // Two overlaid charts share a weekly x-axis: SETS by muscle group (with a green
 // 12–20 target band) and VOLUME by muscle group. Each selected coarse group is
 // its own colored line. Weighting is baked server-side (primary 1.0 / secondary
-// 0.5 per set) — see exercise-progress-actions.buildMuscleGroupWeeks + the
+// 0.5 per set) — see muscle-group-weeks.buildMuscleGroupWeeks + the
 // muscle-group-display twin. Switching selection / range / target is pure local
 // state (zero extra Firestore reads).
+//
+// #568 PROJECTION: a dotted divider marks the current week, and from there the
+// lines continue DASHED + dimmed through the client's upcoming scheduled
+// workouts (the current week's remaining days + 4 weeks). Same idea as the iOS /
+// Android Progress-tab charts (MuscleGroupSeriesChart `projectionStartIndex`).
+// The weekly readout shows the projected week total too, so a Monday doesn't
+// read as "3 series esta semana".
 
 import { useMemo, useState } from "react";
 import {
@@ -17,12 +24,13 @@ import {
   Line,
   LineChart,
   ReferenceArea,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { Info, SlidersHorizontal } from "lucide-react";
+import { Info, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
@@ -39,7 +47,12 @@ import {
   COARSE_MUSCLE_GROUPS,
   DEFAULT_SELECTED_MUSCLE_GROUPS,
 } from "@/lib/gc-fitness/muscle-group-display";
-import type { MuscleGroupWeekPoint } from "@/lib/gc-fitness/exercise-progress-actions";
+import {
+  PROJECTED_KEY_SUFFIX as PROJ,
+  buildChartRows,
+  weekHasProjection,
+  type MuscleGroupWeekPoint,
+} from "@/lib/gc-fitness/muscle-group-weeks";
 import {
   DEFAULT_TREND_RANGE,
   type TrendRangeKey,
@@ -63,14 +76,15 @@ function formatSets(n: number): string {
 export interface MuscleGroupProgressClientProps {
   weeks: MuscleGroupWeekPoint[];
   availableGroups: string[];
-  today: string;
+  /** Monday of the current week — the projection boundary / readout anchor. */
+  currentWeekStart: string;
   rangeStarts: Record<TrendRangeKey, string>;
 }
 
 export function MuscleGroupProgressClient({
   weeks,
   availableGroups,
-  today,
+  currentWeekStart,
   rangeStarts,
 }: MuscleGroupProgressClientProps) {
   const locale = useLocale();
@@ -108,38 +122,52 @@ export function MuscleGroupProgressClient({
     [groups, selected],
   );
 
+  // #568 — only render the projection region when the client actually has
+  // upcoming scheduled work; otherwise the charts stay exactly as before.
+  const hasProjection = useMemo(() => weeks.some(weekHasProjection), [weeks]);
+
   const windowWeeks = useMemo(() => {
     const start = rangeStarts[range];
-    return weeks.filter((w) => w.weekStart >= start && w.weekStart <= today);
-  }, [weeks, range, rangeStarts, today]);
+    const inRange = weeks.filter((w) => w.weekStart >= start);
+    return hasProjection ? inRange : inRange.filter((w) => !w.projected);
+  }, [weeks, range, rangeStarts, hasProjection]);
 
-  // One row per week; a column per selected group for each metric.
+  const currentIndex = useMemo(
+    () => windowWeeks.findIndex((w) => w.weekStart === currentWeekStart),
+    [windowWeeks, currentWeekStart],
+  );
+
+  // One row per week; a solid + a dashed column per selected group. See
+  // buildChartRows for the actual/projected boundary math.
   const setsData = useMemo(
     () =>
-      windowWeeks.map((w) => {
-        const row: Record<string, number | string> = { week: w.weekStart };
-        for (const g of selectedOrdered) row[g] = w.byGroup[g]?.sets ?? 0;
-        return row;
-      }),
-    [windowWeeks, selectedOrdered],
+      buildChartRows(windowWeeks, selectedOrdered, "sets", currentIndex, hasProjection),
+    [windowWeeks, selectedOrdered, currentIndex, hasProjection],
   );
   const volumeData = useMemo(
     () =>
-      windowWeeks.map((w) => {
-        const row: Record<string, number | string> = { week: w.weekStart };
-        for (const g of selectedOrdered) row[g] = w.byGroup[g]?.volume ?? 0;
-        return row;
-      }),
-    [windowWeeks, selectedOrdered],
+      buildChartRows(windowWeeks, selectedOrdered, "volume", currentIndex, hasProjection),
+    [windowWeeks, selectedOrdered, currentIndex, hasProjection],
   );
 
-  // Latest-week weighted sets per selected group (legend readout).
-  const latestByGroup = useMemo(() => {
-    const out: Record<string, number> = {};
-    const last = windowWeeks[windowWeeks.length - 1];
-    for (const g of selectedOrdered) out[g] = last?.byGroup[g]?.sets ?? 0;
+  // Current-week weighted sets per selected group — logged so far AND the
+  // projected week total (#568: on a Monday the logged figure alone is
+  // misleading, so the readout shows what the plan adds up to).
+  const currentWeekReadout = useMemo(() => {
+    const week =
+      currentIndex >= 0
+        ? windowWeeks[currentIndex]
+        : windowWeeks[windowWeeks.length - 1];
+    const out: Record<string, { sets: number; projected: number }> = {};
+    for (const g of selectedOrdered) {
+      const sets = week?.byGroup[g]?.sets ?? 0;
+      out[g] = {
+        sets,
+        projected: week?.projectedByGroup?.[g]?.sets ?? sets,
+      };
+    }
     return out;
-  }, [windowWeeks, selectedOrdered]);
+  }, [windowWeeks, currentIndex, selectedOrdered]);
 
   const clampTarget = (nextMin: number, nextMax: number) => {
     const lo = Math.max(0, Math.min(nextMin, nextMax));
@@ -157,6 +185,48 @@ export function MuscleGroupProgressClient({
 
   const xTick = (value: string) =>
     formatCivilDateLabel(value, { month: "short", day: "numeric" }, locale);
+
+  /** Tooltip series label — projected columns are marked as such. */
+  const seriesLabel = (name: string) =>
+    name.endsWith(PROJ)
+      ? t("muscleGroups.projection.tooltipSuffix", {
+          group: muscleLabel(name.slice(0, -PROJ.length)),
+        })
+      : muscleLabel(name);
+
+  /** Dotted "current week" divider between the actual and projected regions. */
+  const projectionDivider =
+    hasProjection && currentIndex >= 0 ? (
+      <ReferenceLine
+        x={currentWeekStart}
+        stroke="var(--muted-foreground)"
+        strokeOpacity={0.5}
+        strokeDasharray="2 3"
+        strokeWidth={1.5}
+        label={{
+          value: t("muscleGroups.projection.today"),
+          position: "top",
+          fontSize: 10,
+          fill: "var(--muted-foreground)",
+        }}
+      />
+    ) : null;
+
+  /** The dashed, dimmed projected line for one group. */
+  const projectedLine = (g: string) =>
+    hasProjection ? (
+      <Line
+        key={`${g}${PROJ}`}
+        type="monotone"
+        dataKey={`${g}${PROJ}`}
+        stroke={colorFor(g)}
+        strokeOpacity={0.45}
+        strokeWidth={2}
+        strokeDasharray="5 4"
+        dot={{ r: 2, fill: colorFor(g), fillOpacity: 0.45, strokeWidth: 0 }}
+        activeDot={{ r: 4, fill: colorFor(g), fillOpacity: 0.6, strokeWidth: 0 }}
+      />
+    ) : null;
 
   const infoBlocks: Array<{ title: string; body: string }> = [
     {
@@ -350,26 +420,43 @@ export function MuscleGroupProgressClient({
         </p>
       ) : (
         <>
-          {/* Per-group latest-week readout / legend */}
+          {/* Per-group current-week readout / legend */}
           <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-            {selectedOrdered.map((g) => (
-              <span
-                key={g}
-                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
-              >
+            {selectedOrdered.map((g) => {
+              const readout = currentWeekReadout[g] ?? { sets: 0, projected: 0 };
+              const showsProjection =
+                hasProjection && readout.projected > readout.sets;
+              return (
                 <span
-                  className="size-2.5 rounded-sm"
-                  style={{ backgroundColor: colorFor(g) }}
-                />
-                <span className="text-foreground">{muscleLabel(g)}</span>
-                <span className="tabular-nums">
-                  {t("muscleGroups.setsReadout", {
-                    sets: formatSets(latestByGroup[g] ?? 0),
-                  })}
+                  key={g}
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+                >
+                  <span
+                    className="size-2.5 rounded-sm"
+                    style={{ backgroundColor: colorFor(g) }}
+                  />
+                  <span className="text-foreground">{muscleLabel(g)}</span>
+                  <span className="tabular-nums">
+                    {showsProjection
+                      ? t("muscleGroups.setsReadoutProjected", {
+                          sets: formatSets(readout.sets),
+                          projected: formatSets(readout.projected),
+                        })
+                      : t("muscleGroups.setsReadout", {
+                          sets: formatSets(readout.sets),
+                        })}
+                  </span>
                 </span>
-              </span>
-            ))}
+              );
+            })}
           </div>
+
+          {hasProjection ? (
+            <p className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Sparkles className="size-3" />
+              {t("muscleGroups.projection.caption")}
+            </p>
+          ) : null}
 
           {/* SETS chart with the green target band */}
           <div className="flex flex-col gap-2">
@@ -396,6 +483,7 @@ export function MuscleGroupProgressClient({
                     strokeOpacity={0.3}
                     ifOverflow="extendDomain"
                   />
+                  {projectionDivider}
                   <XAxis
                     dataKey="week"
                     tick={{ fontSize: 11 }}
@@ -412,6 +500,7 @@ export function MuscleGroupProgressClient({
                     allowDecimals={false}
                   />
                   <Tooltip
+                    filterNull
                     contentStyle={{
                       borderRadius: 10,
                       border: "1px solid hsl(var(--border))",
@@ -419,7 +508,7 @@ export function MuscleGroupProgressClient({
                     }}
                     formatter={(value, name) => [
                       formatSets(Number(value)),
-                      muscleLabel(String(name)),
+                      seriesLabel(String(name)),
                     ]}
                     labelFormatter={(label) =>
                       formatCivilDateLabel(
@@ -440,6 +529,7 @@ export function MuscleGroupProgressClient({
                       activeDot={{ r: 5, fill: colorFor(g), strokeWidth: 0 }}
                     />
                   ))}
+                  {selectedOrdered.map(projectedLine)}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -461,6 +551,7 @@ export function MuscleGroupProgressClient({
                     stroke="var(--muted-foreground)"
                     strokeOpacity={0.16}
                   />
+                  {projectionDivider}
                   <XAxis
                     dataKey="week"
                     tick={{ fontSize: 11 }}
@@ -477,6 +568,7 @@ export function MuscleGroupProgressClient({
                     tickFormatter={(v: number) => String(Math.round(v))}
                   />
                   <Tooltip
+                    filterNull
                     contentStyle={{
                       borderRadius: 10,
                       border: "1px solid hsl(var(--border))",
@@ -484,7 +576,7 @@ export function MuscleGroupProgressClient({
                     }}
                     formatter={(value, name) => [
                       `${Math.round(Number(value))} ${t("muscleGroups.volumeUnit")}`,
-                      muscleLabel(String(name)),
+                      seriesLabel(String(name)),
                     ]}
                     labelFormatter={(label) =>
                       formatCivilDateLabel(
@@ -505,6 +597,7 @@ export function MuscleGroupProgressClient({
                       activeDot={{ r: 5, fill: colorFor(g), strokeWidth: 0 }}
                     />
                   ))}
+                  {selectedOrdered.map(projectedLine)}
                 </LineChart>
               </ResponsiveContainer>
             </div>
