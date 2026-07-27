@@ -2,15 +2,9 @@
 import { useTranslations } from '../i18n/index';
 
 const t = useTranslations(Astro.currentLocale);
-
-// id="about" below is the target of the nav's and footer's "Nosotros" /
-// "About Us" link (`/#about`). Nothing on the page carried that id before, so
-// the link silently landed back at the top of the hero. This is the section
-// that actually answers "who are you" — the founder's note on why Golden Crow
-// exists. "Conocé al Equipo" keeps its own separate anchor (#team).
 ---
 
-<section class="founders-note-section" id="about">
+<section class="founders-note-section">
   <div class="container">
     <div class="founders-note-card">
       <div class="founders-photo-wrap">
