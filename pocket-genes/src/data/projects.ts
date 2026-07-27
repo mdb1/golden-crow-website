@@ -30,11 +30,15 @@ interface ProjectDef {
   category: CategoryId;
 }
 
+// Order matters twice over: it is the order of the homepage "Success Stories"
+// carousel AND the order inside each category on /work. GC Fitness leads —
+// it is our own product, and the carousel only shows three cards at a time, so
+// anything in fourth place is invisible until the user drags.
 const projectDefs: readonly ProjectDef[] = [
+  { key: 'project4', category: 'fitness' },
   { key: 'project1', category: 'fitness' },
   { key: 'project2', category: 'health' },
   { key: 'project3', category: 'fitness' },
-  { key: 'project4', category: 'fitness' },
 ] as const;
 
 // Extra link slots a project may fill. The URL lives in the i18n bundle next to
