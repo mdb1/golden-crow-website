@@ -16,6 +16,13 @@ export interface Project {
   googlePlayUrl?: string;
   websiteUrl?: string;
   /**
+   * Página propia del proyecto dentro de este sitio. A diferencia de
+   * `websiteUrl` NO convierte la card en un <a>: se renderiza como un ancla
+   * estirada por debajo de las badges y píldoras, así que puede convivir con
+   * ellas (ver ProjectCard).
+   */
+  pageUrl?: string;
+  /**
    * Extra destinations (download page, Instagram, coach wiki, …). Optional so
    * the hand-rolled project arrays in apps.astro keep type-checking.
    */
@@ -76,6 +83,7 @@ export function getProjects(t: Translations): Project[] {
     appStoreUrl: (idx[`${def.key}AppStore`] as string) || undefined,
     googlePlayUrl: (idx[`${def.key}GooglePlay`] as string) || undefined,
     websiteUrl: (idx[`${def.key}Website`] as string) || undefined,
+    pageUrl: (idx[`${def.key}Page`] as string) || undefined,
     links: EXTRA_LINKS.flatMap(({ urlKey, labelKey }) => {
       const href = idx[`${def.key}${urlKey}`] as string | undefined;
       return href ? [{ label: t.work.links[labelKey], href }] : [];
@@ -89,6 +97,12 @@ export function getProjects(t: Translations): Project[] {
   // Fail the build instead of shipping a card whose links silently don't work.
   for (const p of projects) {
     const hasInnerLinks = Boolean(p.appStoreUrl || p.googlePlayUrl) || (p.links?.length ?? 0) > 0;
+    if (p.websiteUrl && p.pageUrl) {
+      throw new Error(
+        `Project "${p.title}" sets websiteUrl AND pageUrl. Pick one: the legacy ` +
+          `whole-card anchor, or the stretched overlay link that coexists with inner links.`
+      );
+    }
     if (p.websiteUrl && hasInnerLinks) {
       throw new Error(
         `Project "${p.title}" sets websiteUrl AND inner links (store badges / pills). ` +
