@@ -56,6 +56,16 @@ export const es: Translations = {
     project3AppStore: '',
     project3GooglePlay: '',
     project3Website: '/anytime-fitness',
+    project4Title: 'GC Fitness',
+    project4Desc: 'Plataforma de coaching fitness propia: el coach arma entrenamientos, hábitos y nutrición desde el backoffice, y el cliente los ejecuta y registra desde el teléfono o el Apple Watch. Producto propio de Golden Crow, en iOS y Android.',
+    project4Image: '/gc-fitness-card.webp',
+    project4Tags: ['iOS', 'Android', 'Apple Watch', 'Producto propio'] as unknown as string[],
+    project4AppStore: 'https://apps.apple.com/app/id6771836254',
+    project4GooglePlay: 'https://play.google.com/store/apps/details?id=com.goldencrow.fitness',
+    project4Website: '',
+    project4Download: '/gc-fitness/download/',
+    project4Instagram: 'https://www.instagram.com/gcfitness/',
+    project4Wiki: 'https://golden-crow-backoffice.vercel.app/gc-fitness/wiki',
     // Stats / Why Us
     statsTitle: '¿Por Qué Elegirnos?',
     statsSubtitle: 'Un equipo de ingeniería senior con historial de productos a escala.',
@@ -139,6 +149,11 @@ export const es: Translations = {
     title: 'Golden Crow VS - Nuestros Trabajos',
     heroTitle: 'Nuestros Trabajos',
     heroSubtitle: 'Una década de apps móviles nativas lanzadas a producción. Explorá nuestro trabajo por industria.',
+    links: {
+      download: 'Descargar',
+      instagram: 'Instagram',
+      wiki: 'Wiki para coaches',
+    },
   },
 
   // About page
