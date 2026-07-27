@@ -115,6 +115,14 @@ export interface WorkoutTemplateExerciseDetail {
   repsBySet?: number[];
   weightBySetKg?: number[];
   /**
+   * quick-260714-m57 (#403) — per-set type prescription (raw wire strings).
+   * Surfaced for the assign-template modal (#582), which shows the W/F/D
+   * marker AND has to realign the array when the coach adds/removes a set.
+   * Raw + positional: unknown entries coerce to "normal" on READ, never
+   * filtered — dropping one would shift later sets onto the wrong type.
+   */
+  setTypesBySet?: string[];
+  /**
    * 260610-j67 (issue #159) — no-weight ("Sin peso") sentinel, twin of iOS
    * `ExerciseRef.hasExplicitNoWeightPrescription`. True when the source
    * `weightBySetKg` was an EXPLICIT empty array (reps-only prescription).
@@ -552,6 +560,15 @@ export async function getWorkoutTemplateForAssignment(templateId: string): Promi
           : [],
         weightBySetKg: Array.isArray(exercise.weightBySetKg)
           ? (exercise.weightBySetKg as number[]).filter((n) => Number.isFinite(n))
+          : [],
+        // #403/#582 — positional pass-through. NOT filtered (unlike the
+        // numeric arrays above): a dropped entry would slide every later
+        // set's type up one row. Non-strings become "" and coerce to
+        // "normal" at read time via plannedSetType.
+        setTypesBySet: Array.isArray(exercise.setTypesBySet)
+          ? (exercise.setTypesBySet as unknown[]).map((t) =>
+              typeof t === "string" ? t : "",
+            )
           : [],
         // 260610-j67 — capture the no-weight sentinel before the array
         // collapse above erases it. Explicit empty array = reps-only.

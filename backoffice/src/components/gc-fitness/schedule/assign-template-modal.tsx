@@ -46,6 +46,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  SET_TYPES,
+  SET_TYPE_LABELS_ES,
+  SET_TYPE_LETTERS,
+  SET_TYPE_TEXT_CLASS,
+  plannedSetType,
+  setDisplayLabels,
+  type SetType,
+} from "@/lib/gc-fitness/set-type";
+import {
+  alignSetTypes,
+  setTypesDiffer,
+} from "@/lib/gc-fitness/assignment-set-types";
 
 import {
   assignTemplate,
@@ -69,6 +88,24 @@ import {
 // (selected) day keeps its solid `selected` styling on top of this.
 const RECURRENCE_PREVIEW_CLASS =
   "rounded-md bg-primary/15 font-semibold text-primary";
+
+/**
+ * One editable prescribed set inside the assign modal.
+ *
+ * #582 — the per-set TYPE lives on the row, NOT in a sibling `setTypes[]` array
+ * (the shape the assignment EDIT dialog uses). The modal mutates `setRows`
+ * inline at five call sites (per-field edit, remove, append, copy-to-all,
+ * metric flip); a parallel array would have to be re-synced at every one of
+ * them, and a missed sync is exactly the misalignment this issue is about —
+ * the warm-up marker sliding onto the wrong set. Embedding it makes
+ * add/remove correct by construction.
+ */
+interface AssignSetRow {
+  reps: string;
+  kg: string;
+  duration?: string;
+  type: SetType;
+}
 
 interface AssignTemplateModalProps {
   open: boolean;
@@ -171,7 +208,7 @@ export function AssignTemplateModal({
         rest_seconds: string;
         transition_rest_seconds: string;
         notes: string;
-        setRows: Array<{ reps: string; kg: string; duration?: string }>;
+        setRows: AssignSetRow[];
         // 260610-j67 (issue #159) — "Sin peso" intent. Seeded from the source
         // template exercise's hasExplicitNoWeightPrescription; ON → the
         // override writes weightBySetKg: [] + hides the kg column.
@@ -236,7 +273,7 @@ export function AssignTemplateModal({
             rest_seconds: string;
             transition_rest_seconds: string;
             notes: string;
-            setRows: Array<{ reps: string; kg: string; duration?: string }>;
+            setRows: AssignSetRow[];
             noWeight: boolean;
             metric?: "reps" | "time";
           }>>((acc, exercise) => {
@@ -283,6 +320,11 @@ export function AssignTemplateModal({
               kg: Number.isFinite(weightBySetKg[i])
                 ? String(weightBySetKg[i])
                 : "",
+              // #582 — seed from the template's prescription. Short / missing /
+              // unknown entries coerce to "normal" (forgiving decode), and the
+              // row count above may exceed the array, so this always yields a
+              // type for every row.
+              type: plannedSetType(i, exercise.setTypesBySet),
               ...(exerciseEffectiveMetric === "time"
                 ? {
                     duration: String(
@@ -387,6 +429,13 @@ export function AssignTemplateModal({
         const finalDurationBySetSeconds = durationBySetSeconds
           .slice(0, finalSets)
           .map((n) => (Number.isFinite(n) ? n : 60));
+        // #582 — per-set types, always exactly `finalSets` long (rows beyond
+        // the draft pad to "normal"), so a set the coach REMOVED can't leave a
+        // trailing entry that slides the markers on the surviving rows.
+        const finalSetTypes = alignSetTypes(
+          draft.setRows.map((row) => row.type),
+          finalSets,
+        );
 
         const nextRest = Number(draft.rest_seconds);
         const nextTransitionRest = Number(draft.transition_rest_seconds);
@@ -411,6 +460,12 @@ export function AssignTemplateModal({
         const changedWeights =
           finalWeights.length !== baseWeightBySetKg.length ||
           finalWeights.some((v, i) => v !== baseWeightBySetKg[i]);
+        // #582 — compare against the template's array COERCED to the final set
+        // count, so "the coach deleted a set" registers as a change even when
+        // no picker was opened: the inherited array is then the wrong length
+        // and every marker after the deleted row is off by one.
+        const baseSetTypes = alignSetTypes(exercise.setTypesBySet, finalSets);
+        const changedSetTypes = setTypesDiffer(finalSetTypes, baseSetTypes);
         const changedRest =
           Number.isFinite(nextRest) && nextRest !== exercise.rest_seconds;
         const changedTransitionRest =
@@ -434,7 +489,8 @@ export function AssignTemplateModal({
           !changedTransitionRest &&
           !changedNotes &&
           !changedDurations &&
-          !changedMetric
+          !changedMetric &&
+          !changedSetTypes
         ) {
           return null;
         }
@@ -464,6 +520,10 @@ export function AssignTemplateModal({
               }
             : {}),
           ...(changedNotes ? { notes: nextNotes } : {}),
+          // #582 — the server realigns to the final set count and DROPS the
+          // key when everything came out normal, so an inherited array can't
+          // outlive an all-normal prescription.
+          ...(changedSetTypes ? { setTypesBySet: finalSetTypes } : {}),
           // Emit the chosen metric when the trainer flipped reps↔time so the
           // assignment snapshot carries the new metric (consumers branch on it).
           ...(changedMetric ? { metric: effectiveMetric } : {}),
@@ -531,6 +591,10 @@ export function AssignTemplateModal({
       if (!cur || !first || cur.setRows.length <= 1) return prev;
       const next = cur.setRows.map((row, index) => {
         if (index === 0) return row;
+        // #582 — `...row` keeps each row's own `type`. Copying the first
+        // set's TYPE is deliberately NOT part of "copiar a todas": set 1 is
+        // very often the warm-up, and turning every set into a warm-up is
+        // never what the coach means by copying the prescription.
         return {
           ...row,
           reps: first.reps,
@@ -542,6 +606,18 @@ export function AssignTemplateModal({
         ...prev,
         [exerciseIndex]: { ...cur, setRows: next },
       };
+    });
+  }
+
+  /** #582 — swap ONE row's per-set type (Hevy picker in the `#` column). */
+  function setRowType(exerciseIndex: number, setIdx: number, type: SetType) {
+    setOverrideDrafts((prev) => {
+      const cur = prev[exerciseIndex];
+      if (!cur) return prev;
+      const next = cur.setRows.map((row, i) =>
+        i === setIdx ? { ...row, type } : row,
+      );
+      return { ...prev, [exerciseIndex]: { ...cur, setRows: next } };
     });
   }
 
@@ -1269,7 +1345,57 @@ export function AssignTemplateModal({
                             : "grid grid-cols-[24px_minmax(52px,1fr)_minmax(52px,1fr)_40px] items-center gap-2 sm:grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
                         }
                       >
-                        <span className="text-xs text-muted-foreground">{setIdx + 1}</span>
+                        {/* #582 — the `#` cell is the per-set type picker, same
+                            control the assignment EDIT dialog and the template
+                            form use. Hevy label: a colored letter for
+                            warm-up/fallo/drop, otherwise a number counting ONLY
+                            normal sets. */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              tabIndex={-1}
+                              aria-label={`Tipo de la serie ${setIdx + 1}: ${SET_TYPE_LABELS_ES[row.type]}`}
+                              title="Cambiar tipo de serie"
+                              className={cn(
+                                "inline-flex h-7 w-7 items-center justify-center rounded-md text-xs hover:bg-muted",
+                                row.type === "normal"
+                                  ? "text-muted-foreground"
+                                  : cn("font-bold", SET_TYPE_TEXT_CLASS[row.type]),
+                              )}
+                            >
+                              {
+                                setDisplayLabels(
+                                  draft.setRows.map((r) => r.type),
+                                )[setIdx]
+                              }
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            {SET_TYPES.map((type) => (
+                              <DropdownMenuItem
+                                key={type}
+                                onSelect={() =>
+                                  setRowType(exercise.index, setIdx, type)
+                                }
+                                className={cn(
+                                  "gap-2",
+                                  type === row.type && "bg-muted",
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    "w-4 text-center font-semibold",
+                                    SET_TYPE_TEXT_CLASS[type],
+                                  )}
+                                >
+                                  {SET_TYPE_LETTERS[type] ?? "#"}
+                                </span>
+                                {SET_TYPE_LABELS_ES[type]}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         {/* 26-03 — Primary input branches on effectiveMetric.
                             Time exercises bind to row.duration (5..1800
                             placeholder 60); reps stays as today. */}
@@ -1395,13 +1521,14 @@ export function AssignTemplateModal({
                           // surfaces a usable number instead of an empty
                           // string.
                           const last = cur.setRows[cur.setRows.length - 1];
-                          const newRow: {
-                            reps: string;
-                            kg: string;
-                            duration?: string;
-                          } = {
+                          const newRow: AssignSetRow = {
                             reps: last?.reps ?? "0",
                             kg: last?.kg ?? "",
+                            // #582 — an appended set is NORMAL, never the
+                            // previous row's type: inheriting it would turn
+                            // "+ agregar serie" after a warm-up into a second
+                            // warm-up. Values carry over, the type does not.
+                            type: "normal",
                           };
                           if (effectiveMetric === "time") {
                             newRow.duration = last?.duration ?? "60";

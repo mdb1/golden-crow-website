@@ -53,6 +53,9 @@ import {
 } from "./weight-diff";
 // quick-260714-m57 (#403) — per-set type helpers (TS twin of iOS SetType).
 import { plannedSetType, type SetType } from "./set-type";
+// #582 — the shared "realign to the final set count, drop when all-normal"
+// rule, used by BOTH the edit path and the assign-time override path.
+import { normalizeSetTypesToCount as normalizeEditedSetTypes } from "./assignment-set-types";
 import {
   recordCoachActivityEvent,
   markCoachActivityDeleted,
@@ -240,6 +243,7 @@ function applyExerciseOverrides(
         metric?: "reps" | "time";
         durationBySetSeconds?: number[];
         durationSeconds?: number;
+        setTypesBySet?: SetType[];
       }>
     | undefined,
 ) {
@@ -250,7 +254,7 @@ function applyExerciseOverrides(
   for (const override of overrides) {
     const current = exercises[override.index];
     if (!current) continue;
-    exercises[override.index] = {
+    const next: Record<string, unknown> = {
       ...current,
       ...(override.sets !== undefined ? { sets: override.sets } : {}),
       ...(override.reps !== undefined ? { reps: override.reps } : {}),
@@ -278,32 +282,27 @@ function applyExerciseOverrides(
         ? { durationSeconds: override.durationSeconds }
         : {}),
     };
+    // #582 — per-set types at assignment time. The template's array otherwise
+    // rides `...current` VERBATIM, which goes stale the moment the coach adds
+    // or removes a set (a 4-entry array against 3 sets slides the warm-up
+    // marker onto the wrong row). Realign against the FINAL set count, and
+    // DELETE the key when nothing non-normal survives — the same rule
+    // `editAssignmentExercises` applies, so a stale inherited array can never
+    // outlive an all-normal prescription.
+    if (override.setTypesBySet !== undefined) {
+      const setCount =
+        override.sets ??
+        (typeof next.sets === "number" ? (next.sets as number) : 0);
+      const aligned = normalizeEditedSetTypes(override.setTypesBySet, setCount);
+      if (aligned) next.setTypesBySet = aligned;
+      else delete next.setTypesBySet;
+    }
+    exercises[override.index] = next;
   }
   return {
     ...templateSnapshot,
     exercises,
   };
-}
-
-/**
- * quick-260714-m57 (#403) — normalize per-set types coming from the edit
- * dialog (or realigned from the existing snapshot when the edit doesn't
- * carry them). Coerces unknown entries POSITIONALLY to "normal" (never
- * filters — dropping an entry would shift later sets' types), aligns to
- * `setCount`, and returns null when every entry is normal: the wire
- * contract omits all-normal arrays, and callers DELETE the key so a stale
- * non-normal array can't survive an all-normal edit.
- */
-function normalizeEditedSetTypes(
-  raw: unknown,
-  setCount: number,
-): SetType[] | null {
-  if (!Array.isArray(raw)) return null;
-  const length = Math.max(1, Math.min(20, setCount || raw.length || 1));
-  const aligned = Array.from({ length }, (_, i) =>
-    plannedSetType(i, raw as readonly string[]),
-  );
-  return aligned.some((t) => t !== "normal") ? aligned : null;
 }
 
 function normalizeEditedWeights(opts: {

@@ -19,6 +19,8 @@
 
 import { z } from "zod";
 
+import { SET_TYPES } from "@/lib/gc-fitness/set-type";
+
 /** Rule-layer civil-date regex from 04-02 (`matches('^\\d{4}-\\d{2}-\\d{2}$')`). */
 export const CIVIL_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -70,6 +72,11 @@ const assignmentExerciseOverrideSchema = z.object({
   notes: z.string().max(500).optional(),
   weightBySetKg: z.array(z.number().min(0).max(500)).max(10).optional(),
   repsBySet: z.array(z.number().int().min(1).max(50)).max(10).optional(),
+  // #582 — per-set types at ASSIGNMENT time. The template's array rides the
+  // snapshot verbatim, so this is only sent when the coach re-typed a set OR
+  // changed the set count (which makes the inherited array misaligned).
+  // The action normalizes + drops it when the result is all-normal.
+  setTypesBySet: z.array(z.enum(SET_TYPES)).max(10).optional(),
   // 26-01 — Per-client override mirrors of the template-side metric +
   // duration fields. Optional and permissive: a trainer assigning a
   // plank to a single client may tweak ONLY the per-set duration array
