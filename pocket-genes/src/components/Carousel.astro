@@ -65,27 +65,58 @@ const wrapperStyle = [
       return firstItem.getBoundingClientRect().width + gap;
     }
 
-    if (dotsContainer) {
-      items.forEach((_, i) => {
+    function maxScroll(): number {
+      return Math.max(0, track!.scrollWidth - track!.clientWidth);
+    }
+
+    // A dot per SCROLL POSITION, not per item. With 7 cards and 3 visible there
+    // are only 5 places the track can stop, so 7 dots left two that could never
+    // light up — reaching the end kept the 5th dot gold with two grey ones
+    // after it. The count depends on how many cards fit, so it changes with the
+    // viewport (1 / 2 / 3 across the breakpoints) and has to be recomputed.
+    function pageCount(): number {
+      const s = step();
+      if (!s) return items.length;
+      return Math.max(1, Math.min(items.length, Math.round(maxScroll() / s) + 1));
+    }
+
+    function activeIndex(): number {
+      const pages = pageCount();
+      // At the end, snap the highlight to the last dot: the final resting
+      // scrollLeft is whatever is left over, not necessarily a whole step.
+      if (track!.scrollLeft >= maxScroll() - 2) return pages - 1;
+      return Math.min(pages - 1, Math.max(0, Math.round(track!.scrollLeft / step())));
+    }
+
+    function buildDots(count: number) {
+      if (!dotsContainer) return;
+      dotsContainer.replaceChildren();
+      for (let i = 0; i < count; i++) {
         const dot = document.createElement('button');
         dot.type = 'button';
-        dot.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+        dot.className = 'carousel-dot';
         dot.dataset.index = String(i);
         dot.setAttribute('aria-label', `Slide ${i + 1}`);
         dot.addEventListener('click', () => {
-          track!.scrollTo({ left: i * step(), behavior: 'smooth' });
+          track!.scrollTo({ left: Math.min(i * step(), maxScroll()), behavior: 'smooth' });
         });
         dotsContainer.appendChild(dot);
-      });
+      }
+      // Nothing to page through: no dots at all rather than a single dead one.
+      dotsContainer.hidden = count <= 1;
     }
 
     function updateDots() {
       if (!dotsContainer) return;
-      const index = Math.round(track!.scrollLeft / step());
+      const pages = pageCount();
+      if (dotsContainer.childElementCount !== pages) buildDots(pages);
+      const index = activeIndex();
       dotsContainer.querySelectorAll<HTMLButtonElement>('.carousel-dot').forEach((dot, i) => {
         dot.classList.toggle('active', i === index);
       });
     }
+
+    updateDots();
 
     prev.addEventListener('click', () => {
       track.scrollBy({ left: -step(), behavior: 'smooth' });
@@ -94,6 +125,7 @@ const wrapperStyle = [
       track.scrollBy({ left: step(), behavior: 'smooth' });
     });
     track.addEventListener('scroll', updateDots);
+    window.addEventListener('resize', updateDots);
   }
 
   function initAllCarousels() {
