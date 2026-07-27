@@ -27,7 +27,7 @@
 // handler persists as it goes — never a state-sync effect, which would race the
 // restore and write the defaults over the coach's choice.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   CartesianGrid,
   Line,
@@ -81,14 +81,70 @@ import { TrendRangeSelector } from "../_components/TrendRangeSelector";
 // Muscle-group charts read best over a multi-week trend; default to 90d.
 const DEFAULT_MUSCLE_RANGE: TrendRangeKey = "90";
 
-/** `var(--gc-muscle-<group>)` — the categorical color for a coarse group. */
+const MUSCLE_GROUP_COLORS: Record<string, string> = {
+  back: "#2e7be0",
+  chest: "#e03b3b",
+  biceps: "#8b4fe0",
+  triceps: "#d9741a",
+  shoulders: "#0f8f8f",
+  legs: "#2f9e44",
+  core: "#a67c00",
+};
+
+/** Categorical color for a coarse group, resolved before it reaches SVG attrs. */
 function colorFor(group: string): string {
-  return `var(--gc-muscle-${group})`;
+  return MUSCLE_GROUP_COLORS[group] ?? "var(--chart-1)";
 }
 
 function formatSets(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
+
+const chartTooltipContentStyle: CSSProperties = {
+  borderRadius: 10,
+  border: "1px solid var(--border)",
+  backgroundColor: "var(--popover)",
+  color: "var(--popover-foreground)",
+  boxShadow: "0 18px 45px rgba(15, 23, 42, 0.18)",
+  padding: 10,
+};
+
+const chartTooltipLabelStyle: CSSProperties = {
+  color: "var(--popover-foreground)",
+  fontWeight: 600,
+  marginBottom: 4,
+  fontSize: 16,
+};
+
+const chartTooltipItemStyle: CSSProperties = {
+  paddingTop: 2,
+  paddingBottom: 2,
+  fontSize: 14,
+  lineHeight: 1.35,
+};
+
+const chartTooltipWrapperStyle: CSSProperties = {
+  zIndex: 40,
+  pointerEvents: "none",
+};
+
+function tooltipNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+  if (Array.isArray(value)) {
+    const firstNumber = value.find(
+      (v) => typeof v === "number" || typeof v === "string",
+    );
+    return tooltipNumber(firstNumber);
+  }
+  return 0;
+}
+
+const sortTooltipItemsDescending = (item: { value?: unknown }) =>
+  -tooltipNumber(item.value);
 
 export interface MuscleGroupProgressClientProps {
   weeks: MuscleGroupWeekPoint[];
@@ -501,7 +557,7 @@ export function MuscleGroupProgressClient({
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {t("muscleGroups.setsTitle")}
             </p>
-            <div className="h-64 w-full rounded-md border bg-muted/20 p-2 sm:p-3">
+            <div className="relative z-0 h-64 w-full overflow-visible rounded-md border bg-muted/20 p-2 hover:z-20 focus-within:z-20 sm:p-3">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={setsData}
@@ -539,11 +595,12 @@ export function MuscleGroupProgressClient({
                   />
                   <Tooltip
                     filterNull
-                    contentStyle={{
-                      borderRadius: 10,
-                      border: "1px solid hsl(var(--border))",
-                      background: "hsl(var(--background))",
-                    }}
+                    allowEscapeViewBox={{ x: true, y: true }}
+                    wrapperStyle={chartTooltipWrapperStyle}
+                    contentStyle={chartTooltipContentStyle}
+                    labelStyle={chartTooltipLabelStyle}
+                    itemStyle={chartTooltipItemStyle}
+                    itemSorter={sortTooltipItemsDescending}
                     formatter={(value, name) => [
                       formatSets(Number(value)),
                       seriesLabel(String(name)),
@@ -578,7 +635,7 @@ export function MuscleGroupProgressClient({
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {t("muscleGroups.volumeTitle")}
             </p>
-            <div className="h-64 w-full rounded-md border bg-muted/20 p-2 sm:p-3">
+            <div className="relative z-0 h-64 w-full overflow-visible rounded-md border bg-muted/20 p-2 hover:z-20 focus-within:z-20 sm:p-3">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={volumeData}
@@ -607,11 +664,12 @@ export function MuscleGroupProgressClient({
                   />
                   <Tooltip
                     filterNull
-                    contentStyle={{
-                      borderRadius: 10,
-                      border: "1px solid hsl(var(--border))",
-                      background: "hsl(var(--background))",
-                    }}
+                    allowEscapeViewBox={{ x: true, y: true }}
+                    wrapperStyle={chartTooltipWrapperStyle}
+                    contentStyle={chartTooltipContentStyle}
+                    labelStyle={chartTooltipLabelStyle}
+                    itemStyle={chartTooltipItemStyle}
+                    itemSorter={sortTooltipItemsDescending}
                     formatter={(value, name) => [
                       `${Math.round(Number(value))} ${t("muscleGroups.volumeUnit")}`,
                       seriesLabel(String(name)),
