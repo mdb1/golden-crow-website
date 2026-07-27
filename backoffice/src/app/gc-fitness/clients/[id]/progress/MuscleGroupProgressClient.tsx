@@ -17,8 +17,17 @@
 // Android Progress-tab charts (MuscleGroupSeriesChart `projectionStartIndex`).
 // The weekly readout shows the projected week total too, so a Monday doesn't
 // read as "3 series esta semana".
+//
+// #578 PERSISTENCE: the chip selection + target-zone bounds survive a reload and
+// a hop to another client, via localStorage — see muscle-group-preferences.ts,
+// which documents the two restore semantics copied from the iOS twin. The state
+// below still SEEDS from the defaults so the server render is deterministic;
+// the stored bundle is applied in a mount effect (reading localStorage in a
+// useState initializer would be a hydration mismatch), and each mutation
+// handler persists as it goes — never a state-sync effect, which would race the
+// restore and write the defaults over the coach's choice.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -48,6 +57,14 @@ import {
   DEFAULT_SELECTED_MUSCLE_GROUPS,
 } from "@/lib/gc-fitness/muscle-group-display";
 import {
+  DEFAULT_TARGET_MAX,
+  DEFAULT_TARGET_MIN,
+  clampTargetZone,
+  readMusclePreferences,
+  writeSelectedMuscleGroups,
+  writeTargetZone,
+} from "@/lib/gc-fitness/muscle-group-preferences";
+import {
   PROJECTED_KEY_SUFFIX as PROJ,
   buildChartRows,
   weekHasProjection,
@@ -59,8 +76,8 @@ import {
 } from "../_components/trend-range";
 import { TrendRangeSelector } from "../_components/TrendRangeSelector";
 
-const DEFAULT_TARGET_MIN = 12;
-const DEFAULT_TARGET_MAX = 20;
+// DEFAULT_TARGET_MIN / MAX moved to muscle-group-preferences.ts (#578) — the
+// restore path needs them to fill in a half-written pair.
 // Muscle-group charts read best over a multi-week trend; default to 90d.
 const DEFAULT_MUSCLE_RANGE: TrendRangeKey = "90";
 
@@ -108,13 +125,34 @@ export function MuscleGroupProgressClient({
   const [targetMin, setTargetMin] = useState(DEFAULT_TARGET_MIN);
   const [targetMax, setTargetMax] = useState(DEFAULT_TARGET_MAX);
 
-  const toggleGroup = (g: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(g)) next.delete(g);
-      else next.add(g);
-      return next;
-    });
+  // #578 — apply the persisted bundle once the component is on the client. A
+  // stored selection wins outright over the seeded defaults (including an empty
+  // one: that's "the coach unticked everything", not "no value") and is NOT
+  // intersected with `availableGroups`, so a group this client doesn't train is
+  // merely not drawn rather than dropped from the preference.
+  useEffect(() => {
+    const stored = readMusclePreferences();
+    if (stored.selected !== null) setSelected(new Set(stored.selected));
+    if (stored.targetMin !== null || stored.targetMax !== null) {
+      const { min, max } = clampTargetZone(
+        stored.targetMin ?? DEFAULT_TARGET_MIN,
+        stored.targetMax ?? DEFAULT_TARGET_MAX,
+      );
+      setTargetMin(min);
+      setTargetMax(max);
+    }
+  }, []);
+
+  // `next` is computed outside the updater so the exact value that lands in
+  // state is the one persisted (a side effect inside a React updater would run
+  // twice under StrictMode).
+  const toggleGroup = (g: string) => {
+    const next = new Set(selected);
+    if (next.has(g)) next.delete(g);
+    else next.add(g);
+    setSelected(next);
+    writeSelectedMuscleGroups(next);
+  };
 
   // Selected groups in canonical order (stable line order + legend).
   const selectedOrdered = useMemo(
@@ -170,10 +208,10 @@ export function MuscleGroupProgressClient({
   }, [windowWeeks, currentIndex, selectedOrdered]);
 
   const clampTarget = (nextMin: number, nextMax: number) => {
-    const lo = Math.max(0, Math.min(nextMin, nextMax));
-    const hi = Math.max(lo, nextMax);
-    setTargetMin(lo);
-    setTargetMax(hi);
+    const { min, max } = clampTargetZone(nextMin, nextMax);
+    setTargetMin(min);
+    setTargetMax(max);
+    writeTargetZone(min, max);
   };
 
   const rangeLabels: Record<TrendRangeKey, string> = {
