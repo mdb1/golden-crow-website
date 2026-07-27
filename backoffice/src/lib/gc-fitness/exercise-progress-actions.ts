@@ -5,14 +5,16 @@
 // progression over time.
 //
 // METRICS (computed per session, see ExerciseSessionPoint):
-//   - topSetWeightKg — heaviest WORKING (non-warmup) set's weight in the
-//     session. The simplest "am I lifting heavier?" signal. PRIMARY metric.
+//   - topSetWeightKg — heaviest set's weight in the session. The simplest
+//     "am I lifting heavier?" signal. PRIMARY metric.
 //   - estimatedOneRmKg — best Epley estimate weightKg × (1 + reps/30) across
-//     the session's working sets. Matches the iOS PR e1RM math. SECONDARY.
-//   - volumeKg — Σ (weightKg × reps) over the session's working sets for THIS
+//     the session's sets. Matches the iOS PR e1RM math. SECONDARY.
+//   - volumeKg — Σ (weightKg × reps) over the session's sets for THIS
 //     exercise. Tertiary "total work" signal.
-// Bodyweight / time-based sets with no weight contribute nothing to weight
-// metrics; a session with no weighted working set for the exercise is dropped.
+// #565: EVERY set type counts (warm-up / failure / drop set alike) — `set_type`
+// is a display marker, never a filter. Bodyweight / time-based sets with no
+// weight contribute nothing to the weight metrics; a session with no weighted
+// set for the exercise is dropped.
 //
 // READ-COST: ONE Firestore read — `workout_logs where clientId == X and
 // startedAt >= today-365 orderBy startedAt desc limit 300`. Reuses the EXISTING
@@ -59,11 +61,11 @@ export interface ExerciseSessionPoint {
   exerciseId: string;
   /** civilDate YYYY-MM-DD of the session start (client timezone). */
   date: string;
-  /** Heaviest working-set weight (kg) in the session; null if unweighted. */
+  /** Heaviest set weight (kg) in the session; null if unweighted. */
   topSetWeightKg: number | null;
-  /** Best Epley estimated 1RM (kg) across working sets; null if unweighted. */
+  /** Best Epley estimated 1RM (kg) across the session's sets; null if unweighted. */
   estimatedOneRmKg: number | null;
-  /** Σ weightKg × reps over working sets for this exercise. */
+  /** Σ weightKg × reps over this exercise's sets (every type — #565). */
   volumeKg: number;
 }
 
@@ -76,7 +78,7 @@ export interface ClientExerciseProgress {
   /**
    * #480 — weekly weighted sets + volume per coarse muscle group, for the
    * muscle-group comparison charts. Empty when the client has logged no
-   * completed working sets in the window.
+   * completed sets in the window.
    */
   muscleGroupWeeks: MuscleGroupWeekPoint[];
   /** Coarse groups with any data in the window, in `COARSE_MUSCLE_GROUPS` order. */
@@ -177,9 +179,10 @@ export async function getClientExerciseProgress(
     { name: string; sessionCount: number; hasData: boolean }
   >();
 
-  // #480 — every completed NON-warmup set (bodyweight included), tagged with its
-  // session civil date + per-set volume, for the muscle-group aggregation. The
-  // exercise→muscle-group join happens after the batched exercise read below.
+  // #480 — every completed set (bodyweight and warm-ups included, #565), tagged
+  // with its session civil date + per-set volume, for the muscle-group
+  // aggregation. The exercise→muscle-group join happens after the batched
+  // exercise read below.
   const muscleSetInputs: MuscleSetInput[] = [];
   const muscleExerciseIds = new Set<string>();
 
@@ -231,9 +234,9 @@ export async function getClientExerciseProgress(
         acc.hasCompleted = true;
       }
 
-      // Warmups never count toward top-set / e1RM / volume (mirrors iOS).
-      if (Boolean(s.is_warmup ?? s.isWarmup)) continue;
-
+      // #565 — EVERY set type counts toward top-set / e1RM / volume /
+      // muscle-group attribution (warm-up / failure / drop set alike; mirrors
+      // iOS + Android). `set_type` / `is_warmup` are display markers only.
       const weight = numeric(s.weight_kg ?? s.weight);
       const reps = numeric(s.reps);
 
@@ -270,8 +273,8 @@ export async function getClientExerciseProgress(
       if (!acc.hasCompleted) continue;
       // `hasData` = this session produced a chartable value (≥1 weighted working
       // set → topWeight non-null, which also implies e1RM/volume are available).
-      // Bodyweight/warmup-only exercises (e.g. "Warm Up") never set it, so the
-      // filter below drops them from the picker — only exercises WITH data show.
+      // Bodyweight-only exercises never set it, so the filter below drops them
+      // from the picker — only exercises WITH data show.
       const sessionHasData = acc.topWeight !== null;
       const meta = exerciseMeta.get(exId);
       const name = nameById.get(exId) ?? exId;
@@ -294,8 +297,9 @@ export async function getClientExerciseProgress(
     }
   }
 
-  // Only surface exercises that actually have chartable data (drops "Warm Up"
-  // and other bodyweight/warmup-only entries the coach can't plot).
+  // Only surface exercises that actually have chartable data (drops
+  // bodyweight-only entries the coach can't plot — they carry no weight, so
+  // there's nothing to chart even though they DO count as sets).
   const withData = Array.from(exerciseMeta.entries()).filter(
     ([, m]) => m.hasData,
   );

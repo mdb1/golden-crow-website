@@ -91,8 +91,8 @@ export async function WorkoutTrendsWidget({
       const done = Boolean(s.completed_at ?? s.completedAt);
       if (!done) continue;
       completedSets += 1;
-      const isWarmup = Boolean(s.is_warmup ?? s.isWarmup);
-      if (isWarmup) continue;
+      // #565 — every set type contributes to volume (warm-up / failure /
+      // drop set alike); `set_type` / `is_warmup` are display markers only.
       volumeKg += numeric(s.weight_kg ?? s.weight) * numeric(s.reps);
     }
 
