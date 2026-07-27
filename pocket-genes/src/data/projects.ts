@@ -23,7 +23,14 @@ export interface Project {
   category: CategoryId;
 }
 
-type ProjectKey = 'project1' | 'project2' | 'project3' | 'project4';
+type ProjectKey =
+  | 'project1'
+  | 'project2'
+  | 'project3'
+  | 'project4'
+  | 'project5'
+  | 'project6'
+  | 'project7';
 
 interface ProjectDef {
   key: ProjectKey;
@@ -35,19 +42,28 @@ interface ProjectDef {
 // it is our own product, and the carousel only shows three cards at a time, so
 // anything in fourth place is invisible until the user drags.
 const projectDefs: readonly ProjectDef[] = [
-  { key: 'project4', category: 'fitness' },
-  { key: 'project1', category: 'fitness' },
-  { key: 'project2', category: 'health' },
-  { key: 'project3', category: 'fitness' },
+  { key: 'project4', category: 'fitness' },   // GC Fitness
+  { key: 'project1', category: 'fitness' },   // StrongerU
+  { key: 'project2', category: 'health' },    // PocketGenes
+  { key: 'project3', category: 'fitness' },   // Anytime Fitness
+  { key: 'project7', category: 'fitness' },   // BAX-U Golf
+  { key: 'project5', category: 'mobility' },  // James
+  { key: 'project6', category: 'culture' },   // Jardín Sonoro
 ] as const;
 
 // Extra link slots a project may fill. The URL lives in the i18n bundle next to
 // the rest of the project's fields (so a locale can point at a localized page);
 // the LABEL comes from `t.work.links` because it is the same for every project.
+// `Site` is deliberately NOT the legacy `websiteUrl` field: that one turns the
+// whole card into an anchor, which cannot coexist with pills (see the assertion
+// at the bottom of getProjects). A project with more than one destination puts
+// its own site here instead.
 const EXTRA_LINKS = [
+  { urlKey: 'Site', labelKey: 'site' },
   { urlKey: 'Download', labelKey: 'download' },
   { urlKey: 'Instagram', labelKey: 'instagram' },
   { urlKey: 'Wiki', labelKey: 'wiki' },
+  { urlKey: 'Press', labelKey: 'press' },
 ] as const;
 
 export function getProjects(t: Translations): Project[] {

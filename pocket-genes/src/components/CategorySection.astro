@@ -67,15 +67,19 @@ const { title, description, projects } = Astro.props;
     line-height: 1.6;
   }
 
+  /* auto-FILL, not auto-fit: with auto-fit a category holding a single project
+     collapses the empty tracks and stretches that one card to the full row, so
+     its 220px-tall image gets cropped to a thin letterbox. auto-fill keeps the
+     empty tracks, so a lone card stays the same size as every other card. */
   .category-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: clamp(1.5rem, 3vw, 2rem);
   }
 
   @media (min-width: 1200px) {
     .category-grid {
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     }
   }
 </style>

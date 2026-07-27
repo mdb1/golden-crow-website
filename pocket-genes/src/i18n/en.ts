@@ -64,6 +64,31 @@ export const en = {
     project4Download: '/en/gc-fitness/download/',
     project4Instagram: 'https://www.instagram.com/gcfitness/',
     project4Wiki: 'https://golden-crow-backoffice.vercel.app/gc-fitness/wiki',
+    project5Title: 'James',
+    project5Desc: 'Private driver booking platform. Riders add the drivers they trust, schedule rides and pay in-app; drivers run their own business and keep 95% of the fare and 100% of tips.',
+    project5Image: '/james-card.webp',
+    project5Tags: ['iOS', 'Android'] as unknown as string[],
+    project5AppStore: '',
+    project5GooglePlay: '',
+    project5Website: '',
+    project5Site: 'https://james.app/',
+    project6Title: 'Jardín Sonoro',
+    project6Desc: 'An app that puts theatre inside a public park. Visitors walk the Buenos Aires Botanical Garden and, at each listening point on the map, Bluetooth triggers a short play written, directed and performed by women artists — saved to the phone to hear again later.',
+    project6Image: '/jardin-sonoro-card.webp',
+    project6Tags: ['iOS', 'Android', 'Bluetooth', 'Culture'] as unknown as string[],
+    project6AppStore: '',
+    project6GooglePlay: '',
+    project6Website: '',
+    project6Instagram: 'https://www.instagram.com/unjardinsonoro/',
+    project6Press: 'https://buenosaires.gob.ar/gcaba_historico/noticias/jardin-sonoro-una-experiencia-teatral-para-recorrer-el-botanico-y-escuchar',
+    project7Title: 'BAX-U Golf',
+    project7Desc: 'iBAXU, the app half of BAX-U Golf: it pairs with the brand\u2019s posture-correcting activewear and uses AI to track how a player\u2019s performance changes over time, starting with golf.',
+    project7Image: '/bax-u-golf-card.webp',
+    project7Tags: ['Wearable', 'AI', 'Golf'] as unknown as string[],
+    project7AppStore: '',
+    project7GooglePlay: '',
+    project7Website: '',
+    project7Site: 'https://bax-ugolf.com/',
     // Stats / Why Us
     statsTitle: 'Why Choose Us',
     statsSubtitle: 'A senior engineering team with a track record at scale.',
@@ -140,6 +165,14 @@ export const en = {
       title: 'Fitness',
       description: 'Native mobile apps for gyms, coaches, and fitness brands — from member engagement to franchise-scale platforms.',
     },
+    mobility: {
+      title: 'Mobility',
+      description: 'Apps that move people: booking, scheduling and payments between riders and the drivers they trust.',
+    },
+    culture: {
+      title: 'Culture & Public Space',
+      description: 'Apps that turn a place into an experience — location-aware audio, theatre and storytelling in the middle of a city.',
+    },
   },
 
   // Work page (/work)
@@ -151,9 +184,11 @@ export const en = {
     // every project — only the URLs differ (see project<N>Download / …Instagram
     // / …Wiki in the index bundle above).
     links: {
+      site: 'Website',
       download: 'Download',
       instagram: 'Instagram',
       wiki: 'Coach wiki',
+      press: 'Press',
     },
   },
 
