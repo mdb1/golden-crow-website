@@ -15,6 +15,12 @@ const extraLinks = project.links ?? [];
 // badges, no extra links) keep the whole surface clickable exactly as before;
 // `projects.ts` asserts the two styles are never mixed.
 const wholeCardIsLink = Boolean(project.websiteUrl);
+
+// Segunda forma de hacer clickeable la card, para las que SÍ tienen links
+// adentro: un ancla estirada por encima de toda la superficie pero por DEBAJO
+// de las badges y las píldoras. Tocar la card lleva a la página del producto;
+// tocar una badge o una píldora sigue yendo a su destino. Sin anclas anidadas.
+const overlayHref = !wholeCardIsLink ? project.pageUrl : undefined;
 const isExternal = (href: string) => !href.startsWith('/');
 const Tag = wholeCardIsLink ? 'a' : 'div';
 const linkProps = wholeCardIsLink
@@ -25,7 +31,16 @@ const linkProps = wholeCardIsLink
   : {};
 ---
 
-<Tag class:list={['project-card', { 'project-card--clickable': wholeCardIsLink }]} {...linkProps}>
+<Tag
+  class:list={[
+    'project-card',
+    { 'project-card--clickable': wholeCardIsLink || Boolean(overlayHref) },
+  ]}
+  {...linkProps}
+>
+  {overlayHref && (
+    <a class="card-overlay-link" href={overlayHref} aria-label={project.title}></a>
+  )}
   <div class="card-image">
     <img src={project.image} alt={project.title} loading="lazy" />
   </div>
@@ -70,6 +85,7 @@ const linkProps = wholeCardIsLink
 
 <style>
   .project-card {
+    position: relative;
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 1rem;
@@ -82,6 +98,21 @@ const linkProps = wholeCardIsLink
   .project-card:hover {
     transform: translateY(-5px);
     box-shadow: var(--card-shadow-hover);
+  }
+
+  /* El ancla estirada va debajo de todo lo clickeable de adentro: la card
+     entera navega, pero las badges y las píldoras ganan el click. */
+  .card-overlay-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
+
+  .card-links,
+  .card-pills {
+    position: relative;
+    z-index: 2;
   }
 
   .card-image {

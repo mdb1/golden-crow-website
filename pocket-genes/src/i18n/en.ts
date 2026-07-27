@@ -61,6 +61,7 @@ export const en = {
     project4AppStore: 'https://apps.apple.com/app/id6771836254',
     project4GooglePlay: 'https://play.google.com/store/apps/details?id=com.goldencrow.fitness',
     project4Website: '',
+    project4Page: '/en/gc-fitness',
     project4Download: '/en/gc-fitness/download/',
     project4Instagram: 'https://www.instagram.com/gcfitness/',
     project4Wiki: 'https://golden-crow-backoffice.vercel.app/gc-fitness/wiki',

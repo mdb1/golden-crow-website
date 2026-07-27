@@ -1,0 +1,34 @@
+---
+// Página de producto de GC Fitness. Usa la misma maqueta que /pocket-genes
+// (ProductStoryPage), con la paleta ámbar de la marca.
+//
+// La imagen del hero es la misma de la card, y trae el logo y el nombre
+// pintados a la izquierda. El velo va casi opaco hasta el 42% para tapar ese
+// texto — si no se lee por detrás del titular de la página — y se abre sobre el
+// lado derecho, que es donde están el teléfono y el reloj.
+import ProductStoryPage from '../../components/ProductStoryPage.astro';
+import { getGCFitnessStoryNav, getGCFitnessStoryPage } from '../../data/gcFitnessStory';
+import { defaultLang, type Lang } from '../../i18n/ui';
+
+const lang = (Astro.currentLocale || defaultLang) as Lang;
+
+const palette = {
+  accent: '#af8232',
+  accentAlt: '#7a5413',
+  accentSoft: '#f0c658',
+  navActiveBg: '#faf1dd',
+  navActiveInk: '#6b4c12',
+  heroOverlay:
+    'linear-gradient(90deg, rgba(26, 18, 6, 0.99) 0%, rgba(26, 18, 6, 0.98) 48%, rgba(26, 18, 6, 0.5) 66%, rgba(26, 18, 6, 0.1) 100%)',
+  heroOverlayNarrow:
+    'linear-gradient(180deg, rgba(26, 18, 6, 0.94) 0%, rgba(26, 18, 6, 0.78) 62%, rgba(26, 18, 6, 0.42) 100%)',
+  heroPosition: 'right center',
+};
+---
+
+<ProductStoryPage
+  page={getGCFitnessStoryPage(lang)}
+  navItems={getGCFitnessStoryNav(lang)}
+  activeSlug="product"
+  palette={palette}
+/>
