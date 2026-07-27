@@ -180,7 +180,9 @@ export const en = {
   work: {
     title: 'Golden Crow VS - Our Work',
     heroTitle: 'Our Work',
-    heroSubtitle: 'A decade of native mobile apps shipped to production. Browse our work by industry.',
+    heroSubtitle: 'A decade of native mobile apps shipped to production. Filter by sector to see the work in each industry.',
+    filterAll: 'All',
+    filterLabel: 'Filter by sector',
     // Labels for the extra link pills under a project card. Same wording for
     // every project — only the URLs differ (see project<N>Download / …Instagram
     // / …Wiki in the index bundle above).
