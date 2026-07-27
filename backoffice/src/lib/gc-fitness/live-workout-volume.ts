@@ -5,24 +5,28 @@
 // No I/O; unit-tested in __tests__/live-workout-volume.test.ts.
 //
 // Volume contract (mirrors iOS):
-//   - WARMUP sets are EXCLUDED from total volume — via the HARDENED
-//     effective predicate (quick-260714-m57 #403): a set is a warmup when
-//     EITHER the richer setType === "warmup" OR the legacy isWarmup flag
-//     says so (effectiveSetType from ./set-type). Failure / drop sets
-//     count normally.
+//   - EVERY set type contributes (issue #565). Warm-up / failure / drop sets
+//     count exactly like a normal set. This REVERSES the #403 rule where a
+//     warm-up contributed 0 — `setType` is now a display marker only (the
+//     W/F/D letter + the Hevy numbering rule), never a multiplier.
+//     `isWarmup` / `effectiveSetType` survive for that display layer and for
+//     the wire sync invariant, but NOTHING in the sets/volume math may
+//     consult them.
 //   - reps-based set:  weightKg * reps
 //   - time-based set:  weightKg * (durationSeconds / 60)   — a bodyweight
 //     plank (weightKg = 0) contributes 0, which is correct.
 //   A set counts as time-based when it carries a positive durationSeconds.
+//
+// ⚠️ `workout_logs.total_volume_kg` is FROZEN at finalize and read directly by
+// the volume-trend charts, so pre-#565 logs keep their warm-up-excluded totals
+// until `scripts/backfill-total-volume-565.cjs` runs.
 
 import type { SessionSetLog } from "./live-workout-types";
-import { effectiveSetType } from "./set-type";
 
-/** Σ working volume in kg. Warmups excluded; time sets use weight·minutes. */
+/** Σ volume in kg over EVERY logged set (#565); time sets use weight·minutes. */
 export function computeTotalVolumeKg(sets: SessionSetLog[]): number {
   let total = 0;
   for (const set of sets) {
-    if (effectiveSetType(set) === "warmup") continue;
     const duration = set.durationSeconds ?? 0;
     if (duration > 0) {
       total += set.weightKg * (duration / 60);
@@ -52,7 +56,7 @@ export function computeDurationSeconds(
   return seconds > 0 ? seconds : 0;
 }
 
-/** Count of completed (non-warmup) working sets — for the progress header. */
+/** Count of completed sets — every set type counts (#565). */
 export function countWorkingSets(sets: SessionSetLog[]): number {
-  return sets.filter((s) => effectiveSetType(s) !== "warmup").length;
+  return sets.length;
 }

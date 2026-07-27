@@ -31,12 +31,14 @@ describe("computeTotalVolumeKg", () => {
     expect(computeTotalVolumeKg(sets)).toBe(1500);
   });
 
-  it("excludes warmup sets", () => {
+  // #565 — REVERSES the #403 rule. Warm-ups used to contribute 0; every set
+  // type now counts identically, so `setType` is a display marker only.
+  it("#565 — includes warmup sets like any other set", () => {
     const sets = [
       set({ weightKg: 60, reps: 10, isWarmup: true }),
       set({ weightKg: 100, reps: 5 }),
     ];
-    expect(computeTotalVolumeKg(sets)).toBe(500);
+    expect(computeTotalVolumeKg(sets)).toBe(600 + 500);
   });
 
   it("uses weight × minutes for time-based sets", () => {
@@ -83,46 +85,47 @@ describe("computeDurationSeconds", () => {
 });
 
 describe("countWorkingSets", () => {
-  it("counts only non-warmup sets", () => {
+  it("#565 — counts every logged set, warmups included", () => {
     expect(
       countWorkingSets([
         set({ isWarmup: true }),
         set({}),
         set({}),
       ]),
-    ).toBe(2);
+    ).toBe(3);
   });
 });
 
-// quick-260714-m57 (#403) — twin vectors shared with iOS SetTypeTests +
-// Android WorkoutVolumeTest: set-type-aware warmup exclusion.
-describe("set-type aware volume (quick-260714-m57 #403)", () => {
-  it("warmup excluded, failure + dropset included ⇒ 450.0 exactly", () => {
+// #565 — twin vectors shared with iOS WorkoutVolumeTests + Android
+// WorkoutVolumeTest: EVERY set type contributes. These vectors read 450 / 200
+// / 2 while #403 excluded warm-ups.
+describe("set-type aware volume (#565 — all types count)", () => {
+  it("warmup + failure + dropset all included ⇒ 650.0 exactly", () => {
     const sets = [
-      set({ weightKg: 20, reps: 10, setType: "warmup", isWarmup: true }), // excluded
+      set({ weightKg: 20, reps: 10, setType: "warmup", isWarmup: true }), // 200
       set({ weightKg: 20, reps: 10 }), // 200
       set({ weightKg: 30, reps: 5, setType: "failure" }), // 150
       set({ weightKg: 10, reps: 10, setType: "dropset" }), // 100
     ];
-    expect(computeTotalVolumeKg(sets)).toBe(450);
+    expect(computeTotalVolumeKg(sets)).toBe(650);
   });
 
-  it("a set_type-only warmup (isWarmup false) is ALSO excluded", () => {
+  it("a set_type-only warmup (isWarmup false) counts too", () => {
     const sets = [
       set({ weightKg: 20, reps: 10, setType: "warmup", isWarmup: false }),
       set({ weightKg: 20, reps: 10 }),
     ];
-    expect(computeTotalVolumeKg(sets)).toBe(200);
-    expect(countWorkingSets(sets)).toBe(1);
+    expect(computeTotalVolumeKg(sets)).toBe(400);
+    expect(countWorkingSets(sets)).toBe(2);
   });
 
-  it("failure/dropset sets count as working sets", () => {
+  it("every set type counts toward the set tally", () => {
     expect(
       countWorkingSets([
         set({ setType: "failure" }),
         set({ setType: "dropset" }),
         set({ setType: "warmup", isWarmup: true }),
       ]),
-    ).toBe(2);
+    ).toBe(3);
   });
 });

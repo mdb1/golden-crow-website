@@ -485,12 +485,11 @@ function buildSuccessModel(
 
   const exercises: ExerciseRow[] = order.map((key) => {
     const bucket = byExercise.get(key)!;
-    // Working sets only (warmups excluded), sorted by index.
-    const working = bucket.sets
-      .filter((s) => !s.isWarmup)
-      .sort((a, b) => a.index - b.index);
+    // #565 — every set type is listed on the card (the W/F/D marker still
+    // distinguishes them visually) and counts in the totals.
+    const working = bucket.sets.slice().sort((a, b) => a.index - b.index);
 
-    // Highest-volume working set = max(weight × reps); only weighted sets.
+    // Highest-volume set = max(weight × reps); only weighted sets.
     let topVolume = 0;
     let topIdx = -1;
     working.forEach((s, i) => {
@@ -519,11 +518,11 @@ function buildSuccessModel(
     return { name: bucket.name, chips, oneRMLabel, supersetGroup };
   });
 
-  // Volumen total = Σ(weight × reps) over working (non-warmup) sets.
+  // Volumen total = Σ(weight × reps) over EVERY set (#565).
   const totalVolume = detail.sets
-    .filter((s) => !s.isWarmup && s.metric !== "time")
+    .filter((s) => s.metric !== "time")
     .reduce((acc, s) => acc + (s.weight ?? 0) * (s.reps ?? 0), 0);
-  const seriesCount = detail.sets.filter((s) => !s.isWarmup).length;
+  const seriesCount = detail.sets.length;
   const exerciseCount = detail.exerciseCount || order.length;
 
   const stats: ShareStat[] = [
