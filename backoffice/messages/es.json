@@ -261,6 +261,18 @@
       "title": "Progreso por ejercicio",
       "subtitle": "Elegí un ejercicio para ver la progresión de este cliente a lo largo del tiempo.",
       "exercisePickerLabel": "Ejercicio",
+      "exerciseSearchPlaceholder": "Buscar ejercicio…",
+      "exerciseSearchEmpty": "Ningún ejercicio coincide con la búsqueda.",
+      "setHistory": {
+        "title": "Series registradas",
+        "subtitle": "{count, plural, one {# sesión registrada} other {# sesiones registradas}}, de la más reciente a la más antigua. No se ve afectada por el selector de rango de arriba.",
+        "lineWeighted": "{reps} reps × {weight} kg",
+        "lineReps": "{reps} reps",
+        "lineTime": "{seconds} s",
+        "loadMore": "Ver más ({remaining})",
+        "prLabel": "Récord personal",
+        "truncated": "Mostrando las {count} sesiones más recientes de este ejercicio."
+      },
       "muscleGroupLabel": "Grupo muscular",
       "muscleGroupAll": "Todos",
       "metricTopSet": "Serie máxima",
