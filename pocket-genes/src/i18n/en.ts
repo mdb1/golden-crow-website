@@ -196,13 +196,7 @@ export const en = {
   about: {
     title: 'Golden Crow VS - About Us',
     heroTitle: 'About Golden Crow VS',
-    heroDesc: 'We are a technology company focused on creating innovative solutions for genomic data analysis and visualization.',
-    missionTitle: 'Our Mission',
-    missionDesc: 'To make genomic data accessible, understandable, and actionable for everyone.',
-    visionTitle: 'Our Vision',
-    visionDesc: 'A world where genetic insights empower individuals to make informed decisions about their health and lifestyle.',
-    technologyTitle: 'Our Technology',
-    technologyDesc: 'We leverage cutting-edge technology to transform complex genetic data into intuitive, interactive experiences.',
+    heroDesc: 'A boutique software studio building premium mobile products. Who we are, why we exist and the team behind it.',
   },
 
   // Contact page
