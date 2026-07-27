@@ -129,6 +129,11 @@ const projects = getProjects(t);
     </section>
 
     <!-- Section 5: Team -->
+    <!-- #about es un alias de #team: el "Nosotros" del nav y del footer apunta
+         a /#about y tiene que caer acá, en "Conocé al Equipo". Va como ancla
+         suelta porque un elemento no puede llevar dos ids, y las dos formas
+         están en links publicados. -->
+    <span id="about" class="anchor-alias" aria-hidden="true"></span>
     <section class="team-section" id="team">
       <AboutUs />
     </section>
@@ -474,6 +479,11 @@ const projects = getProjects(t);
   }
 
   /* Team Section */
+  .anchor-alias {
+    display: block;
+    height: 0;
+  }
+
   .team-section {
     padding: 0;
   }

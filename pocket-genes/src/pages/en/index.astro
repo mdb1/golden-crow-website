@@ -129,6 +129,11 @@ const projects = getProjects(t);
     </section>
 
     <!-- Section 5: Team -->
+    <!-- #about is an alias of #team: the nav's and footer's "About Us" links
+         point at /#about and must land here, on "Meet the Team". It is a bare
+         anchor because one element cannot carry two ids, and both forms are in
+         links already out in the wild. -->
+    <span id="about" class="anchor-alias" aria-hidden="true"></span>
     <section class="team-section" id="team">
       <AboutUs />
     </section>
@@ -234,6 +239,7 @@ const projects = getProjects(t);
   .step-desc { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.55; margin: 0; }
 
   /* Team Section */
+  .anchor-alias { display: block; height: 0; }
   .team-section { padding: 0; }
 
   /* Booking Section */
