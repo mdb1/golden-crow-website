@@ -278,7 +278,9 @@ export function ExerciseProgressClient({
             {/* #574 — searchable picker. A client with dozens of logged
                 exercises made the plain <Select> unusable; Command's fuzzy
                 filter runs over the diacritic-normalized name so "sentadilla"
-                and "Sentadílla" both match. */}
+                and "Sentadílla" both match. #581 — the search text also carries
+                the exercise's OTHER language, so a Spanish-labelled row is
+                findable by its English name and vice versa. */}
             <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -318,12 +320,17 @@ export function ExerciseProgressClient({
                           key={ex.exerciseId}
                           // What Command filters on. Normalized (lowercase +
                           // no diacritics) so "sentadilla" matches
-                          // "Sentadílla", and suffixed with the id so two
-                          // same-named library twins (the known double-seed)
-                          // stay DISTINCT items — cmdk keys its registry on
-                          // `value`, so a collision would merge the rows.
+                          // "Sentadílla"; #581 folds in `searchAliases` (the
+                          // language NOT displayed, plus any older name) so
+                          // "bench press" finds "Press de banca"; and suffixed
+                          // with the id so two same-named library twins (the
+                          // known double-seed) stay DISTINCT items — cmdk keys
+                          // its registry on `value`, so a collision would merge
+                          // the rows.
                           value={normalizeSearchText(
-                            `${ex.name} ${ex.exerciseId}`,
+                            [ex.name, ...ex.searchAliases, ex.exerciseId].join(
+                              " ",
+                            ),
                           )}
                           onSelect={() => {
                             setExerciseId(ex.exerciseId);
