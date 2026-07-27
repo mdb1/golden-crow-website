@@ -607,41 +607,6 @@ export interface DiscoverListPage<T> {
   nextCursor: string | null;
 }
 
-export type DiscoverFeedIndexState =
-  | "READY"
-  | "CREATING"
-  | "NEEDS_REPAIR"
-  | "MISSING"
-  | "UNKNOWN";
-
-export type DiscoverFeedIndexAction = "existing" | "created" | "failed";
-
-export interface DiscoverFeedIndexField {
-  fieldPath: string;
-  order: "ASCENDING" | "DESCENDING";
-}
-
-export interface DiscoverFeedIndexStatus {
-  id: string;
-  collectionGroup: "feed_items";
-  queryScope: "COLLECTION";
-  fields: DiscoverFeedIndexField[];
-  state: DiscoverFeedIndexState;
-  action: DiscoverFeedIndexAction;
-  name?: string;
-  operationName?: string;
-  error?: string;
-}
-
-export interface DiscoverFeedIndexEnsureResult {
-  projectId: string;
-  databaseId: "(default)";
-  ready: boolean;
-  created: number;
-  indexes: DiscoverFeedIndexStatus[];
-  message: string;
-}
-
 // Lesson types — Firestore-backed lesson content
 export interface LessonParagraph {
   paragraphTitle: string;

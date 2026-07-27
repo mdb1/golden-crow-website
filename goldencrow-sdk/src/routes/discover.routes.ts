@@ -15,7 +15,6 @@ import {
   updateDiscoverFeedItem,
   updateDiscoverOrganization,
 } from "../repositories/discover.repository.js";
-import { ensureDiscoverFeedIndexes } from "../repositories/discover-indexes.repository.js";
 
 const OrganizationStatusSchema = z.enum(["active", "inactive", "archived"]);
 const OrganizationTypeSchema = z.enum([
@@ -271,18 +270,6 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
           request.body,
         );
         return reply.send({ feedItem });
-      } catch (error) {
-        return sendRepositoryError(reply, error);
-      }
-    },
-  );
-
-  f.post(
-    "/discover/feed-items/indexes/ensure",
-    async (request, reply) => {
-      try {
-        const result = await ensureDiscoverFeedIndexes(request.adminContext!);
-        return reply.send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

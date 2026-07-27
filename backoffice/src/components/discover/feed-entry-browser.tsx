@@ -6,26 +6,19 @@ import { useRouter } from "next/navigation";
 import {
   Archive,
   ArrowRight,
-  CircleCheck,
   Copy,
   Plus,
   RefreshCcw,
   Search,
   TriangleAlert,
-  Wrench,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppLanguage } from "@/components/app-language-provider";
-import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
+import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
 import {
@@ -33,8 +26,6 @@ import {
   DISCOVER_FEED_TYPE_OPTIONS,
   discoverStatusLabel,
   discoverTypeLabel,
-  type DiscoverFeedIndexEnsureResult,
-  type DiscoverFeedIndexState,
   getDiscoverFeedSummary,
   getDiscoverFeedTitle,
   getDiscoverPayload,
@@ -44,11 +35,6 @@ import {
   type DiscoverFeedType,
   type DiscoverOrganizationRecord,
 } from "@/lib/discover";
-
-type IndexErrorState = {
-  message: string;
-  details?: string;
-};
 
 function statusBadgeVariant(status: DiscoverFeedStatus) {
   if (status === "published") {
@@ -64,30 +50,6 @@ function statusBadgeVariant(status: DiscoverFeedStatus) {
   }
 
   return "outline" as const;
-}
-
-function indexStateBadgeVariant(state: DiscoverFeedIndexState) {
-  if (state === "READY") {
-    return "success" as const;
-  }
-
-  if (state === "CREATING") {
-    return "warning" as const;
-  }
-
-  if (state === "MISSING" || state === "NEEDS_REPAIR") {
-    return "destructive" as const;
-  }
-
-  return "outline" as const;
-}
-
-function indexFieldsLabel(
-  fields: DiscoverFeedIndexEnsureResult["indexes"][number]["fields"],
-) {
-  return fields
-    .map((field) => `${field.fieldPath} ${field.order === "DESCENDING" ? "desc" : "asc"}`)
-    .join(" + ");
 }
 
 function feedItemPayload(item: DiscoverFeedItemRecord, status: DiscoverFeedStatus) {
@@ -135,10 +97,6 @@ export function DiscoverFeedEntryBrowser({
   const [status, setStatus] = useState<"all" | DiscoverFeedStatus>("all");
   const [organizationId, setOrganizationId] = useState("all");
   const [pending, setPending] = useState(false);
-  const [indexPending, setIndexPending] = useState(false);
-  const [indexResult, setIndexResult] =
-    useState<DiscoverFeedIndexEnsureResult | null>(null);
-  const [indexError, setIndexError] = useState<IndexErrorState | null>(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
 
   const organizationById = useMemo(
@@ -216,50 +174,6 @@ export function DiscoverFeedEntryBrowser({
     }
   }
 
-  async function ensureIndexes() {
-    setIndexPending(true);
-    setIndexError(null);
-
-    try {
-      const result = await sdkFetch<DiscoverFeedIndexEnsureResult>(
-        "/discover/feed-items/indexes/ensure",
-        { method: "POST" },
-      );
-      setIndexResult(result);
-
-      const failed = result.indexes.some((index) => index.action === "failed");
-      setToast({
-        id: Date.now(),
-        tone: failed ? "error" : "success",
-        message: result.message,
-        durationMs: result.ready ? undefined : 9000,
-      });
-    } catch (error) {
-      const message =
-        error instanceof SdkRequestError
-          ? error.message
-          : t("Unable to verify Discover indexes.");
-      const details =
-        error instanceof SdkRequestError
-          ? error.details
-          : error instanceof Error
-            ? error.stack ?? error.message
-            : String(error);
-
-      setIndexResult(null);
-      setIndexError({ message, details });
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message,
-        details,
-        durationMs: 12000,
-      });
-    } finally {
-      setIndexPending(false);
-    }
-  }
-
   async function archiveFeedItem(item: DiscoverFeedItemRecord) {
     setPending(true);
     try {
@@ -321,15 +235,6 @@ export function DiscoverFeedEntryBrowser({
             <HeaderUnclutterButton />
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void ensureIndexes()}
-              disabled={pending || indexPending}
-            >
-              <Wrench className="h-3.5 w-3.5" />
-              {indexPending ? t("Checking...") : t("Verify indexes")}
-            </Button>
             <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={pending}>
               <RefreshCcw className="h-3.5 w-3.5" />
               {pending ? t("Working...") : t("Refresh")}
@@ -394,84 +299,6 @@ export function DiscoverFeedEntryBrowser({
             ))}
           </select>
         </div>
-
-        {indexError || indexResult ? (
-          <Alert
-            variant={
-              indexError ||
-              indexResult?.indexes.some(
-                (index) =>
-                  index.action === "failed" || index.state === "NEEDS_REPAIR",
-              )
-                ? "destructive"
-                : "default"
-            }
-            className="bg-background/70"
-          >
-            {indexError || !indexResult?.ready ? (
-              <TriangleAlert className="h-4 w-4" />
-            ) : (
-              <CircleCheck className="h-4 w-4" />
-            )}
-            <AlertTitle>
-              {indexError
-                ? t("Index update failed")
-                : indexResult?.ready
-                  ? t("Discover indexes ready")
-                  : t("Discover indexes building")}
-            </AlertTitle>
-            <AlertDescription className="space-y-3">
-              <p>{indexError?.message ?? indexResult?.message}</p>
-
-              {indexResult ? (
-                <div className="space-y-2">
-                  <p className="font-mono text-xs">
-                    {t("Project")}: {indexResult.projectId} · {t("Database")}:{" "}
-                    {indexResult.databaseId}
-                  </p>
-                  <div className="grid gap-2 lg:grid-cols-2">
-                    {indexResult.indexes.map((index) => (
-                      <div
-                        key={index.id}
-                        className="rounded-md border border-border/70 bg-background/75 px-3 py-2"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-foreground">
-                            {index.id}
-                          </span>
-                          <Badge variant={indexStateBadgeVariant(index.state)}>
-                            {index.state}
-                          </Badge>
-                          <Badge
-                            variant={
-                              index.action === "failed" ? "destructive" : "outline"
-                            }
-                          >
-                            {index.action}
-                          </Badge>
-                        </div>
-                        <p className="mt-1 font-mono text-xs">
-                          {indexFieldsLabel(index.fields)}
-                        </p>
-                        {index.error ? (
-                          <p className="mt-2 text-xs text-destructive">
-                            {index.error}
-                          </p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {indexError?.details ? (
-                <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-md bg-muted/70 p-3 text-xs text-foreground">
-                  {indexError.details}
-                </pre>
-              ) : null}
-            </AlertDescription>
-          </Alert>
-        ) : null}
       </div>
 
       <div className="glass-panel overflow-hidden">
