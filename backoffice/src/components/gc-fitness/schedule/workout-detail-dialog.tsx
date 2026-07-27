@@ -52,6 +52,12 @@ import {
   ShareWorkoutCard,
 } from "@/components/gc-fitness/share-workout-card";
 import { getSupersetGroupRest } from "@/lib/gc-fitness/superset-groups";
+import {
+  SET_TYPE_LABELS_ES,
+  SET_TYPE_TEXT_CLASS,
+  plannedSetType,
+  setDisplayLabels,
+} from "@/lib/gc-fitness/set-type";
 import { WorkoutLogDetailView } from "@/components/gc-fitness/workout-log-detail-view";
 import { WorkoutAssignmentDeleteDialog } from "@/components/gc-fitness/workout-assignment-delete-dialog";
 import { WorkoutAssignmentEditDialog } from "./workout-assignment-edit-dialog";
@@ -535,8 +541,19 @@ function ExerciseSetTable({
   // bodyweight), drop the Peso column entirely so the detail reads reps-only
   // with NO "kg" label. Legacy (nil) + weighted exercises keep the column.
   const noWeight = ex.metric === "time" || ex.hasExplicitNoWeightPrescription;
+  // #582 — planned per-set types + Hevy display labels, the twin of iOS
+  // `WorkoutAssignmentDetailView.setRows` (SetType.planned → SetTypeDisplay
+  // .labels). Non-normal sets render their colored letter INSTEAD of a number,
+  // and normal sets number counting only normals — so W/F/D are visible on the
+  // read-only detail exactly as they are in the client's app.
+  const setTypes = Array.from({ length: ex.sets }, (_, i) =>
+    plannedSetType(i, ex.setTypesBySet),
+  );
+  const setLabels = setDisplayLabels(setTypes);
   const rows = Array.from({ length: ex.sets }, (_, i) => ({
     setNumber: i + 1,
+    setType: setTypes[i],
+    label: setLabels[i],
     reps: ex.repsBySet[i] ?? ex.reps,
     kg: ex.weightBySetKg[i] ?? null,
     durationSeconds:
@@ -560,7 +577,20 @@ function ExerciseSetTable({
           key={row.setNumber}
           className={`grid ${gridCols} gap-2 border-t py-1 text-xs`}
         >
-          <span className="text-muted-foreground">{row.setNumber}</span>
+          <span
+            className={
+              row.setType === "normal"
+                ? "text-muted-foreground"
+                : `font-bold ${SET_TYPE_TEXT_CLASS[row.setType]}`
+            }
+            title={
+              row.setType === "normal"
+                ? undefined
+                : SET_TYPE_LABELS_ES[row.setType]
+            }
+          >
+            {row.label}
+          </span>
           <span className="tabular-nums">
             {ex.metric === "time"
               ? row.durationSeconds !== null
