@@ -45,6 +45,8 @@ import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 import {
   listClientAssignmentsForAdmin,
   listClientHabitsForAdmin,
+  listCoachOptionsForAdmin,
+  transferClientToCoach,
 } from "@/lib/gc-fitness/admin-actions";
 import {
   deleteCoachlessUser,
@@ -159,11 +161,12 @@ export default async function CoachlessUserDetailPage({
 
   // Every widget below is scoped by BOTH ids; for a coach-less user the coach
   // uid IS their own uid (see the header comment).
-  const [logs, photos, assignments, habits] = await Promise.all([
+  const [logs, photos, assignments, habits, coaches] = await Promise.all([
     listRecentLogsForClientAsAdmin(uid, uid).catch(() => null),
     listProgressPhotosForClientAsAdmin(uid, uid).catch(() => []),
     listClientAssignmentsForAdmin(uid, uid).catch(() => []),
     listClientHabitsForAdmin(uid, uid).catch(() => []),
+    listCoachOptionsForAdmin().catch(() => []),
   ]);
 
   const nowMs = Date.now();
@@ -171,6 +174,20 @@ export default async function CoachlessUserDetailPage({
   const isPremium = tier === "premium";
   const timezone = profile.timezone ?? "UTC";
   const displayName = profile.displayName || profile.email || uid;
+
+  // Assigning a coach IS a transfer — from no coach to one. Reuses the tested
+  // `transferClientToCoach` (doc re-point + chat move + coachId claim resync)
+  // rather than adding a second write path. Afterwards this profile 404s (the
+  // user is no longer coach-less), so land on their coached drill-down instead.
+  async function assignCoachAction(formData: FormData) {
+    "use server";
+    const clientUid = String(formData.get("uid") ?? "");
+    const newCoachUid = String(formData.get("newCoachUid") ?? "");
+    await transferClientToCoach({ clientUid, newCoachUid });
+    revalidatePath(LIST_ROUTE);
+    revalidatePath(`/gc-fitness/admin/coaches/${newCoachUid}`);
+    redirect(`/gc-fitness/admin/coaches/${newCoachUid}/clients/${clientUid}`);
+  }
 
   async function setTierAction(formData: FormData) {
     "use server";
@@ -282,6 +299,48 @@ export default async function CoachlessUserDetailPage({
                 </Field>
               ) : null}
             </dl>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xl">Coach</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">
+              This user is self-serve — nobody is coaching them. Assigning a coach
+              links them to that coach&apos;s roster, moves their chat thread, and
+              makes them premium for as long as the link lasts. All their existing
+              routines, habits and logs are kept.
+            </p>
+            {coaches.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No coaches available.</p>
+            ) : (
+              <form action={assignCoachAction} className="flex flex-wrap items-center gap-2">
+                <input type="hidden" name="uid" value={uid} />
+                <select
+                  name="newCoachUid"
+                  required
+                  defaultValue=""
+                  aria-label="Assign a coach to this user"
+                  className="h-8 max-w-[16rem] rounded-md border bg-background px-2 text-xs"
+                >
+                  <option value="" disabled>
+                    Choose a coach…
+                  </option>
+                  {coaches.map((coach) => (
+                    <option key={coach.uid} value={coach.uid}>
+                      {coach.displayName || coach.email}
+                    </option>
+                  ))}
+                </select>
+                <AdminSubmitButton
+                  idleLabel="Assign coach"
+                  pendingLabel="Assigning…"
+                  className="h-8 rounded-full border px-3 text-xs hover:bg-muted"
+                />
+              </form>
+            )}
           </CardContent>
         </Card>
 

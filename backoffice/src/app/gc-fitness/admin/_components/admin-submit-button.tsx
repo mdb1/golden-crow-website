@@ -9,6 +9,7 @@ export function AdminSubmitButton({
   disabled = false,
   name,
   value,
+  title,
 }: {
   idleLabel: string;
   pendingLabel: string;
@@ -16,6 +17,8 @@ export function AdminSubmitButton({
   disabled?: boolean;
   name?: string;
   value?: string;
+  /** Native tooltip — for actions whose label can't carry the full consequence. */
+  title?: string;
 }) {
   const { pending } = useFormStatus();
   return (
@@ -23,6 +26,7 @@ export function AdminSubmitButton({
       type="submit"
       name={name}
       value={value}
+      title={title}
       disabled={pending || disabled}
       className={`${className} disabled:cursor-not-allowed disabled:opacity-60`}
     >

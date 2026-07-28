@@ -10,6 +10,7 @@ import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { recurrenceLabel } from "@/lib/gc-fitness/coach-activity-log";
 import {
   adminCanViewClientUnderCoach,
+  canUnlinkClientFromCoach,
   toEntitlementInfo,
   type EntitlementInfo,
 } from "@/lib/gc-fitness/coachless-user-model";
@@ -174,6 +175,43 @@ export async function listCoachesForAdmin(): Promise<CoachAdminRow[]> {
 
   rows.sort((a, b) => a.email.localeCompare(b.email));
   return rows;
+}
+
+/** Minimal coach identity — just enough to fill an assignment `<select>`. */
+export interface CoachOption {
+  uid: string;
+  email: string;
+  displayName: string;
+}
+
+/**
+ * Coaches as pick-list options. Deliberately NOT `listCoachesForAdmin`, which
+ * fans out four reads per coach (client roster + two counts + an Auth lookup)
+ * to build the admin dashboard — far too much work to populate a dropdown.
+ * One projected query, no fan-out.
+ *
+ * `deleted` is filtered in memory rather than via `where("deleted","==",false)`:
+ * an equality filter silently drops docs that never got the field, and a coach
+ * missing from the assignment list is worse than one extra row.
+ */
+export async function listCoachOptionsForAdmin(): Promise<CoachOption[]> {
+  await getCurrentAdmin();
+  const snap = await gcFitnessFirestore()
+    .collection(FirestoreCollections.users)
+    .where("role", "==", "trainer")
+    .select("email", "displayName", "deleted")
+    .get();
+
+  return snap.docs
+    .filter((doc) => doc.get("deleted") !== true)
+    .map((doc) => ({
+      uid: doc.id,
+      email: (doc.get("email") as string | undefined) ?? "",
+      displayName: (doc.get("displayName") as string | undefined) ?? "",
+    }))
+    .sort((a, b) =>
+      (a.displayName || a.email).localeCompare(b.displayName || b.email),
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -723,7 +761,11 @@ export async function promoteUserToAdmin(input: unknown): Promise<{ ok: true; ui
 
 async function writeAdminOperationLog(args: {
   actorUid: string;
-  kind: "delete_client_cascade" | "delete_coach_cascade" | "transfer_client";
+  kind:
+    | "delete_client_cascade"
+    | "delete_coach_cascade"
+    | "transfer_client"
+    | "unlink_client";
   mode: OperationMode;
   targetUid: string;
   status: "success" | "failed";
@@ -1406,6 +1448,101 @@ export async function transferClientToCoach(
   });
 
   return { ok: true, clientUid: parsed.clientUid, newCoachUid: parsed.newCoachUid };
+}
+
+const unlinkClientSchema = z.object({
+  coachUid: z.string().trim().min(6).max(128),
+  clientUid: z.string().trim().min(6).max(128),
+});
+
+/**
+ * Detach a client from their coach, turning them into a COACH-LESS (self-serve)
+ * user — the inverse of `transferClientToCoach`, and the thing an operator needs
+ * when a coaching relationship ends but the person keeps using the app.
+ *
+ * Clears the link + denormalized coach fields on the canonical client doc and
+ * resyncs the custom claim (firestore.rules compare `request.auth.token.coachId`).
+ *
+ * The 1:1 chat doc is KEPT but has its `coachId` cleared: that removes the
+ * thread from the ex-coach's inbox query (`coachId == me`) AND fails
+ * `isChatParticipant` for them, without destroying the client's message history
+ * — a later `transferClientToCoach` re-points the same doc and the history comes
+ * back. (`deleteClientCascade` is the only path that recursively deletes chats.)
+ *
+ * Like a transfer, content the old coach authored (workout_assignments / habits
+ * carrying their trainerId) is intentionally left in place — the user keeps
+ * their program. Note the user drops to their own entitlement tier once
+ * unlinked: coached ⇒ premium no longer applies, so a client with no
+ * subscription becomes free.
+ */
+export async function unlinkClientFromCoach(
+  input: unknown,
+): Promise<{ ok: true; clientUid: string }> {
+  const admin = await getCurrentAdmin();
+  const parsed = unlinkClientSchema.parse(input);
+  const db = gcFitnessFirestore();
+
+  const clientRef = db.collection(FirestoreCollections.users).doc(parsed.clientUid);
+  const clientSnap = await clientRef.get();
+  if (!clientSnap.exists) {
+    throw new Error("Client not found.");
+  }
+  if (
+    !canUnlinkClientFromCoach({
+      coachUidInPath: parsed.coachUid,
+      clientRole: (clientSnap.get("role") as string | undefined) ?? null,
+      clientCoachId: (clientSnap.get("coachId") as string | undefined) ?? null,
+    })
+  ) {
+    throw new Error("Client is not linked to this coach.");
+  }
+
+  const chatRef = db.collection(FirestoreCollections.chats).doc(parsed.clientUid);
+  const chatSnap = await chatRef.get();
+
+  const batch = db.batch();
+  batch.update(clientRef, {
+    coachId: FieldValue.delete(),
+    coachDisplayName: FieldValue.delete(),
+    coachPhotoURL: FieldValue.delete(),
+    // The "auto-assigned, needs triage" marker is meaningless with no coach.
+    autoAssignedCoach: FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  if (chatSnap.exists) {
+    batch.update(chatRef, {
+      coachId: FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
+  await batch.commit();
+
+  // Fail-soft, same as the transfer path: the Firestore doc is the source of
+  // truth and the claim catches up on the next token refresh.
+  try {
+    const authUser = await gcFitnessAuth().getUser(parsed.clientUid);
+    const { coachId: _dropped, ...rest } = (authUser.customClaims ?? {}) as Record<
+      string,
+      unknown
+    >;
+    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, {
+      ...rest,
+      role: "client",
+    });
+  } catch {
+    // fail-soft
+  }
+
+  await writeAdminOperationLog({
+    actorUid: admin.uid,
+    kind: "unlink_client",
+    mode: "execute",
+    targetUid: parsed.clientUid,
+    status: "success",
+    summary: { action: "unlink_client", fromCoachId: parsed.coachUid },
+  });
+
+  return { ok: true, clientUid: parsed.clientUid };
 }
 
 const removePendingSchema = z.object({

@@ -16,6 +16,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
+import {
+  listCoachOptionsForAdmin,
+  transferClientToCoach,
+} from "@/lib/gc-fitness/admin-actions";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 import {
   listCoachlessUsersWithStats,
@@ -55,7 +59,23 @@ export default async function CoachlessUsersPage({
   const ok = sp.ok === "1";
   const actionMessage = op && ok ? `Action completed: ${op}.` : null;
 
-  const rows = await listCoachlessUsersWithStats();
+  const [rows, coaches] = await Promise.all([
+    listCoachlessUsersWithStats(),
+    listCoachOptionsForAdmin(),
+  ]);
+
+  // Assigning a coach IS a transfer — from no coach to one. `transferClientToCoach`
+  // already handles the null-coach origin (re-points the doc, moves the chat if
+  // one exists, resyncs the coachId custom claim), so there's no second code path.
+  async function assignCoachAction(formData: FormData) {
+    "use server";
+    const clientUid = String(formData.get("uid") ?? "");
+    const newCoachUid = String(formData.get("newCoachUid") ?? "");
+    await transferClientToCoach({ clientUid, newCoachUid });
+    revalidatePath(ROUTE);
+    revalidatePath(`/gc-fitness/admin/coaches/${newCoachUid}`);
+    redirect(`${ROUTE}?op=assign_coach&ok=1`);
+  }
 
   async function setTierAction(formData: FormData) {
     "use server";
@@ -181,6 +201,34 @@ export default async function CoachlessUsersPage({
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex flex-col items-end gap-2">
+                        {coaches.length > 0 ? (
+                          <form action={assignCoachAction} className="flex items-center gap-1">
+                            <input type="hidden" name="uid" value={row.uid} />
+                            <select
+                              name="newCoachUid"
+                              required
+                              defaultValue=""
+                              aria-label={`Assign ${row.displayName || row.email} to a coach`}
+                              className="h-8 max-w-[11rem] rounded-md border bg-background px-2 text-xs"
+                            >
+                              <option value="" disabled>
+                                Assign coach…
+                              </option>
+                              {coaches.map((coach) => (
+                                <option key={coach.uid} value={coach.uid}>
+                                  {coach.displayName || coach.email}
+                                </option>
+                              ))}
+                            </select>
+                            <AdminSubmitButton
+                              idleLabel="Assign"
+                              pendingLabel="Assigning…"
+                              title="Links this user to the coach — they stop being coach-less and gain coached premium"
+                              className="h-8 rounded-full border px-3 text-xs hover:bg-muted"
+                            />
+                          </form>
+                        ) : null}
+
                         <form action={setTierAction}>
                           <input type="hidden" name="uid" value={row.uid} />
                           <input type="hidden" name="tier" value={isPremium ? "free" : "premium"} />

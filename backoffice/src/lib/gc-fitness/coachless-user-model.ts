@@ -138,6 +138,29 @@ export function adminCanViewClientUnderCoach(args: {
   );
 }
 
+/**
+ * Whether an admin may UNLINK a client from a coach, turning them coach-less.
+ *
+ * The inverse of an assignment: it only ever detaches a real client from the
+ * coach that actually owns them. Coaches themselves are never unlinkable (a
+ * trainer has no `coachId` to clear), and a client already linked to someone
+ * else must not be detachable from the wrong coach's page.
+ *
+ * Soft-deleted clients ARE unlinkable — an operator may want to strip the coach
+ * link before or after deactivating, and the write is harmless either way.
+ */
+export function canUnlinkClientFromCoach(args: {
+  /** The coach uid whose page the action was invoked from. */
+  coachUidInPath: string;
+  clientRole: string | null;
+  /** `/users/{clientId}.coachId` as stored. */
+  clientCoachId: string | null;
+}): boolean {
+  if (args.clientRole === "trainer") return false;
+  if (!args.clientCoachId || !args.coachUidInPath) return false;
+  return args.clientCoachId === args.coachUidInPath;
+}
+
 /** Per-category recency + rolling-window counts for the profile page. */
 export interface CoachlessActivitySummary {
   /** Most recent activity of ANY kind, ISO — null when the user never acted. */
