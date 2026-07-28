@@ -158,6 +158,21 @@ function locationSuggestionsFor(value: string) {
     .map((entry) => entry.location);
 }
 
+function isValidHttpUrl(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return true;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    return ["http:", "https:"].includes(url.protocol) && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function toDateTimeInput(value?: string | null) {
   if (!value) {
     return "";
@@ -337,11 +352,13 @@ function payloadFromState(
 function FieldShell({
   label,
   htmlFor,
+  error,
   children,
   className = "",
 }: {
   label: string;
   htmlFor: string;
+  error?: string | null;
   children: ReactNode;
   className?: string;
 }) {
@@ -349,6 +366,11 @@ function FieldShell({
     <div className={`flex min-w-0 flex-col gap-2 ${className}`}>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
+      {error ? (
+        <p id={`${htmlFor}-error`} className="text-xs font-medium text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -507,6 +529,8 @@ export function DiscoverFeedEntryWorkbench({
   const bodyCharacterCount = bodyMode === "rich"
     ? htmlToPlainText(state.html_body).length
     : state.body.length;
+  const sourceUrlError = sourceUrlErrorFor(state.source_url);
+  const imageUrlError = imageUrlErrorFor(state.image_url);
 
   function updateState(patch: Partial<FeedEntryFormState>) {
     setState((current) => ({ ...current, ...patch }));
@@ -613,9 +637,31 @@ export function DiscoverFeedEntryWorkbench({
     }
   }
 
+  function sourceUrlErrorFor(value: string) {
+    return isValidHttpUrl(value)
+      ? null
+      : t("Source URL must be a valid http or https URL.");
+  }
+
+  function imageUrlErrorFor(value: string) {
+    return isValidHttpUrl(value)
+      ? null
+      : t("Cover image URL must be a valid http or https URL.");
+  }
+
   function validate(nextState: FeedEntryFormState, status: DiscoverFeedStatus) {
     if (!nextState.publisherOrganizationId) {
       return t("Choose a publisher organization.");
+    }
+
+    const nextSourceUrlError = sourceUrlErrorFor(nextState.source_url);
+    if (nextSourceUrlError) {
+      return nextSourceUrlError;
+    }
+
+    const nextImageUrlError = imageUrlErrorFor(nextState.image_url);
+    if (nextImageUrlError) {
+      return nextImageUrlError;
     }
 
     if (status === "published" && selectedOrganization?.status !== "active") {
@@ -1059,7 +1105,11 @@ export function DiscoverFeedEntryWorkbench({
                   </select>
                 </FieldShell>
 
-                <FieldShell label={t("Source URL")} htmlFor="discover-feed-source">
+                <FieldShell
+                  label={t("Source URL")}
+                  htmlFor="discover-feed-source"
+                  error={sourceUrlError}
+                >
                   <Input
                     id="discover-feed-source"
                     type="url"
@@ -1068,7 +1118,11 @@ export function DiscoverFeedEntryWorkbench({
                       updateState({ source_url: event.target.value })
                     }
                     placeholder="https://"
-                    className="h-11"
+                    aria-invalid={Boolean(sourceUrlError)}
+                    aria-describedby={
+                      sourceUrlError ? "discover-feed-source-error" : undefined
+                    }
+                    className={`h-11 ${sourceUrlError ? "border-destructive focus-visible:ring-destructive" : ""}`}
                   />
                 </FieldShell>
 
@@ -1091,7 +1145,12 @@ export function DiscoverFeedEntryWorkbench({
                   />
                 </FieldShell>
 
-                <FieldShell label={t("Cover image URL")} htmlFor="discover-feed-image" className="md:col-span-2">
+                <FieldShell
+                  label={t("Cover image URL")}
+                  htmlFor="discover-feed-image"
+                  error={imageUrlError}
+                  className="md:col-span-2"
+                >
                   <Input
                     id="discover-feed-image"
                     type="url"
@@ -1100,7 +1159,11 @@ export function DiscoverFeedEntryWorkbench({
                       updateState({ image_url: event.target.value })
                     }
                     placeholder="https://"
-                    className="h-11"
+                    aria-invalid={Boolean(imageUrlError)}
+                    aria-describedby={
+                      imageUrlError ? "discover-feed-image-error" : undefined
+                    }
+                    className={`h-11 ${imageUrlError ? "border-destructive focus-visible:ring-destructive" : ""}`}
                   />
                 </FieldShell>
               </div>
@@ -1218,13 +1281,18 @@ export function DiscoverFeedEntryWorkbench({
                 </div>
 
                 <div className="mt-4 overflow-hidden rounded-md border border-border bg-muted/30">
-                  {state.image_url ? (
+                  {state.image_url && !imageUrlError ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={state.image_url}
                       alt=""
                       className="aspect-[1024/500] w-full object-cover"
                     />
+                  ) : state.image_url && imageUrlError ? (
+                    <div className="flex aspect-[1024/500] items-center justify-center px-4 text-center text-sm text-destructive">
+                      <ImageIcon className="mr-2 h-4 w-4" />
+                      {t("Enter a valid cover image URL to preview.")}
+                    </div>
                   ) : (
                     <div className="flex aspect-[1024/500] items-center justify-center px-4 text-center text-sm text-muted-foreground">
                       <ImageIcon className="mr-2 h-4 w-4" />
