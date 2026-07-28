@@ -1,6 +1,6 @@
 ---
 import PocketGenesPublicLayout from '../../../layouts/PocketGenesPublicLayout.astro';
-import { POCKET_GENES_EMAILS, trustDocuments, type TrustDocument } from '../../../data/pocketGenesPublic';
+import { POCKET_GENES_EMAILS, getTrustDocument, trustDocuments, type TrustDocument } from '../../../data/pocketGenesPublic';
 
 export function getStaticPaths() {
   return trustDocuments.map((document) => ({
@@ -13,46 +13,107 @@ interface Props {
   document: TrustDocument;
 }
 
-const { document } = Astro.props;
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
+const locale = isEnglish ? 'en' : 'es';
+const routeDocument = Astro.props.document;
+const document = getTrustDocument(routeDocument.slug, locale) ?? routeDocument;
 const isDataFlow = document.slug === 'data-flow-diagram';
-const flowSteps = [
-  {
-    title: 'Source report',
-    body: 'The original report contains structured test fields and limited explanatory notes.',
+
+const pageCopy = {
+  en: {
+    trustCenterTitle: 'Pocket Genes Trust Center',
+    breadcrumbLabel: 'Breadcrumb',
+    home: 'Home',
+    trustCenter: 'Trust Center',
+    metadataLabel: 'Document metadata',
+    detailsTitle: 'Document details',
+    status: 'Status',
+    owner: 'Owner',
+    lastReviewed: 'Last reviewed',
+    contact: 'Contact',
+    dataFlowTitle: 'Pocket Genes data-flow diagram',
+    dataFlowLabel: 'Pocket Genes data flow',
+    relatedPages: 'Related pages',
+    download: 'Download Pocket Genes',
+    flowSteps: [
+      {
+        title: 'Source report',
+        body: 'The original report contains structured test fields and limited explanatory notes.',
+      },
+      {
+        title: 'Pocket Genes organization',
+        body: 'Pocket Genes organizes report metadata, panel scope, variants, and source fields.',
+      },
+      {
+        title: 'Private app space',
+        body: 'The user sees organized report cards, timelines, and exact uploaded documents.',
+      },
+      {
+        title: 'Educational layer',
+        body: 'Pocket Genes adds definitions, context labels, and questions for appointments.',
+      },
+      {
+        title: 'Optional sharing',
+        body: 'The user can share a limited summary, never the raw report by default.',
+      },
+    ],
   },
-  {
-    title: 'Pocket Genes organization',
-    body: 'Pocket Genes organizes report metadata, panel scope, variants, and source fields.',
+  es: {
+    trustCenterTitle: 'Centro de confianza de Pocket Genes',
+    breadcrumbLabel: 'Ruta de navegación',
+    home: 'Inicio',
+    trustCenter: 'Centro de confianza',
+    metadataLabel: 'Metadatos del documento',
+    detailsTitle: 'Detalles del documento',
+    status: 'Estado',
+    owner: 'Responsable',
+    lastReviewed: 'Última revisión',
+    contact: 'Contacto',
+    dataFlowTitle: 'Diagrama de flujo de datos de Pocket Genes',
+    dataFlowLabel: 'Flujo de datos de Pocket Genes',
+    relatedPages: 'Páginas relacionadas',
+    download: 'Descargar Pocket Genes',
+    flowSteps: [
+      {
+        title: 'Informe fuente',
+        body: 'El informe original contiene campos estructurados del estudio y notas explicativas limitadas.',
+      },
+      {
+        title: 'Organización en Pocket Genes',
+        body: 'Pocket Genes organiza metadatos del informe, alcance del panel, variantes y campos de origen.',
+      },
+      {
+        title: 'Espacio privado en la app',
+        body: 'El usuario ve tarjetas organizadas, líneas de tiempo y documentos cargados exactos.',
+      },
+      {
+        title: 'Capa educativa',
+        body: 'Pocket Genes agrega definiciones, etiquetas de contexto y preguntas para consultas.',
+      },
+      {
+        title: 'Compartir opcional',
+        body: 'El usuario puede compartir un resumen limitado, nunca el informe crudo por defecto.',
+      },
+    ],
   },
-  {
-    title: 'Private app space',
-    body: 'The user sees organized report cards, timelines, and exact uploaded documents.',
-  },
-  {
-    title: 'Educational layer',
-    body: 'Pocket Genes adds definitions, context labels, and questions for appointments.',
-  },
-  {
-    title: 'Optional sharing',
-    body: 'The user can share a limited summary, never the raw report by default.',
-  },
-];
+} as const;
+
+const copy = pageCopy[locale];
 ---
 
 <PocketGenesPublicLayout
-  title={`${document.title} - Pocket Genes Trust Center`}
+  title={`${document.title} - ${copy.trustCenterTitle}`}
   description={document.summary}
   canonicalPath={`/pocket-genes/trust-center/${document.slug}`}
 >
   <main id="main" class="pg-page pg-trust-detail">
     <section class="pg-trust-detail-hero">
       <div class="pg-container">
-        <nav class="pg-breadcrumb" aria-label="Breadcrumb">
-          <a href={localizePath('/pocket-genes/home')}>Home</a>
+        <nav class="pg-breadcrumb" aria-label={copy.breadcrumbLabel}>
+          <a href={localizePath('/pocket-genes/home')}>{copy.home}</a>
           <span>/</span>
-          <a href={localizePath('/pocket-genes/trust-center')}>Trust Center</a>
+          <a href={localizePath('/pocket-genes/trust-center')}>{copy.trustCenter}</a>
         </nav>
         <p class="pg-eyebrow">{document.category}</p>
         <h1>{document.title}</h1>
@@ -62,23 +123,23 @@ const flowSteps = [
 
     <section class="pg-section">
       <div class="pg-container pg-trust-detail-grid">
-        <aside class="pg-trust-meta" aria-label="Document metadata">
-          <h2>Document details</h2>
+        <aside class="pg-trust-meta" aria-label={copy.metadataLabel}>
+          <h2>{copy.detailsTitle}</h2>
           <dl>
             <div>
-              <dt>Status</dt>
+              <dt>{copy.status}</dt>
               <dd>{document.status}</dd>
             </div>
             <div>
-              <dt>Owner</dt>
+              <dt>{copy.owner}</dt>
               <dd>{document.owner}</dd>
             </div>
             <div>
-              <dt>Last reviewed</dt>
+              <dt>{copy.lastReviewed}</dt>
               <dd>{document.lastReviewed}</dd>
             </div>
             <div>
-              <dt>Contact</dt>
+              <dt>{copy.contact}</dt>
               <dd><a href={`mailto:${POCKET_GENES_EMAILS.trust}`}>{POCKET_GENES_EMAILS.trust}</a></dd>
             </div>
           </dl>
@@ -99,10 +160,10 @@ const flowSteps = [
 
           {isDataFlow && (
             <section class="pg-data-flow">
-              <h2>Pocket Genes data-flow diagram</h2>
-              <div class="pg-flow-track" aria-label="Pocket Genes data flow">
-                {flowSteps.map((step, index) => (
-                  <article class:list={['pg-flow-step', { 'is-last': index === flowSteps.length - 1 }]}>
+              <h2>{copy.dataFlowTitle}</h2>
+              <div class="pg-flow-track" aria-label={copy.dataFlowLabel}>
+                {copy.flowSteps.map((step, index) => (
+                  <article class:list={['pg-flow-step', { 'is-last': index === copy.flowSteps.length - 1 }]}>
                     <span>{index + 1}</span>
                     <h3>{step.title}</h3>
                     <p>{step.body}</p>
@@ -113,10 +174,10 @@ const flowSteps = [
           )}
 
           <section class="pg-trust-next">
-            <h2>Related pages</h2>
+            <h2>{copy.relatedPages}</h2>
             <div>
-              <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>Trust Center</a>
-              <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/download')}>Download Pocket Genes</a>
+              <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>{copy.trustCenter}</a>
+              <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/download')}>{copy.download}</a>
             </div>
           </section>
         </article>

@@ -4,46 +4,131 @@ import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 
-const principles = [
-  {
-    title: 'People who fit your context',
-    body: 'Find support by same gene, condition, symptom family, role, country, language, or journey stage, even when the exact match is not obvious yet.',
+const pageCopy = {
+  en: {
+    title: 'RareFriends by Pocket Genes',
+    description: 'RareFriends by Pocket Genes is the opt-in community layer connected to Pocket Genes.',
+    heroEyebrow: 'Community layer',
+    heroTitle: 'RareFriends by Pocket Genes',
+    heroBody:
+      'A careful peer-support layer for the moment after genetic results arrive. RareFriends helps you find people, organizations, events, resources, and updates that are relevant to your genetic context without making your private report public by default.',
+    communityTerms: 'Community terms',
+    safetyPolicy: 'Safety policy',
+    imageAlt: 'Pocket Genes RareFriends community screen',
+    howEyebrow: 'How community works',
+    howTitle: 'Find people and groups that match your rare-disease journey.',
+    howBody:
+      'More people are receiving genetic results, but the path after the report can still feel fragmented. RareFriends by Pocket Genes can match by gene, condition family, symptoms, role, language, country, and journey stage, so support is still useful when an exact-gene circle is quiet.',
+    principles: [
+      {
+        title: 'People who fit your context',
+        body: 'Find support by same gene, condition, symptom family, role, country, language, or journey stage, even when the exact match is not obvious yet.',
+      },
+      {
+        title: 'Organizations and events',
+        body: 'Follow verified organizations, webinars, support programs, and events that can help after a confusing result, not just during the test itself.',
+      },
+      {
+        title: 'Practical next steps',
+        body: 'Move from result to understanding to a saved appointment question, resource, event, or learning module.',
+      },
+      {
+        title: 'Emotional and practical support',
+        body: 'A rare journey can feel isolating. The goal is useful responses, daily-living support, and shared experience.',
+      },
+      {
+        title: 'Pseudonymous participation',
+        body: 'Participate without exposing a full identity, exact variant, or original report.',
+      },
+      {
+        title: 'Moderated safety',
+        body: 'Clear rules, reporting, blocking, and moderation help prevent misinformation, pressure, and re-identification.',
+      },
+    ],
+    matchingEyebrow: 'Layered matching',
+    matchingTitle: 'You do not need an exact diagnosis match to find useful support.',
+    matchingBody:
+      'The post-result journey is rarely linear. Someone might belong to an exact-gene circle, a broader condition family, a caregiver circle, a regional group, and a newly diagnosed journey at the same time.',
+    matchingLayers: [
+      'Exact gene',
+      'Condition or disease family',
+      'Symptoms or diagnostic journey',
+      'Patient, parent, caregiver, or learner role',
+      'Country, language, and local resources',
+      'Newly diagnosed, undiagnosed, or long-term management stage',
+    ],
+    trustEyebrow: 'Trust first',
+    trustTitle: 'Community works best when usefulness, moderation, and trust come first.',
+    trustBody:
+      'A meaningful next step can be understanding a report section, getting a useful answer, following a trusted organization, registering for an event, or preparing a better appointment question.',
+    trustCta: 'Open Trust Center',
   },
-  {
-    title: 'Organizations and events',
-    body: 'Follow verified organizations, webinars, support programs, and events that can help after a confusing result, not just during the test itself.',
+  es: {
+    title: 'RareFriends by Pocket Genes',
+    description: 'RareFriends by Pocket Genes es la capa comunitaria opcional conectada a Pocket Genes.',
+    heroEyebrow: 'Capa comunitaria',
+    heroTitle: 'RareFriends by Pocket Genes',
+    heroBody:
+      'Una capa de apoyo entre pares para el momento posterior a recibir resultados genéticos. RareFriends te ayuda a encontrar personas, organizaciones, eventos, recursos y actualizaciones relevantes para tu contexto genético sin hacer público tu informe privado por defecto.',
+    communityTerms: 'Términos de comunidad',
+    safetyPolicy: 'Política de seguridad',
+    imageAlt: 'Pantalla de comunidad RareFriends en Pocket Genes',
+    howEyebrow: 'Cómo funciona la comunidad',
+    howTitle: 'Encontrá personas y grupos que coincidan con tu recorrido EPOF.',
+    howBody:
+      'Cada vez más personas reciben resultados genéticos, pero el camino posterior al informe todavía puede sentirse fragmentado. RareFriends by Pocket Genes puede conectar por gen, familia de condición, síntomas, rol, idioma, país y etapa del recorrido, para que el apoyo siga siendo útil incluso cuando un círculo de gen exacto está quieto.',
+    principles: [
+      {
+        title: 'Personas con contexto similar',
+        body: 'Encontrá apoyo por mismo gen, condición, familia de síntomas, rol, país, idioma o etapa del recorrido, incluso cuando el match exacto todavía no es evidente.',
+      },
+      {
+        title: 'Organizaciones y eventos',
+        body: 'Seguí organizaciones verificadas, webinars, programas de apoyo y eventos que puedan ayudar después de un resultado confuso, no solo durante el estudio.',
+      },
+      {
+        title: 'Próximos pasos prácticos',
+        body: 'Pasá de resultado a comprensión y de ahí a una pregunta guardada para consulta, un recurso, un evento o un módulo de aprendizaje.',
+      },
+      {
+        title: 'Apoyo emocional y práctico',
+        body: 'Un recorrido EPOF puede sentirse aislante. El objetivo es recibir respuestas útiles, apoyo cotidiano y experiencia compartida.',
+      },
+      {
+        title: 'Participación seudónima',
+        body: 'Participá sin exponer tu identidad completa, variante exacta o informe original.',
+      },
+      {
+        title: 'Seguridad moderada',
+        body: 'Reglas claras, reportes, bloqueos y moderación ayudan a prevenir desinformación, presión y reidentificación.',
+      },
+    ],
+    matchingEyebrow: 'Matching por capas',
+    matchingTitle: 'No necesitás un diagnóstico exacto para encontrar apoyo útil.',
+    matchingBody:
+      'El recorrido posterior al resultado rara vez es lineal. Una persona puede pertenecer al mismo tiempo a un círculo de gen exacto, una familia de condiciones más amplia, un círculo de cuidadores, un grupo regional y una etapa de diagnóstico reciente.',
+    matchingLayers: [
+      'Gen exacto',
+      'Condición o familia de enfermedad',
+      'Síntomas o recorrido diagnóstico',
+      'Rol de paciente, madre, padre, cuidador o aprendiz',
+      'País, idioma y recursos locales',
+      'Diagnóstico reciente, sin diagnóstico o manejo a largo plazo',
+    ],
+    trustEyebrow: 'Confianza primero',
+    trustTitle: 'La comunidad funciona mejor cuando utilidad, moderación y confianza van primero.',
+    trustBody:
+      'Un próximo paso significativo puede ser entender una sección del informe, recibir una respuesta útil, seguir una organización confiable, registrarse a un evento o preparar una mejor pregunta para consulta.',
+    trustCta: 'Abrir Centro de confianza',
   },
-  {
-    title: 'Practical next steps',
-    body: 'Move from result to understanding to a saved appointment question, resource, event, or learning module.',
-  },
-  {
-    title: 'Emotional and practical support',
-    body: 'A rare journey can feel isolating. The goal is useful responses, daily-living support, and shared experience.',
-  },
-  {
-    title: 'Pseudonymous participation',
-    body: 'Participate without exposing a full identity, exact variant, or original report.',
-  },
-  {
-    title: 'Moderated safety',
-    body: 'Clear rules, reporting, blocking, and moderation help prevent misinformation, pressure, and re-identification.',
-  },
-];
+} as const;
 
-const matchingLayers = [
-  'Exact gene',
-  'Condition or disease family',
-  'Symptoms or diagnostic journey',
-  'Patient, parent, caregiver, or learner role',
-  'Country, language, and local resources',
-  'Newly diagnosed, undiagnosed, or long-term management stage',
-];
+const copy = pageCopy[isEnglish ? 'en' : 'es'];
 ---
 
 <PocketGenesPublicLayout
-  title="RareFriends by Pocket Genes"
-  description="RareFriends by Pocket Genes is the opt-in community layer connected to Pocket Genes."
+  title={copy.title}
+  description={copy.description}
   canonicalPath="/pocket-genes/rarefriends"
   image="/pocket-genes/screenshots/sample_rare_friends.PNG"
 >
@@ -51,18 +136,18 @@ const matchingLayers = [
     <section class="pg-rf-hero">
       <div class="pg-container pg-rf-hero-grid">
         <div>
-          <p class="pg-eyebrow">Community layer</p>
-          <h1>RareFriends by Pocket Genes</h1>
+          <p class="pg-eyebrow">{copy.heroEyebrow}</p>
+          <h1>{copy.heroTitle}</h1>
           <p>
-            A careful peer-support layer for the moment after genetic results arrive. RareFriends helps you find people, organizations, events, resources, and updates that are relevant to your genetic context without making your private report public by default.
+            {copy.heroBody}
           </p>
           <div class="pg-button-row">
-            <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/trust-center/community-terms')}>Community terms</a>
-            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center/community-safety-policy')}>Safety policy</a>
+            <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/trust-center/community-terms')}>{copy.communityTerms}</a>
+            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center/community-safety-policy')}>{copy.safetyPolicy}</a>
           </div>
         </div>
         <figure class="pg-rf-visual">
-          <img src="/pocket-genes/screenshots/sample_rare_friends.PNG" alt="Pocket Genes RareFriends community screen" fetchpriority="high" />
+          <img src="/pocket-genes/screenshots/sample_rare_friends.PNG" alt={copy.imageAlt} fetchpriority="high" />
         </figure>
       </div>
     </section>
@@ -70,14 +155,14 @@ const matchingLayers = [
     <section class="pg-section">
       <div class="pg-container">
         <div class="pg-section-heading">
-          <p class="pg-eyebrow">How community works</p>
-          <h2>Find people and groups that match your rare-disease journey.</h2>
+          <p class="pg-eyebrow">{copy.howEyebrow}</p>
+          <h2>{copy.howTitle}</h2>
           <p>
-            More people are receiving genetic results, but the path after the report can still feel fragmented. RareFriends by Pocket Genes can match by gene, condition family, symptoms, role, language, country, and journey stage, so support is still useful when an exact-gene circle is quiet.
+            {copy.howBody}
           </p>
         </div>
         <div class="pg-card-grid pg-rf-grid">
-          {principles.map((principle) => (
+          {copy.principles.map((principle) => (
             <article class="pg-card">
               <h3>{principle.title}</h3>
               <p>{principle.body}</p>
@@ -90,14 +175,14 @@ const matchingLayers = [
     <section class="pg-section pg-rf-matching">
       <div class="pg-container pg-rf-matching-grid">
         <div class="pg-section-heading">
-          <p class="pg-eyebrow">Layered matching</p>
-          <h2>You do not need an exact diagnosis match to find useful support.</h2>
+          <p class="pg-eyebrow">{copy.matchingEyebrow}</p>
+          <h2>{copy.matchingTitle}</h2>
           <p>
-            The post-result journey is rarely linear. Someone might belong to an exact-gene circle, a broader condition family, a caregiver circle, a regional group, and a newly diagnosed journey at the same time.
+            {copy.matchingBody}
           </p>
         </div>
         <div class="pg-match-list">
-          {matchingLayers.map((layer) => (
+          {copy.matchingLayers.map((layer) => (
             <article>
               <span></span>
               <strong>{layer}</strong>
@@ -110,13 +195,13 @@ const matchingLayers = [
     <section class="pg-section-tight pg-rf-band-section">
       <div class="pg-container pg-rf-band">
         <div>
-          <p class="pg-eyebrow">Trust first</p>
-          <h2>Community works best when usefulness, moderation, and trust come first.</h2>
+          <p class="pg-eyebrow">{copy.trustEyebrow}</p>
+          <h2>{copy.trustTitle}</h2>
           <p>
-            A meaningful next step can be understanding a report section, getting a useful answer, following a trusted organization, registering for an event, or preparing a better appointment question.
+            {copy.trustBody}
           </p>
         </div>
-        <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>Open Trust Center</a>
+        <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>{copy.trustCta}</a>
       </div>
     </section>
   </main>

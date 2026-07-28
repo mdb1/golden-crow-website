@@ -1,5 +1,5 @@
 ---
-import { publicNavItems } from '../data/pocketGenesPublic';
+import { getPublicNavItems } from '../data/pocketGenesPublic';
 
 interface Props {
   title: string;
@@ -23,6 +23,25 @@ const siteBase = 'https://goldencrowvs.com';
 const currentPath = Astro.url.pathname;
 const isEnglish = currentPath === '/en' || currentPath.startsWith('/en/');
 const lang = isEnglish ? 'en' : 'es';
+const publicNavItems = getPublicNavItems(lang);
+const layoutCopy = {
+  en: {
+    skip: 'Skip to content',
+    brandHome: 'Pocket Genes home',
+    openNavigation: 'Open navigation',
+    navigation: 'Pocket Genes navigation',
+    language: 'Language',
+    footerTagline: 'Personal genomic organization, education, and safer community participation.',
+  },
+  es: {
+    skip: 'Saltar al contenido',
+    brandHome: 'Inicio de Pocket Genes',
+    openNavigation: 'Abrir navegación',
+    navigation: 'Navegación de Pocket Genes',
+    language: 'Idioma',
+    footerTagline: 'Organización genómica personal, educación y participación comunitaria más segura.',
+  },
+} as const;
 const pathWithoutLocale = currentPath.replace(/^\/en(?=\/|$)/, '') || '/';
 const normalizedPath = pathWithoutLocale.replace(/\/$/, '') || '/';
 const esPath = pathWithoutLocale;
@@ -71,9 +90,9 @@ const homeHref = localizePath('/pocket-genes/home');
   </head>
   <body>
     <header class="pg-site-header">
-      <a class="pg-skip-link" href="#main">Skip to content</a>
+      <a class="pg-skip-link" href="#main">{layoutCopy[lang].skip}</a>
       <div class="pg-nav-shell">
-        <a class="pg-brand" href={homeHref} aria-label="Pocket Genes home">
+        <a class="pg-brand" href={homeHref} aria-label={layoutCopy[lang].brandHome}>
           <span class="pg-brand-mark" aria-hidden="true">
             <span></span>
             <span></span>
@@ -81,19 +100,19 @@ const homeHref = localizePath('/pocket-genes/home');
           <span class="pg-brand-text">Pocket Genes</span>
         </a>
 
-        <button class="pg-menu-button" type="button" aria-label="Open navigation" aria-expanded="false" data-pg-menu>
+        <button class="pg-menu-button" type="button" aria-label={layoutCopy[lang].openNavigation} aria-expanded="false" data-pg-menu>
           <span></span>
           <span></span>
           <span></span>
         </button>
 
-        <nav class="pg-nav" aria-label="Pocket Genes navigation" data-pg-nav>
+        <nav class="pg-nav" aria-label={layoutCopy[lang].navigation} data-pg-nav>
           {navItems.map((item) => (
             <a href={item.href} class:list={['pg-nav-link', { active: item.active }]} aria-current={item.active ? 'page' : undefined}>
               {item.label}
             </a>
           ))}
-          <div class="pg-lang-switcher" aria-label="Language">
+          <div class="pg-lang-switcher" aria-label={layoutCopy[lang].language}>
             <a href={esPath} class:list={['pg-lang-option', { active: lang === 'es' }]} aria-current={lang === 'es' ? 'true' : undefined}>ES</a>
             <span class="pg-lang-divider">|</span>
             <a href={enPath} class:list={['pg-lang-option', { active: lang === 'en' }]} aria-current={lang === 'en' ? 'true' : undefined}>EN</a>
@@ -115,7 +134,7 @@ const homeHref = localizePath('/pocket-genes/home');
             </span>
             <span class="pg-brand-text">Pocket Genes</span>
           </a>
-          <p>Personal genomic organization, education, and safer community participation.</p>
+          <p>{layoutCopy[lang].footerTagline}</p>
         </div>
 
         <nav class="pg-footer-links" aria-label="Pocket Genes footer navigation">

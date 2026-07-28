@@ -1,62 +1,210 @@
 ---
 import PocketGenesPublicLayout from '../../../layouts/PocketGenesPublicLayout.astro';
-import { POCKET_GENES_EMAILS, trustDocuments } from '../../../data/pocketGenesPublic';
+import { POCKET_GENES_EMAILS, getLocalizedTrustDocuments } from '../../../data/pocketGenesPublic';
 
+const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
+const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
+const locale = isEnglish ? 'en' : 'es';
+const trustDocuments = getLocalizedTrustDocuments(locale);
 const categories = Array.from(new Set(trustDocuments.map((document) => document.category))).map((category) => ({
   category,
   documents: trustDocuments.filter((document) => document.category === category),
 }));
-const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
-const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 
-const trustedOrganizationCriteria = [
-  {
-    title: 'Clear public identity',
-    body: 'We look for an accountable organization, a real mission, and a clear way for members to understand who is publishing.',
+const pageCopy = {
+  en: {
+    title: 'Pocket Genes Trust Center',
+    description: 'Privacy, safety, security, data handling, scientific methodology, trusted organizations, and intended-use material for Pocket Genes.',
+    heroEyebrow: 'Trust Center',
+    heroTitle: 'Pocket Genes Trust Center',
+    heroBody:
+      'Pocket Genes keeps privacy, security, community safety, scientific methodology, intended use, trusted organizations, data retention, subprocessors, accessibility, and incident reporting in one place for a world where more people receive genetic results and need trustworthy next steps.',
+    contactTrust: 'Contact Trust',
+    download: 'Download Pocket Genes',
+    snapshotLabel: 'Pocket Genes trust snapshot',
+    snapshot: [
+      {
+        label: 'Product identity',
+        value: 'Pocket Genes',
+        body: 'Personal genomic report organization, education, and controlled community participation.',
+      },
+      {
+        label: 'Product contact',
+        value: POCKET_GENES_EMAILS.hello,
+        body: 'Use this address for Pocket Genes support, trust, accessibility, and incident reporting.',
+      },
+      {
+        label: 'Trusted organizations',
+        value: 'Carefully reviewed',
+        body: 'Selected organizations can publish curated posts, events, and resources that help users move from result to understanding to action.',
+      },
+    ],
+    trustedHubEyebrow: 'Trusted Organizations Hub',
+    trustedHubTitle: 'We review organizations before giving them a trusted place in the ecosystem.',
+    trustedHubBody:
+      'Pocket Genes is not only a document library. As genetic testing becomes more common, people need more than a PDF: they need context, support, and trustworthy next steps. Selected organizations can help fill that gap by sharing useful posts, events, resources, and education updates with the broader Pocket Genes community.',
+    trustedOrganizationCriteria: [
+      {
+        title: 'Clear public identity',
+        body: 'We look for an accountable organization, a real mission, and a clear way for members to understand who is publishing.',
+      },
+      {
+        title: 'Relevant community value',
+        body: 'Priority goes to organizations that help people move from a genetic result into understanding, useful resources, events, and a clearer next step.',
+      },
+      {
+        title: 'Curated content standards',
+        body: 'Posts should be useful, reviewed before publishing, and appropriate for a community that includes patients, families, caregivers, and people newly trying to understand results.',
+      },
+      {
+        title: 'Safety and trust fit',
+        body: 'Organizations must respect privacy boundaries, avoid medical pressure, and keep promotional content clearly separated from education, support, and patient-engagement material.',
+      },
+    ],
+    trustedOutputsEyebrow: 'What trusted organizations can receive',
+    trustedOutputsTitle: 'A curated publishing space inside Pocket Genes.',
+    trustedOrganizationOutputs: [
+      'A trusted organization profile inside the Pocket Genes environment.',
+      'Curated posts, event announcements, resources, and education updates for people navigating the post-result journey.',
+      'A review path for organizations that want to become visible to users looking for trustworthy next steps after confusing reports.',
+      'Up to 5 curated posts per week for free as a trusted organization.',
+    ],
+    trustedOrganizationCta: 'I want to be a trusted organization',
+    documentsEyebrow: 'Documents',
+    documentsTitle: 'Privacy, safety, and data documents.',
+    documentsBody:
+      'Read the privacy, security, community safety, data retention, accessibility, and intended-use pages for Pocket Genes.',
+    contactEyebrow: 'Direct contacts',
+    contactTitle: 'Contact Pocket Genes about privacy, security, or accessibility.',
+    contactBody: 'One inbox routes trust requests to the right review path.',
+    primaryInbox: 'Primary inbox',
+    copyEmail: 'Copy email',
+    copied: 'Copied',
+    contactTopicsLabel: 'Contact topics',
+    contactRoutes: [
+      {
+        title: 'Privacy',
+        body: 'Data access, deletion, and account questions.',
+        tone: 'teal',
+      },
+      {
+        title: 'Security',
+        body: 'Incident reports and sensitive platform concerns.',
+        tone: 'rose',
+      },
+      {
+        title: 'Accessibility',
+        body: 'Usability barriers, assistive access, and content issues.',
+        tone: 'blue',
+      },
+    ],
+    bookingEyebrow: 'I want to be a trusted organization',
+    bookingTitle: 'Coordinate a trusted organization review.',
+    bookingBody:
+      'If your organization supports genetics, rare disease, patient advocacy, education, or care navigation, schedule a meeting with us. We will review fit, publishing standards, and how curated posts or events can appear inside Pocket Genes.',
   },
-  {
-    title: 'Relevant community value',
-    body: 'Priority goes to organizations that help people move from a genetic result into understanding, useful resources, events, and a clearer next step.',
+  es: {
+    title: 'Centro de confianza de Pocket Genes',
+    description: 'Privacidad, seguridad, manejo de datos, metodología científica, organizaciones confiables y uso previsto de Pocket Genes.',
+    heroEyebrow: 'Centro de confianza',
+    heroTitle: 'Centro de confianza de Pocket Genes',
+    heroBody:
+      'Pocket Genes reúne privacidad, seguridad, seguridad comunitaria, metodología científica, uso previsto, organizaciones confiables, retención de datos, subprocesadores, accesibilidad y reporte de incidentes en un solo lugar para un mundo donde más personas reciben resultados genéticos y necesitan próximos pasos confiables.',
+    contactTrust: 'Contactar confianza',
+    download: 'Descargar Pocket Genes',
+    snapshotLabel: 'Resumen de confianza de Pocket Genes',
+    snapshot: [
+      {
+        label: 'Identidad del producto',
+        value: 'Pocket Genes',
+        body: 'Organización de informes genómicos personales, educación y participación comunitaria controlada.',
+      },
+      {
+        label: 'Contacto del producto',
+        value: POCKET_GENES_EMAILS.hello,
+        body: 'Usá este correo para soporte, confianza, accesibilidad y reporte de incidentes de Pocket Genes.',
+      },
+      {
+        label: 'Organizaciones confiables',
+        value: 'Revisadas cuidadosamente',
+        body: 'Las organizaciones seleccionadas pueden publicar contenido, eventos y recursos curados que ayudan a pasar de resultado a comprensión y acción.',
+      },
+    ],
+    trustedHubEyebrow: 'Hub de organizaciones confiables',
+    trustedHubTitle: 'Revisamos las organizaciones antes de darles un lugar confiable en el ecosistema.',
+    trustedHubBody:
+      'Pocket Genes no es solo una biblioteca de documentos. A medida que los estudios genéticos se vuelven más comunes, las personas necesitan más que un PDF: necesitan contexto, apoyo y próximos pasos confiables. Las organizaciones seleccionadas pueden ayudar a cubrir ese espacio compartiendo publicaciones, eventos, recursos y actualizaciones educativas con la comunidad Pocket Genes.',
+    trustedOrganizationCriteria: [
+      {
+        title: 'Identidad pública clara',
+        body: 'Buscamos una organización responsable, una misión real y una forma clara de que los miembros entiendan quién publica.',
+      },
+      {
+        title: 'Valor comunitario relevante',
+        body: 'Priorizamos organizaciones que ayudan a pasar de un resultado genético a comprensión, recursos útiles, eventos y un próximo paso más claro.',
+      },
+      {
+        title: 'Estándares de contenido curado',
+        body: 'Las publicaciones deben ser útiles, revisadas antes de publicarse y apropiadas para una comunidad con pacientes, familias, cuidadores y personas que recién intentan entender resultados.',
+      },
+      {
+        title: 'Ajuste de seguridad y confianza',
+        body: 'Las organizaciones deben respetar límites de privacidad, evitar presión médica y separar claramente contenido promocional de educación, apoyo y participación del paciente.',
+      },
+    ],
+    trustedOutputsEyebrow: 'Qué pueden recibir las organizaciones confiables',
+    trustedOutputsTitle: 'Un espacio de publicación curada dentro de Pocket Genes.',
+    trustedOrganizationOutputs: [
+      'Un perfil de organización confiable dentro del entorno Pocket Genes.',
+      'Publicaciones curadas, anuncios de eventos, recursos y actualizaciones educativas para personas que recorren el camino posterior al resultado.',
+      'Un proceso de revisión para organizaciones que quieren ser visibles para usuarios que buscan próximos pasos confiables después de informes confusos.',
+      'Hasta 5 publicaciones curadas por semana gratis como organización confiable.',
+    ],
+    trustedOrganizationCta: 'Quiero ser una organización confiable',
+    documentsEyebrow: 'Documentos',
+    documentsTitle: 'Documentos de privacidad, seguridad y datos.',
+    documentsBody:
+      'Leé las páginas de privacidad, seguridad, seguridad comunitaria, retención de datos, accesibilidad y uso previsto de Pocket Genes.',
+    contactEyebrow: 'Contactos directos',
+    contactTitle: 'Contactá a Pocket Genes sobre privacidad, seguridad o accesibilidad.',
+    contactBody: 'Una sola casilla deriva las solicitudes de confianza al camino de revisión correcto.',
+    primaryInbox: 'Casilla principal',
+    copyEmail: 'Copiar email',
+    copied: 'Copiado',
+    contactTopicsLabel: 'Temas de contacto',
+    contactRoutes: [
+      {
+        title: 'Privacidad',
+        body: 'Acceso a datos, eliminación y preguntas de cuenta.',
+        tone: 'teal',
+      },
+      {
+        title: 'Seguridad',
+        body: 'Reporte de incidentes y preocupaciones sensibles de plataforma.',
+        tone: 'rose',
+      },
+      {
+        title: 'Accesibilidad',
+        body: 'Barreras de uso, acceso asistivo y problemas de contenido.',
+        tone: 'blue',
+      },
+    ],
+    bookingEyebrow: 'Quiero ser una organización confiable',
+    bookingTitle: 'Coordiná una revisión de organización confiable.',
+    bookingBody:
+      'Si tu organización trabaja en genética, EPOF, defensa de pacientes, educación o navegación del cuidado, coordiná una reunión con nosotros. Revisaremos encaje, estándares de publicación y cómo las publicaciones o eventos curados pueden aparecer dentro de Pocket Genes.',
   },
-  {
-    title: 'Curated content standards',
-    body: 'Posts should be useful, reviewed before publishing, and appropriate for a community that includes patients, families, caregivers, and people newly trying to understand results.',
-  },
-  {
-    title: 'Safety and trust fit',
-    body: 'Organizations must respect privacy boundaries, avoid medical pressure, and keep promotional content clearly separated from education, support, and patient-engagement material.',
-  },
-];
+} as const;
 
-const trustedOrganizationOutputs = [
-  'A trusted organization profile inside the Pocket Genes environment.',
-  'Curated posts, event announcements, resources, and education updates for people navigating the post-result journey.',
-  'A review path for organizations that want to become visible to users looking for trustworthy next steps after confusing reports.',
-  'Up to 5 curated posts per week for free as a trusted organization.',
-];
-
-const contactRoutes = [
-  {
-    title: 'Privacy',
-    body: 'Data access, deletion, and account questions.',
-    tone: 'teal',
-  },
-  {
-    title: 'Security',
-    body: 'Incident reports and sensitive platform concerns.',
-    tone: 'rose',
-  },
-  {
-    title: 'Accessibility',
-    body: 'Usability barriers, assistive access, and content issues.',
-    tone: 'blue',
-  },
-];
+const copy = pageCopy[locale];
+const trustMailSubject = encodeURIComponent(
+  isEnglish ? 'Pocket Genes Trust Request' : 'Solicitud de confianza de Pocket Genes',
+);
 ---
 
 <PocketGenesPublicLayout
-  title="Pocket Genes Trust Center"
-  description="Privacy, safety, security, data handling, scientific methodology, trusted organizations, and intended-use material for Pocket Genes."
+  title={copy.title}
+  description={copy.description}
   canonicalPath="/pocket-genes/trust-center"
   extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}
 >
@@ -64,33 +212,25 @@ const contactRoutes = [
     <section class="pg-trust-hero">
       <div class="pg-container pg-trust-hero-grid">
         <div>
-          <p class="pg-eyebrow">Trust Center</p>
-          <h1>Pocket Genes Trust Center</h1>
+          <p class="pg-eyebrow">{copy.heroEyebrow}</p>
+          <h1>{copy.heroTitle}</h1>
           <p>
-            Pocket Genes keeps privacy, security, community safety, scientific methodology, intended use, trusted organizations, data retention, subprocessors, accessibility, and incident reporting in one place for a world where more people receive genetic results and need trustworthy next steps.
+            {copy.heroBody}
           </p>
           <div class="pg-button-row">
-            <a class="pg-button pg-button-primary" href={`mailto:${POCKET_GENES_EMAILS.trust}`}>Contact Trust</a>
-            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/download')}>Download Pocket Genes</a>
+            <a class="pg-button pg-button-primary" href={`mailto:${POCKET_GENES_EMAILS.trust}`}>{copy.contactTrust}</a>
+            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/download')}>{copy.download}</a>
           </div>
         </div>
 
-        <div class="pg-trust-snapshot" aria-label="Pocket Genes trust snapshot">
-          <article>
-            <span>Product identity</span>
-            <strong>Pocket Genes</strong>
-            <p>Personal genomic report organization, education, and controlled community participation.</p>
-          </article>
-          <article>
-            <span>Product contact</span>
-            <strong>{POCKET_GENES_EMAILS.hello}</strong>
-            <p>Use this address for Pocket Genes support, trust, accessibility, and incident reporting.</p>
-          </article>
-          <article>
-            <span>Trusted organizations</span>
-            <strong>Carefully reviewed</strong>
-            <p>Selected organizations can publish curated posts, events, and resources that help users move from result to understanding to action.</p>
-          </article>
+        <div class="pg-trust-snapshot" aria-label={copy.snapshotLabel}>
+          {copy.snapshot.map((item) => (
+            <article>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <p>{item.body}</p>
+            </article>
+          ))}
         </div>
       </div>
     </section>
@@ -98,16 +238,16 @@ const contactRoutes = [
     <section class="pg-section pg-trusted-orgs">
       <div class="pg-container">
         <div class="pg-section-heading">
-          <p class="pg-eyebrow">Trusted Organizations Hub</p>
-          <h2>We review organizations before giving them a trusted place in the ecosystem.</h2>
+          <p class="pg-eyebrow">{copy.trustedHubEyebrow}</p>
+          <h2>{copy.trustedHubTitle}</h2>
           <p>
-            Pocket Genes is not only a document library. As genetic testing becomes more common, people need more than a PDF: they need context, support, and trustworthy next steps. Selected organizations can help fill that gap by sharing useful posts, events, resources, and education updates with the broader Pocket Genes community.
+            {copy.trustedHubBody}
           </p>
         </div>
 
         <div class="pg-trusted-orgs-grid">
           <div class="pg-trusted-criteria">
-            {trustedOrganizationCriteria.map((item) => (
+            {copy.trustedOrganizationCriteria.map((item) => (
               <article>
                 <h3>{item.title}</h3>
                 <p>{item.body}</p>
@@ -116,12 +256,12 @@ const contactRoutes = [
           </div>
 
           <aside class="pg-trusted-hub-card">
-            <p class="pg-eyebrow">What trusted organizations can receive</p>
-            <h3>A curated publishing space inside Pocket Genes.</h3>
+            <p class="pg-eyebrow">{copy.trustedOutputsEyebrow}</p>
+            <h3>{copy.trustedOutputsTitle}</h3>
             <ul>
-              {trustedOrganizationOutputs.map((item) => <li>{item}</li>)}
+              {copy.trustedOrganizationOutputs.map((item) => <li>{item}</li>)}
             </ul>
-            <a class="pg-button pg-button-primary" href="#trusted-organization-meeting">I want to be a trusted organization</a>
+            <a class="pg-button pg-button-primary" href="#trusted-organization-meeting">{copy.trustedOrganizationCta}</a>
           </aside>
         </div>
       </div>
@@ -130,10 +270,10 @@ const contactRoutes = [
     <section class="pg-section">
       <div class="pg-container">
         <div class="pg-section-heading">
-          <p class="pg-eyebrow">Documents</p>
-          <h2>Privacy, safety, and data documents.</h2>
+          <p class="pg-eyebrow">{copy.documentsEyebrow}</p>
+          <h2>{copy.documentsTitle}</h2>
           <p>
-            Read the privacy, security, community safety, data retention, accessibility, and intended-use pages for Pocket Genes.
+            {copy.documentsBody}
           </p>
         </div>
 
@@ -165,24 +305,24 @@ const contactRoutes = [
             <span></span>
           </div>
           <div class="pg-contact-main">
-            <p class="pg-eyebrow">Direct contacts</p>
-            <h2 id="pg-trust-contact-title">Contact Pocket Genes about privacy, security, or accessibility.</h2>
+            <p class="pg-eyebrow">{copy.contactEyebrow}</p>
+            <h2 id="pg-trust-contact-title">{copy.contactTitle}</h2>
             <p>
-              One inbox routes trust requests to the right review path.
+              {copy.contactBody}
             </p>
           </div>
           <div class="pg-contact-panel">
             <div class="pg-contact-actions">
-              <a class="pg-contact-email" href={`mailto:${POCKET_GENES_EMAILS.hello}?subject=Pocket%20Genes%20Trust%20Request`}>
-                <span>Primary inbox</span>
+              <a class="pg-contact-email" href={`mailto:${POCKET_GENES_EMAILS.hello}?subject=${trustMailSubject}`}>
+                <span>{copy.primaryInbox}</span>
                 <strong>{POCKET_GENES_EMAILS.hello}</strong>
               </a>
-              <button class="pg-contact-copy-button" type="button" data-copy-email={POCKET_GENES_EMAILS.hello}>
-                Copy email
+              <button class="pg-contact-copy-button" type="button" data-copy-email={POCKET_GENES_EMAILS.hello} data-copy-label={copy.copyEmail} data-copied-label={copy.copied}>
+                {copy.copyEmail}
               </button>
             </div>
-            <div class="pg-contact-route-grid" aria-label="Contact topics">
-              {contactRoutes.map((route) => (
+            <div class="pg-contact-route-grid" aria-label={copy.contactTopicsLabel}>
+              {copy.contactRoutes.map((route) => (
                 <article class={`pg-contact-route tone-${route.tone}`}>
                   <span class="pg-route-marker" aria-hidden="true"></span>
                   <div>
@@ -200,10 +340,10 @@ const contactRoutes = [
     <section id="trusted-organization-meeting" class="pg-section pg-trusted-booking">
       <div class="pg-container pg-trusted-booking-grid">
         <div>
-          <p class="pg-eyebrow">I want to be a trusted organization</p>
-          <h2>Coordinate a trusted organization review.</h2>
+          <p class="pg-eyebrow">{copy.bookingEyebrow}</p>
+          <h2>{copy.bookingTitle}</h2>
           <p>
-            If your organization supports genetics, rare disease, patient advocacy, education, or care navigation, schedule a meeting with us. We will review fit, publishing standards, and how curated posts or events can appear inside Pocket Genes.
+            {copy.bookingBody}
           </p>
         </div>
         <div class="pg-trusted-calendar-wrapper">
@@ -215,7 +355,8 @@ const contactRoutes = [
       const copyEmailButtons = document.querySelectorAll('[data-copy-email]');
 
       copyEmailButtons.forEach((button) => {
-        const originalText = button.textContent?.trim() || 'Copy email';
+        const originalText = button.textContent?.trim() || button.getAttribute('data-copy-label') || '';
+        const copiedText = button.getAttribute('data-copied-label') || originalText;
         const email = button.getAttribute('data-copy-email');
 
         button.addEventListener('click', async () => {
@@ -223,7 +364,7 @@ const contactRoutes = [
 
           try {
             await navigator.clipboard.writeText(email);
-            button.textContent = 'Copied';
+            button.textContent = copiedText;
             window.setTimeout(() => {
               button.textContent = originalText;
             }, 1800);
