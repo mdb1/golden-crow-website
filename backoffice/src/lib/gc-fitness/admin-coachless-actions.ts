@@ -20,13 +20,17 @@ import { deleteClientCascade } from "@/lib/gc-fitness/admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import {
+  bilingualText,
   firestoreValueToISO,
+  summarizeCoachlessActivity,
   toEntitlementInfo,
   isCoachlessClientRow,
+  type CoachlessActivitySummary,
   type CoachlessUserStats,
   type EntitlementInfo,
 } from "@/lib/gc-fitness/coachless-user-model";
 import {
+  gcFitnessAuth,
   gcFitnessFirestore,
   gcFitnessStorage,
 } from "@/lib/firebase/gc-fitness-admin";
@@ -118,6 +122,237 @@ export async function listCoachlessUsersWithStats(): Promise<CoachlessUserRow[]>
 
   rows.sort((a, b) => a.email.localeCompare(b.email));
   return rows;
+}
+
+/** One self-authored workout template (a "routine" in the client app). */
+export interface CoachlessRoutineRow {
+  id: string;
+  name: string;
+  exerciseCount: number;
+  tags: string[];
+  createdAtISO: string | null;
+  updatedAtISO: string | null;
+  deleted: boolean;
+}
+
+/** One body-weight check-in. */
+export interface CoachlessWeightRow {
+  id: string;
+  valueKg: number | null;
+  recordedAtISO: string | null;
+}
+
+/** Firebase Auth facts a Firestore doc can't answer (how they sign in, when). */
+export interface CoachlessAuthInfo {
+  providers: string[];
+  emailVerified: boolean;
+  disabled: boolean;
+  lastSignInISO: string | null;
+  creationISO: string | null;
+}
+
+export interface CoachlessUserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL: string | null;
+  createdAtISO: string | null;
+  timezone: string | null;
+  birthDate: string | null;
+  locale: string | null;
+  entitlement: EntitlementInfo | null;
+  stats: CoachlessUserStats;
+  activity: CoachlessActivitySummary;
+  auth: CoachlessAuthInfo | null;
+  routines: CoachlessRoutineRow[];
+  recentWeights: CoachlessWeightRow[];
+}
+
+/**
+ * How many newest docs per stream we pull to compute the 7d/30d activity
+ * buckets. Generous enough that a heavy user's last 30 days always fit; the
+ * displayed TOTALS come from `.count()` aggregations, so this cap can never
+ * under-report them.
+ */
+const ACTIVITY_WINDOW_LIMIT = 400;
+
+/**
+ * Everything the god-mode profile page shows for ONE coach-less user: identity,
+ * Firebase Auth facts, subscription, content counts, an activity summary, their
+ * self-authored routines and recent body-weight entries.
+ *
+ * Admin-only, and REFUSES a target that isn't an active coach-less client — a
+ * coached client has their own drill-down under
+ * `/admin/coaches/{coachId}/clients/{uid}`, which stays the single surface for
+ * coach-owned data.
+ */
+export async function getCoachlessUserProfile(
+  uid: string,
+): Promise<CoachlessUserProfile> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+
+  const userSnap = await db.collection(FirestoreCollections.users).doc(uid).get();
+  if (!userSnap.exists) {
+    throw new Error("User not found.");
+  }
+  const d = userSnap.data() as Record<string, unknown>;
+  if (
+    !isCoachlessClientRow({
+      role: typeof d.role === "string" ? d.role : null,
+      coachId: typeof d.coachId === "string" ? d.coachId : null,
+      deleted: d.deleted === true,
+    })
+  ) {
+    throw new Error("Not a coach-less client.");
+  }
+
+  const [
+    templatesSnap,
+    habitsSnap,
+    photosSnap,
+    logsSnap,
+    habitLogsSnap,
+    weightsSnap,
+    logsCountAgg,
+    photosCountAgg,
+    authRecord,
+  ] = await Promise.all([
+    // Self-authored templates: no orderBy, so no composite index is needed and
+    // client-created docs missing `deleted` aren't filtered out (see the
+    // client-created-habits equality trap).
+    db
+      .collection(FirestoreCollections.workoutTemplates)
+      .where("trainerId", "==", uid)
+      .limit(200)
+      .get(),
+    db.collection(FirestoreCollections.habits).where("clientId", "==", uid).limit(200).get(),
+    // Bounded, newest-first windows — they feed the 7d/30d activity buckets,
+    // NOT the totals (the counts below stay exact).
+    db
+      .collection(FirestoreCollections.progressPhotos)
+      .where("clientId", "==", uid)
+      .orderBy("createdAt", "desc")
+      .limit(ACTIVITY_WINDOW_LIMIT)
+      .get(),
+    db
+      .collection(FirestoreCollections.workoutLogs)
+      .where("clientId", "==", uid)
+      .orderBy("startedAt", "desc")
+      .limit(ACTIVITY_WINDOW_LIMIT)
+      .get(),
+    db
+      .collection(FirestoreCollections.habitLogs)
+      .where("clientId", "==", uid)
+      .orderBy("civilDate", "desc")
+      .limit(ACTIVITY_WINDOW_LIMIT)
+      .get(),
+    db
+      .collection(FirestoreCollections.users)
+      .doc(uid)
+      .collection("body_weight_logs")
+      .orderBy("recordedAt", "desc")
+      .limit(50)
+      .get(),
+    db
+      .collection(FirestoreCollections.workoutLogs)
+      .where("clientId", "==", uid)
+      .count()
+      .get(),
+    db
+      .collection(FirestoreCollections.progressPhotos)
+      .where("clientId", "==", uid)
+      .count()
+      .get(),
+    // Auth is a separate service — never let its outage 500 the whole page.
+    gcFitnessAuth()
+      .getUser(uid)
+      .catch(() => null),
+  ]);
+
+  const routines: CoachlessRoutineRow[] = templatesSnap.docs
+    .map((doc) => {
+      const t = doc.data() as Record<string, unknown>;
+      const rawTags = Array.isArray(t.tags) ? t.tags : [];
+      const tags = rawTags.filter((tag): tag is string => typeof tag === "string");
+      if (tags.length === 0 && typeof t.tag === "string") tags.push(t.tag);
+      return {
+        id: doc.id,
+        name: bilingualText(t.name, "Untitled"),
+        exerciseCount: Array.isArray(t.exercises) ? t.exercises.length : 0,
+        tags,
+        createdAtISO: firestoreValueToISO(t.createdAt),
+        updatedAtISO: firestoreValueToISO(t.updatedAt),
+        deleted: t.deleted === true,
+      } satisfies CoachlessRoutineRow;
+    })
+    // Active first, then most recently touched.
+    .sort((a, b) => {
+      if (a.deleted !== b.deleted) return Number(a.deleted) - Number(b.deleted);
+      return (b.updatedAtISO ?? "").localeCompare(a.updatedAtISO ?? "");
+    });
+
+  const recentWeights: CoachlessWeightRow[] = weightsSnap.docs.map((doc) => {
+    const w = doc.data() as Record<string, unknown>;
+    return {
+      id: doc.id,
+      valueKg: typeof w.valueKg === "number" ? w.valueKg : null,
+      recordedAtISO: firestoreValueToISO(w.recordedAt),
+    } satisfies CoachlessWeightRow;
+  });
+
+  const stats: CoachlessUserStats = {
+    routines: routines.filter((r) => !r.deleted).length,
+    habits: habitsSnap.docs.filter((h) => h.get("clientOwned") === true).length,
+    progressPhotos: photosCountAgg.data().count,
+    workoutLogs: logsCountAgg.data().count,
+  };
+
+  const activity = summarizeCoachlessActivity({
+    nowMs: Date.now(),
+    workoutDates: logsSnap.docs.map((doc) =>
+      firestoreValueToISO(doc.get("startedAt") ?? doc.get("createdAt")),
+    ),
+    // Only completed check-ins count as activity (habits are binary-only).
+    habitLogDates: habitLogsSnap.docs
+      .filter((doc) => doc.get("deleted") !== true && doc.get("value") === true)
+      .map((doc) =>
+        typeof doc.get("civilDate") === "string"
+          ? (doc.get("civilDate") as string)
+          : firestoreValueToISO(doc.get("loggedAt")),
+      ),
+    photoDates: photosSnap.docs.map((doc) => firestoreValueToISO(doc.get("createdAt"))),
+    weightDates: recentWeights.map((w) => w.recordedAtISO),
+  });
+
+  return {
+    uid,
+    email: typeof d.email === "string" ? d.email : "",
+    displayName: typeof d.displayName === "string" ? d.displayName : "",
+    photoURL: typeof d.photoURL === "string" ? d.photoURL : null,
+    createdAtISO: firestoreValueToISO(d.createdAt),
+    timezone: typeof d.timezone === "string" ? d.timezone : null,
+    birthDate: typeof d.birthDate === "string" ? d.birthDate : null,
+    locale: typeof d.locale === "string" ? d.locale : null,
+    entitlement: toEntitlementInfo(d.entitlement),
+    stats,
+    activity,
+    auth: authRecord
+      ? {
+          providers: authRecord.providerData.map((p) => p.providerId),
+          emailVerified: authRecord.emailVerified,
+          disabled: authRecord.disabled,
+          lastSignInISO: authRecord.metadata.lastSignInTime
+            ? new Date(authRecord.metadata.lastSignInTime).toISOString()
+            : null,
+          creationISO: authRecord.metadata.creationTime
+            ? new Date(authRecord.metadata.creationTime).toISOString()
+            : null,
+        }
+      : null,
+    routines,
+    recentWeights,
+  } satisfies CoachlessUserProfile;
 }
 
 const setEntitlementSchema = z.object({

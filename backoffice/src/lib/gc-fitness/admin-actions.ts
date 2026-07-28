@@ -9,6 +9,7 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { recurrenceLabel } from "@/lib/gc-fitness/coach-activity-log";
 import {
+  adminCanViewClientUnderCoach,
   toEntitlementInfo,
   type EntitlementInfo,
 } from "@/lib/gc-fitness/coachless-user-model";
@@ -1095,6 +1096,12 @@ export interface AdminClientHabitRow {
   deleted: boolean;
 }
 
+/**
+ * Admin drill-down gate. Admits the client's coach of record, plus the
+ * coach-less self-as-coach case (`coachUid === clientId` on an active
+ * coach-less client) so the god-mode coach-less profile can reuse these
+ * loaders — see `adminCanViewClientUnderCoach` for the full rule.
+ */
 async function assertClientBelongsToCoach(
   db: FirebaseFirestore.Firestore,
   coachUid: string,
@@ -1104,7 +1111,17 @@ async function assertClientBelongsToCoach(
     .collection(FirestoreCollections.users)
     .doc(clientId)
     .get();
-  if (!snap.exists || snap.get("coachId") !== coachUid) {
+  if (!snap.exists) {
+    throw new Error("Not found");
+  }
+  const allowed = adminCanViewClientUnderCoach({
+    coachUidInPath: coachUid,
+    clientId,
+    clientCoachId: typeof snap.get("coachId") === "string" ? snap.get("coachId") : null,
+    clientRole: typeof snap.get("role") === "string" ? snap.get("role") : null,
+    clientDeleted: snap.get("deleted") === true,
+  });
+  if (!allowed) {
     throw new Error("Not found");
   }
 }

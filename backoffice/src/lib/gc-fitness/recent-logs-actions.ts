@@ -7,6 +7,10 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentAdmin, getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
 import { coerceLegacyHabitLogValue } from "./habit-compliance";
+import {
+  adminCanViewClientUnderCoach,
+  isCoachlessClientRow,
+} from "./coachless-user-model";
 import { FirestoreCollections } from "./collections";
 import {
   listClients,
@@ -1463,9 +1467,12 @@ async function buildRecentLogs(params: {
  * null when the doc is missing. `coachId` is returned alongside so callers can
  * authorize (trainer ownership / admin coach-match) without a second read.
  */
-async function loadClientRosterEntry(
-  clientId: string,
-): Promise<{ entry: ClientRosterEntry; coachId: string | null } | null> {
+async function loadClientRosterEntry(clientId: string): Promise<{
+  entry: ClientRosterEntry;
+  coachId: string | null;
+  role: string | null;
+  deleted: boolean;
+} | null> {
   const snap = await gcFitnessFirestore()
     .collection(FirestoreCollections.users)
     .doc(clientId)
@@ -1500,6 +1507,8 @@ async function loadClientRosterEntry(
       autoAssignedCoach: data.autoAssignedCoach === true,
     },
     coachId,
+    role: typeof data.role === "string" ? data.role : null,
+    deleted: data.deleted === true,
   };
 }
 
@@ -1611,6 +1620,11 @@ export async function listRecentLogsForClient(
  * Admin god-mode (read-only): recent activity for ONE client of a SPECIFIC
  * coach. Verifies the client really belongs to `coachId` so the URL can't be
  * edited to read a client outside the coach being inspected.
+ *
+ * Coach-less users are admitted via `coachId === clientId` (they are their own
+ * trainer-of-record — see `adminCanViewClientUnderCoach`). That sentinel is
+ * also the CORRECT `trainerId` to scan by: their self-created content carries
+ * `trainerId === clientId` (#392 selfAssigned).
  */
 export async function listRecentLogsForClientAsAdmin(
   coachId: string,
@@ -1620,10 +1634,24 @@ export async function listRecentLogsForClientAsAdmin(
 ): Promise<RecentLogsResult> {
   await getCurrentAdmin();
   const loaded = await loadClientRosterEntry(clientId);
-  if (!loaded || loaded.coachId !== coachId) {
+  if (
+    !loaded ||
+    !adminCanViewClientUnderCoach({
+      coachUidInPath: coachId,
+      clientId,
+      clientCoachId: loaded.coachId,
+      clientRole: loaded.role,
+      clientDeleted: loaded.deleted,
+    })
+  ) {
     throw new Error("Not found");
   }
-  const timezone = await getTrainerTimezone();
+  // A coach-less user has no coach whose cookie tz we could borrow, so their
+  // own profile timezone drives the civil-date bucketing; the admin cookie tz
+  // is the fallback for the coached path (unchanged).
+  const timezone = loaded.coachId
+    ? await getTrainerTimezone()
+    : (loaded.entry.timezone ?? (await getTrainerTimezone()));
   return buildRecentLogs({
     trainerId: coachId,
     clients: [loaded.entry],
@@ -1704,11 +1732,33 @@ export async function getWorkoutLogDetailAsAdmin(
   }
 
   const data = logSnap.data() as Record<string, unknown>;
-  if (!(await coachCanAccessLog(db, coachId, data))) {
+  // Self-created logs of a coach-less user already pass via `trainerId ===
+  // coachId` (they are their own trainer-of-record). The extra branch covers
+  // logs written while the user still HAD a coach, which would otherwise 404
+  // from their coach-less profile — admin-only, and only for a uid that is
+  // both the path uid and an active coach-less client.
+  const accessible =
+    (await coachCanAccessLog(db, coachId, data)) ||
+    (data.clientId === coachId && (await isActiveCoachlessClient(db, coachId)));
+  if (!accessible) {
     throw new Error("Workout log not found.");
   }
 
   return buildWorkoutLogDetail(db, coachId, logSnap.id, data);
+}
+
+/** True when `/users/{uid}` is an active client with no coach. */
+async function isActiveCoachlessClient(
+  db: FirebaseFirestore.Firestore,
+  uid: string,
+): Promise<boolean> {
+  const snap = await db.collection(FirestoreCollections.users).doc(uid).get();
+  if (!snap.exists) return false;
+  return isCoachlessClientRow({
+    role: typeof snap.get("role") === "string" ? snap.get("role") : null,
+    coachId: typeof snap.get("coachId") === "string" ? snap.get("coachId") : null,
+    deleted: snap.get("deleted") === true,
+  });
 }
 
 /**

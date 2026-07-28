@@ -79,7 +79,7 @@ export default async function CoachlessUsersPage({
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
         title="Coach-less users"
-        subtitle="Self-serve clients with no coach — subscription status, content stats, and god-mode actions (grant/revoke premium, delete)."
+        subtitle="Self-serve clients with no coach — subscription status, content stats, and god-mode actions (grant/revoke premium, delete). Click a name to open their full profile."
       />
 
       <Button asChild variant="outline" size="sm" className="self-start rounded-full">
@@ -139,7 +139,15 @@ export default async function CoachlessUsersPage({
                           <div className="h-8 w-8 rounded-full bg-muted" aria-hidden />
                         )}
                         <div>
-                          <div className="font-medium">{row.displayName || "—"}</div>
+                          {/* Row → god-mode profile (activity, routines, habits,
+                              logs, photos). The detail page is the only place
+                              a coach-less user's content is inspectable. */}
+                          <Link
+                            href={`${ROUTE}/${row.uid}`}
+                            className="font-medium underline-offset-2 hover:underline"
+                          >
+                            {row.displayName || row.email || "—"}
+                          </Link>
                           <div className="text-xs text-muted-foreground">{row.email || "—"}</div>
                           <div className="font-mono text-[10px] text-muted-foreground">{row.uid}</div>
                         </div>
