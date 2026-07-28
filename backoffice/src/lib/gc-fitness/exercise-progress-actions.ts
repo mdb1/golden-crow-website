@@ -24,9 +24,11 @@
 // crosses to the browser; the client only re-filters by date range locally.
 
 import {
+  getCurrentAdmin,
   getCurrentTrainer,
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
+import { adminCanViewClientUnderCoach } from "@/lib/gc-fitness/coachless-user-model";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateFormat, civilDateToday } from "@/lib/gc-fitness/civil-date";
@@ -210,25 +212,77 @@ export async function getClientExerciseProgress(
 
   // Ownership gate at the query layer — only read this client's logs when the
   // logged-in trainer owns them (the page already verifies coachId too).
-  const today = civilDateToday(timezone);
-  const currentWeekStart = civilWeekStart(today);
-
   const clientSnap = await db
     .collection(FirestoreCollections.users)
     .doc(clientId)
     .get();
   if (!clientSnap.exists || clientSnap.get("coachId") !== trainer.uid) {
-    return {
-      clientId,
-      exercises: [],
-      points: [],
-      muscleGroupWeeks: [],
-      availableMuscleGroups: [],
-      currentWeekStart,
-      exerciseSetSessions: [],
-      truncatedSetHistoryExerciseIds: [],
-    };
+    return emptyExerciseProgress(clientId, timezone);
   }
+
+  return loadClientExerciseProgress(clientId, timezone);
+}
+
+/**
+ * Admin god-mode (READ-ONLY): the same per-exercise progress for ONE client,
+ * gated by `adminCanViewClientUnderCoach` — the coach of record, or a coach-less
+ * user under the self-as-coach rule (`coachUid === clientId`).
+ */
+export async function getClientExerciseProgressAsAdmin(
+  coachUid: string,
+  clientId: string,
+  timezone: string,
+): Promise<ClientExerciseProgress> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+  const clientSnap = await db
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .get();
+  const allowed =
+    clientSnap.exists &&
+    adminCanViewClientUnderCoach({
+      coachUidInPath: coachUid,
+      clientId,
+      clientCoachId:
+        typeof clientSnap.get("coachId") === "string" ? clientSnap.get("coachId") : null,
+      clientRole: typeof clientSnap.get("role") === "string" ? clientSnap.get("role") : null,
+      clientDeleted: clientSnap.get("deleted") === true,
+    });
+  if (!allowed) {
+    return emptyExerciseProgress(clientId, timezone);
+  }
+  return loadClientExerciseProgress(clientId, timezone);
+}
+
+/** The "nothing to show" payload — shared by both gates' deny paths. */
+function emptyExerciseProgress(
+  clientId: string,
+  timezone: string,
+): ClientExerciseProgress {
+  return {
+    clientId,
+    exercises: [],
+    points: [],
+    muscleGroupWeeks: [],
+    availableMuscleGroups: [],
+    currentWeekStart: civilWeekStart(civilDateToday(timezone)),
+    exerciseSetSessions: [],
+    truncatedSetHistoryExerciseIds: [],
+  };
+}
+
+/**
+ * Auth-FREE aggregation core. CALLERS MUST GATE — the two exported entry points
+ * above are the only ones.
+ */
+async function loadClientExerciseProgress(
+  clientId: string,
+  timezone: string,
+): Promise<ClientExerciseProgress> {
+  const db = gcFitnessFirestore();
+  const today = civilDateToday(timezone);
+  const currentWeekStart = civilWeekStart(today);
 
   const windowStartDate = new Date(
     Date.now() - MAX_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,

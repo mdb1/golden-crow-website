@@ -17,6 +17,7 @@
 // client, so this URL can't be used to read a coached client's data.
 
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -59,10 +60,21 @@ import {
   resolveDisplayTier,
   type ActivityWindow,
 } from "@/lib/gc-fitness/coachless-user-model";
+import { civilDateToday } from "@/lib/gc-fitness/civil-date";
+import { getClientExerciseProgressAsAdmin } from "@/lib/gc-fitness/exercise-progress-actions";
+import { listClientPersonalRecordsAsAdmin } from "@/lib/gc-fitness/personal-records-actions";
 import { listProgressPhotosForClientAsAdmin } from "@/lib/gc-fitness/progress-photo-actions";
 import { listRecentLogsForClientAsAdmin } from "@/lib/gc-fitness/recent-logs-actions";
+import { listMonthForClientAsAdmin } from "@/lib/gc-fitness/schedule-month-actions";
 
 import { BodyWeightTrendChart } from "@/app/gc-fitness/clients/[id]/_components/BodyWeightTrendChart";
+import { HabitTrendsWidget } from "@/app/gc-fitness/clients/[id]/_components/HabitTrendsWidget";
+import { WorkoutTrendsWidget } from "@/app/gc-fitness/clients/[id]/_components/WorkoutTrendsWidget";
+import { PersonalRecordsClient } from "@/app/gc-fitness/clients/[id]/_components/PersonalRecordsClient";
+import { ExerciseProgressClient } from "@/app/gc-fitness/clients/[id]/progress/ExerciseProgressClient";
+import { MuscleGroupProgressClient } from "@/app/gc-fitness/clients/[id]/progress/MuscleGroupProgressClient";
+import { addCivilDays } from "@/app/gc-fitness/clients/[id]/_components/trend-range";
+import { AdminReadOnlyCalendar } from "./_components/AdminReadOnlyCalendar";
 import { ClientRecentLogsFeed } from "@/app/gc-fitness/clients/[id]/_components/ClientRecentLogsFeed";
 import { ProgressPhotosGridClient } from "@/app/gc-fitness/clients/[id]/_components/ProgressPhotosGridClient";
 
@@ -161,18 +173,87 @@ export default async function CoachlessUserDetailPage({
 
   // Every widget below is scoped by BOTH ids; for a coach-less user the coach
   // uid IS their own uid (see the header comment).
-  const [logs, photos, assignments, habits, coaches] = await Promise.all([
+  const timezone = profile.timezone ?? "UTC";
+  const todayCivil = civilDateToday(timezone);
+  const thisMonthFirst = `${todayCivil.slice(0, 7)}-01`;
+
+  const [
+    logs,
+    photos,
+    assignments,
+    habits,
+    coaches,
+    calendar,
+    exerciseProgress,
+    personalRecords,
+  ] = await Promise.all([
     listRecentLogsForClientAsAdmin(uid, uid).catch(() => null),
     listProgressPhotosForClientAsAdmin(uid, uid).catch(() => []),
     listClientAssignmentsForAdmin(uid, uid).catch(() => []),
     listClientHabitsForAdmin(uid, uid).catch(() => []),
     listCoachOptionsForAdmin().catch(() => []),
+    // Every one of these degrades to "empty section" rather than 500-ing the
+    // whole profile — an operator inspecting a broken account needs the parts
+    // that DO load, especially then.
+    listMonthForClientAsAdmin({
+      coachUid: uid,
+      clientId: uid,
+      monthFirstCivil: thisMonthFirst,
+      todayCivil,
+    }).catch(() => null),
+    getClientExerciseProgressAsAdmin(uid, uid, timezone).catch(() => null),
+    listClientPersonalRecordsAsAdmin(uid, uid).catch(() => ({ clientId: uid, records: [] })),
   ]);
+
+  // The chart components take their copy as props (they are shared client
+  // components); pull the SAME i18n namespaces the coach progress page uses so
+  // the two surfaces never drift in wording.
+  const tProgress = await getTranslations("clients.exerciseProgress");
+  const tRecords = await getTranslations("clients.detail.personalRecords");
+  const exerciseProgressLabels = {
+    exercisePickerLabel: tProgress("exercisePickerLabel"),
+    metricTopSet: tProgress("metricTopSet"),
+    metricE1rm: tProgress("metricE1rm"),
+    metricVolume: tProgress("metricVolume"),
+    weightUnit: tProgress("weightUnit"),
+    volumeUnit: tProgress("volumeUnit"),
+    latestPrefix: tProgress("latestPrefix"),
+    emptyNoExercises: tProgress("emptyNoExercises"),
+    emptyNoData: tProgress("emptyNoData"),
+    tooltipTopSet: tProgress("tooltipTopSet"),
+    tooltipE1rm: tProgress("tooltipE1rm"),
+    tooltipVolume: tProgress("tooltipVolume"),
+    ranges: {
+      all: tProgress("rangeAll"),
+      "90": tProgress("range90"),
+      "30": tProgress("range30"),
+      "7": tProgress("range7"),
+    },
+  };
+  const personalRecordLabels = {
+    empty: tRecords("empty"),
+    muscleGroupLabel: tRecords("muscleGroupLabel"),
+    muscleGroupAll: tRecords("muscleGroupAll"),
+    sortLabel: tRecords("sortLabel"),
+    sortRecent: tRecords("sortRecent"),
+    sortMostCommon: tRecords("sortMostCommon"),
+    previousLabel: tRecords.raw("previousLabel") as string,
+    estOneRm: tRecords.raw("estOneRm") as string,
+    noDate: tRecords("noDate"),
+  };
+
+  // Range anchors shared by the per-exercise + muscle-group charts, matching the
+  // coach progress page so both surfaces bucket identically.
+  const rangeStarts = {
+    all: addCivilDays(todayCivil, -364),
+    "90": addCivilDays(todayCivil, -89),
+    "30": addCivilDays(todayCivil, -29),
+    "7": addCivilDays(todayCivil, -6),
+  };
 
   const nowMs = Date.now();
   const tier = resolveDisplayTier(profile.entitlement);
   const isPremium = tier === "premium";
-  const timezone = profile.timezone ?? "UTC";
   const displayName = profile.displayName || profile.email || uid;
 
   // Assigning a coach IS a transfer — from no coach to one. Reuses the tested
@@ -594,6 +675,28 @@ export default async function CoachlessUserDetailPage({
 
       <Card>
         <CardHeader className="pb-3">
+          <CardTitle className="text-xl">Calendar</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {calendar ? (
+            // READ-ONLY by construction — the coach's calendar's drag-to-move /
+            // assign affordances are deliberately absent from every god-mode
+            // drill-down.
+            <AdminReadOnlyCalendar
+              coachUid={uid}
+              clientId={uid}
+              todayCivil={todayCivil}
+              initialMonthFirst={thisMonthFirst}
+              initialPayload={calendar}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Calendar unavailable.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
           <CardTitle className="text-xl">Recent activity</CardTitle>
         </CardHeader>
         <CardContent>
@@ -615,6 +718,80 @@ export default async function CoachlessUserDetailPage({
           ) : (
             <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Training analytics — the surfaces a coach gets on their own client
+          detail, which a coach-less user had nobody to look at them for. All of
+          these are the coach components verbatim; only the data gate differs. */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl">Workout trends</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <WorkoutTrendsWidget clientId={uid} timezone={timezone} />
+        </CardContent>
+      </Card>
+
+      {exerciseProgress && exerciseProgress.availableMuscleGroups.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xl">Weekly volume &amp; sets by muscle group</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MuscleGroupProgressClient
+              weeks={exerciseProgress.muscleGroupWeeks}
+              availableGroups={exerciseProgress.availableMuscleGroups}
+              currentWeekStart={exerciseProgress.currentWeekStart}
+              rangeStarts={rangeStarts}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {exerciseProgress && exerciseProgress.exercises.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xl">Progress by exercise</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ExerciseProgressClient
+              exercises={exerciseProgress.exercises}
+              points={exerciseProgress.points}
+              setSessions={exerciseProgress.exerciseSetSessions}
+              truncatedSetHistoryExerciseIds={
+                exerciseProgress.truncatedSetHistoryExerciseIds
+              }
+              today={todayCivil}
+              rangeStarts={rangeStarts}
+              labels={exerciseProgressLabels}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {personalRecords.records.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xl">
+              Personal records ({personalRecords.records.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PersonalRecordsClient
+              records={personalRecords.records}
+              labels={personalRecordLabels}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl">Habit adherence</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <HabitTrendsWidget clientId={uid} timezone={timezone} />
         </CardContent>
       </Card>
 
