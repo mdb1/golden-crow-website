@@ -3,6 +3,7 @@
 import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentAdmin, getCurrentTrainer } from "./auth-helpers";
+import { adminCanViewClientUnderCoach } from "./coachless-user-model";
 import { FirestoreCollections } from "./collections";
 
 export interface ProgressPhotoRow {
@@ -97,15 +98,33 @@ export async function listProgressPhotosForClient(
 
 /**
  * Admin god-mode (read-only): a client's progress photos, verifying the client
- * belongs to `coachId` (reusing `assertOwnsClient`, which checks
- * `client.coachId === coachId`) so the route can't read across coaches.
+ * belongs to `coachId` so the route can't read across coaches. Uses the WIDER
+ * `adminCanViewClientUnderCoach` gate rather than the trainer-path
+ * `assertOwnsClient`, so a coach-less user (their own trainer-of-record —
+ * `coachId === clientId`) is admitted too. The trainer path above keeps the
+ * strict `coachId` equality.
  */
 export async function listProgressPhotosForClientAsAdmin(
   coachId: string,
   clientId: string,
 ): Promise<ProgressPhotoRow[]> {
   await getCurrentAdmin();
-  await assertOwnsClient(coachId, clientId);
+  const snap = await gcFitnessFirestore()
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .get();
+  const allowed =
+    snap.exists &&
+    adminCanViewClientUnderCoach({
+      coachUidInPath: coachId,
+      clientId,
+      clientCoachId: typeof snap.get("coachId") === "string" ? snap.get("coachId") : null,
+      clientRole: typeof snap.get("role") === "string" ? snap.get("role") : null,
+      clientDeleted: snap.get("deleted") === true,
+    });
+  if (!allowed) {
+    throw new Error("Forbidden");
+  }
   return loadProgressPhotos(clientId);
 }
 
