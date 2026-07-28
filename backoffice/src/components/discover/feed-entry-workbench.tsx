@@ -96,6 +96,26 @@ type PublishDialogState = {
   message?: string;
 };
 
+const DISCOVER_OPPORTUNITY_TYPE_OPTIONS = [
+  { value: "fellowship", label: "Fellowship" },
+  { value: "grant", label: "Grant" },
+  { value: "scholarship", label: "Scholarship" },
+  { value: "clinical_study", label: "Clinical study" },
+  { value: "research_program", label: "Research program" },
+  { value: "training", label: "Training" },
+  { value: "patient_program", label: "Patient program" },
+  { value: "resource", label: "Resource" },
+  { value: "job", label: "Job" },
+  { value: "volunteer", label: "Volunteer" },
+  { value: "dataset", label: "Dataset" },
+  { value: "challenge", label: "Challenge" },
+  { value: "other", label: "Other" },
+] as const;
+
+const DISCOVER_OPPORTUNITY_TYPE_VALUES = new Set<string>(
+  DISCOVER_OPPORTUNITY_TYPE_OPTIONS.map((option) => option.value),
+);
+
 function toDateTimeInput(value?: string | null) {
   if (!value) {
     return "";
@@ -164,6 +184,9 @@ function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
   const research = item?.research_update ?? {};
   const event = item?.upcoming_event ?? {};
   const opportunity = item?.opportunity ?? {};
+  const opportunityType =
+    stringFromPayload(opportunity.opportunity_type) ||
+    stringFromPayload(opportunity.opportunityType);
 
   return {
     publisherOrganizationId: item?.publisherOrganizationId ?? "",
@@ -199,9 +222,11 @@ function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
           : stringFromPayload(event.max_attendance),
     },
     opportunity: {
-      opportunity_type:
-        stringFromPayload(opportunity.opportunity_type) ||
-        stringFromPayload(opportunity.opportunityType),
+      opportunity_type: DISCOVER_OPPORTUNITY_TYPE_VALUES.has(opportunityType)
+        ? opportunityType
+        : opportunityType
+          ? "other"
+          : "",
       requirements: payloadText(opportunity.requirements),
       eligibility: stringFromPayload(opportunity.eligibility),
       location:
@@ -713,7 +738,7 @@ export function DiscoverFeedEntryWorkbench({
     return (
       <div className="grid gap-4 md:grid-cols-2">
         <FieldShell label={t("Opportunity type")} htmlFor="discover-opportunity-type">
-          <Input
+          <select
             id="discover-opportunity-type"
             value={state.opportunity.opportunity_type}
             onChange={(event) =>
@@ -721,7 +746,15 @@ export function DiscoverFeedEntryWorkbench({
                 opportunity_type: event.target.value,
               })
             }
-          />
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">{t("Choose type")}</option>
+            {DISCOVER_OPPORTUNITY_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {t(option.label)}
+              </option>
+            ))}
+          </select>
         </FieldShell>
         <FieldShell label={t("Location")} htmlFor="discover-opportunity-location">
           <Input
