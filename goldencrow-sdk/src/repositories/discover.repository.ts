@@ -737,9 +737,10 @@ async function feedItemDocument(
   }
 
   const inputPublishedAt = normalizeTimestamp(input.publishedAt, "Published time");
+  const existingPublishedAt = normalizeTimestamp(existing?.publishedAt, "Published time");
   const publishedAt =
     status === "published"
-      ? inputPublishedAt ?? FieldValue.serverTimestamp()
+      ? inputPublishedAt ?? existingPublishedAt ?? FieldValue.serverTimestamp()
       : inputPublishedAt;
   const archivedAt =
     status === "archived"
@@ -953,6 +954,21 @@ export async function updateDiscoverFeedItem(
   );
 
   return getDiscoverFeedItem(context, feedItemId);
+}
+
+export async function deleteDiscoverFeedItem(
+  context: AdminContext,
+  feedItemId: string,
+) {
+  requireFullAdmin(context);
+  const existing = await getFeedItemSnapshot(feedItemId);
+  if (!existing) {
+    throw new AdminRepositoryError("Feed entry not found.", 404);
+  }
+
+  await existing.ref.delete();
+
+  return { deleted: true, feedItemId };
 }
 
 export async function duplicateDiscoverFeedItem(

@@ -6,6 +6,7 @@ import { canManageLegacyModeration } from "../repositories/roles.repository.js";
 import {
   createDiscoverFeedItem,
   createDiscoverOrganization,
+  deleteDiscoverFeedItem,
   duplicateDiscoverFeedItem,
   getDiscoverFeedItem,
   getDiscoverOrganization,
@@ -285,6 +286,26 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
           request.body,
         );
         return reply.send({ feedItem });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.delete(
+    "/discover/feed-items/:feedItemId",
+    {
+      schema: {
+        params: z.object({ feedItemId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await deleteDiscoverFeedItem(
+          request.adminContext!,
+          request.params.feedItemId,
+        );
+        return reply.send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

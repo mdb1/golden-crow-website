@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Archive,
   ArrowLeft,
   Bold,
   Check,
@@ -23,11 +22,23 @@ import {
   RotateCcw,
   Save,
   Send,
+  Trash2,
   Type,
   UploadCloud,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -519,6 +530,7 @@ export function DiscoverFeedEntryWorkbench({
     initialOrganizationsNextCursor,
   );
   const [pending, setPending] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
   const [publishDialog, setPublishDialog] = useState<PublishDialogState | null>(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const sourceState = useMemo(() => toFormState(feedItem), [feedItem]);
@@ -531,6 +543,9 @@ export function DiscoverFeedEntryWorkbench({
     : state.body.length;
   const sourceUrlError = sourceUrlErrorFor(state.source_url);
   const imageUrlError = imageUrlErrorFor(state.image_url);
+  const editStatus = feedItem?.status ?? "draft";
+  const editPublishedAt = feedItem?.publishedAt ?? null;
+  const isWorking = pending || deletePending;
 
   function updateState(patch: Partial<FeedEntryFormState>) {
     setState((current) => ({ ...current, ...patch }));
@@ -792,17 +807,47 @@ export function DiscoverFeedEntryWorkbench({
     });
   }
 
-  async function archive() {
-    const archived = await persist("archived");
-    if (!archived) {
+  async function saveChanges() {
+    if (mode !== "edit" || !feedItem) {
+      return;
+    }
+
+    const saved = await persist(editStatus, editPublishedAt);
+    if (!saved) {
       return;
     }
 
     setToast({
       id: Date.now(),
       tone: "success",
-      message: t("Feed entry archived."),
+      message: t("Changes saved."),
     });
+  }
+
+  async function deleteFeedEntry() {
+    if (!feedItem) {
+      return;
+    }
+
+    setDeletePending(true);
+    try {
+      await sdkFetch<{ deleted: boolean; feedItemId: string }>(
+        `/discover/feed-items/${feedItem.id}`,
+        { method: "DELETE" },
+      );
+      router.refresh();
+      router.push("/discover/feed-entries");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : t("Unable to delete the feed entry.");
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message,
+      });
+    } finally {
+      setDeletePending(false);
+    }
   }
 
   function renderSpecificFields() {
@@ -996,7 +1041,7 @@ export function DiscoverFeedEntryWorkbench({
               </div>
               <div>
                 <h2 className="font-heading text-xl font-semibold text-foreground">
-                  {mode === "create" ? t("Create feed entry") : t("Feed entry")}
+                  {mode === "create" ? t("Create feed entry") : t("Edit feed entry")}
                 </h2>
                 <p className="text-sm text-muted-foreground">
                   {selectedOrganization?.name ?? t("Publisher draft")}
@@ -1009,30 +1054,53 @@ export function DiscoverFeedEntryWorkbench({
                 variant="outline"
                 size="sm"
                 onClick={() => setState(sourceState)}
-                disabled={!changed || pending}
+                disabled={!changed || isWorking}
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 {t("Reset")}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void saveDraft()}
-                disabled={pending}
-              >
-                <Save className="h-3.5 w-3.5" />
-                {t("Save draft")}
-              </Button>
-              {mode === "edit" && feedItem?.status !== "archived" ? (
+              {mode === "create" ? (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => void archive()}
-                  disabled={pending}
+                  onClick={() => void saveDraft()}
+                  disabled={isWorking}
                 >
-                  <Archive className="h-3.5 w-3.5" />
-                  {t("Archive")}
+                  <Save className="h-3.5 w-3.5" />
+                  {t("Save draft")}
                 </Button>
+              ) : null}
+              {mode === "edit" && feedItem ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" disabled={isWorking}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {t("Delete")}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {t("Delete feed entry?")}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {t("This permanently deletes the feed entry from Discover. It will be fully erased from the feed and cannot be restored.")}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={deletePending}>
+                        {t("Cancel")}
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => void deleteFeedEntry()}
+                        disabled={deletePending}
+                      >
+                        {deletePending ? t("Deleting...") : t("Delete")}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               ) : null}
             </div>
           </div>
@@ -1327,16 +1395,24 @@ export function DiscoverFeedEntryWorkbench({
             </div>
             <Button
               size="lg"
-              onClick={() => void publish()}
-              disabled={pending}
+              onClick={() => void (mode === "edit" ? saveChanges() : publish())}
+              disabled={isWorking}
               className="h-14 min-w-[min(100%,22rem)] justify-center text-base font-semibold"
             >
               {pending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
+              ) : mode === "edit" ? (
+                <Save className="h-5 w-5" />
               ) : (
                 <UploadCloud className="h-5 w-5" />
               )}
-              {pending ? t("Publishing...") : t("Publish to Discover")}
+              {mode === "edit"
+                ? pending
+                  ? t("Saving...")
+                  : t("Save changes")
+                : pending
+                  ? t("Publishing...")
+                  : t("Publish to Discover")}
             </Button>
           </div>
         </div>

@@ -755,6 +755,14 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se pudieron cargar los formularios guardados.",
   Delete: "Eliminar",
   Archive: "Archivar",
+  "Edit feed entry": "Editar entrada del feed",
+  "Save changes": "Guardar cambios",
+  "Changes saved.": "Cambios guardados.",
+  "Delete feed entry?": "¿Eliminar entrada del feed?",
+  "This permanently deletes the feed entry from Discover. It will be fully erased from the feed and cannot be restored.":
+    "Esto elimina permanentemente la entrada del feed de Discover. Se borrará por completo del feed y no se podrá restaurar.",
+  "Unable to delete the feed entry.":
+    "No se pudo eliminar la entrada del feed.",
   "Delete form": "Eliminar formulario",
   "Archive form": "Archivar formulario",
   "This permanently deletes": "Esto elimina permanentemente",
