@@ -92,7 +92,21 @@ const linkProps = wholeCardIsLink
     overflow: hidden;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     display: block;
-    height: 100%;
+    /* Alturas parejas en los DOS contextos donde vive la card:
+       - grid (WorkFilterGrid): la card es un hijo en flujo normal de
+         `.work-item`, que el grid ya estiró; `min-height: 100%` la hace llenar
+         la celda (es lo que hacía el viejo `height: 100%`).
+       - carrusel (SuccessCarousel): acá la card ES el ítem flex. Una ALTURA
+         explícita cancela el `align-items: stretch` del contenedor, así que
+         cada card medía su propio contenido y quedaban desparejas. Con
+         `height: auto` + `align-self: stretch` la más alta define la fila y el
+         resto se estira; el `min-height: 100%` no molesta porque el track no
+         tiene alto definido.
+       No se arregla desde Carousel.astro: el selector de ahí empata en
+       especificidad con este y pierde por orden de fuente. */
+    height: auto;
+    min-height: 100%;
+    align-self: stretch;
   }
 
   .project-card:hover {
