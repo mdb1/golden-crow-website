@@ -5,104 +5,260 @@ import { APP_STORE_URL, POCKET_GENES_EMAILS } from '../../data/pocketGenesPublic
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 
-const productMoments = [
-  {
-    eyebrow: 'Private report',
-    title: 'Keep it organized',
-    body: 'Store your report, notes, saved findings, and questions without exposing exact details by default.',
-    detail: 'Your original file stays private while the app keeps the pieces you need easy to revisit.',
-    chip: 'Start here',
-    accent: '#1d8f8f',
-    pastel: '#e8faf7',
-    soft: '#f6fffd',
+const pageCopy = {
+  en: {
+    title: 'Pocket Genes - Personal genomic companion',
+    description: 'Pocket Genes helps people organize genetic reports, understand key concepts, and prepare safer next steps.',
+    logoLabel: 'Pocket Genes logo',
+    heroLead:
+      'Pocket Genes helps you understand a genetic result, find trusted connections, and choose a clear next step without making your private report public by default.',
+    appStoreCta: 'Download on the App Store',
+    communityCta: 'Explore community',
+    appPreviewLabel: 'Pocket Genes app preview',
+    exploreAlt: 'Pocket Genes Explore screen showing genomics education and report categories',
+    pathologyAlt: 'Pocket Genes sample pathology detail screen',
+    identityEyebrow: 'At a glance',
+    identityTitle: 'Built for the moment after a genetic result.',
+    identityBody:
+      'Pocket Genes gives you a private place to keep the report, learn what it says, find relevant support, and prepare what to ask next.',
+    downloadApp: 'Download the app',
+    trustCenter: 'Trust Center',
+    userFlowLabel: 'Pocket Genes user flow',
+    contactPrompt: 'Questions about Pocket Genes?',
+    productEyebrow: 'Inside Pocket Genes',
+    productTitle: 'Understand your result, find relevant support, and keep the next step close.',
+    productBody:
+      'Your report stays private while Pocket Genes helps you learn, connect, prepare questions, and follow updates that match your situation.',
+    productFlowLabel: 'Pocket Genes product flow',
+    momentFlowLabel: 'Pocket Genes flow',
+    momentFlow: ['Save', 'Learn', 'Find', 'Prepare'],
+    storeEyebrow: 'Get Pocket Genes',
+    storeTitle: 'Available for iPhone. Google Play is planned.',
+    storeBody: 'Download the iPhone app today. Android support is coming later.',
+    downloadIphone: 'Download for iPhone',
+    appStoreAlt: 'Download Pocket Genes on the App Store',
+    googlePlay: 'Google Play',
+    comingSoon: 'Coming soon',
+    identityFlow: ['Save privately', 'Understand terms', 'Find support', 'Prepare questions'],
+    productMoments: [
+      {
+        eyebrow: 'Private report',
+        title: 'Keep it organized',
+        body: 'Store your report, notes, saved findings, and questions without exposing exact details by default.',
+        detail: 'Your original file stays private while the app keeps the pieces you need easy to revisit.',
+        chip: 'Start here',
+        accent: '#1d8f8f',
+        pastel: '#e8faf7',
+        soft: '#f6fffd',
+      },
+      {
+        eyebrow: 'Learn',
+        title: 'Make terms clearer',
+        body: 'Turn genes, panels, variants, and unfamiliar report language into context you can come back to.',
+        detail: 'Plain-language explanations help a dense genetic result feel easier to review over time.',
+        chip: 'Learn',
+        accent: '#d85b7f',
+        pastel: '#fff0f5',
+        soft: '#fff8fb',
+      },
+      {
+        eyebrow: 'People',
+        title: 'Find relevant support',
+        body: 'Discover people, caregivers, groups, and events by gene, condition, symptoms, role, language, or journey stage.',
+        detail: 'Start from exact matches when they exist, or widen to related groups and shared experiences when that is more useful.',
+        chip: 'Find support',
+        accent: '#2176ae',
+        pastel: '#ecf5ff',
+        soft: '#f7fbff',
+      },
+      {
+        eyebrow: 'Prepare',
+        title: 'Save what matters',
+        body: 'Keep questions, resources, event interests, and appointment notes close to the result that raised them.',
+        detail: 'Use what you learn to prepare better questions, save useful resources, or plan a practical follow-up.',
+        chip: 'Prepare',
+        accent: '#d99232',
+        pastel: '#fff6dd',
+        soft: '#fffdf5',
+      },
+      {
+        eyebrow: 'Updates',
+        title: 'Follow useful signals',
+        body: 'Follow updates that match your gene, condition, country, organization, event interests, or stage of the journey.',
+        detail: 'Keep relevant updates near your own context instead of searching from scratch every time.',
+        chip: 'Stay current',
+        accent: '#3c9b68',
+        pastel: '#edf9ef',
+        soft: '#f8fff9',
+      },
+    ],
+    identityCards: [
+      {
+        kicker: 'Private by default',
+        title: 'Your report stays yours',
+        body: 'Store the original file, exact details, notes, and saved findings without turning them into public profile content.',
+        accent: '#14958f',
+        surface: '#e9faf7',
+      },
+      {
+        kicker: 'Plain language',
+        title: 'Make dense terms usable',
+        body: 'Come back to genes, panels, variants, uncertainty, and saved explanations when you need to understand them again.',
+        accent: '#d85b7f',
+        surface: '#fff0f5',
+      },
+      {
+        kicker: 'Relevant support',
+        title: 'Find people and groups',
+        body: 'Look for people, caregivers, groups, events, and updates by gene, condition, symptoms, role, language, or journey stage.',
+        accent: '#2176ae',
+        surface: '#edf6ff',
+      },
+      {
+        kicker: 'Next step',
+        title: 'Keep questions ready',
+        body: 'Save appointment questions, resources, event interests, and useful updates next to the result that raised them.',
+        accent: '#d99232',
+        surface: '#fff7df',
+      },
+    ],
   },
-  {
-    eyebrow: 'Learn',
-    title: 'Make terms clearer',
-    body: 'Turn genes, panels, variants, and unfamiliar report language into context you can come back to.',
-    detail: 'Plain-language explanations help a dense genetic result feel easier to review over time.',
-    chip: 'Learn',
-    accent: '#d85b7f',
-    pastel: '#fff0f5',
-    soft: '#fff8fb',
+  es: {
+    title: 'Pocket Genes - Compañero genómico personal',
+    description: 'Pocket Genes ayuda a organizar informes genéticos, entender conceptos clave y preparar próximos pasos más seguros.',
+    logoLabel: 'Logo de Pocket Genes',
+    heroLead:
+      'Pocket Genes te ayuda a entender un resultado genético, encontrar conexiones confiables y elegir un próximo paso claro sin hacer público tu informe privado por defecto.',
+    appStoreCta: 'Descargar en App Store',
+    communityCta: 'Explorar comunidad',
+    appPreviewLabel: 'Vista previa de la app Pocket Genes',
+    exploreAlt: 'Pantalla Explorar de Pocket Genes con educación genómica y categorías de informes',
+    pathologyAlt: 'Pantalla de ejemplo de detalle de patología en Pocket Genes',
+    identityEyebrow: 'Vista rápida',
+    identityTitle: 'Diseñado para el momento posterior a un resultado genético.',
+    identityBody:
+      'Pocket Genes te da un espacio privado para guardar el informe, aprender qué dice, encontrar apoyo relevante y preparar qué preguntar después.',
+    downloadApp: 'Descargar la app',
+    trustCenter: 'Centro de confianza',
+    userFlowLabel: 'Flujo de usuario de Pocket Genes',
+    contactPrompt: '¿Preguntas sobre Pocket Genes?',
+    productEyebrow: 'Dentro de Pocket Genes',
+    productTitle: 'Entendé tu resultado, encontrá apoyo relevante y mantené cerca el próximo paso.',
+    productBody:
+      'Tu informe sigue siendo privado mientras Pocket Genes te ayuda a aprender, conectar, preparar preguntas y seguir actualizaciones que coincidan con tu situación.',
+    productFlowLabel: 'Flujo de producto de Pocket Genes',
+    momentFlowLabel: 'Flujo de Pocket Genes',
+    momentFlow: ['Guardar', 'Aprender', 'Encontrar', 'Preparar'],
+    storeEyebrow: 'Obtené Pocket Genes',
+    storeTitle: 'Disponible para iPhone. Google Play está planificado.',
+    storeBody: 'Descargá la app para iPhone hoy. El soporte para Android llegará más adelante.',
+    downloadIphone: 'Descargar para iPhone',
+    appStoreAlt: 'Descargar Pocket Genes en App Store',
+    googlePlay: 'Google Play',
+    comingSoon: 'Próximamente',
+    identityFlow: ['Guardar en privado', 'Entender términos', 'Encontrar apoyo', 'Preparar preguntas'],
+    productMoments: [
+      {
+        eyebrow: 'Informe privado',
+        title: 'Mantenelo organizado',
+        body: 'Guardá tu informe, notas, hallazgos y preguntas sin exponer detalles exactos por defecto.',
+        detail: 'Tu archivo original sigue siendo privado mientras la app mantiene fácil de revisar lo que necesitás.',
+        chip: 'Empezá acá',
+        accent: '#1d8f8f',
+        pastel: '#e8faf7',
+        soft: '#f6fffd',
+      },
+      {
+        eyebrow: 'Aprender',
+        title: 'Hacé más claros los términos',
+        body: 'Convertí genes, paneles, variantes y lenguaje desconocido del informe en contexto al que podés volver.',
+        detail: 'Las explicaciones en lenguaje claro ayudan a revisar con más calma un resultado genético denso.',
+        chip: 'Aprender',
+        accent: '#d85b7f',
+        pastel: '#fff0f5',
+        soft: '#fff8fb',
+      },
+      {
+        eyebrow: 'Personas',
+        title: 'Encontrá apoyo relevante',
+        body: 'Descubrí personas, cuidadores, grupos y eventos por gen, condición, síntomas, rol, idioma o etapa del recorrido.',
+        detail: 'Empezá por coincidencias exactas cuando existan, o ampliá a grupos relacionados y experiencias compartidas cuando sea más útil.',
+        chip: 'Encontrar apoyo',
+        accent: '#2176ae',
+        pastel: '#ecf5ff',
+        soft: '#f7fbff',
+      },
+      {
+        eyebrow: 'Preparar',
+        title: 'Guardá lo importante',
+        body: 'Mantené preguntas, recursos, intereses en eventos y notas de consulta cerca del resultado que los originó.',
+        detail: 'Usá lo que aprendés para preparar mejores preguntas, guardar recursos útiles o planear un seguimiento práctico.',
+        chip: 'Preparar',
+        accent: '#d99232',
+        pastel: '#fff6dd',
+        soft: '#fffdf5',
+      },
+      {
+        eyebrow: 'Actualizaciones',
+        title: 'Seguí señales útiles',
+        body: 'Seguí actualizaciones que coincidan con tu gen, condición, país, organización, intereses en eventos o etapa del recorrido.',
+        detail: 'Mantené actualizaciones relevantes cerca de tu propio contexto en vez de buscar desde cero cada vez.',
+        chip: 'Mantenerse al día',
+        accent: '#3c9b68',
+        pastel: '#edf9ef',
+        soft: '#f8fff9',
+      },
+    ],
+    identityCards: [
+      {
+        kicker: 'Privado por defecto',
+        title: 'Tu informe sigue siendo tuyo',
+        body: 'Guardá el archivo original, detalles exactos, notas y hallazgos sin convertirlos en contenido público de perfil.',
+        accent: '#14958f',
+        surface: '#e9faf7',
+      },
+      {
+        kicker: 'Lenguaje claro',
+        title: 'Hacé útiles los términos densos',
+        body: 'Volvé a genes, paneles, variantes, incertidumbre y explicaciones guardadas cuando necesites entenderlos otra vez.',
+        accent: '#d85b7f',
+        surface: '#fff0f5',
+      },
+      {
+        kicker: 'Apoyo relevante',
+        title: 'Encontrá personas y grupos',
+        body: 'Buscá personas, cuidadores, grupos, eventos y actualizaciones por gen, condición, síntomas, rol, idioma o etapa del recorrido.',
+        accent: '#2176ae',
+        surface: '#edf6ff',
+      },
+      {
+        kicker: 'Próximo paso',
+        title: 'Tené preguntas listas',
+        body: 'Guardá preguntas de consulta, recursos, intereses en eventos y actualizaciones útiles junto al resultado que las generó.',
+        accent: '#d99232',
+        surface: '#fff7df',
+      },
+    ],
   },
-  {
-    eyebrow: 'People',
-    title: 'Find relevant support',
-    body: 'Discover people, caregivers, groups, and events by gene, condition, symptoms, role, language, or journey stage.',
-    detail: 'Start from exact matches when they exist, or widen to related groups and shared experiences when that is more useful.',
-    chip: 'Find support',
-    accent: '#2176ae',
-    pastel: '#ecf5ff',
-    soft: '#f7fbff',
-  },
-  {
-    eyebrow: 'Prepare',
-    title: 'Save what matters',
-    body: 'Keep questions, resources, event interests, and appointment notes close to the result that raised them.',
-    detail: 'Use what you learn to prepare better questions, save useful resources, or plan a practical follow-up.',
-    chip: 'Prepare',
-    accent: '#d99232',
-    pastel: '#fff6dd',
-    soft: '#fffdf5',
-  },
-  {
-    eyebrow: 'Updates',
-    title: 'Follow useful signals',
-    body: 'Follow updates that match your gene, condition, country, organization, event interests, or stage of the journey.',
-    detail: 'Keep relevant updates near your own context instead of searching from scratch every time.',
-    chip: 'Stay current',
-    accent: '#3c9b68',
-    pastel: '#edf9ef',
-    soft: '#f8fff9',
-  },
-];
+} as const;
 
-const identityCards = [
-  {
-    kicker: 'Private by default',
-    title: 'Your report stays yours',
-    body: 'Store the original file, exact details, notes, and saved findings without turning them into public profile content.',
-    accent: '#14958f',
-    surface: '#e9faf7',
-  },
-  {
-    kicker: 'Plain language',
-    title: 'Make dense terms usable',
-    body: 'Come back to genes, panels, variants, uncertainty, and saved explanations when you need to understand them again.',
-    accent: '#d85b7f',
-    surface: '#fff0f5',
-  },
-  {
-    kicker: 'Relevant support',
-    title: 'Find people and groups',
-    body: 'Look for people, caregivers, groups, events, and updates by gene, condition, symptoms, role, language, or journey stage.',
-    accent: '#2176ae',
-    surface: '#edf6ff',
-  },
-  {
-    kicker: 'Next step',
-    title: 'Keep questions ready',
-    body: 'Save appointment questions, resources, event interests, and useful updates next to the result that raised them.',
-    accent: '#d99232',
-    surface: '#fff7df',
-  },
-];
-
-const identityFlow = ['Save privately', 'Understand terms', 'Find support', 'Prepare questions'];
+const copy = pageCopy[isEnglish ? 'en' : 'es'];
+const productMoments = copy.productMoments;
+const identityCards = copy.identityCards;
+const identityFlow = copy.identityFlow;
 
 ---
 
 <PocketGenesPublicLayout
-  title="Pocket Genes - Personal genomic companion"
-  description="Pocket Genes helps people organize genetic reports, understand key concepts, and prepare safer next steps."
+  title={copy.title}
+  description={copy.description}
   canonicalPath="/pocket-genes/home"
 >
   <main id="main" class="pg-page pg-home">
     <section class="pg-home-hero">
       <div class="pg-container pg-home-hero-grid">
         <div class="pg-home-copy">
-          <div class="pg-home-logo" aria-label="Pocket Genes logo">
+          <div class="pg-home-logo" aria-label={copy.logoLabel}>
             <span class="pg-home-logo-mark" aria-hidden="true">
               <span></span>
               <span></span>
@@ -111,21 +267,21 @@ const identityFlow = ['Save privately', 'Understand terms', 'Find support', 'Pre
           </div>
           <h1>Pocket Genes</h1>
           <p class="pg-home-lead">
-            Pocket Genes helps you understand a genetic result, find trusted connections, and choose a clear next step without making your private report public by default.
+            {copy.heroLead}
           </p>
           <div class="pg-button-row">
             <a class="pg-button pg-button-primary" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-              Download on the App Store
+              {copy.appStoreCta}
             </a>
             <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/rarefriends')}>
-              Explore community
+              {copy.communityCta}
             </a>
           </div>
         </div>
 
-        <figure class="pg-home-visual" aria-label="Pocket Genes app preview">
-          <img class="pg-home-phone pg-home-phone-main" src="/pocket-genes/screenshots/sample-01.webp" alt="Pocket Genes Explore screen showing genomics education and report categories" fetchpriority="high" />
-          <img class="pg-home-phone pg-home-phone-side" src="/pocket-genes/screenshots/sample-03.webp" alt="Pocket Genes sample pathology detail screen" fetchpriority="high" />
+        <figure class="pg-home-visual" aria-label={copy.appPreviewLabel}>
+          <img class="pg-home-phone pg-home-phone-main" src="/pocket-genes/screenshots/sample-01.webp" alt={copy.exploreAlt} fetchpriority="high" />
+          <img class="pg-home-phone pg-home-phone-side" src="/pocket-genes/screenshots/sample-03.webp" alt={copy.pathologyAlt} fetchpriority="high" />
         </figure>
       </div>
     </section>
@@ -133,19 +289,19 @@ const identityFlow = ['Save privately', 'Understand terms', 'Find support', 'Pre
     <section class="pg-section pg-home-identity">
       <div class="pg-container pg-identity-stage">
         <div class="pg-identity-copy">
-          <p class="pg-eyebrow">At a glance</p>
-          <h2>Built for the moment after a genetic result.</h2>
+          <p class="pg-eyebrow">{copy.identityEyebrow}</p>
+          <h2>{copy.identityTitle}</h2>
           <p>
-            Pocket Genes gives you a private place to keep the report, learn what it says, find relevant support, and prepare what to ask next.
+            {copy.identityBody}
           </p>
           <div class="pg-identity-actions">
-            <a class="pg-button pg-button-primary" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">Download the app</a>
-            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>Trust Center</a>
+            <a class="pg-button pg-button-primary" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">{copy.downloadApp}</a>
+            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>{copy.trustCenter}</a>
           </div>
         </div>
 
         <div class="pg-identity-board">
-          <div class="pg-identity-flow" aria-label="Pocket Genes user flow">
+          <div class="pg-identity-flow" aria-label={copy.userFlowLabel}>
             {identityFlow.map((step, index) => (
               <span style={`--flow-index: ${index};`}>
                 <small>{String(index + 1).padStart(2, '0')}</small>
@@ -169,7 +325,7 @@ const identityFlow = ['Save privately', 'Understand terms', 'Find support', 'Pre
           </div>
 
           <div class="pg-identity-contact">
-            <span>Questions about Pocket Genes?</span>
+            <span>{copy.contactPrompt}</span>
             <a href={`mailto:${POCKET_GENES_EMAILS.hello}`}>{POCKET_GENES_EMAILS.hello}</a>
           </div>
         </div>
@@ -179,15 +335,15 @@ const identityFlow = ['Save privately', 'Understand terms', 'Find support', 'Pre
     <section class="pg-section pg-home-product">
       <div class="pg-container">
         <div class="pg-home-product-header">
-          <p class="pg-eyebrow">Inside Pocket Genes</p>
-          <h2>Understand your result, find relevant support, and keep the next step close.</h2>
+          <p class="pg-eyebrow">{copy.productEyebrow}</p>
+          <h2>{copy.productTitle}</h2>
           <p>
-            Your report stays private while Pocket Genes helps you learn, connect, prepare questions, and follow updates that match your situation.
+            {copy.productBody}
           </p>
         </div>
 
         <div class="pg-moment-layout">
-          <div class="pg-moment-grid" aria-label="Pocket Genes product flow">
+          <div class="pg-moment-grid" aria-label={copy.productFlowLabel}>
             {productMoments.map((moment, index) => (
               <article
                 class:list={['pg-moment-card', { 'is-active': index === 0 }]}
@@ -215,11 +371,8 @@ const identityFlow = ['Save privately', 'Understand terms', 'Find support', 'Pre
             <span data-moment-focus-chip>{productMoments[0].chip}</span>
             <h3 data-moment-focus-title>{productMoments[0].title}</h3>
             <p data-moment-focus-detail>{productMoments[0].detail}</p>
-            <div class="pg-moment-flow" aria-label="Pocket Genes flow">
-              <strong>Save</strong>
-              <strong>Learn</strong>
-              <strong>Find</strong>
-              <strong>Prepare</strong>
+            <div class="pg-moment-flow" aria-label={copy.momentFlowLabel}>
+              {copy.momentFlow.map((step) => <strong>{step}</strong>)}
             </div>
           </aside>
         </div>
@@ -229,20 +382,20 @@ const identityFlow = ['Save privately', 'Understand terms', 'Find support', 'Pre
     <section class="pg-section-tight pg-home-store">
       <div class="pg-container pg-store-band">
         <div>
-          <p class="pg-eyebrow">Get Pocket Genes</p>
-          <h2>Available for iPhone. Google Play is planned.</h2>
+          <p class="pg-eyebrow">{copy.storeEyebrow}</p>
+          <h2>{copy.storeTitle}</h2>
           <p>
-            Download the iPhone app today. Android support is coming later.
+            {copy.storeBody}
           </p>
         </div>
         <div class="pg-store-actions">
           <a class="pg-store-app" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-            <span>Download for iPhone</span>
-            <img src="/appStore.png" alt="Download Pocket Genes on the App Store" />
+            <span>{copy.downloadIphone}</span>
+            <img src="/appStore.png" alt={copy.appStoreAlt} />
           </a>
           <button class="pg-store-disabled" type="button" disabled>
-            <span>Google Play</span>
-            <strong>Coming soon</strong>
+            <span>{copy.googlePlay}</span>
+            <strong>{copy.comingSoon}</strong>
           </button>
         </div>
       </div>

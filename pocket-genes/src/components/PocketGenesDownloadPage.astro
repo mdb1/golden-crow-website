@@ -1,11 +1,45 @@
 ---
 import PocketGenesPublicLayout from '../layouts/PocketGenesPublicLayout.astro';
 import { APP_STORE_URL } from '../data/pocketGenesPublic';
+
+const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
+const pageCopy = {
+  en: {
+    title: 'Download Pocket Genes',
+    description: 'Download Pocket Genes for iPhone. Google Play support is coming soon.',
+    headingLineOne: 'Download',
+    lead: 'Keep genetic reports, learning, and rare-gene community context close at hand.',
+    storeGridLabel: 'Pocket Genes download options',
+    availableNow: 'Available now',
+    appStoreAlt: 'Download on the App Store',
+    appStoreNote: 'For iPhone',
+    androidNext: 'Android next',
+    googlePlayAlt: 'Get it on Google Play',
+    comingSoon: 'Coming soon',
+    googlePlayNote: 'Google Play release is being prepared',
+  },
+  es: {
+    title: 'Descargar Pocket Genes',
+    description: 'Descargá Pocket Genes para iPhone. El soporte para Google Play llegará pronto.',
+    headingLineOne: 'Descargar',
+    lead: 'Mantené informes genéticos, aprendizaje y contexto comunitario de genes raros siempre cerca.',
+    storeGridLabel: 'Opciones de descarga de Pocket Genes',
+    availableNow: 'Disponible ahora',
+    appStoreAlt: 'Descargar en App Store',
+    appStoreNote: 'Para iPhone',
+    androidNext: 'Android próximamente',
+    googlePlayAlt: 'Obtener en Google Play',
+    comingSoon: 'Próximamente',
+    googlePlayNote: 'El lanzamiento en Google Play está en preparación',
+  },
+} as const;
+
+const copy = pageCopy[isEnglish ? 'en' : 'es'];
 ---
 
 <PocketGenesPublicLayout
-  title="Download Pocket Genes"
-  description="Download Pocket Genes for iPhone. Google Play support is coming soon."
+  title={copy.title}
+  description={copy.description}
   canonicalPath="/pocket-genes/download"
   showFooter={false}
   image="/pocket-genes/banner.png"
@@ -21,29 +55,29 @@ import { APP_STORE_URL } from '../data/pocketGenesPublic';
       <div class="download-shell">
         <div class="download-copy">
           <h1 id="download-title">
-            <span>Download</span>
+            <span>{copy.headingLineOne}</span>
             <span>Pocket Genes</span>
           </h1>
           <p class="download-lead">
-            Keep genetic reports, learning, and rare-gene community context close at hand.
+            {copy.lead}
           </p>
 
-          <div class="store-grid" aria-label="Pocket Genes download options">
+          <div class="store-grid" aria-label={copy.storeGridLabel}>
             <a class="store-card store-card-live" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
               <span class="store-card-glow" aria-hidden="true"></span>
-              <span class="store-kicker">Available now</span>
-              <img class="store-badge app-store-badge" src="/pocket-genes/app-store-badge.svg" alt="Download on the App Store" width="180" height="60" />
-              <span class="store-note">For iPhone</span>
+              <span class="store-kicker">{copy.availableNow}</span>
+              <img class="store-badge app-store-badge" src="/pocket-genes/app-store-badge.svg" alt={copy.appStoreAlt} width="180" height="60" />
+              <span class="store-note">{copy.appStoreNote}</span>
             </a>
 
             <article class="store-card store-card-soon" aria-disabled="true">
               <span class="store-card-glow" aria-hidden="true"></span>
-              <span class="store-kicker">Android next</span>
+              <span class="store-kicker">{copy.androidNext}</span>
               <span class="play-badge-wrap">
-                <img class="store-badge google-play-badge" src="/pocket-genes/google-play-badge.png" alt="Get it on Google Play" width="194" height="75" />
-                <span>Coming soon</span>
+                <img class="store-badge google-play-badge" src="/pocket-genes/google-play-badge.png" alt={copy.googlePlayAlt} width="194" height="75" />
+                <span>{copy.comingSoon}</span>
               </span>
-              <span class="store-note">Google Play release is being prepared</span>
+              <span class="store-note">{copy.googlePlayNote}</span>
             </article>
           </div>
         </div>
