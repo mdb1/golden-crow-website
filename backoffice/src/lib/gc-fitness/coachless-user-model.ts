@@ -101,3 +101,133 @@ export function isCoachlessClientRow(args: {
   const noCoach = !args.coachId || args.coachId.trim().length === 0;
   return isClient && noCoach && !args.deleted;
 }
+
+/**
+ * The widened admin drill-down gate.
+ *
+ * The god-mode client views live under `/admin/coaches/{coachUid}/clients/{clientId}`
+ * and are gated on `clientCoachId === coachUidInPath` so a URL edit can't read
+ * across coaches. A COACH-LESS user has no `coachId` at all, so that equality
+ * locks the operator out of the exact segment that most needs watching.
+ *
+ * Convention (mirrors the `#392 selfAssigned` wire shape already in the data —
+ * self-created templates / assignments / logs carry `trainerId === clientId`):
+ * **a coach-less user is their own trainer-of-record.** So the path uid may
+ * equal the client uid, but ONLY when the target really is an active coach-less
+ * client. Every other combination stays denied.
+ */
+export function adminCanViewClientUnderCoach(args: {
+  /** The coach uid taken from the URL. */
+  coachUidInPath: string;
+  clientId: string;
+  /** `/users/{clientId}.coachId` — null/empty for a coach-less user. */
+  clientCoachId: string | null;
+  clientRole: string | null;
+  clientDeleted: boolean;
+}): boolean {
+  const { coachUidInPath, clientId, clientCoachId } = args;
+  if (!coachUidInPath || !clientId) return false;
+  if (clientCoachId && clientCoachId === coachUidInPath) return true;
+  return (
+    coachUidInPath === clientId &&
+    isCoachlessClientRow({
+      role: args.clientRole,
+      coachId: clientCoachId,
+      deleted: args.clientDeleted,
+    })
+  );
+}
+
+/** Per-category recency + rolling-window counts for the profile page. */
+export interface CoachlessActivitySummary {
+  /** Most recent activity of ANY kind, ISO — null when the user never acted. */
+  lastActiveISO: string | null;
+  workouts: ActivityWindow;
+  habitCheckIns: ActivityWindow;
+  photos: ActivityWindow;
+  weightEntries: ActivityWindow;
+}
+
+export interface ActivityWindow {
+  last7Days: number;
+  last30Days: number;
+  total: number;
+  lastISO: string | null;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function windowFor(dates: Array<string | null | undefined>, nowMs: number): ActivityWindow {
+  const times = dates
+    .map((iso) => (typeof iso === "string" ? Date.parse(iso) : NaN))
+    .filter((ms) => Number.isFinite(ms)) as number[];
+  const newest = times.length > 0 ? Math.max(...times) : null;
+  return {
+    // A future-dated entry (clock skew / manual backfill) still counts as
+    // "within the last N days" — clamping it out would hide real activity.
+    last7Days: times.filter((ms) => ms >= nowMs - 7 * DAY_MS).length,
+    last30Days: times.filter((ms) => ms >= nowMs - 30 * DAY_MS).length,
+    total: times.length,
+    lastISO: newest === null ? null : new Date(newest).toISOString(),
+  };
+}
+
+/**
+ * Fold the four activity streams into per-category windows + an overall
+ * "last active". Inputs are ISO strings (habit check-ins may be civil dates
+ * like "2026-07-24", which `Date.parse` reads as UTC midnight — good enough
+ * for a 7/30-day bucket).
+ */
+export function summarizeCoachlessActivity(args: {
+  nowMs: number;
+  workoutDates: Array<string | null | undefined>;
+  habitLogDates: Array<string | null | undefined>;
+  photoDates: Array<string | null | undefined>;
+  weightDates: Array<string | null | undefined>;
+}): CoachlessActivitySummary {
+  const workouts = windowFor(args.workoutDates, args.nowMs);
+  const habitCheckIns = windowFor(args.habitLogDates, args.nowMs);
+  const photos = windowFor(args.photoDates, args.nowMs);
+  const weightEntries = windowFor(args.weightDates, args.nowMs);
+
+  const lastTimes = [workouts, habitCheckIns, photos, weightEntries]
+    .map((w) => (w.lastISO ? Date.parse(w.lastISO) : NaN))
+    .filter((ms) => Number.isFinite(ms)) as number[];
+
+  return {
+    lastActiveISO:
+      lastTimes.length > 0 ? new Date(Math.max(...lastTimes)).toISOString() : null,
+    workouts,
+    habitCheckIns,
+    photos,
+    weightEntries,
+  };
+}
+
+/**
+ * Resolve a bilingual `{ en, es }` wire value (or a bare legacy string) to
+ * display text, preferring Spanish — the backoffice's primary voice. Same
+ * precedence as `listClientHabitsForAdmin` / the assignment title resolver.
+ */
+export function bilingualText(value: unknown, fallback: string): string {
+  if (typeof value === "string" && value.trim().length > 0) return value;
+  if (value && typeof value === "object") {
+    const v = value as { en?: unknown; es?: unknown };
+    const es = typeof v.es === "string" ? v.es.trim() : "";
+    const en = typeof v.en === "string" ? v.en.trim() : "";
+    if (es) return es;
+    if (en) return en;
+  }
+  return fallback;
+}
+
+/**
+ * Whole days between an ISO instant and `nowMs` (floored, never negative).
+ * Null when the input is unparseable — callers render an em dash.
+ */
+export function daysSince(iso: string | null, nowMs: number): number | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  return Math.max(0, Math.floor((nowMs - ms) / DAY_MS));
+}

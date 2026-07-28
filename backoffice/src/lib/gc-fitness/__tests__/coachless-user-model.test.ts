@@ -9,6 +9,10 @@ import {
   firestoreValueToISO,
   toEntitlementInfo,
   isCoachlessClientRow,
+  adminCanViewClientUnderCoach,
+  summarizeCoachlessActivity,
+  bilingualText,
+  daysSince,
   type EntitlementInfo,
 } from "../coachless-user-model";
 
@@ -105,5 +109,166 @@ describe("isCoachlessClientRow", () => {
     expect(isCoachlessClientRow({ role: "trainer", coachId: null, deleted: false })).toBe(false);
     expect(isCoachlessClientRow({ role: null, coachId: null, deleted: false })).toBe(false);
     expect(isCoachlessClientRow({ role: "client", coachId: null, deleted: true })).toBe(false);
+  });
+});
+
+describe("adminCanViewClientUnderCoach", () => {
+  const coached = {
+    coachUidInPath: "coach123",
+    clientId: "client456",
+    clientCoachId: "coach123",
+    clientRole: "client",
+    clientDeleted: false,
+  };
+
+  it("admits the coach of record", () => {
+    expect(adminCanViewClientUnderCoach(coached)).toBe(true);
+  });
+
+  it("denies a coach who does not own the client (URL-edit across coaches)", () => {
+    expect(
+      adminCanViewClientUnderCoach({ ...coached, coachUidInPath: "otherCoach" }),
+    ).toBe(false);
+  });
+
+  it("admits a coach-less user as their own trainer-of-record", () => {
+    expect(
+      adminCanViewClientUnderCoach({
+        coachUidInPath: "selfUid",
+        clientId: "selfUid",
+        clientCoachId: null,
+        clientRole: "client",
+        clientDeleted: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("denies self-as-coach when the target is NOT coach-less", () => {
+    // A coached client's own uid in the path must not unlock their data.
+    expect(
+      adminCanViewClientUnderCoach({
+        coachUidInPath: "client456",
+        clientId: "client456",
+        clientCoachId: "coach123",
+        clientRole: "client",
+        clientDeleted: false,
+      }),
+    ).toBe(false);
+    // Nor a trainer, nor a soft-deleted account.
+    expect(
+      adminCanViewClientUnderCoach({
+        coachUidInPath: "t1",
+        clientId: "t1",
+        clientCoachId: null,
+        clientRole: "trainer",
+        clientDeleted: false,
+      }),
+    ).toBe(false);
+    expect(
+      adminCanViewClientUnderCoach({
+        coachUidInPath: "c1",
+        clientId: "c1",
+        clientCoachId: null,
+        clientRole: "client",
+        clientDeleted: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("denies empty uids", () => {
+    expect(adminCanViewClientUnderCoach({ ...coached, coachUidInPath: "" })).toBe(false);
+    expect(adminCanViewClientUnderCoach({ ...coached, clientId: "" })).toBe(false);
+  });
+});
+
+describe("summarizeCoachlessActivity", () => {
+  // Fixed "now" so the windows are deterministic (no Date.now() in the assert).
+  const nowMs = Date.parse("2026-07-28T12:00:00.000Z");
+  const daysAgo = (n: number) =>
+    new Date(nowMs - n * 24 * 60 * 60 * 1000).toISOString();
+
+  it("buckets each stream into 7d / 30d / total with its own last timestamp", () => {
+    const summary = summarizeCoachlessActivity({
+      nowMs,
+      workoutDates: [daysAgo(1), daysAgo(6), daysAgo(20), daysAgo(90)],
+      habitLogDates: ["2026-07-27", "2026-07-01", "2026-05-01"],
+      photoDates: [daysAgo(45)],
+      weightDates: [],
+    });
+
+    expect(summary.workouts).toEqual({
+      last7Days: 2,
+      last30Days: 3,
+      total: 4,
+      lastISO: daysAgo(1),
+    });
+    // Civil dates parse as UTC midnight — 2026-07-27 is inside 7d, 07-01 is
+    // inside 30d, 05-01 is only in the total.
+    expect(summary.habitCheckIns.last7Days).toBe(1);
+    expect(summary.habitCheckIns.last30Days).toBe(2);
+    expect(summary.habitCheckIns.total).toBe(3);
+    expect(summary.photos).toEqual({
+      last7Days: 0,
+      last30Days: 0,
+      total: 1,
+      lastISO: daysAgo(45),
+    });
+    expect(summary.weightEntries.total).toBe(0);
+    expect(summary.weightEntries.lastISO).toBeNull();
+  });
+
+  it("reports the newest timestamp across ALL streams as lastActive", () => {
+    const summary = summarizeCoachlessActivity({
+      nowMs,
+      workoutDates: [daysAgo(10)],
+      habitLogDates: [],
+      photoDates: [daysAgo(2)],
+      weightDates: [daysAgo(30)],
+    });
+    expect(summary.lastActiveISO).toBe(daysAgo(2));
+  });
+
+  it("returns a null lastActive for a user who never did anything", () => {
+    const summary = summarizeCoachlessActivity({
+      nowMs,
+      workoutDates: [],
+      habitLogDates: [null, undefined, "not-a-date"],
+      photoDates: [],
+      weightDates: [],
+    });
+    expect(summary.lastActiveISO).toBeNull();
+    expect(summary.habitCheckIns.total).toBe(0);
+  });
+});
+
+describe("bilingualText", () => {
+  it("prefers Spanish, then English, then the fallback", () => {
+    expect(bilingualText({ es: "Sentadilla", en: "Squat" }, "—")).toBe("Sentadilla");
+    expect(bilingualText({ en: "Squat" }, "—")).toBe("Squat");
+    expect(bilingualText({ es: "   ", en: "Squat" }, "—")).toBe("Squat");
+    expect(bilingualText({}, "—")).toBe("—");
+    expect(bilingualText(null, "—")).toBe("—");
+  });
+
+  it("passes a legacy bare string through", () => {
+    expect(bilingualText("Push day", "—")).toBe("Push day");
+    expect(bilingualText("  ", "—")).toBe("—");
+  });
+});
+
+describe("daysSince", () => {
+  const nowMs = Date.parse("2026-07-28T12:00:00.000Z");
+
+  it("floors to whole days and never goes negative", () => {
+    expect(daysSince("2026-07-28T00:00:00.000Z", nowMs)).toBe(0);
+    expect(daysSince("2026-07-27T00:00:00.000Z", nowMs)).toBe(1);
+    expect(daysSince("2026-06-28T12:00:00.000Z", nowMs)).toBe(30);
+    // Future-dated (clock skew) clamps to 0 rather than "-2 days ago".
+    expect(daysSince("2026-07-30T12:00:00.000Z", nowMs)).toBe(0);
+  });
+
+  it("returns null for missing / unparseable input", () => {
+    expect(daysSince(null, nowMs)).toBeNull();
+    expect(daysSince("whenever", nowMs)).toBeNull();
   });
 });
