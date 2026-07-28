@@ -60,7 +60,6 @@ type BodyMode = "plain" | "rich";
 type FeedEntryFormState = {
   publisherOrganizationId: string;
   type: DiscoverFeedType;
-  publishedAt: string;
   language: "en" | "es";
   title: string;
   subtitle: string;
@@ -169,7 +168,6 @@ function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
   return {
     publisherOrganizationId: item?.publisherOrganizationId ?? "",
     type: item?.type ?? "news",
-    publishedAt: toDateTimeInput(item?.publishedAt),
     language: item?.language ?? "en",
     title: item?.title ?? "",
     subtitle: item?.subtitle ?? "",
@@ -251,18 +249,13 @@ function payloadForType(state: FeedEntryFormState) {
 function payloadFromState(
   state: FeedEntryFormState,
   status: DiscoverFeedStatus,
-  publishNow = false,
+  publishedAt: string | null,
 ) {
-  const publishedAt =
-    status === "published"
-      ? fromDateTimeInput(state.publishedAt) ?? new Date().toISOString()
-      : fromDateTimeInput(state.publishedAt);
-
   return {
     publisherOrganizationId: state.publisherOrganizationId,
     type: state.type,
     status,
-    publishedAt: publishNow ? new Date().toISOString() : publishedAt,
+    publishedAt,
     language: state.language,
     title: state.title,
     subtitle: state.subtitle,
@@ -503,7 +496,7 @@ export function DiscoverFeedEntryWorkbench({
     return null;
   }
 
-  async function persist(status: DiscoverFeedStatus, publishNow = false) {
+  async function persist(status: DiscoverFeedStatus, publishedAt: string | null = null) {
     const validationError = validate(state, status);
     if (validationError) {
       setToast({
@@ -521,7 +514,7 @@ export function DiscoverFeedEntryWorkbench({
           "/discover/feed-items",
           {
             method: "POST",
-            body: JSON.stringify(payloadFromState(state, status, publishNow)),
+            body: JSON.stringify(payloadFromState(state, status, publishedAt)),
           },
         );
         router.refresh();
@@ -536,7 +529,7 @@ export function DiscoverFeedEntryWorkbench({
         `/discover/feed-items/${feedItem.id}`,
         {
           method: "PUT",
-          body: JSON.stringify(payloadFromState(state, status, publishNow)),
+          body: JSON.stringify(payloadFromState(state, status, publishedAt)),
         },
       );
       router.refresh();
@@ -573,7 +566,8 @@ export function DiscoverFeedEntryWorkbench({
 
   async function publish() {
     setPublishDialog({ status: "publishing" });
-    const published = await persist("published", false);
+    const publishedAt = new Date().toISOString();
+    const published = await persist("published", publishedAt);
     if (!published) {
       setPublishDialog({
         status: "error",
@@ -894,18 +888,6 @@ export function DiscoverFeedEntryWorkbench({
                     <option value="en">{t("English")}</option>
                     <option value="es">{t("Spanish")}</option>
                   </select>
-                </FieldShell>
-
-                <FieldShell label={t("Published at")} htmlFor="discover-feed-published">
-                  <Input
-                    id="discover-feed-published"
-                    type="datetime-local"
-                    value={state.publishedAt}
-                    onChange={(event) =>
-                      updateState({ publishedAt: event.target.value })
-                    }
-                    className="h-11"
-                  />
                 </FieldShell>
 
                 <FieldShell label={t("Source URL")} htmlFor="discover-feed-source">
