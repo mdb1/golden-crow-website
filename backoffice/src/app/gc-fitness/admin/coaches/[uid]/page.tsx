@@ -26,6 +26,7 @@ import {
   previewClientCascade,
   removePendingClientForCoach,
   transferClientToCoach,
+  unlinkClientFromCoach,
 } from "@/lib/gc-fitness/admin-actions";
 import { AdminSubmitButton } from "../../_components/admin-submit-button";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
@@ -93,6 +94,16 @@ export default async function CoachAdminDetailPage({
     await transferClientToCoach({ clientUid, newCoachUid });
     revalidatePath(`/gc-fitness/admin/coaches/${coachUid}`);
     redirect(`/gc-fitness/admin/coaches/${coachUid}?op=transfer_client&ok=1`);
+  }
+
+  async function unlinkClientAction(formData: FormData) {
+    "use server";
+    const coachUid = String(formData.get("coachUid") ?? "");
+    const clientUid = String(formData.get("clientUid") ?? "");
+    await unlinkClientFromCoach({ coachUid, clientUid });
+    revalidatePath(`/gc-fitness/admin/coaches/${coachUid}`);
+    revalidatePath("/gc-fitness/admin/coach-less-users");
+    redirect(`/gc-fitness/admin/coaches/${coachUid}?op=unlink_client&ok=1`);
   }
 
   async function removePendingAction(formData: FormData) {
@@ -218,6 +229,19 @@ export default async function CoachAdminDetailPage({
                               />
                             </form>
                           ) : null}
+                          {/* Ends the coaching relationship WITHOUT deleting
+                              anything: the person keeps their data and shows up
+                              under Admin → Coach-less users. */}
+                          <form action={unlinkClientAction}>
+                            <input type="hidden" name="coachUid" value={detail.coach.uid} />
+                            <input type="hidden" name="clientUid" value={client.uid} />
+                            <AdminSubmitButton
+                              idleLabel="Remove as client"
+                              pendingLabel="Removing..."
+                              title="Unlink from this coach — the user becomes coach-less and keeps all their data"
+                              className="inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
+                            />
+                          </form>
                           {!client.deleted ? (
                             <form action={deactivateClientAction}>
                               <input type="hidden" name="coachUid" value={detail.coach.uid} />

@@ -10,6 +10,7 @@ import {
   toEntitlementInfo,
   isCoachlessClientRow,
   adminCanViewClientUnderCoach,
+  canUnlinkClientFromCoach,
   summarizeCoachlessActivity,
   bilingualText,
   daysSince,
@@ -178,6 +179,60 @@ describe("adminCanViewClientUnderCoach", () => {
   it("denies empty uids", () => {
     expect(adminCanViewClientUnderCoach({ ...coached, coachUidInPath: "" })).toBe(false);
     expect(adminCanViewClientUnderCoach({ ...coached, clientId: "" })).toBe(false);
+  });
+});
+
+describe("canUnlinkClientFromCoach", () => {
+  it("allows detaching a client from the coach that owns them", () => {
+    expect(
+      canUnlinkClientFromCoach({
+        coachUidInPath: "coach123",
+        clientRole: "client",
+        clientCoachId: "coach123",
+      }),
+    ).toBe(true);
+  });
+
+  it("allows it for a soft-deleted client too", () => {
+    // `deleted` is deliberately not an input — stripping the coach link off a
+    // deactivated client is harmless and sometimes wanted.
+    expect(
+      canUnlinkClientFromCoach({
+        coachUidInPath: "coach123",
+        clientRole: "client",
+        clientCoachId: "coach123",
+      }),
+    ).toBe(true);
+  });
+
+  it("denies detaching from a coach who does not own the client", () => {
+    expect(
+      canUnlinkClientFromCoach({
+        coachUidInPath: "otherCoach",
+        clientRole: "client",
+        clientCoachId: "coach123",
+      }),
+    ).toBe(false);
+  });
+
+  it("denies an already coach-less client (nothing to unlink)", () => {
+    expect(
+      canUnlinkClientFromCoach({
+        coachUidInPath: "coach123",
+        clientRole: "client",
+        clientCoachId: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("denies unlinking a trainer", () => {
+    expect(
+      canUnlinkClientFromCoach({
+        coachUidInPath: "coach123",
+        clientRole: "trainer",
+        clientCoachId: "coach123",
+      }),
+    ).toBe(false);
   });
 });
 

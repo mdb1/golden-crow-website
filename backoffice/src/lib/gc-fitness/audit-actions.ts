@@ -169,8 +169,21 @@ function deletedTitle(title: string): string {
     .replace("Hábito asignado:", "Hábito eliminado:");
 }
 
+/**
+ * Admin operations that CHANGE something rather than remove it. Everything else
+ * logged to `admin_operations` deletes data, which is what drives the audit
+ * dashboard's "deletion" styling + filter.
+ */
+const NON_DELETION_ADMIN_KINDS = new Set([
+  "transfer_client",
+  "unlink_client",
+  "set_entitlement",
+]);
+
 function adminOperationTitle(kind: string, summaryAction: string | null): string {
   if (kind === "transfer_client") return "Transferred client";
+  if (kind === "unlink_client") return "Unlinked client from coach";
+  if (kind === "set_entitlement") return "Changed subscription tier";
   if (kind === "delete_coach_cascade") return "Deleted coach (cascade)";
   if (kind === "delete_client_cascade") {
     if (summaryAction === "deactivate_client") return "Deactivated client";
@@ -551,13 +564,14 @@ async function collectAuditEntries(
       actorEmail: actor?.email ?? null,
       actorRole: "admin",
       kind: r.kind,
-      action: r.kind === "transfer_client" ? "update" : "delete",
+      action: NON_DELETION_ADMIN_KINDS.has(r.kind) ? "update" : "delete",
       title: r.title,
       detail: r.detail,
       clientId: r.targetUid,
       clientLabel: targetUser?.email ?? null,
-      // A transfer is not a deletion; everything else logged here removes data.
-      isDeletion: r.kind !== "transfer_client",
+      // A transfer / unlink / tier change is not a deletion; everything else
+      // logged here removes data.
+      isDeletion: !NON_DELETION_ADMIN_KINDS.has(r.kind),
       status: r.status,
       mode: r.mode,
     });
