@@ -565,8 +565,6 @@ export type DiscoverFeedType =
   | "opportunity";
 export type DiscoverFeedStatus =
   | "draft"
-  | "in_review"
-  | "scheduled"
   | "published"
   | "archived";
 
@@ -581,21 +579,19 @@ export interface DiscoverFeedItemRecord {
   publisherSnapshot: DiscoverPublisherSnapshot;
   type: DiscoverFeedType;
   publishedAt: string | null;
-  sourceUrl: string | null;
+  language: "en" | "es";
+  title: string;
+  subtitle: string;
+  body: string;
+  html_body: string | null;
+  image_url: string | null;
+  source_url: string | null;
   status: DiscoverFeedStatus;
   createdAt: string;
   updatedAt: string;
   createdByUserId?: string;
   updatedByUserId?: string;
-  reviewedByUserId?: string;
-  reviewedAt?: string | null;
-  scheduledFor?: string | null;
   archivedAt?: string | null;
-  editorialNotes?: string;
-  tags: string[];
-  locale?: string;
-  priority: number;
-  expiresAt?: string | null;
   news?: Record<string, unknown>;
   research_update?: Record<string, unknown>;
   upcoming_event?: Record<string, unknown>;

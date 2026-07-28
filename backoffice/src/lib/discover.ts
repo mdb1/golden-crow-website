@@ -37,8 +37,6 @@ export type DiscoverFeedType =
   | "opportunity";
 export type DiscoverFeedStatus =
   | "draft"
-  | "in_review"
-  | "scheduled"
   | "published"
   | "archived";
 
@@ -53,21 +51,19 @@ export interface DiscoverFeedItemRecord {
   publisherSnapshot: DiscoverPublisherSnapshot;
   type: DiscoverFeedType;
   publishedAt: string | null;
-  sourceUrl: string | null;
+  language: "en" | "es";
+  title: string;
+  subtitle: string;
+  body: string;
+  html_body: string | null;
+  image_url: string | null;
+  source_url: string | null;
   status: DiscoverFeedStatus;
   createdAt: string;
   updatedAt: string;
   createdByUserId?: string;
   updatedByUserId?: string;
-  reviewedByUserId?: string;
-  reviewedAt?: string | null;
-  scheduledFor?: string | null;
   archivedAt?: string | null;
-  editorialNotes?: string;
-  tags: string[];
-  locale?: string;
-  priority: number;
-  expiresAt?: string | null;
   news?: Record<string, unknown>;
   research_update?: Record<string, unknown>;
   upcoming_event?: Record<string, unknown>;
@@ -112,8 +108,6 @@ export const DISCOVER_FEED_TYPE_OPTIONS = [
 
 export const DISCOVER_FEED_STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
-  { value: "in_review", label: "In review" },
-  { value: "scheduled", label: "Scheduled" },
   { value: "published", label: "Published" },
   { value: "archived", label: "Archived" },
 ] as const;
@@ -163,16 +157,14 @@ export function getDiscoverPayload(
 }
 
 export function getDiscoverFeedTitle(item: DiscoverFeedItemRecord) {
-  const payload = getDiscoverPayload(item);
-  return typeof payload?.title === "string" && payload.title.trim()
-    ? payload.title.trim()
+  return typeof item.title === "string" && item.title.trim()
+    ? item.title.trim()
     : "Untitled feed entry";
 }
 
 export function getDiscoverFeedSummary(item: DiscoverFeedItemRecord) {
-  const payload = getDiscoverPayload(item);
-  return typeof payload?.summary === "string" && payload.summary.trim()
-    ? payload.summary.trim()
+  return typeof item.subtitle === "string" && item.subtitle.trim()
+    ? item.subtitle.trim()
     : "No summary";
 }
 

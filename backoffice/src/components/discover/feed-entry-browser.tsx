@@ -41,10 +41,6 @@ function statusBadgeVariant(status: DiscoverFeedStatus) {
     return "success" as const;
   }
 
-  if (status === "scheduled" || status === "in_review") {
-    return "warning" as const;
-  }
-
   if (status === "archived") {
     return "secondary" as const;
   }
@@ -58,24 +54,23 @@ function feedItemPayload(item: DiscoverFeedItemRecord, status: DiscoverFeedStatu
     type: item.type,
     status,
     publishedAt: item.publishedAt,
-    scheduledFor: item.scheduledFor,
-    sourceUrl: item.sourceUrl,
-    editorialNotes: item.editorialNotes,
-    tags: item.tags,
-    locale: item.locale,
-    priority: item.priority,
-    expiresAt: item.expiresAt,
+    language: item.language,
+    title: item.title,
+    subtitle: item.subtitle,
+    body: item.body,
+    html_body: item.html_body,
+    image_url: item.image_url,
+    source_url: item.source_url,
     [item.type]: getDiscoverPayload(item),
   };
 }
 
 function hasPublishBlocker(item: DiscoverFeedItemRecord) {
-  const payload = getDiscoverPayload(item);
-  const title = typeof payload?.title === "string" ? payload.title.trim() : "";
-  const summary =
-    typeof payload?.summary === "string" ? payload.summary.trim() : "";
-
-  return !title || !summary;
+  return (
+    !item.title.trim() ||
+    !item.subtitle.trim() ||
+    (!item.body.trim() && !item.html_body?.trim())
+  );
 }
 
 export function DiscoverFeedEntryBrowser({
@@ -114,10 +109,13 @@ export function DiscoverFeedEntryBrowser({
         item.publisherSnapshot.name,
         item.type,
         item.status,
-        item.sourceUrl,
-        item.tags.join(" "),
-        typeof payload?.title === "string" ? payload.title : "",
-        typeof payload?.summary === "string" ? payload.summary : "",
+        item.source_url,
+        item.language,
+        item.title,
+        item.subtitle,
+        item.body,
+        typeof payload?.category === "string" ? payload.category : "",
+        typeof payload?.region === "string" ? payload.region : "",
       ]
         .filter(Boolean)
         .join(" ")
@@ -254,7 +252,7 @@ export function DiscoverFeedEntryBrowser({
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Search title, publisher, tags, or URL")}
+              placeholder={t("Search title, publisher, body, or URL")}
               className="pl-9"
             />
           </label>
@@ -333,7 +331,7 @@ export function DiscoverFeedEntryBrowser({
                     {blocker ? (
                       <Badge variant="warning">
                         <TriangleAlert className="h-3 w-3" />
-                        {t("Needs title/summary")}
+                        {t("Needs content")}
                       </Badge>
                     ) : null}
                   </div>
@@ -341,7 +339,7 @@ export function DiscoverFeedEntryBrowser({
                     {getDiscoverFeedSummary(item)}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {compactList([item.id, item.sourceUrl ?? undefined, item.tags.join(", ")])}
+                    {compactList([item.id, item.language, item.source_url ?? undefined])}
                   </p>
                 </div>
 
@@ -359,7 +357,7 @@ export function DiscoverFeedEntryBrowser({
                 </div>
 
                 <div className="text-sm text-muted-foreground">
-                  {formatDateTime(item.publishedAt ?? item.scheduledFor ?? item.updatedAt) ??
+                  {formatDateTime(item.publishedAt ?? item.updatedAt) ??
                     t("No timestamp")}
                 </div>
 

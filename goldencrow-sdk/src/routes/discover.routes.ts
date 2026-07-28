@@ -37,8 +37,6 @@ const FeedTypeSchema = z.enum([
 ]);
 const FeedStatusSchema = z.enum([
   "draft",
-  "in_review",
-  "scheduled",
   "published",
   "archived",
 ]);
@@ -63,54 +61,29 @@ const OrganizationBodySchema = z.object({
 });
 
 const StringArraySchema = z.array(z.string()).optional();
-const PayloadBaseSchema = z.object({
-  title: z.string().optional(),
-  summary: z.string().optional(),
-  imageUrl: z.string().nullable().optional(),
-});
-
-const NewsPayloadSchema = PayloadBaseSchema.extend({
+const NewsPayloadSchema = z.object({
   category: z.string().optional(),
   region: z.string().optional(),
-  detailTitle: z.string().optional(),
-  detailBody: z.string().optional(),
-  keyPoints: StringArraySchema,
 });
 
-const ResearchUpdatePayloadSchema = PayloadBaseSchema.extend({
-  topic: z.string().optional(),
+const ResearchUpdatePayloadSchema = z.object({
+  research_topic: z.string().optional(),
   genes: StringArraySchema,
   conditions: StringArraySchema,
-  journalName: z.string().optional(),
-  publicationDate: z.string().optional(),
-  doi: z.string().optional(),
-  plainLanguageTakeaway: z.string().optional(),
-  detailBody: z.string().optional(),
-  keyPoints: StringArraySchema,
+  journal: z.string().optional(),
 });
 
-const UpcomingEventPayloadSchema = PayloadBaseSchema.extend({
-  startsAt: z.string().nullable().optional(),
-  endsAt: z.string().nullable().optional(),
-  timezone: z.string().optional(),
-  locationType: z.string().optional(),
-  locationName: z.string().optional(),
-  registrationUrl: z.string().nullable().optional(),
-  priceLabel: z.string().optional(),
-  audienceLabel: z.string().optional(),
-  agenda: StringArraySchema,
-  detailBody: z.string().optional(),
+const UpcomingEventPayloadSchema = z.object({
+  date: z.string().nullable().optional(),
+  location: z.string().optional(),
+  max_attendance: z.number().nullable().optional(),
 });
 
-const OpportunityPayloadSchema = PayloadBaseSchema.extend({
-  opportunityType: z.string().optional(),
-  deadlineAt: z.string().nullable().optional(),
-  locationType: z.string().optional(),
-  locationName: z.string().optional(),
+const OpportunityPayloadSchema = z.object({
+  opportunity_type: z.string().optional(),
+  requirements: z.string().optional(),
   eligibility: z.string().optional(),
-  applicationUrl: z.string().nullable().optional(),
-  detailBody: z.string().optional(),
-  requirements: StringArraySchema,
+  location: z.string().optional(),
 });
 
 const FeedItemBodySchema = z.object({
@@ -118,13 +91,13 @@ const FeedItemBodySchema = z.object({
   type: FeedTypeSchema.optional(),
   status: FeedStatusSchema.optional(),
   publishedAt: z.string().nullable().optional(),
-  scheduledFor: z.string().nullable().optional(),
-  sourceUrl: z.string().nullable().optional(),
-  editorialNotes: z.string().optional(),
-  tags: StringArraySchema,
-  locale: z.string().optional(),
-  priority: z.number().optional(),
-  expiresAt: z.string().nullable().optional(),
+  language: z.enum(["en", "es"]).optional(),
+  title: z.string().optional(),
+  subtitle: z.string().optional(),
+  body: z.string().optional(),
+  html_body: z.string().nullable().optional(),
+  image_url: z.string().nullable().optional(),
+  source_url: z.string().nullable().optional(),
   news: NewsPayloadSchema.optional(),
   research_update: ResearchUpdatePayloadSchema.optional(),
   upcoming_event: UpcomingEventPayloadSchema.optional(),

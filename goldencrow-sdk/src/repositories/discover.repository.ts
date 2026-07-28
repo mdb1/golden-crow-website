@@ -49,19 +49,14 @@ const FEED_TYPES = new Set<DiscoverFeedType>([
 ]);
 const FEED_STATUSES = new Set<DiscoverFeedStatus>([
   "draft",
-  "in_review",
-  "scheduled",
   "published",
   "archived",
 ]);
 const VALIDATED_STATUSES = new Set<DiscoverFeedStatus>([
-  "in_review",
-  "scheduled",
   "published",
 ]);
 const SNAPSHOT_SYNC_STATUSES = new Set<DiscoverFeedStatus>([
   "draft",
-  "scheduled",
   "published",
 ]);
 
@@ -89,13 +84,14 @@ type FeedItemInput = {
   type?: unknown;
   status?: unknown;
   publishedAt?: unknown;
-  scheduledFor?: unknown;
+  language?: unknown;
+  title?: unknown;
+  subtitle?: unknown;
+  body?: unknown;
+  html_body?: unknown;
+  image_url?: unknown;
+  source_url?: unknown;
   sourceUrl?: unknown;
-  editorialNotes?: unknown;
-  tags?: unknown;
-  locale?: unknown;
-  priority?: unknown;
-  expiresAt?: unknown;
   news?: unknown;
   research_update?: unknown;
   upcoming_event?: unknown;
@@ -180,6 +176,19 @@ function normalizeNumber(value: unknown, fallback = 0): number {
   return fallback;
 }
 
+function normalizeNullablePositiveInteger(value: unknown, label: string): number | null {
+  if (value == null || value === "") {
+    return null;
+  }
+
+  const parsed = normalizeNumber(value, Number.NaN);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new AdminRepositoryError(`${label} must be a positive integer.`, 400);
+  }
+
+  return parsed;
+}
+
 function normalizeStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value
@@ -195,6 +204,33 @@ function normalizeStringArray(value: unknown): string[] {
   }
 
   return [];
+}
+
+function normalizeLanguage(value: unknown): "en" | "es" {
+  if (value == null || value === "") {
+    return "en";
+  }
+
+  if (value === "en" || value === "es") {
+    return value;
+  }
+
+  throw new AdminRepositoryError("Language must be en or es.", 400);
+}
+
+function sanitizeHtmlBody(value: unknown): string | null {
+  const normalized = normalizeNullableString(value);
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
+    .replace(/<\/?(iframe|object|embed|form|input|button|textarea|select|option|link|meta|base)[^>]*>/gi, "")
+    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s(href|src)\s*=\s*(['"])\s*javascript:[\s\S]*?\2/gi, " $1=\"#\"")
+    .trim();
 }
 
 function normalizeTimestamp(value: unknown, label: string): Timestamp | null {
@@ -361,8 +397,17 @@ function getPayloadKey(type: DiscoverFeedType) {
 }
 
 function getFeedTitle(item: DiscoverFeedItemRecord) {
-  const payload = item[item.type] as Record<string, unknown> | undefined;
-  return normalizeOptionalString(payload?.title) ?? "Untitled";
+  return normalizeOptionalString(item.title) ?? "Untitled";
+}
+
+function payloadForSerializedItem(
+  data: Record<string, unknown>,
+  type: DiscoverFeedType,
+): Record<string, unknown> {
+  const payload = data[type];
+  return payload && typeof payload === "object" && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>)
+    : {};
 }
 
 function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
@@ -377,6 +422,10 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
     data.publisherSnapshot && typeof data.publisherSnapshot === "object"
       ? (data.publisherSnapshot as Record<string, unknown>)
       : {};
+  const activePayload = payloadForSerializedItem(data, type);
+  const legacySourceUrl = data.sourceUrl ?? data.source_url;
+  const languageValue = data.language ?? data.locale;
+  const language = languageValue === "es" ? "es" : "en";
   const record: DiscoverFeedItemRecord = {
     id: doc.id,
     publisherOrganizationId: normalizeOptionalString(data.publisherOrganizationId) ?? "",
@@ -386,21 +435,27 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
     },
     type,
     publishedAt: timestampToIso(data.publishedAt),
-    sourceUrl: normalizeNullableString(data.sourceUrl),
+    language,
+    title: normalizeOptionalString(data.title) ?? normalizeOptionalString(activePayload.title) ?? "",
+    subtitle:
+      normalizeOptionalString(data.subtitle) ??
+      normalizeOptionalString(activePayload.summary) ??
+      "",
+    body:
+      normalizeOptionalString(data.body) ??
+      normalizeOptionalString(activePayload.detailBody) ??
+      "",
+    html_body: normalizeNullableString(data.html_body),
+    image_url:
+      normalizeNullableString(data.image_url) ??
+      normalizeNullableString(activePayload.imageUrl),
+    source_url: normalizeNullableString(legacySourceUrl),
     status,
     createdAt: timestampToIso(data.createdAt) ?? "",
     updatedAt: timestampToIso(data.updatedAt) ?? "",
     createdByUserId: normalizeOptionalString(data.createdByUserId),
     updatedByUserId: normalizeOptionalString(data.updatedByUserId),
-    reviewedByUserId: normalizeOptionalString(data.reviewedByUserId),
-    reviewedAt: timestampToIso(data.reviewedAt),
-    scheduledFor: timestampToIso(data.scheduledFor),
     archivedAt: timestampToIso(data.archivedAt),
-    editorialNotes: normalizeOptionalString(data.editorialNotes),
-    tags: normalizeStringArray(data.tags),
-    locale: normalizeOptionalString(data.locale),
-    priority: normalizeNumber(data.priority),
-    expiresAt: timestampToIso(data.expiresAt),
   };
 
   for (const payloadKey of FEED_TYPES) {
@@ -518,34 +573,48 @@ function normalizeFeedStatus(value: unknown): DiscoverFeedStatus {
   return value as DiscoverFeedStatus;
 }
 
-function normalizeLocationType(value: unknown): string | undefined {
-  return normalizeOptionalString(value);
+function payloadInputForType(type: DiscoverFeedType, input: FeedItemInput) {
+  const payloadInput = input[getPayloadKey(type)];
+  return payloadInput && typeof payloadInput === "object" && !Array.isArray(payloadInput)
+    ? (payloadInput as Record<string, unknown>)
+    : {};
 }
 
-function normalizePayloadBase(
-  rawPayload: unknown,
-  status: DiscoverFeedStatus,
-): Record<string, unknown> {
-  const payload =
-    rawPayload && typeof rawPayload === "object" && !Array.isArray(rawPayload)
-      ? (rawPayload as Record<string, unknown>)
-      : {};
-  const title = normalizeOptionalString(payload.title);
-  const summary = normalizeOptionalString(payload.summary);
+function normalizeRootContent(input: FeedItemInput, status: DiscoverFeedStatus) {
+  const title = normalizeOptionalString(input.title);
+  const subtitle = normalizeOptionalString(input.subtitle);
+  const body = normalizeOptionalString(input.body);
+  const htmlBody = sanitizeHtmlBody(input.html_body);
 
   if (VALIDATED_STATUSES.has(status)) {
     if (!title) {
-      throw new AdminRepositoryError("Feed entry title is required before review, scheduling, or publishing.", 400);
+      throw new AdminRepositoryError("Feed entry title is required before publishing.", 400);
     }
-    if (!summary) {
-      throw new AdminRepositoryError("Feed entry summary is required before review, scheduling, or publishing.", 400);
+    if (!subtitle) {
+      throw new AdminRepositoryError("Feed entry subtitle is required before publishing.", 400);
+    }
+    if (!body && !htmlBody) {
+      throw new AdminRepositoryError("Feed entry body is required before publishing.", 400);
     }
   }
 
   return {
     title: title ?? "",
-    summary: summary ?? "",
-    imageUrl: normalizeHttpsUrl(payload.imageUrl, "Payload image URL"),
+    subtitle: subtitle ?? "",
+    body: body ?? "",
+    html_body: htmlBody,
+    image_url: normalizeHttpsUrl(input.image_url, "Image URL"),
+    source_url: normalizeHttpsUrl(input.source_url ?? input.sourceUrl, "Source URL"),
+    language: normalizeLanguage(input.language),
+  };
+}
+
+function compatibilityAliases(root: ReturnType<typeof normalizeRootContent>) {
+  return {
+    title: root.title,
+    summary: root.subtitle,
+    detailBody: root.body,
+    imageUrl: root.image_url,
   };
 }
 
@@ -553,70 +622,97 @@ function normalizeTypePayload(
   type: DiscoverFeedType,
   input: FeedItemInput,
   status: DiscoverFeedStatus,
+  root: ReturnType<typeof normalizeRootContent>,
 ) {
-  const payloadInput = input[getPayloadKey(type)];
-  const payload =
-    payloadInput && typeof payloadInput === "object" && !Array.isArray(payloadInput)
-      ? (payloadInput as Record<string, unknown>)
-      : {};
-  const base = normalizePayloadBase(payload, status);
+  const payload = payloadInputForType(type, input);
+  const aliases = compatibilityAliases(root);
 
   if (type === "news") {
     return {
-      ...base,
+      ...aliases,
       category: normalizeOptionalString(payload.category),
       region: normalizeOptionalString(payload.region),
-      detailTitle: normalizeOptionalString(payload.detailTitle),
-      detailBody: normalizeOptionalString(payload.detailBody),
-      keyPoints: normalizeStringArray(payload.keyPoints),
     };
   }
 
   if (type === "research_update") {
     return {
-      ...base,
-      topic: normalizeOptionalString(payload.topic),
+      ...aliases,
+      research_topic:
+        normalizeOptionalString(payload.research_topic) ??
+        normalizeOptionalString(payload.topic),
       genes: normalizeStringArray(payload.genes),
       conditions: normalizeStringArray(payload.conditions),
-      journalName: normalizeOptionalString(payload.journalName),
-      publicationDate: normalizeOptionalString(payload.publicationDate),
-      doi: normalizeOptionalString(payload.doi),
-      plainLanguageTakeaway: normalizeOptionalString(payload.plainLanguageTakeaway),
-      detailBody: normalizeOptionalString(payload.detailBody),
-      keyPoints: normalizeStringArray(payload.keyPoints),
+      journal:
+        normalizeOptionalString(payload.journal) ??
+        normalizeOptionalString(payload.journalName),
+      journalName:
+        normalizeOptionalString(payload.journal) ??
+        normalizeOptionalString(payload.journalName),
     };
   }
 
   if (type === "upcoming_event") {
+    const date = normalizeTimestamp(payload.date ?? payload.startsAt, "Event date");
+    const location =
+      normalizeOptionalString(payload.location) ??
+      normalizeOptionalString(payload.locationName);
+
+    if (status === "published" && !date) {
+      throw new AdminRepositoryError("Event date is required before publishing.", 400);
+    }
+    if (status === "published" && !location) {
+      throw new AdminRepositoryError("Event location is required before publishing.", 400);
+    }
+
     return {
-      ...base,
-      startsAt: normalizeTimestamp(payload.startsAt, "Event start"),
-      endsAt: normalizeTimestamp(payload.endsAt, "Event end"),
-      timezone: normalizeOptionalString(payload.timezone),
-      locationType: normalizeLocationType(payload.locationType),
-      locationName: normalizeOptionalString(payload.locationName),
-      registrationUrl: normalizeHttpsUrl(payload.registrationUrl, "Registration URL"),
-      priceLabel: normalizeOptionalString(payload.priceLabel),
-      audienceLabel: normalizeOptionalString(payload.audienceLabel),
-      agenda: normalizeStringArray(payload.agenda),
-      detailBody: normalizeOptionalString(payload.detailBody),
+      ...aliases,
+      date,
+      startsAt: date,
+      location: location ?? "",
+      max_attendance: normalizeNullablePositiveInteger(
+        payload.max_attendance,
+        "Max attendance",
+      ),
     };
   }
 
+  const opportunityType =
+    normalizeOptionalString(payload.opportunity_type) ??
+    normalizeOptionalString(payload.opportunityType);
+  const requirements = normalizeOptionalString(payload.requirements);
+  const eligibility = normalizeOptionalString(payload.eligibility);
+  const location =
+    normalizeOptionalString(payload.location) ??
+    normalizeOptionalString(payload.locationName);
+
+  if (status === "published") {
+    if (!opportunityType) {
+      throw new AdminRepositoryError("Opportunity type is required before publishing.", 400);
+    }
+    if (!requirements) {
+      throw new AdminRepositoryError("Opportunity requirements are required before publishing.", 400);
+    }
+    if (!eligibility) {
+      throw new AdminRepositoryError("Opportunity eligibility is required before publishing.", 400);
+    }
+    if (!location) {
+      throw new AdminRepositoryError("Opportunity location is required before publishing.", 400);
+    }
+  }
+
   return {
-    ...base,
-    opportunityType: normalizeOptionalString(payload.opportunityType),
-    deadlineAt: normalizeTimestamp(payload.deadlineAt, "Opportunity deadline"),
-    locationType: normalizeLocationType(payload.locationType),
-    locationName: normalizeOptionalString(payload.locationName),
-    eligibility: normalizeOptionalString(payload.eligibility),
-    applicationUrl: normalizeHttpsUrl(payload.applicationUrl, "Application URL"),
-    detailBody: normalizeOptionalString(payload.detailBody),
-    requirements: normalizeStringArray(payload.requirements),
+    ...aliases,
+    opportunity_type: opportunityType ?? "",
+    opportunityType: opportunityType ?? "",
+    requirements: requirements ?? "",
+    eligibility: eligibility ?? "",
+    location: location ?? "",
   };
 }
 
 async function feedItemDocument(
+  feedItemId: string,
   input: FeedItemInput,
   context: AdminContext,
   existing?: Record<string, unknown>,
@@ -633,16 +729,11 @@ async function feedItemDocument(
   const type = normalizeFeedType(input.type);
   const status = normalizeFeedStatus(input.status);
 
-  if ((status === "published" || status === "scheduled") && organization.status !== "active") {
+  if (status === "published" && organization.status !== "active") {
     throw new AdminRepositoryError(
-      "Only active organizations can publish or schedule feed entries.",
+      "Only active organizations can publish feed entries.",
       400,
     );
-  }
-
-  const scheduledFor = normalizeTimestamp(input.scheduledFor, "Scheduled publish time");
-  if (status === "scheduled" && !scheduledFor) {
-    throw new AdminRepositoryError("Scheduled feed entries need a scheduled publish time.", 400);
   }
 
   const inputPublishedAt = normalizeTimestamp(input.publishedAt, "Published time");
@@ -654,25 +745,28 @@ async function feedItemDocument(
     status === "archived"
       ? normalizeTimestamp(existing?.archivedAt, "Archived time") ?? FieldValue.serverTimestamp()
       : null;
-  const payload = normalizeTypePayload(type, input, status);
+  const root = normalizeRootContent(input, status);
+  const payload = normalizeTypePayload(type, input, status, root);
 
   return {
+    id: feedItemId,
     publisherOrganizationId,
     publisherSnapshot: {
       name: organization.name,
       imageUrl: organization.imageUrl,
     },
     type,
-    publishedAt,
-    sourceUrl: normalizeHttpsUrl(input.sourceUrl, "Source URL"),
     status,
-    scheduledFor,
+    publishedAt,
+    language: root.language,
+    title: root.title,
+    subtitle: root.subtitle,
+    body: root.body,
+    html_body: root.html_body,
+    image_url: root.image_url,
+    source_url: root.source_url,
+    sourceUrl: root.source_url,
     archivedAt,
-    editorialNotes: normalizeOptionalString(input.editorialNotes),
-    tags: normalizeStringArray(input.tags),
-    locale: normalizeOptionalString(input.locale) ?? "en",
-    priority: normalizeNumber(input.priority),
-    expiresAt: normalizeTimestamp(input.expiresAt, "Expiration time"),
     [getPayloadKey(type)]: payload,
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
@@ -824,7 +918,7 @@ export async function createDiscoverFeedItem(
   const ref = adminDb.collection(FEED_ITEMS_COLLECTION).doc();
   await ref.set(
     withoutUndefined({
-      ...(await feedItemDocument(input, context)),
+      ...(await feedItemDocument(ref.id, input, context)),
       createdAt: FieldValue.serverTimestamp(),
       createdByUserId: context.uid,
     }),
@@ -844,7 +938,7 @@ export async function updateDiscoverFeedItem(
     throw new AdminRepositoryError("Feed entry not found.", 404);
   }
 
-  const document = await feedItemDocument(input, context, existing.data());
+  const document = await feedItemDocument(feedItemId, input, context, existing.data());
   const current = existing.data();
   const createdAt = current.createdAt ?? FieldValue.serverTimestamp();
   const createdByUserId = current.createdByUserId ?? context.uid;
@@ -872,15 +966,16 @@ export async function duplicateDiscoverFeedItem(
     publisherOrganizationId: source.publisherOrganizationId,
     type: source.type,
     status: "draft",
-    sourceUrl: source.sourceUrl,
-    editorialNotes: source.editorialNotes,
-    tags: source.tags,
-    locale: source.locale,
-    priority: source.priority,
-    expiresAt: source.expiresAt,
+    publishedAt: source.publishedAt,
+    language: source.language,
+    title: `${getFeedTitle(source)} copy`,
+    subtitle: source.subtitle,
+    body: source.body,
+    html_body: source.html_body,
+    image_url: source.image_url,
+    source_url: source.source_url,
     [source.type]: {
       ...sourcePayload,
-      title: `${getFeedTitle(source)} copy`,
     },
   };
 
