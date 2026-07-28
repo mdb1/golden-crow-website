@@ -142,7 +142,17 @@ describe("buildMuscleGroupWeeks — actuals (#480 behavior preserved)", () => {
     // Untrained week in the middle stays present and empty.
     expect(muscleGroupWeeks[1].byGroup).toEqual({});
     expect(muscleGroupWeeks[2].byGroup).toEqual({ back: { sets: 1, volume: 500 } });
-    expect(availableMuscleGroups).toEqual(["back", "chest", "triceps", "shoulders"]);
+    // Untrained coarse groups are offered too, flat at 0 (see
+    // buildMuscleGroupWeeks — "pecho ausente" vs "pecho en cero").
+    expect(availableMuscleGroups).toEqual([
+      "back",
+      "chest",
+      "biceps",
+      "triceps",
+      "shoulders",
+      "legs",
+      "core",
+    ]);
   });
 
   it("returns nothing when there is neither actual nor projected data", () => {
@@ -234,17 +244,46 @@ describe("buildMuscleGroupWeeks — projection (#568)", () => {
     expect(muscleGroupWeeks[0].projectedByGroup).toEqual({
       back: { sets: 2, volume: 1000 },
     });
-    expect(availableMuscleGroups).toEqual(["back", "chest", "triceps", "shoulders"]);
+    // Untrained coarse groups are offered too, flat at 0 (see
+    // buildMuscleGroupWeeks — "pecho ausente" vs "pecho en cero").
+    expect(availableMuscleGroups).toEqual([
+      "back",
+      "chest",
+      "biceps",
+      "triceps",
+      "shoulders",
+      "legs",
+      "core",
+    ]);
   });
 
   it("ignores exercises with no resolvable muscle metadata", () => {
-    const { muscleGroupWeeks } = buildMuscleGroupWeeks(
+    const { muscleGroupWeeks, availableMuscleGroups } = buildMuscleGroupWeeks(
       [],
       [set("2026-07-30", "ghost", 999)],
       META,
       "2026-07-27",
     );
     expect(muscleGroupWeeks).toEqual([]);
+    // Nothing attributable → the caller's "sin datos" state, NOT seven flat
+    // zero lines.
+    expect(availableMuscleGroups).toEqual([]);
+  });
+
+  it("offers a group the client never trained, so it can plot a flat 0", () => {
+    // Only a bench press (chest primary, triceps + shoulders secondary) — the
+    // client has no back / biceps / legs / core work at all in the window.
+    const { availableMuscleGroups, muscleGroupWeeks } = buildMuscleGroupWeeks(
+      [set("2026-07-27", "bench", 600)],
+      [],
+      META,
+      "2026-07-27",
+    );
+    expect(availableMuscleGroups).toContain("legs");
+    expect(availableMuscleGroups).toContain("back");
+    // …and the week itself still carries ONLY the trained groups, so the chart
+    // reads the untrained ones as the 0 default rather than an invented cell.
+    expect(muscleGroupWeeks[0].byGroup.legs).toBeUndefined();
   });
 });
 
