@@ -8,6 +8,7 @@ import {
   Archive,
   ArrowLeft,
   Bold,
+  Check,
   CheckCircle2,
   Heading2,
   ImageIcon,
@@ -16,6 +17,7 @@ import {
   LinkIcon,
   List,
   Loader2,
+  MapPin,
   Newspaper,
   Quote,
   RotateCcw,
@@ -115,6 +117,46 @@ const DISCOVER_OPPORTUNITY_TYPE_OPTIONS = [
 const DISCOVER_OPPORTUNITY_TYPE_VALUES = new Set<string>(
   DISCOVER_OPPORTUNITY_TYPE_OPTIONS.map((option) => option.value),
 );
+
+const DISCOVER_LOCATION_SUGGESTIONS = [
+  "Online",
+  "Remote",
+  "Hybrid",
+  "Global",
+  "United States",
+  "Argentina",
+  "Canada",
+  "United Kingdom",
+  "European Union",
+  "Latin America",
+  "Buenos Aires, Argentina",
+  "New York, United States",
+  "Boston, United States",
+  "San Francisco, United States",
+  "London, United Kingdom",
+  "Madrid, Spain",
+  "Barcelona, Spain",
+  "Mexico City, Mexico",
+  "Sao Paulo, Brazil",
+  "Santiago, Chile",
+] as const;
+
+function locationSuggestionsFor(value: string) {
+  const query = value.trim().toLowerCase();
+
+  if (query.length < 3) {
+    return [];
+  }
+
+  return DISCOVER_LOCATION_SUGGESTIONS.map((location) => ({
+    location,
+    index: location.toLowerCase().indexOf(query),
+  }))
+    .filter((entry) => entry.index >= 0)
+    .sort((a, b) => a.index - b.index || a.location.localeCompare(b.location))
+    .slice(0, 6)
+    .map((entry) => entry.location);
+}
 
 function toDateTimeInput(value?: string | null) {
   if (!value) {
@@ -307,6 +349,102 @@ function FieldShell({
     <div className={`flex min-w-0 flex-col gap-2 ${className}`}>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
+    </div>
+  );
+}
+
+function LocationSuggestInput({
+  id,
+  value,
+  onChange,
+  t,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  t: (text: string) => string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const suggestions = locationSuggestionsFor(value);
+  const normalizedValue = value.trim().toLowerCase();
+  const completion =
+    suggestions.find(
+      (suggestion) =>
+        suggestion.toLowerCase().startsWith(normalizedValue) &&
+        suggestion.toLowerCase() !== normalizedValue,
+    ) ?? suggestions.find((suggestion) => suggestion.toLowerCase() !== normalizedValue);
+  const shouldShowSuggestions =
+    focused && normalizedValue.length >= 3 && suggestions.length > 0;
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <MapPin
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+        />
+        <Input
+          id={id}
+          value={value}
+          onBlur={() => window.setTimeout(() => setFocused(false), 120)}
+          onChange={(event) => onChange(event.target.value)}
+          onFocus={() => setFocused(true)}
+          autoComplete="off"
+          className="h-10 pl-9"
+          aria-autocomplete="list"
+          aria-expanded={shouldShowSuggestions}
+          aria-controls={`${id}-suggestions`}
+        />
+      </div>
+      {focused && normalizedValue.length >= 3 && completion ? (
+        <button
+          type="button"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            onChange(completion);
+            setFocused(false);
+          }}
+          className="mt-2 inline-flex max-w-full items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <span className="font-medium text-foreground">{t("Complete")}</span>
+          <span className="truncate">{completion}</span>
+        </button>
+      ) : null}
+      {shouldShowSuggestions ? (
+        <div
+          id={`${id}-suggestions`}
+          role="listbox"
+          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 overflow-hidden rounded-md border border-border bg-background shadow-lg"
+        >
+          {suggestions.map((suggestion) => {
+            const selected = suggestion.toLowerCase() === normalizedValue;
+
+            return (
+              <button
+                key={suggestion}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(suggestion);
+                  setFocused(false);
+                }}
+                className="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted"
+              >
+                <MapPin
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                />
+                <span className="min-w-0 flex-1 truncate">{suggestion}</span>
+                {selected ? (
+                  <Check aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -710,12 +848,11 @@ export function DiscoverFeedEntryWorkbench({
             />
           </FieldShell>
           <FieldShell label={t("Location")} htmlFor="discover-event-location">
-            <Input
+            <LocationSuggestInput
               id="discover-event-location"
               value={state.upcoming_event.location}
-              onChange={(event) =>
-                updatePayload("upcoming_event", { location: event.target.value })
-              }
+              onChange={(value) => updatePayload("upcoming_event", { location: value })}
+              t={t}
             />
           </FieldShell>
           <FieldShell label={t("Max attendance")} htmlFor="discover-event-attendance">
@@ -757,12 +894,11 @@ export function DiscoverFeedEntryWorkbench({
           </select>
         </FieldShell>
         <FieldShell label={t("Location")} htmlFor="discover-opportunity-location">
-          <Input
+          <LocationSuggestInput
             id="discover-opportunity-location"
             value={state.opportunity.location}
-            onChange={(event) =>
-              updatePayload("opportunity", { location: event.target.value })
-            }
+            onChange={(value) => updatePayload("opportunity", { location: value })}
+            t={t}
           />
         </FieldShell>
         <FieldShell label={t("Requirements")} htmlFor="discover-opportunity-requirements">
