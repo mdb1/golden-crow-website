@@ -151,6 +151,11 @@ const wrapperStyle = [
 
   .carousel-track {
     display: flex;
+    /* Todas las slides de una fila miden lo mismo de alto: la más alta define
+       la línea y el resto se estira. Explícito (y no sólo el `stretch` por
+       defecto) porque es la mitad del arreglo — la otra mitad es el
+       `height: auto` de la regla de abajo. */
+    align-items: stretch;
     gap: var(--carousel-gap, 1.5rem);
     overflow-x: auto;
     scroll-snap-type: x mandatory;
