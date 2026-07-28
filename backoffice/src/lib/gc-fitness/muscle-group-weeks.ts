@@ -335,9 +335,19 @@ export function buildMuscleGroupWeeks(
     cursor = shiftCivilDays(cursor, 7);
   }
 
-  const availableMuscleGroups = COARSE_MUSCLE_GROUPS.filter((g) =>
-    groupsWithData.has(g),
-  );
+  // Every coarse group is offered — INCLUDING the ones this client never
+  // trained in the window, which plot a flat 0. A muscle group that is missing
+  // from the chart reads as "no aplica"; a group sitting on 0 reads as "no lo
+  // estás entrenando", which is the whole point of the breakdown (pecho ausente
+  // era indistinguible de pecho en cero).
+  //
+  // The `groupsWithData` gate keeps the two empty states honest: a client with
+  // NO attributable training at all (no logs, or logs whose exercises carry no
+  // muscle metadata) still gets an empty list → the caller's "sin datos" state,
+  // not seven flat zero lines. Twinned with iOS/Android
+  // `MuscleGroupProgress.zeroFillingCoarseGroups`.
+  const availableMuscleGroups =
+    groupsWithData.size > 0 ? [...COARSE_MUSCLE_GROUPS] : [];
 
   return { muscleGroupWeeks: weeks, availableMuscleGroups };
 }
