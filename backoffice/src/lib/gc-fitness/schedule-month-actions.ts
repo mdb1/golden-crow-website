@@ -22,7 +22,8 @@ import { FieldValue } from "firebase-admin/firestore";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
-import { getCurrentTrainer } from "./auth-helpers";
+import { getCurrentAdmin, getCurrentTrainer } from "./auth-helpers";
+import { adminCanViewClientUnderCoach } from "./coachless-user-model";
 import { FirestoreCollections } from "./collections";
 import { civilDateFormat } from "./civil-date";
 import { coachVisibleClientName } from "./client-name";
@@ -624,7 +625,7 @@ async function fetchLastLoggedSetsByExercise(
   return out;
 }
 
-export async function listMonthForClients(input: {
+export interface MonthForClientsInput {
   /** Month mode: any day in the target month (YYYY-MM-01 typical). */
   monthFirstCivil?: string;
   /** Range mode (week / 3-day views): explicit inclusive civil-date bounds. */
@@ -632,8 +633,69 @@ export async function listMonthForClients(input: {
   endCivil?: string;
   clientIds: string[];
   todayCivil: string;
-}): Promise<MonthCalendarPayload> {
+}
+
+export async function listMonthForClients(
+  input: MonthForClientsInput,
+): Promise<MonthCalendarPayload> {
   const trainer = await getCurrentTrainer();
+  return loadMonthForClients({ ...input, viewerUid: trainer.uid });
+}
+
+/**
+ * Admin god-mode (READ-ONLY): one client's month calendar. Verifies the client
+ * really belongs to `coachUid` — or, via the self-as-coach rule, that
+ * `coachUid === clientId` on an active coach-less client — so the URL can't be
+ * edited to read across coaches.
+ *
+ * Read-only by construction: this returns the same payload the coach's calendar
+ * renders, but no admin surface ships the move/assign mutations.
+ */
+export async function listMonthForClientAsAdmin(input: {
+  coachUid: string;
+  clientId: string;
+  monthFirstCivil?: string;
+  todayCivil: string;
+}): Promise<MonthCalendarPayload> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+  const snap = await db
+    .collection(FirestoreCollections.users)
+    .doc(input.clientId)
+    .get();
+  const allowed =
+    snap.exists &&
+    adminCanViewClientUnderCoach({
+      coachUidInPath: input.coachUid,
+      clientId: input.clientId,
+      clientCoachId: typeof snap.get("coachId") === "string" ? snap.get("coachId") : null,
+      clientRole: typeof snap.get("role") === "string" ? snap.get("role") : null,
+      clientDeleted: snap.get("deleted") === true,
+    });
+  if (!allowed) {
+    throw new Error("Not found");
+  }
+  return loadMonthForClients({
+    monthFirstCivil: input.monthFirstCivil,
+    clientIds: [input.clientId],
+    todayCivil: input.todayCivil,
+    viewerUid: input.coachUid,
+  });
+}
+
+/**
+ * Auth-FREE core of the month calendar. CALLERS MUST GATE — `listMonthForClients`
+ * (trainer) and `listMonthForClientAsAdmin` (admin) are the only entry points.
+ *
+ * `viewerUid` is the uid the assignment chips are filtered against: a doc is
+ * admitted when `trainerId === viewerUid` OR it is self-assigned. For a
+ * coach-less user the admin path passes their OWN uid, which satisfies BOTH
+ * branches (their content carries `trainerId === clientId`) — the same
+ * self-as-coach convention the rest of the god-mode drill-down uses.
+ */
+async function loadMonthForClients(
+  input: MonthForClientsInput & { viewerUid: string },
+): Promise<MonthCalendarPayload> {
   const db = gcFitnessFirestore();
 
   // Either an explicit [startCivil, endCivil] range (week / 3-day views) or a
@@ -740,7 +802,7 @@ export async function listMonthForClients(input: {
       typeof data.clientId === "string" &&
       data.clientId.length > 0 &&
       data.trainerId === data.clientId;
-    if (data.trainerId !== trainer.uid && !isSelfAssigned) continue;
+    if (data.trainerId !== input.viewerUid && !isSelfAssigned) continue;
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
     const civil = typeof data.scheduledFor === "string" ? data.scheduledFor : "";
     if (!clientId || !civil) continue;

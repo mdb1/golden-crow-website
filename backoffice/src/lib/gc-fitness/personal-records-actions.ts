@@ -10,7 +10,8 @@
 // composite index; no date bound so a long-standing record still surfaces) +
 // ONE batched getAll for the PR exercises' muscle groups.
 
-import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import { getCurrentAdmin, getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import { adminCanViewClientUnderCoach } from "@/lib/gc-fitness/coachless-user-model";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import {
@@ -56,6 +57,49 @@ export async function listClientPersonalRecords(
   if (!clientSnap.exists || clientSnap.get("coachId") !== trainer.uid) {
     return { clientId, records: [] };
   }
+
+  return loadClientPersonalRecords(clientId);
+}
+
+/**
+ * Admin god-mode (READ-ONLY): the same records for ONE client, gated by
+ * `adminCanViewClientUnderCoach` — the coach of record, or a coach-less user
+ * under the self-as-coach rule (`coachUid === clientId`).
+ */
+export async function listClientPersonalRecordsAsAdmin(
+  coachUid: string,
+  clientId: string,
+): Promise<ClientPersonalRecords> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+  const clientSnap = await db
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .get();
+  const allowed =
+    clientSnap.exists &&
+    adminCanViewClientUnderCoach({
+      coachUidInPath: coachUid,
+      clientId,
+      clientCoachId:
+        typeof clientSnap.get("coachId") === "string" ? clientSnap.get("coachId") : null,
+      clientRole: typeof clientSnap.get("role") === "string" ? clientSnap.get("role") : null,
+      clientDeleted: clientSnap.get("deleted") === true,
+    });
+  if (!allowed) {
+    return { clientId, records: [] };
+  }
+  return loadClientPersonalRecords(clientId);
+}
+
+/**
+ * Auth-FREE core. CALLERS MUST GATE — the two exported entry points above are
+ * the only ones.
+ */
+async function loadClientPersonalRecords(
+  clientId: string,
+): Promise<ClientPersonalRecords> {
+  const db = gcFitnessFirestore();
 
   const snap = await db
     .collection(FirestoreCollections.workoutLogs)
