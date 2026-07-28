@@ -29,6 +29,8 @@ const copy = {
     storeGridLabel: 'Opciones de descarga de GC Fitness',
     legal: 'Privacidad',
     legalHref: '/gc-fitness/privacy',
+    terms: 'Términos de uso',
+    termsHref: '/gc-fitness/terms',
   },
   en: {
     title: 'Download GC Fitness',
@@ -52,6 +54,8 @@ const copy = {
     storeGridLabel: 'GC Fitness download options',
     legal: 'Privacy',
     legalHref: '/en/gc-fitness/privacy',
+    terms: 'Terms of Use',
+    termsHref: '/en/gc-fitness/terms',
   },
 }[lang];
 ---
@@ -109,6 +113,8 @@ const copy = {
 
           <p class="gcf-legal">
             <a href={copy.legalHref}>{copy.legal}</a>
+            <span aria-hidden="true"> · </span>
+            <a href={copy.termsHref}>{copy.terms}</a>
           </p>
         </div>
 
