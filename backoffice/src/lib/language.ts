@@ -1703,7 +1703,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Buscar envíos por caso, envío, seguimiento, transportista, estado de entrega o contacto...",
   "Searchable patient index with scoped visibility by institution and scoped edit rights by doctor ownership.":
     "Índice de pacientes buscable con visibilidad por institución y edición acotada por titularidad médica.",
-  "Secondary workflow surfaces": "Superficies secundarias de flujo",
+  "Secondary workflow surfaces": "Otras áreas",
   "Shipment operations stay available as the supporting area for this role.":
     "Las operaciones de envíos quedan disponibles como área de soporte para este rol.",
   Sent: "Enviado",
