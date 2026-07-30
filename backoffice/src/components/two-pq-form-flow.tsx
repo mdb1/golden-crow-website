@@ -121,6 +121,8 @@ const STUDY_REQUEST_STEPS: StepKey[] = [
   "institutionInformation",
   "previewAndSignature",
 ];
+const SCOPED_INSTITUTION_STUDY_REQUEST_STEPS: StepKey[] =
+  STUDY_REQUEST_STEPS.filter((step) => step !== "institutionInformation");
 
 const SAMPLE_STEPS: StepKey[] = [
   "linkedStudyRequest",
@@ -2542,17 +2544,23 @@ export function TwoPQFormFlow({
   const { language } = useAppLanguage();
   const router = useRouter();
   const t = (text: string) => appText(language, text);
-  const steps =
-    formType === "study_request"
-      ? STUDY_REQUEST_STEPS
-      : formType === "sample"
-        ? SAMPLE_STEPS
-        : WITHDRAWAL_REQUEST_STEPS;
   const matchingDraft = initialDraft?.formType === formType ? initialDraft : null;
   const scopedInstitutionId =
     isInstitutionManagerRole(adminContext.role) || adminContext.role === "institution_doctor"
       ? adminContext.institutionId ?? ""
       : "";
+  const shouldSkipStudyRequestInstitutionStep =
+    formType === "study_request" &&
+    isInstitutionManagerRole(adminContext.role) &&
+    Boolean(scopedInstitutionId);
+  const steps =
+    formType === "study_request"
+      ? shouldSkipStudyRequestInstitutionStep
+        ? SCOPED_INSTITUTION_STUDY_REQUEST_STEPS
+        : STUDY_REQUEST_STEPS
+      : formType === "sample"
+        ? SAMPLE_STEPS
+        : WITHDRAWAL_REQUEST_STEPS;
   const scopedDoctorId =
     adminContext.role === "institution_doctor" ? adminContext.doctorId ?? "" : "";
   const defaultInstitutionId =
@@ -3515,11 +3523,7 @@ export function TwoPQFormFlow({
       : steps.filter((step) => step !== "previewAndSignature");
   const previewStepIndex = steps.indexOf("previewAndSignature");
   const currentStepContinuesToPreview =
-    ((formType === "study_request" && currentStep === "institutionInformation") ||
-      (formType === "sample" && currentStep === "samplingInformation") ||
-      (formType === "withdrawal_request" &&
-        currentStep === "institutionInformation")) &&
-    previewStepIndex >= 0;
+    previewStepIndex >= 0 && steps[stepIndex + 1] === "previewAndSignature";
   const processDialogOpen =
     Boolean(wholeDataValidationReport) || storageProcessingSteps.length > 0;
   const previewValidationDialogOpen = Boolean(previewValidationReport);
@@ -7136,15 +7140,11 @@ export function TwoPQFormFlow({
                     : "bg-indigo-600 text-white hover:bg-indigo-700"
                 }
               >
-                {currentStep === "institutionInformation" &&
-                (formType === "study_request" ||
-                  formType === "withdrawal_request")
+                {currentStepContinuesToPreview
                   ? t("Continue to preview")
                   : currentStep === "sampleInformation" && formType === "sample"
                     ? t("Generate table")
-                    : currentStep === "samplingInformation" && formType === "sample"
-                      ? t("Continue to preview")
-                  : t("Continue")}
+                    : t("Continue")}
                 <ArrowRight className="size-4" />
               </Button>
             )}
