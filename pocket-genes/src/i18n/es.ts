@@ -668,13 +668,13 @@ export const es: Translations = {
     q2Title2: 'Expansión de Funcionalidades',
     q2Items: ['Nuevos paneles', 'Acceso a informes genéticos', 'Más formas de explorar la información'],
     q3Period: 'Q3 JUL-SEP',
-    q3Title1: 'Desarrollo Android',
+    q3Title1: 'Disponibilidad en Android',
     q3Title2: 'RareFriends™ y comunidad',
     q3Items: ['Círculos seguros', 'Recomendaciones de recursos', 'Herramientas de participación cuidada'],
     q4Period: 'Q4 OCT-DIC',
     q4Title1: 'Escalar el producto',
     q4Title2: 'Personalizar la experiencia',
-    q4Items: ['Vincular recursos educativos', 'Lanzamiento en Android', 'Experiencia de usuario personalizada'],
+    q4Items: ['Vincular recursos educativos', 'Disponible en Android', 'Experiencia de usuario personalizada'],
   },
 
   // Layout components - ChoosePlan

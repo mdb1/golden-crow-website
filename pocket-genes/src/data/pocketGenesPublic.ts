@@ -1,4 +1,5 @@
 export const APP_STORE_URL = 'https://apps.apple.com/ar/app/pocket-genes/id6748587627';
+export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=goldencrowvs.pocketgenes&hl=en';
 export const POCKET_GENES_SUPPORT_EMAIL = 'support@goldencrowvs.com';
 
 export const POCKET_GENES_EMAILS = {

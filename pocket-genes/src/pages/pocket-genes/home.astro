@@ -1,6 +1,6 @@
 ---
 import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro';
-import { APP_STORE_URL, POCKET_GENES_EMAILS } from '../../data/pocketGenesPublic';
+import { APP_STORE_URL, PLAY_STORE_URL, POCKET_GENES_EMAILS } from '../../data/pocketGenesPublic';
 
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
@@ -33,12 +33,12 @@ const pageCopy = {
     momentFlowLabel: 'Pocket Genes flow',
     momentFlow: ['Save', 'Learn', 'Find', 'Prepare'],
     storeEyebrow: 'Get Pocket Genes',
-    storeTitle: 'Available for iPhone. Google Play is planned.',
-    storeBody: 'Download the iPhone app today. Android support is coming later.',
+    storeTitle: 'Available for iPhone and Android.',
+    storeBody: 'Download Pocket Genes from the App Store or Google Play.',
     downloadIphone: 'Download for iPhone',
     appStoreAlt: 'Download Pocket Genes on the App Store',
-    googlePlay: 'Google Play',
-    comingSoon: 'Coming soon',
+    downloadAndroid: 'Download for Android',
+    playStoreAlt: 'Get Pocket Genes on Google Play',
     identityFlow: ['Save privately', 'Understand terms', 'Find support', 'Prepare questions'],
     productMoments: [
       {
@@ -150,12 +150,12 @@ const pageCopy = {
     momentFlowLabel: 'Flujo de Pocket Genes',
     momentFlow: ['Guardar', 'Aprender', 'Encontrar', 'Preparar'],
     storeEyebrow: 'Obtené Pocket Genes',
-    storeTitle: 'Disponible para iPhone. Google Play está planificado.',
-    storeBody: 'Descargá la app para iPhone hoy. El soporte para Android llegará más adelante.',
+    storeTitle: 'Disponible para iPhone y Android.',
+    storeBody: 'Descargá Pocket Genes desde App Store o Google Play.',
     downloadIphone: 'Descargar para iPhone',
     appStoreAlt: 'Descargar Pocket Genes en App Store',
-    googlePlay: 'Google Play',
-    comingSoon: 'Próximamente',
+    downloadAndroid: 'Descargar para Android',
+    playStoreAlt: 'Obtener Pocket Genes en Google Play',
     identityFlow: ['Guardar en privado', 'Entender términos', 'Encontrar apoyo', 'Preparar preguntas'],
     productMoments: [
       {
@@ -393,10 +393,10 @@ const identityFlow = copy.identityFlow;
             <span>{copy.downloadIphone}</span>
             <img src="/appStore.png" alt={copy.appStoreAlt} />
           </a>
-          <button class="pg-store-disabled" type="button" disabled>
-            <span>{copy.googlePlay}</span>
-            <strong>{copy.comingSoon}</strong>
-          </button>
+          <a class="pg-store-app" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">
+            <span>{copy.downloadAndroid}</span>
+            <img src="/pocket-genes/google-play-badge.png" alt={copy.playStoreAlt} />
+          </a>
         </div>
       </div>
     </section>
