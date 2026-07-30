@@ -6056,8 +6056,8 @@ export function TwoPQFormFlow({
 
         {currentStep === "requestedTest" ? (
           formType === "study_request" ? (
-            <div className="grid gap-4">
-              <div className="space-y-2">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2 md:col-span-2">
                 <Label>{t("Requested test")}</Label>
                 <OptionSelectField
                   options={requestedStudyTestOptions}
@@ -6069,152 +6069,146 @@ export function TwoPQFormFlow({
                 <FieldError message={errorFor("requestedTest")} />
               </div>
               {selectedRequestedTest ? (
-                <section className="rounded-xl border border-border/70 bg-background/50 p-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <YesNoField
-                      label={t("Reports mosaicism")}
-                      value={
-                        selectedRequestedTest === "pgtAFast"
-                          ? state.requestedTest.pgtAFastReportsMosaicism
-                          : selectedRequestedTest === "pgtAStandard"
-                            ? state.requestedTest.pgtAStandardReportsMosaicism
-                            : state.requestedTest.pgtSrReportsMosaicism
-                      }
-                      onChange={(value) =>
-                        selectedRequestedTest === "pgtAFast"
-                          ? updateRequestedTest({
-                              pgtAFastReportsMosaicism: value,
-                            })
-                          : selectedRequestedTest === "pgtAStandard"
-                            ? updateRequestedTest({
-                                pgtAStandardReportsMosaicism: value,
-                              })
-                            : updateRequestedTest({
-                                pgtSrReportsMosaicism: value,
-                              })
-                      }
-                      error={
-                        selectedRequestedTest === "pgtAFast"
-                          ? errorFor("requestedTest.pgtAFastReportsMosaicism")
-                          : selectedRequestedTest === "pgtAStandard"
-                            ? errorFor("requestedTest.pgtAStandardReportsMosaicism")
-                            : errorFor("requestedTest.pgtSrReportsMosaicism")
-                      }
-                      options={yesNoOptions}
-                      placeholder={t("Select")}
-                    />
-                    <YesNoField
-                      label={t("Reports sex")}
-                      value={
-                        selectedRequestedTest === "pgtAFast"
-                          ? state.requestedTest.pgtAFastReportsSex
-                          : selectedRequestedTest === "pgtAStandard"
-                            ? state.requestedTest.pgtAStandardReportsSex
-                            : state.requestedTest.pgtSrReportsSex
-                      }
-                      onChange={(value) =>
-                        selectedRequestedTest === "pgtAFast"
-                          ? updateRequestedTest({
-                              pgtAFastReportsSex: value,
-                            })
-                          : selectedRequestedTest === "pgtAStandard"
-                            ? updateRequestedTest({
-                                pgtAStandardReportsSex: value,
-                              })
-                            : updateRequestedTest({
-                                pgtSrReportsSex: value,
-                              })
-                      }
-                      error={
-                        selectedRequestedTest === "pgtAFast"
-                          ? errorFor("requestedTest.pgtAFastReportsSex")
-                          : selectedRequestedTest === "pgtAStandard"
-                            ? errorFor("requestedTest.pgtAStandardReportsSex")
-                            : errorFor("requestedTest.pgtSrReportsSex")
-                      }
-                      options={yesNoOptions}
-                      placeholder={t("Select")}
-                    />
-                  </div>
-                </section>
-              ) : null}
-              <section className="rounded-xl border border-border/70 bg-background/50 p-4">
-                <div className="grid gap-4 md:grid-cols-2">
+                <>
                   <YesNoField
-                    label={t("Has karyotype information?")}
-                    value={state.previousGeneticTests.karyotype}
-                    onChange={(karyotype) => {
-                      updatePreviousGeneticTests({ karyotype });
-                      if (karyotype !== "si") {
-                        clearKaryotypeFile();
-                      }
-                    }}
-                    error={errorFor("previousGeneticTests.karyotype")}
+                    label={t("Reports mosaicism")}
+                    value={
+                      selectedRequestedTest === "pgtAFast"
+                        ? state.requestedTest.pgtAFastReportsMosaicism
+                        : selectedRequestedTest === "pgtAStandard"
+                          ? state.requestedTest.pgtAStandardReportsMosaicism
+                          : state.requestedTest.pgtSrReportsMosaicism
+                    }
+                    onChange={(value) =>
+                      selectedRequestedTest === "pgtAFast"
+                        ? updateRequestedTest({
+                            pgtAFastReportsMosaicism: value,
+                          })
+                        : selectedRequestedTest === "pgtAStandard"
+                          ? updateRequestedTest({
+                              pgtAStandardReportsMosaicism: value,
+                            })
+                          : updateRequestedTest({
+                              pgtSrReportsMosaicism: value,
+                            })
+                    }
+                    error={
+                      selectedRequestedTest === "pgtAFast"
+                        ? errorFor("requestedTest.pgtAFastReportsMosaicism")
+                        : selectedRequestedTest === "pgtAStandard"
+                          ? errorFor("requestedTest.pgtAStandardReportsMosaicism")
+                          : errorFor("requestedTest.pgtSrReportsMosaicism")
+                    }
                     options={yesNoOptions}
                     placeholder={t("Select")}
                   />
-                  {state.previousGeneticTests.karyotype === "si" ? (
-                    <div className="md:col-span-2 rounded-xl border border-border/70 bg-background/50 p-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <Label htmlFor="form-karyotype-file">
-                            {t("Karyotype file")}
-                          </Label>
-                          {state.previousGeneticTests.karyotypeFileName ? (
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {state.previousGeneticTests.karyotypeFileName}
-                            </p>
-                          ) : (
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {t("No file selected")}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button type="button" variant="outline" asChild>
-                            <label
-                              htmlFor="form-karyotype-file"
-                              className="cursor-pointer"
-                            >
-                              <Upload className="size-4" />
-                              {t("Upload file")}
-                            </label>
-                          </Button>
-                          {state.previousGeneticTests.karyotypeFileName ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={clearKaryotypeFile}
-                            >
-                              <X className="size-4" />
-                              {t("Remove file")}
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
-                      <Input
-                        id="form-karyotype-file"
-                        type="file"
-                        accept="image/*,application/pdf"
-                        className="sr-only"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          event.target.value = "";
-                          if (file) {
-                            void attachKaryotypeFile(file);
-                          }
-                        }}
-                      />
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        {t("Maximum file size: 750 KB.")}
-                      </p>
-                      <FieldError
-                        message={errorFor("previousGeneticTests.karyotypeFileContent")}
-                      />
+                  <YesNoField
+                    label={t("Reports sex")}
+                    value={
+                      selectedRequestedTest === "pgtAFast"
+                        ? state.requestedTest.pgtAFastReportsSex
+                        : selectedRequestedTest === "pgtAStandard"
+                          ? state.requestedTest.pgtAStandardReportsSex
+                          : state.requestedTest.pgtSrReportsSex
+                    }
+                    onChange={(value) =>
+                      selectedRequestedTest === "pgtAFast"
+                        ? updateRequestedTest({
+                            pgtAFastReportsSex: value,
+                          })
+                        : selectedRequestedTest === "pgtAStandard"
+                          ? updateRequestedTest({
+                              pgtAStandardReportsSex: value,
+                            })
+                          : updateRequestedTest({
+                              pgtSrReportsSex: value,
+                            })
+                    }
+                    error={
+                      selectedRequestedTest === "pgtAFast"
+                        ? errorFor("requestedTest.pgtAFastReportsSex")
+                        : selectedRequestedTest === "pgtAStandard"
+                          ? errorFor("requestedTest.pgtAStandardReportsSex")
+                          : errorFor("requestedTest.pgtSrReportsSex")
+                    }
+                    options={yesNoOptions}
+                    placeholder={t("Select")}
+                  />
+                </>
+              ) : null}
+              <YesNoField
+                label={t("Has karyotype information?")}
+                value={state.previousGeneticTests.karyotype}
+                onChange={(karyotype) => {
+                  updatePreviousGeneticTests({ karyotype });
+                  if (karyotype !== "si") {
+                    clearKaryotypeFile();
+                  }
+                }}
+                error={errorFor("previousGeneticTests.karyotype")}
+                options={yesNoOptions}
+                placeholder={t("Select")}
+              />
+              {state.previousGeneticTests.karyotype === "si" ? (
+                <div className="md:col-span-2 rounded-xl border border-border/70 bg-background/50 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <Label htmlFor="form-karyotype-file">
+                        {t("Karyotype file")}
+                      </Label>
+                      {state.previousGeneticTests.karyotypeFileName ? (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {state.previousGeneticTests.karyotypeFileName}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {t("No file selected")}
+                        </p>
+                      )}
                     </div>
-                  ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" asChild>
+                        <label
+                          htmlFor="form-karyotype-file"
+                          className="cursor-pointer"
+                        >
+                          <Upload className="size-4" />
+                          {t("Upload file")}
+                        </label>
+                      </Button>
+                      {state.previousGeneticTests.karyotypeFileName ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={clearKaryotypeFile}
+                        >
+                          <X className="size-4" />
+                          {t("Remove file")}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <Input
+                    id="form-karyotype-file"
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (file) {
+                        void attachKaryotypeFile(file);
+                      }
+                    }}
+                  />
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    {t("Maximum file size: 750 KB.")}
+                  </p>
+                  <FieldError
+                    message={errorFor("previousGeneticTests.karyotypeFileContent")}
+                  />
                 </div>
-              </section>
+              ) : null}
             </div>
           ) : (
             <div className="grid gap-4">
