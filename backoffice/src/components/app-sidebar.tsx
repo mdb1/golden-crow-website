@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useAppLanguage } from "@/components/app-language-provider";
 import type { AdminContextRecord } from "@/lib/admin-areas";
+import { BACKOFFICE_VERSION } from "@/lib/app-version";
 import { appText } from "@/lib/language";
 import { getProjectNav, getProjectSections } from "@/lib/moderation-config";
 import { ChevronDown } from "lucide-react";
@@ -32,6 +33,13 @@ export function AppSidebar({
     adminContext.role,
   );
   const visibleNav = getProjectNav(adminContext.project, adminContext.role);
+  const productTitle =
+    adminContext.project === "pocket-gyms"
+      ? appText(language, "Pocket Gyms")
+      : adminContext.project === "gc-fitness"
+        ? appText(language, "GC Fitness")
+        : appText(language, "PocketGenes");
+  const showPocketGenesVersion = adminContext.project === "mydnamap";
 
   async function handleSwitchProject() {
     await signOut({ callbackUrl: "/login", redirect: true });
@@ -46,13 +54,16 @@ export function AppSidebar({
       <SidebarHeader className="glass-panel gap-2 px-3 py-3 group-data-[collapsible=icon]:hidden">
         <div className="px-2">
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate font-heading text-lg font-semibold text-sidebar-foreground">
-              {adminContext.project === "pocket-gyms"
-                ? appText(language, "Pocket Gyms")
-                : adminContext.project === "gc-fitness"
-                  ? appText(language, "GC Fitness")
-                  : appText(language, "PocketGenes")}
-            </p>
+            <div className="min-w-0">
+              <p className="truncate font-heading text-lg font-semibold text-sidebar-foreground">
+                {productTitle}
+              </p>
+              {showPocketGenesVersion ? (
+                <p className="mt-0.5 truncate text-xs text-sidebar-foreground/60">
+                  v{BACKOFFICE_VERSION}
+                </p>
+              ) : null}
+            </div>
             {adminContext.projectAccess.length > 1 && (
               <button
                 className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
