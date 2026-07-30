@@ -112,6 +112,7 @@ type WholeDataValidationResult = {
   issues: WholeDataValidationIssue[];
   firstInvalidStepIndex: number;
 };
+type StudyRequestPatientMode = "" | "yes" | "no";
 
 const STUDY_REQUEST_STEPS: StepKey[] = [
   "patientInformation",
@@ -227,6 +228,10 @@ const VALIDATION_FIELD_LABELS: Record<string, string> = {
 
 const YES_NO_OPTIONS = [
   { value: "si", label: "Yes" },
+  { value: "no", label: "No" },
+];
+const STUDY_REQUEST_PATIENT_MODE_OPTIONS = [
+  { value: "yes", label: "Yes" },
   { value: "no", label: "No" },
 ];
 
@@ -2167,6 +2172,7 @@ function Field({
   min,
   step,
   error,
+  readOnly = false,
 }: {
   id: string;
   label: string;
@@ -2176,6 +2182,7 @@ function Field({
   min?: string;
   step?: string;
   error?: string;
+  readOnly?: boolean;
 }) {
   return (
     <div className="space-y-2">
@@ -2186,7 +2193,11 @@ function Field({
         min={min}
         step={step}
         value={value}
-        className={error ? "border-red-300 focus-visible:ring-red-500" : undefined}
+        readOnly={readOnly}
+        className={[
+          error ? "border-red-300 focus-visible:ring-red-500" : "",
+          readOnly ? "bg-muted/55 text-muted-foreground" : "",
+        ].join(" ")}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${id}-error` : undefined}
         onChange={(event) => onChange(event.target.value)}
@@ -2370,12 +2381,14 @@ function TextAreaField({
   value,
   onChange,
   error,
+  readOnly = false,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
   error?: string;
+  readOnly?: boolean;
 }) {
   return (
     <div className="space-y-2">
@@ -2383,7 +2396,11 @@ function TextAreaField({
       <Textarea
         id={id}
         value={value}
-        className={error ? "border-red-300 focus-visible:ring-red-500" : undefined}
+        readOnly={readOnly}
+        className={[
+          error ? "border-red-300 focus-visible:ring-red-500" : "",
+          readOnly ? "bg-muted/55 text-muted-foreground" : "",
+        ].join(" ")}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${id}-error` : undefined}
         onChange={(event) => onChange(event.target.value)}
@@ -2647,6 +2664,12 @@ export function TwoPQFormFlow({
   const [draftPending, setDraftPending] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [state, setState] = useState<FlowState>(initialFlowState);
+  const [studyRequestPatientMode, setStudyRequestPatientMode] =
+    useState<StudyRequestPatientMode>(() =>
+      formType === "study_request" && initialFlowState.selectedPatientId
+        ? "yes"
+        : ""
+    );
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [stepValidation, setStepValidation] = useState<StepValidationState>(() =>
     buildInitialStepValidation(
@@ -2693,6 +2716,16 @@ export function TwoPQFormFlow({
   const selectedPatient = patients.find(
     (patient) => patient.id === state.selectedPatientId
   );
+  const isStudyRequestPatientStep =
+    formType === "study_request" && currentStep === "patientInformation";
+  const shouldShowStudyRequestPatientPicker =
+    isStudyRequestPatientStep && studyRequestPatientMode === "yes";
+  const shouldShowStudyRequestPatientForm =
+    !isStudyRequestPatientStep ||
+    studyRequestPatientMode === "no" ||
+    (studyRequestPatientMode === "yes" && Boolean(state.selectedPatientId));
+  const studyRequestPatientFormReadOnly =
+    isStudyRequestPatientStep && studyRequestPatientMode === "yes";
   const selectedStudyRequestForm = studyRequestForms.find(
     (form) => form.id === state.linkedStudyRequestFormId
   );
@@ -3986,6 +4019,41 @@ export function TwoPQFormFlow({
     });
   }
 
+  function defaultPatientInformationForStudyRequest() {
+    return buildInitialState(
+      defaultInstitutionId,
+      defaultDoctorId,
+      defaultInstitution?.contactEmail ?? ""
+    ).patientInformation;
+  }
+
+  function selectStudyRequestPatientMode(nextMode: string) {
+    const mode: StudyRequestPatientMode =
+      nextMode === "yes" || nextMode === "no" ? nextMode : "";
+    setStudyRequestPatientMode(mode);
+    setFieldErrors((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(
+          ([key]) => !isStepErrorKey(key, "patientInformation")
+        )
+      )
+    );
+    setStepValidation((current) => {
+      const next = { ...current };
+      delete next.patientInformation;
+      return next;
+    });
+
+    setState((current) => ({
+      ...current,
+      selectedPatientId: "",
+      selectedCaseId: "",
+      selectedRequestingDoctorId: "",
+      selectedInstitutionId: defaultInstitutionId,
+      patientInformation: defaultPatientInformationForStudyRequest(),
+    }));
+  }
+
   function selectPatient(patientId: string) {
     const patient = patients.find((candidate) => candidate.id === patientId);
     const patientInstitution = patient
@@ -4015,6 +4083,18 @@ export function TwoPQFormFlow({
             fullName: "",
           },
     }));
+    setFieldErrors((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(
+          ([key]) => !isStepErrorKey(key, "patientInformation")
+        )
+      )
+    );
+    setStepValidation((current) => {
+      const next = { ...current };
+      delete next.patientInformation;
+      return next;
+    });
   }
 
   function selectInstitution(institutionId: string) {
@@ -4170,6 +4250,46 @@ export function TwoPQFormFlow({
     }));
   }
 
+  function studyRequestPatientModeErrors() {
+    if (!isStudyRequestPatientStep) {
+      return {};
+    }
+
+    if (!studyRequestPatientMode) {
+      return {
+        selectedPatientId: t("Select whether the form uses a pre-existing patient."),
+      };
+    }
+
+    if (studyRequestPatientMode === "yes" && !state.selectedPatientId) {
+      return {
+        selectedPatientId: t("Select patient."),
+      };
+    }
+
+    if (studyRequestPatientMode === "no") {
+      return validateStepFields("patientInformation", state, formType, language);
+    }
+
+    return {};
+  }
+
+  function canContinueFromCurrentStep() {
+    if (!isStudyRequestPatientStep) {
+      return true;
+    }
+
+    if (!studyRequestPatientMode) {
+      return false;
+    }
+
+    if (studyRequestPatientMode === "yes") {
+      return Boolean(state.selectedPatientId);
+    }
+
+    return !hasErrors(validateStepFields("patientInformation", state, formType, language));
+  }
+
   function validateBiopsyTableBeforePreview(flowState: FlowState) {
     if (formType !== "sample" || currentStep !== "samplingInformation") {
       return true;
@@ -4304,6 +4424,17 @@ export function TwoPQFormFlow({
   }
 
   async function goNext() {
+    const patientModeErrors = studyRequestPatientModeErrors();
+    if (hasErrors(patientModeErrors)) {
+      setStepErrors("patientInformation", patientModeErrors);
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: firstErrorMessage(patientModeErrors),
+      });
+      return;
+    }
+
     if (
       currentStep === "patientInformation" &&
       !state.patientInformation.doctorId
@@ -4392,6 +4523,21 @@ export function TwoPQFormFlow({
       currentStep !== "previewAndSignature"
     ) {
       await validateAndContinueToPreview();
+      return;
+    }
+
+    if (
+      boundedStepIndex > stepIndex &&
+      currentStep === "patientInformation" &&
+      hasErrors(studyRequestPatientModeErrors())
+    ) {
+      const errors = studyRequestPatientModeErrors();
+      setStepErrors("patientInformation", errors);
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: firstErrorMessage(errors),
+      });
       return;
     }
 
@@ -5446,16 +5592,36 @@ export function TwoPQFormFlow({
             ) : (
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
-              <Label>{t("Pick existing patient")}</Label>
+              <Label>{t("Does this form use a pre-existing patient?")}</Label>
               <OptionSelectField
-                options={patientOptions}
-                value={state.selectedPatientId}
-                onChange={selectPatient}
-                placeholder={t("Select patient")}
-                emptyLabel={t("Manual patient information")}
+                options={STUDY_REQUEST_PATIENT_MODE_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: t(option.label),
+                }))}
+                value={studyRequestPatientMode}
+                onChange={selectStudyRequestPatientMode}
+                placeholder={t("Not set")}
+                emptyLabel={t("Not set")}
               />
-              <FieldError message={errorFor("selectedPatientId")} />
+              {!studyRequestPatientMode ? (
+                <FieldError message={errorFor("selectedPatientId")} />
+              ) : null}
             </div>
+            {shouldShowStudyRequestPatientPicker ? (
+              <div className="space-y-2 md:col-span-2">
+                <Label>{t("Pick patient")}</Label>
+                <OptionSelectField
+                  options={patientOptions}
+                  value={state.selectedPatientId}
+                  onChange={selectPatient}
+                  placeholder={t("Select patient")}
+                  emptyLabel={t("Not set")}
+                />
+                <FieldError message={errorFor("selectedPatientId")} />
+              </div>
+            ) : null}
+            {shouldShowStudyRequestPatientForm ? (
+              <>
             <div className="space-y-2">
               <Label>{t("Institution")}</Label>
               <OptionSelectField
@@ -5486,7 +5652,10 @@ export function TwoPQFormFlow({
                 }}
                 placeholder={t("Select institution")}
                 emptyLabel={t("No institution")}
-                disabled={Boolean(scopedInstitutionId)}
+                disabled={
+                  Boolean(scopedInstitutionId) ||
+                  studyRequestPatientFormReadOnly
+                }
               />
               <FieldError message={errorFor("patientInformation.institutionId")} />
             </div>
@@ -5507,7 +5676,10 @@ export function TwoPQFormFlow({
                 }
                 placeholder={t("Select doctor")}
                 emptyLabel={t("No doctor")}
-                disabled={Boolean(scopedDoctorId)}
+                disabled={
+                  Boolean(scopedDoctorId) ||
+                  studyRequestPatientFormReadOnly
+                }
               />
               <FieldError message={errorFor("patientInformation.doctorId")} />
             </div>
@@ -5521,6 +5693,7 @@ export function TwoPQFormFlow({
               value={state.patientInformation.email}
               onChange={(email) => updatePatientInformation({ email })}
               error={errorFor("patientInformation.email")}
+              readOnly={studyRequestPatientFormReadOnly}
             />
             {formType === "study_request" ? (
               <>
@@ -5531,6 +5704,7 @@ export function TwoPQFormFlow({
                   onChange={(medicalRecordNumber) =>
                     updatePatientInformation({ medicalRecordNumber })
                   }
+                  readOnly={studyRequestPatientFormReadOnly}
                 />
                 <Field
                   id="form-patient-first-name"
@@ -5538,6 +5712,7 @@ export function TwoPQFormFlow({
                   value={state.patientInformation.firstName}
                   onChange={(firstName) => updatePatientInformation({ firstName })}
                   error={errorFor("patientInformation.firstName")}
+                  readOnly={studyRequestPatientFormReadOnly}
                 />
                 <Field
                   id="form-patient-last-name"
@@ -5545,6 +5720,7 @@ export function TwoPQFormFlow({
                   value={state.patientInformation.lastName}
                   onChange={(lastName) => updatePatientInformation({ lastName })}
                   error={errorFor("patientInformation.lastName")}
+                  readOnly={studyRequestPatientFormReadOnly}
                 />
                 <Field
                   id="form-patient-birth-date"
@@ -5553,6 +5729,7 @@ export function TwoPQFormFlow({
                   value={state.patientInformation.birthDate}
                   onChange={(birthDate) => updatePatientInformation({ birthDate })}
                   error={errorFor("patientInformation.birthDate")}
+                  readOnly={studyRequestPatientFormReadOnly}
                 />
                 <div className="md:col-span-2">
                   <TextAreaField
@@ -5560,6 +5737,7 @@ export function TwoPQFormFlow({
                     label={t("Patient notes")}
                     value={state.patientInformation.notes}
                     onChange={(notes) => updatePatientInformation({ notes })}
+                    readOnly={studyRequestPatientFormReadOnly}
                   />
                 </div>
                 <section className="md:col-span-2">
@@ -5573,6 +5751,7 @@ export function TwoPQFormFlow({
                         onCheckedChange={(checked) =>
                           updatePartnerInformationIncluded(checked === true)
                         }
+                        disabled={studyRequestPatientFormReadOnly}
                       />
                       <Label
                         htmlFor="form-includes-partner-information"
@@ -5594,6 +5773,7 @@ export function TwoPQFormFlow({
                             onChange={(partnerFirstName) =>
                               updatePatientInformation({ partnerFirstName })
                             }
+                            readOnly={studyRequestPatientFormReadOnly}
                           />
                           <Field
                             id="form-partner-last-name"
@@ -5602,6 +5782,7 @@ export function TwoPQFormFlow({
                             onChange={(partnerLastName) =>
                               updatePatientInformation({ partnerLastName })
                             }
+                            readOnly={studyRequestPatientFormReadOnly}
                           />
                           <Field
                             id="form-partner-dni"
@@ -5615,6 +5796,7 @@ export function TwoPQFormFlow({
                                 partnerMedicalRecordNumber,
                               })
                             }
+                            readOnly={studyRequestPatientFormReadOnly}
                           />
                           <Field
                             id="form-partner-birth-date"
@@ -5627,6 +5809,7 @@ export function TwoPQFormFlow({
                             error={errorFor(
                               "patientInformation.partnerBirthDate"
                             )}
+                            readOnly={studyRequestPatientFormReadOnly}
                           />
                           <div className="md:col-span-2">
                             <TextAreaField
@@ -5636,6 +5819,7 @@ export function TwoPQFormFlow({
                               onChange={(partnerNotes) =>
                                 updatePatientInformation({ partnerNotes })
                               }
+                              readOnly={studyRequestPatientFormReadOnly}
                             />
                           </div>
                         </div>
@@ -5698,6 +5882,8 @@ export function TwoPQFormFlow({
                 </div>
               </>
             )}
+              </>
+            ) : null}
           </div>
             )}
           </>
@@ -6936,14 +7122,16 @@ export function TwoPQFormFlow({
                 disabled={
                   pending ||
                   draftPending ||
+                  !canContinueFromCurrentStep() ||
                   (currentStep === "sampleInformation" &&
                     formType === "sample" &&
                     !state.sampleInformation.biopsyCount)
                 }
                 className={
-                  currentStep === "sampleInformation" &&
-                  formType === "sample" &&
-                  !state.sampleInformation.biopsyCount
+                  !canContinueFromCurrentStep() ||
+                  (currentStep === "sampleInformation" &&
+                    formType === "sample" &&
+                    !state.sampleInformation.biopsyCount)
                     ? "bg-muted text-muted-foreground hover:bg-muted"
                     : "bg-indigo-600 text-white hover:bg-indigo-700"
                 }

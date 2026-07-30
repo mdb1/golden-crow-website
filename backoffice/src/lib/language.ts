@@ -277,6 +277,9 @@ const SPANISH_TEXT: Record<string, string> = {
     "Eliminar el borrador temporal del usuario cuando el formulario final quede guardado.",
   "Select an institution.": "Seleccioná una institución.",
   "Select a doctor.": "Seleccioná un médico.",
+  "Select whether the form uses a pre-existing patient.":
+    "Seleccioná si querés realizar este formulario con un paciente pre-existente.",
+  "Select patient.": "Seleccioná un paciente.",
   "Doctor is required": "Médico requerido",
   "The patient must always belong to a doctor from the institution. The doctor signs the document and is responsible for the form, so this field cannot be empty.":
     "El paciente siempre debe pertenecer a un médico de la institución. El médico firma el documento y se hace responsable del formulario, por lo tanto este campo no puede estar vacío.",
@@ -493,7 +496,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Persist the form with linked study request, patient, case, sample, and sampling records.":
     "Persistir el formulario con solicitud linkeada, paciente, caso, muestra y registros de muestreo.",
   "Select patient": "Seleccionar paciente",
+  "Pick patient": "Elegir paciente",
   "Manual patient information": "Información manual de paciente",
+  "Does this form use a pre-existing patient?":
+    "¿Desea realizar este formulario con un paciente pre-existente?",
   Institution: "Institución",
   "Select institution": "Seleccionar institución",
   "No institution": "Sin institución",
