@@ -768,6 +768,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Delete feed entry?": "¿Eliminar entrada del feed?",
   "This permanently deletes the feed entry from Discover. It will be fully erased from the feed and cannot be restored.":
     "Esto elimina permanentemente la entrada del feed de Discover. Se borrará por completo del feed y no se podrá restaurar.",
+  "Feed entry deleted.": "Entrada del feed eliminada.",
   "Unable to delete the feed entry.":
     "No se pudo eliminar la entrada del feed.",
   "Delete form": "Eliminar formulario",

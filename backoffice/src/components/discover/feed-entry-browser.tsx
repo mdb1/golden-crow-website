@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Archive,
   ArrowRight,
   Copy,
   Plus,
   RefreshCcw,
   Search,
+  Trash2,
   TriangleAlert,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -46,23 +46,6 @@ function statusBadgeVariant(status: DiscoverFeedStatus) {
   }
 
   return "outline" as const;
-}
-
-function feedItemPayload(item: DiscoverFeedItemRecord, status: DiscoverFeedStatus) {
-  return {
-    publisherOrganizationId: item.publisherOrganizationId,
-    type: item.type,
-    status,
-    publishedAt: item.publishedAt,
-    language: item.language,
-    title: item.title,
-    subtitle: item.subtitle,
-    body: item.body,
-    html_body: item.html_body,
-    image_url: item.image_url,
-    source_url: item.source_url,
-    [item.type]: getDiscoverPayload(item),
-  };
 }
 
 function hasPublishBlocker(item: DiscoverFeedItemRecord) {
@@ -172,29 +155,24 @@ export function DiscoverFeedEntryBrowser({
     }
   }
 
-  async function archiveFeedItem(item: DiscoverFeedItemRecord) {
+  async function deleteFeedItem(item: DiscoverFeedItemRecord) {
     setPending(true);
     try {
-      const response = await sdkFetch<{ feedItem: DiscoverFeedItemRecord }>(
+      await sdkFetch<{ deleted: boolean; feedItemId: string }>(
         `/discover/feed-items/${item.id}`,
-        {
-          method: "PUT",
-          body: JSON.stringify(feedItemPayload(item, "archived")),
-        },
+        { method: "DELETE" },
       );
-      setFeedItems((current) =>
-        current.map((entry) => (entry.id === item.id ? response.feedItem : entry)),
-      );
+      setFeedItems((current) => current.filter((entry) => entry.id !== item.id));
       setToast({
         id: Date.now(),
         tone: "success",
-        message: t("Feed entry archived."),
+        message: t("Feed entry deleted."),
       });
     } catch {
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to archive the feed entry."),
+        message: t("Unable to delete the feed entry."),
       });
     } finally {
       setPending(false);
@@ -377,17 +355,15 @@ export function DiscoverFeedEntryBrowser({
                     <Copy className="h-3.5 w-3.5" />
                     {t("Duplicate")}
                   </Button>
-                  {item.status !== "archived" ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void archiveFeedItem(item)}
-                      disabled={pending}
-                    >
-                      <Archive className="h-3.5 w-3.5" />
-                      {t("Archive")}
-                    </Button>
-                  ) : null}
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => void deleteFeedItem(item)}
+                    disabled={pending}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {t("Delete")}
+                  </Button>
                 </div>
               </div>
             );
