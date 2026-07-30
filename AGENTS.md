@@ -1,5 +1,6 @@
 # Repo Instructions
 
+- When the user says `commit and push` without naming a branch, commit the requested change and push it directly to `main`. Do not leave requested work only on a `codex/*`, feature, or draft branch unless the user explicitly asks for that branch or PR flow.
 - Every time you make a commit that will be pushed, bump the backoffice version by exactly `+1`.
 - The version source of truth is `backoffice/src/lib/app-version.ts`.
 - Treat the version bump as mandatory for every pushed commit. Do not wait for the user to remind you.
