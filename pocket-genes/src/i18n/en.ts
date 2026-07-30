@@ -669,13 +669,13 @@ export const en = {
     q2Title2: 'Expanding Features',
     q2Items: ['New panels', 'Access to genomics reports', 'Expanded user interactions'],
     q3Period: 'Q3 JUL-SEP',
-    q3Title1: 'Android Development',
+    q3Title1: 'Android Availability',
     q3Title2: 'Community Growth',
     q3Items: ['Community Section', 'AI-Driven recommendations', 'Gamification tools'],
     q4Period: 'Q4 OCT-DEC',
     q4Title1: 'Scale the product',
     q4Title2: 'Customize the experience',
-    q4Items: ['Link with papers and newsletters', 'Launch on Android', 'Customized user experience'],
+    q4Items: ['Link with papers and newsletters', 'Available on Android', 'Customized user experience'],
   },
 
   // Layout components - ChoosePlan
