@@ -79,6 +79,14 @@ const OPERATOR_MISSION_HREFS = new Set([
   "/2pq-dashboard/shipments",
   "/2pq-dashboard/contact",
 ]);
+const LABORATORY_STAFF_MISSION_HREFS = new Set([
+  "/2pq-dashboard",
+  "/2pq-dashboard/forms",
+  "/2pq-dashboard/cases",
+  "/2pq-dashboard/sampling",
+  "/2pq-dashboard/shipments",
+  "/2pq-dashboard/contact",
+]);
 
 export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
   {
@@ -1058,7 +1066,10 @@ function getMyDnaMapNav(role: AdminRole) {
     (item) => !item.visibleRoles || item.visibleRoles.includes(role)
   );
 
-  if (role !== "institution_operator") {
+  if (
+    role !== "institution_operator" &&
+    role !== "institution_laboratory_staff"
+  ) {
     return visibleNav;
   }
 
@@ -1068,7 +1079,9 @@ function getMyDnaMapNav(role: AdminRole) {
     }
 
     if (item.section === "mission") {
-      return OPERATOR_MISSION_HREFS.has(item.href);
+      return role === "institution_laboratory_staff"
+        ? LABORATORY_STAFF_MISSION_HREFS.has(item.href)
+        : OPERATOR_MISSION_HREFS.has(item.href);
     }
 
     return true;

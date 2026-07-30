@@ -300,7 +300,7 @@ export function DoctorWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="doctor-email">{t("Auth email")}</Label>
+            <Label htmlFor="doctor-email">{t("Doctor email")}</Label>
             <Input
               id="doctor-email"
               value={state.authEmail}
@@ -311,7 +311,7 @@ export function DoctorWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="doctor-auth-uid">{t("Auth uid")}</Label>
+            <Label htmlFor="doctor-auth-uid">{t("Institution identifier")}</Label>
             <Input
               id="doctor-auth-uid"
               value={state.authUid}

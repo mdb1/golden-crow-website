@@ -75,12 +75,16 @@ export function TwoPQDashboardHome({
   const isLaboratoryStaffDashboard =
     adminContext.role === "institution_laboratory_staff";
   const shouldShowOnlyShipments =
-    isDoctorDashboard || isInstitutionOperatorDashboard;
+    isDoctorDashboard ||
+    isInstitutionOperatorDashboard ||
+    isLaboratoryStaffDashboard;
   const showScopeSection =
     !isInstitutionOperatorDashboard && !isLaboratoryStaffDashboard;
   const showLinkedSection = !isInstitutionOperatorDashboard;
   const visibleLinkedEntityKeys = new Set(
-    isDoctorDashboard ? ["cases", "sampling"] : Array.from(linkedEntityKeys),
+    isDoctorDashboard || isLaboratoryStaffDashboard
+      ? ["cases", "sampling"]
+      : Array.from(linkedEntityKeys),
   );
   const t = (text: string) => appText(language, text);
   const translatedAreas = TWO_PQ_AREA_CONFIGS.map((area) =>
