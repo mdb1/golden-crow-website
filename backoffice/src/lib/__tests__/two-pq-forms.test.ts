@@ -1,5 +1,6 @@
 import {
   DEFAULT_OBSERVATIONS_VALUE,
+  formatBiopsySampleIdForDisplay,
   getWithdrawalRequestTitle,
   normalizeObservationsValue,
 } from "@/lib/two-pq-forms";
@@ -18,6 +19,20 @@ describe("normalizeObservationsValue", () => {
     expect(normalizeObservationsValue("  antecedente relevante  ")).toBe(
       "antecedente relevante"
     );
+  });
+});
+
+describe("formatBiopsySampleIdForDisplay", () => {
+  it("replaces the fourth zero in six-character biopsy sample ids with a hyphen", () => {
+    expect(formatBiopsySampleIdForDisplay("CCC001")).toBe("CCC-01");
+    expect(formatBiopsySampleIdForDisplay("CCC002")).toBe("CCC-02");
+    expect(formatBiopsySampleIdForDisplay("CCC0CT")).toBe("CCC-CT");
+    expect(formatBiopsySampleIdForDisplay("CCC0BL")).toBe("CCC-BL");
+  });
+
+  it("leaves stored sample ids that do not match the visual pattern unchanged", () => {
+    expect(formatBiopsySampleIdForDisplay("CCC101")).toBe("CCC101");
+    expect(formatBiopsySampleIdForDisplay("CCC01")).toBe("CCC01");
   });
 });
 

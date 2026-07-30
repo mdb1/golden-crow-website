@@ -7,6 +7,12 @@ export function normalizeObservationsValue(value: string | null | undefined) {
   return normalized || DEFAULT_OBSERVATIONS_VALUE;
 }
 
+export function formatBiopsySampleIdForDisplay(sampleId: string) {
+  return sampleId.length === 6 && sampleId[3] === "0"
+    ? `${sampleId.slice(0, 3)}-${sampleId.slice(4)}`
+    : sampleId;
+}
+
 export type PatientInformationFormState = {
   institutionId: string;
   doctorId: string;

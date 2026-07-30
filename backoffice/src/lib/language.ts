@@ -575,6 +575,7 @@ const SPANISH_TEXT: Record<string, string> = {
   City: "Ciudad",
   "State / region": "Provincia / región",
   Country: "País",
+  "Institution identifier": "Identificador dentro de la institución",
   "FIV center": "Centro FIV",
   "Center code": "Código centro",
   "Requesting doctor": "Médico solicitante",
@@ -1051,8 +1052,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Dispatch date": "Fecha de despacho",
   "Display name": "Nombre visible",
   "Doctor access": "Acceso de médico",
+  "Doctor email": "Email del médico",
   "Doctor auth email is required and must be valid.":
-    "El email de autenticación del médico es requerido y debe ser válido.",
+    "El email del médico es requerido y debe ser válido.",
   "Doctor changes saved.": "Cambios del médico guardados.",
   "Doctor created.": "Médico creado.",
   "Doctor detail joins the editable doctor profile, linked institution, direct patient list, and role linkage in one operational screen.":

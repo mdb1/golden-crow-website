@@ -50,6 +50,7 @@ import { compactList } from "@/lib/moderation-utils";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import {
+  formatBiopsySampleIdForDisplay,
   normalizeObservationsValue,
   type CaseInformationFormState,
   type InstitutionInformationFormState,
@@ -6630,7 +6631,9 @@ export function TwoPQFormFlow({
                         }
                       >
                         <td className="border border-slate-300 bg-slate-50 px-3 py-2 align-top font-mono text-xs font-semibold text-slate-900">
-                          {sampling.sampleId || t("Not provided")}
+                          {sampling.sampleId
+                            ? formatBiopsySampleIdForDisplay(sampling.sampleId)
+                            : t("Not provided")}
                           <FieldError
                             message={errorFor(
                               `samplingInformation.${index}.sampleId`
