@@ -3056,11 +3056,12 @@ export function TwoPQFormFlow({
           },
         ]
       : [];
+  const patientInformationSummarySection: PreviewSectionData = {
+    title: t("Patient data"),
+    fields: [...patientPreviewFields, ...partnerPreviewFields],
+  };
   const studyRequestPreviewSections: PreviewSectionData[] = [
-    {
-      title: t("Patient data"),
-      fields: [...patientPreviewFields, ...partnerPreviewFields],
-    },
+    patientInformationSummarySection,
     {
       title: t("Medical data"),
       fields: [
@@ -5625,7 +5626,12 @@ export function TwoPQFormFlow({
               </div>
             ) : null}
             {shouldShowStudyRequestPatientForm ? (
-              <>
+              studyRequestPatientFormReadOnly ? (
+                <div className="md:col-span-2 rounded-sm bg-white px-6 py-6 text-black shadow-sm ring-1 ring-black/10">
+                  <PreviewPaperSection section={patientInformationSummarySection} />
+                </div>
+              ) : (
+                <>
             <div className="space-y-2">
               <Label>{t("Institution")}</Label>
               <OptionSelectField
@@ -5886,7 +5892,8 @@ export function TwoPQFormFlow({
                 </div>
               </>
             )}
-              </>
+                </>
+              )
             ) : null}
           </div>
             )}
