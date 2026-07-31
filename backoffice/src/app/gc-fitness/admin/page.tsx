@@ -297,8 +297,10 @@ export default async function AdminPage({
         <CardHeader>
           <CardTitle className="text-xl">Monitoring &amp; observability</CardTitle>
           <CardDescription>
-            Unified, time-ordered trail of coach actions and admin operations, plus a
-            deletion history (who removed what, and when) for incident traceability.
+            Feed of what is happening in the app — workouts finished, routines and
+            habits created, photos uploaded, new users and subscription changes,
+            coach and admin actions — plus a deletion history, all linked to the
+            detail.
           </CardDescription>
         </CardHeader>
         <CardContent>

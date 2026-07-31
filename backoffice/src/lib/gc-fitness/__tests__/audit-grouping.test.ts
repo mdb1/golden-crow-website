@@ -39,6 +39,16 @@ describe("recurringSeries", () => {
     ).toEqual({ root: "asg-choqBshr7PewXYbns1EKerc8bVk1", date: "20270503" });
   });
 
+  it("parses a CLIENT-created `…-<date>-self-<uuid>` occurrence id (#671)", () => {
+    // Self-assigned ids carry a `self-` marker between the date and the uuid.
+    // Missing it left every occurrence of a self-created series as its own row.
+    expect(
+      recurringSeries(
+        "asg-oi1SgX6oBPehdHf7f8B86yqXS0L2-20260821-self-DF2F1298-1535-40FE-9499-DFA0847D02DC",
+      ),
+    ).toEqual({ root: "asg-oi1SgX6oBPehdHf7f8B86yqXS0L2", date: "20260821" });
+  });
+
   it("returns null when there is no trailing date+uuid", () => {
     expect(recurringSeries("asg-choqBshr7PewXYbns1EKerc8bVk1")).toBeNull();
     expect(recurringSeries("ex-7")).toBeNull();
