@@ -129,6 +129,39 @@ describe("classifyAuditRecord — workouts", () => {
     });
   });
 
+  it("attributes a COACHED client's session to the client, not to their coach", () => {
+    // The regression: `trainerId` is stamped on every coach-owned doc, so the
+    // feed read "Ana Oller terminó un workout" about her client's session.
+    const event = classifyAuditRecord(
+      record({
+        collection: "workout_logs",
+        docId: "log-2",
+        op: "create",
+        changedFields: ["status"],
+        after: { status: "completed" },
+        clientId: "ailen",
+        trainerId: "ana-coach",
+      }),
+    );
+    expect(event.actorUid).toBe("ailen");
+    expect(event.isSelfService).toBe(false);
+  });
+
+  it("honours an explicit actor stamp over any inference", () => {
+    const event = classifyAuditRecord(
+      record({
+        collection: "workout_logs",
+        op: "create",
+        changedFields: ["status"],
+        after: { status: "completed" },
+        actorUid: "someone-else",
+        clientId: "ailen",
+        trainerId: "ana-coach",
+      }),
+    );
+    expect(event.actorUid).toBe("someone-else");
+  });
+
   it("treats per-set / RPE log updates as low-signal noise", () => {
     const event = classifyAuditRecord(
       record({
@@ -193,6 +226,55 @@ describe("classifyAuditRecord — scheduling", () => {
     expect(event.meta[0]).toBe("2026-08-01 → 2026-08-03");
   });
 
+  it("credits a move to the athlete only when iOS stamped originallyScheduledFor", () => {
+    const byAthlete = classifyAuditRecord(
+      record({
+        changedFields: ["scheduledFor", "originallyScheduledFor", "updatedAt"],
+        before: { scheduledFor: "2026-08-01" },
+        after: { scheduledFor: "2026-08-03", originallyScheduledFor: "2026-08-01" },
+        clientId: "ailen",
+        trainerId: "ana-coach",
+      }),
+    );
+    expect(byAthlete.actorUid).toBe("ailen");
+
+    const byCoach = classifyAuditRecord(
+      record({
+        changedFields: ["scheduledFor", "updatedAt"],
+        before: { scheduledFor: "2026-08-01" },
+        after: { scheduledFor: "2026-08-03" },
+        clientId: "ailen",
+        trainerId: "ana-coach",
+      }),
+    );
+    expect(byCoach.actorUid).toBe("ana-coach");
+  });
+
+  it("splits the client's reminder edit from the coach's meeting time", () => {
+    const reminder = classifyAuditRecord(
+      record({
+        changedFields: ["reminderUpdatedAt", "reminderEnabled", "reminderTime"],
+        after: { reminderEnabled: false },
+        clientId: "ailen",
+        trainerId: "ana-coach",
+      }),
+    );
+    expect(reminder.title).toBe("Apagó el recordatorio del workout");
+    expect(reminder.actorUid).toBe("ailen");
+
+    const meetingTime = classifyAuditRecord(
+      record({
+        changedFields: ["scheduledTime", "updatedAt"],
+        before: { scheduledTime: "18:00" },
+        after: { scheduledTime: "19:00" },
+        clientId: "ailen",
+        trainerId: "ana-coach",
+      }),
+    );
+    expect(meetingTime.title).toBe("Cambió el horario del workout");
+    expect(meetingTime.actorUid).toBe("ana-coach");
+  });
+
   it("names the prescription write-back instead of dumping field names (#671 item 3)", () => {
     const event = classifyAuditRecord(
       record({
@@ -208,6 +290,20 @@ describe("classifyAuditRecord — scheduling", () => {
     expect(event.title).toBe("Actualizó la rutina");
     expect(event.correlation).toBe("prescription_writeback");
     expect(event.meta).toContain("3 ocurrencias");
+    // Snapshot-only write = the client's write-back from the app.
+    expect(event.actorUid).toBe(CLIENT);
+  });
+
+  it("credits a prescription rewrite that re-stamps prescriptionUpdatedAt to the coach", () => {
+    const event = classifyAuditRecord(
+      record({
+        changedFields: ["templateSnapshot", "prescriptionUpdatedAt", "updatedAt"],
+        after: { templateSnapshot: "[omitted: 900 chars]", templateId: "tpl-1" },
+        clientId: "ailen",
+        trainerId: "ana-coach",
+      }),
+    );
+    expect(event.actorUid).toBe("ana-coach");
   });
 
   it("demotes the assignment's own completed stamp (the log event already says it)", () => {
@@ -260,6 +356,67 @@ describe("classifyAuditRecord — habits, exercises, accounts", () => {
     );
     expect(event.title).toBe("Asignó un hábito");
     expect(event.action).toBe("assign");
+  });
+
+  it('reads "borrar el hábito desde este día" (an endsOn cap) as a removal, not a schedule tweak', () => {
+    // deleteHabitRecurrenceFromDate never sets `deleted` — it caps `endsOn` so
+    // past logs survive. Reported as a schedule change it read as "cambió la
+    // programación" when the coach had actually removed the habit.
+    const event = classifyAuditRecord(
+      record({
+        collection: "habits",
+        changedFields: ["endsOn", "updatedAt"],
+        before: { endsOn: null, name: { es: "1 Fruit" } },
+        after: { endsOn: "2026-07-30", name: { es: "1 Fruit" } },
+        clientId: "pato",
+        trainerId: "manu-coach",
+      }),
+    );
+    expect(event.title).toBe("Dio de baja un hábito");
+    expect(event.isDeletion).toBe(true);
+    expect(event.meta).toContain("hasta 2026-07-30");
+    expect(event.actorUid).toBe("manu-coach");
+  });
+
+  it("tells extending a habit apart from ending it", () => {
+    const extended = classifyAuditRecord(
+      record({
+        collection: "habits",
+        changedFields: ["endsOn", "updatedAt"],
+        before: { endsOn: "2026-07-30" },
+        after: { endsOn: "2026-12-31" },
+        clientId: "pato",
+        trainerId: "manu-coach",
+      }),
+    );
+    expect(extended.title).toBe("Extendió un hábito");
+    expect(extended.isDeletion).toBe(false);
+
+    const reopened = classifyAuditRecord(
+      record({
+        collection: "habits",
+        changedFields: ["endsOn", "updatedAt"],
+        before: { endsOn: "2026-07-30" },
+        after: { endsOn: null },
+        clientId: "pato",
+        trainerId: "manu-coach",
+      }),
+    );
+    expect(reopened.title).toBe("Reactivó un hábito");
+  });
+
+  it("credits a habit reminder edit to the client even on a coach-assigned habit", () => {
+    const event = classifyAuditRecord(
+      record({
+        collection: "habits",
+        changedFields: ["reminderEnabled", "reminderTime", "reminderUpdatedAt"],
+        after: { reminderEnabled: true, reminderTime: "08:00" },
+        clientId: "pato",
+        trainerId: "manu-coach",
+      }),
+    );
+    expect(event.title).toBe("Cambió el recordatorio de un hábito");
+    expect(event.actorUid).toBe("pato");
   });
 
   it("treats a soft-deleted habit as a deletion", () => {

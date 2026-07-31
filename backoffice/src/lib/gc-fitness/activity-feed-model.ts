@@ -103,6 +103,20 @@ export interface ClassifiedEvent {
   /** Short supporting facts, rendered as a "·"-joined line. */
   meta: string[];
   target: FeedTarget | null;
+  /**
+   * WHO did it. A background trigger carries no auth principal, so this is
+   * derived from what the event IS, not from who owns the doc: a workout log is
+   * always written by the client performing it, an assignment is created by
+   * whoever it belongs to (`selfAssigned`), a reschedule stamped with
+   * `originallyScheduledFor` came from the athlete's phone, and so on. `null`
+   * when the write is genuinely unattributable (a server/webhook write) — the
+   * row then renders without a name rather than blaming the wrong person.
+   *
+   * Before this existed the actor fell back to `trainerId`, which is stamped on
+   * every coach-owned doc — so the feed said "Ana Oller terminó un workout"
+   * about a session her CLIENT had done.
+   */
+  actorUid: string | null;
   /** True when the acting principal is the client themself (self-serve). */
   isSelfService: boolean;
   isDeletion: boolean;
@@ -258,6 +272,14 @@ const PRESCRIPTION_FIELDS = ["templateSnapshot", "updatedAt", "prescriptionUpdat
 /** The assignment's own "done" stamp — the workout-log event already says it. */
 const ASSIGNMENT_DONE_FIELDS = ["status", "completed_at", "completedAt", "updatedAt"];
 
+/** Written by the CLIENT's iOS reminder editor, never by the backoffice. */
+const REMINDER_FIELDS = [
+  "reminderUpdatedAt",
+  "reminderEnabled",
+  "reminderTime",
+  "reminderScope",
+];
+
 function subjectOf(data: Record<string, unknown> | null): string | null {
   if (!data) return null;
   const raw = data.name;
@@ -290,6 +312,12 @@ export function classifyAuditRecord(
   const fields = record.changedFields;
   const selfService =
     !!record.clientId && !!record.trainerId && record.clientId === record.trainerId;
+  // Actor resolution (see ClassifiedEvent.actorUid). An explicit `updatedBy` /
+  // `deletedBy` stamp on the doc always wins; otherwise each branch says whether
+  // the CLIENT or the COACH performs that kind of write.
+  const stamped = record.actorUid;
+  const byClient = stamped ?? record.clientId ?? record.trainerId ?? null;
+  const byTrainer = stamped ?? record.trainerId ?? record.coachId ?? null;
   // The row carries an "×N" badge, so the meta line only needs to say WHICH
   // occurrences a collapsed group covers — the date span, not the count again.
   const occurrences =
@@ -317,6 +345,7 @@ export function classifyAuditRecord(
           target: record.clientId
             ? { kind: "workoutLog", logId: record.docId, clientId: record.clientId }
             : null,
+          actorUid: byClient,
           isSelfService: selfService,
           isDeletion: false,
           correlation: done ? "workout_finished" : null,
@@ -332,6 +361,7 @@ export function classifyAuditRecord(
           subjectRef: null,
           meta: [],
           target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+          actorUid: byClient,
           isSelfService: selfService,
           isDeletion: true,
           correlation: null,
@@ -350,6 +380,7 @@ export function classifyAuditRecord(
         target: record.clientId
           ? { kind: "workoutLog", logId: record.docId, clientId: record.clientId }
           : null,
+        actorUid: byClient,
         isSelfService: selfService,
         isDeletion: false,
         correlation: null,
@@ -376,6 +407,7 @@ export function classifyAuditRecord(
           significance: "key",
           action: "assign",
           title: isSelf ? "Se asignó un workout" : "Asignó un workout",
+          actorUid: isSelf ? byClient : byTrainer,
           subject: null,
           subjectRef: ref,
           meta,
@@ -392,6 +424,7 @@ export function classifyAuditRecord(
           significance: "key",
           action: "delete",
           title: group.count > 1 ? "Eliminó workouts agendados" : "Eliminó un workout agendado",
+          actorUid: isSelf ? byClient : byTrainer,
           subject: null,
           subjectRef: ref,
           meta: [
@@ -405,8 +438,13 @@ export function classifyAuditRecord(
         };
       }
 
-      // Re-scheduled: the civil date moved.
+      // Re-scheduled: the civil date moved. The ATHLETE's move (calendar
+      // long-press / "start and move to today") stamps `originallyScheduledFor`
+      // from iOS — that field is the only thing that tells a client move apart
+      // from a coach rescheduling the same doc from the backoffice.
       if (fields.includes("scheduledFor") && str(before.scheduledFor) !== str(after.scheduledFor)) {
+        const movedByClient =
+          isSelf || fields.includes("originallyScheduledFor") || !!str(after.originallyScheduledFor);
         return {
           category: "schedule",
           significance: "key",
@@ -416,6 +454,7 @@ export function classifyAuditRecord(
           subjectRef: ref,
           meta: [`${str(before.scheduledFor) ?? "—"} → ${str(after.scheduledFor) ?? "—"}`],
           target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+          actorUid: movedByClient ? byClient : byTrainer,
           isSelfService: isSelf,
           isDeletion: false,
           correlation: null,
@@ -427,6 +466,10 @@ export function classifyAuditRecord(
       // useless `templateSnapshot, updatedAt` row from the ticket; named, and
       // folded into the finish it followed, it answers "¿actualizó el template?".
       if (changedOnly(fields, PRESCRIPTION_FIELDS) && fields.includes("templateSnapshot")) {
+        // A COACH rewriting the prescription always goes through a server write
+        // that re-stamps `prescriptionUpdatedAt`; the client's write-back from
+        // iOS touches only the snapshot.
+        const byCoachEdit = fields.includes("prescriptionUpdatedAt");
         return {
           category: "routine",
           significance: "key",
@@ -436,6 +479,7 @@ export function classifyAuditRecord(
           subjectRef: ref,
           meta: occurrences,
           target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+          actorUid: byCoachEdit ? byTrainer : byClient,
           isSelfService: isSelf,
           isDeletion: false,
           correlation: "prescription_writeback",
@@ -453,13 +497,38 @@ export function classifyAuditRecord(
           subjectRef: ref,
           meta: [],
           target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+          actorUid: byClient,
           isSelfService: isSelf,
           isDeletion: false,
           correlation: "assignment_completed",
         };
       }
 
-      if (fields.includes("scheduledTime") || fields.includes("reminderEnabled")) {
+      // The client's reminder edit from iOS stamps `reminderUpdatedAt` (+
+      // reminderEnabled / reminderTime / reminderScope); `scheduledTime` is the
+      // coach's meeting time. Two different actions by two different people.
+      if (REMINDER_FIELDS.some((f) => fields.includes(f))) {
+        const enabled = after.reminderEnabled;
+        return {
+          category: "schedule",
+          significance: "key",
+          action: "update",
+          title:
+            enabled === false ? "Apagó el recordatorio del workout" : "Cambió el recordatorio del workout",
+          subject: null,
+          subjectRef: ref,
+          meta: [str(after.reminderTime), ...occurrences].filter(
+            (m): m is string => !!m,
+          ),
+          target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+          actorUid: byClient,
+          isSelfService: isSelf,
+          isDeletion: false,
+          correlation: null,
+        };
+      }
+
+      if (fields.includes("scheduledTime")) {
         return {
           category: "schedule",
           significance: "key",
@@ -472,6 +541,7 @@ export function classifyAuditRecord(
             ...occurrences,
           ],
           target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+          actorUid: byTrainer,
           isSelfService: isSelf,
           isDeletion: false,
           correlation: null,
@@ -487,6 +557,8 @@ export function classifyAuditRecord(
         subjectRef: ref,
         meta: [fields.join(", "), ...occurrences],
         target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+        // Unattributable: a low-signal field write could come from either side.
+        actorUid: stamped,
         isSelfService: isSelf,
         isDeletion: false,
         correlation: null,
@@ -497,6 +569,9 @@ export function classifyAuditRecord(
     case "habits": {
       const name = subjectOf(subject);
       const clientOwned = after.clientOwned === true || before.clientOwned === true || selfService;
+      // A client-owned habit is managed by the client; a coach-assigned one by
+      // the coach — except the reminder, which only the client's app writes.
+      const byOwner = clientOwned ? byClient : byTrainer;
       if (record.op === "create") {
         return {
           category: "habit",
@@ -511,6 +586,7 @@ export function classifyAuditRecord(
             str(after.endsOn) ? `hasta ${str(after.endsOn)}` : null,
           ].filter((m): m is string => !!m),
           target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+          actorUid: byOwner,
           isSelfService: clientOwned,
           isDeletion: false,
           correlation: null,
@@ -527,11 +603,76 @@ export function classifyAuditRecord(
           subjectRef: refFor("habits", record.docId, name),
           meta: [],
           target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+          actorUid: byOwner,
           isSelfService: clientOwned,
           isDeletion: true,
           correlation: null,
         };
       }
+
+      // "Eliminar el hábito desde este día" does NOT set `deleted` — it caps the
+      // recurrence by writing `endsOn` (see deleteHabitRecurrenceFromDate), so
+      // past occurrences and logs survive. Reported as a schedule tweak it read
+      // as "cambió la programación" when the operator had actually removed the
+      // habit; this is the same action, named.
+      if (changedOnly(fields, ["endsOn", "updatedAt"]) && fields.includes("endsOn")) {
+        const beforeEnd = str(before.endsOn);
+        const afterEnd = str(after.endsOn);
+        if (!afterEnd) {
+          return {
+            category: "habit",
+            significance: "key",
+            action: "update",
+            title: "Reactivó un hábito",
+            subject: name,
+            subjectRef: refFor("habits", record.docId, name),
+            meta: ["sin fecha de fin"],
+            target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+            actorUid: byOwner,
+            isSelfService: clientOwned,
+            isDeletion: false,
+            correlation: null,
+          };
+        }
+        const shortened = !beforeEnd || afterEnd < beforeEnd;
+        return {
+          category: "habit",
+          significance: "key",
+          action: shortened ? "delete" : "update",
+          title: shortened ? "Dio de baja un hábito" : "Extendió un hábito",
+          subject: name,
+          subjectRef: refFor("habits", record.docId, name),
+          meta: [`hasta ${afterEnd}`],
+          target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+          actorUid: byOwner,
+          isSelfService: clientOwned,
+          // Shortening removes future occurrences — it belongs in Eliminaciones.
+          isDeletion: shortened,
+          correlation: null,
+        };
+      }
+
+      if (REMINDER_FIELDS.some((f) => fields.includes(f))) {
+        return {
+          category: "habit",
+          significance: "key",
+          action: "update",
+          title:
+            after.reminderEnabled === false
+              ? "Apagó el recordatorio de un hábito"
+              : "Cambió el recordatorio de un hábito",
+          subject: name,
+          subjectRef: refFor("habits", record.docId, name),
+          meta: [str(after.reminderTime)].filter((m): m is string => !!m),
+          target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+          // Reminder edits come from the client's app, even on a coach habit.
+          actorUid: byClient,
+          isSelfService: clientOwned,
+          isDeletion: false,
+          correlation: null,
+        };
+      }
+
       const scheduleTouched = fields.some((f) =>
         ["startsOn", "endsOn", "scheduleCadence", "scheduleType", "scheduleWeekdays", "scheduleMonthDays", "skippedDates"].includes(f),
       );
@@ -544,6 +685,7 @@ export function classifyAuditRecord(
         subjectRef: refFor("habits", record.docId, name),
         meta: scheduleTouched ? [habitFrequencyLabel(after)] : [fields.join(", ")],
         target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+        actorUid: byOwner,
         isSelfService: clientOwned,
         isDeletion: false,
         correlation: null,
@@ -553,7 +695,10 @@ export function classifyAuditRecord(
     // ── Exercise library ─────────────────────────────────────────────────
     case "exercises": {
       const name = subjectOf(subject);
-      const owner = str(subject?.ownerId);
+      // `ownerId` is the exact author of a custom exercise (a shared-library doc
+      // has none, so a library edit stays unattributed rather than guessed).
+      const owner = str(subject?.ownerId) ?? str(after.ownerId) ?? str(before.ownerId);
+      const byOwner = stamped ?? owner;
       const target: FeedTarget = { kind: "exercise", exerciseId: record.docId };
       if (record.op === "create") {
         return {
@@ -563,6 +708,7 @@ export function classifyAuditRecord(
           title: "Creó un ejercicio",
           subject: name,
           subjectRef: refFor("exercises", record.docId, name),
+          actorUid: byOwner,
           meta: [str(subject?.primaryMuscleGroup), owner ? null : "biblioteca"].filter(
             (m): m is string => !!m,
           ),
@@ -581,6 +727,7 @@ export function classifyAuditRecord(
           title: "Eliminó un ejercicio",
           subject: name,
           subjectRef: refFor("exercises", record.docId, name),
+          actorUid: byOwner,
           meta: [],
           target,
           isSelfService: false,
@@ -595,6 +742,7 @@ export function classifyAuditRecord(
         title: "Editó un ejercicio",
         subject: name,
         subjectRef: refFor("exercises", record.docId, name),
+        actorUid: byOwner,
         meta: [fields.join(", ")],
         target,
         isSelfService: false,
@@ -613,6 +761,7 @@ export function classifyAuditRecord(
           significance: "key",
           action: "create",
           title: role === "trainer" ? "Nuevo coach" : "Nuevo usuario",
+          actorUid: record.docId,
           subject: (str(after.displayName) ?? str(after.email) ?? record.docId).trim(),
           subjectRef: null,
           meta: [
@@ -632,6 +781,7 @@ export function classifyAuditRecord(
           significance: "key",
           action: "delete",
           title: "Cuenta eliminada",
+          actorUid: stamped,
           subject: str(before.displayName) ?? str(before.email) ?? record.docId,
           subjectRef: null,
           meta: [],
@@ -652,6 +802,8 @@ export function classifyAuditRecord(
           significance: changed ? "key" : "low",
           action: "update",
           title: changed ? "Cambió la suscripción" : "Refrescó la suscripción",
+          // RevenueCat webhook / admin override — not the user tapping a button.
+          actorUid: stamped,
           subject: `${beforeTier ?? "sin plan"} → ${afterTier ?? "sin plan"}`,
           subjectRef: null,
           meta: [str(afterEnt.source), str(afterEnt.productId)].filter(
@@ -672,6 +824,7 @@ export function classifyAuditRecord(
           significance: "key",
           action: "update",
           title: nowCoached ? "Cambió de coach" : "Quedó sin coach",
+          actorUid: stamped,
           subject: nowCoached
             ? (str(after.coachDisplayName) ?? str(after.coachId))
             : null,
@@ -690,6 +843,7 @@ export function classifyAuditRecord(
           significance: "key",
           action: "update",
           title: "Cambió de rol",
+          actorUid: stamped,
           subject: `${str(before.role) ?? "—"} → ${str(after.role) ?? "—"}`,
           subjectRef: null,
           meta: [],
@@ -706,6 +860,7 @@ export function classifyAuditRecord(
           significance: "key",
           action: "delete",
           title: "Cuenta desactivada",
+          actorUid: stamped,
           subject: null,
           subjectRef: null,
           meta: [],
@@ -724,6 +879,7 @@ export function classifyAuditRecord(
         significance: "low",
         action: "update",
         title: profileTouched ? "Actualizó su perfil" : "Actualizó su cuenta",
+        actorUid: record.docId,
         subject: null,
         subjectRef: null,
         meta: [fields.join(", ")],
@@ -740,6 +896,7 @@ export function classifyAuditRecord(
         significance: "low",
         action: record.op === "create" ? "create" : record.op === "delete" ? "delete" : "update",
         title: `${record.op} ${record.collection}`,
+        actorUid: stamped,
         subject: null,
         subjectRef: null,
         meta: [fields.join(", ")],

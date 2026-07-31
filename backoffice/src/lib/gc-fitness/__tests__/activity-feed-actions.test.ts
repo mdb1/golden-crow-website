@@ -156,6 +156,38 @@ describe("workout finished", () => {
   });
 });
 
+describe("a coached client's workout", () => {
+  beforeEach(() => {
+    queryGet.audit_log = async () => ({
+      docs: [
+        doc("a-log", {
+          collection: "workout_logs",
+          docId: "log-2",
+          op: "create",
+          changedFields: ["status", "duration_seconds"],
+          changedFieldCount: 2,
+          after: { status: "completed", duration_seconds: 2040 },
+          // Coach-owned doc: `trainerId` is the COACH, `clientId` the athlete.
+          trainerId: "coach1",
+          clientId: "client1",
+          occurredAt: ts("2026-07-29T23:24:00.000Z"),
+        }),
+      ],
+    });
+  });
+
+  it("says the CLIENT finished it, and does not repeat them as the target", async () => {
+    const [finish] = await listActivityFeed();
+    expect(finish.title).toBe("Terminó un workout");
+    // The regression: this read "Coach One terminó un workout … → Client One".
+    expect(finish.actor?.name).toBe("Client One");
+    expect(finish.client).toBeNull();
+    expect(finish.href).toBe(
+      "/gc-fitness/admin/coaches/coach1/clients/client1/workouts/log-2",
+    );
+  });
+});
+
 describe("assignments, habits and accounts", () => {
   beforeEach(() => {
     queryGet.audit_log = async () => ({
