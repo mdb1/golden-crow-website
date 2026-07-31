@@ -693,14 +693,12 @@ async function collectFeed(
 
   for (const { group, event } of classified) {
     const head = group.head;
-    // A background trigger has no auth principal: attribute the write to the
-    // doc's owner. For self-service (client === trainer) that IS the client.
-    const actorUid =
-      head.actorUid ??
-      (event.isSelfService ? head.clientId : null) ??
-      head.trainerId ??
-      head.coachId ??
-      (head.collection === "users" ? head.docId : null);
+    // WHO did it comes from the classifier (see `ClassifiedEvent.actorUid`) —
+    // NOT from whoever owns the doc. `trainerId` is stamped on every coach-owned
+    // doc, so falling back to it made the feed say "Ana Oller terminó un
+    // workout" about her client's session. An unattributable write renders with
+    // no name at all.
+    const actorUid = event.actorUid;
     const clientUid =
       head.clientId ?? (head.collection === "users" ? head.docId : null);
     events.push({
@@ -714,7 +712,7 @@ async function collectFeed(
       subject: event.subject,
       subjectRef: event.subjectRef,
       meta: event.meta,
-      actor: person(actorUid, event.isSelfService ? "client" : "coach", users),
+      actor: person(actorUid, actorUid === clientUid ? "client" : "coach", users),
       client:
         clientUid && clientUid !== actorUid ? person(clientUid, "client", users) : null,
       href: targetHref(event.target, users),
