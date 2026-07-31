@@ -24,12 +24,15 @@ export interface RawAuditLogEntry {
   coachId: string | null;
   clientId: string | null;
   occurredAtISO: string | null;
+  /** Capped snapshots of the changed fields (the activity feed reads them). */
+  before?: Record<string, unknown> | null;
+  after?: Record<string, unknown> | null;
 }
 
-export interface AuditLogGroup {
+export interface AuditLogGroup<T extends RawAuditLogEntry = RawAuditLogEntry> {
   /** Newest member (auditRaw is newest-first; preserved here). */
-  head: RawAuditLogEntry;
-  members: RawAuditLogEntry[];
+  head: T;
+  members: T[];
   /** Series root when this is a collapsed recurring group (count > 1), else null. */
   root: string | null;
   count: number;
@@ -39,8 +42,13 @@ export interface AuditLogGroup {
 
 // Match is deliberately strict (full trailing UUID after an 8-digit date) so
 // unrelated ids never collapse together.
+//
+// The optional `self-` segment covers CLIENT-created assignments, whose ids are
+// `asg-<uid>-<YYYYMMDD>-self-<UUID>` (#392). Without it every self-assigned
+// occurrence stayed its own row — that is the literal `asg-…-20260821-self-… ·
+// templateSnapshot, updatedAt` repetition reported in #671.
 const RECURRING_ASSIGNMENT_ID =
-  /^(.*)-(\d{8})-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  /^(.*)-(\d{8})-(?:self-)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function recurringSeries(
   docId: string,
@@ -72,10 +80,10 @@ export function dateRangeLabel(dates: string[]): string | null {
  * Only `workout_assignments` docs whose id matches the recurring pattern are
  * eligible — any other collection or a non-matching id is always its own row.
  */
-export function groupRecurringAuditEntries(
-  raw: RawAuditLogEntry[],
-): AuditLogGroup[] {
-  const groups: Array<{ members: RawAuditLogEntry[]; root: string | null }> = [];
+export function groupRecurringAuditEntries<T extends RawAuditLogEntry>(
+  raw: T[],
+): Array<AuditLogGroup<T>> {
+  const groups: Array<{ members: T[]; root: string | null }> = [];
   const indexByKey = new Map<string, number>();
 
   for (const r of raw) {

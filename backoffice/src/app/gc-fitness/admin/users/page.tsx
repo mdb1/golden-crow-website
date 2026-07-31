@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { AdminSubmitButton } from "../_components/admin-submit-button";
 import { Button } from "@/components/ui/button";
+import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import {
@@ -129,16 +130,15 @@ export default async function AdminUserSearchPage({
                   <TableRow key={row.uid}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        {row.photoURL ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={row.photoURL}
-                            alt=""
-                            className="h-8 w-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="h-8 w-8 rounded-full bg-muted" aria-hidden />
-                        )}
+                        {/* #636: initials fallback when there is no photoURL
+                            (Apple private-relay signups) or the image fails —
+                            the raw <img> showed an empty grey circle. */}
+                        <ClientAvatar
+                          name={row.displayName || row.email || row.uid}
+                          photoURL={row.photoURL}
+                          size="sm"
+                          className="h-8 w-8 text-xs"
+                        />
                         <div>
                           <div className="font-medium">
                             {row.displayName || "—"}
