@@ -9,12 +9,17 @@
 // client's initials when there is no photoURL or the image fails to load
 // (404 / expired Storage signature / CORS) instead of a broken-image icon.
 //
+// While a photo is still decoding the circle renders as a PULSING SKELETON: a
+// custom (Storage-hosted) photo goes through the optimizer or the same-origin
+// proxy, and the empty circle it used to leave behind read as broken rather
+// than as loading.
+//
 // Hosts must be allow-listed in `next.config.ts` `images.remotePatterns`
 // (`lh3.googleusercontent.com` for Google photos, `storage.googleapis.com` for
 // uploads) — both are present. A photoURL on any other host won't optimize and
 // will trigger the initials fallback via the error path rather than throwing.
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 import { cn } from "@/lib/utils";
@@ -77,10 +82,35 @@ export function ClientAvatar({
   // Local per-render error flag: if the optimized image fails (expired URL,
   // CORS, host not allow-listed), fall back to initials.
   const [failed, setFailed] = useState(false);
+  // A custom (Storage-hosted) photo goes through the optimizer / the
+  // same-origin proxy, so it can take a beat. Until it decodes we showed an
+  // EMPTY circle; now the circle pulses as a skeleton so the row reads as
+  // "loading" instead of "broken".
+  const [loaded, setLoaded] = useState(false);
   const px = SIZE_PX[size];
   const resolvedSrc = photoURL ? resolveAvatarSrc(photoURL) : null;
   const showImage = !!resolvedSrc && !failed;
   const bypassOptimizer = resolvedSrc ? shouldBypassOptimizer(resolvedSrc) : false;
+
+  const imageElement = useRef<HTMLImageElement | null>(null);
+
+  // `onLoad` does not fire for an image the browser already had decoded (cache
+  // hit before hydration), which would leave the skeleton pulsing forever — so
+  // read `complete` as soon as the element is attached.
+  const imageRef = useCallback((node: HTMLImageElement | null) => {
+    imageElement.current = node;
+    if (node?.complete) setLoaded(true);
+  }, []);
+
+  // A recycled avatar (a list row re-rendered for a different client) must not
+  // inherit the previous photo's state. Runs AFTER the DOM has the new `src`,
+  // so `complete` answers for the NEW image (true only on a cache hit).
+  useEffect(() => {
+    setFailed(false);
+    setLoaded(imageElement.current?.complete === true);
+  }, [resolvedSrc]);
+
+  const pending = showImage && !loaded;
 
   return (
     <div
@@ -88,6 +118,9 @@ export function ClientAvatar({
       className={cn(
         "flex shrink-0 items-center justify-center overflow-hidden rounded-full font-medium",
         SIZE_CLASS[size],
+        // Skeleton while the photo decodes: same muted disc as the initials
+        // fallback, pulsing.
+        pending && "animate-pulse bg-muted ring-1 ring-inset ring-border",
         // Initials-only styling (a photo covers the circle entirely, so photo
         // avatars keep their bare look). The old `bg-primary/10` + `text-primary`
         // was gold-on-gold: it vanished on the gold `bg-primary` chip these
@@ -102,12 +135,19 @@ export function ClientAvatar({
     >
       {showImage ? (
         <Image
+          ref={imageRef}
           src={resolvedSrc!}
           alt=""
           width={px}
           height={px}
-          className="h-full w-full rounded-full object-cover"
+          className={cn(
+            "h-full w-full rounded-full object-cover transition-opacity duration-200",
+            // Hidden (not unmounted) while decoding: the skeleton owns the
+            // circle, and a half-painted image never flashes.
+            loaded ? "opacity-100" : "opacity-0",
+          )}
           unoptimized={bypassOptimizer}
+          onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
         />
       ) : (

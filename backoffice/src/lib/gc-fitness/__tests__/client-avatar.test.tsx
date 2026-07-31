@@ -11,7 +11,7 @@
 // colors so the initials stay legible on any chip background.
 
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
@@ -42,5 +42,57 @@ describe("ClientAvatar initials fallback", () => {
     );
     expect(container.querySelector("img")).not.toBeNull();
     expect(screen.queryByText("DH")).toBeNull();
+  });
+});
+
+describe("ClientAvatar loading skeleton", () => {
+  const PHOTO = "https://lh3.googleusercontent.com/x";
+
+  it("pulses a skeleton disc (and hides the image) while the photo decodes", () => {
+    const { container } = render(<ClientAvatar name="Manu" photoURL={PHOTO} />);
+    const circle = container.firstElementChild as HTMLElement;
+    // An empty transparent circle read as "broken"; now it reads as "loading".
+    expect(circle.className).toContain("animate-pulse");
+    expect(circle.className).toContain("bg-muted");
+    expect(container.querySelector("img")?.className).toContain("opacity-0");
+  });
+
+  it("stops pulsing and reveals the photo once it loads", async () => {
+    const { container } = render(<ClientAvatar name="Manu" photoURL={PHOTO} />);
+    // next/image routes its own load handler through `img.decode()`, so the
+    // callback lands a microtask later — hence waitFor, not a bare assertion.
+    fireEvent.load(container.querySelector("img")!);
+
+    await waitFor(() => {
+      expect((container.firstElementChild as HTMLElement).className).not.toContain(
+        "animate-pulse",
+      );
+    });
+    expect(container.querySelector("img")?.className).toContain("opacity-100");
+  });
+
+  it("shows initials — never a stuck skeleton — when the photo fails", () => {
+    const { container } = render(<ClientAvatar name="Manu Herrera" photoURL={PHOTO} />);
+    fireEvent.error(container.querySelector("img")!);
+
+    expect(screen.getByText("MH")).toBeInTheDocument();
+    expect((container.firstElementChild as HTMLElement).className).not.toContain(
+      "animate-pulse",
+    );
+  });
+
+  it("re-arms the skeleton when the row is recycled for another client", async () => {
+    const { container, rerender } = render(<ClientAvatar name="Manu" photoURL={PHOTO} />);
+    fireEvent.load(container.querySelector("img")!);
+    await waitFor(() => {
+      expect((container.firstElementChild as HTMLElement).className).not.toContain(
+        "animate-pulse",
+      );
+    });
+
+    rerender(<ClientAvatar name="Otro" photoURL="https://lh3.googleusercontent.com/y" />);
+    expect((container.firstElementChild as HTMLElement).className).toContain(
+      "animate-pulse",
+    );
   });
 });
