@@ -35,7 +35,13 @@ export type CoachActivityLogKind =
   | "habit_assignment"
   | "note"
   | "progress_photo_request"
-  | "weight_request";
+  | "weight_request"
+  // #682 — the coach linking a client to themselves (`provisionClient`). It is
+  // the only coach action that had NO trail at all: the mirror branch writes to
+  // `user_mirror`, which no audit trigger watches, and the existing-user branch
+  // writes `/users/{uid}` whose audit row is attributed to the CLIENT (it is
+  // their doc), so the feed never showed the coach doing anything.
+  | "client_added";
 
 export interface CoachActivityEvent {
   /** Deterministic id so re-runs / per-occurrence triggers are idempotent. */
@@ -250,6 +256,41 @@ export function weightRequestedEvent(args: {
     clientId: args.clientId,
     pendingEmail: null,
     occurredAt: args.requestedAt,
+  };
+}
+
+/**
+ * Coach linked a client to their roster. eventId `client:{coachUid}:{email}` —
+ * keyed by the pair, so re-adding the same person after an unlink overwrites
+ * the previous row instead of stacking duplicates.
+ *
+ * `mode` is which branch of `provisionClient` ran, and it is the whole point of
+ * the detail line: "existente" means the person already had an account and is
+ * now on the roster, "pre-creado" means only a `user_mirror` placeholder exists
+ * and the link completes on their first sign-in.
+ */
+export function clientAddedEvent(args: {
+  trainerId: string;
+  email: string;
+  displayName: string | null;
+  /** Resolved uid on the existing-user branch; null for a mirror pre-create. */
+  clientId: string | null;
+  mode: "attached-existing-user" | "precreated-mirror";
+  occurredAt?: Date | null;
+}): CoachActivityEvent {
+  const who = args.displayName?.trim() || args.email;
+  return {
+    eventId: `client:${args.trainerId}:${args.email}`,
+    trainerId: args.trainerId,
+    kind: "client_added",
+    title: `Cliente agregado: ${who}`,
+    detail:
+      args.mode === "attached-existing-user"
+        ? `${args.email} · cuenta existente`
+        : `${args.email} · pre-creado (se vincula al primer ingreso)`,
+    clientId: args.clientId,
+    pendingEmail: args.clientId ? null : args.email,
+    occurredAt: args.occurredAt ?? null,
   };
 }
 

@@ -8,6 +8,7 @@
 
 import {
   classifyAuditRecord,
+  isAutoExtendedOccurrence,
   durationLabel,
   habitFrequencyLabel,
   isElided,
@@ -210,6 +211,103 @@ describe("classifyAuditRecord — scheduling", () => {
     );
     expect(byCoach.title).toBe("Asignó un workout");
     expect(byCoach.isSelfService).toBe(false);
+  });
+
+  // ── #682 — the automatic horizon renewal ───────────────────────────────
+  //
+  // A recurring self-routine materializes 90 days of real docs and the app
+  // silently writes the next batch once the tail drops under 45 days
+  // (`topUpRecurringSelfSeries`). The payload is indistinguishable from the
+  // original create EXCEPT that it carries the ORIGINAL `scheduleStartCivil`
+  // anchor onto docs written months later — which is the whole tell.
+  it("calls the app's horizon renewal what it is, and credits nobody with it", () => {
+    const renewal = classifyAuditRecord(
+      record({
+        op: "create",
+        changedFields: ["scheduleStartCivil", "selfAssigned", "recurrence", "scheduledFor"],
+        after: {
+          selfAssigned: true,
+          templateId: "tpl-1",
+          scheduledFor: "2026-10-15",
+          scheduleStartCivil: "2026-04-02",
+          recurrence: { kind: "weekly", weekday: 4 },
+        },
+        clientId: CLIENT,
+        trainerId: CLIENT,
+        occurredAtISO: "2026-07-31T20:37:02.331Z",
+      }),
+      { count: 12, dates: ["20261015", "20261022"] },
+    );
+    expect(renewal.title).toBe("Se extendió sola una rutina recurrente");
+    // Nobody did this. Crediting the athlete would put an assignment they never
+    // made under their name, months after they scheduled the routine.
+    expect(renewal.actorUid).toBeNull();
+    expect(renewal.meta).toContain("serie desde 2026-04-02");
+    expect(renewal.meta).toContain("renovación automática del horizonte");
+  });
+
+  it("still calls a real scheduling an assignment when the anchor is today's", () => {
+    const scheduled = classifyAuditRecord(
+      record({
+        op: "create",
+        changedFields: ["scheduleStartCivil", "selfAssigned", "recurrence", "scheduledFor"],
+        after: {
+          selfAssigned: true,
+          templateId: "tpl-1",
+          scheduledFor: "2026-07-31",
+          scheduleStartCivil: "2026-07-31",
+          recurrence: { kind: "weekly", weekday: 5 },
+        },
+        clientId: CLIENT,
+        trainerId: CLIENT,
+        occurredAtISO: "2026-07-31T20:37:02.331Z",
+      }),
+    );
+    expect(scheduled.title).toBe("Se asignó un workout");
+    expect(scheduled.actorUid).toBe(CLIENT);
+  });
+
+  it("never mistakes a coach assignment or a one-off for a renewal", () => {
+    // A `.single` self-assignment carries no recurrence map at all, and a coach
+    // assignment is not `selfAssigned` — neither is ever topped up.
+    const single = record({
+      op: "create",
+      after: {
+        selfAssigned: true,
+        scheduledFor: "2026-10-15",
+        scheduleStartCivil: "2026-04-02",
+      },
+      clientId: CLIENT,
+      trainerId: CLIENT,
+    });
+    const byCoach = record({
+      op: "create",
+      after: {
+        scheduledFor: "2026-10-15",
+        scheduleStartCivil: "2026-04-02",
+        recurrence: { kind: "weekly", weekday: 4 },
+      },
+      clientId: "client9",
+      trainerId: COACH,
+    });
+    expect(isAutoExtendedOccurrence(single)).toBe(false);
+    expect(isAutoExtendedOccurrence(byCoach)).toBe(false);
+    // One day of drift between the doc's civil dates (client timezone) and
+    // `occurredAt` (UTC) must not read as a renewal.
+    expect(
+      isAutoExtendedOccurrence(
+        record({
+          op: "create",
+          after: {
+            selfAssigned: true,
+            scheduledFor: "2026-08-01",
+            scheduleStartCivil: "2026-07-30",
+            recurrence: { kind: "daily" },
+          },
+          occurredAtISO: "2026-07-31T02:00:00.000Z",
+        }),
+      ),
+    ).toBe(false);
   });
 
   it("reports a re-scheduled workout as a move with both dates", () => {
@@ -477,9 +575,13 @@ describe("classifyAuditRecord — habits, exercises, accounts", () => {
         after: { entitlement: { tier: "premium", source: "revenuecat" } },
       }),
     );
-    expect(upgrade.title).toBe("Cambió la suscripción");
+    // #682 — the direction of the tier move names the action. A store-sourced
+    // free → premium is a PURCHASE, and the buyer is the actor even though the
+    // write arrives through the RevenueCat webhook.
+    expect(upgrade.title).toBe("Compró una suscripción");
     expect(upgrade.subject).toBe("free → premium");
     expect(upgrade.significance).toBe("key");
+    expect(upgrade.actorUid).toBe("u1");
 
     const refresh = classifyAuditRecord(
       record({

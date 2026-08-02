@@ -346,6 +346,35 @@ describe("other sources", () => {
     expect(event.client?.name).toBe("Client One");
   });
 
+  // #682 — "cuando un coach agrega un cliente". Before this event existed the
+  // action left NO coach-attributed trail: the pre-create branch writes to
+  // `user_mirror` (no audit trigger watches it) and the existing-user branch
+  // writes the CLIENT's own `/users` doc, so the only row that ever appeared
+  // read as the client changing coach.
+  it("shows a coach adding a client, with the pending email when there is no uid yet", async () => {
+    queryGet.coach_activity = async () => ({
+      docs: [
+        doc("ca3", {
+          trainerId: "coach1",
+          kind: "client_added",
+          title: "Cliente agregado: nuevo@x.com",
+          detail: "nuevo@x.com · pre-creado (se vincula al primer ingreso)",
+          clientId: null,
+          pendingEmail: "nuevo@x.com",
+          occurredAt: ts("2026-07-20T10:00:00.000Z"),
+        }),
+      ],
+    });
+    const [event] = await listActivityFeed({ source: "coach_activity" });
+    expect(event.title).toBe("Agregó un cliente");
+    expect(event.actor?.name).toBe("Coach One");
+    // No uid yet — the row still names WHO was added.
+    expect(event.client?.name).toBe("nuevo@x.com");
+    expect(event.category).toBe("account");
+    // The stored title repeats the person the client chip already names.
+    expect(event.subject).toBeNull();
+  });
+
   it("collapses a photo check-in set into one event that links to the gallery", async () => {
     const events = await listActivityFeed({ source: "progress_photos" });
     expect(events).toHaveLength(1);
