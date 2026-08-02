@@ -6,19 +6,18 @@ const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 
 const pageCopy = {
   en: {
-    title: 'RareFriends by Pocket Genes',
-    description: 'RareFriends by Pocket Genes is the opt-in community layer connected to Pocket Genes.',
+    title: 'RareFriends™ by Pocket Genes',
+    description: 'RareFriends™ by Pocket Genes is the opt-in community layer connected to Pocket Genes.',
     heroEyebrow: 'Community layer',
-    heroTitle: 'RareFriends by Pocket Genes',
     heroBody:
-      'A careful peer-support layer for the moment after genetic results arrive. RareFriends helps you find people, organizations, events, resources, and updates that are relevant to your genetic context without making your private report public by default.',
+      'A careful peer-support layer for the moment after genetic results arrive. RareFriends™ helps you find people, organizations, events, resources, and updates that are relevant to your genetic context without making your private report public by default.',
     communityTerms: 'Community terms',
     safetyPolicy: 'Safety policy',
-    imageAlt: 'Pocket Genes RareFriends community screen',
+    imageAlt: 'Pocket Genes RareFriends™ community screen',
     howEyebrow: 'How community works',
     howTitle: 'Find people and groups that match your rare-disease journey.',
     howBody:
-      'More people are receiving genetic results, but the path after the report can still feel fragmented. RareFriends by Pocket Genes can match by gene, condition family, symptoms, role, language, country, and journey stage, so support is still useful when an exact-gene circle is quiet.',
+      'More people are receiving genetic results, but the path after the report can still feel fragmented. RareFriends™ by Pocket Genes can match by gene, condition family, symptoms, role, language, country, and journey stage, so support is still useful when an exact-gene circle is quiet.',
     principles: [
       {
         title: 'People who fit your context',
@@ -64,19 +63,18 @@ const pageCopy = {
     trustCta: 'Open Trust Center',
   },
   es: {
-    title: 'RareFriends by Pocket Genes',
-    description: 'RareFriends by Pocket Genes es la capa comunitaria opcional conectada a Pocket Genes.',
+    title: 'RareFriends™ by Pocket Genes',
+    description: 'RareFriends™ by Pocket Genes es la capa comunitaria opcional conectada a Pocket Genes.',
     heroEyebrow: 'Capa comunitaria',
-    heroTitle: 'RareFriends by Pocket Genes',
     heroBody:
-      'Una capa de apoyo entre pares para el momento posterior a recibir resultados genéticos. RareFriends te ayuda a encontrar personas, organizaciones, eventos, recursos y actualizaciones relevantes para tu contexto genético sin hacer público tu informe privado por defecto.',
+      'Una capa de apoyo entre pares para el momento posterior a recibir resultados genéticos. RareFriends™ te ayuda a encontrar personas, organizaciones, eventos, recursos y actualizaciones relevantes para tu contexto genético sin hacer público tu informe privado por defecto.',
     communityTerms: 'Términos de comunidad',
     safetyPolicy: 'Política de seguridad',
-    imageAlt: 'Pantalla de comunidad RareFriends en Pocket Genes',
+    imageAlt: 'Pantalla de comunidad RareFriends™ en Pocket Genes',
     howEyebrow: 'Cómo funciona la comunidad',
     howTitle: 'Encontrá personas y grupos que coincidan con tu recorrido EPOF.',
     howBody:
-      'Cada vez más personas reciben resultados genéticos, pero el camino posterior al informe todavía puede sentirse fragmentado. RareFriends by Pocket Genes puede conectar por gen, familia de condición, síntomas, rol, idioma, país y etapa del recorrido, para que el apoyo siga siendo útil incluso cuando un círculo de gen exacto está quieto.',
+      'Cada vez más personas reciben resultados genéticos, pero el camino posterior al informe todavía puede sentirse fragmentado. RareFriends™ by Pocket Genes puede conectar por gen, familia de condición, síntomas, rol, idioma, país y etapa del recorrido, para que el apoyo siga siendo útil incluso cuando un círculo de gen exacto está quieto.',
     principles: [
       {
         title: 'Personas con contexto similar',
@@ -137,7 +135,7 @@ const copy = pageCopy[isEnglish ? 'en' : 'es'];
       <div class="pg-container pg-rf-hero-grid">
         <div>
           <p class="pg-eyebrow">{copy.heroEyebrow}</p>
-          <h1>{copy.heroTitle}</h1>
+          <h1><em>RareFriends™</em> by Pocket Genes</h1>
           <p>
             {copy.heroBody}
           </p>
