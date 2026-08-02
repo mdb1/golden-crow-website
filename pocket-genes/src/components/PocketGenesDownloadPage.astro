@@ -516,13 +516,44 @@ const copy = pageCopy[isEnglish ? 'en' : 'es'];
     }
 
     .store-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      width: 100%;
+      max-width: 440px;
     }
 
     .store-card {
-      min-height: 180px;
+      min-height: 156px;
+      gap: 10px;
       justify-items: center;
+      align-content: center;
+      padding: 14px 10px;
       text-align: center;
+    }
+
+    .store-kicker {
+      font-size: clamp(0.58rem, 2.6vw, 0.68rem);
+      line-height: 1.12;
+    }
+
+    .store-badge {
+      width: min(100%, 140px);
+    }
+
+    .google-play-badge {
+      width: min(100%, 150px);
+      margin: -8px 0;
+    }
+
+    .play-badge-wrap {
+      display: grid;
+      place-items: center;
+      width: 100%;
+    }
+
+    .store-note {
+      font-size: 0.82rem;
+      line-height: 1.15;
     }
 
     .phone-card-left {
