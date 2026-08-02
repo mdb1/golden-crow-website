@@ -14,6 +14,7 @@ import {
   Scale,
   Timer,
   Trash2,
+  UserPlus,
 } from "lucide-react";
 
 import { useTranslations } from "next-intl";
@@ -49,6 +50,8 @@ const TYPE_OPTION_KEYS: string[] = [
   "workout_template",
   "exercise",
   "note",
+  // #682 — the coach linking a client to their roster.
+  "client_added",
   "chat",
 ];
 
@@ -63,6 +66,7 @@ const KIND_ICON = {
   progress_photo_request: Camera,
   weight_request: Scale,
   note: NotebookPen,
+  client_added: UserPlus,
   chat: MessageSquare,
 } satisfies Record<CoachActivityKind, ComponentType<{ className?: string }>>;
 
@@ -89,6 +93,8 @@ const KIND_CHIP: Record<CoachActivityKind, string> = {
     "border-[color:var(--badge-violet-border)] bg-[color:var(--badge-violet-bg)] text-[color:var(--badge-violet-fg)]",
   weight_request:
     "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] text-[color:var(--badge-warning-fg)]",
+  client_added:
+    "border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)] text-[color:var(--badge-success-fg)]",
 };
 
 // Deletion rows (coach removed something) use the rose token so they stand out.

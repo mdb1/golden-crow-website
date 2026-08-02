@@ -61,6 +61,10 @@ import {
 
 import { getCurrentTrainer } from "./auth-helpers";
 import {
+  clientAddedEvent,
+  recordCoachActivityEvent,
+} from "./coach-activity-log";
+import {
   decideLinkOutcome,
   LinkRefusedError,
   type LinkOutcome,
@@ -514,6 +518,18 @@ export async function provisionClient(input: unknown): Promise<
     if (mirrorOutcomeKind === "alreadyYours") {
       return { ok: true, mode: "already-linked" };
     }
+    // #682 — leave a coach-attributed trail. Best-effort by contract: a logging
+    // failure must never turn a completed link into an error for the coach.
+    await recordCoachActivityEvent(
+      db,
+      clientAddedEvent({
+        trainerId: session.uid,
+        email: parsed.email,
+        displayName,
+        clientId: null,
+        mode: "precreated-mirror",
+      }),
+    );
     revalidateTag("gc-fitness-roster", "max");
     return { ok: true, mode: "precreated-mirror" };
   }
@@ -658,6 +674,20 @@ export async function provisionClient(input: unknown): Promise<
   if (userOutcomeKind === "alreadyYours") {
     return { ok: true, mode: "already-linked" };
   }
+
+  // #682 — same trail as the mirror branch above. The `/users/{uid}` write this
+  // action performs DOES reach `audit_log`, but it is the client's own doc, so
+  // that row reads as the client changing coach; this one names the coach.
+  await recordCoachActivityEvent(
+    db,
+    clientAddedEvent({
+      trainerId: session.uid,
+      email: parsed.email,
+      displayName,
+      clientId: authUser.uid,
+      mode: "attached-existing-user",
+    }),
+  );
 
   revalidateTag("gc-fitness-roster", "max");
   return { ok: true, mode: "attached-existing-user" };

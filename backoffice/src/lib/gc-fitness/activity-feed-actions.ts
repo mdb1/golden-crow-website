@@ -514,6 +514,7 @@ const COACH_KIND_CATEGORY: Record<string, FeedCategory> = {
   note: "coach",
   progress_photo_request: "coach",
   weight_request: "coach",
+  client_added: "account",
 };
 
 function coachKindAction(kind: string, deleted: boolean): FeedAction {
@@ -531,6 +532,8 @@ function coachKindAction(kind: string, deleted: boolean): FeedAction {
     case "progress_photo_request":
     case "weight_request":
       return "request";
+    case "client_added":
+      return "create";
     default:
       return "other";
   }
@@ -551,6 +554,7 @@ const COACH_KIND_TITLE: Record<string, { active: string; deleted: string }> = {
   note: { active: "Escribió una nota", deleted: "Eliminó una nota" },
   progress_photo_request: { active: "Pidió fotos de progreso", deleted: "Canceló el pedido de fotos" },
   weight_request: { active: "Pidió el peso", deleted: "Canceló el pedido de peso" },
+  client_added: { active: "Agregó un cliente", deleted: "Quitó un cliente" },
 };
 
 /** Kinds whose stored title names the CLIENT, not an entity — the row already
@@ -559,6 +563,9 @@ const COACH_KINDS_WITHOUT_SUBJECT = new Set([
   "progress_photo_request",
   "weight_request",
   "note",
+  // "Cliente agregado: Manu" — the row already links the client (or their
+  // pending email) as the target chip.
+  "client_added",
 ]);
 
 /** "Workout asignado: Full Body" → "Full Body". */

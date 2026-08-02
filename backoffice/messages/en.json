@@ -1932,6 +1932,7 @@
       "habit_assignment": "Habits",
       "progress_photo_request": "Photos requested",
       "weight_request": "Weight requested",
+      "client_added": "Clients added",
       "workout_template": "Workouts",
       "exercise": "Exercises",
       "note": "Notes",
@@ -1945,6 +1946,7 @@
       "habit_assignment": "Habit",
       "progress_photo_request": "Photos",
       "weight_request": "Weight",
+      "client_added": "Client",
       "note": "Note",
       "chat": "Chat"
     }

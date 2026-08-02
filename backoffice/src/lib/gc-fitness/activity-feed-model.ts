@@ -251,6 +251,65 @@ export function occurrenceDateFromId(docId: string): string | null {
   return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
 }
 
+/** UTC civil day of an ISO instant: "2026-08-01T20:37:02.331Z" → "2026-08-01". */
+function civilOf(iso: string | null): string | null {
+  const m = iso ? /^(\d{4}-\d{2}-\d{2})/.exec(iso) : null;
+  return m ? m[1] : null;
+}
+
+/** Whole days from `from` to `to` (both "YYYY-MM-DD"), or null if unparsable. */
+function civilDaysBetween(from: string, to: string): number | null {
+  const a = Date.parse(`${from}T00:00:00.000Z`);
+  const b = Date.parse(`${to}T00:00:00.000Z`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  return Math.round((b - a) / 86_400_000);
+}
+
+/**
+ * Days the anchor must predate the write by before we call it a renewal. Two
+ * absorbs the ±1-day slop between the doc's civil dates (client timezone) and
+ * `occurredAt` (UTC), which is the only reason this isn't a strict `<`.
+ */
+const AUTO_EXTENSION_MIN_LAG_DAYS = 2;
+
+/**
+ * #682 — is this `workout_assignments` create the app's **automatic horizon
+ * renewal**, rather than a person scheduling something?
+ *
+ * A recurring self-created routine is stored as one real doc per occurrence,
+ * materialized 90 days ahead (`SelfRoutineHorizon.horizonDays`). When the tail
+ * of a series drops under 45 days the app silently writes the next batch —
+ * `topUpRecurringSelfSeries` — with no user action behind it. The payload is a
+ * byte-for-byte replay of the original create (same key set, same
+ * `scheduleStartCivil` anchor, no marker field), which is why the feed titled it
+ * "Se asignó un workout" months after the person had actually scheduled it.
+ *
+ * The tell is the anchor. `createSelfAssignments` stamps
+ * `scheduleStartCivil = requestedStartCivil ?? today`, and the scheduling sheet
+ * only offers today or later — so on a genuine scheduling the anchor is never
+ * in the past at write time. A renewal copies the ORIGINAL anchor onto docs
+ * written months later, so the anchor sits well before the write. That is a
+ * property of the data, not a marker we have to add, which also means it
+ * classifies the writes already sitting in `audit_log`.
+ *
+ * Deliberately conservative: a renewal whose anchor is recent stays classified
+ * as a normal assignment (under-claiming), rather than risk calling a real
+ * scheduling automatic.
+ */
+export function isAutoExtendedOccurrence(record: AuditRecord): boolean {
+  if (record.collection !== "workout_assignments" || record.op !== "create") return false;
+  const after = record.after;
+  if (!after || after.selfAssigned !== true) return false;
+  // Only a SERIES is ever topped up; `.single` never carries a recurrence map.
+  const kind = str((after.recurrence as Record<string, unknown> | null)?.kind);
+  if (!kind || kind === "single") return false;
+  const anchor = str(after.scheduleStartCivil);
+  const wroteOn = civilOf(record.occurredAtISO);
+  if (!anchor || !wroteOn) return false;
+  const lag = civilDaysBetween(anchor, wroteOn);
+  return lag !== null && lag >= AUTO_EXTENSION_MIN_LAG_DAYS;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Classification
 // ─────────────────────────────────────────────────────────────────────────────
@@ -396,6 +455,34 @@ export function classifyAuditRecord(
       const isSelf = after.selfAssigned === true || before.selfAssigned === true || selfService;
 
       if (record.op === "create") {
+        // The horizon renewal (see `isAutoExtendedOccurrence`). NOBODY did this
+        // — the app topped the series back up on its own — so it renders with
+        // no actor rather than crediting the athlete with an assignment they
+        // did not make. Kept at "key": it materializes ~90 days of calendar and
+        // fires roughly once every 45 days per series, so it is rare enough to
+        // read and load-bearing enough to want to see when a calendar changes.
+        if (isAutoExtendedOccurrence(record)) {
+          return {
+            category: "schedule",
+            significance: "key",
+            action: "other",
+            title: "Se extendió sola una rutina recurrente",
+            subject: null,
+            subjectRef: ref,
+            meta: [
+              recurrenceLabel(after.recurrence),
+              ...(group.count > 1 ? occurrences : [str(after.scheduledFor)]),
+              `serie desde ${str(after.scheduleStartCivil)}`,
+              "renovación automática del horizonte",
+            ].filter((m): m is string => !!m),
+            target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+            actorUid: null,
+            isSelfService: false,
+            isDeletion: false,
+            correlation: null,
+          };
+        }
+
         const meta = [
           recurrenceLabel(after.recurrence),
           ...occurrences,
@@ -766,8 +853,13 @@ export function classifyAuditRecord(
           subjectRef: null,
           meta: [
             str(after.email),
+            // #682 — an Apple sign-in only hands over the email on the FIRST
+            // auth, so a re-provisioned Apple user lands without one. That is
+            // exactly the kind of thing "un usuario nuevo" needs to show.
+            after.needsEmail === true ? "sin email (Apple)" : null,
             str(after.coachDisplayName) ? `coach: ${str(after.coachDisplayName)}` : null,
             after.autoAssignedCoach === true ? "coach auto-asignado" : null,
+            role !== "client" && role !== "trainer" ? `rol: ${role}` : null,
           ].filter((m): m is string => !!m),
           target,
           isSelfService: true,
@@ -797,18 +889,43 @@ export function classifyAuditRecord(
         const afterEnt = (after.entitlement ?? {}) as Record<string, unknown>;
         const afterTier = str(afterEnt.tier);
         const changed = beforeTier !== afterTier;
+        const source = str(afterEnt.source);
+        // #682 — "cuando un usuario compra una subscripción" needs to read as a
+        // PURCHASE, not as the generic "cambió la suscripción" that covered a
+        // buy, a lapse and an operator override with one sentence. The direction
+        // of the tier move says which of the three it was; `source` says whether
+        // the store or an admin did it (`revenuecat` is the webhook writing what
+        // the user bought — the only branch where the user is the actor).
+        const boughtIn = afterTier === "premium" && beforeTier !== "premium";
+        const lapsed = beforeTier === "premium" && afterTier !== "premium";
+        const byAdmin = source !== null && source !== "revenuecat";
+        const title = !changed
+          ? "Refrescó la suscripción"
+          : boughtIn
+            ? byAdmin
+              ? "Le activaron la suscripción"
+              : "Compró una suscripción"
+            : lapsed
+              ? byAdmin
+                ? "Le dieron de baja la suscripción"
+                : "Se quedó sin suscripción"
+              : "Cambió la suscripción";
         return {
           category: "account",
           significance: changed ? "key" : "low",
           action: "update",
-          title: changed ? "Cambió la suscripción" : "Refrescó la suscripción",
-          // RevenueCat webhook / admin override — not the user tapping a button.
-          actorUid: stamped,
+          title,
+          // A store purchase IS the user's action, even though the write lands
+          // via the RevenueCat webhook. An admin override is not — it keeps the
+          // stamped actor (or none) so the row never credits the wrong person.
+          actorUid: changed && !byAdmin ? record.docId : stamped,
           subject: `${beforeTier ?? "sin plan"} → ${afterTier ?? "sin plan"}`,
           subjectRef: null,
-          meta: [str(afterEnt.source), str(afterEnt.productId)].filter(
-            (m): m is string => !!m,
-          ),
+          meta: [
+            source,
+            str(afterEnt.productId),
+            str(afterEnt.expiresAt) ? `vence ${str(afterEnt.expiresAt)?.slice(0, 10)}` : null,
+          ].filter((m): m is string => !!m),
           target,
           isSelfService: false,
           isDeletion: false,
