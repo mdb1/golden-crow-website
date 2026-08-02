@@ -12,7 +12,7 @@ const pageCopy = {
     logoLabel: 'Pocket Genes logo',
     heroLead:
       'Pocket Genes helps you understand a genetic result, find trusted connections, and choose a clear next step without making your private report public by default.',
-    appStoreCta: 'Download on the App Store',
+    downloadCta: 'Download',
     communityCta: 'Explore community',
     appPreviewLabel: 'Pocket Genes app preview',
     exploreAlt: 'Pocket Genes Explore screen showing genomics education and report categories',
@@ -21,7 +21,7 @@ const pageCopy = {
     identityTitle: 'Built for the moment after a genetic result.',
     identityBody:
       'Pocket Genes gives you a private place to keep the report, learn what it says, find relevant support, and prepare what to ask next.',
-    downloadApp: 'Download the app',
+    downloadApp: 'Download',
     trustCenter: 'Trust Center',
     userFlowLabel: 'Pocket Genes user flow',
     contactPrompt: 'Questions about Pocket Genes?',
@@ -129,7 +129,7 @@ const pageCopy = {
     logoLabel: 'Logo de Pocket Genes',
     heroLead:
       'Pocket Genes te ayuda a entender un resultado genético, encontrar conexiones confiables y elegir un próximo paso claro sin hacer público tu informe privado por defecto.',
-    appStoreCta: 'Descargar en App Store',
+    downloadCta: 'Descargar',
     communityCta: 'Explorar comunidad',
     appPreviewLabel: 'Vista previa de la app Pocket Genes',
     exploreAlt: 'Pantalla Explorar de Pocket Genes con educación genómica y categorías de informes',
@@ -138,7 +138,7 @@ const pageCopy = {
     identityTitle: 'Diseñado para el momento posterior a un resultado genético.',
     identityBody:
       'Pocket Genes te da un espacio privado para guardar el informe, aprender qué dice, encontrar apoyo relevante y preparar qué preguntar después.',
-    downloadApp: 'Descargar la app',
+    downloadApp: 'Descargar',
     trustCenter: 'Centro de confianza',
     userFlowLabel: 'Flujo de usuario de Pocket Genes',
     contactPrompt: '¿Preguntas sobre Pocket Genes?',
@@ -270,8 +270,8 @@ const identityFlow = copy.identityFlow;
             {copy.heroLead}
           </p>
           <div class="pg-button-row">
-            <a class="pg-button pg-button-primary" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-              {copy.appStoreCta}
+            <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/download')}>
+              {copy.downloadCta}
             </a>
             <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/rarefriends')}>
               {copy.communityCta}
@@ -295,7 +295,7 @@ const identityFlow = copy.identityFlow;
             {copy.identityBody}
           </p>
           <div class="pg-identity-actions">
-            <a class="pg-button pg-button-primary" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">{copy.downloadApp}</a>
+            <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/download')}>{copy.downloadApp}</a>
             <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>{copy.trustCenter}</a>
           </div>
         </div>
