@@ -69,7 +69,12 @@ export type FeedTarget =
  * touch `name` (an update only snapshots the CHANGED fields).
  */
 export interface FeedSubjectRef {
-  collection: "workout_templates" | "workout_logs" | "habits" | "exercises";
+  collection:
+    | "workout_templates"
+    | "workout_logs"
+    | "workout_assignments"
+    | "habits"
+    | "exercises";
   id: string;
 }
 
@@ -221,6 +226,45 @@ export function recurrenceLabel(recurrence: unknown): string | null {
     default:
       return null;
   }
+}
+
+/**
+ * #713 — a TOTAL recurrence label: every present map gets words, including the
+ * ones `recurrenceLabel` deliberately returns null for.
+ *
+ * `recurrenceLabel` answers "is there a cadence worth printing next to an
+ * assignment?", so `single` → null (nothing to add) and an unrecognized kind →
+ * null (say nothing rather than something wrong). Both are right there and both
+ * are wrong when the recurrence IS the subject of the sentence: a row that says
+ * "cambió la recurrencia" and then prints nothing is exactly the report — the
+ * operator cannot see WHAT it changed to.
+ *
+ * Returns null only when there is genuinely no map to describe.
+ */
+export function recurrenceDescribe(recurrence: unknown): string | null {
+  if (!recurrence || typeof recurrence !== "object") return null;
+  const known = recurrenceLabel(recurrence);
+  if (known) return known;
+  const kind = str((recurrence as Record<string, unknown>).kind);
+  if (!kind) return null;
+  // `single` is a real answer here ("ahora una sola vez"), not an absence.
+  return kind === "single" ? "una sola vez" : kind;
+}
+
+/**
+ * #713 — "de X a Y" for a recurrence edit, degrading gracefully.
+ *
+ * The delete half of the edit is what carries the previous rule, so when the
+ * pairing found no delete (or that snapshot had no map) `from` is unknown and
+ * we print the destination alone rather than swallowing the line. When both
+ * sides describe the same cadence the change was in the WINDOW, not the rule —
+ * say so, instead of printing "semanal (lun) → semanal (lun)".
+ */
+export function recurrenceChangeLabel(previous: unknown, next: unknown): string | null {
+  const from = recurrenceDescribe(previous);
+  const to = recurrenceDescribe(next);
+  if (from && to) return from === to ? `${to} (cambiaron las fechas)` : `${from} → ${to}`;
+  return to ? `ahora ${to}` : from ? `antes ${from}` : null;
 }
 
 /** Spanish frequency label for a habit doc (`scheduleType` + `scheduleCadence`). */
@@ -483,9 +527,18 @@ export function classifyAuditRecord(
     // ── Scheduling ───────────────────────────────────────────────────────
     case "workout_assignments": {
       const templateId = str(after.templateId) ?? str(before.templateId);
+      // #713 — an UPDATE only snapshots the CHANGED fields, so a routine edit
+      // (`templateSnapshot, updatedAt, prescriptionUpdatedAt`) carries no
+      // `templateId` and the row had NOTHING to name: it rendered as a bare
+      // "actualizó la rutina · ver detalle". Fall back to the assignment doc
+      // itself — the reader point-reads its `templateSnapshot.name`. Not for a
+      // delete: that doc is gone by the time the feed loads, and its `before`
+      // is a full snapshot that already has the templateId anyway.
       const ref: FeedSubjectRef | null = templateId
         ? { collection: "workout_templates", id: templateId }
-        : null;
+        : record.op === "delete" || !record.docId || record.docId === "?"
+          ? null
+          : { collection: "workout_assignments", id: record.docId };
       const isSelf = after.selfAssigned === true || before.selfAssigned === true || selfService;
 
       if (record.op === "create") {
@@ -497,8 +550,6 @@ export function classifyAuditRecord(
         // rendered as "se extendió sola", with no actor — the report's other
         // half. Only the paired delete distinguishes them.
         if (group.recurrenceEdit) {
-          const from = recurrenceLabel(group.recurrenceEdit.previousRecurrence);
-          const to = recurrenceLabel(after.recurrence);
           return {
             category: "schedule",
             significance: "key",
@@ -507,8 +558,18 @@ export function classifyAuditRecord(
             subject: null,
             subjectRef: ref,
             meta: [
-              from && to && from !== to ? `${from} → ${to}` : (to ?? from),
-              ...occurrences,
+              // #713 — the old expression could evaluate to nothing at all
+              // (`recurrenceLabel` is null for `single` and for any kind it does
+              // not know), so the row said "cambió la recurrencia" and then
+              // printed no change whatsoever. This one always says something
+              // when there is a map on either side.
+              recurrenceChangeLabel(group.recurrenceEdit.previousRecurrence, after.recurrence),
+              // The new date set IS the change the operator wants to see, so it
+              // is printed for a one-occurrence edit too — `occurrences` only
+              // covers the collapsed case.
+              ...(occurrences.length > 0
+                ? occurrences
+                : [str(after.scheduledFor) ?? occurrenceDateFromId(record.docId)]),
               str(after.scheduledTime),
             ].filter((m): m is string => !!m),
             target: record.clientId ? { kind: "user", uid: record.clientId } : null,
@@ -641,7 +702,19 @@ export function classifyAuditRecord(
           title: "Actualizó la rutina",
           subject: null,
           subjectRef: ref,
-          meta: occurrences,
+          // #713 — "no puedo ver qué cambios hizo". The `templateSnapshot`
+          // itself is elided by the capture (512-char cap), so the field-level
+          // diff is genuinely not in `audit_log` — but WHICH KIND of edit this
+          // was is, and it is the operator's actual question. It comes from the
+          // same signal the actor attribution above already trusts: only a
+          // server-side coach write re-stamps `prescriptionUpdatedAt`; the
+          // client's write-back from iOS touches the snapshot alone.
+          meta: [
+            byCoachEdit
+              ? "nueva prescripción del coach"
+              : "pesos y repes registrados en el entreno",
+            ...occurrences,
+          ],
           target: record.clientId ? { kind: "user", uid: record.clientId } : null,
           actorUid: byCoachEdit ? byTrainer : byClient,
           isSelfService: isSelf,

@@ -15,6 +15,8 @@ import {
   isRecurringAssignment,
   mergeWorkoutWriteBacks,
   occurrenceDateFromId,
+  recurrenceChangeLabel,
+  recurrenceDescribe,
   recurrenceLabel,
   volumeLabel,
   type AuditRecord,
@@ -551,7 +553,189 @@ describe("classifyAuditRecord — #697 recurrence edits", () => {
       recurrenceEdit: { previousRecurrence: null },
     });
     expect(event.title).toBe("Cambió la recurrencia de una rutina");
-    expect(event.meta[0]).toBe("todas las semanas (mié)");
+    // #713 — "ahora" makes it unambiguous that this is the DESTINATION and not
+    // the origin, which a bare cadence next to "cambió la recurrencia" is not.
+    expect(event.meta[0]).toBe("ahora todas las semanas (mié)");
+  });
+
+  // ── #713: "no me muestra cuál fue el cambio de recurrencia" ──────────────
+  //
+  // The old meta expression was
+  //   from && to && from !== to ? `${from} → ${to}` : (to ?? from)
+  // and `recurrenceLabel` is null for BOTH `single` and any kind it does not
+  // know — so a row could say "cambió la recurrencia de una rutina" and then
+  // print nothing at all, which is the report verbatim.
+
+  it("never renders an empty change line, whatever the two rules are", () => {
+    const cases: Array<[unknown, unknown]> = [
+      [{ kind: "single" }, { kind: "single" }],
+      [{ kind: "biweekly" }, { kind: "trimonthly" }],
+      [null, { kind: "single" }],
+      [{ kind: "weekly", weekday: 3 }, { kind: "single" }],
+    ];
+    for (const [previous, next] of cases) {
+      const event = classifyAuditRecord(
+        record({
+          op: "create",
+          after: { templateId: "tpl-pullin", scheduledFor: "2027-01-06", recurrence: next },
+          clientId: CLIENT,
+          trainerId: CLIENT,
+        }),
+        { count: 1, dates: [], recurrenceEdit: { previousRecurrence: previous } },
+      );
+      expect(event.title).toBe("Cambió la recurrencia de una rutina");
+      expect(event.meta.length).toBeGreaterThan(0);
+      expect(event.meta[0]!.trim()).not.toBe("");
+    }
+  });
+
+  it("collapsing a series to one date reads as such instead of blank", () => {
+    const event = classifyAuditRecord(
+      record({
+        op: "create",
+        after: {
+          templateId: "tpl-pullin",
+          scheduledFor: "2027-01-06",
+          recurrence: { kind: "single" },
+        },
+        clientId: CLIENT,
+        trainerId: CLIENT,
+      }),
+      {
+        count: 1,
+        dates: [],
+        recurrenceEdit: { previousRecurrence: { kind: "weekly", weekday: 3 } },
+      },
+    );
+    expect(event.meta[0]).toBe("todas las semanas (mié) → una sola vez");
+  });
+
+  it("says the dates moved when the cadence itself did not", () => {
+    const event = classifyAuditRecord(reExpansion, {
+      count: 4,
+      dates: ["2027-01-06", "2027-01-13", "2027-01-20", "2027-01-27"],
+      recurrenceEdit: { previousRecurrence: { kind: "weekly", weekday: 3 } },
+    });
+    expect(event.meta[0]).toBe("todas las semanas (mié) (cambiaron las fechas)");
+  });
+
+  /**
+   * The occurrence span used to appear only for a COLLAPSED group, so a
+   * recurrence edit that produced a single future date said nothing about WHEN.
+   */
+  it("names the affected date even for a one-occurrence edit", () => {
+    const event = classifyAuditRecord(reExpansion, {
+      count: 1,
+      dates: [],
+      recurrenceEdit: { previousRecurrence: { kind: "weekly", weekday: 5 } },
+    });
+    expect(event.meta).toContain("2027-01-06");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #713 — "tocar Ver detalle me lleva al detalle del cliente, pero no puedo ver
+// ni cuál workout editó ni qué cambios hizo"
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("classifyAuditRecord — #713 routine edits are identifiable", () => {
+  /**
+   * The real production shape: an UPDATE snapshots only the CHANGED fields, so
+   * a routine edit carries `templateSnapshot` (elided) and nothing else. There
+   * is no `templateId` in it — which is why the row had no name to render and
+   * fell back to a bare "ver detalle" link to the client.
+   */
+  const routineEdit = record({
+    docId: "asg-oi1SgX6-20260807-DF2F1298",
+    changedFields: ["templateSnapshot", "updatedAt"],
+    before: { templateSnapshot: "[omitted: 2107 chars]" },
+    after: { templateSnapshot: "[omitted: 2190 chars]" },
+    clientId: CLIENT,
+    trainerId: "ana-coach",
+  });
+
+  it("points at the assignment doc so the routine can be named", () => {
+    const event = classifyAuditRecord(routineEdit, { count: 1, dates: [] });
+    expect(event.title).toBe("Actualizó la rutina");
+    expect(event.subject).toBeNull();
+    expect(event.subjectRef).toEqual({
+      collection: "workout_assignments",
+      id: "asg-oi1SgX6-20260807-DF2F1298",
+    });
+  });
+
+  it("prefers the template when the snapshot does carry a templateId", () => {
+    const event = classifyAuditRecord(
+      record({
+        changedFields: ["templateSnapshot", "updatedAt"],
+        after: { templateSnapshot: "[omitted: 900 chars]", templateId: "tpl-1" },
+        clientId: CLIENT,
+      }),
+      { count: 1, dates: [] },
+    );
+    expect(event.subjectRef).toEqual({ collection: "workout_templates", id: "tpl-1" });
+  });
+
+  it("never points at a deleted assignment (the doc is gone by read time)", () => {
+    const event = classifyAuditRecord(
+      record({
+        op: "delete",
+        before: { recurrence: { kind: "weekly", weekday: 3 } },
+        clientId: CLIENT,
+      }),
+    );
+    expect(event.subjectRef).toBeNull();
+  });
+
+  it("says which kind of edit it was, since the snapshot diff is elided", () => {
+    const byClient = classifyAuditRecord(routineEdit, { count: 1, dates: [] });
+    expect(byClient.actorUid).toBe(CLIENT);
+    expect(byClient.meta).toContain("pesos y repes registrados en el entreno");
+
+    const byCoach = classifyAuditRecord(
+      record({
+        changedFields: ["templateSnapshot", "prescriptionUpdatedAt", "updatedAt"],
+        after: { templateSnapshot: "[omitted: 900 chars]" },
+        clientId: CLIENT,
+        trainerId: "ana-coach",
+      }),
+      { count: 1, dates: [] },
+    );
+    expect(byCoach.actorUid).toBe("ana-coach");
+    expect(byCoach.meta).toContain("nueva prescripción del coach");
+  });
+
+  it("keeps the occurrence span alongside the new detail", () => {
+    // `group.dates` are the COMPACT ids the doc name carries ("20260807"),
+    // which `dateRangeLabel` formats — not already-hyphenated civil dates.
+    const event = classifyAuditRecord(routineEdit, {
+      count: 12,
+      dates: ["20260807", "20261030"],
+    });
+    expect(event.meta).toContain("pesos y repes registrados en el entreno");
+    expect(event.meta.some((m) => m.includes("2026-08-07"))).toBe(true);
+  });
+});
+
+describe("recurrenceDescribe / recurrenceChangeLabel — #713", () => {
+  it("describes what recurrenceLabel deliberately leaves unsaid", () => {
+    // Unchanged contract: `recurrenceLabel` stays null for these, because next
+    // to an ASSIGNMENT there is nothing worth printing.
+    expect(recurrenceLabel({ kind: "single" })).toBeNull();
+    expect(recurrenceLabel({ kind: "biweekly" })).toBeNull();
+
+    expect(recurrenceDescribe({ kind: "single" })).toBe("una sola vez");
+    expect(recurrenceDescribe({ kind: "biweekly" })).toBe("biweekly");
+    expect(recurrenceDescribe({ kind: "daily" })).toBe("todos los días");
+    // Genuinely nothing to describe.
+    expect(recurrenceDescribe(null)).toBeNull();
+    expect(recurrenceDescribe({})).toBeNull();
+  });
+
+  it("degrades to one side when the other is unknown", () => {
+    expect(recurrenceChangeLabel(null, { kind: "daily" })).toBe("ahora todos los días");
+    expect(recurrenceChangeLabel({ kind: "daily" }, null)).toBe("antes todos los días");
+    expect(recurrenceChangeLabel(null, null)).toBeNull();
   });
 });
 
