@@ -22,7 +22,7 @@ const publicNavItemsByLocale: Record<PocketGenesPublicLocale, { label: string; h
   es: [
     { label: 'Inicio', href: '/pocket-genes/home' },
     { label: 'Comunidad', href: '/pocket-genes/rarefriends' },
-    { label: 'Centro de confianza', href: '/pocket-genes/trust-center' },
+    { label: 'Privacidad y seguridad', href: '/pocket-genes/trust-center' },
     { label: 'Integración', href: '/pocket-genes/website/integration' },
     { label: 'Descargar', href: '/pocket-genes/download' },
   ],
@@ -339,7 +339,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Política de Privacidad',
     category: 'Privacidad y derechos',
     summary:
-      'Explica qué información recopila Pocket Genes, por qué se recopila y cómo los usuarios controlan datos genéticos y de salud sensibles.',
+      'Explica qué información recopilamos, para qué la usamos y cómo podés controlar tus datos genéticos y de salud.',
     owner: 'Confianza y privacidad',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -366,7 +366,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Términos de Servicio',
     category: 'Términos del producto',
     summary:
-      'Define uso permitido, responsabilidades de cuenta, límites del producto, propiedad intelectual, contenido aceptable y manejo de disputas.',
+      'Define las condiciones de uso, las responsabilidades de cada cuenta y los límites del servicio.',
     owner: 'Producto y legal',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -388,7 +388,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Términos de Comunidad',
     category: 'Comunidad',
     summary:
-      'Establece las reglas para RareFriends™ by Pocket Genes, incluyendo opciones de identidad, participación respetuosa y límites sobre indicaciones médicas.',
+      'Establece las reglas de RareFriends™, las opciones de identidad, las normas de participación y los límites del asesoramiento médico.',
     owner: 'Operaciones comunitarias',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -415,7 +415,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Política de Seguridad Comunitaria',
     category: 'Comunidad',
     summary:
-      'Detalla moderación, reportes, derivación de casos, prevención de abuso y manejo de crisis para RareFriends™ by Pocket Genes.',
+      'Explica cómo moderamos la comunidad, gestionamos denuncias y respondemos ante abusos o situaciones sensibles.',
     owner: 'Operaciones comunitarias',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -437,7 +437,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Resumen de Seguridad',
     category: 'Seguridad',
     summary:
-      'Resume los controles de seguridad sobre los que se diseña Pocket Genes.',
+      'Resume las principales medidas de seguridad incorporadas en Pocket Genes.',
     owner: 'Seguridad',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -464,7 +464,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Diagrama de Flujo de Datos',
     category: 'Seguridad',
     summary:
-      'Muestra cómo un informe se convierte en una experiencia privada de Pocket Genes y qué puede moverse opcionalmente hacia la comunidad.',
+      'Muestra cómo se procesa un informe y qué información puede compartirse con la comunidad cuando el usuario lo decide.',
     owner: 'Seguridad y producto',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -483,10 +483,10 @@ export const trustDocumentsEs: TrustDocument[] = [
   },
   {
     slug: 'subprocessor-list',
-    title: 'Lista de Subprocesadores',
+    title: 'Proveedores que procesan datos',
     category: 'Privacidad y derechos',
     summary:
-      'Lista a los terceros que pueden procesar datos de cuenta, hosting, analítica, almacenamiento, soporte o comunicación para Pocket Genes.',
+      'Enumera los servicios externos que pueden procesar datos para el funcionamiento de Pocket Genes.',
     owner: 'Confianza y privacidad',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -508,7 +508,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Política de Retención y Eliminación de Datos',
     category: 'Privacidad y derechos',
     summary:
-      'Explica cuánto tiempo Pocket Genes conserva datos de cuenta, informes, campos interpretados, contenido comunitario, registros y copias de seguridad.',
+      'Explica durante cuánto tiempo conservamos cada tipo de información y cuándo se elimina.',
     owner: 'Confianza y privacidad',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -527,13 +527,13 @@ export const trustDocumentsEs: TrustDocument[] = [
   },
   {
     slug: 'incident-reporting',
-    title: 'Contacto para Reporte de Incidentes',
+    title: 'Informar un incidente',
     category: 'Seguridad',
     summary:
-      'Ofrece un canal directo para reportes de seguridad, privacidad y situaciones sensibles dentro de la comunidad.',
+      'Ofrece un canal directo para informar problemas de seguridad, privacidad o conducta dentro de la comunidad.',
     owner: 'Seguridad',
     lastReviewed: 'Julio 2026',
-    status: 'Página de contacto activa',
+    status: 'Canal disponible',
     sections: [
       {
         heading: 'Contacto',
@@ -552,7 +552,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Declaración de Accesibilidad',
     category: 'Accesibilidad',
     summary:
-      'Establece el objetivo de accesibilidad para las páginas públicas y experiencias móviles de Pocket Genes, más una vía de contacto para barreras.',
+      'Explica nuestros objetivos de accesibilidad y cómo informar una barrera o dificultad de uso.',
     owner: 'Producto',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -574,7 +574,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Metodología Científica',
     category: 'Ciencia',
     summary:
-      'Explica cómo Pocket Genes convierte campos de informes en resúmenes educativos sin hacer afirmaciones clínicas no respaldadas.',
+      'Explica cómo transformamos la información de los informes en contenidos educativos sin realizar afirmaciones clínicas no respaldadas.',
     owner: 'Revisión científica',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
