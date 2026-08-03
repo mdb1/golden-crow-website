@@ -120,8 +120,18 @@ export interface ClassifiedEvent {
   /** True when the acting principal is the client themself (self-serve). */
   isSelfService: boolean;
   isDeletion: boolean;
-  /** Tag used by `mergeWorkoutWriteBacks` to fold related rows together. */
-  correlation: "workout_finished" | "prescription_writeback" | "assignment_completed" | null;
+  /**
+   * Tag used by `mergeWorkoutWriteBacks` to fold related rows together.
+   * `recurrence_edit` is not one of its inputs — it is folded at the GROUP level
+   * (`findRecurrenceEdits`), before classification — and is carried only so the
+   * row is identifiable downstream.
+   */
+  correlation:
+    | "workout_finished"
+    | "prescription_writeback"
+    | "assignment_completed"
+    | "recurrence_edit"
+    | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -158,6 +168,20 @@ export function changedOnly(fields: string[], allowed: string[]): boolean {
 const WEEKDAY_SUN_FIRST = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 /** ISO weekday (Mon=1 … Sun=7) short names, the habit convention. */
 const WEEKDAY_ISO = ["", "lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
+
+/**
+ * Whether a `workout_assignments.recurrence` map describes a SERIES.
+ *
+ * Deliberately not `recurrenceLabel(...) !== null`: the label is also null for
+ * a kind this reader doesn't know yet, and an unknown kind is still a series.
+ * The only shape that means "one day and that's it" is `kind: "single"` (or no
+ * recurrence map at all).
+ */
+export function isRecurringAssignment(recurrence: unknown): boolean {
+  if (!recurrence || typeof recurrence !== "object") return false;
+  const kind = str((recurrence as Record<string, unknown>).kind);
+  return !!kind && kind !== "single";
+}
 
 /**
  * Spanish label for a `workout_assignments.recurrence` map.
@@ -363,7 +387,17 @@ function refFor(
  */
 export function classifyAuditRecord(
   record: AuditRecord,
-  group: { count: number; dates: string[] } = { count: 1, dates: [] },
+  group: {
+    count: number;
+    dates: string[];
+    /**
+     * #697 — set when this create is the re-expansion half of a recurrence edit
+     * (see `findRecurrenceEdits`), carrying what the series looked like BEFORE.
+     * Its presence is what tells an edit apart from the automatic horizon
+     * renewal, which the anchor alone cannot do.
+     */
+    recurrenceEdit?: { previousRecurrence: unknown } | null;
+  } = { count: 1, dates: [] },
 ): ClassifiedEvent {
   const subject = record.op === "delete" ? record.before : record.after;
   const before = record.before ?? {};
@@ -455,6 +489,36 @@ export function classifyAuditRecord(
       const isSelf = after.selfAssigned === true || before.selfAssigned === true || selfService;
 
       if (record.op === "create") {
+        // #697 — a recurrence EDIT (delete-future then re-expand), not a fresh
+        // assignment and not the automatic renewal below. It has to be checked
+        // first: `editAssignmentRecurrence` preserves the original
+        // `scheduleStartCivil` to keep the series window, so the re-expanded
+        // occurrences match `isAutoExtendedOccurrence` exactly and every edit
+        // rendered as "se extendió sola", with no actor — the report's other
+        // half. Only the paired delete distinguishes them.
+        if (group.recurrenceEdit) {
+          const from = recurrenceLabel(group.recurrenceEdit.previousRecurrence);
+          const to = recurrenceLabel(after.recurrence);
+          return {
+            category: "schedule",
+            significance: "key",
+            action: "move",
+            title: "Cambió la recurrencia de una rutina",
+            subject: null,
+            subjectRef: ref,
+            meta: [
+              from && to && from !== to ? `${from} → ${to}` : (to ?? from),
+              ...occurrences,
+              str(after.scheduledTime),
+            ].filter((m): m is string => !!m),
+            target: record.clientId ? { kind: "user", uid: record.clientId } : null,
+            actorUid: isSelf ? byClient : byTrainer,
+            isSelfService: isSelf,
+            isDeletion: false,
+            correlation: "recurrence_edit",
+          };
+        }
+
         // The horizon renewal (see `isAutoExtendedOccurrence`). NOBODY did this
         // — the app topped the series back up on its own — so it renders with
         // no actor rather than crediting the athlete with an assignment they
@@ -483,10 +547,23 @@ export function classifyAuditRecord(
           };
         }
 
+        // "desde <fecha>" promises more dates after it. A one-day assignment has
+        // no more dates, so it just reads as a series that never ends — say the
+        // date bare. And when the group already spells the occurrence span out,
+        // the head's own `scheduledFor` adds nothing: it is one of those dates,
+        // and since groups keep input order (newest-first) it is usually the
+        // LAST one, so "desde" would name the wrong end of the range.
+        const scheduledFor = str(after.scheduledFor);
+        const scheduledForLabel =
+          !scheduledFor || occurrences.length > 0
+            ? null
+            : isRecurringAssignment(after.recurrence)
+              ? `desde ${scheduledFor}`
+              : scheduledFor;
         const meta = [
           recurrenceLabel(after.recurrence),
           ...occurrences,
-          str(after.scheduledFor) ? `desde ${str(after.scheduledFor)}` : null,
+          scheduledForLabel,
           str(after.scheduledTime),
         ].filter((m): m is string => !!m);
         return {
@@ -669,7 +746,12 @@ export function classifyAuditRecord(
           subjectRef: refFor("habits", record.docId, name),
           meta: [
             habitFrequencyLabel(after),
-            str(after.startsOn) ? `desde ${str(after.startsOn)}` : null,
+            // Same rule as the assignment above: a one-time habit has no "desde"
+            // — and `habitFrequencyLabel` already printed that date as
+            // "una vez (2026-08-02)", so repeating it prefixed says it twice.
+            str(after.startsOn) && str(after.scheduleType) !== "one-time"
+              ? `desde ${str(after.startsOn)}`
+              : null,
             str(after.endsOn) ? `hasta ${str(after.endsOn)}` : null,
           ].filter((m): m is string => !!m),
           target: record.clientId ? { kind: "user", uid: record.clientId } : null,

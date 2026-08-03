@@ -39,13 +39,17 @@ import {
   classifyAuditRecord,
   mergeWorkoutWriteBacks,
   type AuditRecord,
+  type ClassifiedEvent,
   type FeedAction,
   type FeedCategory,
   type FeedSignificance,
   type FeedSubjectRef,
   type FeedTarget,
 } from "@/lib/gc-fitness/activity-feed-model";
-import { groupRecurringAuditEntries } from "@/lib/gc-fitness/audit-grouping";
+import {
+  findRecurrenceEdits,
+  groupRecurringAuditEntries,
+} from "@/lib/gc-fitness/audit-grouping";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { COACH_ACTIVITY_COLLECTION } from "@/lib/gc-fitness/coach-activity-log";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
@@ -96,11 +100,9 @@ export interface ActivityFeedEvent {
   kind: string;
   // Fields the pure merge step reads.
   clientUid: string | null;
-  correlation:
-    | "workout_finished"
-    | "prescription_writeback"
-    | "assignment_completed"
-    | null;
+  // Mirrored from the classifier rather than re-listed, so a new tag (e.g.
+  // #697's `recurrence_edit`) cannot be added on one side only.
+  correlation: ClassifiedEvent["correlation"];
 }
 
 export interface ActivityFeedFilters {
@@ -665,10 +667,33 @@ async function collectFeed(
 
   // Collapse recurring-series writes (one coach edit → one doc per occurrence).
   const auditGroups = groupRecurringAuditEntries(auditRaw);
-  const classified = auditGroups.map((group) => ({
-    group,
-    event: classifyAuditRecord(group.head, { count: group.count, dates: group.dates }),
-  }));
+
+  // #697 — a recurrence change arrives as "delete the future occurrences" plus
+  // "write the new ones". Pair the halves so the row says what was actually done
+  // (and so the re-expansion stops being read as the automatic horizon renewal),
+  // then drop the delete half: on its own it reads as "eliminó workouts
+  // agendados", which is the opposite of what the user did.
+  const recurrenceEdits = findRecurrenceEdits(auditGroups);
+  const editByCreate = new Map(recurrenceEdits.map((l) => [l.createIndex, l.deleteIndex]));
+  const absorbedDeletes = new Set(recurrenceEdits.map((l) => l.deleteIndex));
+
+  const classified = auditGroups
+    .map((group, index) => ({ group, index }))
+    .filter(({ index }) => !absorbedDeletes.has(index))
+    .map(({ group, index }) => {
+      const deleteIndex = editByCreate.get(index);
+      const previous =
+        deleteIndex === undefined ? null : auditGroups[deleteIndex].head.before?.recurrence;
+      return {
+        group,
+        event: classifyAuditRecord(group.head, {
+          count: group.count,
+          dates: group.dates,
+          recurrenceEdit:
+            deleteIndex === undefined ? null : { previousRecurrence: previous ?? null },
+        }),
+      };
+    });
 
   // ── identities ──
   const uids = new Set<string>();

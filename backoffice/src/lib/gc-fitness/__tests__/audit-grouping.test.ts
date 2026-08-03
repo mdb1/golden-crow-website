@@ -6,7 +6,9 @@
 // the dashboard must collapse them back into one row.
 
 import {
+  assignmentTemplateId,
   dateRangeLabel,
+  findRecurrenceEdits,
   fmtYmd,
   groupRecurringAuditEntries,
   recurringSeries,
@@ -130,5 +132,133 @@ describe("groupRecurringAuditEntries", () => {
     expect(groups[0].count).toBe(2);
     expect(groups[0].head.op).toBe("create");
     expect(groups[0].root).toBe("asg-NEW");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #697 — two routines swapped between weekdays, and only one showed up
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A self-created occurrence: `asg-<uid>-<YYYYMMDD>-self-<uuid>` (#392). */
+function selfOccurrence(
+  over: Partial<RawAuditLogEntry> & { id: string; date: string; templateId: string },
+): RawAuditLogEntry {
+  const { date, templateId, ...rest } = over;
+  const snapshot = { templateId, recurrence: { kind: "weekly", weekdays: [5] } };
+  return raw({
+    docId: `asg-uidClient-${date}-self-${UUID}`,
+    op: "create",
+    trainerId: "uidClient",
+    clientId: "uidClient",
+    after: snapshot,
+    ...rest,
+  });
+}
+
+describe("assignmentTemplateId", () => {
+  it("reads the routine from either snapshot", () => {
+    expect(assignmentTemplateId(raw({ id: "a", after: { templateId: "tpl-1" } }))).toBe("tpl-1");
+    expect(assignmentTemplateId(raw({ id: "b", before: { templateId: "tpl-2" } }))).toBe("tpl-2");
+    expect(assignmentTemplateId(raw({ id: "c" }))).toBeNull();
+  });
+});
+
+describe("groupRecurringAuditEntries — #697 different routines, same client", () => {
+  /**
+   * The reported bug. Every assignment id is `asg-<clientUid>-…`, so the "series
+   * root" is the PERSON: two routines edited in the same minute collapsed into
+   * one row and only the newest one's name survived — "faltan entries".
+   */
+  it("keeps two routines of the same client in the same minute apart", () => {
+    const groups = groupRecurringAuditEntries([
+      selfOccurrence({ id: "1", date: "20270107", templateId: "tpl-pullin" }),
+      selfOccurrence({ id: "2", date: "20270108", templateId: "tpl-piernubis" }),
+    ]);
+    expect(groups).toHaveLength(2);
+    expect(groups.map((g) => g.count)).toEqual([1, 1]);
+  });
+
+  it("still collapses the many occurrences of ONE routine's edit", () => {
+    const groups = groupRecurringAuditEntries([
+      selfOccurrence({ id: "1", date: "20270107", templateId: "tpl-pullin" }),
+      selfOccurrence({ id: "2", date: "20270114", templateId: "tpl-pullin" }),
+      selfOccurrence({ id: "3", date: "20270121", templateId: "tpl-pullin" }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].count).toBe(3);
+  });
+
+  it("falls back to the old client-wide collapse when the routine is unknown", () => {
+    // An UPDATE only snapshots the fields that changed, so `templateId` is
+    // usually absent. Splitting on "unknown" would explode one edit into a row
+    // per occurrence — the exact noise #671 removed.
+    const groups = groupRecurringAuditEntries([
+      raw({ id: "1", docId: `asg-uidClient-20270107-${UUID}` }),
+      raw({ id: "2", docId: `asg-uidClient-20270114-${UUID}` }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].count).toBe(2);
+  });
+});
+
+describe("findRecurrenceEdits", () => {
+  const deleted = (id: string, date: string, templateId: string, atISO: string) =>
+    raw({
+      id,
+      docId: `asg-uidClient-${date}-self-${UUID}`,
+      op: "delete",
+      trainerId: "uidClient",
+      clientId: "uidClient",
+      occurredAtISO: atISO,
+      before: { templateId, recurrence: { kind: "weekly", weekdays: [5] } },
+    });
+  const created = (id: string, date: string, templateId: string, atISO: string) =>
+    selfOccurrence({ id, date, templateId, occurredAtISO: atISO });
+
+  it("pairs the delete batch with the re-expansion of the SAME routine", () => {
+    const groups = groupRecurringAuditEntries([
+      created("c1", "20270106", "tpl-pullin", "2027-01-02T10:00:05.000Z"),
+      deleted("d1", "20270108", "tpl-pullin", "2027-01-02T10:00:01.000Z"),
+    ]);
+    expect(findRecurrenceEdits(groups)).toEqual([{ createIndex: 0, deleteIndex: 1 }]);
+  });
+
+  it("does not pair a delete of a DIFFERENT routine", () => {
+    // The ticket's scenario: one routine moved off Friday while another moved
+    // onto it. Pairing on the series root alone (= the client) would cross the
+    // wires and report each change against the other routine.
+    const groups = groupRecurringAuditEntries([
+      created("c1", "20270106", "tpl-piernubis", "2027-01-02T10:00:05.000Z"),
+      deleted("d1", "20270108", "tpl-pullin", "2027-01-02T10:00:01.000Z"),
+    ]);
+    expect(findRecurrenceEdits(groups)).toEqual([]);
+  });
+
+  it("leaves an automatic horizon top-up alone — it only ever adds", () => {
+    const groups = groupRecurringAuditEntries([
+      created("c1", "20270106", "tpl-pullin", "2027-01-02T10:00:05.000Z"),
+    ]);
+    expect(findRecurrenceEdits(groups)).toEqual([]);
+  });
+
+  it("does not reach across an unrelated delete minutes away", () => {
+    const groups = groupRecurringAuditEntries([
+      created("c1", "20270106", "tpl-pullin", "2027-01-02T10:30:00.000Z"),
+      deleted("d1", "20270108", "tpl-pullin", "2027-01-02T10:00:00.000Z"),
+    ]);
+    expect(findRecurrenceEdits(groups)).toEqual([]);
+  });
+
+  it("never claims one delete for two creates", () => {
+    const groups = groupRecurringAuditEntries([
+      created("c1", "20270106", "tpl-pullin", "2027-01-02T10:00:05.000Z"),
+      created("c2", "20270106", "tpl-pullin", "2027-01-02T10:00:06.000Z"),
+      deleted("d1", "20270108", "tpl-pullin", "2027-01-02T10:00:01.000Z"),
+    ]);
+    // The two creates land in separate groups only because their ids differ;
+    // whichever pairs first owns the delete, and the other stays unpaired.
+    const links = findRecurrenceEdits(groups);
+    expect(links).toHaveLength(1);
+    expect(new Set(links.map((l) => l.deleteIndex)).size).toBe(1);
   });
 });
