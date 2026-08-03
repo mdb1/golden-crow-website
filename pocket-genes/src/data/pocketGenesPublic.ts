@@ -22,7 +22,7 @@ const publicNavItemsByLocale: Record<PocketGenesPublicLocale, { label: string; h
   es: [
     { label: 'Inicio', href: '/pocket-genes/home' },
     { label: 'Comunidad', href: '/pocket-genes/rarefriends' },
-    { label: 'Centro de confianza', href: '/pocket-genes/trust-center' },
+    { label: 'Trust center', href: '/pocket-genes/trust-center' },
     { label: 'Integración', href: '/pocket-genes/website/integration' },
     { label: 'Descargar', href: '/pocket-genes/download' },
   ],
@@ -347,7 +347,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Alcance',
         body:
-          'Pocket Genes trata los informes genéticos, metadatos de informes, notas y elecciones de perfil comunitario como información sensible. Los datos de cuenta, documentos cargados, campos interpretados, interacciones educativas, diagnósticos de dispositivo y participación comunitaria se describen por separado.',
+          'Pocket Genes trata los informes genéticos, metadatos de informes, notas y preferencias del perfil comunitario como información sensible. Los datos de cuenta, documentos cargados, campos extraídos del informe, interacciones educativas, datos técnicos del dispositivo y participación comunitaria se describen por separado.',
       },
       {
         heading: 'Control del usuario',
@@ -374,7 +374,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Límites del producto',
         body:
-          'Pocket Genes es un producto educativo y organizacional. No brinda diagnóstico, tratamiento, soporte de emergencia, asesoramiento genético ni toma de decisiones médicas.',
+          'Pocket Genes ayuda a organizar información y aprender sobre informes genéticos. No brinda diagnóstico, tratamiento, soporte de emergencia, asesoramiento genético ni toma de decisiones médicas.',
       },
       {
         heading: 'Responsabilidades del usuario',
@@ -388,15 +388,15 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Términos de Comunidad',
     category: 'Comunidad',
     summary:
-      'Establece las reglas para RareFriends by Pocket Genes, incluyendo opciones de identidad, participación respetuosa y límites sobre consejo médico.',
+      'Establece las reglas para RareFriends™ by Pocket Genes, incluyendo opciones de identidad, participación respetuosa y límites sobre indicaciones médicas.',
     owner: 'Operaciones comunitarias',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
     sections: [
       {
-        heading: 'RareFriends by Pocket Genes',
+        heading: 'RareFriends™ by Pocket Genes',
         body:
-          'RareFriends by Pocket Genes es la capa comunitaria conectada a Pocket Genes. El nombre completo se usa de forma consistente para que las personas entiendan la relación entre la comunidad y la app.',
+          'RareFriends™ by Pocket Genes es la comunidad conectada a Pocket Genes. El nombre completo se usa de forma consistente para que las personas entiendan la relación entre la comunidad y la app.',
       },
       {
         heading: 'Reglas de participación',
@@ -415,7 +415,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Política de Seguridad Comunitaria',
     category: 'Comunidad',
     summary:
-      'Detalla moderación, reportes, escalamiento, prevención de abuso y manejo de crisis para RareFriends by Pocket Genes.',
+      'Detalla moderación, reportes, derivación de casos, prevención de abuso y manejo de crisis para RareFriends™ by Pocket Genes.',
     owner: 'Operaciones comunitarias',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -428,7 +428,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Escalamiento',
         body:
-          'Pocket Genes ofrece una vía clara de contacto para reportes urgentes de seguridad.',
+          'Pocket Genes ofrece una vía clara de contacto para reportes urgentes de seguridad y situaciones sensibles dentro de la comunidad.',
       },
     ],
   },
@@ -486,7 +486,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Lista de Subprocesadores',
     category: 'Privacidad y derechos',
     summary:
-      'Lista terceros que pueden procesar datos de cuenta, hosting, analítica, almacenamiento, soporte o comunicación para Pocket Genes.',
+      'Lista a los terceros que pueden procesar datos de cuenta, hosting, analítica, almacenamiento, soporte o comunicación para Pocket Genes.',
     owner: 'Confianza y privacidad',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -530,7 +530,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Contacto para Reporte de Incidentes',
     category: 'Seguridad',
     summary:
-      'Ofrece un canal directo para reportes de seguridad, privacidad y seguridad comunitaria.',
+      'Ofrece un canal directo para reportes de seguridad, privacidad y situaciones sensibles dentro de la comunidad.',
     owner: 'Seguridad',
     lastReviewed: 'Julio 2026',
     status: 'Página de contacto activa',
@@ -543,7 +543,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Qué incluir',
         body:
-          'Los reportes útiles incluyen la función afectada, hora aproximada, pasos para reproducir cuando corresponda, capturas sin datos genéticos sensibles cuando sea posible y un email seguro de respuesta.',
+          'Los reportes útiles incluyen la función afectada, hora aproximada, pasos para reproducir cuando corresponda, capturas sin datos genéticos sensibles cuando sea posible y un email de contacto seguro.',
       },
     ],
   },
@@ -565,7 +565,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Feedback',
         body:
-          `Las barreras de accesibilidad pueden reportarse a ${POCKET_GENES_SUPPORT_EMAIL} con la página, dispositivo, tecnología asistiva si corresponde y una descripción del problema.`,
+          `Las barreras de accesibilidad pueden reportarse a ${POCKET_GENES_SUPPORT_EMAIL} indicando la página, el dispositivo, la tecnología de asistencia si corresponde y una descripción del problema.`,
       },
     ],
   },
@@ -596,7 +596,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Declaración Regulatoria y de Uso Previsto',
     category: 'Ciencia',
     summary:
-      'Establece qué pretende hacer Pocket Genes y qué no pretende hacer.',
+      'Aclara para qué está pensado Pocket Genes y para qué no.',
     owner: 'Producto y legal',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -609,7 +609,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'No previsto para',
         body:
-          'Pocket Genes no está pensado para diagnosticar enfermedades, interpretar variantes de forma independiente, prescribir tratamientos, reemplazar asesoramiento genético ni brindar consejo médico de emergencia.',
+          'Pocket Genes no está pensado para diagnosticar enfermedades, interpretar variantes de forma independiente, indicar tratamientos, reemplazar asesoramiento genético ni brindar indicaciones médicas de emergencia.',
       },
     ],
   },
