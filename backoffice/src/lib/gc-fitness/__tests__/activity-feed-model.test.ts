@@ -417,6 +417,62 @@ describe("classifyAuditRecord — scheduling", () => {
   });
 });
 
+describe("classifyAuditRecord — #697 recurrence edits", () => {
+  /** The re-expansion half of `editAssignmentRecurrence`. */
+  const reExpansion = record({
+    op: "create",
+    after: {
+      selfAssigned: true,
+      templateId: "tpl-pullin",
+      scheduledFor: "2027-01-06",
+      // ⚠️ The ORIGINAL anchor, months before this write: a recurrence edit
+      // preserves the series window on purpose. That is precisely the shape
+      // `isAutoExtendedOccurrence` reads as an automatic top-up.
+      scheduleStartCivil: "2026-07-31",
+      recurrence: { kind: "weekly", weekday: 3 },
+    },
+    clientId: CLIENT,
+    trainerId: CLIENT,
+    occurredAtISO: "2027-01-02T10:00:05.000Z",
+  });
+
+  it("was indistinguishable from the automatic renewal by the anchor alone", () => {
+    // Not a bug being asserted — the reason the fix needs the paired delete.
+    expect(isAutoExtendedOccurrence(reExpansion)).toBe(true);
+  });
+
+  it("reads as the person's change, with the weekday move, when paired", () => {
+    const event = classifyAuditRecord(reExpansion, {
+      count: 3,
+      dates: [],
+      recurrenceEdit: { previousRecurrence: { kind: "weekly", weekday: 5 } },
+    });
+    expect(event.title).toBe("Cambió la recurrencia de una rutina");
+    // The report's core complaint: the change had NO actor, because the renewal
+    // branch deliberately credits nobody.
+    expect(event.actorUid).toBe(CLIENT);
+    expect(event.action).toBe("move");
+    expect(event.isDeletion).toBe(false);
+    expect(event.meta[0]).toBe("todas las semanas (vie) → todas las semanas (mié)");
+  });
+
+  it("still calls a genuine top-up automatic when nothing was deleted", () => {
+    const event = classifyAuditRecord(reExpansion, { count: 3, dates: [] });
+    expect(event.title).toBe("Se extendió sola una rutina recurrente");
+    expect(event.actorUid).toBeNull();
+  });
+
+  it("shows a single label when only the weekday list is unavailable", () => {
+    const event = classifyAuditRecord(reExpansion, {
+      count: 1,
+      dates: [],
+      recurrenceEdit: { previousRecurrence: null },
+    });
+    expect(event.title).toBe("Cambió la recurrencia de una rutina");
+    expect(event.meta[0]).toBe("todas las semanas (mié)");
+  });
+});
+
 describe("classifyAuditRecord — habits, exercises, accounts", () => {
   it("names a client-created habit and its frequency", () => {
     const event = classifyAuditRecord(
