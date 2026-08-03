@@ -22,7 +22,7 @@ const publicNavItemsByLocale: Record<PocketGenesPublicLocale, { label: string; h
   es: [
     { label: 'Inicio', href: '/pocket-genes/home' },
     { label: 'Comunidad', href: '/pocket-genes/rarefriends' },
-    { label: 'Trust center', href: '/pocket-genes/trust-center' },
+    { label: 'Centro de confianza', href: '/pocket-genes/trust-center' },
     { label: 'Integración', href: '/pocket-genes/website/integration' },
     { label: 'Descargar', href: '/pocket-genes/download' },
   ],
@@ -352,11 +352,11 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Control del usuario',
         body:
-          'Los informes y variantes exactas son privados por defecto, y la participación comunitaria es opcional.',
+          'Los informes y variantes exactas son privados desde el inicio, y la participación comunitaria es opcional.',
         bullets: [
           'Los usuarios pueden elegir qué guardar, eliminar o compartir.',
           'La visibilidad comunitaria es explícita y reversible.',
-          'Los informes privados nunca se exponen en espacios comunitarios públicos por defecto.',
+          'Los informes privados no se muestran en espacios comunitarios públicos salvo que el usuario elija compartir una versión limitada.',
         ],
       },
     ],
@@ -475,7 +475,7 @@ export const trustDocumentsEs: TrustDocument[] = [
           'El diagrama separa campos del informe fuente, organización en Pocket Genes, explicaciones educativas, almacenamiento del usuario, uso compartido opcional y rutas de eliminación.',
       },
       {
-        heading: 'Visibilidad por defecto',
+        heading: 'Visibilidad inicial',
         body:
           'Los informes cargados, variantes interpretadas, fuentes del informe y notas de salud permanecen privados salvo que el usuario comparta explícitamente un resumen limitado.',
       },
