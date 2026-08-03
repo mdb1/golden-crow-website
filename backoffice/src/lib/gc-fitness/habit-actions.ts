@@ -961,6 +961,13 @@ export async function softDeleteHabit(
 
   await docRef.update({
     deleted: true,
+    // #653 — a deleted habit must not keep an enabled reminder. The scanner's
+    // in-memory `deleted !== true` filter does cover this one, but the flag
+    // being left on is what made the production data read as "24 habits with
+    // reminders" when 7 of them were deleted — and any future path that reaches
+    // the query without that filter would fire them. Same rationale, in full,
+    // in `deleteHabitRecurrenceFromDate`.
+    reminderEnabled: false,
     updatedAt: FieldValue.serverTimestamp(),
   });
 
@@ -1017,6 +1024,9 @@ export async function deleteHabitRecurrenceFromDate(
   if (existing.startsOn && newEndsOn < existing.startsOn) {
     await docRef.update({
       deleted: true,
+      // #653 — see below: a habit that will never occur again must not keep an
+      // enabled reminder.
+      reminderEnabled: false,
       updatedAt: FieldValue.serverTimestamp(),
     });
     return { ok: true };
@@ -1024,6 +1034,29 @@ export async function deleteHabitRecurrenceFromDate(
 
   await docRef.update({
     endsOn: newEndsOn,
+    // #653 — capping the recurrence must also turn the REMINDER off.
+    //
+    // This is the fix for "I deleted a habit that had a reminder and it keeps
+    // arriving the next days". `sendHabitReminders` scans
+    // `where('reminderEnabled','==',true)` and only then applies its date gate
+    // (`scheduleActiveOnCivilDate`, which does respect `endsOn`) — so the push
+    // stopping depended entirely on that gate being live in production. It is
+    // not: the gate landed in gc-fitness `27c19828` (2026-07-02) and the
+    // deployed `sendHabitReminders` dates from 2026-06-12. Functions are not
+    // deployed by CI in that repo, so production has been running a build that
+    // never knew about `endsOn`.
+    //
+    // Measured in production on 2026-08-02, from the server's own
+    // `/habit_reminder_sent` markers: "COKITA FRIA" (`endsOn` 2026-07-05) and
+    // "Caminata de 30 minutos" (`endsOn` 2026-06-01) both sent again THAT DAY,
+    // along with four more ended habits.
+    //
+    // Turning the flag off is right on its own terms — a habit with no future
+    // occurrence has nothing to remind about — and it drops the doc out of the
+    // scanner's QUERY, so the pushes stop against the deployed build too,
+    // without waiting on the operator's deploy. The deploy is still needed for
+    // the docs already in this state; it does not replace it.
+    reminderEnabled: false,
     updatedAt: FieldValue.serverTimestamp(),
   });
 
