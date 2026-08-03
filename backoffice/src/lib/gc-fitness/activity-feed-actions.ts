@@ -433,9 +433,14 @@ async function resolveEntityNames(
         .catch(() => null);
       if (!snap || !snap.exists) return;
       const d = snap.data() as Record<string, unknown>;
+      // A log and an assignment both carry the workout's name inside their
+      // `templateSnapshot`; a template / habit / exercise carries it top-level.
+      // #713 — assignments were not in this list, so a routine edit (whose
+      // changed-field snapshot has no `templateId` to point at a template) had
+      // no way to be named at all.
       const raw =
-        ref.collection === "workout_logs"
-          ? snapshotRecord(d.templateSnapshot)?.name
+        ref.collection === "workout_logs" || ref.collection === "workout_assignments"
+          ? (snapshotRecord(d.templateSnapshot)?.name ?? d.name)
           : d.name;
       const name = bilingualText(raw, "");
       if (name) out.set(`${ref.collection}:${ref.id}`, name);
