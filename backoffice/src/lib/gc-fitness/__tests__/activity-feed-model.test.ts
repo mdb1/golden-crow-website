@@ -12,6 +12,7 @@ import {
   durationLabel,
   habitFrequencyLabel,
   isElided,
+  isRecurringAssignment,
   mergeWorkoutWriteBacks,
   occurrenceDateFromId,
   recurrenceLabel,
@@ -211,6 +212,87 @@ describe("classifyAuditRecord — scheduling", () => {
     );
     expect(byCoach.title).toBe("Asignó un workout");
     expect(byCoach.isSelfService).toBe(false);
+  });
+
+  // ── The one-day assignment does not start anything ─────────────────────
+  //
+  // Reported on #697: the feed read "Manolo se asignó un workout · desde
+  // 2026-08-02" for an assignment that was ONE day. "desde" promises dates
+  // after it.
+  it("says a one-off assignment's date bare, and only a series gets a 'desde'", () => {
+    const oneOff = classifyAuditRecord(
+      record({
+        op: "create",
+        changedFields: ["selfAssigned", "scheduledFor", "templateId"],
+        after: { selfAssigned: true, scheduledFor: "2026-08-02", templateId: "tpl-1" },
+        clientId: CLIENT,
+        trainerId: CLIENT,
+      }),
+    );
+    expect(oneOff.title).toBe("Se asignó un workout");
+    expect(oneOff.meta).toEqual(["2026-08-02"]);
+
+    // An explicit `.single` map is the same one day, spelled out.
+    const single = classifyAuditRecord(
+      record({
+        op: "create",
+        changedFields: ["scheduledFor", "recurrence"],
+        after: {
+          scheduledFor: "2026-08-02",
+          templateId: "tpl-1",
+          recurrence: { kind: "single" },
+        },
+        clientId: "client9",
+        trainerId: COACH,
+      }),
+    );
+    expect(single.meta).toEqual(["2026-08-02"]);
+
+    // A real series keeps it: there IS something after that date.
+    const series = classifyAuditRecord(
+      record({
+        op: "create",
+        changedFields: ["scheduledFor", "recurrence"],
+        after: {
+          scheduledFor: "2026-08-05",
+          templateId: "tpl-1",
+          recurrence: { kind: "weekly", weekday: 3 },
+        },
+        clientId: "client9",
+        trainerId: COACH,
+      }),
+    );
+    expect(series.meta).toContain("desde 2026-08-05");
+  });
+
+  it("drops the head's own date when the collapsed group already spells the span", () => {
+    // Groups keep input order (newest-first), so the head's `scheduledFor` is
+    // usually the LAST occurrence — "desde <last>" named the wrong end.
+    const collapsed = classifyAuditRecord(
+      record({
+        op: "create",
+        changedFields: ["scheduledFor", "recurrence"],
+        after: {
+          scheduledFor: "2026-10-28",
+          templateId: "tpl-1",
+          recurrence: { kind: "weekly", weekday: 3 },
+        },
+        clientId: "client9",
+        trainerId: COACH,
+      }),
+      { count: 12, dates: ["20260805", "20261028"] },
+    );
+    expect(collapsed.meta).toEqual(["todas las semanas (mié)", "2026-08-05 → 2026-10-28"]);
+    expect(collapsed.meta.some((m) => m.includes("desde"))).toBe(false);
+  });
+
+  it("reads an unknown recurrence kind as a series, not as a one-off", () => {
+    // `recurrenceLabel` returns null for a kind it doesn't know — which is why
+    // the "is this a series?" question gets its own predicate.
+    expect(recurrenceLabel({ kind: "biweekly" })).toBeNull();
+    expect(isRecurringAssignment({ kind: "biweekly" })).toBe(true);
+    expect(isRecurringAssignment({ kind: "single" })).toBe(false);
+    expect(isRecurringAssignment(undefined)).toBe(false);
   });
 
   // ── #682 — the automatic horizon renewal ───────────────────────────────
@@ -510,6 +592,41 @@ describe("classifyAuditRecord — habits, exercises, accounts", () => {
     );
     expect(event.title).toBe("Asignó un hábito");
     expect(event.action).toBe("assign");
+  });
+
+  it("does not say a one-time habit's single day twice, once prefixed with 'desde'", () => {
+    // Same reading as the one-off assignment (#697): `habitFrequencyLabel`
+    // already prints the date as "una vez (…)", and there is no "desde" about
+    // a day that is also the end.
+    const oneTime = classifyAuditRecord(
+      record({
+        collection: "habits",
+        op: "create",
+        changedFields: ["name", "scheduleType", "startsOn"],
+        after: { name: { es: "Turno médico" }, scheduleType: "one-time", startsOn: "2026-08-02" },
+        clientId: "c1",
+        trainerId: COACH,
+      }),
+    );
+    expect(oneTime.meta).toEqual(["una vez (2026-08-02)"]);
+
+    // A recurring habit does start on a day, so it keeps the prefix.
+    const recurring = classifyAuditRecord(
+      record({
+        collection: "habits",
+        op: "create",
+        changedFields: ["name", "scheduleCadence", "startsOn"],
+        after: {
+          name: { es: "Agua" },
+          scheduleCadence: "daily",
+          scheduleType: "recurring",
+          startsOn: "2026-08-02",
+        },
+        clientId: "c1",
+        trainerId: COACH,
+      }),
+    );
+    expect(recurring.meta).toEqual(["diario", "desde 2026-08-02"]);
   });
 
   it('reads "borrar el hábito desde este día" (an endsOn cap) as a removal, not a schedule tweak', () => {

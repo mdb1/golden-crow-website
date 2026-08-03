@@ -170,6 +170,20 @@ const WEEKDAY_SUN_FIRST = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 const WEEKDAY_ISO = ["", "lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
 
 /**
+ * Whether a `workout_assignments.recurrence` map describes a SERIES.
+ *
+ * Deliberately not `recurrenceLabel(...) !== null`: the label is also null for
+ * a kind this reader doesn't know yet, and an unknown kind is still a series.
+ * The only shape that means "one day and that's it" is `kind: "single"` (or no
+ * recurrence map at all).
+ */
+export function isRecurringAssignment(recurrence: unknown): boolean {
+  if (!recurrence || typeof recurrence !== "object") return false;
+  const kind = str((recurrence as Record<string, unknown>).kind);
+  return !!kind && kind !== "single";
+}
+
+/**
  * Spanish label for a `workout_assignments.recurrence` map.
  *
  * Weekday convention here is JS `getDay()` (Sun=0 … Sat=6) — the one
@@ -533,10 +547,23 @@ export function classifyAuditRecord(
           };
         }
 
+        // "desde <fecha>" promises more dates after it. A one-day assignment has
+        // no more dates, so it just reads as a series that never ends — say the
+        // date bare. And when the group already spells the occurrence span out,
+        // the head's own `scheduledFor` adds nothing: it is one of those dates,
+        // and since groups keep input order (newest-first) it is usually the
+        // LAST one, so "desde" would name the wrong end of the range.
+        const scheduledFor = str(after.scheduledFor);
+        const scheduledForLabel =
+          !scheduledFor || occurrences.length > 0
+            ? null
+            : isRecurringAssignment(after.recurrence)
+              ? `desde ${scheduledFor}`
+              : scheduledFor;
         const meta = [
           recurrenceLabel(after.recurrence),
           ...occurrences,
-          str(after.scheduledFor) ? `desde ${str(after.scheduledFor)}` : null,
+          scheduledForLabel,
           str(after.scheduledTime),
         ].filter((m): m is string => !!m);
         return {
@@ -719,7 +746,12 @@ export function classifyAuditRecord(
           subjectRef: refFor("habits", record.docId, name),
           meta: [
             habitFrequencyLabel(after),
-            str(after.startsOn) ? `desde ${str(after.startsOn)}` : null,
+            // Same rule as the assignment above: a one-time habit has no "desde"
+            // — and `habitFrequencyLabel` already printed that date as
+            // "una vez (2026-08-02)", so repeating it prefixed says it twice.
+            str(after.startsOn) && str(after.scheduleType) !== "one-time"
+              ? `desde ${str(after.startsOn)}`
+              : null,
             str(after.endsOn) ? `hasta ${str(after.endsOn)}` : null,
           ].filter((m): m is string => !!m),
           target: record.clientId ? { kind: "user", uid: record.clientId } : null,
