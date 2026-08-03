@@ -492,6 +492,12 @@ describe("softDeleteHabit", () => {
     const patch = mockUpdate.mock.calls[0][0];
     expect(patch.deleted).toBe(true);
     expect(patch.updatedAt).toBe("SERVER_TIMESTAMP_SENTINEL");
+    // #653 — the reminder flag goes off with the habit. The scanner's own
+    // `deleted !== true` filter already covers this path, but leaving the flag
+    // on is what made production read as "24 reminder habits" with 7 of them
+    // deleted, and it arms any future path that reaches the query without that
+    // filter.
+    expect(patch.reminderEnabled).toBe(false);
   });
 
   // T10 — ownership refusal — cross-trainer soft-delete blocked
@@ -527,6 +533,13 @@ describe("deleteHabitRecurrenceFromDate", () => {
     expect(patch.endsOn).toBe("2026-05-19");
     expect(patch.deleted).toBeUndefined();
     expect(patch.updatedAt).toBe("SERVER_TIMESTAMP_SENTINEL");
+    // #653 — and the reminder goes OFF with it. `sendHabitReminders` selects on
+    // `reminderEnabled == true` and only then applies its `endsOn` date gate, so
+    // while that gate is missing from the deployed build an ended habit keeps
+    // pushing every morning. Measured in production on 2026-08-02 from the
+    // server's own `/habit_reminder_sent` markers: six habits with a PAST
+    // `endsOn` sent again that day.
+    expect(patch.reminderEnabled).toBe(false);
   });
 
   // Deleting from at/before the start has no past to keep → full soft-delete.
@@ -542,6 +555,8 @@ describe("deleteHabitRecurrenceFromDate", () => {
     const patch = mockUpdate.mock.calls[0][0];
     expect(patch.deleted).toBe(true);
     expect(patch.endsOn).toBeUndefined();
+    // #653 — the fallback path turns the reminder off too.
+    expect(patch.reminderEnabled).toBe(false);
   });
 
   it("rejects when caller is not the doc's trainerId", async () => {
