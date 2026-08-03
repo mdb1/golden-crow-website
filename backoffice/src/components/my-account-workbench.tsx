@@ -205,6 +205,7 @@ function scopeText(account: MyAccountRecord) {
   }
 
   return [
+    role.organizationName ?? role.organizationId,
     role.institutionName ?? role.institutionId,
     role.doctorName ?? role.doctorId,
     role.patientName ?? role.patientId,
@@ -465,6 +466,7 @@ export function MyAccountWorkbench({
           />
           <FieldRow label="Active" value={account.role?.isActive ?? account.context.canAccessBackoffice} />
           <FieldRow label="Scope" value={scopeText(account)} />
+          <FieldRow label="Organization id" value={account.role?.organizationId} mono />
           <FieldRow label="Institution id" value={account.role?.institutionId} mono />
           <FieldRow label="Doctor id" value={account.role?.doctorId} mono />
           <FieldRow label="Patient id" value={account.role?.patientId} mono />

@@ -1,14 +1,14 @@
 import { DiscoverFeedEntryWorkbench } from "@/components/discover/feed-entry-workbench";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
-import { requireDiscoverFullAdmin } from "@/lib/discover-server";
+import { requireDiscoverAccess } from "@/lib/discover-server";
 import type { DiscoverOrganizationsPage } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 import { getServerAppLanguage } from "@/lib/server-language";
 
 export default async function NewDiscoverFeedEntryPage() {
-  await requireDiscoverFullAdmin();
+  const adminContext = await requireDiscoverAccess();
 
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -31,6 +31,7 @@ export default async function NewDiscoverFeedEntryPage() {
           mode="create"
           initialOrganizations={organizationsPage.organizations}
           initialOrganizationsNextCursor={organizationsPage.nextCursor}
+          scopedOrganizationId={adminContext.organizationId}
         />
       </HeaderUnclutterScope>
     </div>

@@ -511,17 +511,24 @@ export function DiscoverFeedEntryWorkbench({
   mode = "edit",
   initialOrganizations,
   initialOrganizationsNextCursor,
+  scopedOrganizationId,
 }: {
   feedItem?: DiscoverFeedItemRecord;
   mode?: "create" | "edit";
   initialOrganizations: DiscoverOrganizationRecord[];
   initialOrganizationsNextCursor: string | null;
+  scopedOrganizationId?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const router = useRouter();
   const richEditorRef = useRef<HTMLDivElement | null>(null);
-  const [state, setState] = useState(() => toFormState(feedItem));
+  const [state, setState] = useState(() => {
+    const initialState = toFormState(feedItem);
+    return mode === "create" && scopedOrganizationId
+      ? { ...initialState, publisherOrganizationId: scopedOrganizationId }
+      : initialState;
+  });
   const [bodyMode, setBodyMode] = useState<BodyMode>(
     feedItem?.html_body ? "rich" : "plain",
   );
@@ -533,7 +540,12 @@ export function DiscoverFeedEntryWorkbench({
   const [deletePending, setDeletePending] = useState(false);
   const [publishDialog, setPublishDialog] = useState<PublishDialogState | null>(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
-  const sourceState = useMemo(() => toFormState(feedItem), [feedItem]);
+  const sourceState = useMemo(() => {
+    const initialState = toFormState(feedItem);
+    return mode === "create" && scopedOrganizationId
+      ? { ...initialState, publisherOrganizationId: scopedOrganizationId }
+      : initialState;
+  }, [feedItem, mode, scopedOrganizationId]);
   const selectedOrganization = organizations.find(
     (organization) => organization.id === state.publisherOrganizationId,
   );
@@ -546,6 +558,7 @@ export function DiscoverFeedEntryWorkbench({
   const editStatus = feedItem?.status ?? "draft";
   const editPublishedAt = feedItem?.publishedAt ?? null;
   const isWorking = pending || deletePending;
+  const canChangePublisher = !scopedOrganizationId;
 
   function updateState(patch: Partial<FeedEntryFormState>) {
     setState((current) => ({ ...current, ...patch }));
@@ -626,7 +639,7 @@ export function DiscoverFeedEntryWorkbench({
   }
 
   async function loadMoreOrganizations() {
-    if (!organizationsNextCursor) {
+    if (!organizationsNextCursor || !canChangePublisher) {
       return;
     }
 
@@ -1120,6 +1133,7 @@ export function DiscoverFeedEntryWorkbench({
                         updateState({ publisherOrganizationId: event.target.value })
                       }
                       className="h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                      disabled={!canChangePublisher}
                     >
                       <option value="">{t("Choose organization")}</option>
                       {organizations.map((organization) => (
@@ -1128,7 +1142,7 @@ export function DiscoverFeedEntryWorkbench({
                         </option>
                       ))}
                     </select>
-                    {organizationsNextCursor ? (
+                    {organizationsNextCursor && canChangePublisher ? (
                       <Button
                         type="button"
                         variant="outline"

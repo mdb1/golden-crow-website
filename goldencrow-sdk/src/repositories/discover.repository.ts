@@ -2,6 +2,7 @@ import {
   FieldPath,
   FieldValue,
   Timestamp,
+  type Query,
   type QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
@@ -101,6 +102,56 @@ type FeedItemInput = {
 function requireFullAdmin(context: AdminContext) {
   if (context.role !== "full_admin") {
     throw new AdminRepositoryError("Full admin access required.", 403);
+  }
+}
+
+function requireDiscoverAccess(context: AdminContext) {
+  if (
+    context.role !== "full_admin" &&
+    context.role !== "organization_publisher"
+  ) {
+    throw new AdminRepositoryError("Discover access required.", 403);
+  }
+
+  if (context.role === "organization_publisher" && !context.organizationId) {
+    throw new AdminRepositoryError(
+      "Organization publisher roles require an organization scope.",
+      403,
+    );
+  }
+}
+
+function scopedOrganizationId(context: AdminContext) {
+  return context.role === "organization_publisher"
+    ? context.organizationId
+    : undefined;
+}
+
+function assertOrganizationScope(context: AdminContext, organizationId: string) {
+  const ownOrganizationId = scopedOrganizationId(context);
+  if (ownOrganizationId && ownOrganizationId !== organizationId) {
+    throw new AdminRepositoryError(
+      "This publisher can access only its own organization.",
+      403,
+    );
+  }
+}
+
+function assertFeedItemScope(
+  context: AdminContext,
+  data: Pick<DiscoverFeedItemRecord, "publisherOrganizationId"> | Record<string, unknown>,
+) {
+  const ownOrganizationId = scopedOrganizationId(context);
+  const publisherOrganizationId =
+    "publisherOrganizationId" in data
+      ? normalizeOptionalString(data.publisherOrganizationId)
+      : undefined;
+
+  if (ownOrganizationId && publisherOrganizationId !== ownOrganizationId) {
+    throw new AdminRepositoryError(
+      "This publisher can access only feed entries for its own organization.",
+      403,
+    );
   }
 }
 
@@ -473,11 +524,15 @@ async function listCollectionPage<T>(
   cursor: string | undefined,
   limit: unknown,
   mapper: (doc: QueryDocumentSnapshot) => T,
+  configureQuery?: (query: Query) => Query,
 ): Promise<DiscoverListPage<T>> {
   const pageSize = resolvePageSize(limit);
   const decodedCursor = decodeCursor(cursor);
-  let query = adminDb
-    .collection(collectionName)
+  let query: Query = adminDb.collection(collectionName);
+  if (configureQuery) {
+    query = configureQuery(query);
+  }
+  query = query
     .orderBy("updatedAt", "desc")
     .orderBy(FieldPath.documentId(), "desc")
     .limit(pageSize + 1);
@@ -721,6 +776,7 @@ async function feedItemDocument(
     input.publisherOrganizationId,
     "Publisher organization",
   );
+  assertOrganizationScope(context, publisherOrganizationId);
   const organizationSnapshot = await getOrganizationSnapshot(publisherOrganizationId);
   if (!organizationSnapshot) {
     throw new AdminRepositoryError("Publisher organization not found.", 404);
@@ -778,7 +834,16 @@ export async function listDiscoverOrganizations(
   context: AdminContext,
   options: { cursor?: string; limit?: unknown } = {},
 ) {
-  requireFullAdmin(context);
+  requireDiscoverAccess(context);
+
+  const ownOrganizationId = scopedOrganizationId(context);
+  if (ownOrganizationId) {
+    const organization = await getDiscoverOrganization(context, ownOrganizationId);
+    return {
+      organizations: [organization],
+      nextCursor: null,
+    };
+  }
 
   const page = await listCollectionPage(
     ORGANIZATIONS_COLLECTION,
@@ -797,7 +862,8 @@ export async function getDiscoverOrganization(
   context: AdminContext,
   organizationId: string,
 ) {
-  requireFullAdmin(context);
+  requireDiscoverAccess(context);
+  assertOrganizationScope(context, organizationId);
   const snapshot = await getOrganizationSnapshot(organizationId);
   if (!snapshot) {
     throw new AdminRepositoryError("Organization not found.", 404);
@@ -828,16 +894,27 @@ export async function updateDiscoverOrganization(
   organizationId: string,
   input: OrganizationInput,
 ) {
-  requireFullAdmin(context);
+  requireDiscoverAccess(context);
+  assertOrganizationScope(context, organizationId);
   const existing = await getOrganizationSnapshot(organizationId);
   if (!existing) {
     throw new AdminRepositoryError("Organization not found.", 404);
   }
+  const existingRecord = toOrganizationRecord(existing);
+  const scopedInput =
+    context.role === "organization_publisher"
+      ? {
+          ...input,
+          status: existingRecord.status,
+          verified: existingRecord.verified,
+          internalNotes: existingRecord.internalNotes,
+        }
+      : input;
 
   await existing.ref.set(
     withoutUndefined({
       ...existing.data(),
-      ...organizationDocument(input, context),
+      ...organizationDocument(scopedInput, context),
     }),
     { merge: false },
   );
@@ -849,7 +926,8 @@ export async function syncDiscoverPublisherSnapshot(
   context: AdminContext,
   organizationId: string,
 ) {
-  requireFullAdmin(context);
+  requireDiscoverAccess(context);
+  assertOrganizationScope(context, organizationId);
   const organization = await getDiscoverOrganization(context, organizationId);
   const snapshot = await adminDb
     .collection(FEED_ITEMS_COLLECTION)
@@ -883,13 +961,17 @@ export async function listDiscoverFeedItems(
   context: AdminContext,
   options: { cursor?: string; limit?: unknown } = {},
 ) {
-  requireFullAdmin(context);
+  requireDiscoverAccess(context);
+  const ownOrganizationId = scopedOrganizationId(context);
 
   const page = await listCollectionPage(
     FEED_ITEMS_COLLECTION,
     options.cursor,
     options.limit,
     toFeedItemRecord,
+    ownOrganizationId
+      ? (query) => query.where("publisherOrganizationId", "==", ownOrganizationId)
+      : undefined,
   );
 
   return {
@@ -902,11 +984,12 @@ export async function getDiscoverFeedItem(
   context: AdminContext,
   feedItemId: string,
 ) {
-  requireFullAdmin(context);
+  requireDiscoverAccess(context);
   const snapshot = await getFeedItemSnapshot(feedItemId);
   if (!snapshot) {
     throw new AdminRepositoryError("Feed entry not found.", 404);
   }
+  assertFeedItemScope(context, snapshot.data());
 
   return toFeedItemRecord(snapshot);
 }
@@ -915,7 +998,7 @@ export async function createDiscoverFeedItem(
   context: AdminContext,
   input: FeedItemInput,
 ) {
-  requireFullAdmin(context);
+  requireDiscoverAccess(context);
   const ref = adminDb.collection(FEED_ITEMS_COLLECTION).doc();
   await ref.set(
     withoutUndefined({
@@ -933,11 +1016,12 @@ export async function updateDiscoverFeedItem(
   feedItemId: string,
   input: FeedItemInput,
 ) {
-  requireFullAdmin(context);
+  requireDiscoverAccess(context);
   const existing = await getFeedItemSnapshot(feedItemId);
   if (!existing) {
     throw new AdminRepositoryError("Feed entry not found.", 404);
   }
+  assertFeedItemScope(context, existing.data());
 
   const document = await feedItemDocument(feedItemId, input, context, existing.data());
   const current = existing.data();
@@ -960,11 +1044,12 @@ export async function deleteDiscoverFeedItem(
   context: AdminContext,
   feedItemId: string,
 ) {
-  requireFullAdmin(context);
+  requireDiscoverAccess(context);
   const existing = await getFeedItemSnapshot(feedItemId);
   if (!existing) {
     throw new AdminRepositoryError("Feed entry not found.", 404);
   }
+  assertFeedItemScope(context, existing.data());
 
   await existing.ref.delete();
 

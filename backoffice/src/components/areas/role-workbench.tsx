@@ -23,6 +23,7 @@ import {
   type PatientListItem,
   type RoleManagementRecord,
 } from "@/lib/admin-areas";
+import type { DiscoverOrganizationRecord } from "@/lib/discover";
 import {
   canCreateRoleUi,
   canEditRoleUi,
@@ -38,6 +39,7 @@ import { compactList } from "@/lib/moderation-utils";
 type RoleFormState = {
   email: string;
   role: RoleManagementRecord["role"];
+  organizationId: string;
   institutionId: string;
   doctorId: string;
   patientId: string;
@@ -58,6 +60,7 @@ function toRoleFormState(
   return {
     email: record?.email ?? defaults?.email ?? "",
     role: record?.role ?? defaults?.role ?? "institution_admin",
+    organizationId: record?.organizationId ?? "",
     institutionId: record?.institutionId ?? defaults?.institutionId ?? "",
     doctorId: record?.doctorId ?? defaults?.doctorId ?? "",
     patientId: record?.patientId ?? "",
@@ -76,6 +79,7 @@ export function RoleWorkbench({
   institutions,
   doctors,
   patients,
+  organizations = [],
   mode = "edit",
   initialEmail,
   initialInstitutionId,
@@ -85,6 +89,7 @@ export function RoleWorkbench({
   institutions: InstitutionRecord[];
   doctors: DoctorListItem[];
   patients: PatientListItem[];
+  organizations?: DiscoverOrganizationRecord[];
   mode?: "create" | "edit";
   initialEmail?: string;
   initialInstitutionId?: string;
@@ -179,7 +184,14 @@ export function RoleWorkbench({
       value: patient.id,
       label: `${patient.fullName} (${patient.id})`,
     }));
+  const organizationOptions = organizations.map((organization) => ({
+    value: organization.id,
+    label: `${organization.name} (${organization.id})`,
+  }));
 
+  const selectedOrganization = organizations.find(
+    (organization) => organization.id === state.organizationId
+  );
   const selectedInstitution = institutions.find(
     (institution) => institution.id === state.institutionId
   );
@@ -189,6 +201,17 @@ export function RoleWorkbench({
   function applyRoleDefaults(nextRole: RoleManagementRecord["role"]) {
     setState((current) => {
       if (nextRole === "full_admin") {
+        return {
+          ...current,
+          role: nextRole,
+          organizationId: "",
+          institutionId: "",
+          doctorId: "",
+          patientId: "",
+        };
+      }
+
+      if (nextRole === "organization_publisher") {
         return {
           ...current,
           role: nextRole,
@@ -207,6 +230,7 @@ export function RoleWorkbench({
         return {
           ...current,
           role: nextRole,
+          organizationId: "",
           institutionId,
           doctorId: "",
           patientId: "",
@@ -217,6 +241,7 @@ export function RoleWorkbench({
         return {
           ...current,
           role: nextRole,
+          organizationId: "",
           institutionId,
           doctorId:
             adminContext.role === "institution_doctor"
@@ -229,6 +254,7 @@ export function RoleWorkbench({
       return {
         ...current,
         role: nextRole,
+        organizationId: "",
         institutionId,
         doctorId:
           adminContext.role === "institution_doctor"
@@ -248,7 +274,23 @@ export function RoleWorkbench({
       return;
     }
 
-    if (state.role !== "full_admin" && !state.institutionId.trim()) {
+    if (
+      state.role === "organization_publisher" &&
+      !state.organizationId.trim()
+    ) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Organization publisher roles require an organization."),
+      });
+      return;
+    }
+
+    if (
+      state.role !== "full_admin" &&
+      state.role !== "organization_publisher" &&
+      !state.institutionId.trim()
+    ) {
       setToast({
         id: Date.now(),
         tone: "error",
@@ -284,7 +326,15 @@ export function RoleWorkbench({
           method: "PUT",
           body: JSON.stringify({
             role: state.role,
-            institutionId: state.role === "full_admin" ? undefined : state.institutionId,
+            organizationId:
+              state.role === "organization_publisher"
+                ? state.organizationId
+                : undefined,
+            institutionId:
+              state.role === "full_admin" ||
+              state.role === "organization_publisher"
+                ? undefined
+                : state.institutionId,
             doctorId:
               state.role === "institution_doctor" || state.role === "patient"
                 ? state.doctorId
@@ -431,7 +481,29 @@ export function RoleWorkbench({
             />
           </div>
 
-          {state.role !== "full_admin" ? (
+          {state.role === "organization_publisher" ? (
+            <div className="space-y-2">
+              <Label htmlFor="role-organization">{t("Organization")}</Label>
+              <OptionSelectField
+                options={organizationOptions}
+                value={state.organizationId}
+                onChange={(organizationId) =>
+                  setState((current) => ({
+                    ...current,
+                    organizationId,
+                    institutionId: "",
+                    doctorId: "",
+                    patientId: "",
+                  }))
+                }
+                placeholder={t("Select organization")}
+                emptyLabel={t("No organization")}
+                disabled={!isEditable || adminContext.role !== "full_admin"}
+              />
+            </div>
+          ) : null}
+
+          {state.role !== "full_admin" && state.role !== "organization_publisher" ? (
             <div className="space-y-2">
               <Label htmlFor="role-institution">{t("Institution")}</Label>
               <OptionSelectField
@@ -548,59 +620,87 @@ export function RoleWorkbench({
         </div>
 
         <div className="grid gap-3 lg:grid-cols-3">
-          <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
-            <p className="font-medium text-foreground">
-              {selectedInstitution?.name ?? roleRecord?.institutionName ?? t("No institution")}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {compactList([
-                selectedInstitution?.contactEmail,
-                selectedInstitution?.city,
-                selectedInstitution?.country,
-              ]) || t("Institution scope")}
-            </p>
-            {state.institutionId ? (
-              <Button variant="link" size="sm" className="px-0" asChild>
-                <Link href={`/areas/institutions/${state.institutionId}`}>
-                  {t("Open institution")}
-                </Link>
-              </Button>
-            ) : null}
-          </div>
+          {state.role === "organization_publisher" ? (
+            <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
+              <p className="font-medium text-foreground">
+                {selectedOrganization?.name ??
+                  roleRecord?.organizationName ??
+                  t("No organization")}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {compactList([
+                  selectedOrganization?.contactEmail,
+                  selectedOrganization?.countryCode,
+                  selectedOrganization?.websiteUrl,
+                ]) || t("Discover organization scope")}
+              </p>
+              {state.organizationId ? (
+                <Button variant="link" size="sm" className="px-0" asChild>
+                  <Link href={`/discover/organizations/${state.organizationId}`}>
+                    {t("Open organization")}
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
 
-          <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
-            <p className="font-medium text-foreground">
-              {selectedDoctor?.fullName ?? roleRecord?.doctorName ?? t("No doctor")}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {compactList([
-                selectedDoctor?.authEmail,
-                selectedDoctor?.specialty,
-              ]) || t("Doctor scope")}
-            </p>
-            {state.doctorId ? (
-              <Button variant="link" size="sm" className="px-0" asChild>
-                <Link href={`/areas/doctors/${state.doctorId}`}>{t("Open doctor")}</Link>
-              </Button>
-            ) : null}
-          </div>
+          {state.role !== "organization_publisher" ? (
+            <>
+              <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
+                <p className="font-medium text-foreground">
+                  {selectedInstitution?.name ?? roleRecord?.institutionName ?? t("No institution")}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {compactList([
+                    selectedInstitution?.contactEmail,
+                    selectedInstitution?.city,
+                    selectedInstitution?.country,
+                  ]) || t("Institution scope")}
+                </p>
+                {state.institutionId ? (
+                  <Button variant="link" size="sm" className="px-0" asChild>
+                    <Link href={`/areas/institutions/${state.institutionId}`}>
+                      {t("Open institution")}
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
 
-          <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
-            <p className="font-medium text-foreground">
-              {selectedPatient?.fullName ?? roleRecord?.patientName ?? t("No patient")}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {compactList([
-                selectedPatient?.email,
-                selectedPatient?.medicalRecordNumber,
-              ]) || t("Patient scope")}
-            </p>
-            {state.patientId ? (
-              <Button variant="link" size="sm" className="px-0" asChild>
-                <Link href={`/areas/patients/${state.patientId}`}>{t("Open patient")}</Link>
-              </Button>
-            ) : null}
-          </div>
+              <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
+                <p className="font-medium text-foreground">
+                  {selectedDoctor?.fullName ?? roleRecord?.doctorName ?? t("No doctor")}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {compactList([
+                    selectedDoctor?.authEmail,
+                    selectedDoctor?.specialty,
+                  ]) || t("Doctor scope")}
+                </p>
+                {state.doctorId ? (
+                  <Button variant="link" size="sm" className="px-0" asChild>
+                    <Link href={`/areas/doctors/${state.doctorId}`}>{t("Open doctor")}</Link>
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
+                <p className="font-medium text-foreground">
+                  {selectedPatient?.fullName ?? roleRecord?.patientName ?? t("No patient")}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {compactList([
+                    selectedPatient?.email,
+                    selectedPatient?.medicalRecordNumber,
+                  ]) || t("Patient scope")}
+                </p>
+                {state.patientId ? (
+                  <Button variant="link" size="sm" className="px-0" asChild>
+                    <Link href={`/areas/patients/${state.patientId}`}>{t("Open patient")}</Link>
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </div>
       </section>
     </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight, UserRoundCog } from "lucide-react";
 import { AreaAccessEntry } from "@/components/area-access-entry";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
@@ -17,6 +18,9 @@ import { sdkFetchServer } from "@/lib/sdk-server";
 
 export default async function RolesPage() {
   const adminContext = await getAdminContextServer();
+  if (adminContext.role === "organization_publisher") {
+    redirect("/my-account");
+  }
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
   const { roles } = await sdkFetchServer<{ roles: RoleManagementRecord[] }>(

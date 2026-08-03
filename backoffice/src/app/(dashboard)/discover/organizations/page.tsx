@@ -1,14 +1,14 @@
 import { DiscoverOrganizationBrowser } from "@/components/discover/organization-browser";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
-import { requireDiscoverFullAdmin } from "@/lib/discover-server";
+import { requireDiscoverAccess } from "@/lib/discover-server";
 import type { DiscoverOrganizationsPage } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 import { getServerAppLanguage } from "@/lib/server-language";
 
 export default async function DiscoverOrganizationsPage() {
-  await requireDiscoverFullAdmin();
+  const adminContext = await requireDiscoverAccess();
 
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -30,6 +30,8 @@ export default async function DiscoverOrganizationsPage() {
         <DiscoverOrganizationBrowser
           initialOrganizations={page.organizations}
           initialNextCursor={page.nextCursor}
+          canCreateOrganizations={adminContext.role === "full_admin"}
+          canManageOrganizationStatus={adminContext.role === "full_admin"}
         />
       </HeaderUnclutterScope>
     </div>

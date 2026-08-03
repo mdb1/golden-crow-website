@@ -17,11 +17,13 @@ import type {
 } from "../types/sdk.types.js";
 
 const USER_ROLES_COLLECTION = "user_roles";
+const FEED_ORGANIZATIONS_COLLECTION = "feed_organizations";
 const BOOTSTRAP_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
 const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
   full_admin: [
     "full_admin",
+    "organization_publisher",
     "institution_admin",
     "institution_operator",
     "institution_laboratory_staff",
@@ -43,11 +45,13 @@ const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
   ],
   institution_laboratory_staff: [],
   institution_doctor: ["patient"],
+  organization_publisher: [],
   patient: [],
 };
 
 const BACKOFFICE_ROLES = new Set<AdminRole>([
   "full_admin",
+  "organization_publisher",
   "institution_admin",
   "institution_operator",
   "institution_laboratory_staff",
@@ -145,6 +149,7 @@ function toBootstrapRoleRecord(email: string): UserRoleRecord {
 function isAdminRole(value: string): value is AdminRole {
   return (
     value === "full_admin" ||
+    value === "organization_publisher" ||
     value === "institution_admin" ||
     value === "institution_operator" ||
     value === "institution_laboratory_staff" ||
@@ -165,6 +170,7 @@ function toUserRoleRecord(
   return {
     email,
     role: resolvedRole,
+    organizationId: normalizeOptionalString(data.organizationId),
     institutionId: normalizeOptionalString(data.institutionId),
     doctorId: normalizeOptionalString(data.doctorId),
     patientId: normalizeOptionalString(data.patientId),
@@ -210,13 +216,21 @@ export async function getUserRoleByEmail(
 
 function getLinkedCollectionIds(payload: {
   role: AdminRole;
+  organizationId?: string;
   institutionId?: string;
   doctorId?: string;
   patientId?: string;
 }) {
   return {
+    organizationId:
+      payload.role === "organization_publisher"
+        ? payload.organizationId
+        : undefined,
     institutionId:
-      payload.role === "full_admin" ? undefined : payload.institutionId,
+      payload.role === "full_admin" ||
+      payload.role === "organization_publisher"
+        ? undefined
+        : payload.institutionId,
     doctorId:
       payload.role === "institution_doctor" || payload.role === "patient"
         ? payload.doctorId
@@ -229,14 +243,30 @@ async function validateLinkedRoleEntities(
   email: string,
   payload: Pick<
     UserRoleRecord,
-    "role" | "institutionId" | "doctorId" | "patientId"
+    "role" | "organizationId" | "institutionId" | "doctorId" | "patientId"
   >,
 ): Promise<string | null> {
-  const { institutionId, doctorId, patientId } =
+  const { organizationId, institutionId, doctorId, patientId } =
     getLinkedCollectionIds(payload);
   const normalizedEmail = normalizeRoleEmail(email);
 
   if (payload.role === "full_admin") {
+    return null;
+  }
+
+  if (payload.role === "organization_publisher") {
+    if (!organizationId) {
+      return "Organization publisher roles require an organization id.";
+    }
+
+    const organizationSnapshot = await adminDb
+      .collection(FEED_ORGANIZATIONS_COLLECTION)
+      .doc(organizationId)
+      .get();
+    if (!organizationSnapshot.exists) {
+      return "The selected organization does not exist.";
+    }
+
     return null;
   }
 
@@ -321,6 +351,7 @@ function toRoleManagementRecord(
 ): RoleManagementRecord {
   return {
     ...record,
+    organizationName: extras?.organizationName,
     institutionName: extras?.institutionName,
     doctorName: extras?.doctorName,
     patientName: extras?.patientName,
@@ -331,19 +362,32 @@ function toRoleManagementRecord(
 async function hydrateRoleManagementRecord(
   record: UserRoleRecord,
 ): Promise<RoleManagementRecord> {
-  const [institutionSnap, doctorSnap, patientSnap] = await Promise.all([
-    record.institutionId
-      ? adminDb.collection("institutions").doc(record.institutionId).get()
-      : Promise.resolve(null),
-    record.doctorId
-      ? adminDb.collection("doctors").doc(record.doctorId).get()
-      : Promise.resolve(null),
-    record.patientId
-      ? adminDb.collection("patients").doc(record.patientId).get()
-      : Promise.resolve(null),
-  ]);
+  const [organizationSnap, institutionSnap, doctorSnap, patientSnap] =
+    await Promise.all([
+      record.organizationId
+        ? adminDb
+            .collection(FEED_ORGANIZATIONS_COLLECTION)
+            .doc(record.organizationId)
+            .get()
+        : Promise.resolve(null),
+      record.institutionId
+        ? adminDb.collection("institutions").doc(record.institutionId).get()
+        : Promise.resolve(null),
+      record.doctorId
+        ? adminDb.collection("doctors").doc(record.doctorId).get()
+        : Promise.resolve(null),
+      record.patientId
+        ? adminDb.collection("patients").doc(record.patientId).get()
+        : Promise.resolve(null),
+    ]);
 
   return toRoleManagementRecord(record, {
+    organizationName:
+      organizationSnap && organizationSnap.exists
+        ? (normalizeOptionalString(
+            (organizationSnap.data() as Record<string, unknown>).name,
+          ) ?? organizationSnap.id)
+        : undefined,
     institutionName:
       institutionSnap && institutionSnap.exists
         ? (normalizeOptionalString(
@@ -385,6 +429,7 @@ export async function resolveAdminContext(input: {
       email: normalizedEmail,
       uid,
       role: roleRecord.role,
+      organizationId: roleRecord.organizationId,
       institutionId: roleRecord.institutionId,
       doctorId: roleRecord.doctorId,
       patientId: roleRecord.patientId,
@@ -410,6 +455,7 @@ export async function resolveAdminContext(input: {
       email: normalizedEmail,
       uid,
       role: roleRecord.role,
+      organizationId: roleRecord.organizationId,
       institutionId: roleRecord.institutionId,
       doctorId: roleRecord.doctorId,
       patientId: roleRecord.patientId,
@@ -438,6 +484,18 @@ export function getAdminCapabilities(context: AdminContext): string[] {
       "patients:read:any",
       "patients:write:any",
       "roles:manage:any",
+    ];
+  }
+
+  if (context.role === "organization_publisher") {
+    return [
+      ...base,
+      "discover:organizations:read:own",
+      "discover:organizations:write:own",
+      "discover:feed-items:create:own-organization",
+      "discover:feed-items:read:own-organization",
+      "discover:feed-items:write:own-organization",
+      "discover:feed-items:delete:own-organization",
     ];
   }
 
@@ -483,6 +541,13 @@ export function getAdminCapabilities(context: AdminContext): string[] {
 
 export function canManageLegacyModeration(context: AdminContext) {
   return context.role === "full_admin";
+}
+
+export function canAccessDiscover(context: AdminContext) {
+  return (
+    context.role === "full_admin" ||
+    (context.role === "organization_publisher" && Boolean(context.organizationId))
+  );
 }
 
 export function canCreateInstitution(context: AdminContext) {
@@ -698,7 +763,7 @@ export function validateRoleScope(
   context: AdminContext,
   payload: Pick<
     UserRoleRecord,
-    "role" | "institutionId" | "doctorId" | "patientId"
+    "role" | "organizationId" | "institutionId" | "doctorId" | "patientId"
   >,
 ): string | null {
   if (!canAssignRole(context, payload.role)) {
@@ -709,6 +774,12 @@ export function validateRoleScope(
     return context.role === "full_admin"
       ? null
       : "Only full admins can manage full-admin roles.";
+  }
+
+  if (payload.role === "organization_publisher") {
+    return payload.organizationId
+      ? null
+      : "Organization publisher roles require an organization id.";
   }
 
   if (!payload.institutionId) {
@@ -774,10 +845,14 @@ export async function listUserRolesForContext(
   }
 
   const institutionIds = new Set<string>();
+  const organizationIds = new Set<string>();
   const doctorIds = new Set<string>();
   const patientIds = new Set<string>();
 
   records.forEach((record) => {
+    if (record.organizationId) {
+      organizationIds.add(record.organizationId);
+    }
     if (record.institutionId) {
       institutionIds.add(record.institutionId);
     }
@@ -789,23 +864,41 @@ export async function listUserRolesForContext(
     }
   });
 
-  const [institutionSnaps, doctorSnaps, patientSnaps] = await Promise.all([
-    Promise.all(
-      [...institutionIds].map((institutionId) =>
-        adminDb.collection("institutions").doc(institutionId).get(),
+  const [organizationSnaps, institutionSnaps, doctorSnaps, patientSnaps] =
+    await Promise.all([
+      Promise.all(
+        [...organizationIds].map((organizationId) =>
+          adminDb
+            .collection(FEED_ORGANIZATIONS_COLLECTION)
+            .doc(organizationId)
+            .get(),
+        ),
       ),
-    ),
-    Promise.all(
-      [...doctorIds].map((doctorId) =>
-        adminDb.collection("doctors").doc(doctorId).get(),
+      Promise.all(
+        [...institutionIds].map((institutionId) =>
+          adminDb.collection("institutions").doc(institutionId).get(),
+        ),
       ),
-    ),
-    Promise.all(
-      [...patientIds].map((patientId) =>
-        adminDb.collection("patients").doc(patientId).get(),
+      Promise.all(
+        [...doctorIds].map((doctorId) =>
+          adminDb.collection("doctors").doc(doctorId).get(),
+        ),
       ),
-    ),
-  ]);
+      Promise.all(
+        [...patientIds].map((patientId) =>
+          adminDb.collection("patients").doc(patientId).get(),
+        ),
+      ),
+    ]);
+
+  const organizationNames = new Map(
+    organizationSnaps
+      .filter((snapshot) => snapshot.exists)
+      .map((snapshot) => {
+        const data = snapshot.data() as Record<string, unknown>;
+        return [snapshot.id, normalizeOptionalString(data.name) ?? snapshot.id];
+      }),
+  );
 
   const institutionNames = new Map(
     institutionSnaps
@@ -843,6 +936,9 @@ export async function listUserRolesForContext(
   return records
     .map((record) =>
       toRoleManagementRecord(record, {
+        organizationName: record.organizationId
+          ? organizationNames.get(record.organizationId)
+          : undefined,
         institutionName: record.institutionId
           ? institutionNames.get(record.institutionId)
           : undefined,
@@ -1044,8 +1140,15 @@ export async function upsertUserRoleForContext(
   const document = {
     email: normalizedEmail,
     role: payload.role,
+    organizationId:
+      payload.role === "organization_publisher"
+        ? (payload.organizationId ?? null)
+        : null,
     institutionId:
-      payload.role === "full_admin" ? null : (payload.institutionId ?? null),
+      payload.role === "full_admin" ||
+      payload.role === "organization_publisher"
+        ? null
+        : (payload.institutionId ?? null),
     doctorId:
       payload.role === "institution_doctor" || payload.role === "patient"
         ? (payload.doctorId ?? null)

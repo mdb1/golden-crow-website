@@ -43,6 +43,8 @@ export function RolesBrowser({
       [
         record.email,
         record.displayName,
+        record.organizationName,
+        record.organizationId,
         record.institutionName,
         record.doctorName,
         record.patientName,
@@ -135,6 +137,7 @@ export function RolesBrowser({
                 <p className="mt-1 text-sm text-muted-foreground">
                   {compactList([
                     record.displayName,
+                    record.organizationName,
                     record.institutionName,
                     record.doctorName,
                     record.patientName,
@@ -143,7 +146,9 @@ export function RolesBrowser({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {record.institutionId ? (
+                {record.organizationId ? (
+                  <Badge variant="secondary">{record.organizationId}</Badge>
+                ) : record.institutionId ? (
                   <Badge variant="brand">{record.institutionId}</Badge>
                 ) : (
                   <Badge variant="outline">{t("Global")}</Badge>

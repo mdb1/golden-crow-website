@@ -53,6 +53,7 @@ const roleBadgeVariants: Record<
   ComponentProps<typeof Badge>["variant"]
 > = {
   full_admin: "destructive",
+  organization_publisher: "secondary",
   institution_admin: "brand",
   institution_operator: "secondary",
   institution_laboratory_staff: "secondary",
@@ -203,6 +204,32 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       title: "Cannot ignore scope links",
       description:
         "Even with global reach, each role assignment still needs the right institution, doctor, and patient references.",
+    },
+  ],
+  organization_publisher: [
+    {
+      tone: "allow",
+      title: "Can manage one Discover publisher",
+      description:
+        "Organization publishers can work only with the feed_organizations record linked to their role assignment.",
+    },
+    {
+      tone: "allow",
+      title: "Can publish for that organization",
+      description:
+        "They can create, update, duplicate, and delete Discover feed entries only when the publisher organization matches their scope.",
+    },
+    {
+      tone: "limit",
+      title: "Cannot manage role assignments",
+      description:
+        "Publisher accounts cannot create or modify role assignments, including other publisher roles.",
+    },
+    {
+      tone: "limit",
+      title: "Cannot access institution workflows",
+      description:
+        "2PQ, institution areas, community moderation, reports, learning, and global account moderation remain outside this role.",
     },
   ],
   institution_admin: [

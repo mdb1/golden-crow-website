@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { DiscoverOrganizationWorkbench } from "@/components/discover/organization-workbench";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
-import { requireDiscoverFullAdmin } from "@/lib/discover-server";
+import { requireDiscoverAccess } from "@/lib/discover-server";
 import type { DiscoverOrganizationRecord } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import { sdkFetchServer } from "@/lib/sdk-server";
@@ -13,7 +13,7 @@ export default async function DiscoverOrganizationDetailPage({
 }: {
   params: Promise<{ organizationId: string }>;
 }) {
-  await requireDiscoverFullAdmin();
+  const adminContext = await requireDiscoverAccess();
 
   const { organizationId } = await params;
   const language = await getServerAppLanguage();
@@ -40,7 +40,10 @@ export default async function DiscoverOrganizationDetailPage({
           />
         }
       >
-        <DiscoverOrganizationWorkbench organization={organization} />
+        <DiscoverOrganizationWorkbench
+          organization={organization}
+          canManageSystemFields={adminContext.role === "full_admin"}
+        />
       </HeaderUnclutterScope>
     </div>
   );

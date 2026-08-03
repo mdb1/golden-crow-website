@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { DiscoverFeedEntryWorkbench } from "@/components/discover/feed-entry-workbench";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
-import { requireDiscoverFullAdmin } from "@/lib/discover-server";
+import { requireDiscoverAccess } from "@/lib/discover-server";
 import type {
   DiscoverFeedItemRecord,
   DiscoverOrganizationRecord,
@@ -17,7 +17,7 @@ export default async function DiscoverFeedEntryDetailPage({
 }: {
   params: Promise<{ feedItemId: string }>;
 }) {
-  await requireDiscoverFullAdmin();
+  const adminContext = await requireDiscoverAccess();
 
   const { feedItemId } = await params;
   const language = await getServerAppLanguage();
@@ -66,6 +66,7 @@ export default async function DiscoverFeedEntryDetailPage({
           feedItem={feedItem}
           initialOrganizations={organizations}
           initialOrganizationsNextCursor={organizationsPage.nextCursor}
+          scopedOrganizationId={adminContext.organizationId}
         />
       </HeaderUnclutterScope>
     </div>

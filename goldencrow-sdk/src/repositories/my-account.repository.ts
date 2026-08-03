@@ -124,6 +124,7 @@ function contextFromRole(context: AdminContext, role: RoleManagementRecord): Adm
     ...context,
     email: role.email,
     role: role.role,
+    organizationId: role.organizationId,
     institutionId: role.institutionId,
     doctorId: role.doctorId,
     patientId: role.patientId,

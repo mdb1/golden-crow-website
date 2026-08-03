@@ -19,6 +19,7 @@ export type AdminUserSex =
   | string;
 export type AdminRole =
   | "full_admin"
+  | "organization_publisher"
   | "institution_admin"
   | "institution_operator"
   | "institution_laboratory_staff"
@@ -68,6 +69,7 @@ export interface AdminUserVerificationSummary {
 export interface UserRoleRecord {
   email: string;
   role: AdminRole;
+  organizationId?: string;
   institutionId?: string;
   doctorId?: string;
   patientId?: string;
@@ -101,6 +103,7 @@ export interface AdminContext {
   email: string;
   uid: string;
   role: AdminRole;
+  organizationId?: string;
   institutionId?: string;
   doctorId?: string;
   patientId?: string;
@@ -183,6 +186,7 @@ export interface PatientListItem extends PatientRecord {
 }
 
 export interface RoleManagementRecord extends UserRoleRecord {
+  organizationName?: string;
   institutionName?: string;
   doctorName?: string;
   patientName?: string;

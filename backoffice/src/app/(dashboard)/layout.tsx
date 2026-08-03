@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { AmbientBackdrop } from "@/components/ambient-backdrop";
 import { AppLanguageProvider } from "@/components/app-language-provider";
+import { PublisherRouteGuard } from "@/components/publisher-route-guard";
 import { Providers } from "./providers";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { LANGUAGE_COOKIE_NAME, resolveAppLanguage } from "@/lib/language";
@@ -44,7 +45,11 @@ export default async function DashboardLayout({
               <AmbientBackdrop />
               <AppHeader user={session.user!} adminContext={adminContext} />
               <main className="relative z-10 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 lg:p-6">
-                <Providers adminContext={adminContext}>{children}</Providers>
+                <Providers adminContext={adminContext}>
+                  <PublisherRouteGuard adminContext={adminContext}>
+                    {children}
+                  </PublisherRouteGuard>
+                </Providers>
               </main>
             </div>
           </SidebarInset>

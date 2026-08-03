@@ -45,6 +45,7 @@ import {
 import { getTwoPQAreaConfig, TWO_PQ_AREA_CONFIGS } from "./two-pq-areas";
 
 const FULL_ADMIN_ROLES: AdminRole[] = ["full_admin"];
+const DISCOVER_ROLES: AdminRole[] = ["full_admin", "organization_publisher"];
 const AREA_ROLES: AdminRole[] = [
   "full_admin",
   "institution_admin",
@@ -71,6 +72,14 @@ const MISSION_OVERVIEW_NAV_ROLES: AdminRole[] = [
 const ROLE_MANAGEMENT_NAV_ROLES: AdminRole[] = [
   "full_admin",
   "institution_admin",
+];
+const ACCESS_NAV_ROLES: AdminRole[] = [
+  "full_admin",
+  "institution_admin",
+  "institution_operator",
+  "institution_laboratory_staff",
+  "institution_doctor",
+  "organization_publisher",
 ];
 const DOCTOR_VISIBLE_TWO_PQ_AREAS = new Set(["cases", "sampling"]);
 const OPERATOR_MISSION_HREFS = new Set([
@@ -123,7 +132,7 @@ export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
     key: "discover",
     label: "Discover",
     description: "Discover feed publishers and mobile feed entries.",
-    visibleRoles: FULL_ADMIN_ROLES,
+    visibleRoles: DISCOVER_ROLES,
   },
   {
     key: "areas",
@@ -136,7 +145,7 @@ export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
     key: "access",
     label: "Access",
     description: "Role assignments and permission boundaries tied to user emails.",
-    visibleRoles: AREA_ROLES,
+    visibleRoles: ACCESS_NAV_ROLES,
   },
 ];
 
@@ -897,7 +906,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/discover/organizations",
     description: "feed_organizations publishers",
     icon: Building2,
-    visibleRoles: FULL_ADMIN_ROLES,
+    visibleRoles: DISCOVER_ROLES,
   },
   {
     section: "discover",
@@ -905,7 +914,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/discover/feed-entries",
     description: "feed_items mobile Discover entries",
     icon: Newspaper,
-    visibleRoles: FULL_ADMIN_ROLES,
+    visibleRoles: DISCOVER_ROLES,
   },
   {
     section: "areas",
@@ -961,7 +970,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/my-account",
     description: "Current operator role and Firebase Auth details",
     icon: UserRoundCog,
-    visibleRoles: AREA_ROLES,
+    visibleRoles: ACCESS_NAV_ROLES,
   },
 ];
 

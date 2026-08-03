@@ -2,7 +2,7 @@ import { FastifyInstance, type FastifyReply } from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
-import { canManageLegacyModeration } from "../repositories/roles.repository.js";
+import { canAccessDiscover } from "../repositories/roles.repository.js";
 import {
   createDiscoverFeedItem,
   createDiscoverOrganization,
@@ -117,8 +117,8 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
   f.addHook("onRequest", async (request, reply) => {
-    if (!request.adminContext || !canManageLegacyModeration(request.adminContext)) {
-      return reply.status(403).send({ error: "Full admin access required" });
+    if (!request.adminContext || !canAccessDiscover(request.adminContext)) {
+      return reply.status(403).send({ error: "Discover access required" });
     }
   });
 

@@ -15,6 +15,10 @@ export function getRoleBadgeVariant(role: AdminRole) {
     return "destructive" as const;
   }
 
+  if (role === "organization_publisher") {
+    return "secondary" as const;
+  }
+
   if (isInstitutionManagerRole(role)) {
     return "brand" as const;
   }
@@ -233,6 +237,10 @@ export function getRoleCreateRestrictionMessage(context: AdminContextRecord) {
     return "Patients cannot create role assignments.";
   }
 
+  if (context.role === "organization_publisher") {
+    return "Organization publishers cannot create role assignments.";
+  }
+
   return "The current scope cannot create role assignments.";
 }
 
@@ -286,6 +294,11 @@ export const ROLE_CAPABILITY_LINES: Record<AdminRole, string[]> = {
     "Can create institutions and any role.",
     "Can see and edit every institution, doctor, patient, and legacy moderation surface.",
     "Can promote or demote any non-bootstrap role record.",
+  ],
+  organization_publisher: [
+    "Can access only Discover organizations and feed entries for one linked organization.",
+    "Can create, edit, duplicate, and delete feed entries only for that organization.",
+    "Cannot access 2PQ, institution areas, reports, community moderation, learning, or role management.",
   ],
   institution_admin: [
     "Can see and edit only one institution.",

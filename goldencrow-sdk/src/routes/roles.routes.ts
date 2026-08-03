@@ -10,6 +10,7 @@ import {
 
 const RoleSchema = z.enum([
   "full_admin",
+  "organization_publisher",
   "institution_admin",
   "institution_operator",
   "institution_laboratory_staff",
@@ -61,6 +62,7 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
         }),
         body: z.object({
           role: RoleSchema,
+          organizationId: z.string().optional(),
           institutionId: z.string().optional(),
           doctorId: z.string().optional(),
           patientId: z.string().optional(),

@@ -65,9 +65,11 @@ function payloadFromState(state: OrganizationFormState) {
 export function DiscoverOrganizationWorkbench({
   organization,
   mode = "edit",
+  canManageSystemFields = true,
 }: {
   organization?: DiscoverOrganizationRecord;
   mode?: "create" | "edit";
+  canManageSystemFields?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -250,6 +252,7 @@ export function DiscoverOrganizationWorkbench({
                   })
                 }
                 className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                disabled={!canManageSystemFields}
               >
                 {DISCOVER_ORGANIZATION_STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -349,6 +352,7 @@ export function DiscoverOrganizationWorkbench({
                 onChange={(event) =>
                   updateState({ verified: event.target.checked })
                 }
+                disabled={!canManageSystemFields}
                 className="h-4 w-4"
               />
               {t("Verified publisher")}
@@ -361,6 +365,7 @@ export function DiscoverOrganizationWorkbench({
                 onChange={(event) =>
                   updateState({ internalNotes: event.target.value })
                 }
+                disabled={!canManageSystemFields}
                 rows={3}
               />
             </div>

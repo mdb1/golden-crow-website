@@ -63,9 +63,13 @@ function organizationPayload(
 export function DiscoverOrganizationBrowser({
   initialOrganizations,
   initialNextCursor,
+  canCreateOrganizations = true,
+  canManageOrganizationStatus = true,
 }: {
   initialOrganizations: DiscoverOrganizationRecord[];
   initialNextCursor: string | null;
+  canCreateOrganizations?: boolean;
+  canManageOrganizationStatus?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -208,12 +212,14 @@ export function DiscoverOrganizationBrowser({
               <RefreshCcw className="h-3.5 w-3.5" />
               {pending ? t("Working...") : t("Refresh")}
             </Button>
-            <Button size="sm" asChild>
-              <Link href="/discover/organizations/new">
-                <Plus className="h-3.5 w-3.5" />
-                {t("New organization")}
-              </Link>
-            </Button>
+            {canCreateOrganizations ? (
+              <Button size="sm" asChild>
+                <Link href="/discover/organizations/new">
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("New organization")}
+                </Link>
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -338,27 +344,29 @@ export function DiscoverOrganizationBrowser({
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
-                {organization.status === "archived" ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void setOrganizationStatus(organization, "active")}
-                    disabled={pending}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    {t("Reactivate")}
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void setOrganizationStatus(organization, "archived")}
-                    disabled={pending}
-                  >
-                    <Archive className="h-3.5 w-3.5" />
-                    {t("Archive")}
-                  </Button>
-                )}
+                {canManageOrganizationStatus ? (
+                  organization.status === "archived" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void setOrganizationStatus(organization, "active")}
+                      disabled={pending}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {t("Reactivate")}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void setOrganizationStatus(organization, "archived")}
+                      disabled={pending}
+                    >
+                      <Archive className="h-3.5 w-3.5" />
+                      {t("Archive")}
+                    </Button>
+                  )
+                ) : null}
               </div>
             </div>
           ))

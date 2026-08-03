@@ -1,7 +1,7 @@
 import { DiscoverFeedEntryBrowser } from "@/components/discover/feed-entry-browser";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
-import { requireDiscoverFullAdmin } from "@/lib/discover-server";
+import { requireDiscoverAccess } from "@/lib/discover-server";
 import type {
   DiscoverFeedItemsPage,
   DiscoverOrganizationsPage,
@@ -11,7 +11,7 @@ import { sdkFetchServer } from "@/lib/sdk-server";
 import { getServerAppLanguage } from "@/lib/server-language";
 
 export default async function DiscoverFeedEntriesPage() {
-  await requireDiscoverFullAdmin();
+  await requireDiscoverAccess();
 
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
