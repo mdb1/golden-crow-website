@@ -96,6 +96,12 @@ const LABORATORY_STAFF_MISSION_HREFS = new Set([
   "/2pq-dashboard/shipments",
   "/2pq-dashboard/contact",
 ]);
+const PUBLISHER_NAV_HREFS = new Set([
+  "/discover/organizations",
+  "/discover/feed-entries",
+  "/my-account",
+]);
+const PUBLISHER_SECTION_KEYS = new Set(["discover", "access"]);
 
 export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
   {
@@ -1075,6 +1081,10 @@ function getMyDnaMapNav(role: AdminRole) {
     (item) => !item.visibleRoles || item.visibleRoles.includes(role)
   );
 
+  if (role === "organization_publisher") {
+    return visibleNav.filter((item) => PUBLISHER_NAV_HREFS.has(item.href));
+  }
+
   if (
     role !== "institution_operator" &&
     role !== "institution_laboratory_staff"
@@ -1101,6 +1111,12 @@ function getMyDnaMapSections(role: AdminRole) {
   const visibleSections = SECTION_DESCRIPTORS.filter(
     (section) => !section.visibleRoles || section.visibleRoles.includes(role)
   );
+
+  if (role === "organization_publisher") {
+    return visibleSections.filter((section) =>
+      PUBLISHER_SECTION_KEYS.has(section.key)
+    );
+  }
 
   if (role !== "institution_operator") {
     return visibleSections;
