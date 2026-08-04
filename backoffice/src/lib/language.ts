@@ -771,6 +771,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Feed entry deleted.": "Entrada del feed eliminada.",
   "Unable to delete the feed entry.":
     "No se pudo eliminar la entrada del feed.",
+  "Unable to load Discover data. Refresh the page or contact support if it repeats.":
+    "No se pudieron cargar los datos de Discover. Actualizá la página o contactá a soporte si se repite.",
   "Delete form": "Eliminar formulario",
   "Archive form": "Archivar formulario",
   "This permanently deletes": "Esto elimina permanentemente",

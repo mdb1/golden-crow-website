@@ -60,10 +60,12 @@ export function DiscoverFeedEntryBrowser({
   initialFeedItems,
   initialNextCursor,
   organizations,
+  initialLoadError,
 }: {
   initialFeedItems: DiscoverFeedItemRecord[];
   initialNextCursor: string | null;
   organizations: DiscoverOrganizationRecord[];
+  initialLoadError?: string | null;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -75,7 +77,16 @@ export function DiscoverFeedEntryBrowser({
   const [status, setStatus] = useState<"all" | DiscoverFeedStatus>("all");
   const [organizationId, setOrganizationId] = useState("all");
   const [pending, setPending] = useState(false);
-  const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [toast, setToast] = useState<ActionToastState | null>(
+    initialLoadError
+      ? {
+          id: 0,
+          tone: "error",
+          message: initialLoadError,
+          durationMs: 30000,
+        }
+      : null,
+  );
 
   const organizationById = useMemo(
     () => new Map(organizations.map((organization) => [organization.id, organization])),
@@ -201,6 +212,12 @@ export function DiscoverFeedEntryBrowser({
   return (
     <section className="flex flex-col gap-4">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+
+      {initialLoadError ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+          {initialLoadError}
+        </div>
+      ) : null}
 
       <div className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

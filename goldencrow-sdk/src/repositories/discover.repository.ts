@@ -66,6 +66,11 @@ type PageCursor = {
   id: string;
 };
 
+type DocumentPageCursor = {
+  mode: "document";
+  id: string;
+};
+
 type OrganizationInput = {
   name?: unknown;
   imageUrl?: unknown;
@@ -394,6 +399,52 @@ function decodeCursor(cursor: string | undefined): PageCursor | null {
   return null;
 }
 
+function encodeDocumentCursor(cursor: DocumentPageCursor): string {
+  return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
+}
+
+function decodeDocumentCursor(cursor: string | undefined): DocumentPageCursor | null {
+  if (!cursor) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as {
+      mode?: unknown;
+      id?: unknown;
+    };
+    if (
+      (parsed.mode === "document" || parsed.mode == null) &&
+      typeof parsed.id === "string" &&
+      parsed.id
+    ) {
+      return { mode: "document", id: parsed.id };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function isMissingFirestoreIndexError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const code = "code" in error ? (error as { code?: unknown }).code : undefined;
+  const message =
+    "message" in error && typeof (error as { message?: unknown }).message === "string"
+      ? (error as { message: string }).message
+      : "";
+
+  return (
+    code === 9 ||
+    code === "failed-precondition" ||
+    /requires an index|indexes\?create_composite/i.test(message)
+  );
+}
+
 function resolvePageSize(limit: unknown) {
   const parsed = normalizeNumber(limit, DEFAULT_PAGE_SIZE);
   return Math.min(Math.max(Math.trunc(parsed), 1), MAX_PAGE_SIZE);
@@ -555,6 +606,45 @@ async function listCollectionPage<T>(
   return {
     records: pageDocs.map(mapper),
     nextCursor: nextCursor ? encodeCursor(nextCursor) : null,
+  };
+}
+
+async function listScopedCollectionPageByDocumentCursor<T>(
+  collectionName: string,
+  scopeField: string,
+  scopeValue: string,
+  cursor: string | undefined,
+  limit: unknown,
+  mapper: (doc: QueryDocumentSnapshot) => T,
+): Promise<DiscoverListPage<T>> {
+  const pageSize = resolvePageSize(limit);
+  const decodedCursor = decodeDocumentCursor(cursor);
+  let query: Query = adminDb
+    .collection(collectionName)
+    .where(scopeField, "==", scopeValue)
+    .limit(pageSize + 1);
+
+  if (decodedCursor) {
+    const cursorSnapshot = await adminDb
+      .collection(collectionName)
+      .doc(decodedCursor.id)
+      .get();
+
+    if (cursorSnapshot.exists) {
+      query = query.startAfter(cursorSnapshot);
+    }
+  }
+
+  const snapshot = await query.get();
+  const pageDocs = snapshot.docs.slice(0, pageSize);
+  const nextDoc = snapshot.docs[pageSize];
+  const nextCursorSource = nextDoc ? pageDocs[pageDocs.length - 1] : undefined;
+
+  return {
+    records: pageDocs.map(mapper),
+    nextCursor: nextCursorSource
+      ? encodeDocumentCursor({ mode: "document", id: nextCursorSource.id })
+      : null,
   };
 }
 
@@ -964,15 +1054,31 @@ export async function listDiscoverFeedItems(
   requireDiscoverAccess(context);
   const ownOrganizationId = scopedOrganizationId(context);
 
-  const page = await listCollectionPage(
-    FEED_ITEMS_COLLECTION,
-    options.cursor,
-    options.limit,
-    toFeedItemRecord,
-    ownOrganizationId
-      ? (query) => query.where("publisherOrganizationId", "==", ownOrganizationId)
-      : undefined,
-  );
+  let page: DiscoverListPage<DiscoverFeedItemRecord>;
+  try {
+    page = await listCollectionPage(
+      FEED_ITEMS_COLLECTION,
+      options.cursor,
+      options.limit,
+      toFeedItemRecord,
+      ownOrganizationId
+        ? (query) => query.where("publisherOrganizationId", "==", ownOrganizationId)
+        : undefined,
+    );
+  } catch (error) {
+    if (!ownOrganizationId || !isMissingFirestoreIndexError(error)) {
+      throw error;
+    }
+
+    page = await listScopedCollectionPageByDocumentCursor(
+      FEED_ITEMS_COLLECTION,
+      "publisherOrganizationId",
+      ownOrganizationId,
+      options.cursor,
+      options.limit,
+      toFeedItemRecord,
+    );
+  }
 
   return {
     feedItems: page.records,

@@ -10,15 +10,28 @@ import { appText } from "@/lib/language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 import { getServerAppLanguage } from "@/lib/server-language";
 
+async function loadDiscoverPageData<T>(path: string) {
+  try {
+    return { data: await sdkFetchServer<T>(path), failed: false };
+  } catch (error) {
+    console.error(`Discover feed entries initial load failed for ${path}:`, error);
+    return { data: null, failed: true };
+  }
+}
+
 export default async function DiscoverFeedEntriesPage() {
   await requireDiscoverAccess();
 
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
-  const [feedPage, organizationsPage] = await Promise.all([
-    sdkFetchServer<DiscoverFeedItemsPage>("/discover/feed-items"),
-    sdkFetchServer<DiscoverOrganizationsPage>("/discover/organizations?limit=50"),
+  const [feedPageResult, organizationsPageResult] = await Promise.all([
+    loadDiscoverPageData<DiscoverFeedItemsPage>("/discover/feed-items"),
+    loadDiscoverPageData<DiscoverOrganizationsPage>("/discover/organizations?limit=50"),
   ]);
+  const initialLoadError =
+    feedPageResult.failed || organizationsPageResult.failed
+      ? t("Unable to load Discover data. Refresh the page or contact support if it repeats.")
+      : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -32,9 +45,10 @@ export default async function DiscoverFeedEntriesPage() {
         }
       >
         <DiscoverFeedEntryBrowser
-          initialFeedItems={feedPage.feedItems}
-          initialNextCursor={feedPage.nextCursor}
-          organizations={organizationsPage.organizations}
+          initialFeedItems={feedPageResult.data?.feedItems ?? []}
+          initialNextCursor={feedPageResult.data?.nextCursor ?? null}
+          organizations={organizationsPageResult.data?.organizations ?? []}
+          initialLoadError={initialLoadError}
         />
       </HeaderUnclutterScope>
     </div>
