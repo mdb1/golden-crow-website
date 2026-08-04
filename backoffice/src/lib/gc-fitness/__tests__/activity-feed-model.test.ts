@@ -8,6 +8,8 @@
 
 import {
   classifyAuditRecord,
+  coachActivityKeysFor,
+  findDuplicateCoachEventIds,
   isAutoExtendedOccurrence,
   durationLabel,
   habitFrequencyLabel,
@@ -20,6 +22,7 @@ import {
   recurrenceLabel,
   volumeLabel,
   type AuditRecord,
+  type CrossSourceRow,
   type MergeableEvent,
 } from "@/lib/gc-fitness/activity-feed-model";
 
@@ -1046,5 +1049,121 @@ describe("mergeWorkoutWriteBacks", () => {
       { id: "finish", ...base, correlation: "workout_finished" as const },
     ]);
     expect(merged.map((e) => e.id)).toEqual(["wb", "finish"]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #748 — one action, one row, across sources
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("coachActivityKeysFor", () => {
+  const SERIES = "6b1f2a34-0c9d-4f11-9d0e-51b7b2a4c8f0";
+
+  it("bridges an assignment by BOTH its series and its doc id", () => {
+    // The coach log keys a recurring series by seriesId and a one-off by the
+    // assignment id — a row that only emitted one of them would miss half.
+    expect(
+      coachActivityKeysFor(
+        record({
+          collection: "workout_assignments",
+          docId: `asg-${CLIENT}-20260808-${SERIES}`,
+          op: "create",
+          after: { seriesId: SERIES, templateId: "tpl-1" },
+        }),
+      ),
+    ).toEqual([`asg:asg-${CLIENT}-20260808-${SERIES}`, `asg:${SERIES}`]);
+  });
+
+  it("reads the series off `before` on a delete, where `after` is gone", () => {
+    expect(
+      coachActivityKeysFor(
+        record({
+          collection: "workout_assignments",
+          docId: "asg-1",
+          op: "delete",
+          before: { seriesId: SERIES },
+          after: null,
+        }),
+      ),
+    ).toContain(`asg:${SERIES}`);
+  });
+
+  it("bridges exercises and habits on the CREATE only", () => {
+    const exercise = { collection: "exercises", docId: "exr-1" } as const;
+    const habit = { collection: "habits", docId: "hab-1" } as const;
+    expect(coachActivityKeysFor(record({ ...exercise, op: "create" }))).toEqual(["exr:exr-1"]);
+    expect(coachActivityKeysFor(record({ ...habit, op: "create" }))).toEqual(["hab:hab-1"]);
+    // `exerciseCreatedEvent` / `habitAssignedEvent` never fire on an edit, so an
+    // edit landing minutes after the create must not swallow the creation row.
+    expect(coachActivityKeysFor(record({ ...exercise, op: "update" }))).toEqual([]);
+    expect(coachActivityKeysFor(record({ ...habit, op: "delete" }))).toEqual([]);
+  });
+
+  it("has no opinion on collections the coach log does not mirror", () => {
+    expect(coachActivityKeysFor(record({ collection: "workout_logs", op: "create" }))).toEqual([]);
+    expect(coachActivityKeysFor(record({ collection: "users", op: "update" }))).toEqual([]);
+    // `docId: "?"` is the reader's fallback for a malformed capture — it must
+    // not become a key that matches other malformed captures.
+    expect(
+      coachActivityKeysFor(record({ collection: "workout_assignments", docId: "?", op: "create" })),
+    ).toEqual([]);
+  });
+});
+
+describe("findDuplicateCoachEventIds", () => {
+  const SERIES = "6b1f2a34-0c9d-4f11-9d0e-51b7b2a4c8f0";
+
+  /** The screenshot in #748: the same assign, told twice. */
+  const auditHalf: CrossSourceRow = {
+    id: "audit_log:a1",
+    source: "audit_log",
+    occurredAtISO: "2026-08-04T17:31:10.000Z",
+    clientUid: CLIENT,
+    entityKeys: [`asg:asg-${CLIENT}-20260808-${SERIES}`, `asg:${SERIES}`],
+  };
+  const coachHalf: CrossSourceRow = {
+    id: `coach_activity:asg:${SERIES}`,
+    source: "coach_activity",
+    occurredAtISO: "2026-08-04T17:31:12.000Z",
+    clientUid: CLIENT,
+    entityKeys: [`asg:${SERIES}`],
+  };
+
+  it("drops the coach half when the audit half already told the same assign", () => {
+    expect([...findDuplicateCoachEventIds([auditHalf, coachHalf])]).toEqual([coachHalf.id]);
+  });
+
+  it("keeps the coach row when NO audit row tells it", () => {
+    // The trigger is not deployed, the collection is not monitored, or the audit
+    // half fell off the per-source cap. Showing it twice beats losing it.
+    expect(findDuplicateCoachEventIds([coachHalf]).size).toBe(0);
+  });
+
+  it("never folds a horizon renewal into a months-old assign", () => {
+    // Same series, same client — but the app topping the series back up on its
+    // own is a different fact from the coach assigning it.
+    const renewal = { ...auditHalf, occurredAtISO: "2026-10-02T04:00:00.000Z" };
+    expect(findDuplicateCoachEventIds([renewal, coachHalf]).size).toBe(0);
+  });
+
+  it("never folds two rows about different clients", () => {
+    const other = { ...auditHalf, clientUid: "someone-else" };
+    expect(findDuplicateCoachEventIds([other, coachHalf]).size).toBe(0);
+  });
+
+  it("keeps the coach row for a client who has no uid yet", () => {
+    // The pending client is named ONLY by the email on the coach event; the
+    // audit row has nowhere to put it, so folding would erase who it was about.
+    const pending = { ...coachHalf, clientUid: null, hasPendingClient: true };
+    const audit = { ...auditHalf, clientUid: null };
+    expect(findDuplicateCoachEventIds([audit, pending]).size).toBe(0);
+  });
+
+  it("folds the series event into a DELETE of the same series", () => {
+    // `deleteAssignment` marks the coach event deleted and the trigger captures
+    // the occurrence deletions — the same pair of halves, one row.
+    const deletion = { ...auditHalf, id: "audit_log:a-del" };
+    const coachDeleted = { ...coachHalf, occurredAtISO: "2026-08-04T17:31:11.000Z" };
+    expect([...findDuplicateCoachEventIds([deletion, coachDeleted])]).toEqual([coachHalf.id]);
   });
 });

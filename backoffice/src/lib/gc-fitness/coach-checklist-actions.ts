@@ -10,6 +10,7 @@ import { civilDateFormat, civilDateToday } from "./civil-date";
 import { listClients } from "./client-roster";
 import { FirestoreCollections } from "./collections";
 import { getTrainerTimezone } from "./trainer-timezone";
+import { zonedWallClockInstant } from "./zoned-instant";
 
 const CHECKLIST_COLLECTION = "coach_checklist";
 const MAX_CHECKLIST_ITEMS = 50;
@@ -112,21 +113,27 @@ function advanceDueDate(
   return null;
 }
 
-/** Parse a "YYYY-MM-DD" end date into an end-of-day Date, or null. */
-function parseRecurrenceEnd(endsOn?: string): Date | null {
+/**
+ * Parse a "YYYY-MM-DD" end date into the last instant of that day IN THE
+ * COACH'S ZONE — not in the server's (#747).
+ */
+function parseRecurrenceEnd(endsOn: string | undefined, timezone: string): Date | null {
   if (!endsOn || !/^\d{4}-\d{2}-\d{2}$/.test(endsOn)) return null;
-  const d = new Date(`${endsOn}T23:59:59`);
-  return Number.isNaN(d.getTime()) ? null : d;
+  const lastMinute = zonedWallClockInstant(endsOn, "23:59", timezone);
+  return lastMinute ? new Date(lastMinute.getTime() + 59_000) : null;
 }
 
-/** Render a stored Timestamp/Date back to a civil "YYYY-MM-DD" string. */
-function toCivilDate(value: unknown): string | null {
+/**
+ * Render a stored Timestamp/Date back to a civil "YYYY-MM-DD" string, in the
+ * coach's zone. The host getters this replaced read UTC on Vercel, so the edit
+ * form's "ends on" could show the day AFTER the one that was saved (#747).
+ */
+function toCivilDate(value: unknown, timezone: string): string | null {
   const iso = toIso(value);
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return civilDateFormat(d, timezone);
 }
 
 const itemIdSchema = z.string().trim().min(1).max(160);
@@ -140,7 +147,10 @@ function revalidateChecklistSurfaces() {
 }
 
 export async function listCoachChecklistItems(): Promise<CoachChecklistItem[]> {
-  const trainer = await getCurrentTrainer();
+  const [trainer, timezone] = await Promise.all([
+    getCurrentTrainer(),
+    getTrainerTimezone(),
+  ]);
   const snap = await checklistCollection(trainer.uid)
     .orderBy("dueAt", "asc")
     .limit(MAX_CHECKLIST_ITEMS)
@@ -171,7 +181,7 @@ export async function listCoachChecklistItems(): Promise<CoachChecklistItem[]> {
         createdAt: toIso(data.createdAt),
         clients: [] as Array<{ id: string; name: string }>,
         recurrence: normalizeRecurrence(data.recurrence),
-        recurrenceEndsOn: toCivilDate(data.recurrenceEndsAt),
+        recurrenceEndsOn: toCivilDate(data.recurrenceEndsAt, timezone),
         recurrenceWeekdays: sanitizeIntArray(data.recurrenceWeekdays, 1, 7),
         recurrenceMonthDays: sanitizeIntArray(data.recurrenceMonthDays, 1, 31),
       } satisfies CoachChecklistItem,
@@ -249,13 +259,16 @@ export async function listPendingChecklistItems(): Promise<
 export async function createCoachChecklistItem(
   input: unknown,
 ): Promise<{ ok: true }> {
-  const trainer = await getCurrentTrainer();
+  const [trainer, timezone] = await Promise.all([
+    getCurrentTrainer(),
+    getTrainerTimezone(),
+  ]);
   const parsed = createChecklistItemSchema.parse(input);
-  const dueAt = parseDueAt(parsed.dueDate, parsed.dueTime);
+  const dueAt = parseDueAt(parsed.dueDate, parsed.dueTime, timezone);
 
   const recurrence = parsed.recurrence ?? "none";
   const recurrenceEndsAt =
-    recurrence !== "none" ? parseRecurrenceEnd(parsed.recurrenceEndsOn) : null;
+    recurrence !== "none" ? parseRecurrenceEnd(parsed.recurrenceEndsOn, timezone) : null;
 
   await checklistCollection(trainer.uid).add({
     title: parsed.title,
@@ -285,17 +298,20 @@ export async function updateCoachChecklistItem(
   itemId: unknown,
   input: unknown,
 ): Promise<{ ok: true }> {
-  const trainer = await getCurrentTrainer();
+  const [trainer, timezone] = await Promise.all([
+    getCurrentTrainer(),
+    getTrainerTimezone(),
+  ]);
   const parsedItemId = itemIdSchema.parse(itemId);
   const parsed = createChecklistItemSchema.parse(input);
-  const dueAt = parseDueAt(parsed.dueDate, parsed.dueTime);
+  const dueAt = parseDueAt(parsed.dueDate, parsed.dueTime, timezone);
 
   // Empty notes / cleared date are intentional removals, not "leave as-is":
   // delete the notes field and null out dueAt so the item drops back to the
   // "Sin fecha" group. `completed`/`createdAt` are left untouched.
   const recurrence = parsed.recurrence ?? "none";
   const recurrenceEndsAt =
-    recurrence !== "none" ? parseRecurrenceEnd(parsed.recurrenceEndsOn) : null;
+    recurrence !== "none" ? parseRecurrenceEnd(parsed.recurrenceEndsOn, timezone) : null;
   const weekdays =
     recurrence === "weekly" ? parsed.recurrenceWeekdays ?? [] : [];
   const monthDays =
@@ -398,11 +414,23 @@ function checklistCollection(uid: string) {
     .collection(CHECKLIST_COLLECTION);
 }
 
-function parseDueAt(date?: string, time?: string): Date | null {
+/**
+ * The instant a coach means by "this day at this time".
+ *
+ * #747 — this used to be `new Date(`${date}T${time}:00`)`, a date-time string
+ * with no offset, which JS resolves in the HOST zone: UTC on Vercel. A coach in
+ * Buenos Aires setting a reminder for 18:00 stored 18:00Z and read it back as
+ * 15:00. The bucketing already worked in their zone (`listPendingChecklist`
+ * calls `getTrainerTimezone`), so the stored instant was the odd one out.
+ */
+function parseDueAt(
+  date: string | undefined,
+  time: string | undefined,
+  timezone: string,
+): Date | null {
   if (!date) return null;
   const normalizedTime = time && /^\d{2}:\d{2}$/.test(time) ? time : "09:00";
-  const dueAt = new Date(`${date}T${normalizedTime}:00`);
-  return Number.isNaN(dueAt.getTime()) ? null : dueAt;
+  return zonedWallClockInstant(date, normalizedTime, timezone);
 }
 
 function toIso(value: unknown): string | null {

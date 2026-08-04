@@ -75,6 +75,8 @@ const formSchema = z.object({
 
 export interface AppVersionFormProps {
   initialConfig: AppVersionConfig;
+  /** The admin's IANA zone, resolved server-side (#747). */
+  timezone: string;
 }
 
 const PLATFORMS = [
@@ -92,7 +94,7 @@ const PLATFORMS = [
   },
 ];
 
-export function AppVersionForm({ initialConfig }: AppVersionFormProps) {
+export function AppVersionForm({ initialConfig, timezone }: AppVersionFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -203,7 +205,12 @@ export function AppVersionForm({ initialConfig }: AppVersionFormProps) {
         <div className="flex items-center justify-end gap-3">
           {initialConfig.updatedAtISO ? (
             <span className="text-xs text-muted-foreground">
-              Last updated {new Date(initialConfig.updatedAtISO).toLocaleString()}
+              Last updated{" "}
+              {new Date(initialConfig.updatedAtISO).toLocaleString(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+                timeZone: timezone,
+              })}
               {initialConfig.updatedBy ? ` by ${initialConfig.updatedBy}` : ""}
             </span>
           ) : null}

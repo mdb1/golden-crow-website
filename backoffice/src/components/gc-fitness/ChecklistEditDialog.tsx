@@ -21,6 +21,8 @@ import { ChecklistClientPicker } from "@/components/gc-fitness/ChecklistClientPi
 import { ChecklistRecurrenceFields } from "@/components/gc-fitness/ChecklistRecurrenceFields";
 import type { CoachChecklistItem } from "@/lib/gc-fitness/coach-checklist-actions";
 import { updateCoachChecklistItem } from "@/lib/gc-fitness/coach-checklist-actions";
+import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
+import { formatClientActivityTime } from "@/lib/gc-fitness/client-activity-time";
 
 interface Props {
   item: CoachChecklistItem;
@@ -28,18 +30,27 @@ interface Props {
   trigger: ReactNode;
   /** Linkable clients. When empty (e.g. the dashboard widget) the picker is hidden. */
   clients?: Array<{ uid: string; displayName: string }>;
+  /** The coach's IANA zone — the one the due time was typed in (#747). */
+  timezone: string;
 }
 
-// Split a stored ISO `dueAt` into the local date/time strings the
+// Split a stored ISO `dueAt` back into the date/time strings the
 // <input type="date"|"time"> controls expect. Empty when there's no due date.
-function splitDueAt(iso: string | null): { date: string; time: string } {
+//
+// #747 — explicitly in the coach's zone. The host getters this replaced happen
+// to agree in the browser and disagree on the server render, so a reminder set
+// for 18:00 flashed as a different hour before hydration — and the value the
+// form posted back was whatever the flash had computed.
+function splitDueAt(
+  iso: string | null,
+  timezone: string,
+): { date: string; time: string } {
   if (!iso) return { date: "", time: "" };
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return { date: "", time: "" };
-  const pad = (n: number) => String(n).padStart(2, "0");
   return {
-    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
-    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    date: civilDateFormat(d, timezone),
+    time: formatClientActivityTime(iso, timezone, "en-GB"),
   };
 }
 
@@ -48,13 +59,13 @@ function splitDueAt(iso: string | null): { date: string; time: string } {
  * checklist page and the dashboard "Pendientes" widget. Uncontrolled form
  * whose defaults are reset on every open via a `key` tied to open state.
  */
-export function ChecklistEditDialog({ item, trigger, clients = [] }: Props) {
+export function ChecklistEditDialog({ item, trigger, clients = [], timezone }: Props) {
   const t = useTranslations("coachChecklist");
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [recurrenceValid, setRecurrenceValid] = useState(true);
-  const initial = splitDueAt(item.dueAt);
+  const initial = splitDueAt(item.dueAt, timezone);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

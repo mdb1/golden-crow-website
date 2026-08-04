@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/gc-fitness/page-header";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { listCoachChecklistItems } from "@/lib/gc-fitness/coach-checklist-actions";
 import { listClients } from "@/lib/gc-fitness/client-roster";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { CoachChecklistClient } from "./CoachChecklistClient";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
@@ -24,9 +25,12 @@ export default async function CoachChecklistPage() {
     throw err;
   }
   const t = await getTranslations("coachChecklist");
-  const [items, roster] = await Promise.all([
+  const [items, roster, timezone] = await Promise.all([
     listCoachChecklistItems(),
     listClients(),
+    // #747 — the page groups by civil day and prints hours; both need the
+    // coach's zone, which a Server Component cannot infer.
+    getTrainerTimezone(),
   ]);
   // Only real (signed-in) clients can be linked — pending/mirror entries have a
   // synthetic `mirror:` uid that isn't a valid client route.
@@ -41,7 +45,7 @@ export default async function CoachChecklistPage() {
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader title={t("title")} subtitle={t("headerSubtitle")} />
-      <CoachChecklistClient items={items} clients={clients} />
+      <CoachChecklistClient items={items} clients={clients} timezone={timezone} />
     </div>
   );
 }

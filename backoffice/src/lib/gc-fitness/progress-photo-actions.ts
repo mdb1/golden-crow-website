@@ -4,7 +4,9 @@ import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-
 
 import { getCurrentAdmin, getCurrentTrainer } from "./auth-helpers";
 import { adminCanViewClientUnderCoach } from "./coachless-user-model";
+import { civilDateFormat } from "./civil-date";
 import { FirestoreCollections } from "./collections";
+import { getTrainerTimezone } from "./trainer-timezone";
 
 export interface ProgressPhotoRow {
   id: string;
@@ -77,15 +79,11 @@ async function signedUrlForPath(storagePath: string): Promise<string | null> {
  * wire shape, same TZ-current projection. Returns null when the input
  * is null or unparseable.
  */
-function civilDateFromIso(iso: string | null): string | null {
+function civilDateFromIso(iso: string | null, timezone: string): string | null {
   if (!iso) return null;
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) return null;
-  return new Intl.DateTimeFormat("en-CA", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(parsed);
+  return civilDateFormat(parsed, timezone);
 }
 
 export async function listProgressPhotosForClient(
@@ -135,6 +133,10 @@ export async function listProgressPhotosForClientAsAdmin(
 async function loadProgressPhotos(
   clientId: string,
 ): Promise<ProgressPhotoRow[]> {
+  // #747 — the fallback sort key is a CIVIL day, so it needs the zone the
+  // uploader lives in. The doc comment on `civilDateFromIso` always promised
+  // "the trainer's local timezone"; the call never passed one, so it was UTC.
+  const timezone = await getTrainerTimezone();
   // Sort dimension lives client-side, not server-side: we want photos
   // ordered by the client-picked check-in date, not by upload time. A
   // server-side `orderBy("checkInDate")` would silently drop legacy docs
@@ -175,8 +177,8 @@ async function loadProgressPhotos(
   // arguments yields chronological-descending order. Rows missing both
   // fields sort to the end via the empty-string fallback.
   rows.sort((a, b) => {
-    const aKey = a.checkInDate ?? civilDateFromIso(a.createdAt) ?? "";
-    const bKey = b.checkInDate ?? civilDateFromIso(b.createdAt) ?? "";
+    const aKey = a.checkInDate ?? civilDateFromIso(a.createdAt, timezone) ?? "";
+    const bKey = b.checkInDate ?? civilDateFromIso(b.createdAt, timezone) ?? "";
     return bKey.localeCompare(aKey);
   });
 

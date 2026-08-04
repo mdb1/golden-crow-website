@@ -64,6 +64,7 @@ function renderTable() {
       assignCoachAction={noop}
       setTierAction={noop}
       deleteUserAction={noop}
+      timezone="America/Argentina/Buenos_Aires"
     />,
   );
 }

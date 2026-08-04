@@ -28,6 +28,10 @@ import {
   type RecentLogRow,
 } from "@/lib/gc-fitness/recent-logs-actions";
 import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
+// #747 — the shared helper the timezone policy mandates. The local copy this
+// replaced passed `undefined` as the locale, so a Spanish UI rendered "Aug 04,
+// 09:04 PM" — and rendered it differently on the server than after hydration.
+import { formatClientActivityDateTime } from "@/lib/gc-fitness/client-activity-time";
 
 // Must match the server page size (listRecentLogsForClient default). The feed
 // pages through already-loaded rows in memory; only when the user crosses the
@@ -270,7 +274,7 @@ export function ClientRecentLogsFeed({
                   ) : null}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                  {formatDateTime(row.eventAt, timezone)}
+                  {formatClientActivityDateTime(row.eventAt, timezone, locale)}
                   {row.detail ? ` · ${row.detail}` : ""}
                 </p>
               </RowShell>
@@ -361,18 +365,6 @@ function RowShell({
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
     </Link>
   );
-}
-
-function formatDateTime(iso: string, timeZone: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone,
-  });
 }
 
 // Render a "YYYY-MM-DD" civil date as a short day label. Construct from parts

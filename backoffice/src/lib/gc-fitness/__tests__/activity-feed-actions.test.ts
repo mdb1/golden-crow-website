@@ -407,3 +407,92 @@ describe("other sources", () => {
     ]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #748 — the same coach action reaching the feed through two recorders
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("cross-source duplicates", () => {
+  const SERIES = "6b1f2a34-0c9d-4f11-9d0e-51b7b2a4c8f0";
+
+  /** The audit half: one doc per occurrence, collapsed by the series grouping. */
+  const occurrence = (date: string, seconds: string) =>
+    doc(`a-${date}`, {
+      collection: "workout_assignments",
+      docId: `asg-client1-${date}-${UUID}`,
+      op: "create",
+      changedFields: ["templateId", "seriesId", "recurrence", "scheduledFor"],
+      changedFieldCount: 4,
+      after: {
+        templateId: "tpl-1",
+        seriesId: SERIES,
+        scheduledFor: `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`,
+        recurrence: { kind: "weekly", weekday: 6 },
+      },
+      trainerId: "coach1",
+      clientId: "client1",
+      occurredAt: ts(`2026-08-04T17:31:${seconds}.000Z`),
+    });
+
+  beforeEach(() => {
+    queryGet.audit_log = async () => ({
+      docs: [occurrence("20260905", "10"), occurrence("20260808", "10")],
+    });
+    // The coach half: ONE hand-written event for the whole series, appended
+    // after the batches commit — same action, other dialect.
+    queryGet.coach_activity = async () => ({
+      docs: [
+        doc(`asg:${SERIES}`, {
+          trainerId: "coach1",
+          kind: "workout_assignment",
+          title: "Workout asignado: Full Body A",
+          detail: "Recurrencia: semanal · 5 fechas · 2026-08-08 a 2026-09-05",
+          clientId: "client1",
+          occurredAt: ts("2026-08-04T17:31:12.000Z"),
+          deleted: false,
+        }),
+      ],
+    });
+  });
+
+  it("shows one row for one assign, and keeps the richer audit one", async () => {
+    const events = await listActivityFeed();
+    expect(events.map((e) => e.id)).toEqual(["audit_log:a-20260905"]);
+
+    const [assign] = events;
+    expect(assign.source).toBe("audit_log");
+    expect(assign.title).toBe("Asignó un workout");
+    expect(assign.subject).toBe("Full Body A");
+    // What the coach half could not say: the weekday and the ×N badge.
+    expect(assign.meta).toContain("todas las semanas (sáb)");
+    expect(assign.occurrenceCount).toBe(2);
+    // And it must not carry the coach half's phrasing of the same fact.
+    expect(assign.meta.join(" ")).not.toContain("Recurrencia: semanal");
+  });
+
+  it("keeps the coach row when the audit half is missing", async () => {
+    // Trigger not deployed, or the audit half fell off the per-source cap.
+    queryGet.audit_log = async () => ({ docs: [] });
+    const events = await listActivityFeed();
+    expect(events.map((e) => e.id)).toEqual([`coach_activity:asg:${SERIES}`]);
+    expect(events[0].meta).toEqual([
+      "Recurrencia: semanal · 5 fechas · 2026-08-08 a 2026-09-05",
+    ]);
+  });
+
+  it("still shows the coach row for an unrelated series", async () => {
+    queryGet.coach_activity = async () => ({
+      docs: [
+        doc("asg:other-series", {
+          trainerId: "coach1",
+          kind: "workout_assignment",
+          title: "Workout asignado: Otra",
+          clientId: "client1",
+          occurredAt: ts("2026-08-04T17:31:12.000Z"),
+        }),
+      ],
+    });
+    const events = await listActivityFeed();
+    expect(events.map((e) => e.id)).toContain("coach_activity:asg:other-series");
+  });
+});

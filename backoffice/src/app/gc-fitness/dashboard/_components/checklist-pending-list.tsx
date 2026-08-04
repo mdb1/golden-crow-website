@@ -14,6 +14,8 @@ import { setCoachChecklistItemCompleted } from "@/lib/gc-fitness/coach-checklist
 
 interface Props {
   items: PendingChecklistItem[];
+  /** The coach's IANA zone. Explicit, never inferred here (#747). */
+  timezone: string;
 }
 
 /**
@@ -23,7 +25,7 @@ interface Props {
  * by construction (the server only feeds overdue + due-today), so the checkbox
  * always starts unchecked and a tick completes the item.
  */
-export function ChecklistPendingList({ items }: Props) {
+export function ChecklistPendingList({ items, timezone }: Props) {
   const td = useTranslations("dashboard");
   const tc = useTranslations("coachChecklist");
   const locale = useLocale();
@@ -33,6 +35,7 @@ export function ChecklistPendingList({ items }: Props) {
   const timeFormatter = new Intl.DateTimeFormat(locale, {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: timezone,
   });
 
   function complete(item: PendingChecklistItem) {
@@ -92,6 +95,7 @@ export function ChecklistPendingList({ items }: Props) {
               </span>
               <ChecklistEditDialog
                 item={item}
+                timezone={timezone}
                 trigger={
                   <Button
                     type="button"

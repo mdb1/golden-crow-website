@@ -353,7 +353,7 @@ export default async function NotificationsPage({
         </div>
       ) : null}
 
-      <UpcomingWorkoutAlerts />
+      <UpcomingWorkoutAlerts timezone={trainerTimezone} />
 
       <Card>
         <CardHeader>

@@ -41,6 +41,7 @@ import {
   getCurrentTrainer,
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { listEngineeringUsers } from "@/lib/gc-fitness/engineering-actions";
 import { EngineeringAccessCard } from "./_components/EngineeringAccessCard";
@@ -161,6 +162,8 @@ async function fetchRecentTrainerActivity(
 }
 
 export default async function GCFitnessQAToolsPage() {
+  // #747 — every timestamp on this page renders in the engineer's zone.
+  const timezone = await getTrainerTimezone();
   let trainer: CurrentTrainer;
   try {
     trainer = await getCurrentTrainer();
@@ -241,6 +244,9 @@ export default async function GCFitnessQAToolsPage() {
                       ? row.updatedAt.toLocaleString("es-AR", {
                           dateStyle: "short",
                           timeStyle: "short",
+                          // #747 — a Server Component formats in the SERVER's
+                          // zone (UTC on Vercel) unless told otherwise.
+                          timeZone: timezone,
                         })
                       : "(no timestamp)"}
                   </span>

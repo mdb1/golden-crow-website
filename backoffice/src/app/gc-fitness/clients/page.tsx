@@ -17,6 +17,7 @@ import {
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
 import { listClientsForRoster } from "@/lib/gc-fitness/client-roster";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { AddClientPanel } from "./_components/AddClientPanel";
 import { RosterTable } from "./_components/RosterTable";
 import { RosterQueryProvider } from "./providers";
@@ -90,6 +91,7 @@ export default async function ClientsPage({
           rows={rows}
           trainerUid={trainer.uid}
           initialNeedsAttentionOnly={initialNeedsAttentionOnly}
+          timezone={await getTrainerTimezone()}
         />
       </RosterQueryProvider>
     </div>

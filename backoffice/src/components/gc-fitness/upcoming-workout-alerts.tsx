@@ -20,6 +20,7 @@ import {
   type UpcomingWorkout,
 } from "@/lib/gc-fitness/live-workout-actions";
 import { useActiveWorkoutSummaries } from "@/lib/gc-fitness/live-workout-listener";
+import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 
 const THRESHOLDS = [30, 10, 1] as const;
 
@@ -27,24 +28,26 @@ function isUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim());
 }
 
-function firedStorageKey(): string {
-  const today = new Date().toISOString().slice(0, 10);
-  return `gcf-workout-alerts-fired-${today}`;
+// #747 — the "already alerted today" set has to roll over at the COACH's
+// midnight. Keyed on the UTC day, a coach at UTC-3 kept yesterday's fired set
+// through their evening and started a fresh one at 21:00 local.
+function firedStorageKey(timezone: string): string {
+  return `gcf-workout-alerts-fired-${civilDateToday(timezone)}`;
 }
 
-function loadFired(): Set<string> {
+function loadFired(timezone: string): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
-    const raw = window.localStorage.getItem(firedStorageKey());
+    const raw = window.localStorage.getItem(firedStorageKey(timezone));
     return new Set(raw ? (JSON.parse(raw) as string[]) : []);
   } catch {
     return new Set();
   }
 }
 
-function persistFired(fired: Set<string>) {
+function persistFired(fired: Set<string>, timezone: string) {
   try {
-    window.localStorage.setItem(firedStorageKey(), JSON.stringify([...fired]));
+    window.localStorage.setItem(firedStorageKey(timezone), JSON.stringify([...fired]));
   } catch {
     /* storage unavailable — alerts still fire in-session via the ref */
   }
@@ -59,7 +62,7 @@ function countdownLabel(minutes: number): string {
   return m === 0 ? `en ${h} h` : `en ${h} h ${m} min`;
 }
 
-export function UpcomingWorkoutAlerts() {
+export function UpcomingWorkoutAlerts({ timezone }: { timezone: string }) {
   const { data } = useQuery({
     queryKey: ["live-workout", "upcoming-alerts"],
     queryFn: () => listUpcomingScheduledWorkouts(),
@@ -74,9 +77,9 @@ export function UpcomingWorkoutAlerts() {
   const firedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    firedRef.current = loadFired();
+    firedRef.current = loadFired(timezone);
     if (typeof Notification !== "undefined") setPermission(Notification.permission);
-  }, []);
+  }, [timezone]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 15_000);
@@ -111,8 +114,8 @@ export function UpcomingWorkoutAlerts() {
         }
       }
     }
-    if (changed) persistFired(firedRef.current);
-  }, [items, now]);
+    if (changed) persistFired(firedRef.current, timezone);
+  }, [items, now, timezone]);
 
   const visible = items.filter((i) => {
     const minutes = (i.scheduledEpochMs - now) / 60_000;

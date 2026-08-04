@@ -29,6 +29,7 @@ import {
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { evaluateProgressPhotoCheckIn } from "@/lib/gc-fitness/progress-photo-checkin-policy";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
@@ -145,7 +146,12 @@ export default async function ClientDetailPage({
     email: client.email ?? "",
     coachNickname: client.coachNickname ?? null,
   });
-  const timezone = client.timezone ?? "UTC";
+  // #747 — the client's own zone when we know it, the COACH's otherwise. The
+  // old `?? "UTC"` was not a neutral default: a client who has not opened the
+  // app yet (or signed up before the field existed) has no `timezone`, so every
+  // instant on this page rendered in UTC — "09:04 PM" for an action taken at
+  // 18:04 in Buenos Aires. Nobody reading this screen lives in UTC.
+  const timezone = client.timezone ?? (await getTrainerTimezone());
   // Contract: every client activity surface below reads this explicit IANA
   // timezone. Leaf components must not infer UTC or the host timezone.
   const todayCivil = civilDateToday(timezone);

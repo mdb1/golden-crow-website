@@ -18,7 +18,7 @@
 // fine inside both server pages and client dialogs.
 
 import { Trophy, Dumbbell, Gauge, NotebookText } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -93,12 +93,16 @@ function groupSetsByExercise(sets: WorkoutLogDetail["sets"]): ExerciseGroup[] {
 
 export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
   const t = useTranslations("recentLogs.workoutDetail");
+  // #747 sibling: the zone was already explicit here, the LOCALE was not — an
+  // `undefined` locale is the runtime's, so a Spanish UI printed "Aug 04".
+  const locale = useLocale();
   const groups = groupSetsByExercise(detail.sets);
   const restMap = restBySetLogId(detail.sets);
   const completedAtForDisplay = resolveCompletedAtForDisplay(detail);
   const sessionDate = formatDateOnly(
     completedAtForDisplay ?? detail.startedAt,
     detail.clientTimezone,
+    locale,
   );
 
   return (
@@ -126,10 +130,10 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                 : t("statusStarted")
             }
           />
-          <Metric label={t("metricStarted")} value={formatDateTime(detail.startedAt, detail.clientTimezone)} />
+          <Metric label={t("metricStarted")} value={formatDateTime(detail.startedAt, detail.clientTimezone, locale)} />
           <Metric
             label={t("metricCompleted")}
-            value={formatDateTime(completedAtForDisplay, detail.clientTimezone)}
+            value={formatDateTime(completedAtForDisplay, detail.clientTimezone, locale)}
           />
           <Metric label={t("metricExercises")} value={String(detail.exerciseCount)} />
           <Metric label={t("metricSetsLogged")} value={`${detail.completedSetCount}/${detail.setCount}`} />
@@ -313,7 +317,7 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                                   </td>
                                 ) : null}
                                 <td className="py-2 pr-3 text-muted-foreground">
-                                  {formatTimeOnly(set.completedAt, detail.clientTimezone)}
+                                  {formatTimeOnly(set.completedAt, detail.clientTimezone, locale)}
                                 </td>
                                 <td className="py-2 pr-3 text-muted-foreground">
                                   {restMap.has(set.setLogId)
@@ -376,11 +380,11 @@ function RpeMeter({ value, label }: { value: number; label: string }) {
 // `timeZone` is the CLIENT's IANA zone — REQUIRED. Omitting it would format
 // in the host tz (UTC). The recent-logs server page resolves it; the calendar
 // dialog gets it from the same WorkoutLogDetail builder.
-function formatDateTime(iso: string | null, timeZone: string): string {
+function formatDateTime(iso: string | null, timeZone: string, locale: string): string {
   if (!iso) return "-";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(locale, {
     year: "numeric",
     month: "short",
     day: "2-digit",
@@ -392,22 +396,22 @@ function formatDateTime(iso: string | null, timeZone: string): string {
 
 // Per-row timestamps only need the time — the date is shown once in the
 // section header (it's the same day for the whole workout).
-function formatTimeOnly(iso: string | null, timeZone: string): string {
+function formatTimeOnly(iso: string | null, timeZone: string, locale: string): string {
   if (!iso) return "-";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(locale, {
     hour: "2-digit",
     minute: "2-digit",
     timeZone,
   });
 }
 
-function formatDateOnly(iso: string | null, timeZone: string): string | null {
+function formatDateOnly(iso: string | null, timeZone: string, locale: string): string | null {
   if (!iso) return null;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(locale, {
     weekday: "long",
     year: "numeric",
     month: "long",
