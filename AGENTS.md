@@ -1,5 +1,6 @@
 # Repo Instructions
 
+- After completing a requested code fix or implementation, commit and push it to `main` automatically unless the user explicitly asks not to push, asks for a PR/branch workflow, or the work cannot pass the mandatory gates. Do not wait for a separate `commit and push` prompt.
 - When the user says `commit and push` without naming a branch, commit the requested change and push it directly to `main`. Do not leave requested work only on a `codex/*`, feature, or draft branch unless the user explicitly asks for that branch or PR flow.
 - Every time you make a commit that will be pushed, bump the backoffice version by exactly `+1`.
 - The version source of truth is `backoffice/src/lib/app-version.ts`.

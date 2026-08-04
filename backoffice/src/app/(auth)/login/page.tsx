@@ -57,6 +57,7 @@ import {
   resolveAppLanguage,
   type AppLanguage,
 } from "@/lib/language";
+import type { AdminRole } from "@/lib/admin-areas";
 
 type ProjectKey = "mydnamap" | "pocket-gyms";
 type Phase = "auth" | "select" | "signup-email" | "signup-password";
@@ -118,13 +119,7 @@ type SignupEligibility = {
   eligible: boolean;
   viaAllowlist: boolean;
   viaRoleAssignment: boolean;
-  role?:
-    | "full_admin"
-    | "institution_admin"
-    | "institution_operator"
-    | "institution_laboratory_staff"
-    | "institution_doctor"
-    | "patient";
+  role?: AdminRole;
   accountExists: boolean;
   accountHasGoogle?: boolean;
   accountHasPassword?: boolean;
@@ -134,6 +129,7 @@ type SignupEligibility = {
 
 const ROLE_LABELS: Record<NonNullable<SignupEligibility["role"]>, string> = {
   full_admin: "full admin",
+  organization_publisher: "organization publisher",
   institution_admin: "institution admin",
   institution_operator: "institution operator",
   institution_laboratory_staff: "institution laboratory staff",
@@ -148,6 +144,7 @@ const LOGIN_LANGUAGE_OPTIONS: AppLanguage[] = ["en", "es"];
 
 const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "full admin": "administrador total",
+  "organization publisher": "publicador de organizacion",
   "institution admin": "administrador de institucion",
   "institution operator": "operador de institucion",
   "institution laboratory staff": "personal de laboratorio de institucion",
