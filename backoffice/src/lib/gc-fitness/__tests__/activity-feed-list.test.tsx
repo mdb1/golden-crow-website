@@ -43,8 +43,51 @@ function event(over: Partial<ActivityFeedEvent> & { id: string }): ActivityFeedE
 }
 
 describe("ActivityFeedList", () => {
+  // ── #736: la hora y el DÍA salen en la zona del usuario, no en UTC ──────────
+  //
+  // Las 20:37Z del 31 de julio son las 17:37 del 31 en Buenos Aires: mismo día, hora
+  // distinta. Las 01:30Z del 1 de agosto son las 22:30 del 31 — DÍA distinto, que es la
+  // mitad del bug que un test de "sólo la hora" no habría visto.
+  it("muestra la hora en la zona del usuario y no en UTC", () => {
+    render(
+      <ActivityFeedList
+        events={[event({ id: "e1", occurredAtISO: "2026-07-31T20:37:00.000Z" })]}
+        today="2026-07-31"
+        timeZone="America/Argentina/Buenos_Aires"
+      />,
+    );
+
+    expect(screen.getByText("17:37")).toBeInTheDocument();
+    expect(screen.queryByText("20:37")).not.toBeInTheDocument();
+  });
+
+  it("agrupa por el día CIVIL del usuario, no por el día UTC", () => {
+    render(
+      <ActivityFeedList
+        events={[event({ id: "e1", occurredAtISO: "2026-08-01T01:30:00.000Z" })]}
+        today="2026-07-31"
+        timeZone="America/Argentina/Buenos_Aires"
+      />,
+    );
+
+    // 01:30Z del 1/8 = 22:30 del 31/7 en Buenos Aires ⇒ va bajo "Hoy · 2026-07-31".
+    expect(screen.getByText(/Hoy · 2026-07-31/)).toBeInTheDocument();
+    expect(screen.queryByText(/2026-08-01/)).not.toBeInTheDocument();
+  });
+
+  it("sin timeZone se comporta como antes (UTC), que es el default de getTrainerTimezone", () => {
+    render(
+      <ActivityFeedList
+        events={[event({ id: "e1", occurredAtISO: "2026-07-31T20:37:00.000Z" })]}
+        today="2026-07-31"
+      />,
+    );
+
+    expect(screen.getByText("20:37")).toBeInTheDocument();
+  });
+
   it("renders the actor, the verb and a tappable subject", () => {
-    render(<ActivityFeedList events={[event({ id: "e1" })]} todayUtc="2026-07-31" />);
+    render(<ActivityFeedList events={[event({ id: "e1" })]} today="2026-07-31" />);
 
     expect(screen.getByRole("link", { name: "Solo User" })).toHaveAttribute(
       "href",
@@ -60,7 +103,7 @@ describe("ActivityFeedList", () => {
 
   it("still offers a link when the event has no name to show", () => {
     render(
-      <ActivityFeedList events={[event({ id: "e1", subject: null })]} todayUtc="2026-07-31" />,
+      <ActivityFeedList events={[event({ id: "e1", subject: null })]} today="2026-07-31" />,
     );
     expect(screen.getByRole("link", { name: "ver detalle" })).toBeInTheDocument();
   });
@@ -73,7 +116,7 @@ describe("ActivityFeedList", () => {
           event({ id: "e2", occurredAtISO: "2026-07-30T10:00:00.000Z" }),
           event({ id: "e3", occurredAtISO: "2026-07-28T10:00:00.000Z" }),
         ]}
-        todayUtc="2026-07-31"
+        today="2026-07-31"
       />,
     );
     expect(screen.getByText(/Hoy · 2026-07-31/)).toBeInTheDocument();
@@ -92,7 +135,7 @@ describe("ActivityFeedList", () => {
             meta: ["1 h 2 min", "6.410 kg"],
           }),
         ]}
-        todayUtc="2026-07-31"
+        today="2026-07-31"
       />,
     );
     expect(screen.getByText("×4")).toBeInTheDocument();
@@ -116,7 +159,7 @@ describe("ActivityFeedList", () => {
             },
           }),
         ]}
-        todayUtc="2026-07-31"
+        today="2026-07-31"
       />,
     );
     expect(screen.getByRole("link", { name: "Client One" })).toBeInTheDocument();
@@ -126,7 +169,7 @@ describe("ActivityFeedList", () => {
   });
 
   it("renders an empty state instead of a blank card", () => {
-    render(<ActivityFeedList events={[]} todayUtc="2026-07-31" emptyLabel="Nada por acá." />);
+    render(<ActivityFeedList events={[]} today="2026-07-31" emptyLabel="Nada por acá." />);
     expect(screen.getByText("Nada por acá.")).toBeInTheDocument();
   });
 });

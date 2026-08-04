@@ -153,6 +153,8 @@ export async function createExercise(
   await docRef.set({
     ...data,
     id: docId,
+    // #741 — ver la nota en el update de edición.
+    updatedBy: trainer.uid,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     deleted: false,
@@ -215,6 +217,12 @@ export async function updateExercise(
 
   await docRef.update({
     ...safe,
+    // #741 — quién tocó el documento. Sin esto, una edición de un ejercicio de la
+    // BIBLIOTECA COMPARTIDA queda sin atribuir en el feed de Monitoring: no tiene
+    // `ownerId` (por diseño) y el `audit_log` que escribe la Function no puede saber
+    // quién fue, porque el backoffice escribe el doc directo. El dato no se perdía al
+    // mostrarlo, no existía en la escritura.
+    updatedBy: trainer.uid,
     updatedAt: FieldValue.serverTimestamp(),
     version: FieldValue.increment(1),
   });
@@ -251,6 +259,7 @@ export async function softDeleteExercise(
 
   await docRef.update({
     deleted: true,
+    updatedBy: trainer.uid,
     updatedAt: FieldValue.serverTimestamp(),
   });
 
@@ -289,6 +298,7 @@ export async function duplicateExercise(
     id: newId,
     source: "trainer",
     ownerId: trainer.uid,
+    updatedBy: trainer.uid,
     // mediaURL + thumbnailURL inherited from source — see field handling
     // note in the docblock. The spread above already includes them.
     version: 1,

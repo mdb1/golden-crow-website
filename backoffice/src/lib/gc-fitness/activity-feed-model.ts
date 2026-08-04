@@ -940,7 +940,13 @@ export function classifyAuditRecord(
       // `ownerId` is the exact author of a custom exercise (a shared-library doc
       // has none, so a library edit stays unattributed rather than guessed).
       const owner = str(subject?.ownerId) ?? str(after.ownerId) ?? str(before.ownerId);
-      const byOwner = stamped ?? owner;
+      // #741 — `updatedBy` es quién TOCÓ el doc por última vez, que no es lo mismo que
+      // quién lo posee: un ejercicio de la biblioteca compartida no tiene `ownerId`, así
+      // que sin esto toda edición de biblioteca salía sin nombre. Va DESPUÉS de `stamped`
+      // (el actor del audit_log, que es la fuente más confiable cuando existe) y ANTES de
+      // `owner`, porque para una edición interesa quién editó, no quién es el dueño.
+      const editor = str(subject?.updatedBy) ?? str(after.updatedBy);
+      const byOwner = stamped ?? editor ?? owner;
       const target: FeedTarget = { kind: "exercise", exerciseId: record.docId };
       if (record.op === "create") {
         return {
