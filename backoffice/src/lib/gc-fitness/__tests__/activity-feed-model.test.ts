@@ -903,6 +903,41 @@ describe("classifyAuditRecord — habits, exercises, accounts", () => {
     expect(event.target).toEqual({ kind: "exercise", exerciseId: "custom-1" });
   });
 
+  // ── #741 ───────────────────────────────────────────────────────────────────
+  //
+  // Un ejercicio de la BIBLIOTECA COMPARTIDA no tiene `ownerId` (a propósito: no se
+  // adivina un dueño). Antes eso dejaba la edición sin actor y la fila salía sin nombre.
+  // `updatedBy` es quién la tocó, que es lo que la pantalla necesita.
+  it("atribuye la edición de un ejercicio de biblioteca a quien lo editó", () => {
+    const event = classifyAuditRecord(
+      record({
+        collection: "exercises",
+        docId: "std-1",
+        op: "update",
+        changedFields: ["name"],
+        after: { name: { en: "Squat", es: "Sentadilla" }, updatedBy: COACH },
+      }),
+    );
+    expect(event.title).toBe("Editó un ejercicio");
+    expect(event.actorUid).toBe(COACH);
+  });
+
+  it("prefiere el actor del audit_log por sobre updatedBy cuando existe", () => {
+    const event = classifyAuditRecord(
+      record({
+        collection: "exercises",
+        docId: "std-1",
+        op: "update",
+        changedFields: ["name"],
+        actorUid: "uid-admin",
+        after: { name: { en: "Squat", es: "Sentadilla" }, updatedBy: COACH },
+      }),
+    );
+    // El audit_log es la fuente más confiable: dice quién hizo LA ESCRITURA, mientras que
+    // `updatedBy` es lo que el documento afirma de sí mismo.
+    expect(event.actorUid).toBe("uid-admin");
+  });
+
   it("surfaces a new signup and a real subscription change, but not a no-op refresh", () => {
     const signup = classifyAuditRecord(
       record({

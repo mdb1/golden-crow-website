@@ -13,6 +13,9 @@
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
+
+import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -117,7 +120,12 @@ export default async function AuditPage({
     loadError = true;
   }
 
-  const todayUtc = new Date().toISOString().slice(0, 10);
+  // #736 — "hoy" en la zona del USUARIO, no del servidor. `new Date().toISOString()`
+  // devolvía el día UTC, que en Vercel es el día del servidor: cerca de la medianoche
+  // argentina el encabezado "Hoy" se adelantaba y los eventos de la noche caían bajo la
+  // fecha de mañana. Misma pareja de helpers que ya usa `workout-assignment-actions`.
+  const timeZone = await getTrainerTimezone();
+  const today = civilDateFormat(new Date(), timeZone);
 
   const buildTabHref = (target: "timeline" | "deletions") => {
     const params = new URLSearchParams();
@@ -265,7 +273,8 @@ export default async function AuditPage({
           ) : (
             <ActivityFeedList
               events={events}
-              todayUtc={todayUtc}
+              today={today}
+              timeZone={timeZone}
               emptyLabel={
                 tab === "deletions"
                   ? "No hay eliminaciones para estos filtros."

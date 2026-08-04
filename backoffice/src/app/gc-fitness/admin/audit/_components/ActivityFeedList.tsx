@@ -7,7 +7,7 @@
 // nests one anchor inside another.
 //
 // Server Component (no interactivity): rendering happens once per filter submit.
-// Times are UTC — the same contract the filter inputs use.
+// Las horas y el agrupado por día se muestran en la zona del proyecto (#736), no en UTC.
 
 import Link from "next/link";
 import {
@@ -70,21 +70,58 @@ const CATEGORY_TONE: Record<FeedCategory, string> = {
   other: "bg-muted text-muted-foreground",
 };
 
-/** "2026-07-31T20:37:02.331Z" → "20:37". */
-function timeOfDay(iso: string | null): string {
-  return iso && iso.length >= 16 ? iso.slice(11, 16) : "--:--";
+/**
+ * #736 — todo lo de abajo se formatea en la zona horaria del proyecto, no en UTC.
+ *
+ * ⚠️ **El bug no era sólo la hora.** Estas tres funciones cortaban el ISO como string
+ * (`iso.slice(11, 16)`, `iso.slice(0, 10)`), así que el AGRUPADO POR DÍA y los rótulos
+ * "Hoy/Ayer" también eran UTC: un evento de las 22:00 de Buenos Aires cae en el día
+ * siguiente en UTC y aparecía bajo el encabezado equivocado. Arreglar sólo la hora habría
+ * dejado el feed más confuso, no menos — hora local bajo un título de otro día.
+ *
+ * La zona va FIJA y no sale del browser: esto es un Server Component, así que
+ * `Intl.DateTimeFormat().resolvedOptions().timeZone` devolvería la del SERVIDOR (UTC en
+ * Vercel), que es exactamente el bug que se está arreglando. Fija también es lo coherente
+ * con el resto del producto, donde la fecha civil es la de Buenos Aires (ver los twins de
+ * `civil-date`).
+ */
+/** "2026-07-31T20:37:02.331Z" → "17:37" en la zona pedida. */
+function timeOfDay(iso: string | null, timeZone: string): string {
+  if (!iso) return "--:--";
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return "--:--";
+  return new Intl.DateTimeFormat("es-AR", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(ms);
 }
 
-/** "2026-07-31T…" → "2026-07-31" (UTC day, the grouping key). */
-function dayKey(iso: string | null): string {
-  return iso && iso.length >= 10 ? iso.slice(0, 10) : "sin fecha";
+/**
+ * "2026-07-31T…" → el día CIVIL en el que cayó, que es la clave de agrupado.
+ *
+ * `en-CA` porque da "YYYY-MM-DD" — el mismo formato que `civilDateFormat`, así que la clave
+ * que se calcula acá y el "hoy" que llega por prop son comparables sin normalizar nada.
+ */
+function dayKey(iso: string | null, timeZone: string): string {
+  if (!iso) return "sin fecha";
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return "sin fecha";
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(ms);
 }
 
-function dayLabel(day: string, todayUtc: string): string {
-  if (day === todayUtc) return `Hoy · ${day}`;
-  const yesterday = new Date(Date.parse(`${todayUtc}T00:00:00.000Z`) - 86_400_000)
-    .toISOString()
-    .slice(0, 10);
+function dayLabel(day: string, today: string, timeZone: string): string {
+  if (day === today) return `Hoy · ${day}`;
+  // Se resta desde el MEDIODÍA y no desde la medianoche: en un día de cambio de horario
+  // de verano el día dura 23 o 25 horas, y restar 24 desde las 00:00 cae en el día
+  // equivocado. Desde las 12:00 sobra margen en las dos direcciones.
+  const yesterday = dayKey(new Date(Date.parse(`${today}T12:00:00.000Z`) - 86_400_000).toISOString(), timeZone);
   if (day === yesterday) return `Ayer · ${day}`;
   return day;
 }
@@ -111,7 +148,7 @@ function lowerFirst(text: string): string {
   return text.length > 0 ? text[0].toLocaleLowerCase("es") + text.slice(1) : text;
 }
 
-function FeedRow({ event }: { event: ActivityFeedEvent }) {
+function FeedRow({ event, timeZone }: { event: ActivityFeedEvent; timeZone: string }) {
   const Icon = CATEGORY_ICON[event.category] ?? Activity;
   const subject = event.subject?.trim();
 
@@ -183,7 +220,7 @@ function FeedRow({ event }: { event: ActivityFeedEvent }) {
 
       <div className="flex shrink-0 flex-col items-end gap-1">
         <span className="font-mono text-xs tabular-nums text-muted-foreground">
-          {timeOfDay(event.occurredAtISO)}
+          {timeOfDay(event.occurredAtISO, timeZone)}
         </span>
         {event.occurrenceCount ? (
           <Badge variant="secondary" className="font-normal">
@@ -202,12 +239,19 @@ function FeedRow({ event }: { event: ActivityFeedEvent }) {
 
 export function ActivityFeedList({
   events,
-  todayUtc,
+  today,
+  timeZone = "UTC",
   emptyLabel = "No hay eventos para estos filtros.",
 }: {
   events: ActivityFeedEvent[];
-  /** "YYYY-MM-DD" for the Hoy/Ayer headers — passed in so this stays pure. */
-  todayUtc: string;
+  /** "YYYY-MM-DD" en `timeZone`, para los rótulos Hoy/Ayer — entra por prop para que esto siga siendo puro. */
+  today: string;
+  /**
+   * Zona del usuario (#736). Default "UTC" para igualar a `getTrainerTimezone()` cuando la
+   * cookie no está: sin default, un caller que la omita rompería el formateo en vez de
+   * degradar al comportamiento anterior.
+   */
+  timeZone?: string;
   emptyLabel?: string;
 }) {
   if (events.length === 0) {
@@ -216,7 +260,7 @@ export function ActivityFeedList({
 
   const days: Array<{ day: string; items: ActivityFeedEvent[] }> = [];
   for (const event of events) {
-    const key = dayKey(event.occurredAtISO);
+    const key = dayKey(event.occurredAtISO, timeZone);
     const last = days[days.length - 1];
     if (last && last.day === key) last.items.push(event);
     else days.push({ day: key, items: [event] });
@@ -227,14 +271,14 @@ export function ActivityFeedList({
       {days.map((group) => (
         <section key={group.day}>
           <h3 className="sticky top-0 z-10 border-y bg-muted/60 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
-            {dayLabel(group.day, todayUtc)}
+            {dayLabel(group.day, today, timeZone)}
             <span className="ml-2 font-normal normal-case">
               {group.items.length} {group.items.length === 1 ? "evento" : "eventos"}
             </span>
           </h3>
           <ul className="divide-y">
             {group.items.map((event) => (
-              <FeedRow key={event.id} event={event} />
+              <FeedRow key={event.id} event={event} timeZone={timeZone} />
             ))}
           </ul>
         </section>
