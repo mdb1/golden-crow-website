@@ -681,7 +681,7 @@ export function MyAccountWorkbench({
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+      <div className="flex flex-col gap-5">
         <SectionShell
           icon={<BadgeCheck className="h-4 w-4" />}
           title="Profile Details"
@@ -796,22 +796,6 @@ export function MyAccountWorkbench({
         <SectionShell
           icon={<AtSign className="h-4 w-4" />}
           title="Email & Verification"
-          actions={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => void handleSendVerification()}
-              disabled={pendingVerification || account.auth.emailVerified}
-            >
-              <MailCheck className="h-3.5 w-3.5" />
-              {account.auth.emailVerified
-                ? "Email Verified"
-                : pendingVerification
-                  ? "Sending..."
-                  : "Send Verification"}
-            </Button>
-          }
         >
           <div className="grid gap-3">
             <StatusItem
@@ -850,22 +834,41 @@ export function MyAccountWorkbench({
           </EditableField>
           <InlineStatus message={emailMessage} />
 
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="grid gap-3 border-t border-border/80 pt-4 md:grid-cols-3">
             <Button
               type="button"
               variant="outline"
+              size="lg"
+              className="h-11 w-full"
+              onClick={() => void handleSendVerification()}
+              disabled={pendingVerification || account.auth.emailVerified}
+            >
+              <MailCheck className="h-4 w-4" />
+              {account.auth.emailVerified
+                ? "Email Verified"
+                : pendingVerification
+                  ? "Sending..."
+                  : "Send Verification"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-11 w-full"
               onClick={() => validateEmailCandidate(true)}
               disabled={!canChangeEmail || pendingEmailSave}
             >
-              <CheckCircle2 className="h-3.5 w-3.5" />
+              <CheckCircle2 className="h-4 w-4" />
               Validate Email
             </Button>
             <Button
               type="button"
+              size="lg"
+              className="h-11 w-full"
               onClick={() => void handleEmailSave()}
               disabled={!emailChanged || !canChangeEmail || pendingEmailSave}
             >
-              <Save className="h-3.5 w-3.5" />
+              <Save className="h-4 w-4" />
               {pendingEmailSave ? "Changing..." : "Change Email"}
             </Button>
           </div>
