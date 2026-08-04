@@ -81,7 +81,8 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
     pathname.startsWith("/areas") ||
     pathname.startsWith("/discover") ||
     pathname.startsWith("/2pq-dashboard") ||
-    pathname.startsWith("/roles");
+    pathname.startsWith("/roles") ||
+    pathname === "/my-account";
   const translatedMetadata = {
     eyebrow: appText(language, metadata.eyebrow),
     title: appText(language, metadata.title),

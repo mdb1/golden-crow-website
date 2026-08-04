@@ -1,13 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   onAuthStateChanged,
   sendEmailVerification,
   type User as FirebaseUser,
 } from "firebase/auth";
 import {
+  AtSign,
+  BadgeCheck,
+  Braces,
   CheckCircle2,
+  FileCheck2,
+  Fingerprint,
+  KeyRound,
   MailCheck,
   RotateCcw,
   Save,
@@ -16,6 +22,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
+import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,10 +34,7 @@ import {
   type ChangeMyAccountEmailResponse,
   type MyAccountRecord,
 } from "@/lib/admin-areas";
-import {
-  getRoleBadgeVariant,
-  ROLE_CAPABILITY_LINES,
-} from "@/lib/areas-ui";
+import { getRoleBadgeVariant, ROLE_CAPABILITY_LINES } from "@/lib/areas-ui";
 import { auth } from "@/lib/firebase";
 import { sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
@@ -40,6 +44,18 @@ type RoleProfileState = {
   contactPhone: string;
   notes: string;
 };
+
+type RoleProfileErrors = Partial<Record<keyof RoleProfileState, string>>;
+type InlineMessage = {
+  tone: "success" | "error" | "info";
+  message: string;
+} | null;
+
+const DISPLAY_NAME_MAX_LENGTH = 100;
+const CONTACT_PHONE_MAX_LENGTH = 30;
+const NOTES_MAX_LENGTH = 600;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^[0-9+()\-\s.]{1,30}$/;
 
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
@@ -51,6 +67,39 @@ function toRoleProfileState(account: MyAccountRecord): RoleProfileState {
     contactPhone: account.role?.contactPhone ?? "",
     notes: account.role?.notes ?? "",
   };
+}
+
+function rolePayload(state: RoleProfileState): RoleProfileState {
+  return {
+    displayName: state.displayName.trim(),
+    contactPhone: state.contactPhone.trim(),
+    notes: state.notes.trim(),
+  };
+}
+
+function validateRoleProfile(state: RoleProfileState): RoleProfileErrors {
+  const nextPayload = rolePayload(state);
+  const errors: RoleProfileErrors = {};
+
+  if (nextPayload.displayName.length > DISPLAY_NAME_MAX_LENGTH) {
+    errors.displayName = `Use ${DISPLAY_NAME_MAX_LENGTH} characters or fewer.`;
+  }
+
+  if (nextPayload.contactPhone.length > CONTACT_PHONE_MAX_LENGTH) {
+    errors.contactPhone = `Use ${CONTACT_PHONE_MAX_LENGTH} characters or fewer.`;
+  } else if (
+    nextPayload.contactPhone.length > 0 &&
+    !PHONE_PATTERN.test(nextPayload.contactPhone)
+  ) {
+    errors.contactPhone =
+      "Use digits, spaces, +, parentheses, hyphens, or dots.";
+  }
+
+  if (nextPayload.notes.length > NOTES_MAX_LENGTH) {
+    errors.notes = `Use ${NOTES_MAX_LENGTH} characters or fewer.`;
+  }
+
+  return errors;
 }
 
 function formatValue(value: string | number | boolean | null | undefined) {
@@ -120,27 +169,98 @@ function waitForFirebaseUser(): Promise<FirebaseUser | null> {
         window.clearTimeout(timeout);
         unsubscribe?.();
         resolve(null);
-      }
+      },
     );
   });
 }
 
-function FieldRow({
+function scopeText(account: MyAccountRecord) {
+  const role = account.role;
+  if (!role) {
+    return "No role assignment record is linked to this session.";
+  }
+
+  return (
+    [
+      role.organizationName ?? role.organizationId,
+      role.institutionName ?? role.institutionId,
+      role.doctorName ?? role.doctorId,
+      role.patientName ?? role.patientId,
+    ]
+      .filter(Boolean)
+      .join(" / ") || "Global scope"
+  );
+}
+
+function primaryAccountName(account: MyAccountRecord) {
+  return (
+    account.role?.displayName ||
+    account.profile?.fullName ||
+    account.auth.displayName ||
+    account.auth.email
+  );
+}
+
+function statusBadgeVariant(ok: boolean) {
+  return ok ? "success" : "warning";
+}
+
+function SectionShell({
+  icon,
+  title,
+  actions,
+  children,
+  className,
+}: {
+  icon: ReactNode;
+  title: string;
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("glass-panel flex flex-col gap-4 px-5 py-4", className)}>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            {icon}
+          </div>
+          <h2 className="font-heading text-xl font-semibold text-foreground">
+            {title}
+          </h2>
+        </div>
+        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ReadOnlyField({
   label,
   value,
   mono = false,
+  wide = false,
 }: {
   label: string;
   value: string | number | boolean | null | undefined;
   mono?: boolean;
+  wide?: boolean;
 }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
-      <p className="section-eyebrow">{label}</p>
+    <div
+      className={cn(
+        "min-w-0 rounded-lg border border-border/80 bg-muted/35 px-3 py-2.5",
+        wide && "md:col-span-2 xl:col-span-4",
+      )}
+    >
+      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+        {label}
+      </p>
       <p
         className={cn(
           "mt-1 break-words text-sm font-medium text-foreground",
-          mono && "font-mono text-xs"
+          mono && "font-mono text-xs",
         )}
       >
         {formatValue(value)}
@@ -149,7 +269,47 @@ function FieldRow({
   );
 }
 
-function StatusLine({
+function EditableField({
+  id,
+  label,
+  helper,
+  error,
+  count,
+  children,
+}: {
+  id: string;
+  label: string;
+  helper?: string;
+  error?: string;
+  count?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <Label htmlFor={id}>{label}</Label>
+        {count ? (
+          <span
+            className={cn(
+              "text-xs text-muted-foreground",
+              error && "text-destructive",
+            )}
+          >
+            {count}
+          </span>
+        ) : null}
+      </div>
+      {children}
+      {error ? (
+        <p className="text-xs font-medium text-destructive">{error}</p>
+      ) : helper ? (
+        <p className="text-xs text-muted-foreground">{helper}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function StatusItem({
   ok,
   label,
   value,
@@ -159,59 +319,100 @@ function StatusLine({
   value: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
+    <div className="flex items-start gap-3 rounded-lg border border-border/80 bg-muted/35 px-3 py-2.5">
       <div
         className={cn(
           "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
           ok
             ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-200"
-            : "bg-destructive/10 text-destructive"
+            : "bg-destructive/10 text-destructive",
         )}
       >
         {ok ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
       </div>
       <div className="min-w-0">
-        <p className={cn("text-sm font-medium", ok ? "text-emerald-700" : "text-destructive")}>
+        <p
+          className={cn(
+            "text-sm font-medium",
+            ok ? "text-emerald-700 dark:text-emerald-200" : "text-destructive",
+          )}
+        >
           {label}
         </p>
-        <p className="mt-0.5 break-words text-sm text-muted-foreground">{value}</p>
+        <p className="mt-0.5 break-words text-sm text-muted-foreground">
+          {value}
+        </p>
       </div>
     </div>
   );
 }
 
-function SectionHeading({
-  eyebrow,
-  title,
-  description,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-}) {
+function InlineStatus({ message }: { message: InlineMessage }) {
+  if (!message) {
+    return null;
+  }
+
   return (
-    <div>
-      <p className="section-eyebrow">{eyebrow}</p>
-      <h2 className="font-heading text-xl font-semibold text-foreground">{title}</h2>
-      <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p>
-    </div>
+    <p
+      className={cn(
+        "text-xs font-medium",
+        message.tone === "success" && "text-emerald-700 dark:text-emerald-200",
+        message.tone === "error" && "text-destructive",
+        message.tone === "info" && "text-muted-foreground",
+      )}
+    >
+      {message.message}
+    </p>
   );
 }
 
-function scopeText(account: MyAccountRecord) {
-  const role = account.role;
-  if (!role) {
-    return "No role assignment record is linked to this session.";
-  }
-
-  return [
-    role.organizationName ?? role.organizationId,
-    role.institutionName ?? role.institutionId,
-    role.doctorName ?? role.doctorId,
-    role.patientName ?? role.patientId,
-  ]
-    .filter(Boolean)
-    .join(" / ") || "Global scope";
+function ProviderDetail({
+  provider,
+}: {
+  provider: MyAccountRecord["auth"]["providerData"][number];
+}) {
+  return (
+    <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary">{providerLabel(provider.providerId)}</Badge>
+        <span className="break-all font-mono text-xs text-muted-foreground">
+          {provider.providerId}
+        </span>
+      </div>
+      <dl className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+        <div>
+          <dt className="text-xs text-muted-foreground">Provider uid</dt>
+          <dd className="break-all font-mono text-xs text-foreground">
+            {provider.uid}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Provider email</dt>
+          <dd className="break-words text-foreground">
+            {formatValue(provider.email)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Provider name</dt>
+          <dd className="break-words text-foreground">
+            {formatValue(provider.displayName)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Provider phone</dt>
+          <dd className="break-words text-foreground">
+            {formatValue(provider.phoneNumber)}
+          </dd>
+        </div>
+        <div className="md:col-span-2">
+          <dt className="text-xs text-muted-foreground">Provider photo</dt>
+          <dd className="break-all font-mono text-xs text-foreground">
+            {formatValue(provider.photoURL)}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
 }
 
 export function MyAccountWorkbench({
@@ -221,22 +422,71 @@ export function MyAccountWorkbench({
 }) {
   const [account, setAccount] = useState(initialAccount);
   const [roleState, setRoleState] = useState<RoleProfileState>(() =>
-    toRoleProfileState(initialAccount)
+    toRoleProfileState(initialAccount),
   );
   const [newEmail, setNewEmail] = useState(initialAccount.auth.email);
+  const [emailMessage, setEmailMessage] = useState<InlineMessage>(null);
   const [pendingRoleSave, setPendingRoleSave] = useState(false);
   const [pendingEmailSave, setPendingEmailSave] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
 
   const sourceRoleState = useMemo(() => toRoleProfileState(account), [account]);
-  const roleChanged = JSON.stringify(roleState) !== JSON.stringify(sourceRoleState);
+  const roleErrors = useMemo(() => validateRoleProfile(roleState), [roleState]);
+  const roleHasErrors = Object.values(roleErrors).some(Boolean);
+  const roleChanged =
+    JSON.stringify(rolePayload(roleState)) !==
+    JSON.stringify(rolePayload(sourceRoleState));
   const canEditRoleProfile = Boolean(account.role && !account.role.bootstrap);
   const canChangeEmail = Boolean(account.role && !account.role.bootstrap);
   const normalizedAuthEmail = normalizeEmail(account.auth.email);
   const normalizedNewEmail = normalizeEmail(newEmail);
   const emailChanged = normalizedNewEmail !== normalizedAuthEmail;
   const customClaims = JSON.stringify(account.auth.customClaims, null, 2);
+  const displayName = primaryAccountName(account);
+  const currentScope = scopeText(account);
+  const providerNames =
+    account.auth.providerData.map((provider) => providerLabel(provider.providerId)).join(", ") ||
+    undefined;
+  const roleCapabilityLines = ROLE_CAPABILITY_LINES[account.context.role] ?? [];
+
+  function validateEmailCandidate(showSuccess = true) {
+    if (!canChangeEmail) {
+      setEmailMessage({
+        tone: "error",
+        message: "This account email is managed outside My account.",
+      });
+      return false;
+    }
+
+    if (!normalizedNewEmail) {
+      setEmailMessage({
+        tone: "error",
+        message: "Enter the email address before changing it.",
+      });
+      return false;
+    }
+
+    if (!EMAIL_PATTERN.test(normalizedNewEmail)) {
+      setEmailMessage({
+        tone: "error",
+        message: "Use a valid email address.",
+      });
+      return false;
+    }
+
+    setEmailMessage(
+      showSuccess
+        ? {
+            tone: emailChanged ? "success" : "info",
+            message: emailChanged
+              ? "Email format is valid. You can change the account email."
+              : "Email format is valid and matches the current account email.",
+          }
+        : null,
+    );
+    return true;
+  }
 
   async function handleRoleSave() {
     if (!canEditRoleProfile) {
@@ -248,25 +498,31 @@ export function MyAccountWorkbench({
       return;
     }
 
+    if (roleHasErrors) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: "Fix the highlighted fields before saving.",
+      });
+      return;
+    }
+
+    const payload = rolePayload(roleState);
     setPendingRoleSave(true);
     try {
       const result = await sdkFetch<{ account: MyAccountRecord }>(
         "/auth/my-account/role",
         {
           method: "PUT",
-          body: JSON.stringify({
-            displayName: roleState.displayName,
-            contactPhone: roleState.contactPhone,
-            notes: roleState.notes,
-          }),
-        }
+          body: JSON.stringify(payload),
+        },
       );
       setAccount(result.account);
       setRoleState(toRoleProfileState(result.account));
       setToast({
         id: Date.now(),
         tone: "success",
-        message: "Your role assignment details were saved.",
+        message: "Profile details saved.",
       });
     } catch (error) {
       setToast({
@@ -275,7 +531,7 @@ export function MyAccountWorkbench({
         message:
           error instanceof Error
             ? error.message
-            : "Unable to save your role assignment details.",
+            : "Unable to save your profile details.",
       });
     } finally {
       setPendingRoleSave(false);
@@ -283,20 +539,19 @@ export function MyAccountWorkbench({
   }
 
   async function handleEmailSave() {
-    if (!canChangeEmail) {
+    if (!validateEmailCandidate(false)) {
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "This account email is managed outside My account.",
+        message: "Validate the email field before changing it.",
       });
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedNewEmail)) {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: "Use a valid email address.",
+    if (!emailChanged) {
+      setEmailMessage({
+        tone: "info",
+        message: "This is already the current account email.",
       });
       return;
     }
@@ -308,11 +563,15 @@ export function MyAccountWorkbench({
         {
           method: "PUT",
           body: JSON.stringify({ email: normalizedNewEmail }),
-        }
+        },
       );
       setAccount(result.account);
       setRoleState(toRoleProfileState(result.account));
       setNewEmail(result.account.auth.email);
+      setEmailMessage({
+        tone: "success",
+        message: "Email change saved.",
+      });
       setToast({
         id: Date.now(),
         tone: "success",
@@ -322,6 +581,11 @@ export function MyAccountWorkbench({
         durationMs: 9000,
       });
     } catch (error) {
+      setEmailMessage({
+        tone: "error",
+        message:
+          error instanceof Error ? error.message : "Unable to change your email.",
+      });
       setToast({
         id: Date.now(),
         tone: "error",
@@ -344,7 +608,7 @@ export function MyAccountWorkbench({
       await firebaseUser.reload();
       if (normalizeEmail(firebaseUser.email ?? "") !== normalizedAuthEmail) {
         throw new Error(
-          "The browser Firebase session email does not match this account. Sign out and sign in again before sending verification."
+          "The browser Firebase session email does not match this account. Sign out and sign in again before sending verification.",
         );
       }
 
@@ -373,156 +637,168 @@ export function MyAccountWorkbench({
     <div className="flex flex-col gap-5">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
 
-      <section className="glass-panel flex flex-col gap-5 px-5 py-4">
+      <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <UserRoundCog className="h-4 w-4" />
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <UserRoundCog className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <h1 className="truncate font-heading text-2xl font-semibold text-foreground">
+                    {displayName}
+                  </h1>
+                  <HeaderUnclutterButton />
+                </div>
+                <p className="mt-1 break-words text-sm text-muted-foreground">
+                  {account.auth.email}
+                </p>
+              </div>
             </div>
-            <SectionHeading
-              eyebrow="Role assignment"
-              title="My role details"
-              description="Personal assignment metadata can be edited here; role, activation, scope, and capabilities remain locked."
-            />
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setRoleState(sourceRoleState)}
-              disabled={!roleChanged || pendingRoleSave || !canEditRoleProfile}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => void handleRoleSave()}
-              disabled={!roleChanged || pendingRoleSave || !canEditRoleProfile}
-            >
-              <Save className="h-3.5 w-3.5" />
-              {pendingRoleSave ? "Saving..." : "Save"}
-            </Button>
-          </div>
-        </div>
-
-        {!canEditRoleProfile ? (
-          <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-100">
-            Bootstrap allowlist assignments are managed by environment configuration, so this screen can only display their role data.
-          </div>
-        ) : null}
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="my-role-display-name">Name</Label>
-            <Input
-              id="my-role-display-name"
-              value={roleState.displayName}
-              onChange={(event) =>
-                setRoleState((current) => ({
-                  ...current,
-                  displayName: event.target.value,
-                }))
-              }
-              disabled={!canEditRoleProfile || pendingRoleSave}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="my-role-phone">Phone</Label>
-            <Input
-              id="my-role-phone"
-              value={roleState.contactPhone}
-              onChange={(event) =>
-                setRoleState((current) => ({
-                  ...current,
-                  contactPhone: event.target.value,
-                }))
-              }
-              disabled={!canEditRoleProfile || pendingRoleSave}
-            />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="my-role-notes">Notes</Label>
-            <Textarea
-              id="my-role-notes"
-              value={roleState.notes}
-              onChange={(event) =>
-                setRoleState((current) => ({ ...current, notes: event.target.value }))
-              }
-              disabled={!canEditRoleProfile || pendingRoleSave}
-            />
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <Badge variant={getRoleBadgeVariant(account.context.role)}>
+              {ADMIN_ROLE_LABELS[account.context.role]}
+            </Badge>
+            <Badge variant={statusBadgeVariant(account.context.canAccessBackoffice)}>
+              {account.context.canAccessBackoffice ? "Active access" : "Inactive access"}
+            </Badge>
+            <Badge variant={statusBadgeVariant(account.auth.emailVerified)}>
+              {account.auth.emailVerified ? "Verified email" : "Unverified email"}
+            </Badge>
           </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <FieldRow label="Role email" value={account.role?.email ?? account.context.email} mono />
-          <FieldRow
-            label="Role"
-            value={
-              account.role
-                ? ADMIN_ROLE_LABELS[account.role.role]
-                : ADMIN_ROLE_LABELS[account.context.role]
-            }
+          <ReadOnlyField label="Scope" value={currentScope} />
+          <ReadOnlyField label="Current project" value={account.context.project} />
+          <ReadOnlyField label="Username" value={account.profile?.username} />
+          <ReadOnlyField
+            label="Last sign-in"
+            value={formatDate(account.auth.metadata.lastSignInTime)}
           />
-          <FieldRow label="Active" value={account.role?.isActive ?? account.context.canAccessBackoffice} />
-          <FieldRow label="Scope" value={scopeText(account)} />
-          <FieldRow label="Organization id" value={account.role?.organizationId} mono />
-          <FieldRow label="Institution id" value={account.role?.institutionId} mono />
-          <FieldRow label="Doctor id" value={account.role?.doctorId} mono />
-          <FieldRow label="Patient id" value={account.role?.patientId} mono />
-          <FieldRow label="Created by" value={account.role?.createdByEmail} mono />
-          <FieldRow label="Created" value={formatDate(account.role?.createdAt)} />
-          <FieldRow label="Updated" value={formatDate(account.role?.updatedAt)} />
-          <FieldRow label="Bootstrap" value={account.role?.bootstrap ?? account.context.isBootstrap} />
-          <FieldRow label="Project access" value={account.context.projectAccess.join(", ")} />
         </div>
       </section>
 
-      <section className="glass-panel flex flex-col gap-4 px-5 py-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-primary" />
-          <p className="section-eyebrow">Permissions</p>
-          <Badge variant={getRoleBadgeVariant(account.context.role)}>
-            {ADMIN_ROLE_LABELS[account.context.role]}
-          </Badge>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {ADMIN_ROLE_DESCRIPTIONS[account.context.role]}
-        </p>
-        <div className="grid gap-2 md:grid-cols-2">
-          {ROLE_CAPABILITY_LINES[account.context.role].map((line) => (
-            <div
-              key={line}
-              className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3 text-sm text-foreground"
-            >
-              {line}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+        <SectionShell
+          icon={<BadgeCheck className="h-4 w-4" />}
+          title="Profile Details"
+          actions={
+            <>
+              <Badge variant={canEditRoleProfile ? "brand" : "secondary"}>
+                {canEditRoleProfile ? "Editable" : "Read only"}
+              </Badge>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setRoleState(sourceRoleState)}
+                disabled={!roleChanged || pendingRoleSave || !canEditRoleProfile}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void handleRoleSave()}
+                disabled={
+                  !roleChanged ||
+                  roleHasErrors ||
+                  pendingRoleSave ||
+                  !canEditRoleProfile
+                }
+              >
+                <Save className="h-3.5 w-3.5" />
+                {pendingRoleSave ? "Saving..." : "Save Profile"}
+              </Button>
+            </>
+          }
+        >
+          {!canEditRoleProfile ? (
+            <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2.5 text-sm text-amber-800 dark:text-amber-100">
+              Bootstrap allowlist assignments are managed by environment configuration.
             </div>
-          ))}
-          {account.capabilities.map((capability) => (
-            <div
-              key={capability}
-              className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3 font-mono text-xs text-muted-foreground"
-            >
-              {capability}
-            </div>
-          ))}
-        </div>
-      </section>
+          ) : null}
 
-      <section className="glass-panel flex flex-col gap-5 px-5 py-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <MailCheck className="h-4 w-4" />
+          <div className="grid gap-4 md:grid-cols-2">
+            <EditableField
+              id="my-role-display-name"
+              label="Display name"
+              helper="Optional name shown on this role assignment."
+              error={roleErrors.displayName}
+              count={`${rolePayload(roleState).displayName.length}/${DISPLAY_NAME_MAX_LENGTH}`}
+            >
+              <Input
+                id="my-role-display-name"
+                value={roleState.displayName}
+                onChange={(event) =>
+                  setRoleState((current) => ({
+                    ...current,
+                    displayName: event.target.value,
+                  }))
+                }
+                placeholder="Full name"
+                aria-invalid={Boolean(roleErrors.displayName)}
+                disabled={!canEditRoleProfile || pendingRoleSave}
+              />
+            </EditableField>
+            <EditableField
+              id="my-role-phone"
+              label="Contact phone"
+              helper="Optional phone number for operational contact."
+              error={roleErrors.contactPhone}
+              count={`${rolePayload(roleState).contactPhone.length}/${CONTACT_PHONE_MAX_LENGTH}`}
+            >
+              <Input
+                id="my-role-phone"
+                value={roleState.contactPhone}
+                onChange={(event) =>
+                  setRoleState((current) => ({
+                    ...current,
+                    contactPhone: event.target.value,
+                  }))
+                }
+                placeholder="+54 11 5555 5555"
+                aria-invalid={Boolean(roleErrors.contactPhone)}
+                disabled={!canEditRoleProfile || pendingRoleSave}
+              />
+            </EditableField>
+            <div className="md:col-span-2">
+              <EditableField
+                id="my-role-notes"
+                label="Notes"
+                helper="Optional internal note on your role assignment."
+                error={roleErrors.notes}
+                count={`${rolePayload(roleState).notes.length}/${NOTES_MAX_LENGTH}`}
+              >
+                <Textarea
+                  id="my-role-notes"
+                  value={roleState.notes}
+                  onChange={(event) =>
+                    setRoleState((current) => ({
+                      ...current,
+                      notes: event.target.value,
+                    }))
+                  }
+                  rows={5}
+                  placeholder="No notes"
+                  aria-invalid={Boolean(roleErrors.notes)}
+                  disabled={!canEditRoleProfile || pendingRoleSave}
+                />
+              </EditableField>
             </div>
-            <SectionHeading
-              eyebrow="Authentication"
-              title="Firebase Auth"
-              description="Firebase identity, sign-in providers, profile username, and verification state for the current session user."
-            />
           </div>
-          <div className="flex flex-wrap gap-2">
+        </SectionShell>
+
+        <SectionShell
+          icon={<AtSign className="h-4 w-4" />}
+          title="Email & Verification"
+          actions={
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={() => void handleSendVerification()}
@@ -530,152 +806,262 @@ export function MyAccountWorkbench({
             >
               <MailCheck className="h-3.5 w-3.5" />
               {account.auth.emailVerified
-                ? "Verified"
+                ? "Email Verified"
                 : pendingVerification
                   ? "Sending..."
-                  : "Verify account"}
+                  : "Send Verification"}
             </Button>
-          </div>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          <StatusLine
-            ok={account.auth.emailVerified}
-            label={account.auth.emailVerified ? "Email verified" : "Email not verified"}
-            value={account.auth.email}
-          />
-          <StatusLine
-            ok={!account.auth.disabled}
-            label={account.auth.disabled ? "Firebase account disabled" : "Firebase account enabled"}
-            value={account.auth.uid}
-          />
-          <StatusLine
-            ok={Boolean(account.profile?.username)}
-            label="Username"
-            value={account.profile?.username ?? "No username found in profile documents."}
-          />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-          <div className="space-y-2">
-            <Label htmlFor="my-auth-email">Email</Label>
-            <Input
-              id="my-auth-email"
-              value={newEmail}
-              onChange={(event) => setNewEmail(event.target.value)}
-              disabled={!canChangeEmail || pendingEmailSave}
+          }
+        >
+          <div className="grid gap-3">
+            <StatusItem
+              ok={account.auth.emailVerified}
+              label={account.auth.emailVerified ? "Email verified" : "Email not verified"}
+              value={account.auth.email}
+            />
+            <StatusItem
+              ok={!account.auth.disabled}
+              label={account.auth.disabled ? "Firebase account disabled" : "Firebase account enabled"}
+              value={account.auth.uid}
             />
           </div>
-          <Button
-            onClick={() => void handleEmailSave()}
-            disabled={!emailChanged || !canChangeEmail || pendingEmailSave}
+
+          <EditableField
+            id="my-auth-email"
+            label="Account email"
+            helper={
+              canChangeEmail
+                ? "Changing email also moves your role assignment record."
+                : "Bootstrap account emails are read only here."
+            }
           >
-            <Save className="h-3.5 w-3.5" />
-            {pendingEmailSave ? "Changing..." : "Change email"}
-          </Button>
-        </div>
+            <Input
+              id="my-auth-email"
+              type="email"
+              value={newEmail}
+              onChange={(event) => {
+                setNewEmail(event.target.value);
+                setEmailMessage(null);
+              }}
+              placeholder="name@example.com"
+              aria-invalid={emailMessage?.tone === "error"}
+              disabled={!canChangeEmail || pendingEmailSave}
+            />
+          </EditableField>
+          <InlineStatus message={emailMessage} />
 
-        {!canChangeEmail ? (
-          <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-100">
-            This email belongs to a bootstrap role assignment. Update the allowlist source of truth before changing the login email.
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => validateEmailCandidate(true)}
+              disabled={!canChangeEmail || pendingEmailSave}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Validate Email
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleEmailSave()}
+              disabled={!emailChanged || !canChangeEmail || pendingEmailSave}
+            >
+              <Save className="h-3.5 w-3.5" />
+              {pendingEmailSave ? "Changing..." : "Change Email"}
+            </Button>
           </div>
-        ) : null}
+        </SectionShell>
+      </div>
 
+      <SectionShell
+        icon={<ShieldCheck className="h-4 w-4" />}
+        title="Access & Permissions"
+      >
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <FieldRow label="Firebase uid" value={account.auth.uid} mono />
-          <FieldRow label="Firebase email" value={account.auth.email} mono />
-          <FieldRow label="Auth display name" value={account.auth.displayName} />
-          <FieldRow label="Auth phone" value={account.auth.phoneNumber} />
-          <FieldRow label="Photo URL" value={account.auth.photoURL} mono />
-          <FieldRow label="Tenant id" value={account.auth.tenantId} mono />
-          <FieldRow label="Created" value={formatDate(account.auth.metadata.creationTime)} />
-          <FieldRow label="Last sign-in" value={formatDate(account.auth.metadata.lastSignInTime)} />
-          <FieldRow label="Last refresh" value={formatDate(account.auth.metadata.lastRefreshTime)} />
-          <FieldRow label="Tokens valid after" value={formatDate(account.auth.tokensValidAfterTime)} />
-          <FieldRow label="Profile full name" value={account.profile?.fullName} />
-          <FieldRow label="Onboarding complete" value={account.profile?.onboardingCompleted} />
+          <ReadOnlyField
+            label="Role email"
+            value={account.role?.email ?? account.context.email}
+            mono
+          />
+          <ReadOnlyField
+            label="Role"
+            value={
+              account.role
+                ? ADMIN_ROLE_LABELS[account.role.role]
+                : ADMIN_ROLE_LABELS[account.context.role]
+            }
+          />
+          <ReadOnlyField
+            label="Role status"
+            value={account.role?.isActive ?? account.context.canAccessBackoffice}
+          />
+          <ReadOnlyField label="Scope" value={currentScope} />
+          <ReadOnlyField label="Organization id" value={account.role?.organizationId} mono />
+          <ReadOnlyField label="Institution id" value={account.role?.institutionId} mono />
+          <ReadOnlyField label="Doctor id" value={account.role?.doctorId} mono />
+          <ReadOnlyField label="Patient id" value={account.role?.patientId} mono />
+          <ReadOnlyField label="Created by" value={account.role?.createdByEmail} mono />
+          <ReadOnlyField label="Role created" value={formatDate(account.role?.createdAt)} />
+          <ReadOnlyField label="Role updated" value={formatDate(account.role?.updatedAt)} />
+          <ReadOnlyField
+            label="Bootstrap"
+            value={account.role?.bootstrap ?? account.context.isBootstrap}
+          />
+          <ReadOnlyField
+            label="Project access"
+            value={
+              account.context.projectAccess.length
+                ? account.context.projectAccess.join(", ")
+                : undefined
+            }
+            wide
+          />
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
-            <p className="section-eyebrow">Sign-in providers</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {account.auth.providerData.length > 0 ? (
-                account.auth.providerData.map((provider) => (
-                  <Badge key={`${provider.providerId}:${provider.uid}`} variant="secondary">
-                    {providerLabel(provider.providerId)}
-                  </Badge>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">No provider records.</p>
-              )}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+          <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={getRoleBadgeVariant(account.context.role)}>
+                {ADMIN_ROLE_LABELS[account.context.role]}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                {ADMIN_ROLE_DESCRIPTIONS[account.context.role]}
+              </span>
             </div>
-            <div className="mt-4 grid gap-3">
-              {account.auth.providerData.map((provider) => (
+            <div className="mt-3 grid gap-2">
+              {roleCapabilityLines.map((line) => (
                 <div
-                  key={`${provider.providerId}:${provider.uid}:detail`}
-                  className="rounded-2xl border border-border/80 bg-background/70 px-3 py-3"
+                  key={line}
+                  className="rounded-lg border border-border/70 bg-background/70 px-3 py-2 text-sm text-foreground"
                 >
-                  <p className="text-sm font-medium text-foreground">
-                    {providerLabel(provider.providerId)}
-                  </p>
-                  <p className="mt-1 break-words font-mono text-xs text-muted-foreground">
-                    {provider.uid}
-                  </p>
-                  <p className="mt-1 break-words text-sm text-muted-foreground">
-                    {provider.email ?? provider.displayName ?? provider.phoneNumber ?? "No provider profile detail"}
-                  </p>
+                  {line}
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
-            <p className="section-eyebrow">Profile documents</p>
-            <div className="mt-3 grid gap-2">
-              <StatusLine
-                ok={Boolean(account.profile?.docs.profile)}
-                label="profiles/{uid}"
-                value={account.profile?.docs.profile ? "Document exists" : "Document not found"}
-              />
-              <StatusLine
-                ok={Boolean(account.profile?.docs.publicProfile)}
-                label="public_profiles/{uid}"
-                value={
-                  account.profile?.docs.publicProfile
-                    ? "Document exists"
-                    : "Document not found"
-                }
-              />
-              <StatusLine
-                ok={Boolean(account.profile?.docs.communityUser)}
-                label="community_users/{uid}"
-                value={
-                  account.profile?.docs.communityUser
-                    ? "Document exists"
-                    : "Document not found"
-                }
-              />
-              <StatusLine
-                ok={Boolean(account.profile?.docs.reportOwner)}
-                label="report_owners/{uid}"
-                value={
-                  account.profile?.docs.reportOwner
-                    ? "Document exists"
-                    : "Document not found"
-                }
-              />
+          <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-3">
+            <p className="text-sm font-medium text-foreground">Capability keys</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {account.capabilities.length > 0 ? (
+                account.capabilities.map((capability) => (
+                  <div
+                    key={capability}
+                    className="rounded-lg border border-border/70 bg-background/70 px-3 py-2 font-mono text-xs text-muted-foreground"
+                  >
+                    {capability}
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No capability keys returned.
+                </p>
+              )}
             </div>
           </div>
         </div>
+      </SectionShell>
 
-        <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
-          <p className="section-eyebrow">Custom claims</p>
-          <pre className="mt-2 max-h-64 overflow-auto rounded-2xl bg-muted/70 px-4 py-3 font-mono text-xs text-muted-foreground">
-            {customClaims}
-          </pre>
+      <SectionShell
+        icon={<Fingerprint className="h-4 w-4" />}
+        title="Firebase Identity"
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <ReadOnlyField label="Firebase uid" value={account.auth.uid} mono />
+          <ReadOnlyField label="Firebase email" value={account.auth.email} mono />
+          <ReadOnlyField label="Auth display name" value={account.auth.displayName} />
+          <ReadOnlyField label="Auth phone" value={account.auth.phoneNumber} />
+          <ReadOnlyField label="Photo URL" value={account.auth.photoURL} mono wide />
+          <ReadOnlyField label="Tenant id" value={account.auth.tenantId} mono />
+          <ReadOnlyField
+            label="Created"
+            value={formatDate(account.auth.metadata.creationTime)}
+          />
+          <ReadOnlyField
+            label="Last sign-in"
+            value={formatDate(account.auth.metadata.lastSignInTime)}
+          />
+          <ReadOnlyField
+            label="Last refresh"
+            value={formatDate(account.auth.metadata.lastRefreshTime)}
+          />
+          <ReadOnlyField
+            label="Tokens valid after"
+            value={formatDate(account.auth.tokensValidAfterTime)}
+          />
+          <ReadOnlyField label="Profile full name" value={account.profile?.fullName} />
+          <ReadOnlyField
+            label="Onboarding complete"
+            value={account.profile?.onboardingCompleted}
+          />
+          <ReadOnlyField
+            label="Onboarding needs completion"
+            value={account.profile?.needsCompletion}
+          />
+          <ReadOnlyField label="Sign-in providers" value={providerNames} />
         </div>
-      </section>
+      </SectionShell>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <SectionShell icon={<KeyRound className="h-4 w-4" />} title="Sign-In Providers">
+          <div className="grid gap-3">
+            {account.auth.providerData.length > 0 ? (
+              account.auth.providerData.map((provider) => (
+                <ProviderDetail
+                  key={`${provider.providerId}:${provider.uid}`}
+                  provider={provider}
+                />
+              ))
+            ) : (
+              <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-2.5 text-sm text-muted-foreground">
+                No provider records.
+              </div>
+            )}
+          </div>
+        </SectionShell>
+
+        <SectionShell icon={<FileCheck2 className="h-4 w-4" />} title="Profile Documents">
+          <div className="grid gap-3">
+            <StatusItem
+              ok={Boolean(account.profile?.docs.profile)}
+              label="profiles/{uid}"
+              value={account.profile?.docs.profile ? "Document exists" : "Document not found"}
+            />
+            <StatusItem
+              ok={Boolean(account.profile?.docs.publicProfile)}
+              label="public_profiles/{uid}"
+              value={
+                account.profile?.docs.publicProfile
+                  ? "Document exists"
+                  : "Document not found"
+              }
+            />
+            <StatusItem
+              ok={Boolean(account.profile?.docs.communityUser)}
+              label="community_users/{uid}"
+              value={
+                account.profile?.docs.communityUser
+                  ? "Document exists"
+                  : "Document not found"
+              }
+            />
+            <StatusItem
+              ok={Boolean(account.profile?.docs.reportOwner)}
+              label="report_owners/{uid}"
+              value={
+                account.profile?.docs.reportOwner
+                  ? "Document exists"
+                  : "Document not found"
+              }
+            />
+          </div>
+        </SectionShell>
+      </div>
+
+      <SectionShell icon={<Braces className="h-4 w-4" />} title="Custom Claims">
+        <pre className="max-h-72 overflow-auto rounded-lg border border-border/80 bg-muted/50 px-4 py-3 font-mono text-xs text-muted-foreground">
+          {customClaims}
+        </pre>
+      </SectionShell>
     </div>
   );
 }
