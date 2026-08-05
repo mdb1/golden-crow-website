@@ -80,6 +80,8 @@ type OrganizationInput = {
   description?: unknown;
   countryCode?: unknown;
   organizationType?: unknown;
+  color_hex?: unknown;
+  colorHex?: unknown;
   verified?: unknown;
   contactEmail?: unknown;
   internalNotes?: unknown;
@@ -213,6 +215,28 @@ function normalizeOptionalEmail(value: unknown, label: string): string | undefin
 function normalizeCountryCode(value: unknown): string | undefined {
   const normalized = normalizeOptionalString(value);
   return normalized ? normalized.toUpperCase() : undefined;
+}
+
+function normalizeHexColor(value: unknown, label: string): string | undefined {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const withHash = normalized.startsWith("#") ? normalized : `#${normalized}`;
+  if (!/^#[0-9a-fA-F]{6}$/.test(withHash)) {
+    throw new AdminRepositoryError(`${label} must be a valid 6-digit hex color.`, 400);
+  }
+
+  return withHash.toUpperCase();
+}
+
+function readHexColor(value: unknown): string | undefined {
+  try {
+    return normalizeHexColor(value, "Color");
+  } catch {
+    return undefined;
+  }
 }
 
 function normalizeBoolean(value: unknown): boolean {
@@ -484,6 +508,7 @@ function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationR
     description: normalizeOptionalString(data.description),
     countryCode: normalizeOptionalString(data.countryCode),
     organizationType,
+    color_hex: readHexColor(data.color_hex ?? data.colorHex),
     verified: data.verified === true,
     contactEmail: normalizeOptionalString(data.contactEmail),
     internalNotes: normalizeOptionalString(data.internalNotes),
@@ -672,6 +697,7 @@ function organizationDocument(input: OrganizationInput, context: AdminContext) {
     description: normalizeOptionalString(input.description),
     countryCode: normalizeCountryCode(input.countryCode),
     organizationType: normalizeOrganizationType(input.organizationType),
+    color_hex: normalizeHexColor(input.color_hex ?? input.colorHex, "Organization color") ?? null,
     verified: normalizeBoolean(input.verified),
     contactEmail: normalizeOptionalEmail(input.contactEmail, "Contact email"),
     internalNotes: normalizeOptionalString(input.internalNotes),
@@ -818,6 +844,13 @@ function normalizeTypePayload(
       max_attendance: normalizeNullablePositiveInteger(
         payload.max_attendance,
         "Max attendance",
+      ),
+      virtual_meeting_link: normalizeHttpsUrl(
+        payload.virtual_meeting_link ??
+          payload.virtualMeetingLink ??
+          payload.meeting_url ??
+          payload.meetingUrl,
+        "Virtual meeting link",
       ),
     };
   }

@@ -30,6 +30,7 @@ type OrganizationFormState = {
   description: string;
   countryCode: string;
   organizationType: "" | DiscoverOrganizationType;
+  color_hex: string;
   verified: boolean;
   contactEmail: string;
   internalNotes: string;
@@ -47,6 +48,7 @@ function toFormState(
     description: organization?.description ?? "",
     countryCode: organization?.countryCode ?? "",
     organizationType: organization?.organizationType ?? "",
+    color_hex: organization?.color_hex ?? "",
     verified: organization?.verified ?? false,
     contactEmail: organization?.contactEmail ?? "",
     internalNotes: organization?.internalNotes ?? "",
@@ -59,7 +61,18 @@ function payloadFromState(state: OrganizationFormState) {
     imageUrl: state.imageUrl || null,
     websiteUrl: state.websiteUrl || null,
     organizationType: state.organizationType || undefined,
+    color_hex: normalizedColorHex(state.color_hex) || undefined,
   };
+}
+
+function normalizedColorHex(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const withHash = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+  return /^#[0-9a-fA-F]{6}$/.test(withHash) ? withHash.toUpperCase() : null;
 }
 
 export function DiscoverOrganizationWorkbench({
@@ -79,6 +92,11 @@ export function DiscoverOrganizationWorkbench({
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const sourceState = useMemo(() => toFormState(organization), [organization]);
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
+  const colorHex = normalizedColorHex(state.color_hex);
+  const colorHexError =
+    state.color_hex.trim() && colorHex === null
+      ? t("Organization color must be a 6-digit hex value.")
+      : null;
 
   function updateState(patch: Partial<OrganizationFormState>) {
     setState((current) => ({ ...current, ...patch }));
@@ -94,6 +112,20 @@ export function DiscoverOrganizationWorkbench({
       return;
     }
 
+    if (colorHexError) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: colorHexError,
+      });
+      return;
+    }
+
+    const nextState = {
+      ...state,
+      color_hex: colorHex || "",
+    };
+
     setPending(true);
     try {
       if (mode === "create") {
@@ -101,9 +133,10 @@ export function DiscoverOrganizationWorkbench({
           "/discover/organizations",
           {
             method: "POST",
-            body: JSON.stringify(payloadFromState(state)),
+            body: JSON.stringify(payloadFromState(nextState)),
           },
         );
+        setState(nextState);
         setToast({
           id: Date.now(),
           tone: "success",
@@ -122,9 +155,10 @@ export function DiscoverOrganizationWorkbench({
         `/discover/organizations/${organization.id}`,
         {
           method: "PUT",
-          body: JSON.stringify(payloadFromState(state)),
+          body: JSON.stringify(payloadFromState(nextState)),
         },
       );
+      setState(nextState);
       setToast({
         id: Date.now(),
         tone: "success",
@@ -302,6 +336,50 @@ export function DiscoverOrganizationWorkbench({
               />
             </div>
             <div className="flex flex-col gap-2 md:col-span-2">
+              <Label htmlFor="discover-org-color">{t("Accent color")}</Label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="color"
+                  value={colorHex || "#4F46E5"}
+                  onChange={(event) =>
+                    updateState({ color_hex: event.target.value.toUpperCase() })
+                  }
+                  className="h-10 w-full cursor-pointer rounded-md border border-input bg-background p-1 sm:w-16"
+                  aria-label={t("Accent color picker")}
+                />
+                <Input
+                  id="discover-org-color"
+                  value={state.color_hex}
+                  onChange={(event) =>
+                    updateState({ color_hex: event.target.value })
+                  }
+                  onBlur={() => {
+                    if (colorHex) {
+                      updateState({ color_hex: colorHex });
+                    }
+                  }}
+                  placeholder="#4F46E5"
+                  aria-invalid={Boolean(colorHexError)}
+                  aria-describedby={
+                    colorHexError ? "discover-org-color-error" : undefined
+                  }
+                  className={
+                    colorHexError
+                      ? "border-destructive focus-visible:ring-destructive"
+                      : ""
+                  }
+                />
+              </div>
+              {colorHexError ? (
+                <p
+                  id="discover-org-color-error"
+                  className="text-xs font-medium text-destructive"
+                >
+                  {colorHexError}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-col gap-2 md:col-span-2">
               <Label htmlFor="discover-org-website">{t("Website URL")}</Label>
               <Input
                 id="discover-org-website"
@@ -392,6 +470,13 @@ export function DiscoverOrganizationWorkbench({
               </div>
               <div>{state.websiteUrl || t("No website URL")}</div>
               <div>{state.countryCode || t("No country code")}</div>
+              <div className="mt-2 flex items-center gap-2">
+                <span
+                  className="h-3.5 w-3.5 rounded-full border border-border"
+                  style={{ backgroundColor: colorHex || "transparent" }}
+                />
+                <span>{colorHex || t("No accent color")}</span>
+              </div>
             </div>
           </div>
         </div>

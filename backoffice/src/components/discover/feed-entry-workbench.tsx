@@ -94,6 +94,7 @@ type FeedEntryFormState = {
     date: string;
     location: string;
     max_attendance: string;
+    virtual_meeting_link: string;
   };
   opportunity: {
     opportunity_type: string;
@@ -169,7 +170,7 @@ function locationSuggestionsFor(value: string) {
     .map((entry) => entry.location);
 }
 
-function isValidHttpUrl(value: string) {
+function isValidHttpsUrl(value: string) {
   const trimmed = value.trim();
 
   if (!trimmed) {
@@ -178,7 +179,7 @@ function isValidHttpUrl(value: string) {
 
   try {
     const url = new URL(trimmed);
-    return ["http:", "https:"].includes(url.protocol) && Boolean(url.hostname);
+    return url.protocol === "https:" && Boolean(url.hostname);
   } catch {
     return false;
   }
@@ -288,6 +289,11 @@ function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
         typeof event.max_attendance === "number"
           ? String(event.max_attendance)
           : stringFromPayload(event.max_attendance),
+      virtual_meeting_link:
+        stringFromPayload(event.virtual_meeting_link) ||
+        stringFromPayload(event.virtualMeetingLink) ||
+        stringFromPayload(event.meeting_url) ||
+        stringFromPayload(event.meetingUrl),
     },
     opportunity: {
       opportunity_type: DISCOVER_OPPORTUNITY_TYPE_VALUES.has(opportunityType)
@@ -328,6 +334,7 @@ function payloadForType(state: FeedEntryFormState) {
       max_attendance: state.upcoming_event.max_attendance
         ? Number(state.upcoming_event.max_attendance)
         : null,
+      virtual_meeting_link: state.upcoming_event.virtual_meeting_link || null,
     };
   }
 
@@ -555,6 +562,9 @@ export function DiscoverFeedEntryWorkbench({
     : state.body.length;
   const sourceUrlError = sourceUrlErrorFor(state.source_url);
   const imageUrlError = imageUrlErrorFor(state.image_url);
+  const virtualMeetingLinkError = virtualMeetingLinkErrorFor(
+    state.upcoming_event.virtual_meeting_link,
+  );
   const editStatus = feedItem?.status ?? "draft";
   const editPublishedAt = feedItem?.publishedAt ?? null;
   const isWorking = pending || deletePending;
@@ -666,15 +676,21 @@ export function DiscoverFeedEntryWorkbench({
   }
 
   function sourceUrlErrorFor(value: string) {
-    return isValidHttpUrl(value)
+    return isValidHttpsUrl(value)
       ? null
-      : t("Source URL must be a valid http or https URL.");
+      : t("Source URL must be a valid HTTPS URL.");
   }
 
   function imageUrlErrorFor(value: string) {
-    return isValidHttpUrl(value)
+    return isValidHttpsUrl(value)
       ? null
-      : t("Cover image URL must be a valid http or https URL.");
+      : t("Cover image URL must be a valid HTTPS URL.");
+  }
+
+  function virtualMeetingLinkErrorFor(value: string) {
+    return isValidHttpsUrl(value)
+      ? null
+      : t("Virtual meeting link must be a valid HTTPS URL.");
   }
 
   function validate(nextState: FeedEntryFormState, status: DiscoverFeedStatus) {
@@ -690,6 +706,15 @@ export function DiscoverFeedEntryWorkbench({
     const nextImageUrlError = imageUrlErrorFor(nextState.image_url);
     if (nextImageUrlError) {
       return nextImageUrlError;
+    }
+
+    if (nextState.type === "upcoming_event") {
+      const nextVirtualMeetingLinkError = virtualMeetingLinkErrorFor(
+        nextState.upcoming_event.virtual_meeting_link,
+      );
+      if (nextVirtualMeetingLinkError) {
+        return nextVirtualMeetingLinkError;
+      }
     }
 
     if (status === "published" && selectedOrganization?.status !== "active") {
@@ -970,6 +995,31 @@ export function DiscoverFeedEntryWorkbench({
                   max_attendance: event.target.value,
                 })
               }
+            />
+          </FieldShell>
+          <FieldShell
+            label={t("Virtual meeting link")}
+            htmlFor="discover-event-virtual-meeting"
+            error={virtualMeetingLinkError}
+            className="md:col-span-3"
+          >
+            <Input
+              id="discover-event-virtual-meeting"
+              type="url"
+              value={state.upcoming_event.virtual_meeting_link}
+              onChange={(event) =>
+                updatePayload("upcoming_event", {
+                  virtual_meeting_link: event.target.value,
+                })
+              }
+              placeholder="https://meet.google.com/..."
+              aria-invalid={Boolean(virtualMeetingLinkError)}
+              aria-describedby={
+                virtualMeetingLinkError
+                  ? "discover-event-virtual-meeting-error"
+                  : undefined
+              }
+              className={`h-11 ${virtualMeetingLinkError ? "border-destructive focus-visible:ring-destructive" : ""}`}
             />
           </FieldShell>
         </div>

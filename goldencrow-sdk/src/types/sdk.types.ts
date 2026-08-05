@@ -553,6 +553,7 @@ export interface DiscoverOrganizationRecord {
   description?: string;
   countryCode?: string;
   organizationType?: DiscoverOrganizationType;
+  color_hex?: string;
   verified: boolean;
   contactEmail?: string;
   internalNotes?: string;

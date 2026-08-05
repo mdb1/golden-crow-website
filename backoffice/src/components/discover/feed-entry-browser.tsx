@@ -110,6 +110,14 @@ export function DiscoverFeedEntryBrowser({
         item.body,
         typeof payload?.category === "string" ? payload.category : "",
         typeof payload?.region === "string" ? payload.region : "",
+        typeof payload?.virtual_meeting_link === "string"
+          ? payload.virtual_meeting_link
+          : "",
+        typeof payload?.virtualMeetingLink === "string"
+          ? payload.virtualMeetingLink
+          : "",
+        typeof payload?.meeting_url === "string" ? payload.meeting_url : "",
+        typeof payload?.meetingUrl === "string" ? payload.meetingUrl : "",
       ]
         .filter(Boolean)
         .join(" ")

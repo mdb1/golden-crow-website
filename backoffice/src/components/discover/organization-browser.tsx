@@ -54,6 +54,7 @@ function organizationPayload(
     description: organization.description,
     countryCode: organization.countryCode,
     organizationType: organization.organizationType,
+    color_hex: organization.color_hex,
     verified: organization.verified,
     contactEmail: organization.contactEmail,
     internalNotes: organization.internalNotes,
@@ -96,6 +97,7 @@ export function DiscoverOrganizationBrowser({
         organization.description,
         organization.countryCode,
         organization.organizationType,
+        organization.color_hex,
         organization.contactEmail,
       ]
         .filter(Boolean)
@@ -308,6 +310,13 @@ export function DiscoverOrganizationBrowser({
                     />
                   ) : null}
                   <h3 className="font-medium text-foreground">{organization.name}</h3>
+                  {organization.color_hex ? (
+                    <span
+                      className="h-3.5 w-3.5 rounded-full border border-border"
+                      style={{ backgroundColor: organization.color_hex }}
+                      title={organization.color_hex}
+                    />
+                  ) : null}
                   {organization.verified ? (
                     <Badge variant="success">{t("Verified")}</Badge>
                   ) : null}

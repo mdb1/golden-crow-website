@@ -56,6 +56,8 @@ const OrganizationBodySchema = z.object({
   description: z.string().optional(),
   countryCode: z.string().optional(),
   organizationType: OrganizationTypeSchema.optional(),
+  color_hex: z.string().nullable().optional(),
+  colorHex: z.string().nullable().optional(),
   verified: z.boolean().optional(),
   contactEmail: z.string().optional(),
   internalNotes: z.string().optional(),
@@ -78,6 +80,10 @@ const UpcomingEventPayloadSchema = z.object({
   date: z.string().nullable().optional(),
   location: z.string().optional(),
   max_attendance: z.number().nullable().optional(),
+  virtual_meeting_link: z.string().nullable().optional(),
+  virtualMeetingLink: z.string().nullable().optional(),
+  meeting_url: z.string().nullable().optional(),
+  meetingUrl: z.string().nullable().optional(),
 });
 
 const OpportunityPayloadSchema = z.object({
