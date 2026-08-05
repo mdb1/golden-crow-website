@@ -47,6 +47,8 @@ export interface RosterTableProps {
   rows: ClientRosterRow[];
   trainerUid: string;
   initialNeedsAttentionOnly?: boolean;
+  /** The coach's IANA zone, resolved server-side (#747). */
+  timezone: string;
 }
 
 function GoalPill({ label, count }: { label: string; count: number }) {
@@ -85,6 +87,7 @@ function ComplianceBar({ pct, good }: { pct: number; good: boolean }) {
 export function RosterTable({
   rows,
   initialNeedsAttentionOnly = false,
+  timezone,
 }: RosterTableProps) {
   const router = useRouter();
   const locale = useLocale();
@@ -322,7 +325,7 @@ export function RosterTable({
                         </>
                       ) : (
                         <>
-                          {tTable("joined")}: {formatRosterDate(row.createdAt, locale)}
+                          {tTable("joined")}: {formatRosterDate(row.createdAt, locale, timezone)}
                         </>
                       )}
                     </p>
@@ -344,11 +347,15 @@ export function RosterTable({
   );
 }
 
-function formatRosterDate(iso: string | null, locale: string): string {
+// #747 — `timeZone` is explicit. Without it this rendered the UTC day on the
+// server pass, so a client who joined at 21:30 in Buenos Aires was listed as
+// having joined the NEXT day until hydration corrected it.
+function formatRosterDate(iso: string | null, locale: string, timeZone: string): string {
   if (!iso) return "—";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return new Intl.DateTimeFormat(locale === "es" ? "es-AR" : "en-US", {
     dateStyle: "medium",
+    timeZone,
   }).format(date);
 }

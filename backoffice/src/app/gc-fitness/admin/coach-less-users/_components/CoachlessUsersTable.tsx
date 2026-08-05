@@ -37,6 +37,7 @@ import {
   type CoachlessSortKey,
 } from "@/lib/gc-fitness/coachless-user-table";
 import { cn } from "@/lib/utils";
+import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 
 const ROUTE = "/gc-fitness/admin/coach-less-users";
 
@@ -52,11 +53,19 @@ export interface CoachlessUsersTableProps {
   assignCoachAction: (formData: FormData) => Promise<void>;
   setTierAction: (formData: FormData) => Promise<void>;
   deleteUserAction: (formData: FormData) => Promise<void>;
+  /** The admin's IANA zone, resolved server-side (#747). */
+  timezone: string;
 }
 
-function formatDate(iso: string | null): string {
-  // Stable YYYY-MM-DD (avoids the server-locale flake seen in date tests).
-  return iso ? iso.slice(0, 10) : "—";
+// Stable YYYY-MM-DD — locale-independent by construction, so it never picks up
+// the server-locale flake that date tests hit. #747: the `iso.slice(0, 10)`
+// this replaced was stable AND wrong, since the first 10 chars of an ISO
+// instant are its UTC day, not the admin's.
+function formatDate(iso: string | null, timezone: string): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
+  return civilDateFormat(date, timezone);
 }
 
 function SortableHead({
@@ -99,6 +108,7 @@ export function CoachlessUsersTable({
   assignCoachAction,
   setTierAction,
   deleteUserAction,
+  timezone,
 }: CoachlessUsersTableProps) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<CoachlessSort>(DEFAULT_COACHLESS_SORT);
@@ -207,7 +217,7 @@ export function CoachlessUsersTable({
                         <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
                           <div>source: {row.entitlement.source || "—"}</div>
                           {row.entitlement.expiresAtISO ? (
-                            <div>expires: {formatDate(row.entitlement.expiresAtISO)}</div>
+                            <div>expires: {formatDate(row.entitlement.expiresAtISO, timezone)}</div>
                           ) : null}
                         </div>
                       ) : null}
@@ -221,7 +231,7 @@ export function CoachlessUsersTable({
                       {row.stats.workoutLogs}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {formatDate(row.createdAtISO)}
+                      {formatDate(row.createdAtISO, timezone)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex flex-col items-end gap-2">

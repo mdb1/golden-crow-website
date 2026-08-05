@@ -60,7 +60,8 @@ import {
   resolveDisplayTier,
   type ActivityWindow,
 } from "@/lib/gc-fitness/coachless-user-model";
-import { civilDateToday } from "@/lib/gc-fitness/civil-date";
+import { civilDateFormat, civilDateToday } from "@/lib/gc-fitness/civil-date";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { getClientExerciseProgressAsAdmin } from "@/lib/gc-fitness/exercise-progress-actions";
 import { listClientPersonalRecordsAsAdmin } from "@/lib/gc-fitness/personal-records-actions";
 import { listProgressPhotosForClientAsAdmin } from "@/lib/gc-fitness/progress-photo-actions";
@@ -84,18 +85,29 @@ export const dynamic = "force-dynamic";
 
 const LIST_ROUTE = "/gc-fitness/admin/coach-less-users";
 
-/** Stable YYYY-MM-DD (avoids the server-locale flake seen in date tests). */
-function formatDate(iso: string | null): string {
-  return iso ? iso.slice(0, 10) : "—";
+/**
+ * Stable YYYY-MM-DD — locale-independent by construction (no server-locale
+ * flake), and #747: in the ADMIN's zone. `iso.slice(0, 10)` was stable and
+ * wrong; the first 10 chars of an ISO instant are its UTC day.
+ */
+function formatDate(iso: string | null, timezone: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  return civilDateFormat(d, timezone);
 }
 
 /** "2026-07-26 (hace 2 d)" — absolute date first, recency in parentheses. */
-function formatDateWithAge(iso: string | null, nowMs: number): string {
+function formatDateWithAge(
+  iso: string | null,
+  nowMs: number,
+  timezone: string,
+): string {
   if (!iso) return "—";
   const days = daysSince(iso, nowMs);
-  if (days === null) return formatDate(iso);
+  if (days === null) return formatDate(iso, timezone);
   const age = days === 0 ? "hoy" : days === 1 ? "hace 1 d" : `hace ${days} d`;
-  return `${formatDate(iso)} (${age})`;
+  return `${formatDate(iso, timezone)} (${age})`;
 }
 
 function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -121,16 +133,18 @@ function ActivityRow({
   label,
   window: w,
   nowMs,
+  timezone,
 }: {
   label: string;
   window: ActivityWindow;
   nowMs: number;
+  timezone: string;
 }) {
   return (
     <TableRow>
       <TableCell>{label}</TableCell>
       <TableCell className="text-xs text-muted-foreground">
-        {formatDateWithAge(w.lastISO, nowMs)}
+        {formatDateWithAge(w.lastISO, nowMs, timezone)}
       </TableCell>
       <TableCell className="text-right tabular-nums">{w.last7Days}</TableCell>
       <TableCell className="text-right tabular-nums">{w.last30Days}</TableCell>
@@ -173,7 +187,8 @@ export default async function CoachlessUserDetailPage({
 
   // Every widget below is scoped by BOTH ids; for a coach-less user the coach
   // uid IS their own uid (see the header comment).
-  const timezone = profile.timezone ?? "UTC";
+  // #747 — the admin's own zone when the user has none, never UTC.
+  const timezone = profile.timezone ?? (await getTrainerTimezone());
   const todayCivil = civilDateToday(timezone);
   const thisMonthFirst = `${todayCivil.slice(0, 7)}-01`;
 
@@ -328,7 +343,7 @@ export default async function CoachlessUserDetailPage({
                 })()
               : "never"
           }
-          hint={formatDate(profile.activity.lastActiveISO)}
+          hint={formatDate(profile.activity.lastActiveISO, timezone)}
         />
         <StatTile
           label="Workouts"
@@ -360,9 +375,9 @@ export default async function CoachlessUserDetailPage({
               <Field label="UID">
                 <span className="font-mono text-xs">{uid}</span>
               </Field>
-              <Field label="Signed up">{formatDateWithAge(profile.createdAtISO, nowMs)}</Field>
+              <Field label="Signed up">{formatDateWithAge(profile.createdAtISO, nowMs, timezone)}</Field>
               <Field label="Last sign-in">
-                {formatDateWithAge(profile.auth?.lastSignInISO ?? null, nowMs)}
+                {formatDateWithAge(profile.auth?.lastSignInISO ?? null, nowMs, timezone)}
               </Field>
               <Field label="Sign-in providers">
                 {profile.auth && profile.auth.providers.length > 0
@@ -438,9 +453,9 @@ export default async function CoachlessUserDetailPage({
               </Field>
               <Field label="Source">{profile.entitlement?.source || "—"}</Field>
               <Field label="Product">{profile.entitlement?.productId || "—"}</Field>
-              <Field label="Expires">{formatDate(profile.entitlement?.expiresAtISO ?? null)}</Field>
+              <Field label="Expires">{formatDate(profile.entitlement?.expiresAtISO ?? null, timezone)}</Field>
               <Field label="Updated">
-                {formatDateWithAge(profile.entitlement?.updatedAtISO ?? null, nowMs)}
+                {formatDateWithAge(profile.entitlement?.updatedAtISO ?? null, nowMs, timezone)}
               </Field>
             </dl>
 
@@ -500,17 +515,17 @@ export default async function CoachlessUserDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <ActivityRow label="Workouts logged" window={profile.activity.workouts} nowMs={nowMs} />
+                <ActivityRow label="Workouts logged" window={profile.activity.workouts} nowMs={nowMs} timezone={timezone} />
                 <ActivityRow
                   label="Habit check-ins"
                   window={profile.activity.habitCheckIns}
-                  nowMs={nowMs}
+                  nowMs={nowMs} timezone={timezone}
                 />
-                <ActivityRow label="Progress photos" window={profile.activity.photos} nowMs={nowMs} />
+                <ActivityRow label="Progress photos" window={profile.activity.photos} nowMs={nowMs} timezone={timezone} />
                 <ActivityRow
                   label="Body-weight entries"
                   window={profile.activity.weightEntries}
-                  nowMs={nowMs}
+                  nowMs={nowMs} timezone={timezone}
                 />
               </TableBody>
             </Table>
@@ -549,10 +564,10 @@ export default async function CoachlessUserDetailPage({
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{r.exerciseCount}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {formatDate(r.createdAtISO)}
+                        {formatDate(r.createdAtISO, timezone)}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {formatDate(r.updatedAtISO)}
+                        {formatDate(r.updatedAtISO, timezone)}
                       </TableCell>
                       <TableCell>
                         {r.deleted ? (

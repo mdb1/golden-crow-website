@@ -18,6 +18,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { ChecklistEditDialog } from "@/components/gc-fitness/ChecklistEditDialog";
+import { civilDateFormat, civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { ChecklistClientPicker } from "@/components/gc-fitness/ChecklistClientPicker";
 import { ChecklistRecurrenceFields } from "@/components/gc-fitness/ChecklistRecurrenceFields";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +43,13 @@ export interface ChecklistClientOption {
 interface Props {
   items: CoachChecklistItem[];
   clients: ChecklistClientOption[];
+  /**
+   * The coach's IANA zone, resolved server-side (#747). Every civil day and
+   * every displayed hour below is keyed off it — the host getters this replaced
+   * were UTC on the server render, so an item due at 21:00 in Buenos Aires
+   * headed the WRONG day until hydration corrected it.
+   */
+  timezone: string;
 }
 
 const RECURRENCE_LABEL: Record<string, string> = {
@@ -69,7 +77,7 @@ function recurrenceSummary(item: CoachChecklistItem): string {
   return base;
 }
 
-export function CoachChecklistClient({ items, clients }: Props) {
+export function CoachChecklistClient({ items, clients, timezone }: Props) {
   const t = useTranslations("coachChecklist");
   const locale = useLocale();
   const router = useRouter();
@@ -90,8 +98,8 @@ export function CoachChecklistClient({ items, clients }: Props) {
   );
   const visibleItems = showCompleted ? items : activeItems;
   const groups = useMemo(
-    () => groupItemsByDate(visibleItems, now, locale, t),
-    [locale, now, t, visibleItems],
+    () => groupItemsByDate(visibleItems, now, locale, t, timezone),
+    [locale, now, t, timezone, visibleItems],
   );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -326,13 +334,14 @@ export function CoachChecklistClient({ items, clients }: Props) {
                           >
                             <CalendarClock className="size-3.5" />
                             {item.dueAt
-                              ? formatDateTime(item.dueAt, locale)
+                              ? formatDateTime(item.dueAt, locale, timezone)
                               : t("noDueAt")}
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
                           <ChecklistEditDialog
                             item={item}
+                            timezone={timezone}
                             clients={clients}
                             trigger={
                               <Button
@@ -382,11 +391,12 @@ function groupItemsByDate(
   now: Date,
   locale: string,
   t: ReturnType<typeof useTranslations>,
+  timezone: string,
 ): ChecklistGroup[] {
   const sorted = [...items].sort(compareItems);
   const groups = new Map<string, ChecklistGroup>();
   for (const item of sorted) {
-    const groupMeta = groupForItem(item, now, locale, t);
+    const groupMeta = groupForItem(item, now, locale, t, timezone);
     const existing = groups.get(groupMeta.key);
     if (existing) existing.items.push(item);
     else groups.set(groupMeta.key, { ...groupMeta, items: [item] });
@@ -399,6 +409,7 @@ function groupForItem(
   now: Date,
   locale: string,
   t: ReturnType<typeof useTranslations>,
+  timezone: string,
 ): Omit<ChecklistGroup, "items"> {
   if (item.completed) {
     return {
@@ -425,10 +436,10 @@ function groupForItem(
     };
   }
 
-  const dateKey = civilDateKey(item.dueAt);
+  const dateKey = civilDateKey(item.dueAt, timezone);
   return {
     key: dateKey,
-    label: formatDateHeading(item.dueAt, now, locale, t),
+    label: formatDateHeading(item.dueAt, now, locale, t, timezone),
     overdue: false,
     completed: false,
   };
@@ -454,13 +465,10 @@ function isOverdue(item: CoachChecklistItem, now: Date): boolean {
   return Number.isFinite(dueMs) && dueMs < now.getTime();
 }
 
-function civilDateKey(iso: string): string {
+function civilDateKey(iso: string, timezone: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return civilDateFormat(date, timezone);
 }
 
 function formatDateHeading(
@@ -468,28 +476,31 @@ function formatDateHeading(
   now: Date,
   locale: string,
   t: ReturnType<typeof useTranslations>,
+  timezone: string,
 ): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  const itemKey = civilDateKey(iso);
-  const todayKey = civilDateKey(now.toISOString());
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowKey = civilDateKey(tomorrow.toISOString());
+  const itemKey = civilDateKey(iso, timezone);
+  const todayKey = civilDateToday(timezone, now);
+  // +24h rather than `setDate(getDate() + 1)`: the latter steps the HOST
+  // calendar, which is not the calendar the heading is keyed on.
+  const tomorrowKey = civilDateFormat(new Date(now.getTime() + 86_400_000), timezone);
   if (itemKey === todayKey) return t("todayTitle");
   if (itemKey === tomorrowKey) return t("tomorrowTitle");
   return new Intl.DateTimeFormat(locale, {
     weekday: "long",
     month: "long",
     day: "numeric",
+    timeZone: timezone,
   }).format(date);
 }
 
-function formatDateTime(iso: string, locale: string): string {
+function formatDateTime(iso: string, locale: string, timezone: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: timezone,
   }).format(date);
 }

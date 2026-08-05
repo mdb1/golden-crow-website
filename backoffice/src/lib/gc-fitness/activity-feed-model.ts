@@ -1187,6 +1187,123 @@ export function classifyAuditRecord(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Post-merge: one action, one row, across sources (#748)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * #748 — the `coach_activity` eventId(s) an audit record is the OTHER HALF of.
+ *
+ * A coach action is recorded twice ON PURPOSE, by two mechanisms that know
+ * nothing about each other: the server action appends a hand-written event to
+ * `coach_activity` (so My Activity can read one row per action instead of
+ * scanning thousands of occurrence docs), and the `onAuditableWrite` trigger
+ * captures every underlying document write into `audit_log`. Monitoring merges
+ * both, so one assignment rendered as two rows saying the same thing in two
+ * dialects — "todas las semanas (sáb) · 2026-08-08 → 2026-09-05" from the audit
+ * side and "Recurrencia: semanal · 5 fechas · 2026-08-08 a 2026-09-05" from the
+ * coach side.
+ *
+ * The bridge is the coach eventId, which is built from the very id the audit
+ * row carries: `asg:${seriesId}` / `asg:${assignmentId}`, `exr:${exerciseId}`,
+ * `hab:${habitId}` (see `coach-activity-log.ts`). `tpl:` has no twin —
+ * `workout_templates` is not in `MONITORED_COLLECTIONS`.
+ *
+ * BOTH assignment keys are emitted because the coach side keys a recurring
+ * series by `seriesId` and a one-off by the assignment doc id.
+ */
+export function coachActivityKeysFor(record: AuditRecord): string[] {
+  if (!record.docId || record.docId === "?") return [];
+  switch (record.collection) {
+    case "workout_assignments": {
+      const seriesId = str(record.after?.seriesId) ?? str(record.before?.seriesId);
+      return seriesId ? [`asg:${record.docId}`, `asg:${seriesId}`] : [`asg:${record.docId}`];
+    }
+    // `exerciseCreatedEvent` / `habitAssignedEvent` fire ONLY on the create, so
+    // a later update to the same doc must not be read as its twin.
+    case "exercises":
+      return record.op === "create" ? [`exr:${record.docId}`] : [];
+    case "habits":
+      return record.op === "create" ? [`hab:${record.docId}`] : [];
+    default:
+      return [];
+  }
+}
+
+/**
+ * How far apart the two halves may land. The coach event is appended AFTER the
+ * batches commit and the audit rows are stamped by the trigger, so in practice
+ * they are seconds apart; the window is generous because a wrong split shows a
+ * duplicate (annoying) while a wrong merge hides an event (a lie).
+ *
+ * It also has to be SHORT relative to the horizon renewal: an auto-extension
+ * writes new occurrences of a series whose coach event may be months old, and
+ * that pair must NOT collapse — "se extendió sola" is a different fact from
+ * "asignó un workout".
+ */
+const COACH_DUPLICATE_WINDOW_MS = 10 * 60 * 1000;
+
+/** The shape `findDuplicateCoachEventIds` needs — a subset of the rendered event. */
+export interface CrossSourceRow {
+  id: string;
+  source: string;
+  occurredAtISO: string | null;
+  clientUid: string | null;
+  /**
+   * For an `audit_log` row: the coach eventIds it would collide with
+   * (`coachActivityKeysFor`). For a `coach_activity` row: its own eventId.
+   */
+  entityKeys: string[];
+  /**
+   * `coach_activity` only — the row names a client who has no uid yet (a
+   * pre-created mirror). The audit row has nowhere to put that email, so
+   * folding it away would lose the only thing identifying the person.
+   */
+  hasPendingClient?: boolean;
+}
+
+/**
+ * Which `coach_activity` rows are already told by an `audit_log` row.
+ *
+ * The AUDIT row survives because it is strictly richer: it knows the weekday
+ * (`todas las semanas (sáb)`, not just `semanal`), carries the ×N occurrence
+ * badge and the template link, and distinguishes a recurrence EDIT from a fresh
+ * assignment — the coach log re-publishes the same "Workout asignado" copy for
+ * both (`editAssignmentRecurrence` merges into the same `asg:` doc).
+ *
+ * When no audit row matches — the trigger is not deployed, the collection is
+ * not monitored, the audit half fell off the per-source cap — the coach row
+ * stays. Losing an event is worse than showing it twice.
+ */
+export function findDuplicateCoachEventIds(rows: CrossSourceRow[]): Set<string> {
+  const audits = rows.filter((r) => r.source === "audit_log" && r.entityKeys.length > 0);
+  const duplicates = new Set<string>();
+  if (audits.length === 0) return duplicates;
+
+  for (const coach of rows) {
+    if (coach.source !== "coach_activity" || coach.hasPendingClient) continue;
+    const key = coach.entityKeys[0];
+    if (!key) continue;
+    const coachMs = coach.occurredAtISO ? Date.parse(coach.occurredAtISO) : NaN;
+    if (!Number.isFinite(coachMs)) continue;
+
+    const twin = audits.some((audit) => {
+      if (!audit.entityKeys.includes(key)) return false;
+      // Same entity AND same client. The ids are unique, so this only ever
+      // rejects a row the audit side could not attribute — where dropping the
+      // coach row would take the client chip with it.
+      if ((audit.clientUid ?? null) !== (coach.clientUid ?? null)) return false;
+      const auditMs = audit.occurredAtISO ? Date.parse(audit.occurredAtISO) : NaN;
+      if (!Number.isFinite(auditMs)) return false;
+      return Math.abs(coachMs - auditMs) <= COACH_DUPLICATE_WINDOW_MS;
+    });
+
+    if (twin) duplicates.add(coach.id);
+  }
+
+  return duplicates;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Post-merge: fold the write-back + the "done" stamp into the finish event
 // ─────────────────────────────────────────────────────────────────────────────
 

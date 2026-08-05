@@ -37,6 +37,8 @@ import { Timestamp, type Firestore } from "firebase-admin/firestore";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import {
   classifyAuditRecord,
+  coachActivityKeysFor,
+  findDuplicateCoachEventIds,
   mergeWorkoutWriteBacks,
   type AuditRecord,
   type ClassifiedEvent,
@@ -221,6 +223,9 @@ async function fetchAuditRecords(
   });
 }
 
+/** Namespaces the coach eventId inside the feed's global id space. */
+const COACH_EVENT_ID_PREFIX = "coach_activity:";
+
 interface RawCoachEvent {
   id: string;
   trainerId: string | null;
@@ -251,7 +256,7 @@ async function fetchCoachEvents(
     const d = doc.data() as Record<string, unknown>;
     const deleted = d.deleted === true;
     return {
-      id: `coach_activity:${doc.id}`,
+      id: `${COACH_EVENT_ID_PREFIX}${doc.id}`,
       trainerId: typeof d.trainerId === "string" ? d.trainerId : null,
       clientId: typeof d.clientId === "string" ? d.clientId : null,
       pendingEmail: typeof d.pendingEmail === "string" ? d.pendingEmail : null,
@@ -727,6 +732,11 @@ async function collectFeed(
   const users = await resolveUsers(db, uids);
 
   const events: ActivityFeedEvent[] = [];
+  // #748 — the tokens each row can be recognised by across sources. Kept beside
+  // the events rather than on them: the feed is serialised to the client, and
+  // this is scaffolding for the merge, not something a row renders.
+  const entityKeys = new Map<string, string[]>();
+  const pendingClientEvents = new Set<string>();
 
   for (const { group, event } of classified) {
     const head = group.head;
@@ -738,6 +748,7 @@ async function collectFeed(
     const actorUid = event.actorUid;
     const clientUid =
       head.clientId ?? (head.collection === "users" ? head.docId : null);
+    entityKeys.set(head.id, coachActivityKeysFor(head));
     events.push({
       id: head.id,
       source: "audit_log",
@@ -763,6 +774,10 @@ async function collectFeed(
 
   for (const c of coachRaw) {
     const { title, subject } = coachEventCopy(c);
+    // The doc id IS the eventId (`asg:<seriesId>`, `exr:<id>`, …) — that is the
+    // whole bridge to the audit half. See `coachActivityKeysFor`.
+    entityKeys.set(c.id, [c.id.slice(COACH_EVENT_ID_PREFIX.length)]);
+    if (c.pendingEmail) pendingClientEvents.add(c.id);
     events.push({
       id: c.id,
       source: "coach_activity",
@@ -832,7 +847,21 @@ async function collectFeed(
   }
 
   events.sort((a, b) => (b.occurredAtISO ?? "").localeCompare(a.occurredAtISO ?? ""));
-  return mergeWorkoutWriteBacks(events);
+
+  // #748 — the same coach action reaches the feed through two independent
+  // recorders. Drop the coach-log half wherever the audit half already told it.
+  const duplicates = findDuplicateCoachEventIds(
+    events.map((e) => ({
+      id: e.id,
+      source: e.source,
+      occurredAtISO: e.occurredAtISO,
+      clientUid: e.clientUid,
+      entityKeys: entityKeys.get(e.id) ?? [],
+      hasPendingClient: pendingClientEvents.has(e.id),
+    })),
+  );
+
+  return mergeWorkoutWriteBacks(events.filter((e) => !duplicates.has(e.id)));
 }
 
 function applyFilters(

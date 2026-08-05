@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { PendingChecklistItem } from "@/lib/gc-fitness/coach-checklist-actions";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 
 import { ChecklistPendingList } from "./checklist-pending-list";
 
@@ -27,7 +28,11 @@ interface Props {
 export async function ChecklistPending({ items }: Props) {
   if (items.length === 0) return null;
 
-  const t = await getTranslations("dashboard");
+  // #747 — the due HOUR has to read in the coach's zone, not the server's.
+  const [t, timezone] = await Promise.all([
+    getTranslations("dashboard"),
+    getTrainerTimezone(),
+  ]);
 
   return (
     <Card>
@@ -41,7 +46,7 @@ export async function ChecklistPending({ items }: Props) {
         </Button>
       </CardHeader>
       <CardContent>
-        <ChecklistPendingList items={items} />
+        <ChecklistPendingList items={items} timezone={timezone} />
       </CardContent>
     </Card>
   );

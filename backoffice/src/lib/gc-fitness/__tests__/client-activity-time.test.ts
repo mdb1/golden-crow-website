@@ -67,3 +67,36 @@ describe("client activity timezone helpers", () => {
     );
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #747 — the row the ticket screenshotted
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("#747 — a client activity row never reads in UTC", () => {
+  // The screenshotted row: "Perfil actualizado · Aug 04, 09:04 PM". The coach
+  // made the change at 18:04 in Buenos Aires; the client doc had no `timezone`,
+  // the route fell back to "UTC", and 21:04Z printed as 09:04 PM.
+  const EVENING = "2026-08-04T21:04:00.000Z";
+  // Late enough that UTC has already rolled to the next civil day.
+  const LATE_NIGHT = "2026-08-05T01:00:00.000Z";
+
+  test("renders the hour the coach acted, not the server's", () => {
+    expect(formatClientActivityDateTime(EVENING, BUENOS_AIRES, LOCALE)).toContain("06:04 PM");
+    // What the screenshot showed, kept here as the thing NOT to render.
+    expect(formatClientActivityDateTime(EVENING, "UTC", LOCALE)).toContain("09:04 PM");
+  });
+
+  test("keeps the civil day the UTC reading had already left", () => {
+    // Still Aug 4 for the coach, already Aug 5 in UTC — which is why fixing the
+    // hour without fixing the day would put a row under the wrong heading.
+    expect(formatClientActivityDate(LATE_NIGHT, BUENOS_AIRES, LOCALE)).toBe("Aug 4");
+    expect(formatClientActivityDate(LATE_NIGHT, "UTC", LOCALE)).toBe("Aug 5");
+  });
+
+  test("honours the app locale rather than the runtime's", () => {
+    // The same row rendered "Aug 04" under a Spanish UI, because the leaf passed
+    // `undefined` as the locale.
+    expect(formatClientActivityDateTime(EVENING, BUENOS_AIRES, "es-AR")).not.toContain("Aug");
+    expect(formatClientActivityDateTime(EVENING, BUENOS_AIRES, "en-US")).toContain("Aug");
+  });
+});

@@ -18,6 +18,7 @@ import {
 } from "@/lib/gc-fitness/admin-coachless-actions";
 
 import { CoachlessUsersTable } from "./_components/CoachlessUsersTable";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 
 export const generateMetadata = () => sectionMetadata("adminPanel");
 
@@ -109,6 +110,7 @@ export default async function CoachlessUsersPage({
         assignCoachAction={assignCoachAction}
         setTierAction={setTierAction}
         deleteUserAction={deleteUserAction}
+        timezone={await getTrainerTimezone()}
       />
     </div>
   );

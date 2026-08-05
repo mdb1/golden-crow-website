@@ -6,6 +6,8 @@ import { z } from "zod";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
+import { civilDateToday } from "./civil-date";
+import { getTrainerTimezone } from "./trainer-timezone";
 import { recordCoachActivityEvent, noteAddedEvent } from "./coach-activity-log";
 import { FirestoreCollections } from "./collections";
 
@@ -113,7 +115,10 @@ export async function updateClientNotes(input: unknown): Promise<{
   const entryCreatedAt = new Date().toISOString();
   const snap = await ref.get();
   const entry = {
-    date: parsed.date ?? new Date().toISOString().slice(0, 10),
+    // #747 — `toISOString().slice(0, 10)` is the UTC day, so a note written at
+    // 21:30 in Buenos Aires was dated TOMORROW. `civilDateToday` is the same
+    // helper the rest of the trainer surface dates things with.
+    date: parsed.date ?? civilDateToday(await getTrainerTimezone()),
     notes: parsed.notes,
     createdAt: entryCreatedAt,
   };

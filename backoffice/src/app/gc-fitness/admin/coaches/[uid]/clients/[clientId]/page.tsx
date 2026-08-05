@@ -14,6 +14,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { listRecentLogsForClientAsAdmin } from "@/lib/gc-fitness/recent-logs-actions";
 import { listProgressPhotosForClientAsAdmin } from "@/lib/gc-fitness/progress-photo-actions";
@@ -89,8 +90,12 @@ export default async function AdminCoachClientPage({
     .doc(clientId)
     .get();
   const storedTimezone = clientSnap.get("timezone");
+  // #747 — falls back to the ADMIN's own zone, never UTC. See the note in
+  // `clients/[id]/page.tsx`.
   const timezone =
-    typeof storedTimezone === "string" && storedTimezone ? storedTimezone : "UTC";
+    typeof storedTimezone === "string" && storedTimezone
+      ? storedTimezone
+      : await getTrainerTimezone();
 
   return (
     <div className="gc-page flex flex-col gap-6">

@@ -7,6 +7,7 @@ import {
   type AppVersionConfig,
 } from "@/lib/gc-fitness/admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import { AppVersionForm } from "./app-version-form";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
@@ -59,7 +60,7 @@ export default async function AppConfigPage() {
         Back to Admin Console
       </Link>
 
-      <AppVersionForm initialConfig={config} />
+      <AppVersionForm initialConfig={config} timezone={await getTrainerTimezone()} />
     </div>
   );
 }

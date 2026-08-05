@@ -20,6 +20,8 @@ import {
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { listClients } from "@/lib/gc-fitness/client-roster";
+import { civilDateToday } from "@/lib/gc-fitness/civil-date";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import type {
   HabitCreateInput,
   HabitType,
@@ -104,7 +106,9 @@ export default async function EditHabitPage({ params }: PageParams) {
         ? [data.reminderDayOfMonth]
         : undefined),
     scheduleType: data.scheduleType ?? "recurring",
-    startsOn: data.startsOn ?? new Date().toISOString().slice(0, 10),
+    // #747 — the UTC day, not the coach's: at 21:30 in Buenos Aires the form
+    // defaulted a habit to start TOMORROW.
+    startsOn: data.startsOn ?? civilDateToday(await getTrainerTimezone()),
     endsOn: data.endsOn,
     scheduleCadence: data.scheduleCadence ?? "daily",
     scheduleWeekdays: data.scheduleWeekdays,

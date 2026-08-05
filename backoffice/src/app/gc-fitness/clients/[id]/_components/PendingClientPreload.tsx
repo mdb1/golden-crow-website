@@ -28,6 +28,8 @@ import { listWorkoutTemplates } from "@/lib/gc-fitness/workout-template-actions"
 import { revalidatePath } from "next/cache";
 import { PendingWorkoutAssignForm } from "./PendingWorkoutAssignForm";
 import { PendingHabitPreloadForm } from "./PendingHabitPreloadForm";
+import { civilDateToday } from "@/lib/gc-fitness/civil-date";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 
 const WEEKDAY_LABELS_WORKOUT: Record<number, string> = {
   0: "Dom",
@@ -138,7 +140,8 @@ export async function PendingClientPreload({
       ? habitTemplates.find((template) => template.id === templateId)
       : null;
     if (!selectedTemplate && !name) return;
-    const startsOnValue = startsOn || new Date().toISOString().slice(0, 10);
+    // #747 — the coach's civil day, not the server's UTC one.
+    const startsOnValue = startsOn || civilDateToday(await getTrainerTimezone());
     const resolvedType = "binary" as const;
     const resolvedScheduleType = scheduleType === "one-time" ? "one-time" : "recurring";
     const resolvedCadence =
