@@ -614,6 +614,18 @@
         "saving": "Saving…",
         "savedToast": "Client identity updated.",
         "saveFailedToast": "Could not save client identity."
+      },
+      "unlink": {
+        "title": "Unlink client",
+        "body": "Remove this person from your roster. Their account, history and assigned programme stay untouched — they just stop being your client.",
+        "cta": "Unlink",
+        "confirmTitle": "Unlink {name}?",
+        "confirmBody": "They will drop off your roster and you will no longer see their progress or be able to message them. Their account, history and assigned content stay intact, and the chat comes back if you add them again later. Note: if they had premium through you, they lose it.",
+        "confirmCta": "Yes, unlink",
+        "cancel": "Cancel",
+        "pending": "Unlinking…",
+        "doneToast": "{name} is no longer your client.",
+        "errorToast": "Could not unlink the client."
       }
     }
   },
