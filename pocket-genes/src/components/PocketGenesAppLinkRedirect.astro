@@ -65,6 +65,7 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
         appStore: 'Download on the App Store',
         playStore: 'Get it on Google Play',
         missing: 'This shared link is incomplete. Ask the sender to share it again.',
+        opening: 'Opening Pocket Genes...',
         ready: 'If the app is already installed, tap Open Pocket Genes.',
       }
     : {
@@ -74,6 +75,7 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
         appStore: 'Descargar en App Store',
         playStore: 'Descargar en Google Play',
         missing: 'Este enlace compartido está incompleto. Pedile a quien lo envió que vuelva a compartirlo.',
+        opening: 'Abriendo Pocket Genes...',
         ready: 'Si ya tenés la app instalada, tocá Abrir Pocket Genes.',
       };
 
@@ -92,9 +94,26 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
     const customURL = `${customSchemeBase}${query}`;
     const androidIntent = `intent://${area}/${resource}${query}#Intent;scheme=pocketgenes;package=goldencrowvs.pocketgenes;S.browser_fallback_url=${encodeURIComponent(PLAY_STORE_URL)};end`;
     const isAndroid = /Android/i.test(navigator.userAgent);
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const appURL = isAndroid ? androidIntent : customURL;
 
-    openLink.setAttribute('href', isAndroid ? androidIntent : customURL);
-    status.textContent = copy.ready;
+    openLink.setAttribute('href', appURL);
+
+    if (isMobile) {
+      status.textContent = copy.opening;
+      window.setTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          window.location.assign(appURL);
+        }
+      }, 150);
+      window.setTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          status.textContent = copy.ready;
+        }
+      }, 1600);
+    } else {
+      status.textContent = copy.ready;
+    }
   }
 </script>
 
