@@ -234,6 +234,39 @@ single time so far it has been one of these, and only one was a weak assertion:
 - The next-intl stub caches `t` per namespace on purpose. If you see
   *Maximum update depth exceeded*, look for another hook in your test returning
   a fresh reference each render before blaming the component.
+- **Custom pill groups are not buttons.** The trend-range selector and the
+  metric switcher are `role="tab"` inside a `role="tablist"`; the muscle-group
+  chips are `role="checkbox"`. `getByRole("button", …)` misses all of them.
+- **RTL's string matcher compares the ELEMENT's whole text.** A label that
+  shares its `<p>` with a value (`Latest: 80 kg · 3 sessions`) is NOT findable
+  with `getByText("Latest:")` — scan for the element and read the child, or use
+  a function matcher.
+- **`textContent` runs adjacent nodes together.** A note followed by its date
+  reads as `Nota 112026-08-01`, so a loose `/Nota \d+/` matches across the
+  boundary. Bracket or otherwise delimit fixture markers.
+- The next-intl stub does **not** implement ICU plurals. A catalog entry like
+  `{count, plural, one {# session} other {# sessions}}` renders verbatim —
+  never assert on those strings.
+
+### jsdom gaps that look like component bugs
+
+Each of these throws INSIDE the component, so the test fails on a missing
+button rather than on its own assertion:
+
+- **`URL.createObjectURL` / `revokeObjectURL` don't exist.** Any staged-file
+  preview calls them synchronously. Shim both in a `beforeAll`.
+- **`Element.prototype.scrollTo` doesn't exist**, and there is no layout. Any
+  auto-scroll-to-bottom (the chat thread) dies on mount.
+- **Recharts renders nothing measurable** — no layout means width/height are
+  `-1` and the chart body never mounts. Assert the chart's data through a text
+  readout computed from the same array the chart receives, and say so in the
+  header.
+- **`rerender()` with the SAME element object is a no-op** — React bails out on
+  referential identity, so an effect you expect to re-run never does. Build the
+  element fresh each time.
+- **`mockReturnValue` hands back one stable object**, so a `useMemo` over it
+  never recomputes and its dependent effects never re-run. Use
+  `mockImplementation` when the test is about what happens on a re-fetch.
 
 ### What does NOT exist: browser E2E
 
