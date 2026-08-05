@@ -105,8 +105,26 @@ function makeTFn(namespace?: string): TFn {
   return t;
 }
 
+// Real `useTranslations` returns a REFERENTIALLY STABLE `t` across renders for
+// a given namespace — and components rely on that: `t` legitimately appears in
+// `useEffect` dependency arrays. A stub that minted a fresh closure per render
+// turns any such effect into an infinite render loop ("Maximum update depth
+// exceeded"), which looks like a component bug and is not one.
+//
+// `AssignTemplateModal` is the case that surfaced this: its template-detail
+// effect lists `t` in its deps and calls `setOverrideDrafts({})` on the
+// no-template branch. A fresh `{}` is never `Object.is`-equal, so each render
+// re-ran the effect, which re-rendered, forever. Caching per namespace matches
+// production behavior and the loop disappears.
+const tFnCache = new Map<string, TFn>();
+
 export function useTranslations(namespace?: string): TFn {
-  return makeTFn(namespace);
+  const key = namespace ?? "";
+  const cached = tFnCache.get(key);
+  if (cached) return cached;
+  const fn = makeTFn(namespace);
+  tFnCache.set(key, fn);
+  return fn;
 }
 
 export function useLocale(): string {
