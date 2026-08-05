@@ -56,6 +56,8 @@ import {
   progressPhotosFulfillment,
 } from "@/lib/gc-fitness/client-request-fulfillment";
 import { PendingClientPreload } from "./_components/PendingClientPreload";
+import { RemovePendingClientButton } from "./_components/RemovePendingClientButton";
+import { UnlinkClientButton } from "./_components/UnlinkClientButton";
 import { ClientSummaryCard } from "./_components/ClientSummaryCard";
 import { ClientCalendarPeek } from "./_components/ClientCalendarPeek";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
@@ -268,6 +270,11 @@ export default async function ClientDetailPage({
           <ClientRecentLogsWidget clientId={id} timezone={timezone} />
         </Suspense>
       </div>
+
+      {/* #753 — last on the page on purpose: it is the only control here that
+          removes the client from the roster, and nothing above it should be
+          reachable by an accidental tap on the way to it. */}
+      <UnlinkClientButton clientId={id} clientName={displayName} />
     </div>
   );
 }
@@ -377,6 +384,9 @@ function PendingClientView({
           workout_assignments + habits with pendingEmail set. On first
           sign-in, convertMirrorToCanonical migrates clientId atomically. */}
       <PendingClientPreload normalizedEmail={normalizedEmail} />
+
+      {/* #753 — undo a mistyped invite without asking an operator. */}
+      <RemovePendingClientButton email={normalizedEmail} />
 
       <p className="text-xs text-muted-foreground">
         Cuando <strong>{email}</strong> inicie sesión con Google por primera

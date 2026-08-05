@@ -62,6 +62,7 @@ import {
 import { getCurrentTrainer } from "./auth-helpers";
 import {
   clientAddedEvent,
+  markCoachActivityDeleted,
   recordCoachActivityEvent,
 } from "./coach-activity-log";
 import {
@@ -763,4 +764,161 @@ export async function getCurrentTrainerProfile(): Promise<{
         : null,
     chatQuickReplies: data.chatQuickReplies ?? [],
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Issue #753 — a coach removing someone from their own roster
+//
+// Both operations already existed, but ONLY as admin god-mode tools in
+// `admin-actions.ts` (`removePendingClientForCoach` / `unlinkClientFromCoach`),
+// which means a coach who mistyped an invite email or whose client stopped
+// training had to ask an operator. These are the coach-scoped twins: same wire
+// effect, but the coach uid comes from `getCurrentTrainer()` instead of being a
+// caller-supplied argument, so a coach can only ever act on their own roster.
+//
+// Neither deletes a person. `unlinkClient` clears the link and leaves the
+// account (and its history) intact — the destructive
+// `deleteClientCascade` stays admin-only on purpose.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const removePendingClientSchema = z.object({
+  email: z.string().trim().toLowerCase().email().transform(normalizeMirrorEmail),
+});
+
+/**
+ * Delete a PENDING client — the `/user_mirror/{email}` placeholder a coach
+ * created with `provisionClient` for someone who has never signed in.
+ *
+ * Also drops the content pre-loaded against that email. This is not tidiness:
+ * `convertMirrorToCanonical` claims pre-loaded docs by `pendingEmail` on first
+ * sign-in, so an orphaned assignment/habit would silently attach itself to the
+ * person later — even if by then they belong to a DIFFERENT coach. Both queries
+ * are scoped to `trainerId == me`, so a second coach's pre-loads for the same
+ * email are never touched.
+ *
+ * Idempotent: removing an already-removed pending client is a no-op success,
+ * which keeps a double-submit from turning into an error the coach has to read.
+ */
+export async function removePendingClient(input: unknown): Promise<{ ok: true }> {
+  const session = await getCurrentTrainer();
+  const parsed = removePendingClientSchema.parse(input);
+  const db = gcFitnessFirestore();
+
+  const mirrorRef = db
+    .collection(FirestoreCollections.userMirror)
+    .doc(parsed.email);
+  const mirrorSnap = await mirrorRef.get();
+  if (!mirrorSnap.exists) {
+    revalidateTag("gc-fitness-roster", "max");
+    return { ok: true };
+  }
+  if (mirrorSnap.get("coachId") !== session.uid) {
+    throw new Error("Forbidden");
+  }
+
+  const [assignments, habits] = await Promise.all([
+    db
+      .collection(FirestoreCollections.workoutAssignments)
+      .where("trainerId", "==", session.uid)
+      .where("pendingEmail", "==", parsed.email)
+      .get(),
+    db
+      .collection(FirestoreCollections.habits)
+      .where("trainerId", "==", session.uid)
+      .where("pendingEmail", "==", parsed.email)
+      .get(),
+  ]);
+
+  const batch = db.batch();
+  for (const doc of [...assignments.docs, ...habits.docs]) batch.delete(doc.ref);
+  batch.delete(mirrorRef);
+  await batch.commit();
+
+  // The roster row came from `clientAddedEvent`, keyed by (coach, email) — mark
+  // that same event deleted so My Activity reads "Quitó un cliente" instead of
+  // still advertising an add that has been undone. Best-effort by contract.
+  await markCoachActivityDeleted(db, `client:${session.uid}:${parsed.email}`);
+  revalidateTag("gc-fitness-roster", "max");
+  return { ok: true };
+}
+
+const unlinkClientSchema = z.object({
+  clientId: z.string().trim().min(6).max(128),
+});
+
+/**
+ * Detach an ACTIVE client from the calling coach — "des-linkear", the inverse
+ * of `provisionClient`. The person keeps their account, their history and the
+ * program they were given; they simply become coach-less (self-serve) and drop
+ * off this coach's roster.
+ *
+ * Mirrors `unlinkClientFromCoach` in `admin-actions.ts` field for field: clear
+ * the link + the denormalized coach fields, clear `coachId` on the 1:1 chat doc
+ * (which removes the thread from the ex-coach's inbox query and fails
+ * `isChatParticipant` for them WITHOUT destroying the client's history — a later
+ * re-link restores it), and resync the custom claim. The claim write is
+ * fail-soft on purpose: the Firestore doc is the source of truth and the claim
+ * catches up on the client's next token refresh.
+ *
+ * Side effect worth knowing before confirming: a coached user is entitled to
+ * premium through their coach, so unlinking drops them to their own tier.
+ */
+export async function unlinkClient(input: unknown): Promise<{ ok: true }> {
+  const session = await getCurrentTrainer();
+  const parsed = unlinkClientSchema.parse(input);
+  const db = gcFitnessFirestore();
+
+  const clientRef = db.collection(FirestoreCollections.users).doc(parsed.clientId);
+  const clientSnap = await clientRef.get();
+  // Same shape as every other coach-scoped gate here: an unowned or missing
+  // client is indistinguishable from the caller's point of view.
+  if (!clientSnap.exists || clientSnap.get("coachId") !== session.uid) {
+    throw new Error("Forbidden");
+  }
+  const clientEmail =
+    typeof clientSnap.get("email") === "string" ? (clientSnap.get("email") as string) : null;
+
+  const chatRef = db.collection(FirestoreCollections.chats).doc(parsed.clientId);
+  const chatSnap = await chatRef.get();
+
+  const batch = db.batch();
+  batch.update(clientRef, {
+    coachId: FieldValue.delete(),
+    coachDisplayName: FieldValue.delete(),
+    coachPhotoURL: FieldValue.delete(),
+    coachBio: FieldValue.delete(),
+    // The "auto-assigned, needs triage" marker is meaningless with no coach.
+    autoAssignedCoach: FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  if (chatSnap.exists) {
+    batch.update(chatRef, {
+      coachId: FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
+  await batch.commit();
+
+  try {
+    const authUser = await gcFitnessAuth().getUser(parsed.clientId);
+    const { coachId: _dropped, ...rest } = (authUser.customClaims ?? {}) as Record<
+      string,
+      unknown
+    >;
+    await gcFitnessAuth().setCustomUserClaims(parsed.clientId, {
+      ...rest,
+      role: "client",
+    });
+  } catch {
+    // fail-soft — see the doc comment.
+  }
+
+  if (clientEmail) {
+    await markCoachActivityDeleted(
+      db,
+      `client:${session.uid}:${normalizeMirrorEmail(clientEmail)}`,
+    );
+  }
+  revalidateTag("gc-fitness-roster", "max");
+  return { ok: true };
 }

@@ -18,6 +18,10 @@
 //   • `progress_photos`  — read directly, because photo uploads are NOT one of
 //                          the trigger-monitored collections and the ticket
 //                          explicitly asks for "user cargó fotos".
+//   • `habit_logs`       — #762. Same reason as the photos: ticking a habit
+//                          writes to `habit_logs`, which no audit trigger
+//                          watches, so the single most frequent CLIENT action in
+//                          the app was invisible here ("faltan hábitos").
 //
 // The readability work lives in the PURE `activity-feed-model.ts`
 // (classification, Spanish copy, recurrence/frequency labels, the
@@ -61,7 +65,8 @@ export type FeedSource =
   | "audit_log"
   | "coach_activity"
   | "admin_operations"
-  | "progress_photos";
+  | "progress_photos"
+  | "habit_logs";
 
 export interface FeedPerson {
   uid: string | null;
@@ -110,6 +115,16 @@ export interface ActivityFeedEvent {
 export interface ActivityFeedFilters {
   source?: "all" | FeedSource;
   category?: "all" | FeedCategory;
+  /**
+   * #762 — the quick-filter checkboxes ("todos marcados por defecto"). A row
+   * survives when its category is in the set. `undefined` (or an empty array)
+   * means NO category filter, which is what an untouched form sends: HTML
+   * omits unchecked boxes, so "everything checked" and "nothing checked" arrive
+   * identically and the only sane reading of both is "show everything".
+   * Composes with the single-value `category` above, which the pre-#762 links
+   * still use.
+   */
+  categories?: FeedCategory[];
   actorQuery?: string | null;
   clientQuery?: string | null;
   fromISO?: string | null;
@@ -122,6 +137,40 @@ export interface ActivityFeedFilters {
 }
 
 const PER_SOURCE_CAP = 400;
+/**
+ * #762 — per-COLLECTION cap for the `audit_log` fan-out below.
+ *
+ * The trail is written by one trigger per monitored collection into a single
+ * collection, and the write rates are nowhere near each other: a measurement of
+ * the live project found 337 `workout_assignments` rows, 45 `users`, 15
+ * `workout_logs` and **3** `habits` inside one 24-hour window (a recurring
+ * series materializes one doc per occurrence, and the 90-day self-routine
+ * horizon renews itself in bursts). A single `orderBy(occurredAt).limit(400)`
+ * therefore spans about a day and is ~85% assignment writes, so anything
+ * low-volume — habits above all — falls off the end and is simply absent from
+ * the feed. That is the "faltan hábitos" report, and it also makes a category
+ * filter useless: filtering a starved window still shows nothing.
+ *
+ * So each monitored collection additionally gets its own small window, merged
+ * and deduped with the global one. Every one of these is fail-soft: the
+ * `collection ASC, occurredAt DESC` composite index they need is declared in
+ * `gc-fitness/firestore.indexes.json`, and until it is deployed these queries
+ * just fail and the feed degrades to exactly the pre-#762 global window.
+ */
+const PER_COLLECTION_CAP = 120;
+/**
+ * The collections `onAuditableWrite` captures (functions/src/audit — its
+ * `MONITORED_COLLECTIONS`). Only used to aim the per-collection queries above;
+ * an entry that no longer exists costs one empty query, and a NEW monitored
+ * collection missing from this list still arrives through the global window.
+ */
+const AUDITED_COLLECTIONS = [
+  "habits",
+  "exercises",
+  "workout_logs",
+  "users",
+  "workout_assignments",
+] as const;
 const DEFAULT_LIMIT = 150;
 const MAX_LIMIT = 400;
 /**
@@ -172,12 +221,14 @@ async function rangedQuery(
   from: Date | null,
   to: Date | null,
   label: string,
+  options: { limit?: number; equals?: { field: string; value: unknown } } = {},
 ): Promise<FirebaseFirestore.QuerySnapshot | null> {
   let q = db.collection(collection).orderBy(timeField, "desc") as FirebaseFirestore.Query;
+  if (options.equals) q = q.where(options.equals.field, "==", options.equals.value);
   if (from) q = q.where(timeField, ">=", Timestamp.fromDate(from));
   if (to) q = q.where(timeField, "<=", Timestamp.fromDate(to));
   return q
-    .limit(PER_SOURCE_CAP)
+    .limit(options.limit ?? PER_SOURCE_CAP)
     .get()
     .catch((err) => {
       console.warn(`[gc-fitness/feed] ${label} query failed`, err);
@@ -190,16 +241,38 @@ async function fetchAuditRecords(
   from: Date | null,
   to: Date | null,
 ): Promise<AuditRecord[]> {
-  const snap = await rangedQuery(
-    db,
-    FirestoreCollections.auditLog,
-    "occurredAt",
-    from,
-    to,
-    "audit_log",
-  );
-  if (!snap) return [];
-  return snap.docs.map((doc) => {
+  // One global window plus one per monitored collection, so a high-volume
+  // writer cannot starve the rest out of the page (see PER_COLLECTION_CAP).
+  const snaps = await Promise.all([
+    rangedQuery(db, FirestoreCollections.auditLog, "occurredAt", from, to, "audit_log"),
+    ...AUDITED_COLLECTIONS.map((name) =>
+      rangedQuery(db, FirestoreCollections.auditLog, "occurredAt", from, to, `audit_log/${name}`, {
+        limit: PER_COLLECTION_CAP,
+        equals: { field: "collection", value: name },
+      }),
+    ),
+  ]);
+
+  // The windows overlap by construction — the same doc comes back from the
+  // global query and from its collection's query. First one wins; they are the
+  // same document.
+  const seen = new Set<string>();
+  const docs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+  for (const snap of snaps) {
+    if (!snap) continue;
+    for (const doc of snap.docs) {
+      if (seen.has(doc.id)) continue;
+      seen.add(doc.id);
+      docs.push(doc);
+    }
+  }
+
+  // Re-sort: the concatenation above is per-query-newest-first, not globally
+  // so. `groupRecurringAuditEntries` collapses ADJACENT sibling writes and
+  // `findRecurrenceEdits` pairs a delete with the create next to it, so both
+  // read order as meaning — an unsorted list silently stops collapsing.
+  return docs
+    .map((doc) => {
     const d = doc.data() as Record<string, unknown>;
     const changedFields = Array.isArray(d.changedFields)
       ? (d.changedFields as unknown[]).filter((f): f is string => typeof f === "string")
@@ -220,7 +293,8 @@ async function fetchAuditRecords(
       clientId: typeof d.clientId === "string" ? d.clientId : null,
       occurredAtISO: toIso(d.occurredAt) ?? toIso(d.eventTime),
     } satisfies AuditRecord;
-  });
+    })
+    .sort((a, b) => (b.occurredAtISO ?? "").localeCompare(a.occurredAtISO ?? ""));
 }
 
 /** Namespaces the coach eventId inside the feed's global id space. */
@@ -348,6 +422,52 @@ async function fetchPhotoUploads(
       setId: typeof d.setId === "string" ? d.setId : null,
       angle: typeof d.angle === "string" ? d.angle : null,
       occurredAtISO: toIso(d.createdAt) ?? toIso(d.takenAt),
+    };
+  });
+}
+
+/**
+ * #762 — a habit tick. `habit_logs` is one doc per (habit, civil day), written
+ * by the client's app and re-written (`deleted: true`) when they untick, so the
+ * doc id is stable and the newest write wins.
+ */
+interface RawHabitCheckIn {
+  id: string;
+  habitId: string | null;
+  clientId: string | null;
+  civilDate: string | null;
+  unticked: boolean;
+  occurredAtISO: string | null;
+}
+
+async function fetchHabitCheckIns(
+  db: Firestore,
+  from: Date | null,
+  to: Date | null,
+): Promise<RawHabitCheckIn[]> {
+  // Ordered/ranged on `createdAt`, NOT on `civilDate`: the feed is a timeline of
+  // when things HAPPENED, and a back-dated tick ("marqué el hábito de ayer")
+  // carries an older civil day than the moment it was written. `updatedAt` would
+  // be the truer instant for an untick, but only `createdAt` is guaranteed on
+  // every doc — the untick's own timestamp is surfaced in the row's meta instead.
+  const snap = await rangedQuery(
+    db,
+    FirestoreCollections.habitLogs,
+    "createdAt",
+    from,
+    to,
+    "habit_logs",
+  );
+  if (!snap) return [];
+  return snap.docs.map((doc) => {
+    const d = doc.data() as Record<string, unknown>;
+    return {
+      id: `habit_logs:${doc.id}`,
+      habitId: typeof d.habitId === "string" ? d.habitId : null,
+      clientId: typeof d.clientId === "string" ? d.clientId : null,
+      civilDate: typeof d.civilDate === "string" ? d.civilDate : null,
+      unticked: d.deleted === true || d.value === false,
+      occurredAtISO: toIso(d.createdAt) ?? toIso(d.loggedAt),
     };
   });
 }
@@ -668,11 +788,12 @@ async function collectFeed(
   to: Date | null,
 ): Promise<ActivityFeedEvent[]> {
   const db = gcFitnessFirestore();
-  const [auditRaw, coachRaw, adminRaw, photoRaw] = await Promise.all([
+  const [auditRaw, coachRaw, adminRaw, photoRaw, habitCheckInRaw] = await Promise.all([
     fetchAuditRecords(db, from, to),
     fetchCoachEvents(db, from, to),
     fetchAdminOperations(db, from, to),
     fetchPhotoUploads(db, from, to),
+    fetchHabitCheckIns(db, from, to),
   ]);
 
   // Collapse recurring-series writes (one coach edit → one doc per occurrence).
@@ -724,6 +845,9 @@ async function collectFeed(
   }
   for (const p of photoRaw) {
     if (p.clientId) uids.add(p.clientId);
+  }
+  for (const h of habitCheckInRaw) {
+    if (h.clientId) uids.add(h.clientId);
   }
 
   // Identities are needed HERE (hrefs + the actor/client filters). Entity names
@@ -846,6 +970,39 @@ async function collectFeed(
     });
   }
 
+  for (const h of habitCheckInRaw) {
+    events.push({
+      id: h.id,
+      source: "habit_logs",
+      category: "habit",
+      significance: "key",
+      action: h.unticked ? "update" : "create",
+      occurredAtISO: h.occurredAtISO,
+      title: h.unticked ? "Desmarcó un hábito" : "Marcó un hábito",
+      subject: null,
+      // The tick doc carries only the habit id, so the name is a point read —
+      // the same bounded, post-filter hydration the elided `templateSnapshot`
+      // rows use. A habit that was hard-deleted since simply renders unnamed.
+      subjectRef: h.habitId ? { collection: "habits", id: h.habitId } : null,
+      // Only when the tick is NOT for the day it was written: a back-dated
+      // check-in is the interesting case, and on the normal one the civil date
+      // just repeats the day header the row already sits under.
+      meta:
+        h.civilDate && h.civilDate !== (h.occurredAtISO ?? "").slice(0, 10)
+          ? [`día ${h.civilDate}`]
+          : [],
+      actor: person(h.clientId, "client", users),
+      client: null,
+      href: h.clientId ? userHref(h.clientId, users) : null,
+      // An untick is the client changing their mind, not data being removed —
+      // keeping it out of the Eliminaciones tab, which is about bajas.
+      isDeletion: false,
+      kind: "habit_log",
+      clientUid: h.clientId,
+      correlation: null,
+    });
+  }
+
   events.sort((a, b) => (b.occurredAtISO ?? "").localeCompare(a.occurredAtISO ?? ""));
 
   // #748 — the same coach action reaches the feed through two independent
@@ -870,6 +1027,9 @@ function applyFilters(
 ): ActivityFeedEvent[] {
   const source = filters.source && filters.source !== "all" ? filters.source : null;
   const category = filters.category && filters.category !== "all" ? filters.category : null;
+  // Empty / absent = no filter (see ActivityFeedFilters.categories).
+  const categories =
+    filters.categories && filters.categories.length > 0 ? new Set(filters.categories) : null;
   const actorQuery = (filters.actorQuery ?? "").trim().toLowerCase();
   const clientQuery = (filters.clientQuery ?? "").trim().toLowerCase();
 
@@ -878,6 +1038,7 @@ function applyFilters(
     if (filters.deletionsOnly && !e.isDeletion) return false;
     if (source && e.source !== source) return false;
     if (category && e.category !== category) return false;
+    if (categories && !categories.has(e.category)) return false;
     if (actorQuery) {
       const hay =
         `${e.actor?.uid ?? ""} ${e.actor?.name ?? ""} ${e.actor?.email ?? ""}`.toLowerCase();

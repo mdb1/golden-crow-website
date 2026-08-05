@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/gc-fitness/page-header";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, UserRound } from "lucide-react";
 
 import { ClientRecentLogsFeed } from "@/app/gc-fitness/clients/[id]/_components/ClientRecentLogsFeed";
 import { ProgressPhotosGridClient } from "@/app/gc-fitness/clients/[id]/_components/ProgressPhotosGridClient";
@@ -85,10 +85,26 @@ export default async function AdminCoachClientPage({
   }
 
   const clientName = logs.clients[0]?.name ?? clientId;
-  const clientSnap = await gcFitnessFirestore()
-    .collection(FirestoreCollections.users)
-    .doc(clientId)
-    .get();
+  const usersCol = gcFitnessFirestore().collection(FirestoreCollections.users);
+  // #754 — "en el perfil de un client con coach falta ver quién es su coach".
+  // The route is already nested under the coach, but the page named them
+  // nowhere: the only pointer was a generic "Back to coach" button, so an
+  // operator landing here from a search or from Monitoring could not tell WHO
+  // the coach was without editing the URL. Point read, fail-soft — a missing
+  // coach doc degrades to the uid, never to a 404 on the client's profile.
+  const [clientSnap, coachSnap] = await Promise.all([
+    usersCol.doc(clientId).get(),
+    usersCol
+      .doc(uid)
+      .get()
+      .catch(() => null),
+  ]);
+  const coachName =
+    (typeof coachSnap?.get("displayName") === "string" && coachSnap.get("displayName")) ||
+    (typeof coachSnap?.get("email") === "string" && coachSnap.get("email")) ||
+    uid;
+  const coachEmail =
+    typeof coachSnap?.get("email") === "string" ? (coachSnap.get("email") as string) : null;
   const storedTimezone = clientSnap.get("timezone");
   // #747 — falls back to the ADMIN's own zone, never UTC. See the note in
   // `clients/[id]/page.tsx`.
@@ -116,7 +132,26 @@ export default async function AdminCoachClientPage({
           </span>
         }
         subtitle={`Client UID: ${clientId}`}
+        actions={
+          <Button asChild variant="outline" size="sm" className="rounded-full">
+            <Link href={`/gc-fitness/admin/coaches/${uid}`}>
+              <UserRound className="h-4 w-4" />
+              Ver coach
+            </Link>
+          </Button>
+        }
       />
+
+      <p className="-mt-2 text-sm text-muted-foreground">
+        Coach:{" "}
+        <Link
+          href={`/gc-fitness/admin/coaches/${uid}`}
+          className="font-medium text-foreground underline-offset-4 hover:underline"
+        >
+          {coachName}
+        </Link>
+        {coachEmail && coachEmail !== coachName ? ` · ${coachEmail}` : null}
+      </p>
 
       <Card>
         <CardHeader className="pb-3">
