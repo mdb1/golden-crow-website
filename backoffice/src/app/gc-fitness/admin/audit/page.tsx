@@ -45,8 +45,14 @@ export const generateMetadata = () => sectionMetadata("adminPanel");
 
 export const dynamic = "force-dynamic";
 
-const CATEGORY_OPTIONS: Array<"all" | FeedCategory> = [
-  "all",
+/**
+ * #762 — the quick-filter checkboxes, in the order they render. `other` is
+ * deliberately absent: it is the classifier's fallback for a collection this
+ * reader does not know yet, so there is nothing an operator would go looking
+ * for under that name. It is unfilterable-by-checkbox and therefore always
+ * shown, which is the safe direction (a new event kind stays visible).
+ */
+const CATEGORY_OPTIONS: FeedCategory[] = [
   "workout",
   "schedule",
   "routine",
@@ -64,10 +70,17 @@ const SOURCE_OPTIONS: Array<{ value: "all" | FeedSource; label: string }> = [
   { value: "coach_activity", label: "Acciones de coach" },
   { value: "admin_operations", label: "Operaciones de admin" },
   { value: "progress_photos", label: "Fotos de progreso" },
+  { value: "habit_logs", label: "Hábitos marcados" },
 ];
 
 function str(value: string | string[] | undefined): string {
   return typeof value === "string" ? value : "";
+}
+
+/** Repeated `?cat=` params — one per checked box. */
+function strList(value: string | string[] | undefined): string[] {
+  if (Array.isArray(value)) return value;
+  return typeof value === "string" && value.length > 0 ? [value] : [];
 }
 
 export default async function AuditPage({
@@ -91,10 +104,14 @@ export default async function AuditPage({
     const v = str(sp.source);
     return SOURCE_OPTIONS.some((o) => o.value === v) ? (v as "all" | FeedSource) : "all";
   })();
-  const category = (() => {
-    const v = str(sp.category);
-    return (CATEGORY_OPTIONS as string[]).includes(v) ? (v as "all" | FeedCategory) : "all";
-  })();
+  // Checked boxes. An empty set = "todos" (an untouched form and an
+  // everything-unchecked form are indistinguishable over the wire — HTML omits
+  // unchecked boxes — so both mean no filter).
+  const selectedCategories = strList(sp.cat).filter((v): v is FeedCategory =>
+    (CATEGORY_OPTIONS as string[]).includes(v),
+  );
+  const allCategoriesSelected =
+    selectedCategories.length === 0 || selectedCategories.length === CATEGORY_OPTIONS.length;
   const actorQuery = str(sp.actor).trim();
   const clientQuery = str(sp.client).trim();
   const fromISO = str(sp.from).trim();
@@ -106,7 +123,10 @@ export default async function AuditPage({
   try {
     events = await listActivityFeed({
       source,
-      category,
+      // All boxes checked ⇒ no filter at all, so `other` (which has no box —
+      // see CATEGORY_OPTIONS) keeps showing instead of being filtered out by
+      // an all-checked form submit.
+      categories: allCategoriesSelected ? [] : selectedCategories,
       actorQuery,
       clientQuery,
       fromISO,
@@ -131,7 +151,9 @@ export default async function AuditPage({
     const params = new URLSearchParams();
     params.set("tab", target);
     if (source !== "all") params.set("source", source);
-    if (category !== "all") params.set("category", category);
+    if (!allCategoriesSelected) {
+      for (const c of selectedCategories) params.append("cat", c);
+    }
     if (actorQuery) params.set("actor", actorQuery);
     if (clientQuery) params.set("client", clientQuery);
     if (fromISO) params.set("from", fromISO);
@@ -178,20 +200,33 @@ export default async function AuditPage({
             className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
           >
             <input type="hidden" name="tab" value={tab} />
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              Tipo de evento
-              <select
-                name="category"
-                defaultValue={category}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-              >
+
+            {/* #762 — quick filters: todos marcados por defecto, destildar
+                para sacar un tipo de evento del feed. */}
+            <fieldset className="flex flex-col gap-2 sm:col-span-2 lg:col-span-3">
+              <legend className="text-xs font-medium text-muted-foreground">
+                Tipo de evento
+              </legend>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {CATEGORY_OPTIONS.map((value) => (
-                  <option key={value} value={value}>
-                    {value === "all" ? "Todos los tipos" : CATEGORY_LABEL[value]}
-                  </option>
+                  <label
+                    key={value}
+                    className="flex items-center gap-2 text-sm text-foreground"
+                  >
+                    <input
+                      type="checkbox"
+                      name="cat"
+                      value={value}
+                      defaultChecked={
+                        allCategoriesSelected || selectedCategories.includes(value)
+                      }
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    {CATEGORY_LABEL[value]}
+                  </label>
                 ))}
-              </select>
-            </label>
+              </div>
+            </fieldset>
 
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
               Fuente

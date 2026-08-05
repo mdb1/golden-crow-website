@@ -281,6 +281,26 @@ describe("assignments, habits and accounts", () => {
     const events = await listActivityFeed({ category: "habit" });
     expect(events.map((e) => e.id)).toEqual(["audit_log:a-habit"]);
   });
+
+  // #762 — the quick-filter checkboxes. Multi-select, and an EMPTY set means
+  // "no filter" (an untouched form and an all-unchecked form arrive identically
+  // over the wire, since HTML omits unchecked boxes).
+  it("filters by a set of categories, and an empty set filters nothing", async () => {
+    const two = await listActivityFeed({ categories: ["habit", "account"] });
+    expect(two.map((e) => e.id)).toEqual(["audit_log:a-habit", "audit_log:a-user"]);
+
+    const none = await listActivityFeed({ categories: [] });
+    expect(none.length).toBeGreaterThan(two.length);
+  });
+
+  // #762 — each monitored collection gets its own audit window on top of the
+  // global one, so a high-volume writer cannot starve the rest off the page.
+  // The windows overlap by construction; a doc must still render ONCE.
+  it("does not duplicate an audit row across the per-collection windows", async () => {
+    const events = await listActivityFeed({ includeLowSignal: true });
+    const ids = events.map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
 });
 
 describe("other sources", () => {
@@ -373,6 +393,82 @@ describe("other sources", () => {
     expect(event.category).toBe("account");
     // The stored title repeats the person the client chip already names.
     expect(event.subject).toBeNull();
+  });
+
+  // #762 — "faltan hábitos". Ticking a habit writes to `habit_logs`, which no
+  // audit trigger watches, so the single most frequent CLIENT action in the app
+  // reached this feed through no source at all.
+  describe("habit check-ins", () => {
+    beforeEach(() => {
+      docsByCollection.habits = new Map<string, Record<string, unknown>>([
+        ["hab-1", { name: { en: "Water intake", es: "Tomar agua" } }],
+      ]);
+      queryGet.habit_logs = async () => ({
+        docs: [
+          doc("hab-1_2026-07-21", {
+            habitId: "hab-1",
+            clientId: "client1",
+            civilDate: "2026-07-21",
+            value: true,
+            deleted: false,
+            createdAt: ts("2026-07-21T12:00:00.000Z"),
+          }),
+        ],
+      });
+    });
+
+    it("names the habit and links to the client", async () => {
+      const [event] = await listActivityFeed({ source: "habit_logs" });
+      expect(event.title).toBe("Marcó un hábito");
+      // Point-read hydration: the tick doc carries only the habit id.
+      expect(event.subject).toBe("Tomar agua");
+      expect(event.actor?.name).toBe("Client One");
+      expect(event.href).toBe("/gc-fitness/admin/coaches/coach1/clients/client1");
+      // Same civil day as the write → no redundant "día …" chip.
+      expect(event.meta).toEqual([]);
+    });
+
+    it("says so when the tick is back-dated to another day", async () => {
+      queryGet.habit_logs = async () => ({
+        docs: [
+          doc("hab-1_2026-07-19", {
+            habitId: "hab-1",
+            clientId: "client1",
+            civilDate: "2026-07-19",
+            value: true,
+            createdAt: ts("2026-07-21T12:00:00.000Z"),
+          }),
+        ],
+      });
+      const [event] = await listActivityFeed({ source: "habit_logs" });
+      expect(event.meta).toEqual(["día 2026-07-19"]);
+    });
+
+    // Unticking is the client changing their mind, not a baja — it must not
+    // land in the Eliminaciones tab next to deleted accounts and workout series.
+    it("reads an untick as its own event and keeps it out of Eliminaciones", async () => {
+      queryGet.habit_logs = async () => ({
+        docs: [
+          doc("hab-1_2026-07-21", {
+            habitId: "hab-1",
+            clientId: "client1",
+            civilDate: "2026-07-21",
+            value: true,
+            deleted: true,
+            createdAt: ts("2026-07-21T12:00:00.000Z"),
+          }),
+        ],
+      });
+      const [event] = await listActivityFeed({ source: "habit_logs" });
+      expect(event.title).toBe("Desmarcó un hábito");
+      expect(event.isDeletion).toBe(false);
+      expect(await listActivityFeed({ deletionsOnly: true, source: "habit_logs" })).toEqual([]);
+    });
+
+    it("is reachable from the Hábitos quick filter", async () => {
+      const events = await listActivityFeed({ categories: ["habit"] });
+      expect(events.map((e) => e.id)).toContain("habit_logs:hab-1_2026-07-21");
+    });
   });
 
   it("collapses a photo check-in set into one event that links to the gallery", async () => {
