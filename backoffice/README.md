@@ -107,6 +107,15 @@ jest.mock("@/lib/gc-fitness/workout-assignment-actions", () => ({
 jest.mock("sonner", () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
 ```
 
+The import can reach you INDIRECTLY, and then the failure looks like nothing
+you wrote. `firebase-admin` depends on `jose`, which is ESM-only, so the suite
+dies at import with `SyntaxError: Unexpected token 'export'` and **zero tests
+run** — including via a shared UI helper: `exercise-multi-add-dialog` imports
+`ChipRow` from `exercise-picker-popover`, which imports `use-favorites`, which
+imports `favorites-actions`, which imports `firebase-admin`. If a suite reports
+`Tests: 0 total`, read the stack for the transitive import and mock the nearest
+hook (`@/lib/gc-fitness/use-favorites` in that case), not the leaf.
+
 **3. Translations need no provider.** `next-intl` is ESM-only at its public
 entrypoint, so `jest.config.js` maps it to `src/lib/test-utils/next-intl-stub.tsx`
 for every test. The stub resolves keys against the real **EN** catalog
@@ -193,7 +202,20 @@ single time so far it has been one of these, and only one was a weak assertion:
 - **The code is dead.** Two mechanisms implementing one contract, and the one
   you mutated isn't the one that runs (e.g. a collapsed bilingual field already
   mirrors on every keystroke, so the mirror at save time is unreachable from
-  that path). Assert the CONTRACT, and note the finding.
+  that path). Assert the CONTRACT, and cover EACH mechanism through the one path
+  where it is the only thing running — then both bite their own mutation.
+- **The fixture couldn't tell the two behaviors apart.** An exercise with a
+  single muscle group makes `.some()` and `.every()` agree; a row that is both
+  `source: "wger"` AND library-tagged can't distinguish a check on one from a
+  check on the other. Widen the fixture, not the assertion.
+- **The invariant you assumed isn't real.** Moving the exercise-library dedupe
+  from before the filters to after `searchExercises` keeps every test green,
+  because with real twins (same name, same fields) filtering and searching are
+  per-row predicates. Say so in the header instead of asserting an ordering the
+  code doesn't actually depend on.
+- **The mutation was malformed** and changed nothing (appending a `void 0`,
+  adding a second redundant call). `Tests: 0 total` or an unchanged count is the
+  tell — re-read the diff you applied before drawing a conclusion.
 
 ### Query traps that have already cost time
 
