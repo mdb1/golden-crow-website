@@ -1,0 +1,198 @@
+---
+import PocketGenesPublicLayout from '../layouts/PocketGenesPublicLayout.astro';
+import { APP_STORE_URL, PLAY_STORE_URL } from '../data/pocketGenesPublic';
+
+interface Props {
+  area: 'discover' | 'learn' | 'community';
+  resource: 'feed_entries' | 'organizations' | 'lesson' | 'posts';
+}
+
+const { area, resource } = Astro.props;
+const customSchemeBase = `pocketgenes://${area}/${resource}`;
+---
+
+<PocketGenesPublicLayout
+  title="Abrir en Pocket Genes"
+  description="Abrí el contenido compartido en Pocket Genes o descargá la app."
+  canonicalPath={Astro.url.pathname}
+  showFooter={false}
+  image="/pocket-genes/banner.png"
+>
+  <main id="main" class="app-link-page">
+    <section class="app-link-content" aria-labelledby="app-link-title">
+      <img class="app-icon" src="/pocket-genes/icon.png" alt="" width="112" height="112" />
+      <p class="app-kicker">Pocket Genes</p>
+      <h1 id="app-link-title">Abrir contenido compartido</h1>
+      <p id="app-link-description" class="app-description">
+        Abrí este contenido en Pocket Genes para verlo completo.
+      </p>
+
+      <div class="app-link-actions">
+        <a id="open-pocket-genes" class="app-link-button app-link-button-primary" href={customSchemeBase}>
+          Abrir Pocket Genes
+        </a>
+        <a id="download-app-store" class="app-link-button" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+          Descargar en App Store
+        </a>
+        <a id="download-play-store" class="app-link-button" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">
+          Descargar en Google Play
+        </a>
+      </div>
+
+      <p id="app-link-status" class="app-link-status" role="status">
+        Si ya tenés la app instalada, tocá Abrir Pocket Genes.
+      </p>
+    </section>
+  </main>
+</PocketGenesPublicLayout>
+
+<script define:vars={{ area, resource, customSchemeBase, APP_STORE_URL, PLAY_STORE_URL }}>
+  const params = new URLSearchParams(window.location.search);
+  const contentId = params.get('id')?.trim();
+  const openLink = document.querySelector('#open-pocket-genes');
+  const title = document.querySelector('#app-link-title');
+  const description = document.querySelector('#app-link-description');
+  const status = document.querySelector('#app-link-status');
+  const appStoreLink = document.querySelector('#download-app-store');
+  const playStoreLink = document.querySelector('#download-play-store');
+  const isEnglish = navigator.language.toLowerCase().startsWith('en');
+
+  const copy = isEnglish
+    ? {
+        title: 'Open shared content',
+        description: 'Open this content in Pocket Genes to see it in full.',
+        open: 'Open Pocket Genes',
+        appStore: 'Download on the App Store',
+        playStore: 'Get it on Google Play',
+        missing: 'This shared link is incomplete. Ask the sender to share it again.',
+        ready: 'If the app is already installed, tap Open Pocket Genes.',
+      }
+    : {
+        title: 'Abrir contenido compartido',
+        description: 'Abrí este contenido en Pocket Genes para verlo completo.',
+        open: 'Abrir Pocket Genes',
+        appStore: 'Descargar en App Store',
+        playStore: 'Descargar en Google Play',
+        missing: 'Este enlace compartido está incompleto. Pedile a quien lo envió que vuelva a compartirlo.',
+        ready: 'Si ya tenés la app instalada, tocá Abrir Pocket Genes.',
+      };
+
+  title.textContent = copy.title;
+  description.textContent = copy.description;
+  openLink.textContent = copy.open;
+  appStoreLink.textContent = copy.appStore;
+  playStoreLink.textContent = copy.playStore;
+
+  if (!contentId) {
+    openLink.setAttribute('aria-disabled', 'true');
+    openLink.removeAttribute('href');
+    status.textContent = copy.missing;
+  } else {
+    const query = `?id=${encodeURIComponent(contentId)}`;
+    const customURL = `${customSchemeBase}${query}`;
+    const androidIntent = `intent://${area}/${resource}${query}#Intent;scheme=pocketgenes;package=goldencrowvs.pocketgenes;S.browser_fallback_url=${encodeURIComponent(PLAY_STORE_URL)};end`;
+    const isAndroid = /Android/i.test(navigator.userAgent);
+
+    openLink.setAttribute('href', isAndroid ? androidIntent : customURL);
+    status.textContent = copy.ready;
+  }
+</script>
+
+<style>
+  .app-link-page {
+    min-height: 100vh;
+    min-height: 100svh;
+    display: grid;
+    place-items: center;
+    padding: 8.5rem 1rem 3rem;
+    background:
+      linear-gradient(135deg, rgba(33, 118, 174, 0.12), transparent 45%),
+      linear-gradient(315deg, rgba(20, 149, 143, 0.12), transparent 45%),
+      #f8fbfd;
+  }
+
+  .app-link-content {
+    width: min(100%, 520px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .app-icon {
+    width: 96px;
+    height: 96px;
+    border-radius: 8px;
+    box-shadow: 0 18px 44px rgba(23, 32, 51, 0.18);
+  }
+
+  .app-kicker {
+    margin: 1.25rem 0 0;
+    color: var(--pg-teal);
+    font-size: 0.86rem;
+    font-weight: 850;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0.35rem 0 0;
+    font-size: clamp(2rem, 8vw, 3.25rem);
+    line-height: 1.05;
+    letter-spacing: 0;
+  }
+
+  .app-description {
+    max-width: 440px;
+    margin: 1rem 0 0;
+    color: var(--pg-ink-soft);
+    font-size: 1.08rem;
+  }
+
+  .app-link-actions {
+    width: 100%;
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+
+  .app-link-button {
+    min-height: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--pg-border-strong);
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--pg-ink);
+    padding: 0.8rem 1rem;
+    font-weight: 800;
+    text-decoration: none;
+    box-shadow: 0 10px 28px rgba(23, 32, 51, 0.08);
+  }
+
+  .app-link-button-primary {
+    border-color: var(--pg-blue);
+    background: var(--pg-blue);
+    color: #ffffff;
+  }
+
+  .app-link-button[aria-disabled="true"] {
+    opacity: 0.48;
+    pointer-events: none;
+  }
+
+  .app-link-status {
+    min-height: 3rem;
+    margin: 1.25rem 0 0;
+    color: var(--pg-muted);
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 520px) {
+    .app-link-page {
+      align-items: start;
+      padding-top: 7.5rem;
+    }
+  }
+</style>

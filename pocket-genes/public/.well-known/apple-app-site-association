@@ -1,0 +1,22 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "F2VBZV9LC6.goldencrowvs.pocketgenes"
+        ],
+        "components": [
+          {
+            "/": "/pocket-genes/discover/*"
+          },
+          {
+            "/": "/pocket-genes/learn/*"
+          },
+          {
+            "/": "/pocket-genes/community/*"
+          }
+        ]
+      }
+    ]
+  }
+}
