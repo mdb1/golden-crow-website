@@ -48,6 +48,184 @@ npm run dev
 # Open http://localhost:3001
 ```
 
+## Tests
+
+```bash
+cd backoffice
+npx jest                       # everything (~11s)
+npx jest habits-client-list    # one file — the arg is a PATH pattern, not a test name
+npx jest -t "drops a recurrence"   # one test, by name
+npm run test:gc-fitness        # only the gc-fitness surface (--testPathPatterns=gc-fitness)
+```
+
+Nothing to install and nothing to start: no emulator, no dev server, no
+Firebase credentials. Every test either exercises a pure module or mounts a
+component with React Testing Library, and everything that would touch Firebase
+is mocked at the module boundary.
+
+### This suite is the only gate before production
+
+**The backoffice auto-deploys `main` on push, and CI is switched off for cost.**
+There is no pipeline that will catch a red test after the fact — `npx jest`
+green locally is literally the last thing between a merge and the trainers
+using it. Run the whole suite (not just your file) before pushing.
+
+The gate is wider than this package: `firestore.rules` and several algorithms
+are shared with the iOS and Android apps, so a change here can break them and
+vice versa. The four suites and when to run them are in the repo-root
+`CLAUDE.md` → "Test gate before push". When in doubt, run all four.
+
+### Writing a UI test
+
+The harness is already installed — RTL 16, `user-event` 14, `jest-dom`, jsdom —
+and `jest.setup.ts` polyfills what radix/shadcn need (`ResizeObserver`,
+`scrollIntoView`, `matchMedia`, pointer capture). Adding a component test is
+writing a file, not a project. Existing ones worth copying:
+`src/components/gc-fitness/__tests__/` and
+`src/app/gc-fitness/habits/__tests__/`.
+
+**1. The jsdom docblock, as the first three lines.** The config default is
+`testEnvironment: "node"`; without this, RTL dies with
+`ReferenceError: document is not defined`.
+
+```tsx
+/**
+ * @jest-environment jsdom
+ */
+```
+
+**2. Mock the Server Action and `sonner`.** Any `*-actions` module imports
+`firebase-admin`, which drags in Node-only deps and throws at import time under
+jsdom — it MUST be mocked, whether or not your test calls it. Mocking `toast`
+is how you tell "it saved" apart from "it refused".
+
+```tsx
+const mockAssignTemplate = jest.fn();
+jest.mock("@/lib/gc-fitness/workout-assignment-actions", () => ({
+  assignTemplate: (...args: unknown[]) => mockAssignTemplate(...args),
+}));
+jest.mock("sonner", () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
+```
+
+**3. Translations need no provider.** `next-intl` is ESM-only at its public
+entrypoint, so `jest.config.js` maps it to `src/lib/test-utils/next-intl-stub.tsx`
+for every test. The stub resolves keys against the real **EN** catalog
+(`messages/en.json`), `useLocale()` returns `"en"`, and `NextIntlClientProvider`
+is a pass-through you don't need to render. So assert on the English strings the
+catalog actually contains — and read them from `messages/en.json` rather than
+guessing. (Some `aria-label`s are hardcoded Spanish in the components; those
+stay Spanish.)
+
+**4. Assert the PAYLOAD, not the pixels.** The question a UI test answers is
+"does this component build the right object and hand it to the right action?" —
+not "what does it look like". The rendered screen is usually driven by the same
+in-memory state that produced the write, so a screen assertion can pass with the
+wire shape wrong.
+
+```tsx
+await user.click(screen.getByRole("button", { name: "Assign" }));
+await waitFor(() => expect(mockAssignTemplate).toHaveBeenCalled());
+expect(mockAssignTemplate.mock.calls[0][0]).toMatchObject({ scope: "one" });
+```
+
+Two payload rules that bite specifically here: an omitted key must be **absent**,
+not `undefined` (the backoffice's Firestore handle has no
+`ignoreUndefinedProperties`, so `undefined` throws at write time) — assert with
+`expect("key" in payload).toBe(false)`. And an empty string is a real value:
+optional text fields must go out as `undefined`, never `""`.
+
+The exception is a purely presentational component (e.g.
+`workout-log-detail-view.tsx`), which writes nothing — there the screen IS the
+contract.
+
+**5. Mock the child, assert the props that cross the boundary.** For a component
+that is mostly a shell, this is far cheaper than mounting the whole tree and it
+tests exactly what the shell decides. Give the stub a button that fires the
+callback:
+
+```tsx
+jest.mock("@/components/gc-fitness/schedule/move-assignment-dialog", () => ({
+  MoveAssignmentDialog: (props: {
+    chip: { id: string };
+    onConfirm: (scope: string) => void;
+  }) => (
+    <div data-testid="move-dialog">
+      <span data-testid="move-dialog-chip">{props.chip.id}</span>
+      <button onClick={() => props.onConfirm("all")}>scope-all</button>
+    </div>
+  ),
+}));
+```
+
+**6. Never use today's date in a fixture.** Several components fall back to
+`todayCivil()`; a fixture pinned to today sits exactly on the boundary being
+tested and the assertion cannot fail. Compute offsets instead
+(`civilOffset(-1)`, `civilOffset(30)`). The one legitimate exception is a fixed
+instant used to test timezone conversion itself.
+
+### Verify by mutation
+
+**A test that passes on the first run has proven nothing until you have seen it
+fail.** For each assertion that matters: break the invariant in the SOURCE by
+hand, confirm the red, revert. Put the results in the PR as a table.
+
+```bash
+# 1. break it — remove the same-day guard in month-calendar.tsx:
+#      if (chip.scheduledFor === targetDay) return;
+npx jest month-calendar-drag-move     # expect RED
+git checkout src/components/gc-fitness/schedule/month-calendar.tsx
+npx jest month-calendar-drag-move     # green again
+git diff --stat                       # must be empty before committing
+```
+
+**If a mutation comes back GREEN, find out why before touching the test.** Every
+single time so far it has been one of these, and only one was a weak assertion:
+
+- **The test asserted too loosely.** `toHaveTextContent("-")` is satisfied by
+  `"-300s"`, so admitting negative rest gaps stayed green. Read the exact cell.
+- **The assertion ran before the effect.** React Query's `mutate()` does not call
+  the mutation function synchronously, so `expect(action).not.toHaveBeenCalled()`
+  right after a click passes no matter what. Flush first:
+  `await act(async () => { await new Promise((r) => setTimeout(r, 0)); })`.
+- **The mutation didn't apply where you thought.** The logic was duplicated (a
+  preview copy and a submit copy of the same `.sort()`), or a `s///` without
+  `/g` hit only one of them. Check the occurrence count.
+- **The code is dead.** Two mechanisms implementing one contract, and the one
+  you mutated isn't the one that runs (e.g. a collapsed bilingual field already
+  mirrors on every keystroke, so the mirror at save time is unreachable from
+  that path). Assert the CONTRACT, and note the finding.
+
+### Query traps that have already cost time
+
+- A bare `/Editar/` also matches "Editar recurrencia" — anchor the regex
+  (`/^Editar$/`).
+- Dialog titles and bodies often render the same text → `findAllByText`, not
+  `findByText`.
+- Numeric inputs with `inputMode` expose `role="textbox"`, **not**
+  `spinbutton`.
+- A shadcn `Select`/combobox trigger does NOT take its placeholder as its
+  accessible name — match on `textContent`.
+- With two `role="combobox"` elements, never index blindly; identify which is
+  which.
+- `window.location` cannot be stubbed in this jsdom — not via `defineProperty`,
+  not via the `delete` trick, not via `spyOn`.
+- The next-intl stub caches `t` per namespace on purpose. If you see
+  *Maximum update depth exceeded*, look for another hook in your test returning
+  a fresh reference each render before blaming the component.
+
+### What does NOT exist: browser E2E
+
+There is **no Playwright and no Cypress**, and the backoffice has **no emulator
+plumbing** — no `FIRESTORE_EMULATOR_HOST`, no `connectFirestoreEmulator`. It
+talks to real Firebase through the Admin SDK. Don't assume a real browser is
+covering anything; nothing in this repo runs one.
+
+Standing one up would mean emulator plumbing for both SDKs (client + Admin),
+minting a `next-firebase-auth-edge` session cookie, and seeding fixtures —
+roughly what the mobile UI-test harness (#609) cost. Worth doing eventually; not
+worth blocking regression coverage on, since these tests run in the gate that
+already protects production.
+
 ## Authentication
 
 Login is backend-controlled. Access is granted to emails in the SDK's `TEAM_ALLOWLIST` and to users with an active admin role assignment in Firebase (for example `full_admin`, `institution_admin`, or `institution_doctor`). Email account creation now checks that access first, creates the auth account only after approval, and then sends the authenticated user into a complete-profile flow that writes the required Firebase profile documents.
