@@ -42,11 +42,35 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
       <p id="app-link-status" class="app-link-status" role="status">
         Si ya tenés la app instalada, tocá Abrir Pocket Genes.
       </p>
+
+      <article id="shared-preview" class="shared-preview" hidden aria-label="Vista previa del contenido compartido">
+        <div class="shared-preview-topline">
+          <div class="shared-preview-avatar" data-preview-avatar>
+            <span data-preview-fallback>DNA</span>
+            <img data-preview-image alt="" hidden />
+          </div>
+          <div class="shared-preview-heading">
+            <p class="shared-preview-publisher" data-preview-publisher></p>
+            <h2 data-preview-title></h2>
+            <div class="shared-preview-badges" data-preview-badges></div>
+          </div>
+        </div>
+        <p class="shared-preview-summary" data-preview-summary hidden></p>
+        <p class="shared-preview-body" data-preview-body hidden></p>
+        <img class="shared-preview-media" data-preview-media alt="" hidden />
+        <div class="shared-preview-meta" data-preview-meta hidden></div>
+        <a class="shared-preview-website" data-preview-website href="#" target="_blank" rel="noopener noreferrer" hidden>
+          Sitio web
+        </a>
+      </article>
     </section>
   </main>
 </PocketGenesPublicLayout>
 
 <script define:vars={{ area, resource, customSchemeBase, APP_STORE_URL, PLAY_STORE_URL }}>
+  const FIRESTORE_PROJECT_ID = 'goldencrow-pocketgenes';
+  const FIRESTORE_API_KEY = 'AIzaSyCTiL_RwICvnngYEqE721_MwVmDqGyYZ64';
+
   const params = new URLSearchParams(window.location.search);
   const contentId = params.get('id')?.trim();
   const openLink = document.querySelector('#open-pocket-genes');
@@ -55,6 +79,7 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
   const status = document.querySelector('#app-link-status');
   const appStoreLink = document.querySelector('#download-app-store');
   const playStoreLink = document.querySelector('#download-play-store');
+  const preview = document.querySelector('#shared-preview');
   const isEnglish = navigator.language.toLowerCase().startsWith('en');
 
   const copy = isEnglish
@@ -67,6 +92,26 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
         missing: 'This shared link is incomplete. Ask the sender to share it again.',
         opening: 'Opening Pocket Genes...',
         ready: 'If the app is already installed, tap Open Pocket Genes.',
+        organizationPreview: 'Organization preview',
+        feedPreview: 'Post preview',
+        verified: 'Verified',
+        website: 'Website',
+        types: {
+          company: 'Company',
+          foundation: 'Foundation',
+          hospital: 'Hospital',
+          university: 'University',
+          laboratory: 'Laboratory',
+          research_institute: 'Research institute',
+          patient_advocacy_group: 'Advocacy group',
+          public_health_agency: 'Public health',
+          conference_organizer: 'Events',
+          other: 'Organization',
+          news: 'News',
+          research_update: 'Research',
+          upcoming_event: 'Event',
+          opportunity: 'Opportunity',
+        },
       }
     : {
         title: 'Abrir contenido compartido',
@@ -77,6 +122,26 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
         missing: 'Este enlace compartido está incompleto. Pedile a quien lo envió que vuelva a compartirlo.',
         opening: 'Abriendo Pocket Genes...',
         ready: 'Si ya tenés la app instalada, tocá Abrir Pocket Genes.',
+        organizationPreview: 'Vista previa de organización',
+        feedPreview: 'Vista previa del post',
+        verified: 'Verificada',
+        website: 'Sitio web',
+        types: {
+          company: 'Empresa',
+          foundation: 'Fundación',
+          hospital: 'Hospital',
+          university: 'Universidad',
+          laboratory: 'Laboratorio',
+          research_institute: 'Instituto de investigación',
+          patient_advocacy_group: 'Grupo de pacientes',
+          public_health_agency: 'Salud pública',
+          conference_organizer: 'Eventos',
+          other: 'Organización',
+          news: 'Noticias',
+          research_update: 'Investigación',
+          upcoming_event: 'Evento',
+          opportunity: 'Oportunidad',
+        },
       };
 
   title.textContent = copy.title;
@@ -114,6 +179,276 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
     } else {
       status.textContent = copy.ready;
     }
+
+    loadSharedPreview(contentId);
+  }
+
+  function loadSharedPreview(id) {
+    if (!preview || area !== 'discover' || !['feed_entries', 'organizations'].includes(resource)) {
+      return;
+    }
+
+    const collection = resource === 'organizations' ? 'feed_organizations' : 'feed_items';
+    const encodedId = encodeURIComponent(id);
+    const url = `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}/databases/(default)/documents/${collection}/${encodedId}?key=${FIRESTORE_API_KEY}`;
+
+    fetch(url)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Preview unavailable');
+        }
+        return response.json();
+      })
+      .then((document) => {
+        const fields = parseFirestoreFields(document.fields ?? {});
+        const previewData =
+          resource === 'organizations'
+            ? organizationPreviewData(fields)
+            : feedEntryPreviewData(fields);
+
+        if (!previewData) {
+          return;
+        }
+
+        renderPreview(previewData);
+      })
+      .catch(() => {
+        preview.hidden = true;
+      });
+  }
+
+  function parseFirestoreFields(fields) {
+    return Object.fromEntries(
+      Object.entries(fields).map(([key, value]) => [key, parseFirestoreValue(value)])
+    );
+  }
+
+  function parseFirestoreValue(value) {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+    if ('stringValue' in value) return value.stringValue;
+    if ('booleanValue' in value) return Boolean(value.booleanValue);
+    if ('integerValue' in value) return Number(value.integerValue);
+    if ('doubleValue' in value) return Number(value.doubleValue);
+    if ('timestampValue' in value) return value.timestampValue;
+    if ('nullValue' in value) return null;
+    if ('arrayValue' in value) {
+      return (value.arrayValue.values ?? []).map(parseFirestoreValue);
+    }
+    if ('mapValue' in value) {
+      return parseFirestoreFields(value.mapValue.fields ?? {});
+    }
+    return null;
+  }
+
+  function cleanText(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : '';
+  }
+
+  function validUrl(value) {
+    const text = cleanText(value);
+    if (!text) return '';
+
+    try {
+      const url = new URL(text);
+      return url.protocol === 'https:' ? url.toString() : '';
+    } catch {
+      return '';
+    }
+  }
+
+  function typeLabel(type) {
+    return copy.types[type] ?? humanize(type);
+  }
+
+  function humanize(value) {
+    return cleanText(value)
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  function formatDate(value) {
+    const text = cleanText(value);
+    if (!text) return '';
+
+    const date = new Date(text);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    return new Intl.DateTimeFormat(isEnglish ? 'en' : 'es', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
+  }
+
+  function organizationPreviewData(fields) {
+    if (cleanText(fields.status) !== 'active') {
+      return null;
+    }
+
+    const name = cleanText(fields.name);
+    const body = cleanText(fields.description);
+    if (!name || !body) {
+      return null;
+    }
+
+    return {
+      kind: 'organization',
+      eyebrow: copy.organizationPreview,
+      publisher: '',
+      title: name,
+      summary: '',
+      body,
+      imageUrl: validUrl(fields.imageUrl),
+      mediaUrl: '',
+      websiteUrl: validUrl(fields.websiteUrl),
+      badges: [
+        fields.verified === true ? copy.verified : '',
+        typeLabel(cleanText(fields.organizationType) || 'other'),
+        cleanText(fields.countryCode),
+      ].filter(Boolean),
+      meta: [],
+      accent: readColor(fields.color_hex) || readColor(fields.colorHex),
+    };
+  }
+
+  function feedEntryPreviewData(fields) {
+    if (cleanText(fields.status) !== 'published') {
+      return null;
+    }
+
+    const type = cleanText(fields.type) || 'news';
+    const payload = fields[type] && typeof fields[type] === 'object' ? fields[type] : {};
+    const title = cleanText(fields.title) || cleanText(payload.title);
+    const summary = cleanText(fields.subtitle) || cleanText(fields.summary) || cleanText(payload.summary);
+    const body = cleanText(fields.body) || cleanText(payload.detailBody);
+
+    if (!title || (!summary && !body)) {
+      return null;
+    }
+
+    const eventDate = formatDate(payload.date || payload.startsAt);
+    const meta = [
+      eventDate,
+      cleanText(payload.location),
+      Array.isArray(payload.genes) ? payload.genes.slice(0, 3).join(', ') : '',
+      Array.isArray(payload.conditions) ? payload.conditions.slice(0, 2).join(', ') : '',
+      cleanText(payload.journal),
+      cleanText(payload.opportunity_type || payload.opportunityType),
+    ].filter(Boolean);
+
+    return {
+      kind: 'feed',
+      eyebrow: copy.feedPreview,
+      publisher: cleanText(fields.publisherSnapshot?.name) || 'Pocket Genes',
+      title,
+      summary,
+      body,
+      imageUrl: validUrl(fields.publisherSnapshot?.imageUrl) || '/pocket-genes/icon.png',
+      mediaUrl: validUrl(fields.image_url) || validUrl(fields.imageUrl) || validUrl(payload.imageUrl),
+      websiteUrl: validUrl(fields.source_url) || validUrl(fields.sourceUrl),
+      badges: [typeLabel(type)],
+      meta,
+      accent: '',
+    };
+  }
+
+  function readColor(value) {
+    const color = cleanText(value);
+    return /^#[0-9a-fA-F]{6}$/.test(color) ? color : '';
+  }
+
+  function renderPreview(data) {
+    preview.dataset.kind = data.kind;
+    if (data.accent) {
+      preview.style.setProperty('--shared-preview-accent', data.accent);
+    }
+
+    setText('[data-preview-publisher]', data.publisher || data.eyebrow);
+    setText('[data-preview-title]', data.title);
+    setOptionalText('[data-preview-summary]', data.summary);
+    setOptionalText('[data-preview-body]', data.body);
+    renderImage('[data-preview-image]', data.imageUrl);
+    renderImage('[data-preview-media]', data.mediaUrl);
+    renderBadges(data.badges);
+    renderMeta(data.meta);
+    renderWebsite(data.websiteUrl);
+
+    const fallback = preview.querySelector('[data-preview-fallback]');
+    if (fallback) {
+      fallback.textContent = data.kind === 'organization' ? 'DNA' : 'PG';
+      fallback.hidden = Boolean(data.imageUrl);
+    }
+
+    preview.hidden = false;
+  }
+
+  function setText(selector, value) {
+    const node = preview.querySelector(selector);
+    if (node) {
+      node.textContent = value;
+    }
+  }
+
+  function setOptionalText(selector, value) {
+    const node = preview.querySelector(selector);
+    if (!node) return;
+    const text = cleanText(value);
+    node.textContent = text;
+    node.hidden = !text;
+  }
+
+  function renderImage(selector, src) {
+    const image = preview.querySelector(selector);
+    if (!image) return;
+    const url = validUrl(src) || (typeof src === 'string' && src.startsWith('/') ? src : '');
+    image.hidden = !url;
+    if (url) {
+      image.setAttribute('src', url);
+    } else {
+      image.removeAttribute('src');
+    }
+  }
+
+  function renderBadges(badges) {
+    const container = preview.querySelector('[data-preview-badges]');
+    if (!container) return;
+    container.replaceChildren(
+      ...badges.map((badge) => {
+        const element = document.createElement('span');
+        element.className = 'shared-preview-badge';
+        element.textContent = badge;
+        return element;
+      })
+    );
+  }
+
+  function renderMeta(meta) {
+    const container = preview.querySelector('[data-preview-meta]');
+    if (!container) return;
+    container.hidden = meta.length === 0;
+    container.replaceChildren(
+      ...meta.map((item) => {
+        const element = document.createElement('span');
+        element.textContent = item;
+        return element;
+      })
+    );
+  }
+
+  function renderWebsite(url) {
+    const link = preview.querySelector('[data-preview-website]');
+    if (!link) return;
+    link.hidden = !url;
+    if (url) {
+      link.setAttribute('href', url);
+      link.textContent = copy.website;
+    } else {
+      link.removeAttribute('href');
+    }
   }
 </script>
 
@@ -125,13 +460,14 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
     place-items: center;
     padding: 8.5rem 1rem 3rem;
     background:
-      linear-gradient(135deg, rgba(33, 118, 174, 0.12), transparent 45%),
-      linear-gradient(315deg, rgba(20, 149, 143, 0.12), transparent 45%),
+      radial-gradient(circle at 15% 18%, rgba(228, 80, 128, 0.13), transparent 28rem),
+      radial-gradient(circle at 86% 78%, rgba(20, 149, 143, 0.12), transparent 24rem),
+      linear-gradient(135deg, rgba(33, 118, 174, 0.08), transparent 45%),
       #f8fbfd;
   }
 
   .app-link-content {
-    width: min(100%, 520px);
+    width: min(100%, 560px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -172,7 +508,7 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
     width: 100%;
     display: grid;
     gap: 0.75rem;
-    margin-top: 2rem;
+    margin-top: 1.75rem;
   }
 
   .app-link-button {
@@ -208,10 +544,168 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
     font-size: 0.9rem;
   }
 
+  .shared-preview {
+    --shared-preview-accent: var(--pg-rose);
+    width: 100%;
+    margin-top: 1.75rem;
+    border: 1px solid rgba(197, 210, 223, 0.88);
+    border-radius: 8px;
+    background:
+      radial-gradient(circle at 10% 10%, color-mix(in srgb, var(--shared-preview-accent) 18%, transparent), transparent 18rem),
+      linear-gradient(142deg, rgba(255, 255, 255, 0.95), rgba(255, 247, 250, 0.9) 48%, rgba(255, 255, 255, 0.98));
+    padding: 1.1rem;
+    text-align: left;
+    box-shadow: 0 18px 44px rgba(23, 32, 51, 0.12);
+  }
+
+  .shared-preview[hidden] {
+    display: none;
+  }
+
+  .shared-preview-topline {
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 0.95rem;
+    align-items: center;
+  }
+
+  .shared-preview-avatar {
+    width: 68px;
+    height: 68px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--shared-preview-accent) 28%, #ffffff);
+    color: var(--shared-preview-accent);
+    font-size: 0.74rem;
+    font-weight: 900;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 10px rgba(255, 255, 255, 0.42);
+  }
+
+  .shared-preview-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .shared-preview-heading {
+    min-width: 0;
+  }
+
+  .shared-preview-publisher {
+    margin: 0;
+    color: var(--pg-muted);
+    font-size: 0.82rem;
+    font-weight: 850;
+  }
+
+  .shared-preview h2 {
+    margin: 0.1rem 0 0;
+    color: #2c2530;
+    font-size: clamp(1.35rem, 6vw, 2.1rem);
+    line-height: 1.08;
+    letter-spacing: 0;
+  }
+
+  .shared-preview-badges,
+  .shared-preview-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .shared-preview-badges {
+    margin-top: 0.55rem;
+  }
+
+  .shared-preview-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--shared-preview-accent) 16%, #ffffff);
+    color: var(--shared-preview-accent);
+    padding: 0.25rem 0.65rem;
+    font-size: 0.78rem;
+    font-weight: 900;
+  }
+
+  .shared-preview-summary,
+  .shared-preview-body {
+    margin: 1rem 0 0;
+    color: #5d5359;
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .shared-preview-summary {
+    color: #3a3338;
+    font-weight: 800;
+  }
+
+  .shared-preview-body {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
+  }
+
+  .shared-preview-media {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    margin-top: 1rem;
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: inset 0 0 0 1px rgba(23, 32, 51, 0.08);
+  }
+
+  .shared-preview-meta {
+    margin-top: 1rem;
+  }
+
+  .shared-preview-meta span {
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--pg-ink-soft);
+    padding: 0.32rem 0.65rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .shared-preview-website {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--pg-ink);
+    padding: 0.55rem 1rem;
+    font-weight: 900;
+    text-decoration: none;
+    box-shadow: 0 10px 22px rgba(23, 32, 51, 0.08);
+  }
+
   @media (max-width: 520px) {
     .app-link-page {
       align-items: start;
-      padding-top: 7.5rem;
+      padding-top: 7rem;
+    }
+
+    .shared-preview {
+      padding: 0.95rem;
+    }
+
+    .shared-preview-topline {
+      grid-template-columns: 58px minmax(0, 1fr);
+      gap: 0.8rem;
+    }
+
+    .shared-preview-avatar {
+      width: 58px;
+      height: 58px;
     }
   }
 </style>
