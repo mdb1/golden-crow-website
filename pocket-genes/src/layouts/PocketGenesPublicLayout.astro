@@ -21,6 +21,7 @@ const {
 
 const siteBase = 'https://goldencrowvs.com';
 const currentPath = Astro.url.pathname;
+const currentSearch = Astro.url.search;
 const isEnglish = currentPath === '/en' || currentPath.startsWith('/en/');
 const lang = isEnglish ? 'en' : 'es';
 const publicNavItems = getPublicNavItems(lang);
@@ -46,6 +47,8 @@ const pathWithoutLocale = currentPath.replace(/^\/en(?=\/|$)/, '') || '/';
 const normalizedPath = pathWithoutLocale.replace(/\/$/, '') || '/';
 const esPath = pathWithoutLocale;
 const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
+const esSwitcherPath = `${esPath}${currentSearch}`;
+const enSwitcherPath = `${enPath}${currentSearch}`;
 const localizePath = (path: string) => (isEnglish ? `/en${path === '/' ? '/' : path}` : path);
 const localizedCanonicalPath =
   isEnglish && canonicalPath.startsWith('/pocket-genes') ? `/en${canonicalPath}` : canonicalPath;
@@ -113,9 +116,23 @@ const homeHref = localizePath('/pocket-genes/home');
             </a>
           ))}
           <div class="pg-lang-switcher" aria-label={layoutCopy[lang].language}>
-            <a href={esPath} class:list={['pg-lang-option', { active: lang === 'es' }]} aria-current={lang === 'es' ? 'true' : undefined}>ES</a>
+            <a
+              href={esSwitcherPath}
+              data-pg-lang-base={esPath}
+              class:list={['pg-lang-option', { active: lang === 'es' }]}
+              aria-current={lang === 'es' ? 'true' : undefined}
+            >
+              ES
+            </a>
             <span class="pg-lang-divider">|</span>
-            <a href={enPath} class:list={['pg-lang-option', { active: lang === 'en' }]} aria-current={lang === 'en' ? 'true' : undefined}>EN</a>
+            <a
+              href={enSwitcherPath}
+              data-pg-lang-base={enPath}
+              class:list={['pg-lang-option', { active: lang === 'en' }]}
+              aria-current={lang === 'en' ? 'true' : undefined}
+            >
+              EN
+            </a>
           </div>
         </nav>
       </div>
@@ -618,6 +635,16 @@ const homeHref = localizePath('/pocket-genes/home');
 <script>
   const menuButton = document.querySelector('[data-pg-menu]');
   const nav = document.querySelector('[data-pg-nav]');
+  const currentSearch = window.location.search;
+
+  if (currentSearch) {
+    document.querySelectorAll('[data-pg-lang-base]').forEach((link) => {
+      const basePath = link.getAttribute('data-pg-lang-base');
+      if (basePath) {
+        link.setAttribute('href', `${basePath}${currentSearch}`);
+      }
+    });
+  }
 
   if (menuButton && nav) {
     menuButton.addEventListener('click', () => {

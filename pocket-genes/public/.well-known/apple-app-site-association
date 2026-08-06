@@ -6,10 +6,29 @@
         "appID": "F2VBZV9LC6.goldencrowvs.pocketgenes",
         "paths": [
           "/pocket-genes/discover/feed_entries",
+          "/pocket-genes/discover/feed_entries/",
+          "/en/pocket-genes/discover/feed_entries",
+          "/en/pocket-genes/discover/feed_entries/",
           "/pocket-genes/discover/organizations",
+          "/pocket-genes/discover/organizations/",
+          "/en/pocket-genes/discover/organizations",
+          "/en/pocket-genes/discover/organizations/",
           "/pocket-genes/community/posts",
+          "/pocket-genes/community/posts/",
+          "/en/pocket-genes/community/posts",
+          "/en/pocket-genes/community/posts/",
           "/pocket-genes/learn",
-          "/pocket-genes/genes"
+          "/pocket-genes/learn/",
+          "/en/pocket-genes/learn",
+          "/en/pocket-genes/learn/",
+          "/pocket-genes/learn/lesson",
+          "/pocket-genes/learn/lesson/",
+          "/en/pocket-genes/learn/lesson",
+          "/en/pocket-genes/learn/lesson/",
+          "/pocket-genes/genes",
+          "/pocket-genes/genes/",
+          "/en/pocket-genes/genes",
+          "/en/pocket-genes/genes/"
         ]
       }
     ]
