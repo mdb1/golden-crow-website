@@ -28,9 +28,6 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
       </p>
 
       <div class="app-link-actions">
-        <a id="open-pocket-genes" class="app-link-button app-link-button-primary" href={customSchemeBase}>
-          Abrir Pocket Genes
-        </a>
         <div id="download-store-grid" class="app-link-store-grid" aria-label="Dónde descargar Pocket Genes">
           <a id="download-app-store" class="store-card store-card-live" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
             <span class="store-card-glow" aria-hidden="true"></span>
@@ -51,7 +48,9 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
       </div>
 
       <p id="app-link-status" class="app-link-status" role="status">
-        Si ya tenés la app instalada, tocá Abrir Pocket Genes.
+        <span data-status-prefix>Si ya tenés la app, intentamos abrirla automáticamente. Tocá </span>
+        <a id="open-pocket-genes" class="app-link-retry" href={customSchemeBase}>acá</a>
+        <span data-status-suffix> para volver a intentarlo.</span>
       </p>
 
       <article id="shared-preview" class="shared-preview" hidden aria-label="Vista previa del contenido compartido">
@@ -88,6 +87,8 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
   const title = document.querySelector('#app-link-title');
   const description = document.querySelector('#app-link-description');
   const status = document.querySelector('#app-link-status');
+  const statusPrefix = status?.querySelector('[data-status-prefix]');
+  const statusSuffix = status?.querySelector('[data-status-suffix]');
   const appStoreLink = document.querySelector('#download-app-store');
   const playStoreLink = document.querySelector('#download-play-store');
   const storeGrid = document.querySelector('#download-store-grid');
@@ -96,9 +97,11 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
 
   const copy = isEnglish
     ? {
-        title: 'Open shared content',
-        description: 'Open this content in Pocket Genes to see it in full.',
-        open: 'Open Pocket Genes',
+        title: 'A Pocket Genes share',
+        description: 'Install the app to view the complete item on your phone.',
+        retryPrefix: 'If the app is already installed, tap ',
+        retryLink: 'here',
+        retrySuffix: ' to open it.',
         storeGridLabel: 'Pocket Genes download options',
         availableNow: 'Available now',
         appStoreAlt: 'Download on the App Store',
@@ -107,8 +110,8 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
         googlePlayAlt: 'Get it on Google Play',
         playStoreNote: 'For Android',
         missing: 'This shared link is incomplete. Ask the sender to share it again.',
-        opening: 'Opening Pocket Genes...',
-        ready: 'If the app is already installed, tap Open Pocket Genes.',
+        openingPrefix: 'Opening the app automatically. If nothing happens, tap ',
+        openingSuffix: ' to try again.',
         organizationPreview: 'Organization preview',
         feedPreview: 'Post preview',
         verified: 'Verified',
@@ -131,9 +134,11 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
         },
       }
     : {
-        title: 'Abrir contenido compartido',
-        description: 'Abrí este contenido en Pocket Genes para verlo completo.',
-        open: 'Abrir Pocket Genes',
+        title: 'Contenido compartido',
+        description: 'Descargá Pocket Genes para verlo completo en tu teléfono.',
+        retryPrefix: 'Si ya tenés la app instalada, tocá ',
+        retryLink: 'acá',
+        retrySuffix: ' para abrirla.',
         storeGridLabel: 'Dónde descargar Pocket Genes',
         availableNow: 'Disponible ahora',
         appStoreAlt: 'Descargar Pocket Genes en App Store',
@@ -142,8 +147,8 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
         googlePlayAlt: 'Descargar Pocket Genes en Google Play',
         playStoreNote: 'Para Android',
         missing: 'Este enlace compartido está incompleto. Pedile a quien lo envió que vuelva a compartirlo.',
-        opening: 'Abriendo Pocket Genes...',
-        ready: 'Si ya tenés la app instalada, tocá Abrir Pocket Genes.',
+        openingPrefix: 'Intentando abrir la app automáticamente. Si no pasa nada, tocá ',
+        openingSuffix: ' para volver a intentarlo.',
         organizationPreview: 'Vista previa de organización',
         feedPreview: 'Vista previa del post',
         verified: 'Verificada',
@@ -168,7 +173,7 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
 
   title.textContent = copy.title;
   description.textContent = copy.description;
-  openLink.textContent = copy.open;
+  setStatusRetry(copy.retryPrefix, copy.retryLink, copy.retrySuffix);
   storeGrid?.setAttribute('aria-label', copy.storeGridLabel);
   updateStoreCard(appStoreLink, {
     ariaLabel: copy.appStoreAlt,
@@ -186,7 +191,7 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
   if (!contentId) {
     openLink.setAttribute('aria-disabled', 'true');
     openLink.removeAttribute('href');
-    status.textContent = copy.missing;
+    setStatusMessage(copy.missing);
   } else {
     const query = `?id=${encodeURIComponent(contentId)}`;
     const customURL = `${customSchemeBase}${query}`;
@@ -198,7 +203,7 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
     openLink.setAttribute('href', appURL);
 
     if (isMobile) {
-      status.textContent = copy.opening;
+      setStatusRetry(copy.openingPrefix, copy.retryLink, copy.openingSuffix);
       window.setTimeout(() => {
         if (document.visibilityState === 'visible') {
           window.location.assign(appURL);
@@ -206,14 +211,32 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
       }, 150);
       window.setTimeout(() => {
         if (document.visibilityState === 'visible') {
-          status.textContent = copy.ready;
+          setStatusRetry(copy.retryPrefix, copy.retryLink, copy.retrySuffix);
         }
       }, 1600);
     } else {
-      status.textContent = copy.ready;
+      setStatusRetry(copy.retryPrefix, copy.retryLink, copy.retrySuffix);
     }
 
     loadSharedPreview(contentId);
+  }
+
+  function setStatusMessage(message) {
+    if (statusPrefix) statusPrefix.textContent = message;
+    if (statusSuffix) statusSuffix.textContent = '';
+    if (openLink) {
+      openLink.textContent = '';
+      openLink.hidden = true;
+    }
+  }
+
+  function setStatusRetry(prefix, linkText, suffix) {
+    if (statusPrefix) statusPrefix.textContent = prefix;
+    if (statusSuffix) statusSuffix.textContent = suffix;
+    if (openLink) {
+      openLink.textContent = linkText;
+      openLink.hidden = false;
+    }
   }
 
   function loadSharedPreview(id) {
@@ -551,66 +574,7 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
   .app-link-actions {
     width: 100%;
     display: grid;
-    gap: 0.9rem;
     margin-top: 1.75rem;
-  }
-
-  .app-link-button {
-    min-height: 58px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid rgba(33, 118, 174, 0.28);
-    border-radius: 8px;
-    background: #ffffff;
-    color: var(--pg-ink);
-    padding: 0.8rem 1rem;
-    font-weight: 900;
-    text-decoration: none;
-    box-shadow: 0 16px 36px rgba(33, 118, 174, 0.14);
-  }
-
-  .app-link-button-primary {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
-    border-color: rgba(20, 149, 143, 0.46);
-    background:
-      linear-gradient(110deg, rgba(255, 255, 255, 0.16), transparent 32%),
-      linear-gradient(135deg, #2176ae 0%, #14958f 54%, #e45080 135%);
-    color: #ffffff;
-    box-shadow:
-      0 18px 46px rgba(33, 118, 174, 0.24),
-      0 12px 32px rgba(20, 149, 143, 0.16);
-    transition: transform 180ms ease, box-shadow 180ms ease;
-  }
-
-  .app-link-button-primary::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background: linear-gradient(110deg, transparent 0 34%, rgba(255, 255, 255, 0.26) 48%, transparent 64%);
-    transform: translateX(-130%);
-    transition: transform 520ms ease;
-  }
-
-  .app-link-button-primary:hover,
-  .app-link-button-primary:focus-visible {
-    transform: translateY(-2px);
-    box-shadow:
-      0 22px 58px rgba(33, 118, 174, 0.3),
-      0 14px 38px rgba(20, 149, 143, 0.2);
-  }
-
-  .app-link-button-primary:hover::before,
-  .app-link-button-primary:focus-visible::before {
-    transform: translateX(130%);
-  }
-
-  .app-link-button[aria-disabled="true"] {
-    opacity: 0.48;
-    pointer-events: none;
   }
 
   .app-link-store-grid {
@@ -742,6 +706,20 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
     margin: 1.25rem 0 0;
     color: var(--pg-muted);
     font-size: 0.9rem;
+    line-height: 1.55;
+  }
+
+  .app-link-retry {
+    color: var(--pg-blue);
+    font-weight: 900;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.18em;
+  }
+
+  .app-link-retry:hover,
+  .app-link-retry:focus-visible {
+    color: var(--pg-teal);
   }
 
   .shared-preview {
