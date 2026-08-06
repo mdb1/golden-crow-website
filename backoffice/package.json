@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
-    "test:gc-fitness": "jest --testPathPattern=gc-fitness",
+    "test:gc-fitness": "jest --testPathPatterns=gc-fitness",
     "seed:gc-fitness-library": "node scripts/seed-gc-fitness-library.cjs",
     "seed:gc-fitness-standard-library": "node --experimental-transform-types scripts/sync-standard-exercise-library.ts",
     "seed:gc-fitness-standard-gifs": "node --experimental-transform-types scripts/sync-standard-exercise-gifs.ts",
