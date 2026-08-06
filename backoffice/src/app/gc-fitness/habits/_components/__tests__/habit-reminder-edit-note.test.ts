@@ -1,7 +1,8 @@
 /**
  * 260611-ugu — unit tests for the coach-facing "client changed reminder" note
  * derivation on the habits-table ReminderCell. Twin of the workout treatment
- * shipped in PR #152 (ClientDailyTimeline.reminderNoteFor) — same Spanish copy.
+ * shipped in PR #152 as ClientDailyTimeline.reminderNoteFor, deleted in #309 —
+ * these tests are now the only guard on that Spanish copy.
  *
  * The note only surfaces when reminderEditedAt is present (the client stamped
  * reminderUpdatedAt from the app); these tests pin the three rendered phrases.
@@ -31,7 +32,7 @@ describe("habitReminderEditNote (260611-ugu habit reminder client-edit visibilit
   });
 
   it("matches the workout note copy from PR #152 (parity)", () => {
-    // ClientDailyTimeline.reminderNoteFor produces the identical phrases for the
+    // The deleted ClientDailyTimeline.reminderNoteFor produced these phrases for the
     // workout surface — the habit twin must read identically.
     expect(
       habitReminderEditNote({ reminderEnabled: false }),

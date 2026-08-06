@@ -324,8 +324,8 @@ function formatCivilDateEsAr(civilDate: string): string {
 
 /**
  * Whether a habit doc is scheduled on a given civil date. Mirrors the
- * `isHabitActiveOnDate` helper in client-daily-timeline-actions.ts —
- * inlined here to avoid widening the timeline module's export surface.
+ * `isHabitActiveOnDate` helper that lived in client-daily-timeline-actions.ts
+ * until #309 deleted it; kept inlined here.
  * Supports the legacy Sun=1..Sat=7 weekday mapping alongside the canonical
  * Mon=1..Sun=7 so pre-fix habits render on the correct day.
  */
@@ -1871,7 +1871,8 @@ async function buildWorkoutLogDetail(
     coachNickname: clientData?.coachNickname ?? null,
   });
   // Render all log timestamps in the CLIENT's timezone (mirrors the
-  // assertOwnsClient pattern in client-daily-timeline-actions.ts): prefer the
+  // assertOwnsClient pattern the deleted client-daily-timeline-actions used):
+  // prefer the
   // client's stored IANA tz, else fall back to the trainer's. Without this the
   // server component formats in UTC and the date/times are wrong (#tz).
   const storedClientTz = clientSnap.get("timezone");

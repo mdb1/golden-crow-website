@@ -7,8 +7,8 @@
  * Why this file exists
  * --------------------
  * The same scheduling predicate had drifted into FOUR hand-rolled copies
- * (recent-logs, client-daily-timeline, coach-pulse, HabitTrendsWidget). Two of
- * them disagreed with iOS and inflated the trainer-facing "X/Y habits done
+ * (recent-logs, client-daily-timeline — deleted in #309 —, coach-pulse,
+ * HabitTrendsWidget). Two of them disagreed with iOS and inflated the trainer-facing "X/Y habits done
  * today" denominator vs. what the client sees in the app:
  *
  *   1. MISSING `skippedDates`. When a trainer removes a habit from a single day
