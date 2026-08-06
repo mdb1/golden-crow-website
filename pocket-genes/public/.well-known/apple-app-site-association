@@ -7,6 +7,7 @@
         "paths": [
           "/pocket-genes/discover/feed_entries",
           "/pocket-genes/discover/organizations",
+          "/pocket-genes/community/posts",
           "/pocket-genes/learn",
           "/pocket-genes/genes"
         ]
