@@ -97,7 +97,13 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
 
   const copy = isEnglish
     ? {
-        title: 'A Pocket Genes share',
+        titleOptions: [
+          'Someone sent this link using Pocket Genes.',
+          'Check out this link someone sent from Pocket Genes.',
+          'Here is a cool share from the Pocket Genes app.',
+          'Take a look at this link via Pocket Genes.',
+          'Here is an item shared from the Pocket Genes app.',
+        ],
         description: 'Install the app to view the complete item on your phone.',
         retryPrefix: 'If the app is already installed, tap ',
         retryLink: 'here',
@@ -134,7 +140,13 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
         },
       }
     : {
-        title: 'Contenido compartido',
+        titleOptions: [
+          'Alguien te compartió este link desde Pocket Genes.',
+          'Mirá este link que te enviaron desde Pocket Genes.',
+          'Te compartieron algo interesante desde Pocket Genes.',
+          'Dale una mirada a este link de Pocket Genes.',
+          'Este contenido viene compartido desde Pocket Genes.',
+        ],
         description: 'Descargá Pocket Genes para verlo completo en tu teléfono.',
         retryPrefix: 'Si ya tenés la app instalada, tocá ',
         retryLink: 'acá',
@@ -171,7 +183,7 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
         },
       };
 
-  title.textContent = copy.title;
+  title.textContent = randomTitle(copy.titleOptions);
   description.textContent = copy.description;
   setStatusRetry(copy.retryPrefix, copy.retryLink, copy.retrySuffix);
   storeGrid?.setAttribute('aria-label', copy.storeGridLabel);
@@ -228,6 +240,10 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
       openLink.textContent = '';
       openLink.hidden = true;
     }
+  }
+
+  function randomTitle(options) {
+    return options[Math.floor(Math.random() * options.length)] ?? options[0];
   }
 
   function setStatusRetry(prefix, linkText, suffix) {
@@ -558,9 +574,10 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
   }
 
   h1 {
+    max-width: 520px;
     margin: 0.35rem 0 0;
-    font-size: clamp(2rem, 8vw, 3.25rem);
-    line-height: 1.05;
+    font-size: clamp(1.7rem, 6vw, 2.75rem);
+    line-height: 1.1;
     letter-spacing: 0;
   }
 
