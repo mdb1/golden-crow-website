@@ -264,13 +264,16 @@ export function ExerciseForm({
 
   const onSubmit = form.handleSubmit((raw) => {
     if (isView) return;
-    // #480 — normalize the muscle selection: an empty primary collapses to
-    // `undefined` (Zod's optional enum rejects ""), and `muscleGroups` is
-    // rebuilt as [primary, ...secondaries] so the primary is always present.
-    const primary =
-      raw.primaryMuscleGroup && raw.primaryMuscleGroup.trim()
-        ? raw.primaryMuscleGroup
-        : undefined;
+    // #480 — `muscleGroups` is rebuilt as [primary, ...secondaries] so the
+    // primary is always present.
+    //
+    // #307 removed a `"" → undefined` collapse that sat here: it could never
+    // fire. `primaryMuscleGroup` is `z.enum(...).optional()`, which admits
+    // `undefined` but NOT `""`, and `handleSubmit` validates BEFORE calling
+    // this — seeding `primaryMuscleGroup: ""` through `defaultValues` produces
+    // ZERO calls to the action. The guard that really keeps `""` out is one
+    // layer up, in `buildDefaults`.
+    const primary = raw.primaryMuscleGroup;
     const secondaries = (raw.muscleGroups ?? []).filter((g) => g !== primary);
     const muscleGroups = primary ? [primary, ...secondaries] : secondaries;
     // "No translation" ⇒ store the coach's text in every language.

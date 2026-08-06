@@ -410,12 +410,12 @@ export function HabitForm({
             cleaned.reminderMonthDays = cleaned.scheduleMonthDays;
             cleaned.reminderDayOfMonth = cleaned.scheduleDayOfMonth;
           }
-        } else {
-          cleaned.reminderCadence = undefined;
-          cleaned.reminderWeekdays = undefined;
-          cleaned.reminderDayOfMonth = undefined;
-          cleaned.reminderMonthDays = undefined;
         }
+        // #307 — no `else` branch. `cleaned` is built from a WHITELIST of keys,
+        // so the four reminder fields were never there to clear; assigning
+        // `undefined` only put the keys back in the shape the Admin SDK
+        // rejects, and it survived solely because `createHabit` filters them
+        // out again with `withoutUndefined()`.
 
         // "No translation" ⇒ store the coach's text in every language.
         cleaned.name = mirrorLocalizedBlank(cleaned.name);

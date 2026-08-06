@@ -254,7 +254,10 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
       exercises: workout.exercises.map((g, i) => ({
         exerciseId: g.exerciseId,
         sets: g.sets,
-        reps: g.metric === "time" ? 0 : g.reps,
+        // #307 — `g.reps` is already 0 for a time metric: `engine.ts` applies
+        // the identical ternary when it builds the workout. Repeating it here
+        // was a second mechanism for one contract.
+        reps: g.reps,
         rest_seconds: g.rest_seconds,
         transition_rest_seconds: g.transition_rest_seconds,
         order: i + 1,
@@ -323,8 +326,10 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
     step === 4;
 
   function goNext() {
-    if (step === 1 && equipment.size === 0) return toast.error(s.pickEquipment);
-    if (step === 2 && muscles.size === 0) return toast.error(s.pickMuscles);
+    // #307 — the two "pick something first" toasts that used to open this
+    // function were unreachable: the Next button is
+    // `disabled={!canNext || isLoading}` and `canNext` is false in exactly the
+    // two cases they covered. The visible guard is the disabled button.
     if (step === 4) return handleGenerate();
     setStep((step + 1) as typeof step);
   }

@@ -1,7 +1,7 @@
 // exercise-dedupe.ts
 //
-// Collapse same-display-name duplicate exercises in CHOICE surfaces (the
-// exercise pickers + the workout-generator pool).
+// Collapse same-display-name duplicate exercises in the exercise pickers, the
+// workout-generator pool, AND the library-management list.
 //
 // WHY: the prod standard library is double-seeded. Every curated exercise
 // exists BOTH as a numeric-id doc (e.g. `1259` — the canonical family the
@@ -15,8 +15,14 @@
 // display name, preferring the doc whose media will actually render and the
 // trainer's own authored exercise over a same-named library doc. The underlying
 // duplicate docs stay in Firestore; a separate server-side cleanup can remove
-// them later. Applied only where a trainer PICKS an exercise — not on the
-// library-management surface, which must still show every doc for curation.
+// them later.
+//
+// This header used to claim it was applied ONLY where a trainer picks an
+// exercise, and NOT on the library-management surface "which must still show
+// every doc for curation". That stopped being true in #179: `exercises/client.tsx`
+// — which IS that surface — applies it too, deliberately, and says so at its own
+// call site. Corrected in #307, because a header that contradicts its caller
+// sends the next reader hunting for a bug that does not exist.
 
 export interface DedupeExerciseRow {
   id: string;

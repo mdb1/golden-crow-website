@@ -186,6 +186,8 @@ export function BulkAssignHabitDialog({
     !!selectedTemplate && selectedCount > 0 && startsOn.length > 0;
 
   async function onSubmit() {
+// #307 — unreachable while the CTA is disabled: `canSubmit`
+    // already requires a template AND a non-empty selection.
     if (!selectedTemplate || selectedCount === 0) return;
     setSubmitting(true);
     try {

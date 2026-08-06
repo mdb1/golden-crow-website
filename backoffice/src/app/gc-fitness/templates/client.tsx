@@ -77,7 +77,7 @@ import {
   sortFavoritesFirst,
 } from "@/lib/gc-fitness/favorites";
 import { FavoriteStarButton } from "@/components/gc-fitness/favorite-star-button";
-import type { TemplateListRow } from "@/components/gc-fitness/templates/columns";
+import type { TemplateListRow } from "@/components/gc-fitness/templates/types";
 import { TemplateAssignmentsView } from "./_components/TemplateAssignmentsView";
 
 // Tag → human label (kept local — small, list-only).

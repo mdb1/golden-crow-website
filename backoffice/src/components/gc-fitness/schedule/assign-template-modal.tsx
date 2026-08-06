@@ -663,6 +663,8 @@ export function AssignTemplateModal({
   }
 
   async function onSubmit() {
+    // #307 — unreachable while the CTA is disabled: the submit button is
+    // `disabled={submitting || !templateId}`, so this toast has never fired.
     if (!templateId) {
       toast.error(t("errorPickTemplate"));
       return;
