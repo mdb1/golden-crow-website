@@ -82,7 +82,29 @@ const copy = {
           </ul>
 
           <div class="gcf-store-grid" aria-label={copy.storeGridLabel}>
-            <a class="gcf-store-card" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+            <!--
+              #782 — SIN `target="_blank"`, y no es un descuido.
+
+              En Safari el tap "no hacía nada". La cadena que se rompe es ésta: `_blank` abre
+              una pestaña NUEVA, esa pestaña se come el 301 de
+              `apps.apple.com/app/id…` → `apps.apple.com/us/app/gc-fitness/id…`, y RECIÉN
+              entonces intenta el handoff a la App Store. Para ese momento el salto a la app
+              nativa ya no está dentro del gesto del usuario que lo originó, y Safari lo
+              descarta en silencio: ni pestaña visible ni App Store. El usuario ve un botón
+              muerto.
+
+              El hermano que sí anda lo confirma: Pocket Genes apunta a la URL canónica
+              (`/ar/app/pocket-genes/id…`, sin redirect) con el mismo `_blank`. La diferencia
+              entre los dos links es el 301, no el atributo.
+
+              Navegando en la MISMA pestaña el gesto sobrevive al redirect y el handoff ocurre.
+              Y se puede dejar la URL corta —que Apple redirige al storefront de cada visitante,
+              que es a propósito (ver `gcFitnessPublic.ts`)— en vez de clavar un país.
+
+              No se pierde nada: un link de store es un destino terminal; en móvil te saca del
+              sitio igual para abrir la app nativa.
+            -->
+            <a class="gcf-store-card" href={APP_STORE_URL}>
               <span class="gcf-store-glow" aria-hidden="true"></span>
               <span class="gcf-store-kicker">{copy.kicker}</span>
               <img
@@ -96,7 +118,10 @@ const copy = {
               <span class="gcf-store-note">{copy.appStoreNote}</span>
             </a>
 
-            <a class="gcf-store-card" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">
+            <!-- Misma navegación que la tarjeta de arriba, para que las dos se comporten
+                 igual. En Play el handoff no se rompía (no hay app nativa que abrir desde
+                 Safari), pero dejar una con `_blank` y la otra sin él se lee como un olvido. -->
+            <a class="gcf-store-card" href={PLAY_STORE_URL}>
               <span class="gcf-store-glow" aria-hidden="true"></span>
               <span class="gcf-store-kicker">{copy.kicker}</span>
               <img
