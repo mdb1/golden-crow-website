@@ -31,12 +31,23 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
         <a id="open-pocket-genes" class="app-link-button app-link-button-primary" href={customSchemeBase}>
           Abrir Pocket Genes
         </a>
-        <a id="download-app-store" class="app-link-button" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-          Descargar en App Store
-        </a>
-        <a id="download-play-store" class="app-link-button" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">
-          Descargar en Google Play
-        </a>
+        <div id="download-store-grid" class="app-link-store-grid" aria-label="Dónde descargar Pocket Genes">
+          <a id="download-app-store" class="store-card store-card-live" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+            <span class="store-card-glow" aria-hidden="true"></span>
+            <span class="store-kicker" data-store-kicker>Disponible ahora</span>
+            <img class="store-badge app-store-badge" src="/pocket-genes/app-store-badge.svg" alt="Descargar Pocket Genes en App Store" width="180" height="60" />
+            <span class="store-note" data-store-note>Para iPhone</span>
+          </a>
+
+          <a id="download-play-store" class="store-card store-card-live store-card-play" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">
+            <span class="store-card-glow" aria-hidden="true"></span>
+            <span class="store-kicker" data-store-kicker>Disponible ahora</span>
+            <span class="play-badge-wrap">
+              <img class="store-badge google-play-badge" src="/pocket-genes/google-play-badge.png" alt="Descargar Pocket Genes en Google Play" width="194" height="75" />
+            </span>
+            <span class="store-note" data-store-note>Para Android</span>
+          </a>
+        </div>
       </div>
 
       <p id="app-link-status" class="app-link-status" role="status">
@@ -79,6 +90,7 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
   const status = document.querySelector('#app-link-status');
   const appStoreLink = document.querySelector('#download-app-store');
   const playStoreLink = document.querySelector('#download-play-store');
+  const storeGrid = document.querySelector('#download-store-grid');
   const preview = document.querySelector('#shared-preview');
   const isEnglish = navigator.language.toLowerCase().startsWith('en');
 
@@ -87,8 +99,13 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
         title: 'Open shared content',
         description: 'Open this content in Pocket Genes to see it in full.',
         open: 'Open Pocket Genes',
-        appStore: 'Download on the App Store',
-        playStore: 'Get it on Google Play',
+        storeGridLabel: 'Pocket Genes download options',
+        availableNow: 'Available now',
+        appStoreAlt: 'Download on the App Store',
+        appStoreNote: 'For iPhone',
+        playStoreKicker: 'Available now',
+        googlePlayAlt: 'Get it on Google Play',
+        playStoreNote: 'For Android',
         missing: 'This shared link is incomplete. Ask the sender to share it again.',
         opening: 'Opening Pocket Genes...',
         ready: 'If the app is already installed, tap Open Pocket Genes.',
@@ -117,8 +134,13 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
         title: 'Abrir contenido compartido',
         description: 'Abrí este contenido en Pocket Genes para verlo completo.',
         open: 'Abrir Pocket Genes',
-        appStore: 'Descargar en App Store',
-        playStore: 'Descargar en Google Play',
+        storeGridLabel: 'Dónde descargar Pocket Genes',
+        availableNow: 'Disponible ahora',
+        appStoreAlt: 'Descargar Pocket Genes en App Store',
+        appStoreNote: 'Para iPhone',
+        playStoreKicker: 'Disponible ahora',
+        googlePlayAlt: 'Descargar Pocket Genes en Google Play',
+        playStoreNote: 'Para Android',
         missing: 'Este enlace compartido está incompleto. Pedile a quien lo envió que vuelva a compartirlo.',
         opening: 'Abriendo Pocket Genes...',
         ready: 'Si ya tenés la app instalada, tocá Abrir Pocket Genes.',
@@ -147,8 +169,19 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
   title.textContent = copy.title;
   description.textContent = copy.description;
   openLink.textContent = copy.open;
-  appStoreLink.textContent = copy.appStore;
-  playStoreLink.textContent = copy.playStore;
+  storeGrid?.setAttribute('aria-label', copy.storeGridLabel);
+  updateStoreCard(appStoreLink, {
+    ariaLabel: copy.appStoreAlt,
+    kicker: copy.availableNow,
+    imageAlt: copy.appStoreAlt,
+    note: copy.appStoreNote,
+  });
+  updateStoreCard(playStoreLink, {
+    ariaLabel: copy.googlePlayAlt,
+    kicker: copy.playStoreKicker,
+    imageAlt: copy.googlePlayAlt,
+    note: copy.playStoreNote,
+  });
 
   if (!contentId) {
     openLink.setAttribute('aria-disabled', 'true');
@@ -215,6 +248,17 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
       .catch(() => {
         preview.hidden = true;
       });
+  }
+
+  function updateStoreCard(card, labels) {
+    if (!card) return;
+    card.setAttribute('aria-label', labels.ariaLabel);
+    const kicker = card.querySelector('[data-store-kicker]');
+    const note = card.querySelector('[data-store-note]');
+    const badge = card.querySelector('.store-badge');
+    if (kicker) kicker.textContent = labels.kicker;
+    if (note) note.textContent = labels.note;
+    if (badge) badge.setAttribute('alt', labels.imageAlt);
   }
 
   function parseFirestoreFields(fields) {
@@ -507,34 +551,190 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
   .app-link-actions {
     width: 100%;
     display: grid;
-    gap: 0.75rem;
+    gap: 0.9rem;
     margin-top: 1.75rem;
   }
 
   .app-link-button {
-    min-height: 52px;
+    min-height: 58px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--pg-border-strong);
+    border: 1px solid rgba(33, 118, 174, 0.28);
     border-radius: 8px;
     background: #ffffff;
     color: var(--pg-ink);
     padding: 0.8rem 1rem;
-    font-weight: 800;
+    font-weight: 900;
     text-decoration: none;
-    box-shadow: 0 10px 28px rgba(23, 32, 51, 0.08);
+    box-shadow: 0 16px 36px rgba(33, 118, 174, 0.14);
   }
 
   .app-link-button-primary {
-    border-color: var(--pg-blue);
-    background: var(--pg-blue);
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-color: rgba(20, 149, 143, 0.46);
+    background:
+      linear-gradient(110deg, rgba(255, 255, 255, 0.16), transparent 32%),
+      linear-gradient(135deg, #2176ae 0%, #14958f 54%, #e45080 135%);
     color: #ffffff;
+    box-shadow:
+      0 18px 46px rgba(33, 118, 174, 0.24),
+      0 12px 32px rgba(20, 149, 143, 0.16);
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+
+  .app-link-button-primary::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(110deg, transparent 0 34%, rgba(255, 255, 255, 0.26) 48%, transparent 64%);
+    transform: translateX(-130%);
+    transition: transform 520ms ease;
+  }
+
+  .app-link-button-primary:hover,
+  .app-link-button-primary:focus-visible {
+    transform: translateY(-2px);
+    box-shadow:
+      0 22px 58px rgba(33, 118, 174, 0.3),
+      0 14px 38px rgba(20, 149, 143, 0.2);
+  }
+
+  .app-link-button-primary:hover::before,
+  .app-link-button-primary:focus-visible::before {
+    transform: translateX(130%);
   }
 
   .app-link-button[aria-disabled="true"] {
     opacity: 0.48;
     pointer-events: none;
+  }
+
+  .app-link-store-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .store-card {
+    position: relative;
+    isolation: isolate;
+    min-height: 158px;
+    min-width: 0;
+    overflow: hidden;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 10px;
+    border: 1px solid rgba(197, 210, 223, 0.95);
+    border-radius: 8px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(246, 253, 252, 0.9)),
+      #ffffff;
+    padding: 14px 10px;
+    color: var(--pg-ink);
+    text-align: center;
+    text-decoration: none;
+    box-shadow: 0 20px 54px rgba(23, 32, 51, 0.1);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .store-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(110deg, transparent 0 34%, rgba(20, 149, 143, 0.13) 48%, transparent 64%);
+    transform: translateX(-130%);
+    transition: transform 520ms ease;
+  }
+
+  .store-card-play::before {
+    background:
+      linear-gradient(110deg, transparent 0 34%, rgba(228, 80, 128, 0.14) 48%, transparent 64%);
+  }
+
+  .store-card-live:hover,
+  .store-card-live:focus-visible {
+    transform: translateY(-4px);
+    border-color: rgba(20, 149, 143, 0.42);
+    box-shadow: 0 26px 72px rgba(20, 149, 143, 0.18);
+  }
+
+  .store-card-live:hover::before,
+  .store-card-live:focus-visible::before {
+    transform: translateX(130%);
+  }
+
+  .store-card-play:hover,
+  .store-card-play:focus-visible {
+    border-color: rgba(228, 80, 128, 0.36);
+    box-shadow: 0 26px 72px rgba(228, 80, 128, 0.15);
+  }
+
+  .store-card-glow {
+    position: absolute;
+    inset: auto -18% -48% 12%;
+    z-index: -1;
+    height: 118px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(20, 149, 143, 0.24), transparent 70%);
+    filter: blur(18px);
+  }
+
+  .store-card-play .store-card-glow {
+    background: radial-gradient(circle, rgba(228, 80, 128, 0.22), transparent 70%);
+  }
+
+  .store-kicker,
+  .store-note {
+    margin: 0;
+    letter-spacing: 0;
+  }
+
+  .store-kicker {
+    color: #14958f;
+    font-size: 0.68rem;
+    font-weight: 900;
+    line-height: 1.12;
+    text-transform: uppercase;
+  }
+
+  .store-card-play .store-kicker {
+    color: #e45080;
+  }
+
+  .store-badge {
+    display: block;
+    width: min(100%, 140px);
+    height: auto;
+    filter: drop-shadow(0 12px 22px rgba(23, 32, 51, 0.12));
+  }
+
+  .google-play-badge {
+    width: min(100%, 150px);
+    margin: -8px 0;
+  }
+
+  .play-badge-wrap {
+    display: grid;
+    place-items: center;
+    width: 100%;
+  }
+
+  .store-note {
+    color: var(--pg-muted);
+    font-size: 0.82rem;
+    font-weight: 760;
+    line-height: 1.15;
   }
 
   .app-link-status {
@@ -696,6 +896,28 @@ const customSchemeBase = `pocketgenes://${area}/${resource}`;
 
     .shared-preview {
       padding: 0.95rem;
+    }
+
+    .app-link-store-grid {
+      gap: 8px;
+    }
+
+    .store-card {
+      min-height: 146px;
+      padding: 12px 8px;
+    }
+
+    .store-kicker {
+      font-size: 0.62rem;
+    }
+
+    .store-badge {
+      width: min(100%, 128px);
+    }
+
+    .google-play-badge {
+      width: min(100%, 138px);
+      margin: -7px 0;
     }
 
     .shared-preview-topline {
