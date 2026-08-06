@@ -216,6 +216,22 @@ single time so far it has been one of these, and only one was a weak assertion:
 - **The mutation was malformed** and changed nothing (appending a `void 0`,
   adding a second redundant call). `Tests: 0 total` or an unchanged count is the
   tell — re-read the diff you applied before drawing a conclusion.
+  In particular `if (false)`, deleting a function name from a call, or dropping
+  a null-guard the types depend on all fail to COMPILE, and ts-jest then reports
+  `Tests: 0 total` — which looks exactly like green if you only read the exit
+  code. Always read the `Tests:` line, never the exit status alone.
+- **The fixture made the two branches the same value.** Snapping to "the newest
+  photo" cannot be told from "leave it alone" when the fixture already starts on
+  the newest one; seeding URL params with exactly the defaults proves nothing
+  about whether the params are read at all. Start from a value the correct
+  behavior has to CHANGE.
+- **The assertion was weaker than the invariant.** "The two timezones produce
+  different headings" holds with the timezone bug in place too — a wrong civil
+  day still produces *some* heading. Assert the exact label.
+- **The value comes from somewhere else.** A ternary that duplicates one its
+  caller already applied (the generator repeating `metric === "time" ? 0 : reps`
+  from the engine) can never differ. That is a finding for the dead-code issue,
+  not a test to strengthen.
 
 ### Query traps that have already cost time
 
@@ -247,6 +263,26 @@ single time so far it has been one of these, and only one was a weak assertion:
 - The next-intl stub does **not** implement ICU plurals. A catalog entry like
   `{count, plural, one {# session} other {# sessions}}` renders verbatim —
   never assert on those strings.
+- **`toHaveTextContent` is a SUBSTRING match.** `toHaveTextContent("assign-1")`
+  passes on `"workout:assign-1"`, so the wrong-id bug survives the assertion
+  (this is the same shape as the earlier `toHaveTextContent("-")` matching
+  `"-300s"`). Anchor with a regex — `/^assign-1$/`.
+- **A `<label>` next to an input is not associated with it.** Several forms
+  (the generator's assign modal, among others) render the label as a sibling
+  with no `htmlFor` and no wrapping, so `getByLabelText` finds nothing. Address
+  those by `input[type=date|time|number]` and note it in the header.
+- **`key` never reaches props.** React consumes it, so a remount cannot be
+  asserted from a props spy. Count mounts with a `useEffect(() => …, [])`
+  inside the stubbed child.
+- **Two elements can share an accessible name across roles.** The "Back" muscle
+  chip and the "Back" nav button coexist on the generator's step 2. Filter on a
+  discriminating attribute (the chips are the only ones with `aria-pressed`).
+- **A day number rendered as `"YYYY-MM-DD".slice(8, 10)` is ZERO-PADDED.**
+  `getByText("9")` finds nothing; the cell says `"09"`.
+- **Controls disabled during a `useTransition` swallow the next interaction.**
+  A second filter pick, or a "Load more" whose label flips to "Loading…", fails
+  as a MISSING ELEMENT rather than as a wrong assertion. Wait for the control to
+  come back (`findByRole`, or `waitFor(() => expect(el).toBeEnabled())`).
 
 ### jsdom gaps that look like component bugs
 
@@ -267,6 +303,15 @@ button rather than on its own assertion:
 - **`mockReturnValue` hands back one stable object**, so a `useMemo` over it
   never recomputes and its dependent effects never re-run. Use
   `mockImplementation` when the test is about what happens on a re-fetch.
+- **`<canvas>.getContext("2d")` returns null** (the `canvas` npm package is not
+  installed), so any export-to-image path bails on its own first guard. Scope
+  the test to the state the export reads instead of the painting.
+- **Components that capture `new Date()` at mount need the clock pinned.**
+  Today/Yesterday/Overdue headings are decided against the wall clock, so a
+  suite run near local midnight silently regroups every fixture. Use
+  `jest.useFakeTimers({ now })` and wire user-event with
+  `userEvent.setup({ advanceTimers: jest.advanceTimersByTime })`, or clicks stop
+  working while the fake timers are installed.
 
 ### What does NOT exist: browser E2E
 
