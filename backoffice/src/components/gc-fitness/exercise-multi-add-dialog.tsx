@@ -161,6 +161,9 @@ export function ExerciseMultiAddDialog({
   }
 
   function onSubmit() {
+    // #307 — unreachable while the CTA is disabled: the confirm
+    // button is `disabled={picked.size === 0}`, so this cannot be reached with
+    // an empty selection. Kept as a cheap backstop if that ever changes.
     if (picked.size === 0) return;
     onConfirm(Array.from(picked));
     onCancel(false);

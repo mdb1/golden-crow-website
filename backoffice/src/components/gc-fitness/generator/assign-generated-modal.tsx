@@ -116,6 +116,9 @@ export function AssignGeneratedModal({
   }
 
   async function onSubmit() {
+    // #307 — unreachable while the CTA is disabled: the assign button is
+    // `disabled={submitting || selected.size === 0}`, so `s.pickClient` has
+    // never been rendered on either half of the dictionary.
     if (selected.size === 0) {
       toast.error(s.pickClient);
       return;

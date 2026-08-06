@@ -37,8 +37,18 @@ export function ProgressPhotoCompareEditor({
   const [angle, setAngle] = useState<Angle>(initialAngle);
   const angled = useMemo(() => photos.filter((p) => (p.angle ?? "front") === angle && p.url), [photos, angle]);
 
-  const defaultBefore = params.get("before") ?? angled[1]?.id ?? angled[angled.length - 1]?.id ?? "";
+  // Issue #308 — the default pair is picked BY DATE, not by position.
+  // `angled[1]` used to be the "before", which is wrong the moment a client
+  // uploads two photos of the same angle on one day: the pair then violates
+  // rule 1 (below) on the very first render, and the coach cannot get out of
+  // it because every option in the "after" picker is disabled against a
+  // same-day "before".
   const defaultAfter = params.get("after") ?? angled[0]?.id ?? "";
+  const defaultBefore =
+    params.get("before") ??
+    newestStrictlyBefore(angled.find((p) => p.id === defaultAfter), angled, timezone)?.id ??
+    angled[angled.length - 1]?.id ??
+    "";
   const [beforeId, setBeforeId] = useState(defaultBefore);
   const [afterId, setAfterId] = useState(defaultAfter);
   const [split, setSplit] = useState(50);
@@ -54,17 +64,26 @@ export function ProgressPhotoCompareEditor({
 
   // `angled` is sorted newest→oldest (the loader sorts descending by
   // checkInDate), so the first entry is the most recent photo and the last is
-  // the oldest. The picker forbids picking the newest as "before" and the
-  // oldest as "after" (issue #435 rules 3 & 4) and forbids an "after" that is
-  // not strictly later than the selected "before" (rule 1).
+  // the oldest. The picker forbids the oldest as "after" (issue #435 rule 4)
+  // and forbids an "after" that is not strictly later than the selected
+  // "before" (rule 1).
+  //
+  // Rule 3 ("the newest can never be the before") is enforced by the SYMMETRIC
+  // form of rule 1 — a photo is only offered as "before" when some photo is
+  // strictly later than it, which the newest never has. Stating it that way
+  // also covers the case rule 3 alone missed: a second photo sharing the newest
+  // day is equally unusable as a "before" (issue #308).
   const newestId = angled[0]?.id;
   const oldestId = angled[angled.length - 1]?.id;
   const beforeYMD = before ? photoYMD(before, timezone) : null;
 
   // Selecting "before" can invalidate the current "after" (e.g. before moves
-  // past after). Snap after back to the newest photo so the pair always stays
-  // before < after. The newest is always a valid "after" because it can never
-  // be the "before" (it is disabled in the before picker).
+  // past after). Snap after back to the NEWEST photo, which since #308 is
+  // always a legal partner for any selectable "before": the picker only offers
+  // a photo as "before" when something is strictly later than it, and the only
+  // candidate that can be is the newest one. (Snapping to
+  // `newestStrictlyAfter(nextBefore)` instead would compute the same id every
+  // time — a second mechanism for one contract, which is what #307 is about.)
   function selectBefore(nextBeforeId: string) {
     setBeforeId(nextBeforeId);
     const nextBefore = angled.find((p) => p.id === nextBeforeId);
@@ -89,11 +108,17 @@ export function ProgressPhotoCompareEditor({
       })
     : "compare.jpg";
 
+  // Same date-first rule as the initial pair (#308): the "before" is the newest
+  // photo STRICTLY EARLIER than the "after", falling back to the oldest (and
+  // then to the after itself) when this angle has no valid pair at all.
   function defaultsForAngle(nextAngle: Angle): { before: string; after: string } {
     const next = photos.filter((p) => (p.angle ?? "front") === nextAngle && p.url);
-    const afterDefault = next[0]?.id ?? "";
-    const beforeDefault = next[1]?.id ?? next[0]?.id ?? "";
-    return { before: beforeDefault, after: afterDefault };
+    const afterDefault = next[0];
+    const beforeDefault =
+      newestStrictlyBefore(afterDefault, next, timezone) ??
+      next[next.length - 1] ??
+      afterDefault;
+    return { before: beforeDefault?.id ?? "", after: afterDefault?.id ?? "" };
   }
 
   function onDragStart(kind: "before" | "after", e: React.PointerEvent<HTMLDivElement>) {
@@ -132,7 +157,14 @@ export function ProgressPhotoCompareEditor({
         <select className="h-10 rounded-md border px-2" value={beforeId} onChange={(e) => selectBefore(e.target.value)}>
           <option value="">Before</option>
           {angled.map((p) => (
-            <option key={p.id} value={p.id} disabled={p.id === newestId}>
+            <option
+              key={p.id}
+              value={p.id}
+              // #308 — offered only when something is strictly later than it.
+              // Subsumes "the newest is never a before" (#435 rule 3) and also
+              // rules out a second photo taken on that same newest day.
+              disabled={newestStrictlyAfter(p, angled, timezone) === undefined}
+            >
               {photoDisplayDate(p, timezone, locale)}
             </option>
           ))}
@@ -274,6 +306,42 @@ function photoYMD(photo: ProgressPhotoRow, timezone: string): CivilYMD | null {
   const date = new Date(source);
   if (Number.isNaN(date.getTime())) return null;
   return parseCivilYMD(civilDateFormat(date, timezone));
+}
+
+/**
+ * The NEWEST photo strictly later than `photo`, or undefined when there is
+ * none — which is what makes `photo` unusable as a "before" (issue #308).
+ *
+ * `candidates` is newest→oldest, so the first match is the newest one. A photo
+ * with no resolvable date can neither be the anchor nor a match: undated rows
+ * simply do not participate in a comparison.
+ */
+function newestStrictlyAfter(
+  photo: ProgressPhotoRow | undefined,
+  candidates: ProgressPhotoRow[],
+  timezone: string,
+): ProgressPhotoRow | undefined {
+  const ymd = photo ? photoYMD(photo, timezone) : null;
+  if (!ymd) return undefined;
+  return candidates.find((p) => elapsedFromBefore(ymd, p, timezone) != null);
+}
+
+/**
+ * The NEWEST photo strictly earlier than `photo` — the correct default
+ * "before" for a given "after" (issue #308). Undefined when nothing precedes
+ * it, e.g. the client only ever uploaded photos on one day.
+ */
+function newestStrictlyBefore(
+  photo: ProgressPhotoRow | undefined,
+  candidates: ProgressPhotoRow[],
+  timezone: string,
+): ProgressPhotoRow | undefined {
+  const afterYMD = photo ? photoYMD(photo, timezone) : null;
+  if (!afterYMD) return undefined;
+  return candidates.find((candidate) => {
+    const ymd = photoYMD(candidate, timezone);
+    return ymd ? photoCompareElapsed(ymd, afterYMD) != null : false;
+  });
 }
 
 /** Elapsed span from the selected "before" YMD to a candidate "after" photo,

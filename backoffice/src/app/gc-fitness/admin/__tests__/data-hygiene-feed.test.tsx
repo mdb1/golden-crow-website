@@ -74,8 +74,8 @@ function page(overrides: Partial<DataHygienePage> = {}): DataHygienePage {
 }
 
 function renderFeed(initial: DataHygienePage, loadError: string | null = null) {
-  render(<DataHygieneFeed initialPage={initial} loadError={loadError} />);
-  return { user: userEvent.setup() };
+  const view = render(<DataHygieneFeed initialPage={initial} loadError={loadError} />);
+  return { ...view, user: userEvent.setup() };
 }
 
 /** Every hidden input of the row form, as a plain object. */
@@ -175,6 +175,19 @@ describe("DataHygieneFeed — the confirm gate", () => {
 });
 
 describe("DataHygieneFeed — the summary and the list", () => {
+  it("draws a chat with a MESSAGE icon, not a trash can (#310)", () => {
+    // The badge used to render `Trash2` for `chat` — a trash can on the one
+    // screen whose only action is "Delete from DB" reads as "already deleted",
+    // or as the delete control itself.
+    const { container } = renderFeed(
+      page({ rows: [row({ kind: "chat", id: "chat-1" })], hasMore: false }),
+    );
+
+    expect(container.querySelector(".lucide-message-square")).not.toBeNull();
+    expect(container.querySelector(".lucide-trash-2")).toBeNull();
+  });
+
+
   it("folds the four workout kinds into one number", () => {
     // template + assignment + log + exercise. A missing addend understates the
     // backlog and the operator stops paging.

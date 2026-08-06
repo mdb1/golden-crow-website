@@ -75,16 +75,18 @@ export function RecurrencePill({ rec, t }: { rec: HabitRecurrence; t: TFn }) {
   );
 }
 
-// Amber "client changed reminder" note — twin of the workout treatment shipped
-// in PR #152 (ClientDailyTimeline reminderNoteFor). Mirrors that component's
-// inline-Spanish copy (NO i18n keys) so both surfaces read identically.
+// Amber "client changed reminder" note — the workout twin of this treatment
+// shipped in PR #152 as `ClientDailyTimeline.reminderNoteFor`, a component
+// deleted in #309 (nothing had mounted it since 2026-05-28). THIS is now the
+// only live copy of that inline-Spanish wording (NO i18n keys).
 const CLIENT_EDIT_BADGE =
   "gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300";
 
 /**
  * Coach-facing label for a CLIENT-edited habit reminder. Only rendered when
  * `reminderEditedAt` is present (the client stamped reminderUpdatedAt from the
- * app). Same wording as the workout note in ClientDailyTimeline.reminderNoteFor.
+ * app). Wording inherited from the workout note that used to live in
+ * ClientDailyTimeline.reminderNoteFor (deleted in #309).
  */
 export function habitReminderEditNote({
   reminderEnabled,

@@ -2,8 +2,9 @@
 
 // workout-assignment-delete-dialog.tsx
 //
-// 260522-ki7 Task D — SHARED delete dialog used by both the Schedule grid
-// (week-grid.tsx) and the Daily client view (ClientDailyTimeline.tsx).
+// 260522-ki7 Task D — SHARED delete dialog. Originally used by the Schedule
+// grid (week-grid.tsx) and the Daily client view (ClientDailyTimeline.tsx);
+// the latter was deleted in #309.
 //
 // Recurring-aware: when the assignment carries a `seriesId`, the dialog
 // shows a radio choice between "Only this occurrence" (single-doc delete)

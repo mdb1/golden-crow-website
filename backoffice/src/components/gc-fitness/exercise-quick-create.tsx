@@ -142,6 +142,10 @@ export function QuickCreateExercise({
   async function onCreate() {
     const trimmedName = name.trim();
     const trimmedDescription = description.trim();
+    // #307 — unreachable while the CTA is disabled: the create button is
+    // `disabled={creating || requiredMissing || isDuplicate}` with
+    // `requiredMissing = name.trim().length === 0`, so nobody ever sees this
+    // message. The visible guard is the disabled CTA.
     if (!trimmedName) {
       setError("Name is required.");
       return;

@@ -9,7 +9,7 @@ import {
   Camera,
   Dumbbell,
   ImageOff,
-  Trash2,
+  MessageSquare,
   UserRoundX,
 } from "lucide-react";
 
@@ -39,7 +39,7 @@ const KIND_LABEL: Record<DataHygieneKind, string> = {
 
 const KIND_ICON: Record<DataHygieneKind, ComponentType<{ className?: string }>> = {
   user: UserRoundX,
-  chat: MessageIcon,
+  chat: MessageSquare,
   photo: Camera,
   template: Dumbbell,
   assignment: Calendar,
@@ -207,8 +207,4 @@ function DataHygieneRowCard({ row }: { row: DataHygieneRow }) {
       </form>
     </article>
   );
-}
-
-function MessageIcon({ className }: { className?: string }) {
-  return <Trash2 className={className} />;
 }

@@ -23,7 +23,10 @@
 //
 //   1. "after" must be STRICTLY LATER than "before" — same civil day included,
 //      because two photos from one check-in have nothing to show.
-//   3. the NEWEST photo can never be the "before".
+//   3. the NEWEST photo can never be the "before". Since #308 this is the
+//      SYMMETRIC form of rule 1 — a photo is offered as "before" only when
+//      something is strictly later than it — which also rules out a same-day
+//      sibling of the newest, and an undated photo.
 //   4. the OLDEST photo can never be the "after".
 //
 // Plus the one piece of state that moves on its own: picking a "before" that
@@ -130,6 +133,8 @@ describe("ProgressPhotoCompareEditor — which photos the pickers offer", () => 
   });
 
   it("refuses the NEWEST photo as 'before' (#435 rule 3)", () => {
+    // Falls out of the symmetric rule (#308): nothing is strictly later than
+    // the newest photo, so it is never offered.
     renderEditor(THREE);
 
     expect(optionFor("before", "jun")).toBeDisabled();
@@ -146,35 +151,54 @@ describe("ProgressPhotoCompareEditor — which photos the pickers offer", () => 
   it("refuses an 'after' that is not STRICTLY later than the before (#435 rule 1)", async () => {
     // Same civil day: two photos from one check-in have nothing to show, so
     // `photoCompareElapsed` returns null and the option must not be pickable.
-    const sameDay = photo({ id: "jun-2", checkInDate: "2026-06-01" });
-    const { user } = renderEditor([NEWEST, sameDay, MIDDLE, OLDEST]);
+    // Neither must anything EARLIER than the before.
+    const april = photo({ id: "apr", checkInDate: "2026-04-01" });
+    const maySame = photo({ id: "may-2", checkInDate: "2026-05-01" });
+    const { user } = renderEditor([NEWEST, MIDDLE, maySame, april, OLDEST]);
 
-    await user.selectOptions(selectNamed("before"), "jun-2");
+    await user.selectOptions(selectNamed("before"), "may");
 
-    expect(optionFor("after", "jun")).toBeDisabled(); // same civil day
-    expect(optionFor("after", "may")).toBeDisabled(); // earlier
+    expect(optionFor("after", "jun")).toBeEnabled(); // strictly later
+    expect(optionFor("after", "may-2")).toBeDisabled(); // same civil day
+    expect(optionFor("after", "apr")).toBeDisabled(); // earlier
     expect(optionFor("after", "mar")).toBeDisabled(); // earlier AND oldest
   });
 
-  it("DEAD END when the two most recent photos share a check-in day", async () => {
-    // Found writing this file, and it is a live defect, not a harness artifact.
-    // The default pair is positional (`angled[1]` vs `angled[0]`) with NO date
-    // check, so a client who uploaded two front photos on one day opens the
-    // comparator on a pair that rule 1 itself forbids — and cannot get out of
-    // it: every option in the after picker is disabled, and re-picking the
-    // before snaps the after back to that same newest photo.
-    //
-    // This test pins the CURRENT (broken) behaviour so the fix has something
-    // to flip. See the issue linked from #306.
+  it("skips a same-day sibling when seeding the default 'before' (#308)", async () => {
+    // REGRESSION. The default pair used to be positional (`angled[1]` vs
+    // `angled[0]`), so a client who uploaded two front photos on one day landed
+    // on a same-day pair — which rule 1 forbids — with no way out: every option
+    // in the after picker was disabled, and re-picking the before snapped the
+    // after back to that same newest photo.
     const sameDay = photo({ id: "jun-2", checkInDate: "2026-06-01" });
     renderEditor([NEWEST, sameDay, MIDDLE, OLDEST]);
 
-    expect(selectedIds()).toEqual({ before: "jun-2", after: "jun" });
-    // …a same-day pair, which is exactly what rule 1 exists to prevent.
-    const afterOptions = Array.from(
-      selectNamed("after").querySelectorAll("option[value]:not([value=''])"),
-    );
-    expect(afterOptions.every((o) => (o as HTMLOptionElement).disabled)).toBe(true);
+    expect(selectedIds()).toEqual({ before: "may", after: "jun" });
+  });
+
+  it("refuses a same-day sibling of the newest as a 'before' (#308)", async () => {
+    // Symmetric to rule 1: a photo is only offered as "before" when something
+    // is strictly later than it. `jun-2` shares its day with the newest, so
+    // nothing is — picking it could only ever produce an invalid pair.
+    const sameDay = photo({ id: "jun-2", checkInDate: "2026-06-01" });
+    renderEditor([NEWEST, sameDay, MIDDLE, OLDEST]);
+
+    expect(optionFor("before", "jun")).toBeDisabled();
+    expect(optionFor("before", "jun-2")).toBeDisabled();
+    expect(optionFor("before", "may")).toBeEnabled();
+  });
+
+  it("refuses an UNDATED photo as a 'before' (#308)", async () => {
+    // Nothing can be "strictly later" than a photo with no resolvable date, so
+    // selecting it disabled the whole after picker — the same dead end.
+    renderEditor([
+      NEWEST,
+      photo({ id: "undated", checkInDate: null, takenAt: null, createdAt: null }),
+      MIDDLE,
+      OLDEST,
+    ]);
+
+    expect(optionFor("before", "undated")).toBeDisabled();
   });
 
   it("leaves out photos of another angle", () => {
@@ -257,6 +281,21 @@ describe("ProgressPhotoCompareEditor — switching angle", () => {
     await user.selectOptions(selectNamed("angle"), "back");
 
     expect(selectedIds()).toEqual({ before: "back-mar", after: "back-jun" });
+  });
+
+  it("applies the same date-first rule when switching angle (#308)", async () => {
+    // `defaultsForAngle` is a SECOND copy of the seeding rule; fixing only the
+    // initial one leaves the dead end one dropdown away.
+    const back = [
+      photo({ id: "back-jun-a", angle: "back", checkInDate: "2026-06-10" }),
+      photo({ id: "back-jun-b", angle: "back", checkInDate: "2026-06-10" }),
+      photo({ id: "back-mar", angle: "back", checkInDate: "2026-03-10" }),
+    ];
+    const { user } = renderEditor([NEWEST, ...back, MIDDLE]);
+
+    await user.selectOptions(selectNamed("angle"), "back");
+
+    expect(selectedIds()).toEqual({ before: "back-mar", after: "back-jun-a" });
   });
 
   it("falls back to the single photo for BOTH halves when the angle has only one", async () => {

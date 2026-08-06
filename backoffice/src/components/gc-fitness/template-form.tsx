@@ -1010,9 +1010,19 @@ export function TemplateForm({
               ...(alignedDurations
                 ? { durationBySetSeconds: alignedDurations }
                 : {}),
-              ...(ex.supersetGroup?.trim()
-                ? { supersetGroup: ex.supersetGroup.trim() }
-                : {}),
+              // #307 — `supersetGroup` rides along in `...ex` and STAYS as
+              // whatever the form holds, `""` included. There used to be a
+              // conditional spread here that read like an omission and was
+              // not one: a spread can only ADD a key, and `...ex` had already
+              // put it there (contrast `setTypesBySet` below, which omits for
+              // real with `delete`). Its `.trim()` was equally inert — `values`
+              // is post-Zod and the schema trims this field.
+              //
+              // The blank stays a blank ON PURPOSE, not by accident: `""` is a
+              // legal Firestore value (only `undefined` throws) and all three
+              // readers go through `normalizeSupersetGroup` + truthiness, so an
+              // empty label is "no group" on every surface. Pinned by
+              // template-form-save.test.tsx → "emits '' for a blank group".
               order: idx + 1,
             };
             if (hasNonNormalTypes) {
@@ -1084,12 +1094,12 @@ export function TemplateForm({
     [fields, form],
   );
   const canContinueToDetails = fields.length > 0 && !hasUnselectedExercises;
-  // canSubmit retained as a derived hint (used by Continue button etc.), but
-  // the SUBMIT BUTTON itself is no longer gated by this — gating silently
-  // swallowed clicks and left the trainer wondering what was wrong. We let
-  // the click through, run Zod, and surface errors via the inline summary
-  // below.
-  const watchedNameEn = form.watch("name.en");
+  // NOTE: the submit button is deliberately NOT gated on a derived "can I
+  // submit" flag — gating silently swallowed clicks and left the trainer
+  // wondering what was wrong. The click goes through, Zod runs, and errors
+  // surface in the inline summary below. #307 deleted the leftover `canSubmit`
+  // that computed such a flag and was read by nothing: "Continue" gates on
+  // `canContinueToDetails`, submit gates on `pending` alone.
 
   // Aggregate every distinct tag across the trainer's existing templates so
   // the picker below can surface them as one-click suggestions. The hook
@@ -1111,12 +1121,6 @@ export function TemplateForm({
     }
     return Array.from(out);
   }, [tagSourceTemplates]);
-  const canSubmit =
-    !pending &&
-    step === 2 &&
-    canContinueToDetails &&
-    (watchedNameEn ?? "").trim().length > 0;
-
   // Flatten RHF errors into a human-readable list shown near the submit
   // button after a failed submit attempt.
   const submitErrorMessages = useMemo(() => {
