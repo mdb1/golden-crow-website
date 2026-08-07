@@ -32,6 +32,15 @@ const copy = {
     appStoreNote: 'iPhone y Apple Watch',
     playStoreNote: 'Android',
     storeGridLabel: 'Opciones de descarga de GC Fitness',
+    // #782 — el cartel del navegador in-app. Ver el <script> al pie: desde el
+    // navegador de Instagram (o Facebook, TikTok…) iOS NO abre la App Store, y
+    // no hay forma de forzarlo desde la página. Lo único que resuelve es que la
+    // persona salga a Safari, así que se lo pedimos explícitamente.
+    inAppTitle: 'Estás en el navegador de otra app',
+    inAppBody:
+      'Desde acá iOS no puede abrir la App Store. Tocá los ⋯ arriba a la derecha y elegí “Abrir en el navegador”.',
+    inAppCopy: 'Copiar link',
+    inAppCopied: '¡Link copiado!',
     legal: 'Privacidad',
     legalHref: '/gc-fitness/privacy',
     terms: 'Términos de uso',
@@ -57,6 +66,12 @@ const copy = {
     appStoreNote: 'iPhone and Apple Watch',
     playStoreNote: 'Android',
     storeGridLabel: 'GC Fitness download options',
+    // #782 — see the Spanish twin above and the <script> at the bottom.
+    inAppTitle: "You're in another app's browser",
+    inAppBody:
+      'iOS can\'t open the App Store from here. Tap the ⋯ at the top right and choose "Open in browser".',
+    inAppCopy: 'Copy link',
+    inAppCopied: 'Link copied!',
     legal: 'Privacy',
     legalHref: '/en/gc-fitness/privacy',
     terms: 'Terms of Use',
@@ -85,6 +100,29 @@ const copy = {
           <ul class="gcf-chips">
             {copy.chips.map((chip) => <li>{chip}</li>)}
           </ul>
+
+          <!--
+            #782 — se sirve SIEMPRE en el HTML y el script lo revela sólo si detecta
+            un navegador in-app. Al revés (crearlo desde JS) el texto no existiría
+            para nadie más, y esto es contenido, no decoración.
+
+            `hidden` sale con el atributo, no con una clase: si el JS no corre, el
+            cartel queda oculto — que es el estado correcto para la enorme mayoría,
+            que no está en un web view.
+          -->
+          <aside class="gcf-inapp-note" id="gcf-inapp-note" hidden>
+            <p class="gcf-inapp-title">{copy.inAppTitle}</p>
+            <p class="gcf-inapp-body">{copy.inAppBody}</p>
+            <button
+              type="button"
+              class="gcf-inapp-copy"
+              id="gcf-inapp-copy"
+              data-label={copy.inAppCopy}
+              data-copied={copy.inAppCopied}
+            >
+              {copy.inAppCopy}
+            </button>
+          </aside>
 
           <div class="gcf-store-grid" aria-label={copy.storeGridLabel}>
             <!--
@@ -173,58 +211,125 @@ const copy = {
 </BaseLayout>
 
 <!--
-  #782 — el hand-off a la tienda desde un NAVEGADOR IN-APP (Instagram, Facebook, TikTok…).
+  #782 — el hand-off a la tienda, y por qué desde un navegador IN-APP no hay hand-off posible.
 
-  Reporte: "desde Instagram toco el link de /download, me abre la página dentro de un web view
-  … el botón de Apple no hace nada, a menos que le dé force touch + open link. El de Android
-  me lleva al PlayStore en la web."
+  DOS PREMISAS DE LA VUELTA ANTERIOR ERAN FALSAS. Quedan escritas porque las dos son fáciles
+  de volver a deducir mal, y cada una costó un intento de arreglo:
 
-  Las dos mitades son el mismo hecho: un web view in-app es un WKWebView / WebView y una
-  navegación a `https://apps.apple.com/…` ahí adentro es una carga de página común — quién la
-  manda a la App Store es la app anfitriona, e Instagram no lo hace. El "force touch → Open
-  Link" del reporte lo confirma: eso SALE del web view hacia Safari, que sí hace el hand-off.
-  Del lado de Android no hay ambigüedad ninguna: la URL `https` de Play renderiza la web de
-  Play adentro del web view, que es exactamente lo que se ve.
+  1. «La URL `/ar/app/…` es 200 directo; el 301 de la corta es lo que rompe el hand-off.»
+     FALSO. En iOS TODA URL de apps.apple.com contesta 301 hacia un esquema de app. Verificado
+     con user agent de iPhone:
 
-  El esquema propio no tiene esa ambigüedad: el web view NO PUEDE cargarlo, así que se lo pasa
-  al sistema operativo, que abre la app de la tienda.
+         GET https://apps.apple.com/ar/app/gc-fitness/id6771836254
+         → HTTP/2 301
+            location: itms-appss://apps.apple.com/ar/app/gc-fitness/id6771836254
 
-  Por qué se hace acá y no en el HTML: `itms-apps://` / `market://` no significan nada en
-  desktop (y un crawler tampoco sabe qué hacer con ellos), así que el markup se sirve siempre
-  con la URL `https` canónica y esto la reemplaza SÓLO en la plataforma que corresponde. Sigue
-  siendo un `<a href>` común: la navegación que abre la tienda ES el gesto del usuario, no un
-  `window.open` ni un timer — que es justo lo que un navegador descarta.
+     No hay ningún 200 que conseguir en iOS: ese 301 hacia el esquema ES el mecanismo de
+     hand-off de Apple, no el problema. Cambiar de URL no podía arreglar nada.
+
+  2. «El web view NO PUEDE cargar el esquema, así que se lo pasa al sistema operativo.»
+     FALSO, y es la razón de que el botón siga muerto. Un WKWebView NO deriva al SO los
+     esquemas que no entiende: la app anfitriona tiene que implementar `decidePolicyFor` y
+     llamar a `UIApplication.open()`. Si Instagram no lo hace, la navegación se cancela EN
+     SILENCIO. Pasar de `https://` a `itms-apps://` movió el fallo de lugar sin resolverlo.
+
+  Juntas explican el síntoma exacto del reporte, incluido el de antes del primer arreglo: en
+  iOS la URL `https` NUNCA renderiza la web de la tienda — siempre 301 al esquema — así que
+  dentro de un web view no existe NINGUNA URL que muestre la App Store. De ahí el "no hace
+  nada", y de ahí que "force touch + open link" sí funcione: eso sale a Safari.
+
+  CONCLUSIÓN: desde adentro de un navegador in-app de iOS no se puede forzar la App Store. No
+  es un bug a arreglar, es una restricción de la plataforma. Lo único que resuelve es que la
+  persona salga a Safari — así que se lo pedimos, en vez de dejar un botón que no puede
+  cumplir. Esa es toda la diferencia de este arreglo: no depende de que el web view coopere.
+
+  El swap de esquema se conserva, pero SÓLO fuera de un navegador in-app, donde sí sirve
+  (ahorra el 301 en Safari). Adentro se deja la URL `https`, y en Android eso importa: con
+  `market://` un web view que lo descarta deja un botón muerto, mientras que la URL `https`
+  al menos renderiza la web de Play — que es lo que el reporte describía como comportamiento
+  de Android, y es un final mucho mejor que nada.
 -->
 <script is:inline define:vars={{ APP_STORE_APP_URL, PLAY_STORE_APP_URL }}>
   (() => {
     const ua = navigator.userAgent || '';
     // iPadOS 13+ miente y dice "Macintosh"; el touch es lo que lo delata.
+    //
+    // Se mira `maxTouchPoints` y NO `typeof document.ontouchend`, que es lo que había antes:
+    // ese handler existe en entornos sin touch ninguno (jsdom lo define, y un navegador de
+    // escritorio puede exponerlo), así que daba iPad por cualquier Mac. `maxTouchPoints` es 0
+    // en un Mac de escritorio y 5 en un iPad — sin ambigüedad.
     const isIOS =
       /iPhone|iPad|iPod/i.test(ua) ||
-      (/Macintosh/i.test(ua) && typeof document.ontouchend !== 'undefined');
+      (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1);
     const isAndroid = /Android/i.test(ua);
     if (!isIOS && !isAndroid) return;
 
-    const platform = isIOS ? 'ios' : 'android';
-    const appURL = isIOS ? APP_STORE_APP_URL : PLAY_STORE_APP_URL;
-    const card = document.querySelector(`.gcf-store-card[data-store="${platform}"]`);
-    if (!card) return;
+    // Las apps que traen navegador propio se declaran en el user agent. La lista explícita
+    // es la que manda: es la que no tiene falsos positivos.
+    const namedInApp =
+      /Instagram|FBAN|FBAV|FB_IAB|FBIOS|Messenger|Twitter|TikTok|musical_ly|BytedanceWebview|LinkedInApp|Snapchat|Pinterest|WhatsApp|Line\//i.test(
+        ua,
+      );
 
-    // La URL `https` queda guardada como red de contención: si el sistema no toma el esquema
-    // (un web view que los bloquea del todo), la página sigue visible y la web de la tienda
-    // es un final mucho mejor que un botón muerto. El guard de visibilidad es lo que evita
-    // que esto se dispare cuando la tienda SÍ abrió — misma forma que
-    // `PocketGenesAppLinkRedirect.astro`.
-    const webURL = card.getAttribute('href');
-    card.setAttribute('href', appURL);
-    card.addEventListener('click', () => {
-      if (!webURL) return;
-      window.setTimeout(() => {
-        if (document.visibilityState === 'visible') {
-          window.location.assign(webURL);
-        }
-      }, 1200);
-    });
+    // Red de contención para web views que no se nombran. Un WKWebView no pone el token
+    // `Safari/`; los navegadores de verdad en iOS sí (Chrome=CriOS, Firefox=FxiOS,
+    // Edge=EdgiOS, y todos ellos lo incluyen). Sólo aplica a iOS: en Android el token
+    // `Safari` aparece hasta en los WebView, así que ahí no distingue nada.
+    const unnamedIOSWebView = isIOS && !/Safari\//i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
+
+    const isInAppBrowser = namedInApp || unnamedIOSWebView;
+
+    const platform = isIOS ? 'ios' : 'android';
+    const card = document.querySelector(`.gcf-store-card[data-store="${platform}"]`);
+
+    if (isInAppBrowser) {
+      // Nada de esquemas acá: el web view los descarta en silencio y el botón queda muerto.
+      // Se deja la URL `https` (en Android muestra la web de Play; en iOS no puede mostrar
+      // nada, pero tampoco empeora) y se revela la única salida que sí existe.
+      const note = document.getElementById('gcf-inapp-note');
+      if (note) note.hidden = false;
+
+      const copyButton = document.getElementById('gcf-inapp-copy');
+      if (copyButton) {
+        copyButton.addEventListener('click', async () => {
+          const link = window.location.href;
+          try {
+            await navigator.clipboard.writeText(link);
+          } catch {
+            // `navigator.clipboard` no está en todos los web views. El textarea fuera de
+            // pantalla + execCommand es feo, pero es el camino que sí funciona ahí.
+            const scratch = document.createElement('textarea');
+            scratch.value = link;
+            scratch.setAttribute('readonly', '');
+            scratch.style.position = 'absolute';
+            scratch.style.left = '-9999px';
+            document.body.appendChild(scratch);
+            scratch.select();
+            try {
+              document.execCommand('copy');
+            } catch {
+              return; // Sin portapapeles no hay nada que hacer; el texto del cartel alcanza.
+            } finally {
+              document.body.removeChild(scratch);
+            }
+          }
+          copyButton.textContent = copyButton.dataset.copied || copyButton.textContent;
+          window.setTimeout(() => {
+            copyButton.textContent = copyButton.dataset.label || copyButton.textContent;
+          }, 2400);
+        });
+      }
+      return;
+    }
+
+    // Fuera de un web view el esquema sí llega al SO, y ahorra el 301. Sigue siendo un
+    // `<a href>` común: la navegación que abre la tienda ES el gesto del usuario, no un
+    // `window.open` ni un timer — que es justo lo que un navegador descarta.
+    //
+    // Sin red de contención por timer, a propósito: en iOS la URL `https` de respaldo vuelve
+    // a hacer 301 al MISMO esquema que acaba de fallar, así que no rescataba nada.
+    if (!card) return;
+    card.setAttribute('href', isIOS ? APP_STORE_APP_URL : PLAY_STORE_APP_URL);
   })();
 </script>
 
@@ -330,6 +435,47 @@ const copy = {
     line-height: 1.2;
   }
 
+  /* #782 — el cartel del navegador in-app. Se apoya en los mismos tokens que las
+     tarjetas para que no se lea como un error del sitio, pero con el borde ámbar
+     lleno para que se note que es una instrucción y no decoración. */
+  .gcf-inapp-note {
+    margin-top: clamp(1.4rem, 3vw, 1.9rem);
+    border: 1px solid rgba(169, 118, 26, 0.45);
+    border-left-width: 4px;
+    border-radius: 8px;
+    background: rgba(255, 250, 238, 0.94);
+    padding: clamp(0.9rem, 2.6vw, 1.15rem);
+    box-shadow: 0 18px 44px rgba(51, 36, 8, 0.1);
+  }
+  .gcf-inapp-title {
+    margin: 0;
+    color: var(--gcf-ink);
+    font-size: 0.98rem;
+    font-weight: 800;
+    line-height: 1.3;
+  }
+  .gcf-inapp-body {
+    margin: 6px 0 0;
+    color: var(--gcf-muted);
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+  .gcf-inapp-copy {
+    margin-top: 12px;
+    border: 1px solid rgba(169, 118, 26, 0.4);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 9px 18px;
+    color: var(--gcf-ink);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1.2;
+    /* Cómodo para el pulgar: es el único control de la página que se toca desde
+       un web view, y ahí el layout suele venir apretado. */
+    min-height: 44px;
+    cursor: pointer;
+  }
   .gcf-store-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
