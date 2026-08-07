@@ -33,7 +33,23 @@ export type RecentLogCategory =
   | "photo"
   | "weight"
   | "signup"
-  | "profile";
+  | "profile"
+  /**
+   * #785 — the athlete put a workout on their OWN calendar (#392
+   * `selfAssigned`, `trainerId === clientId`).
+   *
+   * Reported against a coach-less user whose profile showed two rows — a body
+   * weight and the first sign-in — while the admin timeline showed him
+   * self-assigning three workouts the same day. Everything they schedule for
+   * themselves was invisible on the one page that is supposed to say what they
+   * do, because the feed only ever spoke about workouts once they were
+   * FINISHED.
+   *
+   * Deliberately self-assignments only: a coach's own assignments are not news
+   * to the coach reading the feed, and adding them would bury the rows that
+   * are.
+   */
+  | "assignment";
 
 export interface RecentLogRow {
   id: string;
@@ -515,7 +531,7 @@ async function buildRecentLogs(params: {
     // 260611-t1y: reminder rows are ALSO derived from these same assignment docs
     // (in-memory, no extra query/index), so fetch them when EITHER category is
     // wanted.
-    const assignSnapsP = want("reschedule") || want("reminder")
+    const assignSnapsP = want("reschedule") || want("reminder") || want("assignment")
       ? Promise.all(
           clients.map((c) => {
             let q: FirebaseFirestore.Query = db
@@ -1138,6 +1154,59 @@ async function buildRecentLogs(params: {
       clientPhotoURL: photoByClientId.get(clientId) ?? null,
       title: `${nameByClientId.get(clientId) ?? clientId} movió ${templateName} de ${fromLabel} a ${toLabel}`,
       detail: `Originalmente ${fromLabel} → ${toLabel}`,
+      workoutLogId: null,
+    });
+  });
+
+  // #785 — the athlete scheduled a workout for themselves.
+  //
+  // Derived from the SAME `trainerAssignmentsSnap` the two passes around it use
+  // — no extra query, no new index. The gate is the #392 shape
+  // (`trainerId === clientId`), not the `selfAssigned` flag, so pre-flag docs
+  // still qualify; a coach's own assignments are excluded on purpose (see the
+  // `"assignment"` category doc).
+  if (wantCategory("assignment")) trainerAssignmentsSnap.docs.forEach((doc) => {
+    const data = doc.data();
+    const clientId = typeof data.clientId === "string" ? data.clientId : "";
+    if (!clientId || !nameByClientId.has(clientId)) return;
+    if (data.trainerId !== clientId) return;
+    // `createdAt` is when they scheduled it — NOT `updatedAt`, which every
+    // later write to the doc (the move, the finish, the prescription
+    // write-back) would bump, walking a two-week-old plan back to the top of
+    // the feed each time it is touched.
+    const eventAt = asIso(data.createdAt) ?? asIso(data.updatedAt);
+    if (!eventAt) return;
+    const scheduledFor =
+      typeof data.scheduledFor === "string" ? data.scheduledFor : "";
+    const templateName = localizedText(
+      (data.templateSnapshot as { name?: unknown } | undefined)?.name,
+      "Entrenamiento",
+    );
+    const plannedExercises = Array.isArray(
+      (data.templateSnapshot as { exercises?: unknown } | undefined)?.exercises,
+    )
+      ? ((data.templateSnapshot as { exercises: unknown[] }).exercises.length)
+      : 0;
+    const name = nameByClientId.get(clientId) ?? clientId;
+    rows.push({
+      id: `assignment:${doc.id}`,
+      category: "assignment",
+      eventAt,
+      clientId,
+      clientName: name,
+      clientPhotoURL: photoByClientId.get(clientId) ?? null,
+      title: `${name} se asignó ${templateName}`,
+      // The date is the point of a scheduled workout, and "Entreno libre" says
+      // nothing on its own — so an empty routine says so rather than pretending
+      // to be a plan (#541, same reason the calendar chip carries a summary).
+      detail: [
+        scheduledFor ? `Para ${formatCivilDateEsAr(scheduledFor)}` : null,
+        plannedExercises > 0
+          ? `${plannedExercises} ejercicio${plannedExercises === 1 ? "" : "s"}`
+          : "Entreno libre (lo arma mientras entrena)",
+      ]
+        .filter(Boolean)
+        .join(" · "),
       workoutLogId: null,
     });
   });

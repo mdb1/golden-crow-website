@@ -85,6 +85,31 @@ export function assignmentTemplateId(entry: RawAuditLogEntry): string | null {
   return null;
 }
 
+/**
+ * #785 — a write that MOVES one workout to another day, which must never
+ * collapse with a sibling.
+ *
+ * The grouping key below discriminates routines by `templateId`, and the doc
+ * comment on `assignmentTemplateId` explains why that field is only reliably
+ * present on a create or a delete: on an update the capture snapshots the
+ * CHANGED keys, and a move changes `scheduledFor`, not `templateId`. So every
+ * move fell back to the client-wide root (`asg-<clientUid>`) and any two moves
+ * by the same actor in the same minute merged into ONE row — which then shows
+ * the head's routine name and the head's date pair, and silently drops the rest.
+ *
+ * That is the literal report in #785: a coach moved several workouts and the
+ * timeline showed one movement. It is also #697's bug, reappearing through the
+ * one branch its `templateId` fix cannot reach.
+ *
+ * A move is therefore always its own row. The collapse exists for a single edit
+ * that re-writes a whole series, and a move is not that: `moveAssignment` writes
+ * each occurrence it moves with its own before/after dates, and those dates are
+ * exactly what the operator is looking at.
+ */
+function isDayMove(entry: RawAuditLogEntry): boolean {
+  return entry.op === "update" && entry.changedFields.includes("scheduledFor");
+}
+
 /** "20270503" → "2027-05-03". */
 export function fmtYmd(yyyymmdd: string): string {
   return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
@@ -116,7 +141,9 @@ export function groupRecurringAuditEntries<T extends RawAuditLogEntry>(
 
   for (const r of raw) {
     const series =
-      r.collection === "workout_assignments" ? recurringSeries(r.docId) : null;
+      r.collection === "workout_assignments" && !isDayMove(r)
+        ? recurringSeries(r.docId)
+        : null;
     const key = series
       ? `rec|${r.collection}|${r.op}|${r.actorUid ?? ""}|${r.trainerId ?? ""}|${
           r.clientId ?? ""

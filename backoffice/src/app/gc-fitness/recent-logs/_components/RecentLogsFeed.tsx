@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
+  CalendarPlus,
   ArrowRightLeft,
   Bell,
   CalendarClock,
@@ -60,6 +61,7 @@ const CATEGORY_ICON: Record<
   habit: ListChecks,
   workout: Dumbbell,
   reschedule: ArrowRightLeft,
+  assignment: CalendarPlus,
   reminder: Bell,
   photo: Camera,
   weight: Scale,
@@ -70,6 +72,7 @@ const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
   habit: "badgeHabit",
   workout: "badgeWorkout",
   reschedule: "badgeReschedule",
+  assignment: "badgeAssignment",
   reminder: "badgeReminder",
   photo: "badgePhoto",
   weight: "badgeWeight",

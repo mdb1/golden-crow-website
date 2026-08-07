@@ -1328,6 +1328,8 @@ function DayCell({
                       )}
                       title={[
                         w.templateName,
+                        w.plannedExercises === 0 ? t("freeWorkoutHint") : null,
+                        workoutSummaryLabel(w.logged, t),
                         movedFromLabel,
                         w.selfAssigned ? t("clientCreatedBadge") : null,
                       ]
@@ -1337,6 +1339,11 @@ function DayCell({
                       <Dumbbell className="size-3 shrink-0 opacity-80" />
                       <span className="min-w-0 flex-1 truncate font-medium">
                         {w.templateName}
+                        {inlineWorkoutSummary(w, t) ? (
+                          <span className="font-normal opacity-70">
+                            {inlineWorkoutSummary(w, t)}
+                          </span>
+                        ) : null}
                       </span>
                       {w.selfAssigned ? <ClientOwnedBadge /> : null}
                       {movedFromLabel ? (
@@ -1468,6 +1475,8 @@ function ClientDayCell({
               )}
               title={[
                 w.templateName,
+                w.plannedExercises === 0 ? t("freeWorkoutHint") : null,
+                workoutSummaryLabel(w.logged, t),
                 movedFromLabel,
                 w.selfAssigned ? t("clientCreatedBadge") : null,
               ]
@@ -1477,6 +1486,11 @@ function ClientDayCell({
               <Dumbbell className="size-3 shrink-0 opacity-80" />
               <span className="min-w-0 flex-1 truncate font-medium">
                 {w.templateName}
+                {inlineWorkoutSummary(w, t) ? (
+                  <span className="font-normal opacity-70">
+                    {inlineWorkoutSummary(w, t)}
+                  </span>
+                ) : null}
               </span>
               {w.selfAssigned ? <ClientOwnedBadge /> : null}
               {movedFromLabel ? (
@@ -1521,6 +1535,50 @@ function ClientDayCell({
       </div>
     </td>
   );
+}
+
+/**
+ * #785 — "4 ejercicios · 12 series · 38 min", from what was actually performed.
+ *
+ * The reported gap: a coach opens a client's calendar and sees two chips that
+ * say **"Entreno libre"** and nothing else — "¿qué son esos libres?". They are
+ * workouts the athlete started empty and built while training (#541), so their
+ * NAME is a placeholder by construction and no amount of reading it will ever
+ * answer the question. What was done is in the log, which the month query
+ * already loads.
+ *
+ * Returns null when nothing was logged, so a scheduled-but-not-done chip is
+ * unchanged.
+ */
+function workoutSummaryLabel(
+  logged: MonthWorkoutChip["logged"],
+  t: ReturnType<typeof useTranslations>,
+): string | null {
+  if (!logged) return null;
+  if (logged.sets === 0) return t("loggedNothing");
+  return [
+    t("loggedExercises", { count: logged.exercises }),
+    t("loggedSets", { count: logged.sets }),
+    logged.durationMinutes !== null ? t("loggedMinutes", { count: logged.durationMinutes }) : null,
+    logged.volumeKg !== null ? t("loggedVolume", { count: logged.volumeKg }) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * The compact suffix a FREE workout's chip carries inline (the month grid has
+ * room for a few characters, not for the whole summary — that lives in the
+ * tooltip). Only free workouts get it: a named routine already says what it is,
+ * and repeating "· 4 ej" on every completed chip is noise.
+ */
+function inlineWorkoutSummary(
+  w: MonthWorkoutChip,
+  t: ReturnType<typeof useTranslations>,
+): string | null {
+  if (w.plannedExercises > 0) return null;
+  if (!w.logged || w.logged.sets === 0) return null;
+  return ` · ${t("loggedExercises", { count: w.logged.exercises })}`;
 }
 
 /**

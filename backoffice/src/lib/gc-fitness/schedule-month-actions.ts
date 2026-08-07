@@ -65,6 +65,32 @@ export interface MonthWorkoutChip {
    * Drives the calendar's "created by the client" badge and disables the
    * drag/edit affordances (the coach views but does not manage it). */
   selfAssigned: boolean;
+  /**
+   * #785 — how many exercises the assignment PLANNED. Zero means a free
+   * workout ("Entreno libre"): the athlete started with nothing and built it as
+   * they went (#541), so the name carries no information at all and the chip
+   * has to get it from what was actually performed (`logged` below).
+   */
+  plannedExercises: number;
+  /**
+   * #785 — what was actually performed, from the `workout_logs` doc this
+   * assignment produced. Null while nothing has been logged.
+   *
+   * Costs no extra read: the month query already fetches those logs to flip
+   * each chip's status, and it fetches whole documents.
+   */
+  logged: MonthWorkoutLoggedSummary | null;
+}
+
+/** #785 — the performed-workout summary a chip can show. */
+export interface MonthWorkoutLoggedSummary {
+  /** Distinct exercises with at least one logged set. */
+  exercises: number;
+  sets: number;
+  /** Whole minutes, rounded; null when the log carries no duration. */
+  durationMinutes: number | null;
+  /** Total volume in kg, rounded; null when nothing was weighted. */
+  volumeKg: number | null;
 }
 
 export interface MonthHabitChip {
@@ -134,6 +160,40 @@ function statusFromAssignment(
 
 function finiteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * #785 — summarize ONE `workout_logs` document for a calendar chip.
+ *
+ * Reads only what the doc already carries — `sets[]` plus the two totals the
+ * app writes at finalize — so it adds no reads and no name hydration. Exercise
+ * NAMES are deliberately out: they live in `exercises/{id}` and would turn a
+ * month view into dozens of point reads for a subtitle.
+ *
+ * Distinct exercises are counted by `exerciseId` alone rather than by
+ * `(exerciseId, exercise_order)`: a repeated exercise is still ONE exercise to
+ * someone reading "¿qué hizo?" from a calendar.
+ */
+export function summarizeLoggedWorkout(
+  data: Record<string, unknown>,
+): MonthWorkoutLoggedSummary {
+  const sets = Array.isArray(data.sets) ? data.sets : [];
+  const exerciseIds = new Set<string>();
+  for (const raw of sets) {
+    const id = (raw as { exerciseId?: unknown } | null)?.exerciseId;
+    if (typeof id === "string" && id.length > 0) exerciseIds.add(id);
+  }
+  const durationSeconds = finiteNumber(data.duration_seconds);
+  const volume = finiteNumber(data.total_volume_kg);
+  return {
+    exercises: exerciseIds.size,
+    sets: sets.length,
+    durationMinutes:
+      durationSeconds !== null && durationSeconds > 0
+        ? Math.max(1, Math.round(durationSeconds / 60))
+        : null,
+    volumeKg: volume !== null && volume > 0 ? Math.round(volume) : null,
+  };
 }
 
 function finiteNumberArray(value: unknown): number[] {
@@ -762,6 +822,11 @@ async function loadMonthForClients(
   // when it was never completed, just because another workout was logged that
   // day — 260528). `assignmentId` is a required, immutable field on every log.
   const logStatusByAssignment = new Map<string, MonthWorkoutChip["status"]>();
+  // #785 — the same pass builds the "what was actually done" summary, because
+  // the docs are already here. A free workout's NAME says nothing ("Entreno
+  // libre"), so this is the only thing that can answer "¿qué fue eso?" without
+  // opening it.
+  const loggedByAssignment = new Map<string, MonthWorkoutLoggedSummary>();
   for (const doc of logSnap.docs) {
     const data = doc.data() as {
       assignmentId?: string;
@@ -774,6 +839,7 @@ async function loadMonthForClients(
     // "completed" wins over "started" if both exist for the same assignment.
     if (logStatusByAssignment.get(assignmentId) === "completed") continue;
     logStatusByAssignment.set(assignmentId, status);
+    loggedByAssignment.set(assignmentId, summarizeLoggedWorkout(doc.data()));
   }
 
   const workoutsByDay: Record<string, MonthWorkoutChip[]> = {};
@@ -783,7 +849,7 @@ async function loadMonthForClients(
       clientId?: string;
       scheduledFor?: string;
       originallyScheduledFor?: string;
-      templateSnapshot?: { name?: unknown; tag?: unknown };
+      templateSnapshot?: { name?: unknown; tag?: unknown; exercises?: unknown };
       seriesId?: string | null;
       recurrence?: { kind?: string };
       status?: string;
@@ -841,6 +907,10 @@ async function loadMonthForClients(
           ? data.recurrence.kind
           : null,
       selfAssigned: isSelfAssigned,
+      plannedExercises: Array.isArray(data.templateSnapshot?.exercises)
+        ? data.templateSnapshot.exercises.length
+        : 0,
+      logged: loggedByAssignment.get(doc.id) ?? null,
     };
     (workoutsByDay[civil] ??= []).push(chip);
   }

@@ -16,6 +16,7 @@
 // action additionally refuses any target that isn't an active coach-less
 // client, so this URL can't be used to read a coached client's data.
 
+import { formatAppDevice } from "@/lib/gc-fitness/client-app-devices";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
@@ -388,6 +389,28 @@ export default async function CoachlessUserDetailPage({
                 {profile.auth ? (profile.auth.emailVerified ? "yes" : "no") : "—"}
               </Field>
               <Field label="Timezone">{profile.timezone || "—"}</Field>
+              {/* #785 — "nos falta en cada perfil, qué versión de la app están
+                  usando, y si es iOS o Android". One line per DEVICE: someone
+                  with a phone and a tablet is on two versions at once. */}
+              <Field label="App">
+                {profile.devices.length > 0 ? (
+                  <span className="flex flex-col gap-0.5">
+                    {profile.devices.map((device, index) => (
+                      <span key={`${device.platform}-${device.appVersion ?? "?"}-${index}`}>
+                        {formatAppDevice(device)}
+                        {device.registeredAtISO ? (
+                          <span className="text-muted-foreground">
+                            {" · "}
+                            {formatDateWithAge(device.registeredAtISO, nowMs, timezone)}
+                          </span>
+                        ) : null}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </Field>
               <Field label="Birth date">{profile.birthDate || "—"}</Field>
               {profile.auth?.disabled ? (
                 <Field label="Auth status">

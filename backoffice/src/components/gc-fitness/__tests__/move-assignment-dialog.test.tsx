@@ -39,6 +39,8 @@ const CHIP: MonthWorkoutChip = {
   seriesId: "series-1",
   recurrenceKind: "weekly",
   selfAssigned: false,
+  plannedExercises: 3,
+  logged: null,
 };
 
 function renderDialog() {
