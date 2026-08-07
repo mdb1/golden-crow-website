@@ -173,8 +173,13 @@ function finiteNumber(value: unknown): number | null {
  * Distinct exercises are counted by `exerciseId` alone rather than by
  * `(exerciseId, exercise_order)`: a repeated exercise is still ONE exercise to
  * someone reading "¿qué hizo?" from a calendar.
+ *
+ * NOT exported: this file carries the "use server" directive, and Next only
+ * lets such a module export async functions (Server Actions). Exporting this
+ * synchronous helper broke `next build` — and therefore the production deploy —
+ * while Jest stayed green, because Jest does not enforce the directive.
  */
-export function summarizeLoggedWorkout(
+function summarizeLoggedWorkout(
   data: Record<string, unknown>,
 ): MonthWorkoutLoggedSummary {
   const sets = Array.isArray(data.sets) ? data.sets : [];
