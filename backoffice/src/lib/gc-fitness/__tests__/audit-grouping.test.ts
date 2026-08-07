@@ -201,6 +201,72 @@ describe("groupRecurringAuditEntries — #697 different routines, same client", 
   });
 });
 
+describe("groupRecurringAuditEntries — #785 a move is always its own row", () => {
+  /**
+   * The reported bug: a coach moved several workouts and the timeline showed one
+   * movement. A move is an UPDATE of `scheduledFor`, so `templateId` is absent
+   * from the capture and #697's discriminator cannot fire — every move by the
+   * same actor in the same minute merged under the client-wide root, keeping the
+   * head's routine name and the head's dates and dropping the rest.
+   */
+  const move = (id: string, date: string, from: string, to: string) =>
+    raw({
+      id,
+      docId: `asg-uidClient-${date}-${UUID}`,
+      changedFields: ["scheduledFor", "updatedAt"],
+      changedFieldCount: 2,
+      before: { scheduledFor: from },
+      after: { scheduledFor: to },
+    });
+
+  it("keeps two workouts moved in the same minute apart", () => {
+    const groups = groupRecurringAuditEntries([
+      move("1", "20270107", "2027-01-07", "2027-01-08"),
+      move("2", "20270114", "2027-01-14", "2027-01-15"),
+    ]);
+    expect(groups).toHaveLength(2);
+    expect(groups.map((g) => g.count)).toEqual([1, 1]);
+    // Each row keeps its OWN before/after, which is the whole point.
+    expect(groups.map((g) => g.head.after?.scheduledFor)).toEqual([
+      "2027-01-08",
+      "2027-01-15",
+    ]);
+  });
+
+  it("does not change how a non-move update collapses", () => {
+    const groups = groupRecurringAuditEntries([
+      raw({ id: "1", docId: `asg-uidClient-20270107-${UUID}` }),
+      raw({ id: "2", docId: `asg-uidClient-20270114-${UUID}` }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].count).toBe(2);
+  });
+
+  it("leaves creates and deletes of a series collapsed", () => {
+    // A delete's capture snapshots every key, `scheduledFor` included — so the
+    // move test must key on the OP too, or a recurrence edit's delete batch
+    // would explode into one row per occurrence.
+    const groups = groupRecurringAuditEntries([
+      raw({
+        id: "1",
+        op: "delete",
+        docId: `asg-uidClient-20270107-${UUID}`,
+        changedFields: ["scheduledFor", "templateId", "status"],
+        before: { scheduledFor: "2027-01-07", templateId: "tpl-a" },
+      }),
+      raw({
+        id: "2",
+        op: "delete",
+        docId: `asg-uidClient-20270114-${UUID}`,
+        changedFields: ["scheduledFor", "templateId", "status"],
+        before: { scheduledFor: "2027-01-14", templateId: "tpl-a" },
+      }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].count).toBe(2);
+  });
+});
+
 describe("findRecurrenceEdits", () => {
   const deleted = (id: string, date: string, templateId: string, atISO: string) =>
     raw({
