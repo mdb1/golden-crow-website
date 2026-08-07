@@ -1591,6 +1591,12 @@
       "habits": "Habits",
       "birthdayBadge": "Birthday",
       "clientCreatedBadge": "Created by the client",
+      "loggedExercises": "{count, plural, one {# exercise} other {# exercises}}",
+      "loggedSets": "{count, plural, one {# set} other {# sets}}",
+      "loggedMinutes": "{count} min",
+      "loggedVolume": "{count} kg",
+      "loggedNothing": "no sets logged",
+      "freeWorkoutHint": "Free workout: the client built it while training",
       "pickClientsPrompt": "Pick one or more clients above to see their agenda.",
       "pickClientFirstToast": "Pick at least one client first",
       "bulkAssignHabit": "Assign habit"

@@ -42,12 +42,52 @@ function lookup(path: string): string | undefined {
   return typeof node === "string" ? node : undefined;
 }
 
+/**
+ * Minimal ICU `plural` support: `{count, plural, one {# thing} other {# things}}`.
+ *
+ * The catalog has 30 of these, and without this the stub returned the PATTERN
+ * verbatim — so any test asserting on a pluralized string was really asserting
+ * that the string is broken, and any test written against it had to hard-code
+ * the ICU source. English cardinal rules only (`one` for exactly 1, `other`
+ * otherwise), which is what the EN catalog this stub reads is written in.
+ *
+ * `=0` / `=1` exact matches are honored first, as ICU does. `#` becomes the
+ * count. Nested plurals are out of scope — the catalog has none.
+ */
+function applyPlurals(
+  template: string,
+  vars?: Record<string, string | number>,
+): string {
+  if (!vars) return template;
+  return template.replace(
+    /\{(\w+),\s*plural,\s*([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g,
+    (whole, name: string, body: string) => {
+      const raw = vars[name];
+      if (raw === undefined) return whole;
+      const count = Number(raw);
+      if (!Number.isFinite(count)) return whole;
+      const branches = new Map<string, string>();
+      const re = /(=\d+|zero|one|two|few|many|other)\s*\{([^{}]*)\}/g;
+      let match: RegExpExecArray | null;
+      while ((match = re.exec(body)) !== null) {
+        branches.set(match[1], match[2]);
+      }
+      const chosen =
+        branches.get(`=${count}`) ??
+        (count === 1 ? branches.get("one") : undefined) ??
+        branches.get("other") ??
+        "";
+      return chosen.replace(/#/g, String(count));
+    },
+  );
+}
+
 function interpolate(
   template: string,
   vars?: Record<string, string | number>,
 ): string {
   if (!vars) return template;
-  return template.replace(/\{(\w+)\}/g, (_, key) => {
+  return applyPlurals(template, vars).replace(/\{(\w+)\}/g, (_, key) => {
     const value = vars[key];
     return value === undefined ? `{${key}}` : String(value);
   });

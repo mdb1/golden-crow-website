@@ -529,6 +529,32 @@ async function resolveUsers(
  * Bounded, deduped, parallel point reads; each one fail-soft. A doc that no
  * longer exists simply resolves to nothing and the row renders without a name.
  */
+/**
+ * #785 — recover a deleted assignment's name from the workout it produced.
+ *
+ * Returns null for any other collection, and for an assignment that never
+ * produced a log (nothing was performed, so there is nothing left to read).
+ */
+async function nameFromWorkoutLogOfAssignment(
+  db: Firestore,
+  ref: FeedSubjectRef,
+): Promise<string | null> {
+  if (ref.collection !== "workout_assignments") return null;
+  const snap = await db
+    .collection(FirestoreCollections.workoutLogs)
+    .where("assignmentId", "==", ref.id)
+    .limit(1)
+    .get()
+    .catch(() => null);
+  const doc = snap?.docs[0];
+  if (!doc) return null;
+  const name = bilingualText(
+    snapshotRecord(doc.data().templateSnapshot)?.name,
+    "",
+  );
+  return name || null;
+}
+
 async function resolveEntityNames(
   db: Firestore,
   refs: FeedSubjectRef[],
@@ -556,7 +582,23 @@ async function resolveEntityNames(
         .doc(ref.id)
         .get()
         .catch(() => null);
-      if (!snap || !snap.exists) return;
+      if (!snap || !snap.exists) {
+        // #785 — "se asignó un workout · ver detalle", with no name at all.
+        //
+        // The capture elides `templateSnapshot` (512-char cap), so an
+        // assignment's name can ONLY come from hydration — and hydration reads
+        // the live doc, which is gone for any assignment that was since deleted
+        // (a cancelled ad-hoc workout cleans its own assignment up). The row
+        // then names nothing, next to sibling rows that do, which reads as the
+        // feed dropping information rather than the doc being gone.
+        //
+        // The workout it produced still knows: every `workout_logs` doc carries
+        // both the `assignmentId` FK and its own frozen `templateSnapshot`. One
+        // query, only on the path that already failed.
+        const recovered = await nameFromWorkoutLogOfAssignment(db, ref);
+        if (recovered) out.set(`${ref.collection}:${ref.id}`, recovered);
+        return;
+      }
       const d = snap.data() as Record<string, unknown>;
       // A log and an assignment both carry the workout's name inside their
       // `templateSnapshot`; a template / habit / exercise carries it top-level.

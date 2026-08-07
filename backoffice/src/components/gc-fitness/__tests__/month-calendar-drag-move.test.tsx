@@ -156,6 +156,8 @@ function chip(overrides: Partial<MonthWorkoutChip> = {}): MonthWorkoutChip {
     seriesId: null,
     recurrenceKind: null,
     selfAssigned: false,
+    plannedExercises: 3,
+    logged: null,
     ...overrides,
   };
 }
@@ -377,5 +379,74 @@ describe("MonthCalendar — #449, a client-created workout can't be dragged", ()
     // The other direction of the same guard: over-hiding it would make the
     // whole calendar unmovable and nothing would error.
     expect(chipButton("Push Day")).toHaveAttribute("draggable", "true");
+  });
+});
+
+// #785 — "¿qué son esos libres?"
+//
+// A workout the athlete started EMPTY and built while training (#541) is stored
+// with the placeholder name "Entreno libre", so a coach looking at the calendar
+// sees two identical chips and no way to tell what either of them was. The chip
+// now carries what was actually PERFORMED, which the month query already loads
+// to flip each chip's status.
+describe("MonthCalendar — a free workout says what was performed (#785)", () => {
+  const free = (over: Partial<MonthWorkoutChip> = {}) =>
+    chip({
+      templateName: "Entreno libre",
+      plannedExercises: 0,
+      status: "completed",
+      logged: { exercises: 4, sets: 12, durationMinutes: 38, volumeKg: 2400 },
+      ...over,
+    });
+
+  it("shows the exercise count inline, next to the placeholder name", () => {
+    renderCalendar([free()]);
+
+    expect(chipButton("Entreno libre")).toHaveTextContent("4 exercises");
+  });
+
+  it("puts the whole summary in the tooltip", () => {
+    renderCalendar([free()]);
+
+    expect(chipButton("Entreno libre").getAttribute("title")).toContain(
+      "4 exercises · 12 sets · 38 min · 2400 kg",
+    );
+  });
+
+  it("says so when the workout was started and nothing was logged", () => {
+    renderCalendar([
+      free({ logged: { exercises: 0, sets: 0, durationMinutes: null, volumeKg: null } }),
+    ]);
+
+    const button = chipButton("Entreno libre");
+    expect(button.getAttribute("title")).toContain("no sets logged");
+    // Nothing inline: "· 0 ejercicios" beside the name would be noise on a chip
+    // whose tooltip already says it.
+    expect(button).not.toHaveTextContent("0 exercises");
+  });
+
+  it("leaves a NAMED routine's chip alone", () => {
+    // A routine that says what it is does not need "· 4 ejercicios" glued to it;
+    // the summary is still in the tooltip for anyone who wants the detail.
+    renderCalendar([
+      chip({
+        templateName: "Push Day",
+        plannedExercises: 5,
+        status: "completed",
+        logged: { exercises: 5, sets: 15, durationMinutes: 42, volumeKg: 3100 },
+      }),
+    ]);
+
+    const button = chipButton("Push Day");
+    expect(button).not.toHaveTextContent("5 exercises");
+    expect(button.getAttribute("title")).toContain("5 exercises · 15 sets");
+  });
+
+  it("adds nothing to a chip nobody has trained yet", () => {
+    renderCalendar([free({ status: "scheduled", logged: null })]);
+
+    const button = chipButton("Entreno libre");
+    expect(button).not.toHaveTextContent("exercises");
+    expect(button.getAttribute("title")).not.toContain("sets");
   });
 });

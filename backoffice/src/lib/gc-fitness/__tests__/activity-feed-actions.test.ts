@@ -303,6 +303,56 @@ describe("assignments, habits and accounts", () => {
   });
 });
 
+// #785 — "se asignó un workout · ver detalle", with no name beside it.
+//
+// The capture elides `templateSnapshot`, so an assignment's name can only come
+// from hydration — and hydration reads the LIVE doc, which is gone for any
+// assignment that was deleted since (a cancelled ad-hoc workout cleans its own
+// up). The row then names nothing, next to sibling rows that do.
+describe("a deleted assignment still gets named (#785)", () => {
+  const selfAssign = (docId: string) =>
+    doc("a-self", {
+      collection: "workout_assignments",
+      docId,
+      op: "create",
+      changedFields: ["scheduledFor", "selfAssigned"],
+      changedFieldCount: 2,
+      after: { scheduledFor: "2026-07-27", selfAssigned: true },
+      trainerId: "solo1",
+      clientId: "solo1",
+      occurredAt: ts("2026-07-27T10:00:00.000Z"),
+    });
+
+  it("falls back to the workout it produced", async () => {
+    const gone = `asg-solo1-20260727-self-${UUID}`;
+    queryGet.audit_log = async () => ({ docs: [selfAssign(gone)] });
+    // The assignment doc is absent from `docsByCollection`, so the point read
+    // misses; the log that references it is what remembers the name.
+    queryGet.workout_logs = async () => ({
+      docs: [
+        doc("log-9", {
+          assignmentId: gone,
+          templateSnapshot: { name: { es: "RESISTANCE D", en: "RESISTANCE D" } },
+        }),
+      ],
+    });
+
+    const [event] = await listActivityFeed();
+    expect(event.title).toBe("Se asignó un workout");
+    expect(event.subject).toBe("RESISTANCE D");
+  });
+
+  it("leaves the row nameless when nothing was ever performed", async () => {
+    queryGet.audit_log = async () => ({
+      docs: [selfAssign(`asg-solo1-20260728-self-${UUID}`)],
+    });
+    queryGet.workout_logs = async () => ({ docs: [] });
+
+    const [event] = await listActivityFeed();
+    expect(event.subject).toBeNull();
+  });
+});
+
 describe("other sources", () => {
   beforeEach(() => {
     queryGet.coach_activity = async () => ({
