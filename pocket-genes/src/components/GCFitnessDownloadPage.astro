@@ -1,6 +1,11 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { APP_STORE_URL, PLAY_STORE_URL } from '../data/gcFitnessPublic';
+import {
+  APP_STORE_APP_URL,
+  APP_STORE_URL,
+  PLAY_STORE_APP_URL,
+  PLAY_STORE_URL,
+} from '../data/gcFitnessPublic';
 import { defaultLang } from '../i18n/ui';
 import type { Lang } from '../i18n/ui';
 
@@ -104,7 +109,7 @@ const copy = {
               No se pierde nada: un link de store es un destino terminal; en móvil te saca del
               sitio igual para abrir la app nativa.
             -->
-            <a class="gcf-store-card" href={APP_STORE_URL}>
+            <a class="gcf-store-card" href={APP_STORE_URL} data-store="ios">
               <span class="gcf-store-glow" aria-hidden="true"></span>
               <span class="gcf-store-kicker">{copy.kicker}</span>
               <img
@@ -121,7 +126,7 @@ const copy = {
             <!-- Misma navegación que la tarjeta de arriba, para que las dos se comporten
                  igual. En Play el handoff no se rompía (no hay app nativa que abrir desde
                  Safari), pero dejar una con `_blank` y la otra sin él se lee como un olvido. -->
-            <a class="gcf-store-card" href={PLAY_STORE_URL}>
+            <a class="gcf-store-card" href={PLAY_STORE_URL} data-store="android">
               <span class="gcf-store-glow" aria-hidden="true"></span>
               <span class="gcf-store-kicker">{copy.kicker}</span>
               <img
@@ -166,6 +171,62 @@ const copy = {
     </section>
   </main>
 </BaseLayout>
+
+<!--
+  #782 — el hand-off a la tienda desde un NAVEGADOR IN-APP (Instagram, Facebook, TikTok…).
+
+  Reporte: "desde Instagram toco el link de /download, me abre la página dentro de un web view
+  … el botón de Apple no hace nada, a menos que le dé force touch + open link. El de Android
+  me lleva al PlayStore en la web."
+
+  Las dos mitades son el mismo hecho: un web view in-app es un WKWebView / WebView y una
+  navegación a `https://apps.apple.com/…` ahí adentro es una carga de página común — quién la
+  manda a la App Store es la app anfitriona, e Instagram no lo hace. El "force touch → Open
+  Link" del reporte lo confirma: eso SALE del web view hacia Safari, que sí hace el hand-off.
+  Del lado de Android no hay ambigüedad ninguna: la URL `https` de Play renderiza la web de
+  Play adentro del web view, que es exactamente lo que se ve.
+
+  El esquema propio no tiene esa ambigüedad: el web view NO PUEDE cargarlo, así que se lo pasa
+  al sistema operativo, que abre la app de la tienda.
+
+  Por qué se hace acá y no en el HTML: `itms-apps://` / `market://` no significan nada en
+  desktop (y un crawler tampoco sabe qué hacer con ellos), así que el markup se sirve siempre
+  con la URL `https` canónica y esto la reemplaza SÓLO en la plataforma que corresponde. Sigue
+  siendo un `<a href>` común: la navegación que abre la tienda ES el gesto del usuario, no un
+  `window.open` ni un timer — que es justo lo que un navegador descarta.
+-->
+<script is:inline define:vars={{ APP_STORE_APP_URL, PLAY_STORE_APP_URL }}>
+  (() => {
+    const ua = navigator.userAgent || '';
+    // iPadOS 13+ miente y dice "Macintosh"; el touch es lo que lo delata.
+    const isIOS =
+      /iPhone|iPad|iPod/i.test(ua) ||
+      (/Macintosh/i.test(ua) && typeof document.ontouchend !== 'undefined');
+    const isAndroid = /Android/i.test(ua);
+    if (!isIOS && !isAndroid) return;
+
+    const platform = isIOS ? 'ios' : 'android';
+    const appURL = isIOS ? APP_STORE_APP_URL : PLAY_STORE_APP_URL;
+    const card = document.querySelector(`.gcf-store-card[data-store="${platform}"]`);
+    if (!card) return;
+
+    // La URL `https` queda guardada como red de contención: si el sistema no toma el esquema
+    // (un web view que los bloquea del todo), la página sigue visible y la web de la tienda
+    // es un final mucho mejor que un botón muerto. El guard de visibilidad es lo que evita
+    // que esto se dispare cuando la tienda SÍ abrió — misma forma que
+    // `PocketGenesAppLinkRedirect.astro`.
+    const webURL = card.getAttribute('href');
+    card.setAttribute('href', appURL);
+    card.addEventListener('click', () => {
+      if (!webURL) return;
+      window.setTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          window.location.assign(webURL);
+        }
+      }, 1200);
+    });
+  })();
+</script>
 
 <style>
   .gcf-download-page {
