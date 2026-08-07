@@ -18,6 +18,10 @@ import { z } from "zod";
 
 import { deleteClientCascade } from "@/lib/gc-fitness/admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
+import {
+  listClientAppDevices,
+  type ClientAppDevice,
+} from "@/lib/gc-fitness/client-app-devices";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import {
   bilingualText,
@@ -166,6 +170,8 @@ export interface CoachlessUserProfile {
   auth: CoachlessAuthInfo | null;
   routines: CoachlessRoutineRow[];
   recentWeights: CoachlessWeightRow[];
+  /** #785 — which app build(s) this person is actually running. */
+  devices: ClientAppDevice[];
 }
 
 /**
@@ -217,6 +223,7 @@ export async function getCoachlessUserProfile(
     logsCountAgg,
     photosCountAgg,
     authRecord,
+    devices,
   ] = await Promise.all([
     // Self-authored templates: no orderBy, so no composite index is needed and
     // client-created docs missing `deleted` aren't filtered out (see the
@@ -268,6 +275,9 @@ export async function getCoachlessUserProfile(
     gcFitnessAuth()
       .getUser(uid)
       .catch(() => null),
+    // #785 — which app build(s) this person is on. Reads the push-token
+    // subcollection every signed-in device writes; fail-soft like Auth above.
+    listClientAppDevices(db, uid),
   ]);
 
   const routines: CoachlessRoutineRow[] = templatesSnap.docs
@@ -352,6 +362,7 @@ export async function getCoachlessUserProfile(
       : null,
     routines,
     recentWeights,
+    devices,
   } satisfies CoachlessUserProfile;
 }
 

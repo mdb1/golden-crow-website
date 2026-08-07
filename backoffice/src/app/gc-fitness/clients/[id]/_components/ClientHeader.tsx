@@ -19,6 +19,10 @@
 "use client";
 
 import Link from "next/link";
+import {
+  formatAppDevice,
+  type ClientAppDevice,
+} from "@/lib/gc-fitness/client-app-devices";
 import { ArrowLeft, Calendar, LineChart, MessagesSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -36,6 +40,12 @@ export interface ClientHeaderProps {
   birthDate: string | null;
   heightCm?: number | null;
   bodyWeightKg?: number | null;
+  /**
+   * #785 — which app build(s) the client is on, one badge per device. Read from
+   * the push-token subcollection every signed-in device writes; empty for a
+   * client who has never opened the app.
+   */
+  appDevices?: ClientAppDevice[];
 }
 
 export function ClientHeader({
@@ -48,6 +58,7 @@ export function ClientHeader({
   birthDate,
   heightCm,
   bodyWeightKg,
+  appDevices = [],
 }: ClientHeaderProps) {
   const t = useTranslations("clients.detail");
   const tNav = useTranslations("nav");
@@ -105,6 +116,14 @@ export function ClientHeader({
               <Badge variant="outline">
                 {t("weightLabel", { value: weightValue })}
               </Badge>
+              {appDevices.map((device, index) => (
+                <Badge
+                  key={`${device.platform}-${device.appVersion ?? "?"}-${index}`}
+                  variant="outline"
+                >
+                  {formatAppDevice(device)}
+                </Badge>
+              ))}
             </div>
           </div>
         </div>

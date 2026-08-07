@@ -20,6 +20,7 @@
 //   that decision — the roster (11-05) already routes row clicks to
 //   `/gc-fitness/clients/${row.uid}`, not `/(dashboard)/gc-fitness/...`.
 
+import { listClientAppDevices } from "@/lib/gc-fitness/client-app-devices";
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -157,7 +158,8 @@ export default async function ClientDetailPage({
   // Contract: every client activity surface below reads this explicit IANA
   // timezone. Leaf components must not infer UTC or the host timezone.
   const todayCivil = civilDateToday(timezone);
-  const [notes, progressPhotos, goals, bodyWeightFulfilled, calendarPeek] = await Promise.all([
+  const [notes, progressPhotos, goals, bodyWeightFulfilled, calendarPeek, appDevices] =
+    await Promise.all([
     getClientNotes(id).catch(() => ({ notes: "", updatedAt: null, entries: [] })),
     listProgressPhotosForClient(id),
     listClientGoals(id),
@@ -168,6 +170,9 @@ export default async function ClientDetailPage({
       () => ({ fulfilled: false, fulfilledAt: null }),
     ),
     getClientCalendarPeek({ clientId: id, anchorCivil: todayCivil }),
+    // #785 — which app build(s) the client is running, for the header badges.
+    // Fail-soft: a support detail must never 500 the profile.
+    listClientAppDevices(gcFitnessFirestore(), id).catch(() => []),
   ]);
   // Header "Peso" = the client's most recent weigh-in BY MEASUREMENT DATE.
   // On a transient read error fall back to NULL (em dash), never to the
@@ -207,6 +212,7 @@ export default async function ClientDetailPage({
         birthDate={client.birthDate ?? null}
         heightCm={typeof client.heightCm === "number" ? client.heightCm : null}
         bodyWeightKg={latestBodyWeightKg}
+        appDevices={appDevices}
       />
       <ClientIdentityEditor
         clientId={id}
