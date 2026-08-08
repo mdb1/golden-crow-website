@@ -3,6 +3,7 @@ import TeamCard from "../components/TeamCard.astro";
 import Carousel from "../components/Carousel.astro";
 import { useTranslations } from '../i18n/index';
 const t = useTranslations(Astro.currentLocale);
+const { federicoImageSrc = "/aboutus2.webp" } = Astro.props;
 ---
 
 <div class="container">
@@ -29,7 +30,7 @@ const t = useTranslations(Astro.currentLocale);
         linkedinUrl="https://www.linkedin.com/in/manuh/"
       />
       <TeamCard
-        src="/aboutus2.webp"
+        src={federicoImageSrc}
         alt="Federico Bustos"
         text={t.aboutUs.federicoName}
         description={t.aboutUs.federicoRole}
