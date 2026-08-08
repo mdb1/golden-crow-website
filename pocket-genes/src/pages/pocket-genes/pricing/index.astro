@@ -14,8 +14,6 @@ const pageCopy = {
     heroEyebrow: 'Pricing for organizations',
     heroTitle: 'Join our trusted organizations network for free.',
     heroPrimaryCta: 'Join the network — free',
-    trustedHubEyebrow: 'Trusted Organizations Hub',
-    trustedHubTitle: 'We review organizations before giving them a trusted place in the ecosystem.',
     freeBenefitsTitle: 'Everything your organization gets for free',
     freeBenefitsBody:
       'This is not just an organization listing. Trusted organizations can publish, participate, communicate, and remain discoverable across Pocket Genes.',
@@ -157,8 +155,6 @@ const pageCopy = {
     heroEyebrow: 'Precios para organizaciones',
     heroTitle: 'Sumate gratis a nuestra red de organizaciones de confianza.',
     heroPrimaryCta: 'Sumarme a la red — gratis',
-    trustedHubEyebrow: 'Organizaciones de confianza',
-    trustedHubTitle: 'Revisamos cada organización antes de permitirle publicar en Pocket Genes.',
     freeBenefitsTitle: 'Todo lo que tu organización recibe gratis',
     freeBenefitsBody:
       'No es solo un listado de organizaciones. Las organizaciones de confianza pueden publicar, participar, comunicarse y mantenerse visibles en Pocket Genes.',
@@ -317,15 +313,6 @@ const trustMailSubject = encodeURIComponent(
           <div class="pg-hero-actions">
             <a class="pg-button pg-button-primary" href="#trusted-organization-meeting">{copy.heroPrimaryCta}</a>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="pg-section-tight pg-pricing-trusted-hub" aria-labelledby="pricing-trusted-hub-title">
-      <div class="pg-container">
-        <div class="pg-trusted-hub-callout">
-          <p class="pg-eyebrow">{copy.trustedHubEyebrow}</p>
-          <h2 id="pricing-trusted-hub-title">{copy.trustedHubTitle}</h2>
         </div>
       </div>
     </section>
@@ -535,27 +522,6 @@ const trustMailSubject = encodeURIComponent(
     gap: 18px;
     align-items: center;
     margin-top: 28px;
-  }
-
-  .pg-pricing-trusted-hub {
-    background: #ffffff;
-  }
-
-  .pg-trusted-hub-callout {
-    border: 1px solid rgba(20, 149, 143, 0.24);
-    border-radius: 8px;
-    background:
-      linear-gradient(90deg, rgba(20, 149, 143, 0.1), rgba(228, 80, 128, 0.08)),
-      #ffffff;
-    padding: clamp(24px, 4vw, 34px);
-  }
-
-  .pg-trusted-hub-callout h2 {
-    max-width: 900px;
-    margin: 0;
-    font-size: clamp(2rem, 4vw, 3.2rem);
-    line-height: 1.04;
-    letter-spacing: 0;
   }
 
   .pg-free-benefits {
