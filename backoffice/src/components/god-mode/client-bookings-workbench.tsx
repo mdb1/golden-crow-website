@@ -205,6 +205,68 @@ function formatDateTime(value: string | undefined, language: AppLanguage) {
   }).format(parsed);
 }
 
+function compareBookingAttention(
+  left: ClientBookingRecord,
+  right: ClientBookingRecord,
+) {
+  const leftNeedsAttention = !left.ack;
+  const rightNeedsAttention = !right.ack;
+
+  if (leftNeedsAttention !== rightNeedsAttention) {
+    return leftNeedsAttention ? -1 : 1;
+  }
+
+  return 0;
+}
+
+function compareBookingCreatedAtDesc(
+  left: ClientBookingRecord,
+  right: ClientBookingRecord,
+) {
+  const leftTime = left.createdAt ? Date.parse(left.createdAt) : 0;
+  const rightTime = right.createdAt ? Date.parse(right.createdAt) : 0;
+
+  if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) {
+    return left.id.localeCompare(right.id);
+  }
+
+  if (Number.isNaN(leftTime)) {
+    return 1;
+  }
+
+  if (Number.isNaN(rightTime)) {
+    return -1;
+  }
+
+  return rightTime - leftTime || left.id.localeCompare(right.id);
+}
+
+function compareBookingEventTime(
+  left: ClientBookingRecord,
+  right: ClientBookingRecord,
+) {
+  return (
+    left.event.startTime.localeCompare(right.event.startTime) ||
+    left.id.localeCompare(right.id)
+  );
+}
+
+function sortBookingsForList(bookings: ClientBookingRecord[]) {
+  return [...bookings].sort(
+    (left, right) =>
+      compareBookingAttention(left, right) ||
+      compareBookingCreatedAtDesc(left, right),
+  );
+}
+
+function sortBookingsForDay(bookings: ClientBookingRecord[]) {
+  return [...bookings].sort(
+    (left, right) =>
+      compareBookingAttention(left, right) ||
+      compareBookingEventTime(left, right),
+  );
+}
+
 function groupBookingsByDate(bookings: ClientBookingRecord[]) {
   const grouped = new Map<string, ClientBookingRecord[]>();
 
@@ -220,9 +282,7 @@ function groupBookingsByDate(bookings: ClientBookingRecord[]) {
   });
 
   grouped.forEach((entries) => {
-    entries.sort((left, right) =>
-      left.event.startTime.localeCompare(right.event.startTime),
-    );
+    entries.splice(0, entries.length, ...sortBookingsForDay(entries));
   });
 
   return grouped;
@@ -465,6 +525,10 @@ function ClientBookingsList({
       sdkFetch<ClientBookingsResponse>(buildListQueryPath(cursor, ack)),
   });
   const bookings = data?.bookings ?? [];
+  const sortedBookings = useMemo(
+    () => sortBookingsForList(bookings),
+    [bookings],
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -476,7 +540,7 @@ function ClientBookingsList({
           <p className="text-sm text-muted-foreground">
             {isNewOnly
               ? t("Unacknowledged requests only.")
-              : t("Latest requests first.")}
+              : t("Unacknowledged first, then latest.")}
           </p>
         </div>
         <Button
@@ -531,7 +595,7 @@ function ClientBookingsList({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bookings.map((booking) => {
+              {sortedBookings.map((booking) => {
                 const isAcknowledging =
                   ackMutation.isPending && ackMutation.variables === booking.id;
 

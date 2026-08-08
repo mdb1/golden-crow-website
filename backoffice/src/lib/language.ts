@@ -103,6 +103,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "All booking requests": "Todas las solicitudes de reunión",
   "New booking requests": "Solicitudes nuevas",
   "Latest requests first.": "Solicitudes más recientes primero.",
+  "Unacknowledged first, then latest.":
+    "Sin acusar primero; después las más recientes.",
   "Unacknowledged requests only.": "Solo solicitudes sin acusar.",
   Calendar: "Calendario",
   List: "Lista",
