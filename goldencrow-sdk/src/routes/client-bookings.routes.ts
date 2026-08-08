@@ -1,7 +1,11 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
-import { createClientBooking } from "../repositories/client-bookings.repository.js";
+import {
+  createClientBooking,
+  listClientBookingsForCalendarMonth,
+  listClientBookingsPage,
+} from "../repositories/client-bookings.repository.js";
 
 const CLIENT_BOOKING_RELAYHOOK_URL =
   "https://data.relayhook.com/api/data/wh_parent_d9fff58f3852_TmV3IG1lZXRpbmcgdHJhY2tlZA";
@@ -41,6 +45,13 @@ const BookingRequestSchema = z.object({
   }),
 });
 
+const AdminClientBookingsQuerySchema = z.object({
+  view: z.enum(["calendar", "list"]).default("list"),
+  month: z.string().trim().regex(/^\d{4}-\d{2}$/).optional(),
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+  cursor: z.string().trim().datetime().optional(),
+});
+
 type BookingRequest = z.infer<typeof BookingRequestSchema>;
 
 async function notifyClientBookingWebhook(
@@ -78,6 +89,44 @@ async function notifyClientBookingWebhook(
 
 export async function clientBookingsRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
+
+  f.get(
+    "/admin/client-bookings",
+    {
+      schema: {
+        querystring: AdminClientBookingsQuerySchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      if (!request.adminContext.isBootstrap) {
+        return reply.status(403).send({ error: "GOD MODE access required" });
+      }
+
+      if (request.query.view === "calendar") {
+        const today = new Date();
+        const fallbackMonth = `${today.getUTCFullYear()}-${String(
+          today.getUTCMonth() + 1
+        ).padStart(2, "0")}`;
+        const result = await listClientBookingsForCalendarMonth({
+          month: request.query.month ?? fallbackMonth,
+          limit: request.query.limit,
+        });
+
+        return reply.send(result);
+      }
+
+      const result = await listClientBookingsPage({
+        limit: request.query.limit,
+        cursor: request.query.cursor,
+      });
+
+      return reply.send(result);
+    }
+  );
 
   f.post(
     "/client-bookings",

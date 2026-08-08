@@ -1563,6 +1563,9 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
   if (pathname === "/gym/bookings") {
     return { eyebrow: "Pocket Gyms", title: "Session requests", description: "Review athlete bookings and their confirmation status." };
   }
+  if (pathname === "/god-mode/bookings") {
+    return { eyebrow: "GOD MODE", title: "Client bookings", description: "Calendar and list review for consultation requests." };
+  }
   if (pathname === "/gym/achievements") {
     return { eyebrow: "Pocket Gyms", title: "Achievements", description: "Create and edit achievement definitions that coaches use to reinforce progress." };
   }

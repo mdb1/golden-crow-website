@@ -85,6 +85,7 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
   const compactChromeTitle =
     pathname.startsWith("/areas") ||
     pathname.startsWith("/discover") ||
+    pathname.startsWith("/god-mode") ||
     pathname.startsWith("/2pq-dashboard") ||
     pathname.startsWith("/roles") ||
     pathname === "/my-account";

@@ -16,7 +16,8 @@ import type { AdminContextRecord } from "@/lib/admin-areas";
 import { BACKOFFICE_VERSION } from "@/lib/app-version";
 import { appText } from "@/lib/language";
 import { getProjectNav, getProjectSections } from "@/lib/moderation-config";
-import { ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { CalendarDays, ChevronDown } from "lucide-react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -78,6 +79,32 @@ export function AppSidebar({
         </div>
       </SidebarHeader>
       <SidebarContent>
+        {adminContext.isBootstrap ? (
+          <SidebarGroup>
+            <SidebarGroupLabel className="font-black tracking-[0.16em] text-amber-800 dark:text-amber-200">
+              GOD MODE ACTIONS
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === "/god-mode/bookings"}
+                    tooltip={appText(language, "See all bookings")}
+                    className={cn(
+                      "border border-amber-400/45 bg-amber-100/80 text-amber-950 hover:border-amber-500/70 hover:bg-amber-200/80 hover:text-amber-950 data-active:border-amber-600 data-active:bg-amber-300 data-active:text-amber-950 dark:border-amber-300/25 dark:bg-amber-400/12 dark:text-amber-100 dark:hover:bg-amber-400/20 dark:data-active:bg-amber-400/24",
+                    )}
+                  >
+                    <Link href="/god-mode/bookings">
+                      <CalendarDays className="h-4 w-4" />
+                      <span>{appText(language, "See all bookings")}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
         {visibleSections.map((section) => {
           const items = visibleNav.filter(
             (item) => item.section === section.key,
