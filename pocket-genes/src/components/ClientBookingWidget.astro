@@ -664,6 +664,13 @@ const weekdayLabels = isEnglish
     letter-spacing: 0;
   }
 
+  .client-booking-widget[data-step="form"] .booking-panel[data-booking-panel="form"] h3 {
+    display: flex;
+    align-items: center;
+    min-height: 46px;
+    padding-left: 74px;
+  }
+
   .booking-calendar-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(180px, 0.42fr);
@@ -1010,6 +1017,12 @@ const weekdayLabels = isEnglish
       margin-bottom: 18px;
     }
 
+    .client-booking-widget[data-step="form"] .booking-panel[data-booking-panel="form"] h3 {
+      display: block;
+      min-height: 0;
+      padding-left: 0;
+    }
+
     .booking-submit-row {
       justify-content: stretch;
     }
@@ -1073,6 +1086,12 @@ const weekdayLabels = isEnglish
     .booking-back {
       position: static;
       margin-bottom: 18px;
+    }
+
+    .client-booking-widget[data-step="form"] .booking-panel[data-booking-panel="form"] h3 {
+      display: block;
+      min-height: 0;
+      padding-left: 0;
     }
 
     .booking-submit-row {
