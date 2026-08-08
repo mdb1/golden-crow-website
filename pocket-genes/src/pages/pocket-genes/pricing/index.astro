@@ -12,7 +12,10 @@ const pageCopy = {
     description:
       'Join our trusted organizations network for free. Pay only if and when your organization delivers genomic reports.',
     heroEyebrow: 'Pricing for organizations',
-    heroTitle: 'Join our trusted organizations network for free.',
+    heroTitleLead: 'Join our trusted organizations network',
+    heroTitleEmphasis: 'for free.',
+    heroBody:
+      'Approved organizations can build a trusted presence, publish useful information, support their communities, and stay connected with users without paying a platform fee.',
     heroPrimaryCta: 'Join the network — free',
     freeBenefitsTitle: 'Everything your organization gets for free',
     freeBenefitsBody:
@@ -153,7 +156,10 @@ const pageCopy = {
     description:
       'Sumate gratis a nuestra red de organizaciones de confianza. Pagás solo si tu organización entrega informes genómicos.',
     heroEyebrow: 'Precios para organizaciones',
-    heroTitle: 'Sumate gratis a nuestra red de organizaciones de confianza.',
+    heroTitleLead: 'Sumate a nuestra red de organizaciones de confianza',
+    heroTitleEmphasis: 'gratis.',
+    heroBody:
+      'Las organizaciones aprobadas pueden crear una presencia confiable, publicar información útil, apoyar a sus comunidades y mantenerse conectadas con usuarios sin pagar una tarifa de plataforma.',
     heroPrimaryCta: 'Sumarme a la red — gratis',
     freeBenefitsTitle: 'Todo lo que tu organización recibe gratis',
     freeBenefitsBody:
@@ -309,7 +315,13 @@ const trustMailSubject = encodeURIComponent(
       <div class="pg-container pg-trust-hero-grid">
         <div class="pg-hero-copy">
           <p class="pg-eyebrow">{copy.heroEyebrow}</p>
-          <h1>{copy.heroTitle}</h1>
+          <h1>
+            {copy.heroTitleLead}
+            <span>{copy.heroTitleEmphasis}</span>
+          </h1>
+          <p class="pg-hero-description">
+            {copy.heroBody}
+          </p>
           <div class="pg-hero-actions">
             <a class="pg-button pg-button-primary" href="#trusted-organization-meeting">{copy.heroPrimaryCta}</a>
           </div>
@@ -514,6 +526,20 @@ const trustMailSubject = encodeURIComponent(
     font-size: clamp(3.7rem, 7vw, 5.4rem);
     line-height: 0.98;
     letter-spacing: 0;
+  }
+
+  .pg-pricing-hero h1 span {
+    display: inline-block;
+    color: #7de4d7;
+    box-shadow: inset 0 -0.16em rgba(228, 80, 128, 0.62);
+  }
+
+  .pg-hero-description {
+    max-width: 720px;
+    margin: 22px 0 0;
+    color: rgba(255, 255, 255, 0.84);
+    font-size: 1.12rem;
+    line-height: 1.6;
   }
 
   .pg-hero-actions {
