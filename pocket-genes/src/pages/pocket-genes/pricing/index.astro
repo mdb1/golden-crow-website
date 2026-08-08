@@ -81,7 +81,6 @@ const pageCopy = {
     freeBenefitsCta: 'Join the network — free',
     comparisonTitle: 'So, when do you pay?',
     comparisonBody: 'Only if and when your organization uses Pocket Genes to deliver genomic reports.',
-    comparisonConnector: 'Need to deliver reports? Add Report Delivery →',
     comparisonOptions: [
       {
         id: 'trusted-network-card',
@@ -225,7 +224,6 @@ const pageCopy = {
     freeBenefitsCta: 'Sumarme a la red — gratis',
     comparisonTitle: 'Entonces, ¿cuándo pagás?',
     comparisonBody: 'Solo si y cuando tu organización usa Pocket Genes para entregar informes genómicos.',
-    comparisonConnector: '¿Necesitás entregar informes? Agregá Report Delivery →',
     comparisonOptions: [
       {
         id: 'trusted-network-card',
@@ -381,8 +379,6 @@ const trustMailSubject = encodeURIComponent(
             <a class="pg-button pg-button-primary" href={trustedNetworkOption.href}>{trustedNetworkOption.cta}</a>
             <p class="pg-comparison-note">{trustedNetworkOption.note}</p>
           </article>
-
-          <div class="pg-comparison-connector" aria-hidden="true">{copy.comparisonConnector}</div>
 
           <article id={reportDeliveryOption.id} class={`pg-comparison-card tone-${reportDeliveryOption.tone}`}>
             <p class="pg-comparison-step">{reportDeliveryOption.step}</p>
@@ -829,8 +825,8 @@ const trustMailSubject = encodeURIComponent(
 
   .pg-comparison-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.34fr) minmax(72px, 0.22fr) minmax(0, 0.95fr);
-    gap: 18px;
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+    gap: 22px;
     align-items: center;
   }
 
@@ -940,16 +936,6 @@ const trustMailSubject = encodeURIComponent(
     margin: 14px 0 0;
     color: var(--pg-muted);
     font-size: 0.93rem;
-  }
-
-  .pg-comparison-connector {
-    justify-self: center;
-    color: var(--pg-blue);
-    font-size: 0.85rem;
-    font-weight: 900;
-    line-height: 1.25;
-    text-align: center;
-    text-transform: uppercase;
   }
 
   .pg-trust-contact {
@@ -1314,11 +1300,6 @@ const trustMailSubject = encodeURIComponent(
 
     .pg-benefit-item:nth-child(n) {
       border-left: 0;
-    }
-
-    .pg-comparison-connector {
-      justify-self: start;
-      text-align: left;
     }
 
     .pg-trusted-booking-grid {
