@@ -903,7 +903,7 @@ export function ClientBookingsWorkbench() {
                             className={cn(
                               "min-h-24 rounded-xl border border-transparent bg-transparent p-2 text-left transition-colors hover:border-foreground/20 hover:bg-muted/35",
                               needsAttention &&
-                                "border-amber-300/70 bg-amber-50/80 shadow-[0_8px_18px_rgba(245,158,11,0.08)] dark:border-amber-300/25 dark:bg-amber-400/10",
+                                "border-amber-400 bg-amber-100 shadow-[0_8px_18px_rgba(245,158,11,0.16)] hover:border-amber-500 hover:bg-amber-100 dark:border-amber-300/35 dark:bg-amber-400/18 dark:hover:bg-amber-400/22",
                               allAcknowledged &&
                                 "border-slate-200/90 bg-white shadow-[0_8px_18px_rgba(15,23,42,0.06)] dark:border-border/70 dark:bg-background/70",
                               isToday &&
@@ -924,9 +924,11 @@ export function ClientBookingsWorkbench() {
                                   ? needsAttention
                                     ? "bg-amber-950 text-amber-50 dark:bg-amber-100 dark:text-amber-950"
                                     : "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
-                                  : isToday
-                                    ? "bg-muted text-foreground"
-                                    : "text-foreground",
+                                  : needsAttention
+                                    ? "bg-amber-200 text-amber-950 dark:bg-amber-300/24 dark:text-amber-50"
+                                    : isToday
+                                      ? "bg-muted text-foreground"
+                                      : "text-foreground",
                               )}
                             >
                               {cell.day}
