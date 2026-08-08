@@ -17,14 +17,14 @@ const publicNavItemsByLocale: Record<PocketGenesPublicLocale, { label: string; h
     { label: 'Community', href: '/pocket-genes/rarefriends' },
     { label: 'Join us', href: '/pocket-genes/join-us' },
     { label: 'Integration', href: '/pocket-genes/website/integration' },
-    { label: 'Download', href: '/pocket-genes/download' },
+    { label: 'Download the app', href: '/pocket-genes/download' },
   ],
   es: [
     { label: 'Inicio', href: '/pocket-genes/home' },
     { label: 'Comunidad', href: '/pocket-genes/rarefriends' },
     { label: 'Sumate', href: '/pocket-genes/join-us' },
     { label: 'Integración', href: '/pocket-genes/website/integration' },
-    { label: 'Descargar', href: '/pocket-genes/download' },
+    { label: 'Descargar la app', href: '/pocket-genes/download' },
   ],
 };
 
