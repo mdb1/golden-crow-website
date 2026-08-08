@@ -256,7 +256,10 @@ const identityFlow = copy.identityFlow;
     <section class="pg-home-hero">
       <div class="pg-container pg-home-hero-grid">
         <div class="pg-home-copy">
-          <h1>Pocket Genes</h1>
+          <h1>
+            <span>Pocket</span>
+            <span>Genes</span>
+          </h1>
           <p class="pg-home-lead">
             {copy.heroLead}
           </p>
@@ -450,11 +453,14 @@ const identityFlow = copy.identityFlow;
 
   .pg-home-copy h1 {
     margin: 0;
-    font-size: 4.75rem;
-    font-weight: 650;
-    line-height: 1.02;
+    font-size: 5.15rem;
+    font-weight: 900;
+    line-height: 0.94;
     letter-spacing: 0;
-    white-space: nowrap;
+  }
+
+  .pg-home-copy h1 span {
+    display: block;
   }
 
   .pg-home-lead {
@@ -1026,7 +1032,7 @@ const identityFlow = copy.identityFlow;
     }
 
     .pg-home-copy h1 {
-      font-size: 3.1rem;
+      font-size: 3.7rem;
     }
 
     .pg-home-lead {
@@ -1105,7 +1111,7 @@ const identityFlow = copy.identityFlow;
 
   @media (max-width: 440px) {
     .pg-home-copy h1 {
-      font-size: 2.45rem;
+      font-size: 2.95rem;
     }
 
     .pg-identity-copy h2 {
