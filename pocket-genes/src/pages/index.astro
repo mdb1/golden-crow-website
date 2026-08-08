@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import SuccessCarousel from '../components/SuccessCarousel.astro';
+import ClientBookingWidget from '../components/ClientBookingWidget.astro';
 import AboutUs from '../layouts/AboutUs.astro';
 import TrustedBy from '../components/TrustedBy.astro';
 import Challenges from '../components/Challenges.astro';
@@ -20,7 +21,7 @@ function localPath(path: string) {
 const projects = getProjects(t);
 ---
 
-<BaseLayout title={t.index.title} extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}>
+<BaseLayout title={t.index.title}>
   <main class="home-page">
     <!-- Section 1: Hero -->
     <section class="hero-section">
@@ -158,7 +159,7 @@ const projects = getProjects(t);
           <p>{t.index.bookingDesc}</p>
           <p class="booking-permission">{t.index.bookingPermission}</p>
           <div class="calendar-wrapper">
-            <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
+            <ClientBookingWidget context="home" />
           </div>
         </div>
       </div>

@@ -15,11 +15,20 @@ import { ENV } from "./config/env.js";
 // Routes exempt from session cookie auth
 const PUBLIC_PATHS = new Set([
   "/health",
+  "/client-bookings",
   "/auth/login",
   "/auth/logout",
   "/auth/email-signup",
   "/auth/email-signup/eligibility",
 ]);
+
+const CORS_ORIGINS = [
+  ENV.BACKOFFICE_ORIGIN,
+  "https://goldencrowvs.com",
+  "https://www.goldencrowvs.com",
+  /^http:\/\/localhost:\d+$/,
+  /^http:\/\/127\.0\.0\.1:\d+$/,
+];
 
 export async function buildServer() {
   const fastify = Fastify({ logger: true }).withTypeProvider<ZodTypeProvider>();
@@ -30,9 +39,9 @@ export async function buildServer() {
   // Plugins — register before routes
   await fastify.register(cookie);
   await fastify.register(cors, {
-    origin: ENV.BACKOFFICE_ORIGIN,
+    origin: CORS_ORIGINS,
     credentials: true,
-    methods: ["GET", "HEAD", "POST", "PUT", "DELETE"],
+    methods: ["GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"],
   });
   await fastify.register(helmet);
 

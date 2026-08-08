@@ -14,6 +14,7 @@ import { twoPQRoutes } from "./two-pq.routes.js";
 import { gymRoutes } from "./gym-index.routes.js";
 import { fileStorageRoutes } from "./file-storage.routes.js";
 import { discoverRoutes } from "./discover.routes.js";
+import { clientBookingsRoutes } from "./client-bookings.routes.js";
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(healthRoutes);
@@ -30,5 +31,6 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(moderationRoutes);
   await fastify.register(fileStorageRoutes);
   await fastify.register(discoverRoutes);
+  await fastify.register(clientBookingsRoutes);
   await fastify.register(gymRoutes, { prefix: "/gym" });
 }

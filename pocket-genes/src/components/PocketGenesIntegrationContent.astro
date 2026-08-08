@@ -11,6 +11,7 @@ import ProviderDiscovery from '../layouts/ProviderDiscovery.astro';
 import IntegrationJourney from '../layouts/IntegrationJourney.astro';
 import TrustBoundaries from '../layouts/TrustBoundaries.astro';
 import Experience from '../layouts/Experience.astro';
+import ClientBookingWidget from './ClientBookingWidget.astro';
 import { useTranslations } from '../i18n/index';
 
 const t = useTranslations(Astro.currentLocale);
@@ -54,7 +55,7 @@ const bookingCopy = isEnglish
           <p>{t.pocketGenes.integrationCtaDesc}</p>
         </div>
         <div class="calendar-wrapper">
-          <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
+          <ClientBookingWidget context="pocket-genes-integration" />
         </div>
       </div>
     </div>

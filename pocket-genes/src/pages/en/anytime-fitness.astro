@@ -1,11 +1,12 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import ClientBookingWidget from '../../components/ClientBookingWidget.astro';
 import { useTranslations } from '../../i18n/index';
 
 const t = useTranslations(Astro.currentLocale);
 ---
 
-<BaseLayout title={t.anytimeFitness.title} showFooter={false} extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}>
+<BaseLayout title={t.anytimeFitness.title} showFooter={false}>
   <main class="stronger-u-page">
 
     <!-- Hero -->
@@ -107,7 +108,7 @@ const t = useTranslations(Astro.currentLocale);
           <h2>{t.index.bookingTitle}</h2>
           <p>{t.index.bookingDesc}</p>
           <div class="calendar-wrapper">
-            <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
+            <ClientBookingWidget context="anytime-fitness" />
           </div>
         </div>
       </div>

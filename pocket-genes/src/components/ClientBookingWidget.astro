@@ -1,0 +1,1064 @@
+---
+import { defaultLang } from '../i18n/ui';
+import type { Lang } from '../i18n/ui';
+
+interface Props {
+  context?: string;
+  eventTitle?: string;
+  brandName?: string;
+}
+
+const lang = (Astro.currentLocale || defaultLang) as Lang;
+const isEnglish = lang === 'en';
+const {
+  context = 'general',
+  eventTitle = isEnglish ? 'Consultation Call' : 'Llamada de Consultoría',
+  brandName = 'GoldenCrow',
+} = Astro.props;
+const sdkUrl =
+  import.meta.env.PUBLIC_GOLDENCROW_SDK_URL || 'https://golden-crow-sdk.vercel.app';
+
+const copy = isEnglish
+  ? {
+      locale: 'en',
+      localeTag: 'en-US',
+      brandName,
+      eventTitle,
+      duration: '30 min',
+      calendarTitle: 'Select Date & Time',
+      detailsTitle: 'Enter details',
+      successTitle: 'Meeting requested',
+      successBody:
+        'Thanks. We received your request and will contact you to confirm the meeting details.',
+      backLabel: 'Back',
+      previousMonth: 'Previous month',
+      nextMonth: 'Next month',
+      timeZoneTitle: 'Time zone',
+      timeZoneLabel: 'GMT-03:00 America/Buenos_Aires (GMT-3)',
+      selectTimeLabel: 'Available times',
+      selectedDateFallback: 'Select a date',
+      submitLabel: 'Schedule meeting',
+      submittingLabel: 'Scheduling...',
+      errorMessage: 'We could not schedule the meeting. Please try again.',
+      fullNameLabel: 'Full name *',
+      fullNamePlaceholder: 'Full name',
+      emailLabel: 'Email *',
+      emailPlaceholder: 'Email',
+      whatsappLabel: 'WhatsApp number *',
+      whatsappPlaceholder: 'We will send meeting information here',
+      companyLabel: 'Company name *',
+      companyPlaceholder: 'Company name',
+      identificationLabel: 'How would you identify yourself? *',
+      identificationPlaceholder: 'How would you identify yourself?',
+      investmentLabel:
+        'Software projects can start around 7,000 USD to 20,000 USD in the market. Can your company invest the total or installments? *',
+      investmentPlaceholder: 'Select an option',
+      messageLabel: 'What would you like to discuss?',
+      messagePlaceholder: 'Share useful context for the call',
+      options: {
+        identity: [
+          'Founder / Owner',
+          'Operations / Product',
+          'Healthcare / Genetics professional',
+          'Organization / Advocacy lead',
+          'Other',
+        ],
+        investment: [
+          'Yes, we can invest in that range',
+          'We need to evaluate installments or scope',
+          'We are still exploring budget',
+          'Not applicable to my request',
+        ],
+      },
+    }
+  : {
+      locale: 'es',
+      localeTag: 'es-AR',
+      brandName,
+      eventTitle,
+      duration: '30 min',
+      calendarTitle: 'Seleccioná fecha y hora',
+      detailsTitle: 'Ingresá tus datos',
+      successTitle: 'Reunión solicitada',
+      successBody:
+        'Gracias. Recibimos tu solicitud y te vamos a contactar para confirmar los detalles de la reunión.',
+      backLabel: 'Volver',
+      previousMonth: 'Mes anterior',
+      nextMonth: 'Mes siguiente',
+      timeZoneTitle: 'Zona horaria',
+      timeZoneLabel: 'GMT-03:00 America/Buenos_Aires (GMT-3)',
+      selectTimeLabel: 'Horarios disponibles',
+      selectedDateFallback: 'Seleccioná una fecha',
+      submitLabel: 'Agendar reunión',
+      submittingLabel: 'Agendando...',
+      errorMessage: 'No pudimos agendar la reunión. Intentá nuevamente.',
+      fullNameLabel: 'Nombre completo *',
+      fullNamePlaceholder: 'Nombre completo',
+      emailLabel: 'Email *',
+      emailPlaceholder: 'Email',
+      whatsappLabel: 'Número de WhatsApp *',
+      whatsappPlaceholder: 'Vamos a enviarte la información por acá',
+      companyLabel: 'Nombre de la empresa *',
+      companyPlaceholder: 'Nombre de la empresa',
+      identificationLabel: '¿Cómo te identificarías? *',
+      identificationPlaceholder: '¿Cómo te identificarías?',
+      investmentLabel:
+        'Los proyectos de software pueden comenzar a partir de 7.000 USD a 20.000 USD en el mercado. ¿Su empresa cuenta con la posibilidad de invertir el total o cuotas por el mismo? *',
+      investmentPlaceholder: 'Seleccioná una opción',
+      messageLabel: '¿Qué te gustaría conversar?',
+      messagePlaceholder: 'Compartí contexto útil para la llamada',
+      options: {
+        identity: [
+          'Fundador/a o dueño/a',
+          'Operaciones / Producto',
+          'Profesional de salud o genética',
+          'Organización o advocacy',
+          'Otro',
+        ],
+        investment: [
+          'Sí, podemos invertir dentro de ese rango',
+          'Necesitamos evaluar cuotas o alcance',
+          'Todavía estamos explorando presupuesto',
+          'No aplica a mi consulta',
+        ],
+      },
+    };
+
+const weekdayLabels = isEnglish
+  ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  : ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+---
+
+<div
+  class="client-booking-widget"
+  data-client-booking-widget
+  data-context={context}
+  data-sdk-url={sdkUrl}
+  data-copy={JSON.stringify(copy)}
+  data-weekdays={JSON.stringify(weekdayLabels)}
+>
+  <article class="booking-shell">
+    <aside class="booking-summary">
+      <img class="booking-logo" src="/logo1024.webp" alt="GoldenCrow logo" />
+      <p class="booking-brand">{copy.brandName}</p>
+      <h3>{copy.eventTitle}</h3>
+      <div class="booking-meta">
+        <span class="booking-meta-row">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 7v5l3 2"></path>
+          </svg>
+          {copy.duration}
+        </span>
+        <span class="booking-meta-row" data-summary-date-row>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+            <path d="M8 3v4M16 3v4M4 10h16"></path>
+          </svg>
+          <span data-summary-date>{copy.selectedDateFallback}</span>
+        </span>
+        <span class="booking-meta-row" data-summary-time-row hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"></path>
+            <path d="M12 7v5l4 2"></path>
+          </svg>
+          <span data-summary-time></span>
+        </span>
+        <span class="booking-meta-row">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9S14.5 18.4 12 21M12 3c-2.5 2.6-3.7 5.6-3.7 9s1.2 6.4 3.7 9"></path>
+          </svg>
+          America/Buenos_Aires (GMT-3)
+        </span>
+      </div>
+    </aside>
+
+    <section class="booking-main">
+      <button class="booking-back" type="button" data-booking-back aria-label={copy.backLabel} hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M19 12H5M12 19l-7-7 7-7"></path>
+        </svg>
+      </button>
+
+      <div class="booking-panel is-active" data-booking-panel="calendar">
+        <h3>{copy.calendarTitle}</h3>
+        <div class="booking-calendar-layout">
+          <div class="booking-calendar-area">
+            <div class="booking-month-row">
+              <button type="button" data-prev-month aria-label={copy.previousMonth}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m15 18-6-6 6-6"></path>
+                </svg>
+              </button>
+              <strong data-month-label></strong>
+              <button type="button" data-next-month aria-label={copy.nextMonth}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m9 18 6-6-6-6"></path>
+                </svg>
+              </button>
+            </div>
+            <div class="booking-weekdays">
+              {weekdayLabels.map((weekday) => <span>{weekday}</span>)}
+            </div>
+            <div class="booking-days" data-days-grid></div>
+            <div class="booking-timezone">
+              <strong>{copy.timeZoneTitle}</strong>
+              <span>{copy.timeZoneLabel}</span>
+            </div>
+          </div>
+          <div class="booking-times" aria-label={copy.selectTimeLabel} data-times-list></div>
+        </div>
+      </div>
+
+      <div class="booking-panel" data-booking-panel="form" hidden>
+        <h3>{copy.detailsTitle}</h3>
+        <form class="booking-form" data-booking-form>
+          <label>
+            <span>{copy.fullNameLabel}</span>
+            <input name="fullName" type="text" autocomplete="name" maxlength="120" placeholder={copy.fullNamePlaceholder} required />
+          </label>
+          <label>
+            <span>{copy.emailLabel}</span>
+            <input name="email" type="email" autocomplete="email" maxlength="180" placeholder={copy.emailPlaceholder} required />
+          </label>
+          <label>
+            <span>{copy.whatsappLabel}</span>
+            <input name="whatsapp" type="tel" autocomplete="tel" maxlength="50" placeholder={copy.whatsappPlaceholder} required />
+          </label>
+          <label>
+            <span>{copy.companyLabel}</span>
+            <input name="companyName" type="text" autocomplete="organization" maxlength="160" placeholder={copy.companyPlaceholder} required />
+          </label>
+          <label>
+            <span>{copy.identificationLabel}</span>
+            <select name="identification" required>
+              <option value="">{copy.identificationPlaceholder}</option>
+              {copy.options.identity.map((option) => <option value={option}>{option}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>{copy.investmentLabel}</span>
+            <select name="investmentReadiness" required>
+              <option value="">{copy.investmentPlaceholder}</option>
+              {copy.options.investment.map((option) => <option value={option}>{option}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>{copy.messageLabel}</span>
+            <textarea name="message" rows="4" maxlength="1200" placeholder={copy.messagePlaceholder}></textarea>
+          </label>
+          <p class="booking-error" data-booking-error role="alert" hidden>{copy.errorMessage}</p>
+          <div class="booking-submit-row">
+            <button type="submit" data-booking-submit>{copy.submitLabel}</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="booking-panel booking-success-panel" data-booking-panel="success" hidden>
+        <div class="booking-success-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M20 6 9 17l-5-5"></path>
+          </svg>
+        </div>
+        <h3>{copy.successTitle}</h3>
+        <p>{copy.successBody}</p>
+        <div class="booking-success-details">
+          <span>{copy.duration}</span>
+          <span data-success-date></span>
+          <span data-success-time></span>
+          <span>{copy.timeZoneLabel}</span>
+        </div>
+      </div>
+    </section>
+  </article>
+</div>
+
+<script>
+  const BOOKING_TIMEZONE = 'America/Argentina/Buenos_Aires';
+  const SLOT_TIMES = [
+    '09:00',
+    '09:30',
+    '10:00',
+    '10:30',
+    '11:00',
+    '11:30',
+    '12:00',
+    '12:30',
+    '13:00',
+    '13:30',
+    '14:00',
+    '14:30',
+    '15:00',
+    '15:30',
+    '16:00',
+    '16:30',
+    '17:00',
+  ];
+
+  function getBuenosAiresToday() {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: BOOKING_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return utcDate(Number(byType.year), Number(byType.month) - 1, Number(byType.day));
+  }
+
+  function utcDate(year, monthIndex, day) {
+    return new Date(Date.UTC(year, monthIndex, day, 12, 0, 0));
+  }
+
+  function addDays(date, count) {
+    return utcDate(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + count);
+  }
+
+  function dateKey(date) {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function isSameDate(a, b) {
+    return dateKey(a) === dateKey(b);
+  }
+
+  function isBefore(a, b) {
+    return dateKey(a) < dateKey(b);
+  }
+
+  function isBusinessDay(date) {
+    const day = date.getUTCDay();
+    return day >= 1 && day <= 5;
+  }
+
+  function firstAvailableDate(minDate) {
+    let cursor = minDate;
+    while (!isBusinessDay(cursor)) {
+      cursor = addDays(cursor, 1);
+    }
+    return cursor;
+  }
+
+  function formatMonth(date, localeTag) {
+    const formatted = new Intl.DateTimeFormat(localeTag, {
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(date);
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  }
+
+  function formatDate(date, localeTag) {
+    return new Intl.DateTimeFormat(localeTag, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(date);
+  }
+
+  function formatTime(time) {
+    const [hourText, minute] = time.split(':');
+    const hour = Number(hourText);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = ((hour + 11) % 12) + 1;
+    return `${String(displayHour).padStart(2, '0')}:${minute} ${period}`;
+  }
+
+  function addMinutesToTime(time, minutesToAdd) {
+    const [hour, minute] = time.split(':').map(Number);
+    const total = hour * 60 + minute + minutesToAdd;
+    const nextHour = Math.floor(total / 60);
+    const nextMinute = total % 60;
+    return `${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`;
+  }
+
+  function toBuenosAiresIso(dayKey, time) {
+    return new Date(`${dayKey}T${time}:00-03:00`).toISOString();
+  }
+
+  function initBookingWidget(root) {
+    if (root.dataset.bookingReady === 'true') return;
+    root.dataset.bookingReady = 'true';
+
+    const copy = JSON.parse(root.dataset.copy || '{}');
+    const sdkUrl = root.dataset.sdkUrl || 'https://golden-crow-sdk.vercel.app';
+    const context = root.dataset.context || 'general';
+    const minDate = firstAvailableDate(addDays(getBuenosAiresToday(), 1));
+    let selectedDate = minDate;
+    let selectedTime = SLOT_TIMES[0];
+    let viewDate = utcDate(selectedDate.getUTCFullYear(), selectedDate.getUTCMonth(), 1);
+
+    const panels = Array.from(root.querySelectorAll('[data-booking-panel]'));
+    const backButton = root.querySelector('[data-booking-back]');
+    const monthLabel = root.querySelector('[data-month-label]');
+    const daysGrid = root.querySelector('[data-days-grid]');
+    const timesList = root.querySelector('[data-times-list]');
+    const form = root.querySelector('[data-booking-form]');
+    const submitButton = root.querySelector('[data-booking-submit]');
+    const error = root.querySelector('[data-booking-error]');
+    const summaryDate = root.querySelector('[data-summary-date]');
+    const summaryTime = root.querySelector('[data-summary-time]');
+    const summaryTimeRow = root.querySelector('[data-summary-time-row]');
+    const successDate = root.querySelector('[data-success-date]');
+    const successTime = root.querySelector('[data-success-time]');
+
+    function setStep(step) {
+      panels.forEach((panel) => {
+        const isActive = panel.getAttribute('data-booking-panel') === step;
+        panel.toggleAttribute('hidden', !isActive);
+        panel.classList.toggle('is-active', isActive);
+      });
+      backButton?.toggleAttribute('hidden', step === 'calendar');
+      root.dataset.step = step;
+    }
+
+    function updateSummary(includeTime = false) {
+      const dayText = formatDate(selectedDate, copy.localeTag || 'en-US');
+      const endTime = addMinutesToTime(selectedTime, 30);
+      if (summaryDate) summaryDate.textContent = dayText;
+      if (summaryTime) summaryTime.textContent = `${formatTime(selectedTime)} - ${formatTime(endTime)}`;
+      summaryTimeRow?.toggleAttribute('hidden', !includeTime);
+      if (successDate) successDate.textContent = dayText;
+      if (successTime) successTime.textContent = `${formatTime(selectedTime)} - ${formatTime(endTime)}`;
+    }
+
+    function renderCalendar() {
+      if (!daysGrid || !monthLabel) return;
+      monthLabel.textContent = formatMonth(viewDate, copy.localeTag || 'en-US');
+      daysGrid.textContent = '';
+
+      const year = viewDate.getUTCFullYear();
+      const month = viewDate.getUTCMonth();
+      const firstDay = utcDate(year, month, 1);
+      const leadingBlanks = firstDay.getUTCDay();
+      const daysInMonth = utcDate(year, month + 1, 0).getUTCDate();
+
+      for (let i = 0; i < leadingBlanks; i += 1) {
+        const blank = document.createElement('span');
+        blank.className = 'booking-day is-empty';
+        daysGrid.appendChild(blank);
+      }
+
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const date = utcDate(year, month, day);
+        const available = !isBefore(date, minDate) && isBusinessDay(date);
+        const element = document.createElement(available ? 'button' : 'span');
+        element.className = 'booking-day';
+        element.textContent = String(day);
+        if (!available) {
+          element.classList.add('is-disabled');
+        } else {
+          element.setAttribute('type', 'button');
+          element.setAttribute('aria-label', formatDate(date, copy.localeTag || 'en-US'));
+          if (isSameDate(date, selectedDate)) {
+            element.classList.add('is-selected');
+            element.setAttribute('aria-pressed', 'true');
+          } else {
+            element.setAttribute('aria-pressed', 'false');
+          }
+          element.addEventListener('click', () => {
+            selectedDate = date;
+            updateSummary(false);
+            renderCalendar();
+          });
+        }
+        daysGrid.appendChild(element);
+      }
+    }
+
+    function renderTimes() {
+      if (!timesList) return;
+      timesList.textContent = '';
+      SLOT_TIMES.forEach((time) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'booking-time-button';
+        button.textContent = formatTime(time);
+        button.addEventListener('click', () => {
+          selectedTime = time;
+          updateSummary(true);
+          setStep('form');
+        });
+        timesList.appendChild(button);
+      });
+    }
+
+    root.querySelector('[data-prev-month]')?.addEventListener('click', () => {
+      const previous = utcDate(viewDate.getUTCFullYear(), viewDate.getUTCMonth() - 1, 1);
+      if (previous.getUTCFullYear() < minDate.getUTCFullYear()) return;
+      if (
+        previous.getUTCFullYear() === minDate.getUTCFullYear() &&
+        previous.getUTCMonth() < minDate.getUTCMonth()
+      ) {
+        return;
+      }
+      viewDate = previous;
+      renderCalendar();
+    });
+
+    root.querySelector('[data-next-month]')?.addEventListener('click', () => {
+      viewDate = utcDate(viewDate.getUTCFullYear(), viewDate.getUTCMonth() + 1, 1);
+      renderCalendar();
+    });
+
+    backButton?.addEventListener('click', () => {
+      if (root.dataset.step === 'success') {
+        setStep('calendar');
+        updateSummary(false);
+        return;
+      }
+      setStep('calendar');
+      updateSummary(false);
+    });
+
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!(form instanceof HTMLFormElement) || !form.reportValidity()) return;
+
+      const data = new FormData(form);
+      const dayKey = dateKey(selectedDate);
+      const endTime = addMinutesToTime(selectedTime, 30);
+      const payload = {
+        source: {
+          context,
+          locale: copy.locale || document.documentElement.lang || 'en',
+          pageUrl: window.location.href,
+          path: window.location.pathname,
+          referrer: document.referrer || undefined,
+        },
+        event: {
+          title: copy.eventTitle,
+          durationMinutes: 30,
+          timezone: BOOKING_TIMEZONE,
+          timezoneLabel: copy.timeZoneLabel,
+          date: dayKey,
+          startTime: selectedTime,
+          endTime,
+          startsAt: toBuenosAiresIso(dayKey, selectedTime),
+          endsAt: toBuenosAiresIso(dayKey, endTime),
+        },
+        form: {
+          fullName: String(data.get('fullName') || ''),
+          email: String(data.get('email') || ''),
+          whatsapp: String(data.get('whatsapp') || ''),
+          companyName: String(data.get('companyName') || ''),
+          identification: String(data.get('identification') || ''),
+          investmentReadiness: String(data.get('investmentReadiness') || ''),
+          message: String(data.get('message') || ''),
+        },
+      };
+
+      error?.toggleAttribute('hidden', true);
+      if (submitButton) {
+        submitButton.setAttribute('disabled', 'true');
+        submitButton.textContent = copy.submittingLabel;
+      }
+
+      try {
+        const response = await fetch(`${sdkUrl.replace(/\/$/, '')}/client-bookings`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+          credentials: 'omit',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Booking request failed with ${response.status}`);
+        }
+
+        updateSummary(true);
+        setStep('success');
+        form.reset();
+      } catch {
+        error?.toggleAttribute('hidden', false);
+      } finally {
+        if (submitButton) {
+          submitButton.removeAttribute('disabled');
+          submitButton.textContent = copy.submitLabel;
+        }
+      }
+    });
+
+    updateSummary(false);
+    renderCalendar();
+    renderTimes();
+    setStep('calendar');
+  }
+
+  function initBookingWidgets() {
+    document.querySelectorAll('[data-client-booking-widget]').forEach(initBookingWidget);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBookingWidgets);
+  } else {
+    initBookingWidgets();
+  }
+</script>
+
+<style>
+  .client-booking-widget {
+    width: 100%;
+  }
+
+  .booking-shell {
+    display: grid;
+    grid-template-columns: minmax(250px, 0.46fr) minmax(0, 1fr);
+    min-height: 620px;
+    overflow: hidden;
+    border: 1px solid rgba(17, 24, 39, 0.1);
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 18px 50px rgba(17, 24, 39, 0.08);
+    color: #111827;
+    text-align: left;
+  }
+
+  .booking-summary {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+    padding: clamp(28px, 4vw, 48px);
+    border-right: 1px solid rgba(17, 24, 39, 0.1);
+    background: linear-gradient(180deg, #ffffff 0%, #fbfaf7 100%);
+  }
+
+  .booking-logo {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #000000;
+  }
+
+  .booking-brand {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .booking-summary h3 {
+    margin: 0;
+    color: #111827;
+    font-size: clamp(1.65rem, 3vw, 2rem);
+    line-height: 1.12;
+    letter-spacing: 0;
+  }
+
+  .booking-meta {
+    display: grid;
+    gap: 14px;
+    color: #6b7280;
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .booking-meta-row {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+  }
+
+  .booking-meta-row svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+  }
+
+  .booking-main {
+    position: relative;
+    min-width: 0;
+    padding: clamp(28px, 4vw, 48px);
+  }
+
+  .booking-back {
+    position: absolute;
+    top: 22px;
+    left: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border: 1px solid rgba(17, 24, 39, 0.1);
+    border-radius: 50%;
+    background: #ffffff;
+    color: #2563eb;
+    cursor: pointer;
+  }
+
+  .booking-back svg {
+    width: 23px;
+    height: 23px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.4;
+  }
+
+  .booking-panel {
+    max-width: 100%;
+  }
+
+  .booking-panel h3 {
+    margin: 0 0 30px;
+    color: #111827;
+    font-size: clamp(1.45rem, 2.4vw, 1.9rem);
+    line-height: 1.15;
+    letter-spacing: 0;
+  }
+
+  .booking-calendar-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.9fr) minmax(220px, 0.48fr);
+    gap: clamp(28px, 5vw, 56px);
+    align-items: start;
+  }
+
+  .booking-month-row {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) 48px;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 22px;
+  }
+
+  .booking-month-row strong {
+    text-align: center;
+    font-size: 1.1rem;
+    color: #111827;
+  }
+
+  .booking-month-row button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border: 0;
+    border-radius: 50%;
+    background: #eef3ff;
+    color: #2563eb;
+    cursor: pointer;
+  }
+
+  .booking-month-row button:first-child {
+    background: transparent;
+    color: #667085;
+  }
+
+  .booking-month-row svg {
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.5;
+  }
+
+  .booking-weekdays,
+  .booking-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(36px, 1fr));
+    gap: 10px;
+  }
+
+  .booking-weekdays {
+    margin-bottom: 12px;
+    color: #111827;
+    font-size: 0.92rem;
+    font-weight: 750;
+    text-align: center;
+  }
+
+  .booking-day {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    min-width: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #aeb4bd;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 650;
+  }
+
+  button.booking-day {
+    background: #eef3ff;
+    color: #1459f5;
+    cursor: pointer;
+  }
+
+  button.booking-day:hover,
+  button.booking-day:focus-visible {
+    outline: none;
+    background: #dfe9ff;
+  }
+
+  button.booking-day.is-selected {
+    background: #2563eb;
+    color: #ffffff;
+  }
+
+  .booking-day.is-empty {
+    visibility: hidden;
+  }
+
+  .booking-timezone {
+    display: grid;
+    gap: 14px;
+    margin-top: 36px;
+    color: #111827;
+  }
+
+  .booking-timezone strong {
+    font-size: 1rem;
+  }
+
+  .booking-timezone span {
+    color: #111827;
+    font-size: 0.96rem;
+  }
+
+  .booking-times {
+    display: grid;
+    gap: 14px;
+    max-height: 520px;
+    overflow: auto;
+    padding-right: 8px;
+  }
+
+  .booking-time-button {
+    width: 100%;
+    min-height: 58px;
+    border: 1.5px solid #2563eb;
+    border-radius: 5px;
+    background: #ffffff;
+    color: #1459f5;
+    font: inherit;
+    font-size: 1.04rem;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  .booking-time-button:hover,
+  .booking-time-button:focus-visible {
+    outline: none;
+    background: #f4f7ff;
+  }
+
+  .booking-form {
+    display: grid;
+    gap: 22px;
+    max-width: 920px;
+  }
+
+  .booking-form label {
+    display: grid;
+    gap: 10px;
+    color: #253047;
+    font-size: 0.98rem;
+    font-weight: 750;
+  }
+
+  .booking-form input,
+  .booking-form select,
+  .booking-form textarea {
+    width: 100%;
+    border: 1px solid #b7bdc7;
+    border-radius: 5px;
+    background: #ffffff;
+    color: #111827;
+    font: inherit;
+    font-size: 0.98rem;
+    font-weight: 450;
+  }
+
+  .booking-form input,
+  .booking-form select {
+    min-height: 54px;
+    padding: 0 18px;
+  }
+
+  .booking-form textarea {
+    min-height: 118px;
+    resize: vertical;
+    padding: 16px 18px;
+  }
+
+  .booking-form input:focus,
+  .booking-form select:focus,
+  .booking-form textarea:focus {
+    outline: 2px solid rgba(37, 99, 235, 0.25);
+    border-color: #2563eb;
+  }
+
+  .booking-error {
+    margin: 0;
+    color: #b42318;
+    font-weight: 700;
+  }
+
+  .booking-submit-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 6px;
+  }
+
+  .booking-submit-row button {
+    min-height: 56px;
+    border: 0;
+    border-radius: 8px;
+    background: #2563eb;
+    color: #ffffff;
+    padding: 0 26px;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 800;
+    box-shadow: 0 14px 24px rgba(37, 99, 235, 0.24);
+    cursor: pointer;
+  }
+
+  .booking-submit-row button:disabled {
+    cursor: wait;
+    opacity: 0.72;
+  }
+
+  .booking-success-panel {
+    display: grid;
+    align-content: center;
+    justify-items: start;
+    min-height: 520px;
+    gap: 18px;
+  }
+
+  .booking-success-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #ecfdf3;
+    color: #079455;
+  }
+
+  .booking-success-mark svg {
+    width: 34px;
+    height: 34px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.5;
+  }
+
+  .booking-success-panel p {
+    max-width: 620px;
+    margin: 0;
+    color: #4b5563;
+    font-size: 1.05rem;
+    line-height: 1.6;
+  }
+
+  .booking-success-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .booking-success-details span {
+    border: 1px solid rgba(17, 24, 39, 0.1);
+    border-radius: 999px;
+    background: #f9fafb;
+    color: #374151;
+    padding: 9px 13px;
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  @media (max-width: 980px) {
+    .booking-shell {
+      grid-template-columns: 1fr;
+    }
+
+    .booking-summary {
+      border-right: 0;
+      border-bottom: 1px solid rgba(17, 24, 39, 0.1);
+    }
+
+    .booking-calendar-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .booking-times {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      max-height: none;
+      overflow: visible;
+      padding-right: 0;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .booking-shell {
+      min-height: 0;
+      border-radius: 8px;
+    }
+
+    .booking-summary,
+    .booking-main {
+      padding: 24px;
+    }
+
+    .booking-logo {
+      width: 76px;
+      height: 76px;
+    }
+
+    .booking-weekdays,
+    .booking-days {
+      gap: 6px;
+    }
+
+    .booking-day {
+      font-size: 0.9rem;
+    }
+
+    .booking-times {
+      grid-template-columns: 1fr;
+    }
+
+    .booking-back {
+      position: static;
+      margin-bottom: 18px;
+    }
+
+    .booking-submit-row {
+      justify-content: stretch;
+    }
+
+    .booking-submit-row button {
+      width: 100%;
+    }
+  }
+</style>

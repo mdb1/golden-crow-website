@@ -1,5 +1,6 @@
 ---
 import PocketGenesPublicLayout from '../../../layouts/PocketGenesPublicLayout.astro';
+import ClientBookingWidget from '../../../components/ClientBookingWidget.astro';
 import { POCKET_GENES_EMAILS } from '../../../data/pocketGenesPublic';
 
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
@@ -306,7 +307,6 @@ const trustMailSubject = encodeURIComponent(
   title={copy.title}
   description={copy.description}
   canonicalPath="/pocket-genes/join-us"
-  extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}
 >
   <main id="main" class="pg-page pg-trust-page">
     <section class="pg-trust-hero pg-pricing-hero">
@@ -443,7 +443,7 @@ const trustMailSubject = encodeURIComponent(
           </p>
         </div>
         <div class="pg-trusted-calendar-wrapper">
-          <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
+          <ClientBookingWidget context="pocket-genes-join-us" />
         </div>
       </div>
     </section>

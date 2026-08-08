@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import SuccessCarousel from '../../components/SuccessCarousel.astro';
+import ClientBookingWidget from '../../components/ClientBookingWidget.astro';
 import { useTranslations, getLocalizedPath } from '../../i18n/index';
 import type { Lang } from '../../i18n/ui';
 import { defaultLang } from '../../i18n/ui';
@@ -39,7 +40,7 @@ const projects = [
 ];
 ---
 
-<BaseLayout title={t.landing.title} showNav={false} extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}>
+<BaseLayout title={t.landing.title} showNav={false}>
   <main class="landing-page">
     <!-- Section 1: Hero -->
     <section class="hero-section">
@@ -58,7 +59,7 @@ const projects = [
       <div class="container">
         <div class="booking-content">
           <div class="calendar-wrapper">
-            <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
+            <ClientBookingWidget context="apps" />
           </div>
         </div>
       </div>
