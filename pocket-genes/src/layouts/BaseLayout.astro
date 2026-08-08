@@ -9,15 +9,42 @@ interface Props {
   showFooter?: boolean;
   showNav?: boolean;
   extraHeadScripts?: string[];
+  brandLogoSrc?: string;
+  brandLogoAlt?: string;
+  brandText?: string;
+  brandHref?: string;
+  faviconHref?: string;
+  favicon32Href?: string;
+  favicon16Href?: string;
+  appleTouchIconHref?: string;
+  socialImage?: string;
 }
 
-const { title, description, showFooter = true, showNav = true, extraHeadScripts = [] } = Astro.props;
+const {
+  title,
+  description,
+  showFooter = true,
+  showNav = true,
+  extraHeadScripts = [],
+  brandLogoSrc = '/logo1024.webp',
+  brandLogoAlt = 'Golden Crow VS Logo',
+  brandText,
+  brandHref,
+  faviconHref = '/favicon.ico',
+  favicon32Href = '/favicon-32x32.png',
+  favicon16Href = '/favicon-16x16.png',
+  appleTouchIconHref = '/apple-touch-icon.png',
+  socialImage = '/og-image.png',
+} = Astro.props;
 const lang = (Astro.currentLocale || defaultLang) as Lang;
 const t = useTranslations(Astro.currentLocale);
+const resolvedBrandText = brandText ?? t.hero.brand;
 
 function localPath(path: string) {
   return getLocalizedPath(path, lang);
 }
+
+const resolvedBrandHref = brandHref ? localPath(brandHref) : localPath('/');
 
 // Determine alternate lang path for the switcher
 const currentPath = Astro.url.pathname;
@@ -32,6 +59,9 @@ const switcherLabel = alternateLang === 'en' ? 'EN' : 'ES';
 const siteBase = 'https://goldencrowvs.com';
 const esPath = pathWithoutLocale;
 const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
+const absoluteAssetUrl = (assetPath: string) =>
+  assetPath.startsWith('http://') || assetPath.startsWith('https://') ? assetPath : `${siteBase}${assetPath}`;
+const faviconType = faviconHref.endsWith('.ico') ? 'image/x-icon' : 'image/png';
 ---
 
 <html lang={lang}>
@@ -45,7 +75,7 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
   <meta property="og:title" content={title} />
   {description && <meta property="og:description" content={description} />}
   <meta property="og:url" content={`${siteBase}${Astro.url.pathname}`} />
-  <meta property="og:image" content={`${siteBase}/og-image.png`} />
+  <meta property="og:image" content={absoluteAssetUrl(socialImage)} />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="1200" />
   <meta property="og:image:type" content="image/png" />
@@ -53,11 +83,11 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={title} />
   {description && <meta name="twitter:description" content={description} />}
-  <meta name="twitter:image" content={`${siteBase}/og-image.png`} />
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="twitter:image" content={absoluteAssetUrl(socialImage)} />
+  <link rel="icon" type={faviconType} href={faviconHref}>
+  <link rel="icon" type="image/png" sizes="32x32" href={favicon32Href}>
+  <link rel="icon" type="image/png" sizes="16x16" href={favicon16Href}>
+  <link rel="apple-touch-icon" href={appleTouchIconHref}>
   <link rel="manifest" href="/site.webmanifest">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" rel="stylesheet">
@@ -88,9 +118,9 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
     <nav class="main-nav">
       <div class="nav-container">
         <div class="logo">
-          <a href={localPath('/')}>
-            <img src="/logo1024.webp" alt="Golden Crow VS Logo" />
-            <span class="logo-text">{t.hero.brand}</span>
+          <a href={resolvedBrandHref}>
+            <img src={brandLogoSrc} alt={brandLogoAlt} />
+            <span class="logo-text">{resolvedBrandText}</span>
           </a>
         </div>
         <button class="mobile-menu-toggle" aria-label="Toggle navigation">

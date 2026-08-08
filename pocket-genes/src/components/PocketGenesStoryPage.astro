@@ -17,10 +17,20 @@ interface Props {
 
 const { slug } = Astro.props;
 const lang = (Astro.currentLocale || defaultLang) as Lang;
+const pocketGenesIcon = '/pocket-genes/icon_simple.png';
 ---
 
 <ProductStoryPage
   page={getPocketGenesStoryPage(lang, slug)}
   navItems={getPocketGenesStoryNav(lang)}
   activeSlug={slug}
+  brandLogoSrc={pocketGenesIcon}
+  brandLogoAlt="Pocket Genes app icon"
+  brandText="Pocket Genes"
+  brandHref="/pocket-genes"
+  faviconHref={pocketGenesIcon}
+  favicon32Href={pocketGenesIcon}
+  favicon16Href={pocketGenesIcon}
+  appleTouchIconHref={pocketGenesIcon}
+  socialImage={pocketGenesIcon}
 />

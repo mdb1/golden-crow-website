@@ -17,9 +17,32 @@ interface Props {
   navItems: StoryNavItem[];
   activeSlug?: string;
   palette?: StoryPalette;
+  brandLogoSrc?: string;
+  brandLogoAlt?: string;
+  brandText?: string;
+  brandHref?: string;
+  faviconHref?: string;
+  favicon32Href?: string;
+  favicon16Href?: string;
+  appleTouchIconHref?: string;
+  socialImage?: string;
 }
 
-const { page, navItems, activeSlug, palette = {} } = Astro.props;
+const {
+  page,
+  navItems,
+  activeSlug,
+  palette = {},
+  brandLogoSrc,
+  brandLogoAlt,
+  brandText,
+  brandHref,
+  faviconHref,
+  favicon32Href,
+  favicon16Href,
+  appleTouchIconHref,
+  socialImage,
+} = Astro.props;
 
 const {
   accent = '#1d8f8f',
@@ -54,7 +77,18 @@ function localPath(path: string) {
 }
 ---
 
-<BaseLayout title={page.title}>
+<BaseLayout
+  title={page.title}
+  brandLogoSrc={brandLogoSrc}
+  brandLogoAlt={brandLogoAlt}
+  brandText={brandText}
+  brandHref={brandHref}
+  faviconHref={faviconHref}
+  favicon32Href={favicon32Href}
+  favicon16Href={favicon16Href}
+  appleTouchIconHref={appleTouchIconHref}
+  socialImage={socialImage}
+>
   <main class="pg-story" style={storyStyle}>
     <section class="pg-hero" style={`--hero-image: url("${page.heroImage}")`}>
       <div class="pg-hero-inner">

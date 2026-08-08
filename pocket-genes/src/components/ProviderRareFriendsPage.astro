@@ -12,6 +12,7 @@ function localPath(path: string) {
 
 const integrationPath = localPath('/pocket-genes/integration');
 const bookingPath = `${integrationPath}/#booking`;
+const pocketGenesIcon = '/pocket-genes/icon_simple.png';
 
 const copy = isSpanish
   ? {
@@ -156,7 +157,19 @@ const copy = isSpanish
     };
 ---
 
-<BaseLayout title={copy.title} showFooter={false}>
+<BaseLayout
+  title={copy.title}
+  showFooter={false}
+  brandLogoSrc={pocketGenesIcon}
+  brandLogoAlt="Pocket Genes app icon"
+  brandText="Pocket Genes"
+  brandHref="/pocket-genes"
+  faviconHref={pocketGenesIcon}
+  favicon32Href={pocketGenesIcon}
+  favicon16Href={pocketGenesIcon}
+  appleTouchIconHref={pocketGenesIcon}
+  socialImage={pocketGenesIcon}
+>
   <main class="provider-rarefriends-page">
     <section class="rf-hero">
       <div class="rf-container rf-hero-grid">
