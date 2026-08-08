@@ -145,7 +145,7 @@ const pageCopy = {
       },
     ],
     bookingEyebrow: 'I want to be a trusted organization',
-    bookingTitle: 'Book a call with us.',
+    bookingTitle: 'Book a call\nwith us.',
     bookingBody:
       'If your organization supports genetics, rare disease, patient advocacy, education, care navigation, or simply offers genetic screening services, schedule a meeting with us. Let\'s explore together how your posts and events could be featured in Pocket Genes. We’d love to hear from you.',
   },
@@ -434,7 +434,7 @@ const trustMailSubject = encodeURIComponent(
       <div class="pg-container pg-trusted-booking-grid">
         <div>
           <p class="pg-eyebrow">{copy.bookingEyebrow}</p>
-          <h2>{copy.bookingTitle}</h2>
+          <h2>{copy.bookingTitle.split('\n').map((line) => <span>{line}</span>)}</h2>
           <p>
             {copy.bookingBody}
           </p>
@@ -1249,6 +1249,10 @@ const trustMailSubject = encodeURIComponent(
     font-size: 3rem;
     line-height: 1.04;
     letter-spacing: 0;
+  }
+
+  .pg-trusted-booking h2 span {
+    display: block;
   }
 
   .pg-trusted-booking p:not(.pg-eyebrow) {
