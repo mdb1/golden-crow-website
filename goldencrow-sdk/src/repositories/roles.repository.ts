@@ -433,7 +433,7 @@ export async function resolveAdminContext(input: {
       institutionId: roleRecord.institutionId,
       doctorId: roleRecord.doctorId,
       patientId: roleRecord.patientId,
-      isBootstrap: false,
+      isBootstrap: access.viaAllowlist,
       canAccessBackoffice: true,
       projectAccess: access.projectAccess,
     };
