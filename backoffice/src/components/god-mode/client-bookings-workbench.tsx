@@ -297,10 +297,11 @@ function BookingInfoCard({
 }) {
   const t = (text: string) => appText(language, text);
   const isAcknowledged = booking.ack;
-  const accentTextClass = isAcknowledged
+  const needsAttention = !isAcknowledged;
+  const accentTextClass = needsAttention
     ? "text-amber-800 dark:text-amber-200"
     : "text-slate-700 dark:text-slate-200";
-  const infoBoxClass = isAcknowledged
+  const infoBoxClass = needsAttention
     ? "border-amber-200/70 bg-background/70 dark:border-amber-300/18 dark:bg-background/45"
     : "border-slate-200/80 bg-white/90 dark:border-border/70 dark:bg-background/70";
 
@@ -308,7 +309,7 @@ function BookingInfoCard({
     <article
       className={cn(
         "rounded-xl border p-4 shadow-[0_12px_24px_rgba(15,23,42,0.06)] transition-colors",
-        isAcknowledged
+        needsAttention
           ? "border-amber-300/55 bg-amber-50/80 shadow-[0_12px_24px_rgba(245,158,11,0.08)] dark:border-amber-300/20 dark:bg-amber-400/10"
           : "border-slate-200/90 bg-white dark:border-border/80 dark:bg-background/72",
       )}
@@ -332,9 +333,9 @@ function BookingInfoCard({
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <Badge
-            variant={isAcknowledged ? "warning" : "outline"}
+            variant={needsAttention ? "warning" : "outline"}
             className={
-              isAcknowledged
+              needsAttention
                 ? "border-amber-500/35 bg-amber-100 text-amber-900 dark:border-amber-300/30 dark:bg-amber-300/12 dark:text-amber-100"
                 : "border-slate-300/80 bg-white text-slate-800 dark:border-border dark:bg-background dark:text-foreground"
             }
@@ -540,8 +541,8 @@ function ClientBookingsList({
                     className={cn(
                       "transition-colors",
                       booking.ack
-                        ? "bg-amber-50/80 hover:bg-amber-50 dark:bg-amber-400/10 dark:hover:bg-amber-400/15"
-                        : "bg-white hover:bg-slate-50 dark:bg-background/60 dark:hover:bg-muted/35",
+                        ? "bg-white hover:bg-slate-50 dark:bg-background/60 dark:hover:bg-muted/35"
+                        : "bg-amber-50/80 hover:bg-amber-50 dark:bg-amber-400/10 dark:hover:bg-amber-400/15",
                     )}
                   >
                     <TableCell className="whitespace-normal">
@@ -577,7 +578,7 @@ function ClientBookingsList({
                     </TableCell>
                     <TableCell className="whitespace-normal">
                       <div className="flex flex-col items-start gap-2">
-                        <Badge variant={booking.ack ? "warning" : "outline"}>
+                        <Badge variant={booking.ack ? "outline" : "warning"}>
                           {booking.ack
                             ? t("Acknowledged")
                             : t("Not acknowledged")}
@@ -669,6 +670,9 @@ export function ClientBookingsWorkbench() {
           ? todayDateKey
           : `${monthKey}-01`));
   const selectedBookings = bookingsByDate.get(effectiveSelectedDate) ?? [];
+  const selectedNeedsAttention = selectedBookings.some(
+    (booking) => !booking.ack,
+  );
   const daysWithMeetings = bookingsByDate.size;
 
   return (
@@ -818,6 +822,8 @@ export function ClientBookingsWorkbench() {
                           dayBookings.length - acknowledgedCount;
                         const allAcknowledged =
                           hasBookings && unacknowledgedCount === 0;
+                        const needsAttention =
+                          hasBookings && unacknowledgedCount > 0;
                         const isSelected =
                           cell.dateKey === effectiveSelectedDate;
                         const isToday = cell.dateKey === todayDateKey;
@@ -832,23 +838,26 @@ export function ClientBookingsWorkbench() {
                             }
                             className={cn(
                               "min-h-24 rounded-xl border border-transparent bg-transparent p-2 text-left transition-colors hover:border-foreground/20 hover:bg-muted/35",
-                              hasBookings &&
-                                !allAcknowledged &&
-                                "border-slate-200/90 bg-white shadow-[0_8px_18px_rgba(15,23,42,0.06)] dark:border-border/70 dark:bg-background/70",
-                              allAcknowledged &&
+                              needsAttention &&
                                 "border-amber-300/70 bg-amber-50/80 shadow-[0_8px_18px_rgba(245,158,11,0.08)] dark:border-amber-300/25 dark:bg-amber-400/10",
+                              allAcknowledged &&
+                                "border-slate-200/90 bg-white shadow-[0_8px_18px_rgba(15,23,42,0.06)] dark:border-border/70 dark:bg-background/70",
                               isToday &&
                                 !hasBookings &&
                                 "border-border/80 bg-background/70",
                               isSelected &&
+                                needsAttention &&
                                 "ring-2 ring-amber-500 ring-offset-2 ring-offset-background hover:border-amber-500",
+                              isSelected &&
+                                !needsAttention &&
+                                "ring-2 ring-slate-400 ring-offset-2 ring-offset-background hover:border-slate-400 dark:ring-slate-500",
                             )}
                           >
                             <span
                               className={cn(
                                 "flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold",
                                 isSelected
-                                  ? allAcknowledged
+                                  ? needsAttention
                                     ? "bg-amber-950 text-amber-50 dark:bg-amber-100 dark:text-amber-950"
                                     : "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
                                   : isToday
@@ -863,7 +872,7 @@ export function ClientBookingsWorkbench() {
                                 <span
                                   className={cn(
                                     "w-fit rounded-full px-2 py-0.5 text-xs font-semibold",
-                                    allAcknowledged
+                                    needsAttention
                                       ? "bg-amber-200 text-amber-950 dark:bg-amber-300/20 dark:text-amber-100"
                                       : "border border-slate-200/90 bg-white text-slate-900 dark:border-border dark:bg-background dark:text-foreground",
                                   )}
@@ -897,9 +906,7 @@ export function ClientBookingsWorkbench() {
                     {formatDateKey(effectiveSelectedDate, language)}
                   </h3>
                 </div>
-                <Badge
-                  variant={selectedBookings.length ? "warning" : "outline"}
-                >
+                <Badge variant={selectedNeedsAttention ? "warning" : "outline"}>
                   {selectedBookings.length}
                 </Badge>
               </div>
