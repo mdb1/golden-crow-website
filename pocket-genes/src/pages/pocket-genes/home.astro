@@ -9,7 +9,6 @@ const pageCopy = {
   en: {
     title: 'Pocket Genes - Personal genomic companion',
     description: 'Pocket Genes helps people organize genetic reports, understand key concepts, and prepare safer next steps.',
-    logoLabel: 'Pocket Genes logo',
     heroLead:
       'Pocket Genes helps you understand a genetic result, find trusted connections, and choose a clear next step without making your private report public by default.',
     downloadCta: 'Download',
@@ -126,7 +125,6 @@ const pageCopy = {
   es: {
     title: 'Pocket Genes - Tu guía para entender tus resultados genéticos',
     description: 'Pocket Genes te ayuda a organizar informes genéticos, entender resultados y preparar qué hacer después.',
-    logoLabel: 'Logo de Pocket Genes',
     heroLead:
       'Pocket Genes te ayuda a entender tus resultados genéticos, encontrar información y apoyo confiables, y decidir qué hacer después, sin hacer público tu informe.',
     downloadCta: 'Descargar',
@@ -258,13 +256,6 @@ const identityFlow = copy.identityFlow;
     <section class="pg-home-hero">
       <div class="pg-container pg-home-hero-grid">
         <div class="pg-home-copy">
-          <div class="pg-home-logo" aria-label={copy.logoLabel}>
-            <span class="pg-home-logo-mark" aria-hidden="true">
-              <span></span>
-              <span></span>
-            </span>
-            <span>Pocket Genes</span>
-          </div>
           <h1>Pocket Genes</h1>
           <p class="pg-home-lead">
             {copy.heroLead}
@@ -458,9 +449,10 @@ const identityFlow = copy.identityFlow;
   }
 
   .pg-home-copy h1 {
-    margin: 18px 0 0;
-    font-size: 4.4rem;
-    line-height: 1;
+    margin: 0;
+    font-size: 5.15rem;
+    font-weight: 950;
+    line-height: 0.94;
     letter-spacing: 0;
   }
 
@@ -474,63 +466,6 @@ const identityFlow = copy.identityFlow;
 
   .pg-home-copy .pg-button-row {
     margin-top: 28px;
-  }
-
-  .pg-home-logo {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--pg-ink);
-    font-size: 1.04rem;
-    font-weight: 900;
-  }
-
-  .pg-home-logo-mark {
-    width: 48px;
-    height: 48px;
-    border-radius: 8px;
-    background: #eef8f5;
-    border: 1px solid #c8ebe4;
-    position: relative;
-    overflow: hidden;
-    display: inline-grid;
-    place-items: center;
-  }
-
-  .pg-home-logo-mark::before,
-  .pg-home-logo-mark::after {
-    content: "";
-    position: absolute;
-    width: 30px;
-    height: 30px;
-    border: 3px solid var(--pg-teal);
-    border-left-color: transparent;
-    border-bottom-color: transparent;
-    border-radius: 999px;
-    transform: rotate(45deg);
-  }
-
-  .pg-home-logo-mark::after {
-    border-color: var(--pg-rose);
-    border-right-color: transparent;
-    border-top-color: transparent;
-    transform: rotate(45deg) translate(2px, -2px);
-  }
-
-  .pg-home-logo-mark span {
-    position: absolute;
-    width: 4px;
-    height: 4px;
-    border-radius: 999px;
-    background: var(--pg-blue);
-  }
-
-  .pg-home-logo-mark span:first-child {
-    transform: translate(-8px, 8px);
-  }
-
-  .pg-home-logo-mark span:last-child {
-    transform: translate(9px, -8px);
   }
 
   .pg-home-visual {
@@ -1090,7 +1025,7 @@ const identityFlow = copy.identityFlow;
     }
 
     .pg-home-copy h1 {
-      font-size: 3.2rem;
+      font-size: 3.7rem;
     }
 
     .pg-home-lead {
@@ -1169,7 +1104,7 @@ const identityFlow = copy.identityFlow;
 
   @media (max-width: 440px) {
     .pg-home-copy h1 {
-      font-size: 2.72rem;
+      font-size: 2.95rem;
     }
 
     .pg-identity-copy h2 {
