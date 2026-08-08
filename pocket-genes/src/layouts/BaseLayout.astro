@@ -18,6 +18,9 @@ interface Props {
   favicon16Href?: string;
   appleTouchIconHref?: string;
   socialImage?: string;
+  socialImageWidth?: number;
+  socialImageHeight?: number;
+  socialImageType?: string;
 }
 
 const {
@@ -35,6 +38,9 @@ const {
   favicon16Href = '/favicon-16x16.png',
   appleTouchIconHref = '/apple-touch-icon.png',
   socialImage = '/og-image.png',
+  socialImageWidth = 1200,
+  socialImageHeight = 1200,
+  socialImageType = 'image/png',
 } = Astro.props;
 const lang = (Astro.currentLocale || defaultLang) as Lang;
 const t = useTranslations(Astro.currentLocale);
@@ -76,9 +82,9 @@ const faviconType = faviconHref.endsWith('.ico') ? 'image/x-icon' : 'image/png';
   {description && <meta property="og:description" content={description} />}
   <meta property="og:url" content={`${siteBase}${Astro.url.pathname}`} />
   <meta property="og:image" content={absoluteAssetUrl(socialImage)} />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="1200" />
-  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content={String(socialImageWidth)} />
+  <meta property="og:image:height" content={String(socialImageHeight)} />
+  <meta property="og:image:type" content={socialImageType} />
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={title} />

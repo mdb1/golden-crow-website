@@ -26,6 +26,9 @@ interface Props {
   favicon16Href?: string;
   appleTouchIconHref?: string;
   socialImage?: string;
+  socialImageWidth?: number;
+  socialImageHeight?: number;
+  socialImageType?: string;
 }
 
 const {
@@ -42,6 +45,9 @@ const {
   favicon16Href,
   appleTouchIconHref,
   socialImage,
+  socialImageWidth,
+  socialImageHeight,
+  socialImageType,
 } = Astro.props;
 
 const {
@@ -88,6 +94,9 @@ function localPath(path: string) {
   favicon16Href={favicon16Href}
   appleTouchIconHref={appleTouchIconHref}
   socialImage={socialImage}
+  socialImageWidth={socialImageWidth}
+  socialImageHeight={socialImageHeight}
+  socialImageType={socialImageType}
 >
   <main class="pg-story" style={storyStyle}>
     <section class="pg-hero" style={`--hero-image: url("${page.heroImage}")`}>

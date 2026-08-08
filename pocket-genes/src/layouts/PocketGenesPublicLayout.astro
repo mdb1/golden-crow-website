@@ -8,6 +8,9 @@ interface Props {
   extraHeadScripts?: string[];
   showFooter?: boolean;
   image?: string;
+  imageWidth?: number;
+  imageHeight?: number;
+  imageType?: string;
 }
 
 const {
@@ -16,7 +19,10 @@ const {
   canonicalPath = Astro.url.pathname,
   extraHeadScripts = [],
   showFooter = true,
-  image = '/pocket-genes/screenshots/sample-01.webp',
+  image = '/pocket-genes/banner.png',
+  imageWidth = 1024,
+  imageHeight = 500,
+  imageType = 'image/png',
 } = Astro.props;
 
 const siteBase = 'https://goldencrowvs.com';
@@ -80,6 +86,9 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:image" content={`${siteBase}${image}`} />
+    <meta property="og:image:width" content={String(imageWidth)} />
+    <meta property="og:image:height" content={String(imageHeight)} />
+    <meta property="og:image:type" content={imageType} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />

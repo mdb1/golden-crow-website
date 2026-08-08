@@ -5,6 +5,7 @@ import { useTranslations } from '../../../i18n/index';
 
 const t = useTranslations(Astro.currentLocale);
 const pocketGenesIcon = '/pocket-genes/icon_simple.png';
+const pocketGenesSocialImage = '/pocket-genes/banner.png';
 ---
 
 <BaseLayout
@@ -18,7 +19,10 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
   favicon32Href={pocketGenesIcon}
   favicon16Href={pocketGenesIcon}
   appleTouchIconHref={pocketGenesIcon}
-  socialImage={pocketGenesIcon}
+  socialImage={pocketGenesSocialImage}
+  socialImageWidth={1024}
+  socialImageHeight={500}
+  socialImageType="image/png"
 >
   <PocketGenesIntegrationContent />
 </BaseLayout>

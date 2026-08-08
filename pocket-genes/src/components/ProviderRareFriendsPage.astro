@@ -13,6 +13,7 @@ function localPath(path: string) {
 const integrationPath = localPath('/pocket-genes/integration');
 const bookingPath = `${integrationPath}/#booking`;
 const pocketGenesIcon = '/pocket-genes/icon_simple.png';
+const pocketGenesSocialImage = '/pocket-genes/banner.png';
 
 const copy = isSpanish
   ? {
@@ -168,7 +169,10 @@ const copy = isSpanish
   favicon32Href={pocketGenesIcon}
   favicon16Href={pocketGenesIcon}
   appleTouchIconHref={pocketGenesIcon}
-  socialImage={pocketGenesIcon}
+  socialImage={pocketGenesSocialImage}
+  socialImageWidth={1024}
+  socialImageHeight={500}
+  socialImageType="image/png"
 >
   <main class="provider-rarefriends-page">
     <section class="rf-hero">
