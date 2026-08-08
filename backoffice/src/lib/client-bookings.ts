@@ -5,6 +5,9 @@ export interface ClientBookingRecord {
   ack: boolean;
   acknowledgedAt?: string;
   acknowledgedBy?: string;
+  archived: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
   source: {
     context: string;
     locale: string;

@@ -64,6 +64,9 @@ export interface ClientBookingRecord extends ClientBookingInput {
   ack: boolean;
   acknowledgedAt?: string;
   acknowledgedBy?: string;
+  archived: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
   source: ClientBookingInput["source"] & {
     origin?: string | null;
   };
@@ -91,6 +94,7 @@ export async function createClientBooking(
     schemaVersion: 1,
     status: "new",
     ack: false,
+    archived: false,
     source: {
       ...input.source,
       origin: meta.origin ?? null,
@@ -234,6 +238,9 @@ function toClientBookingRecord(
     ack: data.ack === true,
     acknowledgedAt: timestampToIso(data.acknowledgedAt),
     acknowledgedBy: normalizeString(data.acknowledgedBy),
+    archived: data.archived === true,
+    archivedAt: timestampToIso(data.archivedAt),
+    archivedBy: normalizeString(data.archivedBy),
     source: {
       context: normalizeString(source.context) ?? "unknown",
       locale: normalizeString(source.locale) ?? "unknown",
@@ -283,6 +290,7 @@ function sortBookingsByEventTime(bookings: ClientBookingRecord[]) {
 export async function listClientBookingsForCalendarMonth(options: {
   month: string;
   limit?: number;
+  archived?: boolean;
 }): Promise<ClientBookingsPage> {
   const range = getMonthRange(options.month);
   if (!range) {
@@ -304,7 +312,13 @@ export async function listClientBookingsForCalendarMonth(options: {
 
   return {
     bookings: sortBookingsByEventTime(
-      snapshot.docs.map((doc) => toClientBookingRecord(doc.id, doc.data())),
+      snapshot.docs
+        .map((doc) => toClientBookingRecord(doc.id, doc.data()))
+        .filter((booking) =>
+          options.archived === undefined
+            ? true
+            : booking.archived === options.archived,
+        ),
     ),
   };
 }
@@ -313,6 +327,7 @@ export async function listClientBookingsPage(options: {
   limit?: number;
   cursor?: string;
   ack?: boolean;
+  archived?: boolean;
 }): Promise<ClientBookingsPage> {
   const limit = normalizeLimit(
     options.limit,
@@ -329,7 +344,7 @@ export async function listClientBookingsPage(options: {
     query = query.startAfter(cursorTimestamp);
   }
 
-  if (options.ack !== undefined) {
+  if (options.ack !== undefined || options.archived !== undefined) {
     const bookings: ClientBookingRecord[] = [];
     let pageCursorTimestamp = cursorTimestamp;
     let scannedDocs = 0;
@@ -359,7 +374,13 @@ export async function listClientBookingsPage(options: {
         scannedDocs += 1;
 
         const booking = toClientBookingRecord(doc.id, doc.data());
-        if (booking.ack === options.ack) {
+        const matchesAck =
+          options.ack === undefined || booking.ack === options.ack;
+        const matchesArchived =
+          options.archived === undefined ||
+          booking.archived === options.archived;
+
+        if (matchesAck && matchesArchived) {
           bookings.push(booking);
           if (bookings.length >= limit) {
             break;
@@ -435,6 +456,31 @@ export async function acknowledgeClientBooking(
       ack: true,
       acknowledgedAt: FieldValue.serverTimestamp(),
       acknowledgedBy,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  const updatedSnapshot = await docRef.get();
+  return toClientBookingRecord(bookingId, updatedSnapshot.data() ?? {});
+}
+
+export async function archiveClientBooking(
+  bookingId: string,
+  archivedBy: string,
+): Promise<ClientBookingRecord> {
+  const docRef = adminDb.collection(CLIENT_BOOKINGS_COLLECTION).doc(bookingId);
+  const snapshot = await docRef.get();
+
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError("Client booking not found", 404);
+  }
+
+  await docRef.set(
+    {
+      archived: true,
+      archivedAt: FieldValue.serverTimestamp(),
+      archivedBy,
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Archive,
   Building2,
   CalendarDays,
   CheckCircle2,
@@ -38,10 +39,15 @@ import type {
 import { appText, type AppLanguage } from "@/lib/language";
 import { cn } from "@/lib/utils";
 
-type BookingView = "calendar" | "list" | "new";
+type BookingView = "calendar" | "list" | "new" | "archived";
 
 const CALENDAR_BOOKINGS_QUERY_KEY = "god-mode-client-bookings-calendar";
 const LIST_BOOKINGS_QUERY_KEY = "god-mode-client-bookings-list";
+
+interface ListQueryOptions {
+  ack?: boolean;
+  archived?: boolean;
+}
 
 const WEEKDAYS: Record<AppLanguage, string[]> = {
   en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
@@ -293,19 +299,27 @@ function buildCalendarQueryPath(monthKey: string) {
     view: "calendar",
     month: monthKey,
     limit: "250",
+    archived: "false",
   });
 
   return `/admin/client-bookings?${params.toString()}`;
 }
 
-function buildListQueryPath(cursor: string | undefined, ack?: boolean) {
+function buildListQueryPath(
+  cursor: string | undefined,
+  options: ListQueryOptions = {},
+) {
   const params = new URLSearchParams({
     view: "list",
     limit: "20",
   });
 
-  if (ack !== undefined) {
-    params.set("ack", String(ack));
+  if (options.ack !== undefined) {
+    params.set("ack", String(options.ack));
+  }
+
+  if (options.archived !== undefined) {
+    params.set("archived", String(options.archived));
   }
 
   if (cursor) {
@@ -336,6 +350,27 @@ function useAcknowledgeBooking() {
   });
 }
 
+function useArchiveBooking() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (bookingId: string) =>
+      sdkFetch<{ booking: ClientBookingRecord }>(
+        `/admin/client-bookings/${encodeURIComponent(bookingId)}/archive`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ archived: true }),
+        },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [CALENDAR_BOOKINGS_QUERY_KEY],
+      });
+      queryClient.invalidateQueries({ queryKey: [LIST_BOOKINGS_QUERY_KEY] });
+    },
+  });
+}
+
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-dashed border-border/80 bg-background/50 px-4 py-8 text-center text-sm text-muted-foreground">
@@ -348,15 +383,22 @@ function BookingInfoCard({
   booking,
   language,
   isAcknowledging,
+  isArchiving,
   onAcknowledge,
+  onArchive,
+  allowArchive,
 }: {
   booking: ClientBookingRecord;
   language: AppLanguage;
   isAcknowledging: boolean;
+  isArchiving: boolean;
   onAcknowledge: (bookingId: string) => void;
+  onArchive: (bookingId: string) => void;
+  allowArchive: boolean;
 }) {
   const t = (text: string) => appText(language, text);
   const isAcknowledged = booking.ack;
+  const isArchived = booking.archived;
   const needsAttention = !isAcknowledged;
   const accentTextClass = needsAttention
     ? "text-amber-800 dark:text-amber-200"
@@ -402,7 +444,8 @@ function BookingInfoCard({
           >
             {isAcknowledged ? t("Acknowledged") : t("Not acknowledged")}
           </Badge>
-          {!isAcknowledged ? (
+          {isArchived ? <Badge variant="outline">{t("Archived")}</Badge> : null}
+          {!isAcknowledged && !isArchived ? (
             <Button
               type="button"
               variant="outline"
@@ -412,6 +455,18 @@ function BookingInfoCard({
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
               {isAcknowledging ? t("Saving...") : t("Confirm ack")}
+            </Button>
+          ) : null}
+          {allowArchive && !isArchived ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onArchive(booking.id)}
+              disabled={isArchiving}
+            >
+              <Archive className="h-3.5 w-3.5" />
+              {isArchiving ? t("Saving...") : t("Archive")}
             </Button>
           ) : null}
         </div>
@@ -488,6 +543,11 @@ function BookingInfoCard({
           {t("Acknowledged")} {formatDateTime(booking.acknowledgedAt, language)}
         </p>
       ) : null}
+      {isArchived && booking.archivedAt ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t("Archived")} {formatDateTime(booking.archivedAt, language)}
+        </p>
+      ) : null}
     </article>
   );
 }
@@ -508,21 +568,32 @@ function ClientBookingsList({
   onPrevious,
   canGoPrevious,
   ack,
+  archived = false,
 }: {
   cursor?: string;
   onNext: (cursor: string) => void;
   onPrevious: () => void;
   canGoPrevious: boolean;
   ack?: boolean;
+  archived?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const ackMutation = useAcknowledgeBooking();
+  const archiveMutation = useArchiveBooking();
   const isNewOnly = ack === false;
+  const isArchivedOnly = archived === true;
   const { data, isFetching, error, refetch } = useQuery({
-    queryKey: [LIST_BOOKINGS_QUERY_KEY, ack ?? "all", cursor],
+    queryKey: [
+      LIST_BOOKINGS_QUERY_KEY,
+      ack ?? "all",
+      archived ? "archived" : "active",
+      cursor,
+    ],
     queryFn: () =>
-      sdkFetch<ClientBookingsResponse>(buildListQueryPath(cursor, ack)),
+      sdkFetch<ClientBookingsResponse>(
+        buildListQueryPath(cursor, { ack, archived }),
+      ),
   });
   const bookings = data?.bookings ?? [];
   const sortedBookings = useMemo(
@@ -535,12 +606,18 @@ function ClientBookingsList({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-heading text-lg font-semibold text-foreground">
-            {isNewOnly ? t("New booking requests") : t("All booking requests")}
+            {isArchivedOnly
+              ? t("Archived booking requests")
+              : isNewOnly
+                ? t("New booking requests")
+                : t("All booking requests")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {isNewOnly
-              ? t("Unacknowledged requests only.")
-              : t("Unacknowledged first, then latest.")}
+            {isArchivedOnly
+              ? t("Archived requests only.")
+              : isNewOnly
+                ? t("Unacknowledged requests only.")
+                : t("Unacknowledged first, then latest.")}
           </p>
         </div>
         <Button
@@ -569,6 +646,12 @@ function ClientBookingsList({
         </p>
       ) : null}
 
+      {archiveMutation.error ? (
+        <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {t("Failed to update archive.")}
+        </p>
+      ) : null}
+
       {isFetching && bookings.length === 0 ? (
         <div className="flex flex-col gap-2">
           {Array.from({ length: 6 }).map((_, index) => (
@@ -577,9 +660,11 @@ function ClientBookingsList({
         </div>
       ) : bookings.length === 0 ? (
         <EmptyState>
-          {isNewOnly
-            ? t("No new booking requests found.")
-            : t("No booking requests found.")}
+          {isArchivedOnly
+            ? t("No archived booking requests found.")
+            : isNewOnly
+              ? t("No new booking requests found.")
+              : t("No booking requests found.")}
         </EmptyState>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/80 bg-background/64">
@@ -591,13 +676,16 @@ function ClientBookingsList({
                 <TableHead>{t("Company")}</TableHead>
                 <TableHead>{t("Source")}</TableHead>
                 <TableHead>{t("Requested")}</TableHead>
-                <TableHead>{t("Ack")}</TableHead>
+                <TableHead>{t("Status")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedBookings.map((booking) => {
                 const isAcknowledging =
                   ackMutation.isPending && ackMutation.variables === booking.id;
+                const isArchiving =
+                  archiveMutation.isPending &&
+                  archiveMutation.variables === booking.id;
 
                 return (
                   <TableRow
@@ -647,7 +735,10 @@ function ClientBookingsList({
                             ? t("Acknowledged")
                             : t("Not acknowledged")}
                         </Badge>
-                        {!booking.ack ? (
+                        {booking.archived ? (
+                          <Badge variant="outline">{t("Archived")}</Badge>
+                        ) : null}
+                        {!booking.ack && !booking.archived ? (
                           <Button
                             type="button"
                             variant="outline"
@@ -659,6 +750,18 @@ function ClientBookingsList({
                             {isAcknowledging
                               ? t("Saving...")
                               : t("Confirm ack")}
+                          </Button>
+                        ) : null}
+                        {!isArchivedOnly && !booking.archived ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => archiveMutation.mutate(booking.id)}
+                            disabled={isArchiving}
+                          >
+                            <Archive className="h-3.5 w-3.5" />
+                            {isArchiving ? t("Saving...") : t("Archive")}
                           </Button>
                         ) : null}
                       </div>
@@ -704,13 +807,17 @@ export function ClientBookingsWorkbench() {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const ackMutation = useAcknowledgeBooking();
+  const archiveMutation = useArchiveBooking();
   const [view, setView] = useState<BookingView>("calendar");
   const [monthKey, setMonthKey] = useState(getCurrentMonthKey);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [listCursorStack, setListCursorStack] = useState<string[]>([]);
   const [newCursorStack, setNewCursorStack] = useState<string[]>([]);
+  const [archivedCursorStack, setArchivedCursorStack] = useState<string[]>([]);
   const currentListCursor = listCursorStack[listCursorStack.length - 1];
   const currentNewCursor = newCursorStack[newCursorStack.length - 1];
+  const currentArchivedCursor =
+    archivedCursorStack[archivedCursorStack.length - 1];
   const monthCells = useMemo(() => getMonthCells(monthKey), [monthKey]);
   const calendarQuery = useQuery({
     queryKey: [CALENDAR_BOOKINGS_QUERY_KEY, monthKey],
@@ -769,6 +876,10 @@ export function ClientBookingsWorkbench() {
               <TabsTrigger value="new" className="gap-1.5">
                 <CircleDot className="h-3.5 w-3.5" />
                 {t("New bookings")}
+              </TabsTrigger>
+              <TabsTrigger value="archived" className="gap-1.5">
+                <Archive className="h-3.5 w-3.5" />
+                {t("Archived")}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -851,6 +962,12 @@ export function ClientBookingsWorkbench() {
               {ackMutation.error ? (
                 <p className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                   {t("Failed to update acknowledgment.")}
+                </p>
+              ) : null}
+
+              {archiveMutation.error ? (
+                <p className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {t("Failed to update archive.")}
                 </p>
               ) : null}
 
@@ -992,9 +1109,17 @@ export function ClientBookingsWorkbench() {
                         ackMutation.isPending &&
                         ackMutation.variables === booking.id
                       }
+                      isArchiving={
+                        archiveMutation.isPending &&
+                        archiveMutation.variables === booking.id
+                      }
                       onAcknowledge={(bookingId) =>
                         ackMutation.mutate(bookingId)
                       }
+                      onArchive={(bookingId) =>
+                        archiveMutation.mutate(bookingId)
+                      }
+                      allowArchive
                     />
                   ))}
                 </div>
@@ -1005,6 +1130,7 @@ export function ClientBookingsWorkbench() {
 
         <TabsContent value="list" className="mt-0">
           <ClientBookingsList
+            archived={false}
             cursor={currentListCursor}
             canGoPrevious={listCursorStack.length > 0}
             onPrevious={() =>
@@ -1019,6 +1145,7 @@ export function ClientBookingsWorkbench() {
         <TabsContent value="new" className="mt-0">
           <ClientBookingsList
             ack={false}
+            archived={false}
             cursor={currentNewCursor}
             canGoPrevious={newCursorStack.length > 0}
             onPrevious={() =>
@@ -1026,6 +1153,20 @@ export function ClientBookingsWorkbench() {
             }
             onNext={(nextCursor) =>
               setNewCursorStack((current) => [...current, nextCursor])
+            }
+          />
+        </TabsContent>
+
+        <TabsContent value="archived" className="mt-0">
+          <ClientBookingsList
+            archived
+            cursor={currentArchivedCursor}
+            canGoPrevious={archivedCursorStack.length > 0}
+            onPrevious={() =>
+              setArchivedCursorStack((current) => current.slice(0, -1))
+            }
+            onNext={(nextCursor) =>
+              setArchivedCursorStack((current) => [...current, nextCursor])
             }
           />
         </TabsContent>

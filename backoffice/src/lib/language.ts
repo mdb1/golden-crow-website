@@ -102,10 +102,12 @@ const SPANISH_TEXT: Record<string, string> = {
     "Revisión en calendario y lista de solicitudes de reunión.",
   "All booking requests": "Todas las solicitudes de reunión",
   "New booking requests": "Solicitudes nuevas",
+  "Archived booking requests": "Solicitudes archivadas",
   "Latest requests first.": "Solicitudes más recientes primero.",
   "Unacknowledged first, then latest.":
     "Sin acusar primero; después las más recientes.",
   "Unacknowledged requests only.": "Solo solicitudes sin acusar.",
+  "Archived requests only.": "Solo solicitudes archivadas.",
   Calendar: "Calendario",
   List: "Lista",
   "New bookings": "Nuevos",
@@ -120,9 +122,12 @@ const SPANISH_TEXT: Record<string, string> = {
     "No hay reuniones agendadas para este día.",
   "No booking requests found.": "No se encontraron solicitudes de reunión.",
   "No new booking requests found.": "No se encontraron solicitudes nuevas.",
+  "No archived booking requests found.":
+    "No se encontraron solicitudes archivadas.",
   "Failed to load booking requests.":
     "No se pudieron cargar las solicitudes de reunión.",
   "Failed to update acknowledgment.": "No se pudo actualizar el acuse.",
+  "Failed to update archive.": "No se pudo actualizar el archivo.",
   Ack: "Acuse",
   Acknowledged: "Acusada",
   "Not acknowledged": "Sin acusar",

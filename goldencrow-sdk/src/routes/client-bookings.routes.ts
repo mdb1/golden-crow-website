@@ -4,6 +4,7 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   acknowledgeClientBooking,
+  archiveClientBooking,
   createClientBooking,
   listClientBookingsForCalendarMonth,
   listClientBookingsPage,
@@ -61,6 +62,7 @@ const BookingRequestSchema = z.object({
 const AdminClientBookingsQuerySchema = z.object({
   view: z.enum(["calendar", "list"]).default("list"),
   ack: z.enum(["true", "false"]).optional(),
+  archived: z.enum(["true", "false"]).optional(),
   month: z
     .string()
     .trim()
@@ -226,6 +228,10 @@ export async function clientBookingsRoutes(
         const result = await listClientBookingsForCalendarMonth({
           month: request.query.month ?? fallbackMonth,
           limit: request.query.limit,
+          archived:
+            request.query.archived === undefined
+              ? false
+              : request.query.archived === "true",
         });
 
         return reply.send(result);
@@ -238,6 +244,10 @@ export async function clientBookingsRoutes(
           request.query.ack === undefined
             ? undefined
             : request.query.ack === "true",
+        archived:
+          request.query.archived === undefined
+            ? false
+            : request.query.archived === "true",
       });
 
       return reply.send(result);
@@ -269,6 +279,45 @@ export async function clientBookingsRoutes(
 
       try {
         const booking = await acknowledgeClientBooking(
+          request.params.bookingId,
+          request.adminContext.email,
+        );
+        return reply.send({ booking });
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  f.patch(
+    "/admin/client-bookings/:bookingId/archive",
+    {
+      schema: {
+        params: ClientBookingParamsSchema,
+        body: z
+          .object({
+            archived: z.literal(true).default(true),
+          })
+          .default({ archived: true }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      if (!request.adminContext.isBootstrap) {
+        return reply.status(403).send({ error: "GOD MODE access required" });
+      }
+
+      try {
+        const booking = await archiveClientBooking(
           request.params.bookingId,
           request.adminContext.email,
         );
