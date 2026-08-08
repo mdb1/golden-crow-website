@@ -111,9 +111,16 @@ const SPANISH_TEXT: Record<string, string> = {
   meeting: "reunión",
   "days with meetings": "días con reuniones",
   "Selected day": "Día seleccionado",
-  "No meetings scheduled for this day.": "No hay reuniones agendadas para este día.",
+  "No meetings scheduled for this day.":
+    "No hay reuniones agendadas para este día.",
   "No booking requests found.": "No se encontraron solicitudes de reunión.",
-  "Failed to load booking requests.": "No se pudieron cargar las solicitudes de reunión.",
+  "Failed to load booking requests.":
+    "No se pudieron cargar las solicitudes de reunión.",
+  "Failed to update acknowledgment.": "No se pudo actualizar el acuse.",
+  Ack: "Acuse",
+  Acknowledged: "Acusada",
+  "Not acknowledged": "Sin acusar",
+  "Confirm ack": "Confirmar acuse",
   "Unnamed contact": "Contacto sin nombre",
   "No company provided": "Empresa no informada",
   "No email": "Sin email",
@@ -2190,7 +2197,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Can operate 2PQ reports": "Puede operar reportes 2PQ",
   "Can coordinate shipments": "Puede coordinar envíos",
   "Can use the 2PQ backoffice": "Puede usar el backoffice 2PQ",
-  "Can inspect institution context": "Puede consultar el contexto institucional",
+  "Can inspect institution context":
+    "Puede consultar el contexto institucional",
   "Can review the surrounding context": "Puede revisar el contexto circundante",
   "Can see and edit only one institution.":
     "Puede ver y editar solo una institución.",

@@ -1,4 +1,5 @@
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { AdminRepositoryError } from "./admin-errors.js";
 import { adminDbFor } from "../config/firebase.js";
 
 const adminDb = adminDbFor("mydnamap");
@@ -58,6 +59,9 @@ export interface ClientBookingRecord extends ClientBookingInput {
   id: string;
   schemaVersion: number;
   status: string;
+  ack: boolean;
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
   source: ClientBookingInput["source"] & {
     origin?: string | null;
   };
@@ -76,7 +80,7 @@ export interface ClientBookingsPage {
 
 export async function createClientBooking(
   input: ClientBookingInput,
-  meta: ClientBookingRequestMeta
+  meta: ClientBookingRequestMeta,
 ): Promise<{ id: string }> {
   const startsAt = new Date(input.event.startsAt);
   const endsAt = new Date(input.event.endsAt);
@@ -84,6 +88,7 @@ export async function createClientBooking(
   const ref = await adminDb.collection(CLIENT_BOOKINGS_COLLECTION).add({
     schemaVersion: 1,
     status: "new",
+    ack: false,
     source: {
       ...input.source,
       origin: meta.origin ?? null,
@@ -103,23 +108,30 @@ export async function createClientBooking(
 
 export async function recordClientBookingRelayhookNotification(
   bookingId: string,
-  notification: ClientBookingRelayhookNotification
+  notification: ClientBookingRelayhookNotification,
 ): Promise<void> {
-  await adminDb.collection(CLIENT_BOOKINGS_COLLECTION).doc(bookingId).set(
-    {
-      notifications: {
-        relayhook: {
-          ...notification,
-          updatedAt: FieldValue.serverTimestamp(),
+  await adminDb
+    .collection(CLIENT_BOOKINGS_COLLECTION)
+    .doc(bookingId)
+    .set(
+      {
+        notifications: {
+          relayhook: {
+            ...notification,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
         },
+        updatedAt: FieldValue.serverTimestamp(),
       },
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+      { merge: true },
+    );
 }
 
-function normalizeLimit(limit: number | undefined, fallback: number, max: number) {
+function normalizeLimit(
+  limit: number | undefined,
+  fallback: number,
+  max: number,
+) {
   if (!Number.isFinite(limit ?? NaN)) {
     return fallback;
   }
@@ -191,7 +203,7 @@ function getMonthRange(month: string) {
 
   const firstDate = `${yearToken}-${monthToken}-01`;
   const lastDate = `${yearToken}-${monthToken}-${String(
-    lastDayOfMonth(year, monthNumber)
+    lastDayOfMonth(year, monthNumber),
   ).padStart(2, "0")}`;
 
   return { firstDate, lastDate };
@@ -199,7 +211,7 @@ function getMonthRange(month: string) {
 
 function toClientBookingRecord(
   id: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
 ): ClientBookingRecord {
   const source = normalizeRecord(data.source);
   const event = normalizeRecord(data.event);
@@ -217,6 +229,9 @@ function toClientBookingRecord(
     id,
     schemaVersion: normalizeNumber(data.schemaVersion, 1),
     status: normalizeString(data.status) ?? "new",
+    ack: data.ack === true,
+    acknowledgedAt: timestampToIso(data.acknowledgedAt),
+    acknowledgedBy: normalizeString(data.acknowledgedBy),
     source: {
       context: normalizeString(source.context) ?? "unknown",
       locale: normalizeString(source.locale) ?? "unknown",
@@ -233,8 +248,7 @@ function toClientBookingRecord(
         normalizeString(event.timezoneLabel) ??
         "GMT-03:00 America/Buenos_Aires (GMT-3)",
       date:
-        normalizeString(event.date) ??
-        (startsAt ? startsAt.slice(0, 10) : ""),
+        normalizeString(event.date) ?? (startsAt ? startsAt.slice(0, 10) : ""),
       startTime: normalizeString(event.startTime) ?? "",
       endTime: normalizeString(event.endTime) ?? "",
       startsAt,
@@ -276,7 +290,7 @@ export async function listClientBookingsForCalendarMonth(options: {
   const limit = normalizeLimit(
     options.limit,
     DEFAULT_CALENDAR_LIMIT,
-    MAX_CALENDAR_LIMIT
+    MAX_CALENDAR_LIMIT,
   );
   const snapshot = await adminDb
     .collection(CLIENT_BOOKINGS_COLLECTION)
@@ -288,7 +302,7 @@ export async function listClientBookingsForCalendarMonth(options: {
 
   return {
     bookings: sortBookingsByEventTime(
-      snapshot.docs.map((doc) => toClientBookingRecord(doc.id, doc.data()))
+      snapshot.docs.map((doc) => toClientBookingRecord(doc.id, doc.data())),
     ),
   };
 }
@@ -297,7 +311,11 @@ export async function listClientBookingsPage(options: {
   limit?: number;
   cursor?: string;
 }): Promise<ClientBookingsPage> {
-  const limit = normalizeLimit(options.limit, DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT);
+  const limit = normalizeLimit(
+    options.limit,
+    DEFAULT_LIST_LIMIT,
+    MAX_LIST_LIMIT,
+  );
   const cursorTimestamp = parseCursorTimestamp(options.cursor);
   let query = adminDb
     .collection(CLIENT_BOOKINGS_COLLECTION)
@@ -310,7 +328,7 @@ export async function listClientBookingsPage(options: {
   const snapshot = await query.limit(limit + 1).get();
   const visibleDocs = snapshot.docs.slice(0, limit);
   const bookings = visibleDocs.map((doc) =>
-    toClientBookingRecord(doc.id, doc.data())
+    toClientBookingRecord(doc.id, doc.data()),
   );
   const lastVisible = visibleDocs[visibleDocs.length - 1];
   const nextCursor =
@@ -322,4 +340,29 @@ export async function listClientBookingsPage(options: {
     bookings,
     nextCursor,
   };
+}
+
+export async function acknowledgeClientBooking(
+  bookingId: string,
+  acknowledgedBy: string,
+): Promise<ClientBookingRecord> {
+  const docRef = adminDb.collection(CLIENT_BOOKINGS_COLLECTION).doc(bookingId);
+  const snapshot = await docRef.get();
+
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError("Client booking not found", 404);
+  }
+
+  await docRef.set(
+    {
+      ack: true,
+      acknowledgedAt: FieldValue.serverTimestamp(),
+      acknowledgedBy,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  const updatedSnapshot = await docRef.get();
+  return toClientBookingRecord(bookingId, updatedSnapshot.data() ?? {});
 }

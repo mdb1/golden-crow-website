@@ -1,7 +1,9 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
+import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
+  acknowledgeClientBooking,
   createClientBooking,
   listClientBookingsForCalendarMonth,
   listClientBookingsPage,
@@ -33,9 +35,18 @@ const BookingRequestSchema = z.object({
     durationMinutes: z.number().int().min(15).max(120),
     timezone: z.string().trim().min(1).max(80),
     timezoneLabel: z.string().trim().min(1).max(120),
-    date: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/),
-    startTime: z.string().trim().regex(/^\d{2}:\d{2}$/),
-    endTime: z.string().trim().regex(/^\d{2}:\d{2}$/),
+    date: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}$/),
+    startTime: z
+      .string()
+      .trim()
+      .regex(/^\d{2}:\d{2}$/),
+    endTime: z
+      .string()
+      .trim()
+      .regex(/^\d{2}:\d{2}$/),
     startsAt: z.string().trim().datetime(),
     endsAt: z.string().trim().datetime(),
   }),
@@ -49,9 +60,17 @@ const BookingRequestSchema = z.object({
 
 const AdminClientBookingsQuerySchema = z.object({
   view: z.enum(["calendar", "list"]).default("list"),
-  month: z.string().trim().regex(/^\d{4}-\d{2}$/).optional(),
+  month: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}$/)
+    .optional(),
   limit: z.coerce.number().int().min(1).max(500).optional(),
   cursor: z.string().trim().datetime().optional(),
+});
+
+const ClientBookingParamsSchema = z.object({
+  bookingId: z.string().trim().min(1),
 });
 
 type BookingRequest = z.infer<typeof BookingRequestSchema>;
@@ -59,7 +78,7 @@ type BookingRequest = z.infer<typeof BookingRequestSchema>;
 function appendRelayhookParam(
   params: URLSearchParams,
   key: string,
-  value: string | number | undefined
+  value: string | number | undefined,
 ) {
   if (value === undefined) {
     return;
@@ -79,7 +98,11 @@ function getRelayhookUrl(bookingId: string, booking: BookingRequest) {
   appendRelayhookParam(searchParams, "booking_id", bookingId);
   appendRelayhookParam(searchParams, "event_title", booking.event.title);
   appendRelayhookParam(searchParams, "event_date", booking.event.date);
-  appendRelayhookParam(searchParams, "event_start_time", booking.event.startTime);
+  appendRelayhookParam(
+    searchParams,
+    "event_start_time",
+    booking.event.startTime,
+  );
   appendRelayhookParam(searchParams, "event_end_time", booking.event.endTime);
   appendRelayhookParam(searchParams, "event_starts_at", booking.event.startsAt);
   appendRelayhookParam(searchParams, "event_ends_at", booking.event.endsAt);
@@ -87,9 +110,13 @@ function getRelayhookUrl(bookingId: string, booking: BookingRequest) {
   appendRelayhookParam(
     searchParams,
     "event_timezone_label",
-    booking.event.timezoneLabel
+    booking.event.timezoneLabel,
   );
-  appendRelayhookParam(searchParams, "duration_minutes", booking.event.durationMinutes);
+  appendRelayhookParam(
+    searchParams,
+    "duration_minutes",
+    booking.event.durationMinutes,
+  );
   appendRelayhookParam(searchParams, "full_name", booking.form.fullName);
   appendRelayhookParam(searchParams, "email", booking.form.email);
   appendRelayhookParam(searchParams, "whatsapp", booking.form.whatsapp);
@@ -98,7 +125,11 @@ function getRelayhookUrl(bookingId: string, booking: BookingRequest) {
   appendRelayhookParam(searchParams, "source_locale", booking.source.locale);
   appendRelayhookParam(searchParams, "source_page_url", booking.source.pageUrl);
   appendRelayhookParam(searchParams, "source_path", booking.source.path);
-  appendRelayhookParam(searchParams, "source_referrer", booking.source.referrer);
+  appendRelayhookParam(
+    searchParams,
+    "source_referrer",
+    booking.source.referrer,
+  );
   appendRelayhookParam(searchParams, "sent_at", new Date().toISOString());
 
   return url;
@@ -124,7 +155,7 @@ async function fetchRelayhook(url: URL) {
 async function notifyClientBookingWebhook(
   bookingId: string,
   booking: BookingRequest,
-  fastify: FastifyInstance
+  fastify: FastifyInstance,
 ): Promise<ClientBookingRelayhookNotification> {
   try {
     const response = await fetchRelayhook(getRelayhookUrl(bookingId, booking));
@@ -132,7 +163,7 @@ async function notifyClientBookingWebhook(
     if (!response.ok) {
       fastify.log.warn(
         { bookingId, statusCode: response.status },
-        "Client booking RelayHook notification returned a non-OK response"
+        "Client booking RelayHook notification returned a non-OK response",
       );
 
       return {
@@ -152,7 +183,7 @@ async function notifyClientBookingWebhook(
   } catch (error) {
     fastify.log.warn(
       { bookingId, error },
-      "Client booking RelayHook notification failed"
+      "Client booking RelayHook notification failed",
     );
 
     return {
@@ -163,7 +194,9 @@ async function notifyClientBookingWebhook(
   }
 }
 
-export async function clientBookingsRoutes(fastify: FastifyInstance): Promise<void> {
+export async function clientBookingsRoutes(
+  fastify: FastifyInstance,
+): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
   f.get(
@@ -175,7 +208,9 @@ export async function clientBookingsRoutes(fastify: FastifyInstance): Promise<vo
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       if (!request.adminContext.isBootstrap) {
@@ -185,7 +220,7 @@ export async function clientBookingsRoutes(fastify: FastifyInstance): Promise<vo
       if (request.query.view === "calendar") {
         const today = new Date();
         const fallbackMonth = `${today.getUTCFullYear()}-${String(
-          today.getUTCMonth() + 1
+          today.getUTCMonth() + 1,
         ).padStart(2, "0")}`;
         const result = await listClientBookingsForCalendarMonth({
           month: request.query.month ?? fallbackMonth,
@@ -201,7 +236,46 @@ export async function clientBookingsRoutes(fastify: FastifyInstance): Promise<vo
       });
 
       return reply.send(result);
-    }
+    },
+  );
+
+  f.patch(
+    "/admin/client-bookings/:bookingId/ack",
+    {
+      schema: {
+        params: ClientBookingParamsSchema,
+        body: z
+          .object({
+            ack: z.literal(true).default(true),
+          })
+          .default({ ack: true }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      if (!request.adminContext.isBootstrap) {
+        return reply.status(403).send({ error: "GOD MODE access required" });
+      }
+
+      try {
+        const booking = await acknowledgeClientBooking(
+          request.params.bookingId,
+          request.adminContext.email,
+        );
+        return reply.send({ booking });
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    },
   );
 
   f.post(
@@ -218,7 +292,7 @@ export async function clientBookingsRoutes(fastify: FastifyInstance): Promise<vo
       const notification = await notifyClientBookingWebhook(
         result.id,
         request.body,
-        fastify
+        fastify,
       );
 
       try {
@@ -226,7 +300,7 @@ export async function clientBookingsRoutes(fastify: FastifyInstance): Promise<vo
       } catch (error) {
         fastify.log.warn(
           { bookingId: result.id, error },
-          "Client booking RelayHook notification status could not be recorded"
+          "Client booking RelayHook notification status could not be recorded",
         );
       }
 
@@ -244,6 +318,6 @@ export async function clientBookingsRoutes(fastify: FastifyInstance): Promise<vo
         bookingId: result.id,
         notification,
       });
-    }
+    },
   );
 }

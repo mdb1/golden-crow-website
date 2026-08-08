@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   CalendarDays,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -37,6 +38,9 @@ import { appText, type AppLanguage } from "@/lib/language";
 import { cn } from "@/lib/utils";
 
 type BookingView = "calendar" | "list";
+
+const CALENDAR_BOOKINGS_QUERY_KEY = "god-mode-client-bookings-calendar";
+const LIST_BOOKINGS_QUERY_KEY = "god-mode-client-bookings-list";
 
 const WEEKDAYS: Record<AppLanguage, string[]> = {
   en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
@@ -149,7 +153,9 @@ function formatTimeRange(booking: ClientBookingRecord) {
   const start = booking.event.startTime
     ? formatClockTime(booking.event.startTime)
     : "";
-  const end = booking.event.endTime ? formatClockTime(booking.event.endTime) : "";
+  const end = booking.event.endTime
+    ? formatClockTime(booking.event.endTime)
+    : "";
 
   return [start, end].filter(Boolean).join(" - ") || booking.event.title;
 }
@@ -160,6 +166,26 @@ function formatMeetingCount(count: number, language: AppLanguage) {
   }
 
   return `${count} ${count === 1 ? "meeting" : "meetings"}`;
+}
+
+function formatAckCalendarLabel(
+  bookings: ClientBookingRecord[],
+  language: AppLanguage,
+) {
+  const acknowledgedCount = bookings.filter((booking) => booking.ack).length;
+  const unacknowledgedCount = bookings.length - acknowledgedCount;
+
+  if (acknowledgedCount > 0 && unacknowledgedCount > 0) {
+    return language === "es"
+      ? `${unacknowledgedCount} nuevas · ${acknowledgedCount} ack`
+      : `${unacknowledgedCount} new · ${acknowledgedCount} ack`;
+  }
+
+  if (acknowledgedCount > 0) {
+    return `${acknowledgedCount} ack`;
+  }
+
+  return formatMeetingCount(bookings.length, language);
 }
 
 function formatDateTime(value: string | undefined, language: AppLanguage) {
@@ -224,6 +250,27 @@ function buildListQueryPath(cursor: string | undefined) {
   return `/admin/client-bookings?${params.toString()}`;
 }
 
+function useAcknowledgeBooking() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (bookingId: string) =>
+      sdkFetch<{ booking: ClientBookingRecord }>(
+        `/admin/client-bookings/${encodeURIComponent(bookingId)}/ack`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ ack: true }),
+        },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [CALENDAR_BOOKINGS_QUERY_KEY],
+      });
+      queryClient.invalidateQueries({ queryKey: [LIST_BOOKINGS_QUERY_KEY] });
+    },
+  });
+}
+
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-dashed border-border/80 bg-background/50 px-4 py-8 text-center text-sm text-muted-foreground">
@@ -235,17 +282,40 @@ function EmptyState({ children }: { children: React.ReactNode }) {
 function BookingInfoCard({
   booking,
   language,
+  isAcknowledging,
+  onAcknowledge,
 }: {
   booking: ClientBookingRecord;
   language: AppLanguage;
+  isAcknowledging: boolean;
+  onAcknowledge: (bookingId: string) => void;
 }) {
   const t = (text: string) => appText(language, text);
+  const isAcknowledged = booking.ack;
+  const accentTextClass = isAcknowledged
+    ? "text-amber-800 dark:text-amber-200"
+    : "text-slate-700 dark:text-slate-200";
+  const infoBoxClass = isAcknowledged
+    ? "border-amber-200/70 bg-background/70 dark:border-amber-300/18 dark:bg-background/45"
+    : "border-slate-200/80 bg-white/90 dark:border-border/70 dark:bg-background/70";
 
   return (
-    <article className="rounded-xl border border-amber-300/55 bg-amber-50/70 p-4 shadow-[0_12px_24px_rgba(245,158,11,0.08)] dark:border-amber-300/20 dark:bg-amber-400/10">
+    <article
+      className={cn(
+        "rounded-xl border p-4 shadow-[0_12px_24px_rgba(15,23,42,0.06)] transition-colors",
+        isAcknowledged
+          ? "border-amber-300/55 bg-amber-50/80 shadow-[0_12px_24px_rgba(245,158,11,0.08)] dark:border-amber-300/20 dark:bg-amber-400/10"
+          : "border-slate-200/90 bg-white dark:border-border/80 dark:bg-background/72",
+      )}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-800 dark:text-amber-200">
+          <p
+            className={cn(
+              "text-xs font-black uppercase tracking-[0.16em]",
+              accentTextClass,
+            )}
+          >
             {formatTimeRange(booking)}
           </p>
           <h3 className="mt-1 truncate font-heading text-lg font-semibold text-foreground">
@@ -255,17 +325,40 @@ function BookingInfoCard({
             {booking.form.companyName || t("No company provided")}
           </p>
         </div>
-        <Badge
-          variant="outline"
-          className="border-amber-500/35 bg-amber-100 text-amber-900 dark:border-amber-300/30 dark:bg-amber-300/12 dark:text-amber-100"
-        >
-          {booking.status}
-        </Badge>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <Badge
+            variant={isAcknowledged ? "warning" : "outline"}
+            className={
+              isAcknowledged
+                ? "border-amber-500/35 bg-amber-100 text-amber-900 dark:border-amber-300/30 dark:bg-amber-300/12 dark:text-amber-100"
+                : "border-slate-300/80 bg-white text-slate-800 dark:border-border dark:bg-background dark:text-foreground"
+            }
+          >
+            {isAcknowledged ? t("Acknowledged") : t("Not acknowledged")}
+          </Badge>
+          {!isAcknowledged ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onAcknowledge(booking.id)}
+              disabled={isAcknowledging}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {isAcknowledging ? t("Saving...") : t("Confirm ack")}
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="flex min-w-0 items-center gap-2 rounded-lg border border-amber-200/70 bg-background/70 px-3 py-2 text-sm dark:border-amber-300/18 dark:bg-background/45">
-          <Mail className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-200" />
+        <div
+          className={cn(
+            "flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+            infoBoxClass,
+          )}
+        >
+          <Mail className={cn("h-4 w-4 shrink-0", accentTextClass)} />
           <a
             className="truncate text-foreground hover:underline"
             href={`mailto:${booking.form.email}`}
@@ -273,25 +366,45 @@ function BookingInfoCard({
             {booking.form.email || t("No email")}
           </a>
         </div>
-        <div className="flex min-w-0 items-center gap-2 rounded-lg border border-amber-200/70 bg-background/70 px-3 py-2 text-sm dark:border-amber-300/18 dark:bg-background/45">
-          <Phone className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-200" />
-          <span className="truncate">{booking.form.whatsapp || t("No WhatsApp")}</span>
+        <div
+          className={cn(
+            "flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+            infoBoxClass,
+          )}
+        >
+          <Phone className={cn("h-4 w-4 shrink-0", accentTextClass)} />
+          <span className="truncate">
+            {booking.form.whatsapp || t("No WhatsApp")}
+          </span>
         </div>
-        <div className="flex min-w-0 items-center gap-2 rounded-lg border border-amber-200/70 bg-background/70 px-3 py-2 text-sm dark:border-amber-300/18 dark:bg-background/45">
-          <Building2 className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-200" />
+        <div
+          className={cn(
+            "flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+            infoBoxClass,
+          )}
+        >
+          <Building2 className={cn("h-4 w-4 shrink-0", accentTextClass)} />
           <span className="truncate">
             {booking.source.context} · {booking.source.locale}
           </span>
         </div>
-        <div className="flex min-w-0 items-center gap-2 rounded-lg border border-amber-200/70 bg-background/70 px-3 py-2 text-sm dark:border-amber-300/18 dark:bg-background/45">
-          <Clock3 className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-200" />
+        <div
+          className={cn(
+            "flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+            infoBoxClass,
+          )}
+        >
+          <Clock3 className={cn("h-4 w-4 shrink-0", accentTextClass)} />
           <span className="truncate">{booking.event.timezoneLabel}</span>
         </div>
       </div>
 
       {booking.source.pageUrl ? (
         <a
-          className="mt-3 inline-flex max-w-full items-center gap-1.5 truncate text-xs font-medium text-amber-800 hover:underline dark:text-amber-200"
+          className={cn(
+            "mt-3 inline-flex max-w-full items-center gap-1.5 truncate text-xs font-medium hover:underline",
+            accentTextClass,
+          )}
           href={booking.source.pageUrl}
           target="_blank"
           rel="noreferrer"
@@ -304,6 +417,11 @@ function BookingInfoCard({
       <p className="mt-3 text-xs text-muted-foreground">
         {t("Requested")} {formatDateTime(booking.createdAt, language)}
       </p>
+      {isAcknowledged && booking.acknowledgedAt ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t("Acknowledged")} {formatDateTime(booking.acknowledgedAt, language)}
+        </p>
+      ) : null}
     </article>
   );
 }
@@ -331,10 +449,10 @@ function ClientBookingsList({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const ackMutation = useAcknowledgeBooking();
   const { data, isFetching, error, refetch } = useQuery({
-    queryKey: ["god-mode-client-bookings-list", cursor],
-    queryFn: () =>
-      sdkFetch<ClientBookingsResponse>(buildListQueryPath(cursor)),
+    queryKey: [LIST_BOOKINGS_QUERY_KEY, cursor],
+    queryFn: () => sdkFetch<ClientBookingsResponse>(buildListQueryPath(cursor)),
   });
   const bookings = data?.bookings ?? [];
 
@@ -356,7 +474,9 @@ function ClientBookingsList({
           onClick={() => refetch()}
           disabled={isFetching}
         >
-          <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
+          <RefreshCw
+            className={cn("h-3.5 w-3.5", isFetching && "animate-spin")}
+          />
           {t("Refresh")}
         </Button>
       </div>
@@ -364,6 +484,12 @@ function ClientBookingsList({
       {error ? (
         <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {t("Failed to load booking requests.")}
+        </p>
+      ) : null}
+
+      {ackMutation.error ? (
+        <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {t("Failed to update acknowledgment.")}
         </p>
       ) : null}
 
@@ -385,44 +511,81 @@ function ClientBookingsList({
                 <TableHead>{t("Company")}</TableHead>
                 <TableHead>{t("Source")}</TableHead>
                 <TableHead>{t("Requested")}</TableHead>
+                <TableHead>{t("Ack")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bookings.map((booking) => (
-                <TableRow key={booking.id}>
-                  <TableCell className="whitespace-normal">
-                    <div className="font-medium text-foreground">
-                      {formatDateKey(booking.event.date, language)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatTimeRange(booking)}
-                    </div>
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    <div className="font-medium text-foreground">
-                      {booking.form.fullName || "—"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {booking.form.email || "—"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {booking.form.whatsapp || "—"}
-                    </div>
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    {booking.form.companyName || "—"}
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    <div>{booking.source.context}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {booking.source.locale}
-                    </div>
-                  </TableCell>
-                  <TableCell className="whitespace-normal text-muted-foreground">
-                    {formatDateTime(booking.createdAt, language)}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {bookings.map((booking) => {
+                const isAcknowledging =
+                  ackMutation.isPending && ackMutation.variables === booking.id;
+
+                return (
+                  <TableRow
+                    key={booking.id}
+                    className={cn(
+                      "transition-colors",
+                      booking.ack
+                        ? "bg-amber-50/80 hover:bg-amber-50 dark:bg-amber-400/10 dark:hover:bg-amber-400/15"
+                        : "bg-white hover:bg-slate-50 dark:bg-background/60 dark:hover:bg-muted/35",
+                    )}
+                  >
+                    <TableCell className="whitespace-normal">
+                      <div className="font-medium text-foreground">
+                        {formatDateKey(booking.event.date, language)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatTimeRange(booking)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      <div className="font-medium text-foreground">
+                        {booking.form.fullName || "—"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {booking.form.email || "—"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {booking.form.whatsapp || "—"}
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      {booking.form.companyName || "—"}
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      <div>{booking.source.context}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {booking.source.locale}
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-normal text-muted-foreground">
+                      {formatDateTime(booking.createdAt, language)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      <div className="flex flex-col items-start gap-2">
+                        <Badge variant={booking.ack ? "warning" : "outline"}>
+                          {booking.ack
+                            ? t("Acknowledged")
+                            : t("Not acknowledged")}
+                        </Badge>
+                        {!booking.ack ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => ackMutation.mutate(booking.id)}
+                            disabled={isAcknowledging}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            {isAcknowledging
+                              ? t("Saving...")
+                              : t("Confirm ack")}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -460,6 +623,7 @@ function ClientBookingsList({
 export function ClientBookingsWorkbench() {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const ackMutation = useAcknowledgeBooking();
   const [view, setView] = useState<BookingView>("calendar");
   const [monthKey, setMonthKey] = useState(getCurrentMonthKey);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -467,7 +631,7 @@ export function ClientBookingsWorkbench() {
   const currentListCursor = cursorStack[cursorStack.length - 1];
   const monthCells = useMemo(() => getMonthCells(monthKey), [monthKey]);
   const calendarQuery = useQuery({
-    queryKey: ["god-mode-client-bookings-calendar", monthKey],
+    queryKey: [CALENDAR_BOOKINGS_QUERY_KEY, monthKey],
     queryFn: () =>
       sdkFetch<ClientBookingsResponse>(buildCalendarQueryPath(monthKey)),
   });
@@ -483,8 +647,10 @@ export function ClientBookingsWorkbench() {
   const effectiveSelectedDate =
     selectedDate && selectedDate.startsWith(`${monthKey}-`)
       ? selectedDate
-      : firstBookingDate ??
-        (todayDateKey.startsWith(`${monthKey}-`) ? todayDateKey : `${monthKey}-01`);
+      : (firstBookingDate ??
+        (todayDateKey.startsWith(`${monthKey}-`)
+          ? todayDateKey
+          : `${monthKey}-01`));
   const selectedBookings = bookingsByDate.get(effectiveSelectedDate) ?? [];
   const daysWithMeetings = bookingsByDate.size;
 
@@ -539,7 +705,9 @@ export function ClientBookingsWorkbench() {
                     size="icon-sm"
                     aria-label={t("Previous month")}
                     title={t("Previous month")}
-                    onClick={() => setMonthKey((current) => addMonths(current, -1))}
+                    onClick={() =>
+                      setMonthKey((current) => addMonths(current, -1))
+                    }
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
@@ -560,7 +728,9 @@ export function ClientBookingsWorkbench() {
                     size="icon-sm"
                     aria-label={t("Next month")}
                     title={t("Next month")}
-                    onClick={() => setMonthKey((current) => addMonths(current, 1))}
+                    onClick={() =>
+                      setMonthKey((current) => addMonths(current, 1))
+                    }
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
@@ -589,6 +759,12 @@ export function ClientBookingsWorkbench() {
                 </p>
               ) : null}
 
+              {ackMutation.error ? (
+                <p className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {t("Failed to update acknowledgment.")}
+                </p>
+              ) : null}
+
               <div className="overflow-x-auto">
                 <div className="min-w-[680px]">
                   <div className="mb-2 grid grid-cols-7 gap-2">
@@ -611,9 +787,18 @@ export function ClientBookingsWorkbench() {
                           return <div key={cell.key} className="min-h-24" />;
                         }
 
-                        const dayBookings = bookingsByDate.get(cell.dateKey) ?? [];
+                        const dayBookings =
+                          bookingsByDate.get(cell.dateKey) ?? [];
                         const hasBookings = dayBookings.length > 0;
-                        const isSelected = cell.dateKey === effectiveSelectedDate;
+                        const acknowledgedCount = dayBookings.filter(
+                          (booking) => booking.ack,
+                        ).length;
+                        const unacknowledgedCount =
+                          dayBookings.length - acknowledgedCount;
+                        const allAcknowledged =
+                          hasBookings && unacknowledgedCount === 0;
+                        const isSelected =
+                          cell.dateKey === effectiveSelectedDate;
                         const isToday = cell.dateKey === todayDateKey;
 
                         return (
@@ -621,23 +806,30 @@ export function ClientBookingsWorkbench() {
                             key={cell.key}
                             type="button"
                             aria-pressed={isSelected}
-                            onClick={() => setSelectedDate(cell.dateKey ?? null)}
+                            onClick={() =>
+                              setSelectedDate(cell.dateKey ?? null)
+                            }
                             className={cn(
                               "min-h-24 rounded-xl border border-transparent bg-transparent p-2 text-left transition-colors hover:border-foreground/20 hover:bg-muted/35",
                               hasBookings &&
+                                !allAcknowledged &&
+                                "border-slate-200/90 bg-white shadow-[0_8px_18px_rgba(15,23,42,0.06)] dark:border-border/70 dark:bg-background/70",
+                              allAcknowledged &&
                                 "border-amber-300/70 bg-amber-50/80 shadow-[0_8px_18px_rgba(245,158,11,0.08)] dark:border-amber-300/25 dark:bg-amber-400/10",
                               isToday &&
                                 !hasBookings &&
                                 "border-border/80 bg-background/70",
                               isSelected &&
-                                "border-amber-600 bg-amber-300 text-amber-950 shadow-[0_12px_24px_rgba(245,158,11,0.18)] hover:border-amber-600 hover:bg-amber-300 dark:border-amber-300 dark:bg-amber-300/26 dark:text-amber-50",
+                                "ring-2 ring-amber-500 ring-offset-2 ring-offset-background hover:border-amber-500",
                             )}
                           >
                             <span
                               className={cn(
                                 "flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold",
                                 isSelected
-                                  ? "bg-amber-950 text-amber-50 dark:bg-amber-100 dark:text-amber-950"
+                                  ? allAcknowledged
+                                    ? "bg-amber-950 text-amber-50 dark:bg-amber-100 dark:text-amber-950"
+                                    : "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
                                   : isToday
                                     ? "bg-muted text-foreground"
                                     : "text-foreground",
@@ -650,12 +842,15 @@ export function ClientBookingsWorkbench() {
                                 <span
                                   className={cn(
                                     "w-fit rounded-full px-2 py-0.5 text-xs font-semibold",
-                                    isSelected
-                                      ? "bg-amber-950 text-amber-50 dark:bg-amber-100 dark:text-amber-950"
-                                      : "bg-amber-200 text-amber-950 dark:bg-amber-300/20 dark:text-amber-100",
+                                    allAcknowledged
+                                      ? "bg-amber-200 text-amber-950 dark:bg-amber-300/20 dark:text-amber-100"
+                                      : "border border-slate-200/90 bg-white text-slate-900 dark:border-border dark:bg-background dark:text-foreground",
                                   )}
                                 >
-                                  {formatMeetingCount(dayBookings.length, language)}
+                                  {formatAckCalendarLabel(
+                                    dayBookings,
+                                    language,
+                                  )}
                                 </span>
                                 <span className="truncate text-xs text-muted-foreground">
                                   {formatTimeRange(dayBookings[0])}
@@ -681,13 +876,17 @@ export function ClientBookingsWorkbench() {
                     {formatDateKey(effectiveSelectedDate, language)}
                   </h3>
                 </div>
-                <Badge variant={selectedBookings.length ? "warning" : "outline"}>
+                <Badge
+                  variant={selectedBookings.length ? "warning" : "outline"}
+                >
                   {selectedBookings.length}
                 </Badge>
               </div>
 
               {selectedBookings.length === 0 ? (
-                <EmptyState>{t("No meetings scheduled for this day.")}</EmptyState>
+                <EmptyState>
+                  {t("No meetings scheduled for this day.")}
+                </EmptyState>
               ) : (
                 <div className="flex flex-col gap-3">
                   {selectedBookings.map((booking) => (
@@ -695,6 +894,13 @@ export function ClientBookingsWorkbench() {
                       key={booking.id}
                       booking={booking}
                       language={language}
+                      isAcknowledging={
+                        ackMutation.isPending &&
+                        ackMutation.variables === booking.id
+                      }
+                      onAcknowledge={(bookingId) =>
+                        ackMutation.mutate(bookingId)
+                      }
                     />
                   ))}
                 </div>
@@ -707,9 +913,7 @@ export function ClientBookingsWorkbench() {
           <ClientBookingsList
             cursor={currentListCursor}
             canGoPrevious={cursorStack.length > 0}
-            onPrevious={() =>
-              setCursorStack((current) => current.slice(0, -1))
-            }
+            onPrevious={() => setCursorStack((current) => current.slice(0, -1))}
             onNext={(nextCursor) =>
               setCursorStack((current) => [...current, nextCursor])
             }

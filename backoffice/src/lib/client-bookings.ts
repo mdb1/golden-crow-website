@@ -2,6 +2,9 @@ export interface ClientBookingRecord {
   id: string;
   schemaVersion: number;
   status: string;
+  ack: boolean;
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
   source: {
     context: string;
     locale: string;
