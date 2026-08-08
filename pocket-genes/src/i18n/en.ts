@@ -46,7 +46,7 @@ export const en = {
     project2Tags: ['iOS'] as unknown as string[],
     project2AppStore: '',
     project2GooglePlay: '',
-    project2Website: '/en/pocket-genes',
+    project2Website: '/en/pocket-genes/home',
     project3Title: 'Anytime Fitness',
     project3Desc: 'Gym management and member experience app. Class booking, workout tracking, and seamless gym access integration for a global fitness brand.',
     project3Image: '/experience2.webp',

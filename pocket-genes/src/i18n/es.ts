@@ -48,7 +48,7 @@ export const es: Translations = {
     project2Tags: ['iOS'] as unknown as string[],
     project2AppStore: '',
     project2GooglePlay: '',
-    project2Website: '/pocket-genes',
+    project2Website: '/pocket-genes/home',
     project3Title: 'Anytime Fitness',
     project3Desc: 'App de gestión de gimnasios y experiencia de socios. Reserva de clases, seguimiento de entrenamientos e integración de acceso al gimnasio para una marca global.',
     project3Image: '/experience2.webp',
