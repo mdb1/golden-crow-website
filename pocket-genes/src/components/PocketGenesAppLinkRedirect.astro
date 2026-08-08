@@ -55,7 +55,7 @@ const initialCopy = isEnglishPage
 >
   <main id="main" class="app-link-page">
     <section class="app-link-content" aria-labelledby="app-link-title">
-      <img class="app-icon" src="/pocket-genes/icon.png" alt="" width="112" height="112" />
+      <img class="app-icon" src="/pocket-genes/icon_simple.png" alt="" width="112" height="112" />
       <p class="app-kicker">Pocket Genes</p>
       <h1 id="app-link-title">{initialCopy.title}</h1>
       <p id="app-link-description" class="app-description">
@@ -465,7 +465,7 @@ const initialCopy = isEnglishPage
       title,
       summary,
       body,
-      imageUrl: validUrl(fields.publisherSnapshot?.imageUrl) || '/pocket-genes/icon.png',
+      imageUrl: validUrl(fields.publisherSnapshot?.imageUrl) || '/pocket-genes/icon_simple.png',
       mediaUrl: validUrl(fields.image_url) || validUrl(fields.imageUrl) || validUrl(payload.imageUrl),
       websiteUrl: validUrl(fields.source_url) || validUrl(fields.sourceUrl),
       badges: [typeLabel(type)],

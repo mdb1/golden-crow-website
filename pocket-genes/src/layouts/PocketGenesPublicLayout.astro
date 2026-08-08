@@ -64,6 +64,7 @@ const navItems = publicNavItems.map((item) => ({
       : normalizedPath === item.href,
 }));
 const homeHref = localizePath('/pocket-genes/home');
+const pocketGenesIcon = '/pocket-genes/icon_simple.png';
 ---
 
 <!doctype html>
@@ -86,7 +87,8 @@ const homeHref = localizePath('/pocket-genes/home');
     <link rel="alternate" hreflang="es" href={`${siteBase}${esPath}`} />
     <link rel="alternate" hreflang="en" href={`${siteBase}${enPath}`} />
     <link rel="alternate" hreflang="x-default" href={`${siteBase}${esPath}`} />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href={pocketGenesIcon} />
+    <link rel="apple-touch-icon" href={pocketGenesIcon} />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" rel="stylesheet" />
     {extraHeadScripts.map((src) => <script src={src} type="text/javascript"></script>)}
@@ -97,8 +99,7 @@ const homeHref = localizePath('/pocket-genes/home');
       <div class="pg-nav-shell">
         <a class="pg-brand" href={homeHref} aria-label={layoutCopy[lang].brandHome}>
           <span class="pg-brand-mark" aria-hidden="true">
-            <span></span>
-            <span></span>
+            <img src={pocketGenesIcon} alt="" width="36" height="36" />
           </span>
           <span class="pg-brand-text">Pocket Genes</span>
         </a>
@@ -146,8 +147,7 @@ const homeHref = localizePath('/pocket-genes/home');
         <div>
           <a class="pg-brand pg-footer-brand" href={homeHref} aria-label="Pocket Genes home">
             <span class="pg-brand-mark" aria-hidden="true">
-              <span></span>
-              <span></span>
+              <img src={pocketGenesIcon} alt="" width="36" height="36" loading="lazy" />
             </span>
             <span class="pg-brand-text">Pocket Genes</span>
           </a>
@@ -383,49 +383,19 @@ const homeHref = localizePath('/pocket-genes/home');
   .pg-brand-mark {
     width: 36px;
     height: 36px;
-    border-radius: 8px;
-    background: #eef8f5;
-    border: 1px solid #c8ebe4;
-    display: inline-grid;
-    place-items: center;
-    position: relative;
+    flex: 0 0 auto;
+    border-radius: 9px;
+    background: #f13f6f;
+    box-shadow: 0 8px 18px rgba(228, 80, 128, 0.22);
+    display: inline-flex;
     overflow: hidden;
   }
 
-  .pg-brand-mark::before,
-  .pg-brand-mark::after {
-    content: "";
-    position: absolute;
-    width: 22px;
-    height: 22px;
-    border: 2px solid var(--pg-teal);
-    border-left-color: transparent;
-    border-bottom-color: transparent;
-    border-radius: 999px;
-    transform: rotate(45deg);
-  }
-
-  .pg-brand-mark::after {
-    border-color: var(--pg-rose);
-    border-right-color: transparent;
-    border-top-color: transparent;
-    transform: rotate(45deg) translate(2px, -2px);
-  }
-
-  .pg-brand-mark span {
-    position: absolute;
-    width: 3px;
-    height: 3px;
-    border-radius: 999px;
-    background: var(--pg-blue);
-  }
-
-  .pg-brand-mark span:first-child {
-    transform: translate(-6px, 6px);
-  }
-
-  .pg-brand-mark span:last-child {
-    transform: translate(7px, -6px);
+  .pg-brand-mark img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   .pg-brand-text {
