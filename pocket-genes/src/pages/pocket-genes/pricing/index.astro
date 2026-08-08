@@ -16,7 +16,6 @@ const pageCopy = {
     heroTitleEmphasis: 'for free.',
     heroBody:
       'Approved organizations can build a trusted presence, publish useful information, support their communities, and stay connected with users without paying a platform fee.',
-    heroPrimaryCta: 'Join the network — free',
     freeBenefitsTitle: 'Everything your organization gets for free',
     freeBenefitsBody:
       'This is not just an organization listing. Trusted organizations can publish, participate, communicate, and remain discoverable across Pocket Genes.',
@@ -78,7 +77,6 @@ const pageCopy = {
       },
     ],
     freeBenefitsStatement: 'All of this is available at no cost to approved trusted organizations.',
-    freeBenefitsCta: 'Join the network — free',
     comparisonTitle: 'So, when do you pay?',
     comparisonBody: 'Only if and when your organization uses Pocket Genes to deliver genomic reports.',
     comparisonOptions: [
@@ -95,7 +93,7 @@ const pageCopy = {
           'No report-delivery commitment',
           'Trusted organizational presence and community participation',
         ],
-        cta: 'Join the network — free',
+        cta: 'Schedule a call',
         href: '#trusted-organization-meeting',
         note: 'Approval is required. Trusted status cannot be purchased.',
         tone: 'free',
@@ -159,7 +157,6 @@ const pageCopy = {
     heroTitleEmphasis: 'gratis.',
     heroBody:
       'Las organizaciones aprobadas pueden crear una presencia confiable, publicar información útil, apoyar a sus comunidades y mantenerse conectadas con usuarios sin pagar una tarifa de plataforma.',
-    heroPrimaryCta: 'Sumarme a la red — gratis',
     freeBenefitsTitle: 'Todo lo que tu organización recibe gratis',
     freeBenefitsBody:
       'No es solo un listado de organizaciones. Las organizaciones de confianza pueden publicar, participar, comunicarse y mantenerse visibles en Pocket Genes.',
@@ -221,7 +218,6 @@ const pageCopy = {
       },
     ],
     freeBenefitsStatement: 'Todo esto está disponible sin costo para organizaciones de confianza aprobadas.',
-    freeBenefitsCta: 'Sumarme a la red — gratis',
     comparisonTitle: 'Entonces, ¿cuándo pagás?',
     comparisonBody: 'Solo si y cuando tu organización usa Pocket Genes para entregar informes genómicos.',
     comparisonOptions: [
@@ -238,7 +234,7 @@ const pageCopy = {
           'Sin compromiso de entrega de informes',
           'Presencia organizacional confiable y participación comunitaria',
         ],
-        cta: 'Sumarme a la red — gratis',
+        cta: 'Agendar una llamada',
         href: '#trusted-organization-meeting',
         note: 'Se requiere aprobación. El estado de confianza no se puede comprar.',
         tone: 'free',
@@ -320,9 +316,6 @@ const trustMailSubject = encodeURIComponent(
           <p class="pg-hero-description">
             {copy.heroBody}
           </p>
-          <div class="pg-hero-actions">
-            <a class="pg-button pg-button-primary" href="#trusted-organization-meeting">{copy.heroPrimaryCta}</a>
-          </div>
         </div>
       </div>
     </section>
@@ -352,7 +345,6 @@ const trustMailSubject = encodeURIComponent(
 
           <div class="pg-benefits-close">
             <p>{copy.freeBenefitsStatement}</p>
-            <a class="pg-button pg-button-primary" href="#trusted-organization-meeting">{copy.freeBenefitsCta}</a>
           </div>
         </div>
       </div>
@@ -536,14 +528,6 @@ const trustMailSubject = encodeURIComponent(
     color: rgba(255, 255, 255, 0.84);
     font-size: 1.12rem;
     line-height: 1.6;
-  }
-
-  .pg-hero-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 18px;
-    align-items: center;
-    margin-top: 28px;
   }
 
   .pg-free-benefits {
