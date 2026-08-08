@@ -3,6 +3,9 @@ import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { createClientBooking } from "../repositories/client-bookings.repository.js";
 
+const CLIENT_BOOKING_RELAYHOOK_URL =
+  "https://data.relayhook.com/api/data/wh_parent_d9fff58f3852_TmV3IG1lZXRpbmcgdHJhY2tlZA.";
+
 const OptionalUrlSchema = z
   .string()
   .trim()
@@ -38,6 +41,41 @@ const BookingRequestSchema = z.object({
   }),
 });
 
+type BookingRequest = z.infer<typeof BookingRequestSchema>;
+
+async function notifyClientBookingWebhook(
+  bookingId: string,
+  booking: BookingRequest,
+  fastify: FastifyInstance
+): Promise<void> {
+  try {
+    const response = await fetch(CLIENT_BOOKING_RELAYHOOK_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "client_booking_created",
+        bookingId,
+        ...booking,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      fastify.log.warn(
+        { bookingId, statusCode: response.status },
+        "Client booking RelayHook notification returned a non-OK response"
+      );
+    }
+  } catch (error) {
+    fastify.log.warn(
+      { bookingId, error },
+      "Client booking RelayHook notification failed"
+    );
+  }
+}
+
 export async function clientBookingsRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
@@ -52,6 +90,8 @@ export async function clientBookingsRoutes(fastify: FastifyInstance): Promise<vo
       const result = await createClientBooking(request.body, {
         origin: request.headers.origin,
       });
+
+      await notifyClientBookingWebhook(result.id, request.body, fastify);
 
       return reply.status(201).send({
         status: "ok",
