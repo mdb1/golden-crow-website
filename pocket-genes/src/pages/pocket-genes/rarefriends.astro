@@ -11,8 +11,8 @@ const pageCopy = {
     heroEyebrow: 'Community layer',
     heroBody:
       'A careful peer-support layer for the moment after genetic results arrive. RareFriends™ helps you find people, organizations, events, resources, and updates that are relevant to your genetic context without making your private report public by default.',
-    communityTerms: 'Community terms',
-    safetyPolicy: 'Safety policy',
+    downloadCta: 'Download the app',
+    joinUsCta: 'Join us',
     imageAlt: 'Pocket Genes RareFriends™ community screen',
     howEyebrow: 'How community works',
     howTitle: 'Find people and groups that match your rare-disease journey.',
@@ -68,8 +68,8 @@ const pageCopy = {
     heroEyebrow: 'Comunidad y apoyo',
     heroBody:
       'RareFriends™ es la comunidad de Pocket Genes. Encontrá personas, organizaciones, eventos y recursos relacionados con tu experiencia genética, aunque no compartan exactamente el mismo diagnóstico. Tu informe permanece privado y vos decidís qué información compartir.',
-    communityTerms: 'Reglas de comunidad',
-    safetyPolicy: 'Política de seguridad de la comunidad',
+    downloadCta: 'Descargar la app',
+    joinUsCta: 'Sumate',
     imageAlt: 'Pantalla de comunidad RareFriends™ en Pocket Genes',
     howEyebrow: 'Cómo funciona',
     howTitle: 'Encontrá personas y recursos relacionados con tu experiencia.',
@@ -140,8 +140,8 @@ const copy = pageCopy[isEnglish ? 'en' : 'es'];
             {copy.heroBody}
           </p>
           <div class="pg-button-row">
-            <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/trust-center/community-terms')}>{copy.communityTerms}</a>
-            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center/community-safety-policy')}>{copy.safetyPolicy}</a>
+            <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/download')}>{copy.downloadCta}</a>
+            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/join-us')}>{copy.joinUsCta}</a>
           </div>
         </div>
         <figure class="pg-rf-visual">
