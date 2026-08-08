@@ -15,30 +15,10 @@ const pageCopy = {
   en: {
     title: 'Pocket Genes Pricing for Organizations',
     description:
-      'Most trusted organizations use Pocket Genes for free. Pay only if and when your organization delivers genomic reports.',
+      'Join our trusted organizations network for free. Pay only if and when your organization delivers genomic reports.',
     heroEyebrow: 'Pricing for organizations',
-    heroTitleLead: 'Most trusted organizations use Pocket Genes',
-    heroTitleEmphasis: 'for free.',
-    heroStatement: 'Publish. Connect. Be found. Pay only when you deliver reports.',
-    heroBody:
-      'Approved organizations can build a trusted presence, publish useful information, support their communities, and stay connected with users without paying a platform fee.',
+    heroTitle: 'Join our trusted organizations network for free.',
     heroPrimaryCta: 'Join the network — free',
-    heroSecondaryCta: 'See everything included',
-    heroReassurance: 'No credit card. No membership fee. Report delivery is optional.',
-    heroVisualLabel: 'Pocket Genes organization interface examples',
-    heroVisual: {
-      profileLabel: 'Trusted Organization',
-      profileName: 'RareCare Alliance',
-      profileBody: 'Mission, services, resources, events, and support paths in one trusted profile.',
-      profileTags: ['Services', 'Resources', 'Events'],
-      discoverLabel: 'Discover publication',
-      discoverTitle: 'Understanding exome results Q&A',
-      discoverMeta: 'Event promoted to relevant Pocket Genes users',
-      communityLabel: 'Community post',
-      communityBody: '@RareCare Alliance shared a family guide for preparing genetic counseling questions.',
-      channelLabel: 'Ongoing channel',
-      channelValue: 'Following users can keep receiving updates',
-    },
     trustedHubEyebrow: 'Trusted Organizations Hub',
     trustedHubTitle: 'We review organizations before giving them a trusted place in the ecosystem.',
     freeBenefitsTitle: 'Everything your organization gets for free',
@@ -181,30 +161,10 @@ const pageCopy = {
   es: {
     title: 'Precios para organizaciones en Pocket Genes',
     description:
-      'La mayoría de las organizaciones de confianza usa Pocket Genes gratis. Pagás solo si tu organización entrega informes genómicos.',
+      'Sumate gratis a nuestra red de organizaciones de confianza. Pagás solo si tu organización entrega informes genómicos.',
     heroEyebrow: 'Precios para organizaciones',
-    heroTitleLead: 'La mayoría de las organizaciones de confianza usa Pocket Genes',
-    heroTitleEmphasis: 'gratis.',
-    heroStatement: 'Publicá. Conectá. Volvete visible. Pagá solo cuando entregues informes.',
-    heroBody:
-      'Las organizaciones aprobadas pueden construir una presencia confiable, publicar información útil, apoyar a sus comunidades y mantenerse conectadas con usuarios sin pagar una tarifa de plataforma.',
+    heroTitle: 'Sumate gratis a nuestra red de organizaciones de confianza.',
     heroPrimaryCta: 'Sumarme a la red — gratis',
-    heroSecondaryCta: 'Ver todo lo incluido',
-    heroReassurance: 'Sin tarjeta. Sin cuota de membresía. La entrega de informes es opcional.',
-    heroVisualLabel: 'Ejemplos de interfaz para organizaciones en Pocket Genes',
-    heroVisual: {
-      profileLabel: 'Organización de confianza',
-      profileName: 'RareCare Alliance',
-      profileBody: 'Misión, servicios, recursos, eventos y vías de apoyo en un perfil confiable.',
-      profileTags: ['Servicios', 'Recursos', 'Eventos'],
-      discoverLabel: 'Publicación en Discover',
-      discoverTitle: 'Preguntas y respuestas sobre resultados de exoma',
-      discoverMeta: 'Evento promocionado a usuarios relevantes de Pocket Genes',
-      communityLabel: 'Publicación comunitaria',
-      communityBody: '@RareCare Alliance compartió una guía familiar para preparar preguntas de asesoramiento genético.',
-      channelLabel: 'Canal continuo',
-      channelValue: 'Los usuarios que siguen la organización pueden recibir novedades',
-    },
     trustedHubEyebrow: 'Organizaciones de confianza',
     trustedHubTitle: 'Revisamos cada organización antes de permitirle publicar en Pocket Genes.',
     freeBenefitsTitle: 'Todo lo que tu organización recibe gratis',
@@ -366,49 +326,10 @@ const trustMailSubject = encodeURIComponent(
       <div class="pg-container pg-trust-hero-grid">
         <div class="pg-hero-copy">
           <p class="pg-eyebrow">{copy.heroEyebrow}</p>
-          <h1>
-            {copy.heroTitleLead}
-            <span>{copy.heroTitleEmphasis}</span>
-          </h1>
-          <p class="pg-hero-statement">{copy.heroStatement}</p>
-          <p class="pg-hero-description">
-            {copy.heroBody}
-          </p>
+          <h1>{copy.heroTitle}</h1>
           <div class="pg-hero-actions">
             <a class="pg-button pg-button-primary" href="#trusted-organization-meeting">{copy.heroPrimaryCta}</a>
-            <a class="pg-quiet-link" href="#free-benefits">{copy.heroSecondaryCta}</a>
           </div>
-          <p class="pg-hero-reassurance">{copy.heroReassurance}</p>
-        </div>
-
-        <div class="pg-hero-product-visual" aria-label={copy.heroVisualLabel}>
-          <article class="pg-interface-card pg-interface-profile">
-            <div class="pg-interface-card-header">
-              <span class="pg-interface-avatar" aria-hidden="true"></span>
-              <span>{copy.heroVisual.profileLabel}</span>
-            </div>
-            <strong>{copy.heroVisual.profileName}</strong>
-            <p>{copy.heroVisual.profileBody}</p>
-            <div class="pg-profile-tags" aria-hidden="true">
-              {copy.heroVisual.profileTags.map((tag) => <span>{tag}</span>)}
-            </div>
-          </article>
-
-          <article class="pg-interface-card pg-interface-discover">
-            <span class="pg-interface-kicker">{copy.heroVisual.discoverLabel}</span>
-            <h2>{copy.heroVisual.discoverTitle}</h2>
-            <p>{copy.heroVisual.discoverMeta}</p>
-          </article>
-
-          <article class="pg-interface-card pg-interface-community">
-            <span class="pg-interface-kicker">{copy.heroVisual.communityLabel}</span>
-            <p>{copy.heroVisual.communityBody}</p>
-          </article>
-
-          <article class="pg-interface-card pg-interface-channel">
-            <span>{copy.heroVisual.channelLabel}</span>
-            <strong>{copy.heroVisual.channelValue}</strong>
-          </article>
         </div>
       </div>
     </section>
@@ -594,11 +515,11 @@ const trustMailSubject = encodeURIComponent(
   .pg-pricing-hero {
     position: relative;
     isolation: isolate;
-    min-height: 650px;
+    min-height: 520px;
     display: flex;
     align-items: center;
     overflow: hidden;
-    padding: 112px 0 72px;
+    padding: 112px 0 76px;
     background:
       linear-gradient(132deg, #141a45 0%, #172033 42%, #29318b 67%, #0d6d70 100%),
       linear-gradient(90deg, rgba(228, 80, 128, 0.28), rgba(20, 149, 143, 0.2));
@@ -618,13 +539,12 @@ const trustMailSubject = encodeURIComponent(
 
   .pg-trust-hero-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(340px, 0.9fr);
-    gap: 54px;
+    grid-template-columns: minmax(0, 0.92fr);
     align-items: center;
   }
 
   .pg-hero-copy {
-    max-width: 880px;
+    max-width: 940px;
   }
 
   .pg-pricing-hero .pg-eyebrow {
@@ -633,32 +553,10 @@ const trustMailSubject = encodeURIComponent(
 
   .pg-pricing-hero h1 {
     margin: 0;
-    max-width: 860px;
-    font-size: 4.5rem;
-    line-height: 0.96;
+    max-width: 940px;
+    font-size: clamp(3.7rem, 7vw, 5.4rem);
+    line-height: 0.98;
     letter-spacing: 0;
-  }
-
-  .pg-pricing-hero h1 span {
-    display: inline-block;
-    color: #7de4d7;
-    box-shadow: inset 0 -0.16em rgba(228, 80, 128, 0.62);
-  }
-
-  .pg-hero-statement {
-    max-width: 700px;
-    margin: 24px 0 0;
-    color: #ffffff;
-    font-size: 1.55rem;
-    line-height: 1.25;
-    font-weight: 850;
-  }
-
-  .pg-hero-description {
-    max-width: 720px;
-    margin: 18px 0 0;
-    color: rgba(255, 255, 255, 0.84);
-    font-size: 1.12rem;
   }
 
   .pg-hero-actions {
@@ -666,160 +564,7 @@ const trustMailSubject = encodeURIComponent(
     flex-wrap: wrap;
     gap: 18px;
     align-items: center;
-    margin-top: 30px;
-  }
-
-  .pg-quiet-link {
-    color: #d8fffb;
-    font-weight: 850;
-    text-decoration: none;
-    border-bottom: 1px solid rgba(216, 255, 251, 0.54);
-  }
-
-  .pg-quiet-link:hover {
-    color: #ffffff;
-    border-bottom-color: #ffffff;
-  }
-
-  .pg-hero-reassurance {
-    margin: 16px 0 0;
-    color: rgba(255, 255, 255, 0.74);
-    font-size: 0.98rem;
-    font-weight: 760;
-  }
-
-  .pg-hero-product-visual {
-    position: relative;
-    display: grid;
-    gap: 14px;
-    align-content: center;
-    justify-items: stretch;
-    min-height: 500px;
-  }
-
-  .pg-interface-card {
-    position: relative;
-    width: min(100%, 420px);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    padding: 18px;
-  }
-
-  .pg-interface-card-header {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    color: #7de4d7;
-    font-size: 0.78rem;
-    font-weight: 850;
-    text-transform: uppercase;
-  }
-
-  .pg-interface-avatar {
-    position: relative;
-    width: 34px;
-    height: 34px;
-    border-radius: 999px;
-    background: linear-gradient(135deg, #7de4d7, #2176ae);
-  }
-
-  .pg-interface-avatar::before,
-  .pg-interface-avatar::after {
-    content: "";
-    position: absolute;
-    border-radius: 999px;
-    background: #172033;
-  }
-
-  .pg-interface-avatar::before {
-    width: 10px;
-    height: 10px;
-    top: 8px;
-    left: 12px;
-  }
-
-  .pg-interface-avatar::after {
-    width: 18px;
-    height: 8px;
-    right: 8px;
-    bottom: 6px;
-  }
-
-  .pg-interface-card strong,
-  .pg-interface-card h2 {
-    display: block;
-    margin: 12px 0 0;
-    color: #ffffff;
-    font-size: 1.32rem;
-    line-height: 1.14;
-    letter-spacing: 0;
-  }
-
-  .pg-interface-card p {
-    margin: 10px 0 0;
-    color: rgba(255, 255, 255, 0.76);
-    font-size: 0.95rem;
-  }
-
-  .pg-profile-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 16px;
-  }
-
-  .pg-profile-tags span {
-    border: 1px solid rgba(125, 228, 215, 0.28);
-    border-radius: 999px;
-    background: rgba(125, 228, 215, 0.12);
-    color: #d8fffb;
-    padding: 6px 9px;
-    font-size: 0.76rem;
-    font-weight: 800;
-  }
-
-  .pg-interface-kicker {
-    color: #7de4d7;
-    font-size: 0.76rem;
-    font-weight: 850;
-    text-transform: uppercase;
-  }
-
-  .pg-interface-profile {
-    justify-self: end;
-    background: rgba(255, 255, 255, 0.14);
-  }
-
-  .pg-interface-discover {
-    justify-self: start;
-    width: min(100%, 405px);
-    border-color: rgba(228, 80, 128, 0.34);
-    background: rgba(228, 80, 128, 0.16);
-  }
-
-  .pg-interface-community {
-    justify-self: end;
-    width: min(100%, 410px);
-    border-color: rgba(33, 118, 174, 0.34);
-    background: rgba(33, 118, 174, 0.2);
-  }
-
-  .pg-interface-channel {
-    width: min(100%, 310px);
-    justify-self: center;
-    border-color: rgba(125, 228, 215, 0.42);
-    background: rgba(20, 149, 143, 0.18);
-  }
-
-  .pg-interface-channel span {
-    color: #7de4d7;
-    font-size: 0.76rem;
-    font-weight: 850;
-    text-transform: uppercase;
+    margin-top: 28px;
   }
 
   .pg-pricing-trusted-hub {
@@ -1504,34 +1249,10 @@ const trustMailSubject = encodeURIComponent(
     min-height: 550px;
   }
 
-  @media (min-width: 1080px) {
-    .pg-pricing-hero h1 {
-      font-size: 5.25rem;
-    }
-  }
-
-  @media (min-width: 1280px) {
-    .pg-pricing-hero h1 {
-      font-size: 5.5rem;
-    }
-  }
-
   @media (max-width: 1080px) {
     .pg-trust-hero-grid,
     .pg-policy-layout {
       grid-template-columns: 1fr;
-    }
-
-    .pg-hero-product-visual {
-      min-height: auto;
-    }
-
-    .pg-interface-profile,
-    .pg-interface-discover,
-    .pg-interface-community,
-    .pg-interface-channel {
-      justify-self: stretch;
-      width: 100%;
     }
 
     .pg-policy-contact {
@@ -1571,14 +1292,6 @@ const trustMailSubject = encodeURIComponent(
 
     .pg-pricing-hero h1 {
       font-size: 2.85rem;
-    }
-
-    .pg-hero-statement {
-      font-size: 1.22rem;
-    }
-
-    .pg-interface-card {
-      width: 100%;
     }
 
     .pg-benefit-item {
