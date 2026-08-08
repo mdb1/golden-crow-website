@@ -4,7 +4,7 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { createClientBooking } from "../repositories/client-bookings.repository.js";
 
 const CLIENT_BOOKING_RELAYHOOK_URL =
-  "https://data.relayhook.com/api/data/wh_parent_d9fff58f3852_TmV3IG1lZXRpbmcgdHJhY2tlZA.";
+  "https://data.relayhook.com/api/data/wh_parent_d9fff58f3852_TmV3IG1lZXRpbmcgdHJhY2tlZA";
 
 const OptionalUrlSchema = z
   .string()
