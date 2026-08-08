@@ -1,5 +1,6 @@
 ---
 import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro';
+import ClientBookingWidget from '../../components/ClientBookingWidget.astro';
 import { APP_STORE_URL, PLAY_STORE_URL, POCKET_GENES_EMAILS } from '../../data/pocketGenesPublic';
 
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
@@ -63,6 +64,10 @@ const pageCopy = {
         tone: 'blue',
       },
     ],
+    bookingEyebrow: 'Consultation Call',
+    bookingTitle: 'Book a call\nwith us.',
+    bookingBody:
+      'Talk with us about Pocket Genes, joining the trusted network, report delivery, privacy, security, accessibility, or anything you want to clarify before moving forward.',
     identityFlow: ['Save privately', 'Understand terms', 'Find support', 'Prepare questions'],
     productMoments: [
       {
@@ -204,6 +209,10 @@ const pageCopy = {
         tone: 'blue',
       },
     ],
+    bookingEyebrow: 'Llamada de Consultoría',
+    bookingTitle: 'Agendá una llamada\ncon nosotros.',
+    bookingBody:
+      'Conversemos sobre Pocket Genes, sumarte a la red de organizaciones confiables, entrega de informes, privacidad, seguridad, accesibilidad o cualquier cosa que quieras aclarar antes de avanzar.',
     identityFlow: ['Guardar el informe', 'Entender resultados', 'Encontrar apoyo', 'Preparar preguntas'],
     productMoments: [
       {
@@ -485,6 +494,21 @@ const trustMailSubject = encodeURIComponent(
               ))}
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="consultation-call" class="pg-section pg-home-booking">
+      <div class="pg-container pg-home-booking-grid">
+        <div>
+          <p class="pg-eyebrow">{copy.bookingEyebrow}</p>
+          <h2>{copy.bookingTitle.split('\n').map((line) => <span>{line}</span>)}</h2>
+          <p>
+            {copy.bookingBody}
+          </p>
+        </div>
+        <div class="pg-home-calendar-wrapper">
+          <ClientBookingWidget context="pocket-genes-home" />
         </div>
       </div>
     </section>
@@ -1373,6 +1397,40 @@ const trustMailSubject = encodeURIComponent(
     line-height: 1.4;
   }
 
+  .pg-home-booking {
+    background: #ffffff;
+  }
+
+  .pg-home-booking-grid {
+    display: grid;
+    grid-template-columns: minmax(300px, 0.62fr) minmax(0, 1.38fr);
+    gap: clamp(28px, 4vw, 56px);
+    align-items: start;
+  }
+
+  .pg-home-booking h2 {
+    max-width: 560px;
+    margin: 0;
+    font-size: 3rem;
+    line-height: 1.04;
+    letter-spacing: 0;
+  }
+
+  .pg-home-booking h2 span {
+    display: block;
+  }
+
+  .pg-home-booking p:not(.pg-eyebrow) {
+    max-width: 620px;
+    margin: 18px 0 0;
+    color: var(--pg-ink-soft);
+    font-size: 1.08rem;
+  }
+
+  .pg-home-calendar-wrapper {
+    min-width: 0;
+  }
+
   @media (max-width: 1040px) {
     .pg-home-hero-grid,
     .pg-identity-stage,
@@ -1418,6 +1476,12 @@ const trustMailSubject = encodeURIComponent(
 
   @media (max-width: 960px) {
     .pg-trust-contact-band {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 1180px) {
+    .pg-home-booking-grid {
       grid-template-columns: 1fr;
     }
   }
@@ -1511,6 +1575,10 @@ const trustMailSubject = encodeURIComponent(
 
     .pg-contact-copy-button {
       min-height: 48px;
+    }
+
+    .pg-home-booking h2 {
+      font-size: 2.35rem;
     }
   }
 
