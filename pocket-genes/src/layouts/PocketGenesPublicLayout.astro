@@ -495,6 +495,7 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
 
   .pg-footer p {
     max-width: none;
+    min-width: 0;
     margin: 0;
     color: var(--pg-muted);
     font-size: 0.95rem;
@@ -587,12 +588,21 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
 
     .pg-footer p {
       font-size: 0.9rem;
-      white-space: normal;
     }
 
     .pg-button-row,
     .pg-button {
       width: 100%;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .pg-footer-line {
+      flex-wrap: wrap;
+    }
+
+    .pg-footer p {
+      white-space: normal;
     }
   }
 </style>
