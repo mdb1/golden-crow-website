@@ -1,0 +1,766 @@
+---
+import PocketGenesPublicLayout from '../../../layouts/PocketGenesPublicLayout.astro';
+import { POCKET_GENES_EMAILS, getLocalizedTrustDocuments } from '../../../data/pocketGenesPublic';
+
+const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
+const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
+const locale = isEnglish ? 'en' : 'es';
+const trustDocuments = getLocalizedTrustDocuments(locale);
+const categories = Array.from(new Set(trustDocuments.map((document) => document.category))).map((category) => ({
+  category,
+  documents: trustDocuments.filter((document) => document.category === category),
+}));
+
+const pageCopy = {
+  en: {
+    title: 'Pocket Genes Pricing for Organizations',
+    description:
+      'Join the Pocket Genes network for free. Trusted organizations can publish, connect with users, and pay only when delivering genomic reports.',
+    heroEyebrow: 'Pricing for organizations',
+    heroTitle: 'Join the Pocket Genes network for free.',
+    heroBody:
+      'Trusted organizations can publish, connect with users, support their communities, and remain discoverable at no cost. You pay only when your organization delivers genomic reports through Pocket Genes.',
+    heroPrimaryCta: 'Join as a trusted organization',
+    heroSecondaryCta: 'Explore report delivery',
+    heroReassurance: 'No credit card required. Report delivery is optional.',
+    pricingCards: [
+      {
+        id: 'trusted-organization-card',
+        label: 'Most organizations use Pocket Genes for free',
+        title: 'Trusted Organization',
+        price: '$0',
+        description:
+          'Join the Pocket Genes network, build an organizational presence, and communicate with the people you support without paying a platform fee.',
+        includedLabel: 'Included',
+        included: [
+          'Publish news, educational content, and organizational updates',
+          'Promote events',
+          'Offer professional services',
+          'Share research, employment, collaboration, and support opportunities',
+          'Participate in community conversations',
+          'Receive and respond to user tags',
+          'Create closed circles',
+          'Maintain an ongoing communication channel with users',
+          'Become eligible to appear in relevant go-to lists',
+          'Publish up to five curated posts per week',
+        ],
+        cta: 'I want to be a trusted organization',
+        href: '#trusted-organization-meeting',
+        note: 'Trusted organizations are reviewed. Trusted status cannot be purchased.',
+        tone: 'light',
+      },
+      {
+        id: 'report-delivery-card',
+        label: '',
+        title: 'Report Delivery',
+        price: 'Usage-based',
+        description:
+          'Deliver interactive genomic reports through Pocket Genes and continue supporting recipients after they open their results.',
+        includedLabel: 'Included',
+        included: [
+          'Interactive, mobile-first reports',
+          'Six-character report access',
+          'Organized panels, genes, variants, and summaries',
+          'Connections to learning, resources, events, and organizations',
+          'An ongoing channel with report recipients',
+          'Trusted Organization benefits included',
+          'Pricing based on report requirements and volume',
+        ],
+        cta: 'Discuss report delivery',
+        href: '#trusted-organization-meeting',
+        note: 'You pay for delivered reports, not for participating in the network.',
+        tone: 'dark',
+      },
+    ],
+    freeNetworkTitle: 'More than an organization listing',
+    freeNetworkItems: [
+      {
+        title: 'Publish',
+        body:
+          'Share news, events, services, resources, and opportunities with people already interested in genetics and the experience that follows a report.',
+      },
+      {
+        title: 'Connect',
+        body:
+          'Participate in community conversations, respond when users tag your organization, create closed circles, and maintain an ongoing communication channel.',
+      },
+      {
+        title: 'Be discovered',
+        body:
+          'Build a trusted presence and become eligible to appear when users are looking for a report provider, professional service, organization, resource, or relevant next step.',
+      },
+    ],
+    freeNetworkNote:
+      'Trusted status, placement, and recommendations are based on relevance and review—not payment.',
+    documentsTitle: 'Privacy, safety, and data documents.',
+    documentsBody:
+      'Read the privacy, security, community safety, data retention, accessibility, and intended-use pages for Pocket Genes.',
+    documentsContactLabel: 'Documents contact',
+    documentsContactPrefix: 'Questions about privacy, security, accessibility, or platform standards:',
+    copyEmail: 'Copy email',
+    copied: 'Copied',
+    bookingEyebrow: 'I want to be a trusted organization',
+    bookingTitle: 'Coordinate a trusted organization review.',
+    bookingBody:
+      'If your organization supports genetics, rare disease, patient advocacy, education, or care navigation, schedule a meeting with us. We will review fit, publishing standards, and how curated posts or events can appear inside Pocket Genes.',
+  },
+  es: {
+    title: 'Precios para organizaciones en Pocket Genes',
+    description:
+      'Sumate gratis a la red de Pocket Genes. Las organizaciones evaluadas pueden publicar, conectar con usuarios y pagar solo cuando entregan informes genómicos.',
+    heroEyebrow: 'Precios para organizaciones',
+    heroTitle: 'Sumate gratis a la red de Pocket Genes.',
+    heroBody:
+      'Las organizaciones de confianza pueden publicar, conectar con usuarios, apoyar a sus comunidades y mantenerse visibles sin costo. Solo pagás cuando tu organización entrega informes genómicos a través de Pocket Genes.',
+    heroPrimaryCta: 'Sumarme como organización de confianza',
+    heroSecondaryCta: 'Explorar entrega de informes',
+    heroReassurance: 'No se requiere tarjeta de crédito. La entrega de informes es opcional.',
+    pricingCards: [
+      {
+        id: 'trusted-organization-card',
+        label: 'La mayoría de las organizaciones usa Pocket Genes gratis',
+        title: 'Organización de confianza',
+        price: '$0',
+        description:
+          'Sumate a la red de Pocket Genes, construí una presencia organizacional y comunicate con las personas que acompañás sin pagar una tarifa de plataforma.',
+        includedLabel: 'Incluye',
+        included: [
+          'Publicar noticias, contenido educativo y novedades institucionales',
+          'Promocionar eventos',
+          'Ofrecer servicios profesionales',
+          'Compartir oportunidades de investigación, empleo, colaboración y apoyo',
+          'Participar en conversaciones de la comunidad',
+          'Recibir y responder etiquetas de usuarios',
+          'Crear círculos cerrados',
+          'Mantener un canal de comunicación continuo con usuarios',
+          'Ser elegible para aparecer en listas relevantes de próximos pasos',
+          'Publicar hasta cinco posts curados por semana',
+        ],
+        cta: 'Quiero ser una organización de confianza',
+        href: '#trusted-organization-meeting',
+        note: 'Las organizaciones son evaluadas. El estado de confianza no se puede comprar.',
+        tone: 'light',
+      },
+      {
+        id: 'report-delivery-card',
+        label: '',
+        title: 'Entrega de informes',
+        price: 'Basado en uso',
+        description:
+          'Entregá informes genómicos interactivos a través de Pocket Genes y seguí acompañando a quienes los reciben después de abrir sus resultados.',
+        includedLabel: 'Incluye',
+        included: [
+          'Informes interactivos pensados para mobile',
+          'Acceso al informe con código de seis caracteres',
+          'Paneles, genes, variantes y resúmenes organizados',
+          'Conexiones con aprendizaje, recursos, eventos y organizaciones',
+          'Un canal continuo con quienes reciben informes',
+          'Beneficios de Organización de confianza incluidos',
+          'Precio basado en requisitos y volumen de informes',
+        ],
+        cta: 'Conversar sobre entrega de informes',
+        href: '#trusted-organization-meeting',
+        note: 'Pagás por informes entregados, no por participar en la red.',
+        tone: 'dark',
+      },
+    ],
+    freeNetworkTitle: 'Más que un listado de organizaciones',
+    freeNetworkItems: [
+      {
+        title: 'Publicar',
+        body:
+          'Compartí noticias, eventos, servicios, recursos y oportunidades con personas que ya están interesadas en genética y en la experiencia posterior a un informe.',
+      },
+      {
+        title: 'Conectar',
+        body:
+          'Participá en conversaciones de la comunidad, respondé cuando los usuarios etiqueten a tu organización, creá círculos cerrados y mantené un canal de comunicación continuo.',
+      },
+      {
+        title: 'Ser descubierto',
+        body:
+          'Construí una presencia confiable y volvé elegible para aparecer cuando los usuarios buscan un proveedor de informes, servicio profesional, organización, recurso o próximo paso relevante.',
+      },
+    ],
+    freeNetworkNote:
+      'El estado de confianza, la ubicación y las recomendaciones se basan en relevancia y revisión, no en pago.',
+    documentsTitle: 'Documentos sobre privacidad, seguridad y uso de datos.',
+    documentsBody:
+      'Consultá nuestras políticas de privacidad, seguridad, comunidad, retención de datos, accesibilidad y uso previsto.',
+    documentsContactLabel: 'Contacto sobre documentos',
+    documentsContactPrefix: 'Consultas sobre privacidad, seguridad, accesibilidad o estándares de la plataforma:',
+    copyEmail: 'Copiar correo',
+    copied: 'Copiado',
+    bookingEyebrow: 'Quiero solicitar la evaluación de mi organización',
+    bookingTitle: 'Solicitá una evaluación para participar en Pocket Genes.',
+    bookingBody:
+      'Si tu organización trabaja en genética, enfermedades poco frecuentes (EPOF), enfermedades raras, apoyo a pacientes, educación o navegación del sistema de salud, podés solicitar una reunión. Evaluaremos su experiencia, sus recursos y sus estándares de contenido para determinar cómo podría participar en Pocket Genes.',
+  },
+} as const;
+
+const copy = pageCopy[locale];
+const trustMailSubject = encodeURIComponent(
+  isEnglish
+    ? 'Pocket Genes privacy, security, or platform standards question'
+    : 'Consulta sobre privacidad, seguridad o estándares de Pocket Genes',
+);
+---
+
+<PocketGenesPublicLayout
+  title={copy.title}
+  description={copy.description}
+  canonicalPath="/pocket-genes/pricing"
+  extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}
+>
+  <main id="main" class="pg-page pg-trust-page">
+    <section class="pg-trust-hero">
+      <div class="pg-container pg-trust-hero-grid">
+        <div>
+          <p class="pg-eyebrow">{copy.heroEyebrow}</p>
+          <h1>{copy.heroTitle}</h1>
+          <p>
+            {copy.heroBody}
+          </p>
+          <div class="pg-button-row">
+            <a class="pg-button pg-button-primary" href="#trusted-organization-meeting">{copy.heroPrimaryCta}</a>
+            <a class="pg-button pg-button-secondary" href="#report-delivery-card">{copy.heroSecondaryCta}</a>
+          </div>
+          <p class="pg-hero-reassurance">{copy.heroReassurance}</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section pg-pricing-options" aria-label={copy.heroEyebrow}>
+      <div class="pg-container">
+        <div class="pg-pricing-card-grid">
+          {copy.pricingCards.map((card) => (
+            <article id={card.id} class={`pg-pricing-card tone-${card.tone}`}>
+              {card.label && <p class="pg-pricing-label">{card.label}</p>}
+              <h2>{card.title}</h2>
+              <strong class="pg-pricing-price">{card.price}</strong>
+              <p class="pg-pricing-description">{card.description}</p>
+              <div class="pg-pricing-included">
+                <p>{card.includedLabel}</p>
+                <ul>
+                  {card.included.map((item) => <li>{item}</li>)}
+                </ul>
+              </div>
+              <a class="pg-button pg-button-primary" href={card.href}>{card.cta}</a>
+              <p class="pg-pricing-note">{card.note}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section pg-free-network">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <h2>{copy.freeNetworkTitle}</h2>
+        </div>
+
+        <div class="pg-network-grid">
+          {copy.freeNetworkItems.map((item) => (
+            <article class="pg-network-card">
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+            </article>
+          ))}
+        </div>
+
+        <p class="pg-network-note">{copy.freeNetworkNote}</p>
+      </div>
+    </section>
+
+    <section class="pg-section pg-trust-documents">
+      <div class="pg-container">
+        <div class="pg-section-heading pg-documents-heading">
+          <h2>{copy.documentsTitle}</h2>
+          <p>
+            {copy.documentsBody}
+          </p>
+        </div>
+
+        <div class="pg-trust-category-stack">
+          {categories.map(({ category, documents }) => (
+            <section class="pg-trust-category" aria-labelledby={`trust-${category.toLowerCase().replaceAll(' ', '-')}`}>
+              <h3 id={`trust-${category.toLowerCase().replaceAll(' ', '-')}`}>{category}</h3>
+              <div class="pg-trust-doc-grid">
+                {documents.map((document) => (
+                  <a class="pg-trust-doc" href={localizePath(`/pocket-genes/trust-center/${document.slug}`)}>
+                    <span>{document.status}</span>
+                    <strong>{document.title}</strong>
+                    <p>{document.summary}</p>
+                  </a>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <div class="pg-documents-contact" aria-label={copy.documentsContactLabel}>
+          <p>
+            {copy.documentsContactPrefix}{' '}
+            <a href={`mailto:${POCKET_GENES_EMAILS.hello}?subject=${trustMailSubject}`}>{POCKET_GENES_EMAILS.hello}</a>
+          </p>
+          <button class="pg-contact-copy-button" type="button" data-copy-email={POCKET_GENES_EMAILS.hello} data-copy-label={copy.copyEmail} data-copied-label={copy.copied}>
+            {copy.copyEmail}
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section id="trusted-organization-meeting" class="pg-section pg-trusted-booking">
+      <div class="pg-container pg-trusted-booking-grid">
+        <div>
+          <p class="pg-eyebrow">{copy.bookingEyebrow}</p>
+          <h2>{copy.bookingTitle}</h2>
+          <p>
+            {copy.bookingBody}
+          </p>
+        </div>
+        <div class="pg-trusted-calendar-wrapper">
+          <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
+        </div>
+      </div>
+    </section>
+    <script>
+      const copyEmailButtons = document.querySelectorAll('[data-copy-email]');
+
+      copyEmailButtons.forEach((button) => {
+        const originalText = button.textContent?.trim() || button.getAttribute('data-copy-label') || '';
+        const copiedText = button.getAttribute('data-copied-label') || originalText;
+        const email = button.getAttribute('data-copy-email');
+
+        button.addEventListener('click', async () => {
+          if (!email || !navigator.clipboard) return;
+
+          try {
+            await navigator.clipboard.writeText(email);
+            button.textContent = copiedText;
+            window.setTimeout(() => {
+              button.textContent = originalText;
+            }, 1800);
+          } catch {
+            button.textContent = originalText;
+          }
+        });
+      });
+    </script>
+  </main>
+</PocketGenesPublicLayout>
+
+<style>
+  .pg-trust-hero {
+    min-height: 620px;
+    display: flex;
+    align-items: center;
+    padding: 112px 0 60px;
+    background:
+      linear-gradient(90deg, rgba(23, 32, 51, 0.94), rgba(23, 32, 51, 0.72)),
+      url("/mobile2.webp");
+    background-size: cover;
+    background-position: center;
+    color: #ffffff;
+  }
+
+  .pg-trust-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.76fr);
+    gap: 48px;
+    align-items: center;
+  }
+
+  .pg-trust-hero h1 {
+    margin: 0;
+    max-width: 760px;
+    font-size: 4rem;
+    line-height: 1.02;
+    letter-spacing: 0;
+  }
+
+  .pg-trust-hero p {
+    max-width: 760px;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 1.12rem;
+  }
+
+  .pg-trust-hero .pg-eyebrow {
+    color: #7de4d7;
+  }
+
+  .pg-trust-hero .pg-button-row {
+    margin-top: 26px;
+  }
+
+  .pg-hero-reassurance {
+    margin: 16px 0 0;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.96rem;
+    font-weight: 760;
+  }
+
+  .pg-pricing-options {
+    background: #eef8f7;
+  }
+
+  .pg-pricing-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    align-items: stretch;
+  }
+
+  .pg-pricing-card {
+    min-height: 100%;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: clamp(24px, 4vw, 34px);
+    box-shadow: var(--pg-shadow);
+  }
+
+  .pg-pricing-card.tone-dark {
+    border-color: rgba(20, 149, 143, 0.28);
+    background: #172033;
+    color: #ffffff;
+  }
+
+  .pg-pricing-label {
+    display: inline-flex;
+    margin: 0 0 14px;
+    border: 1px solid rgba(20, 149, 143, 0.28);
+    border-radius: 999px;
+    background: #eef8f5;
+    color: #0e6f6b;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    font-weight: 850;
+    line-height: 1.2;
+  }
+
+  .tone-dark .pg-pricing-label {
+    border-color: rgba(125, 228, 215, 0.32);
+    background: rgba(125, 228, 215, 0.12);
+    color: #7de4d7;
+  }
+
+  .pg-pricing-card h2 {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.05;
+    letter-spacing: 0;
+  }
+
+  .pg-pricing-price {
+    display: block;
+    margin-top: 14px;
+    color: var(--pg-rose);
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    line-height: 1;
+    letter-spacing: 0;
+  }
+
+  .tone-dark .pg-pricing-price {
+    color: #7de4d7;
+  }
+
+  .pg-pricing-description {
+    margin: 16px 0 0;
+    color: var(--pg-ink-soft);
+    font-size: 1.05rem;
+  }
+
+  .tone-dark .pg-pricing-description,
+  .tone-dark .pg-pricing-note,
+  .tone-dark .pg-pricing-included li {
+    color: rgba(255, 255, 255, 0.78);
+  }
+
+  .pg-pricing-included {
+    margin-top: 24px;
+  }
+
+  .pg-pricing-included p {
+    margin: 0 0 12px;
+    color: var(--pg-muted);
+    font-size: 0.78rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .tone-dark .pg-pricing-included p {
+    color: #7de4d7;
+  }
+
+  .pg-pricing-included ul {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pg-pricing-included li {
+    position: relative;
+    padding-left: 22px;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-pricing-included li::before {
+    content: "";
+    position: absolute;
+    top: 0.7em;
+    left: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--pg-teal);
+  }
+
+  .pg-pricing-card .pg-button {
+    width: 100%;
+    margin-top: 26px;
+  }
+
+  .pg-pricing-note {
+    margin: 14px 0 0;
+    color: var(--pg-muted);
+    font-size: 0.94rem;
+  }
+
+  .pg-free-network {
+    background: #ffffff;
+  }
+
+  .pg-network-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .pg-network-card {
+    min-height: 100%;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: var(--pg-surface);
+    padding: 22px;
+    box-shadow: 0 1px 2px rgba(23, 32, 51, 0.04);
+  }
+
+  .pg-network-card h3 {
+    margin: 0 0 8px;
+    font-size: 1.18rem;
+    line-height: 1.25;
+  }
+
+  .pg-network-card p {
+    margin: 0;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-network-note {
+    margin: 18px 0 0;
+    border-left: 4px solid var(--pg-teal);
+    background: #eef8f7;
+    padding: 14px 18px;
+    color: var(--pg-ink-soft);
+    font-weight: 760;
+  }
+
+  .pg-trust-documents {
+    background: #fbfcfd;
+  }
+
+  .pg-documents-heading h2 {
+    font-size: clamp(2rem, 4vw, 2.65rem);
+  }
+
+  .pg-trust-category-stack {
+    display: grid;
+    gap: 34px;
+  }
+
+  .pg-trust-category h3 {
+    margin: 0 0 14px;
+    font-size: 1.35rem;
+  }
+
+  .pg-trust-doc-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .pg-trust-doc {
+    min-height: 100%;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 20px;
+    text-decoration: none;
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .pg-trust-doc:hover {
+    transform: translateY(-2px);
+    border-color: var(--pg-teal);
+    box-shadow: 0 12px 26px rgba(20, 149, 143, 0.12);
+  }
+
+  .pg-trust-doc span {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--pg-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .pg-trust-doc strong {
+    display: block;
+    font-size: 1.08rem;
+    line-height: 1.25;
+  }
+
+  .pg-trust-doc p {
+    margin: 10px 0 0;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-documents-contact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 34px;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 18px 20px;
+  }
+
+  .pg-documents-contact p {
+    margin: 0;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-documents-contact a {
+    color: var(--pg-teal);
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .pg-documents-contact a:hover {
+    text-decoration: underline;
+  }
+
+  .pg-contact-copy-button {
+    min-height: 42px;
+    border: 1px solid var(--pg-border-strong);
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--pg-ink);
+    padding: 9px 14px;
+    font: inherit;
+    font-weight: 850;
+    cursor: pointer;
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .pg-contact-copy-button:hover {
+    transform: translateY(-1px);
+    border-color: var(--pg-blue);
+    box-shadow: 0 10px 24px rgba(33, 118, 174, 0.12);
+  }
+
+  .pg-trusted-booking {
+    background: #ffffff;
+  }
+
+  .pg-trusted-booking-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.78fr) minmax(420px, 1.22fr);
+    gap: 32px;
+    align-items: start;
+  }
+
+  .pg-trusted-booking h2 {
+    max-width: 560px;
+    margin: 0;
+    font-size: 3rem;
+    line-height: 1.04;
+    letter-spacing: 0;
+  }
+
+  .pg-trusted-booking p:not(.pg-eyebrow) {
+    max-width: 620px;
+    margin: 18px 0 0;
+    color: var(--pg-ink-soft);
+    font-size: 1.08rem;
+  }
+
+  .pg-trusted-calendar-wrapper {
+    min-height: 600px;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: clamp(1rem, 3vw, 2rem);
+    box-shadow: 0 18px 48px rgba(23, 32, 51, 0.1);
+  }
+
+  .pg-trusted-calendar-wrapper iframe {
+    min-height: 550px;
+  }
+
+  @media (max-width: 960px) {
+    .pg-trust-hero-grid,
+    .pg-pricing-card-grid,
+    .pg-trusted-booking-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-network-grid,
+    .pg-trust-doc-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
+    .pg-trust-hero {
+      min-height: auto;
+      padding: 104px 0 52px;
+    }
+
+    .pg-trust-hero h1 {
+      font-size: 2.85rem;
+    }
+
+    .pg-network-grid,
+    .pg-trust-doc-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-trusted-booking h2 {
+      font-size: 2.35rem;
+    }
+
+    .pg-documents-contact {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .pg-contact-copy-button {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pg-trust-doc,
+    .pg-contact-copy-button,
+    .pg-button {
+      transition: none;
+    }
+  }
+</style>
