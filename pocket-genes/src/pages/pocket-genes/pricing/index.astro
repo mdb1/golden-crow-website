@@ -1,15 +1,10 @@
 ---
 import PocketGenesPublicLayout from '../../../layouts/PocketGenesPublicLayout.astro';
-import { POCKET_GENES_EMAILS, getLocalizedTrustDocuments } from '../../../data/pocketGenesPublic';
+import { POCKET_GENES_EMAILS } from '../../../data/pocketGenesPublic';
 
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 const locale = isEnglish ? 'en' : 'es';
-const trustDocuments = getLocalizedTrustDocuments(locale);
-const categories = Array.from(new Set(trustDocuments.map((document) => document.category))).map((category) => ({
-  category,
-  documents: trustDocuments.filter((document) => document.category === category),
-}));
 
 const pageCopy = {
   en: {
@@ -125,10 +120,6 @@ const pageCopy = {
         tone: 'paid',
       },
     ],
-    documentsEyebrow: 'Policies',
-    documentsTitle: 'Compact policy documents',
-    documentsBody:
-      'Privacy, security, accessibility, scientific methodology, retention, subprocessor, intended-use, and incident-reporting references remain available here.',
     contactEyebrow: 'Direct contacts',
     contactTitle: 'Contact Pocket Genes about privacy, security, or accessibility.',
     contactBody: 'One inbox routes trust requests to the right review path.',
@@ -271,10 +262,6 @@ const pageCopy = {
         tone: 'paid',
       },
     ],
-    documentsEyebrow: 'Políticas',
-    documentsTitle: 'Documentos compactos de políticas',
-    documentsBody:
-      'Las referencias de privacidad, seguridad, accesibilidad, metodología científica, retención, subprocesadores, uso previsto e incidentes siguen disponibles acá.',
     contactEyebrow: 'Contacto directo',
     contactTitle: 'Contactá a Pocket Genes por temas de privacidad, seguridad o accesibilidad.',
     contactBody: 'Un único correo nos permite dirigir cada consulta al equipo correspondiente.',
@@ -309,9 +296,7 @@ const pageCopy = {
 const copy = pageCopy[locale];
 const [trustedNetworkOption, reportDeliveryOption] = copy.comparisonOptions;
 const trustMailSubject = encodeURIComponent(
-  isEnglish
-    ? 'Pocket Genes privacy, security, or platform standards question'
-    : 'Consulta sobre privacidad, seguridad o estándares de Pocket Genes',
+  isEnglish ? 'Pocket Genes Trust Request' : 'Consulta sobre privacidad y seguridad en Pocket Genes',
 );
 ---
 
@@ -413,61 +398,44 @@ const trustMailSubject = encodeURIComponent(
       </div>
     </section>
 
-    <section class="pg-section-tight pg-policy-documents" aria-labelledby="policy-documents-title">
-      <div class="pg-container pg-policy-layout">
-        <div class="pg-policy-main">
-          <div class="pg-section-heading">
-            <p class="pg-eyebrow">{copy.documentsEyebrow}</p>
-            <h2 id="policy-documents-title">{copy.documentsTitle}</h2>
+    <section class="pg-section-tight pg-trust-contact" aria-labelledby="pg-trust-contact-title">
+      <div class="pg-container">
+        <div class="pg-trust-contact-band">
+          <div class="pg-contact-orbits" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="pg-contact-main">
+            <p class="pg-eyebrow">{copy.contactEyebrow}</p>
+            <h2 id="pg-trust-contact-title">{copy.contactTitle}</h2>
             <p>
-              {copy.documentsBody}
+              {copy.contactBody}
             </p>
           </div>
-
-          <div class="pg-policy-category-stack">
-            {categories.map(({ category, documents }, categoryIndex) => (
-              <div class="pg-policy-category" role="group" aria-labelledby={`policy-category-${categoryIndex}`}>
-                <h3 id={`policy-category-${categoryIndex}`}>{category}</h3>
-                <div class="pg-policy-link-grid">
-                  {documents.map((document) => (
-                    <a class="pg-policy-link" href={localizePath(`/pocket-genes/trust-center/${document.slug}`)}>
-                      <span>{document.status}</span>
-                      <strong>{document.title}</strong>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div class="pg-contact-panel">
+            <div class="pg-contact-actions">
+              <a class="pg-contact-email" href={`mailto:${POCKET_GENES_EMAILS.hello}?subject=${trustMailSubject}`}>
+                <span>{copy.primaryInbox}</span>
+                <strong>{POCKET_GENES_EMAILS.hello}</strong>
+              </a>
+              <button class="pg-contact-copy-button" type="button" data-copy-email={POCKET_GENES_EMAILS.hello} data-copy-label={copy.copyEmail} data-copied-label={copy.copied}>
+                {copy.copyEmail}
+              </button>
+            </div>
+            <div class="pg-contact-route-grid" aria-label={copy.contactTopicsLabel}>
+              {copy.contactRoutes.map((route) => (
+                <article class={`pg-contact-route tone-${route.tone}`}>
+                  <span class="pg-route-marker" aria-hidden="true"></span>
+                  <div>
+                    <h3>{route.title}</h3>
+                    <p>{route.body}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         </div>
-
-        <aside class="pg-policy-contact" aria-labelledby="pg-pricing-contact-title">
-          <p class="pg-eyebrow">{copy.contactEyebrow}</p>
-          <h3 id="pg-pricing-contact-title">{copy.contactTitle}</h3>
-          <p>
-            {copy.contactBody}
-          </p>
-          <div class="pg-contact-actions">
-            <a class="pg-contact-email" href={`mailto:${POCKET_GENES_EMAILS.hello}?subject=${trustMailSubject}`}>
-              <span>{copy.primaryInbox}</span>
-              <strong>{POCKET_GENES_EMAILS.hello}</strong>
-            </a>
-            <button class="pg-contact-copy-button" type="button" data-copy-email={POCKET_GENES_EMAILS.hello} data-copy-label={copy.copyEmail} data-copied-label={copy.copied}>
-              {copy.copyEmail}
-            </button>
-          </div>
-          <div class="pg-contact-route-grid" aria-label={copy.contactTopicsLabel}>
-            {copy.contactRoutes.map((route) => (
-              <article class={`pg-contact-route tone-${route.tone}`}>
-                <span class="pg-route-marker" aria-hidden="true"></span>
-                <div>
-                  <h4>{route.title}</h4>
-                  <p>{route.body}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </aside>
       </div>
     </section>
 
@@ -990,133 +958,169 @@ const trustMailSubject = encodeURIComponent(
     text-transform: uppercase;
   }
 
-  .pg-policy-documents {
-    background: #fbfcfd;
+  .pg-trust-contact {
+    background:
+      radial-gradient(circle at 10% 0%, rgba(20, 149, 143, 0.13), transparent 34%),
+      linear-gradient(180deg, #ffffff 0%, #eef8f7 100%);
   }
 
-  .pg-policy-layout {
+  .pg-trust-contact-band {
+    position: relative;
+    isolation: isolate;
     display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
-    gap: 26px;
-    align-items: start;
+    grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
+    gap: clamp(24px, 4vw, 46px);
+    align-items: center;
+    min-height: 330px;
+    overflow: hidden;
+    border: 1px solid rgba(125, 228, 215, 0.28);
+    border-radius: 8px;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(41, 49, 139, 0.48), transparent 34%),
+      radial-gradient(circle at 24% 24%, rgba(77, 102, 214, 0.2), transparent 32%),
+      radial-gradient(circle at 78% 12%, rgba(60, 94, 199, 0.18), transparent 26%),
+      linear-gradient(135deg, #141a45 0%, #172033 48%, #0d3d49 100%);
+    padding: clamp(26px, 5vw, 54px);
+    color: #ffffff;
+    box-shadow:
+      0 34px 80px rgba(23, 32, 51, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16);
   }
 
-  .pg-policy-main .pg-section-heading {
-    margin-bottom: 24px;
+  .pg-trust-contact-band::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    z-index: 0;
+    background:
+      linear-gradient(110deg, transparent 0 34%, rgba(255, 255, 255, 0.16) 46%, transparent 62%),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 72px);
+    opacity: 0.55;
+    pointer-events: none;
+    transform: translateX(-58%);
+    animation: contactSweep 7.5s ease-in-out infinite;
   }
 
-  .pg-policy-category-stack {
+  .pg-trust-contact-band::after {
+    content: "";
+    position: absolute;
+    inset: auto -12% -44% 34%;
+    z-index: 0;
+    height: 260px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(20, 149, 143, 0.48), transparent 68%);
+    filter: blur(20px);
+    opacity: 0.72;
+    pointer-events: none;
+  }
+
+  .pg-contact-orbits {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .pg-contact-orbits span {
+    position: absolute;
+    border: 1px solid rgba(125, 228, 215, 0.28);
+    border-radius: 999px;
+    opacity: 0.72;
+    animation: floatSignal 8s ease-in-out infinite;
+  }
+
+  .pg-contact-orbits span:nth-child(1) {
+    width: 190px;
+    height: 190px;
+    top: -74px;
+    right: 17%;
+  }
+
+  .pg-contact-orbits span:nth-child(2) {
+    width: 330px;
+    height: 330px;
+    right: -74px;
+    bottom: -152px;
+    border-color: rgba(88, 112, 230, 0.22);
+    animation-delay: -2.5s;
+  }
+
+  .pg-contact-orbits span:nth-child(3) {
+    width: 124px;
+    height: 124px;
+    left: 43%;
+    bottom: 28px;
+    border-color: rgba(33, 118, 174, 0.34);
+    animation-delay: -5s;
+  }
+
+  .pg-contact-main,
+  .pg-contact-panel {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pg-trust-contact .pg-eyebrow {
+    color: #7de4d7;
+  }
+
+  .pg-trust-contact h2 {
+    max-width: 700px;
+    margin: 0;
+    font-size: clamp(2.25rem, 4.5vw, 4.25rem);
+    line-height: 1.02;
+    letter-spacing: 0;
+  }
+
+  .pg-contact-main p:not(.pg-eyebrow) {
+    max-width: 520px;
+    margin: 18px 0 0;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 1.08rem;
+  }
+
+  .pg-contact-panel {
     display: grid;
     gap: 16px;
-  }
-
-  .pg-policy-category {
-    display: grid;
-    grid-template-columns: 170px minmax(0, 1fr);
-    gap: 14px;
-    align-items: start;
-    border-top: 1px solid var(--pg-border);
-    padding-top: 16px;
-  }
-
-  .pg-policy-category h3 {
-    margin: 0;
-    color: var(--pg-ink);
-    font-size: 0.98rem;
-    line-height: 1.3;
-    letter-spacing: 0;
-  }
-
-  .pg-policy-link-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-
-  .pg-policy-link {
-    min-height: 70px;
-    border: 1px solid var(--pg-border);
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 12px 14px;
-    text-decoration: none;
-    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
-  }
-
-  .pg-policy-link:hover {
-    transform: translateY(-2px);
-    border-color: var(--pg-teal);
-    box-shadow: 0 12px 26px rgba(20, 149, 143, 0.1);
-  }
-
-  .pg-policy-link span {
-    display: block;
-    color: var(--pg-muted);
-    font-size: 0.72rem;
-    font-weight: 850;
-    text-transform: uppercase;
-  }
-
-  .pg-policy-link strong {
-    display: block;
-    margin-top: 4px;
-    color: var(--pg-ink);
-    font-size: 0.96rem;
-    line-height: 1.25;
-  }
-
-  .pg-policy-contact {
-    position: sticky;
-    top: 96px;
-    border: 1px solid rgba(20, 149, 143, 0.22);
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 22px;
-    box-shadow: 0 18px 48px rgba(23, 32, 51, 0.08);
-  }
-
-  .pg-policy-contact h3 {
-    margin: 0;
-    font-size: 1.45rem;
-    line-height: 1.18;
-    letter-spacing: 0;
-  }
-
-  .pg-policy-contact > p:not(.pg-eyebrow) {
-    margin: 10px 0 0;
-    color: var(--pg-ink-soft);
   }
 
   .pg-contact-actions {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
+    gap: 12px;
     align-items: stretch;
-    margin-top: 18px;
+  }
+
+  .pg-contact-email,
+  .pg-contact-copy-button,
+  .pg-contact-route {
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 
   .pg-contact-email {
     display: grid;
     gap: 4px;
     min-width: 0;
-    border: 1px solid var(--pg-border);
-    border-radius: 8px;
-    background: #f6fbfb;
-    padding: 14px;
-    color: var(--pg-ink);
+    padding: 16px 18px;
+    color: #ffffff;
     text-decoration: none;
-    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
   }
 
   .pg-contact-email:hover {
-    transform: translateY(-2px);
-    border-color: var(--pg-teal);
-    box-shadow: 0 12px 26px rgba(20, 149, 143, 0.1);
+    transform: translateY(-3px);
+    border-color: rgba(125, 228, 215, 0.62);
+    background: rgba(255, 255, 255, 0.15);
   }
 
   .pg-contact-email span {
-    color: var(--pg-teal);
-    font-size: 0.75rem;
+    color: #7de4d7;
+    font-size: 0.78rem;
     font-weight: 850;
     letter-spacing: 0;
     text-transform: uppercase;
@@ -1124,90 +1128,142 @@ const trustMailSubject = encodeURIComponent(
 
   .pg-contact-email strong {
     overflow-wrap: anywhere;
-    font-size: 1.08rem;
+    font-size: clamp(1.08rem, 2vw, 1.45rem);
     line-height: 1.15;
   }
 
   .pg-contact-copy-button {
-    min-height: 42px;
-    border: 1px solid var(--pg-border-strong);
-    border-radius: 8px;
-    background: #ffffff;
-    color: var(--pg-ink);
-    padding: 9px 14px;
+    min-width: 112px;
+    padding: 0 18px;
+    color: #ffffff;
     font: inherit;
     font-weight: 850;
     cursor: pointer;
-    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
   }
 
   .pg-contact-copy-button:hover {
-    transform: translateY(-1px);
-    border-color: var(--pg-blue);
-    box-shadow: 0 10px 24px rgba(33, 118, 174, 0.12);
+    transform: translateY(-3px);
+    border-color: rgba(228, 80, 128, 0.72);
+    background: rgba(228, 80, 128, 0.22);
   }
 
   .pg-contact-route-grid {
     display: grid;
     gap: 10px;
-    margin-top: 14px;
   }
 
   .pg-contact-route {
     display: grid;
-    grid-template-columns: 30px minmax(0, 1fr);
-    gap: 10px;
-    align-items: start;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 14px;
+    transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+  }
+
+  .pg-contact-route:hover {
+    transform: translateX(4px);
+    border-color: rgba(255, 255, 255, 0.32);
+    background: rgba(255, 255, 255, 0.14);
   }
 
   .pg-route-marker {
     position: relative;
-    width: 30px;
-    height: 30px;
-    border: 1px solid rgba(20, 149, 143, 0.38);
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(125, 228, 215, 0.5);
     border-radius: 999px;
-    background: rgba(20, 149, 143, 0.1);
+    background: rgba(125, 228, 215, 0.12);
   }
 
-  .pg-route-marker::before {
+  .pg-route-marker::before,
+  .pg-route-marker::after {
     content: "";
     position: absolute;
-    inset: 9px;
+    inset: 10px;
     border-radius: 999px;
-    background: var(--pg-teal);
+    background: #7de4d7;
+    box-shadow: 0 0 22px rgba(125, 228, 215, 0.65);
+    animation: pulseDot 2.8s ease-in-out infinite;
+  }
+
+  .pg-route-marker::after {
+    inset: 5px;
+    background: transparent;
+    border: 1px solid currentColor;
+    opacity: 0.36;
   }
 
   .tone-rose .pg-route-marker {
-    border-color: rgba(228, 80, 128, 0.38);
-    background: rgba(228, 80, 128, 0.1);
+    color: #ff8bac;
+    border-color: rgba(255, 139, 172, 0.54);
+    background: rgba(228, 80, 128, 0.14);
   }
 
   .tone-rose .pg-route-marker::before {
-    background: var(--pg-rose);
+    background: #ff8bac;
+    box-shadow: 0 0 22px rgba(228, 80, 128, 0.68);
+    animation-delay: -0.9s;
   }
 
   .tone-blue .pg-route-marker {
-    border-color: rgba(33, 118, 174, 0.38);
-    background: rgba(33, 118, 174, 0.1);
+    color: #85c8ff;
+    border-color: rgba(133, 200, 255, 0.54);
+    background: rgba(33, 118, 174, 0.16);
   }
 
   .tone-blue .pg-route-marker::before {
-    background: var(--pg-blue);
+    background: #85c8ff;
+    box-shadow: 0 0 22px rgba(33, 118, 174, 0.68);
+    animation-delay: -1.8s;
   }
 
-  .pg-contact-route h4 {
+  .pg-contact-route h3 {
     margin: 0;
-    color: var(--pg-ink);
-    font-size: 0.96rem;
+    color: #ffffff;
+    font-size: 1rem;
     line-height: 1.25;
-    letter-spacing: 0;
   }
 
   .pg-contact-route p {
-    margin: 3px 0 0;
-    color: var(--pg-ink-soft);
-    font-size: 0.9rem;
+    margin: 2px 0 0;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.94rem;
     line-height: 1.4;
+  }
+
+  @keyframes contactSweep {
+    0%,
+    22% {
+      transform: translateX(-58%);
+    }
+    55%,
+    100% {
+      transform: translateX(58%);
+    }
+  }
+
+  @keyframes floatSignal {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(10px, -12px, 0) scale(1.04);
+    }
+  }
+
+  @keyframes pulseDot {
+    0%,
+    100% {
+      transform: scale(0.82);
+      opacity: 0.72;
+    }
+    50% {
+      transform: scale(1.08);
+      opacity: 1;
+    }
   }
 
   .pg-trusted-booking {
@@ -1250,19 +1306,15 @@ const trustMailSubject = encodeURIComponent(
   }
 
   @media (max-width: 1080px) {
-    .pg-trust-hero-grid,
-    .pg-policy-layout {
+    .pg-trust-hero-grid {
       grid-template-columns: 1fr;
-    }
-
-    .pg-policy-contact {
-      position: static;
     }
   }
 
   @media (max-width: 960px) {
     .pg-benefits-grid,
-    .pg-comparison-grid {
+    .pg-comparison-grid,
+    .pg-trust-contact-band {
       grid-template-columns: 1fr;
     }
 
@@ -1273,10 +1325,6 @@ const trustMailSubject = encodeURIComponent(
     .pg-comparison-connector {
       justify-self: start;
       text-align: left;
-    }
-
-    .pg-policy-category {
-      grid-template-columns: 1fr;
     }
 
     .pg-trusted-booking-grid {
@@ -1321,27 +1369,29 @@ const trustMailSubject = encodeURIComponent(
       font-size: 1.85rem;
     }
 
-    .pg-policy-link-grid {
-      grid-template-columns: 1fr;
+    .pg-trusted-booking h2 {
+      font-size: 2.35rem;
     }
 
     .pg-contact-actions {
       grid-template-columns: 1fr;
     }
 
-    .pg-trusted-booking h2 {
-      font-size: 2.35rem;
-    }
-
     .pg-contact-copy-button {
-      width: 100%;
+      min-height: 48px;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .pg-policy-link,
+    .pg-trust-contact-band::before,
+    .pg-contact-orbits span,
+    .pg-route-marker::before {
+      animation: none;
+    }
+
     .pg-contact-email,
     .pg-contact-copy-button,
+    .pg-contact-route,
     .pg-button {
       transition: none;
     }
