@@ -729,11 +729,12 @@ const weekdayLabels = isEnglish
   }
 
   :global(.booking-day) {
+    appearance: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     justify-self: center;
-    width: min(40px, 100%);
+    width: min(42px, 100%);
     aspect-ratio: 1;
     min-width: 0;
     border: 0;
@@ -748,7 +749,13 @@ const weekdayLabels = isEnglish
   :global(button.booking-day) {
     background: #eef3ff;
     color: #1459f5;
+    box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
     cursor: pointer;
+    transition:
+      background 0.2s ease,
+      box-shadow 0.2s ease,
+      color 0.2s ease,
+      transform 0.2s ease;
   }
 
   :global(button.booking-day:hover),
@@ -757,9 +764,15 @@ const weekdayLabels = isEnglish
     background: #dfe9ff;
   }
 
-  :global(button.booking-day.is-selected) {
-    background: #2563eb;
+  :global(button.booking-day.is-selected),
+  :global(button.booking-day.is-selected:hover),
+  :global(button.booking-day.is-selected:focus-visible) {
+    background: #0f766e;
     color: #ffffff;
+    box-shadow:
+      0 0 0 4px rgba(15, 118, 110, 0.18),
+      0 12px 24px rgba(15, 118, 110, 0.26);
+    transform: translateY(-1px);
   }
 
   :global(.booking-day.is-empty) {
@@ -790,7 +803,8 @@ const weekdayLabels = isEnglish
     padding-right: 8px;
   }
 
-  .booking-time-button {
+  :global(.booking-time-button) {
+    appearance: none;
     width: 100%;
     min-height: 54px;
     border: 1.5px solid #2563eb;
@@ -803,8 +817,8 @@ const weekdayLabels = isEnglish
     cursor: pointer;
   }
 
-  .booking-time-button:hover,
-  .booking-time-button:focus-visible {
+  :global(.booking-time-button:hover),
+  :global(.booking-time-button:focus-visible) {
     outline: none;
     background: #f4f7ff;
   }
