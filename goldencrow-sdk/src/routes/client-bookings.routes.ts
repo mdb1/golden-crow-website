@@ -5,6 +5,8 @@ import {
   createClientBooking,
   listClientBookingsForCalendarMonth,
   listClientBookingsPage,
+  recordClientBookingRelayhookNotification,
+  type ClientBookingRelayhookNotification,
 } from "../repositories/client-bookings.repository.js";
 
 const CLIENT_BOOKING_RELAYHOOK_URL =
@@ -54,36 +56,110 @@ const AdminClientBookingsQuerySchema = z.object({
 
 type BookingRequest = z.infer<typeof BookingRequestSchema>;
 
+function appendRelayhookParam(
+  params: URLSearchParams,
+  key: string,
+  value: string | number | undefined
+) {
+  if (value === undefined) {
+    return;
+  }
+
+  const normalized = String(value).trim();
+  if (normalized) {
+    params.set(key, normalized);
+  }
+}
+
+function getRelayhookUrl(bookingId: string, booking: BookingRequest) {
+  const url = new URL(CLIENT_BOOKING_RELAYHOOK_URL);
+  const { searchParams } = url;
+
+  appendRelayhookParam(searchParams, "type", "client_booking_created");
+  appendRelayhookParam(searchParams, "booking_id", bookingId);
+  appendRelayhookParam(searchParams, "event_title", booking.event.title);
+  appendRelayhookParam(searchParams, "event_date", booking.event.date);
+  appendRelayhookParam(searchParams, "event_start_time", booking.event.startTime);
+  appendRelayhookParam(searchParams, "event_end_time", booking.event.endTime);
+  appendRelayhookParam(searchParams, "event_starts_at", booking.event.startsAt);
+  appendRelayhookParam(searchParams, "event_ends_at", booking.event.endsAt);
+  appendRelayhookParam(searchParams, "event_timezone", booking.event.timezone);
+  appendRelayhookParam(
+    searchParams,
+    "event_timezone_label",
+    booking.event.timezoneLabel
+  );
+  appendRelayhookParam(searchParams, "duration_minutes", booking.event.durationMinutes);
+  appendRelayhookParam(searchParams, "full_name", booking.form.fullName);
+  appendRelayhookParam(searchParams, "email", booking.form.email);
+  appendRelayhookParam(searchParams, "whatsapp", booking.form.whatsapp);
+  appendRelayhookParam(searchParams, "company_name", booking.form.companyName);
+  appendRelayhookParam(searchParams, "source_context", booking.source.context);
+  appendRelayhookParam(searchParams, "source_locale", booking.source.locale);
+  appendRelayhookParam(searchParams, "source_page_url", booking.source.pageUrl);
+  appendRelayhookParam(searchParams, "source_path", booking.source.path);
+  appendRelayhookParam(searchParams, "source_referrer", booking.source.referrer);
+  appendRelayhookParam(searchParams, "sent_at", new Date().toISOString());
+
+  return url;
+}
+
+async function fetchRelayhook(url: URL) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    return await fetch(url, {
+      method: "GET",
+      headers: {
+        accept: "application/json, text/plain, */*",
+      },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function notifyClientBookingWebhook(
   bookingId: string,
   booking: BookingRequest,
   fastify: FastifyInstance
-): Promise<void> {
+): Promise<ClientBookingRelayhookNotification> {
   try {
-    const response = await fetch(CLIENT_BOOKING_RELAYHOOK_URL, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        type: "client_booking_created",
-        bookingId,
-        ...booking,
-      }),
-      signal: AbortSignal.timeout(5000),
-    });
+    const response = await fetchRelayhook(getRelayhookUrl(bookingId, booking));
 
     if (!response.ok) {
       fastify.log.warn(
         { bookingId, statusCode: response.status },
         "Client booking RelayHook notification returned a non-OK response"
       );
+
+      return {
+        status: "failed",
+        method: "GET",
+        statusCode: response.status,
+        statusText: response.statusText,
+      };
     }
+
+    return {
+      status: "delivered",
+      method: "GET",
+      statusCode: response.status,
+      statusText: response.statusText,
+    };
   } catch (error) {
     fastify.log.warn(
       { bookingId, error },
       "Client booking RelayHook notification failed"
     );
+
+    return {
+      status: "failed",
+      method: "GET",
+      error: error instanceof Error ? error.message : "Unknown RelayHook error",
+    };
   }
 }
 
@@ -139,12 +215,34 @@ export async function clientBookingsRoutes(fastify: FastifyInstance): Promise<vo
       const result = await createClientBooking(request.body, {
         origin: request.headers.origin,
       });
+      const notification = await notifyClientBookingWebhook(
+        result.id,
+        request.body,
+        fastify
+      );
 
-      await notifyClientBookingWebhook(result.id, request.body, fastify);
+      try {
+        await recordClientBookingRelayhookNotification(result.id, notification);
+      } catch (error) {
+        fastify.log.warn(
+          { bookingId: result.id, error },
+          "Client booking RelayHook notification status could not be recorded"
+        );
+      }
+
+      if (notification.status !== "delivered") {
+        return reply.status(502).send({
+          error: "Booking was stored, but RelayHook notification failed",
+          status: "notification_failed",
+          bookingId: result.id,
+          notification,
+        });
+      }
 
       return reply.status(201).send({
         status: "ok",
         bookingId: result.id,
+        notification,
       });
     }
   );

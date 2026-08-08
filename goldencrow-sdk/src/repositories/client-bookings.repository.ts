@@ -39,6 +39,21 @@ export interface ClientBookingRequestMeta {
   origin?: string;
 }
 
+export type ClientBookingRelayhookNotification =
+  | {
+      status: "delivered";
+      method: "GET";
+      statusCode: number;
+      statusText: string;
+    }
+  | {
+      status: "failed";
+      method: "GET";
+      statusCode?: number;
+      statusText?: string;
+      error?: string;
+    };
+
 export interface ClientBookingRecord extends ClientBookingInput {
   id: string;
   schemaVersion: number;
@@ -84,6 +99,24 @@ export async function createClientBooking(
   });
 
   return { id: ref.id };
+}
+
+export async function recordClientBookingRelayhookNotification(
+  bookingId: string,
+  notification: ClientBookingRelayhookNotification
+): Promise<void> {
+  await adminDb.collection(CLIENT_BOOKINGS_COLLECTION).doc(bookingId).set(
+    {
+      notifications: {
+        relayhook: {
+          ...notification,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
 }
 
 function normalizeLimit(limit: number | undefined, fallback: number, max: number) {
