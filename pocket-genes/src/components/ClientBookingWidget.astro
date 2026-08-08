@@ -540,6 +540,8 @@ const weekdayLabels = isEnglish
 <style>
   .client-booking-widget {
     width: 100%;
+    min-width: 0;
+    container-type: inline-size;
   }
 
   .client-booking-widget [hidden] {
@@ -548,8 +550,8 @@ const weekdayLabels = isEnglish
 
   .booking-shell {
     display: grid;
-    grid-template-columns: minmax(250px, 0.46fr) minmax(0, 1fr);
-    min-height: 620px;
+    grid-template-columns: minmax(220px, 0.34fr) minmax(0, 1fr);
+    min-height: 0;
     overflow: hidden;
     border: 1px solid rgba(17, 24, 39, 0.1);
     border-radius: 8px;
@@ -563,15 +565,15 @@ const weekdayLabels = isEnglish
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 18px;
-    padding: clamp(28px, 4vw, 48px);
+    gap: 16px;
+    padding: clamp(24px, 3vw, 36px);
     border-right: 1px solid rgba(17, 24, 39, 0.1);
     background: linear-gradient(180deg, #ffffff 0%, #fbfaf7 100%);
   }
 
   .booking-logo {
-    width: 96px;
-    height: 96px;
+    width: 78px;
+    height: 78px;
     border-radius: 50%;
     object-fit: cover;
     background: #000000;
@@ -587,16 +589,16 @@ const weekdayLabels = isEnglish
   .booking-summary h3 {
     margin: 0;
     color: #111827;
-    font-size: clamp(1.65rem, 3vw, 2rem);
+    font-size: clamp(1.45rem, 2.3vw, 1.8rem);
     line-height: 1.12;
     letter-spacing: 0;
   }
 
   .booking-meta {
     display: grid;
-    gap: 14px;
+    gap: 12px;
     color: #6b7280;
-    font-size: 0.98rem;
+    font-size: 0.94rem;
     font-weight: 700;
     line-height: 1.35;
   }
@@ -621,7 +623,7 @@ const weekdayLabels = isEnglish
   .booking-main {
     position: relative;
     min-width: 0;
-    padding: clamp(28px, 4vw, 48px);
+    padding: clamp(24px, 3vw, 40px);
   }
 
   .booking-back {
@@ -655,17 +657,17 @@ const weekdayLabels = isEnglish
   }
 
   .booking-panel h3 {
-    margin: 0 0 30px;
+    margin: 0 0 26px;
     color: #111827;
-    font-size: clamp(1.45rem, 2.4vw, 1.9rem);
+    font-size: clamp(1.35rem, 2.2vw, 1.75rem);
     line-height: 1.15;
     letter-spacing: 0;
   }
 
   .booking-calendar-layout {
     display: grid;
-    grid-template-columns: minmax(320px, 0.9fr) minmax(220px, 0.48fr);
-    gap: clamp(28px, 5vw, 56px);
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 0.42fr);
+    gap: clamp(18px, 3vw, 32px);
     align-items: start;
   }
 
@@ -714,8 +716,8 @@ const weekdayLabels = isEnglish
   .booking-weekdays,
   .booking-days {
     display: grid;
-    grid-template-columns: repeat(7, minmax(36px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .booking-weekdays {
@@ -726,10 +728,12 @@ const weekdayLabels = isEnglish
     text-align: center;
   }
 
-  .booking-day {
+  :global(.booking-day) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    justify-self: center;
+    width: min(40px, 100%);
     aspect-ratio: 1;
     min-width: 0;
     border: 0;
@@ -741,24 +745,24 @@ const weekdayLabels = isEnglish
     font-weight: 650;
   }
 
-  button.booking-day {
+  :global(button.booking-day) {
     background: #eef3ff;
     color: #1459f5;
     cursor: pointer;
   }
 
-  button.booking-day:hover,
-  button.booking-day:focus-visible {
+  :global(button.booking-day:hover),
+  :global(button.booking-day:focus-visible) {
     outline: none;
     background: #dfe9ff;
   }
 
-  button.booking-day.is-selected {
+  :global(button.booking-day.is-selected) {
     background: #2563eb;
     color: #ffffff;
   }
 
-  .booking-day.is-empty {
+  :global(.booking-day.is-empty) {
     visibility: hidden;
   }
 
@@ -780,21 +784,21 @@ const weekdayLabels = isEnglish
 
   .booking-times {
     display: grid;
-    gap: 14px;
-    max-height: 520px;
+    gap: 10px;
+    max-height: 460px;
     overflow: auto;
     padding-right: 8px;
   }
 
   .booking-time-button {
     width: 100%;
-    min-height: 58px;
+    min-height: 54px;
     border: 1.5px solid #2563eb;
     border-radius: 5px;
     background: #ffffff;
     color: #1459f5;
     font: inherit;
-    font-size: 1.04rem;
+    font-size: 1rem;
     font-weight: 750;
     cursor: pointer;
   }
@@ -936,6 +940,71 @@ const weekdayLabels = isEnglish
     font-weight: 700;
   }
 
+  @container (max-width: 980px) {
+    .booking-shell {
+      grid-template-columns: 1fr;
+    }
+
+    .booking-summary {
+      border-right: 0;
+      border-bottom: 1px solid rgba(17, 24, 39, 0.1);
+    }
+
+    .booking-calendar-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .booking-times {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      max-height: none;
+      overflow: visible;
+      padding-right: 0;
+    }
+  }
+
+  @container (max-width: 640px) {
+    .booking-shell {
+      min-height: 0;
+      border-radius: 8px;
+    }
+
+    .booking-summary,
+    .booking-main {
+      padding: 24px;
+    }
+
+    .booking-logo {
+      width: 76px;
+      height: 76px;
+    }
+
+    .booking-weekdays,
+    .booking-days {
+      gap: 6px;
+    }
+
+    :global(.booking-day) {
+      font-size: 0.9rem;
+    }
+
+    .booking-times {
+      grid-template-columns: 1fr;
+    }
+
+    .booking-back {
+      position: static;
+      margin-bottom: 18px;
+    }
+
+    .booking-submit-row {
+      justify-content: stretch;
+    }
+
+    .booking-submit-row button {
+      width: 100%;
+    }
+  }
+
   @media (max-width: 980px) {
     .booking-shell {
       grid-template-columns: 1fr;
@@ -979,7 +1048,7 @@ const weekdayLabels = isEnglish
       gap: 6px;
     }
 
-    .booking-day {
+    :global(.booking-day) {
       font-size: 0.9rem;
     }
 

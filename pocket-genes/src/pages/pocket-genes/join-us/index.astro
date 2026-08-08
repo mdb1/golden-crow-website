@@ -1241,8 +1241,8 @@ const trustMailSubject = encodeURIComponent(
 
   .pg-trusted-booking-grid {
     display: grid;
-    grid-template-columns: minmax(0, 0.78fr) minmax(420px, 1.22fr);
-    gap: 32px;
+    grid-template-columns: minmax(300px, 0.62fr) minmax(0, 1.38fr);
+    gap: clamp(28px, 4vw, 56px);
     align-items: start;
   }
 
@@ -1266,20 +1266,17 @@ const trustMailSubject = encodeURIComponent(
   }
 
   .pg-trusted-calendar-wrapper {
-    min-height: 600px;
-    border: 1px solid var(--pg-border);
-    border-radius: 8px;
-    background: #ffffff;
-    padding: clamp(1rem, 3vw, 2rem);
-    box-shadow: 0 18px 48px rgba(23, 32, 51, 0.1);
-  }
-
-  .pg-trusted-calendar-wrapper iframe {
-    min-height: 550px;
+    min-width: 0;
   }
 
   @media (max-width: 1080px) {
     .pg-trust-hero-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 1180px) {
+    .pg-trusted-booking-grid {
       grid-template-columns: 1fr;
     }
   }
@@ -1295,9 +1292,6 @@ const trustMailSubject = encodeURIComponent(
       border-left: 0;
     }
 
-    .pg-trusted-booking-grid {
-      grid-template-columns: 1fr;
-    }
   }
 
   @media (max-width: 640px) {
