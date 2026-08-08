@@ -153,10 +153,6 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
           </a>
           <p>{layoutCopy[lang].footerTagline}</p>
         </div>
-
-        <nav class="pg-footer-links" aria-label="Pocket Genes footer navigation">
-          {publicNavItems.map((item) => <a href={localizePath(item.href)}>{item.label}</a>)}
-        </nav>
       </div>
     </footer>
     )}
@@ -494,24 +490,6 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
     color: var(--pg-muted);
   }
 
-  .pg-footer-links {
-    display: flex;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    justify-content: flex-end;
-    gap: 10px 18px;
-  }
-
-  .pg-footer-links a {
-    color: var(--pg-ink-soft);
-    font-weight: 760;
-    text-decoration: none;
-  }
-
-  .pg-footer-links a:hover {
-    color: var(--pg-teal);
-  }
-
   @media (max-width: 940px) {
     .pg-section {
       padding: 64px 0;
@@ -589,10 +567,6 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
 
     .pg-footer-inner {
       flex-direction: column;
-    }
-
-    .pg-footer-links {
-      justify-content: flex-start;
     }
 
     .pg-button-row,
