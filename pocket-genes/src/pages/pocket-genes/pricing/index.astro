@@ -1,15 +1,9 @@
 ---
 import PocketGenesPublicLayout from '../../../layouts/PocketGenesPublicLayout.astro';
-import { POCKET_GENES_EMAILS, getLocalizedTrustDocuments } from '../../../data/pocketGenesPublic';
+import { POCKET_GENES_EMAILS } from '../../../data/pocketGenesPublic';
 
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
-const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 const locale = isEnglish ? 'en' : 'es';
-const trustDocuments = getLocalizedTrustDocuments(locale);
-const categories = Array.from(new Set(trustDocuments.map((document) => document.category))).map((category) => ({
-  category,
-  documents: trustDocuments.filter((document) => document.category === category),
-}));
 
 const pageCopy = {
   en: {
@@ -72,31 +66,6 @@ const pageCopy = {
         tone: 'dark',
       },
     ],
-    freeNetworkTitle: 'More than an organization listing',
-    freeNetworkItems: [
-      {
-        title: 'Publish',
-        body:
-          'Share news, events, services, resources, and opportunities with people already interested in genetics and the experience that follows a report.',
-      },
-      {
-        title: 'Connect',
-        body:
-          'Participate in community conversations, respond when users tag your organization, create closed circles, and maintain an ongoing communication channel.',
-      },
-      {
-        title: 'Be discovered',
-        body:
-          'Build a trusted presence and become eligible to appear when users are looking for a report provider, professional service, organization, resource, or relevant next step.',
-      },
-    ],
-    freeNetworkNote:
-      'Trusted status, placement, and recommendations are based on relevance and review—not payment.',
-    documentsTitle: 'Privacy, safety, and data documents.',
-    documentsBody:
-      'Read the privacy, security, community safety, data retention, accessibility, and intended-use pages for Pocket Genes.',
-    documentsContactLabel: 'Documents contact',
-    documentsContactPrefix: 'Questions about privacy, security, accessibility, or platform standards:',
     contactEyebrow: 'Direct contacts',
     contactTitle: 'Contact Pocket Genes about privacy, security, or accessibility.',
     contactBody: 'One inbox routes trust requests to the right review path.',
@@ -186,31 +155,6 @@ const pageCopy = {
         tone: 'dark',
       },
     ],
-    freeNetworkTitle: 'Más que un listado de organizaciones',
-    freeNetworkItems: [
-      {
-        title: 'Publicar',
-        body:
-          'Compartí noticias, eventos, servicios, recursos y oportunidades con personas que ya están interesadas en genética y en la experiencia posterior a un informe.',
-      },
-      {
-        title: 'Conectar',
-        body:
-          'Participá en conversaciones de la comunidad, respondé cuando los usuarios etiqueten a tu organización, creá círculos cerrados y mantené un canal de comunicación continuo.',
-      },
-      {
-        title: 'Ser descubierto',
-        body:
-          'Construí una presencia confiable y volvé elegible para aparecer cuando los usuarios buscan un proveedor de informes, servicio profesional, organización, recurso o próximo paso relevante.',
-      },
-    ],
-    freeNetworkNote:
-      'El estado de confianza, la ubicación y las recomendaciones se basan en relevancia y revisión, no en pago.',
-    documentsTitle: 'Documentos sobre privacidad, seguridad y uso de datos.',
-    documentsBody:
-      'Consultá nuestras políticas de privacidad, seguridad, comunidad, retención de datos, accesibilidad y uso previsto.',
-    documentsContactLabel: 'Contacto sobre documentos',
-    documentsContactPrefix: 'Consultas sobre privacidad, seguridad, accesibilidad o estándares de la plataforma:',
     contactEyebrow: 'Contacto directo',
     contactTitle: 'Contactá a Pocket Genes por temas de privacidad, seguridad o accesibilidad.',
     contactBody: 'Un único correo nos permite dirigir cada consulta al equipo correspondiente.',
@@ -293,63 +237,6 @@ const trustMailSubject = encodeURIComponent(
               <p class="pg-pricing-note">{card.note}</p>
             </article>
           ))}
-        </div>
-      </div>
-    </section>
-
-    <section class="pg-section pg-free-network">
-      <div class="pg-container">
-        <div class="pg-section-heading">
-          <h2>{copy.freeNetworkTitle}</h2>
-        </div>
-
-        <div class="pg-network-grid">
-          {copy.freeNetworkItems.map((item) => (
-            <article class="pg-network-card">
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-            </article>
-          ))}
-        </div>
-
-        <p class="pg-network-note">{copy.freeNetworkNote}</p>
-      </div>
-    </section>
-
-    <section class="pg-section pg-trust-documents">
-      <div class="pg-container">
-        <div class="pg-section-heading pg-documents-heading">
-          <h2>{copy.documentsTitle}</h2>
-          <p>
-            {copy.documentsBody}
-          </p>
-        </div>
-
-        <div class="pg-trust-category-stack">
-          {categories.map(({ category, documents }) => (
-            <section class="pg-trust-category" aria-labelledby={`trust-${category.toLowerCase().replaceAll(' ', '-')}`}>
-              <h3 id={`trust-${category.toLowerCase().replaceAll(' ', '-')}`}>{category}</h3>
-              <div class="pg-trust-doc-grid">
-                {documents.map((document) => (
-                  <a class="pg-trust-doc" href={localizePath(`/pocket-genes/trust-center/${document.slug}`)}>
-                    <span>{document.status}</span>
-                    <strong>{document.title}</strong>
-                    <p>{document.summary}</p>
-                  </a>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-
-        <div class="pg-documents-contact" aria-label={copy.documentsContactLabel}>
-          <p>
-            {copy.documentsContactPrefix}{' '}
-            <a href={`mailto:${POCKET_GENES_EMAILS.hello}?subject=${trustMailSubject}`}>{POCKET_GENES_EMAILS.hello}</a>
-          </p>
-          <button class="pg-contact-copy-button" type="button" data-copy-email={POCKET_GENES_EMAILS.hello} data-copy-label={copy.copyEmail} data-copied-label={copy.copied}>
-            {copy.copyEmail}
-          </button>
         </div>
       </div>
     </section>
@@ -612,133 +499,6 @@ const trustMailSubject = encodeURIComponent(
     margin: 14px 0 0;
     color: var(--pg-muted);
     font-size: 0.94rem;
-  }
-
-  .pg-free-network {
-    background: #ffffff;
-  }
-
-  .pg-network-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-  }
-
-  .pg-network-card {
-    min-height: 100%;
-    border: 1px solid var(--pg-border);
-    border-radius: 8px;
-    background: var(--pg-surface);
-    padding: 22px;
-    box-shadow: 0 1px 2px rgba(23, 32, 51, 0.04);
-  }
-
-  .pg-network-card h3 {
-    margin: 0 0 8px;
-    font-size: 1.18rem;
-    line-height: 1.25;
-  }
-
-  .pg-network-card p {
-    margin: 0;
-    color: var(--pg-ink-soft);
-  }
-
-  .pg-network-note {
-    margin: 18px 0 0;
-    border-left: 4px solid var(--pg-teal);
-    background: #eef8f7;
-    padding: 14px 18px;
-    color: var(--pg-ink-soft);
-    font-weight: 760;
-  }
-
-  .pg-trust-documents {
-    background: #fbfcfd;
-  }
-
-  .pg-documents-heading h2 {
-    font-size: clamp(2rem, 4vw, 2.65rem);
-  }
-
-  .pg-trust-category-stack {
-    display: grid;
-    gap: 34px;
-  }
-
-  .pg-trust-category h3 {
-    margin: 0 0 14px;
-    font-size: 1.35rem;
-  }
-
-  .pg-trust-doc-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-  }
-
-  .pg-trust-doc {
-    min-height: 100%;
-    border: 1px solid var(--pg-border);
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 20px;
-    text-decoration: none;
-    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
-  }
-
-  .pg-trust-doc:hover {
-    transform: translateY(-2px);
-    border-color: var(--pg-teal);
-    box-shadow: 0 12px 26px rgba(20, 149, 143, 0.12);
-  }
-
-  .pg-trust-doc span {
-    display: block;
-    margin-bottom: 8px;
-    color: var(--pg-muted);
-    font-size: 0.78rem;
-    font-weight: 800;
-    text-transform: uppercase;
-  }
-
-  .pg-trust-doc strong {
-    display: block;
-    font-size: 1.08rem;
-    line-height: 1.25;
-  }
-
-  .pg-trust-doc p {
-    margin: 10px 0 0;
-    color: var(--pg-ink-soft);
-  }
-
-  .pg-documents-contact {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 34px;
-    border: 1px solid var(--pg-border);
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 18px 20px;
-  }
-
-  .pg-documents-contact p {
-    margin: 0;
-    color: var(--pg-ink-soft);
-  }
-
-  .pg-documents-contact a {
-    color: var(--pg-teal);
-    font-weight: 800;
-    text-decoration: none;
-  }
-
-  .pg-documents-contact a:hover {
-    text-decoration: underline;
   }
 
   .pg-contact-copy-button {
@@ -1112,11 +872,6 @@ const trustMailSubject = encodeURIComponent(
     .pg-trusted-booking-grid {
       grid-template-columns: 1fr;
     }
-
-    .pg-network-grid,
-    .pg-trust-doc-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
   }
 
   @media (max-width: 640px) {
@@ -1129,18 +884,8 @@ const trustMailSubject = encodeURIComponent(
       font-size: 2.85rem;
     }
 
-    .pg-network-grid,
-    .pg-trust-doc-grid {
-      grid-template-columns: 1fr;
-    }
-
     .pg-trusted-booking h2 {
       font-size: 2.35rem;
-    }
-
-    .pg-documents-contact {
-      align-items: stretch;
-      flex-direction: column;
     }
 
     .pg-contact-copy-button {
@@ -1155,7 +900,6 @@ const trustMailSubject = encodeURIComponent(
       animation: none;
     }
 
-    .pg-trust-doc,
     .pg-contact-email,
     .pg-contact-copy-button,
     .pg-contact-route,
