@@ -477,13 +477,14 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
   }
 
   .pg-footer-inner {
-    width: min(1480px, calc(100% - 32px));
+    width: min(1120px, calc(100% - 32px));
     margin: 0 auto;
   }
 
   .pg-footer-line {
     display: flex;
     align-items: center;
+    flex-wrap: nowrap;
     gap: 18px;
     min-width: 0;
     width: 100%;
@@ -500,6 +501,8 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
     color: var(--pg-muted);
     font-size: 0.95rem;
     line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -593,16 +596,6 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
     .pg-button-row,
     .pg-button {
       width: 100%;
-    }
-  }
-
-  @media (max-width: 560px) {
-    .pg-footer-line {
-      flex-wrap: wrap;
-    }
-
-    .pg-footer p {
-      white-space: normal;
     }
   }
 </style>
