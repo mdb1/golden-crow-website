@@ -101,9 +101,12 @@ const SPANISH_TEXT: Record<string, string> = {
   "Calendar and list review for consultation requests.":
     "Revisión en calendario y lista de solicitudes de reunión.",
   "All booking requests": "Todas las solicitudes de reunión",
+  "New booking requests": "Solicitudes nuevas",
   "Latest requests first.": "Solicitudes más recientes primero.",
+  "Unacknowledged requests only.": "Solo solicitudes sin acusar.",
   Calendar: "Calendario",
   List: "Lista",
+  "New bookings": "Nuevos",
   "Previous month": "Mes anterior",
   "Next month": "Mes siguiente",
   Today: "Hoy",
@@ -114,6 +117,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No meetings scheduled for this day.":
     "No hay reuniones agendadas para este día.",
   "No booking requests found.": "No se encontraron solicitudes de reunión.",
+  "No new booking requests found.": "No se encontraron solicitudes nuevas.",
   "Failed to load booking requests.":
     "No se pudieron cargar las solicitudes de reunión.",
   "Failed to update acknowledgment.": "No se pudo actualizar el acuse.",

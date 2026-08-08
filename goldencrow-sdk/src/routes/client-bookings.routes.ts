@@ -60,6 +60,7 @@ const BookingRequestSchema = z.object({
 
 const AdminClientBookingsQuerySchema = z.object({
   view: z.enum(["calendar", "list"]).default("list"),
+  ack: z.enum(["true", "false"]).optional(),
   month: z
     .string()
     .trim()
@@ -233,6 +234,10 @@ export async function clientBookingsRoutes(
       const result = await listClientBookingsPage({
         limit: request.query.limit,
         cursor: request.query.cursor,
+        ack:
+          request.query.ack === undefined
+            ? undefined
+            : request.query.ack === "true",
       });
 
       return reply.send(result);

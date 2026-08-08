@@ -8,6 +8,8 @@ const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
 const DEFAULT_CALENDAR_LIMIT = 250;
 const MAX_CALENDAR_LIMIT = 500;
+const FILTERED_LIST_BATCH_LIMIT = 100;
+const MAX_FILTERED_LIST_SCAN = 500;
 
 export interface ClientBookingInput {
   source: {
@@ -310,6 +312,7 @@ export async function listClientBookingsForCalendarMonth(options: {
 export async function listClientBookingsPage(options: {
   limit?: number;
   cursor?: string;
+  ack?: boolean;
 }): Promise<ClientBookingsPage> {
   const limit = normalizeLimit(
     options.limit,
@@ -317,12 +320,86 @@ export async function listClientBookingsPage(options: {
     MAX_LIST_LIMIT,
   );
   const cursorTimestamp = parseCursorTimestamp(options.cursor);
-  let query = adminDb
+  const baseQuery = adminDb
     .collection(CLIENT_BOOKINGS_COLLECTION)
     .orderBy("createdAt", "desc");
+  let query = baseQuery;
 
   if (cursorTimestamp) {
     query = query.startAfter(cursorTimestamp);
+  }
+
+  if (options.ack !== undefined) {
+    const bookings: ClientBookingRecord[] = [];
+    let pageCursorTimestamp = cursorTimestamp;
+    let scannedDocs = 0;
+    let nextCursor: string | undefined;
+
+    while (bookings.length < limit && scannedDocs < MAX_FILTERED_LIST_SCAN) {
+      const batchLimit = Math.min(
+        FILTERED_LIST_BATCH_LIMIT,
+        MAX_FILTERED_LIST_SCAN - scannedDocs,
+      );
+      let batchQuery = baseQuery;
+
+      if (pageCursorTimestamp) {
+        batchQuery = batchQuery.startAfter(pageCursorTimestamp);
+      }
+
+      const snapshot = await batchQuery.limit(batchLimit).get();
+      if (snapshot.empty) {
+        nextCursor = undefined;
+        break;
+      }
+
+      let lastConsumedDoc: (typeof snapshot.docs)[number] | undefined;
+
+      for (const doc of snapshot.docs) {
+        lastConsumedDoc = doc;
+        scannedDocs += 1;
+
+        const booking = toClientBookingRecord(doc.id, doc.data());
+        if (booking.ack === options.ack) {
+          bookings.push(booking);
+          if (bookings.length >= limit) {
+            break;
+          }
+        }
+
+        if (scannedDocs >= MAX_FILTERED_LIST_SCAN) {
+          break;
+        }
+      }
+
+      if (!lastConsumedDoc) {
+        nextCursor = undefined;
+        break;
+      }
+
+      nextCursor = timestampToIso(lastConsumedDoc.data().createdAt);
+      const consumedWholeBatch =
+        lastConsumedDoc.id === snapshot.docs[snapshot.docs.length - 1]?.id;
+
+      if (!consumedWholeBatch) {
+        break;
+      }
+
+      if (snapshot.docs.length < batchLimit) {
+        nextCursor = undefined;
+        break;
+      }
+
+      pageCursorTimestamp = parseCursorTimestamp(nextCursor);
+      if (!pageCursorTimestamp) {
+        nextCursor = undefined;
+        break;
+      }
+    }
+
+    return {
+      bookings,
+      nextCursor,
+    };
   }
 
   const snapshot = await query.limit(limit + 1).get();

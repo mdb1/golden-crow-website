@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  CircleDot,
   Clock3,
   ExternalLink,
   ListChecks,
@@ -37,7 +38,7 @@ import type {
 import { appText, type AppLanguage } from "@/lib/language";
 import { cn } from "@/lib/utils";
 
-type BookingView = "calendar" | "list";
+type BookingView = "calendar" | "list" | "new";
 
 const CALENDAR_BOOKINGS_QUERY_KEY = "god-mode-client-bookings-calendar";
 const LIST_BOOKINGS_QUERY_KEY = "god-mode-client-bookings-list";
@@ -237,11 +238,15 @@ function buildCalendarQueryPath(monthKey: string) {
   return `/admin/client-bookings?${params.toString()}`;
 }
 
-function buildListQueryPath(cursor: string | undefined) {
+function buildListQueryPath(cursor: string | undefined, ack?: boolean) {
   const params = new URLSearchParams({
     view: "list",
     limit: "20",
   });
+
+  if (ack !== undefined) {
+    params.set("ack", String(ack));
+  }
 
   if (cursor) {
     params.set("cursor", cursor);
@@ -441,18 +446,22 @@ function ClientBookingsList({
   onNext,
   onPrevious,
   canGoPrevious,
+  ack,
 }: {
   cursor?: string;
   onNext: (cursor: string) => void;
   onPrevious: () => void;
   canGoPrevious: boolean;
+  ack?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const ackMutation = useAcknowledgeBooking();
+  const isNewOnly = ack === false;
   const { data, isFetching, error, refetch } = useQuery({
-    queryKey: [LIST_BOOKINGS_QUERY_KEY, cursor],
-    queryFn: () => sdkFetch<ClientBookingsResponse>(buildListQueryPath(cursor)),
+    queryKey: [LIST_BOOKINGS_QUERY_KEY, ack ?? "all", cursor],
+    queryFn: () =>
+      sdkFetch<ClientBookingsResponse>(buildListQueryPath(cursor, ack)),
   });
   const bookings = data?.bookings ?? [];
 
@@ -461,10 +470,12 @@ function ClientBookingsList({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-heading text-lg font-semibold text-foreground">
-            {t("All booking requests")}
+            {isNewOnly ? t("New booking requests") : t("All booking requests")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {t("Latest requests first.")}
+            {isNewOnly
+              ? t("Unacknowledged requests only.")
+              : t("Latest requests first.")}
           </p>
         </div>
         <Button
@@ -500,7 +511,11 @@ function ClientBookingsList({
           ))}
         </div>
       ) : bookings.length === 0 ? (
-        <EmptyState>{t("No booking requests found.")}</EmptyState>
+        <EmptyState>
+          {isNewOnly
+            ? t("No new booking requests found.")
+            : t("No booking requests found.")}
+        </EmptyState>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/80 bg-background/64">
           <Table>
@@ -627,8 +642,10 @@ export function ClientBookingsWorkbench() {
   const [view, setView] = useState<BookingView>("calendar");
   const [monthKey, setMonthKey] = useState(getCurrentMonthKey);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [cursorStack, setCursorStack] = useState<string[]>([]);
-  const currentListCursor = cursorStack[cursorStack.length - 1];
+  const [listCursorStack, setListCursorStack] = useState<string[]>([]);
+  const [newCursorStack, setNewCursorStack] = useState<string[]>([]);
+  const currentListCursor = listCursorStack[listCursorStack.length - 1];
+  const currentNewCursor = newCursorStack[newCursorStack.length - 1];
   const monthCells = useMemo(() => getMonthCells(monthKey), [monthKey]);
   const calendarQuery = useQuery({
     queryKey: [CALENDAR_BOOKINGS_QUERY_KEY, monthKey],
@@ -680,6 +697,10 @@ export function ClientBookingsWorkbench() {
               <TabsTrigger value="list" className="gap-1.5">
                 <ListChecks className="h-3.5 w-3.5" />
                 {t("List")}
+              </TabsTrigger>
+              <TabsTrigger value="new" className="gap-1.5">
+                <CircleDot className="h-3.5 w-3.5" />
+                {t("New bookings")}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -912,10 +933,26 @@ export function ClientBookingsWorkbench() {
         <TabsContent value="list" className="mt-0">
           <ClientBookingsList
             cursor={currentListCursor}
-            canGoPrevious={cursorStack.length > 0}
-            onPrevious={() => setCursorStack((current) => current.slice(0, -1))}
+            canGoPrevious={listCursorStack.length > 0}
+            onPrevious={() =>
+              setListCursorStack((current) => current.slice(0, -1))
+            }
             onNext={(nextCursor) =>
-              setCursorStack((current) => [...current, nextCursor])
+              setListCursorStack((current) => [...current, nextCursor])
+            }
+          />
+        </TabsContent>
+
+        <TabsContent value="new" className="mt-0">
+          <ClientBookingsList
+            ack={false}
+            cursor={currentNewCursor}
+            canGoPrevious={newCursorStack.length > 0}
+            onPrevious={() =>
+              setNewCursorStack((current) => current.slice(0, -1))
+            }
+            onNext={(nextCursor) =>
+              setNewCursorStack((current) => [...current, nextCursor])
             }
           />
         </TabsContent>
