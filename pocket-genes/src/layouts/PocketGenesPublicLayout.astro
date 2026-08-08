@@ -144,7 +144,7 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
     {showFooter && (
     <footer class="pg-footer">
       <div class="pg-footer-inner">
-        <div>
+        <div class="pg-footer-line">
           <a class="pg-brand pg-footer-brand" href={homeHref} aria-label="Pocket Genes home">
             <span class="pg-brand-mark" aria-hidden="true">
               <img src={pocketGenesIcon} alt="" width="36" height="36" loading="lazy" />
@@ -473,21 +473,33 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
   .pg-footer {
     border-top: 1px solid var(--pg-border);
     background: #ffffff;
-    padding: 36px 0;
+    padding: 16px 0;
   }
 
   .pg-footer-inner {
-    width: min(1120px, calc(100% - 32px));
+    width: min(1480px, calc(100% - 32px));
     margin: 0 auto;
+  }
+
+  .pg-footer-line {
     display: flex;
-    justify-content: space-between;
-    gap: 32px;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .pg-footer-brand {
+    flex: 0 0 auto;
   }
 
   .pg-footer p {
-    max-width: 460px;
-    margin: 12px 0 0;
+    max-width: none;
+    margin: 0;
     color: var(--pg-muted);
+    font-size: 0.95rem;
+    line-height: 1.35;
+    white-space: nowrap;
   }
 
   @media (max-width: 940px) {
@@ -565,8 +577,17 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
       grid-template-columns: 1fr;
     }
 
-    .pg-footer-inner {
-      flex-direction: column;
+    .pg-footer {
+      padding: 14px 0;
+    }
+
+    .pg-footer-line {
+      gap: 10px 14px;
+    }
+
+    .pg-footer p {
+      font-size: 0.9rem;
+      white-space: normal;
     }
 
     .pg-button-row,
