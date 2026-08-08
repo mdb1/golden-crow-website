@@ -15,6 +15,7 @@ import { ADMIN_ROLE_LABELS } from "@/lib/admin-areas";
 import { auth } from "@/lib/firebase";
 import { appText } from "@/lib/language";
 import { getChromeMetadata } from "@/lib/moderation-config";
+import { cn } from "@/lib/utils";
 import { ArrowLeftRight } from "lucide-react";
 
 interface AppHeaderProps {
@@ -77,6 +78,10 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
   const metadata = getChromeMetadata(pathname);
   const [pendingSignOut, setPendingSignOut] = useState(false);
   const [pendingProjectSwitch, setPendingProjectSwitch] = useState(false);
+  const isGodMode = adminContext.isBootstrap;
+  const roleDescription = isGodMode
+    ? "GOD MODE"
+    : appText(language, ADMIN_ROLE_LABELS[adminContext.role]);
   const compactChromeTitle =
     pathname.startsWith("/areas") ||
     pathname.startsWith("/discover") ||
@@ -149,10 +154,20 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-20 h-(--app-header-height) border-b border-border/80 bg-background/78 backdrop-blur-sm">
+    <header
+      className={cn(
+        "sticky top-0 z-20 h-(--app-header-height) border-b backdrop-blur-sm",
+        isGodMode
+          ? "border-amber-500/45 bg-gradient-to-r from-amber-100/92 via-yellow-50/88 to-background/84 shadow-[0_12px_28px_rgba(245,158,11,0.14)] dark:border-amber-300/30 dark:from-amber-950/70 dark:via-yellow-950/52 dark:to-background/78"
+          : "border-border/80 bg-background/78",
+      )}
+    >
       <div className="flex h-(--app-header-height) items-center gap-3 px-4 lg:px-6">
         <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="h-4" />
+        <Separator
+          orientation="vertical"
+          className={cn("h-4", isGodMode && "bg-amber-700/30 dark:bg-amber-200/30")}
+        />
         <div className="min-w-0 flex-1">
           {compactChromeTitle ? (
             <h1 className="truncate font-heading text-lg font-semibold text-foreground">
@@ -176,12 +191,24 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
           <AppearanceToggle />
           <LanguageToggle />
           <div className="hidden text-right sm:block">
-            <p className="text-sm font-medium text-foreground">
+            <p
+              className={cn(
+                "text-sm font-medium",
+                isGodMode ? "text-amber-950 dark:text-amber-50" : "text-foreground",
+              )}
+            >
               {user.name ?? appText(language, "Operator")}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p
+              className={cn(
+                "text-xs",
+                isGodMode
+                  ? "font-black tracking-[0.16em] text-amber-900 dark:text-amber-100"
+                  : "text-muted-foreground",
+              )}
+            >
               {user.email ?? appText(language, "Pocket Genes Admin")} ·{" "}
-              {appText(language, ADMIN_ROLE_LABELS[adminContext.role])}
+              {roleDescription}
             </p>
           </div>
           {canSwitchLegacyProduct && (
