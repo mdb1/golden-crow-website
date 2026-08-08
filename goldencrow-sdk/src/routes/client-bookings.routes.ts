@@ -35,9 +35,6 @@ const BookingRequestSchema = z.object({
     email: z.string().trim().toLowerCase().email().max(180),
     whatsapp: z.string().trim().min(5).max(50),
     companyName: z.string().trim().min(1).max(160),
-    identification: z.string().trim().min(1).max(120),
-    investmentReadiness: z.string().trim().min(1).max(180),
-    message: z.string().trim().max(1200).optional().default(""),
   }),
 });
 

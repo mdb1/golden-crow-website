@@ -48,28 +48,6 @@ const copy = isEnglish
       whatsappPlaceholder: 'We will send meeting information here',
       companyLabel: 'Company name *',
       companyPlaceholder: 'Company name',
-      identificationLabel: 'How would you identify yourself? *',
-      identificationPlaceholder: 'How would you identify yourself?',
-      investmentLabel:
-        'Software projects can start around 7,000 USD to 20,000 USD in the market. Can your company invest the total or installments? *',
-      investmentPlaceholder: 'Select an option',
-      messageLabel: 'What would you like to discuss?',
-      messagePlaceholder: 'Share useful context for the call',
-      options: {
-        identity: [
-          'Founder / Owner',
-          'Operations / Product',
-          'Healthcare / Genetics professional',
-          'Organization / Advocacy lead',
-          'Other',
-        ],
-        investment: [
-          'Yes, we can invest in that range',
-          'We need to evaluate installments or scope',
-          'We are still exploring budget',
-          'Not applicable to my request',
-        ],
-      },
     }
   : {
       locale: 'es',
@@ -100,28 +78,6 @@ const copy = isEnglish
       whatsappPlaceholder: 'Vamos a enviarte la información por acá',
       companyLabel: 'Nombre de la empresa *',
       companyPlaceholder: 'Nombre de la empresa',
-      identificationLabel: '¿Cómo te identificarías? *',
-      identificationPlaceholder: '¿Cómo te identificarías?',
-      investmentLabel:
-        'Los proyectos de software pueden comenzar a partir de 7.000 USD a 20.000 USD en el mercado. ¿Su empresa cuenta con la posibilidad de invertir el total o cuotas por el mismo? *',
-      investmentPlaceholder: 'Seleccioná una opción',
-      messageLabel: '¿Qué te gustaría conversar?',
-      messagePlaceholder: 'Compartí contexto útil para la llamada',
-      options: {
-        identity: [
-          'Fundador/a o dueño/a',
-          'Operaciones / Producto',
-          'Profesional de salud o genética',
-          'Organización o advocacy',
-          'Otro',
-        ],
-        investment: [
-          'Sí, podemos invertir dentro de ese rango',
-          'Necesitamos evaluar cuotas o alcance',
-          'Todavía estamos explorando presupuesto',
-          'No aplica a mi consulta',
-        ],
-      },
     };
 
 const weekdayLabels = isEnglish
@@ -229,24 +185,6 @@ const weekdayLabels = isEnglish
           <label>
             <span>{copy.companyLabel}</span>
             <input name="companyName" type="text" autocomplete="organization" maxlength="160" placeholder={copy.companyPlaceholder} required />
-          </label>
-          <label>
-            <span>{copy.identificationLabel}</span>
-            <select name="identification" required>
-              <option value="">{copy.identificationPlaceholder}</option>
-              {copy.options.identity.map((option) => <option value={option}>{option}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>{copy.investmentLabel}</span>
-            <select name="investmentReadiness" required>
-              <option value="">{copy.investmentPlaceholder}</option>
-              {copy.options.investment.map((option) => <option value={option}>{option}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>{copy.messageLabel}</span>
-            <textarea name="message" rows="4" maxlength="1200" placeholder={copy.messagePlaceholder}></textarea>
           </label>
           <p class="booking-error" data-booking-error role="alert" hidden>{copy.errorMessage}</p>
           <div class="booking-submit-row">
@@ -548,9 +486,6 @@ const weekdayLabels = isEnglish
           email: String(data.get('email') || ''),
           whatsapp: String(data.get('whatsapp') || ''),
           companyName: String(data.get('companyName') || ''),
-          identification: String(data.get('identification') || ''),
-          investmentReadiness: String(data.get('investmentReadiness') || ''),
-          message: String(data.get('message') || ''),
         },
       };
 
@@ -605,6 +540,10 @@ const weekdayLabels = isEnglish
 <style>
   .client-booking-widget {
     width: 100%;
+  }
+
+  .client-booking-widget [hidden] {
+    display: none !important;
   }
 
   .booking-shell {

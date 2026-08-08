@@ -28,9 +28,6 @@ export interface ClientBookingInput {
     email: string;
     whatsapp: string;
     companyName: string;
-    identification: string;
-    investmentReadiness: string;
-    message?: string;
   };
 }
 
@@ -57,10 +54,7 @@ export async function createClientBooking(
       startsAtTimestamp: Timestamp.fromDate(startsAt),
       endsAtTimestamp: Timestamp.fromDate(endsAt),
     },
-    form: {
-      ...input.form,
-      message: input.form.message ?? "",
-    },
+    form: input.form,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
