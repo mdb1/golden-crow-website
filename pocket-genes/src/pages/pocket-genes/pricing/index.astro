@@ -691,13 +691,15 @@ const trustMailSubject = encodeURIComponent(
   .pg-hero-product-visual {
     position: relative;
     display: grid;
+    gap: 14px;
+    align-content: center;
+    justify-items: stretch;
     min-height: 500px;
-    align-items: center;
   }
 
   .pg-interface-card {
     position: relative;
-    width: min(100%, 390px);
+    width: min(100%, 420px);
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.12);
@@ -788,28 +790,27 @@ const trustMailSubject = encodeURIComponent(
   }
 
   .pg-interface-profile {
-    margin-left: auto;
+    justify-self: end;
     background: rgba(255, 255, 255, 0.14);
   }
 
   .pg-interface-discover {
-    margin-top: -18px;
-    margin-left: 14px;
+    justify-self: start;
+    width: min(100%, 405px);
     border-color: rgba(228, 80, 128, 0.34);
     background: rgba(228, 80, 128, 0.16);
   }
 
   .pg-interface-community {
-    margin-top: -10px;
-    margin-left: auto;
+    justify-self: end;
+    width: min(100%, 410px);
     border-color: rgba(33, 118, 174, 0.34);
     background: rgba(33, 118, 174, 0.2);
   }
 
   .pg-interface-channel {
     width: min(100%, 310px);
-    margin-top: -6px;
-    margin-left: 40px;
+    justify-self: center;
     border-color: rgba(125, 228, 215, 0.42);
     background: rgba(20, 149, 143, 0.18);
   }
@@ -1529,7 +1530,8 @@ const trustMailSubject = encodeURIComponent(
     .pg-interface-discover,
     .pg-interface-community,
     .pg-interface-channel {
-      margin-left: 0;
+      justify-self: stretch;
+      width: 100%;
     }
 
     .pg-policy-contact {
