@@ -7,7 +7,10 @@ import { RolesBrowser } from "@/components/areas/roles-browser";
 import { PageHero } from "@/components/page-hero";
 import { Button } from "@/components/ui/button";
 import { getAdminContextServer } from "@/lib/admin-context-server";
-import type { RoleManagementRecord } from "@/lib/admin-areas";
+import {
+  getVisibleRoleRecordsForContext,
+  type RoleManagementRecord,
+} from "@/lib/admin-areas";
 import {
   canCreateRoleUi,
   shouldAskInstitutionAdminForRoleCreation,
@@ -26,6 +29,7 @@ export default async function RolesPage() {
   const { roles } = await sdkFetchServer<{ roles: RoleManagementRecord[] }>(
     "/roles",
   );
+  const visibleRoles = getVisibleRoleRecordsForContext(roles, adminContext);
   const roleCreationNeedsInstitutionAdmin =
     shouldAskInstitutionAdminForRoleCreation(adminContext);
 
@@ -71,7 +75,7 @@ export default async function RolesPage() {
             </Link>
           </Button>
         </section>
-        <RolesBrowser initialRoles={roles} />
+        <RolesBrowser initialRoles={visibleRoles} />
       </HeaderUnclutterScope>
       <section className="border-t border-border/70 pt-3 text-xs leading-relaxed text-muted-foreground">
         <p>

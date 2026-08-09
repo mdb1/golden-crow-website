@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
+import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ADMIN_ROLE_LABELS,
+  getVisibleRoleRecordsForContext,
   type RoleManagementRecord,
 } from "@/lib/admin-areas";
 import { getRoleBadgeVariant } from "@/lib/areas-ui";
@@ -23,6 +25,7 @@ export function RolesBrowser({
 }: {
   initialRoles: RoleManagementRecord[];
 }) {
+  const adminContext = useAdminContext();
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const [query, setQuery] = useState("");
@@ -32,7 +35,10 @@ export function RolesBrowser({
     initialData: { roles: initialRoles },
   });
 
-  const roles = data?.roles ?? [];
+  const roles = useMemo(
+    () => getVisibleRoleRecordsForContext(data?.roles ?? [], adminContext),
+    [adminContext.isBootstrap, adminContext.role, data?.roles],
+  );
   const filteredRoles = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) {
