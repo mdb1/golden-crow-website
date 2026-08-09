@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ADMIN_ROLE_LABELS,
   getAssignableRoleOptions,
+  getAssignableRoleOptionsForContext,
   isInstitutionManagerRole,
   type DoctorListItem,
   type InstitutionRecord,
@@ -123,7 +124,10 @@ export function RoleWorkbench({
       mode,
     ]
   );
-  const roleOptions = getAssignableRoleOptions(adminContext.role);
+  const roleOptions =
+    mode === "create"
+      ? getAssignableRoleOptionsForContext(adminContext)
+      : getAssignableRoleOptions(adminContext.role);
   const initialRole =
     mode === "create"
       ? fixedRole ?? roleOptions[0]?.value ?? "patient"

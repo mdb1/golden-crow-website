@@ -324,6 +324,18 @@ export function getAssignableRoleOptions(role: AdminRole) {
   return [];
 }
 
+export function getAssignableRoleOptionsForContext(
+  context: Pick<AdminContextRecord, "role" | "isBootstrap">,
+) {
+  const options = getAssignableRoleOptions(context.role);
+
+  if (context.role === "full_admin" && !context.isBootstrap) {
+    return options.filter((option) => option.value !== "organization_publisher");
+  }
+
+  return options;
+}
+
 export function isInstitutionManagerRole(role: AdminRole) {
   return (
     role === "institution_admin" ||

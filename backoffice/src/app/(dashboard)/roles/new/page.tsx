@@ -8,7 +8,7 @@ import type {
   InstitutionRecord,
   PatientListItem,
 } from "@/lib/admin-areas";
-import { getAssignableRoleOptions, ROLE_OPTIONS } from "@/lib/admin-areas";
+import { getAssignableRoleOptionsForContext, ROLE_OPTIONS } from "@/lib/admin-areas";
 import type { DiscoverOrganizationsPage } from "@/lib/discover";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { canCreateRoleUi } from "@/lib/areas-ui";
@@ -30,14 +30,13 @@ export default async function NewRolePage({
     redirect("/roles");
   }
   const { email, role, institutionId } = await searchParams;
+  const assignableRoleOptions = getAssignableRoleOptionsForContext(adminContext);
   const fixedRole = ROLE_OPTIONS.some((option) => option.value === role)
     ? (role as AdminRole)
     : undefined;
   if (
     fixedRole &&
-    !getAssignableRoleOptions(adminContext.role).some(
-      (option) => option.value === fixedRole,
-    )
+    !assignableRoleOptions.some((option) => option.value === fixedRole)
   ) {
     redirect("/roles");
   }
@@ -56,7 +55,7 @@ export default async function NewRolePage({
       ),
       sdkFetchServer<{ doctors: DoctorListItem[] }>("/areas/doctors"),
       sdkFetchServer<{ patients: PatientListItem[] }>("/areas/patients"),
-      adminContext.role === "full_admin"
+      adminContext.role === "full_admin" && adminContext.isBootstrap
         ? sdkFetchServer<DiscoverOrganizationsPage>(
             "/discover/organizations?limit=50",
           )
