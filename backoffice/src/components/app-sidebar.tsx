@@ -22,6 +22,10 @@ import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+function canSeeDiscoverSection(adminContext: AdminContextRecord) {
+  return adminContext.isBootstrap || adminContext.role === "organization_publisher";
+}
+
 export function AppSidebar({
   adminContext,
 }: {
@@ -29,11 +33,18 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const { language } = useAppLanguage();
-  const visibleSections = getProjectSections(
+  const canShowDiscoverSection = canSeeDiscoverSection(adminContext);
+  const baseVisibleSections = getProjectSections(
     adminContext.project,
     adminContext.role,
   );
-  const visibleNav = getProjectNav(adminContext.project, adminContext.role);
+  const baseVisibleNav = getProjectNav(adminContext.project, adminContext.role);
+  const visibleSections = canShowDiscoverSection
+    ? baseVisibleSections
+    : baseVisibleSections.filter((section) => section.key !== "discover");
+  const visibleNav = canShowDiscoverSection
+    ? baseVisibleNav
+    : baseVisibleNav.filter((item) => item.section !== "discover");
   const productTitle =
     adminContext.project === "pocket-gyms"
       ? appText(language, "Pocket Gyms")
