@@ -204,10 +204,10 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "Enter the full email address, for example team@pocketgenes.app.":
     "Ingresa el email completo, por ejemplo team@pocketgenes.app.",
   "Email and password did not match": "El email y el password no coinciden",
-  "Use the email and password for an existing backoffice account.":
-    "Usa el email y password de una cuenta existente del backoffice.",
-  "If this is your first time here, use Create email account so access can be checked before a password is created.":
-    "Si es tu primera vez, usa Crear cuenta con email para verificar el acceso antes de crear un password.",
+  "Check the email and password for this backoffice account, then try again.":
+    "Revisa el email y password de esta cuenta del backoffice y volve a intentar.",
+  "If you do not remember the password, contact an administrator to reset access.":
+    "Si no recordas el password, contacta a un administrador para restablecer el acceso.",
   "Too many attempts": "Demasiados intentos",
   "Firebase temporarily slowed this account down. Wait a few minutes before trying again.":
     "Firebase limito temporalmente esta cuenta. Espera unos minutos antes de intentar de nuevo.",
@@ -920,9 +920,9 @@ function emailNotice(
       tone: "error",
       title: "Email and password did not match",
       message:
-        "Use the email and password for an existing backoffice account.",
+        "Check the email and password for this backoffice account, then try again.",
       details: [
-        "If this is your first time here, use Create email account so access can be checked before a password is created.",
+        "If you do not remember the password, contact an administrator to reset access.",
       ],
       log,
     };
