@@ -22,7 +22,7 @@ const pageCopy = {
     identityBody:
       'Pocket Genes gives you a private place to keep the report, learn what it says, find relevant support, and prepare what to ask next.',
     downloadApp: 'Download the app',
-    trustCenter: 'Trust Center',
+    talkCta: "Let's talk",
     userFlowLabel: 'Pocket Genes user flow',
     contactPrompt: 'Questions about Pocket Genes?',
     productEyebrow: 'Inside Pocket Genes',
@@ -30,8 +30,6 @@ const pageCopy = {
     productBody:
       'Your report stays private while Pocket Genes helps you learn, connect, prepare questions, and follow updates that match your situation.',
     productFlowLabel: 'Pocket Genes product flow',
-    momentFlowLabel: 'Pocket Genes flow',
-    momentFlow: ['Save', 'Learn', 'Find', 'Prepare'],
     storeEyebrow: 'Get Pocket Genes',
     storeTitle: 'Available for iPhone and Android.',
     storeBody: 'Download Pocket Genes from the App Store or Google Play.',
@@ -167,7 +165,7 @@ const pageCopy = {
     identityBody:
       'Un espacio privado donde podés guardar tu informe, entenderlo mejor, encontrar apoyo útil y preparar tus próximas preguntas.',
     downloadApp: 'Descargar la app',
-    trustCenter: 'Centro de confianza',
+    talkCta: 'Hablemos',
     userFlowLabel: 'Flujo de usuario de Pocket Genes',
     contactPrompt: '¿Preguntas sobre Pocket Genes?',
     productEyebrow: 'Todo en un solo lugar',
@@ -175,8 +173,6 @@ const pageCopy = {
     productBody:
       'Tu informe permanece privado mientras aprendés, conectás con otras personas, preparás preguntas y recibís novedades relacionadas con tus intereses.',
     productFlowLabel: 'Flujo de producto de Pocket Genes',
-    momentFlowLabel: 'Flujo de Pocket Genes',
-    momentFlow: ['Guardar', 'Aprender', 'Conectar', 'Preparar'],
     storeEyebrow: 'Descargá Pocket Genes',
     storeTitle: 'Disponible para iPhone y Android.',
     storeBody: 'Descargá Pocket Genes desde la App Store o Google Play.',
@@ -352,7 +348,7 @@ const trustMailSubject = encodeURIComponent(
           </p>
           <div class="pg-identity-actions">
             <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/download')}>{copy.downloadApp}</a>
-            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>{copy.trustCenter}</a>
+            <a class="pg-button pg-button-secondary" href="#consultation-call">{copy.talkCta}</a>
           </div>
         </div>
 
@@ -427,9 +423,6 @@ const trustMailSubject = encodeURIComponent(
             <span data-moment-focus-chip>{productMoments[0].chip}</span>
             <h3 data-moment-focus-title>{productMoments[0].title}</h3>
             <p data-moment-focus-detail>{productMoments[0].detail}</p>
-            <div class="pg-moment-flow" aria-label={copy.momentFlowLabel}>
-              {copy.momentFlow.map((step) => <strong>{step}</strong>)}
-            </div>
           </aside>
         </div>
       </div>
@@ -1032,25 +1025,6 @@ const trustMailSubject = encodeURIComponent(
     line-height: 1.6;
   }
 
-  .pg-moment-flow {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .pg-moment-flow strong {
-    min-height: 46px;
-    display: grid;
-    place-items: center;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.68);
-    color: var(--pg-ink);
-    font-size: 0.82rem;
-    line-height: 1.1;
-    text-align: center;
-  }
-
   .pg-home-store {
     background: #ffffff;
   }
@@ -1466,10 +1440,6 @@ const trustMailSubject = encodeURIComponent(
       grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr);
     }
 
-    .pg-moment-flow {
-      grid-column: 1 / -1;
-    }
-
     .pg-store-actions {
       justify-content: flex-start;
     }
@@ -1532,8 +1502,7 @@ const trustMailSubject = encodeURIComponent(
     .pg-moment-grid,
     .pg-moment-focus,
     .pg-identity-card-grid,
-    .pg-identity-flow,
-    .pg-moment-flow {
+    .pg-identity-flow {
       grid-template-columns: 1fr;
     }
 
@@ -1553,10 +1522,6 @@ const trustMailSubject = encodeURIComponent(
     .pg-identity-flow span {
       min-height: 66px;
       padding-left: 54px;
-    }
-
-    .pg-moment-flow {
-      grid-column: auto;
     }
 
     .pg-store-actions,
