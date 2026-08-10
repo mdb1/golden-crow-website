@@ -48,7 +48,12 @@ import {
 import { appText, type AppLanguage } from "@/lib/language";
 import { compactList } from "@/lib/moderation-utils";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
-import type { TwoPQListItem } from "@/lib/two-pq-areas";
+import {
+  TWO_PQ_CASE_STATUS_OPTIONS,
+  TwoPQCaseStatus,
+  normalizeTwoPQCaseStatus,
+  type TwoPQListItem,
+} from "@/lib/two-pq-areas";
 import {
   formatBiopsySampleIdForDisplay,
   normalizeObservationsValue,
@@ -319,14 +324,7 @@ const BIOPSY_COUNT_OPTIONS = Array.from({ length: 30 }, (_, index) => {
   return { value, label: value };
 });
 
-const CASE_STATUS_OPTIONS = [
-  { value: "intake", label: "Intake" },
-  { value: "awaiting_pick_up", label: "Awaiting pick up" },
-  { value: "active", label: "Active" },
-  { value: "blocked", label: "Blocked" },
-  { value: "reporting", label: "Reporting" },
-  { value: "delivered", label: "Delivered" },
-];
+const CASE_STATUS_OPTIONS = TWO_PQ_CASE_STATUS_OPTIONS;
 
 const PRIORITY_OPTIONS = [
   { value: "routine", label: "Routine" },
@@ -500,7 +498,7 @@ function buildFormStorageProcessingSteps(
       pendingProcessingStep(
         "case-status",
         t("Mark cases awaiting pick up"),
-        t("Update every selected case from Intake to Awaiting pick up.")
+        t("Update every selected case from Entered to Awaiting pick up.")
       ),
       pendingProcessingStep(
         "store-form",
@@ -603,7 +601,7 @@ function emptyInstitution(): InstitutionInformationFormState {
 function emptyCase(): CaseInformationFormState {
   return {
     caseLabel: "",
-    caseStatus: "intake",
+    caseStatus: TwoPQCaseStatus.Intake,
     caseType: "",
     priority: "",
     trackingNumber: "",
@@ -635,7 +633,7 @@ function withCaseDefaultsForBoxCode(flowState: FlowState): FlowState {
   const nextCase = {
     ...currentCase,
     caseLabel: defaults.caseLabel,
-    caseStatus: "intake",
+    caseStatus: TwoPQCaseStatus.Intake,
     priority:
       currentCase.priority || priorityForSampleCaseType(currentCase.caseType),
     requestedAt: todayDateInputValue(),
@@ -1593,14 +1591,17 @@ function validateStepFields(
   }
 
   if (step === "caseInformation" && !flowState.selectedCaseId) {
+    const normalizedCaseStatus = normalizeTwoPQCaseStatus(
+      flowState.caseInformation.caseStatus,
+    );
     if (!flowState.caseInformation.caseLabel.trim()) {
       errors["caseInformation.caseLabel"] = t("2PQ case label is required.");
     }
-    if (!flowState.caseInformation.caseStatus.trim()) {
+    if (!normalizedCaseStatus) {
       errors["caseInformation.caseStatus"] = t("Select a 2PQ case status.");
     } else if (
       !CASE_STATUS_OPTIONS.some(
-        (option) => option.value === flowState.caseInformation.caseStatus
+        (option) => option.value === normalizedCaseStatus
       )
     ) {
       errors["caseInformation.caseStatus"] = t("Case status is not valid.");
@@ -3358,7 +3359,7 @@ export function TwoPQFormFlow({
         },
         {
           label: t("Case status"),
-          value: t("Intake"),
+          value: t("Entered"),
         },
         {
           label: t("Case type"),
@@ -3443,11 +3444,11 @@ export function TwoPQFormFlow({
                   caseRecord.id,
                 `${t("Current status")}: ${previewOptionValue(
                   caseStatusOptions,
-                  caseRecord.caseStatus
+                  normalizeTwoPQCaseStatus(caseRecord.caseStatus)
                 )}`,
                 `${t("New status")}: ${previewOptionValue(
                   caseStatusOptions,
-                  "awaiting_pick_up"
+                  TwoPQCaseStatus.AwaitingPickUp
                 )}`,
                 caseRecord.patientName
                   ? `${t("Patient")}: ${caseRecord.patientName}`
@@ -4692,7 +4693,12 @@ export function TwoPQFormFlow({
               ),
               requestedTest: submissionState.requestedTest,
               sampleInformation: submissionState.sampleInformation,
-              caseInformation: submissionState.caseInformation,
+              caseInformation: {
+                ...submissionState.caseInformation,
+                caseStatus: normalizeTwoPQCaseStatus(
+                  submissionState.caseInformation.caseStatus,
+                ),
+              },
               samplingInformation: submissionState.samplingInformation,
             };
       const firstRemoteStepId = remoteProcessingStepIds[0];
@@ -4827,7 +4833,7 @@ export function TwoPQFormFlow({
                             caseRecord.doctorName,
                             `${t("Status")}: ${previewOptionValue(
                               caseStatusOptions,
-                              caseRecord.caseStatus
+                              normalizeTwoPQCaseStatus(caseRecord.caseStatus)
                             )}`,
                           ])}
                         </p>
@@ -5454,11 +5460,11 @@ export function TwoPQFormFlow({
                             caseRecord.doctorName,
                             `${t("Current status")}: ${previewOptionValue(
                               caseStatusOptions,
-                              caseRecord.caseStatus
+                              normalizeTwoPQCaseStatus(caseRecord.caseStatus)
                             )}`,
                             `${t("New status")}: ${previewOptionValue(
                               caseStatusOptions,
-                              "awaiting_pick_up"
+                              TwoPQCaseStatus.AwaitingPickUp
                             )}`,
                           ])}
                         </p>
@@ -6716,7 +6722,7 @@ export function TwoPQFormFlow({
               <Label htmlFor="form-case-status">{t("Case status")}</Label>
               <Input
                 id="form-case-status"
-                value={t("Intake")}
+                value={t("Entered")}
                 disabled
               />
               <FieldError message={errorFor("caseInformation.caseStatus")} />

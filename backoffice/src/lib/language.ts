@@ -238,7 +238,12 @@ const SPANISH_TEXT: Record<string, string> = {
   Active: "Activo",
   Inactive: "Inactivo",
   Intake: "Ingreso",
+  Entered: "Ingresado",
   "Awaiting pick up": "Esperando retiro",
+  "Samples received by 2PQ": "Muestras recibidas por 2PQ",
+  "Processing sample in lab": "Procesando muestra en laboratorio",
+  "Bioinformatics analysis": "Haciendo análisis bioinformático",
+  "Report ready to download": "Informe listo para descargar",
   Blocked: "Bloqueado",
   Reporting: "Reporte",
   Delivered: "Entregado",
@@ -287,6 +292,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Mark cases awaiting pick up": "Marcar casos esperando retiro",
   "Update every selected case from Intake to Awaiting pick up.":
     "Actualizar cada caso seleccionado de Ingreso a Esperando retiro.",
+  "Update every selected case from Entered to Awaiting pick up.":
+    "Actualizar cada caso seleccionado de Ingresado a Esperando retiro.",
   "Store withdrawal request form": "Guardar formulario de solicitud de retiro",
   "Persist the withdrawal request with its linked case snapshot.":
     "Persistir la solicitud de retiro con el snapshot de casos vinculados.",
@@ -751,9 +758,28 @@ const SPANISH_TEXT: Record<string, string> = {
     "Cada caso seleccionado será marcado como Esperando retiro cuando se firme el formulario.",
   "No 2PQ cases selected yet.": "Todavía no hay casos 2PQ seleccionados.",
   "Current status": "Estado actual",
+  "Next status": "Siguiente estado",
+  "Final status": "Estado final",
   "New status": "Nuevo estado",
   "Withdrawal effect": "Efecto de la solicitud de retiro",
   "Case status update": "Actualización de estado del caso",
+  "Case status updated.": "Estado del caso actualizado.",
+  "Unable to update case status.": "No se pudo actualizar el estado del caso.",
+  "The clinic completed the biopsy form and the case entered the workflow.":
+    "La clínica completó el form de biopsias; el caso quedó ingresado.",
+  "The clinic completed the pick-up form; the case is waiting for collection.":
+    "La clínica completó el form de retiro; queda pendiente que retiren la caja.",
+  "Transport picked up the box and it is on its way to 2PQ.":
+    "El transporte ya se llevó la caja y está camino a 2PQ.",
+  "2PQ received the samples and they are stored in the refrigerator.":
+    "2PQ ya recibió las muestras y están en la heladera.",
+  "The laboratory is processing the sample.":
+    "Roman está procesando la muestra en laboratorio.",
+  "The bioinformatics analysis is in progress.":
+    "Nicolas está procesando el análisis bioinformático.",
+  "The report is ready to download.": "El informe está listo para descargar.",
+  "Select a case status to see what should be happening now.":
+    "Seleccioná un estado del caso para ver qué debería estar pasando ahora.",
   "When this form is signed, every selected case will be marked as Awaiting pick up.":
     "Cuando se firme este formulario, cada caso seleccionado será marcado como Esperando retiro.",
   "Select at least one linked 2PQ case.":

@@ -83,6 +83,9 @@ export function OptionSelectField({
     () => ensureCurrentOption(options, value),
     [options, value]
   );
+  const selectedLabel = value.trim()
+    ? resolvedOptions.find((option) => option.value === value)?.label
+    : emptyLabel;
 
   return (
     <Select
@@ -93,7 +96,7 @@ export function OptionSelectField({
       disabled={disabled}
     >
       <SelectTrigger className="w-full" disabled={disabled}>
-        <SelectValue placeholder={placeholder} />
+        <SelectValue placeholder={placeholder}>{selectedLabel}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={EMPTY_OPTION_VALUE}>{emptyLabel}</SelectItem>

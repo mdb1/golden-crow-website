@@ -19,6 +19,7 @@ import {
   getTwoPQFormDisplayTitle,
   type TwoPQFormRecord,
 } from "@/lib/two-pq-forms";
+import { getTwoPQCaseStatusLabel } from "@/lib/two-pq-areas";
 import { compactList } from "@/lib/moderation-utils";
 import { appText, type AppLanguage } from "@/lib/language";
 
@@ -138,15 +139,6 @@ const SAMPLE_TYPE_LABEL_BY_VALUE: Record<string, string> = {
   "biopsia de trofoectodermo": "Trophectoderm biopsy",
   "rebiopsia de trofoectodermo": "Trophectoderm rebiopsy",
   otro: "Other",
-};
-
-const CASE_STATUS_LABEL_BY_VALUE: Record<string, string> = {
-  intake: "Intake",
-  awaiting_pick_up: "Awaiting pick up",
-  active: "Active",
-  blocked: "Blocked",
-  reporting: "Reporting",
-  delivered: "Delivered",
 };
 
 const PRIORITY_LABEL_BY_VALUE: Record<string, string> = {
@@ -304,7 +296,7 @@ function formatValue(
       return t(SAMPLE_TYPE_LABEL_BY_VALUE[value] ?? value);
     }
     if (type === "caseStatus") {
-      return t(CASE_STATUS_LABEL_BY_VALUE[value] ?? value);
+      return t(getTwoPQCaseStatusLabel(value));
     }
     if (type === "priority") {
       return t(PRIORITY_LABEL_BY_VALUE[value] ?? value);

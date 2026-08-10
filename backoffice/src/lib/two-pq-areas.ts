@@ -208,14 +208,64 @@ const ASSIGNED_SCOPE_ACCESS: RoleAccessSpec[] = [
   },
 ];
 
-const CASE_STATUS_OPTIONS: TwoPQOption[] = [
-  { value: "intake", label: "Intake" },
-  { value: "awaiting_pick_up", label: "Awaiting pick up" },
-  { value: "active", label: "Active" },
-  { value: "blocked", label: "Blocked" },
-  { value: "reporting", label: "Reporting" },
-  { value: "delivered", label: "Delivered" },
+export enum TwoPQCaseStatus {
+  Intake = "intake",
+  AwaitingPickUp = "awaiting_pick_up",
+  InTransit = "in_transit",
+  SamplesReceived = "samples_received",
+  LabProcessing = "lab_processing",
+  Bioinformatics = "bioinformatics",
+  ReportReady = "report_ready",
+}
+
+export const TWO_PQ_CASE_STATUS_OPTIONS: TwoPQOption[] = [
+  { value: TwoPQCaseStatus.Intake, label: "Entered" },
+  { value: TwoPQCaseStatus.AwaitingPickUp, label: "Awaiting pick up" },
+  { value: TwoPQCaseStatus.InTransit, label: "In transit" },
+  {
+    value: TwoPQCaseStatus.SamplesReceived,
+    label: "Samples received by 2PQ",
+  },
+  {
+    value: TwoPQCaseStatus.LabProcessing,
+    label: "Processing sample in lab",
+  },
+  {
+    value: TwoPQCaseStatus.Bioinformatics,
+    label: "Bioinformatics analysis",
+  },
+  {
+    value: TwoPQCaseStatus.ReportReady,
+    label: "Report ready to download",
+  },
 ];
+
+const LEGACY_CASE_STATUS_ALIASES: Record<string, TwoPQCaseStatus> = {
+  active: TwoPQCaseStatus.InTransit,
+  samples_received_2pq: TwoPQCaseStatus.SamplesReceived,
+  samples_received_by_2pq: TwoPQCaseStatus.SamplesReceived,
+  sample_processing_in_lab: TwoPQCaseStatus.LabProcessing,
+  reporting: TwoPQCaseStatus.Bioinformatics,
+  bioinformatics_analysis: TwoPQCaseStatus.Bioinformatics,
+  delivered: TwoPQCaseStatus.ReportReady,
+  report_ready_to_download: TwoPQCaseStatus.ReportReady,
+};
+
+const CASE_STATUS_LABEL_BY_VALUE = new Map(
+  TWO_PQ_CASE_STATUS_OPTIONS.map((option) => [option.value, option.label]),
+);
+
+export function normalizeTwoPQCaseStatus(value: string | null | undefined) {
+  const trimmedValue = value?.trim() ?? "";
+
+  return LEGACY_CASE_STATUS_ALIASES[trimmedValue] ?? trimmedValue;
+}
+
+export function getTwoPQCaseStatusLabel(value: string | null | undefined) {
+  const normalizedValue = normalizeTwoPQCaseStatus(value);
+
+  return CASE_STATUS_LABEL_BY_VALUE.get(normalizedValue) ?? normalizedValue;
+}
 
 const PRIORITY_OPTIONS: TwoPQOption[] = [
   { value: "routine", label: "Routine" },
@@ -326,7 +376,7 @@ export const TWO_PQ_AREA_CONFIGS: TwoPQAreaConfig[] = [
             label: "Case status",
             type: "select",
             required: true,
-            options: CASE_STATUS_OPTIONS,
+            options: TWO_PQ_CASE_STATUS_OPTIONS,
             description: "Main lifecycle state.",
           },
           {
