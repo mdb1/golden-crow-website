@@ -542,6 +542,13 @@ const weekdayLabels = isEnglish
     width: 100%;
     min-width: 0;
     container-type: inline-size;
+    --booking-selected-accent: #0f766e;
+    --booking-selected-accent-rgb: 15, 118, 110;
+  }
+
+  .client-booking-widget[data-context="pocket-genes-home"] {
+    --booking-selected-accent: var(--pg-rose, #e45080);
+    --booking-selected-accent-rgb: 228, 80, 128;
   }
 
   .client-booking-widget [hidden] {
@@ -774,11 +781,11 @@ const weekdayLabels = isEnglish
   :global(button.booking-day.is-selected),
   :global(button.booking-day.is-selected:hover),
   :global(button.booking-day.is-selected:focus-visible) {
-    background: #0f766e;
+    background: var(--booking-selected-accent);
     color: #ffffff;
     box-shadow:
-      0 0 0 4px rgba(15, 118, 110, 0.18),
-      0 12px 24px rgba(15, 118, 110, 0.26);
+      0 0 0 4px rgba(var(--booking-selected-accent-rgb), 0.18),
+      0 12px 24px rgba(var(--booking-selected-accent-rgb), 0.26);
     transform: translateY(-1px);
   }
 
