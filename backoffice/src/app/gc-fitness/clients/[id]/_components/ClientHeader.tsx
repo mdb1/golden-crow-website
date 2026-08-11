@@ -23,8 +23,10 @@ import {
   formatAppDevice,
   type ClientAppDevice,
 } from "@/lib/gc-fitness/client-app-devices";
-import { ArrowLeft, Calendar, LineChart, MessagesSquare } from "lucide-react";
+import { ArrowLeft, MessagesSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
+
+import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +48,14 @@ export interface ClientHeaderProps {
    * client who has never opened the app.
    */
   appDevices?: ClientAppDevice[];
+  /**
+   * The client-settings dialog (nickname, birthday, "pedir peso") and the notes
+   * dialog. Both are rendered by page.tsx and handed in, because each wraps a
+   * Server Component with its own server action and this header is a client
+   * component — it cannot import them, only place them.
+   */
+  settingsSlot?: ReactNode;
+  notesSlot?: ReactNode;
 }
 
 export function ClientHeader({
@@ -59,6 +69,8 @@ export function ClientHeader({
   heightCm,
   bodyWeightKg,
   appDevices = [],
+  settingsSlot,
+  notesSlot,
 }: ClientHeaderProps) {
   const t = useTranslations("clients.detail");
   const tNav = useTranslations("nav");
@@ -127,23 +139,17 @@ export function ClientHeader({
             </div>
           </div>
         </div>
+        {/* Three buttons, down from five. "Ver progreso por ejercicio" is gone
+            because those charts now live on this page, and "Abrir en calendario"
+            because the mini calendar right below carries its own "Abrir agenda"
+            — two links to the same place, a screen apart. */}
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" asChild className="rounded-full">
-            <Link href={`/gc-fitness/clients/${clientId}/progress`}>
-              <LineChart className="size-4" />
-              {t("openExerciseProgress")}
-            </Link>
-          </Button>
+          {settingsSlot}
+          {notesSlot}
           <Button variant="outline" asChild className="rounded-full">
             <Link href={`/gc-fitness/chat?clientId=${clientId}`}>
               <MessagesSquare className="size-4" />
               {t("openChat")}
-            </Link>
-          </Button>
-          <Button variant="outline" asChild className="rounded-full">
-            <Link href={`/gc-fitness/schedule?clientIds=${clientId}`}>
-              <Calendar className="size-4" />
-              {t("openInCalendar")}
             </Link>
           </Button>
         </div>

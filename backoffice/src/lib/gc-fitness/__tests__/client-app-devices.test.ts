@@ -87,6 +87,42 @@ describe("projectAppDevices", () => {
     expect(formatAppDevice(row)).toBe("Android · versión desconocida");
   });
 
+  it("drops the unknown-version row once THAT platform reports a version", () => {
+    // Signed in before #785 (no version stamped) and again after it. The old
+    // token says nothing the new one doesn't — two pills for one fact.
+    const rows = projectAppDevices([
+      doc({ platform: "ios", registeredAt: ts("2026-05-01T10:00:00Z") }),
+      doc({
+        platform: "ios",
+        appVersion: "1.2.1",
+        appBuild: "163",
+        registeredAt: ts("2026-08-06T10:00:00Z"),
+      }),
+    ]);
+
+    expect(rows.map(formatAppDevice)).toEqual(["iOS 1.2.1 (163)"]);
+  });
+
+  it("keeps ANOTHER platform's unknown-version row", () => {
+    // The whole point of the badge: this person's Android is on a build old
+    // enough not to stamp its version. Knowing their iPhone's version says
+    // nothing about that, so the Android pill must survive.
+    const rows = projectAppDevices([
+      doc({ platform: "android", registeredAt: ts("2026-05-01T10:00:00Z") }),
+      doc({
+        platform: "ios",
+        appVersion: "1.2.1",
+        appBuild: "163",
+        registeredAt: ts("2026-08-06T10:00:00Z"),
+      }),
+    ]);
+
+    expect(rows.map(formatAppDevice)).toEqual([
+      "iOS 1.2.1 (163)",
+      "Android · versión desconocida",
+    ]);
+  });
+
   it("survives a doc with no platform and no timestamp", () => {
     const [row] = projectAppDevices([doc({ token: "abc" })]);
 

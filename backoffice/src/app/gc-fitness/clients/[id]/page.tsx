@@ -7,8 +7,22 @@
 // P02-11) AND at the route layer (notFound() if coachId !== trainerUid)
 // for defense in depth.
 //
-// Composition: 4 widgets wrapped in independent Suspense boundaries so
-// a slow workout-log query doesn't block the chat history widget paint.
+// LAYOUT (2026-08 pass). The page had grown by accretion: every feature landed
+// as one more card in a two-column grid, so a coach scrolled past identity,
+// requests and notes — each edited a handful of times per client — before
+// reaching anything they read daily. The order is now frequency of use:
+//
+//   header (⚙ ajustes · 📝 notas · chat)   ← the once-per-client things, in dialogs
+//   mini calendario                        ← what is happening this week
+//   resumen                                ← what is assigned
+//   gráficos                               ← all seven, with a visibility switchboard
+//   fotos de progreso                      ← full width
+//   [ chat | actividad reciente ]
+//   desvincular
+//
+// The `/clients/[id]/progress` route is gone: its two charts are slots in the
+// charts section, so comparing tonnage against weekly sets no longer means
+// changing page.
 //
 // Route placement note (Rule 4 inheritance from 11-03 + 11-05):
 //   The plan frontmatter spelled the path as `(dashboard)/gc-fitness/clients/[id]/page.tsx`.
@@ -22,6 +36,7 @@
 
 import { listClientAppDevices } from "@/lib/gc-fitness/client-app-devices";
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
@@ -35,21 +50,36 @@ import { evaluateProgressPhotoCheckIn } from "@/lib/gc-fitness/progress-photo-ch
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { coachVisibleClientName } from "@/lib/gc-fitness/client-name";
+import {
+  CLIENT_CHARTS_COOKIE,
+  isChartVisible,
+  parseHiddenCharts,
+  type ClientChartId,
+} from "@/lib/gc-fitness/client-chart-preferences";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { ClientHeader } from "./_components/ClientHeader";
-import { ClientIdentityEditor } from "./_components/ClientIdentityEditor";
+import { ClientSettingsDialog } from "./_components/ClientSettingsDialog";
+import { ClientNotesDialog } from "./_components/ClientNotesDialog";
+import { ClientRequestRow } from "./_components/ClientRequestRow";
+import {
+  ClientChartsSection,
+  type ClientChartSlot,
+} from "./_components/ClientChartsSection";
 import { WorkoutTrendsWidget } from "./_components/WorkoutTrendsWidget";
 import { HabitTrendsWidget } from "./_components/HabitTrendsWidget";
 import { ChatHistoryWidget } from "./_components/ChatHistoryWidget";
 import { BodyWeightTrendChart } from "./_components/BodyWeightTrendChart";
-import { ClientNotesCard } from "./_components/ClientNotesCard";
+import { DailyStepsWidget } from "./_components/DailyStepsWidget";
 import { ProgressPhotosWidget } from "./_components/ProgressPhotosWidget";
 import { PersonalRecordsWidget } from "./_components/PersonalRecordsWidget";
 import { ClientRecentLogsWidget } from "./_components/ClientRecentLogsWidget";
-import ClientRequestActionsCard from "./_components/ClientRequestActionsCard";
+import { ExerciseProgressClient } from "./_components/ExerciseProgressClient";
+import { MuscleGroupProgressClient } from "./_components/MuscleGroupProgressClient";
+import { addCivilDays } from "./_components/trend-range";
 import { listClientGoals } from "@/lib/gc-fitness/client-goal-actions";
 import { getClientNotes } from "@/lib/gc-fitness/client-notes-actions";
+import { getClientExerciseProgress } from "@/lib/gc-fitness/exercise-progress-actions";
 import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
 import { getClientCalendarPeek } from "@/lib/gc-fitness/client-calendar-peek-actions";
 import {
@@ -67,6 +97,8 @@ import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 export const generateMetadata = () => sectionMetadata("clients");
 
 export const dynamic = "force-dynamic";
+
+const MAX_LOOKBACK_DAYS = 365;
 
 export default async function ClientDetailPage({
   params,
@@ -158,7 +190,21 @@ export default async function ClientDetailPage({
   // Contract: every client activity surface below reads this explicit IANA
   // timezone. Leaf components must not infer UTC or the host timezone.
   const todayCivil = civilDateToday(timezone);
-  const [notes, progressPhotos, goals, bodyWeightFulfilled, calendarPeek, appDevices] =
+
+  // Which charts this coach wants. Read BEFORE the queries below, because a
+  // hidden chart must not cost a Firestore read — that is the whole reason the
+  // preference lives in a cookie instead of localStorage.
+  const hiddenCharts = parseHiddenCharts(
+    (await cookies()).get(CLIENT_CHARTS_COOKIE)?.value,
+  );
+  const showsChart = (chartId: ClientChartId) =>
+    isChartVisible(chartId, hiddenCharts);
+  // ONE aggregation feeds both the muscle-group and the exercise-evolution
+  // panels, so it runs when EITHER is on — and not at all when neither is.
+  const needsExerciseAggregation =
+    showsChart("muscleGroups") || showsChart("exerciseProgress");
+
+  const [notes, progressPhotos, goals, bodyWeightFulfilled, calendarPeek, appDevices, exerciseProgress] =
     await Promise.all([
     getClientNotes(id).catch(() => ({ notes: "", updatedAt: null, entries: [] })),
     listProgressPhotosForClient(id),
@@ -173,6 +219,9 @@ export default async function ClientDetailPage({
     // #785 — which app build(s) the client is running, for the header badges.
     // Fail-soft: a support detail must never 500 the profile.
     listClientAppDevices(gcFitnessFirestore(), id).catch(() => []),
+    needsExerciseAggregation
+      ? getClientExerciseProgress(id, timezone).catch(() => null)
+      : Promise.resolve(null),
   ]);
   // Header "Peso" = the client's most recent weigh-in BY MEASUREMENT DATE.
   // On a transient read error fall back to NULL (em dash), never to the
@@ -199,6 +248,142 @@ export default async function ClientDetailPage({
     timezone,
   );
   const tSkeleton = await getTranslations("clients.detail.skeleton");
+  const tCharts = await getTranslations("clients.detail.charts");
+  const tExercise = await getTranslations("clients.exerciseProgress");
+
+  // Anchor every range to today so the local filter windows match the other
+  // trend widgets on this page.
+  const rangeStarts = {
+    all: addCivilDays(todayCivil, -(MAX_LOOKBACK_DAYS - 1)),
+    "90": addCivilDays(todayCivil, -89),
+    "30": addCivilDays(todayCivil, -29),
+    "7": addCivilDays(todayCivil, -6),
+  };
+
+  const weightRequestRow = (
+    <ClientRequestRow
+      clientId={id}
+      clientName={displayName}
+      kind="weight"
+      timezone={timezone}
+      requestedAt={client.bodyWeightRequestedAt ?? null}
+      fulfilled={bodyWeightFulfilled}
+      checkInEligible={progressPhotosCheckIn.isEligible}
+      nextEligibleDate={progressPhotosCheckIn.nextEligibleDate}
+    />
+  );
+
+  // Every chart id appears here even when hidden — the configurator needs its
+  // label to offer it back. `node: null` is what "switched off" means, and it
+  // is why the queries above are conditional.
+  const chartSlots: ClientChartSlot[] = [
+    {
+      id: "bodyWeight",
+      label: tCharts("items.bodyWeight"),
+      span: "half",
+      node: showsChart("bodyWeight") ? (
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("bodyWeight")} />}>
+          <BodyWeightTrendChart
+            clientId={id}
+            timezone={timezone}
+            requestSlot={weightRequestRow}
+          />
+        </Suspense>
+      ) : null,
+    },
+    {
+      id: "muscleGroups",
+      label: tCharts("items.muscleGroups"),
+      span: "full",
+      node:
+        showsChart("muscleGroups") && exerciseProgress ? (
+          <MuscleGroupProgressClient
+            weeks={exerciseProgress.muscleGroupWeeks}
+            availableGroups={exerciseProgress.availableMuscleGroups}
+            currentWeekStart={exerciseProgress.currentWeekStart}
+            rangeStarts={rangeStarts}
+          />
+        ) : null,
+    },
+    {
+      id: "volume",
+      label: tCharts("items.volume"),
+      span: "half",
+      node: showsChart("volume") ? (
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("workoutTrends")} />}>
+          <WorkoutTrendsWidget clientId={id} timezone={timezone} />
+        </Suspense>
+      ) : null,
+    },
+    {
+      id: "habits",
+      label: tCharts("items.habits"),
+      span: "half",
+      node: showsChart("habits") ? (
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("habitTrends")} />}>
+          <HabitTrendsWidget clientId={id} timezone={timezone} />
+        </Suspense>
+      ) : null,
+    },
+    {
+      id: "exerciseProgress",
+      label: tCharts("items.exerciseProgress"),
+      span: "full",
+      node:
+        showsChart("exerciseProgress") && exerciseProgress ? (
+          <ExerciseProgressClient
+            exercises={exerciseProgress.exercises}
+            points={exerciseProgress.points}
+            setSessions={exerciseProgress.exerciseSetSessions}
+            truncatedSetHistoryExerciseIds={
+              exerciseProgress.truncatedSetHistoryExerciseIds
+            }
+            today={todayCivil}
+            rangeStarts={rangeStarts}
+            labels={{
+              exercisePickerLabel: tExercise("exercisePickerLabel"),
+              metricTopSet: tExercise("metricTopSet"),
+              metricE1rm: tExercise("metricE1rm"),
+              metricVolume: tExercise("metricVolume"),
+              weightUnit: tExercise("weightUnit"),
+              volumeUnit: tExercise("volumeUnit"),
+              latestPrefix: tExercise("latestPrefix"),
+              emptyNoExercises: tExercise("emptyNoExercises"),
+              emptyNoData: tExercise("emptyNoData"),
+              tooltipTopSet: tExercise("tooltipTopSet"),
+              tooltipE1rm: tExercise("tooltipE1rm"),
+              tooltipVolume: tExercise("tooltipVolume"),
+              ranges: {
+                all: tExercise("rangeAll"),
+                "90": tExercise("range90"),
+                "30": tExercise("range30"),
+                "7": tExercise("range7"),
+              },
+            }}
+          />
+        ) : null,
+    },
+    {
+      id: "dailySteps",
+      label: tCharts("items.dailySteps"),
+      span: "half",
+      node: showsChart("dailySteps") ? (
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("dailySteps")} />}>
+          <DailyStepsWidget clientId={id} timezone={timezone} />
+        </Suspense>
+      ) : null,
+    },
+    {
+      id: "personalRecords",
+      label: tCharts("items.personalRecords"),
+      span: "half",
+      node: showsChart("personalRecords") ? (
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("personalRecords")} />}>
+          <PersonalRecordsWidget clientId={id} />
+        </Suspense>
+      ) : null,
+    },
+  ];
 
   return (
     <div className="gc-page flex w-full flex-col gap-6">
@@ -213,63 +398,68 @@ export default async function ClientDetailPage({
         heightCm={typeof client.heightCm === "number" ? client.heightCm : null}
         bodyWeightKg={latestBodyWeightKg}
         appDevices={appDevices}
+        settingsSlot={
+          <ClientSettingsDialog
+            clientId={id}
+            clientName={displayName}
+            birthDate={client.birthDate ?? null}
+            initialNickname={client.coachNickname ?? null}
+            weightRequestSlot={weightRequestRow}
+          />
+        }
+        notesSlot={
+          <ClientNotesDialog
+            clientId={id}
+            timezone={timezone}
+            todayCivil={todayCivil}
+            initialEntries={notes.entries}
+          />
+        }
       />
-      <ClientIdentityEditor
-        clientId={id}
-        birthDate={client.birthDate ?? null}
-        initialNickname={client.coachNickname ?? null}
-        clientName={displayName}
-      />
+
+      <ClientCalendarPeek clientId={id} initialPayload={calendarPeek} />
+
       <ClientSummaryCard
         clientId={id}
         clientName={displayName}
         timezone={timezone}
         goals={goals}
       />
-      <ClientCalendarPeek clientId={id} initialPayload={calendarPeek} />
 
-      <ClientRequestActionsCard
+      <ClientChartsSection
+        slots={chartSlots}
+        hidden={hiddenCharts}
+        labels={{
+          title: tCharts("title"),
+          subtitle: tCharts("subtitle"),
+          configure: tCharts("configure"),
+          configureTitle: tCharts("configureTitle"),
+          configureHelp: tCharts("configureHelp"),
+          allHidden: tCharts("allHidden"),
+        }}
+      />
+
+      <ProgressPhotosWidget
+        photos={progressPhotos}
         clientId={id}
-        clientName={displayName}
         timezone={timezone}
-        progressPhotosRequestedAt={client.progressPhotosRequestedAt ?? null}
-        bodyWeightRequestedAt={client.bodyWeightRequestedAt ?? null}
-        progressPhotosFulfilled={progressPhotosFulfilled}
-        bodyWeightFulfilled={bodyWeightFulfilled}
-        progressPhotosCheckInEligible={progressPhotosCheckIn.isEligible}
-        progressPhotosNextEligibleDate={progressPhotosCheckIn.nextEligibleDate}
+        requestSlot={
+          <ClientRequestRow
+            clientId={id}
+            clientName={displayName}
+            kind="progressPhotos"
+            timezone={timezone}
+            requestedAt={client.progressPhotosRequestedAt ?? null}
+            fulfilled={progressPhotosFulfilled}
+            checkInEligible={progressPhotosCheckIn.isEligible}
+            nextEligibleDate={progressPhotosCheckIn.nextEligibleDate}
+          />
+        }
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <Suspense fallback={<WidgetSkeleton title={tSkeleton("workoutTrends")} />}>
-          <WorkoutTrendsWidget clientId={id} timezone={timezone} />
-        </Suspense>
-
-        <Suspense fallback={<WidgetSkeleton title={tSkeleton("habitTrends")} />}>
-          <HabitTrendsWidget clientId={id} timezone={timezone} />
-        </Suspense>
-
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentMessages")} />}>
           <ChatHistoryWidget clientId={id} trainerUid={trainer.uid} timezone={timezone} />
-        </Suspense>
-
-        <Suspense fallback={<WidgetSkeleton title={tSkeleton("bodyWeight")} />}>
-          <BodyWeightTrendChart clientId={id} timezone={timezone} />
-        </Suspense>
-
-        <ClientNotesCard
-          clientId={id}
-          timezone={timezone}
-          todayCivil={todayCivil}
-          initialNotes={notes.notes}
-          initialUpdatedAt={notes.updatedAt}
-          initialEntries={notes.entries}
-        />
-
-        <ProgressPhotosWidget photos={progressPhotos} clientId={id} timezone={timezone} />
-
-        <Suspense fallback={<WidgetSkeleton title={tSkeleton("personalRecords")} />}>
-          <PersonalRecordsWidget clientId={id} />
         </Suspense>
 
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentLogs")} />}>

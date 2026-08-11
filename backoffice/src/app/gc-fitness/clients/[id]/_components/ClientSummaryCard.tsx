@@ -104,8 +104,13 @@ export async function ClientSummaryCard({
       endsOn: typeof data.endsOn === "string" ? data.endsOn : null,
     };
   });
+  // Retired habits are dropped, not collapsed behind a disclosure. The card
+  // answers "what is this client on right now"; a habit that ended last March
+  // is history, and the range-aware Hábitos chart below is where history is
+  // asked for. (The workouts column keeps its past disclosure — a past
+  // ASSIGNMENT is a session that did or didn't happen, which is still live
+  // coaching information.)
   const activeHabits = habits.filter((row) => !row.endsOn || row.endsOn >= todayCivil);
-  const pastHabits = habits.filter((row) => row.endsOn && row.endsOn < todayCivil);
 
   // Tally goals by horizon for the compact summary chip row.
   const goalsByHorizon = goals.reduce(
@@ -182,35 +187,6 @@ export async function ClientSummaryCard({
               </details>
             ) : undefined
           }
-          pastHabitsSlot={
-            pastHabits.length > 0 ? (
-              <details className="text-xs">
-                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                  {t("showPastHabits", { count: pastHabits.length })}
-                </summary>
-                <ul className="mt-2 flex flex-col gap-1">
-                  {pastHabits.map((row) => (
-                    <li
-                      key={row.id}
-                      className="rounded-md border bg-muted/60 px-2 py-1.5"
-                    >
-                      <p className="font-medium">{row.name}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {row.cadence}
-                        {row.endsOn
-                          ? ` · ${pastHabitDateLabel({
-                              startsOn: row.startsOn,
-                              removedFrom: addCivilDays(row.endsOn, 1),
-                              t,
-                            })}`
-                          : ""}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ) : undefined
-          }
         />
 
         {/* Goals — compact chip view */}
@@ -272,31 +248,6 @@ function GoalChip({
       <span className="tabular-nums">{count}</span>
     </span>
   );
-}
-
-function addCivilDays(civilDate: string, days: number): string {
-  const [year, month, day] = civilDate.split("-").map(Number);
-  if (!year || !month || !day) return civilDate;
-  const shifted = new Date(Date.UTC(year, month - 1, day) + days * 86_400_000);
-  const y = shifted.getUTCFullYear();
-  const m = String(shifted.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(shifted.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function pastHabitDateLabel({
-  startsOn,
-  removedFrom,
-  t,
-}: {
-  startsOn: string;
-  removedFrom: string;
-  t: (key: string, values?: Record<string, string>) => string;
-}): string {
-  if (startsOn) {
-    return t("activeThenRemoved", { startsOn, removedFrom });
-  }
-  return t("removedFrom", { date: removedFrom });
 }
 
 function localizedName(value: unknown, fallback: string): string {

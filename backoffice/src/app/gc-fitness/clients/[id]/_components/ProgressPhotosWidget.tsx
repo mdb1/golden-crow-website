@@ -1,6 +1,7 @@
 import { Camera } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
 import { ProgressPhotosGridClient } from "./ProgressPhotosGridClient";
@@ -10,10 +11,18 @@ export async function ProgressPhotosWidget({
   photos,
   clientId,
   timezone,
+  requestSlot,
 }: {
   photos: ProgressPhotoRow[];
   clientId: string;
   timezone: string;
+  /**
+   * The "Pedir fotos de progreso" row. Lived in a separate "Pedidos al cliente"
+   * card until this pass; a coach asks for photos while looking at the photos
+   * (or at the gap where they should be), not from a list of requests two
+   * screens away.
+   */
+  requestSlot?: ReactNode;
 }) {
   const t = await getTranslations("clients.detail.photos");
   return (
@@ -42,6 +51,12 @@ export async function ProgressPhotosWidget({
           <ProgressPhotosGridClient photos={photos} timezone={timezone} />
         </div>
       )}
+
+      {/* Below the grid on purpose: the request is what you do AFTER looking,
+          and an empty gallery is the strongest case for sending it. */}
+      {requestSlot ? (
+        <div className="mt-4 md:max-w-xl">{requestSlot}</div>
+      ) : null}
     </section>
   );
 }

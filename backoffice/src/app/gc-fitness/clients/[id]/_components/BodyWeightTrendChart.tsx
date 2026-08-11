@@ -22,6 +22,7 @@
 // land inside recharts axis/tooltip labels (React auto-escaped), so
 // T-11-07-CHART-INJECTION is closed by construction.
 
+import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
@@ -33,6 +34,14 @@ import { BodyWeightTrendChartClient } from "./BodyWeightTrendChartClient";
 export interface BodyWeightTrendChartProps {
   clientId: string;
   timezone: string;
+  /**
+   * The "Pedir peso" row, rendered under the chart. It used to live in a
+   * "Pedidos al cliente" card halfway down the profile; a coach decides to ask
+   * for a weigh-in while looking at the weight, not while scrolling past a list
+   * of requests. Passed in (rather than imported) so this component stays
+   * reusable by surfaces with no request affordance — the admin coach-less view.
+   */
+  requestSlot?: ReactNode;
 }
 
 interface WeightPoint {
@@ -65,6 +74,7 @@ function toDate(v: unknown): Date | null {
 export async function BodyWeightTrendChart({
   clientId,
   timezone,
+  requestSlot,
 }: BodyWeightTrendChartProps) {
   const t = await getTranslations("clients.detail.bodyWeightChart");
   const db = gcFitnessFirestore();
@@ -114,10 +124,14 @@ export async function BodyWeightTrendChart({
 
   if (points.length === 0) {
     return (
-      <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
-        <h2 className="mb-3 font-medium">{t("title")}</h2>
-        <p className="text-sm text-muted-foreground">{t("noLogs")}</p>
-      </section>
+      <div className="flex flex-col gap-4">
+        <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+          <h2 className="mb-3 font-medium">{t("title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("noLogs")}</p>
+        </section>
+        {/* An empty chart is exactly when asking for a weigh-in matters most. */}
+        {requestSlot}
+      </div>
     );
   }
 
@@ -130,24 +144,27 @@ export async function BodyWeightTrendChart({
   };
 
   return (
-    <BodyWeightTrendChartClient
-      data={points}
-      today={today}
-      rangeStarts={rangeStarts}
-      unitLabel={unitLabel}
-      labels={{
-        title: t("title"),
-        noLogs: t("noLogs"),
-        latestPrefix: t("latestPrefix"),
-        logCount: t("logCount", { count: points.length }),
-        weightTooltip: t("weightTooltip"),
-        ranges: {
-          all: t("rangeAll"),
-          "90": t("range90"),
-          "30": t("range30"),
-          "7": t("range7"),
-        },
-      }}
-    />
+    <div className="flex flex-col gap-4">
+      <BodyWeightTrendChartClient
+        data={points}
+        today={today}
+        rangeStarts={rangeStarts}
+        unitLabel={unitLabel}
+        labels={{
+          title: t("title"),
+          noLogs: t("noLogs"),
+          latestPrefix: t("latestPrefix"),
+          logCount: t("logCount", { count: points.length }),
+          weightTooltip: t("weightTooltip"),
+          ranges: {
+            all: t("rangeAll"),
+            "90": t("range90"),
+            "30": t("range30"),
+            "7": t("range7"),
+          },
+        }}
+      />
+      {requestSlot}
+    </div>
   );
 }

@@ -137,6 +137,7 @@ export async function HabitTrendsWidget({ clientId, timezone }: HabitTrendsWidge
         empty: t("empty"),
         daysCompleted: t("daysCompleted"),
         noScheduled: t("noScheduled"),
+        noneInRange: t("noneInRange"),
         ranges: {
           all: t("rangeAll"),
           "90": t("range90"),
