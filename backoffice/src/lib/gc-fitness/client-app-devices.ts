@@ -72,6 +72,15 @@ function asText(value: unknown): string | null {
  * schedule) and each rotation writes a new doc, so a single phone can hold a
  * dozen. Collapsing them keeps the profile answering "what is this person
  * running" instead of listing push-token history.
+ *
+ * Then the version-less rows are dropped PER PLATFORM once that platform has
+ * reported a real version. A client who signed in before #785 and again after
+ * it holds both an "iOS · versión desconocida" token and an "iOS 1.2.1 (163)"
+ * one — and the first says nothing the second doesn't already answer, so the
+ * profile was showing three pills to convey two facts. The drop is deliberately
+ * NOT global: an Android device that never reported a version keeps its unknown
+ * pill even while iOS is known, because "this person is on a build old enough
+ * to not stamp its version" is exactly what the badge exists to surface.
  */
 export function projectAppDevices(
   docs: Array<{ data: () => Record<string, unknown> }>,
@@ -89,14 +98,20 @@ export function projectAppDevices(
     .sort((a, b) => (b.registeredAtISO ?? "").localeCompare(a.registeredAtISO ?? ""));
 
   const seen = new Set<string>();
-  const out: ClientAppDevice[] = [];
+  const deduped: ClientAppDevice[] = [];
   for (const row of rows) {
     const key = `${row.platform}|${row.appVersion ?? ""}|${row.appBuild ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push(row);
+    deduped.push(row);
   }
-  return out;
+
+  const platformsWithAVersion = new Set(
+    deduped.filter((row) => row.appVersion !== null).map((row) => row.platform),
+  );
+  return deduped.filter(
+    (row) => row.appVersion !== null || !platformsWithAVersion.has(row.platform),
+  );
 }
 
 /**
