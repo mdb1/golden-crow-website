@@ -1961,7 +1961,15 @@
       "shareStatDuration": "DURACIÓN",
       "shareStatCalories": "CALORÍAS",
       "shareError": "No se pudo generar la imagen. Reintentá.",
-      "shareLoading": "Preparando…"
+      "shareLoading": "Preparando…",
+      "heartRate": {
+        "title": "Pulsaciones",
+        "min": "mín",
+        "avg": "prom",
+        "max": "máx",
+        "tooltipLabel": "Pulsaciones",
+        "tooltipMinute": "Minuto {minute}"
+      }
     }
   },
   "myActivity": {

@@ -1961,7 +1961,15 @@
       "shareStatDuration": "DURATION",
       "shareStatCalories": "CALORIES",
       "shareError": "Couldn't generate the image. Try again.",
-      "shareLoading": "Preparing…"
+      "shareLoading": "Preparing…",
+      "heartRate": {
+        "title": "Heart rate",
+        "min": "min",
+        "avg": "avg",
+        "max": "max",
+        "tooltipLabel": "Heart rate",
+        "tooltipMinute": "Minute {minute}"
+      }
     }
   },
   "myActivity": {

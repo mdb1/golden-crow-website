@@ -13,6 +13,10 @@ import {
 } from "./coachless-user-model";
 import { FirestoreCollections } from "./collections";
 import {
+  getWorkoutHeartRateSeries,
+  type WorkoutHeartRateSeries,
+} from "./workout-heart-rate";
+import {
   listClients,
   type ClientRosterEntry,
 } from "./client-roster";
@@ -131,6 +135,10 @@ export interface WorkoutLogDetail {
   /** Athlete self-reported RPE (1-10), captured on the iOS post-workout
    *  summary. Optional; null when the user dismissed the slider. */
   rpe: number | null;
+  /** The BPM series written by the client's app at finish, or null when the
+   *  workout has none — the common case, since most sessions are logged without
+   *  a watch. See lib/gc-fitness/workout-heart-rate.ts. */
+  heartRate: WorkoutHeartRateSeries | null;
   /** Athlete self-reported free-form notes from the post-workout summary. */
   athleteNotes: string | null;
   /** Origin of the workout log: coach-run backoffice session or client-run iOS session. */
@@ -2058,6 +2066,12 @@ async function buildWorkoutLogDetail(
     }
   }
 
+  // One extra point read on a single-workout page. Deliberately NOT folded into
+  // the log doc: the coach's client-profile trend widgets fetch up to 500 logs
+  // at once, and a few hundred samples per doc would turn that into megabytes
+  // for a chart no list view draws.
+  const heartRate = await getWorkoutHeartRateSeries(db, logId);
+
   const nextSetIndexByExercise = new Map<string, number>();
   const sets = rawSets.map((set, index) => {
     const exerciseId = typeof set.exerciseId === "string" ? set.exerciseId : "";
@@ -2147,6 +2161,7 @@ async function buildWorkoutLogDetail(
     clientName,
     clientTimezone,
     coachName,
+    heartRate,
     workoutName,
     startedAt,
     completedAt,
