@@ -73,8 +73,8 @@ import { BodyWeightTrendChart } from "@/app/gc-fitness/clients/[id]/_components/
 import { HabitTrendsWidget } from "@/app/gc-fitness/clients/[id]/_components/HabitTrendsWidget";
 import { WorkoutTrendsWidget } from "@/app/gc-fitness/clients/[id]/_components/WorkoutTrendsWidget";
 import { PersonalRecordsClient } from "@/app/gc-fitness/clients/[id]/_components/PersonalRecordsClient";
-import { ExerciseProgressClient } from "@/app/gc-fitness/clients/[id]/progress/ExerciseProgressClient";
-import { MuscleGroupProgressClient } from "@/app/gc-fitness/clients/[id]/progress/MuscleGroupProgressClient";
+import { ExerciseProgressClient } from "@/app/gc-fitness/clients/[id]/_components/ExerciseProgressClient";
+import { MuscleGroupProgressClient } from "@/app/gc-fitness/clients/[id]/_components/MuscleGroupProgressClient";
 import { addCivilDays } from "@/app/gc-fitness/clients/[id]/_components/trend-range";
 import { AdminReadOnlyCalendar } from "./_components/AdminReadOnlyCalendar";
 import { ClientRecentLogsFeed } from "@/app/gc-fitness/clients/[id]/_components/ClientRecentLogsFeed";

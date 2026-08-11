@@ -34,6 +34,8 @@ export interface HabitTrendsClientProps {
     empty: string;
     daysCompleted: string;
     noScheduled: string;
+    /** Shown when the client HAS habits but none were due in the picked range. */
+    noneInRange: string;
     ranges: Record<TrendRangeKey, string>;
   };
 }
@@ -41,7 +43,15 @@ export interface HabitTrendsClientProps {
 export function HabitTrendsClient({ rows, labels }: HabitTrendsClientProps) {
   const [range, setRange] = useState<TrendRangeKey>(DEFAULT_TREND_RANGE);
 
-  const sorted = [...rows].sort(
+  // Only the habits that were actually DUE in the picked range. #341 had these
+  // rows rendering a "—" and "Sin días programados en este rango" instead of a
+  // percentage, which is honest but fills the card with rows that answer
+  // nothing: a client with four retired habits pushed the four live ones below
+  // the fold. Choosing a range is choosing a question, and a habit that was not
+  // due in it is not part of the answer.
+  const inRange = rows.filter((row) => row.byRange[range].scheduled > 0);
+
+  const sorted = [...inRange].sort(
     (a, b) => b.byRange[range].pct - a.byRange[range].pct,
   );
 
@@ -51,14 +61,14 @@ export function HabitTrendsClient({ rows, labels }: HabitTrendsClientProps) {
         <h2 className="min-w-0 truncate font-medium">{labels.title}</h2>
         <TrendRangeSelector value={range} onChange={setRange} labels={labels.ranges} />
       </div>
-      {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{labels.empty}</p>
+      {sorted.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {rows.length === 0 ? labels.empty : labels.noneInRange}
+        </p>
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {sorted.map((row) => {
             const cell = row.byRange[range];
-            // #341 — nothing was scheduled in this range: show "—", not a
-            // misleading 100% (or 0%).
             const noData = cell.scheduled === 0;
             return (
               <li

@@ -335,13 +335,9 @@
       "coachNicknameLabel": "Coach nickname: {value}",
       "birthDateLabel": "Birthday: {value}",
       "openChat": "Open chat",
-      "openInCalendar": "Open in calendar",
-      "openExerciseProgress": "View per-exercise progress",
       "assignWorkout": "Assign workout",
       "assignHabit": "Assign habit",
       "requests": {
-        "title": "Client requests",
-        "subtitle": "Quick prompts that open the right flow in the app and stay active for 3 days.",
         "progressPhotos": {
           "title": "Request progress photos",
           "description": "Ask {clientName} for a fresh set of progress photos."
@@ -376,7 +372,8 @@
         "recentMessages": "Recent messages",
         "bodyWeight": "Body weight (30 days)",
         "recentLogs": "Recent activity",
-        "personalRecords": "Personal records"
+        "personalRecords": "Personal records",
+        "dailySteps": "Daily steps"
       },
       "personalRecords": {
         "title": "Personal records",
@@ -496,7 +493,9 @@
         "save": "Save",
         "cancel": "Cancel",
         "deleting": "Deleting...",
-        "deleteConfirm": "Delete this note?"
+        "deleteConfirm": "Delete this note?",
+        "trigger": "Notes",
+        "showMore": "See more ({count})"
       },
       "workoutTrends": {
         "title": "Workouts",
@@ -521,7 +520,8 @@
         "rangeAll": "All",
         "range90": "90d",
         "range30": "30d",
-        "range7": "7d"
+        "range7": "7d",
+        "noneInRange": "No habit was scheduled in this range."
       },
       "chatHistory": {
         "title": "Recent messages",
@@ -626,6 +626,42 @@
         "pending": "Unlinking…",
         "doneToast": "{name} is no longer your client.",
         "errorToast": "Could not unlink the client."
+      },
+      "settings": {
+        "trigger": "Settings",
+        "title": "Client settings",
+        "subtitle": "How you see {client} in the backoffice, and what you can ask them for."
+      },
+      "charts": {
+        "title": "Charts",
+        "subtitle": "All of the client's progress in one place.",
+        "configure": "Configure",
+        "configureTitle": "Which charts to show",
+        "configureHelp": "Saved across all your clients. The ones you switch off aren't queried.",
+        "allHidden": "You switched every chart off. Turn one back on from Configure.",
+        "items": {
+          "bodyWeight": "Body weight",
+          "muscleGroups": "Weekly sets and volume",
+          "volume": "Volume and workouts",
+          "habits": "Habits",
+          "exerciseProgress": "Per-exercise progression",
+          "dailySteps": "Daily steps",
+          "personalRecords": "Personal records"
+        }
+      },
+      "dailySteps": {
+        "title": "Daily steps",
+        "subtitle": "Average steps per day, as reported by the app.",
+        "empty": "No steps from this client yet. The app will start reporting them in an upcoming version.",
+        "statAverage": "average",
+        "statBest": "best day",
+        "statTotal": "total",
+        "unit": "steps",
+        "barLabel": "Steps per day",
+        "rangeAll": "All",
+        "range90": "90d",
+        "range30": "30d",
+        "range7": "7d"
       }
     }
   },

@@ -1,12 +1,30 @@
+// ClientNotesDialog.tsx — the trainer's private log, behind a header button.
+//
+// Was a card in the profile grid showing a composer, the notes for the picked
+// date, AND the last 8 entries — three stacked lists for something a coach
+// writes after a session and rereads occasionally. Now: one button, a composer
+// dated today (editable), the last 5 notes, and "Ver más" in pages of 5.
+//
+// Paging is purely local. Every entry already ships in the single
+// `client_notes/{coachId}_{clientId}` doc the page loads, so "Ver más" is a
+// slice, not a fetch — there is no second read to make.
+
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Pencil, Trash2 } from "lucide-react";
+import { NotebookPen, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 import {
   deleteClientNote,
@@ -21,53 +39,51 @@ interface ClientNoteEntryView {
   createdAt: string | null;
 }
 
-interface Props {
-  clientId: string;
-  timezone: string;
-  todayCivil: string;
-  initialNotes: string;
-  initialUpdatedAt: string | null;
-  initialEntries: ClientNoteEntryView[];
-}
+/** How many notes the dialog shows before "Ver más", and how many it adds. */
+const PAGE_SIZE = 5;
 
-export function ClientNotesCard({
+export function ClientNotesDialog({
   clientId,
   timezone,
   todayCivil,
-  initialNotes,
-  initialUpdatedAt,
   initialEntries,
-}: Props) {
+}: {
+  clientId: string;
+  timezone: string;
+  todayCivil: string;
+  initialEntries: ClientNoteEntryView[];
+}) {
   const t = useTranslations("clients.detail.notes");
+  const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState("");
-  const [updatedAt, setUpdatedAt] = useState(initialUpdatedAt);
   const [noteDate, setNoteDate] = useState(todayCivil);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [entries, setEntries] = useState(initialEntries);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  void initialNotes;
-  void updatedAt;
+  // Newest first by write time. Unlike the old card this does NOT filter by the
+  // picked date: the date input dates the note being WRITTEN (a coach logging
+  // yesterday's session today), and hiding the rest of the log the moment they
+  // change it was a side effect nobody asked for.
+  const sorted = useMemo(
+    () =>
+      [...entries].sort((a, b) =>
+        (b.createdAt ?? b.date).localeCompare(a.createdAt ?? a.date),
+      ),
+    [entries],
+  );
+  const visible = sorted.slice(0, visibleCount);
+  const remaining = sorted.length - visible.length;
 
-  const entriesForDate = entries
-    .filter((entry) => entry.date === noteDate)
-    .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
-
-  const recentEntries = entries
-    .filter((entry) => entry.date <= noteDate)
-    .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))
-    .slice(0, 8);
-
-  // Match an entry by its (createdAt, date) identity — entries have no id.
   function sameEntry(a: ClientNoteEntryView, b: ClientNoteEntryView): boolean {
+    // Entries carry no id; the per-write ISO `createdAt` + date is their identity.
     return a.createdAt === b.createdAt && a.date === b.date;
   }
 
   function handleEdited(target: ClientNoteEntryView, newText: string) {
     setEntries((current) =>
-      current.map((e) =>
-        sameEntry(e, target) ? { ...e, notes: newText } : e,
-      ),
+      current.map((e) => (sameEntry(e, target) ? { ...e, notes: newText } : e)),
     );
   }
 
@@ -75,121 +91,109 @@ export function ClientNotesCard({
     setEntries((current) => current.filter((e) => !sameEntry(e, target)));
   }
 
+  function addNote() {
+    setError(null);
+    const text = notes;
+    const date = noteDate;
+    setNotes("");
+    startTransition(async () => {
+      try {
+        await updateClientNotes({ clientId, notes: text, date });
+        setEntries((current) => [
+          ...current,
+          { date, notes: text, createdAt: new Date().toISOString() },
+        ]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("saveFailed"));
+        setNotes(text);
+      }
+    });
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <span aria-hidden>📝</span>
-          {t("title")}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <label htmlFor="note-date">{t("dateLabel")}</label>
-          <input
-            id="note-date"
-            type="date"
-            value={noteDate}
-            onChange={(e) => setNoteDate(e.target.value)}
-            className="rounded-md border bg-background px-2 py-1"
-          />
-        </div>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="rounded-full">
+          <NotebookPen className="size-4" />
+          {t("trigger")}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("subtitle")}</DialogDescription>
+        </DialogHeader>
 
-        <div className="space-y-2">
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder={t("placeholder")}
-            rows={5}
-            maxLength={10000}
-          />
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              {notes.length}/10000
-            </span>
-            <Button
-              disabled={isPending || notes.trim().length === 0}
-              onClick={() => {
-                setError(null);
-                const text = notes;
-                const date = noteDate;
-                setNotes("");
-                startTransition(async () => {
-                  try {
-                    const result = await updateClientNotes({
-                      clientId,
-                      notes: text,
-                      date,
-                    });
-                    setUpdatedAt(result.updatedAt);
-                    setEntries((current) => [
-                      ...current,
-                      {
-                        date,
-                        notes: text,
-                        createdAt: new Date().toISOString(),
-                      },
-                    ]);
-                  } catch (err) {
-                    setError(err instanceof Error ? err.message : t("saveFailed"));
-                    setNotes(text);
-                  }
-                });
-              }}
-            >
-              {isPending ? t("saving") : t("addNote")}
-            </Button>
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <label htmlFor="note-date">{t("dateLabel")}</label>
+              <input
+                id="note-date"
+                type="date"
+                value={noteDate}
+                onChange={(e) => setNoteDate(e.target.value)}
+                className="rounded-md border bg-background px-2 py-1"
+              />
+            </div>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={t("placeholder")}
+              rows={5}
+              maxLength={10000}
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                {notes.length}/10000
+              </span>
+              <Button
+                disabled={isPending || notes.trim().length === 0}
+                onClick={addNote}
+              >
+                {isPending ? t("saving") : t("addNote")}
+              </Button>
+            </div>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </div>
 
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-muted-foreground">
-            {t("entriesForDate", { date: noteDate })}
-          </h3>
-          {entriesForDate.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("noEntries")}</p>
-          ) : (
-            <ul className="space-y-2">
-              {entriesForDate.map((entry, index) => (
-                <EntryItem
-                  key={`${entry.date}-${entry.createdAt ?? index}`}
-                  clientId={clientId}
-                  entry={entry}
-                  timezone={timezone}
-                  variant="forDate"
-                  onEdited={handleEdited}
-                  onDeleted={handleDeleted}
-                />
-              ))}
-            </ul>
-          )}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-muted-foreground">
+              {t("recentTitle")}
+            </h3>
+            {visible.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("noRecent")}</p>
+            ) : (
+              <>
+                <ul className="space-y-2">
+                  {visible.map((entry, index) => (
+                    <EntryItem
+                      key={`${entry.date}-${entry.createdAt ?? index}`}
+                      clientId={clientId}
+                      entry={entry}
+                      timezone={timezone}
+                      onEdited={handleEdited}
+                      onDeleted={handleDeleted}
+                    />
+                  ))}
+                </ul>
+                {remaining > 0 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+                  >
+                    {t("showMore", { count: remaining })}
+                  </Button>
+                ) : null}
+              </>
+            )}
+          </div>
         </div>
-
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-muted-foreground">
-            {t("recentTitle")}
-          </h3>
-          {recentEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("noRecent")}</p>
-          ) : (
-            <ul className="space-y-2">
-              {recentEntries.map((entry, index) => (
-                <EntryItem
-                  key={`recent-${entry.date}-${entry.createdAt ?? index}`}
-                  clientId={clientId}
-                  entry={entry}
-                  timezone={timezone}
-                  variant="recent"
-                  onEdited={handleEdited}
-                  onDeleted={handleDeleted}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -197,14 +201,12 @@ function EntryItem({
   clientId,
   entry,
   timezone,
-  variant,
   onEdited,
   onDeleted,
 }: {
   clientId: string;
   entry: ClientNoteEntryView;
   timezone: string;
-  variant: "forDate" | "recent";
   onEdited: (target: ClientNoteEntryView, newText: string) => void;
   onDeleted: (target: ClientNoteEntryView) => void;
 }) {
@@ -220,13 +222,7 @@ function EntryItem({
   const canMutate = Boolean(entry.createdAt);
 
   return (
-    <li
-      className={
-        variant === "forDate"
-          ? "rounded-md border bg-muted/40 p-3 text-sm"
-          : "rounded-md border p-3 text-sm"
-      }
-    >
+    <li className="rounded-md border p-3 text-sm">
       <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
         <span>{entry.date}</span>
         <div className="flex items-center gap-2">

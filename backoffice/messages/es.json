@@ -335,13 +335,9 @@
       "coachNicknameLabel": "Apodo del coach: {value}",
       "birthDateLabel": "Cumpleaños: {value}",
       "openChat": "Abrir chat",
-      "openInCalendar": "Abrir en calendario",
-      "openExerciseProgress": "Ver progreso por ejercicio",
       "assignWorkout": "Asignar entrenamiento",
       "assignHabit": "Asignar hábito",
       "requests": {
-        "title": "Pedidos al cliente",
-        "subtitle": "Pedidos rápidos que abren el flujo correcto en la app y quedan activos por 3 días.",
         "progressPhotos": {
           "title": "Pedir fotos de progreso",
           "description": "Pedile a {clientName} un nuevo set de fotos de progreso."
@@ -376,7 +372,8 @@
         "recentMessages": "Mensajes recientes",
         "bodyWeight": "Peso corporal (30 días)",
         "recentLogs": "Actividad reciente",
-        "personalRecords": "Récords personales"
+        "personalRecords": "Récords personales",
+        "dailySteps": "Pasos diarios"
       },
       "personalRecords": {
         "title": "Récords personales",
@@ -496,7 +493,9 @@
         "save": "Guardar",
         "cancel": "Cancelar",
         "deleting": "Eliminando...",
-        "deleteConfirm": "¿Eliminar esta nota?"
+        "deleteConfirm": "¿Eliminar esta nota?",
+        "trigger": "Notas",
+        "showMore": "Ver más ({count})"
       },
       "workoutTrends": {
         "title": "Entrenamientos",
@@ -521,7 +520,8 @@
         "rangeAll": "Todo",
         "range90": "90d",
         "range30": "30d",
-        "range7": "7d"
+        "range7": "7d",
+        "noneInRange": "Ningún hábito estaba programado en este rango."
       },
       "chatHistory": {
         "title": "Mensajes recientes",
@@ -626,6 +626,42 @@
         "pending": "Desvinculando…",
         "doneToast": "{name} ya no es tu cliente.",
         "errorToast": "No se pudo desvincular al cliente."
+      },
+      "settings": {
+        "trigger": "Ajustes",
+        "title": "Ajustes del cliente",
+        "subtitle": "Cómo ves a {client} en el backoffice, y qué le podés pedir."
+      },
+      "charts": {
+        "title": "Gráficos",
+        "subtitle": "Todo el progreso del cliente en un solo lugar.",
+        "configure": "Configurar",
+        "configureTitle": "Qué gráficos mostrar",
+        "configureHelp": "Se guarda para todos tus clientes. Los que apagues no se consultan.",
+        "allHidden": "Apagaste todos los gráficos. Prendé alguno desde Configurar.",
+        "items": {
+          "bodyWeight": "Peso",
+          "muscleGroups": "Series y volumen por semana",
+          "volume": "Volumen y entrenamientos",
+          "habits": "Hábitos",
+          "exerciseProgress": "Evolución por ejercicio",
+          "dailySteps": "Pasos diarios",
+          "personalRecords": "Récords personales"
+        }
+      },
+      "dailySteps": {
+        "title": "Pasos diarios",
+        "subtitle": "Promedio de pasos por día, según lo que reporta la app.",
+        "empty": "Todavía no llegan pasos de este cliente. La app los va a empezar a reportar en una próxima versión.",
+        "statAverage": "promedio",
+        "statBest": "mejor día",
+        "statTotal": "total",
+        "unit": "pasos",
+        "barLabel": "Pasos por día",
+        "rangeAll": "Todo",
+        "range90": "90d",
+        "range30": "30d",
+        "range7": "7d"
       }
     }
   },
