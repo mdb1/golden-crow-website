@@ -39,14 +39,23 @@ function docSnap(exists: boolean, data: Record<string, unknown>, id = "") {
  * fixture map keyed by `${name}/${id}`.
  */
 function makeDb(fixtures: Record<string, Record<string, unknown> | null>) {
+  // Subcollection support exists for `workout_logs/{id}/metrics/heartRate`: the
+  // detail builder reads the workout's heart-rate series. A fixture key of
+  // "workout_logs/{id}/metrics/heartRate" seeds one; absent, the read resolves
+  // to a missing doc, which is the common case (no watch → no chart).
+  const docRef = (path: string) => ({
+    get: async () => {
+      const data = fixtures[path];
+      const id = path.split("/").pop() ?? "";
+      return data ? docSnap(true, data, id) : docSnap(false, {}, id);
+    },
+    collection: (sub: string) => ({
+      doc: (subId: string) => docRef(`${path}/${sub}/${subId}`),
+    }),
+  });
   return {
     collection: (name: string) => ({
-      doc: (id: string) => ({
-        get: async () => {
-          const data = fixtures[`${name}/${id}`];
-          return data ? docSnap(true, data, id) : docSnap(false, {}, id);
-        },
-      }),
+      doc: (id: string) => docRef(`${name}/${id}`),
     }),
   };
 }

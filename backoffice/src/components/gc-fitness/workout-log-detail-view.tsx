@@ -23,6 +23,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { WorkoutLogDetail } from "@/lib/gc-fitness/recent-logs-actions";
+import { WorkoutHeartRateChart } from "@/components/gc-fitness/workout-heart-rate-chart";
 // quick-260714-m57 (#403) — W/F/D badge on logged sets in "Detalle de series".
 import {
   SET_TYPE_BADGE_CLASS,
@@ -174,6 +175,11 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Above the set detail because it describes the SESSION, not a set — and
+          it renders nothing at all when the workout has no series, which is
+          most of them (no watch, no wearable). */}
+      <WorkoutHeartRateChart series={detail.heartRate ?? null} />
 
       <Card>
         <CardHeader>
