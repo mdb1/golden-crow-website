@@ -99,6 +99,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Access surface": "Tipo de acceso",
   "Backoffice access": "Acceso al backoffice",
   "Patient portal": "Portal de pacientes",
+  "Patient has accessed the patient portal":
+    "El paciente ingresó al portal de pacientes",
+  "Patient has uploaded an informed consent":
+    "El paciente cargó un consentimiento informado",
   Home: "Inicio",
   "Active access": "Acceso activo",
   "Inactive access": "Acceso inactivo",

@@ -63,6 +63,8 @@ const doctor: DoctorListItem = {
 function detail(options: {
   accessGranted: boolean;
   credentialAvailable: boolean;
+  hasAccessedPortal?: boolean;
+  hasInformedConsent?: boolean;
 }): PatientDetailRecord {
   return {
     patient: {
@@ -95,6 +97,10 @@ function detail(options: {
     portalAccessCredential: {
       available: options.credentialAvailable,
       canReveal: true,
+    },
+    portalActivity: {
+      hasAccessedPortal: options.hasAccessedPortal ?? false,
+      hasInformedConsent: options.hasInformedConsent ?? false,
     },
   };
 }
@@ -137,6 +143,28 @@ describe("PatientWorkbench portal credentials", () => {
     );
     expect(password.value).toBe("ABCDEFGH");
     expect(screen.getByRole("button", { name: "Hide" })).toBeTruthy();
+  });
+
+  it("shows read-only portal and consent activity", () => {
+    renderWorkbench(
+      detail({
+        accessGranted: true,
+        credentialAvailable: true,
+        hasAccessedPortal: true,
+        hasInformedConsent: false,
+      }),
+    );
+
+    const portalAccess = screen.getByRole("checkbox", {
+      name: "Patient has accessed the patient portal",
+    });
+    const informedConsent = screen.getByRole("checkbox", {
+      name: "Patient has uploaded an informed consent",
+    });
+    expect((portalAccess as HTMLButtonElement).disabled).toBe(true);
+    expect(portalAccess.getAttribute("data-state")).toBe("checked");
+    expect((informedConsent as HTMLButtonElement).disabled).toBe(true);
+    expect(informedConsent.getAttribute("data-state")).toBe("unchecked");
   });
 
   it("copies an existing temporary password without revealing the field", async () => {

@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -644,6 +645,32 @@ export function PatientWorkbench({
               {t("This email already has a non-patient role. Patient portal access cannot be combined with backoffice access.")}
             </div>
           ) : null}
+
+          <div className="max-w-xl divide-y divide-border/70 border-y border-border/70">
+            <div className="flex items-center gap-3 py-3">
+              <Checkbox
+                id="patient-portal-accessed"
+                checked={detail.portalActivity.hasAccessedPortal}
+                disabled
+              />
+              <Label htmlFor="patient-portal-accessed" className="font-normal">
+                {t("Patient has accessed the patient portal")}
+              </Label>
+            </div>
+            <div className="flex items-center gap-3 py-3">
+              <Checkbox
+                id="patient-informed-consent-uploaded"
+                checked={detail.portalActivity.hasInformedConsent}
+                disabled
+              />
+              <Label
+                htmlFor="patient-informed-consent-uploaded"
+                className="font-normal"
+              >
+                {t("Patient has uploaded an informed consent")}
+              </Label>
+            </div>
+          </div>
 
           <Button
             type="button"

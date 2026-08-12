@@ -298,6 +298,10 @@ export interface PatientDetailRecord {
     available: boolean;
     canReveal: boolean;
   };
+  portalActivity: {
+    hasAccessedPortal: boolean;
+    hasInformedConsent: boolean;
+  };
 }
 
 export type TwoPQAreaKey =

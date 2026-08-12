@@ -3,6 +3,7 @@ import {
   PATIENT_TEMPORARY_PASSWORD_LENGTH,
   canManagePatientPortalCredentials,
   generatePatientTemporaryPassword,
+  hasPatientAccessedPortal,
   patientTemporaryPasswordDocument,
   provisionPatientFirebaseAccount,
 } from "../lib/patient-portal-credentials.js";
@@ -34,6 +35,20 @@ describe("patient portal credentials", () => {
     expect(patientTemporaryPasswordDocument("ABCDEFGH")).toEqual({
       temporary_password: "ABCDEFGH",
     });
+  });
+
+  it("marks portal activity only after a real Firebase sign-in", () => {
+    expect(hasPatientAccessedPortal(null)).toBe(false);
+    expect(
+      hasPatientAccessedPortal({
+        metadata: { lastSignInTime: undefined },
+      }),
+    ).toBe(false);
+    expect(
+      hasPatientAccessedPortal({
+        metadata: { lastSignInTime: "Wed, 12 Aug 2026 18:00:00 GMT" },
+      }),
+    ).toBe(true);
   });
 
   it.each([

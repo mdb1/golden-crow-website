@@ -10,6 +10,7 @@ import { AdminRepositoryError } from "./admin-errors.js";
 import {
   canManagePatientPortalCredentials,
   generatePatientTemporaryPassword,
+  hasPatientAccessedPortal,
   patientTemporaryPasswordDocument,
   provisionPatientFirebaseAccount,
 } from "../lib/patient-portal-credentials.js";
@@ -48,6 +49,7 @@ import type {
 const INSTITUTIONS_COLLECTION = "institutions";
 const DOCTORS_COLLECTION = "doctors";
 const PATIENTS_COLLECTION = "patients";
+const INFORMED_CONSENTS_COLLECTION = "2pq-informed-consent";
 const USER_ROLES_COLLECTION = "user_roles";
 const SEQUENCES_COLLECTION = "admin_sequences";
 
@@ -1374,7 +1376,14 @@ export async function getPatientDetailForContext(
     context,
     patient,
   );
-  const [institution, doctor, roleRecord, credentialSnapshot] =
+  const [
+    institution,
+    doctor,
+    roleRecord,
+    credentialSnapshot,
+    authUser,
+    informedConsentSnapshot,
+  ] =
     await Promise.all([
       getInstitutionById(patient.institutionId),
       patient.doctorId ? getDoctorById(patient.doctorId) : null,
@@ -1382,6 +1391,23 @@ export async function getPatientDetailForContext(
       canRevealTemporaryPassword
         ? adminDb.collection(PATIENTS_COLLECTION).doc(patient.id).get()
         : Promise.resolve(null),
+      adminAuth.getUserByEmail(patient.email).catch((error: unknown) => {
+        if (
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          error.code === "auth/user-not-found"
+        ) {
+          return null;
+        }
+
+        throw error;
+      }),
+      adminDb
+        .collection(INFORMED_CONSENTS_COLLECTION)
+        .where("patientId", "==", patient.id)
+        .limit(1)
+        .get(),
     ]);
   const temporaryPassword = normalizeTemporaryPassword(
     credentialSnapshot?.data()?.temporary_password,
@@ -1409,6 +1435,10 @@ export async function getPatientDetailForContext(
     portalAccessCredential: {
       available: Boolean(temporaryPassword),
       canReveal: canRevealTemporaryPassword,
+    },
+    portalActivity: {
+      hasAccessedPortal: hasPatientAccessedPortal(authUser),
+      hasInformedConsent: !informedConsentSnapshot.empty,
     },
   };
 }

@@ -52,6 +52,12 @@ export function generatePatientTemporaryPassword() {
   ).join("");
 }
 
+export function hasPatientAccessedPortal(
+  user: { metadata: { lastSignInTime?: string | null } } | null,
+) {
+  return Boolean(user?.metadata.lastSignInTime?.trim());
+}
+
 export async function provisionPatientFirebaseAccount(
   auth: Pick<Auth, "createUser" | "getUserByEmail" | "updateUser">,
   input: {
