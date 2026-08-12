@@ -239,6 +239,13 @@ export const TWO_PQ_FORM_ROUTES: Record<TwoPQFormType, string> = {
   withdrawal_request: "/2pq-dashboard/forms/withdrawal-request/new",
 };
 
+export function shouldShowAutomaticPatientPortalAccessStep(
+  formType: TwoPQFormType,
+  selectedPatientId?: string | null
+) {
+  return formType === "study_request" && !selectedPatientId?.trim();
+}
+
 export function getTwoPQFormTypeFromSlug(slug: string): TwoPQFormType | null {
   if (slug === "study-request") return "study_request";
   if (slug === "sample") return "sample";

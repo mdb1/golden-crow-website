@@ -3,7 +3,28 @@ import {
   formatBiopsySampleIdForDisplay,
   getWithdrawalRequestTitle,
   normalizeObservationsValue,
+  shouldShowAutomaticPatientPortalAccessStep,
 } from "@/lib/two-pq-forms";
+
+describe("shouldShowAutomaticPatientPortalAccessStep", () => {
+  it("shows the step only when a study request creates a patient", () => {
+    expect(
+      shouldShowAutomaticPatientPortalAccessStep("study_request", undefined)
+    ).toBe(true);
+    expect(
+      shouldShowAutomaticPatientPortalAccessStep("study_request", "PAT-00008")
+    ).toBe(false);
+    expect(
+      shouldShowAutomaticPatientPortalAccessStep("sample", undefined)
+    ).toBe(false);
+    expect(
+      shouldShowAutomaticPatientPortalAccessStep(
+        "withdrawal_request",
+        undefined
+      )
+    ).toBe(false);
+  });
+});
 
 describe("normalizeObservationsValue", () => {
   it("uses the default observations text for blank values", () => {

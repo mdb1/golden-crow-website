@@ -1,6 +1,10 @@
 import { randomInt } from "node:crypto";
 import type { Auth, UserRecord } from "firebase-admin/auth";
-import type { AdminContext, PatientRecord } from "../types/sdk.types.js";
+import type {
+  AdminContext,
+  PatientRecord,
+  TwoPQFormType,
+} from "../types/sdk.types.js";
 
 const UPPERCASE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export const PATIENT_TEMPORARY_PASSWORD_LENGTH = 8;
@@ -56,6 +60,13 @@ export function hasPatientAccessedPortal(
   user: { metadata: { lastSignInTime?: string | null } } | null,
 ) {
   return Boolean(user?.metadata.lastSignInTime?.trim());
+}
+
+export function shouldAutomaticallyGrantPatientPortalAccess(
+  formType: TwoPQFormType,
+  selectedPatientId?: string | null,
+) {
+  return formType === "study_request" && !selectedPatientId?.trim();
 }
 
 export async function provisionPatientFirebaseAccount(

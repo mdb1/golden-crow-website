@@ -1446,10 +1446,7 @@ export async function getPatientDetailForContext(
 export async function grantPatientPortalAccessForContext(
   context: AdminContext,
   patientId: string,
-): Promise<{
-  role: RoleManagementRecord;
-  temporaryPassword: string;
-}> {
+): Promise<PatientPortalAccessGrant> {
   const patient = await ensurePatientExists(patientId);
   if (!canManagePatientPortalCredentials(context, patient)) {
     throw new AdminRepositoryError(
@@ -1458,6 +1455,33 @@ export async function grantPatientPortalAccessForContext(
     );
   }
 
+  return provisionPatientPortalAccess(context, patient);
+}
+
+export async function grantPatientPortalAccessForNewPatient(
+  context: AdminContext,
+  patientId: string,
+): Promise<PatientPortalAccessGrant> {
+  const patient = await ensurePatientExists(patientId);
+  if (!canCreatePatient(context, patient.institutionId, patient.doctorId)) {
+    throw new AdminRepositoryError(
+      "You cannot provision portal access for this new patient.",
+      403,
+    );
+  }
+
+  return provisionPatientPortalAccess(context, patient);
+}
+
+type PatientPortalAccessGrant = {
+  role: RoleManagementRecord;
+  temporaryPassword: string;
+};
+
+async function provisionPatientPortalAccess(
+  context: AdminContext,
+  patient: PatientRecord,
+): Promise<PatientPortalAccessGrant> {
   const access = await getBackofficeEmailAccess(patient.email);
   const existing = access.roleRecord;
   const roleEmail = access.email;

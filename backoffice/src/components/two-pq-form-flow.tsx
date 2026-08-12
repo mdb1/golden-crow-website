@@ -63,6 +63,7 @@ import {
 import {
   formatBiopsySampleIdForDisplay,
   normalizeObservationsValue,
+  shouldShowAutomaticPatientPortalAccessStep,
   type CaseInformationFormState,
   type InstitutionInformationFormState,
   type MedicalInformationFormState,
@@ -470,6 +471,20 @@ function buildFormStorageProcessingSteps(
           ? `${t("Use patient")} ${flowState.selectedPatientId} ${t("as the form patient.")}`
           : t("Create the scoped patient from step 1 and link it to the form.")
       ),
+      ...(shouldShowAutomaticPatientPortalAccessStep(
+        formType,
+        flowState.selectedPatientId
+      )
+        ? [
+            pendingProcessingStep(
+              "patient-portal-access",
+              t("Create patient portal credentials"),
+              t(
+                "Create the patient role, temporary password, and Firebase account for the new patient."
+              )
+            ),
+          ]
+        : []),
       pendingProcessingStep(
         "institution",
         flowState.selectedInstitutionId

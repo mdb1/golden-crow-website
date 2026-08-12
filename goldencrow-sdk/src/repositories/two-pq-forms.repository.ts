@@ -7,7 +7,9 @@ const adminDb = adminDbFor("mydnamap");
 import { AdminRepositoryError } from "./admin-errors.js";
 import {
   createPatientForContext,
+  grantPatientPortalAccessForNewPatient,
 } from "./areas.repository.js";
+import { shouldAutomaticallyGrantPatientPortalAccess } from "../lib/patient-portal-credentials.js";
 import {
   canCreatePatient,
   canViewDoctor,
@@ -1762,6 +1764,11 @@ export async function createTwoPQFormForContext(
       : normalizeOptionalString(payload.linkedStudyRequestFormId);
   let linkedStudyRequestForm: TwoPQFormRecord | null = null;
   let selectedPatientId = normalizeOptionalString(payload.selectedPatientId);
+  const shouldGrantNewPatientPortalAccess =
+    shouldAutomaticallyGrantPatientPortalAccess(
+      payload.formType,
+      selectedPatientId,
+    );
 
   if (payload.formType === "sample") {
     const requiredLinkedStudyRequestFormId = normalizeRequiredString(
@@ -1874,6 +1881,10 @@ export async function createTwoPQFormForContext(
       ...(additionalInformation ? { additionalInformation } : {}),
     });
     selectedPatientId = selectedPatient.id;
+
+    if (shouldGrantNewPatientPortalAccess) {
+      await grantPatientPortalAccessForNewPatient(context, selectedPatient.id);
+    }
   }
 
   let selectedRequestingDoctorId: string | undefined;

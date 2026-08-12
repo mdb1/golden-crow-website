@@ -371,6 +371,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "as the sample patient.": "como paciente de la muestra.",
   "Create the scoped patient from step 1 and link it to the form.":
     "Crear el paciente desde el paso 1 y vincularlo al formulario.",
+  "Create the patient role, temporary password, and Firebase account for the new patient.":
+    "Crear el rol de paciente, la contraseña temporal y la cuenta de Firebase para el nuevo paciente.",
   "Create the scoped patient from step 1 and link it to the stored form.":
     "Crear el paciente desde el paso 1 y vincularlo al formulario almacenado.",
   "Link selected institution": "Vincular institución seleccionada",

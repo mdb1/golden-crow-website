@@ -6,6 +6,7 @@ import {
   hasPatientAccessedPortal,
   patientTemporaryPasswordDocument,
   provisionPatientFirebaseAccount,
+  shouldAutomaticallyGrantPatientPortalAccess,
 } from "../lib/patient-portal-credentials.js";
 
 const patient = {
@@ -49,6 +50,30 @@ describe("patient portal credentials", () => {
         metadata: { lastSignInTime: "Wed, 12 Aug 2026 18:00:00 GMT" },
       }),
     ).toBe(true);
+  });
+
+  it("automatically grants access only when a study request creates a patient", () => {
+    expect(
+      shouldAutomaticallyGrantPatientPortalAccess("study_request", undefined),
+    ).toBe(true);
+    expect(
+      shouldAutomaticallyGrantPatientPortalAccess("study_request", ""),
+    ).toBe(true);
+    expect(
+      shouldAutomaticallyGrantPatientPortalAccess(
+        "study_request",
+        "PAT-00008",
+      ),
+    ).toBe(false);
+    expect(
+      shouldAutomaticallyGrantPatientPortalAccess("sample", undefined),
+    ).toBe(false);
+    expect(
+      shouldAutomaticallyGrantPatientPortalAccess(
+        "withdrawal_request",
+        undefined,
+      ),
+    ).toBe(false);
   });
 
   it.each([
