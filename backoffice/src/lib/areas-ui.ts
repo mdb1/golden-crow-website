@@ -160,6 +160,25 @@ export function canEditPatientUi(
   );
 }
 
+export function canManagePatientPortalCredentialsUi(
+  context: AdminContextRecord,
+  patient: Pick<PatientListItem, "institutionId" | "doctorId">,
+) {
+  if (context.isBootstrap || context.role === "full_admin") {
+    return true;
+  }
+
+  if (context.role === "institution_admin") {
+    return context.institutionId === patient.institutionId;
+  }
+
+  return (
+    context.role === "institution_doctor" &&
+    context.institutionId === patient.institutionId &&
+    context.doctorId === patient.doctorId
+  );
+}
+
 export function canDeletePatientUi(
   context: AdminContextRecord,
   patient: Pick<PatientListItem, "institutionId" | "doctorId">,

@@ -101,6 +101,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Patient portal": "Portal de pacientes",
   "Portal access": "Acceso al portal",
   "No portal access": "Sin acceso al portal",
+  "Temporary password": "Contraseña temporal",
+  Reveal: "Revelar",
+  Hide: "Ocultar",
+  "Create patient portal credentials":
+    "Crear credenciales del portal de pacientes",
+  "Unable to reveal the temporary password.":
+    "No se pudo revelar la contraseña temporal.",
   "See all bookings": "Ver todas las reuniones",
   "Client bookings": "Reuniones solicitadas",
   "Calendar and list review for consultation requests.":

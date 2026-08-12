@@ -8,6 +8,8 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  Eye,
+  EyeOff,
   KeyRound,
   RotateCcw,
   Save,
@@ -44,6 +46,7 @@ import type {
 } from "@/lib/admin-areas";
 import { isInstitutionManagerRole, PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
 import {
+  canManagePatientPortalCredentialsUi,
   canEditPatientUi,
   getStatusBadgeVariant,
 } from "@/lib/areas-ui";
@@ -131,6 +134,14 @@ export function PatientWorkbench({
   );
   const [pending, setPending] = useState(false);
   const [grantingPortalAccess, setGrantingPortalAccess] = useState(false);
+  const [revealingTemporaryPassword, setRevealingTemporaryPassword] =
+    useState(false);
+  const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [temporaryPasswordRevealed, setTemporaryPasswordRevealed] =
+    useState(false);
+  const [hasTemporaryPassword, setHasTemporaryPassword] = useState(
+    Boolean(detail?.portalAccessCredential?.available),
+  );
   const [portalAccessGranted, setPortalAccessGranted] = useState(
     Boolean(
       detail?.roleRecord?.role === "patient" &&
@@ -148,6 +159,10 @@ export function PatientWorkbench({
   const isEditable =
     mode === "create" ||
     (detail ? canEditPatientUi(adminContext, detail.patient) : false);
+  const canManagePortalCredentials = Boolean(
+    detail?.portalAccessCredential?.canReveal &&
+      canManagePatientPortalCredentialsUi(adminContext, detail.patient),
+  );
   const institutionOptions = institutions.map((institution) => ({
     value: institution.id,
     label: `${institution.name} (${institution.id})`,
@@ -288,17 +303,22 @@ export function PatientWorkbench({
 
     setGrantingPortalAccess(true);
     try {
-      await sdkFetch<{ role: RoleManagementRecord }>(
+      const response = await sdkFetch<{
+        role: RoleManagementRecord;
+        temporaryPassword: string;
+      }>(
         `/areas/patients/${encodeURIComponent(detail.patient.id)}/patient-portal-access`,
         { method: "POST" },
       );
       setPortalAccessGranted(true);
+      setHasTemporaryPassword(true);
+      setTemporaryPassword(response.temporaryPassword);
+      setTemporaryPasswordRevealed(true);
       setToast({
         id: Date.now(),
         tone: "success",
         message: t("Patient portal access granted."),
       });
-      router.refresh();
     } catch (error) {
       setToast({
         id: Date.now(),
@@ -310,6 +330,38 @@ export function PatientWorkbench({
       });
     } finally {
       setGrantingPortalAccess(false);
+    }
+  }
+
+  async function handleRevealTemporaryPassword() {
+    if (!detail || !canManagePortalCredentials) {
+      return;
+    }
+
+    if (temporaryPasswordRevealed) {
+      setTemporaryPassword("");
+      setTemporaryPasswordRevealed(false);
+      return;
+    }
+
+    setRevealingTemporaryPassword(true);
+    try {
+      const response = await sdkFetch<{ temporaryPassword: string }>(
+        `/areas/patients/${encodeURIComponent(detail.patient.id)}/patient-portal-access/temporary-password`,
+      );
+      setTemporaryPassword(response.temporaryPassword);
+      setTemporaryPasswordRevealed(true);
+    } catch (error) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : t("Unable to reveal the temporary password."),
+      });
+    } finally {
+      setRevealingTemporaryPassword(false);
     }
   }
 
@@ -562,23 +614,61 @@ export function PatientWorkbench({
             className="min-h-14 w-full bg-emerald-600 text-base font-semibold text-white shadow-[0_14px_32px_rgba(5,150,105,0.2)] hover:bg-emerald-700 sm:w-fit sm:min-w-80"
             onClick={() => void handleGrantPatientPortalAccess()}
             disabled={
-              portalAccessGranted ||
+              (portalAccessGranted && hasTemporaryPassword) ||
               grantingPortalAccess ||
-              !isEditable ||
+              !canManagePortalCredentials ||
               (detail.roleRecord !== null && detail.roleRecord.role !== "patient")
             }
           >
-            {portalAccessGranted ? (
+            {portalAccessGranted && hasTemporaryPassword ? (
               <CheckCircle2 className="size-5" />
             ) : (
               <KeyRound className="size-5" />
             )}
-            {portalAccessGranted
+            {portalAccessGranted && hasTemporaryPassword
               ? t("Patient portal access granted")
               : grantingPortalAccess
                 ? t("Granting access...")
-                : t("Give access to the patient portal")}
+                : portalAccessGranted
+                  ? t("Create patient portal credentials")
+                  : t("Give access to the patient portal")}
           </Button>
+
+          {portalAccessGranted &&
+          hasTemporaryPassword &&
+          canManagePortalCredentials ? (
+            <div className="max-w-md space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="patient-temporary-password">
+                  {t("Temporary password")}
+                </Label>
+                <Input
+                  id="patient-temporary-password"
+                  value={
+                    temporaryPasswordRevealed
+                      ? temporaryPassword
+                      : "********"
+                  }
+                  readOnly
+                  className="font-mono tracking-widest"
+                  autoComplete="off"
+                />
+              </div>
+              <Button
+                type="button"
+                className="bg-blue-600 text-white hover:bg-blue-700"
+                onClick={() => void handleRevealTemporaryPassword()}
+                disabled={revealingTemporaryPassword}
+              >
+                {temporaryPasswordRevealed ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
+                )}
+                {temporaryPasswordRevealed ? t("Hide") : t("Reveal")}
+              </Button>
+            </div>
+          ) : null}
         </section>
       ) : null}
 

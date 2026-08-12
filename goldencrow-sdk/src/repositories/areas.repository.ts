@@ -1,11 +1,18 @@
-import { adminDbFor } from "../config/firebase.js";
+import { adminAuthFor, adminDbFor } from "../config/firebase.js";
 
 // Pitfall 16 — Bind once to the MyDNAMap project at module load. Every
-// downstream `adminDb.collection(...)` call below uses the named-app
-// Firestore handle for "mydnamap" (no default-app slot is touched).
+// downstream Firestore and Auth call below uses the named-app handles for
+// "mydnamap" (no default-app slot is touched).
 const adminDb = adminDbFor("mydnamap");
+const adminAuth = adminAuthFor("mydnamap");
 import { FieldValue, type DocumentReference } from "firebase-admin/firestore";
 import { AdminRepositoryError } from "./admin-errors.js";
+import {
+  canManagePatientPortalCredentials,
+  generatePatientTemporaryPassword,
+  patientTemporaryPasswordDocument,
+  provisionPatientFirebaseAccount,
+} from "../lib/patient-portal-credentials.js";
 import {
   canCreateDoctor,
   canCreateInstitution,
@@ -57,6 +64,11 @@ const SEQUENCE_CONFIG: Record<
 
 function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeTemporaryPassword(value: unknown) {
+  const password = normalizeOptionalString(value);
+  return password && /^[A-Z]{8}$/.test(password) ? password : undefined;
 }
 
 function isInstitutionManagerRole(role: unknown) {
@@ -1358,11 +1370,22 @@ export async function getPatientDetailForContext(
     throw new AdminRepositoryError("You cannot view this patient.", 403);
   }
 
-  const [institution, doctor, roleRecord] = await Promise.all([
-    getInstitutionById(patient.institutionId),
-    patient.doctorId ? getDoctorById(patient.doctorId) : null,
-    getUserRoleByEmail(patient.email),
-  ]);
+  const canRevealTemporaryPassword = canManagePatientPortalCredentials(
+    context,
+    patient,
+  );
+  const [institution, doctor, roleRecord, credentialSnapshot] =
+    await Promise.all([
+      getInstitutionById(patient.institutionId),
+      patient.doctorId ? getDoctorById(patient.doctorId) : null,
+      getUserRoleByEmail(patient.email),
+      canRevealTemporaryPassword
+        ? adminDb.collection(PATIENTS_COLLECTION).doc(patient.id).get()
+        : Promise.resolve(null),
+    ]);
+  const temporaryPassword = normalizeTemporaryPassword(
+    credentialSnapshot?.data()?.temporary_password,
+  );
 
   return {
     patient: toPatientListItem(patient, {
@@ -1383,15 +1406,22 @@ export async function getPatientDetailForContext(
           patientName: patient.fullName,
         })
       : null,
+    portalAccessCredential: {
+      available: Boolean(temporaryPassword),
+      canReveal: canRevealTemporaryPassword,
+    },
   };
 }
 
 export async function grantPatientPortalAccessForContext(
   context: AdminContext,
   patientId: string,
-): Promise<RoleManagementRecord> {
+): Promise<{
+  role: RoleManagementRecord;
+  temporaryPassword: string;
+}> {
   const patient = await ensurePatientExists(patientId);
-  if (!canEditPatient(context, patient)) {
+  if (!canManagePatientPortalCredentials(context, patient)) {
     throw new AdminRepositoryError(
       "You cannot grant portal access to this patient.",
       403,
@@ -1423,6 +1453,21 @@ export async function grantPatientPortalAccessForContext(
   }
 
   const now = new Date().toISOString();
+  const patientReference = adminDb
+    .collection(PATIENTS_COLLECTION)
+    .doc(patient.id);
+  const roleReference = adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .doc(roleEmail);
+  const [patientSnapshot, roleSnapshot] = await Promise.all([
+    patientReference.get(),
+    roleReference.get(),
+  ]);
+  const existingTemporaryPassword = normalizeTemporaryPassword(
+    patientSnapshot.data()?.temporary_password,
+  );
+  const temporaryPassword =
+    existingTemporaryPassword ?? generatePatientTemporaryPassword();
   const document = {
     email: roleEmail,
     role: "patient" as const,
@@ -1439,29 +1484,89 @@ export async function grantPatientPortalAccessForContext(
     createdByEmail: existing?.createdByEmail ?? context.email,
   };
 
-  await adminDb
-    .collection(USER_ROLES_COLLECTION)
-    .doc(roleEmail)
-    .set(document, { merge: true });
-
-  return toRoleManagementRecord(
-    {
-      email: roleEmail,
-      role: "patient",
-      institutionId: patient.institutionId,
-      doctorId: patient.doctorId,
-      patientId: patient.id,
-      isActive: true,
-      canAccessPatientPortal: true,
-      displayName: existing?.displayName ?? patient.fullName,
-      contactPhone: existing?.contactPhone,
-      notes: existing?.notes,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-      createdByEmail: existing?.createdByEmail ?? context.email,
-    },
-    { patientName: patient.fullName },
+  const grantBatch = adminDb.batch();
+  grantBatch.set(roleReference, document, { merge: true });
+  grantBatch.set(
+    patientReference,
+    patientTemporaryPasswordDocument(temporaryPassword),
+    { merge: true },
   );
+  await grantBatch.commit();
+
+  try {
+    await provisionPatientFirebaseAccount(adminAuth, {
+      email: roleEmail,
+      displayName: patient.fullName,
+      temporaryPassword,
+    });
+  } catch (error) {
+    const rollbackBatch = adminDb.batch();
+    if (roleSnapshot.exists) {
+      rollbackBatch.set(roleReference, roleSnapshot.data() ?? {});
+    } else {
+      rollbackBatch.delete(roleReference);
+    }
+    rollbackBatch.update(patientReference, {
+      temporary_password:
+        existingTemporaryPassword ?? FieldValue.delete(),
+    });
+    await rollbackBatch.commit();
+    throw new AdminRepositoryError(
+      "Unable to create the Firebase account for this patient.",
+      502,
+    );
+  }
+
+  return {
+    role: toRoleManagementRecord(
+      {
+        email: roleEmail,
+        role: "patient",
+        institutionId: patient.institutionId,
+        doctorId: patient.doctorId,
+        patientId: patient.id,
+        isActive: true,
+        canAccessPatientPortal: true,
+        displayName: existing?.displayName ?? patient.fullName,
+        contactPhone: existing?.contactPhone,
+        notes: existing?.notes,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        createdByEmail: existing?.createdByEmail ?? context.email,
+      },
+      { patientName: patient.fullName },
+    ),
+    temporaryPassword,
+  };
+}
+
+export async function getPatientPortalTemporaryPasswordForContext(
+  context: AdminContext,
+  patientId: string,
+) {
+  const patient = await ensurePatientExists(patientId);
+  if (!canManagePatientPortalCredentials(context, patient)) {
+    throw new AdminRepositoryError(
+      "You cannot reveal this patient's temporary password.",
+      403,
+    );
+  }
+
+  const snapshot = await adminDb
+    .collection(PATIENTS_COLLECTION)
+    .doc(patient.id)
+    .get();
+  const temporaryPassword = normalizeTemporaryPassword(
+    snapshot.data()?.temporary_password,
+  );
+  if (!temporaryPassword) {
+    throw new AdminRepositoryError(
+      "This patient does not have a temporary password yet.",
+      404,
+    );
+  }
+
+  return temporaryPassword;
 }
 
 export async function updatePatientForContext(

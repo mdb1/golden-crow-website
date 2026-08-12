@@ -1,3 +1,5 @@
+export {};
+
 type QueryOperation =
   | { type: "where"; field: string; value: unknown }
   | { type: "orderBy"; field: string; direction?: string }

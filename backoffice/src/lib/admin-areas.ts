@@ -186,6 +186,10 @@ export interface PatientDetailRecord {
   institution: InstitutionRecord | null;
   doctor: DoctorListItem | null;
   roleRecord: RoleManagementRecord | null;
+  portalAccessCredential: {
+    available: boolean;
+    canReveal: boolean;
+  };
 }
 
 export interface MyAccountProviderInfo {
