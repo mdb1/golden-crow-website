@@ -42,7 +42,7 @@
 // (a project that measures this per host app still lists it as working). None survived the
 // phone. The lesson worth keeping is the METHOD, not the verdict: on this problem, sources
 // and inference both lose to one test on a real device.
-import { APP_STORE_URL, PLAY_STORE_URL } from '../data/gcFitnessPublic';
+import { APP_STORE_APP_URL, APP_STORE_URL, PLAY_STORE_URL } from '../data/gcFitnessPublic';
 import { defaultLang } from '../i18n/ui';
 import type { Lang } from '../i18n/ui';
 
@@ -417,6 +417,33 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
         display: block;
       }
 
+      .gcf-arrow {
+        position: fixed;
+        top: 8px;
+        right: 18px;
+        font-size: 2.6rem;
+        line-height: 1;
+        color: var(--gcf-amber-deep);
+        animation: gcf-nudge 1.4s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      @keyframes gcf-nudge {
+        0%,
+        100% {
+          transform: translate(0, 0);
+        }
+        50% {
+          transform: translate(4px, -4px);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .gcf-arrow {
+          animation: none;
+        }
+      }
+
       /* The instruction IS the primary action here, so it gets body-copy weight rather than
          the muted footnote sizing of `.gcf-escape`. */
       .gcf-escape-body {
@@ -460,6 +487,14 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
   </head>
 
   <body>
+    <!--
+      Points at the host app's ⋯ button, which lives at the top right of every one of these
+      web views. The instruction is the highest-converting route we have and it competes with
+      nothing on screen, so it gets an arrow rather than a sentence someone has to parse.
+      Escape variant only — everywhere else there is no menu worth pointing at.
+    -->
+    <div class="gcf-arrow" data-gcf-when="escape" aria-hidden="true">↗</div>
+
     <main class="gcf-turnstile">
       <!-- The icon is a link too: it is the biggest tap target on the screen. -->
       <a class="gcf-logo-link" href={APP_STORE_URL} data-gcf-store-link rel="noopener">
@@ -480,6 +515,24 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
         <p data-gcf-when="store">{t.tapBody}</p>
 
         <h1 data-gcf-when="escape">{t.escapeTitle}</h1>
+
+        <!--
+          THE ONE ROUTE NEVER ACTUALLY TRIED INSIDE INSTAGRAM.
+          Everything that failed went `https://apps.apple.com/…` → 301 → `itms-appss://`,
+          where the scheme arrives as a REDIRECT inside the network layer and the web view
+          drops it without a word. This is the scheme as the INITIAL navigation of a user
+          gesture, which is a different branch of WKWebView's `decidePolicyFor` entirely.
+          #782 removed it from in-app browsers by reasoning, not by measurement — its own
+          code has only ever served the https URL in here.
+
+          Safe to try: an unhandled scheme on a link tap cancels the navigation and leaves
+          the document standing. The white screen came from `location.replace`, the blank
+          tab from `window.open`; a plain anchor can do neither.
+        -->
+        <a class="gcf-cta" href={APP_STORE_APP_URL} data-gcf-when="escape" rel="noopener">
+          {t.tapCta}
+        </a>
+
         <p class="gcf-escape-body" data-gcf-when="escape">{t.escapeBody}</p>
 
         <!--
