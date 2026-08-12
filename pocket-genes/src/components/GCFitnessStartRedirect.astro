@@ -27,22 +27,37 @@
 //   * WhatsApp, Safari, Android web views — the hand-off works. They get the plain automatic
 //     redirect, which costs zero taps and is the best experience available.
 //   * Instagram and the rest of the Meta family on iOS — the hand-off is refused, by EVERY
-//     route. Three were tried on a real phone and all three failed; the body script lists
-//     them with their symptoms.
+//     route. FOUR were tried on a real phone and all four failed:
+//
+//         1. automatic `location.replace(https store URL)`  → WHITE SCREEN
+//         2. user TAP on the same https store URL           → nothing
+//         3. `window.open('x-safari-https://…')`            → blank new tab
+//         4. user TAP on `itms-apps://` directly            → nothing
+//
+//     The fourth was the last plausible one: the scheme as the INITIAL navigation of a user
+//     gesture rather than as a network-layer redirect, which is a different branch of
+//     WKWebView's `decidePolicyFor`. It failed too. Treat this as settled — there is no
+//     programmatic route from Instagram's iOS web view to the App Store, and #782 was right
+//     without qualification.
 //
 // For that second group the page therefore navigates NOWHERE and stops pretending it can.
 // Its card carries the one route that has never stopped working — the host app's own ⋯ →
 // "Abrir en el navegador" — as the headline, plus a copy-link button. Once the page reopens
 // in Safari the ordinary redirect above finishes the job with no taps at all.
 //
-// The three wrong turns are recorded in the body comments rather than deleted, because each
-// was reasonable and each would be re-derived: that Instagram must accept the scheme (its
-// chain ends on the same 301 as Hevy's), that a user gesture was the missing ingredient
-// (Adjust's landing page only taps), and that `x-safari-https` via `window.open` escapes
-// (a project that measures this per host app still lists it as working). None survived the
-// phone. The lesson worth keeping is the METHOD, not the verdict: on this problem, sources
-// and inference both lose to one test on a real device.
-import { APP_STORE_APP_URL, APP_STORE_URL, PLAY_STORE_URL } from '../data/gcFitnessPublic';
+// The wrong turns are recorded in the body comments rather than deleted, because each was
+// reasonable and each would be re-derived: that Instagram must accept the scheme (its chain
+// ends on the same 301 as Hevy's), that a user gesture was the missing ingredient (Adjust's
+// landing page only taps), that `x-safari-https` via `window.open` escapes (a project that
+// MEASURES this per host app still lists it as working), and that the raw scheme on a tap
+// was never actually tried in here (it wasn't — and it still doesn't work). None survived
+// the phone.
+//
+// Two lessons worth keeping. The METHOD: on this problem, sources and inference both lose to
+// one test on a real device. And the DESIGN RULE, which cost the most: a control that cannot
+// work is worse than no control. It spends the one tap of attention we get and teaches the
+// visitor the page is broken — which costs us the instructions sitting right below it.
+import { APP_STORE_URL, PLAY_STORE_URL } from '../data/gcFitnessPublic';
 import { defaultLang } from '../i18n/ui';
 import type { Lang } from '../i18n/ui';
 
@@ -496,10 +511,13 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
     <div class="gcf-arrow" data-gcf-when="escape" aria-hidden="true">↗</div>
 
     <main class="gcf-turnstile">
-      <!-- The icon is a link too: it is the biggest tap target on the screen. -->
-      <a class="gcf-logo-link" href={APP_STORE_URL} data-gcf-store-link rel="noopener">
-        <img class="gcf-logo" src="/gc-fitness/icon.png" alt="GC Fitness" width="256" height="256" />
-      </a>
+      <!--
+        Plain image, not a link. It used to be tappable (copied from Adjust's landing page,
+        where the icon IS the CTA) but in the branch that matters that tap cannot work, and
+        an icon that silently does nothing is the same dead-tap tax as the button that was
+        just removed. The store case has a real CTA below.
+      -->
+      <img class="gcf-logo" src="/gc-fitness/icon.png" alt="GC Fitness" width="256" height="256" />
 
       <div class="gcf-spinner" role="status" aria-label={t.working}></div>
       <p class="gcf-working">{t.working}</p>
@@ -517,22 +535,20 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
         <h1 data-gcf-when="escape">{t.escapeTitle}</h1>
 
         <!--
-          THE ONE ROUTE NEVER ACTUALLY TRIED INSIDE INSTAGRAM.
-          Everything that failed went `https://apps.apple.com/…` → 301 → `itms-appss://`,
-          where the scheme arrives as a REDIRECT inside the network layer and the web view
-          drops it without a word. This is the scheme as the INITIAL navigation of a user
-          gesture, which is a different branch of WKWebView's `decidePolicyFor` entirely.
-          #782 removed it from in-app browsers by reasoning, not by measurement — its own
-          code has only ever served the https URL in here.
+          NO STORE BUTTON IN THIS BRANCH. FOUR ROUTES WERE TRIED AND ALL FOUR ARE DEAD:
+            1. automatic `location.replace(https store URL)`  → WHITE SCREEN
+            2. user TAP on the same https store URL           → nothing
+            3. `window.open('x-safari-https://…')`            → blank new tab
+            4. user TAP on `itms-apps://` directly            → nothing
+          The fourth was the last untested one — the scheme as the INITIAL navigation of a
+          gesture rather than as a network-layer redirect — and it failed too. There is no
+          programmatic route from Instagram's iOS web view to the App Store. #782 was right
+          without qualification.
 
-          Safe to try: an unhandled scheme on a link tap cancels the navigation and leaves
-          the document standing. The white screen came from `location.replace`, the blank
-          tab from `window.open`; a plain anchor can do neither.
+          A button that does nothing is worse than no button: it consumes the one tap of
+          attention we get and teaches the visitor the page is broken, which costs us the
+          instructions right below it. So the instructions ARE the interface here.
         -->
-        <a class="gcf-cta" href={APP_STORE_APP_URL} data-gcf-when="escape" rel="noopener">
-          {t.tapCta}
-        </a>
-
         <p class="gcf-escape-body" data-gcf-when="escape">{t.escapeBody}</p>
 
         <!--
@@ -544,7 +560,12 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
           <span data-gcf-cta-android hidden>{t.tapCtaAndroid}</span>
         </a>
 
-        <div class="gcf-badges">
+        <!--
+          Store badges are hidden in the escape branch for the same reason: on iOS-Meta they
+          are three more taps that cannot work. They stay for every OTHER stranded case,
+          where the link genuinely opens the store.
+        -->
+        <div class="gcf-badges" data-gcf-when="store">
           <a href={APP_STORE_URL} data-gcf-store-link rel="noopener">
             <img src="/gc-fitness/app-store-badge.svg" alt={t.appStore} height="52" width="156" />
           </a>
