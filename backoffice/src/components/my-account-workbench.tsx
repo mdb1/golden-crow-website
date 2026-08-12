@@ -451,6 +451,10 @@ export function MyAccountWorkbench({
     account.auth.providerData.map((provider) => providerLabel(provider.providerId)).join(", ") ||
     undefined;
   const roleCapabilityLines = ROLE_CAPABILITY_LINES[account.context.role] ?? [];
+  const isPatientPortalView =
+    !showDiagnostics &&
+    account.context.canAccessPatientPortal &&
+    !account.context.canAccessBackoffice;
 
   function validateEmailCandidate(showSuccess = true) {
     if (!canChangeEmail) {
@@ -676,9 +680,19 @@ export function MyAccountWorkbench({
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div
+          className={cn(
+            "grid gap-3 md:grid-cols-2",
+            isPatientPortalView ? "xl:grid-cols-3" : "xl:grid-cols-4",
+          )}
+        >
           <ReadOnlyField label="Scope" value={currentScope} />
-          <ReadOnlyField label="Current project" value={account.context.project} />
+          {!isPatientPortalView ? (
+            <ReadOnlyField
+              label="Current project"
+              value={account.context.project}
+            />
+          ) : null}
           <ReadOnlyField label="Username" value={account.profile?.username} />
           <ReadOnlyField
             label="Last sign-in"
@@ -772,30 +786,32 @@ export function MyAccountWorkbench({
                 disabled={!canEditRoleProfile || pendingRoleSave}
               />
             </EditableField>
-            <div className="md:col-span-2">
-              <EditableField
-                id="my-role-notes"
-                label="Notes"
-                helper="Optional internal note on your role assignment."
-                error={roleErrors.notes}
-                count={`${rolePayload(roleState).notes.length}/${NOTES_MAX_LENGTH}`}
-              >
-                <Textarea
+            {!isPatientPortalView ? (
+              <div className="md:col-span-2">
+                <EditableField
                   id="my-role-notes"
-                  value={roleState.notes}
-                  onChange={(event) =>
-                    setRoleState((current) => ({
-                      ...current,
-                      notes: event.target.value,
-                    }))
-                  }
-                  rows={5}
-                  placeholder="No notes"
-                  aria-invalid={Boolean(roleErrors.notes)}
-                  disabled={!canEditRoleProfile || pendingRoleSave}
-                />
-              </EditableField>
-            </div>
+                  label="Notes"
+                  helper="Optional internal note on your role assignment."
+                  error={roleErrors.notes}
+                  count={`${rolePayload(roleState).notes.length}/${NOTES_MAX_LENGTH}`}
+                >
+                  <Textarea
+                    id="my-role-notes"
+                    value={roleState.notes}
+                    onChange={(event) =>
+                      setRoleState((current) => ({
+                        ...current,
+                        notes: event.target.value,
+                      }))
+                    }
+                    rows={5}
+                    placeholder="No notes"
+                    aria-invalid={Boolean(roleErrors.notes)}
+                    disabled={!canEditRoleProfile || pendingRoleSave}
+                  />
+                </EditableField>
+              </div>
+            ) : null}
           </div>
         </SectionShell>
 
@@ -809,11 +825,17 @@ export function MyAccountWorkbench({
               label={account.auth.emailVerified ? "Email verified" : "Email not verified"}
               value={account.auth.email}
             />
-            <StatusItem
-              ok={!account.auth.disabled}
-              label={account.auth.disabled ? "Firebase account disabled" : "Firebase account enabled"}
-              value={account.auth.uid}
-            />
+            {!isPatientPortalView ? (
+              <StatusItem
+                ok={!account.auth.disabled}
+                label={
+                  account.auth.disabled
+                    ? "Firebase account disabled"
+                    : "Firebase account enabled"
+                }
+                value={account.auth.uid}
+              />
+            ) : null}
           </div>
 
           <EditableField

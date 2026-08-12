@@ -97,6 +97,9 @@ describe("MyAccountWorkbench diagnostics", () => {
     expect(
       screen.getByRole("heading", { name: "Email & Verification" }),
     ).toBeTruthy();
+    expect(screen.queryByText("Current project")).toBeNull();
+    expect(screen.queryByText("Notes")).toBeNull();
+    expect(screen.queryByText("Firebase account enabled")).toBeNull();
 
     for (const section of diagnosticSections) {
       expect(screen.queryByRole("heading", { name: section })).toBeNull();
@@ -105,6 +108,10 @@ describe("MyAccountWorkbench diagnostics", () => {
 
   it("keeps administrative diagnostics in the backoffice by default", () => {
     render(<MyAccountWorkbench initialAccount={account} />);
+
+    expect(screen.getByText("Current project")).toBeTruthy();
+    expect(screen.getByText("Notes")).toBeTruthy();
+    expect(screen.getByText("Firebase account enabled")).toBeTruthy();
 
     for (const section of diagnosticSections) {
       expect(screen.getByRole("heading", { name: section })).toBeTruthy();
