@@ -45,9 +45,12 @@ const copy = {
     title: 'Abriendo GC Fitness…',
     description: 'Te llevamos a la tienda de tu teléfono para descargar GC Fitness.',
     working: 'Abriendo la tienda…',
-    stuckTitle: 'Seguís acá',
+    // Reads as an instruction, not as a diagnosis: for the Meta web views this card is the
+    // FIRST thing on screen (no redirect is attempted at all), so "seguís acá" would be
+    // answering a question nobody asked.
+    stuckTitle: 'Abrí este link en tu navegador',
     stuckBody:
-      'El navegador de esta app no dejó abrir la tienda. Tocá los ⋯ arriba a la derecha y elegí “Abrir en el navegador”, o usá un botón de acá abajo.',
+      'El navegador de esta app no puede abrir la tienda. Tocá los ⋯ arriba a la derecha y elegí “Abrir en el navegador”, o copiá el link y pegalo en Safari.',
     appStore: 'Descargar en la App Store',
     playStore: 'Disponible en Google Play',
     copyLink: 'Copiar link',
@@ -58,9 +61,9 @@ const copy = {
     title: 'Opening GC Fitness…',
     description: "Taking you to your phone's store to download GC Fitness.",
     working: 'Opening the store…',
-    stuckTitle: 'Still here?',
+    stuckTitle: 'Open this link in your browser',
     stuckBody:
-      'This app’s browser would not open the store. Tap the ⋯ at the top right and choose “Open in browser”, or use a button below.',
+      'This app’s browser can’t open the store. Tap the ⋯ at the top right and choose “Open in browser”, or copy the link and paste it into Safari.',
     appStore: 'Download on the App Store',
     playStore: 'Get it on Google Play',
     copyLink: 'Copy link',
@@ -116,29 +119,62 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
           return;
         }
 
+        // ── The Meta web views, and why they get NO redirect at all ─────────────────────
+        //
+        // MEASURED ON A REAL PHONE, which is the only way this was ever going to be
+        // settled. Same URL, same iOS build, two host apps:
+        //
+        //   WhatsApp  → native "open in App Store?" prompt. Works.
+        //   Instagram → WHITE SCREEN. Nothing else.
+        //
+        // So the difference is the HOST APP, not the platform and not the URL: WhatsApp's
+        // web view implements `decidePolicyFor` + `UIApplication.open()` for the store
+        // scheme, and Instagram's does not. #782 was right about Instagram all along; the
+        // earlier reading of the Hevy link (that Instagram must hand the scheme off, since
+        // Hevy's chain ends on the identical `301 → itms-appss://`) was wrong.
+        //
+        // The white screen is worse than a dead button, and worth understanding: a
+        // top-level `location.replace()` makes the web view COMMIT to leaving — it tears
+        // down the current document and paints nothing — and only then does the scheme
+        // navigation fail. There is no "it didn't work, carry on" state to recover from,
+        // and the safety net below cannot save it either: `pagehide` has already fired by
+        // then, and the timer dies with the document.
+        //
+        // The only fix is therefore to NOT START the navigation here. These visitors get
+        // the escape hatch immediately — the same one `/download` shows — with no blank
+        // frame in between. The store badges stay live links, so if a future Instagram
+        // build does implement the hand-off, tapping one simply works.
+        //
+        // Scoped to iOS on purpose. On Android the same web views render the Play Store
+        // https page perfectly well, so redirecting there is still the better experience.
+        const isMetaWebView = /Instagram|FBAN|FBAV|FB_IAB|FBIOS|Messenger|Threads/i.test(ua);
+        if (isIOS && isMetaWebView) {
+          document.documentElement.setAttribute('data-gcf-stuck', 'true');
+          return;
+        }
+
         // `https`, NOT `itms-apps://` / `market://`.
         //
         // In a real browser the scheme would save one 301, but inside a web view that drops
         // it the page dies with nothing rendered — whereas the https URL at least renders the
-        // Play Store web page on Android. This is the exact hop Hevy's chain ends on, which
-        // is the behaviour we were asked to copy. #782 has the measurements.
+        // Play Store web page on Android. #782 has the measurements.
         const storeUrl = isIOS ? APP_STORE_URL : PLAY_STORE_URL;
 
         // `replace`, not `href`: the turnstile must not sit in history, or "back" from the
         // store lands the visitor right back on it and bounces them to the store again.
         window.location.replace(storeUrl);
 
-        // ── The hand-off may be swallowed, so prove it happened ──────────────────────────
+        // ── Safety net for the web views we have NOT measured ───────────────────────────
         //
-        // When the store opens, iOS/Android background this web view and the document goes
-        // hidden. If we are still visible after the grace window, the navigation was
-        // cancelled in silence (the #782 failure mode) and the visitor is staring at a
-        // spinner that will never finish. Show them the way out instead.
+        // It cannot rescue the blank-screen case above — by the time a web view commits to
+        // the navigation, this document is gone. What it does cover is the milder failure:
+        // a host app that CANCELS the navigation without tearing the document down, leaving
+        // us alive and visible with a spinner that will never finish.
         //
-        // Only `visibilitychange` and `pagehide` count as proof. `blur` was tempting as a
-        // third signal and is deliberately NOT here: it fires for reasons that have nothing
-        // to do with leaving (focus moving, a keyboard dismissing), and a false positive
-        // costs a visitor stranded on a spinner forever. When in doubt, show the way out.
+        // Only `visibilitychange` and `pagehide` count as proof we left. `blur` was tempting
+        // as a third signal and is deliberately NOT here: it fires for reasons that have
+        // nothing to do with leaving (focus moving, a keyboard dismissing), and a false
+        // positive strands someone on that spinner. When in doubt, show the way out.
         let handedOff = false;
         const markHandedOff = () => {
           handedOff = true;
@@ -326,10 +362,14 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
         const copied = button.dataset.copied || original;
 
         button.addEventListener('click', async () => {
-          // The download page is what a shared link should land on, not the turnstile —
-          // whoever it is pasted to would just get bounced to a store again.
-          const more = document.querySelector('.gcf-more');
-          const link = new URL(more.getAttribute('href'), window.location.href).toString();
+          // THIS page's URL, not `/download`.
+          //
+          // The instruction right above the button is "paste it into Safari", and in Safari
+          // this page does exactly what it was built to do: hand off to the store with no
+          // further taps. Copying `/download` instead would land them on a page where they
+          // still have to find and press a badge — trading one tap for another for no
+          // reason. It is also the right thing to hand to someone else.
+          const link = window.location.href;
 
           try {
             await navigator.clipboard.writeText(link);
