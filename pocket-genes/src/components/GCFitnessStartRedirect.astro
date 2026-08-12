@@ -1,0 +1,362 @@
+---
+// `/gc-fitness/start` — the ONE link to put in a bio, a story or an ad.
+//
+// It renders nothing worth reading: it detects the OS and hands off to the matching store
+// immediately, the way `hevy.go.link/download` does. `/gc-fitness/download` stays as the
+// human-facing page (screenshots, copy, both badges) — this one is a turnstile.
+//
+// ## Why a client-side redirect and not a server one
+//
+// The site is Astro `output: 'static'` deployed to GitHub Pages (`.github/workflows/deploy.yml`).
+// There is no server to sniff the user agent on, so the redirect has to run in the page. That
+// is also what Adjust does for Hevy: `hevy.go.link/download` 302s to an `app.adjust.com`
+// landing page which then sends the browser to `https://apps.apple.com/app/id…`.
+//
+// ## What #782 got right, and what it got too broad
+//
+// #782 established — correctly, and it is still true — that on iOS EVERY `apps.apple.com` URL
+// answers `301 → itms-appss://`, so there is no https page of the App Store to render inside a
+// web view. Measured again while building this page, with an Instagram user agent, for OUR app
+// and for Hevy's:
+//
+//     GET https://apps.apple.com/ar/app/gc-fitness/id6771836254   → 301 itms-appss://…
+//     GET https://apps.apple.com/app/id1458862350                 → 301 itms-appss://…
+//
+// Identical. So whatever makes a store link work from inside Instagram, it is NOT the URL —
+// both chains end on the same scheme hand-off.
+//
+// Where #782 over-generalized is the next step: it concluded that because a WKWebView does not
+// hand unknown schemes to the OS *by default*, no in-app browser can ever reach the App Store.
+// The host app only has to implement `decidePolicyFor` and call `UIApplication.open()` — and
+// Instagram, whose business is App Store install ads, evidently does. The report that Hevy's
+// link opens the store from an Instagram web view is direct evidence of it.
+//
+// This page therefore does the hand-off, and does NOT assume it will succeed. If we are still
+// on screen a moment later, the hand-off was swallowed and the escape hatch appears — the same
+// one `/download` shows, because that lesson stands for whichever web views really do drop it.
+import { APP_STORE_URL, PLAY_STORE_URL } from '../data/gcFitnessPublic';
+import { defaultLang } from '../i18n/ui';
+import type { Lang } from '../i18n/ui';
+
+const lang = (Astro.currentLocale || defaultLang) as Lang;
+
+const copy = {
+  es: {
+    title: 'Abriendo GC Fitness…',
+    description: 'Te llevamos a la tienda de tu teléfono para descargar GC Fitness.',
+    working: 'Abriendo la tienda…',
+    stuckTitle: 'Seguís acá',
+    stuckBody:
+      'El navegador de esta app no dejó abrir la tienda. Tocá los ⋯ arriba a la derecha y elegí “Abrir en el navegador”, o usá un botón de acá abajo.',
+    appStore: 'Descargar en la App Store',
+    playStore: 'Disponible en Google Play',
+    copyLink: 'Copiar link',
+    copied: '¡Link copiado!',
+    seeMore: 'Ver la página completa',
+  },
+  en: {
+    title: 'Opening GC Fitness…',
+    description: "Taking you to your phone's store to download GC Fitness.",
+    working: 'Opening the store…',
+    stuckTitle: 'Still here?',
+    stuckBody:
+      'This app’s browser would not open the store. Tap the ⋯ at the top right and choose “Open in browser”, or use a button below.',
+    appStore: 'Download on the App Store',
+    playStore: 'Get it on Google Play',
+    copyLink: 'Copy link',
+    copied: 'Link copied!',
+    seeMore: 'See the full page',
+  },
+} as const;
+
+const t = copy[lang] ?? copy.es;
+const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/download';
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{t.title}</title>
+    <meta name="description" content={t.description} />
+    <!-- A turnstile has nothing to index, and `/download` is the page that should rank. -->
+    <meta name="robots" content="noindex, follow" />
+    <link rel="canonical" href={`https://goldencrowvs.com${downloadHref}`} />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!--
+      Safari's Smart App Banner. Costs one tag and covers the case the redirect cannot: the
+      app is ALREADY installed, and the banner offers "Open" instead of a store round trip.
+      Ignored everywhere else, including inside web views.
+    -->
+    <meta name="apple-itunes-app" content="app-id=6771836254" />
+
+    <!--
+      In <head>, BEFORE the body paints. Every millisecond here is a millisecond of blank
+      turnstile the visitor has to look at.
+    -->
+    <script is:inline define:vars={{ APP_STORE_URL, PLAY_STORE_URL, downloadHref }}>
+      (() => {
+        const ua = navigator.userAgent || '';
+
+        // Twin of the detection in `GCFitnessDownloadPage.astro` — keep the two in step.
+        // iPadOS 13+ reports "Macintosh"; `maxTouchPoints` is what gives it away (0 on a
+        // desktop Mac, 5 on an iPad). Do NOT go back to `typeof document.ontouchend`: that
+        // exists in touchless environments and called every Mac an iPad.
+        const isIOS =
+          /iPhone|iPad|iPod/i.test(ua) ||
+          (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+        const isAndroid = /Android/i.test(ua);
+
+        // Desktop has no store app to hand off to, so send it to the real page instead of
+        // dropping someone on an Argentine storefront they cannot install from.
+        if (!isIOS && !isAndroid) {
+          window.location.replace(downloadHref);
+          return;
+        }
+
+        // `https`, NOT `itms-apps://` / `market://`.
+        //
+        // In a real browser the scheme would save one 301, but inside a web view that drops
+        // it the page dies with nothing rendered — whereas the https URL at least renders the
+        // Play Store web page on Android. This is the exact hop Hevy's chain ends on, which
+        // is the behaviour we were asked to copy. #782 has the measurements.
+        const storeUrl = isIOS ? APP_STORE_URL : PLAY_STORE_URL;
+
+        // `replace`, not `href`: the turnstile must not sit in history, or "back" from the
+        // store lands the visitor right back on it and bounces them to the store again.
+        window.location.replace(storeUrl);
+
+        // ── The hand-off may be swallowed, so prove it happened ──────────────────────────
+        //
+        // When the store opens, iOS/Android background this web view and the document goes
+        // hidden. If we are still visible after the grace window, the navigation was
+        // cancelled in silence (the #782 failure mode) and the visitor is staring at a
+        // spinner that will never finish. Show them the way out instead.
+        //
+        // Only `visibilitychange` and `pagehide` count as proof. `blur` was tempting as a
+        // third signal and is deliberately NOT here: it fires for reasons that have nothing
+        // to do with leaving (focus moving, a keyboard dismissing), and a false positive
+        // costs a visitor stranded on a spinner forever. When in doubt, show the way out.
+        let handedOff = false;
+        const markHandedOff = () => {
+          handedOff = true;
+        };
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') markHandedOff();
+        });
+        window.addEventListener('pagehide', markHandedOff);
+
+        setTimeout(() => {
+          if (handedOff || document.visibilityState === 'hidden') return;
+          document.documentElement.setAttribute('data-gcf-stuck', 'true');
+        }, 1600);
+      })();
+    </script>
+
+    <noscript>
+      <meta http-equiv="refresh" content={`0; url=${downloadHref}`} />
+    </noscript>
+
+    <style>
+      :root {
+        --gcf-amber: #e7b24a;
+        --gcf-amber-deep: #a9761a;
+        --gcf-ink: #1b1305;
+        --gcf-muted: #6b5c3f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: radial-gradient(circle at 50% 0%, #fffaee 0%, #f6efe0 100%);
+        color: var(--gcf-ink);
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        text-align: center;
+      }
+
+      .gcf-turnstile {
+        display: grid;
+        gap: 18px;
+        justify-items: center;
+        max-width: 26rem;
+      }
+
+      .gcf-logo {
+        width: 84px;
+        height: 84px;
+        border-radius: 22px;
+        box-shadow: 0 12px 32px rgba(27, 19, 5, 0.18);
+      }
+
+      .gcf-spinner {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 3px solid rgba(169, 118, 26, 0.25);
+        border-top-color: var(--gcf-amber-deep);
+        animation: gcf-spin 0.9s linear infinite;
+      }
+
+      @keyframes gcf-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Someone who prefers reduced motion gets a static ring, not a strobe. */
+      @media (prefers-reduced-motion: reduce) {
+        .gcf-spinner {
+          animation: none;
+        }
+      }
+
+      .gcf-working {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--gcf-muted);
+      }
+
+      /* The escape hatch is hidden until the redirect proves it did not land. */
+      .gcf-stuck {
+        display: none;
+        gap: 14px;
+        justify-items: center;
+      }
+
+      :root[data-gcf-stuck='true'] .gcf-working,
+      :root[data-gcf-stuck='true'] .gcf-spinner {
+        display: none;
+      }
+
+      :root[data-gcf-stuck='true'] .gcf-stuck {
+        display: grid;
+      }
+
+      .gcf-stuck h1 {
+        margin: 0;
+        font-size: 1.25rem;
+        line-height: 1.3;
+      }
+
+      .gcf-stuck p {
+        margin: 0;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        color: var(--gcf-muted);
+      }
+
+      .gcf-badges {
+        display: grid;
+        gap: 10px;
+        justify-items: center;
+      }
+
+      .gcf-badges img {
+        height: 52px;
+        width: auto;
+      }
+
+      .gcf-copy {
+        appearance: none;
+        border: 1px solid rgba(169, 118, 26, 0.45);
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--gcf-ink);
+        font: inherit;
+        font-weight: 600;
+        padding: 10px 22px;
+        border-radius: 999px;
+        cursor: pointer;
+      }
+
+      .gcf-more {
+        font-size: 0.9rem;
+        color: var(--gcf-amber-deep);
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="gcf-turnstile">
+      <img class="gcf-logo" src="/gc-fitness/icon.png" alt="GC Fitness" width="256" height="256" />
+
+      <div class="gcf-spinner" role="status" aria-label={t.working}></div>
+      <p class="gcf-working">{t.working}</p>
+
+      <div class="gcf-stuck">
+        <h1>{t.stuckTitle}</h1>
+        <p>{t.stuckBody}</p>
+
+        <div class="gcf-badges">
+          <a href={APP_STORE_URL} rel="noopener">
+            <img src="/gc-fitness/app-store-badge.svg" alt={t.appStore} height="52" width="156" />
+          </a>
+          <a href={PLAY_STORE_URL} rel="noopener">
+            <img src="/gc-fitness/google-play-badge.png" alt={t.playStore} height="52" width="175" />
+          </a>
+        </div>
+
+        <button class="gcf-copy" id="gcf-copy" type="button" data-copied={t.copied}>
+          {t.copyLink}
+        </button>
+
+        <a class="gcf-more" href={downloadHref}>{t.seeMore}</a>
+      </div>
+    </main>
+
+    <script is:inline>
+      // Copy-the-link, for the web views where "Open in browser" is buried. Same shape as the
+      // one on `/download`: `navigator.clipboard` is missing in plenty of web views, so the
+      // off-screen textarea + `execCommand` fallback is not optional.
+      (() => {
+        const button = document.getElementById('gcf-copy');
+        if (!button) return;
+
+        const original = button.textContent;
+        const copied = button.dataset.copied || original;
+
+        button.addEventListener('click', async () => {
+          // The download page is what a shared link should land on, not the turnstile —
+          // whoever it is pasted to would just get bounced to a store again.
+          const more = document.querySelector('.gcf-more');
+          const link = new URL(more.getAttribute('href'), window.location.href).toString();
+
+          try {
+            await navigator.clipboard.writeText(link);
+          } catch {
+            const field = document.createElement('textarea');
+            field.value = link;
+            field.setAttribute('readonly', '');
+            field.style.position = 'absolute';
+            field.style.left = '-9999px';
+            document.body.appendChild(field);
+            field.select();
+            try {
+              document.execCommand('copy');
+            } catch {
+              /* Nothing left to try — leave the button label alone. */
+              document.body.removeChild(field);
+              return;
+            }
+            document.body.removeChild(field);
+          }
+
+          button.textContent = copied;
+          setTimeout(() => {
+            button.textContent = original;
+          }, 2000);
+        });
+      })();
+    </script>
+  </body>
+</html>
