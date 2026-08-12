@@ -6,6 +6,7 @@ import { z } from "zod";
 import { gcFitnessAuth, gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { emailMatchesQuery, normalizeSearchQuery } from "@/lib/gc-fitness/admin-user-search";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
+import { planChatCoachRepoint } from "@/lib/gc-fitness/chat-coach-repoint";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { recurrenceLabel } from "@/lib/gc-fitness/coach-activity-log";
 import {
@@ -1411,11 +1412,42 @@ export async function transferClientToCoach(
     autoAssignedCoach: FieldValue.delete(),
     updatedAt: FieldValue.serverTimestamp(),
   });
+  // #838 — the 1:1 thread follows the client.
+  //
+  // Two things were missing here. (a) The unread tally did NOT move: it is a
+  // map keyed by uid, so re-pointing `coachId` alone left the OUTGOING coach
+  // holding the count and gave the incoming coach no slot at all — their
+  // inbox badge (composed by `client-roster` as
+  // `chats/{clientId}.unreadCount[trainer.uid]`) read 0 on a thread whose
+  // only message may be the client asking for a coach, and the new coach's
+  // first reply then zeroed the pending count without anyone ever seeing it.
+  // See `chat-coach-repoint.ts`. (b) A missing chat doc was skipped
+  // entirely, which is precisely the coach-less adoption case: a coach-less
+  // signup never gets one (`functions/src/auth/preCreateMirror.ts` creates it
+  // only `if (coachId)`), so the client landed on the new coach with no
+  // thread — while `provisionClient`, the other alta path, has always
+  // created it. The two paths now agree.
   if (chatSnap.exists) {
+    const repoint = planChatCoachRepoint({
+      chat: chatSnap.data() ?? null,
+      nextCoachId: parsed.newCoachUid,
+    });
     batch.update(chatRef, {
       coachId: parsed.newCoachUid,
+      ...(repoint.changed ? { unreadCount: repoint.nextUnreadCount } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     });
+  } else {
+    batch.set(
+      chatRef,
+      {
+        clientId: parsed.clientUid,
+        coachId: parsed.newCoachUid,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
   }
   await batch.commit();
 

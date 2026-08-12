@@ -71,6 +71,7 @@ import {
   type LinkOutcome,
   type LinkRefusalMode,
 } from "./coach-link";
+import { planChatCoachRepoint } from "./chat-coach-repoint";
 import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
 
@@ -627,25 +628,50 @@ export async function provisionClient(input: unknown): Promise<
         },
         { merge: true },
       );
-      tx.set(
-        chatRef,
-        {
+      if (chatSnap.exists) {
+        // #838 — the thread follows the client. `coachId` was ALREADY
+        // re-pointed here (since Phase 32), so the misrouting the ticket
+        // predicted could not happen through this action. What did not
+        // follow was the unread tally: it is a map keyed by uid, so
+        // re-pointing `coachId` alone leaves the OUTGOING coach holding the
+        // count and gives the incoming coach no slot at all — their inbox
+        // badge reads 0 on a thread whose only message is the client asking
+        // for a coach. See `chat-coach-repoint.ts`.
+        //
+        // update(), not set(merge), for one reason: a merge-set cannot
+        // REMOVE the outgoing coach's key from inside the map, and the
+        // dotted-path spelling that could is the literal-field-name footgun
+        // documented in `functions/src/chat/onMessageCreated.ts`. update()
+        // with a whole map value replaces the field outright.
+        const repoint = planChatCoachRepoint({
+          chat: chatSnap.data() ?? null,
+          nextCoachId: session.uid,
+        });
+        tx.update(chatRef, {
           clientId: authUser.uid,
           coachId: session.uid,
-          // WR-02: no unreadCount here. `data` is the USER doc snapshot, so
-          // `data.unreadCount ?? {}` was always {} — counters live on
-          // /chats/{clientId} and merge:true preserves them; writing an
-          // (accidentally empty) map only worked by the grace of merge
-          // semantics and would wipe both parties' counters under any
-          // future non-merge/flat-field write. createdAt is CREATE-ONLY:
-          // claiming a stray with chat history must not reset it.
-          ...(chatSnap.exists
-            ? {}
-            : { createdAt: FieldValue.serverTimestamp() }),
+          // Omitted when the doc already names this coach — a re-link must
+          // not reset a badge the coach is actively looking at.
+          ...(repoint.changed ? { unreadCount: repoint.nextUnreadCount } : {}),
           updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
+        });
+      } else {
+        // WR-02: no unreadCount here — counters live on /chats/{clientId}
+        // and there are none yet on a doc being born. createdAt is stamped
+        // ONLY on this branch: claiming a stray with chat history must not
+        // reset its original creation timestamp (the branch above never
+        // writes createdAt at all).
+        tx.set(
+          chatRef,
+          {
+            clientId: authUser.uid,
+            coachId: session.uid,
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
       return "link";
     },
     );
