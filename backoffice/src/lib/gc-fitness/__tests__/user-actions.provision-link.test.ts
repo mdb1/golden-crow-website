@@ -133,6 +133,17 @@ class MockTxn {
     this.writes.push({ ref, patch, merge: opts?.merge === true });
     return this;
   }
+  // #838 — the existing-chat branch writes with update() so it can replace
+  // `unreadCount` as a WHOLE field value (a merge-set cannot remove a key
+  // from inside the map). At the field level update() behaves like a merge
+  // for the fields it names, which is what applyPatch already models; the
+  // only real difference — dotted keys meaning nested paths — is deliberately
+  // not exercised by the action, precisely because set() would read them as
+  // literal field names.
+  update(ref: MockDocRef, patch: DocData) {
+    this.writes.push({ ref, patch, merge: true });
+    return this;
+  }
   // Writes are buffered until the tx body resolves — a thrown sentinel
   // therefore aborts with ZERO writes, mirroring the Admin SDK guarantee
   // the conflict gate relies on.
@@ -332,7 +343,7 @@ describe("WR-01 — alreadyYours re-syncs claims", () => {
 // ── WR-02 — chat payload hygiene ──────────────────────────────────────────
 
 describe("WR-02 — chat write payload", () => {
-  it("preserves an existing chat's createdAt and unreadCount on (re-)link", async () => {
+  it("preserves an existing chat's createdAt and moves the tally to the new coach", async () => {
     seedAuthClient();
     db().seed(FirestoreCollections.users, CLIENT_UID, {
       coachId: "coach-A",
@@ -351,8 +362,55 @@ describe("WR-02 — chat write payload", () => {
 
     const chat = db().read(FirestoreCollections.chats, CLIENT_UID)!;
     expect(chat.createdAt).toBe("ORIGINAL_CREATED_AT"); // NOT reset to now
-    expect(chat.unreadCount).toEqual({ "coach-A": 3, [CLIENT_UID]: 1 });
     expect(chat.coachId).toBe("coach-B");
+    // #838 — this assertion USED to pin `{ "coach-A": 3, client: 1 }`, i.e.
+    // the tally staying with the coach who no longer has the client. That was
+    // WR-02 guarding the right thing (don't clobber counters) with the wrong
+    // invariant (don't touch them at all): coach-B's inbox badge read 0 on a
+    // thread carrying 3 unread client messages that only coach-B could still
+    // read. The tally now follows the thread; the client's own slot is
+    // untouched and coach-A's dead slot is removed.
+    expect(chat.unreadCount).toEqual({ "coach-B": 3, [CLIENT_UID]: 1 });
+  });
+
+  it("gives the incoming coach a zeroed slot when nothing was pending", async () => {
+    // `client-roster` composes the badge from `unreadCount[trainer.uid]`, so
+    // an ABSENT key and a 0 read the same downstream — but only the explicit
+    // key survives the next `onMessageCreated` increment landing on the right
+    // participant. Pin that the slot is established either way.
+    seedAuthClient();
+    db().seed(FirestoreCollections.users, CLIENT_UID, { role: "client" });
+    db().seed(FirestoreCollections.chats, CLIENT_UID, {
+      clientId: CLIENT_UID,
+      coachId: "coach-A",
+      createdAt: "ORIGINAL_CREATED_AT",
+      unreadCount: { [CLIENT_UID]: 2 },
+    });
+
+    await provisionClient({ email: CLIENT_EMAIL });
+
+    const chat = db().read(FirestoreCollections.chats, CLIENT_UID)!;
+    expect(chat.unreadCount).toEqual({ [CLIENT_UID]: 2, "coach-B": 0 });
+  });
+
+  it("leaves the counters alone when re-linking a client who is already yours", async () => {
+    // The idempotent-resubmit shape. The users doc carries no coachId (so
+    // decideLinkOutcome says "link" and the write path runs) while the chat
+    // doc already names this coach — rewriting the map here would zero a
+    // badge the coach is actively looking at.
+    seedAuthClient();
+    db().seed(FirestoreCollections.users, CLIENT_UID, { role: "client" });
+    db().seed(FirestoreCollections.chats, CLIENT_UID, {
+      clientId: CLIENT_UID,
+      coachId: "coach-B",
+      createdAt: "ORIGINAL_CREATED_AT",
+      unreadCount: { "coach-B": 5, [CLIENT_UID]: 0 },
+    });
+
+    await provisionClient({ email: CLIENT_EMAIL });
+
+    const chat = db().read(FirestoreCollections.chats, CLIENT_UID)!;
+    expect(chat.unreadCount).toEqual({ "coach-B": 5, [CLIENT_UID]: 0 });
   });
 
   it("stamps createdAt only when the chat doc does not exist yet", async () => {
