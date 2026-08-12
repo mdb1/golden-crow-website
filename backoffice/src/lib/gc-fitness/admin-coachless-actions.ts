@@ -29,6 +29,7 @@ import {
   summarizeCoachlessActivity,
   toEntitlementInfo,
   isCoachlessClientRow,
+  isCoachlessOperatorRow,
   type CoachlessActivitySummary,
   type CoachlessUserStats,
   type EntitlementInfo,
@@ -61,15 +62,29 @@ export async function listCoachlessUsersWithStats(): Promise<CoachlessUserRow[]>
 
   const snap = await db
     .collection(FirestoreCollections.users)
-    .select("email", "displayName", "role", "photoURL", "deleted", "coachId", "entitlement", "createdAt")
+    // #765/03 — `isGuest` MUST be in this projection. `.select()` returns only
+    // the listed fields, so a missing one reads back as `undefined` and every
+    // guest would silently pass the filter below.
+    .select(
+      "email",
+      "displayName",
+      "role",
+      "photoURL",
+      "deleted",
+      "coachId",
+      "entitlement",
+      "createdAt",
+      "isGuest",
+    )
     .get();
 
   const candidates = snap.docs.filter((doc) => {
     const d = doc.data() as Record<string, unknown>;
-    return isCoachlessClientRow({
+    return isCoachlessOperatorRow({
       role: typeof d.role === "string" ? d.role : null,
       coachId: typeof d.coachId === "string" ? d.coachId : null,
       deleted: d.deleted === true,
+      isGuest: d.isGuest === true,
     });
   });
 

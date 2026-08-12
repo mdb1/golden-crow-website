@@ -9,6 +9,7 @@ import {
   firestoreValueToISO,
   toEntitlementInfo,
   isCoachlessClientRow,
+  isCoachlessOperatorRow,
   adminCanViewClientUnderCoach,
   canUnlinkClientFromCoach,
   summarizeCoachlessActivity,
@@ -110,6 +111,45 @@ describe("isCoachlessClientRow", () => {
     expect(isCoachlessClientRow({ role: "trainer", coachId: null, deleted: false })).toBe(false);
     expect(isCoachlessClientRow({ role: null, coachId: null, deleted: false })).toBe(false);
     expect(isCoachlessClientRow({ role: "client", coachId: null, deleted: true })).toBe(false);
+  });
+
+  // #765/03 — the identity predicate deliberately still admits guests. Making it
+  // exclude them would ripple into the admin drill-down, the workout-log detail
+  // gate and the delete guard, leaving guest accounts invisible to support and
+  // impossible to remove by hand.
+  it("still admits a GUEST — a guest genuinely is a client with no coach", () => {
+    expect(isCoachlessClientRow({ role: "client", coachId: null, deleted: false })).toBe(true);
+  });
+});
+
+describe("isCoachlessOperatorRow (#765/03)", () => {
+  const base = { role: "client", coachId: null, deleted: false };
+
+  it("admits a real coach-less client", () => {
+    expect(isCoachlessOperatorRow({ ...base, isGuest: false })).toBe(true);
+  });
+
+  // THE case. The admin coach-less list is a human work queue: an operator reads
+  // it to assign a coach or chase a missing email. A guest can be actioned in
+  // neither way — there is no address to chase and nobody to hand a coach to —
+  // so every install that taps "mirar sin cuenta" would add a permanent,
+  // un-actionable row. At any real install volume the queue stops being a queue.
+  it("EXCLUDES a guest", () => {
+    expect(isCoachlessOperatorRow({ ...base, isGuest: true })).toBe(false);
+  });
+
+  it("keeps every other exclusion of the identity predicate", () => {
+    expect(isCoachlessOperatorRow({ role: "client", coachId: "coach123", deleted: false, isGuest: false })).toBe(false);
+    expect(isCoachlessOperatorRow({ role: "trainer", coachId: null, deleted: false, isGuest: false })).toBe(false);
+    expect(isCoachlessOperatorRow({ role: null, coachId: null, deleted: false, isGuest: false })).toBe(false);
+    expect(isCoachlessOperatorRow({ role: "client", coachId: null, deleted: true, isGuest: false })).toBe(false);
+  });
+
+  // A guest is excluded no matter what else is true — belt and braces against a
+  // future refactor that reorders the conjunction.
+  it("excludes a guest even when every other condition passes", () => {
+    expect(isCoachlessOperatorRow({ role: "client", coachId: "", deleted: false, isGuest: true })).toBe(false);
+    expect(isCoachlessOperatorRow({ role: "client", coachId: "   ", deleted: false, isGuest: true })).toBe(false);
   });
 });
 
