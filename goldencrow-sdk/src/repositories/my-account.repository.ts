@@ -12,6 +12,10 @@ import {
   normalizeRoleEmail,
   updateOwnRoleProfileForContext,
 } from "./roles.repository.js";
+import {
+  canAccessBackoffice,
+  canAccessPatientPortal,
+} from "../lib/access-surfaces.js";
 import type {
   AdminContext,
   MyAccountAuthRecord,
@@ -129,7 +133,11 @@ function contextFromRole(context: AdminContext, role: RoleManagementRecord): Adm
     doctorId: role.doctorId,
     patientId: role.patientId,
     isBootstrap: Boolean(role.bootstrap),
-    canAccessBackoffice: role.isActive,
+    canAccessBackoffice: canAccessBackoffice(role, context.isBootstrap),
+    canAccessPatientPortal: canAccessPatientPortal(
+      role,
+      context.isBootstrap,
+    ),
   };
 }
 

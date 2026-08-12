@@ -23,12 +23,23 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  if (session.user?.accessSurface === "patient-portal") {
+    redirect("/patient-portal/home");
+  }
+
   let adminContext;
 
   try {
     adminContext = await getAdminContextServer(session.user?.project);
   } catch {
     redirect("/access-denied");
+  }
+  if (!adminContext.canAccessBackoffice) {
+    redirect(
+      adminContext.canAccessPatientPortal
+        ? "/patient-portal/home"
+        : "/access-denied",
+    );
   }
   const cookieStore = await cookies();
   const initialLanguage = resolveAppLanguage(

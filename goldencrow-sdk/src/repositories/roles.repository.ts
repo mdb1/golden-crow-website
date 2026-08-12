@@ -6,6 +6,11 @@ import { adminDbFor } from "../config/firebase.js";
 const adminDb = adminDbFor("mydnamap");
 import { TEAM_ALLOWLIST, resolveProjectAccess } from "../config/env.js";
 import { AdminRepositoryError } from "./admin-errors.js";
+import {
+  canAccessBackoffice,
+  canAccessPatientPortal,
+  canRoleAccessBackoffice,
+} from "../lib/access-surfaces.js";
 import type {
   AdminContext,
   AdminRole,
@@ -49,15 +54,6 @@ const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
   patient: [],
 };
 
-const BACKOFFICE_ROLES = new Set<AdminRole>([
-  "full_admin",
-  "organization_publisher",
-  "institution_admin",
-  "institution_operator",
-  "institution_laboratory_staff",
-  "institution_doctor",
-]);
-
 function isInstitutionManagerRole(role: AdminRole) {
   return (
     role === "institution_admin" ||
@@ -68,12 +64,6 @@ function isInstitutionManagerRole(role: AdminRole) {
 
 export function normalizeRoleEmail(email: string) {
   return email.trim().toLowerCase();
-}
-
-function canRoleAccessBackoffice(
-  record: Pick<UserRoleRecord, "role" | "isActive"> | null,
-) {
-  return Boolean(record?.isActive && BACKOFFICE_ROLES.has(record.role));
 }
 
 function resolveBackofficeProjectAccess(
@@ -93,6 +83,7 @@ export interface BackofficeEmailAccess {
   viaAllowlist: boolean;
   viaRoleAssignment: boolean;
   canAccessBackoffice: boolean;
+  canAccessPatientPortal: boolean;
   projectAccess: ProjectKey[];
 }
 
@@ -107,17 +98,23 @@ export async function getBackofficeEmailAccess(
     ? TEAM_ALLOWLIST.has(normalizedEmail)
     : false;
   const viaRoleAssignment = canRoleAccessBackoffice(roleRecord);
-  const canAccessBackoffice = viaAllowlist || viaRoleAssignment;
+  const hasBackofficeAccess = canAccessBackoffice(roleRecord, viaAllowlist);
+  const hasPatientPortalAccess = canAccessPatientPortal(
+    roleRecord,
+    viaAllowlist,
+  );
 
   return {
     email: normalizedEmail,
     roleRecord,
     viaAllowlist,
     viaRoleAssignment,
-    canAccessBackoffice,
+    canAccessBackoffice: hasBackofficeAccess,
+    canAccessPatientPortal: hasPatientPortalAccess,
     projectAccess: normalizedEmail
       ? resolveBackofficeProjectAccess(normalizedEmail, {
-          includeMydnamap: canAccessBackoffice,
+          includeMydnamap:
+            hasBackofficeAccess || hasPatientPortalAccess,
         })
       : [],
   };
@@ -141,6 +138,7 @@ function toBootstrapRoleRecord(email: string): UserRoleRecord {
     email,
     role: "full_admin",
     isActive: true,
+    canAccessPatientPortal: false,
     createdAt: BOOTSTRAP_TIMESTAMP,
     updatedAt: BOOTSTRAP_TIMESTAMP,
   };
@@ -175,6 +173,10 @@ function toUserRoleRecord(
     doctorId: normalizeOptionalString(data.doctorId),
     patientId: normalizeOptionalString(data.patientId),
     isActive: normalizeBoolean(data.isActive, true),
+    canAccessPatientPortal: normalizeBoolean(
+      data.canAccessPatientPortal,
+      false,
+    ),
     displayName: normalizeOptionalString(data.displayName),
     contactPhone: normalizeOptionalString(data.contactPhone),
     notes: normalizeOptionalString(data.notes),
@@ -435,6 +437,7 @@ export async function resolveAdminContext(input: {
       patientId: roleRecord.patientId,
       isBootstrap: access.viaAllowlist,
       canAccessBackoffice: true,
+      canAccessPatientPortal: false,
       projectAccess: access.projectAccess,
     };
   }
@@ -446,6 +449,7 @@ export async function resolveAdminContext(input: {
       role: "full_admin",
       isBootstrap: true,
       canAccessBackoffice: true,
+      canAccessPatientPortal: false,
       projectAccess: access.projectAccess,
     };
   }
@@ -461,6 +465,7 @@ export async function resolveAdminContext(input: {
       patientId: roleRecord.patientId,
       isBootstrap: false,
       canAccessBackoffice: false,
+      canAccessPatientPortal: access.canAccessPatientPortal,
       projectAccess: access.projectAccess,
     };
   }
@@ -1104,7 +1109,11 @@ export async function upsertUserRoleForContext(
   email: string,
   payload: Omit<
     UserRoleRecord,
-    "email" | "createdAt" | "updatedAt" | "createdByEmail"
+    | "email"
+    | "createdAt"
+    | "updatedAt"
+    | "createdByEmail"
+    | "canAccessPatientPortal"
   >,
 ): Promise<UserRoleRecord> {
   const normalizedEmail = normalizeRoleEmail(email);
@@ -1155,6 +1164,10 @@ export async function upsertUserRoleForContext(
         : null,
     patientId: payload.role === "patient" ? (payload.patientId ?? null) : null,
     isActive: payload.isActive,
+    canAccessPatientPortal:
+      payload.role === "patient"
+        ? (existing?.canAccessPatientPortal ?? false)
+        : false,
     displayName: payload.displayName ?? null,
     contactPhone: payload.contactPhone ?? existing?.contactPhone ?? null,
     notes: payload.notes ?? null,

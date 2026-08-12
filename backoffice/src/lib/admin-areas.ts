@@ -37,6 +37,7 @@ export interface AdminContextRecord {
   patientId?: string;
   isBootstrap: boolean;
   canAccessBackoffice: boolean;
+  canAccessPatientPortal: boolean;
   project: ProjectKey;
   projectAccess: ProjectKey[];
 }
@@ -122,6 +123,7 @@ export interface RoleManagementRecord {
   doctorId?: string;
   patientId?: string;
   isActive: boolean;
+  canAccessPatientPortal: boolean;
   displayName?: string;
   contactPhone?: string;
   notes?: string;
@@ -266,7 +268,7 @@ export const ADMIN_ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
   institution_doctor:
     "Read access to the institution, full control over the doctor's own profile, and CRUD on the doctor's own patients.",
   patient:
-    "Informational role record only. Patients do not enter the backoffice.",
+    "Patient-scoped account record. Portal access must be granted explicitly and never grants backoffice access.",
 };
 
 export const ROLE_OPTIONS: Array<{ value: AdminRole; label: string }> = [

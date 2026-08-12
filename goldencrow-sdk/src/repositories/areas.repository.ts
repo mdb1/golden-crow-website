@@ -19,6 +19,7 @@ import {
   canViewDoctor,
   canViewInstitution,
   canViewPatient,
+  getBackofficeEmailAccess,
   getUserRoleByEmail,
   normalizeRoleEmail,
 } from "./roles.repository.js";
@@ -347,6 +348,10 @@ async function loadScopedRoleRecords(context: AdminContext) {
         doctorId: normalizeOptionalString(data.doctorId),
         patientId: normalizeOptionalString(data.patientId),
         isActive: typeof data.isActive === "boolean" ? data.isActive : true,
+        canAccessPatientPortal:
+          typeof data.canAccessPatientPortal === "boolean"
+            ? data.canAccessPatientPortal
+            : false,
         displayName: normalizeOptionalString(data.displayName),
         notes: normalizeOptionalString(data.notes),
         createdAt:
@@ -734,6 +739,10 @@ export async function getInstitutionDetailForContext(
       doctorId: normalizeOptionalString(data.doctorId),
       patientId: normalizeOptionalString(data.patientId),
       isActive: typeof data.isActive === "boolean" ? data.isActive : true,
+      canAccessPatientPortal:
+        typeof data.canAccessPatientPortal === "boolean"
+          ? data.canAccessPatientPortal
+          : false,
       displayName: normalizeOptionalString(data.displayName),
       notes: normalizeOptionalString(data.notes),
       createdAt:
@@ -1072,6 +1081,10 @@ export async function getDoctorDetailForContext(
           doctorId: normalizeOptionalString(data.doctorId),
           patientId: normalizeOptionalString(data.patientId),
           isActive: typeof data.isActive === "boolean" ? data.isActive : true,
+          canAccessPatientPortal:
+            typeof data.canAccessPatientPortal === "boolean"
+              ? data.canAccessPatientPortal
+              : false,
           displayName: normalizeOptionalString(data.displayName),
           notes: normalizeOptionalString(data.notes),
           createdAt:
@@ -1371,6 +1384,84 @@ export async function getPatientDetailForContext(
         })
       : null,
   };
+}
+
+export async function grantPatientPortalAccessForContext(
+  context: AdminContext,
+  patientId: string,
+): Promise<RoleManagementRecord> {
+  const patient = await ensurePatientExists(patientId);
+  if (!canEditPatient(context, patient)) {
+    throw new AdminRepositoryError(
+      "You cannot grant portal access to this patient.",
+      403,
+    );
+  }
+
+  const access = await getBackofficeEmailAccess(patient.email);
+  const existing = access.roleRecord;
+  const roleEmail = access.email;
+  if (access.canAccessBackoffice) {
+    throw new AdminRepositoryError(
+      "This email already has backoffice access and cannot also use the patient portal.",
+      409,
+    );
+  }
+
+  if (existing && existing.role !== "patient") {
+    throw new AdminRepositoryError(
+      "This email already has a non-patient role assignment.",
+      409,
+    );
+  }
+
+  if (existing?.patientId && existing.patientId !== patient.id) {
+    throw new AdminRepositoryError(
+      "This email is already linked to another patient role.",
+      409,
+    );
+  }
+
+  const now = new Date().toISOString();
+  const document = {
+    email: roleEmail,
+    role: "patient" as const,
+    institutionId: patient.institutionId,
+    doctorId: patient.doctorId,
+    patientId: patient.id,
+    isActive: true,
+    canAccessPatientPortal: true,
+    displayName: existing?.displayName ?? patient.fullName,
+    contactPhone: existing?.contactPhone ?? null,
+    notes: existing?.notes ?? null,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+    createdByEmail: existing?.createdByEmail ?? context.email,
+  };
+
+  await adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .doc(roleEmail)
+    .set(document, { merge: true });
+
+  return toRoleManagementRecord(
+    {
+      email: roleEmail,
+      role: "patient",
+      institutionId: patient.institutionId,
+      doctorId: patient.doctorId,
+      patientId: patient.id,
+      isActive: true,
+      canAccessPatientPortal: true,
+      displayName: existing?.displayName ?? patient.fullName,
+      contactPhone: existing?.contactPhone,
+      notes: existing?.notes,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      createdByEmail: existing?.createdByEmail ?? context.email,
+    },
+    { patientName: patient.fullName },
+  );
 }
 
 export async function updatePatientForContext(

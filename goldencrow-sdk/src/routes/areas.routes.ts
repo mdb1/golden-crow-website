@@ -12,6 +12,7 @@ import {
   getDoctorDetailForContext,
   getInstitutionDetailForContext,
   getPatientDetailForContext,
+  grantPatientPortalAccessForContext,
   listDoctorsForContext,
   listInstitutionsForContext,
   listPatientsForContext,
@@ -457,6 +458,36 @@ export async function areasRoutes(fastify: FastifyInstance): Promise<void> {
         throw error;
       }
     }
+  );
+
+  f.post(
+    "/areas/patients/:patientId/patient-portal-access",
+    {
+      schema: {
+        params: z.object({
+          patientId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const role = await grantPatientPortalAccessForContext(
+          request.adminContext,
+          request.params.patientId,
+        );
+        return reply.send({ role });
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    },
   );
 
   f.delete(

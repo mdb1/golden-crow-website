@@ -16,6 +16,7 @@ export const authOptions: NextAuthOptions = {
         email: { type: "text" },
         image: { type: "text" },
         project: { type: "text" },
+        accessSurface: { type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.idToken) return null;
@@ -23,7 +24,13 @@ export const authOptions: NextAuthOptions = {
           const res = await fetch(`${SDK_URL}/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idToken: credentials.idToken }),
+            body: JSON.stringify({
+              idToken: credentials.idToken,
+              surface:
+                credentials.accessSurface === "patient-portal"
+                  ? "patient-portal"
+                  : "backoffice",
+            }),
           });
           if (!res.ok) return null;
           return {
@@ -32,6 +39,10 @@ export const authOptions: NextAuthOptions = {
             email: credentials.email ?? null,
             image: credentials.image ?? null,
             project: credentials.project ?? "mydnamap",
+            accessSurface:
+              credentials.accessSurface === "patient-portal"
+                ? "patient-portal"
+                : "backoffice",
           };
         } catch {
           return null;
@@ -48,12 +59,22 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.project = (user as { project?: string }).project ?? "mydnamap";
+        token.accessSurface =
+          (user as { accessSurface?: string }).accessSurface === "patient-portal"
+            ? "patient-portal"
+            : "backoffice";
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user && token.project) {
         session.user.project = token.project as string;
+      }
+      if (session.user) {
+        session.user.accessSurface =
+          token.accessSurface === "patient-portal"
+            ? "patient-portal"
+            : "backoffice";
       }
       return session;
     },

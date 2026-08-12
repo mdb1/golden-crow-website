@@ -11,6 +11,14 @@ import { adminAuthFor } from "../config/firebase.js";
 const adminAuth = adminAuthFor("mydnamap");
 import { resolveAdminContext } from "../repositories/roles.repository.js";
 
+const PATIENT_PORTAL_SDK_PATHS = new Set([
+  "/auth/context",
+  "/auth/my-account",
+  "/auth/my-account/role",
+  "/auth/my-account/email",
+  "/auth/profile-setup",
+]);
+
 export async function authMiddleware(
   request: FastifyRequest,
   reply: FastifyReply
@@ -33,8 +41,23 @@ export async function authMiddleware(
       uid: decodedClaims.uid,
     });
 
-    if (!adminContext || !adminContext.canAccessBackoffice) {
+    if (
+      !adminContext ||
+      (!adminContext.canAccessBackoffice &&
+        !adminContext.canAccessPatientPortal)
+    ) {
       return reply.status(403).send({ error: "Account not authorized" });
+    }
+
+    const requestPath = request.url.split("?")[0] ?? request.url;
+    if (
+      adminContext.canAccessPatientPortal &&
+      !adminContext.canAccessBackoffice &&
+      !PATIENT_PORTAL_SDK_PATHS.has(requestPath)
+    ) {
+      return reply.status(403).send({
+        error: "This patient portal session cannot access backoffice APIs",
+      });
     }
 
     // Attach decoded claims to request for downstream route handlers

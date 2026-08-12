@@ -633,6 +633,10 @@ export function MyAccountWorkbench({
     }
   }
 
+  const hasActiveSurfaceAccess =
+    account.context.canAccessBackoffice ||
+    account.context.canAccessPatientPortal;
+
   return (
     <div className="flex flex-col gap-5">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
@@ -661,8 +665,8 @@ export function MyAccountWorkbench({
             <Badge variant={getRoleBadgeVariant(account.context.role)}>
               {ADMIN_ROLE_LABELS[account.context.role]}
             </Badge>
-            <Badge variant={statusBadgeVariant(account.context.canAccessBackoffice)}>
-              {account.context.canAccessBackoffice ? "Active access" : "Inactive access"}
+            <Badge variant={statusBadgeVariant(hasActiveSurfaceAccess)}>
+              {hasActiveSurfaceAccess ? "Active access" : "Inactive access"}
             </Badge>
             <Badge variant={statusBadgeVariant(account.auth.emailVerified)}>
               {account.auth.emailVerified ? "Verified email" : "Unverified email"}
@@ -895,7 +899,7 @@ export function MyAccountWorkbench({
           />
           <ReadOnlyField
             label="Role status"
-            value={account.role?.isActive ?? account.context.canAccessBackoffice}
+            value={account.role?.isActive ?? hasActiveSurfaceAccess}
           />
           <ReadOnlyField label="Scope" value={currentScope} />
           <ReadOnlyField label="Organization id" value={account.role?.organizationId} mono />
@@ -908,6 +912,10 @@ export function MyAccountWorkbench({
           <ReadOnlyField
             label="Bootstrap"
             value={account.role?.bootstrap ?? account.context.isBootstrap}
+          />
+          <ReadOnlyField
+            label="Patient portal access"
+            value={account.context.canAccessPatientPortal}
           />
           <ReadOnlyField
             label="Project access"

@@ -3,7 +3,16 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, ArrowRight, RotateCcw, Save, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  KeyRound,
+  RotateCcw,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -31,6 +40,7 @@ import type {
   InstitutionRecord,
   PatientDetailRecord,
   PatientRecord,
+  RoleManagementRecord,
 } from "@/lib/admin-areas";
 import { isInstitutionManagerRole, PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
 import {
@@ -120,6 +130,14 @@ export function PatientWorkbench({
     toPatientFormState(detail?.patient, defaults)
   );
   const [pending, setPending] = useState(false);
+  const [grantingPortalAccess, setGrantingPortalAccess] = useState(false);
+  const [portalAccessGranted, setPortalAccessGranted] = useState(
+    Boolean(
+      detail?.roleRecord?.role === "patient" &&
+        detail.roleRecord.isActive &&
+        detail.roleRecord.canAccessPatientPortal,
+    ),
+  );
   const [toast, setToast] = useState<ActionToastState | null>(null);
 
   const sourceState = useMemo(
@@ -260,6 +278,38 @@ export function PatientWorkbench({
         message: t("Unable to delete the patient."),
       });
       setPending(false);
+    }
+  }
+
+  async function handleGrantPatientPortalAccess() {
+    if (!detail) {
+      return;
+    }
+
+    setGrantingPortalAccess(true);
+    try {
+      await sdkFetch<{ role: RoleManagementRecord }>(
+        `/areas/patients/${encodeURIComponent(detail.patient.id)}/patient-portal-access`,
+        { method: "POST" },
+      );
+      setPortalAccessGranted(true);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("Patient portal access granted."),
+      });
+      router.refresh();
+    } catch (error) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : t("Unable to grant patient portal access."),
+      });
+    } finally {
+      setGrantingPortalAccess(false);
     }
   }
 
@@ -481,6 +531,56 @@ export function PatientWorkbench({
           </div>
         </div>
       </section>
+
+      {detail ? (
+        <section className="glass-panel flex flex-col gap-5 px-5 py-5">
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-heading text-lg font-semibold text-foreground">
+                {t("Patient portal access")}
+              </h3>
+              <Badge variant={portalAccessGranted ? "success" : "secondary"}>
+                {portalAccessGranted ? t("Access granted") : t("No access")}
+              </Badge>
+            </div>
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+              {portalAccessGranted
+                ? t("This patient can sign in through the patient portal and open its patient-only pages.")
+                : t("This patient does not currently have access to either the patient portal or the backoffice. Granting access creates an active patient role for the portal only.")}
+            </p>
+          </div>
+
+          {detail.roleRecord && detail.roleRecord.role !== "patient" ? (
+            <div className="rounded-lg border border-amber-400/35 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:bg-amber-400/10 dark:text-amber-100">
+              {t("This email already has a non-patient role. Patient portal access cannot be combined with backoffice access.")}
+            </div>
+          ) : null}
+
+          <Button
+            type="button"
+            size="lg"
+            className="min-h-14 w-full bg-emerald-600 text-base font-semibold text-white shadow-[0_14px_32px_rgba(5,150,105,0.2)] hover:bg-emerald-700 sm:w-fit sm:min-w-80"
+            onClick={() => void handleGrantPatientPortalAccess()}
+            disabled={
+              portalAccessGranted ||
+              grantingPortalAccess ||
+              !isEditable ||
+              (detail.roleRecord !== null && detail.roleRecord.role !== "patient")
+            }
+          >
+            {portalAccessGranted ? (
+              <CheckCircle2 className="size-5" />
+            ) : (
+              <KeyRound className="size-5" />
+            )}
+            {portalAccessGranted
+              ? t("Patient portal access granted")
+              : grantingPortalAccess
+                ? t("Granting access...")
+                : t("Give access to the patient portal")}
+          </Button>
+        </section>
+      ) : null}
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div>

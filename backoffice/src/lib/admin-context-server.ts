@@ -13,6 +13,7 @@ interface SdkContextResponse {
     patientId?: string;
     isBootstrap: boolean;
     canAccessBackoffice: boolean;
+    canAccessPatientPortal: boolean;
     projectAccess: string[];
   };
   capabilities: string[];
@@ -31,6 +32,7 @@ export async function getAdminContextServer(activeProject?: string): Promise<Adm
     patientId: ctx.patientId,
     isBootstrap: ctx.isBootstrap,
     canAccessBackoffice: ctx.canAccessBackoffice,
+    canAccessPatientPortal: ctx.canAccessPatientPortal,
     project:
       (activeProject as ProjectKey) ??
       ((ctx.projectAccess?.[0] as ProjectKey | undefined) ?? "mydnamap"),

@@ -73,7 +73,11 @@ function getStepError(step: ProfileSetupStep, form: ProfileSetupForm) {
   return null;
 }
 
-export function CompleteProfileFlow() {
+export function CompleteProfileFlow({
+  homeHref = "/",
+}: {
+  homeHref?: string;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -94,7 +98,7 @@ export function CompleteProfileFlow() {
         }
 
         if (!response.state.needsCompletion) {
-          router.replace("/");
+          router.replace(homeHref);
           return;
         }
 
@@ -123,7 +127,7 @@ export function CompleteProfileFlow() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [homeHref, router]);
 
   const activeStep = PROFILE_SETUP_STEPS[currentStep];
   const normalizedForm = useMemo(
@@ -176,7 +180,7 @@ export function CompleteProfileFlow() {
         body: JSON.stringify(normalizedForm),
       });
       window.setTimeout(() => {
-        router.replace("/");
+        router.replace(homeHref);
       }, 900);
     } catch (saveError) {
       setError(

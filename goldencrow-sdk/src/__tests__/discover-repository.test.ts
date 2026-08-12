@@ -240,6 +240,7 @@ describe("discover repository", () => {
     role: "full_admin" as const,
     isBootstrap: false,
     canAccessBackoffice: true,
+    canAccessPatientPortal: false,
     projectAccess: ["mydnamap" as const],
   };
 
@@ -252,6 +253,7 @@ describe("discover repository", () => {
       organizationId: "org-1",
       isBootstrap: false,
       canAccessBackoffice: true,
+      canAccessPatientPortal: false,
       projectAccess: ["mydnamap"],
     });
 

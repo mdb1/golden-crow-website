@@ -29,15 +29,18 @@ import {
 
 const LoginBodySchema = z.object({
   idToken: z.string().min(1, "idToken is required"),
+  surface: z.enum(["backoffice", "patient-portal"]).default("backoffice"),
 });
 
 const EmailSignupEligibilitySchema = z.object({
   email: z.string().email(),
+  surface: z.enum(["backoffice", "patient-portal"]).default("backoffice"),
 });
 
 const EmailSignupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6).max(128),
+  surface: z.enum(["backoffice", "patient-portal"]).default("backoffice"),
 });
 
 const CompleteProfileSchema = z.object({
@@ -74,7 +77,10 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const eligibility = await getEmailSignupEligibility(request.body.email);
+      const eligibility = await getEmailSignupEligibility(
+        request.body.email,
+        request.body.surface,
+      );
       return reply.send(eligibility);
     }
   );
@@ -108,7 +114,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const { idToken } = request.body;
+      const { idToken, surface } = request.body;
       // 5 days in milliseconds
       const expiresIn = 1000 * 60 * 60 * 24 * 5;
 
@@ -120,8 +126,23 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           uid: decodedToken.uid,
         });
 
-        if (!adminContext || !adminContext.canAccessBackoffice) {
-          return reply.status(403).send({ error: "Account not authorized" });
+        const canAccessRequestedSurface =
+          surface === "patient-portal"
+            ? adminContext?.canAccessPatientPortal
+            : adminContext?.canAccessBackoffice;
+        if (!adminContext || !canAccessRequestedSurface) {
+          const requiredSurface = adminContext?.canAccessBackoffice
+            ? "backoffice"
+            : adminContext?.canAccessPatientPortal
+              ? "patient-portal"
+              : undefined;
+          return reply.status(403).send({
+            error: requiredSurface
+              ? `This account must sign in through the ${requiredSurface === "backoffice" ? "backoffice" : "patient portal"} login.`
+              : "Account not authorized",
+            code: requiredSurface ? "WRONG_AUTH_SURFACE" : "ACCOUNT_NOT_AUTHORIZED",
+            requiredSurface,
+          });
         }
 
         const sessionCookie = await adminAuth.createSessionCookie(idToken, {

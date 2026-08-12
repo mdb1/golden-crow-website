@@ -11,6 +11,7 @@ import {
   normalizeRoleEmail,
 } from "./roles.repository.js";
 import type { AdminRole, ProjectKey } from "../types/sdk.types.js";
+import type { AuthSurface } from "../lib/access-surfaces.js";
 
 const DEFAULT_ICON_NAME = "person.crop.circle.fill";
 const DEFAULT_ICON_COLOR = "#5A4FCF";
@@ -27,6 +28,9 @@ export interface EmailSignupEligibility {
   eligible: boolean;
   viaAllowlist: boolean;
   viaRoleAssignment: boolean;
+  canAccessBackoffice: boolean;
+  canAccessPatientPortal: boolean;
+  requiredSurface?: AuthSurface;
   role?: AdminRole;
   accountExists: boolean;
   accountHasGoogle: boolean;
@@ -191,7 +195,8 @@ function validateCompleteProfileInput(input: CompleteProfileSetupInput) {
 }
 
 export async function getEmailSignupEligibility(
-  email: string
+  email: string,
+  surface: AuthSurface = "backoffice",
 ): Promise<EmailSignupEligibility> {
   const access = await getBackofficeEmailAccess(email);
   const authUser = access.email
@@ -207,9 +212,22 @@ export async function getEmailSignupEligibility(
 
   return {
     email: access.email,
-    eligible: access.canAccessBackoffice,
+    eligible:
+      surface === "patient-portal"
+        ? access.canAccessPatientPortal
+        : access.canAccessBackoffice,
     viaAllowlist: access.viaAllowlist,
-    viaRoleAssignment: access.viaRoleAssignment,
+    viaRoleAssignment:
+      surface === "patient-portal"
+        ? access.canAccessPatientPortal
+        : access.viaRoleAssignment,
+    canAccessBackoffice: access.canAccessBackoffice,
+    canAccessPatientPortal: access.canAccessPatientPortal,
+    requiredSurface: access.canAccessBackoffice
+      ? "backoffice"
+      : access.canAccessPatientPortal
+        ? "patient-portal"
+        : undefined,
     role: access.roleRecord?.role,
     accountExists: Boolean(authUser),
     accountHasGoogle: signInProviders.includes(GOOGLE_PROVIDER_ID),
@@ -222,11 +240,17 @@ export async function getEmailSignupEligibility(
 export async function createEligibleEmailAccount(input: {
   email: string;
   password: string;
+  surface?: AuthSurface;
 }) {
-  const eligibility = await getEmailSignupEligibility(input.email);
+  const eligibility = await getEmailSignupEligibility(
+    input.email,
+    input.surface,
+  );
   if (!eligibility.eligible) {
     throw new ProfileSetupError(
-      "This email does not have backoffice access yet.",
+      input.surface === "patient-portal"
+        ? "This email does not have patient portal access yet."
+        : "This email does not have backoffice access yet.",
       403
     );
   }

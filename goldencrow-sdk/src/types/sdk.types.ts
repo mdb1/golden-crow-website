@@ -74,6 +74,7 @@ export interface UserRoleRecord {
   doctorId?: string;
   patientId?: string;
   isActive: boolean;
+  canAccessPatientPortal: boolean;
   displayName?: string;
   contactPhone?: string;
   notes?: string;
@@ -109,6 +110,7 @@ export interface AdminContext {
   patientId?: string;
   isBootstrap: boolean;
   canAccessBackoffice: boolean;
+  canAccessPatientPortal: boolean;
   projectAccess: ProjectKey[];
 }
 
