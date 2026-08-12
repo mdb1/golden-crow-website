@@ -417,8 +417,10 @@ function ProviderDetail({
 
 export function MyAccountWorkbench({
   initialAccount,
+  showDiagnostics = true,
 }: {
   initialAccount: MyAccountRecord;
+  showDiagnostics?: boolean;
 }) {
   const [account, setAccount] = useState(initialAccount);
   const [roleState, setRoleState] = useState<RoleProfileState>(() =>
@@ -879,10 +881,12 @@ export function MyAccountWorkbench({
         </SectionShell>
       </div>
 
-      <SectionShell
-        icon={<ShieldCheck className="h-4 w-4" />}
-        title="Access & Permissions"
-      >
+      {showDiagnostics ? (
+        <>
+          <SectionShell
+            icon={<ShieldCheck className="h-4 w-4" />}
+            title="Access & Permissions"
+          >
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <ReadOnlyField
             label="Role email"
@@ -970,12 +974,12 @@ export function MyAccountWorkbench({
             </div>
           </div>
         </div>
-      </SectionShell>
+          </SectionShell>
 
-      <SectionShell
-        icon={<Fingerprint className="h-4 w-4" />}
-        title="Firebase Identity"
-      >
+          <SectionShell
+            icon={<Fingerprint className="h-4 w-4" />}
+            title="Firebase Identity"
+          >
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <ReadOnlyField label="Firebase uid" value={account.auth.uid} mono />
           <ReadOnlyField label="Firebase email" value={account.auth.email} mono />
@@ -1010,10 +1014,10 @@ export function MyAccountWorkbench({
           />
           <ReadOnlyField label="Sign-in providers" value={providerNames} />
         </div>
-      </SectionShell>
+          </SectionShell>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <SectionShell icon={<KeyRound className="h-4 w-4" />} title="Sign-In Providers">
+          <div className="grid gap-5 xl:grid-cols-2">
+            <SectionShell icon={<KeyRound className="h-4 w-4" />} title="Sign-In Providers">
           <div className="grid gap-3">
             {account.auth.providerData.length > 0 ? (
               account.auth.providerData.map((provider) => (
@@ -1028,9 +1032,9 @@ export function MyAccountWorkbench({
               </div>
             )}
           </div>
-        </SectionShell>
+            </SectionShell>
 
-        <SectionShell icon={<FileCheck2 className="h-4 w-4" />} title="Profile Documents">
+            <SectionShell icon={<FileCheck2 className="h-4 w-4" />} title="Profile Documents">
           <div className="grid gap-3">
             <StatusItem
               ok={Boolean(account.profile?.docs.profile)}
@@ -1065,14 +1069,16 @@ export function MyAccountWorkbench({
               }
             />
           </div>
-        </SectionShell>
-      </div>
+            </SectionShell>
+          </div>
 
-      <SectionShell icon={<Braces className="h-4 w-4" />} title="Custom Claims">
-        <pre className="max-h-72 overflow-auto rounded-lg border border-border/80 bg-muted/50 px-4 py-3 font-mono text-xs text-muted-foreground">
-          {customClaims}
-        </pre>
-      </SectionShell>
+          <SectionShell icon={<Braces className="h-4 w-4" />} title="Custom Claims">
+            <pre className="max-h-72 overflow-auto rounded-lg border border-border/80 bg-muted/50 px-4 py-3 font-mono text-xs text-muted-foreground">
+              {customClaims}
+            </pre>
+          </SectionShell>
+        </>
+      ) : null}
     </div>
   );
 }

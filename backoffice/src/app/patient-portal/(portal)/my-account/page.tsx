@@ -7,5 +7,5 @@ export default async function PatientPortalMyAccountPage() {
     "/auth/my-account",
   );
 
-  return <MyAccountWorkbench initialAccount={account} />;
+  return <MyAccountWorkbench initialAccount={account} showDiagnostics={false} />;
 }
