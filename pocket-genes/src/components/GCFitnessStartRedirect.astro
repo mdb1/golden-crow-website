@@ -26,21 +26,23 @@
 //
 //   * WhatsApp, Safari, Android web views — the hand-off works. They get the plain automatic
 //     redirect, which costs zero taps and is the best experience available.
-//   * Instagram and the rest of the Meta family on iOS — the hand-off is refused, by every
-//     route. Measured on a real phone twice: an automatic `location.replace` painted a WHITE
-//     SCREEN (the web view commits to leaving, tears down the document, then the scheme
-//     navigation dies), and with that removed, tapping a store link did nothing at all.
+//   * Instagram and the rest of the Meta family on iOS — the hand-off is refused, by EVERY
+//     route. Three were tried on a real phone and all three failed; the body script lists
+//     them with their symptoms.
 //
-// So for that second group the store is simply not reachable, and the page stops trying. Its
-// tap ESCAPES TO SAFARI instead (`window.open('x-safari-https://…')`), where this same page
-// loads and the ordinary redirect finishes the job. See the escape chain in the body script
-// for the sourcing, and for why `window.open` rather than a link is load-bearing.
+// For that second group the page therefore navigates NOWHERE and stops pretending it can.
+// Its card carries the one route that has never stopped working — the host app's own ⋯ →
+// "Abrir en el navegador" — as the headline, plus a copy-link button. Once the page reopens
+// in Safari the ordinary redirect above finishes the job with no taps at all.
 //
-// Two wrong turns are recorded in the body comments rather than deleted, because both were
-// reasonable and both would be re-derived: that Instagram must accept the scheme (it ends on
-// the same 301 as Hevy's), and that a user gesture was the missing ingredient (Adjust's
-// landing page only taps). Neither survived the phone.
-import { APP_STORE_URL, PLAY_STORE_URL } from '../data/gcFitnessPublic';
+// The three wrong turns are recorded in the body comments rather than deleted, because each
+// was reasonable and each would be re-derived: that Instagram must accept the scheme (its
+// chain ends on the same 301 as Hevy's), that a user gesture was the missing ingredient
+// (Adjust's landing page only taps), and that `x-safari-https` via `window.open` escapes
+// (a project that measures this per host app still lists it as working). None survived the
+// phone. The lesson worth keeping is the METHOD, not the verdict: on this problem, sources
+// and inference both lose to one test on a real device.
+import { APP_STORE_APP_URL, APP_STORE_URL, PLAY_STORE_URL } from '../data/gcFitnessPublic';
 import { defaultLang } from '../i18n/ui';
 import type { Lang } from '../i18n/ui';
 
@@ -61,7 +63,12 @@ const copy = {
     tapBody: 'Tocá el botón: abrimos Safari y de ahí la tienda.',
     tapCta: 'Abrir la App Store',
     tapCtaAndroid: 'Abrir Google Play',
-    openChrome: '¿No pasó nada? Probá abrir en Chrome',
+    // The Meta-web-view variant. Action first, diagnosis second: the visitor wants the app,
+    // not an explanation of WebKit. The ⋯ route is the ONLY one that has never stopped
+    // working, so it gets the headline rather than a footnote.
+    escapeTitle: 'Abrí esto en tu navegador',
+    escapeBody:
+      'Instagram no puede abrir la App Store. Tocá los ⋯ arriba a la derecha y elegí “Abrir en el navegador”: ahí la descarga arranca sola.',
     // Secondary, and deliberately phrased as a conditional: it only matters if the tap above
     // did nothing, and until then it is noise that competes with the real action.
     escapeHint:
@@ -80,7 +87,9 @@ const copy = {
     tapBody: 'Tap the button: we open Safari, and Safari opens the store.',
     tapCta: 'Open the App Store',
     tapCtaAndroid: 'Open Google Play',
-    openChrome: 'Nothing happened? Try opening in Chrome',
+    escapeTitle: 'Open this in your browser',
+    escapeBody:
+      'Instagram can’t open the App Store. Tap the ⋯ at the top right and choose “Open in browser” — the download starts by itself there.',
     escapeHint: 'Nothing happens? Tap the ⋯ at the top right and choose “Open in browser”.',
     appStore: 'Download on the App Store',
     playStore: 'Get it on Google Play',
@@ -394,10 +403,62 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
         display: inline;
       }
 
-      .gcf-chrome {
-        font-size: 0.9rem;
-        font-weight: 600;
+      /* Variant switch. Default (no `data-gcf-escape`) shows the store arm; a Meta web view
+         stamps the attribute in <head>, before paint, so neither arm ever flashes. */
+      [data-gcf-when='escape'] {
+        display: none;
+      }
+
+      :root[data-gcf-escape='true'] [data-gcf-when='store'] {
+        display: none;
+      }
+
+      :root[data-gcf-escape='true'] [data-gcf-when='escape'] {
+        display: block;
+      }
+
+      .gcf-arrow {
+        position: fixed;
+        top: 8px;
+        right: 18px;
+        font-size: 2.6rem;
+        line-height: 1;
         color: var(--gcf-amber-deep);
+        animation: gcf-nudge 1.4s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      @keyframes gcf-nudge {
+        0%,
+        100% {
+          transform: translate(0, 0);
+        }
+        50% {
+          transform: translate(4px, -4px);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .gcf-arrow {
+          animation: none;
+        }
+      }
+
+      /* The instruction IS the primary action here, so it gets body-copy weight rather than
+         the muted footnote sizing of `.gcf-escape`. */
+      .gcf-escape-body {
+        font-size: 1rem;
+        line-height: 1.55;
+        max-width: 24rem;
+      }
+
+      /* Promoted to the primary control when the store link cannot be one. */
+      :root[data-gcf-escape='true'] .gcf-copy {
+        background: var(--gcf-amber-deep);
+        border-color: var(--gcf-amber-deep);
+        color: #fff;
+        padding: 14px 28px;
+        font-size: 1rem;
       }
 
       .gcf-escape {
@@ -426,6 +487,14 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
   </head>
 
   <body>
+    <!--
+      Points at the host app's ⋯ button, which lives at the top right of every one of these
+      web views. The instruction is the highest-converting route we have and it competes with
+      nothing on screen, so it gets an arrow rather than a sentence someone has to parse.
+      Escape variant only — everywhere else there is no menu worth pointing at.
+    -->
+    <div class="gcf-arrow" data-gcf-when="escape" aria-hidden="true">↗</div>
+
     <main class="gcf-turnstile">
       <!-- The icon is a link too: it is the biggest tap target on the screen. -->
       <a class="gcf-logo-link" href={APP_STORE_URL} data-gcf-store-link rel="noopener">
@@ -436,14 +505,41 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
       <p class="gcf-working">{t.working}</p>
 
       <div class="gcf-stuck">
-        <h1>{t.tapTitle}</h1>
-        <p>{t.tapBody}</p>
+        <!--
+          Two headline/body variants, one slot. `data-gcf-escape` picks which — a Meta web
+          view gets the ⋯ instructions AS the headline, because there the store is
+          unreachable and an "open the store" promise would be a lie; every other stranded
+          case gets the store CTA, where the link genuinely works.
+        -->
+        <h1 data-gcf-when="store">{t.tapTitle}</h1>
+        <p data-gcf-when="store">{t.tapBody}</p>
+
+        <h1 data-gcf-when="escape">{t.escapeTitle}</h1>
+
+        <!--
+          THE ONE ROUTE NEVER ACTUALLY TRIED INSIDE INSTAGRAM.
+          Everything that failed went `https://apps.apple.com/…` → 301 → `itms-appss://`,
+          where the scheme arrives as a REDIRECT inside the network layer and the web view
+          drops it without a word. This is the scheme as the INITIAL navigation of a user
+          gesture, which is a different branch of WKWebView's `decidePolicyFor` entirely.
+          #782 removed it from in-app browsers by reasoning, not by measurement — its own
+          code has only ever served the https URL in here.
+
+          Safe to try: an unhandled scheme on a link tap cancels the navigation and leaves
+          the document standing. The white screen came from `location.replace`, the blank
+          tab from `window.open`; a plain anchor can do neither.
+        -->
+        <a class="gcf-cta" href={APP_STORE_APP_URL} data-gcf-when="escape" rel="noopener">
+          {t.tapCta}
+        </a>
+
+        <p class="gcf-escape-body" data-gcf-when="escape">{t.escapeBody}</p>
 
         <!--
           PRIMARY action. An `<a>` and never a scripted navigation: the whole point of this
           branch is that the store hand-off must carry a user gesture.
         -->
-        <a class="gcf-cta" href={APP_STORE_URL} data-gcf-store-link rel="noopener">
+        <a class="gcf-cta" href={APP_STORE_URL} data-gcf-store-link data-gcf-when="store" rel="noopener">
           <span data-gcf-cta-ios>{t.tapCta}</span>
           <span data-gcf-cta-android hidden>{t.tapCtaAndroid}</span>
         </a>
@@ -457,14 +553,8 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
           </a>
         </div>
 
-        <!--
-          Step 2 of the escape chain. Hidden until step 1 (the Safari scheme) has visibly
-          failed, so the common case stays a single button rather than a menu of guesses.
-        -->
-        <a class="gcf-chrome" id="gcf-chrome" href="#" hidden>{t.openChrome}</a>
-
-        <!-- Step 3. Needs nobody's cooperation, which is why it is last and always there. -->
-        <p class="gcf-escape">{t.escapeHint}</p>
+        <!-- Only for the non-Meta stranded case; in a Meta web view this IS the headline. -->
+        <p class="gcf-escape" data-gcf-when="store">{t.escapeHint}</p>
 
         <button class="gcf-copy" id="gcf-copy" type="button" data-copied={t.copied}>
           {t.copyLink}
@@ -485,61 +575,35 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
         });
       })();
 
-      // ── The escape chain (Meta web views on iOS only) ────────────────────────────────
+      // ── Meta web views on iOS: NOTHING here navigates. Three attempts proved why. ─────
       //
-      // From inside Instagram's web view the App Store is unreachable — measured twice on a
-      // real phone: the automatic redirect painted a white screen, and with that removed,
-      // NEITHER tappable store link did anything. So these taps stop aiming at the store and
-      // aim at SAFARI instead. Once this same page loads there, the redirect at the top of
-      // the head script fires normally and the install prompt appears. Two hops, one tap.
+      // Every programmatic route out of Instagram's iOS web view has now been tried ON A
+      // REAL PHONE, and each failed in a way that was worse than doing nothing:
       //
-      // `window.open` and NOT `location.href`, which is the detail the whole thing hangs on:
-      // shalanah/inapp-debugger measures these escapes per host app and reports the Safari
-      // scheme on Instagram iOS as working "only via window.open". Its issue #16 — "the
-      // Safari https link doesn't work anymore" — is the plain-link form failing, and is
-      // exactly the mistake this comment exists to stop someone from re-introducing.
+      //   1. Automatic `location.replace(storeUrl)`  → WHITE SCREEN. The web view commits
+      //      to leaving, tears down the document, then the `itms-appss://` navigation dies
+      //      with nothing left to paint.
+      //   2. A user-gesture TAP on the same store URL → nothing at all. So the gesture was
+      //      never the missing ingredient; Instagram refuses the store hand-off by any route.
+      //   3. `window.open('x-safari-https://…')`      → a BLANK NEW TAB, still inside
+      //      Instagram. The scheme is dead there, and `window.open` makes its corpse visible
+      //      as a tab the visitor now has to back out of. `googlechromes://` is not shipped
+      //      either: it is the same class of bet, and losing it costs another dead tap.
       //
-      // Called synchronously inside the click handler because `window.open` without a user
-      // gesture is a popup and gets blocked.
-      (() => {
-        if (document.documentElement.getAttribute('data-gcf-escape') !== 'true') return;
-
-        // Scheme-less form: `x-safari-https://host/path`. Carries the query string so a
-        // future campaign parameter survives the hop.
-        const bare = window.location.host + window.location.pathname + window.location.search;
-        const chromeLink = document.getElementById('gcf-chrome');
-
-        let leftTheApp = false;
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'hidden') leftTheApp = true;
-        });
-        window.addEventListener('pagehide', () => {
-          leftTheApp = true;
-        });
-
-        document.querySelectorAll('[data-gcf-store-link]').forEach((link) => {
-          link.addEventListener('click', (event) => {
-            // The href stays a real store URL in the markup so the link is meaningful to
-            // anything that reads it (long-press → copy, a11y, a future browser that would
-            // handle it). Here we take the tap over.
-            event.preventDefault();
-            window.open('x-safari-https://' + bare, '_blank');
-
-            // Step 2 surfaces only after step 1 has visibly failed. Revealing both at once
-            // would ask the visitor to choose between two things they cannot evaluate.
-            setTimeout(() => {
-              if (leftTheApp || document.visibilityState === 'hidden') return;
-              if (chromeLink) chromeLink.hidden = false;
-            }, 1200);
-          });
-        });
-
-        // Step 2 — Chrome, if it is installed. The same measurements report browser schemes
-        // working on Instagram iOS. `googlechromes://` is the https variant of the scheme.
-        if (chromeLink) {
-          chromeLink.setAttribute('href', 'googlechromes://' + bare);
-        }
-      })();
+      // Attempt 3 was sourced from shalanah/inapp-debugger, whose table still lists the
+      // Safari scheme as working on Instagram iOS "only via window.open". That measurement
+      // did not hold here — which is exactly what its own issue #16 ("the Safari https link
+      // doesn't work anymore") reported. Meta ships weekly and profits from keeping people
+      // inside; any scheme-based escape is a bet on an undocumented behaviour of an adversary.
+      //
+      // So this branch navigates NOWHERE. The card's job is to make the ONE route that has
+      // never stopped working — the host app's own ⋯ → "Abrir en el navegador" — as easy to
+      // follow as a button would be. The store links keep their real `href` so a long-press
+      // → "Copiar" still yields something useful, but no click handler hijacks them into a
+      // dead end.
+      //
+      // If this is ever revisited: the failure to design around is a BLANK SCREEN, not a
+      // dead button. A visitor who lands on white has no way back to the instructions.
 
       // Copy-the-link, for the web views where "Open in browser" is buried. Same shape as the
       // one on `/download`: `navigator.clipboard` is missing in plenty of web views, so the
