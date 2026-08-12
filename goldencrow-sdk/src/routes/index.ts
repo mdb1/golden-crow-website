@@ -15,12 +15,14 @@ import { gymRoutes } from "./gym-index.routes.js";
 import { fileStorageRoutes } from "./file-storage.routes.js";
 import { discoverRoutes } from "./discover.routes.js";
 import { clientBookingsRoutes } from "./client-bookings.routes.js";
+import { informedConsentRoutes } from "./informed-consents.routes.js";
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(healthRoutes);
   await fastify.register(authRoutes);
   await fastify.register(areasRoutes);
   await fastify.register(twoPQRoutes);
+  await fastify.register(informedConsentRoutes);
   await fastify.register(rolesRoutes);
   await fastify.register(userRoutes);
   await fastify.register(reportRoutes);

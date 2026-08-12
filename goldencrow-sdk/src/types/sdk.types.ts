@@ -187,6 +187,38 @@ export interface PatientListItem extends PatientRecord {
   doctorEmail?: string;
 }
 
+export interface InformedConsentFile {
+  name: string;
+  type: string;
+  size: number;
+  content: string;
+}
+
+export interface InformedConsentFileSummary {
+  name: string;
+  type: string;
+  size: number;
+}
+
+export interface InformedConsentRecord {
+  id: string;
+  collectionKey: "2pq-informed-consent";
+  institutionId: string;
+  doctorId: string;
+  patientId: string;
+  patientName: string;
+  file: InformedConsentFileSummary;
+  createdAt: string;
+  updatedAt: string;
+  createdByEmail: string;
+}
+
+export interface InformedConsentPatientOption {
+  id: string;
+  fullName: string;
+  email: string;
+}
+
 export interface RoleManagementRecord extends UserRoleRecord {
   organizationName?: string;
   institutionName?: string;

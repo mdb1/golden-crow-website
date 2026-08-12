@@ -14,10 +14,10 @@ import {
   PlusCircle,
   Save,
   Search,
-  Upload,
   X,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
+import { SingleFileUpload } from "@/components/single-file-upload";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { OptionSelectField } from "@/components/constrained-fields";
@@ -254,7 +254,6 @@ const PREVIOUS_MISCARRIAGES_OPTIONS = [
   { value: "3_or_more", label: "3 or more (recurrent)" },
 ];
 
-const KARYOTYPE_FILE_MAX_BYTES = 750_000;
 
 const SAMPLE_TYPE_OPTIONS = [
   { value: "biopsia de trofoectodermo", label: "Trophectoderm biopsy" },
@@ -2413,18 +2412,6 @@ function TextAreaField({
   );
 }
 
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () =>
-      typeof reader.result === "string"
-        ? resolve(reader.result)
-        : reject(new Error("Unable to read file."));
-    reader.onerror = () => reject(reader.error ?? new Error("Unable to read file."));
-    reader.readAsDataURL(file);
-  });
-}
-
 type PreviewField = {
   label: string;
   value: string;
@@ -3741,33 +3728,6 @@ export function TwoPQFormFlow({
       ...current,
       previousGeneticTests: { ...current.previousGeneticTests, ...patch },
     }));
-  }
-
-  async function attachKaryotypeFile(file: File) {
-    if (file.size > KARYOTYPE_FILE_MAX_BYTES) {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: t("Karyotype file is too large."),
-      });
-      return;
-    }
-
-    try {
-      const content = await fileToDataUrl(file);
-      updatePreviousGeneticTests({
-        karyotypeFileName: file.name,
-        karyotypeFileType: file.type || "application/octet-stream",
-        karyotypeFileSize: String(file.size),
-        karyotypeFileContent: content,
-      });
-    } catch {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: t("Unable to read karyotype file."),
-      });
-    }
   }
 
   function clearKaryotypeFile() {
@@ -6006,56 +5966,43 @@ export function TwoPQFormFlow({
                 error={errorFor("previousGeneticTests.karyotypeResult")}
               />
             </div>
-            <div className="md:col-span-2 rounded-xl border border-border/70 bg-background/50 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <Label htmlFor="form-karyotype-file">
-                    {t("Karyotype file")}
-                  </Label>
-                  {state.previousGeneticTests.karyotypeFileName ? (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {state.previousGeneticTests.karyotypeFileName}
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {t("No file selected")}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" asChild>
-                    <label htmlFor="form-karyotype-file" className="cursor-pointer">
-                      <Upload className="size-4" />
-                      {t("Upload file")}
-                    </label>
-                  </Button>
-                  {state.previousGeneticTests.karyotypeFileName ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={clearKaryotypeFile}
-                    >
-                      <X className="size-4" />
-                      {t("Remove file")}
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-              <Input
+            <div className="md:col-span-2">
+              <SingleFileUpload
                 id="form-karyotype-file"
-                type="file"
-                className="sr-only"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  event.target.value = "";
-                  if (file) {
-                    void attachKaryotypeFile(file);
-                  }
-                }}
+                label={t("Karyotype file")}
+                value={
+                  state.previousGeneticTests.karyotypeFileName
+                    ? {
+                        name: state.previousGeneticTests.karyotypeFileName,
+                        type: state.previousGeneticTests.karyotypeFileType,
+                        size:
+                          Number(state.previousGeneticTests.karyotypeFileSize) || 0,
+                        content:
+                          state.previousGeneticTests.karyotypeFileContent,
+                      }
+                    : null
+                }
+                onChange={(file) =>
+                  file
+                    ? updatePreviousGeneticTests({
+                        karyotypeFileName: file.name,
+                        karyotypeFileType: file.type,
+                        karyotypeFileSize: String(file.size),
+                        karyotypeFileContent: file.content,
+                      })
+                    : clearKaryotypeFile()
+                }
+                onError={(message) =>
+                  setToast({ id: Date.now(), tone: "error", message })
+                }
+                error={errorFor("previousGeneticTests.karyotypeFileContent")}
+                uploadLabel={t("Upload file")}
+                removeLabel={t("Remove file")}
+                emptyLabel={t("No file selected")}
+                tooLargeMessage={t("Karyotype file is too large.")}
+                readErrorMessage={t("Unable to read karyotype file.")}
+                helperText={t("Maximum file size: 750 KB.")}
               />
-              <p className="mt-3 text-xs text-muted-foreground">
-                {t("Maximum file size: 750 KB.")}
-              </p>
             </div>
           </div>
         ) : null}
@@ -6156,62 +6103,46 @@ export function TwoPQFormFlow({
                 placeholder={t("Select")}
               />
               {state.previousGeneticTests.karyotype === "si" ? (
-                <div className="md:col-span-2 rounded-xl border border-border/70 bg-background/50 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <Label htmlFor="form-karyotype-file">
-                        {t("Karyotype file")}
-                      </Label>
-                      {state.previousGeneticTests.karyotypeFileName ? (
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {state.previousGeneticTests.karyotypeFileName}
-                        </p>
-                      ) : (
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {t("No file selected")}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" asChild>
-                        <label
-                          htmlFor="form-karyotype-file"
-                          className="cursor-pointer"
-                        >
-                          <Upload className="size-4" />
-                          {t("Upload file")}
-                        </label>
-                      </Button>
-                      {state.previousGeneticTests.karyotypeFileName ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={clearKaryotypeFile}
-                        >
-                          <X className="size-4" />
-                          {t("Remove file")}
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                  <Input
+                <div className="md:col-span-2">
+                  <SingleFileUpload
                     id="form-karyotype-file"
-                    type="file"
-                    accept="image/*,application/pdf"
-                    className="sr-only"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      event.target.value = "";
-                      if (file) {
-                        void attachKaryotypeFile(file);
-                      }
-                    }}
-                  />
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    {t("Maximum file size: 750 KB.")}
-                  </p>
-                  <FieldError
-                    message={errorFor("previousGeneticTests.karyotypeFileContent")}
+                    label={t("Karyotype file")}
+                    value={
+                      state.previousGeneticTests.karyotypeFileName
+                        ? {
+                            name: state.previousGeneticTests.karyotypeFileName,
+                            type: state.previousGeneticTests.karyotypeFileType,
+                            size:
+                              Number(
+                                state.previousGeneticTests.karyotypeFileSize,
+                              ) || 0,
+                            content:
+                              state.previousGeneticTests.karyotypeFileContent,
+                          }
+                        : null
+                    }
+                    onChange={(file) =>
+                      file
+                        ? updatePreviousGeneticTests({
+                            karyotypeFileName: file.name,
+                            karyotypeFileType: file.type,
+                            karyotypeFileSize: String(file.size),
+                            karyotypeFileContent: file.content,
+                          })
+                        : clearKaryotypeFile()
+                    }
+                    onError={(message) =>
+                      setToast({ id: Date.now(), tone: "error", message })
+                    }
+                    error={errorFor(
+                      "previousGeneticTests.karyotypeFileContent",
+                    )}
+                    uploadLabel={t("Upload file")}
+                    removeLabel={t("Remove file")}
+                    emptyLabel={t("No file selected")}
+                    tooLargeMessage={t("Karyotype file is too large.")}
+                    readErrorMessage={t("Unable to read karyotype file.")}
+                    helperText={t("Maximum file size: 750 KB.")}
                   />
                 </div>
               ) : null}

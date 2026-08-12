@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Dna,
   FileBadge2,
+  FileCheck2,
   FileCode2,
   FileSearch,
   FolderOpen,
@@ -100,6 +101,7 @@ const PUBLISHER_NAV_HREFS = new Set([
   "/discover/organizations",
   "/discover/feed-entries",
   "/my-account",
+  "/2pq-dashboard/consents",
 ]);
 const PUBLISHER_SECTION_KEYS = new Set(["discover", "access"]);
 
@@ -964,6 +966,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
   },
   {
     section: "access",
+    label: "Consentimientos",
+    href: "/2pq-dashboard/consents",
+    description: "Patient-linked informed consent files",
+    icon: FileCheck2,
+    visibleRoles: ACCESS_NAV_ROLES,
+  },
+  {
+    section: "access",
     label: "Roles & Permissions",
     href: "/roles",
     description: "Email-based access and role scope",
@@ -1164,6 +1174,14 @@ export function getCollectionsBySection(sectionKey: CollectionConfig["section"])
 }
 
 export function getChromeMetadata(pathname: string): ChromeMetadata {
+  if (pathname === "/2pq-dashboard/consents") {
+    return {
+      eyebrow: "2PQ",
+      title: "Consentimientos",
+      description: "Patient-linked informed consent files.",
+    };
+  }
+
   if (pathname === "/2pq-dashboard") {
     return {
       eyebrow: "2PQ",

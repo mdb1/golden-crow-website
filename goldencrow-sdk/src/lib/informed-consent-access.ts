@@ -1,0 +1,34 @@
+import type { AdminContext, PatientRecord } from "../types/sdk.types.js";
+
+type ConsentOwner = Pick<
+  PatientRecord,
+  "id" | "institutionId" | "doctorId"
+>;
+
+export function canAccessInformedConsentPatient(
+  context: Pick<
+    AdminContext,
+    "role" | "institutionId" | "doctorId" | "patientId"
+  >,
+  patient: ConsentOwner,
+) {
+  if (
+    context.role === "full_admin" ||
+    context.role === "organization_publisher"
+  ) {
+    return true;
+  }
+
+  if (context.role === "patient") {
+    return context.patientId === patient.id;
+  }
+
+  if (context.role === "institution_doctor") {
+    return (
+      context.institutionId === patient.institutionId &&
+      context.doctorId === patient.doctorId
+    );
+  }
+
+  return context.institutionId === patient.institutionId;
+}

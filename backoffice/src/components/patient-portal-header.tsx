@@ -12,7 +12,12 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 export function PatientPortalHeader() {
   const pathname = usePathname();
   const [pendingSignOut, setPendingSignOut] = useState(false);
-  const title = pathname === "/patient-portal/my-account" ? "My account" : "Home";
+  const title =
+    pathname === "/patient-portal/my-account"
+      ? "My account"
+      : pathname === "/patient-portal/consents"
+        ? "Consentimientos"
+        : "Home";
 
   async function handleSignOut() {
     setPendingSignOut(true);

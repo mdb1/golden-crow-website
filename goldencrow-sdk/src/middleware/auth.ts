@@ -19,6 +19,14 @@ const PATIENT_PORTAL_SDK_PATHS = new Set([
   "/auth/profile-setup",
 ]);
 
+function isPatientPortalSdkPath(path: string) {
+  return (
+    PATIENT_PORTAL_SDK_PATHS.has(path) ||
+    path === "/2pq/informed-consents" ||
+    path.startsWith("/2pq/informed-consents/")
+  );
+}
+
 export async function authMiddleware(
   request: FastifyRequest,
   reply: FastifyReply
@@ -53,7 +61,7 @@ export async function authMiddleware(
     if (
       adminContext.canAccessPatientPortal &&
       !adminContext.canAccessBackoffice &&
-      !PATIENT_PORTAL_SDK_PATHS.has(requestPath)
+      !isPatientPortalSdkPath(requestPath)
     ) {
       return reply.status(403).send({
         error: "This patient portal session cannot access backoffice APIs",

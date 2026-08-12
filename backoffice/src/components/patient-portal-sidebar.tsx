@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Home, UserRound } from "lucide-react";
+import { FileCheck2, Home, UserRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 import {
   Sidebar,
@@ -16,6 +16,11 @@ import {
 
 const PATIENT_PORTAL_NAV = [
   { href: "/patient-portal/home", label: "Home", icon: Home },
+  {
+    href: "/patient-portal/consents",
+    label: "Consentimientos",
+    icon: FileCheck2,
+  },
   {
     href: "/patient-portal/my-account",
     label: "My account",
