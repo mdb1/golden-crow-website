@@ -1,9 +1,7 @@
 import { getServerSession } from "next-auth";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getAdminContextServer } from "@/lib/admin-context-server";
-import { LANGUAGE_COOKIE_NAME, resolveAppLanguage } from "@/lib/language";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PatientPortalHeader } from "@/components/patient-portal-header";
 import { PatientPortalSidebar } from "@/components/patient-portal-sidebar";
@@ -35,13 +33,8 @@ export default async function PatientPortalLayout({
     redirect("/patient-portal/login");
   }
 
-  const cookieStore = await cookies();
-  const initialLanguage = resolveAppLanguage(
-    cookieStore.get(LANGUAGE_COOKIE_NAME)?.value,
-  );
-
   return (
-    <AppLanguageProvider initialLanguage={initialLanguage}>
+    <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
       <SidebarProvider>
         <div className="flex min-h-screen w-full overflow-x-hidden bg-white">
           <PatientPortalSidebar />

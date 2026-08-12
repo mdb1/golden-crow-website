@@ -99,6 +99,88 @@ const SPANISH_TEXT: Record<string, string> = {
   "Access surface": "Tipo de acceso",
   "Backoffice access": "Acceso al backoffice",
   "Patient portal": "Portal de pacientes",
+  Home: "Inicio",
+  "Active access": "Acceso activo",
+  "Inactive access": "Acceso inactivo",
+  "Verified email": "Email verificado",
+  "Unverified email": "Email no verificado",
+  Username: "Nombre de usuario",
+  "Last sign-in": "Último inicio de sesión",
+  "Profile Details": "Datos del perfil",
+  "Save Profile": "Guardar perfil",
+  "Optional name shown on this role assignment.":
+    "Nombre opcional mostrado en tu perfil.",
+  "Optional phone number for operational contact.":
+    "Número de teléfono opcional de contacto.",
+  "Email & Verification": "Email y verificación",
+  "Email verified": "Email verificado",
+  "Email not verified": "Email no verificado",
+  "Account email": "Email de la cuenta",
+  "Changing email also moves your role assignment record.":
+    "Al cambiar el email también se actualiza tu acceso al portal.",
+  "Email Verified": "Email verificado",
+  "Send Verification": "Enviar verificación",
+  "Validate Email": "Validar email",
+  "Change Email": "Cambiar email",
+  "Changing...": "Cambiando...",
+  "Bootstrap account emails are read only here.":
+    "El email de esta cuenta es de solo lectura.",
+  "Upload consent": "Subir consentimiento",
+  "Consent file": "Archivo de consentimiento",
+  "Select one PDF or image file.": "Seleccioná un archivo PDF o una imagen.",
+  "Select a PDF or supported image file.":
+    "Seleccioná un archivo PDF o una imagen compatible.",
+  "Unable to read the selected file.":
+    "No se pudo leer el archivo seleccionado.",
+  "Consent uploaded.": "Consentimiento subido.",
+  "Unable to upload consent.": "No se pudo subir el consentimiento.",
+  "Unable to load more consents.":
+    "No se pudieron cargar más consentimientos.",
+  "No consent files have been uploaded.":
+    "No se subieron archivos de consentimiento.",
+  "Open file": "Abrir archivo",
+  "This account email is managed outside My account.":
+    "El email de esta cuenta se administra fuera de Mi cuenta.",
+  "Enter the email address before changing it.":
+    "Ingresá el email antes de modificarlo.",
+  "Use a valid email address.": "Ingresá un email válido.",
+  "Email format is valid. You can change the account email.":
+    "El formato del email es válido. Podés cambiar el email de la cuenta.",
+  "Email format is valid and matches the current account email.":
+    "El formato es válido y coincide con el email actual.",
+  "This role assignment is not editable from My account.":
+    "Este perfil no se puede editar desde Mi cuenta.",
+  "Fix the highlighted fields before saving.":
+    "Corregí los campos marcados antes de guardar.",
+  "Profile details saved.": "Datos del perfil guardados.",
+  "Unable to save your profile details.":
+    "No se pudieron guardar los datos del perfil.",
+  "Validate the email field before changing it.":
+    "Validá el campo de email antes de modificarlo.",
+  "This is already the current account email.":
+    "Este ya es el email actual de la cuenta.",
+  "Email change saved.": "Cambio de email guardado.",
+  "Email changed. Sign out and sign back in with the new email to refresh this session.":
+    "El email cambió. Cerrá sesión y volvé a ingresar con el nuevo email.",
+  "The requested email is already active on this account.":
+    "El email solicitado ya está activo en esta cuenta.",
+  "Unable to change your email.": "No se pudo cambiar tu email.",
+  "No Firebase browser session is available. Sign out and sign in again.":
+    "No hay una sesión activa. Cerrá sesión y volvé a ingresar.",
+  "The browser Firebase session email does not match this account. Sign out and sign in again before sending verification.":
+    "El email de la sesión no coincide con esta cuenta. Cerrá sesión y volvé a ingresar antes de enviar la verificación.",
+  "Unable to send the verification email.":
+    "No se pudo enviar el email de verificación.",
+  Saved: "Guardado",
+  "Action failed": "La acción falló",
+  Dismiss: "Cerrar",
+  "View log": "Ver registro",
+  "No role assignment record is linked to this session.":
+    "No hay un perfil asociado a esta sesión.",
+  "Use 100 characters or fewer.": "Usá 100 caracteres o menos.",
+  "Use 30 characters or fewer.": "Usá 30 caracteres o menos.",
+  "Use digits, spaces, +, parentheses, hyphens, or dots.":
+    "Usá números, espacios, +, paréntesis, guiones o puntos.",
   "Portal access": "Acceso al portal",
   "No portal access": "Sin acceso al portal",
   "Temporary password": "Contraseña temporal",

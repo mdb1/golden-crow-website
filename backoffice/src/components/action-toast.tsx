@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { CheckCircle2, CircleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { appText, type AppLanguage } from "@/lib/language";
 import { cn } from "@/lib/utils";
 
 export interface ActionToastState {
@@ -17,11 +18,14 @@ export function ActionToast({
   toast,
   onDismiss,
   onViewLog,
+  language = "en",
 }: {
   toast: ActionToastState | null;
   onDismiss: () => void;
   onViewLog?: (() => void) | null;
+  language?: AppLanguage;
 }) {
+  const t = (text: string) => appText(language, text);
   useEffect(() => {
     if (!toast) {
       return;
@@ -64,7 +68,7 @@ export function ActionToast({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">
-            {toast.tone === "success" ? "Saved" : "Action failed"}
+            {toast.tone === "success" ? t("Saved") : t("Action failed")}
           </p>
           <p className="mt-0.5 text-sm opacity-90">{toast.message}</p>
           {toast.tone === "error" && toast.details && onViewLog ? (
@@ -76,7 +80,7 @@ export function ActionToast({
                 onClick={onViewLog}
                 className="h-8 border-destructive/25 bg-white/85 text-destructive hover:bg-destructive/5"
               >
-                View log
+                {t("View log")}
               </Button>
             </div>
           ) : null}
@@ -94,7 +98,7 @@ export function ActionToast({
           )}
         >
           <X className="h-4 w-4" />
-          <span className="sr-only">Dismiss</span>
+          <span className="sr-only">{t("Dismiss")}</span>
         </Button>
       </div>
     </div>

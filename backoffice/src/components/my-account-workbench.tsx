@@ -36,6 +36,7 @@ import {
 } from "@/lib/admin-areas";
 import { getRoleBadgeVariant, ROLE_CAPABILITY_LINES } from "@/lib/areas-ui";
 import { auth } from "@/lib/firebase";
+import { appText } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 
@@ -114,7 +115,7 @@ function formatValue(value: string | number | boolean | null | undefined) {
   return String(value);
 }
 
-function formatDate(value?: string) {
+function formatDate(value?: string, locale?: string) {
   if (!value) {
     return "None";
   }
@@ -124,7 +125,7 @@ function formatDate(value?: string) {
     return value;
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
@@ -455,12 +456,14 @@ export function MyAccountWorkbench({
     !showDiagnostics &&
     account.context.canAccessPatientPortal &&
     !account.context.canAccessBackoffice;
+  const t = (text: string) =>
+    isPatientPortalView ? appText("es", text) : text;
 
   function validateEmailCandidate(showSuccess = true) {
     if (!canChangeEmail) {
       setEmailMessage({
         tone: "error",
-        message: "This account email is managed outside My account.",
+        message: t("This account email is managed outside My account."),
       });
       return false;
     }
@@ -468,7 +471,7 @@ export function MyAccountWorkbench({
     if (!normalizedNewEmail) {
       setEmailMessage({
         tone: "error",
-        message: "Enter the email address before changing it.",
+        message: t("Enter the email address before changing it."),
       });
       return false;
     }
@@ -476,7 +479,7 @@ export function MyAccountWorkbench({
     if (!EMAIL_PATTERN.test(normalizedNewEmail)) {
       setEmailMessage({
         tone: "error",
-        message: "Use a valid email address.",
+        message: t("Use a valid email address."),
       });
       return false;
     }
@@ -486,8 +489,10 @@ export function MyAccountWorkbench({
         ? {
             tone: emailChanged ? "success" : "info",
             message: emailChanged
-              ? "Email format is valid. You can change the account email."
-              : "Email format is valid and matches the current account email.",
+              ? t("Email format is valid. You can change the account email.")
+              : t(
+                  "Email format is valid and matches the current account email.",
+                ),
           }
         : null,
     );
@@ -499,7 +504,7 @@ export function MyAccountWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "This role assignment is not editable from My account.",
+        message: t("This role assignment is not editable from My account."),
       });
       return;
     }
@@ -508,7 +513,7 @@ export function MyAccountWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Fix the highlighted fields before saving.",
+        message: t("Fix the highlighted fields before saving."),
       });
       return;
     }
@@ -528,7 +533,7 @@ export function MyAccountWorkbench({
       setToast({
         id: Date.now(),
         tone: "success",
-        message: "Profile details saved.",
+        message: t("Profile details saved."),
       });
     } catch (error) {
       setToast({
@@ -536,8 +541,8 @@ export function MyAccountWorkbench({
         tone: "error",
         message:
           error instanceof Error
-            ? error.message
-            : "Unable to save your profile details.",
+            ? t(error.message)
+            : t("Unable to save your profile details."),
       });
     } finally {
       setPendingRoleSave(false);
@@ -549,7 +554,7 @@ export function MyAccountWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Validate the email field before changing it.",
+        message: t("Validate the email field before changing it."),
       });
       return;
     }
@@ -557,7 +562,7 @@ export function MyAccountWorkbench({
     if (!emailChanged) {
       setEmailMessage({
         tone: "info",
-        message: "This is already the current account email.",
+        message: t("This is already the current account email."),
       });
       return;
     }
@@ -576,27 +581,33 @@ export function MyAccountWorkbench({
       setNewEmail(result.account.auth.email);
       setEmailMessage({
         tone: "success",
-        message: "Email change saved.",
+        message: t("Email change saved."),
       });
       setToast({
         id: Date.now(),
         tone: "success",
         message: result.requiresSignIn
-          ? "Email changed. Sign out and sign back in with the new email to refresh this session."
-          : "The requested email is already active on this account.",
+          ? t(
+              "Email changed. Sign out and sign back in with the new email to refresh this session.",
+            )
+          : t("The requested email is already active on this account."),
         durationMs: 9000,
       });
     } catch (error) {
       setEmailMessage({
         tone: "error",
         message:
-          error instanceof Error ? error.message : "Unable to change your email.",
+          error instanceof Error
+            ? t(error.message)
+            : t("Unable to change your email."),
       });
       setToast({
         id: Date.now(),
         tone: "error",
         message:
-          error instanceof Error ? error.message : "Unable to change your email.",
+          error instanceof Error
+            ? t(error.message)
+            : t("Unable to change your email."),
       });
     } finally {
       setPendingEmailSave(false);
@@ -608,13 +619,19 @@ export function MyAccountWorkbench({
     try {
       const firebaseUser = await waitForFirebaseUser();
       if (!firebaseUser) {
-        throw new Error("No Firebase browser session is available. Sign out and sign in again.");
+        throw new Error(
+          t(
+            "No Firebase browser session is available. Sign out and sign in again.",
+          ),
+        );
       }
 
       await firebaseUser.reload();
       if (normalizeEmail(firebaseUser.email ?? "") !== normalizedAuthEmail) {
         throw new Error(
-          "The browser Firebase session email does not match this account. Sign out and sign in again before sending verification.",
+          t(
+            "The browser Firebase session email does not match this account. Sign out and sign in again before sending verification.",
+          ),
         );
       }
 
@@ -622,7 +639,9 @@ export function MyAccountWorkbench({
       setToast({
         id: Date.now(),
         tone: "success",
-        message: `Firebase sent a verification email to ${account.auth.email}.`,
+        message: isPatientPortalView
+          ? `Firebase envió un email de verificación a ${account.auth.email}.`
+          : `Firebase sent a verification email to ${account.auth.email}.`,
         durationMs: 6500,
       });
     } catch (error) {
@@ -631,8 +650,8 @@ export function MyAccountWorkbench({
         tone: "error",
         message:
           error instanceof Error
-            ? error.message
-            : "Unable to send the verification email.",
+            ? t(error.message)
+            : t("Unable to send the verification email."),
       });
     } finally {
       setPendingVerification(false);
@@ -645,7 +664,11 @@ export function MyAccountWorkbench({
 
   return (
     <div className="flex flex-col gap-5">
-      <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+      <ActionToast
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        language={isPatientPortalView ? "es" : "en"}
+      />
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -669,13 +692,17 @@ export function MyAccountWorkbench({
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
             <Badge variant={getRoleBadgeVariant(account.context.role)}>
-              {ADMIN_ROLE_LABELS[account.context.role]}
+              {t(ADMIN_ROLE_LABELS[account.context.role])}
             </Badge>
             <Badge variant={statusBadgeVariant(hasActiveSurfaceAccess)}>
-              {hasActiveSurfaceAccess ? "Active access" : "Inactive access"}
+              {hasActiveSurfaceAccess
+                ? t("Active access")
+                : t("Inactive access")}
             </Badge>
             <Badge variant={statusBadgeVariant(account.auth.emailVerified)}>
-              {account.auth.emailVerified ? "Verified email" : "Unverified email"}
+              {account.auth.emailVerified
+                ? t("Verified email")
+                : t("Unverified email")}
             </Badge>
           </div>
         </div>
@@ -686,17 +713,23 @@ export function MyAccountWorkbench({
             isPatientPortalView ? "xl:grid-cols-3" : "xl:grid-cols-4",
           )}
         >
-          <ReadOnlyField label="Scope" value={currentScope} />
+          <ReadOnlyField label={t("Scope")} value={t(currentScope)} />
           {!isPatientPortalView ? (
             <ReadOnlyField
               label="Current project"
               value={account.context.project}
             />
           ) : null}
-          <ReadOnlyField label="Username" value={account.profile?.username} />
           <ReadOnlyField
-            label="Last sign-in"
-            value={formatDate(account.auth.metadata.lastSignInTime)}
+            label={t("Username")}
+            value={account.profile?.username}
+          />
+          <ReadOnlyField
+            label={t("Last sign-in")}
+            value={formatDate(
+              account.auth.metadata.lastSignInTime,
+              isPatientPortalView ? "es-AR" : undefined,
+            )}
           />
         </div>
       </section>
@@ -704,11 +737,11 @@ export function MyAccountWorkbench({
       <div className="flex flex-col gap-5">
         <SectionShell
           icon={<BadgeCheck className="h-4 w-4" />}
-          title="Profile Details"
+          title={t("Profile Details")}
           actions={
             <>
               <Badge variant={canEditRoleProfile ? "brand" : "secondary"}>
-                {canEditRoleProfile ? "Editable" : "Read only"}
+                {canEditRoleProfile ? t("Editable") : t("Read only")}
               </Badge>
               <Button
                 type="button"
@@ -718,7 +751,7 @@ export function MyAccountWorkbench({
                 disabled={!roleChanged || pendingRoleSave || !canEditRoleProfile}
               >
                 <RotateCcw className="h-3.5 w-3.5" />
-                Reset
+                {t("Reset")}
               </Button>
               <Button
                 type="button"
@@ -732,7 +765,7 @@ export function MyAccountWorkbench({
                 }
               >
                 <Save className="h-3.5 w-3.5" />
-                {pendingRoleSave ? "Saving..." : "Save Profile"}
+                {pendingRoleSave ? t("Saving...") : t("Save Profile")}
               </Button>
             </>
           }
@@ -746,9 +779,13 @@ export function MyAccountWorkbench({
           <div className="grid gap-4 md:grid-cols-2">
             <EditableField
               id="my-role-display-name"
-              label="Display name"
-              helper="Optional name shown on this role assignment."
-              error={roleErrors.displayName}
+              label={t("Display name")}
+              helper={t("Optional name shown on this role assignment.")}
+              error={
+                roleErrors.displayName
+                  ? t(roleErrors.displayName)
+                  : undefined
+              }
               count={`${rolePayload(roleState).displayName.length}/${DISPLAY_NAME_MAX_LENGTH}`}
             >
               <Input
@@ -760,16 +797,20 @@ export function MyAccountWorkbench({
                     displayName: event.target.value,
                   }))
                 }
-                placeholder="Full name"
+                placeholder={t("Full name")}
                 aria-invalid={Boolean(roleErrors.displayName)}
                 disabled={!canEditRoleProfile || pendingRoleSave}
               />
             </EditableField>
             <EditableField
               id="my-role-phone"
-              label="Contact phone"
-              helper="Optional phone number for operational contact."
-              error={roleErrors.contactPhone}
+              label={t("Contact phone")}
+              helper={t("Optional phone number for operational contact.")}
+              error={
+                roleErrors.contactPhone
+                  ? t(roleErrors.contactPhone)
+                  : undefined
+              }
               count={`${rolePayload(roleState).contactPhone.length}/${CONTACT_PHONE_MAX_LENGTH}`}
             >
               <Input
@@ -817,12 +858,16 @@ export function MyAccountWorkbench({
 
         <SectionShell
           icon={<AtSign className="h-4 w-4" />}
-          title="Email & Verification"
+          title={t("Email & Verification")}
         >
           <div className="grid gap-3">
             <StatusItem
               ok={account.auth.emailVerified}
-              label={account.auth.emailVerified ? "Email verified" : "Email not verified"}
+              label={
+                account.auth.emailVerified
+                  ? t("Email verified")
+                  : t("Email not verified")
+              }
               value={account.auth.email}
             />
             {!isPatientPortalView ? (
@@ -840,11 +885,11 @@ export function MyAccountWorkbench({
 
           <EditableField
             id="my-auth-email"
-            label="Account email"
+            label={t("Account email")}
             helper={
               canChangeEmail
-                ? "Changing email also moves your role assignment record."
-                : "Bootstrap account emails are read only here."
+                ? t("Changing email also moves your role assignment record.")
+                : t("Bootstrap account emails are read only here.")
             }
           >
             <Input
@@ -873,10 +918,10 @@ export function MyAccountWorkbench({
             >
               <MailCheck className="h-4 w-4" />
               {account.auth.emailVerified
-                ? "Email Verified"
+                ? t("Email Verified")
                 : pendingVerification
-                  ? "Sending..."
-                  : "Send Verification"}
+                  ? t("Sending...")
+                  : t("Send Verification")}
             </Button>
             <Button
               type="button"
@@ -887,7 +932,7 @@ export function MyAccountWorkbench({
               disabled={!canChangeEmail || pendingEmailSave}
             >
               <CheckCircle2 className="h-4 w-4" />
-              Validate Email
+              {t("Validate Email")}
             </Button>
             <Button
               type="button"
@@ -897,7 +942,7 @@ export function MyAccountWorkbench({
               disabled={!emailChanged || !canChangeEmail || pendingEmailSave}
             >
               <Save className="h-4 w-4" />
-              {pendingEmailSave ? "Changing..." : "Change Email"}
+              {pendingEmailSave ? t("Changing...") : t("Change Email")}
             </Button>
           </div>
         </SectionShell>

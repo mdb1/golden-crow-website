@@ -92,10 +92,21 @@ describe("MyAccountWorkbench diagnostics", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Profile Details" }),
+      screen.getByRole("heading", { name: "Datos del perfil" }),
     ).toBeTruthy();
     expect(
-      screen.getByRole("heading", { name: "Email & Verification" }),
+      screen.getByRole("heading", { name: "Email y verificación" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Paciente")).toBeTruthy();
+    expect(screen.getByText("Acceso activo")).toBeTruthy();
+    expect(screen.getAllByText("Email verificado").length).toBeGreaterThan(0);
+    expect(screen.getByText("Nombre de usuario")).toBeTruthy();
+    expect(screen.getByText("Último inicio de sesión")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Guardar perfil" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Validar email" }),
     ).toBeTruthy();
     expect(screen.queryByText("Current project")).toBeNull();
     expect(screen.queryByText("Notes")).toBeNull();

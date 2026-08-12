@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FileCheck2, Home, UserRound } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useAppLanguage } from "@/components/app-language-provider";
 import {
   Sidebar,
   SidebarContent,
@@ -13,6 +14,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { appText } from "@/lib/language";
 
 const PATIENT_PORTAL_NAV = [
   { href: "/patient-portal/home", label: "Home", icon: Home },
@@ -30,6 +32,7 @@ const PATIENT_PORTAL_NAV = [
 
 export function PatientPortalSidebar() {
   const pathname = usePathname();
+  const { language } = useAppLanguage();
 
   return (
     <Sidebar
@@ -39,7 +42,7 @@ export function PatientPortalSidebar() {
     >
       <SidebarHeader className="px-4 py-4 group-data-[collapsible=icon]:hidden">
         <p className="font-heading text-lg font-semibold text-sidebar-foreground">
-          Patient portal
+          {appText(language, "Patient portal")}
         </p>
       </SidebarHeader>
       <SidebarContent>
@@ -51,11 +54,11 @@ export function PatientPortalSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={pathname === item.href}
-                    tooltip={item.label}
+                    tooltip={appText(language, item.label)}
                   >
                     <Link href={item.href}>
                       <item.icon className="size-4" />
-                      <span>{item.label}</span>
+                      <span>{appText(language, item.label)}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

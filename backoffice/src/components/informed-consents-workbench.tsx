@@ -23,17 +23,18 @@ import type {
   InformedConsentPatientPage,
   InformedConsentRecord,
 } from "@/lib/informed-consents";
+import { appText } from "@/lib/language";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 
 function formatFileSize(size: number) {
   return `${Math.max(1, Math.round(size / 1000))} KB`;
 }
 
-function formatDate(value: string) {
+function formatDate(value: string, locale?: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? value
-    : new Intl.DateTimeFormat(undefined, {
+    : new Intl.DateTimeFormat(locale, {
         dateStyle: "medium",
         timeStyle: "short",
       }).format(date);
@@ -58,6 +59,8 @@ export function InformedConsentsWorkbench({
   initialPatientPage?: InformedConsentPatientPage;
 }) {
   const isPatientPortal = surface === "patient-portal";
+  const t = (text: string) =>
+    isPatientPortal ? appText("es", text) : text;
   const [records, setRecords] = useState(initialPage.records);
   const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
   const [patients, setPatients] = useState(initialPatientPage?.patients ?? []);
@@ -76,14 +79,18 @@ export function InformedConsentsWorkbench({
     setToast({
       id: Date.now(),
       tone: "error",
-      message: error instanceof Error ? error.message : fallback,
-      details: error instanceof SdkRequestError ? error.details : undefined,
+      message:
+        error instanceof Error && !isPatientPortal ? error.message : fallback,
+      details:
+        error instanceof SdkRequestError && !isPatientPortal
+          ? error.details
+          : undefined,
     });
   }
 
   async function handleUpload() {
     if (!file) {
-      setFileError("Select one PDF or image file.");
+      setFileError(t("Select one PDF or image file."));
       return;
     }
     if (!isPatientPortal && !patientId) {
@@ -113,10 +120,10 @@ export function InformedConsentsWorkbench({
       setToast({
         id: Date.now(),
         tone: "success",
-        message: "Consent uploaded.",
+        message: t("Consent uploaded."),
       });
     } catch (error) {
-      reportError(error, "Unable to upload consent.");
+      reportError(error, t("Unable to upload consent."));
     } finally {
       setSaving(false);
     }
@@ -132,7 +139,7 @@ export function InformedConsentsWorkbench({
       setRecords((current) => [...current, ...page.records]);
       setNextCursor(page.nextCursor);
     } catch (error) {
-      reportError(error, "Unable to load more consents.");
+      reportError(error, t("Unable to load more consents."));
     } finally {
       setLoadingMore(false);
     }
@@ -158,7 +165,9 @@ export function InformedConsentsWorkbench({
     <div className="space-y-8">
       <section className="border-b border-border/70 pb-8">
         <div className="mb-5 flex items-center justify-between gap-3">
-          <h2 className="font-heading text-lg font-semibold">Upload consent</h2>
+          <h2 className="font-heading text-lg font-semibold">
+            {t("Upload consent")}
+          </h2>
           <HeaderUnclutterButton />
         </div>
         <div className="grid max-w-3xl gap-5">
@@ -195,7 +204,7 @@ export function InformedConsentsWorkbench({
           ) : null}
           <SingleFileUpload
             id={`${surface}-consent-file`}
-            label="Consent file"
+            label={t("Consent file")}
             value={file}
             onChange={(nextFile) => {
               setFile(nextFile);
@@ -203,6 +212,19 @@ export function InformedConsentsWorkbench({
             }}
             onError={setFileError}
             error={fileError}
+            uploadLabel={t("Upload file")}
+            removeLabel={t("Remove file")}
+            emptyLabel={t("No file selected")}
+            invalidTypeMessage={t("Select a PDF or supported image file.")}
+            tooLargeMessage={
+              isPatientPortal
+                ? "El archivo seleccionado supera los 750 KB."
+                : undefined
+            }
+            readErrorMessage={t("Unable to read the selected file.")}
+            helperText={
+              isPatientPortal ? "PDF o imagen, máximo 750 KB." : undefined
+            }
           />
           <Button
             type="button"
@@ -211,7 +233,7 @@ export function InformedConsentsWorkbench({
             disabled={saving || !file || (!isPatientPortal && !patientId)}
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            Upload consent
+            {t("Upload consent")}
           </Button>
         </div>
       </section>
@@ -222,7 +244,7 @@ export function InformedConsentsWorkbench({
         </h2>
         {records.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            No consent files have been uploaded.
+            {t("No consent files have been uploaded.")}
           </p>
         ) : (
           <div className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background">
@@ -242,7 +264,11 @@ export function InformedConsentsWorkbench({
                         {!isPatientPortal
                           ? `${record.patientName} - ${record.patientId} - `
                           : ""}
-                        {formatFileSize(record.file.size)} - {formatDate(record.createdAt)}
+                        {formatFileSize(record.file.size)} -{" "}
+                        {formatDate(
+                          record.createdAt,
+                          isPatientPortal ? "es-AR" : undefined,
+                        )}
                       </p>
                     </div>
                   </div>
@@ -253,7 +279,7 @@ export function InformedConsentsWorkbench({
                       rel="noreferrer"
                     >
                       <ExternalLink className="size-4" />
-                      Open file
+                      {t("Open file")}
                     </a>
                   </Button>
                 </li>
@@ -270,12 +296,16 @@ export function InformedConsentsWorkbench({
             disabled={loadingMore}
           >
             {loadingMore ? <Loader2 className="size-4 animate-spin" /> : null}
-            Load more
+            {t("Load more")}
           </Button>
         ) : null}
       </section>
 
-      <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+      <ActionToast
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        language={isPatientPortal ? "es" : "en"}
+      />
     </div>
   );
 }

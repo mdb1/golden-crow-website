@@ -4,20 +4,22 @@ import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AppearanceToggle } from "@/components/appearance-toggle";
-import { LanguageToggle } from "@/components/language-toggle";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { appText } from "@/lib/language";
 
 export function PatientPortalHeader() {
   const pathname = usePathname();
+  const { language } = useAppLanguage();
   const [pendingSignOut, setPendingSignOut] = useState(false);
   const title =
     pathname === "/patient-portal/my-account"
-      ? "My account"
+      ? appText(language, "My account")
       : pathname === "/patient-portal/consents"
         ? "Consentimientos"
-        : "Home";
+        : appText(language, "Home");
 
   async function handleSignOut() {
     setPendingSignOut(true);
@@ -39,14 +41,15 @@ export function PatientPortalHeader() {
           {title}
         </h1>
         <AppearanceToggle />
-        <LanguageToggle />
         <Button
           variant="outline"
           size="sm"
           onClick={() => void handleSignOut()}
           disabled={pendingSignOut}
         >
-          {pendingSignOut ? "Signing out..." : "Sign out"}
+          {pendingSignOut
+            ? appText(language, "Signing out...")
+            : appText(language, "Sign out")}
         </Button>
       </div>
     </header>

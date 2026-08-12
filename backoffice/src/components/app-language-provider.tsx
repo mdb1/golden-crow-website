@@ -43,28 +43,42 @@ function readStoredLanguage(initialLanguage: AppLanguage) {
 
 export function AppLanguageProvider({
   initialLanguage = "en",
+  forcedLanguage,
   children,
 }: {
   initialLanguage?: AppLanguage;
+  forcedLanguage?: AppLanguage;
   children: ReactNode;
 }) {
-  const [language, setLanguageState] = useState<AppLanguage>(initialLanguage);
+  const [language, setLanguageState] = useState<AppLanguage>(
+    forcedLanguage ?? initialLanguage,
+  );
 
   useEffect(() => {
+    if (forcedLanguage) {
+      setLanguageState(forcedLanguage);
+      document.documentElement.lang = forcedLanguage;
+      document.documentElement.dataset.language = forcedLanguage;
+      return;
+    }
+
     const storedLanguage = readStoredLanguage(initialLanguage);
     setLanguageState(storedLanguage);
     applyLanguage(storedLanguage);
-  }, [initialLanguage]);
+  }, [forcedLanguage, initialLanguage]);
 
   const value = useMemo<AppLanguageContextValue>(
     () => ({
       language,
       setLanguage(nextLanguage) {
+        if (forcedLanguage) {
+          return;
+        }
         setLanguageState(nextLanguage);
         applyLanguage(nextLanguage);
       },
     }),
-    [language]
+    [forcedLanguage, language]
   );
 
   return (
