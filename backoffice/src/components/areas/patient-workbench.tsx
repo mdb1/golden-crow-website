@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  Copy,
   Eye,
   EyeOff,
   KeyRound,
@@ -135,6 +136,8 @@ export function PatientWorkbench({
   const [pending, setPending] = useState(false);
   const [grantingPortalAccess, setGrantingPortalAccess] = useState(false);
   const [revealingTemporaryPassword, setRevealingTemporaryPassword] =
+    useState(false);
+  const [copyingTemporaryPassword, setCopyingTemporaryPassword] =
     useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [temporaryPasswordRevealed, setTemporaryPasswordRevealed] =
@@ -362,6 +365,40 @@ export function PatientWorkbench({
       });
     } finally {
       setRevealingTemporaryPassword(false);
+    }
+  }
+
+  async function handleCopyTemporaryPassword() {
+    if (!detail || !canManagePortalCredentials) {
+      return;
+    }
+
+    setCopyingTemporaryPassword(true);
+    try {
+      const password = temporaryPassword
+        ? temporaryPassword
+        : (
+            await sdkFetch<{ temporaryPassword: string }>(
+              `/areas/patients/${encodeURIComponent(detail.patient.id)}/patient-portal-access/temporary-password`,
+            )
+          ).temporaryPassword;
+      await navigator.clipboard.writeText(password);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("Temporary password copied."),
+      });
+    } catch (error) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : t("Unable to copy the temporary password."),
+      });
+    } finally {
+      setCopyingTemporaryPassword(false);
     }
   }
 
@@ -654,19 +691,34 @@ export function PatientWorkbench({
                   autoComplete="off"
                 />
               </div>
-              <Button
-                type="button"
-                className="bg-blue-600 text-white hover:bg-blue-700"
-                onClick={() => void handleRevealTemporaryPassword()}
-                disabled={revealingTemporaryPassword}
-              >
-                {temporaryPasswordRevealed ? (
-                  <EyeOff className="size-4" />
-                ) : (
-                  <Eye className="size-4" />
-                )}
-                {temporaryPasswordRevealed ? t("Hide") : t("Reveal")}
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  className="bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={() => void handleRevealTemporaryPassword()}
+                  disabled={
+                    revealingTemporaryPassword || copyingTemporaryPassword
+                  }
+                >
+                  {temporaryPasswordRevealed ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
+                  {temporaryPasswordRevealed ? t("Hide") : t("Reveal")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleCopyTemporaryPassword()}
+                  disabled={
+                    revealingTemporaryPassword || copyingTemporaryPassword
+                  }
+                >
+                  <Copy className="size-4" />
+                  {t("Copy")}
+                </Button>
+              </div>
             </div>
           ) : null}
         </section>

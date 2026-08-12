@@ -104,6 +104,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Temporary password": "Contraseña temporal",
   Reveal: "Revelar",
   Hide: "Ocultar",
+  Copy: "Copiar",
+  "Temporary password copied.": "Contraseña temporal copiada.",
+  "Unable to copy the temporary password.":
+    "No se pudo copiar la contraseña temporal.",
   "Create patient portal credentials":
     "Crear credenciales del portal de pacientes",
   "Unable to reveal the temporary password.":

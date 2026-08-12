@@ -139,6 +139,26 @@ describe("PatientWorkbench portal credentials", () => {
     expect(screen.getByRole("button", { name: "Hide" })).toBeTruthy();
   });
 
+  it("copies an existing temporary password without revealing the field", async () => {
+    const user = userEvent.setup();
+    (sdkFetch as jest.Mock).mockResolvedValue({
+      temporaryPassword: "ABCDEFGH",
+    });
+    renderWorkbench(detail({ accessGranted: true, credentialAvailable: true }));
+
+    const password = screen.getByLabelText(
+      "Temporary password",
+    ) as HTMLInputElement;
+    await user.click(screen.getByRole("button", { name: "Copy" }));
+
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/areas/patients/PAT-00001/patient-portal-access/temporary-password",
+    );
+    expect(await navigator.clipboard.readText()).toBe("ABCDEFGH");
+    expect(password.value).toBe("********");
+    expect(screen.getByText("Temporary password copied.")).toBeTruthy();
+  });
+
   it("shows the generated password immediately after granting access", async () => {
     const user = userEvent.setup();
     (sdkFetch as jest.Mock).mockResolvedValue({
