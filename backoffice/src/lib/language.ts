@@ -96,6 +96,11 @@ const SPANISH_TEXT: Record<string, string> = {
   Learning: "Aprendizaje",
   Areas: "Áreas",
   Access: "Acceso",
+  "Access surface": "Tipo de acceso",
+  "Backoffice access": "Acceso al backoffice",
+  "Patient portal": "Portal de pacientes",
+  "Portal access": "Acceso al portal",
+  "No portal access": "Sin acceso al portal",
   "See all bookings": "Ver todas las reuniones",
   "Client bookings": "Reuniones solicitadas",
   "Calendar and list review for consultation requests.":

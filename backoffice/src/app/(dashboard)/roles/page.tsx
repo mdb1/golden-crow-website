@@ -59,6 +59,7 @@ export default async function RolesPage() {
           }
           createDisabledTitle="The current role cannot create role assignments on this screen."
         />
+        <RolesBrowser initialRoles={visibleRoles} />
         <section className="glass-panel flex flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -75,7 +76,6 @@ export default async function RolesPage() {
             </Link>
           </Button>
         </section>
-        <RolesBrowser initialRoles={visibleRoles} />
       </HeaderUnclutterScope>
       <section className="border-t border-border/70 pt-3 text-xs leading-relaxed text-muted-foreground">
         <p>

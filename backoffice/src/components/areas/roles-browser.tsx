@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ADMIN_ROLE_LABELS,
   getVisibleRoleRecordsForContext,
@@ -20,6 +21,8 @@ import { appText } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
 
+type RoleAccessSurface = "backoffice" | "patient-portal";
+
 export function RolesBrowser({
   initialRoles,
 }: {
@@ -29,6 +32,7 @@ export function RolesBrowser({
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const [query, setQuery] = useState("");
+  const [surface, setSurface] = useState<RoleAccessSurface>("backoffice");
   const { data, isFetching, isLoading, refetch, error } = useQuery({
     queryKey: ["areas", "roles"],
     queryFn: () => sdkFetch<{ roles: RoleManagementRecord[] }>("/roles"),
@@ -39,13 +43,21 @@ export function RolesBrowser({
     () => getVisibleRoleRecordsForContext(data?.roles ?? [], adminContext),
     [adminContext.isBootstrap, adminContext.role, data?.roles],
   );
+  const rolesBySurface = useMemo(
+    () => ({
+      backoffice: roles.filter((record) => record.role !== "patient"),
+      "patient-portal": roles.filter((record) => record.role === "patient"),
+    }),
+    [roles],
+  );
+  const surfaceRoles = rolesBySurface[surface];
   const filteredRoles = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) {
-      return roles;
+      return surfaceRoles;
     }
 
-    return roles.filter((record) =>
+    return surfaceRoles.filter((record) =>
       [
         record.email,
         record.displayName,
@@ -61,7 +73,7 @@ export function RolesBrowser({
         .toLowerCase()
         .includes(normalizedQuery)
     );
-  }, [query, roles]);
+  }, [query, surfaceRoles]);
 
   if (isLoading) {
     return (
@@ -88,6 +100,32 @@ export function RolesBrowser({
   }
   return (
     <section className="flex flex-col gap-4">
+      <Tabs
+        value={surface}
+        onValueChange={(value) => {
+          setSurface(value as RoleAccessSurface);
+          setQuery("");
+        }}
+      >
+        <TabsList
+          aria-label={t("Access surface")}
+          className="grid h-11 w-full max-w-md grid-cols-2"
+        >
+          <TabsTrigger value="backoffice" className="h-9 gap-2">
+            {t("Backoffice access")}
+            <Badge variant="secondary" className="min-w-6 justify-center px-1.5">
+              {rolesBySurface.backoffice.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="patient-portal" className="h-9 gap-2">
+            {t("Patient portal")}
+            <Badge variant="secondary" className="min-w-6 justify-center px-1.5">
+              {rolesBySurface["patient-portal"].length}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <label className="relative block w-full max-w-lg">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -139,6 +177,19 @@ export function RolesBrowser({
                   </Badge>
                   {record.bootstrap ? <Badge variant="outline">Bootstrap</Badge> : null}
                   {record.isActive ? null : <Badge variant="warning">{t("Inactive")}</Badge>}
+                  {record.role === "patient" ? (
+                    <Badge
+                      variant={
+                        record.isActive && record.canAccessPatientPortal
+                          ? "success"
+                          : "warning"
+                      }
+                    >
+                      {record.isActive && record.canAccessPatientPortal
+                        ? t("Portal access")
+                        : t("No portal access")}
+                    </Badge>
+                  ) : null}
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {compactList([
