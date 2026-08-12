@@ -45,12 +45,17 @@ const copy = {
     title: 'Abriendo GC Fitness…',
     description: 'Te llevamos a la tienda de tu teléfono para descargar GC Fitness.',
     working: 'Abriendo la tienda…',
-    // Reads as an instruction, not as a diagnosis: for the Meta web views this card is the
-    // FIRST thing on screen (no redirect is attempted at all), so "seguís acá" would be
-    // answering a question nobody asked.
-    stuckTitle: 'Abrí este link en tu navegador',
-    stuckBody:
-      'El navegador de esta app no puede abrir la tienda. Tocá los ⋯ arriba a la derecha y elegí “Abrir en el navegador”, o copiá el link y pegalo en Safari.',
+    // An INVITATION, not a diagnosis. For the Meta web views this card is the first thing on
+    // screen and the tap on it is the mechanism, not a consolation prize — so the copy must
+    // not open by apologizing for a failure the visitor never saw.
+    tapTitle: 'Descargá GC Fitness',
+    tapBody: 'Tocá el botón para abrir la tienda.',
+    tapCta: 'Abrir la App Store',
+    tapCtaAndroid: 'Abrir Google Play',
+    // Secondary, and deliberately phrased as a conditional: it only matters if the tap above
+    // did nothing, and until then it is noise that competes with the real action.
+    escapeHint:
+      '¿No se abre? Tocá los ⋯ arriba a la derecha y elegí “Abrir en el navegador”.',
     appStore: 'Descargar en la App Store',
     playStore: 'Disponible en Google Play',
     copyLink: 'Copiar link',
@@ -61,9 +66,11 @@ const copy = {
     title: 'Opening GC Fitness…',
     description: "Taking you to your phone's store to download GC Fitness.",
     working: 'Opening the store…',
-    stuckTitle: 'Open this link in your browser',
-    stuckBody:
-      'This app’s browser can’t open the store. Tap the ⋯ at the top right and choose “Open in browser”, or copy the link and paste it into Safari.',
+    tapTitle: 'Get GC Fitness',
+    tapBody: 'Tap the button to open the store.',
+    tapCta: 'Open the App Store',
+    tapCtaAndroid: 'Open Google Play',
+    escapeHint: 'Nothing happens? Tap the ⋯ at the top right and choose “Open in browser”.',
     appStore: 'Download on the App Store',
     playStore: 'Get it on Google Play',
     copyLink: 'Copy link',
@@ -112,6 +119,12 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
           (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1);
         const isAndroid = /Android/i.test(ua);
 
+        // Stamped before the body paints so the card never flashes the wrong store's badge.
+        document.documentElement.setAttribute(
+          'data-gcf-os',
+          isIOS ? 'ios' : isAndroid ? 'android' : 'desktop',
+        );
+
         // Desktop has no store app to hand off to, so send it to the real page instead of
         // dropping someone on an Argentine storefront they cannot install from.
         if (!isIOS && !isAndroid) {
@@ -140,10 +153,23 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
         // and the safety net below cannot save it either: `pagehide` has already fired by
         // then, and the timer dies with the document.
         //
-        // The only fix is therefore to NOT START the navigation here. These visitors get
-        // the escape hatch immediately — the same one `/download` shows — with no blank
-        // frame in between. The store badges stay live links, so if a future Instagram
-        // build does implement the hand-off, tapping one simply works.
+        // The only fix is therefore to NOT START the navigation here.
+        //
+        // ── And what these visitors get INSTEAD is the real mechanism, not a consolation ──
+        //
+        // Instagram blocks the PROGRAMMATIC navigation to the store scheme. It does NOT
+        // block a navigation carrying a user gesture. The proof is the page we were asked
+        // to copy: `hevy.go.link/download` 302s to an `app.adjust.com` landing page that
+        // contains NO automatic redirect at all — no `location.replace`, no meta refresh —
+        // just an app icon and an "Open app" button, both plain `<a href="https://…">`.
+        // That is why their URL carries `enforce_landing_page=1`. The interstitial is not
+        // laziness; it IS the mechanism, and the App Store prompt reported from Instagram
+        // was a tap on it.
+        //
+        // So this branch renders a tap-to-install card whose primary action is an anchor to
+        // the store. The "open in browser" hint stays, demoted to a contingency for the case
+        // where even the gesture is refused.
+
         //
         // Scoped to iOS on purpose. On Android the same web views render the Play Store
         // https page perfectly well, so redirecting there is still the better experience.
@@ -292,6 +318,20 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
         color: var(--gcf-muted);
       }
 
+      /* The primary tap target. Sized like a native CTA because in a Meta web view it IS the
+         mechanism — everything else on this card is a contingency. */
+      .gcf-cta {
+        display: inline-block;
+        background: var(--gcf-amber-deep);
+        color: #fff;
+        font-weight: 700;
+        font-size: 1.05rem;
+        text-decoration: none;
+        padding: 16px 32px;
+        border-radius: 999px;
+        box-shadow: 0 10px 24px rgba(169, 118, 26, 0.32);
+      }
+
       .gcf-badges {
         display: grid;
         gap: 10px;
@@ -301,6 +341,27 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
       .gcf-badges img {
         height: 52px;
         width: auto;
+      }
+
+      /* Show only the badge for the OS we are on — offering an iPhone owner a Play badge is
+         noise next to the one button that matters. `data-gcf-os` is stamped in <head>. */
+      :root[data-gcf-os='ios'] .gcf-badges a:last-child,
+      :root[data-gcf-os='android'] .gcf-badges a:first-child {
+        display: none;
+      }
+
+      :root[data-gcf-os='android'] [data-gcf-cta-ios] {
+        display: none;
+      }
+
+      :root[data-gcf-os='android'] [data-gcf-cta-android] {
+        display: inline;
+      }
+
+      .gcf-escape {
+        font-size: 0.85rem;
+        color: var(--gcf-muted);
+        max-width: 22rem;
       }
 
       .gcf-copy {
@@ -324,23 +385,42 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
 
   <body>
     <main class="gcf-turnstile">
-      <img class="gcf-logo" src="/gc-fitness/icon.png" alt="GC Fitness" width="256" height="256" />
+      <!--
+        The icon is a LINK, not decoration — copied from Adjust, and for their reason: it is
+        the biggest tap target on the screen, and in a Meta web view a tap is the only thing
+        that reaches the store at all.
+      -->
+      <a class="gcf-logo-link" href={APP_STORE_URL} data-gcf-store-link rel="noopener">
+        <img class="gcf-logo" src="/gc-fitness/icon.png" alt="GC Fitness" width="256" height="256" />
+      </a>
 
       <div class="gcf-spinner" role="status" aria-label={t.working}></div>
       <p class="gcf-working">{t.working}</p>
 
       <div class="gcf-stuck">
-        <h1>{t.stuckTitle}</h1>
-        <p>{t.stuckBody}</p>
+        <h1>{t.tapTitle}</h1>
+        <p>{t.tapBody}</p>
+
+        <!--
+          PRIMARY action. An `<a>` and never a scripted navigation: the whole point of this
+          branch is that the store hand-off must carry a user gesture.
+        -->
+        <a class="gcf-cta" href={APP_STORE_URL} data-gcf-store-link rel="noopener">
+          <span data-gcf-cta-ios>{t.tapCta}</span>
+          <span data-gcf-cta-android hidden>{t.tapCtaAndroid}</span>
+        </a>
 
         <div class="gcf-badges">
-          <a href={APP_STORE_URL} rel="noopener">
+          <a href={APP_STORE_URL} data-gcf-store-link rel="noopener">
             <img src="/gc-fitness/app-store-badge.svg" alt={t.appStore} height="52" width="156" />
           </a>
           <a href={PLAY_STORE_URL} rel="noopener">
             <img src="/gc-fitness/google-play-badge.png" alt={t.playStore} height="52" width="175" />
           </a>
         </div>
+
+        <!-- Secondary. Only matters if the tap above did nothing, so it reads that way. -->
+        <p class="gcf-escape">{t.escapeHint}</p>
 
         <button class="gcf-copy" id="gcf-copy" type="button" data-copied={t.copied}>
           {t.copyLink}
@@ -350,7 +430,17 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
       </div>
     </main>
 
-    <script is:inline>
+    <script is:inline define:vars={{ PLAY_STORE_URL }}>
+      // On Android every store link on the card points at Play. The markup is authored once
+      // with the App Store URL and rewritten here rather than duplicated per platform, so a
+      // future URL change has exactly one place to be wrong.
+      (() => {
+        if (document.documentElement.getAttribute('data-gcf-os') !== 'android') return;
+        document.querySelectorAll('[data-gcf-store-link]').forEach((link) => {
+          link.setAttribute('href', PLAY_STORE_URL);
+        });
+      })();
+
       // Copy-the-link, for the web views where "Open in browser" is buried. Same shape as the
       // one on `/download`: `navigator.clipboard` is missing in plenty of web views, so the
       // off-screen textarea + `execCommand` fallback is not optional.
