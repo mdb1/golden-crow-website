@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -2177,7 +2183,7 @@ function Field({
   readOnly = false,
 }: {
   id: string;
-  label: string;
+  label: ReactNode;
   value: string;
   onChange: (value: string) => void;
   type?: string;
@@ -5663,7 +5669,16 @@ export function TwoPQFormFlow({
               id="form-patient-email"
               label={
                 formType === "study_request"
-                  ? t("Patient reference email")
+                  ? (
+                      <span className="flex flex-col items-start gap-1 leading-snug">
+                        <span>{t("Patient email")}</span>
+                        <strong className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                          ({t(
+                            "IMPORTANT: THIS MUST BE CORRECT BECAUSE THE CREDENTIALS TO UPLOAD THE INFORMED CONSENT WILL BE SENT TO THIS EMAIL ADDRESS",
+                          )})
+                        </strong>
+                      </span>
+                    )
                   : t("Email")
               }
               value={state.patientInformation.email}

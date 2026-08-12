@@ -564,7 +564,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "No doctor": "Sin médico",
   Email: "Email",
   "Study request form": "Formulario de solicitud",
-  "Patient reference email": "Mail de referencia del paciente",
+  "Patient reference email": "Mail del paciente",
+  "Patient email": "Mail del paciente",
+  "IMPORTANT: THIS MUST BE CORRECT BECAUSE THE CREDENTIALS TO UPLOAD THE INFORMED CONSENT WILL BE SENT TO THIS EMAIL ADDRESS":
+    "IMPORTANTE: DEBE SER EL CORRECTO YA QUE A ESTA DIRECCION DE CORREO ELECTRONICO SE ENVIARÁN LAS CREDENCIALES PARA SUBIR EL CONSENTIMIENTO INFORMADO",
   "Patient first name": "Nombre del paciente",
   "Patient last name": "Apellido del paciente",
   "Patient DNI": "DNI del paciente",
