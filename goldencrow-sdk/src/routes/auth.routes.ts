@@ -21,6 +21,7 @@ import {
 } from "../repositories/my-account.repository.js";
 import {
   completeProfileSetup,
+  completePatientProfileSetup,
   createEligibleEmailAccount,
   getEmailSignupEligibility,
   getProfileSetupState,
@@ -298,4 +299,34 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       }
     }
   );
+
+  f.put("/auth/profile-setup/patient", async (request, reply) => {
+    const context = request.adminContext;
+    if (!context || !request.user?.uid) {
+      return reply.status(401).send({ error: "No authenticated admin context" });
+    }
+
+    if (
+      context.role !== "patient" ||
+      !context.canAccessPatientPortal ||
+      context.canAccessBackoffice ||
+      !context.patientId
+    ) {
+      return reply.status(403).send({ error: "Patient portal access is required." });
+    }
+
+    try {
+      const state = await completePatientProfileSetup(
+        request.user.uid,
+        context.patientId,
+      );
+      return reply.send({ state });
+    } catch (error) {
+      if (isProfileSetupError(error)) {
+        return reply.status(error.statusCode).send({ error: error.message });
+      }
+
+      throw error;
+    }
+  });
 }

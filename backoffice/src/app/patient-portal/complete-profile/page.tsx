@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { CompleteProfileFlow } from "@/components/auth/complete-profile-flow";
+import { PatientProfileCompletion } from "@/components/auth/patient-profile-completion";
 import { authOptions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -14,5 +14,5 @@ export default async function PatientPortalCompleteProfilePage() {
     redirect("/2pq-dashboard");
   }
 
-  return <CompleteProfileFlow homeHref="/patient-portal/home" />;
+  return <PatientProfileCompletion />;
 }

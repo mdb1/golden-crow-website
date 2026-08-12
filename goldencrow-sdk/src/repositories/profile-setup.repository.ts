@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { adminAuthFor, adminDbFor } from "../config/firebase.js";
 
 // Pitfall 16 — Bind once to the MyDNAMap project at module load. Every
@@ -157,6 +158,36 @@ function buildUsernameSuggestion(email: string) {
   }
 
   return "member";
+}
+
+export function buildPatientUsername(
+  email: string,
+  numericSuffix = randomInt(0, 1000),
+) {
+  const suffix = Math.min(Math.max(Math.trunc(numericSuffix), 0), 999)
+    .toString()
+    .padStart(3, "0");
+  const base = buildUsernameSuggestion(email).slice(0, 32 - suffix.length);
+  return `${base}${suffix}`;
+}
+
+export function buildPatientProfileSetupInput(
+  email: string,
+  fullName: string,
+  numericSuffix?: number,
+): CompleteProfileSetupInput {
+  return {
+    fullName,
+    username: buildPatientUsername(email, numericSuffix),
+    iconName: DEFAULT_ICON_NAME,
+    iconColorHex: DEFAULT_ICON_COLOR,
+    ownerProfession: "",
+    ownerCompany: "",
+    ownerContactNumber: "",
+    ownerBio: "",
+    gender: "",
+    condition: "",
+  };
 }
 
 function validateCompleteProfileInput(input: CompleteProfileSetupInput) {
@@ -383,6 +414,33 @@ export async function getProfileSetupState(
       condition: pickFirstString(publicProfileData, ["condition"]),
     },
   };
+}
+
+export async function completePatientProfileSetup(
+  uid: string,
+  patientId: string,
+): Promise<ProfileSetupState> {
+  const currentState = await getProfileSetupState(uid);
+  if (!currentState.needsCompletion) {
+    return currentState;
+  }
+
+  const patientSnap = await adminDb.collection("patients").doc(patientId).get();
+  if (!patientSnap.exists) {
+    throw new ProfileSetupError("Linked patient not found.", 404);
+  }
+
+  const patientData = getRecord(patientSnap.data());
+  const fullName = pickFirstString(patientData, ["fullName", "full_name", "name"]);
+  if (!fullName) {
+    throw new ProfileSetupError("The linked patient does not have a full name.", 400);
+  }
+
+  return completeProfileSetup(
+    uid,
+    "patient",
+    buildPatientProfileSetupInput(currentState.email, fullName),
+  );
 }
 
 export async function completeProfileSetup(
