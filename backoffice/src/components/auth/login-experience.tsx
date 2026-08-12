@@ -289,7 +289,7 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "Create an email account": "Crear una cuenta con email",
   "Finish new-user setup": "Finalizar configuracion de nuevo usuario",
   "Welcome back": "Bienvenido de nuevo",
-  "Sign in": "Iniciar sesion",
+  "Patient portal": "Portal de pacientes",
   "Your account can manage more than one legacy product. Pick where to continue.":
     "Tu cuenta puede gestionar mas de un producto legacy. Elegi donde continuar.",
   "This path is for invited new users who do not have an email password yet.":
@@ -2374,7 +2374,7 @@ export function LoginExperience({
 
   const panelTitle = isPatientPortal
     ? phase === "auth" || phase === "select"
-      ? t("Sign in")
+      ? t("Patient portal")
       : t("Create account")
     : phase === "select"
       ? t("Choose your workspace")
@@ -2708,19 +2708,6 @@ export function LoginExperience({
                   </Button>
                 )}
               </form>
-
-              {isPatientPortal && !emailPasswordReady ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-10 w-full justify-center text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                  disabled={loading !== null}
-                  onClick={beginEmailSignup}
-                >
-                  <UserPlus className="size-4" />
-                  {t("Create account")}
-                </Button>
-              ) : null}
 
             </div>
           ) : null}
