@@ -87,6 +87,7 @@ const OPERATOR_MISSION_HREFS = new Set([
   "/2pq-dashboard",
   "/2pq-dashboard/forms",
   "/2pq-dashboard/shipments",
+  "/2pq-dashboard/consents",
   "/2pq-dashboard/contact",
 ]);
 const LABORATORY_STAFF_MISSION_HREFS = new Set([
@@ -95,6 +96,7 @@ const LABORATORY_STAFF_MISSION_HREFS = new Set([
   "/2pq-dashboard/cases",
   "/2pq-dashboard/sampling",
   "/2pq-dashboard/shipments",
+  "/2pq-dashboard/consents",
   "/2pq-dashboard/contact",
 ]);
 const PUBLISHER_NAV_HREFS = new Set([
@@ -103,14 +105,14 @@ const PUBLISHER_NAV_HREFS = new Set([
   "/my-account",
   "/2pq-dashboard/consents",
 ]);
-const PUBLISHER_SECTION_KEYS = new Set(["discover", "access"]);
+const PUBLISHER_SECTION_KEYS = new Set(["mission", "discover", "access"]);
 
 export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
   {
     key: "mission",
     label: "Mission",
     description: "Overview and control points for the whole backoffice.",
-    visibleRoles: AREA_ROLES,
+    visibleRoles: ACCESS_NAV_ROLES,
   },
   {
     key: "accounts",
@@ -782,6 +784,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
   })),
   {
     section: "mission",
+    label: "Consentimientos 2PQ",
+    href: "/2pq-dashboard/consents",
+    description: "Patient-linked informed consent files",
+    icon: FileCheck2,
+    visibleRoles: ACCESS_NAV_ROLES,
+  },
+  {
+    section: "mission",
     label: "Contact",
     href: "/2pq-dashboard/contact",
     description: "2PQ website, phone, and email contact channels",
@@ -963,14 +973,6 @@ export const ADMIN_NAV: AdminNavItem[] = [
     description: "Institution and doctor-linked patients",
     icon: UserPlus,
     visibleRoles: PATIENT_AREA_NAV_ROLES,
-  },
-  {
-    section: "access",
-    label: "Consentimientos",
-    href: "/2pq-dashboard/consents",
-    description: "Patient-linked informed consent files",
-    icon: FileCheck2,
-    visibleRoles: ACCESS_NAV_ROLES,
   },
   {
     section: "access",
@@ -1177,7 +1179,7 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
   if (pathname === "/2pq-dashboard/consents") {
     return {
       eyebrow: "2PQ",
-      title: "Consentimientos",
+      title: "Consentimientos 2PQ",
       description: "Patient-linked informed consent files.",
     };
   }

@@ -217,7 +217,9 @@ export function InformedConsentsWorkbench({
       </section>
 
       <section>
-        <h2 className="font-heading text-lg font-semibold">Consentimientos</h2>
+        <h2 className="font-heading text-lg font-semibold">
+          Consentimientos 2PQ
+        </h2>
         {records.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
             No consent files have been uploaded.

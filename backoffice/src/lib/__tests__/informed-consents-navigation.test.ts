@@ -12,13 +12,36 @@ const BACKOFFICE_ROLES: AdminRole[] = [
 
 describe("informed consent navigation", () => {
   it.each(BACKOFFICE_ROLES)(
-    "shows Consentimientos to %s",
+    "shows Consentimientos 2PQ in Mission to %s",
     (role) => {
-      expect(
-        getProjectNav("mydnamap", role).some(
-          (item) => item.href === "/2pq-dashboard/consents",
-        ),
-      ).toBe(true);
+      const item = getProjectNav("mydnamap", role).find(
+        (candidate) => candidate.href === "/2pq-dashboard/consents",
+      );
+
+      expect(item).toMatchObject({
+        label: "Consentimientos 2PQ",
+        section: "mission",
+      });
+    },
+  );
+
+  it.each(BACKOFFICE_ROLES)(
+    "places Consentimientos 2PQ directly after Prestadores 2PQ for %s",
+    (role) => {
+      const navigation = getProjectNav("mydnamap", role);
+      const consentIndex = navigation.findIndex(
+        (item) => item.href === "/2pq-dashboard/consents",
+      );
+      const providersIndex = navigation.findIndex(
+        (item) => item.href === "/2pq-dashboard/clients",
+      );
+
+      if (providersIndex === -1) {
+        expect(consentIndex).toBeGreaterThanOrEqual(0);
+        return;
+      }
+
+      expect(consentIndex).toBe(providersIndex + 1);
     },
   );
 });

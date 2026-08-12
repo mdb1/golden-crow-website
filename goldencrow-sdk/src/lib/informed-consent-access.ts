@@ -10,7 +10,7 @@ export function canAccessInformedConsentPatient(
     AdminContext,
     "role" | "institutionId" | "doctorId" | "patientId"
   >,
-  patient: ConsentOwner,
+  owner: ConsentOwner,
 ) {
   if (
     context.role === "full_admin" ||
@@ -20,15 +20,15 @@ export function canAccessInformedConsentPatient(
   }
 
   if (context.role === "patient") {
-    return context.patientId === patient.id;
+    return context.patientId === owner.id;
   }
 
   if (context.role === "institution_doctor") {
     return (
-      context.institutionId === patient.institutionId &&
-      context.doctorId === patient.doctorId
+      context.institutionId === owner.institutionId &&
+      context.doctorId === owner.doctorId
     );
   }
 
-  return context.institutionId === patient.institutionId;
+  return context.institutionId === owner.institutionId;
 }

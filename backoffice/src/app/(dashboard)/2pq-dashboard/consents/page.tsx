@@ -20,7 +20,7 @@ export default async function InformedConsentsPage() {
       header={
         <PageHero
           eyebrow="2PQ"
-          title="Consentimientos"
+          title="Consentimientos 2PQ"
           description="Patient-linked informed consent files."
         />
       }

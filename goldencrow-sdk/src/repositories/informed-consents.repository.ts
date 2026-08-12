@@ -49,6 +49,24 @@ function optionalString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function isMissingFirestoreIndexError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const code = "code" in error ? (error as { code?: unknown }).code : undefined;
+  const message =
+    "message" in error && typeof (error as { message?: unknown }).message === "string"
+      ? (error as { message: string }).message
+      : "";
+
+  return (
+    code === 9 ||
+    code === "failed-precondition" ||
+    /requires an index|indexes\?create_composite/i.test(message)
+  );
+}
+
 function toPatientRecord(id: string, data: Record<string, unknown>): PatientRecord {
   const now = new Date().toISOString();
   return {
@@ -91,14 +109,6 @@ function consentQueryForContext(context: AdminContext): Query<DocumentData> {
       );
     }
     query = query.where("patientId", "==", context.patientId);
-  } else if (context.role === "institution_doctor") {
-    if (!context.doctorId) {
-      throw new AdminRepositoryError(
-        "This doctor account is not linked to a doctor record.",
-        403,
-      );
-    }
-    query = query.where("doctorId", "==", context.doctorId);
   } else if (
     context.role !== "full_admin" &&
     context.role !== "organization_publisher"
@@ -112,26 +122,108 @@ function consentQueryForContext(context: AdminContext): Query<DocumentData> {
     query = query.where("institutionId", "==", context.institutionId);
   }
 
+  if (context.role === "institution_doctor" && !context.doctorId) {
+    throw new AdminRepositoryError(
+      "This doctor account is not linked to a doctor record.",
+      403,
+    );
+  }
+
   return query.orderBy(FieldPath.documentId(), "desc");
+}
+
+function consentFallbackQueryForContext(
+  context: AdminContext,
+): Query<DocumentData> {
+  let query: Query<DocumentData> = adminDb.collection(CONSENTS_COLLECTION);
+
+  if (context.role === "patient") {
+    query = query.where("patientId", "==", context.patientId);
+  } else if (
+    context.role !== "full_admin" &&
+    context.role !== "organization_publisher"
+  ) {
+    query = query.where("institutionId", "==", context.institutionId);
+  }
+
+  return query;
 }
 
 function patientQueryForContext(context: AdminContext): Query<DocumentData> {
   let query: Query<DocumentData> = adminDb.collection(PATIENTS_COLLECTION);
 
-  if (context.role === "institution_doctor") {
-    query = query.where("doctorId", "==", context.doctorId ?? "__none__");
-  } else if (
+  if (
     context.role !== "full_admin" &&
     context.role !== "organization_publisher"
   ) {
+    if (!context.institutionId) {
+      throw new AdminRepositoryError(
+        "This account is not linked to an institution.",
+        403,
+      );
+    }
     query = query.where(
       "institutionId",
       "==",
-      context.institutionId ?? "__none__",
+      context.institutionId,
+    );
+  }
+
+  if (context.role === "institution_doctor" && !context.doctorId) {
+    throw new AdminRepositoryError(
+      "This doctor account is not linked to a doctor record.",
+      403,
     );
   }
 
   return query.orderBy(FieldPath.documentId(), "asc");
+}
+
+function patientFallbackQueryForContext(
+  context: AdminContext,
+): Query<DocumentData> {
+  let query: Query<DocumentData> = adminDb.collection(PATIENTS_COLLECTION);
+
+  if (
+    context.role !== "full_admin" &&
+    context.role !== "organization_publisher"
+  ) {
+    query = query.where("institutionId", "==", context.institutionId);
+  }
+
+  return query;
+}
+
+async function getPageWithIndexFallback(
+  collectionName: string,
+  orderedQuery: Query<DocumentData>,
+  fallbackQuery: Query<DocumentData>,
+  cursor?: string,
+) {
+  let query = orderedQuery;
+  if (cursor) {
+    query = query.startAfter(cursor);
+  }
+
+  try {
+    return await query.limit(CONSENTS_PAGE_SIZE + 1).get();
+  } catch (error) {
+    if (!isMissingFirestoreIndexError(error)) {
+      throw error;
+    }
+
+    let fallback = fallbackQuery;
+    if (cursor) {
+      const cursorSnapshot = await adminDb
+        .collection(collectionName)
+        .doc(cursor)
+        .get();
+      if (cursorSnapshot.exists) {
+        fallback = fallback.startAfter(cursorSnapshot);
+      }
+    }
+    return fallback.limit(CONSENTS_PAGE_SIZE + 1).get();
+  }
 }
 
 function parseStoredFile(value: unknown): InformedConsentFile {
@@ -253,16 +345,25 @@ export async function listInformedConsentsForContext(
   context: AdminContext,
   cursor?: string,
 ) {
-  let query = consentQueryForContext(context);
-  if (cursor) {
-    query = query.startAfter(cursor);
-  }
-  const snapshot = await query.limit(CONSENTS_PAGE_SIZE + 1).get();
+  const snapshot = await getPageWithIndexFallback(
+    CONSENTS_COLLECTION,
+    consentQueryForContext(context),
+    consentFallbackQueryForContext(context),
+    cursor,
+  );
   const pageDocs = snapshot.docs.slice(0, CONSENTS_PAGE_SIZE);
-  const parsed = pageDocs.map((doc) => ({
-    id: doc.id,
-    consent: parseStoredConsent(doc.data() as Record<string, unknown>),
-  }));
+  const parsed = pageDocs
+    .map((doc) => ({
+      id: doc.id,
+      consent: parseStoredConsent(doc.data() as Record<string, unknown>),
+    }))
+    .filter(({ consent }) =>
+      canAccessInformedConsentPatient(context, {
+        id: consent.patientId,
+        institutionId: consent.institutionId,
+        doctorId: consent.doctorId,
+      }),
+    );
   const patients = await Promise.all(
     [...new Set(parsed.map(({ consent }) => consent.patientId))].map(getPatient),
   );
@@ -303,24 +404,26 @@ export async function listInformedConsentPatientsForContext(
     };
   }
 
-  let query = patientQueryForContext(context);
-  if (cursor) {
-    query = query.startAfter(cursor);
-  }
-  const snapshot = await query.limit(CONSENTS_PAGE_SIZE + 1).get();
+  const snapshot = await getPageWithIndexFallback(
+    PATIENTS_COLLECTION,
+    patientQueryForContext(context),
+    patientFallbackQueryForContext(context),
+    cursor,
+  );
   const pageDocs = snapshot.docs.slice(0, CONSENTS_PAGE_SIZE);
+  const patients = pageDocs
+    .map((doc) =>
+      toPatientRecord(doc.id, doc.data() as Record<string, unknown>),
+    )
+    .filter((patient) =>
+      canAccessInformedConsentPatient(context, patient),
+    );
   return {
-    patients: pageDocs.map((doc) => {
-      const patient = toPatientRecord(
-        doc.id,
-        doc.data() as Record<string, unknown>,
-      );
-      return {
-        id: patient.id,
-        fullName: patient.fullName,
-        email: patient.email,
-      };
-    }),
+    patients: patients.map((patient) => ({
+      id: patient.id,
+      fullName: patient.fullName,
+      email: patient.email,
+    })),
     nextCursor:
       snapshot.docs.length > CONSENTS_PAGE_SIZE
         ? pageDocs.at(-1)?.id
