@@ -90,7 +90,15 @@ export function toEntitlementInfo(raw: unknown): EntitlementInfo | null {
 /**
  * True when a `/users/{uid}` doc represents a coach-less client: role client,
  * no coach linked (nil / empty / whitespace coachId), and not soft-deleted.
- * The single predicate used by the dashboard scan AND its unit tests.
+ *
+ * ⚠️ This is an IDENTITY predicate, and a guest (#765/03, `isGuest: true`)
+ * satisfies it — a guest genuinely IS a client with no coach. It deliberately
+ * stays that way so the admin drill-down, the workout-log detail gate and the
+ * delete guard all keep working on guest accounts; making it exclude guests
+ * would render them invisible to support and undeletable by hand.
+ *
+ * For "should this row show up in the operator's work list?" use
+ * {@link isCoachlessOperatorRow} instead.
  */
 export function isCoachlessClientRow(args: {
   role: string | null;
@@ -100,6 +108,27 @@ export function isCoachlessClientRow(args: {
   const isClient = args.role === "client";
   const noCoach = !args.coachId || args.coachId.trim().length === 0;
   return isClient && noCoach && !args.deleted;
+}
+
+/**
+ * True when a coach-less user belongs in the admin's coach-less WORK LIST.
+ *
+ * The distinction from {@link isCoachlessClientRow} is the whole point of
+ * #765/03. That list is a human queue: an operator reads it to assign a coach
+ * or chase a missing email. A guest (`signInAnonymously`) can be actioned in
+ * neither way — there is no address to chase and nobody to hand a coach to —
+ * so every install that taps "mirar sin cuenta" would add a permanent,
+ * un-actionable row. At any real install volume the queue stops being a queue.
+ *
+ * Guests are therefore excluded HERE, at the list, and nowhere else.
+ */
+export function isCoachlessOperatorRow(args: {
+  role: string | null;
+  coachId: string | null;
+  deleted: boolean;
+  isGuest: boolean;
+}): boolean {
+  return isCoachlessClientRow(args) && !args.isGuest;
 }
 
 /**
