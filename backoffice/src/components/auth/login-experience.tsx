@@ -316,6 +316,10 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "Enter the password for this approved email account.":
     "Ingresa el password de esta cuenta aprobada.",
   "Forgot password?": "Olvidaste tu password?",
+  "Your temporary password was sent to you by email.":
+    "Tu contrasena temporal fue enviada por email.",
+  "If you did not receive it, ask your doctor to send it again.":
+    "Si no la recibiste, pedi a tu medico que vuelva a enviartela.",
   "Checking credentials...": "Verificando credenciales...",
   "Sign in with email": "Iniciar con email",
   "Checking email...": "Verificando email...",
@@ -397,6 +401,13 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
     "aprobado mediante una asignacion de rol activa",
   "approved through the team allowlist":
     "aprobado mediante la allowlist del equipo",
+};
+
+const PATIENT_PORTAL_SPANISH_TEXT: Record<string, string> = {
+  Password: "Contrasena",
+  "Hide password": "Ocultar contrasena",
+  "Show password": "Mostrar contrasena",
+  "Forgot password?": "Olvidaste tu contrasena?",
 };
 
 function loginText(language: AppLanguage, text: string) {
@@ -1526,7 +1537,9 @@ export function LoginExperience({
   surface: LoginSurface;
 }) {
   const isPatientPortal = surface === "patient-portal";
-  const [loginLanguage, setLoginLanguage] = useState<AppLanguage>("en");
+  const [loginLanguage, setLoginLanguage] = useState<AppLanguage>(
+    isPatientPortal ? "es" : "en"
+  );
   const [loading, setLoading] = useState<LoadingState>(null);
   const [notice, setNotice] = useState<AuthNotice | null>(null);
   const [email, setEmail] = useState("");
@@ -1554,17 +1567,27 @@ export function LoginExperience({
   } | null>(null);
 
   useEffect(() => {
+    if (isPatientPortal) {
+      setLoginLanguage("es");
+      document.documentElement.lang = "es";
+      document.documentElement.dataset.language = "es";
+      return;
+    }
+
     const storedLanguage = readStoredLoginLanguage("en");
     setLoginLanguage(storedLanguage);
     applyLoginLanguage(storedLanguage);
-  }, []);
+  }, [isPatientPortal]);
 
   function handleLoginLanguageChange(nextLanguage: AppLanguage) {
     setLoginLanguage(nextLanguage);
     applyLoginLanguage(nextLanguage);
   }
 
-  const t = (text: string) => loginText(loginLanguage, text);
+  const t = (text: string) =>
+    isPatientPortal && loginLanguage === "es"
+      ? (PATIENT_PORTAL_SPANISH_TEXT[text] ?? loginText(loginLanguage, text))
+      : loginText(loginLanguage, text);
 
   async function handleAuthSuccess(options: {
     idToken: string;
@@ -2640,29 +2663,56 @@ export function LoginExperience({
                 ) : null}
 
                 {emailPasswordReady ? (
-                  <FieldShell
-                    id="login-password"
-                    label={t("Password")}
-                    helper={
-                      isPatientPortal
-                        ? undefined
-                        : t("Enter the password for this approved email account.")
-                    }
-                    icon={<LockKeyhole className="size-4" />}
-                  >
-                    <PasswordInput
+                  <>
+                    <FieldShell
                       id="login-password"
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      placeholder={t("Password")}
-                      describedBy={isPatientPortal ? undefined : "login-password-helper"}
-                      visible={showPassword}
-                      onToggleVisibility={() => setShowPassword((current) => !current)}
-                      showLabel={t("Show password")}
-                      hideLabel={t("Hide password")}
-                    />
-                  </FieldShell>
+                      label={t("Password")}
+                      helper={
+                        isPatientPortal
+                          ? undefined
+                          : t("Enter the password for this approved email account.")
+                      }
+                      icon={<LockKeyhole className="size-4" />}
+                    >
+                      <PasswordInput
+                        id="login-password"
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        placeholder={t("Password")}
+                        describedBy={
+                          isPatientPortal
+                            ? "patient-temporary-password-notice"
+                            : "login-password-helper"
+                        }
+                        visible={showPassword}
+                        onToggleVisibility={() =>
+                          setShowPassword((current) => !current)
+                        }
+                        showLabel={t("Show password")}
+                        hideLabel={t("Hide password")}
+                      />
+                    </FieldShell>
+                    {isPatientPortal ? (
+                      <div
+                        id="patient-temporary-password-notice"
+                        role="note"
+                        className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs leading-5 text-blue-950"
+                      >
+                        <Mail className="mt-0.5 size-4 shrink-0 text-blue-600" />
+                        <p>
+                          <span className="font-semibold">
+                            {t(
+                              "Your temporary password was sent to you by email."
+                            )}
+                          </span>{" "}
+                          {t(
+                            "If you did not receive it, ask your doctor to send it again."
+                          )}
+                        </p>
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
 
                 {emailPasswordReady ? (
