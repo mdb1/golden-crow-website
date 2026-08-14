@@ -1,6 +1,12 @@
 ---
 import PocketGenesPublicLayout from '../../../layouts/PocketGenesPublicLayout.astro';
-import { POCKET_GENES_EMAILS, getTrustDocument, trustDocuments, type TrustDocument } from '../../../data/pocketGenesPublic';
+import {
+  POCKET_GENES_EMAILS,
+  getLocalizedTrustDocuments,
+  getTrustDocument,
+  trustDocuments,
+  type TrustDocument,
+} from '../../../data/pocketGenesPublic';
 
 export function getStaticPaths() {
   return trustDocuments.map((document) => ({
@@ -19,6 +25,11 @@ const locale = isEnglish ? 'en' : 'es';
 const routeDocument = Astro.props.document;
 const document = getTrustDocument(routeDocument.slug, locale) ?? routeDocument;
 const isDataFlow = document.slug === 'data-flow-diagram';
+const navigationDocuments = getLocalizedTrustDocuments(locale);
+const navigationCategories = Array.from(new Set(navigationDocuments.map((navDocument) => navDocument.category))).map((category) => ({
+  category,
+  documents: navigationDocuments.filter((navDocument) => navDocument.category === category),
+}));
 
 const pageCopy = {
   en: {
@@ -34,6 +45,7 @@ const pageCopy = {
     version: 'Version',
     lastReviewed: 'Last reviewed',
     contact: 'Contact',
+    navigationTitle: 'Navigation',
     dataFlowTitle: 'Pocket Genes data-flow diagram',
     dataFlowLabel: 'Pocket Genes data flow',
     relatedPages: 'Related pages',
@@ -82,6 +94,7 @@ const pageCopy = {
     version: 'Versión',
     lastReviewed: 'Última revisión',
     contact: 'Contacto',
+    navigationTitle: 'Navegación',
     dataFlowTitle: 'Diagrama de flujo de datos de Pocket Genes',
     dataFlowLabel: 'Flujo de datos de Pocket Genes',
     relatedPages: 'Páginas relacionadas',
@@ -175,6 +188,34 @@ const copy = pageCopy[locale];
               <dd><a href={`mailto:${POCKET_GENES_EMAILS.trust}`}>{POCKET_GENES_EMAILS.trust}</a></dd>
             </div>
           </dl>
+
+          <nav class="pg-trust-detail-nav" aria-labelledby="pg-trust-detail-nav-title">
+            <h2 id="pg-trust-detail-nav-title">{copy.navigationTitle}</h2>
+            <div class="pg-trust-detail-nav-groups">
+              {navigationCategories.map(({ category, documents }) => (
+                <section>
+                  <h3>{category}</h3>
+                  <ul>
+                    {documents.map((navDocument) => {
+                      const isCurrent = navDocument.slug === document.slug;
+
+                      return (
+                        <li>
+                          <a
+                            class:list={['pg-trust-detail-nav-link', { 'is-active': isCurrent }]}
+                            href={localizePath(`/pocket-genes/trust-center/${navDocument.slug}`)}
+                            aria-current={isCurrent ? 'page' : undefined}
+                          >
+                            {navDocument.title}
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </nav>
         </aside>
 
         <article class="pg-trust-article">
@@ -338,6 +379,68 @@ const copy = pageCopy[locale];
 
   .pg-trust-meta a {
     color: var(--pg-blue);
+  }
+
+  .pg-trust-detail-nav {
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid var(--pg-border);
+  }
+
+  .pg-trust-detail-nav h2 {
+    margin: 0 0 16px;
+    font-size: 1.12rem;
+  }
+
+  .pg-trust-detail-nav-groups {
+    display: grid;
+    gap: 18px;
+  }
+
+  .pg-trust-detail-nav section {
+    display: grid;
+    gap: 8px;
+  }
+
+  .pg-trust-detail-nav h3 {
+    margin: 0;
+    color: var(--pg-muted);
+    font-size: 0.76rem;
+    font-weight: 850;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .pg-trust-detail-nav ul {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pg-trust-detail-nav-link {
+    display: block;
+    border-left: 3px solid transparent;
+    padding: 7px 8px 7px 10px;
+    color: var(--pg-ink-soft);
+    font-size: 0.9rem;
+    font-weight: 720;
+    line-height: 1.25;
+    text-decoration: none;
+  }
+
+  .pg-trust-detail-nav-link:hover,
+  .pg-trust-detail-nav-link:focus-visible {
+    color: var(--pg-ink);
+    background: #f8fbfc;
+  }
+
+  .pg-trust-detail-nav-link.is-active {
+    border-left-color: var(--pg-teal);
+    background: #eef8f7;
+    color: var(--pg-ink);
+    font-weight: 880;
   }
 
   .pg-trust-article {
