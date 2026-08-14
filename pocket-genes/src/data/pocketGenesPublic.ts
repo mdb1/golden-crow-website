@@ -1067,14 +1067,49 @@ export const trustDocuments: TrustDocument[] = [
       },
       {
         heading: 'Public register',
-        table: {
-          headers: ['Provider', 'Legal provider entity', 'Product or service used', 'Purpose', 'Categories of information', 'Processing role', 'Jurisdictions or transfers', 'Documentation', 'Added or reviewed'],
-          rows: [
-            ['Amazon Web Services', 'Amazon Web Services, Inc. or applicable AWS contracting affiliate.', 'Cloud infrastructure and backend services used by Pocket Genes components.', 'Hosting, compute, storage, network, operational reliability, security, and backend service operation.', 'Application, operational, logging, integration, support, and limited account information depending on hosted component.', 'Hosts, stores, transmits, and supports infrastructure under Pocket Genes configuration.', 'International processing may apply depending on AWS region, support, and service configuration.', 'AWS privacy, data processing, security, and compliance documentation.', TRUST_LAST_REVIEWED_EN],
-            ['Google Firebase', 'Google LLC or applicable Google contracting affiliate.', 'Firebase Authentication, Firebase or Google Cloud database and application infrastructure where configured.', 'Authentication, account identity, database, application operations, security events, and app infrastructure.', 'Account identifiers, authentication data, login records, profile/application data, integration references, technical logs, and diagnostic information depending on feature.', 'Authenticates, hosts, stores, transmits, and supports application infrastructure.', 'International processing may apply under Google and Firebase service terms and infrastructure.', 'Google Cloud, Firebase, privacy, data processing, and security documentation.', TRUST_LAST_REVIEWED_EN],
-            ['Relayhook', 'Connex, operator of the Relayhook service.', 'Webhook notification endpoint for public booking and trusted-organization meeting requests.', 'Forwarding booking or meeting-request details so Pocket Genes can respond.', 'Full name, email, optional WhatsApp or phone, company name, meeting details, source page, locale, and request context.', 'Transmits and notifies request information submitted through the booking workflow.', 'International processing may apply depending on Relayhook hosting and operations.', 'Relayhook privacy documentation is recorded in the vendor file.', TRUST_LAST_REVIEWED_EN],
-          ],
-        },
+        body:
+          'Each provider entry identifies the legal entity, service, purpose, information categories, processing role, transfer context, documentation, and review date.',
+        subsections: [
+          {
+            heading: 'Amazon Web Services',
+            bullets: [
+              'Legal provider entity: Amazon Web Services, Inc. or applicable AWS contracting affiliate.',
+              'Product or service used: Cloud infrastructure and backend services used by Pocket Genes components.',
+              'Purpose: Hosting, compute, storage, network, operational reliability, security, and backend service operation.',
+              'Categories of information: Application, operational, logging, integration, support, and limited account information depending on hosted component.',
+              'Processing role: Hosts, stores, transmits, and supports infrastructure under Pocket Genes configuration.',
+              'Jurisdictions or transfers: International processing may apply depending on AWS region, support, and service configuration.',
+              'Documentation: AWS privacy, data processing, security, and compliance documentation.',
+              `Added or reviewed: ${TRUST_LAST_REVIEWED_EN}.`,
+            ],
+          },
+          {
+            heading: 'Google Firebase',
+            bullets: [
+              'Legal provider entity: Google LLC or applicable Google contracting affiliate.',
+              'Product or service used: Firebase Authentication, Firebase or Google Cloud database and application infrastructure where configured.',
+              'Purpose: Authentication, account identity, database, application operations, security events, and app infrastructure.',
+              'Categories of information: Account identifiers, authentication data, login records, profile/application data, integration references, technical logs, and diagnostic information depending on feature.',
+              'Processing role: Authenticates, hosts, stores, transmits, and supports application infrastructure.',
+              'Jurisdictions or transfers: International processing may apply under Google and Firebase service terms and infrastructure.',
+              'Documentation: Google Cloud, Firebase, privacy, data processing, and security documentation.',
+              `Added or reviewed: ${TRUST_LAST_REVIEWED_EN}.`,
+            ],
+          },
+          {
+            heading: 'Relayhook',
+            bullets: [
+              'Legal provider entity: Connex, operator of the Relayhook service.',
+              'Product or service used: Webhook notification endpoint for public booking and trusted-organization meeting requests.',
+              'Purpose: Forwarding booking or meeting-request details so Pocket Genes can respond.',
+              'Categories of information: Full name, email, optional WhatsApp or phone, company name, meeting details, source page, locale, and request context.',
+              'Processing role: Transmits and notifies request information submitted through the booking workflow.',
+              'Jurisdictions or transfers: International processing may apply depending on Relayhook hosting and operations.',
+              'Documentation: Relayhook privacy documentation is recorded in the vendor file.',
+              `Added or reviewed: ${TRUST_LAST_REVIEWED_EN}.`,
+            ],
+          },
+        ],
       },
       {
         heading: 'Provider selection',
@@ -2718,14 +2753,49 @@ export const trustDocumentsEs: TrustDocument[] = [
       },
       {
         heading: 'Registro público',
-        table: {
-          headers: ['Proveedor', 'Entidad legal proveedora', 'Producto o servicio', 'Propósito', 'Categorías de información', 'Rol de procesamiento', 'Jurisdicciones o transferencias', 'Documentación', 'Agregado o revisado'],
-          rows: [
-            ['Amazon Web Services', 'Amazon Web Services, Inc. o afiliada contractual aplicable.', 'Infraestructura cloud y backend usada por componentes de Pocket Genes.', 'Hosting, cómputo, almacenamiento, red, confiabilidad, seguridad y backend.', 'Información de aplicación, operación, logs, integración, soporte y cuenta limitada según componente.', 'Aloja, almacena, transmite y soporta infraestructura bajo configuración de Pocket Genes.', 'Puede aplicar procesamiento internacional según región, soporte y servicio.', 'Documentación de privacidad, procesamiento, seguridad y compliance de AWS.', TRUST_LAST_REVIEWED_ES],
-            ['Google Firebase', 'Google LLC o afiliada contractual aplicable.', 'Firebase Authentication, base de datos e infraestructura de aplicación Firebase/Google Cloud cuando se configure.', 'Autenticación, identidad de cuenta, base de datos, operación, eventos de seguridad e infraestructura.', 'Identificadores, autenticación, login, datos de perfil/aplicación, referencias de integración, logs y diagnóstico.', 'Autentica, aloja, almacena, transmite y soporta infraestructura.', 'Puede aplicar procesamiento internacional bajo términos de Google y Firebase.', 'Documentación de Google Cloud, Firebase, privacidad, procesamiento y seguridad.', TRUST_LAST_REVIEWED_ES],
-            ['Relayhook', 'Connex, operador del servicio Relayhook.', 'Endpoint webhook para solicitudes públicas de reunión y organización de confianza.', 'Reenviar detalles de solicitudes para que Pocket Genes pueda responder.', 'Nombre, email, WhatsApp o teléfono opcional, empresa, reunión, página fuente, idioma y contexto.', 'Transmite y notifica información enviada mediante el flujo de reserva.', 'Puede aplicar procesamiento internacional según hosting y operación de Relayhook.', 'La documentación de privacidad de Relayhook queda registrada en el archivo de proveedor.', TRUST_LAST_REVIEWED_ES],
-          ],
-        },
+        body:
+          'Cada proveedor se presenta con entidad legal, servicio, propósito, categorías de información, rol de procesamiento, contexto de transferencias, documentación y fecha de revisión.',
+        subsections: [
+          {
+            heading: 'Amazon Web Services',
+            bullets: [
+              'Entidad legal proveedora: Amazon Web Services, Inc. o afiliada contractual aplicable.',
+              'Producto o servicio: Infraestructura cloud y backend usada por componentes de Pocket Genes.',
+              'Propósito: Hosting, cómputo, almacenamiento, red, confiabilidad, seguridad y backend.',
+              'Categorías de información: Información de aplicación, operación, logs, integración, soporte y cuenta limitada según componente.',
+              'Rol de procesamiento: Aloja, almacena, transmite y soporta infraestructura bajo configuración de Pocket Genes.',
+              'Jurisdicciones o transferencias: Puede aplicar procesamiento internacional según región, soporte y servicio.',
+              'Documentación: Documentación de privacidad, procesamiento, seguridad y compliance de AWS.',
+              `Agregado o revisado: ${TRUST_LAST_REVIEWED_ES}.`,
+            ],
+          },
+          {
+            heading: 'Google Firebase',
+            bullets: [
+              'Entidad legal proveedora: Google LLC o afiliada contractual aplicable.',
+              'Producto o servicio: Firebase Authentication, base de datos e infraestructura de aplicación Firebase/Google Cloud cuando se configure.',
+              'Propósito: Autenticación, identidad de cuenta, base de datos, operación, eventos de seguridad e infraestructura.',
+              'Categorías de información: Identificadores, autenticación, login, datos de perfil/aplicación, referencias de integración, logs y diagnóstico.',
+              'Rol de procesamiento: Autentica, aloja, almacena, transmite y soporta infraestructura.',
+              'Jurisdicciones o transferencias: Puede aplicar procesamiento internacional bajo términos de Google y Firebase.',
+              'Documentación: Documentación de Google Cloud, Firebase, privacidad, procesamiento y seguridad.',
+              `Agregado o revisado: ${TRUST_LAST_REVIEWED_ES}.`,
+            ],
+          },
+          {
+            heading: 'Relayhook',
+            bullets: [
+              'Entidad legal proveedora: Connex, operador del servicio Relayhook.',
+              'Producto o servicio: Endpoint webhook para solicitudes públicas de reunión y organización de confianza.',
+              'Propósito: Reenviar detalles de solicitudes para que Pocket Genes pueda responder.',
+              'Categorías de información: Nombre, email, WhatsApp o teléfono opcional, empresa, reunión, página fuente, idioma y contexto.',
+              'Rol de procesamiento: Transmite y notifica información enviada mediante el flujo de reserva.',
+              'Jurisdicciones o transferencias: Puede aplicar procesamiento internacional según hosting y operación de Relayhook.',
+              'Documentación: La documentación de privacidad de Relayhook queda registrada en el archivo de proveedor.',
+              `Agregado o revisado: ${TRUST_LAST_REVIEWED_ES}.`,
+            ],
+          },
+        ],
       },
       {
         heading: 'Selección de proveedores',
