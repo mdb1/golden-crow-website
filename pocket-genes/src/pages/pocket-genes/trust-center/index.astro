@@ -75,6 +75,7 @@ const pageCopy = {
     documentsTitle: 'Privacy, safety, and data documents.',
     documentsBody:
       'Read the privacy, security, community safety, data retention, accessibility, and intended-use pages for Pocket Genes.',
+    documentCta: 'Open document',
     approachEyebrow: 'Trust principles',
     approachTitle: 'Our approach',
     approachItems: [
@@ -194,6 +195,7 @@ const pageCopy = {
     documentsTitle: 'Documentos sobre privacidad, seguridad y uso de datos.',
     documentsBody:
       'Consultá nuestras políticas de privacidad, seguridad, comunidad, retención de datos, accesibilidad y uso previsto.',
+    documentCta: 'Abrir documento',
     approachEyebrow: 'Principios de confianza',
     approachTitle: 'Nuestro enfoque',
     approachItems: [
@@ -338,14 +340,17 @@ const trustMailSubject = encodeURIComponent(
             <p class="pg-eyebrow">{copy.approachEyebrow}</p>
             <h3 id="pg-trust-approach-title">{copy.approachTitle}</h3>
           </div>
-          <div class="pg-trust-approach-grid">
-            {copy.approachItems.map((item) => (
-              <article>
-                <h4>{item.title}</h4>
-                <p>{item.body}</p>
-              </article>
+          <ol class="pg-trust-approach-list">
+            {copy.approachItems.map((item, index) => (
+              <li>
+                <span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                <div>
+                  <h4>{item.title}</h4>
+                  <p>{item.body}</p>
+                </div>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
 
         <div class="pg-trust-category-stack">
@@ -355,9 +360,10 @@ const trustMailSubject = encodeURIComponent(
               <div class="pg-trust-doc-grid">
                 {documents.map((document) => (
                   <a class="pg-trust-doc" href={localizePath(`/pocket-genes/trust-center/${document.slug}`)}>
-                    <span>{document.status}</span>
+                    <span class="pg-trust-doc-status">{document.status}</span>
                     <strong>{document.title}</strong>
                     <p>{document.summary}</p>
+                    <span class="pg-trust-doc-action">{copy.documentCta}</span>
                   </a>
                 ))}
               </div>
@@ -604,12 +610,11 @@ const trustMailSubject = encodeURIComponent(
 
   .pg-trust-approach {
     display: grid;
-    gap: 20px;
-    margin-bottom: 36px;
-    border: 1px solid rgba(20, 149, 143, 0.18);
-    border-radius: 8px;
-    background: #f8fbfc;
-    padding: clamp(22px, 4vw, 32px);
+    grid-template-columns: minmax(220px, 0.36fr) minmax(0, 1fr);
+    gap: clamp(22px, 5vw, 52px);
+    margin: 8px 0 42px;
+    padding: 8px 0 38px;
+    border-bottom: 1px solid rgba(20, 149, 143, 0.2);
   }
 
   .pg-trust-approach-heading h3 {
@@ -620,18 +625,32 @@ const trustMailSubject = encodeURIComponent(
     letter-spacing: 0;
   }
 
-  .pg-trust-approach-grid {
+  .pg-trust-approach-list {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
-  .pg-trust-approach article {
-    min-height: 100%;
-    border: 1px solid var(--pg-border);
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 18px;
+  .pg-trust-approach li {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 18px;
+    padding: 18px 0;
+    border-top: 1px solid var(--pg-border);
+  }
+
+  .pg-trust-approach li:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .pg-trust-approach li > span {
+    color: var(--pg-teal);
+    font-size: 0.82rem;
+    font-weight: 900;
+    line-height: 1.3;
   }
 
   .pg-trust-approach h4 {
@@ -663,27 +682,43 @@ const trustMailSubject = encodeURIComponent(
   }
 
   .pg-trust-doc {
+    position: relative;
+    display: grid;
+    gap: 10px;
+    align-content: start;
     min-height: 100%;
-    border: 1px solid var(--pg-border);
+    border: 1px solid rgba(20, 149, 143, 0.26);
     border-radius: 8px;
     background: #ffffff;
     padding: 20px;
+    color: var(--pg-ink);
     text-decoration: none;
-    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    box-shadow: 0 10px 24px rgba(23, 32, 51, 0.06);
+    cursor: pointer;
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
   }
 
   .pg-trust-doc:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     border-color: var(--pg-teal);
-    box-shadow: 0 12px 26px rgba(20, 149, 143, 0.12);
+    background: #f8fdfd;
+    box-shadow: 0 16px 34px rgba(20, 149, 143, 0.16);
   }
 
-  .pg-trust-doc span {
-    display: block;
-    margin-bottom: 8px;
-    color: var(--pg-muted);
+  .pg-trust-doc:focus-visible {
+    outline: 3px solid rgba(20, 149, 143, 0.34);
+    outline-offset: 3px;
+  }
+
+  .pg-trust-doc-status {
+    width: fit-content;
+    border-radius: 999px;
+    background: #eef8f7;
+    padding: 5px 9px;
+    color: var(--pg-teal);
     font-size: 0.78rem;
-    font-weight: 800;
+    font-weight: 850;
+    line-height: 1;
     text-transform: uppercase;
   }
 
@@ -694,8 +729,33 @@ const trustMailSubject = encodeURIComponent(
   }
 
   .pg-trust-doc p {
-    margin: 10px 0 0;
+    margin: 0;
     color: var(--pg-ink-soft);
+  }
+
+  .pg-trust-doc-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    margin-top: 4px;
+    color: var(--pg-blue);
+    font-size: 0.9rem;
+    font-weight: 850;
+  }
+
+  .pg-trust-doc-action::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-top: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 160ms ease;
+  }
+
+  .pg-trust-doc:hover .pg-trust-doc-action::after {
+    transform: translateX(3px) rotate(45deg);
   }
 
   .pg-trust-contact {
@@ -1054,9 +1114,12 @@ const trustMailSubject = encodeURIComponent(
     }
 
     .pg-trusted-criteria,
-    .pg-trust-approach-grid,
     .pg-trust-doc-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pg-trust-approach {
+      grid-template-columns: 1fr;
     }
   }
 
@@ -1078,8 +1141,9 @@ const trustMailSubject = encodeURIComponent(
       grid-template-columns: 1fr;
     }
 
-    .pg-trust-approach-grid {
-      grid-template-columns: 1fr;
+    .pg-trust-approach li {
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 12px;
     }
 
     .pg-trusted-booking h2 {
