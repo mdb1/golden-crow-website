@@ -30,6 +30,12 @@ const navigationCategories = Array.from(new Set(navigationDocuments.map((navDocu
   category,
   documents: navigationDocuments.filter((navDocument) => navDocument.category === category),
 }));
+const trustDocumentHrefByTitle = new Map(
+  navigationDocuments.map((navDocument) => [
+    navDocument.title,
+    localizePath(`/pocket-genes/trust-center/${navDocument.slug}`),
+  ]),
+);
 const escapeHtml = (value: string) =>
   value
     .replaceAll('&', '&amp;')
@@ -42,6 +48,16 @@ const linkTrustEmail = (value: string) =>
     POCKET_GENES_EMAILS.trust,
     `<a class="pg-trust-email-link" href="mailto:${POCKET_GENES_EMAILS.trust}">${POCKET_GENES_EMAILS.trust}</a>`,
   );
+const relatedDocumentHeadings = new Set(['Related documents', 'Documentos relacionados']);
+const linkRelatedTrustDocument = (value: string, sectionHeading: string) => {
+  const href = trustDocumentHrefByTitle.get(value);
+
+  if (!href || !relatedDocumentHeadings.has(sectionHeading)) {
+    return linkTrustEmail(value);
+  }
+
+  return `<a class="pg-trust-document-link" href="${escapeHtml(href)}">${escapeHtml(value)}</a>`;
+};
 
 const pageCopy = {
   en: {
@@ -238,7 +254,7 @@ const copy = pageCopy[locale];
               {section.paragraphs?.map((paragraph) => <p set:html={linkTrustEmail(paragraph)} />)}
               {section.bullets && (
                 <ul>
-                  {section.bullets.map((bullet) => <li set:html={linkTrustEmail(bullet)} />)}
+                  {section.bullets.map((bullet) => <li set:html={linkRelatedTrustDocument(bullet, section.heading)} />)}
                 </ul>
               )}
               {section.subsections && (
@@ -508,13 +524,16 @@ const copy = pageCopy[locale];
     margin-top: 8px;
   }
 
-  .pg-trust-article :global(.pg-trust-email-link) {
+  .pg-trust-article :global(.pg-trust-email-link),
+  .pg-trust-article :global(.pg-trust-document-link) {
     color: var(--pg-blue);
     font-weight: 760;
   }
 
   .pg-trust-article :global(.pg-trust-email-link:hover),
-  .pg-trust-article :global(.pg-trust-email-link:focus-visible) {
+  .pg-trust-article :global(.pg-trust-email-link:focus-visible),
+  .pg-trust-article :global(.pg-trust-document-link:hover),
+  .pg-trust-article :global(.pg-trust-document-link:focus-visible) {
     color: var(--pg-teal);
   }
 
