@@ -1,5 +1,6 @@
 ---
 import { useTranslations } from '../i18n/index';
+import { formatBrandText } from '../utils/brandFormatting';
 
 const t = useTranslations(Astro.currentLocale);
 
@@ -21,12 +22,12 @@ const screenshots = Array.from({ length: 3 }, (_, repeatIndex) =>
 <section id="app-screenshots" class="app-screenshots-section" aria-labelledby="app-screenshots-title">
   <div class="content-wrapper">
     <div class="section-header">
-      <p class="eyebrow">{t.appScreenshots.eyebrow}</p>
+      <p class="eyebrow" set:html={formatBrandText(t.appScreenshots.eyebrow)} />
       <h2 id="app-screenshots-title" class="title">
-        <span class="title-accent">{t.appScreenshots.title1}</span>
-        <span class="title-main">{t.appScreenshots.title2}</span>
+        <span class="title-accent" set:html={formatBrandText(t.appScreenshots.title1)} />
+        <span class="title-main" set:html={formatBrandText(t.appScreenshots.title2)} />
       </h2>
-      <p class="description">{t.appScreenshots.description}</p>
+      <p class="description" set:html={formatBrandText(t.appScreenshots.description)} />
     </div>
 
     <div class="screenshots-rail" aria-label={t.appScreenshots.galleryLabel} data-screenshots-rail>
@@ -46,7 +47,7 @@ const screenshots = Array.from({ length: 3 }, (_, repeatIndex) =>
               height="1218"
             />
           </div>
-          <figcaption>{screenshot.caption}</figcaption>
+          <figcaption set:html={formatBrandText(screenshot.caption)} />
         </figure>
       ))}
     </div>

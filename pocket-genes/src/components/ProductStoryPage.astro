@@ -11,6 +11,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { getLocalizedPath } from '../i18n/index';
 import { defaultLang, type Lang } from '../i18n/ui';
 import type { ProductStoryPageData, StoryNavItem, StoryPalette } from '../data/productStory';
+import { formatBrandText } from '../utils/brandFormatting';
 
 interface Props {
   page: ProductStoryPageData;
@@ -101,15 +102,15 @@ function localPath(path: string) {
   <main class="pg-story" style={storyStyle}>
     <section class="pg-hero" style={`--hero-image: url("${page.heroImage}")`}>
       <div class="pg-hero-inner">
-        <p class="pg-eyebrow">{page.eyebrow}</p>
-        <h1>{page.heroTitle}</h1>
-        <p class="pg-hero-lead">{page.heroLead}</p>
+        <p class="pg-eyebrow" set:html={formatBrandText(page.eyebrow)} />
+        <h1 set:html={formatBrandText(page.heroTitle)} />
+        <p class="pg-hero-lead" set:html={formatBrandText(page.heroLead)} />
         <div class="pg-actions">
           <a class="pg-button pg-button-primary" href={localPath(page.primaryActionHref)}>
-            {page.primaryActionLabel}
+            <span set:html={formatBrandText(page.primaryActionLabel)} />
           </a>
           <a class="pg-button pg-button-secondary" href={localPath(page.secondaryActionHref)}>
-            {page.secondaryActionLabel}
+            <span set:html={formatBrandText(page.secondaryActionLabel)} />
           </a>
         </div>
       </div>
@@ -123,7 +124,7 @@ function localPath(path: string) {
             class:list={['pg-story-nav-link', { active: item.slug === slug }]}
             aria-current={item.slug === slug ? 'page' : undefined}
           >
-            {item.label}
+            <span set:html={formatBrandText(item.label)} />
           </a>
         ))}
       </div>
@@ -132,11 +133,11 @@ function localPath(path: string) {
     <section class="pg-intro">
       <div class="pg-container pg-intro-grid">
         <div>
-          <p class="pg-section-eyebrow">{page.introEyebrow}</p>
-          <h2>{page.introTitle}</h2>
+          <p class="pg-section-eyebrow" set:html={formatBrandText(page.introEyebrow)} />
+          <h2 set:html={formatBrandText(page.introTitle)} />
         </div>
         <div class="pg-intro-copy">
-          {page.introBody.map((paragraph) => <p>{paragraph}</p>)}
+          {page.introBody.map((paragraph) => <p set:html={formatBrandText(paragraph)} />)}
         </div>
       </div>
     </section>
@@ -145,8 +146,8 @@ function localPath(path: string) {
       <div class="pg-container pg-stats-grid">
         {page.stats.map((stat) => (
           <div class="pg-stat">
-            <strong>{stat.value}</strong>
-            <span>{stat.label}</span>
+            <strong set:html={formatBrandText(stat.value)} />
+            <span set:html={formatBrandText(stat.label)} />
           </div>
         ))}
       </div>
@@ -155,14 +156,14 @@ function localPath(path: string) {
     <section class="pg-pillars">
       <div class="pg-container">
         <div class="pg-section-heading">
-          <h2>{page.pillarsTitle}</h2>
-          <p>{page.pillarsSubtitle}</p>
+          <h2 set:html={formatBrandText(page.pillarsTitle)} />
+          <p set:html={formatBrandText(page.pillarsSubtitle)} />
         </div>
         <div class="pg-card-grid">
           {page.pillars.map((pillar) => (
             <article class="pg-card">
-              <h3>{pillar.title}</h3>
-              <p>{pillar.body}</p>
+              <h3 set:html={formatBrandText(pillar.title)} />
+              <p set:html={formatBrandText(pillar.body)} />
             </article>
           ))}
         </div>
@@ -173,14 +174,14 @@ function localPath(path: string) {
       <section id={section.id} class:list={['pg-deep-section', { 'is-reversed': index % 2 === 1 }]}>
         <div class="pg-container pg-deep-grid">
           <div class="pg-deep-copy">
-            <p class="pg-section-eyebrow">{section.eyebrow}</p>
-            <h2>{section.title}</h2>
-            <p>{section.body}</p>
+            <p class="pg-section-eyebrow" set:html={formatBrandText(section.eyebrow)} />
+            <h2 set:html={formatBrandText(section.title)} />
+            <p set:html={formatBrandText(section.body)} />
             <div class="pg-list-grid">
               {section.items.map((item) => (
                 <article class="pg-list-item">
-                  <h3>{item.title}</h3>
-                  <p>{item.body}</p>
+                  <h3 set:html={formatBrandText(item.title)} />
+                  <p set:html={formatBrandText(item.body)} />
                 </article>
               ))}
             </div>
@@ -197,25 +198,25 @@ function localPath(path: string) {
     <section class="pg-ethics">
       <div class="pg-container pg-ethics-grid">
         <div>
-          <p class="pg-section-eyebrow">{page.ethicsTitle}</p>
-          <h2>{page.ethicsBody}</h2>
+          <p class="pg-section-eyebrow" set:html={formatBrandText(page.ethicsTitle)} />
+          <h2 set:html={formatBrandText(page.ethicsBody)} />
         </div>
         <ul>
-          {page.ethicsItems.map((item) => <li>{item}</li>)}
+          {page.ethicsItems.map((item) => <li set:html={formatBrandText(item)} />)}
         </ul>
       </div>
     </section>
 
     <section class="pg-final-cta">
       <div class="pg-container pg-final-inner">
-        <h2>{page.ctaTitle}</h2>
-        <p>{page.ctaBody}</p>
+        <h2 set:html={formatBrandText(page.ctaTitle)} />
+        <p set:html={formatBrandText(page.ctaBody)} />
         <div class="pg-actions">
           <a class="pg-button pg-button-primary" href={localPath(page.ctaPrimaryHref)}>
-            {page.ctaPrimaryLabel}
+            <span set:html={formatBrandText(page.ctaPrimaryLabel)} />
           </a>
           <a class="pg-button pg-button-secondary" href={localPath(page.ctaSecondaryHref)}>
-            {page.ctaSecondaryLabel}
+            <span set:html={formatBrandText(page.ctaSecondaryLabel)} />
           </a>
         </div>
       </div>

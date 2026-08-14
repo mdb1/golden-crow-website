@@ -1,5 +1,6 @@
 ---
 import { useTranslations } from '../i18n/index';
+import { formatBrandText } from '../utils/brandFormatting';
 
 const t = useTranslations(Astro.currentLocale);
 ---
@@ -7,19 +8,19 @@ const t = useTranslations(Astro.currentLocale);
 <section class="trust-boundaries">
   <div class="content-wrapper">
     <div class="section-header">
-      <p class="eyebrow">{t.integrationRevamp.trust.eyebrow}</p>
+      <p class="eyebrow" set:html={formatBrandText(t.integrationRevamp.trust.eyebrow)} />
       <h2 class="section-title">
-        <span class="title-accent">{t.integrationRevamp.trust.title1}</span>
-        <span class="title-main">{t.integrationRevamp.trust.title2}</span>
+        <span class="title-accent" set:html={formatBrandText(t.integrationRevamp.trust.title1)} />
+        <span class="title-main" set:html={formatBrandText(t.integrationRevamp.trust.title2)} />
       </h2>
-      <p class="section-description">{t.integrationRevamp.trust.description}</p>
+      <p class="section-description" set:html={formatBrandText(t.integrationRevamp.trust.description)} />
     </div>
 
     <div class="trust-grid">
       {t.integrationRevamp.trust.cards.map((card) => (
         <article class="trust-card" tabindex="0">
-          <h3>{card.title}</h3>
-          <p>{card.description}</p>
+          <h3 set:html={formatBrandText(card.title)} />
+          <p set:html={formatBrandText(card.description)} />
         </article>
       ))}
     </div>

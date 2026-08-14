@@ -2,6 +2,7 @@
 import ImageCard from "../components/ImageCard.astro";
 import IntegrationText from "../components/IntegrationText.astro";
 import { useTranslations } from '../i18n/index';
+import { formatBrandText } from '../utils/brandFormatting';
 const t = useTranslations(Astro.currentLocale);
 ---
 
@@ -12,7 +13,7 @@ const t = useTranslations(Astro.currentLocale);
                 <span class="text-gradient">{t.thirdSection.title1}</span>{' '}
                 <span class="text-accent">{t.thirdSection.title2}</span>
             </h2>
-            <p class="integration-subtitle">{t.thirdSection.description}</p>
+            <p class="integration-subtitle" set:html={formatBrandText(t.thirdSection.description)} />
             <div class="features-grid">
                 <IntegrationText
                     src="/launch-faster.svg"

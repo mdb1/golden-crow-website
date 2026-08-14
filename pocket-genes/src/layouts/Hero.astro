@@ -1,6 +1,7 @@
 ---
 import { getLocalizedPath, useTranslations } from '../i18n/index';
 import { defaultLang, type Lang } from '../i18n/ui';
+import { formatBrandText } from '../utils/brandFormatting';
 
 const t = useTranslations(Astro.currentLocale);
 const lang = (Astro.currentLocale || defaultLang) as Lang;
@@ -35,8 +36,8 @@ const heroStats = [
       <span class="title-sub">{t.hero.tagline}</span>
     </h1>
     <p class="hero-description">
-      {t.hero.description}
-      <span class="highlight">{t.hero.highlight}</span>
+      <span set:html={formatBrandText(t.hero.description)} />
+      <span class="highlight" set:html={formatBrandText(t.hero.highlight)} />
     </p>
     <div class="hero-actions">
       <a href="#booking" class="primary-action">{t.hero.primaryCta}</a>
@@ -45,8 +46,8 @@ const heroStats = [
     <div class="hero-stats" aria-label={t.hero.statsLabel}>
       {heroStats.map((stat) => (
         <a class="stat" href={stat.href}>
-          <span class="stat-number">{stat.number}</span>
-          <span class="stat-label">{stat.label}</span>
+          <span class="stat-number" set:html={formatBrandText(stat.number)} />
+          <span class="stat-label" set:html={formatBrandText(stat.label)} />
         </a>
       ))}
     </div>

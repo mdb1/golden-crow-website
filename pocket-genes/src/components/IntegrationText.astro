@@ -1,4 +1,6 @@
 ---
+import { formatBrandText } from '../utils/brandFormatting';
+
 const { bold_text, text, src } = Astro.props
 ---
 <div class="feature-card">
@@ -6,9 +8,9 @@ const { bold_text, text, src } = Astro.props
         <div class="icon-wrapper">
             <img class="integration_image" src={src} alt=""/>
         </div>
-        <h3 class="bold_text">{bold_text}</h3>
+        <h3 class="bold_text" set:html={formatBrandText(bold_text)} />
     </div>
-    <p class="feature-description">{text}</p>
+    <p class="feature-description" set:html={formatBrandText(text)} />
 </div>
 
 <style>

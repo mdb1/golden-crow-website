@@ -1,19 +1,21 @@
 ---
+import { formatBrandHtml, formatBrandText } from '../utils/brandFormatting';
+
 const { title, subtitle, items, isHighlighted } = Astro.props;
 const containerClass = isHighlighted ? "container highlighted" : "container";
 ---
 
 <div class={containerClass}>
-  <h3 class="title">{title}</h3>
+  <h3 class="title" set:html={formatBrandText(title)} />
   
-  <p class="subtitle" set:html={subtitle}></p>
+  <p class="subtitle" set:html={formatBrandHtml(subtitle)}></p>
 
   <ul>
     {
       items.map((item: string) => {
         return (
           <li>
-            <p>{item}</p>
+            <p set:html={formatBrandText(item)} />
           </li>
         );
       })

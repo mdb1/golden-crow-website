@@ -1,11 +1,13 @@
 ---
+import { formatBrandText } from '../utils/brandFormatting';
+
 const { title, description } = Astro.props;
 ---
 
     <div class="container">
         <div class="item-content">
-            <h4 class="title">{title}</h4>
-            <p class="description">{description}</p>
+            <h4 class="title" set:html={formatBrandText(title)} />
+            <p class="description" set:html={formatBrandText(description)} />
         </div>
         <div class="item-icon">
             <span>✨</span>

@@ -2,6 +2,7 @@
 import ListItem from "../components/ListItem.astro";
 import PanelImage from "../components/PanelImage.astro"
 import { useTranslations } from '../i18n/index';
+import { formatBrandText } from '../utils/brandFormatting';
 const t = useTranslations(Astro.currentLocale);
 ---
 
@@ -10,12 +11,10 @@ const t = useTranslations(Astro.currentLocale);
     <div class="panels_container">
       <div class="section-header">
         <h1 class="panels_title">
-          <span class="title-highlight">{t.panels.title1}</span>
-          <span class="title-main">{t.panels.title2}</span>
+          <span class="title-highlight" set:html={formatBrandText(t.panels.title1)} />
+          <span class="title-main" set:html={formatBrandText(t.panels.title2)} />
         </h1>
-        <p class="panels_subtitle">
-          {t.panels.description}
-        </p>
+        <p class="panels_subtitle" set:html={formatBrandText(t.panels.description)} />
       </div>
       <div class="panels-grid">
         <ListItem

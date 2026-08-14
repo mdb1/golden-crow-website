@@ -1,17 +1,19 @@
 ---
+import { formatBrandText } from '../utils/brandFormatting';
+
 const {time, text_1, text_2, items} = Astro.props;
 ---
 <div class="container">
-    <h3 class="time">{time}</h3>
+    <h3 class="time" set:html={formatBrandText(time)} />
     <div class="description">
-        <p class="description_1">{text_1}</p>
-        <p class="description_2">{text_2}</p>
+        <p class="description_1" set:html={formatBrandText(text_1)} />
+        <p class="description_2" set:html={formatBrandText(text_2)} />
     </div>
 
     <ul>
         {items.map((item: string) => (
             <li>
-                <p class="item">{item}</p>
+                <p class="item" set:html={formatBrandText(item)} />
             </li>
         ))}
     </ul>

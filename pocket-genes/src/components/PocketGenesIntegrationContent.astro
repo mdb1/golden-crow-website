@@ -13,6 +13,7 @@ import TrustBoundaries from '../layouts/TrustBoundaries.astro';
 import Experience from '../layouts/Experience.astro';
 import ClientBookingWidget from './ClientBookingWidget.astro';
 import { useTranslations } from '../i18n/index';
+import { formatBrandText } from '../utils/brandFormatting';
 
 const t = useTranslations(Astro.currentLocale);
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
@@ -52,7 +53,7 @@ const bookingCopy = isEnglish
             <span class="title-accent">{bookingCopy.titleAccent}</span>
             <span class="title-main">{bookingCopy.titleMain}</span>
           </h2>
-          <p>{t.pocketGenes.integrationCtaDesc}</p>
+          <p set:html={formatBrandText(t.pocketGenes.integrationCtaDesc)} />
         </div>
         <div class="calendar-wrapper">
           <ClientBookingWidget context="pocket-genes-integration" />

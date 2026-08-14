@@ -1,5 +1,6 @@
 ---
 import { useTranslations } from '../i18n/index';
+import { formatBrandText } from '../utils/brandFormatting';
 
 const t = useTranslations(Astro.currentLocale);
 ---
@@ -7,30 +8,30 @@ const t = useTranslations(Astro.currentLocale);
 <section id="provider-discovery" class="provider-discovery">
   <div class="content-wrapper">
     <div class="copy-column">
-      <p class="eyebrow">{t.integrationRevamp.discovery.eyebrow}</p>
+      <p class="eyebrow" set:html={formatBrandText(t.integrationRevamp.discovery.eyebrow)} />
       <h2 class="section-title">
-        <span class="title-accent">{t.integrationRevamp.discovery.title1}</span>
-        <span class="title-main">{t.integrationRevamp.discovery.title2}</span>
+        <span class="title-accent" set:html={formatBrandText(t.integrationRevamp.discovery.title1)} />
+        <span class="title-main" set:html={formatBrandText(t.integrationRevamp.discovery.title2)} />
       </h2>
-      <p class="section-description">{t.integrationRevamp.discovery.description}</p>
+      <p class="section-description" set:html={formatBrandText(t.integrationRevamp.discovery.description)} />
 
       <div class="loop-card">
-        <h3>{t.integrationRevamp.discovery.loopTitle}</h3>
+        <h3 set:html={formatBrandText(t.integrationRevamp.discovery.loopTitle)} />
         <div class="loop-steps">
           {t.integrationRevamp.discovery.loopItems.map((item) => (
-            <span>{item}</span>
+            <span set:html={formatBrandText(item)} />
           ))}
         </div>
       </div>
     </div>
 
     <div class="directory-panel">
-      <h3>{t.integrationRevamp.discovery.directoryTitle}</h3>
-      <p>{t.integrationRevamp.discovery.directoryDescription}</p>
+      <h3 set:html={formatBrandText(t.integrationRevamp.discovery.directoryTitle)} />
+      <p set:html={formatBrandText(t.integrationRevamp.discovery.directoryDescription)} />
 
       <div class="category-grid" aria-label={t.integrationRevamp.discovery.categoriesLabel}>
         {t.integrationRevamp.discovery.categories.map((category) => (
-          <span>{category}</span>
+          <span set:html={formatBrandText(category)} />
         ))}
       </div>
     </div>

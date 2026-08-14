@@ -1,4 +1,6 @@
 ---
+import { formatBrandText } from '../utils/brandFormatting';
+
 const { title, description, color, panelKeys = '' } = Astro.props;
 
 const colorMapping = {
@@ -68,8 +70,8 @@ const panelStyle = [
         <div class="gradient-icon"></div>
     </div>
     <div class="content">
-        <h3 class="panel-title">{title}</h3>
-        <p class="panel-description">{description}</p>
+        <h3 class="panel-title" set:html={formatBrandText(title)} />
+        <p class="panel-description" set:html={formatBrandText(description)} />
     </div>
     <div class="hover-effect"></div>
 </div>

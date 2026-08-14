@@ -1,5 +1,6 @@
 ---
 import { useTranslations } from '../i18n/index';
+import { formatBrandHtml, formatBrandText } from '../utils/brandFormatting';
 
 const t = useTranslations(Astro.currentLocale);
 
@@ -43,7 +44,7 @@ const plans = [
     <div class="section-header">
       <p class="eyebrow">{t.plan.eyebrow}</p>
       <h2 id="plans-title" class="section-title">{t.plan.title}</h2>
-      <p class="section-subtitle">{t.plan.subtitle}</p>
+      <p class="section-subtitle" set:html={formatBrandText(t.plan.subtitle)} />
       <p class="interaction-hint">{t.plan.tapHint}</p>
     </div>
 
@@ -59,11 +60,11 @@ const plans = [
             aria-expanded="false"
             aria-controls={`plan-details-${plan.id}`}
           >
-            <span class="plan-kicker">{plan.label}</span>
-            <span class="plan-name">{plan.name}</span>
-            <span class="plan-title">{plan.title}</span>
-            <span class="plan-description">{plan.description}</span>
-            <span class="plan-feature">{plan.feature}</span>
+            <span class="plan-kicker" set:html={formatBrandText(plan.label)} />
+            <span class="plan-name" set:html={formatBrandText(plan.name)} />
+            <span class="plan-title" set:html={formatBrandText(plan.title)} />
+            <span class="plan-description" set:html={formatBrandText(plan.description)} />
+            <span class="plan-feature" set:html={formatBrandText(plan.feature)} />
             <span class="details-toggle">
               <span class="show-label">{t.plan.showDetails}</span>
               <span class="hide-label">{t.plan.hideDetails}</span>
@@ -71,11 +72,11 @@ const plans = [
           </button>
 
           <div id={`plan-details-${plan.id}`} class="plan-details" data-plan-details>
-            <p class="details-copy" set:html={plan.detail}></p>
+            <p class="details-copy" set:html={formatBrandHtml(plan.detail)}></p>
             <h3>{t.plan.benefitsTitle}</h3>
             <ul>
               {plan.items.map((item) => (
-                <li>{item}</li>
+                <li set:html={formatBrandText(item)} />
               ))}
             </ul>
           </div>

@@ -2,6 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getLocalizedPath } from '../i18n/index';
 import { defaultLang, type Lang } from '../i18n/ui';
+import { formatBrandText } from '../utils/brandFormatting';
 
 const lang = (Astro.currentLocale || defaultLang) as Lang;
 const isSpanish = lang === 'es';
@@ -178,22 +179,22 @@ const copy = isSpanish
     <section class="rf-hero">
       <div class="rf-container rf-hero-grid">
         <div class="rf-hero-copy">
-          <p class="rf-eyebrow">{copy.eyebrow}</p>
-          <h1>{copy.heroTitle}</h1>
-          <p class="rf-lead">{copy.heroLead}</p>
+          <p class="rf-eyebrow" set:html={formatBrandText(copy.eyebrow)} />
+          <h1 set:html={formatBrandText(copy.heroTitle)} />
+          <p class="rf-lead" set:html={formatBrandText(copy.heroLead)} />
           <div class="rf-actions">
             <a class="rf-primary" href={bookingPath}>{copy.primaryCta}</a>
             <a class="rf-secondary" href={integrationPath}>{copy.secondaryCta}</a>
           </div>
           <div class="rf-badges" aria-label={copy.eyebrow}>
-            {copy.badges.map((badge) => <span>{badge}</span>)}
+            {copy.badges.map((badge) => <span set:html={formatBrandText(badge)} />)}
           </div>
         </div>
 
         <div class="rf-visual" aria-hidden="true">
           <div class="rf-orbit">
             <span class="rf-node node-a">Pocket Genes</span>
-            <span class="rf-node node-b">RareFriends™</span>
+            <span class="rf-node node-b"><em class="pg-brand-name">RareFriends™</em></span>
             <span class="rf-node node-c">{isSpanish ? 'Proveedor' : 'Provider'}</span>
             <span class="rf-node node-d">{isSpanish ? 'Recursos' : 'Resources'}</span>
             <div class="rf-core">
@@ -208,15 +209,15 @@ const copy = isSpanish
     <section class="rf-value">
       <div class="rf-container">
         <div class="rf-section-header">
-          <p class="rf-eyebrow">{copy.valueEyebrow}</p>
-          <h2>{copy.valueTitle}</h2>
-          <p>{copy.valueLead}</p>
+          <p class="rf-eyebrow" set:html={formatBrandText(copy.valueEyebrow)} />
+          <h2 set:html={formatBrandText(copy.valueTitle)} />
+          <p set:html={formatBrandText(copy.valueLead)} />
         </div>
         <div class="rf-card-grid">
           {copy.valueCards.map((card) => (
             <article class="rf-card">
-              <h3>{card.title}</h3>
-              <p>{card.body}</p>
+              <h3 set:html={formatBrandText(card.title)} />
+              <p set:html={formatBrandText(card.body)} />
             </article>
           ))}
         </div>
@@ -226,15 +227,15 @@ const copy = isSpanish
     <section class="rf-circuit">
       <div class="rf-container">
         <div class="rf-section-header">
-          <p class="rf-eyebrow">{copy.circuitEyebrow}</p>
-          <h2>{copy.circuitTitle}</h2>
+          <p class="rf-eyebrow" set:html={formatBrandText(copy.circuitEyebrow)} />
+          <h2 set:html={formatBrandText(copy.circuitTitle)} />
         </div>
         <div class="rf-steps">
           {copy.circuitSteps.map((step) => (
             <article class="rf-step">
               <span>{step.number}</span>
-              <h3>{step.title}</h3>
-              <p>{step.body}</p>
+              <h3 set:html={formatBrandText(step.title)} />
+              <p set:html={formatBrandText(step.body)} />
             </article>
           ))}
         </div>
@@ -244,14 +245,14 @@ const copy = isSpanish
     <section class="rf-positioning">
       <div class="rf-container rf-positioning-grid">
         <div>
-          <p class="rf-eyebrow">{copy.distinctionEyebrow}</p>
-          <h2>{copy.distinctionTitle}</h2>
-          <p>{copy.distinctionText}</p>
+          <p class="rf-eyebrow" set:html={formatBrandText(copy.distinctionEyebrow)} />
+          <h2 set:html={formatBrandText(copy.distinctionTitle)} />
+          <p set:html={formatBrandText(copy.distinctionText)} />
         </div>
         <article class="rf-provider-fit">
-          <h3>{copy.providerTitle}</h3>
+          <h3 set:html={formatBrandText(copy.providerTitle)} />
           <ul>
-            {copy.providerItems.map((item) => <li>{item}</li>)}
+            {copy.providerItems.map((item) => <li set:html={formatBrandText(item)} />)}
           </ul>
         </article>
       </div>
@@ -259,8 +260,8 @@ const copy = isSpanish
 
     <section class="rf-final">
       <div class="rf-container rf-final-inner">
-        <h2>{copy.ctaTitle}</h2>
-        <p>{copy.ctaText}</p>
+        <h2 set:html={formatBrandText(copy.ctaTitle)} />
+        <p set:html={formatBrandText(copy.ctaText)} />
         <a class="rf-primary" href={bookingPath}>{copy.primaryCta}</a>
       </div>
     </section>

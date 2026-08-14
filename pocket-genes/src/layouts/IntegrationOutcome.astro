@@ -1,5 +1,6 @@
 ---
 import { useTranslations } from '../i18n/index';
+import { formatBrandText } from '../utils/brandFormatting';
 
 const t = useTranslations(Astro.currentLocale);
 ---
@@ -7,29 +8,29 @@ const t = useTranslations(Astro.currentLocale);
 <section class="integration-outcome">
   <div class="content-wrapper">
     <div class="section-header">
-      <p class="eyebrow">{t.integrationRevamp.outcome.eyebrow}</p>
+      <p class="eyebrow" set:html={formatBrandText(t.integrationRevamp.outcome.eyebrow)} />
       <h2 class="section-title">
-        <span class="title-accent">{t.integrationRevamp.outcome.title1}</span>
-        <span class="title-main">{t.integrationRevamp.outcome.title2}</span>
+        <span class="title-accent" set:html={formatBrandText(t.integrationRevamp.outcome.title1)} />
+        <span class="title-main" set:html={formatBrandText(t.integrationRevamp.outcome.title2)} />
       </h2>
-      <p class="section-description">{t.integrationRevamp.outcome.description}</p>
+      <p class="section-description" set:html={formatBrandText(t.integrationRevamp.outcome.description)} />
     </div>
 
     <div class="before-after-grid">
       <article class="comparison-card muted-card">
-        <h3>{t.integrationRevamp.outcome.beforeTitle}</h3>
+        <h3 set:html={formatBrandText(t.integrationRevamp.outcome.beforeTitle)} />
         <ul>
           {t.integrationRevamp.outcome.beforeItems.map((item) => (
-            <li>{item}</li>
+            <li set:html={formatBrandText(item)} />
           ))}
         </ul>
       </article>
 
       <article class="comparison-card strong-card">
-        <h3>{t.integrationRevamp.outcome.afterTitle}</h3>
+        <h3 set:html={formatBrandText(t.integrationRevamp.outcome.afterTitle)} />
         <ul>
           {t.integrationRevamp.outcome.afterItems.map((item) => (
-            <li>{item}</li>
+            <li set:html={formatBrandText(item)} />
           ))}
         </ul>
       </article>
@@ -37,14 +38,14 @@ const t = useTranslations(Astro.currentLocale);
 
     <div class="provider-fit">
       <div class="provider-fit-copy">
-        <h3>{t.integrationRevamp.outcome.providerTitle}</h3>
-        <p>{t.integrationRevamp.outcome.providerDescription}</p>
+        <h3 set:html={formatBrandText(t.integrationRevamp.outcome.providerTitle)} />
+        <p set:html={formatBrandText(t.integrationRevamp.outcome.providerDescription)} />
       </div>
       <div class="provider-cards">
         {t.integrationRevamp.outcome.providerTypes.map((provider) => (
           <article class="provider-card">
-            <h4>{provider.title}</h4>
-            <p>{provider.description}</p>
+            <h4 set:html={formatBrandText(provider.title)} />
+            <p set:html={formatBrandText(provider.description)} />
           </article>
         ))}
       </div>

@@ -7,6 +7,7 @@ import {
   trustDocuments,
   type TrustDocument,
 } from '../../../data/pocketGenesPublic';
+import { escapeHtml, formatBrandHtml, formatBrandText } from '../../../utils/brandFormatting';
 
 export function getStaticPaths() {
   return trustDocuments.map((document) => ({
@@ -35,15 +36,8 @@ const trustDocumentHrefByTitle = new Map(
     localizePath(`/pocket-genes/trust-center/${navDocument.slug}`),
   ]),
 );
-const escapeHtml = (value: string) =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 const linkTrustEmail = (value: string) =>
-  escapeHtml(value).replaceAll(
+  formatBrandHtml(escapeHtml(value)).replaceAll(
     POCKET_GENES_EMAILS.trust,
     `<a class="pg-trust-email-link" href="mailto:${POCKET_GENES_EMAILS.trust}">${POCKET_GENES_EMAILS.trust}</a>`,
   );
@@ -55,7 +49,7 @@ const linkRelatedTrustDocument = (value: string, sectionHeading: string) => {
     return linkTrustEmail(value);
   }
 
-  return `<a class="pg-trust-document-link" href="${escapeHtml(href)}">${escapeHtml(value)}</a>`;
+  return `<a class="pg-trust-document-link" href="${escapeHtml(href)}">${formatBrandText(value)}</a>`;
 };
 
 const pageCopy = {
@@ -137,7 +131,7 @@ const copy = pageCopy[locale];
                             href={localizePath(`/pocket-genes/trust-center/${navDocument.slug}`)}
                             aria-current={isCurrent ? 'page' : undefined}
                           >
-                            {navDocument.title}
+                            <span set:html={formatBrandText(navDocument.title)} />
                           </a>
                         </li>
                       );

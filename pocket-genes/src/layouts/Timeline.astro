@@ -2,11 +2,12 @@
 import Quarter from "../components/Quarter.astro";
 import Separator from "../components/Separator.astro";
 import { useTranslations } from '../i18n/index';
+import { formatBrandText } from '../utils/brandFormatting';
 const t = useTranslations(Astro.currentLocale);
 ---
 
 <div class="container">
-  <h1 class="title">{t.timeline.title}</h1>
+  <h1 class="title" set:html={formatBrandText(t.timeline.title)} />
   <div class="quarter_container">
     <Quarter
       time={t.timeline.q1Period}

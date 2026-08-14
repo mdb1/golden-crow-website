@@ -1,5 +1,6 @@
 ---
 import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro';
+import { formatBrandText } from '../../utils/brandFormatting';
 
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
@@ -133,11 +134,9 @@ const copy = pageCopy[isEnglish ? 'en' : 'es'];
     <section class="pg-rf-hero">
       <div class="pg-container pg-rf-hero-grid">
         <div>
-          <p class="pg-eyebrow">{copy.heroEyebrow}</p>
+          <p class="pg-eyebrow" set:html={formatBrandText(copy.heroEyebrow)} />
           <h1><em>RareFriends™</em> by Pocket Genes</h1>
-          <p>
-            {copy.heroBody}
-          </p>
+          <p set:html={formatBrandText(copy.heroBody)} />
           <div class="pg-button-row">
             <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/download')}>{copy.downloadCta}</a>
             <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/join-us')}>{copy.joinUsCta}</a>
@@ -152,17 +151,15 @@ const copy = pageCopy[isEnglish ? 'en' : 'es'];
     <section class="pg-section">
       <div class="pg-container">
         <div class="pg-section-heading">
-          <p class="pg-eyebrow">{copy.howEyebrow}</p>
-          <h2>{copy.howTitle}</h2>
-          <p>
-            {copy.howBody}
-          </p>
+          <p class="pg-eyebrow" set:html={formatBrandText(copy.howEyebrow)} />
+          <h2 set:html={formatBrandText(copy.howTitle)} />
+          <p set:html={formatBrandText(copy.howBody)} />
         </div>
         <div class="pg-card-grid pg-rf-grid">
           {copy.principles.map((principle) => (
             <article class="pg-card">
-              <h3>{principle.title}</h3>
-              <p>{principle.body}</p>
+              <h3 set:html={formatBrandText(principle.title)} />
+              <p set:html={formatBrandText(principle.body)} />
             </article>
           ))}
         </div>
@@ -172,17 +169,15 @@ const copy = pageCopy[isEnglish ? 'en' : 'es'];
     <section class="pg-section pg-rf-matching">
       <div class="pg-container pg-rf-matching-grid">
         <div class="pg-section-heading">
-          <p class="pg-eyebrow">{copy.matchingEyebrow}</p>
-          <h2>{copy.matchingTitle}</h2>
-          <p>
-            {copy.matchingBody}
-          </p>
+          <p class="pg-eyebrow" set:html={formatBrandText(copy.matchingEyebrow)} />
+          <h2 set:html={formatBrandText(copy.matchingTitle)} />
+          <p set:html={formatBrandText(copy.matchingBody)} />
         </div>
         <div class="pg-match-list">
           {copy.matchingLayers.map((layer) => (
             <article>
               <span></span>
-              <strong>{layer}</strong>
+              <strong set:html={formatBrandText(layer)} />
             </article>
           ))}
         </div>
@@ -192,11 +187,9 @@ const copy = pageCopy[isEnglish ? 'en' : 'es'];
     <section class="pg-section-tight pg-rf-band-section">
       <div class="pg-container pg-rf-band">
         <div>
-          <p class="pg-eyebrow">{copy.trustEyebrow}</p>
-          <h2>{copy.trustTitle}</h2>
-          <p>
-            {copy.trustBody}
-          </p>
+          <p class="pg-eyebrow" set:html={formatBrandText(copy.trustEyebrow)} />
+          <h2 set:html={formatBrandText(copy.trustTitle)} />
+          <p set:html={formatBrandText(copy.trustBody)} />
         </div>
         <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>{copy.trustCta}</a>
       </div>

@@ -1,5 +1,6 @@
 ---
 import { getPublicNavItems } from '../data/pocketGenesPublic';
+import { formatBrandText } from '../utils/brandFormatting';
 
 interface Props {
   title: string;
@@ -122,7 +123,7 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
         <nav class="pg-nav" aria-label={layoutCopy[lang].navigation} data-pg-nav>
           {navItems.map((item) => (
             <a href={item.href} class:list={['pg-nav-link', { active: item.active }]} aria-current={item.active ? 'page' : undefined}>
-              {item.label}
+              <span set:html={formatBrandText(item.label)} />
             </a>
           ))}
           <div class="pg-lang-switcher" aria-label={layoutCopy[lang].language}>
@@ -209,6 +210,10 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
   img {
     max-width: 100%;
     height: auto;
+  }
+
+  .pg-brand-name {
+    font-style: italic;
   }
 
   .pg-page {

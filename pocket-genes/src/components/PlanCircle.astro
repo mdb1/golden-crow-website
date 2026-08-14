@@ -1,10 +1,12 @@
 ---
+import { formatBrandText } from '../utils/brandFormatting';
+
 const {plan, description, isHighlighted} = Astro.props;
 const containerClass = isHighlighted ? "container highlighted" : "container";
 ---
 <div class={containerClass}>
-    <p>{description}</p>
-    <h2>{plan}</h2>
+    <p set:html={formatBrandText(description)} />
+    <h2 set:html={formatBrandText(plan)} />
 </div>
 
 <style>

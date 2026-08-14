@@ -2,6 +2,7 @@
 import PocketGenesPublicLayout from '../../../layouts/PocketGenesPublicLayout.astro';
 import ClientBookingWidget from '../../../components/ClientBookingWidget.astro';
 import { POCKET_GENES_EMAILS, POCKET_GENES_OPERATOR, getLocalizedTrustDocuments } from '../../../data/pocketGenesPublic';
+import { formatBrandText } from '../../../utils/brandFormatting';
 
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
@@ -347,11 +348,9 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
     <section class="pg-trust-hero">
       <div class="pg-container pg-trust-hero-grid">
         <div>
-          <p class="pg-eyebrow">{copy.heroEyebrow}</p>
-          <h1>{copy.heroTitle}</h1>
-          <p>
-            {copy.heroBody}
-          </p>
+          <p class="pg-eyebrow" set:html={formatBrandText(copy.heroEyebrow)} />
+          <h1 set:html={formatBrandText(copy.heroTitle)} />
+          <p set:html={formatBrandText(copy.heroBody)} />
           <div class="pg-button-row">
             <a class="pg-button pg-button-primary" href={`mailto:${POCKET_GENES_EMAILS.trust}`}>{copy.contactTrust}</a>
             <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/download')}>{copy.download}</a>
@@ -361,11 +360,11 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
         <div class="pg-trust-snapshot" aria-label={copy.snapshotLabel}>
           {copy.snapshot.map((item) => (
             <article>
-              <span>{item.label}</span>
+              <span set:html={formatBrandText(item.label)} />
               <strong>
-                {isSupportEmailValue(item.value) ? <a class="pg-inline-email" href={supportMailHref}>{item.value}</a> : item.value}
+                {isSupportEmailValue(item.value) ? <a class="pg-inline-email" href={supportMailHref}>{item.value}</a> : <span set:html={formatBrandText(item.value)} />}
               </strong>
-              <p>{item.body}</p>
+              <p set:html={formatBrandText(item.body)} />
             </article>
           ))}
         </div>
@@ -375,28 +374,26 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
     <section class="pg-section pg-trusted-orgs">
       <div class="pg-container">
         <div class="pg-section-heading">
-          <p class="pg-eyebrow">{copy.trustedHubEyebrow}</p>
-          <h2>{copy.trustedHubTitle}</h2>
-          <p>
-            {copy.trustedHubBody}
-          </p>
+          <p class="pg-eyebrow" set:html={formatBrandText(copy.trustedHubEyebrow)} />
+          <h2 set:html={formatBrandText(copy.trustedHubTitle)} />
+          <p set:html={formatBrandText(copy.trustedHubBody)} />
         </div>
 
         <div class="pg-trusted-orgs-grid">
           <div class="pg-trusted-criteria">
             {copy.trustedOrganizationCriteria.map((item) => (
               <article>
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
+                <h3 set:html={formatBrandText(item.title)} />
+                <p set:html={formatBrandText(item.body)} />
               </article>
             ))}
           </div>
 
           <aside class="pg-trusted-hub-card">
-            <p class="pg-eyebrow">{copy.trustedOutputsEyebrow}</p>
-            <h3>{copy.trustedOutputsTitle}</h3>
+            <p class="pg-eyebrow" set:html={formatBrandText(copy.trustedOutputsEyebrow)} />
+            <h3 set:html={formatBrandText(copy.trustedOutputsTitle)} />
             <ul>
-              {copy.trustedOrganizationOutputs.map((item) => <li>{item}</li>)}
+              {copy.trustedOrganizationOutputs.map((item) => <li set:html={formatBrandText(item)} />)}
             </ul>
             <a class="pg-button pg-button-primary" href="#trusted-organization-meeting">{copy.trustedOrganizationCta}</a>
           </aside>
@@ -407,11 +404,9 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
     <section class="pg-section">
       <div class="pg-container">
         <div class="pg-section-heading pg-trust-documents-heading">
-          <p class="pg-eyebrow">{copy.documentsEyebrow}</p>
-          <h2>{copy.documentsTitle}</h2>
-          <p>
-            {copy.documentsBody}
-          </p>
+          <p class="pg-eyebrow" set:html={formatBrandText(copy.documentsEyebrow)} />
+          <h2 set:html={formatBrandText(copy.documentsTitle)} />
+          <p set:html={formatBrandText(copy.documentsBody)} />
         </div>
 
         <div class="pg-trust-approach" aria-label={copy.approachEyebrow}>
@@ -420,8 +415,8 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
               <li>
                 <span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
                 <div>
-                  <h4>{item.title}</h4>
-                  <p>{item.body}</p>
+                  <h4 set:html={formatBrandText(item.title)} />
+                  <p set:html={formatBrandText(item.body)} />
                 </div>
               </li>
             ))}
@@ -430,32 +425,30 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
 
         <section class="pg-trust-faq" aria-labelledby="pg-trust-faq-title">
           <div class="pg-section-heading pg-trust-faq-heading">
-            <p class="pg-eyebrow">{copy.overviewEyebrow}</p>
-            <h2 id="pg-trust-faq-title">{copy.overviewTitle}</h2>
-            <p>
-              {copy.overviewBody}
-            </p>
+            <p class="pg-eyebrow" set:html={formatBrandText(copy.overviewEyebrow)} />
+            <h2 id="pg-trust-faq-title" set:html={formatBrandText(copy.overviewTitle)} />
+            <p set:html={formatBrandText(copy.overviewBody)} />
           </div>
 
           <div class="pg-trust-faq-list">
             {copy.atAGlance.map((item) => (
               <details class="pg-trust-faq-item">
                 <summary>
-                  <span>{item.title}</span>
+                  <span set:html={formatBrandText(item.title)} />
                 </summary>
-                <p>{item.body}</p>
+                <p set:html={formatBrandText(item.body)} />
               </details>
             ))}
             <details class="pg-trust-faq-item">
               <summary>
-                <span>{copy.responsibilityTitle}</span>
+                <span set:html={formatBrandText(copy.responsibilityTitle)} />
               </summary>
               <dl class="pg-trust-faq-details">
                 {copy.responsibilityRows.map(([label, value]) => (
                   <div>
-                    <dt>{label}</dt>
+                    <dt set:html={formatBrandText(label)} />
                     <dd>
-                      {isSupportEmailValue(value) ? <a class="pg-inline-email" href={supportMailHref}>{value}</a> : value}
+                      {isSupportEmailValue(value) ? <a class="pg-inline-email" href={supportMailHref}>{value}</a> : <span set:html={formatBrandText(value)} />}
                     </dd>
                   </div>
                 ))}
@@ -467,13 +460,13 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
         <div class="pg-trust-category-stack">
           {categories.map(({ category, documents }) => (
             <section class="pg-trust-category" aria-labelledby={`trust-${category.toLowerCase().replaceAll(' ', '-')}`}>
-              <h3 id={`trust-${category.toLowerCase().replaceAll(' ', '-')}`}>{category}</h3>
+              <h3 id={`trust-${category.toLowerCase().replaceAll(' ', '-')}`} set:html={formatBrandText(category)} />
               <div class="pg-trust-doc-grid">
                 {documents.map((document) => (
                   <a class="pg-trust-doc" href={localizePath(`/pocket-genes/trust-center/${document.slug}`)}>
-                    <span class="pg-trust-doc-status">{document.status}</span>
-                    <strong>{document.title}</strong>
-                    <p>{document.summary}</p>
+                    <span class="pg-trust-doc-status" set:html={formatBrandText(document.status)} />
+                    <strong set:html={formatBrandText(document.title)} />
+                    <p set:html={formatBrandText(document.summary)} />
                     <span class="pg-trust-doc-action">{copy.documentCta}</span>
                   </a>
                 ))}
@@ -493,11 +486,9 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
             <span></span>
           </div>
           <div class="pg-contact-main">
-            <p class="pg-eyebrow">{copy.contactEyebrow}</p>
-            <h2 id="pg-trust-contact-title">{copy.contactTitle}</h2>
-            <p>
-              {copy.contactBody}
-            </p>
+            <p class="pg-eyebrow" set:html={formatBrandText(copy.contactEyebrow)} />
+            <h2 id="pg-trust-contact-title" set:html={formatBrandText(copy.contactTitle)} />
+            <p set:html={formatBrandText(copy.contactBody)} />
           </div>
           <div class="pg-contact-panel">
             <div class="pg-contact-actions">
@@ -514,8 +505,8 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
                 <article class={`pg-contact-route tone-${route.tone}`}>
                   <span class="pg-route-marker" aria-hidden="true"></span>
                   <div>
-                    <h3>{route.title}</h3>
-                    <p>{route.body}</p>
+                    <h3 set:html={formatBrandText(route.title)} />
+                    <p set:html={formatBrandText(route.body)} />
                   </div>
                 </article>
               ))}
@@ -528,11 +519,9 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
     <section id="trusted-organization-meeting" class="pg-section pg-trusted-booking">
       <div class="pg-container pg-trusted-booking-grid">
         <div>
-          <p class="pg-eyebrow">{copy.bookingEyebrow}</p>
-          <h2>{copy.bookingTitle}</h2>
-          <p>
-            {copy.bookingBody}
-          </p>
+          <p class="pg-eyebrow" set:html={formatBrandText(copy.bookingEyebrow)} />
+          <h2 set:html={formatBrandText(copy.bookingTitle)} />
+          <p set:html={formatBrandText(copy.bookingBody)} />
         </div>
         <div class="pg-trusted-calendar-wrapper">
           <ClientBookingWidget context="pocket-genes-trust-center" />

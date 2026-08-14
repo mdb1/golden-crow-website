@@ -1,5 +1,6 @@
 ---
 import PlanCircle from "./PlanCircle.astro";
+import { formatBrandText } from '../utils/brandFormatting';
 
 const { title, text, subtext, description, plan, isHighlighted } = Astro.props;
 const containerClass = isHighlighted ? "container highlighted" : "container";
@@ -13,9 +14,9 @@ const containerClass = isHighlighted ? "container highlighted" : "container";
       isHighlighted={isHighlighted}
     />
   </div>
-  <h3>{title}</h3>
-  <p id="text">{text}</p>
-  <p id="subtext">{subtext}</p>
+  <h3 set:html={formatBrandText(title)} />
+  <p id="text" set:html={formatBrandText(text)} />
+  <p id="subtext" set:html={formatBrandText(subtext)} />
 </div>
 
 <style>

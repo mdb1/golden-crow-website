@@ -1,5 +1,6 @@
 ---
 import { useTranslations } from '../i18n/index';
+import { formatBrandText } from '../utils/brandFormatting';
 
 const t = useTranslations(Astro.currentLocale);
 ---
@@ -7,29 +8,29 @@ const t = useTranslations(Astro.currentLocale);
 <div class="container">
   <div class="first_column">
     <div class="panel first" data-panel-node data-panel-keys="reports" tabindex="0" aria-label={t.panels.healthTitle}>
-      <p>{t.panels.imageHealth}</p>
+      <p set:html={formatBrandText(t.panels.imageHealth)} />
     </div>
     <div class="panel second" data-panel-node data-panel-keys="medical-questions" tabindex="0" aria-label={t.panels.medicationTitle}>
-      <p>{t.panels.imageAncestry}</p>
+      <p set:html={formatBrandText(t.panels.imageAncestry)} />
     </div>
   </div>
   <div class="second_column">
     <div class="panel third" data-panel-node data-panel-keys="genetics-learning" tabindex="0" aria-label={t.panels.nutritionTitle}>
-      <p>{t.panels.imageNutrition}</p>
+      <p set:html={formatBrandText(t.panels.imageNutrition)} />
     </div>
     <div class="central_panel" data-panel-hub data-panel-keys="reports genetics-learning medical-questions rarefriends provider-directory resources" tabindex="0" aria-label={t.panels.imageCenter}>
-      <p>{t.panels.imageCenter}</p>
+      <p set:html={formatBrandText(t.panels.imageCenter)} />
     </div>
     <div class="panel fourth" data-panel-node data-panel-keys="rarefriends" tabindex="0" aria-label={t.panels.ancestryTitle}>
-      <p>{t.panels.imageCommunity}</p>
+      <p set:html={formatBrandText(t.panels.imageCommunity)} />
     </div>
   </div>
   <div class="third_column">
     <div class="panel fifth" data-panel-node data-panel-keys="provider-directory" tabindex="0" aria-label={t.panels.educationTitle}>
-      <p>{t.panels.imageMedication}</p>
+      <p set:html={formatBrandText(t.panels.imageMedication)} />
     </div>
     <div class="panel sixth" data-panel-node data-panel-keys="resources" tabindex="0" aria-label={t.panels.educationTitle}>
-      <p>{t.panels.imageEducation}</p>
+      <p set:html={formatBrandText(t.panels.imageEducation)} />
     </div>
   </div>
 </div>

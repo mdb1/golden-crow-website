@@ -1,5 +1,6 @@
 ---
 import { useTranslations } from '../i18n/index';
+import { formatBrandText } from '../utils/brandFormatting';
 
 const t = useTranslations(Astro.currentLocale);
 ---
@@ -7,20 +8,20 @@ const t = useTranslations(Astro.currentLocale);
 <section class="integration-journey">
   <div class="content-wrapper">
     <div class="section-header">
-      <p class="eyebrow">{t.integrationRevamp.journey.eyebrow}</p>
+      <p class="eyebrow" set:html={formatBrandText(t.integrationRevamp.journey.eyebrow)} />
       <h2 class="section-title">
-        <span class="title-accent">{t.integrationRevamp.journey.title1}</span>
-        <span class="title-main">{t.integrationRevamp.journey.title2}</span>
+        <span class="title-accent" set:html={formatBrandText(t.integrationRevamp.journey.title1)} />
+        <span class="title-main" set:html={formatBrandText(t.integrationRevamp.journey.title2)} />
       </h2>
-      <p class="section-description">{t.integrationRevamp.journey.description}</p>
+      <p class="section-description" set:html={formatBrandText(t.integrationRevamp.journey.description)} />
     </div>
 
     <div class="steps-grid">
       {t.integrationRevamp.journey.steps.map((step, index) => (
         <article class="step-card">
           <span class="step-number">{String(index + 1).padStart(2, '0')}</span>
-          <h3>{step.title}</h3>
-          <p>{step.description}</p>
+          <h3 set:html={formatBrandText(step.title)} />
+          <p set:html={formatBrandText(step.description)} />
         </article>
       ))}
     </div>

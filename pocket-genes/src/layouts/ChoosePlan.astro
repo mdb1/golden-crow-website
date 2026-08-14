@@ -2,6 +2,7 @@
 import DetailedPlan from "../components/DetailedPlan.astro";
 import PlanSeparator from "../components/PlanSeparator.astro";
 import { useTranslations } from '../i18n/index';
+import { formatBrandText } from '../utils/brandFormatting';
 const t = useTranslations(Astro.currentLocale);
 ---
 
@@ -12,7 +13,7 @@ const t = useTranslations(Astro.currentLocale);
         <span class="title-accent">{t.choosePlan.title1}</span>
         <span class="title-main">{t.choosePlan.title2}</span>
       </h1>
-      <p class="section-subtitle">{t.choosePlan.subtitle}</p>
+      <p class="section-subtitle" set:html={formatBrandText(t.choosePlan.subtitle)} />
     </div>
     <div class="plans_container">
     <DetailedPlan
