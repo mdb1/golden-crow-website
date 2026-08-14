@@ -478,20 +478,90 @@ export const trustDocuments: TrustDocument[] = [
     title: 'Incident-Reporting Contact',
     category: 'Security',
     summary:
-      'Provides a direct channel for security, privacy, and community safety reports.',
+      'Explains how to report security, privacy, accessibility, and community safety concerns, what to include, and how Pocket Genes reviews reports.',
     owner: 'Security',
     lastReviewed: 'July 2026',
     status: 'Active contact page',
     sections: [
       {
-        heading: 'Contact',
+        heading: 'Purpose and scope',
+        paragraphs: [
+          'Pocket Genes uses this incident-reporting channel for concerns that may affect the confidentiality, integrity, availability, safety, or accessibility of Pocket Genes services.',
+          'Reports may involve account security, suspected unauthorized access, privacy concerns, exposed personal information, abusive community behavior, impersonation, scams, accessibility barriers, trusted organization behavior, or other platform safety issues.',
+          'This channel is not an emergency medical service and is not a place to request clinical interpretation of a genetic report. Medical emergencies, urgent safety risks, or crisis situations should be directed to local emergency services or an appropriate qualified professional.',
+        ],
+      },
+      {
+        heading: 'How to report',
         body:
-          `Security, privacy, and trust questions can be sent to ${POCKET_GENES_SUPPORT_EMAIL}.`,
+          `Security, privacy, accessibility, and trust concerns can be sent to ${POCKET_GENES_SUPPORT_EMAIL}. A clear subject line such as "Pocket Genes security report," "Pocket Genes privacy report," or "Pocket Genes community safety report" helps route the issue faster.`,
       },
       {
         heading: 'What to include',
         body:
-          'Helpful reports include the affected feature, approximate time, steps to reproduce when applicable, screenshots without sensitive genetic data when possible, and a safe callback email.',
+          'A useful report gives the team enough context to identify the affected workflow without exposing unnecessary sensitive information.',
+        bullets: [
+          'The affected page, feature, account workflow, organization profile, community area, or mobile app screen.',
+          'The approximate date, time, and time zone when the issue occurred.',
+          'Steps to reproduce the issue, when applicable.',
+          'Device, operating system, browser, app version, or assistive technology details when relevant.',
+          'Screenshots, screen recordings, or message examples with genetic report content, passwords, authentication codes, and unrelated personal information removed when possible.',
+          'The names or profile identifiers involved in a community safety report, when known.',
+          'A safe callback email and whether Pocket Genes may contact you for follow-up questions.',
+        ],
+      },
+      {
+        heading: 'What not to include',
+        body:
+          'Do not send passwords, authentication tokens, one-time codes, full genetic reports, complete medical records, or another person\'s private information unless Pocket Genes specifically asks for a limited item through a secure follow-up path.',
+      },
+      {
+        heading: 'Triage and handling',
+        body:
+          'Pocket Genes reviews incoming reports and routes them according to the type and severity of the concern.',
+        subsections: [
+          {
+            heading: 'Initial review',
+            body: 'The team checks whether the report involves security, privacy, accessibility, community safety, operational reliability, or a trusted organization concern.',
+          },
+          {
+            heading: 'Severity assessment',
+            body: 'Reports are prioritized by potential user impact, data sensitivity, exploitability, active abuse, legal obligations, and whether a workaround is available.',
+          },
+          {
+            heading: 'Need-to-know access',
+            body: 'Report details are shared internally only with people who need the information to investigate, mitigate, support the user, or satisfy legal and operational requirements.',
+          },
+          {
+            heading: 'Follow-up',
+            body: 'Pocket Genes may ask for additional details, provide a workaround, confirm receipt, or explain when the report falls outside the Pocket Genes service boundary.',
+          },
+        ],
+      },
+      {
+        heading: 'Security and privacy incidents',
+        body:
+          'If a report suggests unauthorized access, exposed personal information, account compromise, data leakage, or abuse of platform infrastructure, Pocket Genes may investigate logs, configuration, access controls, affected workflows, and related service-provider information. When a confirmed incident requires user, partner, regulator, or provider notification, Pocket Genes handles that notification according to applicable obligations and the facts of the incident.',
+      },
+      {
+        heading: 'Community safety reports',
+        body:
+          'Community reports may involve harassment, medical misinformation, impersonation, spam, scams, pressure to disclose medical or genetic information, publication of somebody else\'s private information, predatory commercial solicitation, or dangerous medical instructions.',
+        bullets: [
+          'Possible actions include content removal, warning, account limitation, account suspension, blocking support, trusted organization review, or escalation for additional review.',
+          'Pocket Genes may preserve relevant moderation records when needed to investigate repeat abuse, protect users, document decisions, or comply with legal obligations.',
+          'Trusted Organizations do not receive special access to private user information through the incident process.',
+        ],
+      },
+      {
+        heading: 'Responsible disclosure',
+        body:
+          'Good-faith security testing should be limited to public surfaces or accounts and data you control. Do not disrupt Pocket Genes services, access or extract other users\' information, attempt social engineering, bypass rate limits at scale, or publicly disclose a vulnerability before Pocket Genes has had a reasonable opportunity to review and mitigate it. Pocket Genes does not operate a public bug-bounty program unless one is separately announced.',
+      },
+      {
+        heading: 'Recordkeeping',
+        body:
+          'Pocket Genes may retain incident reports, triage notes, moderation outcomes, and remediation records for security, accountability, legal, audit, and platform-improvement purposes.',
       },
     ],
   },
@@ -500,20 +570,77 @@ export const trustDocuments: TrustDocument[] = [
     title: 'Accessibility Statement',
     category: 'Accessibility',
     summary:
-      'Sets the accessibility target for Pocket Genes public pages and mobile experiences, plus a contact path for barriers.',
+      'Describes Pocket Genes accessibility goals, covered experiences, testing approach, known third-party limits, and how users can report barriers.',
     owner: 'Product',
     lastReviewed: 'July 2026',
     status: 'Published',
     sections: [
       {
-        heading: 'Target',
-        body:
-          'Pocket Genes targets accessible navigation, readable contrast, keyboard-accessible public pages, semantic page structure, and clear alternatives for visual data displays.',
+        heading: 'Commitment and scope',
+        paragraphs: [
+          'Pocket Genes is designed for people who may be navigating complex genetic information, health-adjacent questions, community resources, and mobile workflows under real-world conditions. Accessibility is part of making that information usable, understandable, and safe.',
+          'This statement applies to Pocket Genes public pages, Trust Center pages, mobile-centered product experiences, community and discovery surfaces, and account or integration workflows controlled by Pocket Genes.',
+          'Pocket Genes targets WCAG 2.2 AA principles where reasonably applicable to the experience, while recognizing that some provider reports, third-party widgets, linked resources, and platform stores are outside direct Pocket Genes control.',
+        ],
       },
       {
-        heading: 'Feedback',
+        heading: 'Accessibility targets',
         body:
-          `Accessibility barriers can be reported to ${POCKET_GENES_SUPPORT_EMAIL} with the page, device, assistive technology if relevant, and a description of the issue.`,
+          'Pocket Genes accessibility work focuses on practical usability across visual, motor, cognitive, language, and assistive-technology needs.',
+        bullets: [
+          'Semantic headings, landmarks, lists, buttons, links, and tables so assistive technology can understand page structure.',
+          'Keyboard-accessible navigation and visible focus states for public web pages and interactive controls.',
+          'Readable color contrast for text, controls, cards, alerts, and status indicators.',
+          'Responsive layouts that keep text readable and controls usable on small screens.',
+          'Labels, descriptions, and error messages that make forms understandable without relying only on placeholder text.',
+          'Meaningful link text and button labels that describe the destination or action.',
+          'Reduced reliance on color alone to communicate meaning in statuses, categories, charts, or warnings.',
+          'Motion and animation choices that avoid blocking use and respect reduced-motion preferences where supported.',
+          'Plain-language explanations for complex genetic, privacy, security, and community concepts.',
+        ],
+      },
+      {
+        heading: 'Mobile app considerations',
+        body:
+          'Pocket Genes is mobile-centered, so accessibility work includes touch targets, readable spacing, clear navigation paths, screen-reader-friendly labels, and support for platform accessibility features where the native app experience permits it. Product screens that involve report access, educational context, consent, community participation, or organization discovery should remain understandable without requiring users to infer meaning from visual layout alone.',
+      },
+      {
+        heading: 'Content and data displays',
+        body:
+          'Genetic and health-adjacent content can be dense, so Pocket Genes aims to separate headings, summaries, definitions, source context, warnings, and user actions clearly. Diagrams, tables, and lists should not rely only on color, abbreviations, or visual position to convey important meaning.',
+      },
+      {
+        heading: 'Third-party and provider content',
+        body:
+          'Some experiences may include provider reports, external resources, booking widgets, app-store pages, organization links, embedded tools, or other third-party content that Pocket Genes does not fully control. When a barrier appears in a third-party or provider-controlled surface, Pocket Genes may document the issue, look for an alternate path, or relay feedback to the relevant provider when appropriate.',
+      },
+      {
+        heading: 'Testing and review',
+        body:
+          'Pocket Genes reviews accessibility through a mix of product design review, semantic markup checks, keyboard checks for public web pages, contrast review, responsive layout review, and user-reported barrier investigation. New or changed components should be checked for readable text, focus visibility, control labels, form error clarity, and mobile layout stability.',
+      },
+      {
+        heading: 'Feedback and barrier reports',
+        body:
+          `Accessibility barriers can be reported to ${POCKET_GENES_SUPPORT_EMAIL}.`,
+        bullets: [
+          'The affected page, app screen, feature, or workflow.',
+          'The device, operating system, browser, app version, and assistive technology used when relevant.',
+          'What you were trying to do and what prevented completion.',
+          'Whether the issue blocks account access, report access, community participation, consent, support contact, or another important action.',
+          'Screenshots or recordings when helpful, with sensitive genetic, medical, account, or contact information removed when possible.',
+          'A safe callback email for follow-up.',
+        ],
+      },
+      {
+        heading: 'Response and remediation',
+        body:
+          'Pocket Genes reviews accessibility reports by severity and user impact. Issues that block account access, report access, consent, security contact, or core navigation are prioritized for investigation. When immediate remediation is not possible, Pocket Genes may provide a workaround or alternate support path where feasible.',
+      },
+      {
+        heading: 'Ongoing improvement',
+        body:
+          'Accessibility is an ongoing process. Pocket Genes may update this statement, revise design patterns, improve content structure, or adjust product workflows as new barriers are found, standards evolve, or the platform changes.',
       },
     ],
   },
@@ -1010,20 +1137,90 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Informar un incidente',
     category: 'Seguridad',
     summary:
-      'Ofrece un canal directo para informar problemas de seguridad, privacidad o conducta dentro de la comunidad.',
+      'Explica cómo informar problemas de seguridad, privacidad, accesibilidad o seguridad comunitaria, qué incluir y cómo Pocket Genes revisa los reportes.',
     owner: 'Seguridad',
     lastReviewed: 'Julio 2026',
     status: 'Canal disponible',
     sections: [
       {
-        heading: 'Contacto',
+        heading: 'Propósito y alcance',
+        paragraphs: [
+          'Pocket Genes usa este canal de reporte para inquietudes que puedan afectar la confidencialidad, integridad, disponibilidad, seguridad o accesibilidad de los servicios de Pocket Genes.',
+          'Los reportes pueden involucrar seguridad de cuenta, sospecha de acceso no autorizado, problemas de privacidad, información personal expuesta, conducta abusiva en la comunidad, suplantación de identidad, estafas, barreras de accesibilidad, conducta de organizaciones de confianza u otros problemas de seguridad de la plataforma.',
+          'Este canal no es un servicio médico de emergencia ni un lugar para solicitar interpretación clínica de un informe genético. Las emergencias médicas, riesgos urgentes de seguridad o situaciones de crisis deben dirigirse a servicios locales de emergencia o a un profesional calificado apropiado.',
+        ],
+      },
+      {
+        heading: 'Cómo reportar',
         body:
-          `Las preguntas de seguridad, privacidad y confianza pueden enviarse a ${POCKET_GENES_SUPPORT_EMAIL}.`,
+          `Las inquietudes de seguridad, privacidad, accesibilidad y confianza pueden enviarse a ${POCKET_GENES_SUPPORT_EMAIL}. Un asunto claro, como "reporte de seguridad de Pocket Genes", "reporte de privacidad de Pocket Genes" o "reporte de seguridad comunitaria de Pocket Genes", ayuda a derivar el problema más rápido.`,
       },
       {
         heading: 'Qué incluir',
         body:
-          'Los reportes útiles incluyen la función afectada, hora aproximada, pasos para reproducir cuando corresponda, capturas sin datos genéticos sensibles cuando sea posible y un email de contacto seguro.',
+          'Un reporte útil brinda contexto suficiente para identificar el flujo afectado sin exponer información sensible innecesaria.',
+        bullets: [
+          'La página, función, flujo de cuenta, perfil de organización, área comunitaria o pantalla móvil afectada.',
+          'La fecha, hora aproximada y zona horaria en que ocurrió el problema.',
+          'Pasos para reproducir el problema, cuando corresponda.',
+          'Datos de dispositivo, sistema operativo, navegador, versión de la app o tecnología de asistencia cuando sean relevantes.',
+          'Capturas, grabaciones o ejemplos de mensajes con contenido de informes genéticos, contraseñas, códigos de autenticación e información personal no relacionada removida cuando sea posible.',
+          'Los nombres o identificadores de perfiles involucrados en un reporte de seguridad comunitaria, cuando se conozcan.',
+          'Un email seguro de respuesta y si Pocket Genes puede contactarte para preguntas de seguimiento.',
+        ],
+      },
+      {
+        heading: 'Qué no incluir',
+        body:
+          'No envíes contraseñas, tokens de autenticación, códigos de un solo uso, informes genéticos completos, historias clínicas completas ni información privada de otra persona salvo que Pocket Genes solicite específicamente un elemento limitado mediante un canal seguro de seguimiento.',
+      },
+      {
+        heading: 'Clasificación y manejo',
+        body:
+          'Pocket Genes revisa los reportes recibidos y los deriva según el tipo y la gravedad de la inquietud.',
+        subsections: [
+          {
+            heading: 'Revisión inicial',
+            body: 'El equipo evalúa si el reporte involucra seguridad, privacidad, accesibilidad, seguridad comunitaria, confiabilidad operativa o una inquietud sobre una organización de confianza.',
+          },
+          {
+            heading: 'Evaluación de gravedad',
+            body: 'Los reportes se priorizan según impacto potencial en usuarios, sensibilidad de datos, posibilidad de explotación, abuso activo, obligaciones legales y disponibilidad de una solución alternativa.',
+          },
+          {
+            heading: 'Acceso por necesidad',
+            body: 'Los detalles del reporte se comparten internamente solo con las personas que necesitan la información para investigar, mitigar, brindar soporte al usuario o cumplir requisitos legales y operativos.',
+          },
+          {
+            heading: 'Seguimiento',
+            body: 'Pocket Genes puede pedir detalles adicionales, ofrecer una solución alternativa, confirmar recepción o explicar cuando el reporte queda fuera del límite del servicio de Pocket Genes.',
+          },
+        ],
+      },
+      {
+        heading: 'Incidentes de seguridad y privacidad',
+        body:
+          'Si un reporte sugiere acceso no autorizado, información personal expuesta, compromiso de cuenta, fuga de datos o abuso de infraestructura de la plataforma, Pocket Genes puede investigar registros, configuración, controles de acceso, flujos afectados e información relacionada de proveedores de servicio. Cuando un incidente confirmado requiere notificación a usuarios, socios, reguladores o proveedores, Pocket Genes maneja esa notificación según las obligaciones aplicables y los hechos del incidente.',
+      },
+      {
+        heading: 'Reportes de seguridad comunitaria',
+        body:
+          'Los reportes comunitarios pueden involucrar acoso, desinformación médica, suplantación de identidad, spam, estafas, presión para revelar información médica o genética, publicación de información privada de otra persona, solicitud comercial predatoria o instrucciones médicas peligrosas.',
+        bullets: [
+          'Las acciones posibles incluyen eliminación de contenido, advertencia, limitación de cuenta, suspensión de cuenta, soporte para bloqueo, revisión de organización de confianza o escalamiento para revisión adicional.',
+          'Pocket Genes puede preservar registros de moderación relevantes cuando sea necesario para investigar abuso repetido, proteger usuarios, documentar decisiones o cumplir obligaciones legales.',
+          'Las organizaciones de confianza no reciben acceso especial a información privada de usuarios mediante el proceso de incidentes.',
+        ],
+      },
+      {
+        heading: 'Divulgación responsable',
+        body:
+          'Las pruebas de seguridad de buena fe deben limitarse a superficies públicas o a cuentas y datos que controles. No interrumpas servicios de Pocket Genes, no accedas ni extraigas información de otros usuarios, no intentes ingeniería social, no evadas límites de tasa a escala y no divulgues públicamente una vulnerabilidad antes de que Pocket Genes haya tenido una oportunidad razonable de revisarla y mitigarla. Pocket Genes no opera un programa público de recompensas por vulnerabilidades salvo que se anuncie por separado.',
+      },
+      {
+        heading: 'Registro',
+        body:
+          'Pocket Genes puede conservar reportes de incidentes, notas de clasificación, resultados de moderación y registros de remediación con fines de seguridad, responsabilidad, legales, auditoría y mejora de la plataforma.',
       },
     ],
   },
@@ -1032,20 +1229,77 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Declaración de Accesibilidad',
     category: 'Accesibilidad',
     summary:
-      'Explica nuestros objetivos de accesibilidad y cómo informar una barrera o dificultad de uso.',
+      'Describe los objetivos de accesibilidad de Pocket Genes, las experiencias cubiertas, el enfoque de pruebas, límites de terceros y cómo reportar barreras.',
     owner: 'Producto',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
     sections: [
       {
-        heading: 'Objetivo',
-        body:
-          'Pocket Genes apunta a navegación accesible, contraste legible, páginas públicas accesibles por teclado, estructura semántica clara y alternativas claras para visualizaciones de datos.',
+        heading: 'Compromiso y alcance',
+        paragraphs: [
+          'Pocket Genes está diseñado para personas que pueden estar navegando información genética compleja, preguntas relacionadas con salud, recursos comunitarios y flujos móviles en condiciones reales. La accesibilidad es parte de hacer que esa información sea usable, comprensible y segura.',
+          'Esta declaración se aplica a las páginas públicas de Pocket Genes, páginas del Centro de confianza, experiencias del producto centradas en móvil, superficies comunitarias y de descubrimiento, y flujos de cuenta o integración controlados por Pocket Genes.',
+          'Pocket Genes apunta a principios WCAG 2.2 AA cuando sean razonablemente aplicables a la experiencia, reconociendo que algunos informes de proveedores, widgets de terceros, recursos vinculados y tiendas de plataformas están fuera del control directo de Pocket Genes.',
+        ],
       },
       {
-        heading: 'Feedback',
+        heading: 'Objetivos de accesibilidad',
         body:
-          `Las barreras de accesibilidad pueden reportarse a ${POCKET_GENES_SUPPORT_EMAIL} indicando la página, el dispositivo, la tecnología de asistencia si corresponde y una descripción del problema.`,
+          'El trabajo de accesibilidad de Pocket Genes se enfoca en la usabilidad práctica para necesidades visuales, motrices, cognitivas, de idioma y de tecnología de asistencia.',
+        bullets: [
+          'Encabezados, regiones, listas, botones, enlaces y tablas semánticos para que la tecnología de asistencia pueda entender la estructura de la página.',
+          'Navegación accesible por teclado y estados de foco visibles en páginas públicas y controles interactivos.',
+          'Contraste legible para textos, controles, tarjetas, alertas e indicadores de estado.',
+          'Diseños responsivos que mantienen el texto legible y los controles utilizables en pantallas pequeñas.',
+          'Etiquetas, descripciones y mensajes de error que hacen comprensibles los formularios sin depender solo de texto placeholder.',
+          'Textos de enlaces y botones que describen el destino o la acción.',
+          'Menor dependencia del color como único medio para comunicar significado en estados, categorías, gráficos o advertencias.',
+          'Decisiones de movimiento y animación que no bloquean el uso y respetan preferencias de movimiento reducido cuando hay soporte.',
+          'Explicaciones en lenguaje claro para conceptos complejos de genética, privacidad, seguridad y comunidad.',
+        ],
+      },
+      {
+        heading: 'Consideraciones de la app móvil',
+        body:
+          'Pocket Genes está centrado en móvil, por lo que el trabajo de accesibilidad incluye áreas táctiles, espaciado legible, caminos de navegación claros, etiquetas compatibles con lectores de pantalla y soporte para funciones de accesibilidad de la plataforma cuando la experiencia nativa lo permite. Las pantallas relacionadas con acceso a informes, contexto educativo, consentimiento, participación comunitaria o descubrimiento de organizaciones deben seguir siendo comprensibles sin exigir que los usuarios infieran significado solo por la disposición visual.',
+      },
+      {
+        heading: 'Contenido y visualizaciones de datos',
+        body:
+          'El contenido genético y relacionado con salud puede ser denso, por lo que Pocket Genes busca separar claramente encabezados, resúmenes, definiciones, contexto de fuente, advertencias y acciones del usuario. Los diagramas, tablas y listas no deberían depender solo del color, abreviaturas o posición visual para comunicar significado importante.',
+      },
+      {
+        heading: 'Contenido de terceros y proveedores',
+        body:
+          'Algunas experiencias pueden incluir informes de proveedores, recursos externos, widgets de reserva, páginas de tiendas de apps, enlaces de organizaciones, herramientas embebidas u otro contenido de terceros que Pocket Genes no controla por completo. Cuando aparece una barrera en una superficie controlada por un tercero o proveedor, Pocket Genes puede documentar el problema, buscar un camino alternativo o trasladar el comentario al proveedor correspondiente cuando sea apropiado.',
+      },
+      {
+        heading: 'Pruebas y revisión',
+        body:
+          'Pocket Genes revisa la accesibilidad mediante una combinación de revisión de diseño de producto, controles de marcado semántico, pruebas de teclado para páginas públicas, revisión de contraste, revisión de diseño responsivo e investigación de barreras reportadas por usuarios. Los componentes nuevos o modificados deben revisarse por legibilidad del texto, visibilidad del foco, etiquetas de controles, claridad de errores en formularios y estabilidad del diseño móvil.',
+      },
+      {
+        heading: 'Feedback y reportes de barreras',
+        body:
+          `Las barreras de accesibilidad pueden reportarse a ${POCKET_GENES_SUPPORT_EMAIL}.`,
+        bullets: [
+          'La página, pantalla de app, función o flujo afectado.',
+          'El dispositivo, sistema operativo, navegador, versión de la app y tecnología de asistencia usados cuando sean relevantes.',
+          'Qué estabas intentando hacer y qué impidió completarlo.',
+          'Si el problema bloquea acceso a cuenta, acceso a informes, participación comunitaria, consentimiento, contacto de soporte u otra acción importante.',
+          'Capturas o grabaciones cuando ayuden, con información genética, médica, de cuenta o contacto removida cuando sea posible.',
+          'Un email seguro para seguimiento.',
+        ],
+      },
+      {
+        heading: 'Respuesta y remediación',
+        body:
+          'Pocket Genes revisa los reportes de accesibilidad según gravedad e impacto en usuarios. Los problemas que bloquean acceso a cuenta, acceso a informes, consentimiento, contacto de seguridad o navegación central se priorizan para investigación. Cuando la remediación inmediata no es posible, Pocket Genes puede ofrecer una solución alternativa o un camino de soporte alternativo cuando sea viable.',
+      },
+      {
+        heading: 'Mejora continua',
+        body:
+          'La accesibilidad es un proceso continuo. Pocket Genes puede actualizar esta declaración, revisar patrones de diseño, mejorar la estructura de contenido o ajustar flujos del producto a medida que se encuentren nuevas barreras, evolucionen los estándares o cambie la plataforma.',
       },
     ],
   },
