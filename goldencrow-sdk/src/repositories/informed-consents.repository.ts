@@ -3,10 +3,12 @@ import {
   type DocumentData,
   type Query,
 } from "firebase-admin/firestore";
-import { ENV } from "../config/env.js";
 import { adminDbFor } from "../config/firebase.js";
 import { canAccessInformedConsentPatient } from "../lib/informed-consent-access.js";
-import { sendGmailMessage } from "../lib/gmail-mailer.js";
+import {
+  normalizeTemporaryPassword,
+  sendInformedConsentEmail,
+} from "../lib/informed-consent-email.js";
 import type {
   AdminContext,
   InformedConsentFile,
@@ -23,7 +25,6 @@ const PATIENTS_COLLECTION = "patients";
 const SEQUENCES_COLLECTION = "admin_sequences";
 const CONSENTS_PAGE_SIZE = 20;
 export const INFORMED_CONSENT_FILE_MAX_BYTES = 750_000;
-const CONSENT_PORTAL_PATH = "/patient-portal/consents";
 const CONSENT_EMAIL_SENDER_EMAIL = "dopazoh+admin@gmail.com";
 
 const ALLOWED_FILE_TYPES = new Set([
@@ -51,11 +52,6 @@ type StoredConsent = {
 
 function optionalString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function normalizeTemporaryPassword(value: unknown) {
-  const password = optionalString(value);
-  return password && /^[A-Z]{8}$/.test(password) ? password : undefined;
 }
 
 function isMissingFirestoreIndexError(error: unknown) {
@@ -334,19 +330,6 @@ function validateFile(file: InformedConsentFile): InformedConsentFile {
   return { name, type, size: bytes.length, content: file.content };
 }
 
-function backofficeUrl(path: string) {
-  return `${ENV.BACKOFFICE_ORIGIN.replace(/\/+$/, "")}${path}`;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 async function nextConsentId() {
   return adminDb.runTransaction(async (transaction) => {
     const reference = adminDb
@@ -551,44 +534,8 @@ export async function sendInformedConsentEmailForContext(
     );
   }
 
-  const portalUrl = backofficeUrl(CONSENT_PORTAL_PATH);
-  const safeName = escapeHtml(patient.fullName);
-  const safeEmail = escapeHtml(patient.email);
-  const safeTemporaryPassword = escapeHtml(temporaryPassword);
-  const safePortalUrl = escapeHtml(portalUrl);
-  const subject = "Consentimiento informado 2PQ";
-  const text = [
-    `Hola ${patient.fullName},`,
-    "",
-    "Para poder continuar con el estudio necesitamos que cargues tu consentimiento informado.",
-    "",
-    "Credenciales",
-    `Usuario: ${patient.email}`,
-    `Contraseña: ${temporaryPassword}`,
-    "",
-    `Link al portal: ${portalUrl}`,
-    "",
-    "Gracias.",
-  ].join("\n");
-  const html = `
-    <p>Hola ${safeName},</p>
-    <p>Para poder continuar con el estudio necesitamos que cargues tu consentimiento informado.</p>
-    <p><strong>Credenciales</strong></p>
-    <p>
-      Usuario: ${safeEmail}<br />
-      Contraseña: ${safeTemporaryPassword}
-    </p>
-    <p>Link al portal: <a href="${safePortalUrl}">${safePortalUrl}</a></p>
-    <p>Gracias.</p>
-  `;
-
   try {
-    await sendGmailMessage({
-      to: patient.email,
-      subject,
-      text,
-      html,
-    });
+    await sendInformedConsentEmail(patient, temporaryPassword);
   } catch (error) {
     const details =
       error instanceof Error && error.message ? ` ${error.message}` : "";

@@ -10,6 +10,7 @@ import {
   grantPatientPortalAccessForNewPatient,
 } from "./areas.repository.js";
 import { shouldAutomaticallyGrantPatientPortalAccess } from "../lib/patient-portal-credentials.js";
+import { sendInformedConsentEmail } from "../lib/informed-consent-email.js";
 import {
   canCreatePatient,
   canViewDoctor,
@@ -1814,6 +1815,9 @@ export async function createTwoPQFormForContext(
   }
 
   let selectedPatient: PatientRecord | null = null;
+  let automaticConsentEmail:
+    | { patient: PatientRecord; temporaryPassword: string }
+    | null = null;
   if (selectedPatientId) {
     selectedPatient = await getPatientById(selectedPatientId);
     if (!selectedPatient) {
@@ -1883,7 +1887,14 @@ export async function createTwoPQFormForContext(
     selectedPatientId = selectedPatient.id;
 
     if (shouldGrantNewPatientPortalAccess) {
-      await grantPatientPortalAccessForNewPatient(context, selectedPatient.id);
+      const accessGrant = await grantPatientPortalAccessForNewPatient(
+        context,
+        selectedPatient.id,
+      );
+      automaticConsentEmail = {
+        patient: selectedPatient,
+        temporaryPassword: accessGrant.temporaryPassword,
+      };
     }
   }
 
@@ -2097,6 +2108,20 @@ export async function createTwoPQFormForContext(
 
   await adminDb.collection(FORMS_COLLECTION).doc(formId).set(document);
   await adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid).delete();
+
+  if (automaticConsentEmail) {
+    try {
+      await sendInformedConsentEmail(
+        automaticConsentEmail.patient,
+        automaticConsentEmail.temporaryPassword,
+      );
+    } catch (error) {
+      console.error(
+        "Unable to send automatic informed consent email after study request submission.",
+        error,
+      );
+    }
+  }
 
   return toTwoPQFormRecord(formId, document);
 }
