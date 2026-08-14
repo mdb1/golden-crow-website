@@ -16,7 +16,7 @@ export function PatientPortalHeader() {
   const [pendingSignOut, setPendingSignOut] = useState(false);
   const title =
     pathname === "/patient-portal/my-account"
-      ? appText(language, "My account")
+      ? appText(language, "Patient portal data")
       : pathname === "/patient-portal/consents"
         ? "Consentimientos"
         : appText(language, "Home");

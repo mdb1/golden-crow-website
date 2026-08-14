@@ -25,7 +25,7 @@ const PATIENT_PORTAL_NAV = [
   },
   {
     href: "/patient-portal/my-account",
-    label: "My account",
+    label: "Patient portal data",
     icon: UserRound,
   },
 ] as const;

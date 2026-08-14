@@ -8,8 +8,10 @@ import { PatientPortalSidebar } from "@/components/patient-portal-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { LANGUAGE_STORAGE_KEY } from "@/lib/language";
 
+let pathname = "/patient-portal/home";
+
 jest.mock("next/navigation", () => ({
-  usePathname: () => "/patient-portal/home",
+  usePathname: () => pathname,
 }));
 
 jest.mock("next-auth/react", () => ({
@@ -22,6 +24,7 @@ jest.mock("@/components/appearance-toggle", () => ({
 
 describe("patient portal Spanish shell", () => {
   beforeEach(() => {
+    pathname = "/patient-portal/home";
     window.localStorage.clear();
   });
 
@@ -40,11 +43,27 @@ describe("patient portal Spanish shell", () => {
 
     expect(screen.getByText("Portal de pacientes")).toBeTruthy();
     expect(screen.getAllByText("Inicio").length).toBeGreaterThan(0);
-    expect(screen.getByText("Mi cuenta")).toBeTruthy();
+    expect(screen.getByText("Mis datos")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeTruthy();
     expect(screen.getByText("Estás en el portal de pacientes")).toBeTruthy();
     expect(screen.queryByRole("group", { name: "Language" })).toBeNull();
     await waitFor(() => expect(document.documentElement.lang).toBe("es"));
     expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("en");
+  });
+
+  it("labels the patient account screen as personal data", () => {
+    pathname = "/patient-portal/my-account";
+
+    render(
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <SidebarProvider>
+          <PatientPortalSidebar />
+          <PatientPortalHeader />
+        </SidebarProvider>
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getAllByText("Mis datos").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Mi cuenta")).toBeNull();
   });
 });

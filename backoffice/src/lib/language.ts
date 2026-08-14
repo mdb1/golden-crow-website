@@ -99,6 +99,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Access surface": "Tipo de acceso",
   "Backoffice access": "Acceso al backoffice",
   "Patient portal": "Portal de pacientes",
+  "Patient portal data": "Mis datos",
   "Patient has accessed the patient portal":
     "El paciente ingresó al portal de pacientes",
   "Patient has uploaded an informed consent":
@@ -144,7 +145,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se subieron archivos de consentimiento.",
   "Open file": "Abrir archivo",
   "This account email is managed outside My account.":
-    "El email de esta cuenta se administra fuera de Mi cuenta.",
+    "El email de esta cuenta se administra fuera de Mis datos.",
   "Enter the email address before changing it.":
     "Ingresá el email antes de modificarlo.",
   "Use a valid email address.": "Ingresá un email válido.",
@@ -153,7 +154,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Email format is valid and matches the current account email.":
     "El formato es válido y coincide con el email actual.",
   "This role assignment is not editable from My account.":
-    "Este perfil no se puede editar desde Mi cuenta.",
+    "Este perfil no se puede editar desde Mis datos.",
   "Fix the highlighted fields before saving.":
     "Corregí los campos marcados antes de guardar.",
   "Profile details saved.": "Datos del perfil guardados.",
