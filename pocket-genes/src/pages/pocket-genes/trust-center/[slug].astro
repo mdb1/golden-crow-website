@@ -38,24 +38,32 @@ const pageCopy = {
     download: 'Download Pocket Genes',
     flowSteps: [
       {
-        title: 'Source report',
-        body: 'The original report contains structured test fields and limited explanatory notes.',
+        title: 'Report provider',
+        body: 'A participating provider makes a genetic report available to its user and remains the source of the report and its findings.',
       },
       {
-        title: 'Pocket Genes organization',
-        body: 'Pocket Genes organizes report metadata, panel scope, variants, and source fields.',
+        title: 'Pocket Genes integration',
+        body: 'Pocket Genes receives the information required to connect the intended user with the corresponding mobile experience.',
       },
       {
-        title: 'Private app space',
-        body: 'The user sees organized report cards, timelines, and exact uploaded documents.',
+        title: 'User identification and consent',
+        body: 'Where applicable, limited contact information is used to communicate with the intended user and complete the required consent or access process.',
       },
       {
-        title: 'Educational layer',
-        body: 'Pocket Genes adds definitions, context labels, and questions for appointments.',
+        title: 'Mobile report access',
+        body: 'Pocket Genes provides a simple mobile path for the user to reach and navigate the report made available by the provider.',
       },
       {
-        title: 'Optional sharing',
-        body: 'The user can share a limited summary, never the raw report by default.',
+        title: 'Educational context',
+        body: 'Pocket Genes connects the experience with definitions, lessons, relevant resources, and other educational information that can help users understand the concepts around their results.',
+      },
+      {
+        title: 'Discover and community',
+        body: 'Users can independently discover organizations, resources, events, and communities related to their interests.',
+      },
+      {
+        title: 'User-controlled participation',
+        body: 'Community participation and sharing are separate actions. Accessing a report does not automatically publish its contents or disclose it to other Pocket Genes users.',
       },
     ],
   },
@@ -76,24 +84,32 @@ const pageCopy = {
     download: 'Descargar Pocket Genes',
     flowSteps: [
       {
-        title: 'Informe fuente',
-        body: 'El informe original contiene campos estructurados del estudio y notas explicativas limitadas.',
+        title: 'Proveedor del informe',
+        body: 'Un proveedor participante pone un informe genético a disposición de su usuario y sigue siendo la fuente del informe y sus hallazgos.',
       },
       {
-        title: 'Organización en Pocket Genes',
-        body: 'Pocket Genes organiza metadatos del informe, alcance del estudio, variantes y campos originales.',
+        title: 'Integración de Pocket Genes',
+        body: 'Pocket Genes recibe la información necesaria para conectar a la persona prevista con la experiencia móvil correspondiente.',
       },
       {
-        title: 'Espacio privado en la app',
-        body: 'El usuario ve tarjetas organizadas, líneas de tiempo y documentos cargados exactos.',
+        title: 'Identificación y consentimiento',
+        body: 'Cuando corresponde, se usa información limitada de contacto para comunicarse con la persona prevista y completar el proceso requerido de consentimiento o acceso.',
       },
       {
-        title: 'Capa educativa',
-        body: 'Pocket Genes agrega definiciones, explicaciones y preguntas útiles para próximas consultas.',
+        title: 'Acceso móvil al informe',
+        body: 'Pocket Genes brinda un camino móvil simple para que el usuario llegue y navegue el informe puesto a disposición por el proveedor.',
       },
       {
-        title: 'Compartir opcional',
-        body: 'El usuario puede compartir un resumen limitado. El informe original no se comparte automáticamente.',
+        title: 'Contexto educativo',
+        body: 'Pocket Genes conecta la experiencia con definiciones, lecciones, recursos relevantes y otra información educativa que puede ayudar a entender conceptos alrededor de los resultados.',
+      },
+      {
+        title: 'Descubrimiento y comunidad',
+        body: 'Los usuarios pueden descubrir de forma independiente organizaciones, recursos, eventos y comunidades relacionadas con sus intereses.',
+      },
+      {
+        title: 'Participación controlada por el usuario',
+        body: 'La participación comunitaria y el intercambio son acciones separadas. Acceder a un informe no publica automáticamente su contenido ni lo revela a otros usuarios de Pocket Genes.',
       },
     ],
   },
@@ -149,11 +165,45 @@ const copy = pageCopy[locale];
           {document.sections.map((section) => (
             <section>
               <h2>{section.heading}</h2>
-              <p>{section.body}</p>
+              {section.body && <p>{section.body}</p>}
+              {section.paragraphs?.map((paragraph) => <p>{paragraph}</p>)}
               {section.bullets && (
                 <ul>
                   {section.bullets.map((bullet) => <li>{bullet}</li>)}
                 </ul>
+              )}
+              {section.subsections && (
+                <div class="pg-trust-subsection-stack">
+                  {section.subsections.map((subsection) => (
+                    <section>
+                      <h3>{subsection.heading}</h3>
+                      {subsection.body && <p>{subsection.body}</p>}
+                      {subsection.bullets && (
+                        <ul>
+                          {subsection.bullets.map((bullet) => <li>{bullet}</li>)}
+                        </ul>
+                      )}
+                    </section>
+                  ))}
+                </div>
+              )}
+              {section.table && (
+                <div class="pg-trust-table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        {section.table.headers.map((header) => <th scope="col">{header}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {section.table.rows.map((row) => (
+                        <tr>
+                          {row.map((cell) => <td>{cell}</td>)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </section>
           ))}
@@ -303,6 +353,10 @@ const copy = pageCopy[locale];
     color: var(--pg-ink-soft);
   }
 
+  .pg-trust-article p + p {
+    margin-top: 12px;
+  }
+
   .pg-trust-article ul {
     margin: 14px 0 0;
     padding-left: 22px;
@@ -313,9 +367,50 @@ const copy = pageCopy[locale];
     margin-top: 8px;
   }
 
+  .pg-trust-subsection-stack {
+    display: grid;
+    gap: 14px;
+    margin-top: 18px;
+  }
+
+  .pg-trust-subsection-stack section {
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #f8fbfc;
+    padding: 16px;
+  }
+
+  .pg-trust-table-wrapper {
+    width: 100%;
+    margin-top: 18px;
+    overflow-x: auto;
+  }
+
+  .pg-trust-table-wrapper table {
+    width: 100%;
+    min-width: 680px;
+    border-collapse: collapse;
+    color: var(--pg-ink-soft);
+    font-size: 0.94rem;
+  }
+
+  .pg-trust-table-wrapper th,
+  .pg-trust-table-wrapper td {
+    border: 1px solid var(--pg-border);
+    padding: 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .pg-trust-table-wrapper th {
+    background: #f8fbfc;
+    color: var(--pg-ink);
+    font-weight: 850;
+  }
+
   .pg-flow-track {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 10px;
     margin-top: 18px;
   }
@@ -327,19 +422,6 @@ const copy = pageCopy[locale];
     border-radius: 8px;
     background: #f8fbfc;
     padding: 16px;
-  }
-
-  .pg-flow-step::after {
-    content: "->";
-    position: absolute;
-    top: 18px;
-    right: -14px;
-    color: var(--pg-teal);
-    font-weight: 900;
-  }
-
-  .pg-flow-step.is-last::after {
-    content: "";
   }
 
   .pg-flow-step span {
@@ -374,15 +456,7 @@ const copy = pageCopy[locale];
     }
 
     .pg-flow-track {
-      grid-template-columns: 1fr;
-    }
-
-    .pg-flow-step::after {
-      top: auto;
-      right: auto;
-      left: 17px;
-      bottom: -19px;
-      transform: rotate(90deg);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
@@ -397,6 +471,10 @@ const copy = pageCopy[locale];
 
     .pg-trust-article > section {
       padding: 20px;
+    }
+
+    .pg-flow-track {
+      grid-template-columns: 1fr;
     }
   }
 </style>

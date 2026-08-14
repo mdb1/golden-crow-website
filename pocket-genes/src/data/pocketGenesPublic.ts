@@ -36,8 +36,18 @@ export function getPublicNavItems(locale: PocketGenesPublicLocale) {
 
 export interface TrustDocumentSection {
   heading: string;
-  body: string;
+  body?: string;
+  paragraphs?: string[];
   bullets?: string[];
+  subsections?: {
+    heading: string;
+    body?: string;
+    bullets?: string[];
+  }[];
+  table?: {
+    headers: string[];
+    rows: string[][];
+  };
 }
 
 export interface TrustDocument {
@@ -57,24 +67,105 @@ export const trustDocuments: TrustDocument[] = [
     title: 'Privacy Policy',
     category: 'Privacy and rights',
     summary:
-      'Explains what information Pocket Genes collects, why it is collected, and how users control sensitive genetic and health-adjacent data.',
+      'Explains what personal information Pocket Genes processes, why we need it, how it is protected, when it may be shared, and the choices available to users.',
     owner: 'Trust and Privacy',
     lastReviewed: 'July 2026',
     status: 'Published',
     sections: [
       {
         heading: 'Scope',
-        body:
-          'Pocket Genes treats genetic reports, report metadata, notes, and community profile choices as sensitive information. Account data, uploaded documents, parsed report fields, educational interactions, device diagnostics, and community participation are described separately.',
+        paragraphs: [
+          'This Privacy Policy applies to personal information processed through the Pocket Genes mobile application, website, community features, integrations, and related services.',
+          'Pocket Genes processes limited personal information necessary to operate these services. Depending on how a person uses Pocket Genes, this may include account information, contact information, integration information, consent records, community activity, and technical information associated with use of the platform.',
+          'Genetic reports accessed through participating providers remain associated with their original source. Pocket Genes uses the information required to provide the corresponding access and experience without treating the complete underlying report as general account or community data.',
+        ],
       },
       {
-        heading: 'User control',
+        heading: 'Information we process',
         body:
-          'Reports and exact variants are private by default, and community participation is opt-in.',
+          'The information Pocket Genes processes depends on the feature, integration, or community activity a person chooses to use.',
+        subsections: [
+          {
+            heading: 'Account information',
+            bullets: [
+              'Name.',
+              'Surname.',
+              'Email.',
+              'Phone number, when provided.',
+              'Account identifier.',
+              'Authentication information.',
+            ],
+          },
+          {
+            heading: 'Integration information',
+            bullets: [
+              'Organization or provider.',
+              'Information required to connect the intended person with an integration.',
+              'Invitation or delivery status.',
+            ],
+          },
+          {
+            heading: 'Consent information',
+            bullets: [
+              'Consent status.',
+              'Version.',
+              'Timestamp.',
+              'Related workflow or provider.',
+            ],
+          },
+          {
+            heading: 'Community information',
+            bullets: [
+              'Profile.',
+              'Posts.',
+              'Comments.',
+              'Follows.',
+              'Messages or participation where applicable.',
+            ],
+          },
+          {
+            heading: 'Technical information',
+            bullets: [
+              'Device and app information.',
+              'Logs.',
+              'Security or diagnostic events.',
+            ],
+          },
+        ],
+      },
+      {
+        heading: 'Why we process it',
+        body:
+          'We process personal information to create and protect accounts, communicate with users, provide requested integrations, establish access to relevant reports and resources, document consent where required, operate community functionality, provide support, prevent abuse, and maintain the security and reliability of Pocket Genes.',
+      },
+      {
+        heading: 'Report access',
+        body:
+          'Pocket Genes may provide access to genetic reports made available by participating providers. The original provider remains the source of the report and its findings. Pocket Genes facilitates the user experience around accessing and understanding that information rather than replacing the provider\'s underlying report.',
+      },
+      {
+        heading: 'Information from organizations',
+        paragraphs: [
+          'Participating organizations may provide limited contact or identifying information when necessary to initiate a Pocket Genes experience for an intended user. Depending on the integration, this may include a name, surname, email address, or phone number.',
+          'Pocket Genes uses this information for the corresponding communication, access, consent, or integration process and does not treat the originating organization as having general access to the user\'s Pocket Genes activity.',
+        ],
+      },
+      {
+        heading: 'Service providers and international processing',
+        body:
+          'Pocket Genes uses third-party infrastructure and technology providers, including Amazon Web Services and Google Firebase. Some providers may process information outside the user\'s country. Further information is available in our Subprocessor List.',
+      },
+      {
+        heading: 'User rights',
+        body:
+          `Users can contact ${POCKET_GENES_SUPPORT_EMAIL} for privacy questions and requests related to their information.`,
         bullets: [
-          'Users can choose what to store, delete, or share.',
-          'Community visibility is explicit and reversible.',
-          'Private reports are never exposed in public community spaces by default.',
+          'Access.',
+          'Correction.',
+          'Deletion.',
+          'Withdrawal of consent where applicable.',
+          'Account deletion.',
+          'Privacy questions.',
         ],
       },
     ],
@@ -90,14 +181,49 @@ export const trustDocuments: TrustDocument[] = [
     status: 'Published',
     sections: [
       {
-        heading: 'Product boundaries',
+        heading: 'Eligibility and accounts',
         body:
-          'Pocket Genes is an educational and organizational product. It does not provide diagnosis, treatment, emergency support, genetic counseling, or medical decision-making.',
+          'Pocket Genes accounts are intended for people who are permitted to use the service under applicable law and who provide accurate account information. Users are responsible for keeping their sign-in credentials secure and for activity that occurs through their account.',
+      },
+      {
+        heading: 'Pocket Genes services',
+        body:
+          'Pocket Genes may include mobile report access, educational content, resource discovery, trusted organization content, and community functionality. Some features may depend on a participating provider, organization, invitation, or consent workflow.',
+      },
+      {
+        heading: 'Report providers',
+        body:
+          'Reports and findings accessible through Pocket Genes may originate from independent laboratories, providers, or organizations. Those providers remain responsible for the reports and services they issue.',
+      },
+      {
+        heading: 'No medical services',
+        body:
+          'Pocket Genes is an educational and access-oriented product. It does not provide diagnosis, treatment, emergency support, genetic counseling, medical decision-making, or a replacement for the report provider.',
       },
       {
         heading: 'User responsibilities',
         body:
-          'Users may upload materials they have the right to store and may not use the product to harass, identify, or pressure community members.',
+          'Users must use Pocket Genes lawfully, respect community rules, protect their account, avoid harassment or re-identification attempts, and avoid pressuring others to disclose private medical, genetic, or identity information.',
+      },
+      {
+        heading: 'Organizations',
+        body:
+          'Trusted organization status means an organization has been reviewed for participation in the Pocket Genes ecosystem. It is not an endorsement of every statement, service, product, event, or resource published by that organization.',
+      },
+      {
+        heading: 'Intellectual property',
+        body:
+          'Pocket Genes owns or licenses the Pocket Genes product experience, branding, and educational content. Providers remain responsible for their own report content. Users and organizations remain responsible for content they choose to publish or provide through community and organization features.',
+      },
+      {
+        heading: 'Availability and account action',
+        body:
+          'Pocket Genes services may change, pause, or be interrupted. Pocket Genes may suspend or terminate access when needed to protect users, the community, the platform, or legal obligations.',
+      },
+      {
+        heading: 'Privacy, liability, and governing law',
+        body:
+          'Use of Pocket Genes is also governed by the Privacy Policy. Liability limits, dispute terms, and governing law should be reviewed with legal counsel before relying on this page as a final legal agreement.',
       },
     ],
   },
@@ -126,6 +252,29 @@ export const trustDocuments: TrustDocument[] = [
           'No scraping, re-identification, or external redistribution of community posts.',
         ],
       },
+      {
+        heading: 'What users control',
+        body:
+          'Users choose how they participate in community spaces and can adjust or stop participation separately from private report access.',
+        bullets: [
+          'Profile information.',
+          'Whether to participate.',
+          'What they publish.',
+          'Who they interact with.',
+          'Groups or circles they join.',
+          'Blocking and reporting.',
+        ],
+      },
+      {
+        heading: 'Private information',
+        body:
+          'Information available through private Pocket Genes functionality is not automatically part of a user\'s RareFriends profile or community activity.',
+      },
+      {
+        heading: 'Trusted organizations',
+        body:
+          'Trusted Organizations do not receive privileged access to private user information simply because they are trusted. Organizations must not use community access to aggressively solicit vulnerable users or blur promotional content with education or support.',
+      },
     ],
   },
   {
@@ -144,9 +293,24 @@ export const trustDocuments: TrustDocument[] = [
           'The safety policy explains how Pocket Genes handles reports, blocks, content removal, repeated abuse, and attempts to identify vulnerable members.',
       },
       {
+        heading: 'Content and behavior we review',
+        body:
+          'Pocket Genes may review and act on behavior that puts users, families, caregivers, or organizations at risk.',
+        bullets: [
+          'Harassment.',
+          'Medical misinformation.',
+          'Impersonation.',
+          'Spam or scams.',
+          'Pressure to disclose medical or genetic information.',
+          'Publication of somebody else\'s private information.',
+          'Predatory commercial solicitation.',
+          'Dangerous medical instructions or urgent-care claims.',
+        ],
+      },
+      {
         heading: 'Escalation',
         body:
-          'Pocket Genes provides a clear contact path for urgent safety reports.',
+          `Pocket Genes provides a clear contact path for urgent safety reports through ${POCKET_GENES_SUPPORT_EMAIL}. Reports may lead to content removal, account limits, organization review, or other protective action.`,
       },
     ],
   },
@@ -163,11 +327,40 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Core controls',
         body:
-          'The security overview covers transport security, access control, environment separation, auditability, and secure handling of uploaded reports.',
-        bullets: [
-          'Encryption in transit for user traffic.',
-          'Least-privilege access for operational tooling.',
-          'Sensitive report access scoped to the user and authorized workflows.',
+          'Pocket Genes uses layered security controls to protect accounts, personal information, integrations, and platform services from unauthorized access, disclosure, or modification.',
+        subsections: [
+          {
+            heading: 'Authentication',
+            body: 'Access to private account functionality requires authenticated user identity.',
+          },
+          {
+            heading: 'Authorization',
+            body: 'Authentication does not provide unrestricted access to Pocket Genes resources. Application controls determine which information and functionality are available to each authenticated user.',
+          },
+          {
+            heading: 'Encryption in transit',
+            body: 'Network communications involving protected Pocket Genes services use encrypted connections.',
+          },
+          {
+            heading: 'Infrastructure security',
+            body: 'Pocket Genes uses established cloud infrastructure providers, including AWS and Google Firebase, and relies on their platform security controls together with Pocket Genes application-level protections.',
+          },
+          {
+            heading: 'Least privilege',
+            body: 'Administrative and production access is limited according to operational need.',
+          },
+          {
+            heading: 'Environment separation',
+            body: 'Pocket Genes separates production and development operations so testing activity does not intentionally rely on production user workflows.',
+          },
+          {
+            heading: 'Monitoring and incident handling',
+            body: 'Security and operational events may be logged to identify errors, abuse, and potentially unauthorized activity. Reported security concerns are reviewed through Pocket Genes\' incident process.',
+          },
+          {
+            heading: 'Data minimization',
+            body: 'Limiting the information handled by Pocket Genes is itself part of our security approach. Integrations and platform features are designed to use only the information necessary for their intended function.',
+          },
         ],
       },
       {
@@ -182,7 +375,7 @@ export const trustDocuments: TrustDocument[] = [
     title: 'Data-Flow Diagram',
     category: 'Security',
     summary:
-      'Shows how a report becomes a private Pocket Genes experience and what can optionally move into community sharing.',
+      'Shows how providers, Pocket Genes, and users interact when a report is accessed through the mobile experience.',
     owner: 'Security and Product',
     lastReviewed: 'July 2026',
     status: 'Published',
@@ -190,12 +383,12 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Flow',
         body:
-          'The diagram separates source report fields, Pocket Genes organization, educational explanations, user storage, optional sharing, and deletion paths.',
+          'The flow separates the report provider, the Pocket Genes integration and mobile experience, and user-controlled learning, discovery, and community participation.',
       },
       {
-        heading: 'Default visibility',
+        heading: 'Actors and boundaries',
         body:
-          'Uploaded reports, parsed variants, report sources, and health notes remain private unless a user explicitly shares a limited summary.',
+          'A participating provider remains the source of the report and its findings. Pocket Genes supports the access experience and related educational or community features without automatically publishing report contents to other users or organizations.',
       },
     ],
   },
@@ -204,7 +397,7 @@ export const trustDocuments: TrustDocument[] = [
     title: 'Subprocessor List',
     category: 'Privacy and rights',
     summary:
-      'Lists third parties that may process account, hosting, analytics, storage, support, or communication data for Pocket Genes.',
+      'Lists third parties that may process account, authentication, infrastructure, operational, or limited application data for Pocket Genes.',
     owner: 'Trust and Privacy',
     lastReviewed: 'July 2026',
     status: 'Published',
@@ -212,12 +405,29 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Public register',
         body:
-          'The subprocessor list identifies each service, purpose, data category, processing location when known, and change notification process.',
+          'Pocket Genes publishes the subprocessors used for core infrastructure and application services. This list is updated as providers are added or materially changed.',
+        table: {
+          headers: ['Provider', 'Purpose', 'Data involved', 'International processing'],
+          rows: [
+            [
+              'Amazon Web Services',
+              'Cloud infrastructure and backend services.',
+              'Application and operational information required by the services hosted through AWS.',
+              'May apply.',
+            ],
+            [
+              'Google Firebase',
+              'Authentication, database, and application infrastructure.',
+              'Account identifiers, authentication information, and limited application or integration information according to the feature being used.',
+              'May apply.',
+            ],
+          ],
+        },
       },
       {
-        heading: 'Data processing terms',
+        heading: 'Change process',
         body:
-          'Product-specific subprocessors are reflected in the applicable data processing terms before production use.',
+          `Questions about subprocessors or data-processing terms can be sent to ${POCKET_GENES_SUPPORT_EMAIL}.`,
       },
     ],
   },
@@ -226,20 +436,40 @@ export const trustDocuments: TrustDocument[] = [
     title: 'Data-Retention and Deletion Policy',
     category: 'Privacy and rights',
     summary:
-      'Explains how long Pocket Genes keeps account data, reports, parsed fields, community content, logs, and backups.',
+      'Explains how long Pocket Genes retains account information, temporary integration data, consent records, community content, operational logs, and backups, and what happens when information is deleted.',
     owner: 'Trust and Privacy',
     lastReviewed: 'July 2026',
     status: 'Published',
     sections: [
       {
-        heading: 'Retention principles',
+        heading: 'Account information',
         body:
-          'Pocket Genes keeps personal and genetic data only for the product purpose, user request, legal need, or support obligation that justifies retention.',
+          'Account information is retained while necessary to maintain the user\'s Pocket Genes account and deleted or de-identified following account deletion, subject to applicable legal and security requirements.',
+      },
+      {
+        heading: 'Temporary integration information',
+        body:
+          'Contact or identifying information received for a specific integration is retained only for the period necessary to complete or conclude that process.',
+      },
+      {
+        heading: 'Consent records',
+        body:
+          'Records necessary to demonstrate that a user provided or declined an applicable consent may be retained separately when required for accountability, legal, or audit purposes.',
+      },
+      {
+        heading: 'Community content',
+        body:
+          'Community posts, comments, and participation records may be removed when a user deletes content, deletes an account, or when moderation removes content under the Community Terms or Community Safety Policy.',
+      },
+      {
+        heading: 'Logs and backups',
+        body:
+          'Operational logs and backups may be retained for security, reliability, troubleshooting, and business-continuity purposes. Specific retention periods should be published once finalized.',
       },
       {
         heading: 'Deletion',
         body:
-          'Deletion workflows explain what is removed immediately, what may remain in backups for a limited period, and what anonymized operational records may be retained.',
+          'Deletion workflows explain what is removed from active systems, what may remain in backups for a limited period, and what de-identified operational records may be retained.',
       },
     ],
   },
@@ -292,7 +522,7 @@ export const trustDocuments: TrustDocument[] = [
     title: 'Scientific Methodology',
     category: 'Science',
     summary:
-      'Explains how Pocket Genes turns report fields into educational summaries without making unsupported clinical claims.',
+      'Explains how Pocket Genes separates provider findings, educational content, source review, and clinical interpretation boundaries.',
     owner: 'Scientific Review',
     lastReviewed: 'July 2026',
     status: 'Published',
@@ -300,12 +530,32 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Source hierarchy',
         body:
-          'Educational explanations start from the report first, then are reviewed against public scientific references, professional terminology, and product safety rules.',
+          'Findings shown through a report originate from the organization responsible for that report. Pocket Genes does not independently recreate a laboratory result.',
       },
       {
-        heading: 'Review controls',
+        heading: 'Educational content',
         body:
-          'The methodology separates reported facts, reformatted display fields, educational definitions, and clinical interpretation that remains outside Pocket Genes.',
+          'Pocket Genes provides educational explanations intended to make genetic concepts and terminology easier to understand.',
+      },
+      {
+        heading: 'Source hierarchy for education',
+        body:
+          'Educational material may be reviewed against recognized scientific databases, peer-reviewed literature, professional terminology, authoritative health and genetics resources, and product safety rules.',
+      },
+      {
+        heading: 'Separation of facts and education',
+        body:
+          'Information originating from a report, general educational information, and content published by third-party organizations are presented as distinct sources of information.',
+      },
+      {
+        heading: 'Updating',
+        body:
+          'Educational information may be reviewed and updated as scientific understanding, terminology, or product safety requirements change.',
+      },
+      {
+        heading: 'Clinical interpretation',
+        body:
+          'Clinical interpretation remains outside Pocket Genes and should be addressed with the report provider, a qualified clinician, or a genetic counselor where appropriate.',
       },
     ],
   },
@@ -322,12 +572,22 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Intended use',
         body:
-          'Pocket Genes is intended to help users organize genetic reports, review educational explanations, prepare conversations, and optionally use community features.',
+          'Pocket Genes is intended to help users access genetic reports through a mobile-centered experience, understand relevant genetic concepts, discover educational resources and organizations, and optionally participate in related communities.',
       },
       {
         heading: 'Not intended for',
-        body:
-          'Pocket Genes is not intended to diagnose disease, interpret variants independently, prescribe treatment, replace genetic counseling, or provide emergency medical advice.',
+        body: 'Pocket Genes does not:',
+        bullets: [
+          'Perform genetic testing.',
+          'Generate laboratory results.',
+          'Independently determine genetic variants.',
+          'Diagnose disease.',
+          'Prescribe treatment.',
+          'Determine clinical actionability.',
+          'Replace genetic counseling.',
+          'Replace the report provider.',
+          'Provide emergency services.',
+        ],
       },
     ],
   },
@@ -339,24 +599,105 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Política de Privacidad',
     category: 'Privacidad y derechos',
     summary:
-      'Explica qué información recopilamos, para qué la usamos y cómo podés controlar tus datos genéticos y de salud.',
+      'Explica qué información personal procesa Pocket Genes, por qué la necesitamos, cómo se protege, cuándo puede compartirse y qué opciones tienen los usuarios.',
     owner: 'Confianza y privacidad',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
     sections: [
       {
         heading: 'Alcance',
-        body:
-          'Pocket Genes trata los informes genéticos, metadatos de informes, notas y preferencias del perfil comunitario como información sensible. Los datos de cuenta, documentos cargados, campos extraídos del informe, interacciones educativas, datos técnicos del dispositivo y participación comunitaria se describen por separado.',
+        paragraphs: [
+          'Esta Política de Privacidad se aplica a la información personal procesada a través de la aplicación móvil Pocket Genes, el sitio web, las funciones comunitarias, las integraciones y los servicios relacionados.',
+          'Pocket Genes procesa información personal limitada necesaria para operar estos servicios. Según cómo una persona use Pocket Genes, esto puede incluir información de cuenta, datos de contacto, información de integración, registros de consentimiento, actividad comunitaria e información técnica asociada al uso de la plataforma.',
+          'Los informes genéticos accedidos a través de proveedores participantes permanecen asociados a su fuente original. Pocket Genes usa la información necesaria para brindar el acceso y la experiencia correspondiente sin tratar el informe subyacente completo como datos generales de cuenta o comunidad.',
+        ],
       },
       {
-        heading: 'Control del usuario',
+        heading: 'Información que procesamos',
         body:
-          'Los informes y variantes exactas son privados desde el inicio, y la participación comunitaria es opcional.',
+          'La información que procesa Pocket Genes depende de la función, integración o actividad comunitaria que cada persona elija usar.',
+        subsections: [
+          {
+            heading: 'Información de cuenta',
+            bullets: [
+              'Nombre.',
+              'Apellido.',
+              'Email.',
+              'Número de teléfono, cuando se proporciona.',
+              'Identificador de cuenta.',
+              'Información de autenticación.',
+            ],
+          },
+          {
+            heading: 'Información de integración',
+            bullets: [
+              'Organización o proveedor.',
+              'Información necesaria para conectar a la persona prevista con una integración.',
+              'Estado de invitación o entrega.',
+            ],
+          },
+          {
+            heading: 'Información de consentimiento',
+            bullets: [
+              'Estado del consentimiento.',
+              'Versión.',
+              'Marca de tiempo.',
+              'Flujo o proveedor relacionado.',
+            ],
+          },
+          {
+            heading: 'Información comunitaria',
+            bullets: [
+              'Perfil.',
+              'Publicaciones.',
+              'Comentarios.',
+              'Seguimientos.',
+              'Mensajes o participación cuando corresponda.',
+            ],
+          },
+          {
+            heading: 'Información técnica',
+            bullets: [
+              'Información del dispositivo y la app.',
+              'Registros.',
+              'Eventos de seguridad o diagnóstico.',
+            ],
+          },
+        ],
+      },
+      {
+        heading: 'Por qué la procesamos',
+        body:
+          'Procesamos información personal para crear y proteger cuentas, comunicarnos con usuarios, brindar integraciones solicitadas, establecer acceso a informes y recursos relevantes, documentar consentimientos cuando corresponda, operar funciones comunitarias, brindar soporte, prevenir abusos y mantener la seguridad y confiabilidad de Pocket Genes.',
+      },
+      {
+        heading: 'Acceso a informes',
+        body:
+          'Pocket Genes puede brindar acceso a informes genéticos puestos a disposición por proveedores participantes. El proveedor original sigue siendo la fuente del informe y sus hallazgos. Pocket Genes facilita la experiencia de acceso y comprensión de esa información sin reemplazar el informe subyacente del proveedor.',
+      },
+      {
+        heading: 'Información de organizaciones',
+        paragraphs: [
+          'Las organizaciones participantes pueden proporcionar información limitada de contacto o identificación cuando sea necesario para iniciar una experiencia de Pocket Genes para una persona determinada. Según la integración, esto puede incluir nombre, apellido, dirección de email o número de teléfono.',
+          'Pocket Genes usa esta información para el proceso correspondiente de comunicación, acceso, consentimiento o integración, y no considera que la organización de origen tenga acceso general a la actividad del usuario en Pocket Genes.',
+        ],
+      },
+      {
+        heading: 'Proveedores de servicios y procesamiento internacional',
+        body:
+          'Pocket Genes usa proveedores externos de infraestructura y tecnología, incluidos Amazon Web Services y Google Firebase. Algunos proveedores pueden procesar información fuera del país del usuario. Hay más información disponible en nuestra lista de proveedores que procesan datos.',
+      },
+      {
+        heading: 'Derechos de los usuarios',
+        body:
+          `Los usuarios pueden escribir a ${POCKET_GENES_SUPPORT_EMAIL} por consultas de privacidad o solicitudes relacionadas con su información.`,
         bullets: [
-          'Los usuarios pueden elegir qué guardar, eliminar o compartir.',
-          'La visibilidad comunitaria es explícita y reversible.',
-          'Los informes privados no se muestran en espacios comunitarios públicos salvo que el usuario elija compartir una versión limitada.',
+          'Acceso.',
+          'Corrección.',
+          'Eliminación.',
+          'Retiro del consentimiento cuando corresponda.',
+          'Eliminación de cuenta.',
+          'Consultas de privacidad.',
         ],
       },
     ],
@@ -372,14 +713,49 @@ export const trustDocumentsEs: TrustDocument[] = [
     status: 'Publicado',
     sections: [
       {
-        heading: 'Límites del producto',
+        heading: 'Elegibilidad y cuentas',
         body:
-          'Pocket Genes ayuda a organizar información y aprender sobre informes genéticos. No brinda diagnóstico, tratamiento, soporte de emergencia, asesoramiento genético ni toma de decisiones médicas.',
+          'Las cuentas de Pocket Genes están pensadas para personas autorizadas a usar el servicio según la normativa aplicable y que proporcionan información de cuenta precisa. Los usuarios son responsables de mantener seguras sus credenciales y de la actividad realizada desde su cuenta.',
+      },
+      {
+        heading: 'Servicios de Pocket Genes',
+        body:
+          'Pocket Genes puede incluir acceso móvil a informes, contenido educativo, descubrimiento de recursos, contenido de organizaciones de confianza y funciones comunitarias. Algunas funciones pueden depender de un proveedor u organización participante, una invitación o un flujo de consentimiento.',
+      },
+      {
+        heading: 'Proveedores de informes',
+        body:
+          'Los informes y hallazgos accesibles a través de Pocket Genes pueden originarse en laboratorios, proveedores u organizaciones independientes. Esos proveedores siguen siendo responsables de los informes y servicios que emiten.',
+      },
+      {
+        heading: 'Sin servicios médicos',
+        body:
+          'Pocket Genes es un producto educativo y orientado al acceso. No brinda diagnóstico, tratamiento, soporte de emergencia, asesoramiento genético, toma de decisiones médicas ni reemplaza al proveedor del informe.',
       },
       {
         heading: 'Responsabilidades del usuario',
         body:
-          'Los usuarios pueden cargar materiales que tienen derecho a almacenar y no pueden usar el producto para acosar, identificar o presionar a miembros de la comunidad.',
+          'Los usuarios deben usar Pocket Genes de forma lícita, respetar las reglas comunitarias, proteger su cuenta, evitar acoso o intentos de reidentificación y no presionar a otras personas para que revelen información médica, genética o de identidad.',
+      },
+      {
+        heading: 'Organizaciones',
+        body:
+          'La condición de organización de confianza significa que una organización fue revisada para participar en el ecosistema de Pocket Genes. No implica avalar cada declaración, servicio, producto, evento o recurso publicado por esa organización.',
+      },
+      {
+        heading: 'Propiedad intelectual',
+        body:
+          'Pocket Genes posee o licencia la experiencia del producto, la marca y el contenido educativo de Pocket Genes. Los proveedores siguen siendo responsables de sus propios informes. Los usuarios y organizaciones siguen siendo responsables del contenido que deciden publicar o proporcionar mediante funciones comunitarias y de organización.',
+      },
+      {
+        heading: 'Disponibilidad y medidas sobre cuentas',
+        body:
+          'Los servicios de Pocket Genes pueden cambiar, pausarse o interrumpirse. Pocket Genes puede suspender o finalizar el acceso cuando sea necesario para proteger a usuarios, la comunidad, la plataforma o cumplir obligaciones legales.',
+      },
+      {
+        heading: 'Privacidad, responsabilidad y ley aplicable',
+        body:
+          'El uso de Pocket Genes también se rige por la Política de Privacidad. Los límites de responsabilidad, términos de disputa y ley aplicable deben revisarse con asesoría legal antes de usar esta página como acuerdo legal final.',
       },
     ],
   },
@@ -408,6 +784,29 @@ export const trustDocumentsEs: TrustDocument[] = [
           'Sin scraping, reidentificación o redistribución externa de publicaciones comunitarias.',
         ],
       },
+      {
+        heading: 'Qué controlan los usuarios',
+        body:
+          'Los usuarios eligen cómo participar en espacios comunitarios y pueden ajustar o detener esa participación de forma separada del acceso privado a informes.',
+        bullets: [
+          'Información de perfil.',
+          'Si participan o no.',
+          'Qué publican.',
+          'Con quién interactúan.',
+          'Grupos o círculos a los que se unen.',
+          'Bloqueos y reportes.',
+        ],
+      },
+      {
+        heading: 'Información privada',
+        body:
+          'La información disponible mediante funciones privadas de Pocket Genes no pasa automáticamente a formar parte del perfil de RareFriends ni de la actividad comunitaria del usuario.',
+      },
+      {
+        heading: 'Organizaciones de confianza',
+        body:
+          'Las organizaciones de confianza no reciben acceso privilegiado a información privada de usuarios por el hecho de estar evaluadas. Las organizaciones no deben usar el acceso comunitario para solicitar de forma agresiva a usuarios vulnerables ni mezclar contenido promocional con educación o apoyo.',
+      },
     ],
   },
   {
@@ -426,9 +825,24 @@ export const trustDocumentsEs: TrustDocument[] = [
           'La política de seguridad explica cómo Pocket Genes maneja reportes, bloqueos, eliminación de contenido, abuso repetido e intentos de identificar a miembros vulnerables.',
       },
       {
+        heading: 'Contenido y conductas que revisamos',
+        body:
+          'Pocket Genes puede revisar y actuar frente a conductas que pongan en riesgo a usuarios, familias, cuidadores u organizaciones.',
+        bullets: [
+          'Acoso.',
+          'Desinformación médica.',
+          'Suplantación de identidad.',
+          'Spam o estafas.',
+          'Presión para revelar información médica o genética.',
+          'Publicación de información privada de otra persona.',
+          'Solicitud comercial predatoria.',
+          'Instrucciones médicas peligrosas o afirmaciones de atención urgente.',
+        ],
+      },
+      {
         heading: 'Escalamiento',
         body:
-          'Pocket Genes ofrece una vía clara de contacto para reportes urgentes de seguridad y situaciones sensibles dentro de la comunidad.',
+          `Pocket Genes ofrece una vía clara de contacto para reportes urgentes de seguridad a través de ${POCKET_GENES_SUPPORT_EMAIL}. Los reportes pueden derivar en eliminación de contenido, límites de cuenta, revisión de organizaciones u otras medidas de protección.`,
       },
     ],
   },
@@ -445,11 +859,40 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Controles principales',
         body:
-          'El resumen de seguridad cubre seguridad de transporte, control de acceso, separación de entornos, auditabilidad y manejo seguro de informes cargados.',
-        bullets: [
-          'Cifrado en tránsito para el tráfico de usuarios.',
-          'Acceso de privilegio mínimo para herramientas operativas.',
-          'Acceso a informes sensibles acotado al usuario y a flujos autorizados.',
+          'Pocket Genes usa controles de seguridad en capas para proteger cuentas, información personal, integraciones y servicios de la plataforma frente a accesos, divulgaciones o modificaciones no autorizadas.',
+        subsections: [
+          {
+            heading: 'Autenticación',
+            body: 'El acceso a funciones privadas de cuenta requiere identidad de usuario autenticada.',
+          },
+          {
+            heading: 'Autorización',
+            body: 'La autenticación no otorga acceso irrestricto a los recursos de Pocket Genes. Los controles de la aplicación determinan qué información y funcionalidad están disponibles para cada usuario autenticado.',
+          },
+          {
+            heading: 'Cifrado en tránsito',
+            body: 'Las comunicaciones de red que involucran servicios protegidos de Pocket Genes usan conexiones cifradas.',
+          },
+          {
+            heading: 'Seguridad de infraestructura',
+            body: 'Pocket Genes usa proveedores establecidos de infraestructura en la nube, incluidos AWS y Google Firebase, y se apoya en sus controles de seguridad de plataforma junto con protecciones a nivel de aplicación de Pocket Genes.',
+          },
+          {
+            heading: 'Privilegio mínimo',
+            body: 'El acceso administrativo y de producción se limita según la necesidad operativa.',
+          },
+          {
+            heading: 'Separación de entornos',
+            body: 'Pocket Genes separa operaciones de producción y desarrollo para que la actividad de prueba no dependa intencionalmente de flujos de usuarios de producción.',
+          },
+          {
+            heading: 'Monitoreo y manejo de incidentes',
+            body: 'Los eventos de seguridad y operación pueden registrarse para identificar errores, abusos y actividad potencialmente no autorizada. Las inquietudes de seguridad reportadas se revisan mediante el proceso de incidentes de Pocket Genes.',
+          },
+          {
+            heading: 'Minimización de datos',
+            body: 'Limitar la información manejada por Pocket Genes es parte de nuestro enfoque de seguridad. Las integraciones y funciones de la plataforma están diseñadas para usar solo la información necesaria para su función prevista.',
+          },
         ],
       },
       {
@@ -464,7 +907,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Diagrama de Flujo de Datos',
     category: 'Seguridad',
     summary:
-      'Muestra cómo se procesa un informe y qué información puede compartirse con la comunidad cuando el usuario lo decide.',
+      'Muestra cómo interactúan proveedores, Pocket Genes y usuarios cuando se accede a un informe desde la experiencia móvil.',
     owner: 'Seguridad y producto',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -472,12 +915,12 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Flujo',
         body:
-          'El diagrama separa campos del informe fuente, organización en Pocket Genes, explicaciones educativas, almacenamiento del usuario, uso compartido opcional y rutas de eliminación.',
+          'El flujo separa al proveedor del informe, la integración y experiencia móvil de Pocket Genes, y el aprendizaje, descubrimiento y participación comunitaria controlados por el usuario.',
       },
       {
-        heading: 'Visibilidad inicial',
+        heading: 'Actores y límites',
         body:
-          'Los informes cargados, variantes interpretadas, fuentes del informe y notas de salud permanecen privados salvo que el usuario comparta explícitamente un resumen limitado.',
+          'Un proveedor participante sigue siendo la fuente del informe y sus hallazgos. Pocket Genes acompaña la experiencia de acceso y las funciones educativas o comunitarias relacionadas sin publicar automáticamente el contenido del informe a otros usuarios u organizaciones.',
       },
     ],
   },
@@ -494,12 +937,29 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Registro público',
         body:
-          'La lista de subprocesadores identifica cada servicio, propósito, categoría de datos, ubicación de procesamiento cuando se conoce y proceso de notificación de cambios.',
+          'Pocket Genes publica los proveedores que procesan datos usados para infraestructura central y servicios de la aplicación. Esta lista se actualiza cuando se agregan proveedores o hay cambios materiales.',
+        table: {
+          headers: ['Proveedor', 'Propósito', 'Datos involucrados', 'Procesamiento internacional'],
+          rows: [
+            [
+              'Amazon Web Services',
+              'Infraestructura cloud y servicios backend.',
+              'Información operativa y de aplicación requerida por los servicios alojados en AWS.',
+              'Puede aplicar.',
+            ],
+            [
+              'Google Firebase',
+              'Autenticación, base de datos e infraestructura de aplicación.',
+              'Identificadores de cuenta, información de autenticación e información limitada de aplicación o integración según la función usada.',
+              'Puede aplicar.',
+            ],
+          ],
+        },
       },
       {
-        heading: 'Términos de procesamiento de datos',
+        heading: 'Proceso de cambios',
         body:
-          'Los subprocesadores específicos del producto se reflejan en los términos de procesamiento de datos aplicables antes del uso en producción.',
+          `Las preguntas sobre proveedores que procesan datos o términos de procesamiento pueden enviarse a ${POCKET_GENES_SUPPORT_EMAIL}.`,
       },
     ],
   },
@@ -508,20 +968,40 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Política de Retención y Eliminación de Datos',
     category: 'Privacidad y derechos',
     summary:
-      'Explica durante cuánto tiempo conservamos cada tipo de información y cuándo se elimina.',
+      'Explica durante cuánto tiempo Pocket Genes conserva información de cuenta, datos temporales de integración, consentimientos, contenido comunitario, registros operativos y copias de seguridad, y qué ocurre cuando se elimina información.',
     owner: 'Confianza y privacidad',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
     sections: [
       {
-        heading: 'Principios de retención',
+        heading: 'Información de cuenta',
         body:
-          'Pocket Genes conserva datos personales y genéticos solo por el propósito del producto, solicitud del usuario, necesidad legal u obligación de soporte que justifica la retención.',
+          'La información de cuenta se conserva mientras sea necesaria para mantener la cuenta de Pocket Genes del usuario y se elimina o desidentifica después de la eliminación de la cuenta, sujeta a requisitos legales y de seguridad aplicables.',
+      },
+      {
+        heading: 'Información temporal de integración',
+        body:
+          'La información de contacto o identificación recibida para una integración específica se conserva solo durante el período necesario para completar o concluir ese proceso.',
+      },
+      {
+        heading: 'Registros de consentimiento',
+        body:
+          'Los registros necesarios para demostrar que un usuario otorgó o rechazó un consentimiento aplicable pueden conservarse por separado cuando se requiera por responsabilidad, motivos legales o auditoría.',
+      },
+      {
+        heading: 'Contenido comunitario',
+        body:
+          'Las publicaciones, comentarios y registros de participación comunitaria pueden eliminarse cuando un usuario borra contenido, elimina una cuenta o cuando moderación remueve contenido bajo los Términos de Comunidad o la Política de Seguridad Comunitaria.',
+      },
+      {
+        heading: 'Registros y copias de seguridad',
+        body:
+          'Los registros operativos y copias de seguridad pueden conservarse por seguridad, confiabilidad, resolución de problemas y continuidad del negocio. Los períodos específicos de retención deben publicarse cuando estén finalizados.',
       },
       {
         heading: 'Eliminación',
         body:
-          'Los flujos de eliminación explican qué se elimina de inmediato, qué puede permanecer en copias de seguridad por un período limitado y qué registros operativos anonimizados pueden conservarse.',
+          'Los flujos de eliminación explican qué se elimina de los sistemas activos, qué puede permanecer en copias de seguridad por un período limitado y qué registros operativos desidentificados pueden conservarse.',
       },
     ],
   },
@@ -574,7 +1054,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Metodología Científica',
     category: 'Ciencia',
     summary:
-      'Explica cómo transformamos la información de los informes en contenidos educativos sin realizar afirmaciones clínicas no respaldadas.',
+      'Explica cómo Pocket Genes separa hallazgos de proveedores, contenido educativo, revisión de fuentes y límites de interpretación clínica.',
     owner: 'Revisión científica',
     lastReviewed: 'Julio 2026',
     status: 'Publicado',
@@ -582,12 +1062,32 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Jerarquía de fuentes',
         body:
-          'Las explicaciones educativas parten primero del informe y luego se revisan contra referencias científicas públicas, terminología profesional y reglas de seguridad del producto.',
+          'Los hallazgos mostrados a través de un informe se originan en la organización responsable de ese informe. Pocket Genes no recrea de forma independiente un resultado de laboratorio.',
       },
       {
-        heading: 'Controles de revisión',
+        heading: 'Contenido educativo',
         body:
-          'La metodología separa hechos reportados, campos reformateados para visualización, definiciones educativas e interpretación clínica que queda fuera de Pocket Genes.',
+          'Pocket Genes brinda explicaciones educativas pensadas para hacer más comprensibles los conceptos y la terminología genética.',
+      },
+      {
+        heading: 'Jerarquía de fuentes para educación',
+        body:
+          'El material educativo puede revisarse contra bases de datos científicas reconocidas, literatura revisada por pares, terminología profesional, recursos autorizados de salud y genética, y reglas de seguridad del producto.',
+      },
+      {
+        heading: 'Separación de hechos y educación',
+        body:
+          'La información que se origina en un informe, la información educativa general y el contenido publicado por organizaciones externas se presentan como fuentes de información distintas.',
+      },
+      {
+        heading: 'Actualización',
+        body:
+          'La información educativa puede revisarse y actualizarse a medida que cambien el conocimiento científico, la terminología o los requisitos de seguridad del producto.',
+      },
+      {
+        heading: 'Interpretación clínica',
+        body:
+          'La interpretación clínica queda fuera de Pocket Genes y debe tratarse con el proveedor del informe, un profesional de salud calificado o un asesor genético cuando corresponda.',
       },
     ],
   },
@@ -604,12 +1104,22 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Uso previsto',
         body:
-          'Pocket Genes está pensado para ayudar a los usuarios a organizar informes genéticos, revisar explicaciones educativas, preparar conversaciones y usar opcionalmente funciones comunitarias.',
+          'Pocket Genes está pensado para ayudar a los usuarios a acceder a informes genéticos mediante una experiencia centrada en el móvil, entender conceptos genéticos relevantes, descubrir recursos y organizaciones educativas, y participar opcionalmente en comunidades relacionadas.',
       },
       {
         heading: 'No previsto para',
-        body:
-          'Pocket Genes no está pensado para diagnosticar enfermedades, interpretar variantes de forma independiente, indicar tratamientos, reemplazar asesoramiento genético ni brindar indicaciones médicas de emergencia.',
+        body: 'Pocket Genes no:',
+        bullets: [
+          'Realiza pruebas genéticas.',
+          'Genera resultados de laboratorio.',
+          'Determina variantes genéticas de forma independiente.',
+          'Diagnostica enfermedades.',
+          'Indica tratamientos.',
+          'Determina accionabilidad clínica.',
+          'Reemplaza el asesoramiento genético.',
+          'Reemplaza al proveedor del informe.',
+          'Brinda servicios de emergencia.',
+        ],
       },
     ],
   },
