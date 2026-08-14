@@ -3490,7 +3490,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Criterios de revisión',
         bullets: [
           'Identidad y responsabilidad.',
-          'Valor comunitario relevante después de un resultado genético o durante recorrido EPOF.',
+          'Valor comunitario relevante después de un resultado genético o para personas y familias que conviven con una EPOF.',
           'Utilidad, claridad, fuentes y revisión del contenido.',
           'Límites de privacidad y rechazo de presión por informes o códigos privados.',
           'Separación entre educación, apoyo, participación, recaudación, promoción y servicios médicos.',

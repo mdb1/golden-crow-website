@@ -640,7 +640,7 @@ export const es: Translations = {
     saveCosts: 'Menos costo operativo',
     saveCostsDesc: 'Evitás construir y mantener una app propia mientras tu equipo se enfoca en el contenido científico.',
     boostEngagement: 'RareFriends™',
-    boostEngagementDesc: 'La integración suma una capa comunitaria con círculos cuidados, recursos y apoyo para recorridos EPOF.',
+    boostEngagementDesc: 'La integración suma una capa comunitaria con círculos cuidados, recursos y apoyo para personas y familias con EPOF.',
     scaleEasily: 'Descubrimiento de proveedores',
     scaleEasilyDesc: 'Tu organización puede aparecer dentro de una red relevante para personas que buscan servicios genéticos.',
   },

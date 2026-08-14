@@ -175,7 +175,7 @@ const copy: Record<Lang, StoryCopy> = {
         ctaTitle: 'Dos narrativas, una misma plataforma',
         ctaBody:
           'Las familias necesitan claridad y acompañamiento. Los proveedores necesitan una forma seria de entregar informes desde el celular. Pocket Genes conecta esas dos necesidades sin mezclarlas.',
-        ctaPrimaryLabel: 'Ver recorrido EPOF',
+        ctaPrimaryLabel: 'Ver apoyo para EPOF',
         ctaPrimaryHref: '/pocket-genes/rare-disease',
         ctaSecondaryLabel: 'Ver integración',
         ctaSecondaryHref: '/pocket-genes/integration',
