@@ -30,6 +30,18 @@ const navigationCategories = Array.from(new Set(navigationDocuments.map((navDocu
   category,
   documents: navigationDocuments.filter((navDocument) => navDocument.category === category),
 }));
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+const linkTrustEmail = (value: string) =>
+  escapeHtml(value).replaceAll(
+    POCKET_GENES_EMAILS.trust,
+    `<a class="pg-trust-email-link" href="mailto:${POCKET_GENES_EMAILS.trust}">${POCKET_GENES_EMAILS.trust}</a>`,
+  );
 
 const pageCopy = {
   en: {
@@ -222,11 +234,11 @@ const copy = pageCopy[locale];
           {document.sections.map((section) => (
             <section>
               <h2>{section.heading}</h2>
-              {section.body && <p>{section.body}</p>}
-              {section.paragraphs?.map((paragraph) => <p>{paragraph}</p>)}
+              {section.body && <p set:html={linkTrustEmail(section.body)} />}
+              {section.paragraphs?.map((paragraph) => <p set:html={linkTrustEmail(paragraph)} />)}
               {section.bullets && (
                 <ul>
-                  {section.bullets.map((bullet) => <li>{bullet}</li>)}
+                  {section.bullets.map((bullet) => <li set:html={linkTrustEmail(bullet)} />)}
                 </ul>
               )}
               {section.subsections && (
@@ -234,10 +246,10 @@ const copy = pageCopy[locale];
                   {section.subsections.map((subsection) => (
                     <section>
                       <h3>{subsection.heading}</h3>
-                      {subsection.body && <p>{subsection.body}</p>}
+                      {subsection.body && <p set:html={linkTrustEmail(subsection.body)} />}
                       {subsection.bullets && (
                         <ul>
-                          {subsection.bullets.map((bullet) => <li>{bullet}</li>)}
+                          {subsection.bullets.map((bullet) => <li set:html={linkTrustEmail(bullet)} />)}
                         </ul>
                       )}
                     </section>
@@ -249,13 +261,13 @@ const copy = pageCopy[locale];
                   <table>
                     <thead>
                       <tr>
-                        {section.table.headers.map((header) => <th scope="col">{header}</th>)}
+                        {section.table.headers.map((header) => <th scope="col" set:html={linkTrustEmail(header)} />)}
                       </tr>
                     </thead>
                     <tbody>
                       {section.table.rows.map((row) => (
                         <tr>
-                          {row.map((cell) => <td>{cell}</td>)}
+                          {row.map((cell) => <td set:html={linkTrustEmail(cell)} />)}
                         </tr>
                       ))}
                     </tbody>
@@ -494,6 +506,16 @@ const copy = pageCopy[locale];
 
   .pg-trust-article li + li {
     margin-top: 8px;
+  }
+
+  .pg-trust-article :global(.pg-trust-email-link) {
+    color: var(--pg-blue);
+    font-weight: 760;
+  }
+
+  .pg-trust-article :global(.pg-trust-email-link:hover),
+  .pg-trust-article :global(.pg-trust-email-link:focus-visible) {
+    color: var(--pg-teal);
   }
 
   .pg-trust-subsection-stack {
