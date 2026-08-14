@@ -1773,7 +1773,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Purpose and scope',
         paragraphs: [
           'These standards explain what Pocket Genes reviews before giving an organization a trusted place in the ecosystem and what ongoing rules apply after approval.',
-          'Trusted Organizations may help users move from a confusing report toward education, resources, events, support, and better questions. Trusted status is not a commercial plan, a guarantee of quality, or an endorsement of every service or claim.',
+          'Trusted Organizations may help people who received or are reviewing a confusing genetic report find education, resources, events, support, and better questions. Trusted status is not a commercial plan, a guarantee of quality, or an endorsement of every service or claim.',
         ],
       },
       {
@@ -3457,7 +3457,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Propósito y alcance',
         paragraphs: [
           'Estos estándares explican qué revisa Pocket Genes antes de dar a una organización un lugar de confianza y qué reglas aplican después de la aprobación.',
-          'Las organizaciones de confianza pueden ayudar a pasar de un informe confuso a educación, recursos, eventos, apoyo y mejores preguntas. La confianza no es un plan comercial, garantía de calidad ni aval de cada servicio o afirmación.',
+          'Las organizaciones de confianza pueden ayudar a personas que recibieron o están revisando un informe genético confuso a encontrar educación, recursos, eventos, apoyo y mejores preguntas. La confianza no es un plan comercial, garantía de calidad ni aval de cada servicio o afirmación.',
         ],
       },
       {
