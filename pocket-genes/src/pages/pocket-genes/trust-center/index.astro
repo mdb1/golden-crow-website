@@ -469,7 +469,7 @@ const trustMailSubject = encodeURIComponent(
 
     <section class="pg-section">
       <div class="pg-container">
-        <div class="pg-section-heading">
+        <div class="pg-section-heading pg-trust-documents-heading">
           <p class="pg-eyebrow">{copy.documentsEyebrow}</p>
           <h2>{copy.documentsTitle}</h2>
           <p>
@@ -811,6 +811,21 @@ const trustMailSubject = encodeURIComponent(
 
   .pg-trust-use-grid article {
     border-top-color: rgba(20, 149, 143, 0.32);
+  }
+
+  .pg-trust-documents-heading {
+    width: 100%;
+    max-width: none;
+  }
+
+  .pg-trust-documents-heading p {
+    max-width: none;
+  }
+
+  @media (min-width: 960px) {
+    .pg-trust-documents-heading p {
+      white-space: nowrap;
+    }
   }
 
   .pg-trusted-orgs {
