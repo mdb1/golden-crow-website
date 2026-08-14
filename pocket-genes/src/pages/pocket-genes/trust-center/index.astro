@@ -40,8 +40,8 @@ const pageCopy = {
         body: 'Selected organizations can publish curated posts, events, and resources that help users move from result to understanding to action.',
       },
     ],
-    overviewEyebrow: 'Pocket Genes at a glance',
-    overviewTitle: 'Direct answers before the document directory.',
+    overviewEyebrow: 'FAQ',
+    overviewTitle: 'Frequently asked questions',
     overviewBody:
       'This Trust Center uses one consistent data map: providers remain responsible for their reports, Pocket Genes operates the mobile access and support experience around them, and community participation is optional and separate from private report access.',
     atAGlanceTitle: 'At a glance',
@@ -197,8 +197,8 @@ const pageCopy = {
         body: 'Pueden compartir recursos, eventos y contenido revisado que ayuden a entender los resultados y decidir qué hacer después.',
       },
     ],
-    overviewEyebrow: 'Pocket Genes en síntesis',
-    overviewTitle: 'Respuestas directas antes del directorio de documentos.',
+    overviewEyebrow: 'FAQ',
+    overviewTitle: 'Preguntas frecuentes',
     overviewBody:
       'Este Centro de confianza usa un único mapa de datos: los proveedores conservan responsabilidad por sus informes, Pocket Genes opera la experiencia móvil de acceso y soporte alrededor de ellos, y la participación comunitaria es opcional y separada del acceso privado a informes.',
     atAGlanceTitle: 'En síntesis',
@@ -372,47 +372,6 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
       </div>
     </section>
 
-    <section class="pg-section pg-trust-overview">
-      <div class="pg-container">
-        <div class="pg-section-heading">
-          <p class="pg-eyebrow">{copy.overviewEyebrow}</p>
-          <h2>{copy.overviewTitle}</h2>
-          <p>
-            {copy.overviewBody}
-          </p>
-        </div>
-
-        <div class="pg-trust-overview-grid">
-          <section class="pg-trust-overview-panel" aria-labelledby="pg-at-a-glance-title">
-            <h3 id="pg-at-a-glance-title">{copy.atAGlanceTitle}</h3>
-            <div class="pg-trust-answer-grid">
-              {copy.atAGlance.map((item) => (
-                <article>
-                  <h4>{item.title}</h4>
-                  <p>{item.body}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <aside class="pg-trust-responsibility" aria-labelledby="pg-responsibility-title">
-            <h3 id="pg-responsibility-title">{copy.responsibilityTitle}</h3>
-            <dl>
-              {copy.responsibilityRows.map(([label, value]) => (
-                <div>
-                  <dt>{label}</dt>
-                  <dd>
-                    {isSupportEmailValue(value) ? <a class="pg-inline-email" href={supportMailHref}>{value}</a> : value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </aside>
-        </div>
-
-      </div>
-    </section>
-
     <section class="pg-section pg-trusted-orgs">
       <div class="pg-container">
         <div class="pg-section-heading">
@@ -468,6 +427,42 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
             ))}
           </ol>
         </div>
+
+        <section class="pg-trust-faq" aria-labelledby="pg-trust-faq-title">
+          <div class="pg-section-heading pg-trust-faq-heading">
+            <p class="pg-eyebrow">{copy.overviewEyebrow}</p>
+            <h2 id="pg-trust-faq-title">{copy.overviewTitle}</h2>
+            <p>
+              {copy.overviewBody}
+            </p>
+          </div>
+
+          <div class="pg-trust-faq-list">
+            {copy.atAGlance.map((item) => (
+              <details class="pg-trust-faq-item">
+                <summary>
+                  <span>{item.title}</span>
+                </summary>
+                <p>{item.body}</p>
+              </details>
+            ))}
+            <details class="pg-trust-faq-item">
+              <summary>
+                <span>{copy.responsibilityTitle}</span>
+              </summary>
+              <dl class="pg-trust-faq-details">
+                {copy.responsibilityRows.map(([label, value]) => (
+                  <div>
+                    <dt>{label}</dt>
+                    <dd>
+                      {isSupportEmailValue(value) ? <a class="pg-inline-email" href={supportMailHref}>{value}</a> : value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          </div>
+        </section>
 
         <div class="pg-trust-category-stack">
           {categories.map(({ category, documents }) => (
@@ -655,102 +650,6 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
     color: var(--pg-teal);
   }
 
-  .pg-trust-overview {
-    background: #ffffff;
-  }
-
-  .pg-trust-overview-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.45fr);
-    gap: 28px;
-    align-items: start;
-  }
-
-  .pg-trust-overview-panel,
-  .pg-trust-responsibility {
-    border-top: 1px solid rgba(20, 149, 143, 0.24);
-    padding-top: 22px;
-  }
-
-  .pg-trust-overview h3 {
-    margin: 0 0 18px;
-    font-size: 1.35rem;
-    line-height: 1.2;
-  }
-
-  .pg-trust-answer-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 22px;
-  }
-
-  .pg-trust-answer-grid article {
-    padding: 18px 0;
-    border-top: 1px solid var(--pg-border);
-  }
-
-  .pg-trust-answer-grid article:nth-child(-n + 2) {
-    border-top: 0;
-    padding-top: 0;
-  }
-
-  .pg-trust-answer-grid h4 {
-    margin: 0 0 8px;
-    color: var(--pg-ink);
-    font-size: 1rem;
-    line-height: 1.25;
-  }
-
-  .pg-trust-answer-grid p {
-    margin: 0;
-    color: var(--pg-ink-soft);
-  }
-
-  .pg-trust-responsibility {
-    display: grid;
-    gap: 16px;
-    border-color: rgba(33, 118, 174, 0.24);
-  }
-
-  .pg-trust-responsibility h3 {
-    margin: 0;
-    font-size: 1.35rem;
-    line-height: 1.2;
-  }
-
-  .pg-trust-responsibility dl {
-    display: grid;
-    gap: 0;
-    margin: 0;
-  }
-
-  .pg-trust-responsibility div {
-    display: grid;
-    gap: 4px;
-    padding: 13px 0;
-    border-top: 1px solid var(--pg-border);
-  }
-
-  .pg-trust-responsibility div:first-child {
-    border-top: 0;
-    padding-top: 0;
-  }
-
-  .pg-trust-responsibility dt {
-    color: var(--pg-muted);
-    font-size: 0.78rem;
-    font-weight: 850;
-    line-height: 1.2;
-    text-transform: uppercase;
-  }
-
-  .pg-trust-responsibility dd {
-    margin: 0;
-    color: var(--pg-ink);
-    font-weight: 780;
-    overflow-wrap: anywhere;
-  }
-
   .pg-trust-documents-heading {
     width: 100%;
     max-width: none;
@@ -890,6 +789,120 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
   .pg-trust-approach p {
     margin: 0;
     color: var(--pg-ink-soft);
+  }
+
+  .pg-trust-faq {
+    margin: 0 0 42px;
+    padding: 34px 0 42px;
+    border-top: 1px solid rgba(20, 149, 143, 0.2);
+    border-bottom: 1px solid rgba(20, 149, 143, 0.2);
+  }
+
+  .pg-trust-faq-heading {
+    max-width: 860px;
+    margin-bottom: 24px;
+  }
+
+  .pg-trust-faq-list {
+    display: grid;
+    gap: 0;
+    width: 100%;
+  }
+
+  .pg-trust-faq-item {
+    border-top: 1px solid var(--pg-border);
+  }
+
+  .pg-trust-faq-item:last-child {
+    border-bottom: 1px solid var(--pg-border);
+  }
+
+  .pg-trust-faq-item summary {
+    position: relative;
+    display: block;
+    min-width: 0;
+    padding: 20px 46px 20px 0;
+    color: var(--pg-ink);
+    font-weight: 850;
+    line-height: 1.25;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .pg-trust-faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .pg-trust-faq-item summary span {
+    display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .pg-trust-faq-item summary::after {
+    content: "+";
+    position: absolute;
+    top: 50%;
+    right: 0;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid rgba(20, 149, 143, 0.28);
+    border-radius: 999px;
+    color: var(--pg-teal);
+    font-size: 1.18rem;
+    line-height: 1;
+    transform: translateY(-50%);
+  }
+
+  .pg-trust-faq-item[open] summary::after {
+    content: "-";
+  }
+
+  .pg-trust-faq-item summary:focus-visible {
+    outline: 3px solid rgba(20, 149, 143, 0.28);
+    outline-offset: 3px;
+  }
+
+  .pg-trust-faq-item p {
+    max-width: 880px;
+    margin: -4px 0 20px;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-trust-faq-details {
+    display: grid;
+    gap: 0;
+    max-width: 920px;
+    margin: -2px 0 20px;
+  }
+
+  .pg-trust-faq-details div {
+    display: grid;
+    gap: 4px;
+    padding: 12px 0;
+    border-top: 1px solid var(--pg-border);
+  }
+
+  .pg-trust-faq-details div:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .pg-trust-faq-details dt {
+    color: var(--pg-muted);
+    font-size: 0.78rem;
+    font-weight: 850;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .pg-trust-faq-details dd {
+    margin: 0;
+    color: var(--pg-ink);
+    font-weight: 780;
+    overflow-wrap: anywhere;
   }
 
   .pg-trust-category-stack {
@@ -1334,7 +1347,6 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
 
   @media (max-width: 960px) {
     .pg-trust-hero-grid,
-    .pg-trust-overview-grid,
     .pg-trusted-orgs-grid,
     .pg-trusted-booking-grid,
     .pg-trust-contact-band {
@@ -1360,15 +1372,6 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
 
     .pg-trust-doc-grid {
       grid-template-columns: 1fr;
-    }
-
-    .pg-trust-answer-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .pg-trust-answer-grid article:nth-child(2) {
-      border-top: 1px solid var(--pg-border);
-      padding-top: 18px;
     }
 
     .pg-trusted-criteria {
