@@ -1,7 +1,7 @@
 import { buildInformedConsentEmailMessage } from "../lib/informed-consent-email.js";
 
 describe("informed consent email", () => {
-  it("includes patient credentials and the consent portal link", () => {
+  it("includes the security key and prefilled portal link", () => {
     const message = buildInformedConsentEmailMessage(
       {
         id: "PAT-00001",
@@ -17,11 +17,17 @@ describe("informed consent email", () => {
         subject: "Consentimiento informado 2PQ",
       }),
     );
-    expect(message.text).toContain("Usuario: patient@example.com");
-    expect(message.text).toContain("Contraseña: ABCDEFGH");
-    expect(message.text).toContain("/patient-portal/consents");
-    expect(message.html).toContain("Usuario: patient@example.com");
-    expect(message.html).toContain("Contraseña: ABCDEFGH");
-    expect(message.html).toContain("/patient-portal/consents");
+    expect(message.text).toContain("Esta es tu clave de seguridad.");
+    expect(message.text).toContain("ABCDEFGH");
+    expect(message.text).not.toContain("Usuario:");
+    expect(message.text).toContain("/patient-portal/login");
+    expect(message.text).toContain("email=patient%40example.com");
+    expect(message.text).toContain("callbackUrl=%2Fpatient-portal%2Fconsents");
+    expect(message.html).toContain("Esta es tu clave de seguridad.");
+    expect(message.html).toContain("ABCDEFGH");
+    expect(message.html).not.toContain("Usuario:");
+    expect(message.html).toContain("/patient-portal/login");
+    expect(message.html).toContain("email=patient%40example.com");
+    expect(message.html).toContain("callbackUrl=%2Fpatient-portal%2Fconsents");
   });
 });

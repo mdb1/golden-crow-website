@@ -464,6 +464,17 @@ function normalizeAuthEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
+function patientPortalCallbackUrl() {
+  if (typeof window === "undefined") return undefined;
+
+  const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
+  if (!callbackUrl?.startsWith("/patient-portal/")) return undefined;
+  if (callbackUrl.startsWith("//") || callbackUrl.includes("\\")) return undefined;
+  if (callbackUrl === "/patient-portal/login") return undefined;
+
+  return callbackUrl;
+}
+
 function passwordResetSuccessResult(email: string): PasswordResetResult {
   return {
     tone: "success",
@@ -1533,18 +1544,25 @@ function ProjectOption({
 
 export function LoginExperience({
   surface,
+  initialEmail,
 }: {
   surface: LoginSurface;
+  initialEmail?: string;
 }) {
   const isPatientPortal = surface === "patient-portal";
+  const normalizedInitialEmail = isPatientPortal
+    ? normalizeAuthEmail(initialEmail ?? "")
+    : "";
   const [loginLanguage, setLoginLanguage] = useState<AppLanguage>(
     isPatientPortal ? "es" : "en"
   );
   const [loading, setLoading] = useState<LoadingState>(null);
   const [notice, setNotice] = useState<AuthNotice | null>(null);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(normalizedInitialEmail);
   const [password, setPassword] = useState("");
-  const [emailPasswordReady, setEmailPasswordReady] = useState(false);
+  const [emailPasswordReady, setEmailPasswordReady] = useState(
+    Boolean(normalizedInitialEmail)
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [passwordResetEmail, setPasswordResetEmail] = useState("");
   const [passwordResetDialogOpen, setPasswordResetDialogOpen] = useState(false);
@@ -1696,7 +1714,7 @@ export function LoginExperience({
         ? "/patient-portal/complete-profile"
         : "/complete-profile"
       : isPatientPortal
-        ? "/patient-portal/home"
+        ? (patientPortalCallbackUrl() ?? "/patient-portal/home")
         : "/2pq-dashboard";
 
     if (redirectTo.endsWith("/complete-profile")) {

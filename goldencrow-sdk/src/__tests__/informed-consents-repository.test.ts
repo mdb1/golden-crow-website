@@ -333,11 +333,17 @@ describe("informed consent repository scoping", () => {
     const message = sendGmailMessageMock.mock.calls[0]?.[0] as
       | { html: string; text: string }
       | undefined;
-    expect(message?.html).toContain("Contraseña: ABCDEFGH");
-    expect(message?.html).toContain("Usuario: pat-00001@example.com");
-    expect(message?.html).toContain("/patient-portal/consents");
-    expect(message?.text).toContain("Contraseña: ABCDEFGH");
-    expect(message?.text).toContain("Usuario: pat-00001@example.com");
-    expect(message?.text).toContain("/patient-portal/consents");
+    expect(message?.html).toContain("Esta es tu clave de seguridad.");
+    expect(message?.html).toContain("ABCDEFGH");
+    expect(message?.html).not.toContain("Usuario:");
+    expect(message?.html).toContain("/patient-portal/login");
+    expect(message?.html).toContain("email=pat-00001%40example.com");
+    expect(message?.html).toContain("callbackUrl=%2Fpatient-portal%2Fconsents");
+    expect(message?.text).toContain("Esta es tu clave de seguridad.");
+    expect(message?.text).toContain("ABCDEFGH");
+    expect(message?.text).not.toContain("Usuario:");
+    expect(message?.text).toContain("/patient-portal/login");
+    expect(message?.text).toContain("email=pat-00001%40example.com");
+    expect(message?.text).toContain("callbackUrl=%2Fpatient-portal%2Fconsents");
   });
 });

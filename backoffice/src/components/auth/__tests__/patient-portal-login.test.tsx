@@ -92,4 +92,18 @@ describe("patient portal login", () => {
       "Tu contrasena temporal fue enviada por email. Si no la recibiste, pedi a tu medico que vuelva a enviartela."
     );
   });
+
+  it("prefills the patient email and opens the password step from the mail link", async () => {
+    render(
+      <LoginExperience
+        surface="patient-portal"
+        initialEmail="Patient@Example.com "
+      />
+    );
+
+    const email = screen.getByLabelText("Email") as HTMLInputElement;
+    expect(email.value).toBe("patient@example.com");
+    expect(email.readOnly).toBe(true);
+    expect(screen.getByLabelText("Contrasena")).toBeTruthy();
+  });
 });
