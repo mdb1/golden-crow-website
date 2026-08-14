@@ -17,9 +17,10 @@ const PATIENT_PORTAL_SDK_PATHS = new Set([
   "/auth/my-account/role",
   "/auth/my-account/email",
   "/auth/profile-setup",
+  "/auth/profile-setup/patient",
 ]);
 
-function isPatientPortalSdkPath(path: string) {
+export function isPatientPortalSdkPath(path: string) {
   return (
     PATIENT_PORTAL_SDK_PATHS.has(path) ||
     path === "/2pq/informed-consents" ||
