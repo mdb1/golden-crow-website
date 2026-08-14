@@ -866,7 +866,7 @@ const copy: Record<Lang, StoryCopy> = {
         stats: [
           { value: 'Opt-in', label: 'participation and connections only with consent' },
           { value: 'Circles', label: 'smaller spaces by journey stage, role, topic, or location' },
-          { value: 'Private', label: 'genetic reports and sensitive data never public by default' },
+          { value: 'Private', label: 'private report access and optional health context are not public by default' },
         ],
         pillarsTitle: 'Small circles, not a giant public forum',
         pillarsSubtitle:
@@ -900,7 +900,7 @@ const copy: Record<Lang, StoryCopy> = {
             items: [
               {
                 title: 'Private to me',
-                body: 'Reports, files, variants, full medical history, and sensitive data.',
+                body: 'Private report files, exact variants you do not choose to share, direct identifiers, and detailed medical history.',
               },
               {
                 title: 'Visible to circles',
@@ -920,7 +920,7 @@ const copy: Record<Lang, StoryCopy> = {
             items: [
               {
                 title: 'Report organizer',
-                body: 'Upload and organize PDFs, panels, providers, dates, and notes.',
+                body: 'Access provider-connected reports, provider details, dates, notes, and supporting education.',
               },
               {
                 title: 'Genetics Learn',

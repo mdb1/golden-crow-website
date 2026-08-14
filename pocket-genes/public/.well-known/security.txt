@@ -1,0 +1,5 @@
+Contact: mailto:support@goldencrowvs.com
+Expires: 2027-08-14T23:59:59Z
+Preferred-Languages: en, es
+Canonical: https://goldencrowvs.com/.well-known/security.txt
+Policy: https://goldencrowvs.com/pocket-genes/trust-center/incident-reporting/

@@ -30,6 +30,8 @@ const pageCopy = {
     detailsTitle: 'Document details',
     status: 'Status',
     owner: 'Owner',
+    effectiveDate: 'Effective date',
+    version: 'Version',
     lastReviewed: 'Last reviewed',
     contact: 'Contact',
     dataFlowTitle: 'Pocket Genes data-flow diagram',
@@ -76,6 +78,8 @@ const pageCopy = {
     detailsTitle: 'Detalles del documento',
     status: 'Estado',
     owner: 'Responsable',
+    effectiveDate: 'Vigencia',
+    version: 'Versión',
     lastReviewed: 'Última revisión',
     contact: 'Contacto',
     dataFlowTitle: 'Diagrama de flujo de datos de Pocket Genes',
@@ -150,6 +154,18 @@ const copy = pageCopy[locale];
               <dt>{copy.owner}</dt>
               <dd>{document.owner}</dd>
             </div>
+            {document.effectiveDate && (
+              <div>
+                <dt>{copy.effectiveDate}</dt>
+                <dd>{document.effectiveDate}</dd>
+              </div>
+            )}
+            {document.version && (
+              <div>
+                <dt>{copy.version}</dt>
+                <dd>{document.version}</dd>
+              </div>
+            )}
             <div>
               <dt>{copy.lastReviewed}</dt>
               <dd>{document.lastReviewed}</dd>
@@ -290,10 +306,10 @@ const copy = pageCopy[locale];
   .pg-trust-meta {
     position: sticky;
     top: 100px;
-    border: 1px solid var(--pg-border);
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 20px;
+    border-top: 1px solid var(--pg-border);
+    border-bottom: 1px solid var(--pg-border);
+    background: transparent;
+    padding: 18px 0;
   }
 
   .pg-trust-meta h2 {
