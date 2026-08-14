@@ -318,10 +318,14 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "Forgot password?": "Olvidaste tu password?",
   "Your temporary password was sent to you by email.":
     "Tu contrasena temporal fue enviada por email.",
+  "Your security key was sent to you by email.":
+    "Tu clave de seguridad fue enviada por email.",
   "If you did not receive it, ask your doctor to send it again.":
     "Si no la recibiste, pedi a tu medico que vuelva a enviartela.",
   "Checking credentials...": "Verificando credenciales...",
   "Sign in with email": "Iniciar con email",
+  "Security key": "Clave de seguridad",
+  "Access portal": "Acceder al portal",
   "Checking email...": "Verificando email...",
   Continue: "Continuar",
   "This is a new-user setup flow, not open registration. We check the email against the backend allowlist and active role assignments before creating anything.":
@@ -2433,6 +2437,8 @@ export function LoginExperience({
         : phase === "signup-password"
           ? t("Access is approved. Set the first password for this account.")
           : t("Sign in to the Golden Crow legacy backoffice for PocketGenes and Pocket Gyms.");
+  const patientPortalSecurityKeyStep =
+    isPatientPortal && phase === "auth" && emailPasswordReady;
 
   return (
     <main
@@ -2454,9 +2460,11 @@ export function LoginExperience({
       >
         <section
           className={
-            isPatientPortal
-              ? "relative mx-auto w-full max-w-sm"
-              : "auth-login-stage relative mx-auto grid w-full max-w-[1240px] gap-5 rounded-[2rem] p-4 sm:p-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(390px,0.78fr)] lg:p-6"
+            patientPortalSecurityKeyStep
+              ? "relative mx-auto w-full max-w-md"
+              : isPatientPortal
+                ? "relative mx-auto w-full max-w-sm"
+                : "auth-login-stage relative mx-auto grid w-full max-w-[1240px] gap-5 rounded-[2rem] p-4 sm:p-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(390px,0.78fr)] lg:p-6"
           }
         >
           {!isPatientPortal ? (
@@ -2614,169 +2622,264 @@ export function LoginExperience({
           ) : null}
 
           {phase === "auth" ? (
-            <div className="space-y-5">
-              <Button
-                onClick={handleGoogleSignIn}
-                disabled={loading !== null}
-                className="h-11 w-full justify-center rounded-xl bg-slate-950 text-white hover:bg-slate-800"
-              >
-                {loading === "google" ? <LoadingIcon /> : <LogIn className="size-4" />}
-                {loading === "google" ? t("Opening Google...") : t("Continue with Google")}
-              </Button>
-
-              <div className="flex items-center gap-3 text-xs font-medium uppercase text-slate-400">
-                <span className="h-px flex-1 bg-slate-900/10" />
-                {t("or use email")}
-                <span className="h-px flex-1 bg-slate-900/10" />
-              </div>
-
-              <form
-                className="space-y-4"
-                onSubmit={emailPasswordReady ? handleEmailSignIn : handleEmailContinue}
-              >
-                <FieldShell
-                  id="login-email"
-                  label={t("Email")}
-                  helper={
-                    isPatientPortal
-                      ? undefined
-                      : emailPasswordReady
-                      ? t("Email checked. Use Change email to choose a different account.")
-                      : t("Use the email that has backoffice access.")
-                  }
-                  icon={<Mail className="size-4" />}
-                >
-                  <Input
-                    id="login-email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(event) => {
-                      setEmail(event.target.value);
-                      setEmailPasswordReady(false);
-                      setPassword("");
-                      setShowPassword(false);
-                      setNotice(null);
-                    }}
-                    placeholder={isPatientPortal ? "name@example.com" : "team@pocketgenes.app"}
-                    aria-describedby={isPatientPortal ? undefined : "login-email-helper"}
-                    readOnly={emailPasswordReady}
-                    required
-                    className="h-11 rounded-xl border-slate-900/10 bg-white/78 px-4 text-slate-950 shadow-inner shadow-white/30 placeholder:text-slate-400"
-                  />
-                </FieldShell>
-
-                {emailPasswordReady ? (
-                  <div className="-mt-2 flex justify-end">
+            <div
+              className={
+                patientPortalSecurityKeyStep
+                  ? "mx-auto w-full max-w-md space-y-6 text-center"
+                  : "space-y-5"
+              }
+            >
+                {!patientPortalSecurityKeyStep ? (
+                  <>
                     <Button
-                      type="button"
-                      variant="ghost"
+                      onClick={handleGoogleSignIn}
                       disabled={loading !== null}
-                      onClick={handleChangeEmail}
-                      className="h-7 rounded-lg px-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                      className="h-11 w-full justify-center rounded-xl bg-slate-950 text-white hover:bg-slate-800"
                     >
-                      {t("Change email")}
+                      {loading === "google" ? (
+                        <LoadingIcon />
+                      ) : (
+                        <LogIn className="size-4" />
+                      )}
+                      {loading === "google"
+                        ? t("Opening Google...")
+                        : t("Continue with Google")}
                     </Button>
-                  </div>
+
+                    <div className="flex items-center gap-3 text-xs font-medium uppercase text-slate-400">
+                      <span className="h-px flex-1 bg-slate-900/10" />
+                      {t("or use email")}
+                      <span className="h-px flex-1 bg-slate-900/10" />
+                    </div>
+                  </>
                 ) : null}
 
-                {emailPasswordReady ? (
-                  <>
-                    <FieldShell
-                      id="login-password"
-                      label={t("Password")}
-                      helper={
-                        isPatientPortal
-                          ? undefined
-                          : t("Enter the password for this approved email account.")
-                      }
-                      icon={<LockKeyhole className="size-4" />}
-                    >
-                      <PasswordInput
-                        id="login-password"
-                        autoComplete="current-password"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        placeholder={t("Password")}
-                        describedBy={
-                          isPatientPortal
-                            ? "patient-temporary-password-notice"
-                            : "login-password-helper"
-                        }
-                        visible={showPassword}
-                        onToggleVisibility={() =>
-                          setShowPassword((current) => !current)
-                        }
-                        showLabel={t("Show password")}
-                        hideLabel={t("Hide password")}
-                      />
-                    </FieldShell>
-                    {isPatientPortal ? (
+                <form
+                  className={patientPortalSecurityKeyStep ? "space-y-6" : "space-y-4"}
+                  onSubmit={emailPasswordReady ? handleEmailSignIn : handleEmailContinue}
+                >
+                  {patientPortalSecurityKeyStep ? (
+                    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-5 py-6 shadow-sm">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                          {t("Email")}
+                        </p>
+                        <p className="break-all text-lg font-semibold text-slate-950">
+                          {email}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={loading !== null}
+                          onClick={handleChangeEmail}
+                          className="mx-auto h-8 rounded-lg px-3 text-xs font-semibold text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                        >
+                          {t("Change email")}
+                        </Button>
+                      </div>
+
+                      <div className="mt-6 space-y-3">
+                        <Label
+                          htmlFor="login-password"
+                          className="block text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-500"
+                        >
+                          {t("Security key")}
+                        </Label>
+                        <Input
+                          id="login-password"
+                          type="text"
+                          autoComplete="one-time-code"
+                          value={password}
+                          onChange={(event) => setPassword(event.target.value)}
+                          placeholder={t("Security key")}
+                          aria-describedby="patient-security-key-notice"
+                          required
+                          className="h-16 rounded-2xl border-slate-300 bg-white px-4 text-center text-2xl font-bold tracking-[0.08em] text-slate-950 shadow-inner shadow-white placeholder:text-base placeholder:font-semibold placeholder:tracking-normal placeholder:text-slate-400"
+                        />
+                      </div>
+
                       <div
-                        id="patient-temporary-password-notice"
+                        id="patient-security-key-notice"
                         role="note"
-                        className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs leading-5 text-blue-950"
+                        className="mt-4 flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-left text-xs leading-5 text-blue-950"
                       >
                         <Mail className="mt-0.5 size-4 shrink-0 text-blue-600" />
                         <p>
                           <span className="font-semibold">
-                            {t(
-                              "Your temporary password was sent to you by email."
-                            )}
+                            {t("Your security key was sent to you by email.")}
                           </span>{" "}
                           {t(
                             "If you did not receive it, ask your doctor to send it again."
                           )}
                         </p>
                       </div>
-                    ) : null}
-                  </>
-                ) : null}
+                    </div>
+                  ) : (
+                    <>
+                      <FieldShell
+                        id="login-email"
+                        label={t("Email")}
+                        helper={
+                          isPatientPortal
+                            ? undefined
+                            : emailPasswordReady
+                              ? t(
+                                  "Email checked. Use Change email to choose a different account."
+                                )
+                              : t("Use the email that has backoffice access.")
+                        }
+                        icon={<Mail className="size-4" />}
+                      >
+                        <Input
+                          id="login-email"
+                          type="email"
+                          autoComplete="email"
+                          value={email}
+                          onChange={(event) => {
+                            setEmail(event.target.value);
+                            setEmailPasswordReady(false);
+                            setPassword("");
+                            setShowPassword(false);
+                            setNotice(null);
+                          }}
+                          placeholder={
+                            isPatientPortal
+                              ? "name@example.com"
+                              : "team@pocketgenes.app"
+                          }
+                          aria-describedby={
+                            isPatientPortal ? undefined : "login-email-helper"
+                          }
+                          readOnly={emailPasswordReady}
+                          required
+                          className="h-11 rounded-xl border-slate-900/10 bg-white/78 px-4 text-slate-950 shadow-inner shadow-white/30 placeholder:text-slate-400"
+                        />
+                      </FieldShell>
 
-                {emailPasswordReady ? (
-                  <div className="-mt-2 flex justify-end">
+                      {emailPasswordReady ? (
+                        <div className="-mt-2 flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={loading !== null}
+                            onClick={handleChangeEmail}
+                            className="h-7 rounded-lg px-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                          >
+                            {t("Change email")}
+                          </Button>
+                        </div>
+                      ) : null}
+
+                      {emailPasswordReady ? (
+                        <>
+                          <FieldShell
+                            id="login-password"
+                            label={t("Password")}
+                            helper={
+                              isPatientPortal
+                                ? undefined
+                                : t(
+                                    "Enter the password for this approved email account."
+                                  )
+                            }
+                            icon={<LockKeyhole className="size-4" />}
+                          >
+                            <PasswordInput
+                              id="login-password"
+                              autoComplete="current-password"
+                              value={password}
+                              onChange={(event) => setPassword(event.target.value)}
+                              placeholder={t("Password")}
+                              describedBy={
+                                isPatientPortal
+                                  ? "patient-temporary-password-notice"
+                                  : "login-password-helper"
+                              }
+                              visible={showPassword}
+                              onToggleVisibility={() =>
+                                setShowPassword((current) => !current)
+                              }
+                              showLabel={t("Show password")}
+                              hideLabel={t("Hide password")}
+                            />
+                          </FieldShell>
+                          {isPatientPortal ? (
+                            <div
+                              id="patient-temporary-password-notice"
+                              role="note"
+                              className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs leading-5 text-blue-950"
+                            >
+                              <Mail className="mt-0.5 size-4 shrink-0 text-blue-600" />
+                              <p>
+                                <span className="font-semibold">
+                                  {t("Your security key was sent to you by email.")}
+                                </span>{" "}
+                                {t(
+                                  "If you did not receive it, ask your doctor to send it again."
+                                )}
+                              </p>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : null}
+
+                      {emailPasswordReady ? (
+                        <div className="-mt-2 flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={loading !== null}
+                            onClick={handlePasswordResetRequest}
+                            className="h-8 rounded-lg px-2 text-xs font-semibold text-slate-600 hover:bg-white/60 hover:text-slate-950"
+                          >
+                            {loading === "password-reset" ? (
+                              <LoadingIcon />
+                            ) : (
+                              <Mail className="size-3.5" />
+                            )}
+                            {t("Forgot password?")}
+                          </Button>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+
+                  {emailPasswordReady ? (
                     <Button
-                      type="button"
-                      variant="ghost"
-                      disabled={loading !== null}
-                      onClick={handlePasswordResetRequest}
-                      className="h-8 rounded-lg px-2 text-xs font-semibold text-slate-600 hover:bg-white/60 hover:text-slate-950"
+                      type="submit"
+                      disabled={loading !== null || password.length === 0}
+                      className={
+                        patientPortalSecurityKeyStep
+                          ? "h-12 w-full justify-center rounded-2xl bg-slate-950 text-base font-semibold text-white hover:bg-slate-800"
+                          : "h-11 w-full justify-center rounded-xl"
+                      }
                     >
-                      {loading === "password-reset" ? (
+                      {loading === "email" ? (
                         <LoadingIcon />
                       ) : (
-                        <Mail className="size-3.5" />
+                        <KeyRound className="size-4" />
                       )}
-                      {t("Forgot password?")}
+                      {loading === "email"
+                        ? t("Checking credentials...")
+                        : patientPortalSecurityKeyStep
+                          ? t("Access portal")
+                          : t("Sign in with email")}
                     </Button>
-                  </div>
-                ) : null}
-
-                {emailPasswordReady ? (
-                  <Button
-                    type="submit"
-                    disabled={loading !== null || password.length === 0}
-                    className="h-11 w-full justify-center rounded-xl"
-                  >
-                    {loading === "email" ? <LoadingIcon /> : <KeyRound className="size-4" />}
-                    {loading === "email" ? t("Checking credentials...") : t("Sign in with email")}
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    disabled={loading !== null || !canContinueWithEmail}
-                    className="h-11 w-full justify-center rounded-xl"
-                  >
-                    {loading === "email-check" ? (
-                      <LoadingIcon />
-                    ) : (
-                      <ChevronRight className="size-4" />
-                    )}
-                    {loading === "email-check" ? t("Checking email...") : t("Continue")}
-                  </Button>
-                )}
-              </form>
-
+                  ) : (
+                    <Button
+                      type="submit"
+                      disabled={loading !== null || !canContinueWithEmail}
+                      className="h-11 w-full justify-center rounded-xl"
+                    >
+                      {loading === "email-check" ? (
+                        <LoadingIcon />
+                      ) : (
+                        <ChevronRight className="size-4" />
+                      )}
+                      {loading === "email-check" ? t("Checking email...") : t("Continue")}
+                    </Button>
+                  )}
+                </form>
             </div>
           ) : null}
 

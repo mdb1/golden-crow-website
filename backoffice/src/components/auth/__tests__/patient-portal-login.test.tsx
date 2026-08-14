@@ -77,7 +77,7 @@ describe("patient portal login", () => {
     await waitFor(() => expect(document.documentElement.lang).toBe("es"));
   });
 
-  it("shows the temporary-password email notice below the password field", async () => {
+  it("shows the security-key email notice below the visible key field", async () => {
     const user = userEvent.setup();
     fetchMock.mockResolvedValue(eligibilityResponse());
     render(<LoginExperience surface="patient-portal" />);
@@ -85,15 +85,25 @@ describe("patient portal login", () => {
     await user.type(screen.getByLabelText("Email"), "patient@example.com");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
-    const password = await screen.findByLabelText("Contrasena");
+    const password = (await screen.findByLabelText(
+      "Clave de seguridad",
+    )) as HTMLInputElement;
     const notice = screen.getByRole("note");
+    expect(password.type).toBe("text");
     expect(password.getAttribute("aria-describedby")).toBe(notice.id);
     expect(notice.textContent).toContain(
-      "Tu contrasena temporal fue enviada por email. Si no la recibiste, pedi a tu medico que vuelva a enviartela."
+      "Tu clave de seguridad fue enviada por email. Si no la recibiste, pedi a tu medico que vuelva a enviartela.",
     );
+    expect(
+      screen.queryByRole("button", { name: "Continuar con Google" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Iniciar con email" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Acceder al portal" })).toBeTruthy();
+    expect(screen.queryByLabelText("Email")).toBeNull();
   });
 
-  it("prefills the patient email and opens the password step from the mail link", async () => {
+  it("shows the patient email as text and opens the security-key step from the mail link", async () => {
+    const user = userEvent.setup();
     render(
       <LoginExperience
         surface="patient-portal"
@@ -101,9 +111,17 @@ describe("patient portal login", () => {
       />
     );
 
+    expect(screen.queryByLabelText("Email")).toBeNull();
+    expect(screen.getByText("patient@example.com")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Continuar con Google" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Iniciar con email" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Acceder al portal" })).toBeTruthy();
+    expect(screen.getByLabelText("Clave de seguridad")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Cambiar email" }));
+
     const email = screen.getByLabelText("Email") as HTMLInputElement;
     expect(email.value).toBe("patient@example.com");
-    expect(email.readOnly).toBe(true);
-    expect(screen.getByLabelText("Contrasena")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continuar con Google" })).toBeTruthy();
   });
 });
