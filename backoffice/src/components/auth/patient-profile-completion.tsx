@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { PATIENT_PORTAL_ENTRY_ROUTE } from "@/lib/patient-portal-routes";
 import { sdkFetch } from "@/lib/sdk-client";
 
 export function PatientProfileCompletion() {
@@ -26,7 +27,7 @@ export function PatientProfileCompletion() {
     void request
       .then(() => {
         if (active) {
-          router.replace("/patient-portal/home");
+          router.replace(PATIENT_PORTAL_ENTRY_ROUTE);
         }
       })
       .catch(() => {

@@ -56,6 +56,10 @@ import {
   resolveAppLanguage,
   type AppLanguage,
 } from "@/lib/language";
+import {
+  normalizePatientPortalCallbackUrl,
+  PATIENT_PORTAL_ENTRY_ROUTE,
+} from "@/lib/patient-portal-routes";
 import type { AdminRole } from "@/lib/admin-areas";
 
 type ProjectKey = "mydnamap" | "pocket-gyms";
@@ -472,11 +476,7 @@ function patientPortalCallbackUrl() {
   if (typeof window === "undefined") return undefined;
 
   const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
-  if (!callbackUrl?.startsWith("/patient-portal/")) return undefined;
-  if (callbackUrl.startsWith("//") || callbackUrl.includes("\\")) return undefined;
-  if (callbackUrl === "/patient-portal/login") return undefined;
-
-  return callbackUrl;
+  return normalizePatientPortalCallbackUrl(callbackUrl);
 }
 
 function passwordResetSuccessResult(email: string): PasswordResetResult {
@@ -1718,7 +1718,7 @@ export function LoginExperience({
         ? "/patient-portal/complete-profile"
         : "/complete-profile"
       : isPatientPortal
-        ? (patientPortalCallbackUrl() ?? "/patient-portal/home")
+        ? (patientPortalCallbackUrl() ?? PATIENT_PORTAL_ENTRY_ROUTE)
         : "/2pq-dashboard";
 
     if (redirectTo.endsWith("/complete-profile")) {

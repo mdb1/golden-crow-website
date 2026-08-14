@@ -11,6 +11,7 @@ import { PublisherRouteGuard } from "@/components/publisher-route-guard";
 import { Providers } from "./providers";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { LANGUAGE_COOKIE_NAME, resolveAppLanguage } from "@/lib/language";
+import { PATIENT_PORTAL_ENTRY_ROUTE } from "@/lib/patient-portal-routes";
 
 export default async function DashboardLayout({
   children,
@@ -24,7 +25,7 @@ export default async function DashboardLayout({
   }
 
   if (session.user?.accessSurface === "patient-portal") {
-    redirect("/patient-portal/home");
+    redirect(PATIENT_PORTAL_ENTRY_ROUTE);
   }
 
   let adminContext;
@@ -37,7 +38,7 @@ export default async function DashboardLayout({
   if (!adminContext.canAccessBackoffice) {
     redirect(
       adminContext.canAccessPatientPortal
-        ? "/patient-portal/home"
+        ? PATIENT_PORTAL_ENTRY_ROUTE
         : "/access-denied",
     );
   }

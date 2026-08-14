@@ -35,7 +35,7 @@ export default async function PatientPortalLayout({
 
   return (
     <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
-      <SidebarProvider>
+      <SidebarProvider defaultOpen={false}>
         <div className="flex min-h-screen w-full overflow-x-hidden bg-white">
           <PatientPortalSidebar />
           <SidebarInset className="min-h-screen min-w-0 bg-white">

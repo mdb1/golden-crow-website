@@ -33,7 +33,7 @@ describe("PatientProfileCompletion", () => {
       method: "PUT",
     });
     await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith("/patient-portal/home"),
+      expect(replace).toHaveBeenCalledWith("/patient-portal/consents"),
     );
   });
 });
