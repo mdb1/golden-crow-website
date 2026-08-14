@@ -58,6 +58,7 @@ function patientDoc(
       doctorId,
       email: `${id.toLowerCase()}@example.com`,
       fullName: id,
+      temporary_password: "ABCDEFGH",
       status: "active",
       createdAt: "2026-08-12T12:00:00.000Z",
       updatedAt: "2026-08-12T12:00:00.000Z",
@@ -321,15 +322,22 @@ describe("informed consent repository scoping", () => {
     expect(result).toEqual({
       ok: true,
       patientId: "PAT-00001",
-      email: "matialeezcurra@gmail.com",
+      email: "pat-00001@example.com",
     });
     expect(sendGmailMessageMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        to: "matialeezcurra@gmail.com",
+        to: "pat-00001@example.com",
         subject: "Consentimiento informado 2PQ",
-        html: expect.stringContaining("/patient-portal/consents"),
-        text: expect.stringContaining("/patient-portal/consents"),
       }),
     );
+    const message = sendGmailMessageMock.mock.calls[0]?.[0] as
+      | { html: string; text: string }
+      | undefined;
+    expect(message?.html).toContain("Contraseña: ABCDEFGH");
+    expect(message?.html).toContain("Usuario: pat-00001@example.com");
+    expect(message?.html).toContain("/patient-portal/consents");
+    expect(message?.text).toContain("Contraseña: ABCDEFGH");
+    expect(message?.text).toContain("Usuario: pat-00001@example.com");
+    expect(message?.text).toContain("/patient-portal/consents");
   });
 });

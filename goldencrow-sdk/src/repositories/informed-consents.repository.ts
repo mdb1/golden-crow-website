@@ -25,7 +25,6 @@ const CONSENTS_PAGE_SIZE = 20;
 export const INFORMED_CONSENT_FILE_MAX_BYTES = 750_000;
 const CONSENT_PORTAL_PATH = "/patient-portal/consents";
 const CONSENT_EMAIL_SENDER_EMAIL = "dopazoh+admin@gmail.com";
-const CONSENT_EMAIL_TEST_RECIPIENT = "matialeezcurra@gmail.com";
 
 const ALLOWED_FILE_TYPES = new Set([
   "application/pdf",
@@ -52,6 +51,11 @@ type StoredConsent = {
 
 function optionalString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeTemporaryPassword(value: unknown) {
+  const password = optionalString(value);
+  return password && /^[A-Z]{8}$/.test(password) ? password : undefined;
 }
 
 function isMissingFirestoreIndexError(error: unknown) {
@@ -533,34 +537,54 @@ export async function sendInformedConsentEmailForContext(
   if (!patient.email) {
     throw new AdminRepositoryError("Patient does not have an email.", 400);
   }
+  const patientSnapshot = await adminDb
+    .collection(PATIENTS_COLLECTION)
+    .doc(patient.id)
+    .get();
+  const temporaryPassword = normalizeTemporaryPassword(
+    patientSnapshot.data()?.temporary_password,
+  );
+  if (!temporaryPassword) {
+    throw new AdminRepositoryError(
+      "This patient does not have a temporary password yet.",
+      404,
+    );
+  }
 
   const portalUrl = backofficeUrl(CONSENT_PORTAL_PATH);
   const safeName = escapeHtml(patient.fullName);
+  const safeEmail = escapeHtml(patient.email);
+  const safeTemporaryPassword = escapeHtml(temporaryPassword);
   const safePortalUrl = escapeHtml(portalUrl);
   const subject = "Consentimiento informado 2PQ";
   const text = [
     `Hola ${patient.fullName},`,
     "",
-    "Te escribimos desde GoldenCrow para solicitar que cargues tu consentimiento informado 2PQ.",
-    `Ingresá al portal del paciente desde este enlace: ${portalUrl}`,
+    "Para poder continuar con el estudio necesitamos que cargues tu consentimiento informado.",
     "",
-    "Si el enlace no abre directamente la sección, iniciá sesión y entrá a Consentimientos.",
+    "Credenciales",
+    `Usuario: ${patient.email}`,
+    `Contraseña: ${temporaryPassword}`,
+    "",
+    `Link al portal: ${portalUrl}`,
     "",
     "Gracias.",
   ].join("\n");
   const html = `
     <p>Hola ${safeName},</p>
-    <p>Te escribimos desde GoldenCrow para solicitar que cargues tu consentimiento informado 2PQ.</p>
+    <p>Para poder continuar con el estudio necesitamos que cargues tu consentimiento informado.</p>
+    <p><strong>Credenciales</strong></p>
     <p>
-      <a href="${safePortalUrl}">Abrir portal del paciente</a>
+      Usuario: ${safeEmail}<br />
+      Contraseña: ${safeTemporaryPassword}
     </p>
-    <p>Si el enlace no abre directamente la sección, iniciá sesión y entrá a Consentimientos.</p>
+    <p>Link al portal: <a href="${safePortalUrl}">${safePortalUrl}</a></p>
     <p>Gracias.</p>
   `;
 
   try {
     await sendGmailMessage({
-      to: CONSENT_EMAIL_TEST_RECIPIENT,
+      to: patient.email,
       subject,
       text,
       html,
@@ -574,7 +598,7 @@ export async function sendInformedConsentEmailForContext(
     );
   }
 
-  return { ok: true, patientId: patient.id, email: CONSENT_EMAIL_TEST_RECIPIENT };
+  return { ok: true, patientId: patient.id, email: patient.email };
 }
 
 export async function getInformedConsentFileForContext(

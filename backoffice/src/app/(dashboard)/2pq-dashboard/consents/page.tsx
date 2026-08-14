@@ -5,12 +5,10 @@ import type {
   InformedConsentPage,
   InformedConsentPatientPage,
 } from "@/lib/informed-consents";
-import { getAdminContextServer } from "@/lib/admin-context-server";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 export default async function InformedConsentsPage() {
-  const [adminContext, initialPage, initialPatientPage] = await Promise.all([
-    getAdminContextServer(),
+  const [initialPage, initialPatientPage] = await Promise.all([
     sdkFetchServer<InformedConsentPage>("/2pq/informed-consents"),
     sdkFetchServer<InformedConsentPatientPage>(
       "/2pq/informed-consents/patients",
@@ -31,7 +29,6 @@ export default async function InformedConsentsPage() {
         surface="backoffice"
         initialPage={initialPage}
         initialPatientPage={initialPatientPage}
-        currentUserEmail={adminContext.email}
       />
     </HeaderUnclutterScope>
   );

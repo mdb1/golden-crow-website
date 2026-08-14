@@ -105,10 +105,13 @@ function detail(options: {
   };
 }
 
-function renderWorkbench(patientDetail: PatientDetailRecord) {
+function renderWorkbench(
+  patientDetail: PatientDetailRecord,
+  contextOverride?: Partial<AdminContextRecord>,
+) {
   return render(
     <AppLanguageProvider initialLanguage="en">
-      <AdminContextProvider value={context}>
+      <AdminContextProvider value={{ ...context, ...contextOverride }}>
         <PatientWorkbench
           detail={patientDetail}
           institutions={[institution]}
@@ -203,5 +206,22 @@ describe("PatientWorkbench portal credentials", () => {
       (screen.getByLabelText("Temporary password") as HTMLInputElement).value,
     ).toBe("QWERTYUI");
     expect(screen.getByRole("button", { name: "Hide" })).toBeTruthy();
+  });
+
+  it("lets the allowlisted admin send the consent email after portal access exists", async () => {
+    const user = userEvent.setup();
+    (sdkFetch as jest.Mock).mockResolvedValue({ email: "patient@example.com" });
+    renderWorkbench(
+      detail({ accessGranted: true, credentialAvailable: true }),
+      { email: "dopazoh+admin@gmail.com" },
+    );
+
+    await user.click(screen.getByRole("button", { name: "Send consent email" }));
+
+    expect(sdkFetch).toHaveBeenCalledWith("/2pq/informed-consents/email", {
+      method: "POST",
+      body: JSON.stringify({ patientId: "PAT-00001" }),
+    });
+    expect(screen.getByText("Consent email sent.")).toBeTruthy();
   });
 });

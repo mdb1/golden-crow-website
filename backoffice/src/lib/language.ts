@@ -194,6 +194,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Temporary password copied.": "Contraseña temporal copiada.",
   "Unable to copy the temporary password.":
     "No se pudo copiar la contraseña temporal.",
+  "Send consent email": "Enviar mail de consentimiento",
+  "Consent email sent.": "Mail de consentimiento enviado.",
+  "Unable to send consent email.":
+    "No se pudo enviar el mail de consentimiento.",
   "Create patient portal credentials":
     "Crear credenciales del portal de pacientes",
   "Unable to reveal the temporary password.":

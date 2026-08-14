@@ -12,6 +12,8 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  Loader2,
+  Mail,
   RotateCcw,
   Save,
   Trash2,
@@ -55,6 +57,8 @@ import {
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
 import { compactList } from "@/lib/moderation-utils";
+
+const CONSENT_EMAIL_SENDER_EMAIL = "dopazoh+admin@gmail.com";
 
 type PatientFormState = {
   institutionId: string;
@@ -140,6 +144,7 @@ export function PatientWorkbench({
     useState(false);
   const [copyingTemporaryPassword, setCopyingTemporaryPassword] =
     useState(false);
+  const [sendingConsentEmail, setSendingConsentEmail] = useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [temporaryPasswordRevealed, setTemporaryPasswordRevealed] =
     useState(false);
@@ -167,6 +172,12 @@ export function PatientWorkbench({
     detail?.portalAccessCredential?.canReveal &&
       canManagePatientPortalCredentialsUi(adminContext, detail.patient),
   );
+  const canSendConsentEmail =
+    Boolean(detail) &&
+    portalAccessGranted &&
+    hasTemporaryPassword &&
+    canManagePortalCredentials &&
+    adminContext.email.trim().toLowerCase() === CONSENT_EMAIL_SENDER_EMAIL;
   const institutionOptions = institutions.map((institution) => ({
     value: institution.id,
     label: `${institution.name} (${institution.id})`,
@@ -400,6 +411,36 @@ export function PatientWorkbench({
       });
     } finally {
       setCopyingTemporaryPassword(false);
+    }
+  }
+
+  async function handleSendConsentEmail() {
+    if (!detail || !canSendConsentEmail) {
+      return;
+    }
+
+    setSendingConsentEmail(true);
+    try {
+      await sdkFetch<{ email: string }>("/2pq/informed-consents/email", {
+        method: "POST",
+        body: JSON.stringify({ patientId: detail.patient.id }),
+      });
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("Consent email sent."),
+      });
+    } catch (error) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : t("Unable to send consent email."),
+      });
+    } finally {
+      setSendingConsentEmail(false);
     }
   }
 
@@ -724,7 +765,9 @@ export function PatientWorkbench({
                   className="bg-blue-600 text-white hover:bg-blue-700"
                   onClick={() => void handleRevealTemporaryPassword()}
                   disabled={
-                    revealingTemporaryPassword || copyingTemporaryPassword
+                    revealingTemporaryPassword ||
+                    copyingTemporaryPassword ||
+                    sendingConsentEmail
                   }
                 >
                   {temporaryPasswordRevealed ? (
@@ -739,13 +782,35 @@ export function PatientWorkbench({
                   variant="outline"
                   onClick={() => void handleCopyTemporaryPassword()}
                   disabled={
-                    revealingTemporaryPassword || copyingTemporaryPassword
+                    revealingTemporaryPassword ||
+                    copyingTemporaryPassword ||
+                    sendingConsentEmail
                   }
                 >
                   <Copy className="size-4" />
                   {t("Copy")}
                 </Button>
               </div>
+              {canSendConsentEmail ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-fit"
+                  onClick={() => void handleSendConsentEmail()}
+                  disabled={
+                    revealingTemporaryPassword ||
+                    copyingTemporaryPassword ||
+                    sendingConsentEmail
+                  }
+                >
+                  {sendingConsentEmail ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Mail className="size-4" />
+                  )}
+                  {t("Send consent email")}
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </section>
