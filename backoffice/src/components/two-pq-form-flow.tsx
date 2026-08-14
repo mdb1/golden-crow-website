@@ -1010,10 +1010,9 @@ function displayCaseLabel(value: string | undefined) {
   return xxxMatch ? xxxMatch[1].toUpperCase() : normalized;
 }
 
-function buildInitialState(
+export function buildInitialState(
   institutionId: string,
   doctorId: string,
-  referenceEmail = ""
 ): FlowState {
   return {
     linkedWithdrawalCaseIds: [],
@@ -1024,7 +1023,7 @@ function buildInitialState(
     patientInformation: {
       institutionId,
       doctorId,
-      email: referenceEmail,
+      email: "",
       firstName: "",
       lastName: "",
       fullName: "",
@@ -2163,7 +2162,7 @@ function institutionToFormState(
   };
 }
 
-function applyScopedInstitutionSelection(
+export function applyScopedInstitutionSelection(
   flowState: FlowState,
   institution: InstitutionListItem | undefined
 ): FlowState {
@@ -2178,10 +2177,6 @@ function applyScopedInstitutionSelection(
     patientInformation: {
       ...flowState.patientInformation,
       institutionId: institution.id,
-      email:
-        flowState.patientInformation.email ||
-        institution.contactEmail ||
-        "",
     },
   };
 }
@@ -2644,11 +2639,7 @@ export function TwoPQFormFlow({
   const initialFlowState = useMemo(
     () => {
       const hydratedState = hydrateDraftState(
-        buildInitialState(
-          defaultInstitutionId,
-          defaultDoctorId,
-          defaultInstitution?.contactEmail ?? ""
-        ),
+        buildInitialState(defaultInstitutionId, defaultDoctorId),
         matchingDraft
       );
 
@@ -2667,7 +2658,6 @@ export function TwoPQFormFlow({
       cases,
       defaultDoctorId,
       defaultInstitution,
-      defaultInstitution?.contactEmail,
       defaultInstitutionId,
       formType,
       institutions,
@@ -3881,7 +3871,6 @@ export function TwoPQFormFlow({
         patientInformation: buildInitialState(
           defaultInstitutionId,
           defaultDoctorId,
-          defaultInstitution?.contactEmail ?? ""
         ).patientInformation,
       }));
       return;
@@ -3896,11 +3885,7 @@ export function TwoPQFormFlow({
       stringField(linkedForm.patientInformation, "patientId");
     const linkedRequestedTest = requestedTestToFormState(
       linkedForm.requestedTest,
-      buildInitialState(
-        defaultInstitutionId,
-        defaultDoctorId,
-        defaultInstitution?.contactEmail ?? ""
-      ).requestedTest
+      buildInitialState(defaultInstitutionId, defaultDoctorId).requestedTest
     );
     const linkedRequestedTestKey = selectedRequestedTestKey(linkedRequestedTest);
     const linkedCaseType = caseTypeForRequestedTestKey(linkedRequestedTestKey);
@@ -4007,11 +3992,7 @@ export function TwoPQFormFlow({
   }
 
   function defaultPatientInformationForStudyRequest() {
-    return buildInitialState(
-      defaultInstitutionId,
-      defaultDoctorId,
-      defaultInstitution?.contactEmail ?? ""
-    ).patientInformation;
+    return buildInitialState(defaultInstitutionId, defaultDoctorId).patientInformation;
   }
 
   function selectStudyRequestPatientMode(nextMode: string) {
@@ -4046,9 +4027,6 @@ export function TwoPQFormFlow({
     const patientInstitution = patient
       ? institutions.find((institution) => institution.id === patient.institutionId)
       : null;
-    const fallbackInstitution = institutions.find(
-      (institution) => institution.id === defaultInstitutionId
-    );
     setState((current) => ({
       ...current,
       selectedPatientId: patientId,
@@ -4064,7 +4042,7 @@ export function TwoPQFormFlow({
             ...current.patientInformation,
             institutionId: defaultInstitutionId,
             doctorId: defaultDoctorId,
-            email: fallbackInstitution?.contactEmail ?? "",
+            email: "",
             firstName: "",
             lastName: "",
             fullName: "",
@@ -5638,7 +5616,6 @@ export function TwoPQFormFlow({
                     patientInformation: {
                       ...current.patientInformation,
                       institutionId,
-                      email: institution?.contactEmail ?? current.patientInformation.email,
                       doctorId: nextDoctors.some(
                         (doctor) => doctor.id === current.patientInformation.doctorId
                       )
