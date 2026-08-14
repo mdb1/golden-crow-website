@@ -1937,7 +1937,7 @@ export const trustDocumentsEs: TrustDocument[] = [
             ['Autenticación', 'ID de Firebase, registros de login, sesión, recuperación de contraseña y eventos de seguridad.', 'Usuario, dispositivo, Firebase Authentication y backend de Pocket Genes.', 'Inicio de sesión, recuperación, protección de sesión, prevención de abuso y control de acceso.', 'Google Firebase y sistemas de Pocket Genes que verifican identidad y sesiones.', 'Durante el período de cuenta y seguridad necesario para operar autenticación, investigar abuso y cumplir ciclos de logs del proveedor.'],
             ['Datos de integración', 'Proveedor u organización, estado de invitación, referencia de acceso, código de informe, referencia de proveedor y campos de contacto.', 'Integrador, proveedor, Pocket Genes o usuario durante onboarding.', 'Conectar a la persona con la experiencia autorizada, flujo de consentimiento, acceso a informe o flujo de organización.', 'Backend, base de datos, autenticación e infraestructura relevantes; el integrador de origen solo cuando sea necesario.', 'El comportamiento actual se vincula a finalización, rechazo, revocación, eliminación de cuenta o limpieza manual. No se publica vencimiento automático salvo que una integración lo indique.'],
             ['Consentimientos', 'Propósito, versión, estado, fecha, flujo, cuenta y referencia de proveedor u organización.', 'Acción del usuario, cuidador o representante y registros de Pocket Genes.', 'Documentar autorización, aceptación de privacidad, acceso a experiencia de proveedor, consentimiento informado y comunicaciones opcionales.', 'Proveedores de infraestructura y revisores internos que necesitan el registro.', 'Puede sobrevivir a datos temporales de contacto si hace falta probar la decisión, auditar, resolver disputas o cumplir obligaciones.'],
-            ['Datos comunitarios', 'Perfil, nickname, rol, país, idioma, etiquetas de gen/condición/síntoma, etapa, publicaciones, comentarios, grupos, mensajes y bloqueos.', 'Usuario, interacciones comunitarias y moderación.', 'Participación, matching, moderación, seguridad, reportes, controles de usuario y soporte.', 'Otros usuarios según visibilidad; infraestructura; moderadores cuando corresponde.', 'Hasta eliminación del usuario o cuenta, remoción por moderación, cierre del flujo o retención por seguridad/legal.'],
+            ['Datos comunitarios', 'Perfil, nickname, rol, país, idioma, etiquetas de gen/condición/síntoma, etapa, publicaciones, comentarios, grupos, mensajes y bloqueos.', 'Usuario, interacciones comunitarias y moderación.', 'Participación, matching, moderación, seguridad, reportes, controles de usuario y soporte.', 'Otros usuarios según visibilidad; infraestructura; moderadores cuando corresponde.', 'Hasta eliminación del usuario o cuenta, retiro por moderación, cierre del flujo o retención por seguridad/legal.'],
             ['Datos técnicos', 'Dispositivo, navegador, versión de app, logs, errores, eventos de seguridad y datos operativos derivados de IP.', 'Dispositivo, navegador, app, infraestructura y backend.', 'Confiabilidad, seguridad, diagnóstico, prevención de abuso, auditoría e incidentes.', 'AWS, Firebase, proveedores de diagnóstico u hosting cuando se usen y operadores autorizados.', 'Durante ciclos de logs del proveedor, ventanas de investigación, registros de incidente o análisis operativo desidentificado.'],
           ],
         },
@@ -2139,7 +2139,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Comunidad y organizaciones de confianza',
         paragraphs: [
           'RareFriends se rige por estos Términos, los Términos de Comunidad y la Política de Seguridad Comunitaria. Los usuarios eligen qué compartir y son responsables de su contenido e interacciones.',
-          'La condición de organización de confianza significa que Pocket Genes revisó identidad, relevancia, encaje de contenido y expectativas de seguridad. No es aval total de cada afirmación, servicio, producto, evento, publicación, proveedor, profesional o recurso externo.',
+          'La designación como organización de confianza significa que Pocket Genes evaluó su identidad, relevancia, adecuación del contenido y expectativas de seguridad. No implica avalar cada afirmación, servicio, producto, evento, publicación, proveedor, profesional o recurso externo.',
         ],
       },
       {
@@ -2283,20 +2283,20 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Comportamiento comercial y organizaciones',
         paragraphs: [
           'Organizaciones y profesionales pueden publicar educación, recursos, eventos, programas, apoyo y material de participación según las reglas de su cuenta. El contenido promocional debe estar claramente etiquetado y no disfrazarse de educación neutral o apoyo entre pares.',
-          'La solicitud agresiva, mensajes basados en miedo, curas no respaldadas, pedidos de informes privados o intentos de recolectar información de salud o genética fuera del flujo previsto pueden causar remoción, límites de cuenta o revisión de organización de confianza.',
+          'La solicitud agresiva, los mensajes basados en miedo, las curas no respaldadas, los pedidos de informes privados o los intentos de recolectar información de salud o genética fuera del flujo previsto pueden causar retiro de contenido, límites de cuenta o revisión de la participación como organización de confianza.',
         ],
       },
       {
         heading: 'Contenido y moderación',
         paragraphs: [
-          'Los usuarios conservan la titularidad de su contenido pero otorgan a Pocket Genes derechos limitados para alojar, mostrar, formatear, traducir, moderar, remover, preservar y operar la comunidad. Cada usuario responde por exactitud, legalidad e impacto de privacidad de lo que publica.',
-          'Pocket Genes puede remover contenido, reducir visibilidad, agregar etiquetas, cerrar un hilo, deshabilitar mensajes, restringir funciones, suspender cuentas, remover organizaciones o preservar registros por seguridad, privacidad, ley o comunidad.',
+          'Los usuarios conservan la titularidad de su contenido pero otorgan a Pocket Genes derechos limitados para alojar, mostrar, formatear, traducir, moderar, retirar, preservar y operar la comunidad. Cada usuario responde por exactitud, legalidad e impacto de privacidad de lo que publica.',
+          'Pocket Genes puede retirar contenido, reducir visibilidad, agregar etiquetas, cerrar un hilo, deshabilitar mensajes, restringir funciones, suspender cuentas, retirar organizaciones o preservar registros por seguridad, privacidad, ley o comunidad.',
         ],
       },
       {
         heading: 'Salir de RareFriends',
         paragraphs: [
-          'Una persona puede detener participación comunitaria por separado del acceso privado a informes. Salir puede ocultar o eliminar perfil, terminar matching, remover seguimientos, salir de grupos, desactivar mensajes e iniciar eliminación o desidentificación de registros comunitarios.',
+          'Una persona puede detener participación comunitaria por separado del acceso privado a informes. Salir puede ocultar o eliminar el perfil, terminar el matching, dejar de seguir cuentas o grupos, desactivar mensajes e iniciar eliminación o desidentificación de registros comunitarios.',
           'Algunas publicaciones, comentarios, reportes, registros de moderación o metadatos de mensajes pueden permanecer temporalmente o por más tiempo por seguridad, ley, disputas o backups.',
         ],
       },
@@ -2373,7 +2373,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         bullets: [
           'Proteger privacidad antes que curiosidad. Nadie debe ser empujado a revelar informes, variantes, familia o identidad.',
           'Separar apoyo entre pares de autoridad médica. La experiencia personal es bienvenida; instrucciones diagnósticas o terapéuticas no.',
-          'Tratar el acceso organizacional como una responsabilidad mayor. La confianza exige identidad, etiquetado y prudencia.',
+          'Tratar el acceso de organizaciones como una responsabilidad especial. Para participar como organización de confianza, debe haber identidad verificable, etiquetado claro y prudencia.',
           'Actuar proporcionalmente según gravedad, intención, repetición, usuarios afectados, contexto y evidencia.',
         ],
       },
@@ -2423,7 +2423,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Organizaciones de confianza y apelaciones',
         paragraphs: [
-          'Las organizaciones de confianza tienen un estándar más alto porque su presencia puede interpretarse como señal de confianza. La mala conducta puede causar etiquetas, remoción, límites de publicación, revisión, suspensión o remoción de Pocket Genes.',
+          'Las organizaciones de confianza tienen un estándar más alto porque su presencia puede influir en la confianza de los usuarios. La mala conducta puede derivar en etiquetas, retiro de contenido, límites de publicación, revisión del grado de confianza, suspensión o retiro de Pocket Genes.',
           `Un usuario u organización puede pedir reconsideración escribiendo a ${POCKET_GENES_EMAILS.trust} con la decisión, contenido afectado y motivo. Pocket Genes puede rechazar apelaciones abusivas, repetitivas, restringidas legalmente o con riesgo activo de seguridad.`,
         ],
       },
@@ -2535,7 +2535,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Acceso administrativo',
         bullets: [
           'Otorgar acceso de producción solo a quienes lo necesitan por rol operativo.',
-          'Usar permisos por rol y remover acceso cuando cambian responsabilidades.',
+          'Usar permisos por rol y revocar acceso cuando cambian responsabilidades.',
           'Exigir autenticación fuerte y MFA en sistemas administrativos cuando el sistema lo soporte.',
           'Registrar acciones administrativas sensibles y revisar accesos periódicamente.',
           'Evitar datos de producción para desarrollo o demos salvo aprobación y minimización.',
@@ -2903,7 +2903,7 @@ export const trustDocumentsEs: TrustDocument[] = [
             ['Registro de consentimiento', 'Decisión o rechazo.', 'Cuando termina necesidad probatoria, de proveedor, auditoría o legal.', 'Fin de requerimiento probatorio, solicitud aplicable o retiro de flujo.', 'Reclamo legal, auditoría de proveedor, cumplimiento o disputa.'],
             ['Referencia o enlace de informe', 'Creación de enlace, código, token, referencia o autorización.', 'Vencimiento, revocación, fin de relación con proveedor, eliminación de cuenta o limpieza.', 'Solicitud, revocación de proveedor, eliminación de cuenta o limpieza de integración.', 'Soporte, incidente de seguridad, retención legal, disputa con proveedor.'],
             ['Perfil comunitario', 'Creación de perfil o alta en RareFriends.', 'Eliminación de perfil, salida de RareFriends, eliminación de cuenta o moderación.', 'Solicitud, cierre de cuenta o acción de moderación.', 'Registro de moderación, evidencia de seguridad, retención legal.'],
-            ['Publicaciones y comentarios', 'Publicación.', 'Eliminación por usuario, cascada de cuenta, remoción por moderación o retiro de función.', 'Acción del usuario, cierre de cuenta o moderación.', 'Investigación, preservación legal, evidencia de abuso.'],
+            ['Publicaciones y comentarios', 'Publicación.', 'Eliminación por usuario, cascada de cuenta, retiro por moderación o retiro de función.', 'Acción del usuario, cierre de cuenta o moderación.', 'Investigación, preservación legal, evidencia de abuso.'],
             ['Mensajes', 'Envío o recepción.', 'Eliminación, cierre de cuenta, retención de función o limpieza por moderación cuando mensajes estén habilitados.', 'Eliminación de usuario/cuenta, reporte o moderación.', 'Investigación de abuso, seguridad o retención legal.'],
             ['Soporte y reservas', 'Ticket, email, formulario o reserva.', 'Cierre, archivo manual, solicitud de eliminación o limpieza operativa.', 'Solicitud, cierre de soporte o archivo.', 'Disputa legal, facturación, abuso o seguridad.'],
             ['Logs de seguridad', 'Evento de seguridad, auth, sistema o acceso.', 'Ciclo de logs del proveedor, expiración configurada, cierre de incidente o limpieza.', 'Expiración automática donde esté configurada o limpieza manual.', 'Incidente activo, abuso, retención legal.'],
@@ -2915,7 +2915,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Sistemas activos versus backups',
         paragraphs: [
-          'Eliminar de sistemas activos significa remover o desidentificar registros de sistemas usados para funcionalidad ordinaria. El tiempo exacto depende de cuenta, flujo de proveedor, cola, base de datos, almacenamiento y soporte.',
+          'Eliminar de sistemas activos significa borrar o desidentificar registros de sistemas usados para funcionalidad ordinaria. El tiempo exacto depende de cuenta, flujo de proveedor, cola, base de datos, almacenamiento y soporte.',
           'Datos eliminados pueden permanecer brevemente en backups hasta rotación. Los backups son para restauración y continuidad, no consulta ordinaria. Si se restaura un backup, Pocket Genes debe reaplicar estados conocidos de eliminación, restricción o moderación cuando sea viable.',
         ],
       },
@@ -2964,7 +2964,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Excepciones y límites',
         bullets: [
           'Límites operativos de lote pueden requerir eliminación por etapas en historiales grandes.',
-          'Backups y logs administrados por proveedores pueden demorar remoción final de toda copia.',
+          'Backups y logs administrados por proveedores pueden demorar el retiro definitivo de toda copia.',
           'Algunos registros pueden conservarse desidentificados, agregados o bajo retención legal.',
         ],
       },
@@ -3396,7 +3396,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Límites comunitarios y de terceros',
         paragraphs: [
-          'La experiencia entre pares, publicaciones comunitarias, contenido de organizaciones e información de eventos no se convierten en consejo médico por aparecer en Pocket Genes. La condición de organización de confianza es una señal de revisión, no aval de todo servicio o afirmación.',
+          'La experiencia entre pares, las publicaciones comunitarias, el contenido de organizaciones y la información de eventos no se convierten en consejo médico por aparecer en Pocket Genes. La designación como organización de confianza indica que hubo una revisión, no que Pocket Genes avale todo servicio o afirmación.',
           'Los recursos externos de proveedores pueden tener términos, privacidad, accesibilidad, soporte y disponibilidad propios. Pueden dejar de estar disponibles sin depender de Pocket Genes.',
         ],
       },
@@ -3456,14 +3456,14 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Propósito y alcance',
         paragraphs: [
-          'Estos estándares explican qué revisa Pocket Genes antes de dar a una organización un lugar de confianza y qué reglas aplican después de la aprobación.',
-          'Las organizaciones de confianza pueden ayudar a personas que recibieron o están revisando un informe genético confuso a encontrar educación, recursos, eventos, apoyo y mejores preguntas. La confianza no es un plan comercial, garantía de calidad ni aval de cada servicio o afirmación.',
+          'Estos estándares explican qué revisa Pocket Genes antes de determinar el grado de confianza de una organización y qué reglas aplican después de la aprobación.',
+          'Las organizaciones de confianza pueden ayudar a personas que recibieron o están revisando un informe genético confuso a encontrar educación, recursos, eventos, apoyo y mejores preguntas. Esa evaluación no es un plan comercial, garantía de calidad ni aval de cada servicio o afirmación.',
         ],
       },
       {
         heading: 'A quién se aplica',
         bullets: [
-          'Organizaciones que solicitan o tienen estado de confianza.',
+          'Organizaciones que solicitan ser evaluadas o ya participan como organizaciones de confianza.',
           'Administradores, equipo, profesionales, voluntarios y editores de organizaciones.',
           'Usuarios que siguen, reportan o interactúan con organizaciones.',
           'Revisores y moderadores de Pocket Genes.',
@@ -3472,10 +3472,10 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Definiciones',
         subsections: [
-          { heading: 'Organización de confianza', body: 'Organización revisada por identidad, misión, valor comunitario, estándares de contenido y seguridad.' },
+          { heading: 'Organización de confianza', body: 'Organización evaluada según identidad, misión, valor comunitario, estándares de contenido y seguridad.' },
           { heading: 'Contenido de organización', body: 'Perfil, publicaciones, eventos, recursos, educación, enlaces, imágenes y llamadas a la acción publicados mediante funciones de organización.' },
           { heading: 'Contenido promocional', body: 'Contenido destinado a vender, reclutar, publicitar, generar leads, promover un servicio pago o dirigir a producto, proveedor, estudio, evento o programa.' },
-          { heading: 'Límite de no aval', body: 'Regla por la cual el estado de confianza es una señal de participación, no aprobación de cada afirmación, servicio, profesional, producto, estudio o recurso externo.' },
+          { heading: 'Límite de no aval', body: 'Regla por la cual la designación como organización de confianza indica revisión y participación, pero no aprobación de cada afirmación, servicio, profesional, producto, estudio o recurso externo.' },
         ],
       },
       {
@@ -3508,21 +3508,21 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Revisión continua, quejas y medidas',
         paragraphs: [
           `Los usuarios pueden quejarse de una organización reportando contenido o escribiendo a ${POCKET_GENES_EMAILS.trust}. Un reporte útil incluye nombre de organización, enlace o captura, fecha, preocupación y riesgo de privacidad o seguridad.`,
-          'Pocket Genes puede revisar periódicamente el estado, pedir correcciones, agregar etiquetas, retirar contenido, pausar publicación, suspender confianza, remover organización o exigir nueva solicitud cuando no se cumplen estándares.',
+          'Pocket Genes puede revisar periódicamente el grado de confianza, pedir correcciones, agregar etiquetas, retirar contenido, pausar publicación, suspender la designación, retirar la organización o exigir una nueva solicitud cuando no se cumplen los estándares.',
         ],
       },
       {
         heading: 'Sin aval',
         body:
-          'La confianza significa que Pocket Genes revisó a la organización para participar. No significa que Pocket Genes avale cada artículo, evento, proveedor, profesional, recurso, tratamiento, producto, campaña, estudio, ensayo o servicio conectado con esa organización.',
+          'La designación como organización de confianza significa que Pocket Genes revisó a la organización para participar. No significa que Pocket Genes avale cada artículo, evento, proveedor, profesional, recurso, tratamiento, producto, campaña, estudio, ensayo o servicio conectado con esa organización.',
       },
       {
         heading: 'Responsabilidades de Pocket Genes',
         bullets: [
-          'Revisar organizaciones antes de asignar confianza.',
+          'Revisar organizaciones antes de determinar el grado de confianza.',
           'Brindar etiquetado y vías de queja.',
           'Actuar proporcionalmente ante reportes.',
-          'Suspender o remover confianza ante violaciones de privacidad, seguridad, promoción, identidad o contenido.',
+          'Suspender o retirar la designación como organización de confianza ante violaciones de privacidad, seguridad, promoción, identidad o contenido.',
         ],
       },
       {
