@@ -2181,6 +2181,43 @@ export function applyScopedInstitutionSelection(
   };
 }
 
+export function applyPatientInstitutionSelection(
+  flowState: FlowState,
+  institutionId: string,
+  institution: InstitutionListItem | undefined,
+  doctors: DoctorListItem[]
+): FlowState {
+  const nextDoctors = doctors.filter(
+    (doctor) => doctor.institutionId === institutionId
+  );
+  const scopedState = institution
+    ? applyScopedInstitutionSelection(flowState, institution)
+    : {
+        ...flowState,
+        selectedInstitutionId: "",
+        institutionInformation: emptyInstitution(),
+        patientInformation: {
+          ...flowState.patientInformation,
+          institutionId,
+        },
+      };
+
+  return {
+    ...scopedState,
+    selectedCaseId: "",
+    selectedRequestingDoctorId: "",
+    patientInformation: {
+      ...scopedState.patientInformation,
+      institutionId,
+      doctorId: nextDoctors.some(
+        (doctor) => doctor.id === flowState.patientInformation.doctorId
+      )
+        ? flowState.patientInformation.doctorId
+        : "",
+    },
+  };
+}
+
 function Field({
   id,
   label,
@@ -2569,9 +2606,6 @@ export function TwoPQFormFlow({
     adminContext.role === "institution_doctor" ? adminContext.doctorId ?? "" : "";
   const defaultInstitutionId =
     scopedInstitutionId || (institutions.length === 1 ? institutions[0]?.id ?? "" : "");
-  const defaultInstitution = institutions.find(
-    (institution) => institution.id === defaultInstitutionId
-  );
   const defaultDoctorId =
     scopedDoctorId ||
     (doctors.length === 1 && doctors[0]?.institutionId === defaultInstitutionId
@@ -2642,9 +2676,26 @@ export function TwoPQFormFlow({
         buildInitialState(defaultInstitutionId, defaultDoctorId),
         matchingDraft
       );
+      const selectedInitialInstitutionId =
+        hydratedState.selectedInstitutionId ||
+        hydratedState.patientInformation.institutionId;
+      const selectedInitialInstitution = selectedInitialInstitutionId
+        ? institutions.find(
+            (institution) => institution.id === selectedInitialInstitutionId
+          )
+        : undefined;
+      const shouldApplyInitialInstitution =
+        Boolean(selectedInitialInstitution) &&
+        (Boolean(scopedInstitutionId) ||
+          Boolean(hydratedState.selectedInstitutionId) ||
+          !matchingDraft ||
+          !hydratedState.institutionInformation.name.trim());
 
-      const scopedState = scopedInstitutionId
-        ? applyScopedInstitutionSelection(hydratedState, defaultInstitution)
+      const scopedState = shouldApplyInitialInstitution
+        ? applyScopedInstitutionSelection(
+            hydratedState,
+            selectedInitialInstitution
+          )
         : hydratedState;
 
       return formType === "withdrawal_request"
@@ -2657,7 +2708,6 @@ export function TwoPQFormFlow({
     [
       cases,
       defaultDoctorId,
-      defaultInstitution,
       defaultInstitutionId,
       formType,
       institutions,
@@ -4064,14 +4114,9 @@ export function TwoPQFormFlow({
 
   function selectInstitution(institutionId: string) {
     const institution = institutions.find((candidate) => candidate.id === institutionId);
-    setState((current) => ({
-      ...current,
-      selectedInstitutionId: institutionId,
-      selectedRequestingDoctorId: "",
-      institutionInformation: institution
-        ? institutionToFormState(institution)
-        : emptyInstitution(),
-    }));
+    setState((current) =>
+      applyPatientInstitutionSelection(current, institutionId, institution, doctors)
+    );
   }
 
   function errorFor(key: string) {
@@ -5606,23 +5651,14 @@ export function TwoPQFormFlow({
                   const institution = institutions.find(
                     (candidate) => candidate.id === institutionId
                   );
-                  const nextDoctors = doctors.filter(
-                    (doctor) => doctor.institutionId === institutionId
-                  );
-                  setState((current) => ({
-                    ...current,
-                    selectedCaseId: "",
-                    selectedRequestingDoctorId: "",
-                    patientInformation: {
-                      ...current.patientInformation,
+                  setState((current) =>
+                    applyPatientInstitutionSelection(
+                      current,
                       institutionId,
-                      doctorId: nextDoctors.some(
-                        (doctor) => doctor.id === current.patientInformation.doctorId
-                      )
-                        ? current.patientInformation.doctorId
-                        : "",
-                    },
-                  }));
+                      institution,
+                      doctors
+                    )
+                  );
                 }}
                 placeholder={t("Select institution")}
                 emptyLabel={t("No institution")}
