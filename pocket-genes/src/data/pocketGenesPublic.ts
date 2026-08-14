@@ -875,10 +875,9 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Vendor management and certifications',
+        heading: 'Vendor management',
         paragraphs: [
           'Pocket Genes assesses providers according to service purpose, information involved, security controls, contractual terms, privacy documentation, and operational need. The Subprocessor List identifies public providers used for Pocket Genes components.',
-          'Pocket Genes may use providers with independently assessed security programs. Provider certifications do not constitute ISO, SOC 2, HIPAA, or other certification of Pocket Genes itself unless Pocket Genes separately completes and publishes such assessment.',
         ],
       },
       {
@@ -1127,7 +1126,6 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Shared responsibility',
         paragraphs: [
           'Using AWS, Firebase, or another provider does not transfer Pocket Genes responsibility for safe application design. Pocket Genes remains responsible for access rules, database security rules, credentials, code, product configuration, data minimization, support workflows, and incident response.',
-          'Provider certifications may be relevant to provider selection, but they do not mean Pocket Genes itself is ISO-certified, SOC 2 audited, HIPAA certified, or otherwise independently certified unless Pocket Genes separately completes and publishes that assessment.',
         ],
       },
       {
@@ -2561,10 +2559,9 @@ export const trustDocumentsEs: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Gestión de proveedores y certificaciones',
+        heading: 'Gestión de proveedores',
         paragraphs: [
           'Pocket Genes evalúa proveedores por propósito, información involucrada, controles, términos, privacidad, confiabilidad, soporte y necesidad. La lista de proveedores identifica servicios públicos usados por componentes de Pocket Genes.',
-          'Pocket Genes puede usar proveedores con programas de seguridad evaluados independientemente. Sus certificaciones no implican que Pocket Genes esté certificado ISO, auditado SOC 2, certificado HIPAA u otra evaluación salvo que Pocket Genes la complete y publique.',
         ],
       },
       {
@@ -2813,7 +2810,6 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Responsabilidad compartida',
         paragraphs: [
           'Usar AWS, Firebase u otro proveedor no transfiere la responsabilidad de diseño seguro de Pocket Genes. Pocket Genes sigue respondiendo por reglas de acceso, reglas de base de datos, credenciales, código, configuración, minimización, soporte e incidentes.',
-          'Las certificaciones de proveedores pueden servir para evaluarlos, pero no significan que Pocket Genes esté certificado ISO, auditado SOC 2, certificado HIPAA u otro salvo que Pocket Genes complete y publique esa evaluación.',
         ],
       },
       {
