@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowRight, CheckCircle2, ClipboardList } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  ClipboardList,
+} from "lucide-react";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { Button } from "@/components/ui/button";
 import { appText } from "@/lib/language";
@@ -31,6 +36,8 @@ export function TwoPQFormCompletionDialog({
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const [open, setOpen] = useState(Boolean(createdId));
+  const isStudyRequestCompletion =
+    createdType === "study_request" || createdType === undefined;
 
   if (!createdId || !open) {
     return null;
@@ -72,13 +79,31 @@ export function TwoPQFormCompletionDialog({
               ? t("The biopsy form is ready and stored")
               : createdType === "withdrawal_request"
                 ? t("The withdrawal request form is ready and stored")
-              : t("The 2PQ form is stored and ready")}
+              : t("The access email was sent to the patient")}
           </h3>
-          <p className="mt-2 max-w-lg text-sm text-indigo-50/84">
-            {t("Form")} <span className="font-mono text-indigo-50">{createdId}</span>{" "}
-            {t("is now in")} <code>2pq_forms</code>{" "}
-            {t("with its author, scope, and linked records preserved.")}
-          </p>
+          {isStudyRequestCompletion ? (
+            <>
+              <p className="mt-2 max-w-lg text-sm text-indigo-50/84">
+                {t(
+                  "An email with the access key was sent to the patient's email. The patient must review it to upload the file."
+                )}
+              </p>
+              <div className="mt-4 flex max-w-lg items-start gap-2 rounded-xl border border-amber-200/35 bg-amber-200/12 px-3 py-2 text-left text-xs font-medium leading-relaxed text-amber-50">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {t(
+                    "Ask the patient to check the spam folder too; sometimes this email arrives there."
+                  )}
+                </span>
+              </div>
+            </>
+          ) : (
+            <p className="mt-2 max-w-lg text-sm text-indigo-50/84">
+              {t("Form")} <span className="font-mono text-indigo-50">{createdId}</span>{" "}
+              {t("is now in")} <code>2pq_forms</code>{" "}
+              {t("with its author, scope, and linked records preserved.")}
+            </p>
+          )}
           <div className="mt-6 grid w-full max-w-lg gap-2 sm:grid-cols-2">
             <Button
               className="h-12 rounded-[1.1rem] border border-indigo-100/12 bg-white px-6 text-sm font-semibold text-indigo-950 shadow-[0_18px_48px_rgba(199,210,254,0.22)] hover:bg-indigo-50"

@@ -969,6 +969,12 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to update this form.": "No se pudo actualizar este formulario.",
   "Form completed": "Formulario completado",
   "The 2PQ form is stored and ready": "El formulario 2PQ está guardado y listo",
+  "The access email was sent to the patient":
+    "El mail de acceso fue enviado al paciente",
+  "An email with the access key was sent to the patient's email. The patient must review it to upload the file.":
+    "Se envió un mail con la clave de acceso al correo del paciente. El paciente debe revisarlo para poder subir el archivo.",
+  "Ask the patient to check the spam folder too; sometimes this email arrives there.":
+    "Pedile al paciente que revise también la casilla de spam; a veces este mail llega ahí.",
   "The biopsy form is ready and stored":
     "El formulario de biopsias está listo y guardado",
   "is now in": "ahora está en",
