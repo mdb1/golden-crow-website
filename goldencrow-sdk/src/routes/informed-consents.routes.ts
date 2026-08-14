@@ -8,6 +8,7 @@ import {
   getInformedConsentFileForContext,
   listInformedConsentPatientsForContext,
   listInformedConsentsForContext,
+  sendInformedConsentEmailForContext,
 } from "../repositories/informed-consents.repository.js";
 
 const CursorSchema = z.object({ cursor: z.string().min(1).optional() });
@@ -84,6 +85,30 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
           request.body,
         );
         return reply.status(201).send({ record });
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/2pq/informed-consents/email",
+    {
+      schema: {
+        body: z.object({
+          patientId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        return await sendInformedConsentEmailForContext(
+          request.adminContext,
+          request.body,
+        );
       } catch (error) {
         return sendError(reply, error);
       }

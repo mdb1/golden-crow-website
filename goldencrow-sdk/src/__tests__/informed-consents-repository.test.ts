@@ -73,6 +73,9 @@ function docsForCollection(name: string) {
 
 const queryStubs: QueryStub[] = [];
 const failOrderedCollections = new Set<string>();
+const setDocMock = jest.fn(async (_document: unknown) => undefined);
+const transactionSetMock = jest.fn();
+const sendGmailMessageMock = jest.fn(async (_message: unknown) => undefined);
 
 class QueryStub {
   readonly operations: QueryOperation[] = [];
@@ -134,6 +137,7 @@ class QueryStub {
         exists: Boolean(doc),
         data: () => doc?.data,
       })),
+      set: setDocMock,
     };
   }
 }
@@ -151,7 +155,19 @@ jest.mock("../config/firebase.js", () => ({
       queryStubs.push(query);
       return query;
     }),
+    runTransaction: jest.fn(async (callback: (transaction: unknown) => unknown) =>
+      callback({
+        get: jest.fn(async () => ({
+          data: () => ({ current: 3 }),
+        })),
+        set: transactionSetMock,
+      }),
+    ),
   })),
+}));
+
+jest.mock("../lib/gmail-mailer.js", () => ({
+  sendGmailMessage: sendGmailMessageMock,
 }));
 
 const baseContext = {
@@ -169,6 +185,9 @@ describe("informed consent repository scoping", () => {
     failOrderedCollections.clear();
     failOrderedCollections.add("2pq-informed-consent");
     failOrderedCollections.add("patients");
+    setDocMock.mockClear();
+    transactionSetMock.mockClear();
+    sendGmailMessageMock.mockClear();
   });
 
   it("returns global, institution, and doctor lists within their exact scope", async () => {
@@ -247,5 +266,70 @@ describe("informed consent repository scoping", () => {
     expect(result.patients.map((patient) => patient.id)).toEqual([
       "PAT-00001",
     ]);
+  });
+
+  it("stores uploaded consent bytes in Firestore", async () => {
+    const { createInformedConsentForContext } = await import(
+      "../repositories/informed-consents.repository"
+    );
+
+    const record = await createInformedConsentForContext(
+      {
+        ...baseContext,
+        role: "full_admin",
+      },
+      {
+        patientId: "PAT-00001",
+        file: {
+          name: "consent.pdf",
+          type: "application/pdf",
+          size: 1,
+          content: "data:application/pdf;base64,eA==",
+        },
+      },
+    );
+
+    expect(record.id).toBe("CONS-00004");
+    expect(setDocMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        file: {
+          name: "consent.pdf",
+          type: "application/pdf",
+          size: 1,
+          content: "data:application/pdf;base64,eA==",
+        },
+      }),
+    );
+  });
+
+  it("sends a consent request email to a scoped patient", async () => {
+    const { sendInformedConsentEmailForContext } = await import(
+      "../repositories/informed-consents.repository"
+    );
+
+    const result = await sendInformedConsentEmailForContext(
+      {
+        ...baseContext,
+        email: "dopazoh+admin@gmail.com",
+        role: "institution_doctor",
+        institutionId: "INST-00001",
+        doctorId: "DOC-00001",
+      },
+      { patientId: "PAT-00001" },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      patientId: "PAT-00001",
+      email: "matialeezcurra@gmail.com",
+    });
+    expect(sendGmailMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "matialeezcurra@gmail.com",
+        subject: "Consentimiento informado 2PQ",
+        html: expect.stringContaining("/patient-portal/consents"),
+        text: expect.stringContaining("/patient-portal/consents"),
+      }),
+    );
   });
 });

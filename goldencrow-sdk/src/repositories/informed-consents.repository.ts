@@ -3,8 +3,10 @@ import {
   type DocumentData,
   type Query,
 } from "firebase-admin/firestore";
+import { ENV } from "../config/env.js";
 import { adminDbFor } from "../config/firebase.js";
 import { canAccessInformedConsentPatient } from "../lib/informed-consent-access.js";
+import { sendGmailMessage } from "../lib/gmail-mailer.js";
 import type {
   AdminContext,
   InformedConsentFile,
@@ -21,6 +23,9 @@ const PATIENTS_COLLECTION = "patients";
 const SEQUENCES_COLLECTION = "admin_sequences";
 const CONSENTS_PAGE_SIZE = 20;
 export const INFORMED_CONSENT_FILE_MAX_BYTES = 750_000;
+const CONSENT_PORTAL_PATH = "/patient-portal/consents";
+const CONSENT_EMAIL_SENDER_EMAIL = "dopazoh+admin@gmail.com";
+const CONSENT_EMAIL_TEST_RECIPIENT = "matialeezcurra@gmail.com";
 
 const ALLOWED_FILE_TYPES = new Set([
   "application/pdf",
@@ -325,6 +330,19 @@ function validateFile(file: InformedConsentFile): InformedConsentFile {
   return { name, type, size: bytes.length, content: file.content };
 }
 
+function backofficeUrl(path: string) {
+  return `${ENV.BACKOFFICE_ORIGIN.replace(/\/+$/, "")}${path}`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function nextConsentId() {
   return adminDb.runTransaction(async (transaction) => {
     const reference = adminDb
@@ -478,6 +496,85 @@ export async function createInformedConsentForContext(
   };
   await adminDb.collection(CONSENTS_COLLECTION).doc(consentId).set(document);
   return toConsentRecord(consentId, document, patient.fullName);
+}
+
+export async function sendInformedConsentEmailForContext(
+  context: AdminContext,
+  payload: { patientId: string },
+) {
+  if (normalizeRoleEmail(context.email) !== CONSENT_EMAIL_SENDER_EMAIL) {
+    throw new AdminRepositoryError(
+      "This account cannot send consent email requests yet.",
+      403,
+    );
+  }
+  if (context.role === "patient") {
+    throw new AdminRepositoryError(
+      "Patients cannot send consent email requests.",
+      403,
+    );
+  }
+
+  const patientId = payload.patientId.trim();
+  if (!patientId) {
+    throw new AdminRepositoryError("Select a patient.", 400);
+  }
+
+  const patient = await getPatient(patientId);
+  if (!patient) {
+    throw new AdminRepositoryError("Patient not found.", 404);
+  }
+  if (!canAccessInformedConsentPatient(context, patient)) {
+    throw new AdminRepositoryError(
+      "You cannot send consent requests for this patient.",
+      403,
+    );
+  }
+  if (!patient.email) {
+    throw new AdminRepositoryError("Patient does not have an email.", 400);
+  }
+
+  const portalUrl = backofficeUrl(CONSENT_PORTAL_PATH);
+  const safeName = escapeHtml(patient.fullName);
+  const safePortalUrl = escapeHtml(portalUrl);
+  const subject = "Consentimiento informado 2PQ";
+  const text = [
+    `Hola ${patient.fullName},`,
+    "",
+    "Te escribimos desde GoldenCrow para solicitar que cargues tu consentimiento informado 2PQ.",
+    `Ingresá al portal del paciente desde este enlace: ${portalUrl}`,
+    "",
+    "Si el enlace no abre directamente la sección, iniciá sesión y entrá a Consentimientos.",
+    "",
+    "Gracias.",
+  ].join("\n");
+  const html = `
+    <p>Hola ${safeName},</p>
+    <p>Te escribimos desde GoldenCrow para solicitar que cargues tu consentimiento informado 2PQ.</p>
+    <p>
+      <a href="${safePortalUrl}">Abrir portal del paciente</a>
+    </p>
+    <p>Si el enlace no abre directamente la sección, iniciá sesión y entrá a Consentimientos.</p>
+    <p>Gracias.</p>
+  `;
+
+  try {
+    await sendGmailMessage({
+      to: CONSENT_EMAIL_TEST_RECIPIENT,
+      subject,
+      text,
+      html,
+    });
+  } catch (error) {
+    const details =
+      error instanceof Error && error.message ? ` ${error.message}` : "";
+    throw new AdminRepositoryError(
+      `Unable to send consent email.${details}`,
+      502,
+    );
+  }
+
+  return { ok: true, patientId: patient.id, email: CONSENT_EMAIL_TEST_RECIPIENT };
 }
 
 export async function getInformedConsentFileForContext(

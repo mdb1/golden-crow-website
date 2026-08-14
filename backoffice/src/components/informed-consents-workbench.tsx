@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, FileCheck2, Loader2 } from "lucide-react";
+import { ExternalLink, FileCheck2, Loader2, Mail } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import {
@@ -25,6 +25,8 @@ import type {
 } from "@/lib/informed-consents";
 import { appText } from "@/lib/language";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
+
+const CONSENT_EMAIL_SENDER_EMAIL = "dopazoh+admin@gmail.com";
 
 function formatFileSize(size: number) {
   return `${Math.max(1, Math.round(size / 1000))} KB`;
@@ -53,12 +55,17 @@ export function InformedConsentsWorkbench({
   surface,
   initialPage,
   initialPatientPage,
+  currentUserEmail,
 }: {
   surface: "backoffice" | "patient-portal";
   initialPage: InformedConsentPage;
   initialPatientPage?: InformedConsentPatientPage;
+  currentUserEmail?: string;
 }) {
   const isPatientPortal = surface === "patient-portal";
+  const canSendConsentEmails =
+    !isPatientPortal &&
+    currentUserEmail?.trim().toLowerCase() === CONSENT_EMAIL_SENDER_EMAIL;
   const t = (text: string) =>
     isPatientPortal ? appText("es", text) : text;
   const [records, setRecords] = useState(initialPage.records);
@@ -71,6 +78,7 @@ export function InformedConsentsWorkbench({
   const [file, setFile] = useState<SingleFileValue | null>(null);
   const [fileError, setFileError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingPatients, setLoadingPatients] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
@@ -126,6 +134,37 @@ export function InformedConsentsWorkbench({
       reportError(error, t("Unable to upload consent."));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSendConsentEmail() {
+    if (!patientId) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: "Select the patient who should receive the email.",
+      });
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      const result = await sdkFetch<{ email: string }>(
+        "/2pq/informed-consents/email",
+        {
+          method: "POST",
+          body: JSON.stringify({ patientId }),
+        },
+      );
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: `Consent email sent to ${result.email}.`,
+      });
+    } catch (error) {
+      reportError(error, "Unable to send consent email.");
+    } finally {
+      setSendingEmail(false);
     }
   }
 
@@ -226,15 +265,33 @@ export function InformedConsentsWorkbench({
               isPatientPortal ? "PDF o imagen, máximo 750 KB." : undefined
             }
           />
-          <Button
-            type="button"
-            className="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-fit"
-            onClick={() => void handleUpload()}
-            disabled={saving || !file || (!isPatientPortal && !patientId)}
-          >
-            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            {t("Upload consent")}
-          </Button>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button
+              type="button"
+              className="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-fit"
+              onClick={() => void handleUpload()}
+              disabled={saving || !file || (!isPatientPortal && !patientId)}
+            >
+              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+              {t("Upload consent")}
+            </Button>
+            {canSendConsentEmails ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-fit"
+                onClick={() => void handleSendConsentEmail()}
+                disabled={!patientId || sendingEmail}
+              >
+                {sendingEmail ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Mail className="size-4" />
+                )}
+                Send consent email
+              </Button>
+            ) : null}
+          </div>
         </div>
       </section>
 
