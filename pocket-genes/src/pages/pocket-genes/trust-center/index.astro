@@ -384,6 +384,8 @@ const copy = pageCopy[locale];
 const trustMailSubject = encodeURIComponent(
   isEnglish ? 'Pocket Genes Trust Request' : 'Consulta sobre privacidad y seguridad en Pocket Genes',
 );
+const supportMailHref = `mailto:${POCKET_GENES_EMAILS.hello}`;
+const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hello;
 ---
 
 <PocketGenesPublicLayout
@@ -410,7 +412,9 @@ const trustMailSubject = encodeURIComponent(
           {copy.snapshot.map((item) => (
             <article>
               <span>{item.label}</span>
-              <strong>{item.value}</strong>
+              <strong>
+                {isSupportEmailValue(item.value) ? <a class="pg-inline-email" href={supportMailHref}>{item.value}</a> : item.value}
+              </strong>
               <p>{item.body}</p>
             </article>
           ))}
@@ -447,7 +451,9 @@ const trustMailSubject = encodeURIComponent(
               {copy.responsibilityRows.map(([label, value]) => (
                 <div>
                   <dt>{label}</dt>
-                  <dd>{value}</dd>
+                  <dd>
+                    {isSupportEmailValue(value) ? <a class="pg-inline-email" href={supportMailHref}>{value}</a> : value}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -697,6 +703,17 @@ const trustMailSubject = encodeURIComponent(
   .pg-trust-snapshot p {
     margin: 8px 0 0;
     font-size: 0.96rem;
+  }
+
+  .pg-inline-email {
+    color: var(--pg-blue);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .pg-inline-email:hover,
+  .pg-inline-email:focus-visible {
+    color: var(--pg-teal);
   }
 
   .pg-trust-overview {

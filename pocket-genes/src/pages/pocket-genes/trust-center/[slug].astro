@@ -176,9 +176,9 @@ const copy = pageCopy[locale];
           <span>/</span>
           <a href={localizePath('/pocket-genes/trust-center')}>{copy.trustCenter}</a>
         </nav>
-        <p class="pg-eyebrow">{document.category}</p>
-        <h1>{document.title}</h1>
-        <p>{document.summary}</p>
+        <p class="pg-eyebrow" set:html={linkTrustEmail(document.category)} />
+        <h1 set:html={linkTrustEmail(document.title)} />
+        <p set:html={linkTrustEmail(document.summary)} />
       </div>
     </section>
 
@@ -217,27 +217,27 @@ const copy = pageCopy[locale];
           <dl>
             <div>
               <dt>{copy.status}</dt>
-              <dd>{document.status}</dd>
+              <dd set:html={linkTrustEmail(document.status)} />
             </div>
             <div>
               <dt>{copy.owner}</dt>
-              <dd>{document.owner}</dd>
+              <dd set:html={linkTrustEmail(document.owner)} />
             </div>
             {document.effectiveDate && (
               <div>
                 <dt>{copy.effectiveDate}</dt>
-                <dd>{document.effectiveDate}</dd>
+                <dd set:html={linkTrustEmail(document.effectiveDate)} />
               </div>
             )}
             {document.version && (
               <div>
                 <dt>{copy.version}</dt>
-                <dd>{document.version}</dd>
+                <dd set:html={linkTrustEmail(document.version)} />
               </div>
             )}
             <div>
               <dt>{copy.lastReviewed}</dt>
-              <dd>{document.lastReviewed}</dd>
+              <dd set:html={linkTrustEmail(document.lastReviewed)} />
             </div>
             <div>
               <dt>{copy.contact}</dt>
@@ -249,7 +249,7 @@ const copy = pageCopy[locale];
         <article class="pg-trust-article">
           {document.sections.map((section) => (
             <section>
-              <h2>{section.heading}</h2>
+              <h2 set:html={linkTrustEmail(section.heading)} />
               {section.body && <p set:html={linkTrustEmail(section.body)} />}
               {section.paragraphs?.map((paragraph) => <p set:html={linkTrustEmail(paragraph)} />)}
               {section.bullets && (
@@ -261,7 +261,7 @@ const copy = pageCopy[locale];
                 <div class="pg-trust-subsection-stack">
                   {section.subsections.map((subsection) => (
                     <section>
-                      <h3>{subsection.heading}</h3>
+                      <h3 set:html={linkTrustEmail(subsection.heading)} />
                       {subsection.body && <p set:html={linkTrustEmail(subsection.body)} />}
                       {subsection.bullets && (
                         <ul>
@@ -295,13 +295,13 @@ const copy = pageCopy[locale];
 
           {isDataFlow && (
             <section class="pg-data-flow">
-              <h2>{copy.dataFlowTitle}</h2>
+              <h2 set:html={linkTrustEmail(copy.dataFlowTitle)} />
               <div class="pg-flow-track" aria-label={copy.dataFlowLabel}>
                 {copy.flowSteps.map((step, index) => (
                   <article class:list={['pg-flow-step', { 'is-last': index === copy.flowSteps.length - 1 }]}>
                     <span>{index + 1}</span>
-                    <h3>{step.title}</h3>
-                    <p>{step.body}</p>
+                    <h3 set:html={linkTrustEmail(step.title)} />
+                    <p set:html={linkTrustEmail(step.body)} />
                   </article>
                 ))}
               </div>
@@ -524,14 +524,14 @@ const copy = pageCopy[locale];
     margin-top: 8px;
   }
 
-  .pg-trust-article :global(.pg-trust-email-link),
+  .pg-trust-detail :global(.pg-trust-email-link),
   .pg-trust-article :global(.pg-trust-document-link) {
     color: var(--pg-blue);
     font-weight: 760;
   }
 
-  .pg-trust-article :global(.pg-trust-email-link:hover),
-  .pg-trust-article :global(.pg-trust-email-link:focus-visible),
+  .pg-trust-detail :global(.pg-trust-email-link:hover),
+  .pg-trust-detail :global(.pg-trust-email-link:focus-visible),
   .pg-trust-article :global(.pg-trust-document-link:hover),
   .pg-trust-article :global(.pg-trust-document-link:focus-visible) {
     color: var(--pg-teal);
