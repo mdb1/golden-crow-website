@@ -157,6 +157,34 @@ const copy = pageCopy[locale];
     <section class="pg-section">
       <div class="pg-container pg-trust-detail-grid">
         <aside class="pg-trust-meta" aria-label={copy.metadataLabel}>
+          <nav class="pg-trust-detail-nav" aria-labelledby="pg-trust-detail-nav-title">
+            <h2 id="pg-trust-detail-nav-title">{copy.navigationTitle}</h2>
+            <div class="pg-trust-detail-nav-groups">
+              {navigationCategories.map(({ category, documents }) => (
+                <section>
+                  <h3>{category}</h3>
+                  <ul>
+                    {documents.map((navDocument) => {
+                      const isCurrent = navDocument.slug === document.slug;
+
+                      return (
+                        <li>
+                          <a
+                            class:list={['pg-trust-detail-nav-link', { 'is-active': isCurrent }]}
+                            href={localizePath(`/pocket-genes/trust-center/${navDocument.slug}`)}
+                            aria-current={isCurrent ? 'page' : undefined}
+                          >
+                            {navDocument.title}
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </nav>
+
           <h2>{copy.detailsTitle}</h2>
           <dl>
             <div>
@@ -188,34 +216,6 @@ const copy = pageCopy[locale];
               <dd><a href={`mailto:${POCKET_GENES_EMAILS.trust}`}>{POCKET_GENES_EMAILS.trust}</a></dd>
             </div>
           </dl>
-
-          <nav class="pg-trust-detail-nav" aria-labelledby="pg-trust-detail-nav-title">
-            <h2 id="pg-trust-detail-nav-title">{copy.navigationTitle}</h2>
-            <div class="pg-trust-detail-nav-groups">
-              {navigationCategories.map(({ category, documents }) => (
-                <section>
-                  <h3>{category}</h3>
-                  <ul>
-                    {documents.map((navDocument) => {
-                      const isCurrent = navDocument.slug === document.slug;
-
-                      return (
-                        <li>
-                          <a
-                            class:list={['pg-trust-detail-nav-link', { 'is-active': isCurrent }]}
-                            href={localizePath(`/pocket-genes/trust-center/${navDocument.slug}`)}
-                            aria-current={isCurrent ? 'page' : undefined}
-                          >
-                            {navDocument.title}
-                          </a>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          </nav>
         </aside>
 
         <article class="pg-trust-article">
@@ -382,9 +382,9 @@ const copy = pageCopy[locale];
   }
 
   .pg-trust-detail-nav {
-    margin-top: 22px;
-    padding-top: 20px;
-    border-top: 1px solid var(--pg-border);
+    margin-bottom: 22px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--pg-border);
   }
 
   .pg-trust-detail-nav h2 {
