@@ -9,6 +9,8 @@ export const ENV = {
   EMAIL_VERIFICATION_CONTINUE_URL:
     process.env.EMAIL_VERIFICATION_CONTINUE_URL ??
     `${process.env.BACKOFFICE_ORIGIN ?? "http://localhost:3001"}/login`,
+  CLIENT_BOOKING_WEBHOOK_URL:
+    process.env.CLIENT_BOOKING_WEBHOOK_URL?.trim() || undefined,
 };
 
 import type { ProjectKey } from "../types/sdk.types.js";

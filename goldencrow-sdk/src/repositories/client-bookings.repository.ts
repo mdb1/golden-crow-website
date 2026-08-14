@@ -42,7 +42,7 @@ export interface ClientBookingRequestMeta {
   origin?: string;
 }
 
-export type ClientBookingRelayhookNotification =
+export type ClientBookingWebhookNotification =
   | {
       status: "delivered";
       method: "GET";
@@ -55,6 +55,10 @@ export type ClientBookingRelayhookNotification =
       statusCode?: number;
       statusText?: string;
       error?: string;
+    }
+  | {
+      status: "skipped";
+      reason: "not_configured";
     };
 
 export interface ClientBookingRecord extends ClientBookingInput {
@@ -112,9 +116,9 @@ export async function createClientBooking(
   return { id: ref.id };
 }
 
-export async function recordClientBookingRelayhookNotification(
+export async function recordClientBookingWebhookNotification(
   bookingId: string,
-  notification: ClientBookingRelayhookNotification,
+  notification: ClientBookingWebhookNotification,
 ): Promise<void> {
   await adminDb
     .collection(CLIENT_BOOKINGS_COLLECTION)
@@ -122,7 +126,7 @@ export async function recordClientBookingRelayhookNotification(
     .set(
       {
         notifications: {
-          relayhook: {
+          webhook: {
             ...notification,
             updatedAt: FieldValue.serverTimestamp(),
           },

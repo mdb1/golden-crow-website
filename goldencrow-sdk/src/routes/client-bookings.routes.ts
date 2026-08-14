@@ -8,12 +8,10 @@ import {
   createClientBooking,
   listClientBookingsForCalendarMonth,
   listClientBookingsPage,
-  recordClientBookingRelayhookNotification,
-  type ClientBookingRelayhookNotification,
+  recordClientBookingWebhookNotification,
+  type ClientBookingWebhookNotification,
 } from "../repositories/client-bookings.repository.js";
-
-const CLIENT_BOOKING_RELAYHOOK_URL =
-  "https://data.relayhook.com/api/data/wh_parent_d9fff58f3852_TmV3IG1lZXRpbmcgdHJhY2tlZA";
+import { ENV } from "../config/env.js";
 
 const OptionalUrlSchema = z
   .string()
@@ -78,7 +76,7 @@ const ClientBookingParamsSchema = z.object({
 
 type BookingRequest = z.infer<typeof BookingRequestSchema>;
 
-function appendRelayhookParam(
+function appendWebhookParam(
   params: URLSearchParams,
   key: string,
   value: string | number | undefined,
@@ -93,52 +91,56 @@ function appendRelayhookParam(
   }
 }
 
-function getRelayhookUrl(bookingId: string, booking: BookingRequest) {
-  const url = new URL(CLIENT_BOOKING_RELAYHOOK_URL);
+function getBookingWebhookUrl(bookingId: string, booking: BookingRequest) {
+  if (!ENV.CLIENT_BOOKING_WEBHOOK_URL) {
+    return undefined;
+  }
+
+  const url = new URL(ENV.CLIENT_BOOKING_WEBHOOK_URL);
   const { searchParams } = url;
 
-  appendRelayhookParam(searchParams, "type", "client_booking_created");
-  appendRelayhookParam(searchParams, "booking_id", bookingId);
-  appendRelayhookParam(searchParams, "event_title", booking.event.title);
-  appendRelayhookParam(searchParams, "event_date", booking.event.date);
-  appendRelayhookParam(
+  appendWebhookParam(searchParams, "type", "client_booking_created");
+  appendWebhookParam(searchParams, "booking_id", bookingId);
+  appendWebhookParam(searchParams, "event_title", booking.event.title);
+  appendWebhookParam(searchParams, "event_date", booking.event.date);
+  appendWebhookParam(
     searchParams,
     "event_start_time",
     booking.event.startTime,
   );
-  appendRelayhookParam(searchParams, "event_end_time", booking.event.endTime);
-  appendRelayhookParam(searchParams, "event_starts_at", booking.event.startsAt);
-  appendRelayhookParam(searchParams, "event_ends_at", booking.event.endsAt);
-  appendRelayhookParam(searchParams, "event_timezone", booking.event.timezone);
-  appendRelayhookParam(
+  appendWebhookParam(searchParams, "event_end_time", booking.event.endTime);
+  appendWebhookParam(searchParams, "event_starts_at", booking.event.startsAt);
+  appendWebhookParam(searchParams, "event_ends_at", booking.event.endsAt);
+  appendWebhookParam(searchParams, "event_timezone", booking.event.timezone);
+  appendWebhookParam(
     searchParams,
     "event_timezone_label",
     booking.event.timezoneLabel,
   );
-  appendRelayhookParam(
+  appendWebhookParam(
     searchParams,
     "duration_minutes",
     booking.event.durationMinutes,
   );
-  appendRelayhookParam(searchParams, "full_name", booking.form.fullName);
-  appendRelayhookParam(searchParams, "email", booking.form.email);
-  appendRelayhookParam(searchParams, "whatsapp", booking.form.whatsapp);
-  appendRelayhookParam(searchParams, "company_name", booking.form.companyName);
-  appendRelayhookParam(searchParams, "source_context", booking.source.context);
-  appendRelayhookParam(searchParams, "source_locale", booking.source.locale);
-  appendRelayhookParam(searchParams, "source_page_url", booking.source.pageUrl);
-  appendRelayhookParam(searchParams, "source_path", booking.source.path);
-  appendRelayhookParam(
+  appendWebhookParam(searchParams, "full_name", booking.form.fullName);
+  appendWebhookParam(searchParams, "email", booking.form.email);
+  appendWebhookParam(searchParams, "whatsapp", booking.form.whatsapp);
+  appendWebhookParam(searchParams, "company_name", booking.form.companyName);
+  appendWebhookParam(searchParams, "source_context", booking.source.context);
+  appendWebhookParam(searchParams, "source_locale", booking.source.locale);
+  appendWebhookParam(searchParams, "source_page_url", booking.source.pageUrl);
+  appendWebhookParam(searchParams, "source_path", booking.source.path);
+  appendWebhookParam(
     searchParams,
     "source_referrer",
     booking.source.referrer,
   );
-  appendRelayhookParam(searchParams, "sent_at", new Date().toISOString());
+  appendWebhookParam(searchParams, "sent_at", new Date().toISOString());
 
   return url;
 }
 
-async function fetchRelayhook(url: URL) {
+async function fetchBookingWebhook(url: URL) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
 
@@ -159,14 +161,28 @@ async function notifyClientBookingWebhook(
   bookingId: string,
   booking: BookingRequest,
   fastify: FastifyInstance,
-): Promise<ClientBookingRelayhookNotification> {
+): Promise<ClientBookingWebhookNotification> {
+  const webhookUrl = getBookingWebhookUrl(bookingId, booking);
+
+  if (!webhookUrl) {
+    fastify.log.info(
+      { bookingId },
+      "Client booking webhook notification skipped because no URL is configured",
+    );
+
+    return {
+      status: "skipped",
+      reason: "not_configured",
+    };
+  }
+
   try {
-    const response = await fetchRelayhook(getRelayhookUrl(bookingId, booking));
+    const response = await fetchBookingWebhook(webhookUrl);
 
     if (!response.ok) {
       fastify.log.warn(
         { bookingId, statusCode: response.status },
-        "Client booking RelayHook notification returned a non-OK response",
+        "Client booking webhook notification returned a non-OK response",
       );
 
       return {
@@ -186,13 +202,13 @@ async function notifyClientBookingWebhook(
   } catch (error) {
     fastify.log.warn(
       { bookingId, error },
-      "Client booking RelayHook notification failed",
+      "Client booking webhook notification failed",
     );
 
     return {
       status: "failed",
       method: "GET",
-      error: error instanceof Error ? error.message : "Unknown RelayHook error",
+      error: error instanceof Error ? error.message : "Unknown webhook error",
     };
   }
 }
@@ -350,17 +366,17 @@ export async function clientBookingsRoutes(
       );
 
       try {
-        await recordClientBookingRelayhookNotification(result.id, notification);
+        await recordClientBookingWebhookNotification(result.id, notification);
       } catch (error) {
         fastify.log.warn(
           { bookingId: result.id, error },
-          "Client booking RelayHook notification status could not be recorded",
+          "Client booking webhook notification status could not be recorded",
         );
       }
 
-      if (notification.status !== "delivered") {
+      if (notification.status === "failed") {
         return reply.status(502).send({
-          error: "Booking was stored, but RelayHook notification failed",
+          error: "Booking was stored, but webhook notification failed",
           status: "notification_failed",
           bookingId: result.id,
           notification,
