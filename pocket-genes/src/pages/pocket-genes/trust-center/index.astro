@@ -78,29 +78,6 @@ const pageCopy = {
       ['Product name', POCKET_GENES_OPERATOR.productName],
       ['Contact', POCKET_GENES_EMAILS.hello],
     ],
-    useTrustTitle: 'How to use this Trust Center',
-    useTrustItems: [
-      {
-        title: 'Privacy documents',
-        body: 'Start here for account data, integrator data, consent records, service providers, retention, deletion, and rights requests.',
-      },
-      {
-        title: 'Product terms',
-        body: 'Use these pages to understand account responsibilities, acceptable use, report-provider boundaries, community participation, and trusted-organization limits.',
-      },
-      {
-        title: 'Security documents',
-        body: 'Use these pages for authentication, authorization, report-access protection, subprocessors, data flow, incidents, and vulnerability reporting.',
-      },
-      {
-        title: 'Community documents',
-        body: 'Use these pages for RareFriends visibility, matching fields, moderation, blocking, organization conduct, complaints, appeals, and safety boundaries.',
-      },
-      {
-        title: 'Scientific and intended-use documents',
-        body: 'Use these pages to understand educational content sources, correction paths, provider responsibility, clinical boundaries, and product limitations.',
-      },
-    ],
     trustedHubEyebrow: 'Trusted Organizations Hub',
     trustedHubTitle: 'We review organizations before giving them a trusted place in the ecosystem.',
     trustedHubBody:
@@ -257,29 +234,6 @@ const pageCopy = {
       ['País', POCKET_GENES_OPERATOR.country],
       ['Producto', POCKET_GENES_OPERATOR.productName],
       ['Contacto', POCKET_GENES_EMAILS.hello],
-    ],
-    useTrustTitle: 'Cómo usar este Centro de confianza',
-    useTrustItems: [
-      {
-        title: 'Documentos de privacidad',
-        body: 'Empezá acá para datos de cuenta, datos de integradores, consentimientos, proveedores, retención, eliminación y derechos.',
-      },
-      {
-        title: 'Términos del producto',
-        body: 'Usalos para entender responsabilidades de cuenta, uso aceptable, límites de proveedores, comunidad y organizaciones de confianza.',
-      },
-      {
-        title: 'Documentos de seguridad',
-        body: 'Usalos para autenticación, autorización, protección de acceso a informes, proveedores, flujo de datos, incidentes y vulnerabilidades.',
-      },
-      {
-        title: 'Documentos comunitarios',
-        body: 'Usalos para visibilidad de RareFriends, campos de matching, moderación, bloqueos, conducta de organizaciones, quejas, apelaciones y seguridad.',
-      },
-      {
-        title: 'Documentos científicos y de uso previsto',
-        body: 'Usalos para fuentes educativas, correcciones, responsabilidad de proveedores, límites clínicos y limitaciones del producto.',
-      },
     ],
     trustedHubEyebrow: 'Organizaciones de confianza',
     trustedHubTitle: 'Revisamos cada organización antes de permitirle publicar en Pocket Genes.',
@@ -456,17 +410,6 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
           </aside>
         </div>
 
-        <section class="pg-trust-use" aria-labelledby="pg-use-trust-title">
-          <h3 id="pg-use-trust-title">{copy.useTrustTitle}</h3>
-          <div class="pg-trust-use-grid">
-            {copy.useTrustItems.map((item) => (
-              <article>
-                <h4>{item.title}</h4>
-                <p>{item.body}</p>
-              </article>
-            ))}
-          </div>
-        </section>
       </div>
     </section>
 
@@ -724,14 +667,12 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
   }
 
   .pg-trust-overview-panel,
-  .pg-trust-responsibility,
-  .pg-trust-use {
+  .pg-trust-responsibility {
     border-top: 1px solid rgba(20, 149, 143, 0.24);
     padding-top: 22px;
   }
 
-  .pg-trust-overview h3,
-  .pg-trust-use h3 {
+  .pg-trust-overview h3 {
     margin: 0 0 18px;
     font-size: 1.35rem;
     line-height: 1.2;
@@ -743,8 +684,7 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
     gap: 0 22px;
   }
 
-  .pg-trust-answer-grid article,
-  .pg-trust-use-grid article {
+  .pg-trust-answer-grid article {
     padding: 18px 0;
     border-top: 1px solid var(--pg-border);
   }
@@ -754,16 +694,14 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
     padding-top: 0;
   }
 
-  .pg-trust-answer-grid h4,
-  .pg-trust-use-grid h4 {
+  .pg-trust-answer-grid h4 {
     margin: 0 0 8px;
     color: var(--pg-ink);
     font-size: 1rem;
     line-height: 1.25;
   }
 
-  .pg-trust-answer-grid p,
-  .pg-trust-use-grid p {
+  .pg-trust-answer-grid p {
     margin: 0;
     color: var(--pg-ink-soft);
   }
@@ -811,20 +749,6 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
     color: var(--pg-ink);
     font-weight: 780;
     overflow-wrap: anywhere;
-  }
-
-  .pg-trust-use {
-    margin-top: 42px;
-  }
-
-  .pg-trust-use-grid {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 18px;
-  }
-
-  .pg-trust-use-grid article {
-    border-top-color: rgba(20, 149, 143, 0.32);
   }
 
   .pg-trust-documents-heading {
@@ -1417,10 +1341,6 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
       grid-template-columns: 1fr;
     }
 
-    .pg-trust-use-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .pg-trusted-criteria,
     .pg-trust-doc-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1442,8 +1362,7 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
       grid-template-columns: 1fr;
     }
 
-    .pg-trust-answer-grid,
-    .pg-trust-use-grid {
+    .pg-trust-answer-grid {
       grid-template-columns: 1fr;
     }
 
