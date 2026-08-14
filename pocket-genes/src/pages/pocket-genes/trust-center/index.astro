@@ -77,7 +77,6 @@ const pageCopy = {
       'Read the privacy, security, community safety, data retention, accessibility, and intended-use pages for Pocket Genes.',
     documentCta: 'Open document',
     approachEyebrow: 'Trust principles',
-    approachTitle: 'Our approach',
     approachItems: [
       {
         title: 'Privacy by design',
@@ -197,7 +196,6 @@ const pageCopy = {
       'Consultá nuestras políticas de privacidad, seguridad, comunidad, retención de datos, accesibilidad y uso previsto.',
     documentCta: 'Abrir documento',
     approachEyebrow: 'Principios de confianza',
-    approachTitle: 'Nuestro enfoque',
     approachItems: [
       {
         title: 'Privacidad desde el diseño',
@@ -335,11 +333,7 @@ const trustMailSubject = encodeURIComponent(
           </p>
         </div>
 
-        <div class="pg-trust-approach" aria-labelledby="pg-trust-approach-title">
-          <div class="pg-trust-approach-heading">
-            <p class="pg-eyebrow">{copy.approachEyebrow}</p>
-            <h3 id="pg-trust-approach-title">{copy.approachTitle}</h3>
-          </div>
+        <div class="pg-trust-approach" aria-label={copy.approachEyebrow}>
           <ol class="pg-trust-approach-list">
             {copy.approachItems.map((item, index) => (
               <li>
@@ -609,20 +603,9 @@ const trustMailSubject = encodeURIComponent(
   }
 
   .pg-trust-approach {
-    display: grid;
-    grid-template-columns: minmax(220px, 0.36fr) minmax(0, 1fr);
-    gap: clamp(22px, 5vw, 52px);
     margin: 8px 0 42px;
     padding: 8px 0 38px;
     border-bottom: 1px solid rgba(20, 149, 143, 0.2);
-  }
-
-  .pg-trust-approach-heading h3 {
-    margin: 0;
-    color: var(--pg-ink);
-    font-size: clamp(1.8rem, 3vw, 2.35rem);
-    line-height: 1.08;
-    letter-spacing: 0;
   }
 
   .pg-trust-approach-list {
@@ -1118,9 +1101,6 @@ const trustMailSubject = encodeURIComponent(
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .pg-trust-approach {
-      grid-template-columns: 1fr;
-    }
   }
 
   @media (max-width: 640px) {
