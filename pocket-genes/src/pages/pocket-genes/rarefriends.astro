@@ -9,6 +9,7 @@ const pageCopy = {
   en: {
     title: 'RareFriends™ by Pocket Genes',
     description: 'RareFriends™ by Pocket Genes is the opt-in community layer connected to Pocket Genes.',
+    heroTitle: 'RareFriends™ by Pocket Genes',
     heroEyebrow: 'Community layer',
     heroBody:
       'A careful peer-support layer for the moment after genetic results arrive. RareFriends™ helps you find people, organizations, events, resources, and updates that are relevant to your genetic context without making your private report public by default.',
@@ -64,18 +65,19 @@ const pageCopy = {
     trustCta: 'Open Trust Center',
   },
   es: {
-    title: 'RareFriends™ by Pocket Genes',
-    description: 'RareFriends™ de Pocket Genes es la comunidad para encontrar personas, organizaciones y recursos relacionados con tu experiencia genética.',
+    title: 'PockeAmigos de Pocket Genes',
+    description: 'PockeAmigos de Pocket Genes es la comunidad para encontrar personas, organizaciones y recursos relacionados con tu experiencia genética.',
+    heroTitle: 'PockeAmigos de Pocket Genes',
     heroEyebrow: 'Comunidad y apoyo',
     heroBody:
-      'RareFriends™ es la comunidad de Pocket Genes. Encontrá personas, organizaciones, eventos y recursos relacionados con tu experiencia genética, aunque no compartan exactamente el mismo diagnóstico. Tu informe permanece privado y vos decidís qué información compartir.',
+      'PockeAmigos es la comunidad de Pocket Genes. Encontrá personas, organizaciones, eventos y recursos relacionados con tu experiencia genética, aunque no compartan exactamente el mismo diagnóstico. Tu informe permanece privado y vos decidís qué información compartir.',
     downloadCta: 'Descargar la app',
     joinUsCta: 'Sumate',
-    imageAlt: 'Pantalla de comunidad RareFriends™ en Pocket Genes',
+    imageAlt: 'Pantalla de comunidad PockeAmigos en Pocket Genes',
     howEyebrow: 'Cómo funciona',
     howTitle: 'Encontrá personas y recursos relacionados con tu experiencia.',
     howBody:
-      'Después de recibir un resultado genético, es normal tener preguntas y no saber con quién hablar. RareFriends™ de Pocket Genes puede usar información que vos decidís agregar, como gen, grupo de condición, síntomas, rol, idioma, país y etapa del recorrido. Esos campos pueden revelar contexto de salud o genético, por eso la participación es voluntaria y separada del acceso privado a informes.',
+      'Después de recibir un resultado genético, es normal tener preguntas y no saber con quién hablar. PockeAmigos de Pocket Genes puede usar información que vos decidís agregar, como gen, grupo de condición, síntomas, rol, idioma, país y etapa del recorrido. Esos campos pueden revelar contexto de salud o genético, por eso la participación es voluntaria y separada del acceso privado a informes.',
     principles: [
       {
         title: 'Personas con experiencias similares',
@@ -117,7 +119,7 @@ const pageCopy = {
     trustEyebrow: 'Seguridad y confianza',
     trustTitle: 'Una comunidad segura necesita reglas claras, moderación y fuentes confiables.',
     trustBody:
-      'RareFriends™ te ayuda a convertir un resultado en algo útil: una explicación clara, una pregunta para tu próxima consulta, un recurso, un evento o una organización confiable. Las experiencias de la comunidad pueden ayudarte a informarte y preparar preguntas, pero no reemplazan el asesoramiento de un profesional de la salud.',
+      'PockeAmigos te ayuda a convertir un resultado en algo útil: una explicación clara, una pregunta para tu próxima consulta, un recurso, un evento o una organización confiable. Las experiencias de la comunidad pueden ayudarte a informarte y preparar preguntas, pero no reemplazan el asesoramiento de un profesional de la salud.',
     trustCta: 'Abrir Centro de confianza',
   },
 } as const;
@@ -135,7 +137,7 @@ const copy = pageCopy[isEnglish ? 'en' : 'es'];
       <div class="pg-container pg-rf-hero-grid">
         <div>
           <p class="pg-eyebrow" set:html={formatBrandText(copy.heroEyebrow)} />
-          <h1><em>RareFriends™</em> by Pocket Genes</h1>
+          <h1 set:html={formatBrandText(copy.heroTitle)} />
           <p set:html={formatBrandText(copy.heroBody)} />
           <div class="pg-button-row">
             <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/download')}>{copy.downloadCta}</a>

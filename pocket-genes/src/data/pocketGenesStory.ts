@@ -70,7 +70,7 @@ const copy: Record<Lang, StoryCopy> = {
       { label: 'Misión', path: '/pocket-genes', slug: 'mission' },
       { label: 'EPOF', path: '/pocket-genes/rare-disease', slug: 'rare-disease' },
       { label: 'Mi espacio', path: '/pocket-genes/companion', slug: 'companion' },
-      { label: 'RareFriends™', path: '/pocket-genes/community', slug: 'community' },
+      { label: 'PockeAmigos', path: '/pocket-genes/community', slug: 'community' },
       { label: 'Integración', path: '/pocket-genes/integration' },
     ],
     pages: {
@@ -282,7 +282,7 @@ const copy: Record<Lang, StoryCopy> = {
           'El objetivo es que una familia llegue a la siguiente conversación con más orden, mejores preguntas y menos carga mental.',
         ctaPrimaryLabel: 'Ver espacio personal',
         ctaPrimaryHref: '/pocket-genes/companion',
-        ctaSecondaryLabel: 'Ver RareFriends™',
+        ctaSecondaryLabel: 'Ver PockeAmigos',
         ctaSecondaryHref: '/pocket-genes/community',
       },
       companion: {
@@ -294,7 +294,7 @@ const copy: Record<Lang, StoryCopy> = {
           'Pocket Genes te ayuda a guardar informes, registrar proveedores, entender conceptos básicos y preparar preguntas para tus consultas.',
         heroImage: '/integrate1.webp',
         heroImageAlt: 'Pantallas móviles con informes genéticos',
-        primaryActionLabel: 'Ver RareFriends™',
+        primaryActionLabel: 'Ver PockeAmigos',
         primaryActionHref: '/pocket-genes/community',
         secondaryActionLabel: 'Ver integración',
         secondaryActionHref: '/pocket-genes/integration',
@@ -385,16 +385,16 @@ const copy: Record<Lang, StoryCopy> = {
         ctaTitle: 'Construir confianza requiere estructura',
         ctaBody:
           'La utilidad nace cuando la información deja de estar dispersa y empieza a sostener decisiones informadas junto al equipo médico.',
-        ctaPrimaryLabel: 'Ver RareFriends™',
+        ctaPrimaryLabel: 'Ver PockeAmigos',
         ctaPrimaryHref: '/pocket-genes/community',
         ctaSecondaryLabel: 'Volver a misión',
         ctaSecondaryHref: '/pocket-genes',
       },
       community: {
-        title: 'RareFriends™ - Comunidad segura para EPOF',
+        title: 'PockeAmigos - Comunidad segura para EPOF',
         navLabel: 'Secciones de Pocket Genes',
-        eyebrow: 'RareFriends™',
-        heroTitle: 'RareFriends™: pequeños círculos para no atravesar el camino en soledad.',
+        eyebrow: 'PockeAmigos',
+        heroTitle: 'PockeAmigos: pequeños círculos para no atravesar el camino en soledad.',
         heroLead:
           'Una comunidad segura y voluntaria para que personas y familias con enfermedades poco frecuentes puedan encontrar a otros, participar en círculos pequeños y compartir solo la información que elijan.',
         heroImage: '/integrate2.webp',
@@ -403,11 +403,11 @@ const copy: Record<Lang, StoryCopy> = {
         primaryActionHref: '/pocket-genes/download',
         secondaryActionLabel: 'Cómo funciona la privacidad',
         secondaryActionHref: '#privacy',
-        introEyebrow: 'Qué es RareFriends™',
+        introEyebrow: 'Qué es PockeAmigos',
         introTitle: 'Acompañamiento y comunidad sin exponer información sensible',
         introBody: [
-          'RareFriends™ no reemplaza la atención médica, el asesoramiento genético ni el trabajo de asociaciones de pacientes. Complementa ese ecosistema con un espacio más personal, cuidado y voluntario.',
-          'No tenés que contar todo para pertenecer. RareFriends™ conecta personas: familias que todavía buscan diagnóstico, adultos que viven con una EPOF, cuidadores y miembros que quieren aprender genética sin miedo.',
+          'PockeAmigos no reemplaza la atención médica, el asesoramiento genético ni el trabajo de asociaciones de pacientes. Complementa ese ecosistema con un espacio más personal, cuidado y voluntario.',
+          'No tenés que contar todo para pertenecer. PockeAmigos conecta personas: familias que todavía buscan diagnóstico, adultos que viven con una EPOF, cuidadores y miembros que quieren aprender genética sin miedo.',
         ],
         stats: [
           { value: 'Voluntario', label: 'participación y conexiones solo con consentimiento' },
@@ -416,7 +416,7 @@ const copy: Record<Lang, StoryCopy> = {
         ],
         pillarsTitle: 'Círculos pequeños, no un foro gigante',
         pillarsSubtitle:
-          'RareFriends™ se organiza alrededor de grupos más cuidados, con reglas claras, moderación y control de privacidad.',
+          'PockeAmigos se organiza alrededor de grupos más cuidados, con reglas claras, moderación y control de privacidad.',
         pillars: [
           {
             title: 'En búsqueda diagnóstica',
@@ -440,7 +440,7 @@ const copy: Record<Lang, StoryCopy> = {
             eyebrow: 'Control',
             title: 'Tu historia, tu control',
             body:
-              'RareFriends™ permite participar con un apodo, mostrar solo el rol o etapa del camino, ocultar detalles diagnósticos y mantener los informes genéticos privados.',
+              'PockeAmigos permite participar con un apodo, mostrar solo el rol o etapa del camino, ocultar detalles diagnósticos y mantener los informes genéticos privados.',
             image: '/integrate1.webp',
             imageAlt: 'Pantallas móviles de Pocket Genes con informes genéticos',
             items: [
@@ -462,7 +462,7 @@ const copy: Record<Lang, StoryCopy> = {
             eyebrow: 'Pocket Genes',
             title: 'La app como punto de entrada seguro',
             body:
-              'Pocket Genes es una herramienta dentro del ecosistema RareFriends™: ayuda a ordenar informes, aprender conceptos básicos y crear resúmenes más seguros para participar en comunidad.',
+              'Pocket Genes es una herramienta dentro del ecosistema PockeAmigos: ayuda a ordenar informes, aprender conceptos básicos y crear resúmenes más seguros para participar en comunidad.',
             items: [
               {
                 title: 'Organizador de informes',
@@ -502,16 +502,16 @@ const copy: Record<Lang, StoryCopy> = {
         ],
         ethicsTitle: 'Reglas de seguridad comunitaria',
         ethicsBody:
-          'RareFriends™ no diagnostica, no prescribe tratamientos y no permite que la comunidad reemplace conversaciones con profesionales de salud.',
+          'PockeAmigos no diagnostica, no prescribe tratamientos y no permite que la comunidad reemplace conversaciones con profesionales de salud.',
         ethicsItems: [
           'No se permiten diagnósticos, tratamientos, curas milagrosas ni presión médica.',
           'No compartir información médica de otras personas.',
           'Informes genéticos privados por defecto, con consentimiento explícito para cualquier conexión.',
           'Moderación contra acoso, desinformación y exposición de datos sensibles.',
         ],
-        ctaTitle: 'Entrá a RareFriends™ desde Pocket Genes',
+        ctaTitle: 'Entrá a PockeAmigos desde Pocket Genes',
         ctaBody:
-          'Descargá Pocket Genes para empezar a organizar informes y preparar una participación comunitaria más segura.',
+          'Descargá Pocket Genes para empezar a organizar informes y participar en la comunidad con más seguridad.',
         ctaPrimaryLabel: 'Descargar la app',
         ctaPrimaryHref: '/pocket-genes/download',
         ctaSecondaryLabel: 'Ver integración para proveedores',
