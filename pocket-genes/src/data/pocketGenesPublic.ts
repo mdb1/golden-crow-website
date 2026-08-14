@@ -57,6 +57,23 @@ export interface TrustDocumentSection {
     headers: string[];
     rows: string[][];
   };
+  flow?: {
+    labels: {
+      actor: string;
+      information: string;
+      action: string;
+      retained: string;
+      control: string;
+    };
+    steps: {
+      title: string;
+      actor: string;
+      information: string;
+      action: string;
+      retained: string;
+      control: string;
+    }[];
+  };
 }
 
 export interface TrustDocument {
@@ -958,17 +975,72 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Data-flow table',
-        table: {
-          headers: ['Step', 'Actor', 'Information involved', 'Pocket Genes action', 'Retained?', 'User control'],
-          rows: [
-            ['Provider initiates', 'Integrator or provider', 'Name, email, optional phone, provider reference, workflow purpose.', 'Creates or prepares the invitation or access process.', 'According to integration policy and current workflow state.', 'User may continue, decline, object, or request deletion where applicable.'],
-            ['User contact', 'Pocket Genes', 'Contact details, invitation state, source organization, support context.', 'Sends service communication for the invitation or access path.', 'Temporarily or until workflow/account cleanup; no public automatic TTL unless stated for a specific integration.', 'User can ignore, decline, contact support, or request deletion.'],
-            ['Consent', 'User and Pocket Genes', 'Consent purpose, version, status, timestamp, related provider or workflow.', 'Records the decision and continues or stops the workflow.', 'Consent records may outlive temporary contact data for accountability.', 'User can withdraw where applicable, subject to limits.'],
-            ['Authentication', 'User, Firebase, Pocket Genes', 'Account id, login information, session state, security events.', 'Verifies identity before private operations.', 'Account and security schedule.', 'User manages account and can request closure.'],
-            ['Report access', 'Provider, Pocket Genes, user', 'Provider link, report code, access token, identifier, report reference, authorization state.', 'Connects authorized user to the provider-connected report experience.', 'State depends on integration, expiry, revocation, provider relationship, and account deletion.', 'User can protect links, sign out, request revocation or deletion where applicable.'],
-            ['Education and discovery', 'Pocket Genes and user', 'Interests, interactions, saved resources, organization follows where applicable.', 'Shows glossary, lessons, resources, events, and relevant organization content.', 'According to account and interaction records.', 'User can manage interests, follows, and optional communications.'],
-            ['Community', 'User, RareFriends, organizations', 'Optional profile, tags, posts, comments, follows, groups, messages, reports, blocks.', 'Publishes and matches according to settings and rules.', 'Community schedule and moderation records.', 'User controls participation, content, visibility, blocks, and deletion subject to limits.'],
+        heading: 'Data-flow journey',
+        flow: {
+          labels: {
+            actor: 'Actor',
+            information: 'Information involved',
+            action: 'Pocket Genes action',
+            retained: 'Retention',
+            control: 'User control',
+          },
+          steps: [
+            {
+              title: 'Provider initiates',
+              actor: 'Integrator or provider',
+              information: 'Name, email, optional phone, provider reference, workflow purpose.',
+              action: 'Creates or prepares the invitation or access process.',
+              retained: 'According to integration policy and current workflow state.',
+              control: 'User may continue, decline, object, or request deletion where applicable.',
+            },
+            {
+              title: 'User contact',
+              actor: 'Pocket Genes',
+              information: 'Contact details, invitation state, source organization, support context.',
+              action: 'Sends service communication for the invitation or access path.',
+              retained: 'Temporarily or until workflow/account cleanup; no public automatic TTL unless stated for a specific integration.',
+              control: 'User can ignore, decline, contact support, or request deletion.',
+            },
+            {
+              title: 'Consent',
+              actor: 'User and Pocket Genes',
+              information: 'Consent purpose, version, status, timestamp, related provider or workflow.',
+              action: 'Records the decision and continues or stops the workflow.',
+              retained: 'Consent records may outlive temporary contact data for accountability.',
+              control: 'User can withdraw where applicable, subject to limits.',
+            },
+            {
+              title: 'Authentication',
+              actor: 'User, Firebase, Pocket Genes',
+              information: 'Account id, login information, session state, security events.',
+              action: 'Verifies identity before private operations.',
+              retained: 'Account and security schedule.',
+              control: 'User manages account and can request closure.',
+            },
+            {
+              title: 'Report access',
+              actor: 'Provider, Pocket Genes, user',
+              information: 'Provider link, report code, access token, identifier, report reference, authorization state.',
+              action: 'Connects authorized user to the provider-connected report experience.',
+              retained: 'State depends on integration, expiry, revocation, provider relationship, and account deletion.',
+              control: 'User can protect links, sign out, request revocation or deletion where applicable.',
+            },
+            {
+              title: 'Educational context',
+              actor: 'Pocket Genes and user',
+              information: 'Interests, interactions, saved resources, organization follows where applicable.',
+              action: 'Connects the experience with definitions, lessons, relevant resources, and other educational information that can help users understand concepts around their results.',
+              retained: 'According to account and interaction records.',
+              control: 'User can manage interests, follows, and optional communications.',
+            },
+            {
+              title: 'Discovery and community',
+              actor: 'User, RareFriends, organizations',
+              information: 'Optional profile, tags, posts, comments, follows, groups, messages, reports, blocks.',
+              action: 'Users can independently and voluntarily participate in organizations, resources, events, and communities related to their interests.',
+              retained: 'Community schedule and moderation records.',
+              control: 'User controls participation, content, visibility, blocks, and deletion subject to limits.',
+            },
           ],
         },
       },
@@ -2642,17 +2714,72 @@ export const trustDocumentsEs: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Tabla de flujo de datos',
-        table: {
-          headers: ['Paso', 'Actor', 'Información involucrada', 'Acción de Pocket Genes', '¿Se conserva?', 'Control del usuario'],
-          rows: [
-            ['Inicio por proveedor', 'Integrador o proveedor', 'Nombre, email, teléfono opcional, referencia de proveedor, propósito del flujo.', 'Crea o prepara invitación o proceso de acceso.', 'Según política de integración y estado del flujo.', 'El usuario puede continuar, rechazar, oponerse o pedir eliminación.'],
-            ['Contacto al usuario', 'Pocket Genes', 'Datos de contacto, estado de invitación, organización fuente y soporte.', 'Envía comunicación de servicio.', 'Temporalmente o hasta limpieza de flujo/cuenta; sin TTL automático público salvo integración específica.', 'El usuario puede ignorar, rechazar, contactar soporte o pedir eliminación.'],
-            ['Consentimiento', 'Usuario y Pocket Genes', 'Propósito, versión, estado, fecha y proveedor o flujo relacionado.', 'Registra decisión y continúa o detiene el flujo.', 'Puede sobrevivir a datos temporales por responsabilidad.', 'El usuario puede retirar donde corresponda, con límites.'],
-            ['Autenticación', 'Usuario, Firebase, Pocket Genes', 'ID de cuenta, login, sesión y eventos de seguridad.', 'Verifica identidad antes de operaciones privadas.', 'Cronograma de cuenta y seguridad.', 'El usuario gestiona cuenta y puede pedir cierre.'],
-            ['Acceso a informe', 'Proveedor, Pocket Genes, usuario', 'Enlace, código, token, identificador, referencia y estado de autorización.', 'Conecta al usuario autorizado con la experiencia del proveedor.', 'Depende de integración, vencimiento, revocación, relación con proveedor y eliminación de cuenta.', 'El usuario protege enlaces, cierra sesión y puede pedir revocación o eliminación.'],
-            ['Educación y descubrimiento', 'Pocket Genes y usuario', 'Intereses, interacciones, recursos guardados y seguimientos cuando aplica.', 'Muestra glosario, lecciones, recursos, eventos y contenido de organizaciones.', 'Según cuenta e interacciones.', 'El usuario gestiona intereses, seguimientos y comunicaciones opcionales.'],
-            ['Comunidad', 'Usuario, RareFriends, organizaciones', 'Perfil opcional, etiquetas, publicaciones, comentarios, seguimientos, grupos, mensajes, reportes y bloqueos.', 'Publica y matchea según configuración y reglas.', 'Cronograma comunitario y registros de moderación.', 'El usuario controla participación, contenido, visibilidad, bloqueos y eliminación con límites.'],
+        heading: 'Recorrido del flujo de datos',
+        flow: {
+          labels: {
+            actor: 'Actor',
+            information: 'Información involucrada',
+            action: 'Acción de Pocket Genes',
+            retained: 'Conservación',
+            control: 'Control del usuario',
+          },
+          steps: [
+            {
+              title: 'Inicio por proveedor',
+              actor: 'Integrador o proveedor',
+              information: 'Nombre, email, teléfono opcional, referencia de proveedor y propósito del flujo.',
+              action: 'Crea o prepara la invitación o el proceso de acceso.',
+              retained: 'Según la política de integración y el estado actual del flujo.',
+              control: 'El usuario puede continuar, rechazar, oponerse o pedir eliminación cuando corresponda.',
+            },
+            {
+              title: 'Contacto al usuario',
+              actor: 'Pocket Genes',
+              information: 'Datos de contacto, estado de invitación, organización fuente y contexto de soporte.',
+              action: 'Envía una comunicación de servicio para la invitación o el acceso.',
+              retained: 'Temporalmente o hasta la limpieza del flujo o de la cuenta; no hay vencimiento automático público salvo que una integración específica lo indique.',
+              control: 'El usuario puede ignorar, rechazar, contactar soporte o pedir eliminación.',
+            },
+            {
+              title: 'Consentimiento',
+              actor: 'Usuario y Pocket Genes',
+              information: 'Propósito, versión, estado, fecha y proveedor o flujo relacionado.',
+              action: 'Registra la decisión y continúa o detiene el flujo.',
+              retained: 'El registro de consentimiento puede conservarse más tiempo que los datos temporales para dejar constancia de la decisión.',
+              control: 'El usuario puede retirar el consentimiento cuando corresponda, sujeto a límites aplicables.',
+            },
+            {
+              title: 'Autenticación',
+              actor: 'Usuario, Firebase y Pocket Genes',
+              information: 'ID de cuenta, login, sesión y eventos de seguridad.',
+              action: 'Verifica la identidad antes de permitir operaciones privadas.',
+              retained: 'Según los plazos aplicables a cuenta y seguridad.',
+              control: 'El usuario gestiona su cuenta y puede pedir el cierre.',
+            },
+            {
+              title: 'Acceso a informe',
+              actor: 'Proveedor, Pocket Genes y usuario',
+              information: 'Enlace, código, token, identificador, referencia de informe y estado de autorización.',
+              action: 'Conecta al usuario autorizado con la experiencia de informe vinculada al proveedor.',
+              retained: 'Depende de la integración, vencimiento, revocación, relación con el proveedor y eliminación de cuenta.',
+              control: 'El usuario protege enlaces, cierra sesión y puede pedir revocación o eliminación cuando corresponda.',
+            },
+            {
+              title: 'Contexto educativo',
+              actor: 'Pocket Genes y usuario',
+              information: 'Intereses, interacciones, recursos guardados y seguimientos cuando aplica.',
+              action: 'Pocket Genes conecta la experiencia con definiciones, lecciones, recursos relevantes y otra información educativa que puede ayudar a entender conceptos alrededor de los resultados pero que de ningún modo exponen información personal o sensible del usuario.',
+              retained: 'Según los registros de cuenta e interacción.',
+              control: 'El usuario gestiona intereses, seguimientos y comunicaciones opcionales.',
+            },
+            {
+              title: 'Descubrimiento y comunidad',
+              actor: 'Usuario, RareFriends y organizaciones',
+              information: 'Perfil opcional, etiquetas, publicaciones, comentarios, seguimientos, grupos, mensajes, reportes y bloqueos.',
+              action: 'Los usuarios pueden participar de forma independiente y voluntaria de organizaciones, recursos, eventos y comunidades relacionadas con sus intereses.',
+              retained: 'Según los plazos comunitarios y los registros de moderación.',
+              control: 'El usuario controla participación, contenido, visibilidad, bloqueos y eliminación, sujeto a límites aplicables.',
+            },
           ],
         },
       },

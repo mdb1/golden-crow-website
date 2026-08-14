@@ -24,7 +24,6 @@ const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 const locale = isEnglish ? 'en' : 'es';
 const routeDocument = Astro.props.document;
 const document = getTrustDocument(routeDocument.slug, locale) ?? routeDocument;
-const isDataFlow = document.slug === 'data-flow-diagram';
 const navigationDocuments = getLocalizedTrustDocuments(locale);
 const navigationCategories = Array.from(new Set(navigationDocuments.map((navDocument) => navDocument.category))).map((category) => ({
   category,
@@ -74,40 +73,8 @@ const pageCopy = {
     lastReviewed: 'Last reviewed',
     contact: 'Contact',
     navigationTitle: 'Navigation',
-    dataFlowTitle: 'Pocket Genes data-flow diagram',
-    dataFlowLabel: 'Pocket Genes data flow',
     relatedPages: 'Related pages',
     download: 'Download Pocket Genes',
-    flowSteps: [
-      {
-        title: 'Report provider',
-        body: 'A participating provider makes a genetic report available to its user and remains the source of the report and its findings.',
-      },
-      {
-        title: 'Pocket Genes integration',
-        body: 'Pocket Genes receives the information required to connect the intended user with the corresponding mobile experience.',
-      },
-      {
-        title: 'User identification and consent',
-        body: 'Where applicable, limited contact information is used to communicate with the intended user and complete the required consent or access process.',
-      },
-      {
-        title: 'Mobile report access',
-        body: 'Pocket Genes provides a simple mobile path for the user to reach and navigate the report made available by the provider.',
-      },
-      {
-        title: 'Educational context',
-        body: 'Pocket Genes connects the experience with definitions, lessons, relevant resources, and other educational information that can help users understand the concepts around their results.',
-      },
-      {
-        title: 'Discover and community',
-        body: 'Users can independently discover organizations, resources, events, and communities related to their interests.',
-      },
-      {
-        title: 'User-controlled participation',
-        body: 'Community participation and sharing are separate actions. Accessing a report does not automatically publish its contents or disclose it to other Pocket Genes users.',
-      },
-    ],
   },
   es: {
     trustCenterTitle: 'Centro de confianza de Pocket Genes',
@@ -123,40 +90,8 @@ const pageCopy = {
     lastReviewed: 'Última revisión',
     contact: 'Contacto',
     navigationTitle: 'Navegación',
-    dataFlowTitle: 'Diagrama de flujo de datos de Pocket Genes',
-    dataFlowLabel: 'Flujo de datos de Pocket Genes',
     relatedPages: 'Páginas relacionadas',
     download: 'Descargar Pocket Genes',
-    flowSteps: [
-      {
-        title: 'Proveedor del informe',
-        body: 'Un proveedor participante pone un informe genético a disposición de su usuario y sigue siendo la fuente del informe y sus hallazgos.',
-      },
-      {
-        title: 'Integración de Pocket Genes',
-        body: 'Pocket Genes recibe la información necesaria para conectar a la persona prevista con la experiencia móvil correspondiente.',
-      },
-      {
-        title: 'Identificación y consentimiento',
-        body: 'Cuando corresponde, se usa información limitada de contacto para comunicarse con la persona prevista y completar el proceso requerido de consentimiento o acceso.',
-      },
-      {
-        title: 'Acceso móvil al informe',
-        body: 'Pocket Genes brinda un camino móvil simple para que el usuario llegue y navegue el informe puesto a disposición por el proveedor.',
-      },
-      {
-        title: 'Contexto educativo',
-        body: 'Pocket Genes conecta la experiencia con definiciones, lecciones, recursos relevantes y otra información educativa que puede ayudar a entender conceptos alrededor de los resultados pero que de ningún modo exponen información personal o sensible del usuario.',
-      },
-      {
-        title: 'Descubrimiento y comunidad',
-        body: 'Los usuarios pueden participar de forma independiente y voluntaria de organizaciones, recursos, eventos y comunidades relacionadas con sus intereses.',
-      },
-      {
-        title: 'Participación controlada por el usuario',
-        body: 'La participación comunitaria y el intercambio son acciones separadas. Acceder a un informe no publica automáticamente su contenido ni lo revela a otros usuarios de Pocket Genes.',
-      },
-    ],
   },
 } as const;
 
@@ -290,23 +225,44 @@ const copy = pageCopy[locale];
                   </table>
                 </div>
               )}
+              {section.flow && (
+                <div class="pg-trust-flow-journey" aria-label={section.heading}>
+                  {section.flow.steps.map((step, index) => (
+                    <article class:list={['pg-trust-flow-step', { 'is-last': index === section.flow.steps.length - 1 }]}>
+                      <div class="pg-trust-flow-marker" aria-hidden="true">
+                        <span>{String(index + 1).padStart(2, '0')}</span>
+                      </div>
+                      <div class="pg-trust-flow-content">
+                        <p class="pg-trust-flow-actor">
+                          <span set:html={linkTrustEmail(section.flow.labels.actor)} />
+                          <strong set:html={linkTrustEmail(step.actor)} />
+                        </p>
+                        <h3 set:html={linkTrustEmail(step.title)} />
+                        <p class="pg-trust-flow-description">
+                          <span set:html={linkTrustEmail(section.flow.labels.action)} />
+                          <strong set:html={linkTrustEmail(step.action)} />
+                        </p>
+                        <dl class="pg-trust-flow-facts">
+                          <div>
+                            <dt set:html={linkTrustEmail(section.flow.labels.information)} />
+                            <dd set:html={linkTrustEmail(step.information)} />
+                          </div>
+                          <div>
+                            <dt set:html={linkTrustEmail(section.flow.labels.retained)} />
+                            <dd set:html={linkTrustEmail(step.retained)} />
+                          </div>
+                          <div>
+                            <dt set:html={linkTrustEmail(section.flow.labels.control)} />
+                            <dd set:html={linkTrustEmail(step.control)} />
+                          </div>
+                        </dl>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
             </section>
           ))}
-
-          {isDataFlow && (
-            <section class="pg-data-flow">
-              <h2 set:html={linkTrustEmail(copy.dataFlowTitle)} />
-              <div class="pg-flow-track" aria-label={copy.dataFlowLabel}>
-                {copy.flowSteps.map((step, index) => (
-                  <article class:list={['pg-flow-step', { 'is-last': index === copy.flowSteps.length - 1 }]}>
-                    <span>{index + 1}</span>
-                    <h3 set:html={linkTrustEmail(step.title)} />
-                    <p set:html={linkTrustEmail(step.body)} />
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
 
           <section class="pg-trust-next">
             <h2>{copy.relatedPages}</h2>
@@ -577,46 +533,156 @@ const copy = pageCopy[locale];
     font-weight: 850;
   }
 
-  .pg-flow-track {
+  .pg-trust-flow-journey {
     display: grid;
     gap: 0;
-    margin-top: 18px;
+    margin-top: 24px;
   }
 
-  .pg-flow-step {
+  .pg-trust-flow-step {
+    position: relative;
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr);
-    gap: 14px;
-    min-height: 0;
-    padding: 18px 0;
-    border-top: 1px solid var(--pg-border);
-    background: transparent;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 18px;
+    padding: 0 0 28px;
   }
 
-  .pg-flow-step:first-child {
-    padding-top: 0;
-    border-top: 0;
+  .pg-trust-flow-step::before {
+    content: "";
+    position: absolute;
+    top: 56px;
+    bottom: 0;
+    left: 27px;
+    border-left: 2px dashed rgba(20, 149, 143, 0.34);
   }
 
-  .pg-flow-step span {
-    width: 34px;
-    height: 34px;
+  .pg-trust-flow-step.is-last {
+    padding-bottom: 0;
+  }
+
+  .pg-trust-flow-step.is-last::before {
+    display: none;
+  }
+
+  .pg-trust-flow-marker {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
     border: 1px solid rgba(20, 149, 143, 0.32);
     border-radius: 999px;
-    background: #eef8f7;
+    background:
+      radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.92), transparent 34%),
+      linear-gradient(145deg, #e8fbf8 0%, #ccefeb 100%);
+    box-shadow: 0 12px 28px rgba(20, 149, 143, 0.12);
+  }
+
+  .pg-trust-flow-marker::after {
+    content: "";
+    position: absolute;
+    right: 5px;
+    bottom: 6px;
+    width: 10px;
+    height: 10px;
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    background: var(--pg-rose);
+  }
+
+  .pg-trust-flow-marker span {
     color: var(--pg-teal);
-    display: inline-grid;
-    place-items: center;
+    font-size: 0.84rem;
     font-weight: 900;
+    line-height: 1;
   }
 
-  .pg-flow-step h3,
-  .pg-flow-step p {
-    grid-column: 2;
+  .pg-trust-flow-content {
+    min-width: 0;
+    border: 1px solid rgba(20, 149, 143, 0.18);
+    border-radius: 8px;
+    background:
+      linear-gradient(90deg, rgba(238, 248, 247, 0.72), rgba(255, 255, 255, 0.96)),
+      #ffffff;
+    padding: 20px;
   }
 
-  .pg-flow-step p {
-    font-size: 0.94rem;
+  .pg-trust-flow-actor {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 8px;
+    color: var(--pg-ink-soft);
+    font-size: 0.86rem;
+  }
+
+  .pg-trust-flow-actor span {
+    color: var(--pg-teal);
+    font-weight: 880;
+    text-transform: uppercase;
+  }
+
+  .pg-trust-flow-actor strong {
+    color: var(--pg-ink);
+    font-weight: 780;
+  }
+
+  .pg-trust-flow-content h3 {
+    margin: 0 0 8px;
+    color: var(--pg-ink);
+    font-size: 1.24rem;
+    line-height: 1.22;
+  }
+
+  .pg-trust-flow-description {
+    display: grid;
+    gap: 5px;
+    max-width: 760px;
+    margin: 0;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-trust-flow-description span {
+    color: var(--pg-muted);
+    font-size: 0.74rem;
+    font-weight: 850;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .pg-trust-flow-description strong {
+    color: var(--pg-ink-soft);
+    font-weight: 520;
+  }
+
+  .pg-trust-flow-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 18px 0 0;
+  }
+
+  .pg-trust-flow-facts div {
+    min-width: 0;
+    border-top: 2px solid rgba(20, 149, 143, 0.2);
+    padding-top: 10px;
+  }
+
+  .pg-trust-flow-facts dt {
+    color: var(--pg-muted);
+    font-size: 0.74rem;
+    font-weight: 850;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .pg-trust-flow-facts dd {
+    margin: 5px 0 0;
+    color: var(--pg-ink-soft);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   .pg-trust-next div {
@@ -645,9 +711,26 @@ const copy = pageCopy[locale];
       font-size: 2.45rem;
     }
 
-    .pg-flow-step {
-      grid-template-columns: 36px minmax(0, 1fr);
+    .pg-trust-flow-step {
+      grid-template-columns: 44px minmax(0, 1fr);
       gap: 12px;
+    }
+
+    .pg-trust-flow-step::before {
+      left: 21px;
+    }
+
+    .pg-trust-flow-marker {
+      width: 44px;
+      height: 44px;
+    }
+
+    .pg-trust-flow-content {
+      padding: 16px;
+    }
+
+    .pg-trust-flow-facts {
+      grid-template-columns: 1fr;
     }
   }
 </style>
