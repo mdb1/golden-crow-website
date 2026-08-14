@@ -1984,7 +1984,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Política de Privacidad',
     category: 'Privacidad y derechos',
     summary:
-      'Explica qué datos personales usa Pocket Genes, para qué los necesita, cómo los protege, cuándo puede compartirlos y qué decisiones podés tomar sobre ellos.',
+      'Explica qué datos personales usa Pocket Genes, para qué los necesita, cómo los protege, cuándo puede compartirlos y qué decisiones podés tomar.',
     owner: 'Confianza y privacidad',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -2159,7 +2159,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Términos de Servicio',
     category: 'Términos del producto',
     summary:
-      'Reúne las condiciones para usar Pocket Genes, las responsabilidades asociadas a una cuenta, las reglas sobre contenido y los límites del servicio.',
+      'Reúne las condiciones para usar Pocket Genes, las responsabilidades de cada cuenta, las reglas de contenido y los límites del servicio.',
     owner: 'Producto y legal',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -2317,7 +2317,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Términos de Comunidad',
     category: 'Comunidad',
     summary:
-      'Reúne las reglas para participar en PockeAmigos, explica qué información puede verse y establece pautas para interactuar de forma respetuosa y segura.',
+      'Reúne las reglas de PockeAmigos, explica qué información puede verse y cómo participar de forma respetuosa y segura.',
     owner: 'Operaciones comunitarias',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -2451,7 +2451,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Política de Seguridad Comunitaria',
     category: 'Comunidad',
     summary:
-      'Explica cómo funcionan los reportes, bloqueos y medidas de moderación, y cómo actuamos ante abusos, exposición de información privada o situaciones de riesgo.',
+      'Explica cómo funcionan los reportes, bloqueos y medidas de moderación ante abusos, datos expuestos o situaciones de riesgo.',
     owner: 'Operaciones comunitarias',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -2583,7 +2583,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Resumen de Seguridad',
     category: 'Seguridad',
     summary:
-      'Describe las medidas que usamos para proteger cuentas, accesos privados y servicios de la plataforma, además de cómo gestionamos proveedores e incidentes.',
+      'Describe cómo protegemos cuentas, accesos privados y servicios, y cómo gestionamos proveedores e incidentes.',
     owner: 'Seguridad',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -2723,7 +2723,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Diagrama de Flujo de Datos',
     category: 'Seguridad',
     summary:
-      'Separa el manejo de documentos de proveedor antes de un estudio, el acceso a informes después del estudio y las funciones opcionales de educación o comunidad.',
+      'Muestra qué datos recibe Pocket Genes, para qué se usan y cómo participan el proveedor, la plataforma y el usuario al acceder a un informe.',
     owner: 'Seguridad y producto',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -2946,7 +2946,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Proveedores que tratan datos',
     category: 'Privacidad y derechos',
     summary:
-      'Indica qué proveedores externos utiliza Pocket Genes, para qué funciones y qué tipos de datos pueden tratar al prestar sus servicios.',
+      'Indica qué servicios externos usa Pocket Genes, para qué funciones y qué tipos de datos pueden tratar.',
     owner: 'Confianza y privacidad',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -3076,7 +3076,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Política de Retención y Eliminación de Datos',
     category: 'Privacidad y derechos',
     summary:
-      'Explica durante cuánto tiempo conservamos los distintos tipos de datos y qué ocurre cuando pedís eliminarlos o cerrás tu cuenta.',
+      'Explica cuánto tiempo conservamos cada tipo de dato y qué ocurre cuando pedís eliminarlo o cerrar tu cuenta.',
     owner: 'Confianza y privacidad',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -3195,7 +3195,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Informar un incidente',
     category: 'Seguridad',
     summary:
-      'Explica cómo informar un problema de privacidad, seguridad, acceso o accesibilidad, o comunicar una posible vulnerabilidad técnica.',
+      'Explica cómo informar incidentes de privacidad, acceso o seguridad, barreras de uso y vulnerabilidades.',
     owner: 'Seguridad',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -3309,7 +3309,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Declaración de Accesibilidad',
     category: 'Accesibilidad',
     summary:
-      'Describe qué partes de Pocket Genes cubre la declaración, qué nivel de accesibilidad buscamos, cómo realizamos las pruebas, qué limitaciones conocemos y cómo podés informar una barrera.',
+      'Explica qué partes cubre, qué nivel buscamos, cómo probamos la accesibilidad, qué límites conocemos y cómo informar una barrera.',
     owner: 'Producto',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -3662,7 +3662,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Estándares de Organizaciones de Confianza',
     category: 'Comunidad',
     summary:
-      'Explica cómo evaluamos a las organizaciones, cómo identificamos su contenido y qué hacemos ante promociones engañosas, incumplimientos o quejas de la comunidad.',
+      'Explica cómo evaluamos cada organización, identificamos su contenido y actuamos ante quejas, engaños o incumplimientos.',
     owner: 'Confianza y operaciones comunitarias',
     status: 'Publicado',
     ...baseDocumentMetaEs,
