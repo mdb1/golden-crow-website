@@ -17,12 +17,12 @@ export const en = {
     aboutUs: 'About Us',
     contactLink: 'Contact',
     pocketGenes: 'Pocket Genes',
-    copyright: '© 2026 Golden Crow VS. All rights reserved.',
+    copyright: '© 2026 Golden Crow Venture Studio. All rights reserved.',
   },
 
   // Home page (index)
   index: {
-    title: 'Golden Crow VS — Native Mobile Engineering Agency',
+    title: 'Golden Crow Venture Studio — Native Mobile Engineering Agency',
     // Hero
     heroMain: 'Premium Mobile Experience',
     heroAccent: 'Accelerated by AI',
@@ -55,7 +55,7 @@ export const en = {
     project3GooglePlay: '',
     project3Website: '/en/anytime-fitness',
     project4Title: 'GC Fitness',
-    project4Desc: 'Our own fitness coaching platform: coaches build workouts, habits and nutrition from the backoffice, and clients run and log them from their phone or Apple Watch. A Golden Crow product, on iOS and Android.',
+    project4Desc: 'Our own fitness coaching platform: coaches build workouts, habits and nutrition from the backoffice, and clients run and log them from their phone or Apple Watch. A Golden Crow Venture Studio product, on iOS and Android.',
     project4Image: '/gc-fitness-card.webp',
     project4Tags: ['iOS', 'Android', 'Apple Watch', 'Own product'] as unknown as string[],
     project4AppStore: 'https://apps.apple.com/app/id6771836254',
@@ -149,9 +149,9 @@ export const en = {
       'And it happens because building a great native mobile product is much harder than it looks.',
       'Pretty screens or a store listing aren\'t enough.\nMobile is one of the most important touchpoints between a company and its customers — where habit, recurrence, community, and a large share of revenue actually happen.',
       'To get there you need serious engineering, real product experience, and long-term vision.',
-      'At Golden Crow we use AI every day to speed up processes and increase productivity.\nBut we believe AI should sharpen judgment, not replace it.',
+      'At Golden Crow Venture Studio we use AI every day to speed up processes and increase productivity.\nBut we believe AI should sharpen judgment, not replace it.',
       'Because writing code quickly isn\'t the hard part.\nThe hard part is building solid, scalable products designed to last.',
-      'That\'s why we built Golden Crow:\na boutique software studio focused on premium mobile experiences, for companies that understand the strategic value of a great digital product.',
+      'That\'s why we built Golden Crow Venture Studio:\na boutique software studio focused on premium mobile experiences, for companies that understand the strategic value of a great digital product.',
     ] as unknown as string[],
     founderNoteSignOff: '— Manuel Herrera, Founder & CEO',
   },
@@ -357,7 +357,7 @@ export const en = {
 
   // Layout components - Hero
   hero: {
-    brand: 'Golden Crow VS',
+    brand: 'Golden Crow Venture Studio',
     product: 'Pocket Genes',
     tagline: 'GENOMIC INTEGRATION FOR PROVIDERS',
     description: 'Do not build a genetic app from scratch. Connect authorized report access through Pocket Genes and add ',

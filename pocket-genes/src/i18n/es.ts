@@ -19,12 +19,12 @@ export const es: Translations = {
     aboutUs: 'Nosotros',
     contactLink: 'Contacto',
     pocketGenes: 'Pocket Genes',
-    copyright: '© 2026 Golden Crow VS. Todos los derechos reservados.',
+    copyright: '© 2026 Golden Crow Venture Studio. Todos los derechos reservados.',
   },
 
   // Home page (index)
   index: {
-    title: 'Golden Crow VS — Agencia de Ingeniería Mobile Nativa',
+    title: 'Golden Crow Venture Studio — Agencia de Ingeniería Mobile Nativa',
     // Hero
     heroMain: 'Experiencia Mobile Premium',
     heroAccent: 'Acelerada por la IA',
@@ -57,7 +57,7 @@ export const es: Translations = {
     project3GooglePlay: '',
     project3Website: '/anytime-fitness',
     project4Title: 'GC Fitness',
-    project4Desc: 'Plataforma de coaching fitness propia: el coach arma entrenamientos, hábitos y nutrición desde el backoffice, y el cliente los ejecuta y registra desde el teléfono o el Apple Watch. Producto propio de Golden Crow, en iOS y Android.',
+    project4Desc: 'Plataforma de coaching fitness propia: el coach arma entrenamientos, hábitos y nutrición desde el backoffice, y el cliente los ejecuta y registra desde el teléfono o el Apple Watch. Producto propio de Golden Crow Venture Studio, en iOS y Android.',
     project4Image: '/gc-fitness-card.webp',
     project4Tags: ['iOS', 'Android', 'Apple Watch', 'Producto propio'] as unknown as string[],
     project4AppStore: 'https://apps.apple.com/app/id6771836254',
@@ -151,9 +151,9 @@ export const es: Translations = {
       'Y eso pasa porque construir un buen producto móvil nativo es muchísimo más difícil de lo que parece.',
       'No alcanza con hacer pantallas lindas o publicar una app en las tiendas.\nHoy el canal móvil es uno de los puntos de contacto más importantes entre una empresa y sus clientes: donde se construye hábito, recurrencia, comunidad y gran parte de los ingresos.',
       'Pero para lograrlo se necesita ingeniería seria, experiencia de producto y visión de largo plazo.',
-      'En Golden Crow usamos inteligencia artificial todos los días para acelerar procesos y aumentar productividad.\nPero creemos que la IA debe potenciar criterio, no reemplazarlo.',
+      'En Golden Crow Venture Studio usamos inteligencia artificial todos los días para acelerar procesos y aumentar productividad.\nPero creemos que la IA debe potenciar criterio, no reemplazarlo.',
       'Porque generar código rápido no es lo difícil.\nLo difícil es construir productos sólidos, escalables y pensados para durar.',
-      'Por eso creamos Golden Crow:\nun estudio de software enfocado en construir experiencias móviles premium para compañías que entienden el valor estratégico de tener un gran producto digital.',
+      'Por eso creamos Golden Crow Venture Studio:\nun estudio de software enfocado en construir experiencias móviles premium para compañías que entienden el valor estratégico de tener un gran producto digital.',
     ] as unknown as string[],
     founderNoteSignOff: '— Manuel Herrera, Founder & CEO',
   },
@@ -356,7 +356,7 @@ export const es: Translations = {
 
   // Layout components - Hero
   hero: {
-    brand: 'Golden Crow VS',
+    brand: 'Golden Crow Venture Studio',
     product: 'Pocket Genes',
     tagline: 'INTEGRACIÓN GENÓMICA PARA PROVEEDORES',
     description: 'No construyas una app genética desde cero. Conectá el acceso autorizado a tus informes mediante Pocket Genes y sumá ',

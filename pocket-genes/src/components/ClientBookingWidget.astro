@@ -1,12 +1,13 @@
 ---
 import { defaultLang } from '../i18n/ui';
 import type { Lang } from '../i18n/ui';
-import { formatBrandText } from '../utils/brandFormatting';
+import { escapeHtml, formatBrandText } from '../utils/brandFormatting';
 
 interface Props {
   context?: string;
   eventTitle?: string;
   brandName?: string;
+  emphasizeBrandName?: boolean;
 }
 
 const lang = (Astro.currentLocale || defaultLang) as Lang;
@@ -15,6 +16,7 @@ const {
   context = 'general',
   eventTitle = isEnglish ? 'Consultation Call' : 'Llamada de Consultoría',
   brandName = 'GoldenCrow',
+  emphasizeBrandName = false,
 } = Astro.props;
 const sdkUrl =
   import.meta.env.PUBLIC_GOLDENCROW_SDK_URL || 'https://golden-crow-sdk.vercel.app';
@@ -84,6 +86,7 @@ const copy = isEnglish
 const weekdayLabels = isEnglish
   ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   : ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) : escapeHtml(copy.brandName);
 ---
 
 <div
@@ -97,7 +100,7 @@ const weekdayLabels = isEnglish
   <article class="booking-shell">
     <aside class="booking-summary">
       <img class="booking-logo" src="/logo1024.webp" alt={`${copy.brandName} logo`} />
-      <p class="booking-brand" set:html={formatBrandText(copy.brandName)} />
+      <p class="booking-brand" set:html={renderedBrandName} />
       <h3>{copy.eventTitle}</h3>
       <div class="booking-meta">
         <span class="booking-meta-row">
