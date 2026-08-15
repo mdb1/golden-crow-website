@@ -309,24 +309,18 @@ const copy = pageCopy[locale];
     max-height: calc(100svh - var(--pg-trust-sticky-top) - 24px);
     overflow-y: auto;
     overscroll-behavior: contain;
-    scrollbar-gutter: stable;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     border-top: 1px solid var(--pg-border);
     border-bottom: 1px solid var(--pg-border);
     background: transparent;
-    padding: 18px 8px 18px 0;
+    padding: 18px 0;
   }
 
   .pg-trust-meta::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  .pg-trust-meta::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: rgba(20, 149, 143, 0.28);
-  }
-
-  .pg-trust-meta::-webkit-scrollbar-track {
-    background: transparent;
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   .pg-trust-meta h2 {
