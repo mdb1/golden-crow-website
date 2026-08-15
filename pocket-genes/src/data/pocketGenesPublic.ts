@@ -1031,7 +1031,7 @@ export const trustDocuments: TrustDocument[] = [
               control: 'The doctor or provider remains responsible for the report content and for explaining it to the patient.',
             },
             {
-              title: 'Access recorded',
+              title: 'Access limited',
               actor: 'Pocket Genes',
               information: 'Report reference, authorized doctor, authorized patient, access state, and security events.',
               action: 'Pocket Genes keeps access limited to the authorized accounts.',
@@ -2795,7 +2795,7 @@ export const trustDocumentsEs: TrustDocument[] = [
               control: 'El médico o proveedor conserva responsabilidad sobre el contenido del reporte y sobre explicarlo al paciente.',
             },
             {
-              title: 'Acceso registrado',
+              title: 'Acceso limitado',
               actor: 'Pocket Genes',
               information: 'Referencia del reporte, médico autorizado, paciente autorizado, estado de acceso y eventos de seguridad.',
               action: 'Pocket Genes limita el acceso a las cuentas autorizadas.',
