@@ -288,8 +288,8 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Report access and confidential references',
         paragraphs: [
           'The participating provider remains responsible for the report, the findings, the scientific or clinical interpretation, and the provider-controlled delivery path. Pocket Genes is responsible for the account, integration, access, and user-experience functions it operates.',
-          'Depending on the integration, Pocket Genes may receive or create a report code, provider reference, URL, token, access state, or similar identifier. These items are handled as confidential access information. They should not be posted in community spaces, public profiles, analytics, screenshots, or logs unless strictly needed for support or security investigation.',
-          'Where a link or reference expires or can be revoked, the expiration or revocation path should be reflected in the user workflow or provider agreement. Provider resources may become unavailable independently of Pocket Genes if the provider changes, removes, or disables the underlying report or service.',
+          'Depending on the integration, Pocket Genes may receive or create a report code, provider reference, URL, token, access state, or similar identifier. These items are handled as confidential access information and are kept out of community spaces, public profiles, analytics, screenshots, and logs except where narrowly needed for support or security investigation.',
+          'When a link or reference expires or can be revoked, that status is handled through the relevant user workflow or provider arrangement. Provider resources may become unavailable independently of Pocket Genes if the provider changes, removes, or disables the underlying report or service.',
         ],
       },
       {
@@ -304,7 +304,7 @@ export const trustDocuments: TrustDocument[] = [
         paragraphs: [
           'Pocket Genes uses established service providers, including Amazon Web Services and Google Firebase, to operate different technical components. The Subprocessor List identifies public providers and the categories of information they may process.',
           'Some providers may process information outside the user country. Pocket Genes remains responsible for selecting, configuring, and operating its own application safely even when the underlying cloud provider supplies infrastructure security.',
-          'Pocket Genes does not publish a sale of personal information or advertising-use model for Pocket Genes user data in this Trust Center. If cookies, website analytics, crash reporting, product analytics, push notifications, attribution, or marketing communications are introduced or expanded, Pocket Genes should identify the tool, purpose, choice, and retention path in the relevant notice.',
+          'Pocket Genes does not publish a sale of personal information or advertising-use model for Pocket Genes user data in this Trust Center. Any material expansion of cookies, website analytics, crash reporting, product analytics, push notifications, attribution, or marketing communications is handled through a relevant notice that identifies purpose, choice, and retention path.',
         ],
       },
       {
@@ -801,7 +801,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Purpose and scope',
         paragraphs: [
-          'This Security Overview explains the controls Pocket Genes uses or designs around to protect accounts, integration workflows, report-access references, community features, support requests, and platform operations.',
+          'This Security Overview summarizes the protections Pocket Genes applies around accounts, integration workflows, report-access references, community features, support requests, and platform operations.',
           'AWS and Firebase provide infrastructure and platform controls used by Pocket Genes for authentication, communications, application operation, and workflow management.',
         ],
       },
@@ -810,8 +810,7 @@ export const trustDocuments: TrustDocument[] = [
         bullets: [
           'Pocket Genes users and invited users.',
           'Integrators, providers, and Trusted Organizations.',
-          'Security researchers and people reporting incidents.',
-          'Internal operators and administrators who handle Pocket Genes systems.',
+          'Security researchers, external reviewers, and people reporting incidents.',
         ],
       },
       {
@@ -820,30 +819,30 @@ export const trustDocuments: TrustDocument[] = [
           { heading: 'Authentication', body: 'The process used to verify a user or administrator identity before granting account access.' },
           { heading: 'Authorization', body: 'Application checks that decide whether an authenticated user may access a specific record, feature, provider reference, community resource, or admin action.' },
           { heading: 'Confidential access information', body: 'Report codes, provider references, URLs, access tokens, identifiers, and similar values that can connect a user to a private report-access path.' },
-          { heading: 'Administrative access', body: 'Privileged access used to operate, support, moderate, debug, secure, or maintain Pocket Genes.' },
+          { heading: 'Administrative access', body: 'Privileged access used to operate, support, moderate, secure, or maintain Pocket Genes.' },
         ],
       },
       {
         heading: 'Authentication and sessions',
         paragraphs: [
-          'Private account functionality requires authenticated identity. Pocket Genes uses Firebase Authentication and server-created session cookies for protected account and backoffice flows. Supported sign-in methods may vary by product surface and provider configuration.',
-          'Password reset, account recovery, and session handling are designed to reduce unauthorized takeover risk. Session lifetime, reauthentication, recovery behavior, and multi-factor availability are configured by the relevant authentication surface.',
+          'Private account functionality requires authenticated identity. Pocket Genes uses managed authentication and server-side sessions for protected account and administrative surfaces. Supported sign-in methods may vary by product surface and provider configuration.',
+          'Password reset, account recovery, and session handling are designed to reduce unauthorized takeover risk. Session lifetime, reauthentication, recovery behavior, and stronger verification options are configured by the relevant authentication surface.',
         ],
       },
       {
         heading: 'Authorization',
         paragraphs: [
-          'Authentication does not grant universal access. Pocket Genes must check user-resource relationships before returning account records, report references, community records, support records, organization publishing tools, or admin actions.',
-          'Administrative tools should enforce role-based access, least privilege, and separation between production operations and development or testing activity.',
+          'Authentication does not grant universal access. Pocket Genes uses relationship-based authorization before returning account records, report references, community records, support records, organization publishing tools, or admin actions.',
+          'Administrative surfaces are scoped by role and operational need, with separation between live service operation and non-production activity.',
         ],
       },
       {
         heading: 'Report-access protection',
         bullets: [
           'Report links, provider references, report codes, and access tokens are treated as confidential access information.',
-          'They should not be intentionally exposed in public profiles, organization content, community posts, screenshots, analytics, or logs unless strictly needed for support or security.',
-          'Access should be limited to the intended user, authorized caregiver, or authorized workflow.',
-          'Expiration, revocation, and provider availability should be described in the integration or user flow when implemented.',
+          'They are kept out of public profiles, organization content, community posts, screenshots, analytics, and logs except where narrowly needed for support or security.',
+          'Access is scoped to the intended user, authorized caregiver, or authorized workflow.',
+          'Expiration, revocation, and provider availability are surfaced through the relevant integration or user flow when implemented.',
         ],
       },
       {
@@ -856,28 +855,28 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Administrative access',
         bullets: [
-          'Grant production access only to people who need it for a defined operational role.',
-          'Use role-based permissions and remove access when responsibilities change.',
-          'Require strong authentication for administrative systems and enable multi-factor authentication where the system supports it.',
-          'Log sensitive administrative actions and review access periodically.',
-          'Avoid using production user information for development or demonstrations unless approved and minimized.',
+          'Production access is restricted to defined operational roles.',
+          'Administrative permissions follow role-based boundaries and are removed when responsibilities change.',
+          'Administrative systems use strong authentication, with multi-factor controls where supported.',
+          'Sensitive administrative actions are logged where available and access is reviewed as part of operations.',
+          'Production user information is separated from non-production activity except for controlled, minimized cases.',
         ],
       },
       {
-        heading: 'Secure development',
+        heading: 'Product security practices',
         bullets: [
-          'Use code review, dependency updates, release review, and environment separation for product changes.',
-          'Store secrets outside source code and rotate them when exposure is suspected.',
-          'Use test data or minimized datasets for testing whenever possible.',
-          'Review authentication, authorization, Firestore rules, API routes, and mobile/API behavior before release.',
-          'Track reported vulnerabilities through triage, remediation, validation, and closure.',
+          'Product changes are reviewed before publication and handled through separated environments.',
+          'Third-party components and sensitive configuration are managed as part of release readiness.',
+          'Testing uses test or minimized datasets where practical.',
+          'Authentication, authorization, data rules, API routes, and app behavior are part of release readiness.',
+          'Security reports move through severity review, remediation, validation, and closure.',
         ],
       },
       {
         heading: 'Logging, monitoring, backups, and continuity',
         paragraphs: [
           'Pocket Genes may log operational, security, authentication, support, and diagnostic events to detect errors, abuse, unusual access, and service reliability issues.',
-          'Backups and managed-provider durability help support business continuity and disaster recovery. Restores should be handled so deleted or restricted records are not unintentionally re-exposed after recovery.',
+          'Backups and managed-provider durability help support business continuity and disaster recovery. Restoration handling includes controls for deleted or restricted records.',
         ],
       },
       {
@@ -894,21 +893,21 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Pocket Genes responsibilities',
+        heading: 'Pocket Genes security commitments',
         bullets: [
-          'Configure authentication, authorization, infrastructure, and application controls safely.',
-          'Protect confidential access information and private user data.',
-          'Keep administrative access limited, reviewed, and logged where feasible.',
-          'Maintain a vulnerability and incident reporting path.',
+          'Authentication, authorization, infrastructure, and application controls are configured around private access boundaries.',
+          'Confidential access information and private user data are treated as protected information.',
+          'Administrative access remains limited, reviewed, and logged where available.',
+          'Security and incident reporting paths remain available for external reports.',
         ],
       },
       {
-        heading: 'User, integrator, and organization responsibilities',
+        heading: 'Shared trust model',
         bullets: [
-          'Users should protect credentials, devices, report links, and report codes.',
-          'Integrators should send only necessary data and protect provider references before and after transfer.',
-          'Organizations should not request private reports or access codes through community content or messages.',
-          'Security researchers should follow the vulnerability-disclosure scope and avoid accessing other users information.',
+          'Account holders control their credentials, devices, report links, and report codes.',
+          'Integrators are expected to provide only authorized, necessary information.',
+          'Community and organization surfaces are not channels for requesting private reports or access codes.',
+          'Security research is handled through the published vulnerability-disclosure scope.',
         ],
       },
       {
@@ -1106,8 +1105,8 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'User device and local state',
         paragraphs: [
-          'The user device may hold app state, cached screens, notifications, downloaded files, screenshots, browser history, or operating-system records depending on device settings and app behavior. Users should protect the device with a passcode or biometric lock and avoid saving or sharing report screenshots publicly.',
-          'Pocket Genes should avoid storing provider links, report codes, or private report content in places where they are not needed, such as public profiles, community posts, analytics, or support screenshots.',
+          'The user device may hold app state, cached screens, notifications, downloaded files, screenshots, browser history, or operating-system records depending on device settings and app behavior. Pocket Genes treats downloaded or locally stored report copies as outside the private in-app access boundary.',
+          'Provider links, report codes, and private report content are kept out of public profiles, community posts, analytics, and support screenshots unless narrowly needed for support or security.',
         ],
       },
       {
@@ -1116,20 +1115,20 @@ export const trustDocuments: TrustDocument[] = [
           'Pocket Genes uses service providers including Amazon Web Services and Google Firebase for technical functions such as authentication, communications, application operation, and workflow management. These providers support the processes described above but do not change the responsibility of the professional or provider for the study or report.',
       },
       {
-        heading: 'Pocket Genes responsibilities',
+        heading: 'Data-handling model',
         bullets: [
-          'Limit each step to the information needed for the workflow.',
-          'Keep source responsibility clear between providers, Pocket Genes, organizations, and users.',
-          'Protect access references and private account data.',
-          'Record access, request, deletion, and incident paths.',
+          'Each step is limited to the information needed for that workflow.',
+          'Source responsibility stays separated between providers, Pocket Genes, organizations, and users.',
+          'Access references and private account data are treated as protected information.',
+          'Access, request, deletion, and incident paths are recorded where required for operation and support.',
         ],
       },
       {
-        heading: 'User, integrator, and organization responsibilities',
+        heading: 'External boundaries',
         bullets: [
-          'Users should review invitations, manage community choices, and avoid posting private report information.',
-          'Integrators should provide only authorized and necessary information.',
-          'Organizations should not infer private account or report data from follows, comments, or community membership.',
+          'Invitations, community choices, and private report access remain separate user experiences.',
+          'Integrator-provided information is limited to authorized and necessary workflow data.',
+          'Community follows, comments, and membership do not expose private account or report data to organizations.',
         ],
       },
       {
@@ -1163,7 +1162,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Purpose and scope',
         paragraphs: [
           'This Subprocessor List identifies public service providers that may process personal information for Pocket Genes infrastructure, authentication, database, backend, hosting, operations, diagnostics, support, or scheduling workflows.',
-          'The list focuses on providers evidenced by the current public product and repository context. Pocket Genes should update the register when a provider is added, replaced, removed, or starts processing a new category of personal information.',
+          'The list reflects public providers used by current Pocket Genes surfaces and is updated when a provider is added, replaced, removed, or starts processing a new category of personal information.',
         ],
       },
       {
@@ -1224,17 +1223,17 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Changes and notice',
         paragraphs: [
-          'Material additions, replacements, removals, or new processing purposes should be reflected in this list. Pocket Genes may notify users, integrators, or organizations separately when a change materially affects their information, contract, integration, or legal rights.',
-          'A provider used only for a different Golden Crow Venture Studio product should not be treated as a Pocket Genes subprocessor unless it processes Pocket Genes information.',
+          'Material additions, replacements, removals, or new processing purposes are reflected in this list. Pocket Genes may notify users, integrators, or organizations separately when a change materially affects their information, contract, integration, or legal rights.',
+          'A provider used only for a different Golden Crow Venture Studio product is not treated as a Pocket Genes subprocessor unless it processes Pocket Genes information.',
         ],
       },
       {
-        heading: 'Pocket Genes responsibilities',
+        heading: 'Provider handling model',
         bullets: [
-          'Maintain an accurate provider register for Pocket Genes services.',
-          'Limit data sent to each provider to the purpose of the integration.',
-          'Review provider security and privacy information before material use.',
-          'Update users or partners when a material provider change requires notice.',
+          'The provider register identifies services used for Pocket Genes surfaces.',
+          'Data sent to each provider is limited to the purpose of the integration.',
+          'Provider security and privacy information is reviewed before material use.',
+          'Users or partners are updated when a material provider change requires notice.',
         ],
       },
       {
@@ -1275,7 +1274,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Purpose and scope',
         paragraphs: [
           'This policy explains how Pocket Genes retains, deletes, de-identifies, or preserves information in account, integration, platform decision, informed-consent, report-access, community, support, log, and backup workflows.',
-          'Retention values must reflect implemented behavior. Where Pocket Genes has not published a fixed automated expiration period, this policy states the current deletion trigger instead of inventing a fixed number of days.',
+          'Retention values reflect implemented behavior. Where Pocket Genes has not published a fixed automated expiration period, this policy states the current deletion trigger instead of inventing a fixed number of days.',
         ],
       },
       {
@@ -1320,20 +1319,20 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Active systems versus backups',
         paragraphs: [
           'Deletion from active systems means Pocket Genes removes or de-identifies the record from the systems used for ordinary product functionality. The exact timing can depend on the account, provider workflow, queue, database, storage, and support process.',
-          'Deleted data may remain briefly in backups until provider or operational backup rotation completes. Backups are intended for restoration and continuity, not normal lookup. If a backup is restored, Pocket Genes should reapply known deletion, restriction, or moderation states where feasible.',
+          'Deleted data may remain briefly in backups until provider or operational backup rotation completes. Backups are intended for restoration and continuity, not normal lookup. Restoration handling includes known deletion, restriction, or moderation states where feasible.',
         ],
       },
       {
         heading: 'Platform decision records',
         paragraphs: [
           'Platform decision records may outlive temporary contact information because Pocket Genes may need evidence of the decision, screen or policy version, workflow, time, and provider or organization relationship. This is separate from retaining a complete report or unnecessary invitation information.',
-          'The record should keep the minimum information needed to understand what was accepted, declined, changed, withdrawn, or superseded.',
+          'The record keeps the minimum information needed to understand what was accepted, declined, changed, withdrawn, or superseded.',
         ],
       },
       {
         heading: 'Account deletion',
         paragraphs: [
-          'The current backend includes a cascade-deletion path for Firebase Auth account, private profile, public profile, community user record and events, authored posts and comments up to operational batch limits, report codes, user progress, report owner records, and uploaded report records linked to the user.',
+          'Account deletion covers the Pocket Genes account, private profile, public profile, community user record and events, authored posts and comments up to operational batch limits, report codes, user progress, report owner records, and uploaded report records linked to the user.',
           'Account deletion does not delete provider-controlled reports, provider medical records, provider portals, app-store records, external organization records, or information other users lawfully retain outside Pocket Genes. It also may not remove moderation, legal, security, backup, or de-identified operational records.',
         ],
       },
@@ -1348,12 +1347,12 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Pocket Genes responsibilities',
+        heading: 'Retention model',
         bullets: [
-          'State retention based on implemented behavior, not aspirational periods.',
-          'Delete or de-identify active-system information when a valid deletion trigger applies.',
-          'Preserve only narrow records needed for legal, safety, or security reasons.',
-          'Explain what Pocket Genes cannot delete because it remains with a provider or third party.',
+          'Retention is stated from implemented behavior, not aspirational periods.',
+          'Active-system information is deleted or de-identified when a valid deletion trigger applies.',
+          'Preserved records are limited to legal, safety, or security reasons.',
+          'Provider-controlled or third-party records remain outside Pocket Genes deletion control.',
         ],
       },
       {
@@ -2053,8 +2052,8 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Acceso a informes y referencias confidenciales',
         paragraphs: [
           'El proveedor participante conserva la responsabilidad sobre el informe, los hallazgos, la interpretación científica o clínica y el camino de entrega bajo su control. Pocket Genes responde por las funciones de cuenta, integración, acceso y experiencia que opera.',
-          'Según la integración, Pocket Genes puede recibir o crear un código de informe, referencia de proveedor, URL, token, estado de acceso o identificador similar. Estos elementos se tratan como información confidencial de acceso y no deben publicarse en comunidad, perfiles, analytics, capturas o logs salvo necesidad estricta de soporte o seguridad.',
-          'Cuando un enlace o referencia vence o puede revocarse, ese camino debe reflejarse en el flujo de usuario o acuerdo con el proveedor. Un recurso de proveedor puede dejar de estar disponible por decisiones del proveedor fuera de Pocket Genes.',
+          'Según la integración, Pocket Genes puede recibir o crear un código de informe, referencia de proveedor, URL, token, estado de acceso o identificador similar. Estos elementos se tratan como información confidencial de acceso y se mantienen fuera de comunidad, perfiles, analytics, capturas y logs salvo necesidad acotada de soporte o seguridad.',
+          'Cuando un enlace o referencia vence o puede revocarse, ese estado se maneja desde el flujo de usuario o el acuerdo con el proveedor. Un recurso de proveedor puede dejar de estar disponible por decisiones del proveedor fuera de Pocket Genes.',
         ],
       },
       {
@@ -2069,7 +2068,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         paragraphs: [
           'Pocket Genes usa proveedores establecidos, incluidos Amazon Web Services y Google Firebase, para operar distintos componentes. La lista de proveedores que tratan datos identifica proveedores públicos y categorías de información.',
           'Algunos proveedores pueden procesar información fuera del país del usuario. Pocket Genes sigue siendo responsable de seleccionar, configurar y operar su aplicación de forma segura aun cuando la nube aporta seguridad de infraestructura.',
-          'Pocket Genes no publica en este Centro de confianza un modelo de venta de información personal o uso publicitario de datos de usuarios de Pocket Genes. Si se introducen o amplían cookies, analytics, crash reporting, notificaciones push, atribución o marketing, Pocket Genes debe identificar herramienta, propósito, opción y retención en el aviso correspondiente.',
+          'Pocket Genes no publica en este Centro de confianza un modelo de venta de información personal o uso publicitario de datos de usuarios de Pocket Genes. Cualquier expansión material de cookies, analytics, crash reporting, notificaciones push, atribución o marketing se maneja mediante un aviso correspondiente que identifica propósito, opción y retención.',
         ],
       },
       {
@@ -2566,7 +2565,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Propósito y alcance',
         paragraphs: [
-          'Este resumen explica controles que Pocket Genes usa o diseña para proteger cuentas, integraciones, referencias de acceso a informes, comunidad, soporte y operaciones.',
+          'Este resumen presenta las protecciones que Pocket Genes aplica alrededor de cuentas, integraciones, referencias de acceso a informes, comunidad, soporte y operaciones.',
           'AWS y Firebase aportan controles de infraestructura y plataforma que Pocket Genes usa para autenticación, comunicaciones, operación de aplicación y gestión de flujos.',
         ],
       },
@@ -2575,8 +2574,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         bullets: [
           'Usuarios e invitados de Pocket Genes.',
           'Integradores, proveedores y organizaciones de confianza.',
-          'Investigadores de seguridad y personas que reportan incidentes.',
-          'Operadores y administradores internos que gestionan sistemas de Pocket Genes.',
+          'Investigadores de seguridad, revisores externos y personas que reportan incidentes.',
         ],
       },
       {
@@ -2585,30 +2583,30 @@ export const trustDocumentsEs: TrustDocument[] = [
           { heading: 'Autenticación', body: 'Proceso para verificar identidad antes de otorgar acceso a una cuenta.' },
           { heading: 'Autorización', body: 'Controles de aplicación que deciden si un usuario autenticado puede acceder a un registro, función, referencia, comunidad o acción administrativa.' },
           { heading: 'Información confidencial de acceso', body: 'Códigos, referencias, URLs, tokens, identificadores y valores similares que conectan a un usuario con acceso privado a informes.' },
-          { heading: 'Acceso administrativo', body: 'Acceso privilegiado para operar, asistir, moderar, depurar, proteger o mantener Pocket Genes.' },
+          { heading: 'Acceso administrativo', body: 'Acceso privilegiado para operar, asistir, moderar, proteger o mantener Pocket Genes.' },
         ],
       },
       {
         heading: 'Autenticación y sesiones',
         paragraphs: [
-          'Las funciones privadas requieren identidad autenticada. Pocket Genes usa Firebase Authentication y cookies de sesión creadas por servidor para flujos protegidos de cuenta y backoffice. Los métodos de ingreso pueden variar por superficie y configuración.',
-          'La recuperación de contraseña, recuperación de cuenta y manejo de sesión están diseñados para reducir el riesgo de toma de cuenta. La duración de sesión, reautenticación, recuperación y disponibilidad de MFA se configuran según la superficie correspondiente.',
+          'Las funciones privadas requieren identidad autenticada. Pocket Genes usa autenticación administrada y sesiones de servidor para superficies protegidas de cuenta y administración. Los métodos de ingreso pueden variar por superficie y configuración.',
+          'La recuperación de contraseña, recuperación de cuenta y manejo de sesión están diseñados para reducir el riesgo de toma de cuenta. La duración de sesión, reautenticación, recuperación y opciones de verificación reforzada se configuran según la superficie correspondiente.',
         ],
       },
       {
         heading: 'Autorización',
         paragraphs: [
-          'Autenticarse no otorga acceso universal. Pocket Genes debe verificar relaciones usuario-recurso antes de devolver cuentas, referencias de informes, comunidad, soporte, publicación organizacional o acciones admin.',
-          'Las herramientas administrativas deben aplicar roles, privilegio mínimo y separación entre producción y desarrollo/pruebas.',
+          'Autenticarse no otorga acceso universal. Pocket Genes usa autorización basada en relación usuario-recurso antes de devolver cuentas, referencias de informes, comunidad, soporte, publicación organizacional o acciones admin.',
+          'Las superficies administrativas se limitan por rol y necesidad operativa, con separación entre operación del servicio vivo y actividad no productiva.',
         ],
       },
       {
         heading: 'Protección de acceso a informes',
         bullets: [
           'Enlaces, referencias, códigos y tokens se tratan como información confidencial de acceso.',
-          'No deben exponerse intencionalmente en perfiles públicos, contenido organizacional, comunidad, capturas, analytics o logs salvo necesidad estricta.',
-          'El acceso debe limitarse al usuario previsto, cuidador autorizado o flujo autorizado.',
-          'Vencimiento, revocación y disponibilidad del proveedor deben describirse cuando estén implementados.',
+          'Se mantienen fuera de perfiles públicos, contenido organizacional, comunidad, capturas, analytics y logs salvo necesidad acotada de soporte o seguridad.',
+          'El acceso queda limitado al usuario previsto, cuidador autorizado o flujo autorizado.',
+          'Vencimiento, revocación y disponibilidad del proveedor se muestran desde la integración o flujo correspondiente cuando están implementados.',
         ],
       },
       {
@@ -2621,28 +2619,28 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Acceso administrativo',
         bullets: [
-          'Otorgar acceso de producción solo a quienes lo necesitan por rol operativo.',
-          'Usar permisos por rol y revocar acceso cuando cambian responsabilidades.',
-          'Exigir autenticación fuerte y MFA en sistemas administrativos cuando el sistema lo soporte.',
-          'Registrar acciones administrativas sensibles y revisar accesos periódicamente.',
-          'Evitar datos de producción para desarrollo o demos salvo aprobación y minimización.',
+          'El acceso de producción queda restringido a roles operativos definidos.',
+          'Los permisos administrativos siguen límites por rol y se retiran cuando cambian responsabilidades.',
+          'Los sistemas administrativos usan autenticación fuerte y controles multifactor cuando están disponibles.',
+          'Las acciones administrativas sensibles se registran donde el sistema lo permite y los accesos se revisan como parte de la operación.',
+          'La información productiva de usuarios se separa de actividades no productivas salvo casos controlados y minimizados.',
         ],
       },
       {
-        heading: 'Desarrollo seguro',
+        heading: 'Prácticas de seguridad de producto',
         bullets: [
-          'Usar revisión de código, actualizaciones de dependencias, revisión de release y separación de entornos.',
-          'Guardar secretos fuera del código fuente y rotarlos si se sospecha exposición.',
-          'Usar datos de prueba o minimizados cuando sea posible.',
-          'Revisar autenticación, autorización, reglas de Firestore, rutas de API y comportamiento móvil/API antes de publicar.',
-          'Seguir vulnerabilidades reportadas desde triage hasta remediación, validación y cierre.',
+          'Los cambios de producto se revisan antes de publicarse y se manejan en entornos separados.',
+          'Los componentes de terceros y la configuración sensible se gestionan como parte de la preparación de publicación.',
+          'Las pruebas usan datos de prueba o minimizados cuando es práctico.',
+          'Autenticación, autorización, reglas de datos, rutas de API y comportamiento de app forman parte de la preparación de publicación.',
+          'Los reportes de seguridad pasan por revisión de severidad, remediación, validación y cierre.',
         ],
       },
       {
         heading: 'Logs, monitoreo, backups y continuidad',
         paragraphs: [
           'Pocket Genes puede registrar eventos operativos, seguridad, autenticación, soporte y diagnóstico para detectar errores, abuso, accesos inusuales y confiabilidad.',
-          'Backups y durabilidad administrada por proveedores ayudan a continuidad y recuperación. Las restauraciones deben manejarse para no reexponer registros eliminados o restringidos.',
+          'Backups y durabilidad administrada por proveedores ayudan a continuidad y recuperación. El manejo de restauraciones incluye controles sobre registros eliminados o restringidos.',
         ],
       },
       {
@@ -2659,21 +2657,21 @@ export const trustDocumentsEs: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Responsabilidades de Pocket Genes',
+        heading: 'Compromisos de seguridad de Pocket Genes',
         bullets: [
-          'Configurar autenticación, autorización, infraestructura y controles de aplicación de forma segura.',
-          'Proteger información confidencial de acceso y datos privados.',
-          'Mantener acceso administrativo limitado, revisado y registrado cuando sea viable.',
-          'Mantener vía de reporte de vulnerabilidades e incidentes.',
+          'Autenticación, autorización, infraestructura y controles de aplicación se configuran alrededor de límites de acceso privado.',
+          'La información confidencial de acceso y los datos privados se tratan como información protegida.',
+          'El acceso administrativo permanece limitado, revisado y registrado donde está disponible.',
+          'Las vías para reportar seguridad e incidentes permanecen disponibles para reportes externos.',
         ],
       },
       {
-        heading: 'Responsabilidades de usuarios, integradores y organizaciones',
+        heading: 'Modelo compartido de confianza',
         bullets: [
-          'Los usuarios deben proteger credenciales, dispositivos, enlaces y códigos.',
-          'Los integradores deben enviar solo datos necesarios y proteger referencias antes y después de transferirlas.',
-          'Las organizaciones no deben pedir informes privados ni códigos mediante comunidad.',
-          'Investigadores deben seguir alcance de divulgación y evitar acceder a información de otros usuarios.',
+          'Cada titular de cuenta controla sus credenciales, dispositivos, enlaces y códigos de reporte.',
+          'Los integradores aportan información autorizada y necesaria para el flujo correspondiente.',
+          'La comunidad y las superficies organizacionales no son canales para pedir informes privados o códigos de acceso.',
+          'La investigación de seguridad se canaliza por el alcance publicado de divulgación de vulnerabilidades.',
         ],
       },
       {
@@ -2871,8 +2869,8 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Dispositivo del usuario y estado local',
         paragraphs: [
-          'El dispositivo puede conservar estado de app, pantallas cacheadas, notificaciones, archivos descargados, capturas, historial o registros del sistema según configuración y comportamiento. Los usuarios deben proteger el dispositivo y evitar compartir capturas de informes.',
-          'Pocket Genes debe evitar guardar enlaces, códigos o contenido privado donde no son necesarios, como perfiles públicos, comunidad, analytics o capturas de soporte.',
+          'El dispositivo puede conservar estado de app, pantallas cacheadas, notificaciones, archivos descargados, capturas, historial o registros del sistema según configuración y comportamiento. Las copias descargadas o guardadas localmente quedan fuera del límite privado de acceso dentro de la app.',
+          'Enlaces de proveedor, códigos y contenido privado se mantienen fuera de perfiles públicos, comunidad, analytics y capturas de soporte salvo necesidad acotada de soporte o seguridad.',
         ],
       },
       {
@@ -2881,20 +2879,20 @@ export const trustDocumentsEs: TrustDocument[] = [
           'Pocket Genes usa proveedores de servicio, incluidos Amazon Web Services y Google Firebase, para funciones técnicas como autenticación, comunicaciones, operación de la aplicación y gestión de flujos. Estos proveedores apoyan los procesos descritos, pero no cambian la responsabilidad del profesional o proveedor sobre el estudio o el informe.',
       },
       {
-        heading: 'Responsabilidades de Pocket Genes',
+        heading: 'Modelo de manejo de datos',
         bullets: [
-          'Limitar cada paso a la información necesaria.',
-          'Mantener clara la responsabilidad de fuente entre proveedores, Pocket Genes, organizaciones y usuarios.',
-          'Proteger referencias de acceso y datos privados.',
-          'Registrar accesos, solicitudes, eliminación e incidentes.',
+          'Cada paso se limita a la información necesaria para ese flujo.',
+          'La responsabilidad de origen queda separada entre proveedores, Pocket Genes, organizaciones y usuarios.',
+          'Referencias de acceso y datos privados se tratan como información protegida.',
+          'Accesos, solicitudes, eliminación e incidentes se registran cuando hace falta para operación y soporte.',
         ],
       },
       {
-        heading: 'Responsabilidades de usuarios, integradores y organizaciones',
+        heading: 'Límites externos',
         bullets: [
-          'Los usuarios deben revisar invitaciones, gestionar opciones comunitarias y evitar publicar información privada.',
-          'Los integradores deben aportar solo información autorizada y necesaria.',
-          'Las organizaciones no deben inferir datos privados de cuentas o informes por seguimientos, comentarios o comunidad.',
+          'Invitaciones, opciones comunitarias y acceso privado a informes permanecen como experiencias separadas.',
+          'La información aportada por integradores se limita a datos autorizados y necesarios para el flujo.',
+          'Seguimientos, comentarios y pertenencia comunitaria no exponen datos privados de cuenta o informes a organizaciones.',
         ],
       },
       {
@@ -2928,7 +2926,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Propósito y alcance',
         paragraphs: [
           'Esta lista identifica proveedores públicos que pueden tratar información personal para infraestructura, autenticación, base de datos, backend, hosting, operaciones, diagnóstico, soporte o agenda de Pocket Genes.',
-          'La lista se enfoca en proveedores evidenciados por el producto público y el contexto actual del repositorio. Pocket Genes debe actualizar el registro cuando se agregue, reemplace o retire un proveedor, o cuando trate una nueva categoría de información.',
+          'La lista refleja proveedores públicos usados por superficies actuales de Pocket Genes y se actualiza cuando se agrega, reemplaza o retira un proveedor, o cuando trata una nueva categoría de información.',
         ],
       },
       {
@@ -2989,17 +2987,17 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Cambios y aviso',
         paragraphs: [
-          'Altas, reemplazos, bajas o nuevos propósitos materiales deben reflejarse en esta lista. Pocket Genes puede notificar a usuarios, integradores u organizaciones cuando un cambio afecte materialmente su información, contrato, integración o derechos.',
-          'Un proveedor usado solo por otro producto de Golden Crow Venture Studio no debe tratarse como proveedor de Pocket Genes salvo que procese información de Pocket Genes.',
+          'Altas, reemplazos, bajas o nuevos propósitos materiales se reflejan en esta lista. Pocket Genes puede notificar a usuarios, integradores u organizaciones cuando un cambio afecte materialmente su información, contrato, integración o derechos.',
+          'Un proveedor usado solo por otro producto de Golden Crow Venture Studio no se trata como proveedor de Pocket Genes salvo que procese información de Pocket Genes.',
         ],
       },
       {
-        heading: 'Responsabilidades de Pocket Genes',
+        heading: 'Modelo de manejo de proveedores',
         bullets: [
-          'Mantener un registro preciso de proveedores de Pocket Genes.',
-          'Limitar datos enviados a cada proveedor al propósito de la integración.',
-          'Revisar seguridad y privacidad antes de uso material.',
-          'Actualizar a usuarios o socios cuando un cambio material requiera aviso.',
+          'El registro identifica servicios usados por superficies de Pocket Genes.',
+          'Los datos enviados a cada proveedor se limitan al propósito de la integración.',
+          'La información de seguridad y privacidad del proveedor se revisa antes de uso material.',
+          'Usuarios o socios reciben actualización cuando un cambio material requiere aviso.',
         ],
       },
       {
@@ -3040,7 +3038,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Propósito y alcance',
         paragraphs: [
           'Esta política explica cómo Pocket Genes conserva, elimina, desidentifica o preserva información en cuentas, integraciones, decisiones de plataforma, flujos de consentimiento informado, acceso a informes, comunidad, soporte, logs y backups.',
-          'Los valores de retención deben reflejar comportamiento implementado. Cuando Pocket Genes no publica un vencimiento automático fijo, esta política informa el disparador actual en lugar de inventar un número de días.',
+          'Los valores de retención reflejan comportamiento implementado. Cuando Pocket Genes no publica un vencimiento automático fijo, esta política informa el disparador actual en lugar de inventar un número de días.',
         ],
       },
       {
@@ -3085,20 +3083,20 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Sistemas activos versus backups',
         paragraphs: [
           'Eliminar de sistemas activos significa borrar o desidentificar registros de sistemas usados para funcionalidad ordinaria. El tiempo exacto depende de cuenta, flujo de proveedor, cola, base de datos, almacenamiento y soporte.',
-          'Datos eliminados pueden permanecer brevemente en backups hasta rotación. Los backups son para restauración y continuidad, no consulta ordinaria. Si se restaura un backup, Pocket Genes debe reaplicar estados conocidos de eliminación, restricción o moderación cuando sea viable.',
+          'Datos eliminados pueden permanecer brevemente en backups hasta rotación. Los backups son para restauración y continuidad, no consulta ordinaria. El manejo de restauraciones incluye estados conocidos de eliminación, restricción o moderación cuando es viable.',
         ],
       },
       {
         heading: 'Registros de decisión de plataforma',
         paragraphs: [
           'Los registros de decisión de plataforma pueden sobrevivir a datos temporales de contacto porque Pocket Genes puede necesitar evidencia de decisión, versión de pantalla o política, flujo, fecha y proveedor u organización. Esto es distinto de conservar un informe completo o información de invitación innecesaria.',
-          'El registro debe conservar la mínima información necesaria para entender qué fue aceptado, rechazado, cambiado, retirado o reemplazado.',
+          'El registro conserva la mínima información necesaria para entender qué fue aceptado, rechazado, cambiado, retirado o reemplazado.',
         ],
       },
       {
         heading: 'Eliminación de cuenta',
         paragraphs: [
-          'El backend actual incluye un camino de eliminación en cascada para cuenta Firebase Auth, perfil privado, perfil público, registro de usuario comunitario y eventos, publicaciones y comentarios propios hasta límites operativos de lote, códigos de informe, progreso, registros de titular de informe e informes cargados vinculados.',
+          'La eliminación de cuenta cubre la cuenta de Pocket Genes, perfil privado, perfil público, registro de usuario comunitario y eventos, publicaciones y comentarios propios hasta límites operativos de lote, códigos de informe, progreso, registros de titular de informe e informes cargados vinculados.',
           'La eliminación de cuenta no elimina informes del proveedor, historias clínicas de proveedor, portales de proveedor, registros de tiendas, registros externos de organizaciones ni información que otros usuarios conserven fuera de Pocket Genes. Tampoco necesariamente elimina registros de moderación, legal, seguridad, backups u operación desidentificada.',
         ],
       },
@@ -3113,12 +3111,12 @@ export const trustDocumentsEs: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Responsabilidades de Pocket Genes',
+        heading: 'Modelo de retención',
         bullets: [
-          'Informar retención basada en comportamiento implementado, no períodos aspiracionales.',
-          'Eliminar o desidentificar sistemas activos cuando aplica un disparador válido.',
-          'Preservar solo registros acotados por motivos legales, seguridad o incidentes.',
-          'Explicar qué no puede eliminar porque queda con un proveedor o tercero.',
+          'La retención se informa desde comportamiento implementado, no desde períodos aspiracionales.',
+          'La información de sistemas activos se elimina o desidentifica cuando aplica un disparador válido.',
+          'Los registros preservados se limitan a motivos legales, seguridad o incidentes.',
+          'Los registros controlados por proveedores o terceros quedan fuera del control de eliminación de Pocket Genes.',
         ],
       },
       {
