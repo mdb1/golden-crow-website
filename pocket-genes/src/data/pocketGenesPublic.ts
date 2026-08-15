@@ -619,7 +619,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Leaving RareFriends',
         paragraphs: [
           'A user may stop community participation separately from private report access. Depending on the feature, leaving RareFriends may hide or remove the profile, end matching, remove follows, leave groups, disable messaging, and start deletion or de-identification of community records.',
-          'Some posts, comments, reports, moderation records, or message metadata may remain temporarily or longer when needed for safety, legal compliance, dispute resolution, or backup rotation.',
+          `Some posts, comments, reports, moderation records, or message metadata may remain temporarily or longer when needed for safety, legal compliance, dispute resolution, or backup rotation, even after a user disables their Pocket Genes presence. A user who wants total deletion of community records can email ${POCKET_GENES_EMAILS.trust} and request it; Pocket Genes will clean those records from active systems and complete remaining cleanup as applicable backup or legal limits expire.`,
         ],
       },
       {
@@ -2383,7 +2383,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Salir de PockeAmigos',
         paragraphs: [
           'Una persona puede dejar de participar en la comunidad por separado del acceso privado a informes. Salir puede ocultar o eliminar el perfil, terminar coincidencias, dejar de seguir cuentas o grupos, desactivar mensajes e iniciar eliminación o desidentificación de registros comunitarios.',
-          'Algunas publicaciones, comentarios, reportes, registros de moderación o metadatos de mensajes pueden permanecer temporalmente o por más tiempo por seguridad, ley, disputas o backups.',
+          `Algunas publicaciones, comentarios, reportes, registros de moderación o metadatos de mensajes pueden permanecer temporalmente o por más tiempo por seguridad, ley, disputas o backups, aun cuando la persona destilde o desactive su presencia en Pocket Genes. Si quiere el borrado total de sus registros comunitarios, puede escribir a ${POCKET_GENES_EMAILS.trust} y pedirlo; Pocket Genes limpiará esos registros de los sistemas activos y completará la limpieza restante cuando venzan límites aplicables de backups o legales.`,
         ],
       },
       {
