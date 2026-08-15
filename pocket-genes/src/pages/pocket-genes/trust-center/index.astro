@@ -2,11 +2,12 @@
 import PocketGenesPublicLayout from '../../../layouts/PocketGenesPublicLayout.astro';
 import ClientBookingWidget from '../../../components/ClientBookingWidget.astro';
 import { POCKET_GENES_EMAILS, POCKET_GENES_OPERATOR, getLocalizedTrustDocuments } from '../../../data/pocketGenesPublic';
-import { formatBrandText } from '../../../utils/brandFormatting';
+import { escapeHtml, formatBrandHtml, formatBrandText } from '../../../utils/brandFormatting';
 
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 const locale = isEnglish ? 'en' : 'es';
+const formatTrustText = (value: string) => formatBrandHtml(escapeHtml(value).replaceAll('*tab*', '<em>tab</em>'));
 const trustDocuments = getLocalizedTrustDocuments(locale);
 const categories = Array.from(new Set(trustDocuments.map((document) => document.category))).map((category) => ({
   category,
@@ -210,7 +211,7 @@ const pageCopy = {
       },
       {
         title: '¿Cómo accedo a un informe?',
-        body: 'El informe sigue vinculado al proveedor que lo emitió. Pocket Genes facilita a las personas autorizadas el acceso desde el celular.',
+        body: 'El informe sigue vinculado al proveedor que lo emitió. Pocket Genes facilita a las personas autorizadas el acceso desde el celular. Para acceder debes bajarte la aplicación e ir a la *tab* reportes donde encontrarás el acceso a todos tus reportes asociados.',
       },
       {
         title: '¿Qué es privado?',
@@ -436,7 +437,7 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
                 <summary>
                   <span set:html={formatBrandText(item.title)} />
                 </summary>
-                <p set:html={formatBrandText(item.body)} />
+                <p set:html={formatTrustText(item.body)} />
               </details>
             ))}
             <details class="pg-trust-faq-item">
