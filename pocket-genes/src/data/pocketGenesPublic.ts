@@ -1107,7 +1107,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'User device and local state',
         paragraphs: [
-          'The user device may hold app state, cached screens, notifications, downloaded files, screenshots, browser history, or operating-system records depending on device settings and app behavior. Pocket Genes treats downloaded or locally stored report copies as outside the private in-app access boundary.',
+          'The user device may hold app state, cached screens, notifications, downloaded files, screenshots, browser history, or operating-system records depending on device settings and app behavior. Downloaded or locally saved copies remain on the doctor or patient device for as long as that person keeps them; the provider has neither the right nor the technical ability to delete a report that has already been delivered.',
           'Provider links, report codes, and private report content are kept out of public profiles, community posts, analytics, and support screenshots unless narrowly needed for support or security.',
         ],
       },
@@ -2871,7 +2871,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Dispositivo del usuario y estado local',
         paragraphs: [
-          'El dispositivo del usuario puede conservar estado de la app, pantallas en caché, notificaciones, archivos descargados, capturas, historial o registros del sistema según su configuración. Las copias descargadas o guardadas localmente quedan fuera del entorno privado de acceso dentro de la app.',
+          'El dispositivo del usuario puede conservar estado de la app, pantallas en caché, notificaciones, archivos descargados, capturas, historial o registros del sistema según su configuración. Las copias descargadas o guardadas localmente quedan en el dispositivo del médico o del paciente para siempre mientras el mismo lo disponga, el proveedor no tiene ni el derecho ni la posibilidad técnica de eliminar un reporte que ya fue entregado.',
           'Los enlaces de proveedor, códigos y contenido privado se mantienen fuera de perfiles públicos, comunidad, analytics y capturas de soporte salvo necesidad acotada de soporte o seguridad.',
         ],
       },
