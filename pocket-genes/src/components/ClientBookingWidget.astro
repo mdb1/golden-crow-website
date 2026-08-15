@@ -1,6 +1,7 @@
 ---
 import { defaultLang } from '../i18n/ui';
 import type { Lang } from '../i18n/ui';
+import { formatBrandText } from '../utils/brandFormatting';
 
 interface Props {
   context?: string;
@@ -95,8 +96,8 @@ const weekdayLabels = isEnglish
 >
   <article class="booking-shell">
     <aside class="booking-summary">
-      <img class="booking-logo" src="/logo1024.webp" alt="GoldenCrow logo" />
-      <p class="booking-brand">{copy.brandName}</p>
+      <img class="booking-logo" src="/logo1024.webp" alt={`${copy.brandName} logo`} />
+      <p class="booking-brand" set:html={formatBrandText(copy.brandName)} />
       <h3>{copy.eventTitle}</h3>
       <div class="booking-meta">
         <span class="booking-meta-row">

@@ -185,7 +185,7 @@ const pageCopy = {
       {
         label: 'Operador',
         value: POCKET_GENES_OPERATOR.legalName,
-        body: 'Golden Crow es responsable de las funciones de cuenta, acceso, contenido educativo, organizaciones y comunidad que ofrece Pocket Genes.',
+        body: 'Golden Crow Venture Studio es responsable de las funciones de cuenta, acceso, contenido educativo, organizaciones y comunidad que ofrece Pocket Genes.',
       },
       {
         label: 'Contacto',
@@ -524,7 +524,11 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
           <p set:html={formatBrandText(copy.bookingBody)} />
         </div>
         <div class="pg-trusted-calendar-wrapper">
-          <ClientBookingWidget context="pocket-genes-trust-center" eventTitle={isEnglish ? 'Trusted organization review' : 'Reunión para organizaciones'} />
+          <ClientBookingWidget
+            context="pocket-genes-trust-center"
+            eventTitle={isEnglish ? 'Trusted organization review' : 'Reunión para organizaciones'}
+            brandName="Golden Crow Venture Studio"
+          />
         </div>
       </div>
     </section>

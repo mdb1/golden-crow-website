@@ -10,7 +10,7 @@ export const POCKET_GENES_EMAILS = {
 };
 
 export const POCKET_GENES_OPERATOR = {
-  legalName: 'Golden Crow',
+  legalName: 'Golden Crow Venture Studio',
   country: 'Argentina',
   productName: 'Pocket Genes',
   privacyContact: POCKET_GENES_SUPPORT_EMAIL,
@@ -1225,7 +1225,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Changes and notice',
         paragraphs: [
           'Material additions, replacements, removals, or new processing purposes should be reflected in this list. Pocket Genes may notify users, integrators, or organizations separately when a change materially affects their information, contract, integration, or legal rights.',
-          'A provider used only for a different Golden Crow product should not be treated as a Pocket Genes subprocessor unless it processes Pocket Genes information.',
+          'A provider used only for a different Golden Crow Venture Studio product should not be treated as a Pocket Genes subprocessor unless it processes Pocket Genes information.',
         ],
       },
       {
@@ -2990,7 +2990,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Cambios y aviso',
         paragraphs: [
           'Altas, reemplazos, bajas o nuevos propósitos materiales deben reflejarse en esta lista. Pocket Genes puede notificar a usuarios, integradores u organizaciones cuando un cambio afecte materialmente su información, contrato, integración o derechos.',
-          'Un proveedor usado solo por otro producto de Golden Crow no debe tratarse como proveedor de Pocket Genes salvo que procese información de Pocket Genes.',
+          'Un proveedor usado solo por otro producto de Golden Crow Venture Studio no debe tratarse como proveedor de Pocket Genes salvo que procese información de Pocket Genes.',
         ],
       },
       {
