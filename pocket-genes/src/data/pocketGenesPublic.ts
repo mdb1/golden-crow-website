@@ -964,7 +964,7 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Flow A: informed consent before the study',
+        heading: 'Informed consent before the study',
         body: 'Consent request and upload before a genetic study.',
         flow: {
           labels: {
@@ -1011,7 +1011,7 @@ export const trustDocuments: TrustDocument[] = [
         },
       },
       {
-        heading: 'Flow B: after the study',
+        heading: 'Genetic report access after the study',
         body: 'Secure access to an uploaded genetic report.',
         flow: {
           labels: {
@@ -1058,7 +1058,7 @@ export const trustDocuments: TrustDocument[] = [
         },
       },
       {
-        heading: 'Flow C: optional Pocket Genes features',
+        heading: 'Optional Pocket Genes features',
         body: 'Optional features, separate from private report access.',
         flow: {
           labels: {
