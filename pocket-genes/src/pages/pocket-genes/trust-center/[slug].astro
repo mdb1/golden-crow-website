@@ -113,7 +113,7 @@ const copy = pageCopy[locale];
 
     <section class="pg-section">
       <div class="pg-container pg-trust-detail-grid">
-        <aside class="pg-trust-meta" aria-label={copy.metadataLabel}>
+        <aside class="pg-trust-meta" aria-label={copy.metadataLabel} data-trust-scroll-sync-sidebar>
           <nav class="pg-trust-detail-nav" aria-labelledby="pg-trust-detail-nav-title">
             <h2 id="pg-trust-detail-nav-title">{copy.navigationTitle}</h2>
             <div class="pg-trust-detail-nav-groups">
@@ -175,7 +175,7 @@ const copy = pageCopy[locale];
           </dl>
         </aside>
 
-        <article class="pg-trust-article">
+        <article class="pg-trust-article" data-trust-scroll-sync-content>
           {document.sections.map((section) => (
             <section>
               <h2 set:html={linkTrustEmail(section.heading)} />
@@ -323,12 +323,31 @@ const copy = pageCopy[locale];
   }
 
   .pg-trust-meta {
+    --pg-trust-sticky-top: 100px;
     position: sticky;
-    top: 100px;
+    top: var(--pg-trust-sticky-top);
+    max-height: calc(100vh - var(--pg-trust-sticky-top) - 24px);
+    max-height: calc(100svh - var(--pg-trust-sticky-top) - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
     border-top: 1px solid var(--pg-border);
     border-bottom: 1px solid var(--pg-border);
     background: transparent;
-    padding: 18px 0;
+    padding: 18px 8px 18px 0;
+  }
+
+  .pg-trust-meta::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .pg-trust-meta::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(20, 149, 143, 0.28);
+  }
+
+  .pg-trust-meta::-webkit-scrollbar-track {
+    background: transparent;
   }
 
   .pg-trust-meta h2 {
@@ -692,6 +711,9 @@ const copy = pageCopy[locale];
 
     .pg-trust-meta {
       position: static;
+      max-height: none;
+      overflow: visible;
+      padding-right: 0;
     }
 
   }
@@ -728,3 +750,74 @@ const copy = pageCopy[locale];
     }
   }
 </style>
+
+<script is:inline>
+  (() => {
+    const setupTrustSidebarSync = () => {
+      const sidebar = document.querySelector('[data-trust-scroll-sync-sidebar]');
+      const content = document.querySelector('[data-trust-scroll-sync-content]');
+
+      if (!sidebar || !content) {
+        return;
+      }
+
+      const desktopQuery = window.matchMedia('(min-width: 981px)');
+      let frame = 0;
+
+      const syncSidebar = () => {
+        frame = 0;
+
+        if (!desktopQuery.matches) {
+          sidebar.scrollTop = 0;
+          return;
+        }
+
+        const sidebarScrollMax = sidebar.scrollHeight - sidebar.clientHeight;
+
+        if (sidebarScrollMax <= 0) {
+          sidebar.scrollTop = 0;
+          return;
+        }
+
+        const stickyTop = Number.parseFloat(getComputedStyle(sidebar).top) || 0;
+        const pageY = window.scrollY || window.pageYOffset;
+        const contentRect = content.getBoundingClientRect();
+        const contentTop = pageY + contentRect.top;
+        const contentTravel = Math.max(content.offsetHeight - window.innerHeight + stickyTop, 1);
+        const progress = Math.min(
+          1,
+          Math.max(0, (pageY - contentTop + stickyTop) / contentTravel),
+        );
+
+        sidebar.scrollTop = sidebarScrollMax * progress;
+      };
+
+      const requestSync = () => {
+        if (frame) return;
+        frame = window.requestAnimationFrame(syncSidebar);
+      };
+
+      window.addEventListener('scroll', requestSync, { passive: true });
+      window.addEventListener('resize', requestSync);
+
+      if (typeof desktopQuery.addEventListener === 'function') {
+        desktopQuery.addEventListener('change', requestSync);
+      }
+
+      if ('ResizeObserver' in window) {
+        const observer = new ResizeObserver(requestSync);
+        observer.observe(sidebar);
+        observer.observe(content);
+      }
+
+      requestSync();
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupTrustSidebarSync, { once: true });
+      return;
+    }
+
+    setupTrustSidebarSync();
+  })();
+</script>

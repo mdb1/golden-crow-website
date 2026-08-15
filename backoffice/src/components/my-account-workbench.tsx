@@ -193,6 +193,23 @@ function scopeText(account: MyAccountRecord) {
   );
 }
 
+function roleScopeValue(
+  role: MyAccountRecord["role"],
+  segment: "institution" | "doctor" | "patient",
+) {
+  if (!role) return undefined;
+
+  if (segment === "institution") {
+    return role.institutionName ?? role.institutionId;
+  }
+
+  if (segment === "doctor") {
+    return role.doctorName ?? role.doctorId;
+  }
+
+  return role.patientName ?? role.patientId;
+}
+
 function primaryAccountName(account: MyAccountRecord) {
   return (
     account.role?.displayName ||
@@ -713,7 +730,20 @@ export function MyAccountWorkbench({
             isPatientPortalView ? "xl:grid-cols-3" : "xl:grid-cols-4",
           )}
         >
-          <ReadOnlyField label={t("Scope")} value={t(currentScope)} />
+          {isPatientPortalView ? (
+            <>
+              <ReadOnlyField
+                label={t("Institution")}
+                value={roleScopeValue(account.role, "institution")}
+              />
+              <ReadOnlyField
+                label={t("Doctor")}
+                value={roleScopeValue(account.role, "doctor")}
+              />
+            </>
+          ) : (
+            <ReadOnlyField label={t("Scope")} value={t(currentScope)} />
+          )}
           {!isPatientPortalView ? (
             <ReadOnlyField
               label="Current project"

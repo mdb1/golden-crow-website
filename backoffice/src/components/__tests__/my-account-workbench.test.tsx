@@ -44,6 +44,9 @@ const account: MyAccountRecord = {
     isActive: true,
     canAccessPatientPortal: true,
     displayName: "Test Patient",
+    institutionName: "ISIDRO HEALTH",
+    doctorName: "Isidro Medico Panchi",
+    patientName: "Federico Paciento Tres",
     createdAt: "2026-08-12T15:59:00.000Z",
     updatedAt: "2026-08-12T15:59:00.000Z",
   },
@@ -100,6 +103,10 @@ describe("MyAccountWorkbench diagnostics", () => {
     expect(screen.getByText("Paciente")).toBeTruthy();
     expect(screen.getByText("Acceso activo")).toBeTruthy();
     expect(screen.getAllByText("Email verificado").length).toBeGreaterThan(0);
+    expect(screen.getByText("Institución")).toBeTruthy();
+    expect(screen.getByText("ISIDRO HEALTH")).toBeTruthy();
+    expect(screen.getByText("Médico")).toBeTruthy();
+    expect(screen.getByText("Isidro Medico Panchi")).toBeTruthy();
     expect(screen.getByText("Nombre de usuario")).toBeTruthy();
     expect(screen.getByText("Último inicio de sesión")).toBeTruthy();
     expect(
@@ -111,6 +118,13 @@ describe("MyAccountWorkbench diagnostics", () => {
     expect(screen.queryByText("Current project")).toBeNull();
     expect(screen.queryByText("Notes")).toBeNull();
     expect(screen.queryByText("Firebase account enabled")).toBeNull();
+    expect(screen.queryByText("Alcance")).toBeNull();
+    expect(screen.queryByText("Federico Paciento Tres")).toBeNull();
+    expect(
+      screen.queryByText(
+        "ISIDRO HEALTH / Isidro Medico Panchi / Federico Paciento Tres",
+      ),
+    ).toBeNull();
 
     for (const section of diagnosticSections) {
       expect(screen.queryByRole("heading", { name: section })).toBeNull();
