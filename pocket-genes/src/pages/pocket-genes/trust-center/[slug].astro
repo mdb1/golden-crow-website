@@ -227,29 +227,8 @@ const copy = pageCopy[locale];
                         <span>{String(index + 1).padStart(2, '0')}</span>
                       </div>
                       <div class="pg-trust-flow-content">
-                        <p class="pg-trust-flow-actor">
-                          <span set:html={linkTrustEmail(section.flow.labels.actor)} />
-                          <strong set:html={linkTrustEmail(step.actor)} />
-                        </p>
                         <h3 set:html={linkTrustEmail(step.title)} />
-                        <p class="pg-trust-flow-description">
-                          <span set:html={linkTrustEmail(section.flow.labels.action)} />
-                          <strong set:html={linkTrustEmail(step.action)} />
-                        </p>
-                        <dl class="pg-trust-flow-facts">
-                          <div>
-                            <dt set:html={linkTrustEmail(section.flow.labels.information)} />
-                            <dd set:html={linkTrustEmail(step.information)} />
-                          </div>
-                          <div>
-                            <dt set:html={linkTrustEmail(section.flow.labels.retained)} />
-                            <dd set:html={linkTrustEmail(step.retained)} />
-                          </div>
-                          <div>
-                            <dt set:html={linkTrustEmail(section.flow.labels.control)} />
-                            <dd set:html={linkTrustEmail(step.control)} />
-                          </div>
-                        </dl>
+                        <p class="pg-trust-flow-description" set:html={linkTrustEmail(step.action)} />
                       </div>
                     </article>
                   ))}
@@ -621,26 +600,6 @@ const copy = pageCopy[locale];
     padding: 20px;
   }
 
-  .pg-trust-flow-actor {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 0 0 8px;
-    color: var(--pg-ink-soft);
-    font-size: 0.86rem;
-  }
-
-  .pg-trust-flow-actor span {
-    color: var(--pg-teal);
-    font-weight: 880;
-    text-transform: uppercase;
-  }
-
-  .pg-trust-flow-actor strong {
-    color: var(--pg-ink);
-    font-weight: 780;
-  }
-
   .pg-trust-flow-content h3 {
     margin: 0 0 8px;
     color: var(--pg-ink);
@@ -649,53 +608,11 @@ const copy = pageCopy[locale];
   }
 
   .pg-trust-flow-description {
-    display: grid;
-    gap: 5px;
     max-width: 760px;
     margin: 0;
     color: var(--pg-ink-soft);
-  }
-
-  .pg-trust-flow-description span {
-    color: var(--pg-muted);
-    font-size: 0.74rem;
-    font-weight: 850;
-    line-height: 1.2;
-    text-transform: uppercase;
-  }
-
-  .pg-trust-flow-description strong {
-    color: var(--pg-ink-soft);
-    font-weight: 520;
-  }
-
-  .pg-trust-flow-facts {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    margin: 18px 0 0;
-  }
-
-  .pg-trust-flow-facts div {
-    min-width: 0;
-    border-top: 2px solid rgba(20, 149, 143, 0.2);
-    padding-top: 10px;
-  }
-
-  .pg-trust-flow-facts dt {
-    color: var(--pg-muted);
-    font-size: 0.74rem;
-    font-weight: 850;
-    line-height: 1.2;
-    text-transform: uppercase;
-  }
-
-  .pg-trust-flow-facts dd {
-    margin: 5px 0 0;
-    color: var(--pg-ink-soft);
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     line-height: 1.45;
-    overflow-wrap: anywhere;
   }
 
   .pg-trust-next div {
@@ -745,9 +662,6 @@ const copy = pageCopy[locale];
       padding: 16px;
     }
 
-    .pg-trust-flow-facts {
-      grid-template-columns: 1fr;
-    }
   }
 </style>
 

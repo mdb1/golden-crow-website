@@ -965,8 +965,7 @@ export const trustDocuments: TrustDocument[] = [
       },
       {
         heading: 'Flow A: informed consent before the study',
-        body:
-          'This lane applies when a doctor, laboratory, clinic, or study provider uses Pocket Genes to ask the patient to upload the informed consent required before a genetic study.',
+        body: 'Consent request and upload before a genetic study.',
         flow: {
           labels: {
             actor: 'Actor',
@@ -977,34 +976,34 @@ export const trustDocuments: TrustDocument[] = [
           },
           steps: [
             {
-              title: 'The consent request is created',
+              title: 'Request created',
               actor: 'Doctor, laboratory, clinic, or study provider',
               information: 'Patient name, email, optional phone, study reference, and genetic-report reference when applicable.',
-              action: 'Creates a consent-upload request for the intended patient.',
+              action: 'The provider starts the flow with the minimum patient details.',
               retained: 'Request data follows the workflow retention rules.',
               control: 'The patient can decide whether to access the portal and upload the informed consent.',
             },
             {
-              title: 'Pocket Genes notifies the patient',
+              title: 'Access email sent',
               actor: 'Pocket Genes',
               information: 'Patient email, consent-request status, access key, and study reference.',
-              action: 'Sends the patient the access instructions needed to enter the portal and upload the consent file.',
+              action: 'The patient receives the portal instructions and access key.',
               retained: 'Notification and request status are kept only for the service workflow.',
               control: 'The patient can ignore the message, ask the doctor for context, or contact support for access issues.',
             },
             {
-              title: 'The patient uploads the informed consent',
+              title: 'Consent file uploaded',
               actor: 'Patient',
               information: 'Informed consent file, upload status, upload date, and related study or report reference.',
-              action: 'Receives the file uploaded by the patient and updates the consent status.',
+              action: 'The patient uploads the required informed-consent file.',
               retained: 'The uploaded file and status follow the retention rules for the study workflow.',
               control: 'The patient controls whether to upload the file through the portal.',
             },
             {
-              title: 'The consent status is available for the study',
+              title: 'Status available',
               actor: 'Pocket Genes and authorized study operator',
               information: 'Consent-upload status, timestamp, study reference, report reference, and uploaded file when authorized.',
-              action: 'Makes the consent status and file available to the authorized workflow so the study can continue or remain pending.',
+              action: 'The authorized study workflow can see whether the consent file was uploaded.',
               retained: 'The status and file remain tied to the study workflow and its retention rules.',
               control: 'Study questions stay with the doctor or provider; portal access issues go through Pocket Genes support.',
             },
@@ -1013,8 +1012,7 @@ export const trustDocuments: TrustDocument[] = [
       },
       {
         heading: 'Flow B: after the study',
-        body:
-          'This lane applies when a genetic report has been uploaded and Pocket Genes acts as the secure transit tool so the authorized doctor and patient can access it.',
+        body: 'Secure access to an uploaded genetic report.',
         flow: {
           labels: {
             actor: 'Actor',
@@ -1025,34 +1023,34 @@ export const trustDocuments: TrustDocument[] = [
           },
           steps: [
             {
-              title: 'The genetic report is uploaded',
+              title: 'Report uploaded',
               actor: 'Doctor, laboratory, clinic, or authorized provider',
               information: 'Genetic-report file, patient reference, doctor reference, study reference, and upload status.',
-              action: 'Receives the uploaded report and links it to the authorized study, doctor, and patient workflow.',
+              action: 'The provider uploads the report for the authorized doctor and patient.',
               retained: 'The report file and upload status follow the retention rules for the report workflow.',
               control: 'The doctor or provider remains responsible for the report content and for explaining it to the patient.',
             },
             {
-              title: 'Authorized access is recorded',
+              title: 'Access recorded',
               actor: 'Pocket Genes',
               information: 'Report reference, authorized doctor, authorized patient, access state, and security events.',
-              action: 'Keeps the report available only to the authorized doctor and patient according to the workflow permissions.',
+              action: 'Pocket Genes keeps access limited to the authorized accounts.',
               retained: 'Access state remains tied to the report workflow, revocation, account deletion, or cleanup path.',
               control: 'Pocket Genes is a secure transit tool for this report, not the owner of the medical interpretation.',
             },
             {
-              title: 'The doctor or patient signs in',
+              title: 'Sign-in',
               actor: 'Doctor, patient, and Pocket Genes',
               information: 'Account id, role, login information, session state, report reference, and security events.',
-              action: 'Verifies identity and authorization before showing or downloading the genetic report.',
+              action: 'The doctor or patient signs in before viewing the report.',
               retained: 'Account, access, and security information follows the applicable retention rules.',
               control: 'The doctor and patient manage their own accounts and should protect any downloaded copy.',
             },
             {
-              title: 'The report can be viewed, saved, or downloaded',
+              title: 'Report available',
               actor: 'Doctor, patient, and Pocket Genes',
               information: 'Genetic-report file, access status, download action when applicable, timestamp, doctor reference, and patient reference.',
-              action: 'Lets the authorized doctor and patient view the report, save it securely in the app, or download the report file.',
+              action: 'The report can be viewed, saved in the app, or downloaded.',
               retained: 'Pocket Genes keeps the report and access state only under the report workflow and its retention rules.',
               control: 'A downloaded report file belongs to the authorized doctor or patient who downloaded it. Pocket Genes does not control copies saved outside the app.',
             },
@@ -1061,8 +1059,7 @@ export const trustDocuments: TrustDocument[] = [
       },
       {
         heading: 'Flow C: optional Pocket Genes features',
-        body:
-          'Education, discovery, and RareFriends are optional product features. They are separate from private provider-report access and any provider study workflow.',
+        body: 'Optional features, separate from private report access.',
         flow: {
           labels: {
             actor: 'Actor',
@@ -1076,7 +1073,7 @@ export const trustDocuments: TrustDocument[] = [
               title: 'Education and discovery',
               actor: 'User and Pocket Genes',
               information: 'Interests, interactions, saved resources, organization follows, and educational-resource activity where applicable.',
-              action: 'Provides definitions, lessons, organizations, events, news, and general resources without exposing private report information.',
+              action: 'General resources and organizations without exposing private report information.',
               retained: 'Account and interaction records follow the applicable retention policy.',
               control: 'The user can manage interests, follows, and optional communications.',
             },
@@ -1084,7 +1081,7 @@ export const trustDocuments: TrustDocument[] = [
               title: 'RareFriends and community',
               actor: 'User and community features',
               information: 'Optional profile, tags, posts, comments, follows, groups, messages, reports, and blocks.',
-              action: 'Lets users choose whether to create a profile, follow organizations, publish, comment, join groups, or connect with others.',
+              action: 'Optional participation with profiles, posts, groups, and user controls.',
               retained: 'Community records follow community retention and moderation rules.',
               control: 'The user controls participation, content, visibility, blocks, and deletion subject to applicable limits.',
             },
@@ -2739,8 +2736,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       },
       {
         heading: 'Flujo A: consentimiento informado antes del estudio',
-        body:
-          'Este recorrido aplica cuando un médico, laboratorio, clínica o proveedor del estudio usa Pocket Genes para pedirle al paciente que suba el consentimiento informado requerido antes de un estudio genético.',
+        body: 'Solicitud y carga del consentimiento informado antes del estudio.',
         flow: {
           labels: {
             actor: 'Actor',
@@ -2751,34 +2747,34 @@ export const trustDocumentsEs: TrustDocument[] = [
           },
           steps: [
             {
-              title: 'Se crea la solicitud de consentimiento',
+              title: 'Solicitud creada',
               actor: 'Médico, laboratorio, clínica o proveedor del estudio',
               information: 'Nombre del paciente, correo electrónico, teléfono opcional, referencia del estudio y referencia del informe genético cuando corresponda.',
-              action: 'Crea una solicitud para que el paciente suba el consentimiento informado.',
+              action: 'El proveedor inicia el flujo con los datos mínimos del paciente.',
               retained: 'Los datos de la solicitud siguen las reglas de retención del flujo.',
               control: 'El paciente decide si ingresa al portal y sube el consentimiento informado.',
             },
             {
-              title: 'Pocket Genes notifica al paciente',
+              title: 'Mail enviado',
               actor: 'Pocket Genes',
               information: 'Email del paciente, estado de la solicitud, clave de acceso y referencia del estudio.',
-              action: 'Envía al paciente las instrucciones de acceso para entrar al portal y subir el archivo de consentimiento.',
+              action: 'El paciente recibe las instrucciones del portal y la clave de acceso.',
               retained: 'La notificación y el estado de la solicitud se conservan solo para el flujo de servicio.',
               control: 'El paciente puede ignorar el mensaje, pedir contexto al médico o contactar soporte por problemas de acceso.',
             },
             {
-              title: 'El paciente sube el consentimiento informado',
+              title: 'Consentimiento cargado',
               actor: 'Paciente',
               information: 'Archivo de consentimiento informado, estado de carga, fecha de carga y referencia del estudio o informe relacionado.',
-              action: 'Recibe el archivo cargado por el paciente y actualiza el estado del consentimiento.',
+              action: 'El paciente sube el archivo de consentimiento informado requerido.',
               retained: 'El archivo cargado y su estado siguen las reglas de retención del flujo del estudio.',
               control: 'El paciente controla si sube el archivo desde el portal.',
             },
             {
-              title: 'El estado queda disponible para el estudio',
+              title: 'Estado disponible',
               actor: 'Pocket Genes y operador autorizado del estudio',
               information: 'Estado de carga del consentimiento, fecha, referencia del estudio, referencia del informe y archivo cargado cuando corresponde.',
-              action: 'Deja disponible el estado y el archivo de consentimiento al flujo autorizado para que el estudio continúe o quede pendiente.',
+              action: 'El flujo autorizado del estudio puede ver si el consentimiento fue cargado.',
               retained: 'El estado y el archivo quedan asociados al flujo del estudio y a sus reglas de retención.',
               control: 'Las preguntas del estudio quedan con el médico o proveedor; los problemas de acceso al portal se atienden por soporte de Pocket Genes.',
             },
@@ -2787,8 +2783,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       },
       {
         heading: 'Flujo B: después del estudio',
-        body:
-          'Este recorrido aplica cuando el reporte genético ya fue subido y Pocket Genes funciona como herramienta de tránsito seguro para que el médico y el paciente autorizados puedan acceder a él.',
+        body: 'Acceso seguro al reporte genético ya cargado.',
         flow: {
           labels: {
             actor: 'Actor',
@@ -2799,34 +2794,34 @@ export const trustDocumentsEs: TrustDocument[] = [
           },
           steps: [
             {
-              title: 'Se carga el reporte genético',
+              title: 'Reporte cargado',
               actor: 'Médico, laboratorio, clínica o proveedor autorizado',
               information: 'Archivo del reporte genético, referencia del paciente, referencia del médico, referencia del estudio y estado de carga.',
-              action: 'Recibe el reporte cargado y lo vincula al flujo autorizado del estudio, médico y paciente.',
+              action: 'El proveedor sube el reporte para el médico y paciente autorizados.',
               retained: 'El archivo del reporte y el estado de carga siguen las reglas de retención del flujo de reportes.',
               control: 'El médico o proveedor conserva responsabilidad sobre el contenido del reporte y sobre explicarlo al paciente.',
             },
             {
-              title: 'Se registra el acceso autorizado',
+              title: 'Acceso registrado',
               actor: 'Pocket Genes',
               information: 'Referencia del reporte, médico autorizado, paciente autorizado, estado de acceso y eventos de seguridad.',
-              action: 'Mantiene el reporte disponible solo para el médico y el paciente autorizados según los permisos del flujo.',
+              action: 'Pocket Genes limita el acceso a las cuentas autorizadas.',
               retained: 'El estado de acceso queda vinculado al flujo del reporte, revocación, eliminación de cuenta o limpieza.',
               control: 'Pocket Genes es una herramienta de tránsito seguro para este reporte, no el dueño de la interpretación médica.',
             },
             {
-              title: 'El médico o paciente inicia sesión',
+              title: 'Inicio de sesión',
               actor: 'Médico, paciente y Pocket Genes',
               information: 'ID de cuenta, rol, información de login, estado de sesión, referencia del reporte y eventos de seguridad.',
-              action: 'Verifica identidad y autorización antes de mostrar o permitir descargar el reporte genético.',
+              action: 'El médico o paciente ingresa antes de ver el reporte.',
               retained: 'La información de cuenta, acceso y seguridad sigue las reglas de retención aplicables.',
               control: 'El médico y el paciente gestionan sus propias cuentas y deben proteger cualquier copia descargada.',
             },
             {
-              title: 'El reporte puede verse, guardarse o descargarse',
+              title: 'Reporte disponible',
               actor: 'Médico, paciente y Pocket Genes',
               information: 'Archivo del reporte genético, estado de acceso, descarga cuando corresponda, fecha, referencia del médico y referencia del paciente.',
-              action: 'Permite al médico y al paciente autorizados ver el reporte, guardarlo de forma segura en la app o descargar el archivo del reporte.',
+              action: 'El archivo puede verse, guardarse en la app o descargarse.',
               retained: 'Pocket Genes conserva el reporte y su estado de acceso solo bajo el flujo del reporte y sus reglas de retención.',
               control: 'El archivo de reporte descargado pertenece al médico o paciente autorizado que lo descargó. Pocket Genes no controla copias guardadas fuera de la app.',
             },
@@ -2835,8 +2830,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       },
       {
         heading: 'Flujo C: funciones opcionales de Pocket Genes',
-        body:
-          'Educación, descubrimiento y PockeAmigos son funciones opcionales del producto. Están separadas del acceso privado a informes de proveedor y de cualquier proceso de estudio.',
+        body: 'Funciones opcionales, separadas del acceso privado a informes.',
         flow: {
           labels: {
             actor: 'Actor',
@@ -2850,7 +2844,7 @@ export const trustDocumentsEs: TrustDocument[] = [
               title: 'Educación y descubrimiento',
               actor: 'Usuario y Pocket Genes',
               information: 'Intereses, interacciones, recursos guardados, seguimientos de organizaciones y actividad educativa cuando corresponda.',
-              action: 'Ofrece definiciones, lecciones, organizaciones, eventos, novedades y recursos generales sin exponer información privada del informe.',
+              action: 'Recursos y organizaciones sin exponer información privada del informe.',
               retained: 'Los registros de cuenta e interacción siguen la política de retención aplicable.',
               control: 'El usuario gestiona intereses, seguimientos y comunicaciones opcionales.',
             },
@@ -2858,7 +2852,7 @@ export const trustDocumentsEs: TrustDocument[] = [
               title: 'PockeAmigos y comunidad',
               actor: 'Usuario y funciones comunitarias',
               information: 'Perfil opcional, etiquetas, publicaciones, comentarios, seguimientos, grupos, mensajes, reportes y bloqueos.',
-              action: 'Permite elegir si crear un perfil, seguir organizaciones, publicar, comentar, sumarse a grupos o conectar con otras personas.',
+              action: 'Participación opcional con perfil, publicaciones, grupos y controles propios.',
               retained: 'Los registros comunitarios siguen reglas de retención comunitaria y moderación.',
               control: 'El usuario controla participación, contenido, visibilidad, bloqueos y eliminación, sujeto a límites aplicables.',
             },
