@@ -7,7 +7,17 @@ import { escapeHtml, formatBrandHtml, formatBrandText } from '../../../utils/bra
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 const locale = isEnglish ? 'en' : 'es';
-const formatTrustText = (value: string) => formatBrandHtml(escapeHtml(value).replaceAll('*tab*', '<em>tab</em>'));
+const trustTextLinkPattern = /\[\[([^\]|]+)\|([a-z0-9-]+)\]\]/g;
+const formatTrustText = (value: string) =>
+  formatBrandHtml(
+    escapeHtml(value)
+      .replaceAll('*tab*', '<em>tab</em>')
+      .replace(trustTextLinkPattern, (_match, label: string, slug: string) => {
+        const safeSlug = slug.replace(/[^a-z0-9-]/g, '');
+        const href = localizePath('/pocket-genes/trust-center/' + safeSlug);
+        return `<a class="pg-trust-inline-link" href="${href}">${label}</a>`;
+      })
+  );
 const trustDocuments = getLocalizedTrustDocuments(locale);
 const categories = Array.from(new Set(trustDocuments.map((document) => document.category))).map((category) => ({
   category,
@@ -61,12 +71,12 @@ const pageCopy = {
         body: 'A provider or organization may provide limited contact information to start an invitation, report-access, informed-consent upload, or resource workflow for an intended person.',
       },
       {
-        title: 'What services does Pocket Genes use?',
-        body: 'Pocket Genes uses established service providers, including Amazon Web Services and Google Firebase, to operate different technical components of the platform.',
+        title: 'What external services does Pocket Genes use to operate?',
+        body: 'Pocket Genes uses established providers such as Amazon Web Services and Google Firebase for authentication, infrastructure, communications, and platform operation. The public provider detail is in [[Subprocessor List|subprocessor-list]], with security context in [[Security Overview|security-overview]].',
       },
       {
-        title: 'What rights do I have?',
-        body: 'Users can request access, correction, deletion, account closure, or changes to platform preferences where available through the contact channel, subject to applicable limits.',
+        title: 'How can I exercise my data rights?',
+        body: 'You can request access, correction, deletion, preference changes, or account closure through support@goldencrowvs.com. The broader privacy framework is in [[Privacy Policy|privacy-policy]], and retention or deletion timing is in [[Data-Retention and Deletion Policy|data-retention-deletion]].',
       },
     ],
     responsibilityTitle: 'Who is responsible for Pocket Genes',
@@ -214,12 +224,12 @@ const pageCopy = {
         body: 'Un proveedor puede compartir tus datos de contacto para invitarte, facilitar el acceso a un informe o pedirte que subas el consentimiento informado requerido para el estudio.',
       },
       {
-        title: '¿Qué servicios?',
-        body: 'Pocket Genes usa Amazon Web Services y Google Firebase para distintas funciones técnicas de la plataforma.',
+        title: '¿Qué servicios externos usa Pocket Genes para operar?',
+        body: 'Pocket Genes usa proveedores establecidos como Amazon Web Services y Google Firebase para autenticación, infraestructura, comunicaciones y operación técnica. El detalle público está en [[Proveedores que tratan datos|subprocessor-list]] y el contexto de protección en [[Resumen de Seguridad|security-overview]].',
       },
       {
-        title: '¿Qué derechos tengo?',
-        body: 'Podés pedir acceso, corrección o eliminación de tus datos y solicitar el cierre de tu cuenta escribiendo a nuestro contacto de privacidad.',
+        title: '¿Cómo puedo ejercer mis derechos sobre mis datos?',
+        body: 'Podés pedir acceso, corrección, eliminación, cambios de preferencias o cierre de cuenta escribiendo a support@goldencrowvs.com. El marco general está en [[Política de Privacidad|privacy-policy]] y los tiempos de conservación o borrado en [[Política de Retención y Eliminación de Datos|data-retention-deletion]].',
       },
     ],
     responsibilityTitle: '¿Quién opera Pocket Genes?',
@@ -634,6 +644,18 @@ const isSupportEmailValue = (value: string) => value === POCKET_GENES_EMAILS.hel
 
   .pg-inline-email:hover,
   .pg-inline-email:focus-visible {
+    color: var(--pg-teal);
+  }
+
+  .pg-trust-inline-link {
+    color: var(--pg-blue);
+    font-weight: 780;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .pg-trust-inline-link:hover,
+  .pg-trust-inline-link:focus-visible {
     color: var(--pg-teal);
   }
 
