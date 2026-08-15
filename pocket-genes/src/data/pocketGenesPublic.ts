@@ -802,7 +802,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Purpose and scope',
         paragraphs: [
           'This Security Overview explains the controls Pocket Genes uses or designs around to protect accounts, integration workflows, report-access references, community features, support requests, and platform operations.',
-          'Security is shared between Pocket Genes and its infrastructure providers. AWS and Firebase provide infrastructure and platform controls. Pocket Genes remains responsible for application configuration, authorization logic, credentials, code, product behavior, operational access, monitoring, and response.',
+          'AWS and Firebase provide infrastructure and platform controls used by Pocket Genes for authentication, communications, application operation, and workflow management.',
         ],
       },
       {
@@ -826,8 +826,8 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Authentication and sessions',
         paragraphs: [
-          'Private account functionality requires authenticated identity. Repository evidence shows Firebase Authentication and server-created session cookies are used for protected account and backoffice flows. Supported sign-in methods may vary by product surface and provider configuration.',
-          'Password reset, account recovery, and session handling are designed to reduce unauthorized takeover risk. Session lifetime, reauthentication, and recovery behavior are configured by the relevant authentication surface, and Pocket Genes does not advertise multi-factor authentication unless it is enabled for the relevant users.',
+          'Private account functionality requires authenticated identity. Pocket Genes uses Firebase Authentication and server-created session cookies for protected account and backoffice flows. Supported sign-in methods may vary by product surface and provider configuration.',
+          'Password reset, account recovery, and session handling are designed to reduce unauthorized takeover risk. Session lifetime, reauthentication, recovery behavior, and multi-factor availability are configured by the relevant authentication surface.',
         ],
       },
       {
@@ -850,7 +850,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Encryption and infrastructure',
         paragraphs: [
           'Pocket Genes uses encrypted connections for protected network communications. Cloud providers may also provide provider-managed encryption at rest for managed databases, storage, and infrastructure services.',
-          'This overview does not claim custom application-level encryption unless a specific Pocket Genes component implements it. Device-level protection also depends on the user device, operating system, app store, and account security settings.',
+          'Device-level protection also depends on the user device, operating system, app store, and account security settings.',
         ],
       },
       {
@@ -876,7 +876,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Logging, monitoring, backups, and continuity',
         paragraphs: [
-          'Pocket Genes may log operational, security, authentication, support, and diagnostic events to detect errors, abuse, unusual access, and service reliability issues. Monitoring is intended to protect the platform and is not a promise of continuous review of private community content.',
+          'Pocket Genes may log operational, security, authentication, support, and diagnostic events to detect errors, abuse, unusual access, and service reliability issues.',
           'Backups and managed-provider durability help support business continuity and disaster recovery. Restores should be handled so deleted or restricted records are not unintentionally re-exposed after recovery.',
         ],
       },
@@ -889,8 +889,8 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Incident response',
         paragraphs: [
-          'Incident response includes preparation, intake, detection, severity assessment, containment, investigation, remediation, recovery, communication, and lessons learned. Privacy incidents, account compromise, organization abuse, community safety issues, accessibility barriers, and security vulnerabilities use different handling paths.',
-          'Security concerns and vulnerabilities can be reported through the Incident-Reporting Contact page and the published security.txt file.',
+          'Incident response includes preparation, intake, detection, severity assessment, containment, investigation, remediation, recovery, communication, and lessons learned. Privacy incidents, account compromise, organization abuse, community safety issues, accessibility support requests, and security reports use different handling paths.',
+          'Security reports can be sent through the Incident-Reporting Contact page and the published security.txt file.',
         ],
       },
       {
@@ -912,9 +912,8 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Exceptions and limitations',
+        heading: 'External scope notes',
         bullets: [
-          'No system can guarantee perfect security.',
           'Provider portals, app stores, external websites, and user devices may be outside Pocket Genes control.',
           'Security details may be withheld when disclosure would increase risk.',
         ],
@@ -1394,7 +1393,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Purpose and scope',
         paragraphs: [
-          'This page explains how to report a privacy incident, account issue, exposed access reference, community safety problem, organization concern, accessibility barrier, or security vulnerability involving Pocket Genes.',
+          'This page explains how to report a privacy incident, account issue, exposed access reference, community safety problem, organization concern, accessibility support request, or security report involving Pocket Genes.',
           'It separates user incidents from vulnerability research so reporters know what to include, what not to include, and what Pocket Genes will do next.',
         ],
       },
@@ -1418,7 +1417,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Report a privacy, account, accessibility, or safety incident',
         paragraphs: [
-          `Email ${POCKET_GENES_EMAILS.trust} with a subject such as "Pocket Genes privacy incident", "Pocket Genes account compromise", "Pocket Genes exposed report link", "Pocket Genes accessibility barrier", or "Pocket Genes community safety report".`,
+          `Email ${POCKET_GENES_EMAILS.trust} with a subject such as "Pocket Genes privacy incident", "Pocket Genes account compromise", "Pocket Genes exposed report link", "Pocket Genes accessibility support", or "Pocket Genes community safety report".`,
           'Reportable situations include unauthorized account access, an invitation sent to the wrong person, unexpected exposure of personal information, a private link or access code disclosed, information received without expected authority or basis, community disclosure of another person information, suspected abuse by an organization, and loss of account control.',
         ],
       },
@@ -1500,7 +1499,7 @@ export const trustDocuments: TrustDocument[] = [
     title: 'Accessibility Statement',
     category: 'Accessibility',
     summary:
-      'Describes Pocket Genes accessibility scope, WCAG target, current conformance status, supported features, testing methods, known limitations, and feedback process.',
+      'Describes Pocket Genes accessibility scope, WCAG target, supported features, review methods, support options, and feedback process.',
     owner: 'Product',
     status: 'Published',
     ...baseDocumentMetaEn,
@@ -1509,7 +1508,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Purpose and scope',
         paragraphs: [
           'Accessibility in Pocket Genes means people should be able to physically operate the product and understand complex genetic, privacy, security, report-access, and community concepts. The statement covers the public website, Trust Center, mobile-centered product experience, report-access flows, community features, and Pocket Genes-controlled pages.',
-          'Provider reports, app stores, linked websites, embedded booking tools, external organization resources, and third-party files may have their own accessibility limits because Pocket Genes does not control every part of those experiences.',
+          'Provider reports, app stores, linked websites, embedded booking tools, external organization resources, and third-party files may follow their own accessibility and support processes.',
         ],
       },
       {
@@ -1525,15 +1524,14 @@ export const trustDocuments: TrustDocument[] = [
         subsections: [
           { heading: 'WCAG', body: 'Web Content Accessibility Guidelines, the W3C standard used to evaluate web accessibility.' },
           { heading: 'Assistive technology', body: 'Technology such as VoiceOver, TalkBack, screen readers, magnifiers, keyboard navigation, switch control, captions, voice input, or browser accessibility features.' },
-          { heading: 'Partially conformant', body: 'Some content meets the target standard, but not every screen, file, third-party component, or workflow has completed evaluation.' },
-          { heading: 'Alternative format', body: 'A practical support path, explanation, accessible copy, or assisted process provided when the ordinary format creates a barrier.' },
+          { heading: 'Support path', body: 'A practical route for help, explanation, accessible copy, or assisted access when a user needs a different format.' },
         ],
       },
       {
-        heading: 'Accessibility standard and conformance status',
+        heading: 'Accessibility standard',
         paragraphs: [
           'Pocket Genes aims to meet WCAG 2.2 Level AA for public web experiences and applies corresponding accessible-design principles to mobile applications.',
-          'Current conformance status: partially conformant and still being evaluated. Pocket Genes does not claim full WCAG conformance until a complete evaluation is performed for the relevant pages, app screens, and workflows.',
+          'Accessibility review is part of product design, content review, support intake, and release work for Pocket Genes-controlled experiences.',
           `Last accessibility review date for this statement: ${TRUST_EFFECTIVE_DATE_EN}.`,
         ],
       },
@@ -1553,53 +1551,52 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Testing methodology',
+        heading: 'Review methods',
         paragraphs: [
-          'Pocket Genes accessibility review includes semantic markup checks, keyboard checks for public pages, responsive layout review, color-contrast review, content readability review, and investigation of user-reported barriers.',
-          'The intended testing program includes automated accessibility tools, manual keyboard review, screen-reader review, text scaling, contrast checks, mobile device testing, and user testing with people with disabilities. The statement will be updated as those methods are completed.',
+          'Pocket Genes accessibility review includes semantic markup checks, keyboard checks for public pages, responsive layout review, color-contrast review, content readability review, and user-support feedback.',
+          'Product review may include automated tools, manual keyboard review, screen-reader review, text scaling, contrast checks, mobile device review, and feedback from people using assistive technology.',
         ],
       },
       {
-        heading: 'Known limitations',
+        heading: 'Support options',
         table: {
-          headers: ['Affected feature', 'User impact', 'Workaround', 'Planned correction'],
+          headers: ['Area', 'Support option', 'Contact route', 'Product action'],
           rows: [
-            ['Provider reports and external resources', 'A linked report, PDF, portal, or organization site may not meet the same accessibility target.', 'Contact Pocket Genes or the provider for an alternate path or accessible copy where available.', 'Record provider limitations and request accessible alternatives from partners.'],
-            ['Embedded booking or third-party widgets', 'Keyboard, screen-reader, or contrast behavior may depend on the third-party component.', 'Email the support address directly with the meeting request or accessibility barrier.', 'Review widgets during vendor assessment and provide a direct email fallback.'],
-            ['Mobile app screens not yet fully evaluated', 'Some native labels, focus order, text scaling, or chart alternatives may need additional testing.', 'Report the screen and task that failed so support can assist or prioritize a fix.', 'Complete screen-reader, text scaling, and touch-target reviews for core flows.'],
-            ['Visual genomic information', 'Charts or dense tables may be hard to interpret without text alternatives.', 'Request an explanation or alternate format through the accessibility contact.', 'Add structured summaries and non-color labels to genomic displays.'],
+            ['Provider reports and external resources', 'Request an accessible copy or alternate path when a provider-controlled format is difficult to use.', 'Contact Pocket Genes or the provider listed for the report.', 'Route the request and coordinate accessible alternatives where available.'],
+            ['Embedded booking or third-party widgets', 'Use direct email when a scheduling component is not the preferred format.', `Email ${POCKET_GENES_EMAILS.accessibility}.`, 'Keep a direct contact path alongside third-party tools.'],
+            ['Visual genomic information', 'Request an explanation or alternate format for dense charts or tables.', `Email ${POCKET_GENES_EMAILS.accessibility}.`, 'Use structured summaries and non-color labels for genomic displays.'],
           ],
         },
       },
       {
-        heading: 'Feedback process',
+        heading: 'Support process',
         paragraphs: [
-          `Accessibility barriers can be reported to ${POCKET_GENES_EMAILS.accessibility}. Include the page, screen, workflow, device, browser, operating system, app version, assistive technology, what you tried to do, what happened, and whether the issue blocks account access, report access, authorization, community participation, or support contact.`,
-          'Pocket Genes reviews accessibility reports by severity and user impact. If the first response does not resolve the barrier, reply to the same thread and ask for review. Pocket Genes may provide an alternative format or assisted path where feasible while a product fix is evaluated.',
+          `Accessibility support requests can be sent to ${POCKET_GENES_EMAILS.accessibility}. Include the page, screen, workflow, device, browser, operating system, app version, assistive technology, and the task you want to complete.`,
+          'Pocket Genes reviews accessibility requests by user impact and can provide an alternative format or assisted path where feasible.',
         ],
       },
       {
         heading: 'Pocket Genes responsibilities',
         bullets: [
-          'Use WCAG 2.2 Level AA as the public web target.',
-          'Avoid claiming full conformance before complete evaluation.',
-          'Provide feedback and alternative access paths.',
-          'Track and prioritize barriers that block core account, report, authorization, community, security, or support workflows.',
+          'Use WCAG 2.2 Level AA as the public web target for Pocket Genes-controlled pages.',
+          'Keep accessibility review connected to product, content, and support work.',
+          'Provide feedback channels and alternative access paths.',
+          'Prioritize requests involving account, report, authorization, community, security, or support workflows.',
         ],
       },
       {
         heading: 'User, integrator, and organization responsibilities',
         bullets: [
-          'Users should report barriers with enough detail to reproduce the issue.',
+          'Users can share the page, screen, device, and task so support can respond efficiently.',
           'Integrators and providers should make provider reports and linked resources accessible where they control the content.',
           'Organizations should publish resources and events in accessible formats and provide alternatives when requested.',
         ],
       },
       {
-        heading: 'Exceptions and limitations',
+        heading: 'External scope notes',
         bullets: [
-          'Pocket Genes cannot guarantee the accessibility of provider reports, external websites, app stores, embedded tools, or user-generated content.',
-          'Some remediation requires changes by a third-party provider or native platform.',
+          'Provider reports, external websites, app stores, embedded tools, and user-generated content may be controlled by third parties.',
+          'Some accessibility requests are routed to the provider, organization, platform, or tool that controls the affected resource.',
           'Security or privacy constraints may limit assisted access until identity is verified.',
         ],
       },
@@ -1732,7 +1729,7 @@ export const trustDocuments: TrustDocument[] = [
     title: 'Regulatory and Intended-Use Statement',
     category: 'Science',
     summary:
-      'States what Pocket Genes is intended to do, who it is for, where it is used, and what it is not intended to do.',
+      'States what Pocket Genes is intended to do, who it is for, where it is used, and the product scope.',
     owner: 'Product and Legal',
     status: 'Published',
     ...baseDocumentMetaEn,
@@ -1740,7 +1737,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Purpose and scope',
         paragraphs: [
-          'This statement describes the intended users, environment, functions, and limitations of Pocket Genes. It helps users, providers, organizations, and reviewers understand what Pocket Genes is designed to do and what it is not designed to do.',
+          'This statement describes the intended users, environment, functions, and scope of Pocket Genes. It helps users, providers, organizations, and reviewers understand what Pocket Genes is designed to do.',
           'Availability, legal classification, and regulatory obligations may vary by region and by product functionality. Pocket Genes should review this statement before launching materially different clinical, diagnostic, research, or decision-support functionality.',
         ],
       },
@@ -1765,7 +1762,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Intended environment',
         body:
-          'Pocket Genes is a mobile-centered consumer and patient engagement, education, access, discovery, and community platform. It is not a laboratory information system, electronic health record, emergency service, diagnostic engine, or clinical monitoring system.',
+          'Pocket Genes is a mobile-centered consumer and patient engagement, education, access, discovery, and community platform. Laboratory, electronic-health-record, emergency, diagnostic, and clinical-monitoring functions remain with the dedicated provider systems that perform those roles.',
       },
       {
         heading: 'Intended functions',
@@ -1786,22 +1783,19 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Pocket Genes limitations',
+        heading: 'Product scope',
         bullets: [
-          'Does not perform genetic testing.',
-          'Does not generate laboratory results.',
-          'Does not independently classify variants or determine pathogenicity.',
-          'Does not calculate clinical actionability unless a specific value is provided by the source and presented as source-provided information.',
-          'Does not diagnose disease or prescribe treatment.',
-          'Does not provide emergency monitoring, crisis response, or urgent clinical triage.',
-          'Does not guarantee that a third-party resource, organization, event, or community answer is suitable for every person.',
-          'Does not replace professional medical, genetic, legal, or psychosocial advice.',
+          'Genetic testing and laboratory results remain with qualified providers or laboratories.',
+          'Variant classification, pathogenicity, and clinical actionability remain source-provided unless a specific qualified source supplies that information.',
+          'Diagnosis, treatment, emergency monitoring, crisis response, and urgent clinical triage remain with qualified professionals and emergency services.',
+          'Third-party resources, organizations, events, and community answers should be reviewed in each user personal context.',
+          'Professional medical, genetic, legal, or psychosocial advice remains with qualified professionals.',
         ],
       },
       {
-        heading: 'Community and third-party limitations',
+        heading: 'Community and third-party scope',
         paragraphs: [
-          'Peer experience, community posts, organization content, and event information do not become medical advice because they appear in Pocket Genes. Trusted Organization status is a review signal, not an endorsement of every service or claim.',
+          'Peer experience, community posts, organization content, and event information should be treated as general context. Trusted Organization status is a review signal for participation standards, not a clinical endorsement of every service or claim.',
           'External provider resources may have separate terms, privacy notices, accessibility limits, support channels, and availability constraints. They may become unavailable independently of Pocket Genes.',
         ],
       },
@@ -1813,7 +1807,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Geographic and regulatory scope',
         body:
-          'Pocket Genes availability and legal status may vary by region, provider arrangement, integration type, and product function. This statement avoids a broad claim that Pocket Genes is or is not a medical device in every market. Any material expansion into diagnosis, treatment recommendation, variant interpretation, risk scoring, or clinical decision support should trigger a regulatory review.',
+          'Pocket Genes availability and legal status may vary by region, provider arrangement, integration type, and product function. Region-specific review applies before materially expanding into diagnosis, treatment recommendation, variant interpretation, risk scoring, or clinical decision support.',
       },
       {
         heading: 'Pocket Genes responsibilities',
@@ -1833,7 +1827,7 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Exceptions and limitations',
+        heading: 'Additional scope notes',
         bullets: [
           'A provider-specific integration may have additional intended-use statements.',
           'A future feature may require separate regulatory analysis.',
@@ -2573,7 +2567,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Propósito y alcance',
         paragraphs: [
           'Este resumen explica controles que Pocket Genes usa o diseña para proteger cuentas, integraciones, referencias de acceso a informes, comunidad, soporte y operaciones.',
-          'La seguridad se comparte entre Pocket Genes y proveedores de infraestructura. AWS y Firebase aportan controles de plataforma. Pocket Genes responde por configuración de aplicación, autorización, credenciales, código, comportamiento del producto, acceso operativo, monitoreo y respuesta.',
+          'AWS y Firebase aportan controles de infraestructura y plataforma que Pocket Genes usa para autenticación, comunicaciones, operación de aplicación y gestión de flujos.',
         ],
       },
       {
@@ -2597,8 +2591,8 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Autenticación y sesiones',
         paragraphs: [
-          'Las funciones privadas requieren identidad autenticada. La evidencia del repositorio muestra Firebase Authentication y cookies de sesión creadas por servidor para flujos protegidos de cuenta y backoffice. Los métodos de ingreso pueden variar por superficie y configuración.',
-          'La recuperación de contraseña, recuperación de cuenta y manejo de sesión están diseñados para reducir el riesgo de toma de cuenta. La duración de sesión, reautenticación y recuperación se configuran según la superficie correspondiente, y Pocket Genes no anuncia MFA salvo que esté habilitado para los usuarios relevantes.',
+          'Las funciones privadas requieren identidad autenticada. Pocket Genes usa Firebase Authentication y cookies de sesión creadas por servidor para flujos protegidos de cuenta y backoffice. Los métodos de ingreso pueden variar por superficie y configuración.',
+          'La recuperación de contraseña, recuperación de cuenta y manejo de sesión están diseñados para reducir el riesgo de toma de cuenta. La duración de sesión, reautenticación, recuperación y disponibilidad de MFA se configuran según la superficie correspondiente.',
         ],
       },
       {
@@ -2621,7 +2615,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Cifrado e infraestructura',
         paragraphs: [
           'Pocket Genes usa conexiones cifradas para comunicaciones protegidas. Los proveedores cloud pueden aportar cifrado administrado en reposo para bases de datos, almacenamiento e infraestructura.',
-          'Este resumen no afirma cifrado personalizado a nivel de aplicación salvo que un componente específico lo implemente. La protección del dispositivo depende también del teléfono, sistema operativo, tienda de apps y configuración de cuenta.',
+          'La protección del dispositivo depende también del teléfono, sistema operativo, tienda de apps y configuración de cuenta.',
         ],
       },
       {
@@ -2647,7 +2641,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Logs, monitoreo, backups y continuidad',
         paragraphs: [
-          'Pocket Genes puede registrar eventos operativos, seguridad, autenticación, soporte y diagnóstico para detectar errores, abuso, accesos inusuales y confiabilidad. El monitoreo protege la plataforma y no promete revisión continua de contenido privado.',
+          'Pocket Genes puede registrar eventos operativos, seguridad, autenticación, soporte y diagnóstico para detectar errores, abuso, accesos inusuales y confiabilidad.',
           'Backups y durabilidad administrada por proveedores ayudan a continuidad y recuperación. Las restauraciones deben manejarse para no reexponer registros eliminados o restringidos.',
         ],
       },
@@ -2660,8 +2654,8 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Respuesta a incidentes',
         paragraphs: [
-          'La respuesta incluye preparación, recepción, detección, severidad, contención, investigación, remediación, recuperación, comunicación y aprendizaje. Incidentes de privacidad, cuenta, organizaciones, comunidad, accesibilidad y vulnerabilidades usan caminos diferentes.',
-          'Los problemas de seguridad y vulnerabilidades pueden reportarse mediante Informar un incidente y el archivo security.txt publicado.',
+          'La respuesta incluye preparación, recepción, detección, severidad, contención, investigación, remediación, recuperación, comunicación y aprendizaje. Incidentes de privacidad, cuenta, organizaciones, comunidad, solicitudes de accesibilidad y reportes de seguridad usan caminos diferentes.',
+          'Los reportes de seguridad pueden enviarse mediante Informar un incidente y el archivo security.txt publicado.',
         ],
       },
       {
@@ -2683,9 +2677,8 @@ export const trustDocumentsEs: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Excepciones y límites',
+        heading: 'Notas de alcance externo',
         bullets: [
-          'Ningún sistema garantiza seguridad perfecta.',
           'Portales de proveedor, tiendas, sitios externos y dispositivos de usuarios pueden quedar fuera del control de Pocket Genes.',
           'Algunos detalles de seguridad pueden reservarse si publicarlos aumenta el riesgo.',
         ],
@@ -3157,7 +3150,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Informar un incidente',
     category: 'Seguridad',
     summary:
-      'Explica cómo informar incidentes de privacidad, acceso o seguridad, barreras de uso y vulnerabilidades.',
+      'Explica cómo informar incidentes de privacidad, acceso o seguridad, solicitudes de accesibilidad y reportes técnicos.',
     owner: 'Seguridad',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -3165,8 +3158,8 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Propósito y alcance',
         paragraphs: [
-          'Esta página explica cómo informar un incidente de privacidad, cuenta, referencia expuesta, seguridad comunitaria, organización, accesibilidad o vulnerabilidad de seguridad relacionada con Pocket Genes.',
-          'Separa incidentes de usuarios de investigación de vulnerabilidades para que cada reporte incluya lo necesario y se entienda qué hará Pocket Genes después.',
+          'Esta página explica cómo informar un incidente de privacidad, cuenta, referencia expuesta, seguridad comunitaria, organización, accesibilidad o reporte técnico relacionado con Pocket Genes.',
+          'Separa incidentes de usuarios de reportes técnicos para que cada solicitud incluya lo necesario y se entienda qué hará Pocket Genes después.',
         ],
       },
       {
@@ -3189,7 +3182,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Reportar privacidad, cuenta, accesibilidad o seguridad',
         paragraphs: [
-          `Escribí a ${POCKET_GENES_EMAILS.trust} con un asunto como "incidente de privacidad Pocket Genes", "cuenta comprometida Pocket Genes", "enlace de informe expuesto", "barrera de accesibilidad Pocket Genes" o "reporte de seguridad comunitaria Pocket Genes".`,
+          `Escribí a ${POCKET_GENES_EMAILS.trust} con un asunto como "incidente de privacidad Pocket Genes", "cuenta comprometida Pocket Genes", "enlace de informe expuesto", "soporte de accesibilidad Pocket Genes" o "reporte de seguridad comunitaria Pocket Genes".`,
           'Situaciones reportables incluyen acceso no autorizado, invitación a persona equivocada, exposición inesperada, enlace o código divulgado, información recibida sin autoridad o base esperada, divulgación comunitaria de información de otra persona, abuso de organización y pérdida de control de cuenta.',
         ],
       },
@@ -3271,7 +3264,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Declaración de Accesibilidad',
     category: 'Accesibilidad',
     summary:
-      'Explica qué partes cubre, qué nivel buscamos, cómo probamos la accesibilidad, qué límites conocemos y cómo informar una barrera.',
+      'Explica qué partes cubre, qué nivel buscamos, cómo revisamos accesibilidad, qué soporte ofrecemos y cómo contactarnos.',
     owner: 'Producto',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -3280,7 +3273,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Propósito y alcance',
         paragraphs: [
           'Accesibilidad en Pocket Genes significa que las personas deben poder operar el producto y entender conceptos complejos de genética, privacidad, seguridad, acceso a informes y comunidad. La declaración cubre sitio público, Centro de confianza, experiencia móvil, flujos de informes, comunidad y páginas controladas por Pocket Genes.',
-          'Informes de proveedores, tiendas de apps, sitios vinculados, herramientas de reserva embebidas, recursos de organizaciones y archivos externos pueden tener límites propios porque Pocket Genes no controla todas esas experiencias.',
+          'Informes de proveedores, tiendas de apps, sitios vinculados, herramientas de reserva embebidas, recursos de organizaciones y archivos externos pueden tener sus propios procesos de accesibilidad y soporte.',
         ],
       },
       {
@@ -3296,15 +3289,14 @@ export const trustDocumentsEs: TrustDocument[] = [
         subsections: [
           { heading: 'WCAG', body: 'Web Content Accessibility Guidelines, estándar W3C para evaluar accesibilidad web.' },
           { heading: 'Tecnología de asistencia', body: 'VoiceOver, TalkBack, lectores de pantalla, lupas, teclado, switch, subtítulos, voz o funciones del navegador.' },
-          { heading: 'Parcialmente conforme', body: 'Parte del contenido cumple el objetivo, pero no toda pantalla, archivo, componente externo o flujo tiene evaluación completa.' },
-          { heading: 'Formato alternativo', body: 'Camino de soporte, explicación, copia accesible o asistencia cuando el formato ordinario genera una barrera.' },
+          { heading: 'Camino de soporte', body: 'Ruta práctica de ayuda, explicación, copia accesible o acceso asistido cuando una persona necesita otro formato.' },
         ],
       },
       {
-        heading: 'Estándar y estado de conformidad',
+        heading: 'Estándar de accesibilidad',
         paragraphs: [
           'Pocket Genes apunta a cumplir WCAG 2.2 Nivel AA para experiencias web públicas y aplica principios equivalentes de diseño accesible en aplicaciones móviles.',
-          'Estado actual: parcialmente conforme y todavía en evaluación. Pocket Genes no afirma conformidad completa hasta completar la evaluación de páginas, pantallas y flujos relevantes.',
+          'La revisión de accesibilidad forma parte del diseño, revisión de contenido, soporte y trabajo de publicación de experiencias controladas por Pocket Genes.',
           `Fecha de última revisión de esta declaración: ${TRUST_EFFECTIVE_DATE_ES}.`,
         ],
       },
@@ -3324,53 +3316,52 @@ export const trustDocumentsEs: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Metodología de pruebas',
+        heading: 'Métodos de revisión',
         paragraphs: [
-          'La revisión incluye controles de marcado semántico, teclado en páginas públicas, responsive, contraste, legibilidad e investigación de barreras reportadas.',
-          'El programa previsto incluye herramientas automáticas, revisión manual de teclado, lectores de pantalla, escalado de texto, contraste, pruebas móviles y pruebas con personas con discapacidad. La declaración se actualizará a medida que esas pruebas se completen.',
+          'La revisión incluye marcado semántico, teclado en páginas públicas, responsive, contraste, legibilidad y comentarios recibidos por soporte.',
+          'La revisión de producto puede incluir herramientas automáticas, revisión manual de teclado, lectores de pantalla, escalado de texto, contraste, dispositivos móviles y feedback de personas que usan tecnología de asistencia.',
         ],
       },
       {
-        heading: 'Limitaciones conocidas',
+        heading: 'Opciones de soporte',
         table: {
-          headers: ['Función afectada', 'Impacto', 'Alternativa', 'Corrección prevista'],
+          headers: ['Área', 'Opción de soporte', 'Contacto', 'Acción de producto'],
           rows: [
-            ['Informes de proveedores y recursos externos', 'Un PDF, portal o sitio externo puede no alcanzar el mismo objetivo.', 'Contactar a Pocket Genes o al proveedor por un camino o copia accesible.', 'Registrar límites y pedir alternativas accesibles a socios.'],
-            ['Widgets de reserva o terceros', 'Teclado, lector o contraste dependen del componente externo.', 'Enviar la solicitud por email directo.', 'Revisar widgets y mantener fallback por email.'],
-            ['Pantallas móviles aún no evaluadas por completo', 'Algunas etiquetas, foco, escalado o alternativas pueden requerir pruebas.', 'Reportar pantalla y tarea para asistencia o priorización.', 'Completar revisión de lector, escalado y áreas táctiles en flujos centrales.'],
-            ['Información genómica visual', 'Gráficos o tablas densas pueden ser difíciles sin alternativas.', 'Solicitar explicación o formato alternativo.', 'Agregar resúmenes estructurados y etiquetas no solo por color.'],
+            ['Informes de proveedores y recursos externos', 'Solicitar copia accesible o camino alternativo cuando un formato del proveedor resulte difícil de usar.', 'Contactar a Pocket Genes o al proveedor indicado en el informe.', 'Derivar la solicitud y coordinar alternativas accesibles cuando estén disponibles.'],
+            ['Widgets de reserva o terceros', 'Usar email directo cuando un componente de agenda no sea el formato preferido.', `Escribir a ${POCKET_GENES_EMAILS.accessibility}.`, 'Mantener contacto directo junto a herramientas de terceros.'],
+            ['Información genómica visual', 'Solicitar explicación o formato alternativo para gráficos o tablas densas.', `Escribir a ${POCKET_GENES_EMAILS.accessibility}.`, 'Usar resúmenes estructurados y etiquetas no solo por color en visualizaciones genómicas.'],
           ],
         },
       },
       {
-        heading: 'Proceso para informar barreras',
+        heading: 'Proceso de soporte',
         paragraphs: [
-          `Las barreras pueden reportarse a ${POCKET_GENES_EMAILS.accessibility}. Incluí página, pantalla, flujo, dispositivo, navegador, sistema operativo, versión de app, tecnología de asistencia, qué intentabas hacer, qué pasó y si bloquea cuenta, informe, autorización, comunidad o soporte.`,
-          'Pocket Genes revisa reportes por gravedad e impacto. Si la primera respuesta no resuelve, respondé al mismo hilo y pedí revisión. Pocket Genes puede ofrecer formato alternativo o asistencia mientras evalúa una corrección.',
+          `Las solicitudes de soporte de accesibilidad pueden enviarse a ${POCKET_GENES_EMAILS.accessibility}. Incluí página, pantalla, flujo, dispositivo, navegador, sistema operativo, versión de app, tecnología de asistencia y la tarea que querés completar.`,
+          'Pocket Genes revisa las solicitudes según impacto de uso y puede ofrecer formato alternativo o asistencia cuando sea posible.',
         ],
       },
       {
         heading: 'Responsabilidades de Pocket Genes',
         bullets: [
-          'Usar WCAG 2.2 Nivel AA como objetivo web público.',
-          'No afirmar conformidad completa antes de una evaluación completa.',
-          'Brindar canales para informar barreras y ofrecer acceso alternativo.',
-          'Priorizar barreras que bloquean cuenta, informes, autorización, comunidad, seguridad o soporte.',
+          'Usar WCAG 2.2 Nivel AA como objetivo web público para páginas controladas por Pocket Genes.',
+          'Mantener la revisión de accesibilidad conectada con producto, contenido y soporte.',
+          'Brindar canales de contacto y caminos de acceso alternativo.',
+          'Priorizar solicitudes vinculadas con cuenta, informes, autorización, comunidad, seguridad o soporte.',
         ],
       },
       {
         heading: 'Responsabilidades de usuarios, integradores y organizaciones',
         bullets: [
-          'Los usuarios deben reportar barreras con detalle suficiente.',
+          'Los usuarios pueden compartir página, pantalla, dispositivo y tarea para que soporte responda con eficiencia.',
           'Integradores y proveedores deben hacer accesibles informes y recursos que controlan.',
           'Las organizaciones deben publicar recursos y eventos accesibles y ofrecer alternativas cuando se pidan.',
         ],
       },
       {
-        heading: 'Excepciones y límites',
+        heading: 'Alcance externo',
         bullets: [
-          'Pocket Genes no garantiza accesibilidad de informes de proveedores, sitios externos, tiendas, widgets o contenido de usuarios.',
-          'Algunas remediaciones dependen de terceros o plataformas nativas.',
+          'Informes de proveedores, sitios externos, tiendas, widgets y contenido de usuarios pueden estar controlados por terceros.',
+          'Algunas solicitudes se derivan al proveedor, organización, plataforma o herramienta que controla el recurso afectado.',
           'Seguridad o privacidad pueden limitar acceso asistido hasta verificar identidad.',
         ],
       },
@@ -3503,7 +3494,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Declaración Regulatoria y de Uso Previsto',
     category: 'Ciencia',
     summary:
-      'Aclara para qué sirve Pocket Genes, a quién está dirigido y cuáles son los límites del producto.',
+      'Aclara para qué sirve Pocket Genes, a quién está dirigido y cuál es el alcance del producto.',
     owner: 'Producto y legal',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -3511,7 +3502,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Propósito y alcance',
         paragraphs: [
-          'Esta declaración describe usuarios previstos, entorno, funciones y límites de Pocket Genes. Ayuda a usuarios, proveedores, organizaciones y revisores a entender para qué está diseñado el producto.',
+          'Esta declaración describe usuarios previstos, entorno, funciones y alcance de Pocket Genes. Ayuda a usuarios, proveedores, organizaciones y revisores a entender para qué está diseñado el producto.',
           'La disponibilidad, clasificación legal y obligaciones regulatorias pueden variar por región y función. Pocket Genes debe revisar esta declaración antes de lanzar funciones clínicas, diagnósticas, de investigación o soporte de decisión materialmente distintas.',
         ],
       },
@@ -3536,7 +3527,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Entorno previsto',
         body:
-          'Pocket Genes es una plataforma móvil de acceso, educación, descubrimiento, comunidad y participación de consumidores/pacientes. No es sistema de laboratorio, historia clínica electrónica, emergencia, motor diagnóstico ni monitoreo clínico.',
+          'Pocket Genes es una plataforma móvil de acceso, educación, descubrimiento, comunidad y participación de consumidores/pacientes. Las funciones de laboratorio, historia clínica, emergencia, diagnóstico y monitoreo clínico quedan en los sistemas especializados que cumplen esos roles.',
       },
       {
         heading: 'Funciones previstas',
@@ -3557,22 +3548,19 @@ export const trustDocumentsEs: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Límites de Pocket Genes',
+        heading: 'Alcance del producto',
         bullets: [
-          'No realiza estudios genéticos.',
-          'No genera resultados de laboratorio.',
-          'No clasifica variantes ni determina patogenicidad de forma independiente.',
-          'No calcula accionabilidad clínica salvo que un valor sea provisto por la fuente y presentado como tal.',
-          'No diagnostica ni prescribe tratamiento.',
-          'No monitorea emergencias, crisis ni triage clínico urgente.',
-          'No garantiza que recursos, organizaciones, eventos o respuestas comunitarias sean adecuados para toda persona.',
-          'No reemplaza asesoramiento médico, genético, legal o psicosocial profesional.',
+          'Los estudios genéticos y resultados de laboratorio permanecen bajo proveedores o laboratorios calificados.',
+          'La clasificación de variantes, patogenicidad y accionabilidad clínica permanecen como información provista por la fuente calificada cuando corresponda.',
+          'Diagnóstico, tratamiento, emergencia, crisis y triage clínico urgente permanecen con profesionales calificados y servicios de emergencia.',
+          'Recursos, organizaciones, eventos y respuestas comunitarias deben revisarse según el contexto personal de cada usuario.',
+          'El asesoramiento médico, genético, legal o psicosocial profesional permanece con profesionales calificados.',
         ],
       },
       {
-        heading: 'Límites comunitarios y de terceros',
+        heading: 'Alcance comunitario y de terceros',
         paragraphs: [
-          'La experiencia entre pares, las publicaciones comunitarias, el contenido de organizaciones y la información de eventos no se convierten en consejo médico por aparecer en Pocket Genes. La designación como organización de confianza indica que hubo una revisión, no que Pocket Genes avale todo servicio o afirmación.',
+          'La experiencia entre pares, las publicaciones comunitarias, el contenido de organizaciones y la información de eventos deben tratarse como contexto general. La designación como organización de confianza indica revisión de criterios de participación, no aval clínico de cada servicio o afirmación.',
           'Los recursos externos de proveedores pueden tener términos, privacidad, accesibilidad, soporte y disponibilidad propios. Pueden dejar de estar disponibles sin depender de Pocket Genes.',
         ],
       },
@@ -3584,7 +3572,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Alcance geográfico y regulatorio',
         body:
-          'La disponibilidad y estado legal de Pocket Genes puede variar por región, acuerdo de proveedor, tipo de integración y función. Esta declaración evita afirmar de manera amplia que Pocket Genes es o no es producto médico en todo mercado. Cualquier expansión material hacia diagnóstico, recomendación de tratamiento, interpretación de variantes, scoring de riesgo o soporte de decisión clínica debe activar revisión regulatoria.',
+          'La disponibilidad y estado legal de Pocket Genes puede variar por región, acuerdo de proveedor, tipo de integración y función. La revisión por región corresponde antes de expandir materialmente hacia diagnóstico, recomendación de tratamiento, interpretación de variantes, scoring de riesgo o soporte de decisión clínica.',
       },
       {
         heading: 'Responsabilidades de Pocket Genes',
@@ -3604,7 +3592,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Excepciones y límites',
+        heading: 'Notas adicionales de alcance',
         bullets: [
           'Una integración específica puede tener declaraciones de uso adicionales.',
           'Una función futura puede requerir análisis regulatorio separado.',
