@@ -27,6 +27,7 @@ const publicNavItemsByLocale: Record<PocketGenesPublicLocale, { label: string; h
     { label: 'Join us', href: '/pocket-genes/join-us' },
     { label: 'Integration', href: '/pocket-genes/website/integration' },
     { label: 'Download the app', href: '/pocket-genes/download' },
+    { label: 'Trust Center', href: '/pocket-genes/trust-center' },
   ],
   es: [
     { label: 'Inicio', href: '/pocket-genes/home' },
@@ -34,6 +35,7 @@ const publicNavItemsByLocale: Record<PocketGenesPublicLocale, { label: string; h
     { label: 'Sumate', href: '/pocket-genes/join-us' },
     { label: 'Integración', href: '/pocket-genes/website/integration' },
     { label: 'Descargar la app', href: '/pocket-genes/download' },
+    { label: 'Trust Center', href: '/pocket-genes/trust-center' },
   ],
 };
 
