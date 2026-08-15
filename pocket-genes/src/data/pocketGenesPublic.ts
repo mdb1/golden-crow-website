@@ -2728,7 +2728,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Flujo A: consentimiento informado antes del estudio',
+        heading: 'Consentimiento informado antes del estudio',
         body: 'Solicitud y carga del consentimiento informado antes del estudio.',
         flow: {
           labels: {
@@ -2775,7 +2775,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         },
       },
       {
-        heading: 'Flujo B: después del estudio',
+        heading: 'Acceso al reporte genético después del estudio',
         body: 'Acceso seguro al reporte genético ya cargado.',
         flow: {
           labels: {
@@ -2822,7 +2822,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         },
       },
       {
-        heading: 'Flujo C: funciones opcionales de Pocket Genes',
+        heading: 'Funciones opcionales de Pocket Genes',
         body: 'Funciones opcionales, separadas del acceso privado a informes.',
         flow: {
           labels: {
