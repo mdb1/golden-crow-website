@@ -41,7 +41,7 @@ const linkTrustEmail = (value: string) =>
     POCKET_GENES_EMAILS.trust,
     `<a class="pg-trust-email-link" href="mailto:${POCKET_GENES_EMAILS.trust}">${POCKET_GENES_EMAILS.trust}</a>`,
   );
-const relatedDocumentHeadings = new Set(['Related documents', 'Documentos relacionados']);
+const relatedDocumentHeadings = new Set(['Related pages', 'Páginas relacionadas']);
 const linkRelatedTrustDocument = (value: string, sectionHeading: string) => {
   const href = trustDocumentHrefByTitle.get(value);
 
@@ -58,8 +58,8 @@ const pageCopy = {
     breadcrumbLabel: 'Breadcrumb',
     home: 'Home',
     trustCenter: 'Trust Center',
-    metadataLabel: 'Document metadata',
-    detailsTitle: 'Document details',
+    metadataLabel: 'Page metadata',
+    detailsTitle: 'Page details',
     status: 'Status',
     owner: 'Owner',
     effectiveDate: 'Effective date',
@@ -75,8 +75,8 @@ const pageCopy = {
     breadcrumbLabel: 'Ruta de navegación',
     home: 'Inicio',
     trustCenter: 'Centro de confianza',
-    metadataLabel: 'Metadatos del documento',
-    detailsTitle: 'Detalles del documento',
+    metadataLabel: 'Metadatos de la página',
+    detailsTitle: 'Detalles de la página',
     status: 'Estado',
     owner: 'Responsable',
     effectiveDate: 'Vigencia',

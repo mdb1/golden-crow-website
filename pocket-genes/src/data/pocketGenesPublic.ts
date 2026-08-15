@@ -117,7 +117,7 @@ const documentGovernanceEn = (relatedDocuments: string[]): TrustDocumentSection[
     },
   },
   {
-    heading: 'Related documents',
+    heading: 'Related pages',
     bullets: relatedDocuments,
   },
 ];
@@ -144,7 +144,7 @@ const documentGovernanceEs = (relatedDocuments: string[]): TrustDocumentSection[
     },
   },
   {
-    heading: 'Documentos relacionados',
+    heading: 'Páginas relacionadas',
     bullets: relatedDocuments,
   },
 ];
@@ -181,7 +181,7 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Who this document applies to',
+        heading: 'Who this page applies to',
         bullets: [
           'People who create or use a Pocket Genes account.',
           'People invited to a Pocket Genes workflow by an integrator, provider, clinic, laboratory, organization, or support program.',
@@ -252,7 +252,7 @@ export const trustDocuments: TrustDocument[] = [
             ['Account data', 'Name, surname, email, optional phone, language, profile settings, account id.', 'User, caregiver, authorized representative, or integrator when an invitation starts.', 'Create account, communicate, provide support, route report access, preserve account security.', 'Infrastructure providers and authorized support personnel with need-to-know access.', 'While the account is active, then deleted or de-identified through the account-deletion workflow subject to legal, safety, backup, and fraud-prevention limits.'],
             ['Authentication', 'Firebase user id, login records, session information, password-reset activity, security events.', 'User, device, Firebase Authentication, and Pocket Genes backend.', 'Sign-in, account recovery, session protection, abuse prevention, and access control.', 'Google Firebase and Pocket Genes systems that verify identity and sessions.', 'For the account and security period needed to operate authentication, investigate misuse, and comply with provider security logs.'],
             ['Integration data', 'Provider or organization, invitation state, access reference, report code, provider reference, contact fields needed to reach the intended user.', 'Integrator, report provider, Pocket Genes, or the user during onboarding.', 'Connect the intended user with the relevant Pocket Genes experience, provider report path, informed-consent workflow, or organization workflow.', 'Relevant backend, database, authentication, and infrastructure providers; the originating integrator only as needed for the integration.', 'Current system behavior is tied to workflow completion, rejection, revocation, account deletion, or manual cleanup. No public automatic expiration is stated unless a specific integration publishes one.'],
-            ['Platform decision records', 'Purpose, document or screen version, status, timestamp, workflow, account, provider or organization reference where applicable.', 'User action, caregiver or authorized representative action, and Pocket Genes workflow records.', 'Document Terms acceptance, Privacy Policy acknowledgement, feature settings, report-access activation, optional communication preferences, and workflow accountability.', 'Infrastructure providers and internal reviewers who need the record for the relevant workflow.', 'May outlive temporary contact information where needed to prove the decision, resolve disputes, or satisfy legal obligations.'],
+            ['Platform decision records', 'Purpose, screen or policy version, status, timestamp, workflow, account, provider or organization reference where applicable.', 'User action, caregiver or authorized representative action, and Pocket Genes workflow records.', 'Terms acceptance, Privacy Policy acknowledgement, feature settings, report-access activation, optional communication preferences, and workflow accountability.', 'Infrastructure providers and internal reviewers who need the record for the relevant workflow.', 'May outlive temporary contact information where needed to prove the decision, resolve disputes, or satisfy legal obligations.'],
             ['Community data', 'RareFriends profile, nickname, role, country, language, gene or condition tags, symptom tags, journey stage, posts, comments, follows, groups, messages, reports, blocks.', 'User, community interactions, and moderation actions.', 'Community participation, matching, moderation, safety, reporting, user controls, and support.', 'Other users according to visibility settings; infrastructure providers; moderators where needed.', 'Until the user deletes content or account, moderation removes it, the workflow is closed, or records are retained for safety/legal reasons.'],
             ['Technical data', 'Device type, browser, app version, logs, errors, security events, IP-derived operational data, diagnostic traces.', 'Device, browser, app, infrastructure, and backend services.', 'Reliability, security, troubleshooting, abuse prevention, and incident response.', 'AWS, Firebase, diagnostic or hosting providers when used, and authorized operators.', 'For provider log cycles, security investigation windows, incident records, or de-identified operational analysis.'],
           ],
@@ -269,10 +269,10 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Informed consent for a genetic study',
         paragraphs: [
-          'In some integrations, the professional or provider responsible for a genetic study may use Pocket Genes to send the patient the corresponding informed-consent document.',
+          'In some integrations, the professional or provider responsible for a genetic study may use Pocket Genes to ask the patient to upload the required informed-consent file.',
           'Informed consent refers to the patient decision to accept or reject the study after receiving clear information from the responsible professional about the purpose, procedure, benefits, risks, alternatives, and relevant consequences.',
-          'The provider or professional responsible for the study is accountable for the document contents, the required explanations, and the decision about whether the informed consent obtained allows the study to proceed.',
-          'Pocket Genes acts as a technical channel to facilitate sending, presenting, and returning the document. Processing and temporary retention of any related record is limited to what is necessary to complete that process and is governed by the Data-Retention and Deletion Policy.',
+          'The provider or professional responsible for the study is accountable for the required explanations and the decision about whether the uploaded informed consent allows the study to proceed.',
+          'Pocket Genes acts as a technical channel for the upload request, access instructions, file upload, and consent status. Processing and temporary retention of any related record is limited to what is necessary to complete that process and is governed by the Data-Retention and Deletion Policy.',
           'Informed consent for the study is independent from the Pocket Genes Privacy Policy, Terms of Service, and optional Pocket Genes preferences.',
         ],
       },
@@ -421,7 +421,7 @@ export const trustDocuments: TrustDocument[] = [
         paragraphs: [
           'Genetic reports originate from independent providers. The provider is responsible for testing, report accuracy, findings, clinical interpretation, delivery, and provider-controlled resources. Pocket Genes does not replace the provider report or the provider relationship.',
           'Pocket Genes may organize access, display an authorized mobile experience, connect education around concepts, or provide a report-access path. Pocket Genes does not modify the provider original findings unless a specific integration expressly provides an edited or transformed provider-controlled experience.',
-          'Provider links, portals, documents, laboratory services, clinical services, or external resources may have separate terms, privacy notices, availability limits, and support channels. Pocket Genes cannot guarantee that provider-controlled resources will remain available.',
+          'Provider links, portals, laboratory services, clinical services, or external resources may have separate terms, privacy notices, availability limits, and support channels. Pocket Genes cannot guarantee that provider-controlled resources will remain available.',
         ],
       },
       {
@@ -435,7 +435,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Invitations and access decisions',
         bullets: [
           'An invitation may let a person create an account, confirm identity, activate report access, upload informed consent, or decide whether to continue.',
-          'Platform decision records must identify the purpose, document or workflow version, status, time, and related provider or organization where applicable.',
+          'Platform decision records must identify the purpose, screen or workflow version, status, time, and related provider or organization where applicable.',
           'Declining or ignoring an invitation may prevent the related workflow from continuing, but it should not create community participation or optional communications.',
           'Changing a preference or revoking access where supported may stop a future workflow but may not erase provider records, past lawful processing, security records, or evidence needed for legal, security, or dispute reasons.',
         ],
@@ -508,7 +508,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Exceptions and limitations',
         bullets: [
           'Provider resources, app stores, linked websites, embedded widgets, and external organization services may be governed by separate terms.',
-          'Pocket Genes does not control every provider report, third-party document, external resource, or user statement.',
+          'Pocket Genes does not control every provider report, external resource, or user statement.',
           'Some rights and obligations may vary by user location, provider agreement, product surface, caregiver arrangement, or applicable law.',
         ],
       },
@@ -540,7 +540,7 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Who this document applies to',
+        heading: 'Who this page applies to',
         bullets: [
           'People who create or view RareFriends profiles.',
           'People who post, comment, message, follow, block, report, join groups, or use matching.',
@@ -714,7 +714,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Sensitive disclosures',
         paragraphs: [
           'If a user appears to have accidentally published a complete report, access link, medical record, personal identifier, or another person information, Pocket Genes may hide or remove the content while reviewing the issue. The goal is to reduce exposure first, then determine whether education, warning, account action, or further escalation is needed.',
-          'Moderators may preserve limited evidence when needed to investigate abuse, document the decision, handle repeat behavior, or comply with legal obligations. Preserved evidence should be restricted to people with a need to know.',
+          'Moderators may preserve limited evidence when needed to investigate abuse, record the decision, handle repeat behavior, or comply with legal obligations. Preserved evidence should be restricted to people with a need to know.',
         ],
       },
       {
@@ -758,7 +758,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Pocket Genes responsibilities',
         bullets: [
           'Maintain reporting, blocking, moderation, escalation, and organization-review paths.',
-          'Act proportionally and document important decisions.',
+          'Act proportionally and record important decisions.',
           'Treat sensitive disclosures and report-access references as private and urgent when exposed.',
           'Avoid implying continuous emergency monitoring unless such capability is actually provided.',
         ],
@@ -806,7 +806,7 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Who this document applies to',
+        heading: 'Who this page applies to',
         bullets: [
           'Pocket Genes users and invited users.',
           'Integrators, providers, and Trusted Organizations.',
@@ -883,7 +883,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Vendor management',
         paragraphs: [
-          'Pocket Genes assesses providers according to service purpose, information involved, security controls, contractual terms, privacy documentation, and operational need. The Subprocessor List identifies public providers used for Pocket Genes components.',
+          'Pocket Genes assesses providers according to service purpose, information involved, security controls, contractual terms, public privacy information, and operational need. The Subprocessor List identifies public providers used for Pocket Genes components.',
         ],
       },
       {
@@ -946,7 +946,7 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Who this document applies to',
+        heading: 'Who this page applies to',
         bullets: [
           'Users and caregivers trying to understand report-access and community boundaries.',
           'Providers and integrators that initiate invitations or report-access workflows.',
@@ -1125,7 +1125,7 @@ export const trustDocuments: TrustDocument[] = [
           'Limit each step to the information needed for the workflow.',
           'Keep source responsibility clear between providers, Pocket Genes, organizations, and users.',
           'Protect access references and private account data.',
-          'Document access, request, deletion, and incident paths.',
+          'Record access, request, deletion, and incident paths.',
         ],
       },
       {
@@ -1171,7 +1171,7 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Who this document applies to',
+        heading: 'Who this page applies to',
         bullets: [
           'Pocket Genes users, invited users, caregivers, and community participants.',
           'Integrators, providers, and Trusted Organizations evaluating Pocket Genes data handling.',
@@ -1184,13 +1184,13 @@ export const trustDocuments: TrustDocument[] = [
           { heading: 'Subprocessor', body: 'A service provider that processes personal information for Pocket Genes according to Pocket Genes instructions or configuration.' },
           { heading: 'Infrastructure provider', body: 'A cloud or platform provider that hosts, stores, authenticates, transmits, logs, or supports Pocket Genes technical components.' },
           { heading: 'International processing', body: 'Processing, storage, support, or access that may occur outside the user country depending on provider architecture and support operations.' },
-          { heading: 'Provider documentation', body: 'Public privacy, security, data-processing, or service documentation published by the provider.' },
+          { heading: 'Provider public information', body: 'Public privacy, security, data-processing, or service information published by the provider.' },
         ],
       },
       {
         heading: 'Public register',
         body:
-          'Each provider entry identifies the legal entity, service, purpose, information categories, processing role, transfer context, documentation, and review date.',
+          'Each provider entry identifies the legal entity, service, purpose, information categories, processing role, transfer context, public reference, and review date.',
         subsections: [
           {
             heading: 'Amazon Web Services',
@@ -1201,7 +1201,7 @@ export const trustDocuments: TrustDocument[] = [
               'Categories of information: Application, operational, logging, integration, support, and limited account information depending on hosted component.',
               'Processing role: Hosts, stores, transmits, and supports infrastructure under Pocket Genes configuration.',
               'Jurisdictions or transfers: International processing may apply depending on AWS region, support, and service configuration.',
-              'Documentation: AWS privacy, data processing, security, and compliance documentation.',
+              'Public reference: AWS privacy, data processing, security, and compliance information.',
               `Added or reviewed: ${TRUST_LAST_REVIEWED_EN}.`,
             ],
           },
@@ -1214,7 +1214,7 @@ export const trustDocuments: TrustDocument[] = [
               'Categories of information: Account identifiers, authentication data, login records, profile/application data, integration references, technical logs, and diagnostic information depending on feature.',
               'Processing role: Authenticates, hosts, stores, transmits, and supports application infrastructure.',
               'Jurisdictions or transfers: International processing may apply under Google and Firebase service terms and infrastructure.',
-              'Documentation: Google Cloud, Firebase, privacy, data processing, and security documentation.',
+              'Public reference: Google Cloud, Firebase, privacy, data processing, and security information.',
               `Added or reviewed: ${TRUST_LAST_REVIEWED_EN}.`,
             ],
           },
@@ -1330,14 +1330,14 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Platform decision records',
         paragraphs: [
-          'Platform decision records may outlive temporary contact information because Pocket Genes may need evidence of the decision, document or screen version, workflow, time, and provider or organization relationship. This is separate from retaining a complete report or unnecessary invitation information.',
+          'Platform decision records may outlive temporary contact information because Pocket Genes may need evidence of the decision, screen or policy version, workflow, time, and provider or organization relationship. This is separate from retaining a complete report or unnecessary invitation information.',
           'The record should keep the minimum information needed to understand what was accepted, declined, changed, withdrawn, or superseded.',
         ],
       },
       {
         heading: 'Account deletion',
         paragraphs: [
-          'The current backend includes a cascade-deletion path for Firebase Auth account, private profile, public profile, community user document and events, authored posts and comments up to operational batch limits, report codes, user progress, report owner records, and uploaded report records linked to the user.',
+          'The current backend includes a cascade-deletion path for Firebase Auth account, private profile, public profile, community user record and events, authored posts and comments up to operational batch limits, report codes, user progress, report owner records, and uploaded report records linked to the user.',
           'Account deletion does not delete provider-controlled reports, provider medical records, provider portals, app-store records, external organization records, or information other users lawfully retain outside Pocket Genes. It also may not remove moderation, legal, security, backup, or de-identified operational records.',
         ],
       },
@@ -1511,8 +1511,8 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Purpose and scope',
         paragraphs: [
-          'Accessibility in Pocket Genes means people should be able to physically operate the product and understand complex genetic, privacy, security, report-access, and community concepts. The statement covers the public website, Trust Center, mobile-centered product experience, report-access flows, community features, and Pocket Genes-controlled documents.',
-          'Provider reports, app stores, linked websites, embedded booking tools, external organization resources, and third-party documents may have their own accessibility limits because Pocket Genes does not control every part of those experiences.',
+          'Accessibility in Pocket Genes means people should be able to physically operate the product and understand complex genetic, privacy, security, report-access, and community concepts. The statement covers the public website, Trust Center, mobile-centered product experience, report-access flows, community features, and Pocket Genes-controlled pages.',
+          'Provider reports, app stores, linked websites, embedded booking tools, external organization resources, and third-party files may have their own accessibility limits because Pocket Genes does not control every part of those experiences.',
         ],
       },
       {
@@ -1528,15 +1528,15 @@ export const trustDocuments: TrustDocument[] = [
         subsections: [
           { heading: 'WCAG', body: 'Web Content Accessibility Guidelines, the W3C standard used to evaluate web accessibility.' },
           { heading: 'Assistive technology', body: 'Technology such as VoiceOver, TalkBack, screen readers, magnifiers, keyboard navigation, switch control, captions, voice input, or browser accessibility features.' },
-          { heading: 'Partially conformant', body: 'Some content meets the target standard, but not every screen, document, third-party component, or workflow has completed documented evaluation.' },
-          { heading: 'Alternative format', body: 'A practical support path, explanation, document, or assisted process provided when the ordinary format creates a barrier.' },
+          { heading: 'Partially conformant', body: 'Some content meets the target standard, but not every screen, file, third-party component, or workflow has completed evaluation.' },
+          { heading: 'Alternative format', body: 'A practical support path, explanation, accessible copy, or assisted process provided when the ordinary format creates a barrier.' },
         ],
       },
       {
         heading: 'Accessibility standard and conformance status',
         paragraphs: [
           'Pocket Genes aims to meet WCAG 2.2 Level AA for public web experiences and applies corresponding accessible-design principles to mobile applications.',
-          'Current conformance status: partially conformant and still being evaluated. Pocket Genes does not claim full WCAG conformance until a complete evaluation is performed and documented for the relevant pages, app screens, and workflows.',
+          'Current conformance status: partially conformant and still being evaluated. Pocket Genes does not claim full WCAG conformance until a complete evaluation is performed for the relevant pages, app screens, and workflows.',
           `Last accessibility review date for this statement: ${TRUST_EFFECTIVE_DATE_EN}.`,
         ],
       },
@@ -1559,7 +1559,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Testing methodology',
         paragraphs: [
           'Pocket Genes accessibility review includes semantic markup checks, keyboard checks for public pages, responsive layout review, color-contrast review, content readability review, and investigation of user-reported barriers.',
-          'The intended testing program includes automated accessibility tools, manual keyboard review, screen-reader review, text scaling, contrast checks, mobile device testing, and user testing with people with disabilities. The statement will be updated as those methods are completed and documented.',
+          'The intended testing program includes automated accessibility tools, manual keyboard review, screen-reader review, text scaling, contrast checks, mobile device testing, and user testing with people with disabilities. The statement will be updated as those methods are completed.',
         ],
       },
       {
@@ -1567,7 +1567,7 @@ export const trustDocuments: TrustDocument[] = [
         table: {
           headers: ['Affected feature', 'User impact', 'Workaround', 'Planned correction'],
           rows: [
-            ['Provider reports and external resources', 'A linked report, PDF, portal, or organization site may not meet the same accessibility target.', 'Contact Pocket Genes or the provider for an alternate path or accessible copy where available.', 'Document provider limitations and request accessible alternatives from partners.'],
+            ['Provider reports and external resources', 'A linked report, PDF, portal, or organization site may not meet the same accessibility target.', 'Contact Pocket Genes or the provider for an alternate path or accessible copy where available.', 'Record provider limitations and request accessible alternatives from partners.'],
             ['Embedded booking or third-party widgets', 'Keyboard, screen-reader, or contrast behavior may depend on the third-party component.', 'Email the support address directly with the meeting request or accessibility barrier.', 'Review widgets during vendor assessment and provide a direct email fallback.'],
             ['Mobile app screens not yet fully evaluated', 'Some native labels, focus order, text scaling, or chart alternatives may need additional testing.', 'Report the screen and task that failed so support can assist or prioritize a fix.', 'Complete screen-reader, text scaling, and touch-target reviews for core flows.'],
             ['Visual genomic information', 'Charts or dense tables may be hard to interpret without text alternatives.', 'Request an explanation or alternate format through the accessibility contact.', 'Add structured summaries and non-color labels to genomic displays.'],
@@ -1585,7 +1585,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Pocket Genes responsibilities',
         bullets: [
           'Use WCAG 2.2 Level AA as the public web target.',
-          'Avoid claiming full conformance before documented evaluation.',
+          'Avoid claiming full conformance before complete evaluation.',
           'Provide feedback and alternative access paths.',
           'Track and prioritize barriers that block core account, report, authorization, community, security, or support workflows.',
         ],
@@ -1632,7 +1632,7 @@ export const trustDocuments: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Who this document applies to',
+        heading: 'Who this page applies to',
         bullets: [
           'Users reading educational content or glossary explanations.',
           'Users accessing provider-connected reports through Pocket Genes.',
@@ -1643,7 +1643,7 @@ export const trustDocuments: TrustDocument[] = [
       {
         heading: 'Definitions',
         subsections: [
-          { heading: 'Provider finding', body: 'A result, interpretation, variant, panel, document, or conclusion supplied by the report provider.' },
+          { heading: 'Provider finding', body: 'A result, interpretation, variant, panel, file, or conclusion supplied by the report provider.' },
           { heading: 'Pocket Genes educational content', body: 'Content authored or curated by Pocket Genes to explain terminology, concepts, workflows, or general context.' },
           { heading: 'Organization content', body: 'Resources, events, education updates, or posts attributed to a third-party organization.' },
           { heading: 'Clinical interpretation', body: 'A medical or professional explanation of what a report means for diagnosis, treatment, screening, family planning, or clinical action.' },
@@ -1664,7 +1664,7 @@ export const trustDocuments: TrustDocument[] = [
         heading: 'Educational-content lifecycle',
         subsections: [
           { heading: 'Topic selection', body: 'Topics are selected based on product workflows, common report concepts, user confusion, provider or organization needs, and safety value.' },
-          { heading: 'Source research', body: 'Drafting should use sources appropriate to the topic, such as government or public-health resources, recognized genetics databases actually used in the process, professional guidelines, peer-reviewed literature, provider documentation, and standard scientific terminology.' },
+          { heading: 'Source research', body: 'Drafting should use sources appropriate to the topic, such as government or public-health resources, recognized genetics databases actually used in the process, professional guidelines, peer-reviewed literature, provider public information, and standard scientific terminology.' },
           { heading: 'Drafting and plain-language review', body: 'Content should explain concepts without changing source meaning, overstating certainty, or implying medical advice.' },
           { heading: 'Scientific review and approval', body: 'Material that explains scientific or clinical-adjacent concepts should be reviewed by someone with appropriate genetics, scientific, clinical, or product-safety competence before publication.' },
           { heading: 'Versioning and publication', body: 'Material changes should keep a version or review record when content is used in a regulated, informed-consent, provider, or safety-sensitive context.' },
@@ -2026,7 +2026,7 @@ export const trustDocumentsEs: TrustDocument[] = [
             ['Datos de cuenta', 'Nombre, apellido, email, teléfono opcional, idioma, preferencias e identificador de cuenta.', 'Usuario, cuidador, representante autorizado o integrador cuando inicia una invitación.', 'Crear cuenta, comunicar, dar soporte, enrutar acceso a informes y preservar seguridad.', 'Proveedores de infraestructura y personal autorizado con necesidad de acceso.', 'Mientras la cuenta esté activa; luego eliminación o desidentificación por el flujo de eliminación, con límites legales, de seguridad, backup y fraude.'],
             ['Autenticación', 'ID de Firebase, registros de login, sesión, recuperación de contraseña y eventos de seguridad.', 'Usuario, dispositivo, Firebase Authentication y backend de Pocket Genes.', 'Inicio de sesión, recuperación, protección de sesión, prevención de abuso y control de acceso.', 'Google Firebase y sistemas de Pocket Genes que verifican identidad y sesiones.', 'Durante el período de cuenta y seguridad necesario para operar autenticación, investigar abuso y cumplir ciclos de logs del proveedor.'],
             ['Datos de integración', 'Proveedor u organización, estado de invitación, referencia de acceso, código de informe, referencia de proveedor y campos de contacto.', 'Integrador, proveedor, Pocket Genes o usuario durante onboarding.', 'Conectar a la persona con la experiencia correspondiente de Pocket Genes, acceso a informe, flujo de consentimiento informado o flujo de organización.', 'Backend, base de datos, autenticación e infraestructura relevantes; el integrador de origen solo cuando sea necesario.', 'El comportamiento actual se vincula a finalización, rechazo, revocación, eliminación de cuenta o limpieza manual. No se publica vencimiento automático salvo que una integración lo indique.'],
-            ['Registros de decisiones de plataforma', 'Propósito, versión de documento o pantalla, estado, fecha, flujo, cuenta y referencia de proveedor u organización cuando corresponda.', 'Acción del usuario, cuidador o representante y registros de Pocket Genes.', 'Documentar aceptación de Términos, aviso de Política de Privacidad, configuración de funciones, activación de acceso a informe, preferencias de comunicaciones opcionales y trazabilidad del flujo.', 'Proveedores de infraestructura y revisores internos que necesitan el registro.', 'Puede sobrevivir a datos temporales de contacto si hace falta probar la decisión, resolver disputas o cumplir obligaciones.'],
+            ['Registros de decisiones de plataforma', 'Propósito, versión de pantalla o política, estado, fecha, flujo, cuenta y referencia de proveedor u organización cuando corresponda.', 'Acción del usuario, cuidador o representante y registros de Pocket Genes.', 'Registrar aceptación de Términos, aviso de Política de Privacidad, configuración de funciones, activación de acceso a informe, preferencias de comunicaciones opcionales y trazabilidad del flujo.', 'Proveedores de infraestructura y revisores internos que necesitan el registro.', 'Puede sobrevivir a datos temporales de contacto si hace falta probar la decisión, resolver disputas o cumplir obligaciones.'],
             ['Datos comunitarios', 'Perfil, nickname, rol, país, idioma, etiquetas de gen/condición/síntoma, etapa, publicaciones, comentarios, grupos, mensajes y bloqueos.', 'Usuario, interacciones comunitarias y moderación.', 'Participación, coincidencias, moderación, seguridad, reportes, controles de usuario y soporte.', 'Otros usuarios según visibilidad; infraestructura; moderadores cuando corresponde.', 'Hasta eliminación del usuario o cuenta, retiro por moderación, cierre del flujo o retención por seguridad/legal.'],
             ['Datos técnicos', 'Dispositivo, navegador, versión de app, logs, errores, eventos de seguridad y datos operativos derivados de IP.', 'Dispositivo, navegador, app, infraestructura y backend.', 'Confiabilidad, seguridad, diagnóstico, prevención de abuso e incidentes.', 'AWS, Firebase, proveedores de diagnóstico u hosting cuando se usen y operadores autorizados.', 'Durante ciclos de logs del proveedor, ventanas de investigación, registros de incidente o análisis operativo desidentificado.'],
           ],
@@ -2043,10 +2043,10 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Consentimiento informado para un estudio',
         paragraphs: [
-          'En algunas integraciones, el profesional o proveedor responsable de un estudio genético puede utilizar Pocket Genes para enviar al paciente el documento de consentimiento informado correspondiente.',
+          'En algunas integraciones, el profesional o proveedor responsable de un estudio genético puede utilizar Pocket Genes para pedirle al paciente que suba el archivo de consentimiento informado requerido.',
           'El consentimiento informado se refiere a la decisión del paciente de aceptar o rechazar el estudio después de recibir del profesional responsable información clara sobre su finalidad, procedimiento, beneficios, riesgos, alternativas y consecuencias relevantes.',
-          'El proveedor o profesional a cargo del estudio responde por el contenido del documento, las explicaciones necesarias y la decisión sobre si el consentimiento informado obtenido permite avanzar.',
-          'Pocket Genes actúa como canal técnico para facilitar el envío, la presentación y la devolución del documento. El tratamiento y la conservación temporal de cualquier registro relacionado se limitan a lo necesario para completar ese proceso y se rigen por la Política de Retención y Eliminación de Datos.',
+          'El proveedor o profesional a cargo del estudio responde por las explicaciones necesarias y por decidir si el consentimiento informado cargado permite avanzar.',
+          'Pocket Genes actúa como canal técnico para la solicitud de carga, las instrucciones de acceso, la carga del archivo y el estado del consentimiento. El tratamiento y la conservación temporal de cualquier registro relacionado se limitan a lo necesario para completar ese proceso y se rigen por la Política de Retención y Eliminación de Datos.',
           'El consentimiento informado para el estudio es independiente de la Política de Privacidad, los Términos de Servicio y las preferencias opcionales de Pocket Genes.',
         ],
       },
@@ -2195,7 +2195,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         paragraphs: [
           'Los informes genéticos se originan en proveedores independientes. El proveedor es responsable de pruebas, exactitud, hallazgos, interpretación clínica, entrega y recursos bajo su control. Pocket Genes no reemplaza el informe ni la relación con el proveedor.',
           'Pocket Genes puede organizar acceso, mostrar una experiencia móvil autorizada, conectar educación alrededor de conceptos o brindar un camino de acceso. Pocket Genes no modifica los hallazgos originales del proveedor salvo que una integración específica declare una experiencia editada o transformada bajo control del proveedor.',
-          'Los enlaces, portales, documentos, servicios de laboratorio o clínicos y recursos externos del proveedor pueden tener términos, privacidad, disponibilidad y soporte propios. Pocket Genes no garantiza disponibilidad continua de recursos controlados por proveedores.',
+          'Los enlaces, portales, servicios de laboratorio o clínicos y recursos externos del proveedor pueden tener términos, privacidad, disponibilidad y soporte propios. Pocket Genes no garantiza disponibilidad continua de recursos controlados por proveedores.',
         ],
       },
       {
@@ -2282,7 +2282,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Excepciones y límites',
         bullets: [
           'Recursos de proveedores, tiendas de apps, sitios externos, widgets y servicios de organizaciones pueden tener términos propios.',
-          'Pocket Genes no controla cada informe de proveedor, documento externo, recurso o declaración de usuario.',
+          'Pocket Genes no controla cada informe de proveedor, recurso externo o declaración de usuario.',
           'Algunos derechos y obligaciones varían por ubicación, acuerdo de proveedor, superficie, cuidador o ley aplicable.',
         ],
       },
@@ -2488,7 +2488,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Exposición de información privada',
         paragraphs: [
           'Si un usuario parece haber publicado accidentalmente un informe completo, enlace, historia clínica, identificador o información de otra persona, Pocket Genes puede ocultar o retirar el contenido mientras revisa. El objetivo es reducir exposición primero y luego decidir educación, advertencia, acción sobre cuenta o escalamiento.',
-          'Moderadores pueden preservar evidencia limitada para investigar abuso, documentar decisiones, manejar repetición o cumplir obligaciones. Esa evidencia debe quedar restringida a personas con necesidad de acceso.',
+          'Moderadores pueden preservar evidencia limitada para investigar abuso, registrar decisiones, manejar repetición o cumplir obligaciones. Esa evidencia debe quedar restringida a personas con necesidad de acceso.',
         ],
       },
       {
@@ -2532,7 +2532,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Responsabilidades de Pocket Genes',
         bullets: [
           'Mantener reportes, bloqueos, moderación, escalamiento y revisión de organizaciones.',
-          'Actuar proporcionalmente y documentar decisiones importantes.',
+          'Actuar proporcionalmente y registrar decisiones importantes.',
           'Tratar la exposición de información privada y las referencias de acceso como situaciones privadas y urgentes.',
           'No sugerir monitoreo continuo de emergencias salvo que exista esa capacidad.',
         ],
@@ -2899,7 +2899,7 @@ export const trustDocumentsEs: TrustDocument[] = [
           'Limitar cada paso a la información necesaria.',
           'Mantener clara la responsabilidad de fuente entre proveedores, Pocket Genes, organizaciones y usuarios.',
           'Proteger referencias de acceso y datos privados.',
-          'Documentar accesos, solicitudes, eliminación e incidentes.',
+          'Registrar accesos, solicitudes, eliminación e incidentes.',
         ],
       },
       {
@@ -2958,13 +2958,13 @@ export const trustDocumentsEs: TrustDocument[] = [
           { heading: 'Proveedor que trata datos', body: 'Proveedor que trata información personal para Pocket Genes según instrucciones o configuración de Pocket Genes.' },
           { heading: 'Proveedor de infraestructura', body: 'Proveedor de nube o plataforma que aloja, almacena, autentica, transmite, registra o soporta componentes técnicos.' },
           { heading: 'Tratamiento internacional', body: 'Tratamiento, almacenamiento, soporte o acceso fuera del país del usuario según arquitectura y operaciones del proveedor.' },
-          { heading: 'Documentación del proveedor', body: 'Documentación pública de privacidad, seguridad, tratamiento de datos o servicio publicada por el proveedor.' },
+          { heading: 'Información pública del proveedor', body: 'Información pública de privacidad, seguridad, tratamiento de datos o servicio publicada por el proveedor.' },
         ],
       },
       {
         heading: 'Registro público',
         body:
-          'Cada proveedor se presenta con entidad legal, servicio, propósito, categorías de información, rol de tratamiento, contexto de transferencias, documentación y fecha de revisión.',
+          'Cada proveedor se presenta con entidad legal, servicio, propósito, categorías de información, rol de tratamiento, contexto de transferencias, referencia pública y fecha de revisión.',
         subsections: [
           {
             heading: 'Amazon Web Services',
@@ -2975,7 +2975,7 @@ export const trustDocumentsEs: TrustDocument[] = [
               'Categorías de información: Información de aplicación, operación, logs, integración, soporte y cuenta limitada según componente.',
               'Rol de tratamiento: Aloja, almacena, transmite y soporta infraestructura bajo configuración de Pocket Genes.',
               'Jurisdicciones o transferencias: Puede haber tratamiento internacional según región, soporte y servicio.',
-              'Documentación: Documentación de privacidad, tratamiento de datos, seguridad y cumplimiento de AWS.',
+              'Referencia pública: información de privacidad, tratamiento de datos, seguridad y cumplimiento de AWS.',
               `Agregado o revisado: ${TRUST_LAST_REVIEWED_ES}.`,
             ],
           },
@@ -2988,7 +2988,7 @@ export const trustDocumentsEs: TrustDocument[] = [
               'Categorías de información: Identificadores, autenticación, login, datos de perfil/aplicación, referencias de integración, logs y diagnóstico.',
               'Rol de tratamiento: Autentica, aloja, almacena, transmite y soporta infraestructura.',
               'Jurisdicciones o transferencias: Puede haber tratamiento internacional bajo términos de Google y Firebase.',
-              'Documentación: Documentación de Google Cloud, Firebase, privacidad, tratamiento de datos y seguridad.',
+              'Referencia pública: información de Google Cloud, Firebase, privacidad, tratamiento de datos y seguridad.',
               `Agregado o revisado: ${TRUST_LAST_REVIEWED_ES}.`,
             ],
           },
@@ -3052,7 +3052,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Propósito y alcance',
         paragraphs: [
-          'Esta política explica cómo Pocket Genes conserva, elimina, desidentifica o preserva información en cuentas, integraciones, decisiones de plataforma, documentos de proveedor, acceso a informes, comunidad, soporte, logs y backups.',
+          'Esta política explica cómo Pocket Genes conserva, elimina, desidentifica o preserva información en cuentas, integraciones, decisiones de plataforma, flujos de consentimiento informado, acceso a informes, comunidad, soporte, logs y backups.',
           'Los valores de retención deben reflejar comportamiento implementado. Cuando Pocket Genes no publica un vencimiento automático fijo, esta política informa el disparador actual en lugar de inventar un número de días.',
         ],
       },
@@ -3104,14 +3104,14 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Registros de decisión de plataforma',
         paragraphs: [
-          'Los registros de decisión de plataforma pueden sobrevivir a datos temporales de contacto porque Pocket Genes puede necesitar evidencia de decisión, versión de documento o pantalla, flujo, fecha y proveedor u organización. Esto es distinto de conservar un informe completo o información de invitación innecesaria.',
+          'Los registros de decisión de plataforma pueden sobrevivir a datos temporales de contacto porque Pocket Genes puede necesitar evidencia de decisión, versión de pantalla o política, flujo, fecha y proveedor u organización. Esto es distinto de conservar un informe completo o información de invitación innecesaria.',
           'El registro debe conservar la mínima información necesaria para entender qué fue aceptado, rechazado, cambiado, retirado o reemplazado.',
         ],
       },
       {
         heading: 'Eliminación de cuenta',
         paragraphs: [
-          'El backend actual incluye un camino de eliminación en cascada para cuenta Firebase Auth, perfil privado, perfil público, documento de usuario comunitario y eventos, publicaciones y comentarios propios hasta límites operativos de lote, códigos de informe, progreso, registros de titular de informe e informes cargados vinculados.',
+          'El backend actual incluye un camino de eliminación en cascada para cuenta Firebase Auth, perfil privado, perfil público, registro de usuario comunitario y eventos, publicaciones y comentarios propios hasta límites operativos de lote, códigos de informe, progreso, registros de titular de informe e informes cargados vinculados.',
           'La eliminación de cuenta no elimina informes del proveedor, historias clínicas de proveedor, portales de proveedor, registros de tiendas, registros externos de organizaciones ni información que otros usuarios conserven fuera de Pocket Genes. Tampoco necesariamente elimina registros de moderación, legal, seguridad, backups u operación desidentificada.',
         ],
       },
@@ -3285,8 +3285,8 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Propósito y alcance',
         paragraphs: [
-          'Accesibilidad en Pocket Genes significa que las personas deben poder operar el producto y entender conceptos complejos de genética, privacidad, seguridad, acceso a informes y comunidad. La declaración cubre sitio público, Centro de confianza, experiencia móvil, flujos de informes, comunidad y documentos controlados por Pocket Genes.',
-          'Informes de proveedores, tiendas de apps, sitios vinculados, herramientas de reserva embebidas, recursos de organizaciones y documentos externos pueden tener límites propios porque Pocket Genes no controla todas esas experiencias.',
+          'Accesibilidad en Pocket Genes significa que las personas deben poder operar el producto y entender conceptos complejos de genética, privacidad, seguridad, acceso a informes y comunidad. La declaración cubre sitio público, Centro de confianza, experiencia móvil, flujos de informes, comunidad y páginas controladas por Pocket Genes.',
+          'Informes de proveedores, tiendas de apps, sitios vinculados, herramientas de reserva embebidas, recursos de organizaciones y archivos externos pueden tener límites propios porque Pocket Genes no controla todas esas experiencias.',
         ],
       },
       {
@@ -3302,15 +3302,15 @@ export const trustDocumentsEs: TrustDocument[] = [
         subsections: [
           { heading: 'WCAG', body: 'Web Content Accessibility Guidelines, estándar W3C para evaluar accesibilidad web.' },
           { heading: 'Tecnología de asistencia', body: 'VoiceOver, TalkBack, lectores de pantalla, lupas, teclado, switch, subtítulos, voz o funciones del navegador.' },
-          { heading: 'Parcialmente conforme', body: 'Parte del contenido cumple el objetivo, pero no toda pantalla, documento, componente externo o flujo tiene evaluación documentada.' },
-          { heading: 'Formato alternativo', body: 'Camino de soporte, explicación, documento o asistencia cuando el formato ordinario genera una barrera.' },
+          { heading: 'Parcialmente conforme', body: 'Parte del contenido cumple el objetivo, pero no toda pantalla, archivo, componente externo o flujo tiene evaluación completa.' },
+          { heading: 'Formato alternativo', body: 'Camino de soporte, explicación, copia accesible o asistencia cuando el formato ordinario genera una barrera.' },
         ],
       },
       {
         heading: 'Estándar y estado de conformidad',
         paragraphs: [
           'Pocket Genes apunta a cumplir WCAG 2.2 Nivel AA para experiencias web públicas y aplica principios equivalentes de diseño accesible en aplicaciones móviles.',
-          'Estado actual: parcialmente conforme y todavía en evaluación. Pocket Genes no afirma conformidad completa hasta completar y documentar evaluación de páginas, pantallas y flujos relevantes.',
+          'Estado actual: parcialmente conforme y todavía en evaluación. Pocket Genes no afirma conformidad completa hasta completar la evaluación de páginas, pantallas y flujos relevantes.',
           `Fecha de última revisión de esta declaración: ${TRUST_EFFECTIVE_DATE_ES}.`,
         ],
       },
@@ -3333,7 +3333,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Metodología de pruebas',
         paragraphs: [
           'La revisión incluye controles de marcado semántico, teclado en páginas públicas, responsive, contraste, legibilidad e investigación de barreras reportadas.',
-          'El programa previsto incluye herramientas automáticas, revisión manual de teclado, lectores de pantalla, escalado de texto, contraste, pruebas móviles y pruebas con personas con discapacidad. La declaración se actualizará a medida que esas pruebas se completen y documenten.',
+          'El programa previsto incluye herramientas automáticas, revisión manual de teclado, lectores de pantalla, escalado de texto, contraste, pruebas móviles y pruebas con personas con discapacidad. La declaración se actualizará a medida que esas pruebas se completen.',
         ],
       },
       {
@@ -3341,7 +3341,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         table: {
           headers: ['Función afectada', 'Impacto', 'Alternativa', 'Corrección prevista'],
           rows: [
-            ['Informes de proveedores y recursos externos', 'Un PDF, portal o sitio externo puede no alcanzar el mismo objetivo.', 'Contactar a Pocket Genes o al proveedor por un camino o copia accesible.', 'Documentar límites y pedir alternativas accesibles a socios.'],
+            ['Informes de proveedores y recursos externos', 'Un PDF, portal o sitio externo puede no alcanzar el mismo objetivo.', 'Contactar a Pocket Genes o al proveedor por un camino o copia accesible.', 'Registrar límites y pedir alternativas accesibles a socios.'],
             ['Widgets de reserva o terceros', 'Teclado, lector o contraste dependen del componente externo.', 'Enviar la solicitud por email directo.', 'Revisar widgets y mantener fallback por email.'],
             ['Pantallas móviles aún no evaluadas por completo', 'Algunas etiquetas, foco, escalado o alternativas pueden requerir pruebas.', 'Reportar pantalla y tarea para asistencia o priorización.', 'Completar revisión de lector, escalado y áreas táctiles en flujos centrales.'],
             ['Información genómica visual', 'Gráficos o tablas densas pueden ser difíciles sin alternativas.', 'Solicitar explicación o formato alternativo.', 'Agregar resúmenes estructurados y etiquetas no solo por color.'],
@@ -3359,7 +3359,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Responsabilidades de Pocket Genes',
         bullets: [
           'Usar WCAG 2.2 Nivel AA como objetivo web público.',
-          'No afirmar conformidad completa antes de evaluación documentada.',
+          'No afirmar conformidad completa antes de una evaluación completa.',
           'Brindar canales para informar barreras y ofrecer acceso alternativo.',
           'Priorizar barreras que bloquean cuenta, informes, autorización, comunidad, seguridad o soporte.',
         ],
@@ -3417,7 +3417,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Definiciones',
         subsections: [
-          { heading: 'Hallazgo de proveedor', body: 'Resultado, interpretación, variante, panel, documento o conclusión aportada por el proveedor del informe.' },
+          { heading: 'Hallazgo de proveedor', body: 'Resultado, interpretación, variante, panel, archivo o conclusión aportada por el proveedor del informe.' },
           { heading: 'Contenido educativo de Pocket Genes', body: 'Contenido creado o curado por Pocket Genes para explicar terminología, conceptos, flujos o contexto general.' },
           { heading: 'Contenido de organización', body: 'Recursos, eventos, actualizaciones o publicaciones atribuidas a una organización externa.' },
           { heading: 'Interpretación clínica', body: 'Explicación médica o profesional de lo que un informe significa para diagnóstico, tratamiento, screening, planificación familiar o acción clínica.' },
@@ -3427,7 +3427,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Tipos de información científica',
         bullets: [
-          'Hallazgos y documentos provistos por proveedores.',
+          'Hallazgos y archivos provistos por proveedores.',
           'Glosario, lecciones y explicaciones en lenguaje claro de Pocket Genes.',
           'Artículos, eventos, recursos y actualizaciones de organizaciones.',
           'Publicaciones, comentarios, preguntas y experiencias de usuarios.',
@@ -3438,10 +3438,10 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Ciclo de vida del contenido educativo',
         subsections: [
           { heading: 'Selección de temas', body: 'Los temas se eligen por flujos de producto, conceptos comunes de informes, confusión de usuarios, necesidades de proveedores u organizaciones y valor de seguridad.' },
-          { heading: 'Investigación de fuentes', body: 'La redacción debe usar fuentes apropiadas al tema, como recursos gubernamentales o de salud pública, bases de genética realmente usadas, guías profesionales, literatura revisada por pares, documentación de proveedores y terminología científica estándar.' },
+          { heading: 'Investigación de fuentes', body: 'La redacción debe usar fuentes apropiadas al tema, como recursos gubernamentales o de salud pública, bases de genética realmente usadas, guías profesionales, literatura revisada por pares, información pública de proveedores y terminología científica estándar.' },
           { heading: 'Redacción y lenguaje claro', body: 'El contenido debe explicar sin cambiar el sentido de la fuente, sobredimensionar certeza ni implicar consejo médico.' },
           { heading: 'Revisión científica y aprobación', body: 'El material científico o clínicamente cercano debe revisarse por alguien con competencia genética, científica, clínica o de seguridad de producto antes de publicarse.' },
-          { heading: 'Versionado y publicación', body: 'Los cambios materiales deben conservar versión o revisión cuando el contenido se usa en contextos regulados, de documentos de proveedor, proveedor o seguridad.' },
+          { heading: 'Versionado y publicación', body: 'Los cambios materiales deben conservar versión o revisión cuando el contenido se usa en contextos regulados, de proveedor o seguridad.' },
           { heading: 'Revisión, corrección y retiro', body: 'El contenido debe revisarse por cadencia o cuando cambian fuentes, terminología, guías, expectativas de proveedor o riesgo. Lo desactualizado debe corregirse, etiquetarse o retirarse.' },
         ],
       },
