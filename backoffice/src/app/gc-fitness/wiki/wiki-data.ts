@@ -21,6 +21,22 @@ export type WikiVideo = {
   loomId?: string;
 };
 
+/**
+ * A walkthrough's poster frame, resolved server-side from Loom's oEmbed
+ * endpoint (see wiki-loom-posters.ts).
+ *
+ * The SHAPE lives here, next to the rest of the content model, rather than in
+ * the module that fetches it: that module is `server-only`, and the client
+ * player needs this type. Even a type-only import across that boundary is a
+ * tripwire nobody should have to think about.
+ */
+export type LoomPoster = {
+  /** Static poster frame. Already extension-swapped to the light `.jpg`. */
+  posterUrl: string;
+  /** Runtime in seconds, when Loom reports it. Rendered as a badge. */
+  durationSeconds: number | null;
+};
+
 export type WikiGroup = {
   id: string;
   title: Localized;
@@ -477,6 +493,8 @@ export const WIKI_COPY = {
     es: "Estamos grabando este video. Vuelve pronto.",
     en: "We're still recording this one. Check back soon.",
   },
+  playVideo: { es: "Reproducir video", en: "Play video" },
+  openInLoom: { es: "Ver en Loom", en: "Watch on Loom" },
   copyLink: { es: "Copiar", en: "Copy" },
   copyVideoLink: { es: "Copiar link", en: "Copy link" },
   copiedLink: { es: "¡Copiado!", en: "Copied!" },
