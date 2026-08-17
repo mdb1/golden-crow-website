@@ -5,20 +5,35 @@ import {
   WIKI_COPY,
   WIKI_FAQ,
   WIKI_GROUPS,
-  loomEmbedUrl,
   pick,
+  type LoomPoster,
   type WikiVideo,
 } from "./wiki-data";
+import { fetchLoomPosters } from "./wiki-loom-posters";
 import { WikiLinkCards } from "./wiki-link-cards";
 import { WikiVideoShare } from "./wiki-video-share";
+import { WikiVideoPlayer } from "./wiki-video-player";
 import { WikiHashOpener } from "./wiki-hash-opener";
 
-// Full-width 2-up layout. Every walkthrough renders as a live Loom embed so all
-// posters/thumbnails are visible at once — no click-to-play facade and no
-// "only one plays at a time" gating (that hid thumbnails when a poster image
-// 404'd). Loom lazy-loads each iframe, so nothing autoplays until the coach
-// presses play inside a player.
-export function WikiSections({ locale }: { locale: string }) {
+// Full-width 2-up layout, one poster per walkthrough, and the Loom player
+// mounted only for the card a coach actually pressed.
+//
+// This is the third arrangement of these cards and the reasoning matters, so it
+// is written down in the two files it lives in rather than rediscovered a fourth
+// time: `wiki-loom-posters.ts` for where a poster comes from (Loom's oEmbed
+// endpoint — the previous facade GUESSED the URL and it 403s for every one of
+// our videos today), and `wiki-video-player.tsx` for why a failed player must
+// never render as a black rectangle.
+export async function WikiSections({ locale }: { locale: string }) {
+  // Resolved once for the whole page, server-side and cached for a day, so the
+  // grid renders with its posters already in the HTML — no client fetch, no
+  // per-card waterfall, and no coach staring at empty frames while Loom answers.
+  const posters = await fetchLoomPosters(
+    WIKI_GROUPS.flatMap((group) =>
+      group.videos.flatMap((video) => (video.loomId ? [video.loomId] : [])),
+    ),
+  );
+
   return (
     <main className="min-w-0 space-y-12">
       <WikiHashOpener />
@@ -29,7 +44,14 @@ export function WikiSections({ locale }: { locale: string }) {
           </h2>
           <div className="grid gap-6 xl:grid-cols-2">
             {group.videos.map((video) => (
-              <VideoCard key={video.id} video={video} locale={locale} />
+              <VideoCard
+                key={video.id}
+                video={video}
+                locale={locale}
+                poster={
+                  video.loomId ? (posters.get(video.loomId) ?? null) : null
+                }
+              />
             ))}
           </div>
         </section>
@@ -84,7 +106,15 @@ export function WikiSections({ locale }: { locale: string }) {
   );
 }
 
-function VideoCard({ video, locale }: { video: WikiVideo; locale: string }) {
+function VideoCard({
+  video,
+  locale,
+  poster,
+}: {
+  video: WikiVideo;
+  locale: string;
+  poster: LoomPoster | null;
+}) {
   const comingSoon = !video.loomId;
   const title = pick(locale, video.title);
 
@@ -114,17 +144,13 @@ function VideoCard({ video, locale }: { video: WikiVideo; locale: string }) {
 
       <div className="mt-auto px-5 pb-5 pt-4">
         {video.loomId ? (
-          <div className="relative w-full overflow-hidden rounded-xl border border-border bg-black">
-            <div className="aspect-video">
-              <iframe
-                src={loomEmbedUrl(video.loomId)}
-                title={title}
-                allowFullScreen
-                loading="lazy"
-                className="absolute inset-0 h-full w-full"
-              />
-            </div>
-          </div>
+          <WikiVideoPlayer
+            loomId={video.loomId}
+            anchorId={video.id}
+            title={title}
+            poster={poster}
+            locale={locale}
+          />
         ) : (
           <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 text-center">
             <Video className="h-7 w-7 text-muted-foreground" />
