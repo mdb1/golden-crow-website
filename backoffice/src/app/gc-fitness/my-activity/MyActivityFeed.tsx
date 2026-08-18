@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import type { ComponentType } from "react";
 import Link from "next/link";
 import {
+  Apple,
   ClipboardList,
   Camera,
   Dumbbell,
@@ -45,6 +46,7 @@ const TYPE_OPTION_KEYS: string[] = [
   // `workout_rest_edited` is a CLIENT action (they edit their own rests); it's
   // excluded from "Mi Actividad", so it's not offered as a filter here.
   "habit_assignment",
+  "nutrition_plan",
   "progress_photo_request",
   "weight_request",
   "workout_template",
@@ -63,6 +65,7 @@ const KIND_ICON = {
   workout_assignment: ClipboardList,
   workout_rest_edited: Timer,
   habit_assignment: ListChecks,
+  nutrition_plan: Apple,
   progress_photo_request: Camera,
   weight_request: Scale,
   note: NotebookPen,
@@ -82,6 +85,8 @@ const KIND_CHIP: Record<CoachActivityKind, string> = {
   workout_assignment:
     "border-[color:var(--badge-brand-border)] bg-[color:var(--badge-brand-bg)] text-[color:var(--badge-brand-fg)]",
   habit_assignment:
+    "border-[color:var(--badge-brand-border)] bg-[color:var(--badge-brand-bg)] text-[color:var(--badge-brand-fg)]",
+  nutrition_plan:
     "border-[color:var(--badge-brand-border)] bg-[color:var(--badge-brand-bg)] text-[color:var(--badge-brand-fg)]",
   workout_rest_edited:
     "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] text-[color:var(--badge-warning-fg)]",
