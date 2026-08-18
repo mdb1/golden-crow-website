@@ -85,39 +85,89 @@ const remindersSchema = z.object({
  * `trainerId` is deliberately absent: the Server Action takes it from the session AFTER
  * this parse, so a tampered payload can never smuggle one in.
  */
-export const nutritionPlanFormSchema = z
-  .object({
-    clientId: z.string().trim().min(1),
-    name: localizedTextSchema,
-    templateId: z.string().trim().max(128).nullish(),
-    startsOn: civilDateSchema,
-    endsOn: civilDateSchema.nullable(),
-    targets: macroTargetsSchema,
-    meals: z.array(planMealSchema).min(1, "Un plan necesita al menos una comida").max(12),
-    reminders: remindersSchema.optional(),
+const nutritionPlanBodySchema = z.object({
+  name: localizedTextSchema,
+  templateId: z.string().trim().max(128).nullish(),
+  startsOn: civilDateSchema,
+  endsOn: civilDateSchema.nullable(),
+  targets: macroTargetsSchema,
+  meals: z.array(planMealSchema).min(1, "Un plan necesita al menos una comida").max(12),
+  reminders: remindersSchema.optional(),
+});
+
+/**
+ * The checks that hold for a plan BODY, whoever it is being written for.
+ *
+ * Shared by the single assign and the bulk one (#927) on purpose: a rule that only the
+ * single path enforces is a rule the bulk path is allowed to break fifteen times at once.
+ */
+function refineNutritionPlanBody(
+  value: { startsOn: string; endsOn: string | null; meals: Array<{ mealId?: string }> },
+  ctx: z.RefinementCtx,
+): void {
+  if (value.endsOn !== null && value.endsOn < value.startsOn) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["endsOn"],
+      message: "La fecha de fin no puede ser anterior a la de inicio",
+    });
+  }
+  // A meal id repeated inside one plan would collapse two rows into one key in the daily
+  // log's `meals` map: the client would mark breakfast and see dinner change too.
+  const ids = value.meals.map((meal) => meal.mealId).filter(Boolean);
+  if (new Set(ids).size !== ids.length) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["meals"],
+      message: "Dos comidas del plan no pueden compartir el mismo mealId",
+    });
+  }
+}
+
+export const nutritionPlanFormSchema = nutritionPlanBodySchema
+  .extend({ clientId: z.string().trim().min(1) })
+  .superRefine(refineNutritionPlanBody);
+
+export type NutritionPlanFormInput = z.input<typeof nutritionPlanFormSchema>;
+export type NutritionPlanFormValues = z.output<typeof nutritionPlanFormSchema>;
+
+/**
+ * Hard ceiling on one bulk assign (#927).
+ *
+ * It is the roster cap (`listClientsForRoster` reads at most 50 clients), and it is also
+ * the read budget: the bulk action reads every target client's phases before it writes, so
+ * an unbounded list would turn one click into an unbounded serverless fan-out.
+ */
+export const MAX_BULK_ASSIGN_CLIENTS = 50;
+
+/**
+ * What the "asignar a varios clientes" dialog submits (#927): the SAME plan body as a
+ * single assign, addressed to a list of clients instead of one.
+ *
+ * `clientIds` is validated for duplicates because the same uid twice would assign a phase
+ * and then immediately trim it with its own twin — the client would end up with the plan
+ * they were promised soft-deleted, and nothing would have failed.
+ */
+export const nutritionBulkAssignSchema = nutritionPlanBodySchema
+  .extend({
+    clientIds: z
+      .array(z.string().trim().min(1))
+      .min(1, "Elegí al menos un cliente")
+      .max(MAX_BULK_ASSIGN_CLIENTS),
   })
   .superRefine((value, ctx) => {
-    if (value.endsOn !== null && value.endsOn < value.startsOn) {
+    refineNutritionPlanBody(value, ctx);
+    if (new Set(value.clientIds).size !== value.clientIds.length) {
       ctx.addIssue({
         code: "custom",
-        path: ["endsOn"],
-        message: "La fecha de fin no puede ser anterior a la de inicio",
-      });
-    }
-    // A meal id repeated inside one plan would collapse two rows into one key in the daily
-    // log's `meals` map: the client would mark breakfast and see dinner change too.
-    const ids = value.meals.map((meal) => meal.mealId).filter(Boolean);
-    if (new Set(ids).size !== ids.length) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["meals"],
-        message: "Dos comidas del plan no pueden compartir el mismo mealId",
+        path: ["clientIds"],
+        message: "Un cliente no puede estar dos veces en la misma asignación",
       });
     }
   });
 
-export type NutritionPlanFormInput = z.input<typeof nutritionPlanFormSchema>;
-export type NutritionPlanFormValues = z.output<typeof nutritionPlanFormSchema>;
+export type NutritionBulkAssignInput = z.input<typeof nutritionBulkAssignSchema>;
+export type NutritionBulkAssignValues = z.output<typeof nutritionBulkAssignSchema>;
 
 /** The subset the coach may edit on an EXISTING phase — see `nutrition-actions`. */
 export const nutritionPlanEditSchema = nutritionPlanFormSchema;

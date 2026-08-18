@@ -13,6 +13,8 @@ import { Dumbbell, ListChecks, Activity, Utensils } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import { civilDateToday } from "@/lib/gc-fitness/civil-date";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { listClients } from "@/lib/gc-fitness/client-roster";
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import { PillTabs } from "@/components/gc-fitness/pill-tabs";
@@ -113,7 +115,12 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
 
       {tab === "nutrition" ? (
         <NutritionLibraryQueryProvider>
-          <NutritionLibraryClient />
+          {/* Today in the TRAINER's zone. The bulk-assign dialog (#927) needs a default
+              start date and the library has no single client whose zone to ask; the
+              coach's own is the only sane answer, and it is the one they are reading the
+              screen in. Each client's phase boundary is still evaluated in THEIR zone
+              downstream — this only seeds the date picker. */}
+          <NutritionLibraryClient defaultStartsOn={civilDateToday(await getTrainerTimezone())} />
         </NutritionLibraryQueryProvider>
       ) : null}
     </div>

@@ -67,6 +67,18 @@ export interface CoachActivityEvent {
   occurredAt?: Date | null;
   /** True when the event represents a deletion (e.g. a series was removed). */
   deleted?: boolean;
+  /**
+   * #927 — ties together the events ONE action produced across several clients, so the
+   * feed can render them as a single row.
+   *
+   * Deliberately grouped at READ and not at write. A bulk nutrition assign touches N
+   * DIFFERENT clients, and the alternative — one event with `clientId: null` — would
+   * vanish the moment a coach filters "Mi Actividad" by a client, which is exactly the
+   * question ("¿qué le hice a esta persona?") the feed exists to answer. Writing one
+   * event per client keeps that filter honest; the collapse in
+   * `coach-activity-grouping.ts` keeps the unfiltered feed from turning into 15 lines.
+   */
+  groupId?: string | null;
 }
 
 export function localizedText(value: unknown): string {
@@ -257,6 +269,8 @@ export function nutritionPlanEvent(args: {
   /** "assigned" | "edited" | "trimmed" | "closed" — what happened to THIS plan. */
   change: "assigned" | "edited" | "trimmed" | "closed";
   occurredAt?: Date | null;
+  /** #927 — set when this event is one client's share of a bulk assign. */
+  groupId?: string | null;
 }): CoachActivityEvent {
   const name = localizedText(args.name);
   const verb =
@@ -279,6 +293,7 @@ export function nutritionPlanEvent(args: {
     clientId: args.clientId,
     pendingEmail: null,
     occurredAt: args.occurredAt ?? null,
+    groupId: args.groupId ?? null,
   };
 }
 
@@ -397,6 +412,9 @@ export async function recordCoachActivityEvent(
           clientId: event.clientId,
           pendingEmail: event.pendingEmail,
           deleted: event.deleted ?? false,
+          // Only written when there IS one: an unconditional `groupId: null` on every
+          // event would rewrite the field on every merge of a pre-#927 row for nothing.
+          ...(event.groupId ? { groupId: event.groupId } : {}),
           occurredAt: event.occurredAt
             ? Timestamp.fromDate(event.occurredAt)
             : FieldValue.serverTimestamp(),

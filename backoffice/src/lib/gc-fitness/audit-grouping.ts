@@ -110,6 +110,27 @@ function isDayMove(entry: RawAuditLogEntry): boolean {
   return entry.op === "update" && entry.changedFields.includes("scheduledFor");
 }
 
+/**
+ * #927 — the id shared by every plan ONE bulk nutrition assign wrote.
+ *
+ * Unlike the workout-series collapse below, this needs no id parsing and no minute
+ * bucketing: `assignNutritionTemplateToClients` stamps a `bulkId` on every document it
+ * creates, so the grouping key is exact. Two coaches assigning the same template to the
+ * same client in the same minute can never merge by accident, which is the failure mode
+ * #697 and #785 both were.
+ *
+ * Only CREATES carry it. The trims a bulk applies to neighbouring phases are updates, and
+ * the rules' update whitelist (`hasOnly([...])`) does not admit a `bulkId` key — so those
+ * stay one audit row each. That is a deliberate limit, not an oversight: adding the field
+ * to the whitelist would mean a rules change and a redeploy for a cosmetic gain in one
+ * admin screen.
+ */
+export function nutritionBulkId(entry: RawAuditLogEntry): string | null {
+  if (entry.collection !== "nutrition_plans" || entry.op !== "create") return null;
+  const value = entry.after?.bulkId;
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
 /** "20270503" → "2027-05-03". */
 export function fmtYmd(yyyymmdd: string): string {
   return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
@@ -125,13 +146,19 @@ export function dateRangeLabel(dates: string[]): string | null {
 }
 
 /**
- * Collapse recurring-series writes. Entries sharing the SAME series root, op,
- * actor (uid/trainer), client and minute merge into one group; everything else
- * stays a standalone group of one. Input order (newest-first) is preserved, and
- * `head` is the newest member of each group.
+ * Collapse the writes that ONE action produced.
  *
- * Only `workout_assignments` docs whose id matches the recurring pattern are
- * eligible — any other collection or a non-matching id is always its own row.
+ * Two shapes qualify, and nothing else:
+ *
+ *  - **A recurring workout series.** Entries sharing the SAME series root, op, actor
+ *    (uid/trainer), client and minute merge into one group. Only `workout_assignments`
+ *    docs whose id matches the recurring pattern are eligible.
+ *  - **A bulk nutrition assign (#927).** Entries sharing the same `bulkId`, which the
+ *    action stamps on every plan it writes. No minute bucket and no id parsing — the key
+ *    is exact, so unrelated writes cannot merge.
+ *
+ * Everything else stays a standalone group of one. Input order (newest-first) is
+ * preserved, and `head` is the newest member of each group.
  */
 export function groupRecurringAuditEntries<T extends RawAuditLogEntry>(
   raw: T[],
@@ -144,17 +171,23 @@ export function groupRecurringAuditEntries<T extends RawAuditLogEntry>(
       r.collection === "workout_assignments" && !isDayMove(r)
         ? recurringSeries(r.docId)
         : null;
-    const key = series
-      ? `rec|${r.collection}|${r.op}|${r.actorUid ?? ""}|${r.trainerId ?? ""}|${
-          r.clientId ?? ""
-        }|${series.root}|${assignmentTemplateId(r) ?? ""}|${
-          (r.occurredAtISO ?? "").slice(0, 16)
-        }`
-      : `solo|${r.id}`;
+    const bulk = nutritionBulkId(r);
+    // The bulk key deliberately omits the client: grouping ACROSS clients is the whole
+    // point. It keeps the actor so two coaches can never share a group even if a bulkId
+    // somehow collided.
+    const key = bulk
+      ? `bulk|${r.collection}|${r.op}|${r.actorUid ?? ""}|${r.trainerId ?? ""}|${bulk}`
+      : series
+        ? `rec|${r.collection}|${r.op}|${r.actorUid ?? ""}|${r.trainerId ?? ""}|${
+            r.clientId ?? ""
+          }|${series.root}|${assignmentTemplateId(r) ?? ""}|${
+            (r.occurredAtISO ?? "").slice(0, 16)
+          }`
+        : `solo|${r.id}`;
     const at = indexByKey.get(key);
     if (at === undefined) {
       indexByKey.set(key, groups.length);
-      groups.push({ members: [r], root: series?.root ?? null });
+      groups.push({ members: [r], root: series?.root ?? bulk ?? null });
     } else {
       groups[at].members.push(r);
     }

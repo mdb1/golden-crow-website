@@ -37,6 +37,7 @@ import {
   nutritionPlanFormSchema,
   type NutritionOverlapNotice,
 } from "./nutrition-plan-form";
+import { decodeNutritionPlan, normalizeNutritionTargets } from "./nutrition-decode";
 import { nutritionPlanOverlapEdits } from "./nutrition-plan-resolution";
 import {
   parseNutritionMealStatus,
@@ -88,7 +89,7 @@ export async function listNutritionPlansForClient(
     .get();
 
   const plans = snap.docs
-    .map((doc) => decodePlan(doc.id, doc.data()))
+    .map((doc) => decodeNutritionPlan(doc.id, doc.data()))
     .filter((plan): plan is NutritionPlan => plan !== null)
     .sort((a, b) => a.startsOn.localeCompare(b.startsOn));
 
@@ -212,16 +213,16 @@ export async function assignNutritionPlan(
     // Firestore cannot match a missing field, and open-ended is the common case — that
     // combination is exactly how #400 made client-created habits invisible.
     endsOn: data.endsOn,
-    targets: normalizeTargets(data.targets),
+    targets: normalizeNutritionTargets(data.targets),
     meals: data.meals.map((meal, index) => ({
       mealId: meal.mealId ?? `meal-${randomUUID()}`,
       name: meal.name,
       moment: meal.moment,
-      targets: normalizeTargets(meal.targets ?? {}),
+      targets: normalizeNutritionTargets(meal.targets ?? {}),
       options: (meal.options ?? []).map((option) => ({
         id: option.id ?? `opt-${randomUUID()}`,
         text: option.text,
-        targets: normalizeTargets(option.targets ?? {}),
+        targets: normalizeNutritionTargets(option.targets ?? {}),
       })),
       order: index,
     })),
@@ -288,7 +289,7 @@ export async function updateNutritionPlan(
   const ref = db.collection(PLANS).doc(planId);
   const snap = await ref.get();
   if (!snap.exists) throw new Error("NotFound");
-  const current = decodePlan(planId, snap.data());
+  const current = decodeNutritionPlan(planId, snap.data());
   if (!current) throw new Error("NotFound");
   if (current.trainerId !== trainer.uid) throw new Error("Forbidden");
   if (current.clientId !== data.clientId) throw new Error("Forbidden");
@@ -320,16 +321,16 @@ export async function updateNutritionPlan(
     templateId: data.templateId ?? null,
     startsOn: data.startsOn,
     endsOn: data.endsOn,
-    targets: normalizeTargets(data.targets),
+    targets: normalizeNutritionTargets(data.targets),
     meals: data.meals.map((meal, index) => ({
       mealId: meal.mealId ?? `meal-${randomUUID()}`,
       name: meal.name,
       moment: meal.moment,
-      targets: normalizeTargets(meal.targets ?? {}),
+      targets: normalizeNutritionTargets(meal.targets ?? {}),
       options: (meal.options ?? []).map((option) => ({
         id: option.id ?? `opt-${randomUUID()}`,
         text: option.text,
-        targets: normalizeTargets(option.targets ?? {}),
+        targets: normalizeNutritionTargets(option.targets ?? {}),
       })),
       order: index,
     })),
@@ -367,7 +368,7 @@ export async function softDeleteNutritionPlan(planId: string): Promise<void> {
   const ref = db.collection(PLANS).doc(planId);
   const snap = await ref.get();
   if (!snap.exists) throw new Error("NotFound");
-  const current = decodePlan(planId, snap.data());
+  const current = decodeNutritionPlan(planId, snap.data());
   if (!current) throw new Error("NotFound");
   if (current.trainerId !== trainer.uid) throw new Error("Forbidden");
 
@@ -397,53 +398,6 @@ export async function softDeleteNutritionPlan(planId: string): Promise<void> {
  * coach left blank arrives as `undefined` from the form, which makes this the most likely
  * place in the feature to hit that.
  */
-function normalizeTargets(targets: Record<string, unknown>): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const key of ["kcal", "proteinG", "carbsG", "fatG"] as const) {
-    const value = targets[key];
-    if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
-  }
-  return out;
-}
-
-/**
- * Forgiving decode. A malformed plan is SKIPPED rather than thrown on: one bad doc must
- * not blank the whole phase strip, and the coach can still see (and fix) the rest.
- */
-function decodePlan(id: string, raw: unknown): NutritionPlan | null {
-  if (!raw || typeof raw !== "object") return null;
-  const data = raw as Record<string, unknown>;
-  const clientId = typeof data.clientId === "string" ? data.clientId : null;
-  const trainerId = typeof data.trainerId === "string" ? data.trainerId : null;
-  const startsOn = typeof data.startsOn === "string" ? data.startsOn : null;
-  if (!clientId || !trainerId || !startsOn) return null;
-
-  const name =
-    data.name && typeof data.name === "object"
-      ? (data.name as { en?: unknown; es?: unknown })
-      : {};
-
-  return {
-    id,
-    clientId,
-    trainerId,
-    source: data.source === "self" ? "self" : "coach",
-    name: {
-      en: typeof name.en === "string" ? name.en : "",
-      es: typeof name.es === "string" ? name.es : "",
-    },
-    templateId: typeof data.templateId === "string" ? data.templateId : null,
-    startsOn,
-    // `?? null` and NOT `|| null`: the key may legitimately hold null, and conflating
-    // "absent" with "open-ended" is the bug class this whole feature is written around.
-    endsOn: typeof data.endsOn === "string" ? data.endsOn : null,
-    targets: (data.targets ?? {}) as NutritionPlan["targets"],
-    meals: Array.isArray(data.meals) ? (data.meals as NutritionPlan["meals"]) : [],
-    reminders: (data.reminders ?? null) as NutritionPlan["reminders"],
-    deleted: data.deleted === true,
-  };
-}
-
 /**
  * Forgiving decode of a daily log. A malformed doc is SKIPPED, never thrown on: one bad
  * day must not blank the whole grid, and the coach can still read the rest of the week.
