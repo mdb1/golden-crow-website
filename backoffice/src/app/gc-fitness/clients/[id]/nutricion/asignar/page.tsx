@@ -9,6 +9,7 @@ import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { coachVisibleClientName } from "@/lib/gc-fitness/client-name";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { listNutritionPlansForClient } from "@/lib/gc-fitness/nutrition-actions";
+import { listNutritionTemplates } from "@/lib/gc-fitness/nutrition-library-actions";
 import { defaultNutritionStartsOn } from "@/lib/gc-fitness/nutrition-plan-form";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
@@ -56,6 +57,9 @@ export default async function AssignNutritionPage({
 
   const t = await getTranslations("clients.detail.nutrition");
   const { context } = await listNutritionPlansForClient(id);
+  // #918 — the coach's reusable plans. Empty is a legitimate state (a coach who has not
+  // built a library yet), and the form then behaves exactly as it did before.
+  const templates = await listNutritionTemplates();
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 md:p-6">
@@ -78,6 +82,7 @@ export default async function AssignNutritionPage({
         // Today in the CLIENT's timezone, not the coach's: a coach in Buenos Aires
         // assigning at 21:30 must not default the phase to start tomorrow.
         defaultStartsOn={defaultNutritionStartsOn(context.clientTimezone)}
+        templates={templates}
       />
     </div>
   );

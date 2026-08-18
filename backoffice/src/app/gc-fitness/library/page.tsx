@@ -9,7 +9,7 @@
 // shared PageHeader supplies the title), so no data/logic is duplicated.
 
 import { redirect } from "next/navigation";
-import { Dumbbell, ListChecks, Activity } from "lucide-react";
+import { Dumbbell, ListChecks, Activity, Utensils } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
@@ -23,6 +23,8 @@ import { ExerciseQueryProvider } from "../exercises/providers";
 import { ExerciseLibraryClient } from "../exercises/client";
 import { HabitsQueryProvider } from "../habits/providers";
 import { HabitsLibraryClient } from "../habits/client";
+import { NutritionLibraryQueryProvider } from "./_nutrition/providers";
+import { NutritionLibraryClient } from "./_nutrition/NutritionLibraryClient";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 // Tab title: "GC Fitness - <library>" (issue #170).
@@ -30,10 +32,10 @@ export const generateMetadata = () => sectionMetadata("library");
 
 export const dynamic = "force-dynamic";
 
-type LibraryTab = "workouts" | "exercises" | "habits";
+type LibraryTab = "workouts" | "exercises" | "habits" | "nutrition";
 
 function resolveTab(raw: string | undefined): LibraryTab {
-  if (raw === "exercises" || raw === "habits") return raw;
+  if (raw === "exercises" || raw === "habits" || raw === "nutrition") return raw;
   return "workouts";
 }
 
@@ -86,6 +88,12 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
             icon: <ListChecks />,
             href: "/gc-fitness/library?tab=habits",
           },
+          {
+            key: "nutrition",
+            label: tNav("nutrition"),
+            icon: <Utensils />,
+            href: "/gc-fitness/library?tab=nutrition",
+          },
         ]}
       />
 
@@ -102,6 +110,12 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
       ) : null}
 
       {tab === "habits" ? <HabitsTab trainerUid={trainerUid} /> : null}
+
+      {tab === "nutrition" ? (
+        <NutritionLibraryQueryProvider>
+          <NutritionLibraryClient />
+        </NutritionLibraryQueryProvider>
+      ) : null}
     </div>
   );
 }

@@ -15,7 +15,7 @@
 // the meals/options tree is two levels of dynamic arrays, and a plain controlled tree plus
 // one `safeParse` on submit is far easier to keep honest than nested field arrays.
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -36,6 +36,8 @@ import {
   assignNutritionPlan,
   previewNutritionAssign,
 } from "@/lib/gc-fitness/nutrition-actions";
+import { templateDeviations } from "@/lib/gc-fitness/nutrition-library-model";
+import type { NutritionTemplateRow } from "@/lib/gc-fitness/nutrition-library-model";
 import { nutritionPlanFormSchema } from "@/lib/gc-fitness/nutrition-plan-form";
 import type { NutritionOverlapNotice } from "@/lib/gc-fitness/nutrition-plan-form";
 import {
@@ -52,6 +54,8 @@ interface DraftOption {
 
 interface DraftMeal {
   key: string;
+  /** Set only when the row came from a library meal — provenance, and the daily-log key. */
+  mealId?: string;
   name: string;
   nameEn: string;
   moment: NutritionMealMoment;
@@ -82,6 +86,18 @@ function emptyMeal(moment: NutritionMealMoment): DraftMeal {
   };
 }
 
+/**
+ * The English slot: what was typed in English, or the Spanish text when there is none.
+ *
+ * Reads the English field even while its pane is collapsed, because a draft prefilled from
+ * a library template already HAS an English name — discarding it on save would flatten
+ * every template's translation the first time it is assigned.
+ */
+function englishOr(english: string, fallback: string): string {
+  const typed = english.trim();
+  return typed === "" ? fallback.trim() : typed;
+}
+
 /** Blank → `null`, so an unset macro stays unset instead of becoming a zero target. */
 function numberOrNull(raw: string): number | null {
   const trimmed = raw.trim();
@@ -93,9 +109,15 @@ function numberOrNull(raw: string): number | null {
 export function AssignNutritionForm({
   clientId,
   defaultStartsOn,
+  templates = [],
 }: {
   clientId: string;
   defaultStartsOn: string;
+  /**
+   * The coach's reusable plans (#918). Empty is a legitimate state — a coach who has not
+   * built a library yet types the plan inline, exactly as before.
+   */
+  templates?: NutritionTemplateRow[];
 }) {
   const t = useTranslations("clients.detail.nutrition");
   const router = useRouter();
@@ -114,8 +136,99 @@ export function AssignNutritionForm({
   const [meals, setMeals] = useState<DraftMeal[]>([emptyMeal("breakfast")]);
   const [overlap, setOverlap] = useState<NutritionOverlapNotice[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** The template this draft came from, kept so the form can diff against it. */
+  const [sourceTemplate, setSourceTemplate] = useState<NutritionTemplateRow | null>(null);
 
   const effectiveEndsOn = openEnded ? null : endsOn.trim() === "" ? null : endsOn;
+
+  /**
+   * Fill the whole form from a template — a COPY, not a link. The plan keeps `templateId`
+   * for provenance (that is what the library's "asignada N veces" pill counts), and every
+   * later edit to the template leaves this plan alone.
+   */
+  const applyTemplate = useCallback((template: NutritionTemplateRow) => {
+    setSourceTemplate(template);
+    setName(template.name.es || template.name.en);
+    setNameEn(template.name.en || template.name.es);
+    setKcal(template.targets?.kcal == null ? "" : String(template.targets.kcal));
+    setProteinG(template.targets?.proteinG == null ? "" : String(template.targets.proteinG));
+    setCarbsG(template.targets?.carbsG == null ? "" : String(template.targets.carbsG));
+    setFatG(template.targets?.fatG == null ? "" : String(template.targets.fatG));
+    setMeals(
+      [...template.meals]
+        .sort((a, b) => a.order - b.order)
+        .map((meal) => ({
+          key: nextKey("meal"),
+          // The `mealId` SURVIVES into the assigned plan: it is the key the daily log's
+          // `meals` map uses, and the FK the usage pill counts by.
+          mealId: meal.mealId,
+          name: meal.name.es || meal.name.en,
+          nameEn: meal.name.en || meal.name.es,
+          moment: meal.moment,
+          kcal: meal.targets?.kcal == null ? "" : String(meal.targets.kcal),
+          proteinG: meal.targets?.proteinG == null ? "" : String(meal.targets.proteinG),
+          carbsG: meal.targets?.carbsG == null ? "" : String(meal.targets.carbsG),
+          fatG: meal.targets?.fatG == null ? "" : String(meal.targets.fatG),
+          options: (meal.options ?? []).map((option) => ({
+            key: nextKey("option"),
+            text: option.text.es || option.text.en,
+            textEn: option.text.en || option.text.es,
+            kcal: option.targets?.kcal == null ? "" : String(option.targets.kcal),
+          })),
+        })),
+    );
+  }, []);
+
+  /**
+   * What the coach retouched FOR THIS CLIENT, relative to the template.
+   *
+   * A diff, not a dirty flag: typing a value and then typing the original back is not a
+   * modification, and a flag would keep claiming it was. Empty while no template is in play.
+   */
+  const deviations = useMemo(() => {
+    if (!sourceTemplate) return [];
+    return templateDeviations(
+      {
+        targets: sourceTemplate.targets ?? {},
+        meals: [...sourceTemplate.meals]
+          .sort((a, b) => a.order - b.order)
+          .map((meal) => ({
+            name: meal.name,
+            moment: meal.moment,
+            targets: meal.targets ?? {},
+            options: meal.options ?? [],
+          })),
+      },
+      {
+        targets: {
+          kcal: numberOrNull(kcal),
+          proteinG: numberOrNull(proteinG),
+          carbsG: numberOrNull(carbsG),
+          fatG: numberOrNull(fatG),
+        },
+        meals: meals.map((meal) => ({
+          name: { es: meal.name.trim(), en: englishOr(meal.nameEn, meal.name) },
+          moment: meal.moment,
+          targets: {
+            kcal: numberOrNull(meal.kcal),
+            proteinG: numberOrNull(meal.proteinG),
+            carbsG: numberOrNull(meal.carbsG),
+            fatG: numberOrNull(meal.fatG),
+          },
+          options: meal.options.map((option) => ({
+            text: { es: option.text.trim(), en: englishOr(option.textEn, option.text) },
+          })),
+        })),
+      },
+    );
+  }, [sourceTemplate, kcal, proteinG, carbsG, fatG, meals]);
+
+  const dailyDeviated = deviations.some((d) => d.scope === "daily");
+  const deviatedMealIndexes = new Set(
+    deviations
+      .map((d) => (typeof d.scope === "object" ? d.scope.mealIndex : null))
+      .filter((index): index is number => index !== null),
+  );
 
   // Refresh the overlap notice whenever the window moves. It is a read, so running it on
   // every date change is cheap and keeps the warning honest as the coach fiddles.
@@ -137,9 +250,17 @@ export function AssignNutritionForm({
   const buildPayload = useCallback(() => {
     return {
       clientId,
-      // While the translation pane is collapsed, both languages carry the coach's text —
-      // the schema requires both, and "no translation" must not mean "blank in English".
-      name: { es: name.trim(), en: (showTranslation ? nameEn : name).trim() },
+      // Provenance. The library's "asignada N veces" pill counts exactly this field, and it
+      // is what lets a later audit answer "which template did this plan come from".
+      templateId: sourceTemplate?.id ?? null,
+      // The schema requires BOTH slots, and "no translation" must not mean "blank in
+      // English" — so the Spanish text fills in when there is no English one.
+      //
+      // ⚠️ It reads `nameEn` regardless of whether the pane is OPEN (#918). A plan
+      // prefilled from a template already carries the template's English name, and gating
+      // on the toggle would overwrite it with the Spanish text the moment the coach saved
+      // without expanding a pane they had no reason to expand.
+      name: { es: name.trim(), en: englishOr(nameEn, name) },
       startsOn,
       endsOn: effectiveEndsOn,
       targets: {
@@ -149,10 +270,8 @@ export function AssignNutritionForm({
         fatG: numberOrNull(fatG),
       },
       meals: meals.map((meal) => ({
-        name: {
-          es: meal.name.trim(),
-          en: (showTranslation ? meal.nameEn : meal.name).trim(),
-        },
+        ...(meal.mealId ? { mealId: meal.mealId } : {}),
+        name: { es: meal.name.trim(), en: englishOr(meal.nameEn, meal.name) },
         moment: meal.moment,
         targets: {
           kcal: numberOrNull(meal.kcal),
@@ -161,19 +280,16 @@ export function AssignNutritionForm({
           fatG: numberOrNull(meal.fatG),
         },
         options: meal.options.map((option) => ({
-          text: {
-            es: option.text.trim(),
-            en: (showTranslation ? option.textEn : option.text).trim(),
-          },
+          text: { es: option.text.trim(), en: englishOr(option.textEn, option.text) },
           targets: { kcal: numberOrNull(option.kcal) },
         })),
       })),
     };
   }, [
     clientId,
+    sourceTemplate,
     name,
     nameEn,
-    showTranslation,
     startsOn,
     effectiveEndsOn,
     kcal,
@@ -212,6 +328,38 @@ export function AssignNutritionForm({
 
   return (
     <div className="flex flex-col gap-5" data-testid="assign-nutrition-form">
+      {/* ── From a template (#918) ──────────────────────────────────────────────── */}
+      {templates.length > 0 ? (
+        <Card data-testid="nutrition-template-picker">
+          <CardHeader>
+            <CardTitle className="text-base">{t("fromTemplate")}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            <Select
+              value={sourceTemplate?.id ?? ""}
+              onValueChange={(value) => {
+                const picked = templates.find((template) => template.id === value);
+                if (picked) applyTemplate(picked);
+              }}
+            >
+              <SelectTrigger data-testid="nutrition-template-select">
+                <SelectValue placeholder={t("fromTemplatePlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name.es || template.name.en}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground text-xs">
+              {sourceTemplate ? t("fromTemplateApplied") : t("fromTemplateHelp")}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* ── Validity ────────────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
@@ -262,7 +410,19 @@ export function AssignNutritionForm({
       {/* ── Name + daily targets ────────────────────────────────────────────────── */}
       <Card data-testid="nutrition-daily-targets">
         <CardHeader>
-          <CardTitle className="text-base">{t("dailyTargets")}</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">
+            {t("dailyTargets")}
+            {/* #918 — "lo modificado marcado". A DIFF against the template, so typing a
+                value and typing the original back stops being a modification. */}
+            {dailyDeviated ? (
+              <span
+                className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
+                data-testid="nutrition-deviation-daily"
+              >
+                {t("retouched")}
+              </span>
+            ) : null}
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
@@ -330,8 +490,16 @@ export function AssignNutritionForm({
           </Button>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {meals.map((meal) => (
+          {meals.map((meal, mealIndex) => (
             <div key={meal.key} className="flex flex-col gap-3 rounded-lg border p-3">
+              {deviatedMealIndexes.has(mealIndex) ? (
+                <span
+                  className="self-start rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
+                  data-testid={`nutrition-deviation-meal-${mealIndex}`}
+                >
+                  {t("retouched")}
+                </span>
+              ) : null}
               <div className="flex flex-wrap items-end gap-3">
                 <div className="flex min-w-[10rem] flex-1 flex-col gap-1.5">
                   <Label htmlFor={`meal-name-${meal.key}`}>{t("mealName")}</Label>
