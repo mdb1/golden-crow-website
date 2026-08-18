@@ -4,6 +4,8 @@ import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { isHabitNotDeleted } from "@/lib/gc-fitness/habit-visibility";
+import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
+import { loadNutritionRosterSummaries } from "@/lib/gc-fitness/nutrition-roster";
 import type { ClientGoalRow } from "@/lib/gc-fitness/client-goal-actions";
 import { Badge } from "@/components/ui/badge";
 import { ClientSummaryLists } from "./ClientSummaryLists";
@@ -112,6 +114,13 @@ export async function ClientSummaryCard({
   // coaching information.)
   const activeHabits = habits.filter((row) => !row.endsOn || row.endsOn >= todayCivil);
 
+  // Nutrition (#923). Same batched loader the roster uses, for one uid — so the card and
+  // the roster column can never print two different numbers for the same week.
+  const nutrition =
+    (await loadNutritionRosterSummaries(db, [{ uid: clientId, timezone }], timezone)).get(
+      clientId,
+    ) ?? null;
+
   // Tally goals by horizon for the compact summary chip row.
   const goalsByHorizon = goals.reduce(
     (acc, g) => {
@@ -218,6 +227,64 @@ export async function ClientSummaryCard({
             </ul>
           )}
         </div>
+      </div>
+
+      {/* Nutrición (#923) — que se vea desde donde se opera el cliente, no sólo
+          entrando a su pantalla de nutrición.
+
+          "Sin plan vigente" se pinta como ALERTA sólo cuando hubo una fase antes: es una
+          fase que se venció y nadie cargó la siguiente, y no se nota en ningún otro lado
+          porque la adherencia simplemente deja de moverse. Que nunca haya tenido plan es
+          otra cosa y se dice en gris. */}
+      <div
+        data-testid="client-summary-nutrition"
+        className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-3"
+      >
+        <div className="flex flex-col">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {t("nutritionTitle")}
+          </p>
+          {nutrition && nutrition.percent7d !== null ? (
+            <p className="text-sm">
+              <span className="font-semibold tabular-nums">{nutrition.percent7d}%</span>{" "}
+              <span className="text-muted-foreground">{t("nutritionAdherence")}</span>
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {!nutrition || nutrition.neverHadPlan
+                ? t("nutritionNeverPlanned")
+                : t("nutritionNothingAsked")}
+            </p>
+          )}
+        </div>
+
+        {nutrition?.hasActivePlan ? (
+          <div className="flex flex-col">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("nutritionPhase")}
+            </p>
+            <p className="text-sm">
+              <span className="font-medium">
+                {nutrition.activePlanName?.es || nutrition.activePlanName?.en || "—"}
+              </span>{" "}
+              <span className="text-muted-foreground">
+                {nutrition.activePlanEndsOn
+                  ? t("nutritionEndsOn", {
+                      date: formatCivilDateLabel(nutrition.activePlanEndsOn, {
+                        day: "numeric",
+                        month: "short",
+                      }),
+                    })
+                  : t("nutritionOpenEnded")}
+              </span>
+            </p>
+          </div>
+        ) : nutrition && !nutrition.neverHadPlan ? (
+          <div className="flex flex-col" data-testid="client-summary-nutrition-expired">
+            <p className="text-sm font-medium text-chart-4">{t("nutritionNoPlan")}</p>
+            <p className="text-xs text-muted-foreground">{t("nutritionNoPlanHelp")}</p>
+          </div>
+        ) : null}
       </div>
     </section>
   );

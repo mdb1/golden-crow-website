@@ -43,6 +43,7 @@ import {
   type NutritionAdherenceBreakdown,
 } from "./nutrition-adherence";
 import { civilWeekStart } from "./muscle-group-weeks";
+import { activeNutritionPlan } from "./nutrition-plan-resolution";
 import {
   computeMacroDelta,
   type LocalizedText,
@@ -359,6 +360,63 @@ export function buildNutritionStats(
   return {
     last7Days: nutritionAdherence(plans, logs, weekStart, today),
     currentPhase: activePlan ? nutritionAdherenceForPlan(activePlan, logs, today) : null,
+  };
+}
+
+// ── The roster line ─────────────────────────────────────────────────────────────────
+
+export interface NutritionRosterSummary {
+  /**
+   * 7-day adherence in `[0, 1]`, or `null` when NOTHING WAS ASKED in the window.
+   *
+   * `null` and `0` are different facts and the roster must not conflate them: zero is a
+   * client who is failing, null is a client nobody gave a plan to. Rendering the second
+   * as "0%" sends a coach to have the wrong conversation.
+   */
+  ratio7d: number | null;
+  /** Percent through the one canonical rounding rule; `null` when `ratio7d` is null. */
+  percent7d: number | null;
+  /**
+   * Whether a phase is in force TODAY. This is the signal #923 exists for: a client
+   * whose phase expired and whose next one nobody loaded is invisible on every other
+   * column — their adherence just quietly stops moving.
+   */
+  hasActivePlan: boolean;
+  /** The active phase's name, for the client summary card. */
+  activePlanName: LocalizedText | null;
+  /** When the active phase ends; `null` for open-ended (or no phase). */
+  activePlanEndsOn: string | null;
+  /**
+   * True when the client has never had any nutrition phase at all. Distinct from an
+   * expired one: nothing to chase, the coach simply has not started.
+   */
+  neverHadPlan: boolean;
+}
+
+/**
+ * One client's nutrition line for the roster and the summary card.
+ *
+ * A coach with twenty clients does not open twenty profiles. Everything here is derived
+ * from the same twin the client's own screen reads, so the roster and the profile cannot
+ * disagree about the same week.
+ */
+export function buildNutritionRosterSummary(
+  plans: NutritionPlan[],
+  logs: NutritionLog[],
+  today: string,
+): NutritionRosterSummary {
+  const visible = plans.filter((plan) => plan.deleted !== true);
+  const active = activeNutritionPlan(visible, today);
+  const windowStart = civilDateAddDays(today, -6) ?? today;
+  const breakdown = nutritionAdherence(visible, logs, windowStart, today);
+
+  return {
+    ratio7d: breakdown.isEmpty ? null : breakdown.ratio,
+    percent7d: breakdown.isEmpty ? null : breakdown.percent,
+    hasActivePlan: !!active,
+    activePlanName: active ? active.name : null,
+    activePlanEndsOn: active ? (active.endsOn ?? null) : null,
+    neverHadPlan: visible.length === 0,
   };
 }
 
