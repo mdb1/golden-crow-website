@@ -60,11 +60,20 @@ export interface MessageInputProps {
   replyAuthorLabel?: string;
   /** quick-260603-p1p — cancel-reply hook (banner X). */
   onCancelReply?: () => void;
+  /**
+   * #926 — text to seed the composer with, exactly once per `chatId`.
+   *
+   * Arrives from a `?draft=` deep link (a nutrition note's "Responder"). It is a DRAFT and
+   * nothing else: nothing is sent, the coach edits it and hits send like any other
+   * message.
+   */
+  initialDraft?: string | null;
 }
 
 export function MessageInput({
   chatId,
   disabled = false,
+  initialDraft = null,
   replyingTo = null,
   replyAuthorLabel = "",
   onCancelReply,
@@ -95,6 +104,32 @@ export function MessageInput({
   const audioChunksRef = useRef<BlobPart[]>([]);
   const fallbackAudioInputRef = useRef<HTMLInputElement | null>(null);
   const queryClient = useQueryClient();
+
+  /**
+   * Seed the composer from the deep link, ONCE per (chatId, draft) pair — and clear the
+   * param as soon as it lands.
+   *
+   * Both halves matter. Without the once-guard, every re-render of a URL that still says
+   * `?draft=` would overwrite whatever the coach has typed since. Without clearing the
+   * param, a reload minutes later would resurrect a note they already answered, on top of
+   * a half-written message.
+   *
+   * It never clobbers work in progress: a composer with text in it is left alone.
+   */
+  const seededDraftKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialDraft) return;
+    const key = `${chatId}:${initialDraft}`;
+    if (seededDraftKey.current === key) return;
+    seededDraftKey.current = key;
+    setText((current) => (current.trim() === "" ? initialDraft : current));
+    textareaRef.current?.focus();
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("draft");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+    }
+  }, [chatId, initialDraft]);
 
   useEffect(() => {
     const canRecord =

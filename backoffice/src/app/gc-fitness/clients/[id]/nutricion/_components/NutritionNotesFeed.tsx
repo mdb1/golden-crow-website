@@ -22,12 +22,19 @@
 // the client left it empty. It is never rendered as `+0`, which would quietly claim they
 // hit a number nobody wrote.
 
+import Link from "next/link";
+import { MessageSquareReply } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 import { localizedNamePair } from "@/lib/gc-fitness/localized-name";
+import {
+  nutritionNoteReplyDraft,
+  nutritionNoteReplyHref,
+} from "@/lib/gc-fitness/nutrition-coach-reply";
 import type { NutritionNoteEntry } from "@/lib/gc-fitness/nutrition-compliance";
 import { macroDeltaIsEmpty, type MacroTargets } from "@/lib/gc-fitness/nutrition-schema";
 
@@ -36,9 +43,19 @@ const MACRO_KEYS = ["kcal", "proteinG", "carbsG", "fatG"] as const;
 export interface NutritionNotesFeedProps {
   notes: NutritionNoteEntry[];
   locale: string;
+  /**
+   * Whose notes these are. Needed for the reply link (#926) — without it the feed can
+   * show a coach the problem and offer no way to answer it, which is the exact hole that
+   * issue exists to close.
+   */
+  clientId: string;
 }
 
-export async function NutritionNotesFeed({ notes, locale }: NutritionNotesFeedProps) {
+export async function NutritionNotesFeed({
+  notes,
+  locale,
+  clientId,
+}: NutritionNotesFeedProps) {
   const t = await getTranslations("clients.detail.nutrition");
 
   return (
@@ -89,6 +106,34 @@ export async function NutritionNotesFeed({ notes, locale }: NutritionNotesFeedPr
                   {entry.note ? (
                     <p className="mt-2 text-sm whitespace-pre-wrap">{entry.note}</p>
                   ) : null}
+
+                  {/* The answering half (#926). A plain link, not an action: it opens the
+                      coach's own inbox on this client's thread with the note quoted in
+                      the composer, so nothing is sent until the coach writes and hits
+                      send. The note is quoted as TEXT because the chat's `replyTo`
+                      mechanic points at a message id and a note has none. */}
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 h-8 px-2 text-xs"
+                    data-testid={`nutrition-note-reply-${entry.civilDate}-${entry.mealId}`}
+                  >
+                    <Link
+                      href={nutritionNoteReplyHref(
+                        clientId,
+                        nutritionNoteReplyDraft({
+                          mealName,
+                          civilDate: entry.civilDate,
+                          note: entry.note,
+                          locale,
+                        }),
+                      )}
+                    >
+                      <MessageSquareReply className="size-3.5" />
+                      {t("noteReply")}
+                    </Link>
+                  </Button>
 
                   {entry.actualMacros && !macroDeltaIsEmpty(entry.delta) ? (
                     <div className="mt-3 overflow-x-auto">

@@ -58,6 +58,7 @@ import {
 } from "@/lib/gc-fitness/__tests__/nutrition-fixtures";
 
 import { NutritionComplianceGrid } from "../_components/NutritionComplianceGrid";
+import { NutritionCoachActions } from "../_components/NutritionCoachActions";
 import { NutritionNotesFeed } from "../_components/NutritionNotesFeed";
 import { NutritionPhaseWeightTable } from "../_components/NutritionPhaseWeightTable";
 import { NutritionStats } from "../_components/NutritionStats";
@@ -153,7 +154,7 @@ describe("NutritionStats", () => {
 describe("NutritionNotesFeed", () => {
   it("shows the client's words with their date and meal", async () => {
     const notes = collectNutritionNotes([mixed(TODAY)]);
-    render(await NutritionNotesFeed({ notes, locale: "en" }));
+    render(await NutritionNotesFeed({ notes, locale: "en", clientId: "client-1" }));
 
     expect(screen.getByText("Comí afuera — milanesa con puré")).toBeInTheDocument();
     expect(screen.getByText("Lunch")).toBeInTheDocument();
@@ -170,7 +171,7 @@ describe("NutritionNotesFeed", () => {
         },
       }),
     ]);
-    render(await NutritionNotesFeed({ notes, locale: "en" }));
+    render(await NutritionNotesFeed({ notes, locale: "en", clientId: "client-1" }));
 
     // Target 780 → ate 950 → +170. "Me pasé 170 kcal" is actionable; "no cumpliste" is not.
     expect(screen.getByText("+170")).toBeInTheDocument();
@@ -183,8 +184,68 @@ describe("NutritionNotesFeed", () => {
   });
 
   it("stays empty when there is nothing to read", async () => {
-    render(await NutritionNotesFeed({ notes: collectNutritionNotes([fullyDone(TODAY)]), locale: "en" }));
+    render(await NutritionNotesFeed({ notes: collectNutritionNotes([fullyDone(TODAY)]), locale: "en", clientId: "client-1" }));
     expect(screen.getByTestId("nutrition-notes-empty")).toBeInTheDocument();
+  });
+
+  // #926 — the answering half. Before this the feed could show a coach the problem and
+  // offer nowhere to answer it, which is the hole that issue exists to close.
+  it("offers a reply that opens the chat with the note already quoted", async () => {
+    const notes = collectNutritionNotes([mixed(TODAY)]);
+    render(await NutritionNotesFeed({ notes, locale: "en", clientId: "client-1" }));
+
+    const link = screen.getAllByRole("link", { name: /Reply/ })[0]!;
+    const href = link.getAttribute("href")!;
+    const params = new URLSearchParams(href.split("?")[1]);
+    expect(href.startsWith("/gc-fitness/chat?")).toBe(true);
+    // The thread it opens is THIS client's — a reply that lands in the wrong thread is
+    // worse than no reply button at all.
+    expect(params.get("chatId")).toBe("client-1");
+    // The draft carries the client's own words, so what the coach sends explains itself
+    // in a thread that has no link back to a nutrition note.
+    expect(params.get("draft")).toContain("Comí afuera — milanesa con puré");
+    expect(params.get("draft")).toContain("Lunch");
+  });
+});
+
+describe("NutritionCoachActions", () => {
+  const failing = [
+    { mealId: "m2", name: { en: "Dinner", es: "Cena" }, done: 2, expected: 9, ratio: 2 / 9 },
+  ];
+
+  it("names the failing meal, its pattern, and where to answer it", async () => {
+    render(
+      await NutritionCoachActions({
+        clientId: "client-1",
+        meals: failing,
+        phaseName: "Cut",
+        locale: "en",
+      }),
+    );
+
+    expect(screen.getByText("Dinner")).toBeInTheDocument();
+    expect(screen.getByText("2 of 9 days")).toBeInTheDocument();
+    const href = screen
+      .getByTestId("nutrition-coach-action-reply-m2")
+      .getAttribute("href")!;
+    const params = new URLSearchParams(href.split("?")[1]);
+    expect(params.get("chatId")).toBe("client-1");
+    // The PATTERN, not one day: this card is about the meal being in the wrong place.
+    expect(params.get("draft")).toContain("2 of 9 days");
+  });
+
+  it("renders nothing at all when no meal is failing", async () => {
+    // An empty "everything is fine" panel trains the coach to skip the region, and then
+    // it is not read on the week it fills up.
+    const { container } = render(
+      await NutritionCoachActions({
+        clientId: "client-1",
+        meals: [],
+        phaseName: "Cut",
+        locale: "en",
+      }),
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 });
 

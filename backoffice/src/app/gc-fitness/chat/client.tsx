@@ -62,12 +62,20 @@ export function ChatInboxClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeChatId = searchParams.get("chatId") ?? null;
+  // #926 — a nutrition note's "Responder" lands here with the note already quoted. It is
+  // read ONCE, on mount, and dropped from the URL by `MessageInput` as soon as it seeds
+  // the composer: a draft that survived a reload would re-appear over whatever the coach
+  // had typed since, and one that survived a thread switch would paste another client's
+  // note into this conversation.
+  const initialDraft = searchParams.get("draft") ?? null;
   const activeClient = clientRoster.find((c) => c.uid === activeChatId) ?? null;
   const activeClientIsPending = Boolean(activeClient?.pendingProvisioning);
 
   const setActiveChatId = useCallback(
     (chatId: string | null) => {
       const next = new URLSearchParams(searchParams.toString());
+      // Switching threads abandons the draft that was addressed to the previous one.
+      next.delete("draft");
       if (chatId) {
         next.set("chatId", chatId);
       } else {
@@ -120,6 +128,7 @@ export function ChatInboxClient({
               timezone={timezone}
               clientRoster={clientRoster}
               isPendingClient={activeClientIsPending}
+              initialDraft={initialDraft}
             />
           </>
         ) : (

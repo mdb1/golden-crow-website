@@ -322,6 +322,46 @@ describe("RosterTable — the nutrition column", () => {
     expect(screen.getByText("Nothing asked this week")).toBeInTheDocument();
   });
 
+  // #926 — the roster signal. A red arrow says the number is bad; it does not say to do
+  // anything about it, and a coach with twenty clients skims arrows.
+  it("names the clients worth a conversation this week", () => {
+    renderRoster([
+      client({
+        nutritionRatio7Days: 0.3,
+        nutritionHasActivePlan: true,
+        nutritionNeverHadPlan: false,
+      }),
+    ]);
+    expect(screen.getByTestId("roster-nutrition-attention")).toHaveTextContent(
+      "Worth a conversation this week",
+    );
+  });
+
+  it("does not call for a conversation about a client who is doing fine", () => {
+    renderRoster([
+      client({
+        nutritionRatio7Days: 0.85,
+        nutritionHasActivePlan: true,
+        nutritionNeverHadPlan: false,
+      }),
+    ]);
+    expect(screen.queryByTestId("roster-nutrition-attention")).not.toBeInTheDocument();
+  });
+
+  it("keeps the expired-phase line instead of doubling up on it", () => {
+    // An expired phase is already its own, more specific alert. Printing both would say
+    // the same thing twice in one cell.
+    renderRoster([
+      client({
+        nutritionRatio7Days: null,
+        nutritionHasActivePlan: false,
+        nutritionNeverHadPlan: false,
+      }),
+    ]);
+    expect(screen.getByTestId("roster-nutrition-expired")).toBeInTheDocument();
+    expect(screen.queryByTestId("roster-nutrition-attention")).not.toBeInTheDocument();
+  });
+
   it("renders an em dash, never NaN, for a row with no nutrition fields", () => {
     // Defensive: a row built before the fields existed carries `undefined`, and a
     // confident "NaN%" on a coach's home screen is worse than an em dash.
