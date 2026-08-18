@@ -38,12 +38,24 @@ import {
   type NutritionOverlapNotice,
 } from "./nutrition-plan-form";
 import { nutritionPlanOverlapEdits } from "./nutrition-plan-resolution";
-import type { NutritionPlan } from "./nutrition-schema";
+import {
+  parseNutritionMealStatus,
+  type NutritionLog,
+  type NutritionMealEntry,
+  type NutritionPlan,
+} from "./nutrition-schema";
 
 const PLANS = FirestoreCollections.nutritionPlans;
 
 /** Bound on every list read — a client cannot realistically have 200 phases. */
 const MAX_PLANS = 200;
+
+/**
+ * Bound on the log read. One doc per client-day, so 400 covers well over a year — past
+ * any window a screen asks for, and a hard ceiling so a corrupt range cannot pull the
+ * whole collection into a serverless function.
+ */
+const MAX_LOGS = 400;
 
 export interface NutritionClientContext {
   clientId: string;
@@ -87,6 +99,42 @@ export async function listNutritionPlansForClient(
     plans,
     context: { clientId, clientTimezone, todayCivil: civilDateToday(clientTimezone) },
   };
+}
+
+/**
+ * The client's daily logs inside the closed civil-date range `[start, end]` — what the
+ * compliance grid, the note feed and the phase table all read (#919).
+ *
+ * ⚠️ **This query needs the composite index `nutrition_logs (clientId ASC, civilDate
+ * ASC)`.** Equality on one field plus a range on another is exactly the shape that
+ * already forced `habit_logs (clientId, civilDate)`. It was missing for the whole epic
+ * because THE EMULATOR DOES NOT ENFORCE INDEXES: every nutrition suite was green while
+ * production answered `FAILED_PRECONDITION` to this query. Deployed 2026-08-18 (#919).
+ *
+ * Ownership is re-checked through `listNutritionPlansForClient` rather than trusted from
+ * the caller — same defence-in-depth as every other read here, and a coach who lost the
+ * client gets `Forbidden`, not somebody else's eating history.
+ */
+export async function listNutritionLogsForClient(
+  clientId: string,
+  start: string,
+  end: string,
+): Promise<NutritionLog[]> {
+  await listNutritionPlansForClient(clientId);
+  if (start > end) return [];
+
+  const snap = await gcFitnessFirestore()
+    .collection(FirestoreCollections.nutritionLogs)
+    .where("clientId", "==", clientId)
+    .where("civilDate", ">=", start)
+    .where("civilDate", "<=", end)
+    .limit(MAX_LOGS)
+    .get();
+
+  return snap.docs
+    .map((doc) => decodeLog(doc.id, doc.data()))
+    .filter((log): log is NutritionLog => log !== null)
+    .sort((a, b) => a.civilDate.localeCompare(b.civilDate));
 }
 
 /**
@@ -393,5 +441,56 @@ function decodePlan(id: string, raw: unknown): NutritionPlan | null {
     meals: Array.isArray(data.meals) ? (data.meals as NutritionPlan["meals"]) : [],
     reminders: (data.reminders ?? null) as NutritionPlan["reminders"],
     deleted: data.deleted === true,
+  };
+}
+
+/**
+ * Forgiving decode of a daily log. A malformed doc is SKIPPED, never thrown on: one bad
+ * day must not blank the whole grid, and the coach can still read the rest of the week.
+ *
+ * The snapshot is read verbatim — never filtered, never capped. Any surface that projects
+ * it (the grid here, the home widget on the phones) shows whatever is in it, so a
+ * truncated snapshot makes the screen lie and nothing fails. That was #900.
+ */
+function decodeLog(id: string, raw: unknown): NutritionLog | null {
+  if (!raw || typeof raw !== "object") return null;
+  const data = raw as Record<string, unknown>;
+  const clientId = typeof data.clientId === "string" ? data.clientId : null;
+  const civilDate = typeof data.civilDate === "string" ? data.civilDate : null;
+  if (!clientId || !civilDate) return null;
+
+  const meals: Record<string, NutritionMealEntry> = {};
+  if (data.meals && typeof data.meals === "object") {
+    for (const [mealId, value] of Object.entries(data.meals as Record<string, unknown>)) {
+      if (!value || typeof value !== "object") continue;
+      const entry = value as Record<string, unknown>;
+      meals[mealId] = {
+        // A status nobody can parse must never inflate adherence, so the twin's decode
+        // falls back to `missed`. Reuse it rather than re-deciding that here.
+        status: parseNutritionMealStatus(entry.status),
+        note: typeof entry.note === "string" ? entry.note : null,
+        actualMacros:
+          entry.actualMacros && typeof entry.actualMacros === "object"
+            ? (entry.actualMacros as NutritionMealEntry["actualMacros"])
+            : null,
+      };
+    }
+  }
+
+  const snapshot =
+    data.targetsSnapshot && typeof data.targetsSnapshot === "object"
+      ? (data.targetsSnapshot as NutritionLog["targetsSnapshot"])
+      : { daily: {}, meals: [] };
+
+  return {
+    id,
+    clientId,
+    civilDate,
+    planId: typeof data.planId === "string" ? data.planId : "",
+    meals,
+    targetsSnapshot: {
+      daily: snapshot.daily ?? {},
+      meals: Array.isArray(snapshot.meals) ? snapshot.meals : [],
+    },
   };
 }

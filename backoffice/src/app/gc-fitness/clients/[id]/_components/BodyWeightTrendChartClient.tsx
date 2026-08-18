@@ -12,6 +12,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -20,6 +21,7 @@ import {
 import { useLocale } from "next-intl";
 
 import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
+import type { NutritionPhaseBand } from "@/lib/gc-fitness/nutrition-compliance";
 import {
   DEFAULT_TREND_RANGE,
   type TrendRangeKey,
@@ -38,6 +40,11 @@ export interface BodyWeightTrendChartClientProps {
   today: string;
   rangeStarts: Record<TrendRangeKey, string>;
   unitLabel: string;
+  /**
+   * Nutrition phases to paint behind the line (#919). Optional — the client profile draws
+   * the chart without them.
+   */
+  phaseBands?: NutritionPhaseBand[];
   labels: {
     title: string;
     noLogs: string;
@@ -48,11 +55,20 @@ export interface BodyWeightTrendChartClientProps {
   };
 }
 
+/**
+ * Band fills. Four tones that cycle, so ADJACENT phases are distinguishable — they carry
+ * no meaning of their own. A "definición" is not red and a "volumen" is not green: the
+ * coach names the phase, we do not classify it, and colouring by a guessed intent would
+ * editorialise somebody else's plan.
+ */
+const BAND_FILLS = ["var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
+
 export function BodyWeightTrendChartClient({
   data,
   today,
   rangeStarts,
   unitLabel,
+  phaseBands,
   labels,
 }: BodyWeightTrendChartClientProps) {
   const locale = useLocale();
@@ -69,6 +85,28 @@ export function BodyWeightTrendChartClient({
       points.length > 1 ? latest!.weight - points[points.length - 2].weight : null;
     return { points, latest, delta };
   }, [data, range, rangeStarts, today]);
+
+  // The X axis is CATEGORICAL (`dataKey="date"`), so a ReferenceArea can only be anchored
+  // on values that exist in `points`. Each band is therefore snapped to the first and last
+  // weigh-in that falls inside it, and a phase with no weigh-in in the visible range is
+  // dropped — there is nothing to annotate, and an unmatched x1/x2 renders as a stray band
+  // pinned to the axis origin. The exact phase dates live in the table under the chart.
+  const bands = useMemo(() => {
+    if (!phaseBands || phaseBands.length === 0 || points.length === 0) return [];
+    return phaseBands
+      .map((band) => {
+        const inside = points.filter(
+          (point) => point.date >= band.from && point.date <= band.to,
+        );
+        if (inside.length === 0) return null;
+        return {
+          ...band,
+          x1: inside[0]!.date,
+          x2: inside[inside.length - 1]!.date,
+        };
+      })
+      .filter((band): band is NutritionPhaseBand & { x1: string; x2: string } => band !== null);
+  }, [phaseBands, points]);
 
   const deltaStr =
     delta !== null ? `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}` : null;
@@ -121,6 +159,17 @@ export function BodyWeightTrendChartClient({
                   stroke="var(--muted-foreground)"
                   strokeOpacity={0.16}
                 />
+                {bands.map((band) => (
+                  <ReferenceArea
+                    key={band.planId}
+                    x1={band.x1}
+                    x2={band.x2}
+                    fill={BAND_FILLS[band.tone % BAND_FILLS.length]}
+                    fillOpacity={0.1}
+                    // The line has to stay the thing you read. The band is context.
+                    ifOverflow="extendDomain"
+                  />
+                ))}
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 11 }}
@@ -174,6 +223,27 @@ export function BodyWeightTrendChartClient({
               </AreaChart>
             </ResponsiveContainer>
           </div>
+
+          {bands.length > 0 ? (
+            <ul className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              {bands.map((band) => (
+                <li
+                  key={band.planId}
+                  className="text-muted-foreground flex items-center gap-1.5 text-xs"
+                >
+                  <span
+                    aria-hidden
+                    className="inline-block size-2.5 rounded-[3px]"
+                    style={{
+                      backgroundColor: BAND_FILLS[band.tone % BAND_FILLS.length],
+                      opacity: 0.45,
+                    }}
+                  />
+                  {band.label}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </>
       )}
     </section>
