@@ -47,7 +47,12 @@ export type CoachActivityLogKind =
   // supersede a sibling phase; each affected plan gets its own event, because
   // "My Activity" answers "what did I do to this client" and a silent trim is
   // exactly the thing a coach later swears they never did.
-  | "nutrition_plan";
+  | "nutrition_plan"
+  // #918 — the coach's nutrition LIBRARY: a meal or a whole template created or duplicated.
+  // Only creates and duplicates, deliberately: an EDIT does not reach anything already
+  // assigned (a plan carries frozen copies), so logging edits here would suggest a client's
+  // day changed when nothing of the sort happened.
+  | "nutrition_library";
 
 export interface CoachActivityEvent {
   /** Deterministic id so re-runs / per-occurrence triggers are idempotent. */
@@ -177,6 +182,35 @@ export function exerciseCreatedEvent(args: {
     trainerId: args.trainerId,
     kind: "exercise",
     title: name ? `Ejercicio creado: ${name}` : "Ejercicio creado",
+    detail: null,
+    clientId: null,
+    pendingEmail: null,
+    occurredAt: args.occurredAt ?? null,
+  };
+}
+
+/**
+ * A nutrition LIBRARY entry created or duplicated (no client). #918.
+ *
+ * eventId `nutlib:${entity}:${id}` — deterministic, so a retried action rewrites the same
+ * row instead of adding a second one.
+ */
+export function nutritionLibraryEvent(args: {
+  trainerId: string;
+  entity: "meal" | "template";
+  entityId: string;
+  name: unknown;
+  change: "created" | "duplicated";
+  occurredAt?: Date | null;
+}): CoachActivityEvent {
+  const name = localizedText(args.name);
+  const noun = args.entity === "meal" ? "Comida" : "Plantilla de nutrición";
+  const verb = args.change === "created" ? "creada" : "duplicada";
+  return {
+    eventId: `nutlib:${args.entity}:${args.entityId}`,
+    trainerId: args.trainerId,
+    kind: "nutrition_library",
+    title: name ? `${noun} ${verb}: ${name}` : `${noun} ${verb}`,
     detail: null,
     clientId: null,
     pendingEmail: null,

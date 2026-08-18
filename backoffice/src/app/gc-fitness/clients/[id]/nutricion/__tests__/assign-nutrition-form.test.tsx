@@ -164,3 +164,125 @@ describe("AssignNutritionForm", () => {
     expect(payload.meals.map((meal) => meal.name.es)).toEqual(["Desayuno", "Cena"]);
   });
 });
+
+// ── #918 — assigning FROM a library template ──────────────────────────────────────────
+//
+// The template is a starting point, not a link: the plan takes a COPY and keeps
+// `templateId` for provenance (that is the field the library's "assigned N times" pill
+// counts). What the coach retouches afterwards is marked by a DIFF against the template,
+// not by a dirty flag — typing a value and typing the original back is not a modification.
+
+const TEMPLATE = {
+  id: "tpl-cut",
+  name: { en: "Cut", es: "Definición" },
+  ownerId: "trainer-1",
+  targets: { kcal: 2000, proteinG: 170 },
+  meals: [
+    {
+      mealId: "meal-breakfast",
+      name: { en: "Breakfast", es: "Desayuno" },
+      moment: "breakfast" as const,
+      targets: { kcal: 450 },
+      options: [{ id: "opt-1", text: { en: "Oats", es: "Avena" } }],
+      order: 0,
+    },
+    {
+      mealId: "meal-lunch",
+      name: { en: "Lunch", es: "Almuerzo" },
+      moment: "lunch" as const,
+      targets: { kcal: 700 },
+      options: [],
+      order: 1,
+    },
+  ],
+  deleted: false,
+};
+
+function renderWithTemplate() {
+  return render(
+    <AssignNutritionForm
+      clientId="client-sofia"
+      defaultStartsOn="2026-09-01"
+      templates={[TEMPLATE]}
+    />,
+  );
+}
+
+describe("AssignNutritionForm — from a template (#918)", () => {
+  it("does not offer the picker when the coach has no templates", () => {
+    render(
+      <AssignNutritionForm clientId="client-sofia" defaultStartsOn="2026-09-01" />,
+    );
+    expect(screen.queryByTestId("nutrition-template-picker")).not.toBeInTheDocument();
+  });
+
+  it("copies the template into the payload and keeps templateId + mealIds", async () => {
+    const user = userEvent.setup();
+    renderWithTemplate();
+
+    await user.click(screen.getByTestId("nutrition-template-select"));
+    await user.click(await screen.findByRole("option", { name: "Definición" }));
+
+    await user.click(screen.getByTestId("nutrition-save"));
+
+    await waitFor(() => expect(assignNutritionPlan).toHaveBeenCalledTimes(1));
+    const payload = assignNutritionPlan.mock.calls[0]![0] as {
+      templateId: string | null;
+      targets: Record<string, unknown>;
+      meals: Array<{ mealId?: string; name: { es: string } }>;
+    };
+
+    // Provenance — the library's "asignada N veces" pill counts exactly this field.
+    expect(payload.templateId).toBe("tpl-cut");
+    expect(payload.targets).toMatchObject({ kcal: 2000, proteinG: 170 });
+    // ⚠️ The mealIds SURVIVE into the plan: the daily log keys its `meals` map by them, and
+    // the meal usage pill counts by them too.
+    expect(payload.meals.map((meal) => meal.mealId)).toEqual([
+      "meal-breakfast",
+      "meal-lunch",
+    ]);
+    expect(payload.meals.map((meal) => meal.name.es)).toEqual(["Desayuno", "Almuerzo"]);
+  });
+
+  it("marks the daily target as retouched only once it actually differs", async () => {
+    const user = userEvent.setup();
+    renderWithTemplate();
+
+    await user.click(screen.getByTestId("nutrition-template-select"));
+    await user.click(await screen.findByRole("option", { name: "Definición" }));
+
+    // Straight from the template: nothing is retouched.
+    expect(screen.queryByTestId("nutrition-deviation-daily")).not.toBeInTheDocument();
+
+    const daily = within(screen.getByTestId("nutrition-daily-targets"));
+    const kcal = daily.getByLabelText("Calories");
+    await user.clear(kcal);
+    await user.type(kcal, "1800");
+
+    expect(await screen.findByTestId("nutrition-deviation-daily")).toBeInTheDocument();
+
+    // Typed back to the template's value ⇒ NOT a modification. A dirty flag would keep
+    // claiming it was, and the mark would be a lie the coach cannot clear.
+    await user.clear(kcal);
+    await user.type(kcal, "2000");
+    await waitFor(() =>
+      expect(screen.queryByTestId("nutrition-deviation-daily")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("marks the retouched MEAL, and only that one", async () => {
+    const user = userEvent.setup();
+    renderWithTemplate();
+
+    await user.click(screen.getByTestId("nutrition-template-select"));
+    await user.click(await screen.findByRole("option", { name: "Definición" }));
+
+    const meals = within(screen.getByTestId("nutrition-meals"));
+    const lunchKcal = meals.getAllByLabelText("Calories")[1]!;
+    await user.clear(lunchKcal);
+    await user.type(lunchKcal, "650");
+
+    expect(await screen.findByTestId("nutrition-deviation-meal-1")).toBeInTheDocument();
+    expect(screen.queryByTestId("nutrition-deviation-meal-0")).not.toBeInTheDocument();
+  });
+});
