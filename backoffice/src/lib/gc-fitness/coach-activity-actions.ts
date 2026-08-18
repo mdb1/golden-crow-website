@@ -16,6 +16,7 @@ export type CoachActivityKind =
   | "progress_photo_request"
   | "weight_request"
   | "client_added"
+  | "nutrition_plan"
   | "chat";
 
 export interface MyCoachActivityRow {

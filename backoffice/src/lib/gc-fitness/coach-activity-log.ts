@@ -41,7 +41,13 @@ export type CoachActivityLogKind =
   // `user_mirror`, which no audit trigger watches, and the existing-user branch
   // writes `/users/{uid}` whose audit row is attributed to the CLIENT (it is
   // their doc), so the feed never showed the coach doing anything.
-  | "client_added";
+  | "client_added"
+  // #914 — the coach assigning, editing or closing a nutrition PHASE. Nutrition
+  // is phase-shaped (startsOn / endsOn), so one assign can also trim or
+  // supersede a sibling phase; each affected plan gets its own event, because
+  // "My Activity" answers "what did I do to this client" and a silent trim is
+  // exactly the thing a coach later swears they never did.
+  | "nutrition_plan";
 
 export interface CoachActivityEvent {
   /** Deterministic id so re-runs / per-occurrence triggers are idempotent. */
@@ -196,6 +202,48 @@ export function habitAssignedEvent(args: {
     detail: null,
     clientId: args.clientId,
     pendingEmail: args.pendingEmail,
+    occurredAt: args.occurredAt ?? null,
+  };
+}
+
+/**
+ * Nutrition phase assigned / edited / closed. eventId `nut:${planId}` so a later edit of
+ * the same phase MERGES onto its own row instead of stacking duplicates in the feed.
+ *
+ * `detail` carries the validity window because that is what distinguishes two phases of
+ * the same plan for a coach scrolling the feed — "Definición" twice tells them nothing.
+ */
+export function nutritionPlanEvent(args: {
+  trainerId: string;
+  planId: string;
+  name: unknown;
+  clientId: string | null;
+  startsOn: string;
+  endsOn: string | null;
+  /** "assigned" | "edited" | "trimmed" | "closed" — what happened to THIS plan. */
+  change: "assigned" | "edited" | "trimmed" | "closed";
+  occurredAt?: Date | null;
+}): CoachActivityEvent {
+  const name = localizedText(args.name);
+  const verb =
+    args.change === "assigned"
+      ? "Nutrición asignada"
+      : args.change === "edited"
+        ? "Nutrición editada"
+        : args.change === "trimmed"
+          ? "Fase de nutrición recortada"
+          : "Fase de nutrición cerrada";
+  const window = args.endsOn
+    ? `${args.startsOn} → ${args.endsOn}`
+    : `${args.startsOn} → sin fecha de fin`;
+  return {
+    eventId: `nut:${args.planId}`,
+    trainerId: args.trainerId,
+    kind: "nutrition_plan",
+    title: name ? `${verb}: ${name}` : verb,
+    detail: window,
+    clientId: args.clientId,
+    pendingEmail: null,
     occurredAt: args.occurredAt ?? null,
   };
 }

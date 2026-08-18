@@ -23,7 +23,7 @@ import {
   formatAppDevice,
   type ClientAppDevice,
 } from "@/lib/gc-fitness/client-app-devices";
-import { ArrowLeft, MessagesSquare } from "lucide-react";
+import { Apple, ArrowLeft, MessagesSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import type { ReactNode } from "react";
@@ -146,6 +146,12 @@ export function ClientHeader({
         <div className="flex flex-wrap items-center gap-2">
           {settingsSlot}
           {notesSlot}
+          <Button variant="outline" asChild className="rounded-full">
+            <Link href={`/gc-fitness/clients/${clientId}/nutricion`}>
+              <Apple className="size-4" />
+              {t("nutrition.nav")}
+            </Link>
+          </Button>
           <Button variant="outline" asChild className="rounded-full">
             <Link href={`/gc-fitness/chat?clientId=${clientId}`}>
               <MessagesSquare className="size-4" />
