@@ -194,6 +194,36 @@ export const FirestoreCollections = {
    * server-only status as `adminOperations` / `coachAllowlist`.
    */
   auditLog: "audit_log",
+
+  // ── Nutrition (#908 / #913) ──────────────────────────────────────────────
+  // Four collections, no new query shape: every read is a doc get by
+  // deterministic ID or a `clientId` equality plus a civil-date range — the
+  // same shapes habits and assignments already use. Canonical field tables:
+  // `gc-fitness/.planning/schemas/nutrition.md`.
+
+  /**
+   * Reusable meal library. `ownerId: null` = standard: Admin-SDK seeded,
+   * duplicated rather than edited in place (the #163 precedent for standard
+   * workout templates).
+   */
+  nutritionMeals: "nutrition_meals",
+
+  /** Reusable nutrition plan: daily targets + meals, assignable to many clients. */
+  nutritionTemplates: "nutrition_templates",
+
+  /**
+   * ONE PHASE of a client's nutrition — `startsOn` / `endsOn?`, with the library
+   * meals frozen in. Never two active on the same civil day; the invariant is
+   * held by `nutritionPlanOverlapEdits`, not by the rule layer.
+   */
+  nutritionPlans: "nutrition_plans",
+
+  /**
+   * One doc per client-day, keyed `${clientId}_${civilDate}`. Carries the
+   * per-meal status and the FROZEN `targetsSnapshot` — the past is never re-read
+   * against a later phase's targets.
+   */
+  nutritionLogs: "nutrition_logs",
 } as const;
 
 /**
