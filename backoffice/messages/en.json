@@ -236,7 +236,8 @@
       "nutrition": "Nutrition",
       "nutritionNoPlan": "No plan in force",
       "nutritionNeverPlanned": "No plan yet",
-      "nutritionNothingAsked": "Nothing asked this week"
+      "nutritionNothingAsked": "Nothing asked this week",
+      "nutritionNeedsTalk": "Worth a conversation this week"
     },
     "empty": {
       "headline": "No clients yet",
@@ -791,7 +792,14 @@
         "phasePartialFrom": "from {date}",
         "phaseNoWeight": "Needs two weigh-ins",
         "phaseEmpty": "No phases yet.",
-        "kg": "kg"
+        "kg": "kg",
+        "noteReply": "Reply",
+        "actionsTitle": "Worth talking about",
+        "actionsHelp": "The meals that keep falling over. Replying here opens the chat with the context already written.",
+        "actionsHelpPhase": "The meals that keep falling over in “{phase}”. Replying here opens the chat with the context already written.",
+        "actionsPattern": "{done} of {expected} days",
+        "actionsReply": "Reply in chat",
+        "actionsAdjust": "Adjust the plan"
       }
     }
   },

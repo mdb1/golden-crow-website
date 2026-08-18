@@ -14,7 +14,10 @@ import {
   listNutritionLogsForClient,
   listNutritionPlansForClient,
 } from "@/lib/gc-fitness/nutrition-actions";
-import { nutritionCurrentStreak } from "@/lib/gc-fitness/nutrition-adherence";
+import {
+  nutritionAdherenceByMeal,
+  nutritionCurrentStreak,
+} from "@/lib/gc-fitness/nutrition-adherence";
 import {
   buildNutritionPhaseBands,
   buildNutritionPhaseRows,
@@ -23,10 +26,13 @@ import {
   civilWeekStart,
   collectNutritionNotes,
 } from "@/lib/gc-fitness/nutrition-compliance";
+import { failingMeals } from "@/lib/gc-fitness/nutrition-coach-reply";
+import { localizedNamePair } from "@/lib/gc-fitness/localized-name";
 import { buildNutritionPhaseStrip } from "@/lib/gc-fitness/nutrition-plan-form";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 import { BodyWeightTrendChart } from "../_components/BodyWeightTrendChart";
+import { NutritionCoachActions } from "./_components/NutritionCoachActions";
 import { NutritionComplianceGrid } from "./_components/NutritionComplianceGrid";
 import { NutritionNotesFeed } from "./_components/NutritionNotesFeed";
 import { NutritionPhaseStrip } from "./_components/NutritionPhaseStrip";
@@ -132,6 +138,25 @@ export default async function ClientNutritionPage({
   // mean one thing here and another on the client's phone.
   const streak = nutritionCurrentStreak(plans, logs, context.todayCivil);
   const notes = collectNutritionNotes(logs);
+
+  // #926 — the meals worth a conversation, measured over the phase IN FORCE. A meal that
+  // collapsed under a plan the coach already replaced is history, not a problem, and
+  // surfacing it would send them to fix something they fixed last month.
+  //
+  // The breakdown comes from the same `nutritionAdherenceByMeal` the grid rows carry, on
+  // purpose: a second count is a second chance to disagree with the client's own screen.
+  const failing = current
+    ? failingMeals(
+        nutritionAdherenceByMeal(
+          plans,
+          logs,
+          // Clamped to the read window: a phase that started before it would otherwise
+          // count unread days as unmarked and report a failure nobody had.
+          current.plan.startsOn > windowStart ? current.plan.startsOn : windowStart,
+          context.todayCivil,
+        ),
+      )
+    : [];
   const phaseRows = buildNutritionPhaseRows(
     plans,
     logs,
@@ -182,9 +207,18 @@ export default async function ClientNutritionPage({
         streak={streak}
       />
 
+      <NutritionCoachActions
+        clientId={id}
+        meals={failing}
+        phaseName={
+          current ? localizedNamePair(current.plan.name, locale).primary : null
+        }
+        locale={locale}
+      />
+
       <NutritionComplianceGrid weeks={weeks} />
 
-      <NutritionNotesFeed notes={notes} locale={locale} />
+      <NutritionNotesFeed notes={notes} locale={locale} clientId={id} />
 
       {/* The chart is the existing one, reused — with the phases painted behind it. */}
       <BodyWeightTrendChart

@@ -236,7 +236,8 @@
       "nutrition": "Nutrición",
       "nutritionNoPlan": "Sin plan vigente",
       "nutritionNeverPlanned": "Todavía sin plan",
-      "nutritionNothingAsked": "Nada pedido esta semana"
+      "nutritionNothingAsked": "Nada pedido esta semana",
+      "nutritionNeedsTalk": "Conviene hablar esta semana"
     },
     "empty": {
       "headline": "Aún no tenés clientes",
@@ -791,7 +792,14 @@
         "phasePartialFrom": "desde {date}",
         "phaseNoWeight": "Faltan pesajes",
         "phaseEmpty": "Todavía no hay fases.",
-        "kg": "kg"
+        "kg": "kg",
+        "noteReply": "Responder",
+        "actionsTitle": "Qué conviene conversar",
+        "actionsHelp": "Las comidas que se están cayendo. Responder acá abre el chat con el contexto ya escrito.",
+        "actionsHelpPhase": "Las comidas que se están cayendo en «{phase}». Responder acá abre el chat con el contexto ya escrito.",
+        "actionsPattern": "{done} de {expected} días",
+        "actionsReply": "Responder por chat",
+        "actionsAdjust": "Ajustar el plan"
       }
     }
   },

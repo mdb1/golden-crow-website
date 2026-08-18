@@ -81,6 +81,8 @@ export interface ChatConversationProps {
   timezone: string;
   clientRoster: ClientRosterEntry[];
   isPendingClient?: boolean;
+  /** #926 — text to seed the composer with, once, from a `?draft=` deep link. */
+  initialDraft?: string | null;
 }
 
 export function ChatConversation({
@@ -89,6 +91,7 @@ export function ChatConversation({
   timezone,
   clientRoster,
   isPendingClient = false,
+  initialDraft = null,
 }: ChatConversationProps) {
   const t = useTranslations("chat.conversation");
   const {
@@ -397,6 +400,7 @@ export function ChatConversation({
         <MessageInput
           chatId={chatId}
           disabled={isPendingClient}
+          initialDraft={initialDraft}
           replyingTo={replyingTo}
           replyAuthorLabel={
             replyingTo

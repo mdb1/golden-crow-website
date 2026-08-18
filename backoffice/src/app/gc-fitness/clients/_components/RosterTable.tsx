@@ -39,6 +39,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import type { ClientRosterRow } from "@/lib/gc-fitness/client-roster";
 import type { AttentionReason } from "@/lib/gc-fitness/client-attention";
+import { nutritionNeedsAttention } from "@/lib/gc-fitness/nutrition-coach-reply";
 import { cn } from "@/lib/utils";
 import { RelativeTime } from "./RelativeTime";
 import { RosterEmptyState } from "./RosterEmptyState";
@@ -204,6 +205,20 @@ export function RosterTable({
             // the one a coach has to act on, and it is invisible everywhere else.
             const nutritionExpired =
               !row.nutritionHasActivePlan && !row.nutritionNeverHadPlan;
+            // #926 — the same predicate the client's own nutrition screen reads, so the
+            // roster and the profile cannot disagree about who needs a conversation. It
+            // is deliberately SEPARATE from `needsAttentionReasons` (three days of total
+            // silence): a client training happily on a lapsed phase is not "at risk",
+            // they are a client whose coach owes them a plan.
+            const nutritionAttention = nutritionNeedsAttention({
+              ratio7d:
+                typeof row.nutritionRatio7Days === "number" &&
+                Number.isFinite(row.nutritionRatio7Days)
+                  ? row.nutritionRatio7Days
+                  : null,
+              hasActivePlan: row.nutritionHasActivePlan,
+              neverHadPlan: row.nutritionNeverHadPlan,
+            });
             const reasons = row.needsAttentionReasons.map(formatReason).join(", ");
             const attentionTitle = t("needsAttentionTitle", { reasons });
             const { short, medium, long } = row.goalsCount;
@@ -340,6 +355,16 @@ export function RosterTable({
                           className="text-xs font-medium text-chart-4"
                         >
                           {tTable("nutritionNoPlan")}
+                        </p>
+                      ) : nutritionAttention.reasons.includes("low-adherence") ? (
+                        // A red arrow says the number is bad; it does not say to do
+                        // anything. This is the line that names the action, in the same
+                        // words the client's nutrition screen uses.
+                        <p
+                          data-testid="roster-nutrition-attention"
+                          className="text-xs font-medium text-chart-4"
+                        >
+                          {tTable("nutritionNeedsTalk")}
                         </p>
                       ) : (
                         <p className="text-xs text-muted-foreground">
