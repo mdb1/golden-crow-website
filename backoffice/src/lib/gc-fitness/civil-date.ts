@@ -193,6 +193,23 @@ function daysFromCivil({ year, month, day }: CivilYMD): number {
 }
 
 /**
+ * Whole days from `from` to `to` (negative when `to` is earlier), or `null` when either
+ * string is not a well-formed civil date.
+ *
+ * Built on the same `daysFromCivil` serial the photo comparator uses — pure integer
+ * math, no `Date`, no timezone, so a DST boundary cannot make two civil days 0.96 apart.
+ * Exported because the nutrition phase table divides a weight delta by the days between
+ * two WEIGH-INS to get kg/week, and a call site doing its own `(msA - msB) / 86400000`
+ * is precisely the re-implementation this file exists to prevent.
+ */
+export function civilDaysBetween(from: string, to: string): number | null {
+  const a = parseCivilYMD(from);
+  const b = parseCivilYMD(to);
+  if (!a || !b) return null;
+  return daysFromCivil(b) - daysFromCivil(a);
+}
+
+/**
  * Elapsed span between two civil days, bucketed to the coarsest sensible unit
  * (months ≥ 1 → months; else weeks ≥ 1 → weeks; else days).
  *
