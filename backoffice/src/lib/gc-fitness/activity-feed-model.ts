@@ -832,17 +832,30 @@ export function classifyAuditRecord(
       const target = record.clientId ? { kind: "user" as const, uid: record.clientId } : null;
 
       if (record.op === "create") {
+        // #927 — several creates sharing a `bulkId` collapsed into this one row.
+        // `group.count` is the number of CLIENTS, not of dates: unlike a recurring
+        // workout series, a bulk nutrition assign spans people, so `occurrences` (a date
+        // range) says nothing here and the count is spelled out instead.
+        const bulk = group.count > 1 && str(after.bulkId) !== null;
         return {
           category: "nutrition",
           significance: "key",
           action: selfAuthored ? "create" : "assign",
-          title: selfAuthored ? "Creó su plan de nutrición" : "Asignó un plan de nutrición",
+          title: selfAuthored
+            ? "Creó su plan de nutrición"
+            : bulk
+              ? "Asignó un plan de nutrición a varios clientes"
+              : "Asignó un plan de nutrición",
           subject: name,
           subjectRef: null,
-          meta: [window, kcal !== null ? `${kcal} kcal` : null].filter(
-            (m): m is string => !!m,
-          ),
-          target,
+          meta: [
+            window,
+            kcal !== null ? `${kcal} kcal` : null,
+            bulk ? `${group.count} clientes` : null,
+          ].filter((m): m is string => !!m),
+          // A collapsed row must not link to ONE of the fifteen clients it covers: the
+          // link would be true for the head and a lie for everyone else.
+          target: bulk ? null : target,
           actorUid: actor,
           isSelfService: selfAuthored,
           isDeletion: false,

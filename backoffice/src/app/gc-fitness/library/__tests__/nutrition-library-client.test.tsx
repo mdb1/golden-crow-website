@@ -55,6 +55,14 @@ jest.mock("@/lib/gc-fitness/nutrition-library-actions", () => ({
 
 jest.mock("sonner", () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
 
+// The bulk-assign dialog (#927) is mounted from this tab. It is exercised in its own
+// suite; here it only has to not reach a Server Action on mount.
+jest.mock("@/lib/gc-fitness/nutrition-bulk-actions", () => ({
+  listNutritionBulkClients: jest.fn().mockResolvedValue([]),
+  previewNutritionBulkAssign: jest.fn().mockResolvedValue({ rows: [], summary: null }),
+  assignNutritionTemplateToClients: jest.fn(),
+}));
+
 import { NutritionLibraryQueryProvider } from "../_nutrition/providers";
 import { NutritionLibraryClient } from "../_nutrition/NutritionLibraryClient";
 
@@ -100,7 +108,7 @@ const TEMPLATE: NutritionTemplateRow = {
 function renderLibrary() {
   return render(
     <NutritionLibraryQueryProvider>
-      <NutritionLibraryClient />
+      <NutritionLibraryClient defaultStartsOn="2026-09-01" />
     </NutritionLibraryQueryProvider>,
   );
 }

@@ -21,7 +21,7 @@
 
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Pencil, Plus, Trash2, Utensils } from "lucide-react";
+import { Copy, Pencil, Plus, Trash2, Users, Utensils } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
@@ -61,6 +61,7 @@ import type {
 } from "@/lib/gc-fitness/nutrition-library-model";
 import { isStandardNutritionEntry } from "@/lib/gc-fitness/nutrition-schema";
 
+import { NutritionBulkAssignDialog } from "./NutritionBulkAssignDialog";
 import { NutritionMealDialog } from "./NutritionMealDialog";
 import { NutritionTemplateDialog } from "./NutritionTemplateDialog";
 
@@ -70,7 +71,12 @@ const USAGE_KEY = ["gc-fitness", "nutrition-library", "usage"] as const;
 
 type View = "meals" | "templates";
 
-export function NutritionLibraryClient() {
+export function NutritionLibraryClient({
+  defaultStartsOn,
+}: {
+  /** Today in the trainer's zone — seeds the bulk-assign window (#927). */
+  defaultStartsOn: string;
+}) {
   const t = useTranslations("nutritionLibrary");
   const queryClient = useQueryClient();
   const [view, setView] = useState<View>("meals");
@@ -81,6 +87,7 @@ export function NutritionLibraryClient() {
   const [confirmDelete, setConfirmDelete] = useState<
     { kind: View; id: string; name: string } | null
   >(null);
+  const [bulkAssigning, setBulkAssigning] = useState<NutritionTemplateRow | null>(null);
   const [pending, startTransition] = useTransition();
 
   const meals = useQuery({ queryKey: MEALS_KEY, queryFn: () => listNutritionMeals() });
@@ -264,6 +271,8 @@ export function NutritionLibraryClient() {
                     standard={standard}
                     disabled={pending}
                     onEdit={() => setEditingTemplate(template)}
+                    onBulkAssign={() => setBulkAssigning(template)}
+                    bulkAssignLabel={t("bulkAssign")}
                     onDuplicate={() => onDuplicate("templates", template.id)}
                     onDelete={() =>
                       setConfirmDelete({
@@ -283,6 +292,18 @@ export function NutritionLibraryClient() {
           })}
         </div>
       )}
+
+      {bulkAssigning ? (
+        <NutritionBulkAssignDialog
+          template={bulkAssigning}
+          defaultStartsOn={defaultStartsOn}
+          onClose={() => setBulkAssigning(null)}
+          // The usage pills count `templateId` on assigned plans, so a bulk changes the
+          // "asignada N veces" number of the row that launched it. Refreshing keeps the
+          // pill from reading as a wrong warning rather than a stale one.
+          onAssigned={refresh}
+        />
+      ) : null}
 
       {creatingMeal || editingMeal ? (
         <NutritionMealDialog
@@ -385,9 +406,11 @@ function RowActions({
   standard,
   disabled,
   onEdit,
+  onBulkAssign,
   onDuplicate,
   onDelete,
   editLabel,
+  bulkAssignLabel,
   duplicateLabel,
   deleteLabel,
   testIdPrefix,
@@ -395,15 +418,33 @@ function RowActions({
   standard: boolean;
   disabled: boolean;
   onEdit: () => void;
+  /** Templates only — a single MEAL is not something you assign to anyone. */
+  onBulkAssign?: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   editLabel: string;
+  bulkAssignLabel?: string;
   duplicateLabel: string;
   deleteLabel: string;
   testIdPrefix: string;
 }) {
   return (
     <div className="flex shrink-0 items-center gap-1">
+      {/* Offered on STANDARD templates too, unlike edit and delete: assigning a standard
+          plan copies it into the client's own document and changes nothing global, so
+          none of the #163 reasoning against an edit affordance applies. */}
+      {onBulkAssign ? (
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={onBulkAssign}
+          disabled={disabled}
+          aria-label={bulkAssignLabel}
+          data-testid={`${testIdPrefix}-bulk-assign`}
+        >
+          <Users className="size-4" />
+        </Button>
+      ) : null}
       {/* A standard row gets NO edit and NO delete — not disabled ones. #163: an /edit link
           on a standard doc let a coach believe they had customized something global. */}
       {standard ? null : (
