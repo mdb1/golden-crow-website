@@ -214,6 +214,53 @@ describe("assignNutritionPlan", () => {
     ]);
   });
 
+  it("closes the client's OWN plan when the coach assigns — and never deletes it (#917)", async () => {
+    // The coach-less → coached transition. The client wrote themselves a plan; the coach
+    // arrives and assigns one. "Manda el coach" means the self phase stops applying — it
+    // does NOT mean it disappears. Deleting somebody's history because they hired a
+    // trainer is the wrong call, and its logs still point at it.
+    mockPlansGet.mockResolvedValue({
+      docs: [
+        planDoc("plan-self", {
+          trainerId: CLIENT, // clientId === trainerId IS the self-authored marker
+          source: "self",
+          startsOn: "2026-06-01",
+          endsOn: null,
+        }),
+      ],
+    });
+
+    const result = await assignNutritionPlan(validInput());
+
+    const [trimmedRef, trimPatch] = batchUpdate.mock.calls[0]!;
+    expect((trimmedRef as { __planId: string }).__planId).toBe("plan-self");
+    expect(trimPatch).toMatchObject({ endsOn: "2026-08-31" });
+    // The two things this test exists to deny: a delete, and a source filter that would
+    // leave the self plan running under the coach's.
+    expect(trimPatch).not.toHaveProperty("deleted");
+    expect(result.applied).toEqual([
+      { planId: "plan-self", planName: "Mantenimiento", kind: "trim", date: "2026-08-31" },
+    ]);
+  });
+
+  it("supersedes a self plan the new phase fully covers — soft-delete, never a hard one", async () => {
+    mockPlansGet.mockResolvedValue({
+      docs: [
+        planDoc("plan-self", {
+          trainerId: CLIENT,
+          source: "self",
+          startsOn: "2026-09-05",
+          endsOn: "2026-09-20",
+        }),
+      ],
+    });
+
+    await assignNutritionPlan(validInput()); // 2026-09-01 → 2026-09-30
+
+    const [, patch] = batchUpdate.mock.calls[0]!;
+    expect(patch).toMatchObject({ deleted: true });
+  });
+
   it("stamps trainerId from the session and source from the branch", async () => {
     await assignNutritionPlan(validInput({ trainerId: "impostor" }));
     const [, payload] = batchSet.mock.calls[0]!;
