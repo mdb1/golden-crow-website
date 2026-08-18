@@ -73,6 +73,9 @@ function client(overrides: Partial<ClientRosterRow> = {}): ClientRosterRow {
     workoutsCompletedThisMonth: 6,
     workoutsScheduledThisMonth: 8,
     goalsCount: { short: 1, medium: 0, long: 0 },
+    nutritionRatio7Days: 0.62,
+    nutritionHasActivePlan: true,
+    nutritionNeverHadPlan: false,
     ...overrides,
   } as ClientRosterRow;
 }
@@ -262,5 +265,69 @@ describe("RosterTable — an empty roster", () => {
     // what to do next.
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
     expect(screen.queryAllByRole("link")).toHaveLength(0);
+  });
+});
+
+// ── Nutrition column (#923) ─────────────────────────────────────────────────────────
+//
+// A coach with twenty clients does not open twenty profiles, so the number has to be on
+// the card. The three ways it can be blank are NOT the same fact, and collapsing them is
+// how the roster ends up accusing the wrong person.
+
+describe("RosterTable — the nutrition column", () => {
+  it("shows the 7-day adherence next to the habit one", () => {
+    renderRoster([client({ nutritionRatio7Days: 0.62 })]);
+    expect(screen.getByText("Nutrition")).toBeInTheDocument();
+    expect(screen.getByText("62%")).toBeInTheDocument();
+  });
+
+  it("flags an EXPIRED phase — the case this column exists for", () => {
+    // The client had a plan, it ran out, nobody loaded the next one. Every other column
+    // looks like a quiet week; this is the only place it shows.
+    renderRoster([
+      client({
+        nutritionRatio7Days: null,
+        nutritionHasActivePlan: false,
+        nutritionNeverHadPlan: false,
+      }),
+    ]);
+    expect(screen.getByTestId("roster-nutrition-expired")).toHaveTextContent(
+      "No plan in force",
+    );
+  });
+
+  it("does not accuse a client nobody ever gave a plan", () => {
+    // "0%" reads as somebody failing. Never having been assigned a plan is the coach's
+    // pending work, not the client's.
+    renderRoster([
+      client({
+        nutritionRatio7Days: null,
+        nutritionHasActivePlan: false,
+        nutritionNeverHadPlan: true,
+      }),
+    ]);
+    expect(screen.getByText("No plan yet")).toBeInTheDocument();
+    expect(screen.queryByTestId("roster-nutrition-expired")).not.toBeInTheDocument();
+    expect(screen.queryByText("0%")).not.toBeInTheDocument();
+  });
+
+  it("says nothing was asked when the phase has not started yet", () => {
+    renderRoster([
+      client({
+        nutritionRatio7Days: null,
+        nutritionHasActivePlan: true,
+        nutritionNeverHadPlan: false,
+      }),
+    ]);
+    expect(screen.getByText("Nothing asked this week")).toBeInTheDocument();
+  });
+
+  it("renders an em dash, never NaN, for a row with no nutrition fields", () => {
+    // Defensive: a row built before the fields existed carries `undefined`, and a
+    // confident "NaN%" on a coach's home screen is worse than an em dash.
+    const legacy = client();
+    delete (legacy as Partial<ClientRosterRow>).nutritionRatio7Days;
+    renderRoster([legacy]);
+    expect(screen.queryByText("NaN%")).not.toBeInTheDocument();
   });
 });

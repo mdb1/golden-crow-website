@@ -232,7 +232,11 @@
       "goalsShort": "C",
       "goalsMedium": "M",
       "goalsLong": "L",
-      "noClientsRow": "Aún no tenés clientes en el plantel."
+      "noClientsRow": "Aún no tenés clientes en el plantel.",
+      "nutrition": "Nutrición",
+      "nutritionNoPlan": "Sin plan vigente",
+      "nutritionNeverPlanned": "Todavía sin plan",
+      "nutritionNothingAsked": "Nada pedido esta semana"
     },
     "empty": {
       "headline": "Aún no tenés clientes",
@@ -590,7 +594,17 @@
         "removedFrom": "Eliminado desde {date}",
         "activeThenRemoved": "Activo desde {startsOn} · eliminado desde {removedFrom}",
         "workoutStreakLabel": "{count} seguidos",
-        "workoutStreakTooltip": "{count} entrenamientos completados sin faltar."
+        "workoutStreakTooltip": "{count} entrenamientos completados sin faltar.",
+        "nutritionTitle": "Nutrición",
+        "nutritionAdherence": "Últimos 7 días",
+        "nutritionPhase": "Fase vigente",
+        "nutritionEndsOn": "hasta el {date}",
+        "nutritionOpenEnded": "sin fecha de fin",
+        "nutritionNoPlan": "Sin plan vigente",
+        "nutritionNoPlanHelp": "Se terminó la última fase y no se asignó ninguna nueva.",
+        "nutritionNeverPlanned": "Todavía no se asignó ningún plan de nutrición.",
+        "nutritionNothingAsked": "Esta semana no se pidió nada.",
+        "nutritionOpen": "Ver nutrición"
       },
       "recentLogs": {
         "title": "Actividad reciente",

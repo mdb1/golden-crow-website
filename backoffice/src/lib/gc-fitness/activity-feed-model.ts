@@ -41,6 +41,7 @@ export type FeedCategory =
   | "schedule"
   | "routine"
   | "habit"
+  | "nutrition"
   | "exercise"
   | "photo"
   | "account"
@@ -803,6 +804,135 @@ export function classifyAuditRecord(
     }
 
     // ── Habits ───────────────────────────────────────────────────────────
+    // ── Nutrition phases (#914 / #923) ───────────────────────────────────
+    //
+    // Before this branch existed, every nutrition write fell to the `default`
+    // arm and the monitoring feed printed `create nutrition_plans` — the raw op
+    // and collection name, next to rows that read "Asignó un hábito". A capture
+    // nobody can read is a capture nobody checks.
+    //
+    // The window is the meta line because it is what distinguishes two phases
+    // of the same plan: "Definición" twice tells an operator nothing, and the
+    // whole point of a phase is that it has dates.
+    case "nutrition_plans": {
+      const name = subjectOf(subject);
+      // `clientId === trainerId` IS the self-authored marker (#392 shipped a
+      // bare owner comparison that 404'd every self-authored workout, so the
+      // source is checked alongside it rather than trusted alone).
+      const selfAuthored =
+        str(after.source) === "self" || str(before.source) === "self" || selfService;
+      const actor = selfAuthored ? byClient : byTrainer;
+      const window = (() => {
+        const from = str(after.startsOn) ?? str(before.startsOn);
+        const to = str(after.endsOn) ?? str(before.endsOn);
+        if (!from) return null;
+        return to ? `${from} → ${to}` : `${from} → sin fecha de fin`;
+      })();
+      const kcal = num(after.targets && (after.targets as Record<string, unknown>).kcal);
+      const target = record.clientId ? { kind: "user" as const, uid: record.clientId } : null;
+
+      if (record.op === "create") {
+        return {
+          category: "nutrition",
+          significance: "key",
+          action: selfAuthored ? "create" : "assign",
+          title: selfAuthored ? "Creó su plan de nutrición" : "Asignó un plan de nutrición",
+          subject: name,
+          subjectRef: null,
+          meta: [window, kcal !== null ? `${kcal} kcal` : null].filter(
+            (m): m is string => !!m,
+          ),
+          target,
+          actorUid: actor,
+          isSelfService: selfAuthored,
+          isDeletion: false,
+          correlation: null,
+        };
+      }
+
+      // Soft delete IS the delete: the rules deny a hard one, and the daily logs
+      // point at the plan by id and have to stay readable.
+      const softDeleted = record.op === "update" && after.deleted === true;
+      if (record.op === "delete" || softDeleted) {
+        return {
+          category: "nutrition",
+          significance: "key",
+          action: "delete",
+          title: "Cerró una fase de nutrición",
+          subject: name,
+          subjectRef: null,
+          meta: window ? [window] : [],
+          target,
+          actorUid: actor,
+          isSelfService: selfAuthored,
+          isDeletion: true,
+          correlation: null,
+        };
+      }
+
+      // A TRIM is the sibling edit an assign performs on its neighbours — and it
+      // is exactly the write a coach later swears they never made. Naming it
+      // "editó" would hide that nobody typed it: it happened because another
+      // phase opened. This is the reason `nutrition_plans` is monitored at all.
+      if (changedOnly(fields, ["endsOn", "updatedAt"]) && fields.includes("endsOn")) {
+        const to = str(after.endsOn);
+        return {
+          category: "nutrition",
+          significance: "key",
+          action: "update",
+          title: to ? "Recortó una fase de nutrición" : "Quitó la fecha de fin",
+          subject: name,
+          subjectRef: null,
+          meta: [
+            to ? `termina ${to}` : null,
+            str(before.endsOn) ? `antes ${str(before.endsOn)}` : null,
+          ].filter((m): m is string => !!m),
+          target,
+          actorUid: actor,
+          isSelfService: selfAuthored,
+          isDeletion: false,
+          correlation: null,
+        };
+      }
+
+      if (changedOnly(fields, ["startsOn", "updatedAt"]) && fields.includes("startsOn")) {
+        return {
+          category: "nutrition",
+          significance: "key",
+          action: "move",
+          title: "Corrió el inicio de una fase de nutrición",
+          subject: name,
+          subjectRef: null,
+          meta: [
+            str(after.startsOn) ? `empieza ${str(after.startsOn)}` : null,
+            str(before.startsOn) ? `antes ${str(before.startsOn)}` : null,
+          ].filter((m): m is string => !!m),
+          target,
+          actorUid: actor,
+          isSelfService: selfAuthored,
+          isDeletion: false,
+          correlation: null,
+        };
+      }
+
+      return {
+        category: "nutrition",
+        significance: "key",
+        action: "update",
+        title: selfAuthored ? "Editó su plan de nutrición" : "Editó un plan de nutrición",
+        subject: name,
+        subjectRef: null,
+        meta: [window, fields.length > 0 ? fields.join(", ") : null].filter(
+          (m): m is string => !!m,
+        ),
+        target,
+        actorUid: actor,
+        isSelfService: selfAuthored,
+        isDeletion: false,
+        correlation: null,
+      };
+    }
+
     case "habits": {
       const name = subjectOf(subject);
       const clientOwned = after.clientOwned === true || before.clientOwned === true || selfService;
@@ -1224,6 +1354,12 @@ export function coachActivityKeysFor(record: AuditRecord): string[] {
       return record.op === "create" ? [`exr:${record.docId}`] : [];
     case "habits":
       return record.op === "create" ? [`hab:${record.docId}`] : [];
+    // `nutritionPlanEvent` keys by `nut:${planId}` and re-publishes onto the SAME
+    // eventId for assign / edit / trim / close, so unlike exercises and habits the
+    // bridge holds for updates too — without it, one assign that also trims its
+    // neighbour renders four rows for two facts.
+    case "nutrition_plans":
+      return record.op === "delete" ? [] : [`nut:${record.docId}`];
     default:
       return [];
   }

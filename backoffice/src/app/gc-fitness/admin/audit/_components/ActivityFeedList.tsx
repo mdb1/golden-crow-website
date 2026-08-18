@@ -12,6 +12,7 @@
 import Link from "next/link";
 import {
   Activity,
+  Apple,
   CalendarClock,
   Camera,
   Dumbbell,
@@ -35,6 +36,7 @@ const CATEGORY_ICON: Record<FeedCategory, React.ComponentType<{ className?: stri
   schedule: CalendarClock,
   routine: Repeat,
   habit: ListChecks,
+  nutrition: Apple,
   exercise: Sparkles,
   photo: Camera,
   account: UserRound,
@@ -48,6 +50,7 @@ export const CATEGORY_LABEL: Record<FeedCategory, string> = {
   schedule: "Agenda",
   routine: "Rutinas",
   habit: "Hábitos",
+  nutrition: "Nutrición",
   exercise: "Ejercicios",
   photo: "Fotos",
   account: "Cuentas y suscripciones",
@@ -62,6 +65,7 @@ const CATEGORY_TONE: Record<FeedCategory, string> = {
   schedule: "bg-chart-1/15 text-chart-1",
   routine: "bg-chart-2/15 text-chart-2",
   habit: "bg-chart-4/15 text-chart-4",
+  nutrition: "bg-chart-2/15 text-chart-2",
   exercise: "bg-chart-5/15 text-chart-5",
   photo: "bg-primary/15 text-primary",
   account: "bg-chart-1/15 text-chart-1",

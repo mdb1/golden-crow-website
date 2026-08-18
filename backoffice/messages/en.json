@@ -232,7 +232,11 @@
       "goalsShort": "S",
       "goalsMedium": "M",
       "goalsLong": "L",
-      "noClientsRow": "No clients in your roster yet."
+      "noClientsRow": "No clients in your roster yet.",
+      "nutrition": "Nutrition",
+      "nutritionNoPlan": "No plan in force",
+      "nutritionNeverPlanned": "No plan yet",
+      "nutritionNothingAsked": "Nothing asked this week"
     },
     "empty": {
       "headline": "No clients yet",
@@ -590,7 +594,17 @@
         "removedFrom": "Removed from {date}",
         "activeThenRemoved": "Active from {startsOn} · removed from {removedFrom}",
         "workoutStreakLabel": "{count} in a row",
-        "workoutStreakTooltip": "{count} workouts completed in a row, no miss."
+        "workoutStreakTooltip": "{count} workouts completed in a row, no miss.",
+        "nutritionTitle": "Nutrition",
+        "nutritionAdherence": "Last 7 days",
+        "nutritionPhase": "Phase in force",
+        "nutritionEndsOn": "until {date}",
+        "nutritionOpenEnded": "no end date",
+        "nutritionNoPlan": "No plan in force",
+        "nutritionNoPlanHelp": "The last phase ended and no new one was assigned.",
+        "nutritionNeverPlanned": "No nutrition plan assigned yet.",
+        "nutritionNothingAsked": "Nothing was asked this week.",
+        "nutritionOpen": "Open nutrition"
       },
       "recentLogs": {
         "title": "Recent activity",
