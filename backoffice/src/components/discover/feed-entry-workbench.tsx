@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Bold,
+  ChevronDown,
   Check,
   CheckCircle2,
   Heading2,
@@ -21,10 +22,12 @@ import {
   Quote,
   RotateCcw,
   Save,
+  Search,
   Send,
   Trash2,
   Type,
   UploadCloud,
+  X,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
@@ -41,6 +44,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -67,6 +71,11 @@ import {
   type DiscoverOrganizationRecord,
   type DiscoverOrganizationsPage,
 } from "@/lib/discover";
+import {
+  formatDiscoverRegionCodes,
+  getDiscoverRegionCountryGroups,
+  parseDiscoverRegionCodes,
+} from "@/lib/discover-organization-fields";
 
 type BodyMode = "plain" | "rich";
 
@@ -489,6 +498,168 @@ function LocationSuggestInput({
   );
 }
 
+function CountryRegionPicker({
+  id,
+  value,
+  onChange,
+  language,
+  t,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  language: "en" | "es";
+  t: (text: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const countryGroups = useMemo(
+    () => getDiscoverRegionCountryGroups(language),
+    [language],
+  );
+  const selectedCodes = useMemo(() => parseDiscoverRegionCodes(value), [value]);
+  const selectedSet = useMemo(() => new Set(selectedCodes), [selectedCodes]);
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleGroups = countryGroups
+    .map((group) => ({
+      ...group,
+      options: group.options.filter(
+        (option) =>
+          !normalizedQuery ||
+          option.regionCode.toLowerCase().includes(normalizedQuery) ||
+          option.label.toLowerCase().includes(normalizedQuery),
+      ),
+    }))
+    .filter((group) => group.options.length > 0);
+  const displayValue = formatDiscoverRegionCodes(selectedCodes) || value.trim();
+
+  function toggleCountry(regionCode: string) {
+    const nextCodes = selectedSet.has(regionCode)
+      ? selectedCodes.filter((code) => code !== regionCode)
+      : [...selectedCodes, regionCode];
+    onChange(formatDiscoverRegionCodes(nextCodes));
+  }
+
+  return (
+    <div className="relative">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+        <div className="relative min-w-0 flex-1">
+          <MapPin
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            id={id}
+            value={displayValue}
+            readOnly
+            placeholder={t("Select countries")}
+            className="h-10 pl-9 font-medium uppercase tracking-[0.08em]"
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setOpen((current) => !current)}
+          aria-expanded={open}
+          aria-controls={`${id}-country-picker`}
+          className="h-10 justify-between sm:w-44"
+        >
+          {t("Choose countries")}
+          <ChevronDown className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {open ? (
+        <div
+          id={`${id}-country-picker`}
+          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-lg"
+        >
+          <div className="relative">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("Search countries")}
+              aria-label={t("Search countries")}
+              className="h-9 pl-9"
+            />
+          </div>
+
+          <div className="mt-3 max-h-72 overflow-y-auto pr-1">
+            {visibleGroups.length === 0 ? (
+              <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                {t("No countries match")}
+              </div>
+            ) : (
+              visibleGroups.map((group) => (
+                <div key={group.key} className="mb-3 last:mb-0">
+                  <p className="mb-1 px-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    {t(group.label)}
+                  </p>
+                  <div className="grid gap-1">
+                    {group.options.map((option) => {
+                      const checkboxId = `${id}-${option.regionCode}`;
+
+                      return (
+                        <label
+                          key={option.regionCode}
+                          htmlFor={checkboxId}
+                          className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-muted"
+                        >
+                          <Checkbox
+                            id={checkboxId}
+                            checked={selectedSet.has(option.regionCode)}
+                            onCheckedChange={() => toggleCountry(option.regionCode)}
+                            aria-label={option.label}
+                          />
+                          <span className="min-w-0 flex-1 truncate">
+                            {option.label}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-xs text-muted-foreground">
+              {selectedCodes.length > 0
+                ? `${selectedCodes.length} ${t("countries selected")}`
+                : t("No countries selected")}
+            </span>
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onChange("")}
+                disabled={!displayValue}
+              >
+                <X className="h-3.5 w-3.5" />
+                {t("Clear selected")}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setOpen(false)}
+              >
+                {t("Done")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SectionTitle({
   eyebrow,
   title,
@@ -902,12 +1073,12 @@ export function DiscoverFeedEntryWorkbench({
             />
           </FieldShell>
           <FieldShell label={t("Region")} htmlFor="discover-news-region">
-            <Input
+            <CountryRegionPicker
               id="discover-news-region"
               value={state.news.region}
-              onChange={(event) =>
-                updatePayload("news", { region: event.target.value })
-              }
+              onChange={(region) => updatePayload("news", { region })}
+              language={language}
+              t={t}
             />
           </FieldShell>
         </div>

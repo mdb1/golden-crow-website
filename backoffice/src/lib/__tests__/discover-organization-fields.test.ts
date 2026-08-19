@@ -1,7 +1,10 @@
 import {
   DISCOVER_ORGANIZATION_COUNTRY_CODES,
   formatDiscoverOrganizationCountry,
+  formatDiscoverRegionCodes,
   getDiscoverOrganizationCountryGroups,
+  getDiscoverRegionCountryGroups,
+  parseDiscoverRegionCodes,
   slugifyDiscoverOrganizationName,
 } from "@/lib/discover-organization-fields";
 
@@ -32,5 +35,31 @@ describe("discover organization fields", () => {
       "fundacion-medica-nandu",
     );
     expect(slugifyDiscoverOrganizationName("  ***  ")).toBe("organization");
+  });
+
+  it("normalizes Discover regions to three-letter country codes", () => {
+    expect(parseDiscoverRegionCodes("ar, ESP, eng, us, ARG")).toEqual([
+      "ARG",
+      "ESP",
+      "ENG",
+      "USA",
+    ]);
+    expect(formatDiscoverRegionCodes(["ar", "ESP", "eng"])).toBe(
+      "ARG, ESP, ENG",
+    );
+  });
+
+  it("offers all country regions plus England as a product region", () => {
+    const groups = getDiscoverRegionCountryGroups("en");
+    const recommendedCodes = groups[0]?.options.map(
+      (option) => option.regionCode,
+    );
+    const allCodes = groups.flatMap((group) =>
+      group.options.map((option) => option.regionCode),
+    );
+
+    expect(recommendedCodes).toEqual(["ARG", "ESP", "ENG", "USA", "AUS", "NZL"]);
+    expect(allCodes).toContain("GBR");
+    expect(allCodes).toHaveLength(DISCOVER_ORGANIZATION_COUNTRY_CODES.length + 1);
   });
 });
