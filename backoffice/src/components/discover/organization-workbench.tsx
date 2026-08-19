@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   Check,
   PencilLine,
-  RefreshCw,
   RotateCcw,
   Save,
 } from "lucide-react";
@@ -279,34 +278,6 @@ export function DiscoverOrganizationWorkbench({
     }
   }
 
-  async function syncPublisherSnapshot() {
-    if (!organization) {
-      return;
-    }
-
-    setPending(true);
-    try {
-      const result = await sdkFetch<{ updated: number }>(
-        `/discover/organizations/${organization.id}/sync-publisher-snapshot`,
-        { method: "POST" },
-      );
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        message: `${t("Publisher snapshot synced.")} ${result.updated} ${t("feed entries updated.")}`,
-      });
-      router.refresh();
-    } catch {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: t("Unable to sync publisher snapshots."),
-      });
-    } finally {
-      setPending(false);
-    }
-  }
-
   return (
     <div className="flex flex-col gap-5">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
@@ -332,38 +303,6 @@ export function DiscoverOrganizationWorkbench({
               {mode === "create" ? t("Create organization") : t("Organization")}
             </h2>
             <HeaderUnclutterButton />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {organization ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void syncPublisherSnapshot()}
-                disabled={pending}
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                {t("Sync publisher snapshot")}
-              </Button>
-            ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReset}
-              disabled={
-                (!changed && !manualColorMode && !manualColorError) || pending
-              }
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              {t("Reset")}
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => void handleSave()}
-              disabled={pending || (!changed && mode === "edit")}
-            >
-              <Save className="h-3.5 w-3.5" />
-              {pending ? t("Saving...") : t("Save")}
-            </Button>
           </div>
         </div>
 
@@ -637,6 +576,41 @@ export function DiscoverOrganizationWorkbench({
                 />
                 <span>{colorHex || t("No accent color")}</span>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 z-20 border-t border-border bg-background/94 px-5 py-4 shadow-[0_-18px_42px_rgba(15,23,42,0.12)] backdrop-blur">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 text-sm text-muted-foreground">
+              {changed ? t("Unsaved changes") : t("No unsaved changes")}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleReset}
+                disabled={
+                  (!changed && !manualColorMode && !manualColorError) || pending
+                }
+                className="h-14 justify-center text-base font-semibold sm:min-w-36"
+              >
+                <RotateCcw className="h-4 w-4" />
+                {t("Reset")}
+              </Button>
+              <Button
+                size="lg"
+                onClick={() => void handleSave()}
+                disabled={pending || (!changed && mode === "edit")}
+                className="h-14 min-w-[min(100%,22rem)] justify-center text-base font-semibold"
+              >
+                <Save className="h-5 w-5" />
+                {pending
+                  ? t("Saving...")
+                  : mode === "create"
+                    ? t("Create organization")
+                    : t("Save changes")}
+              </Button>
             </div>
           </div>
         </div>

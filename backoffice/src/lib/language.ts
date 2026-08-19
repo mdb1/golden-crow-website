@@ -1567,6 +1567,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No three letter code is staged yet. Add one manually or generate a new random code so the case is created with its shorthand already assigned.":
     "Todavía no hay código de tres letras preparado. Agregá uno manualmente o generá uno aleatorio para que el caso se cree con su abreviatura ya asignada.",
   "No timestamp": "Sin fecha",
+  "No unsaved changes": "Sin cambios sin guardar",
   "Not assigned": "No asignado",
   "Not available": "No disponible",
   "Not created yet": "Todavía no creado",
@@ -2187,6 +2188,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Uploaded report ID": "ID de reporte subido",
   "uploaded report id:": "ID de reporte subido:",
   "Uploaded reports": "Reportes subidos",
+  "Unsaved changes": "Cambios sin guardar",
   "Use a clear name, keep the relational id durable, and only add doctors or institution-admin roles after the institution record exists.":
     "Usá un nombre claro, mantené durable el ID relacional y agregá médicos o roles de administrador de institución solo después de que exista el registro de institución.",
   "Use batch": "Usar lote",

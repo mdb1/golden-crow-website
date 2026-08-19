@@ -91,7 +91,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(colorInput.readOnly).toBe(true);
     expect(screen.getByRole("button", { name: /set manually/i })).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
@@ -117,6 +117,16 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(colorInput.value).toBe("#445566");
     expect(colorInput.readOnly).toBe(true);
     expect(screen.getByRole("button", { name: /set manually/i })).toBeTruthy();
+  });
+
+  it("keeps organization actions at the bottom without the publisher sync button", () => {
+    renderWorkbench();
+
+    expect(
+      screen.queryByRole("button", { name: "Sync publisher snapshot" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Reset" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
   });
 });
 
@@ -166,7 +176,7 @@ describe("DiscoverOrganizationWorkbench localized description", () => {
       (screen.getByLabelText("Description") as HTMLTextAreaElement).value,
     ).toBe("Descripción pública");
 
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
