@@ -125,3 +125,23 @@ describe("patient portal login", () => {
     expect(screen.getByRole("button", { name: "Continuar con Google" })).toBeTruthy();
   });
 });
+
+describe("backoffice login", () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("omits the feature explainer blocks from the brand panel", () => {
+    render(<LoginExperience surface="backoffice" />);
+
+    expect(screen.getByText("Operaciones Golden Crow")).toBeTruthy();
+    expect(screen.getByText("Usuario nuevo invitado?")).toBeTruthy();
+    expect(screen.queryByText("Scoped control")).toBeNull();
+    expect(screen.queryByText("Control acotado")).toBeNull();
+    expect(screen.queryByText("Product aware")).toBeNull();
+    expect(screen.queryByText("Contexto por producto")).toBeNull();
+    expect(screen.queryByText("Traceable changes")).toBeNull();
+    expect(screen.queryByText("Cambios trazables")).toBeNull();
+  });
+});

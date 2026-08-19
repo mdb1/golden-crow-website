@@ -19,7 +19,6 @@ import {
 import {
   AlertCircle,
   ArrowLeft,
-  Building2,
   CheckCircle2,
   ChevronRight,
   XCircle,
@@ -32,7 +31,6 @@ import {
   LockKeyhole,
   LogIn,
   Mail,
-  ShieldCheck,
   UserPlus,
 } from "lucide-react";
 import { signIn } from "next-auth/react";
@@ -275,15 +273,6 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
     "Gestiona operaciones desde un espacio de trabajo enfocado.",
   "Manage users, roles, reports, files, 2PQ forms, institutions, doctors, and patients with the right product context always in view.":
     "Gestiona usuarios, roles, reportes, archivos, formularios 2PQ, instituciones, medicos y pacientes con el contexto correcto siempre visible.",
-  "Scoped control": "Control acotado",
-  "Full admins see the whole operation, while institution teams stay inside their assigned doctors, patients, and forms.":
-    "Los full admins ven toda la operacion, mientras los equipos de institucion permanecen dentro de sus medicos, pacientes y formularios asignados.",
-  "Product aware": "Contexto por producto",
-  "Switch between PocketGenes, Pocket Gyms, and 2PQ workflows without losing the operational context of each product.":
-    "Cambia entre PocketGenes, Pocket Gyms y flujos 2PQ sin perder el contexto operativo de cada producto.",
-  "Traceable changes": "Cambios trazables",
-  "Each release keeps the backoffice version visible, so support and operators can identify the exact build in use.":
-    "Cada release mantiene visible la version del backoffice para identificar el build exacto en uso.",
   "New invited user?": "Usuario nuevo invitado?",
   "Create email account": "Crear cuenta con email",
   "Create email account is not open registration. It confirms approval first, then creates the first email/password account for that invited user.":
@@ -2483,42 +2472,6 @@ export function LoginExperience({
                   "Manage users, roles, reports, files, 2PQ forms, institutions, doctors, and patients with the right product context always in view."
                 )}
               </p>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="auth-feature-card rounded-2xl p-4">
-                <ShieldCheck className="size-5 text-cyan-700" />
-                <p className="mt-4 text-sm font-semibold text-slate-950">
-                  {t("Scoped control")}
-                </p>
-                <p className="mt-1 text-sm leading-6 text-slate-700">
-                  {t(
-                    "Full admins see the whole operation, while institution teams stay inside their assigned doctors, patients, and forms."
-                  )}
-                </p>
-              </div>
-              <div className="auth-feature-card rounded-2xl p-4">
-                <Building2 className="size-5 text-emerald-700" />
-                <p className="mt-4 text-sm font-semibold text-slate-950">
-                  {t("Product aware")}
-                </p>
-                <p className="mt-1 text-sm leading-6 text-slate-700">
-                  {t(
-                    "Switch between PocketGenes, Pocket Gyms, and 2PQ workflows without losing the operational context of each product."
-                  )}
-                </p>
-              </div>
-              <div className="auth-feature-card rounded-2xl p-4">
-                <KeyRound className="size-5 text-amber-600" />
-                <p className="mt-4 text-sm font-semibold text-slate-950">
-                  {t("Traceable changes")}
-                </p>
-                <p className="mt-1 text-sm leading-6 text-slate-700">
-                  {t(
-                    "Each release keeps the backoffice version visible, so support and operators can identify the exact build in use."
-                  )}
-                </p>
-              </div>
             </div>
 
             <div className="auth-path-card rounded-2xl p-4">
