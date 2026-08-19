@@ -388,7 +388,7 @@ export function DiscoverOrganizationWorkbench({
                   onChange={(event) =>
                     handleColorPickerChange(event.target.value)
                   }
-                  className="h-10 w-full cursor-pointer rounded-md border border-input bg-background p-1 sm:w-16"
+                  className="size-10 shrink-0 cursor-pointer overflow-hidden rounded-full border border-input bg-background p-0 [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
                   aria-label={t("Accent color picker")}
                 />
                 <Input

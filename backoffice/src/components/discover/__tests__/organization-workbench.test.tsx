@@ -112,6 +112,9 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const picker = screen.getByLabelText("Accent color picker");
     const colorInput = screen.getByLabelText("Accent color") as HTMLInputElement;
 
+    expect(picker.className).toContain("rounded-full");
+    expect(picker.className).toContain("size-10");
+
     fireEvent.change(picker, { target: { value: "#445566" } });
 
     expect(colorInput.value).toBe("#445566");
