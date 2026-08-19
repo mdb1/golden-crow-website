@@ -14,6 +14,28 @@
 // Validation goes through `nutritionPlanFormSchema` directly rather than react-hook-form:
 // the meals/options tree is two levels of dynamic arrays, and a plain controlled tree plus
 // one `safeParse` on submit is far easier to keep honest than nested field arrays.
+//
+// ── THE SAME FORM ALSO EDITS AN EXISTING PHASE (#949) ────────────────────────────────
+//
+// A coach who wants to change what a client eats from Wednesday on has two different
+// intents, and they are NOT the same write:
+//
+//   · "de un día en adelante" — Wednesday's targets differ from Monday's. That is a NEW
+//     phase starting Wednesday, and the phase in force gets trimmed to Tuesday. Which is
+//     exactly what a plain assign already does: `nutritionPlanOverlapEdits` trims the
+//     neighbour, and the overlap notice above the save button already spells it out. So
+//     this branch is an ASSIGN prefilled from the phase being edited — no new write path,
+//     no second set of overlap rules to keep in step.
+//
+//   · "toda la fase" — the coach typed 190 g of protein and meant 90, or the phase ends a
+//     week later than they thought. There is no new phase; the document is corrected.
+//     That is `updateNutritionPlan`.
+//
+// Rewriting the phase in place for the first case would be wrong in a way nothing would
+// report: every day the client ALREADY marked froze its own `targetsSnapshot`, so the past
+// keeps reading correctly, but the phase would then claim it always asked for the new
+// numbers — and the weight-vs-plan table would compare a month of weigh-ins against
+// targets that only existed for its last week.
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -35,18 +57,32 @@ import {
 import {
   assignNutritionPlan,
   previewNutritionAssign,
+  updateNutritionPlan,
 } from "@/lib/gc-fitness/nutrition-actions";
 import { templateDeviations } from "@/lib/gc-fitness/nutrition-library-model";
 import type { NutritionTemplateRow } from "@/lib/gc-fitness/nutrition-library-model";
+import {
+  estimateKcalFromMacros,
+  macroKcalMismatch,
+} from "@/lib/gc-fitness/nutrition-macro-math";
 import { nutritionPlanFormSchema } from "@/lib/gc-fitness/nutrition-plan-form";
-import type { NutritionOverlapNotice } from "@/lib/gc-fitness/nutrition-plan-form";
+import type {
+  NutritionOverlapNotice,
+  NutritionPhaseState,
+} from "@/lib/gc-fitness/nutrition-plan-form";
 import {
   NUTRITION_MEAL_MOMENTS,
   type NutritionMealMoment,
+  type NutritionPlan,
 } from "@/lib/gc-fitness/nutrition-schema";
 
 interface DraftOption {
   key: string;
+  /**
+   * Set only when the option came from an existing phase. It is kept so a later edit
+   * rewrites the same option instead of minting a new id for text the client already read.
+   */
+  id?: string;
   text: string;
   textEn: string;
   kcal: string;
@@ -106,10 +142,69 @@ function numberOrNull(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+/** Wire macro → field text. A missing macro becomes "", never "0" — see `MacroFields`. */
+function macroText(value: number | null | undefined): string {
+  return value == null ? "" : String(value);
+}
+
+function initialName(editing: NutritionEditContext | null, locale: "es" | "en"): string {
+  if (!editing) return "";
+  const { name } = editing.plan;
+  return locale === "es" ? name.es || name.en : name.en || name.es;
+}
+
+/**
+ * The phase's meals as editable drafts.
+ *
+ * `mealId` and the option ids SURVIVE. The daily log keys its `meals` map by `mealId`, so
+ * minting fresh ones would orphan every mark the client has already made: the meal would
+ * look unmarked and the adherence for those days would drop without anything failing.
+ */
+function draftMealsFromPlan(plan: NutritionPlan): DraftMeal[] {
+  const meals = [...plan.meals]
+    .sort((a, b) => a.order - b.order)
+    .map((meal) => ({
+      key: nextKey("meal"),
+      mealId: meal.mealId,
+      name: meal.name.es || meal.name.en,
+      nameEn: meal.name.en || meal.name.es,
+      moment: meal.moment,
+      kcal: macroText(meal.targets?.kcal),
+      proteinG: macroText(meal.targets?.proteinG),
+      carbsG: macroText(meal.targets?.carbsG),
+      fatG: macroText(meal.targets?.fatG),
+      options: (meal.options ?? []).map((option) => ({
+        key: nextKey("option"),
+        id: option.id,
+        text: option.text.es || option.text.en,
+        textEn: option.text.en || option.text.es,
+        kcal: macroText(option.targets?.kcal),
+      })),
+    }));
+  return meals.length > 0 ? meals : [emptyMeal("breakfast")];
+}
+
+/**
+ * What the form needs to know when it opens on an EXISTING phase (#949).
+ *
+ * `todayCivil` is the client's today, not the coach's: the cutoff the coach picks is a day
+ * in the life of whoever is eating.
+ */
+export interface NutritionEditContext {
+  planId: string;
+  plan: NutritionPlan;
+  state: NutritionPhaseState;
+  todayCivil: string;
+}
+
+/** Which write an edit turns into. See the file header for why these are two writes. */
+type EditScope = "fromDate" | "whole";
+
 export function AssignNutritionForm({
   clientId,
   defaultStartsOn,
   templates = [],
+  editing = null,
 }: {
   clientId: string;
   defaultStartsOn: string;
@@ -118,22 +213,46 @@ export function AssignNutritionForm({
    * built a library yet types the plan inline, exactly as before.
    */
   templates?: NutritionTemplateRow[];
+  /** Non-null turns the screen into the phase editor (#949). */
+  editing?: NutritionEditContext | null;
 }) {
   const t = useTranslations("clients.detail.nutrition");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const [name, setName] = useState("");
-  const [nameEn, setNameEn] = useState("");
+  /**
+   * "De un día en adelante" is only on the table for a phase that is RUNNING and that
+   * started before today. A scheduled phase has no past to preserve, and a phase that
+   * started today would be trimmed to yesterday — i.e. to nothing.
+   */
+  const canSplit =
+    editing !== null &&
+    editing.state === "current" &&
+    editing.plan.startsOn < editing.todayCivil;
+
+  const [scope, setScope] = useState<EditScope>(canSplit ? "fromDate" : "whole");
+
+  const [name, setName] = useState(() => initialName(editing, "es"));
+  const [nameEn, setNameEn] = useState(() => initialName(editing, "en"));
   const [showTranslation, setShowTranslation] = useState(false);
-  const [startsOn, setStartsOn] = useState(defaultStartsOn);
-  const [openEnded, setOpenEnded] = useState(false);
-  const [endsOn, setEndsOn] = useState("");
-  const [kcal, setKcal] = useState("");
-  const [proteinG, setProteinG] = useState("");
-  const [carbsG, setCarbsG] = useState("");
-  const [fatG, setFatG] = useState("");
-  const [meals, setMeals] = useState<DraftMeal[]>([emptyMeal("breakfast")]);
+  const [startsOn, setStartsOn] = useState(() =>
+    editing === null
+      ? defaultStartsOn
+      : canSplit
+        ? editing.todayCivil
+        : editing.plan.startsOn,
+  );
+  const [openEnded, setOpenEnded] = useState(
+    () => editing !== null && !editing.plan.endsOn,
+  );
+  const [endsOn, setEndsOn] = useState(() => editing?.plan.endsOn ?? "");
+  const [kcal, setKcal] = useState(() => macroText(editing?.plan.targets.kcal));
+  const [proteinG, setProteinG] = useState(() => macroText(editing?.plan.targets.proteinG));
+  const [carbsG, setCarbsG] = useState(() => macroText(editing?.plan.targets.carbsG));
+  const [fatG, setFatG] = useState(() => macroText(editing?.plan.targets.fatG));
+  const [meals, setMeals] = useState<DraftMeal[]>(() =>
+    editing === null ? [emptyMeal("breakfast")] : draftMealsFromPlan(editing.plan),
+  );
   const [overlap, setOverlap] = useState<NutritionOverlapNotice[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** The template this draft came from, kept so the form can diff against it. */
@@ -235,7 +354,15 @@ export function AssignNutritionForm({
   useEffect(() => {
     let cancelled = false;
     if (!startsOn) return;
-    previewNutritionAssign({ clientId, startsOn, endsOn: effectiveEndsOn })
+    previewNutritionAssign({
+      clientId,
+      startsOn,
+      endsOn: effectiveEndsOn,
+      // Editing the whole phase must not warn that the phase collides with ITSELF. The
+      // split branch deliberately does NOT exclude it: the trim it causes is the whole
+      // point of that branch, and the coach should read it before saving.
+      ...(editing && scope === "whole" ? { excludePlanId: editing.planId } : {}),
+    })
       .then((notices) => {
         if (!cancelled) setOverlap(notices);
       })
@@ -245,7 +372,7 @@ export function AssignNutritionForm({
     return () => {
       cancelled = true;
     };
-  }, [clientId, startsOn, effectiveEndsOn]);
+  }, [clientId, startsOn, effectiveEndsOn, editing, scope]);
 
   const buildPayload = useCallback(() => {
     return {
@@ -280,6 +407,7 @@ export function AssignNutritionForm({
           fatG: numberOrNull(meal.fatG),
         },
         options: meal.options.map((option) => ({
+          ...(option.id ? { id: option.id } : {}),
           text: { es: option.text.trim(), en: englishOr(option.textEn, option.text) },
           targets: { kcal: numberOrNull(option.kcal) },
         })),
@@ -308,10 +436,23 @@ export function AssignNutritionForm({
       return;
     }
 
+    // A split that starts on or before the phase's own first day is not a split: it would
+    // trim the original to nothing. Say so instead of silently soft-deleting a phase the
+    // coach still believes exists.
+    if (editing && scope === "fromDate" && payload.startsOn <= editing.plan.startsOn) {
+      setError(t("editSplitTooEarly"));
+      return;
+    }
+
     startTransition(async () => {
       try {
-        await assignNutritionPlan(payload);
-        toast.success(t("saved"));
+        if (editing && scope === "whole") {
+          await updateNutritionPlan(editing.planId, payload);
+          toast.success(t("editSaved"));
+        } else {
+          await assignNutritionPlan(payload);
+          toast.success(editing ? t("editSplitSaved") : t("saved"));
+        }
         router.push(`/gc-fitness/clients/${clientId}/nutricion`);
         router.refresh();
       } catch {
@@ -328,8 +469,11 @@ export function AssignNutritionForm({
 
   return (
     <div className="flex flex-col gap-5" data-testid="assign-nutrition-form">
-      {/* ── From a template (#918) ──────────────────────────────────────────────── */}
-      {templates.length > 0 ? (
+      {/* ── From a template (#918) ──────────────────────────────────────────────────
+          Hidden while editing: `applyTemplate` replaces every `mealId` with the
+          template's, and the daily logs of the phase being edited are keyed by the ids it
+          already has. Re-applying a template would orphan every mark the client made. */}
+      {templates.length > 0 && !editing ? (
         <Card data-testid="nutrition-template-picker">
           <CardHeader>
             <CardTitle className="text-base">{t("fromTemplate")}</CardTitle>
@@ -360,6 +504,49 @@ export function AssignNutritionForm({
         </Card>
       ) : null}
 
+      {/* ── What an edit means (#949) ───────────────────────────────────────────── */}
+      {editing ? (
+        <Card data-testid="nutrition-edit-scope">
+          <CardHeader>
+            <CardTitle className="text-base">{t("editScopeTitle")}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {canSplit ? (
+              <ScopeOption
+                checked={scope === "fromDate"}
+                onSelect={() => {
+                  setScope("fromDate");
+                  // The cutoff is the new phase's first day. Re-seed it every time the
+                  // coach comes back to this branch: leaving the whole-phase `startsOn`
+                  // behind would silently rewrite history from the phase's own start.
+                  setStartsOn(editing.todayCivil);
+                }}
+                testId="nutrition-edit-scope-from-date"
+                label={t("editScopeFromDate")}
+                help={t("editScopeFromDateHelp")}
+              />
+            ) : null}
+            <ScopeOption
+              checked={scope === "whole"}
+              onSelect={() => {
+                setScope("whole");
+                setStartsOn(editing.plan.startsOn);
+              }}
+              testId="nutrition-edit-scope-whole"
+              label={t("editScopeWhole")}
+              help={t("editScopeWholeHelp")}
+            />
+            {!canSplit ? (
+              <p className="text-muted-foreground text-xs">
+                {editing.state === "scheduled"
+                  ? t("editScopeOnlyWholeScheduled")
+                  : t("editScopeOnlyWholePast")}
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* ── Validity ────────────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
@@ -368,7 +555,9 @@ export function AssignNutritionForm({
         <CardContent className="flex flex-col gap-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="nutrition-starts-on">{t("startsOn")}</Label>
+              <Label htmlFor="nutrition-starts-on">
+                {editing && scope === "fromDate" ? t("editCutoff") : t("startsOn")}
+              </Label>
               <Input
                 id="nutrition-starts-on"
                 type="date"
@@ -460,18 +649,33 @@ export function AssignNutritionForm({
             <MacroInput label={t("kcal")} value={kcal} onChange={setKcal} id="target-kcal" />
             <MacroInput
               label={t("protein")}
+              unit={t("gramsSuffix")}
               value={proteinG}
               onChange={setProteinG}
               id="target-protein"
             />
             <MacroInput
               label={t("carbs")}
+              unit={t("gramsSuffix")}
               value={carbsG}
               onChange={setCarbsG}
               id="target-carbs"
             />
-            <MacroInput label={t("fat")} value={fatG} onChange={setFatG} id="target-fat" />
+            <MacroInput
+              label={t("fat")}
+              unit={t("gramsSuffix")}
+              value={fatG}
+              onChange={setFatG}
+              id="target-fat"
+            />
           </div>
+          <MacroKcalHint
+            kcal={kcal}
+            proteinG={proteinG}
+            carbsG={carbsG}
+            fatG={fatG}
+            testId="nutrition-daily-kcal-hint"
+          />
         </CardContent>
       </Card>
 
@@ -566,23 +770,33 @@ export function AssignNutritionForm({
                 />
                 <MacroInput
                   label={t("protein")}
+                  unit={t("gramsSuffix")}
                   value={meal.proteinG}
                   onChange={(value) => patchMeal(meal.key, { proteinG: value })}
                   id={`meal-protein-${meal.key}`}
                 />
                 <MacroInput
                   label={t("carbs")}
+                  unit={t("gramsSuffix")}
                   value={meal.carbsG}
                   onChange={(value) => patchMeal(meal.key, { carbsG: value })}
                   id={`meal-carbs-${meal.key}`}
                 />
                 <MacroInput
                   label={t("fat")}
+                  unit={t("gramsSuffix")}
                   value={meal.fatG}
                   onChange={(value) => patchMeal(meal.key, { fatG: value })}
                   id={`meal-fat-${meal.key}`}
                 />
               </div>
+              <MacroKcalHint
+                kcal={meal.kcal}
+                proteinG={meal.proteinG}
+                carbsG={meal.carbsG}
+                fatG={meal.fatG}
+                testId={`meal-kcal-hint-${meal.key}`}
+              />
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
@@ -681,7 +895,7 @@ export function AssignNutritionForm({
           {t("cancel")}
         </Button>
         <Button type="button" onClick={onSubmit} disabled={pending} data-testid="nutrition-save">
-          {pending ? t("saving") : t("save")}
+          {pending ? t("saving") : editing ? t("editSave") : t("save")}
         </Button>
       </div>
     </div>
@@ -703,13 +917,22 @@ function momentKey(moment: NutritionMealMoment) {
   }
 }
 
+/**
+ * One macro box.
+ *
+ * `unit` is the point of #949: four identical boxes labelled Calorías / Proteína / Carbos
+ * / Grasas do not say whether the last three want grams or percentages, and a coach who
+ * guesses percentages writes a plan asking for 40 g of carbs.
+ */
 function MacroInput({
   label,
+  unit,
   value,
   onChange,
   id,
 }: {
   label: string;
+  unit?: string;
   value: string;
   onChange: (value: string) => void;
   id: string;
@@ -718,6 +941,7 @@ function MacroInput({
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id} className="text-xs">
         {label}
+        {unit ? <span className="text-muted-foreground ml-1 font-normal">{unit}</span> : null}
       </Label>
       <Input
         id={id}
@@ -726,6 +950,84 @@ function MacroInput({
         onChange={(event) => onChange(event.target.value)}
       />
     </div>
+  );
+}
+
+/**
+ * "Los macros suman ≈1930 kcal" — and, when it disagrees with the typed calorie line by
+ * more than the tolerance, by how much (#949).
+ *
+ * It never rewrites the coach's `kcal` field and never blocks the save. The 4/4/9 factors
+ * are a convention, and a coach may legitimately prescribe a mismatch; what they should
+ * not do is ship one they did not notice.
+ */
+function MacroKcalHint({
+  kcal,
+  proteinG,
+  carbsG,
+  fatG,
+  testId,
+}: {
+  kcal: string;
+  proteinG: string;
+  carbsG: string;
+  fatG: string;
+  testId: string;
+}) {
+  const t = useTranslations("clients.detail.nutrition");
+  const estimate = estimateKcalFromMacros({
+    proteinG: numberOrNull(proteinG),
+    carbsG: numberOrNull(carbsG),
+    fatG: numberOrNull(fatG),
+  });
+  if (!estimate) return null;
+  const mismatch = macroKcalMismatch(numberOrNull(kcal), estimate);
+
+  return (
+    <p className="text-muted-foreground text-xs" data-testid={testId}>
+      {estimate.isPartial
+        ? t("macroKcalEstimatePartial", { kcal: estimate.kcal })
+        : t("macroKcalEstimate", { kcal: estimate.kcal })}
+      {mismatch !== null ? (
+        <span className="text-chart-4 ml-1 font-medium" data-testid={`${testId}-mismatch`}>
+          {mismatch > 0
+            ? t("macroKcalOver", { diff: mismatch })
+            : t("macroKcalUnder", { diff: Math.abs(mismatch) })}
+        </span>
+      ) : null}
+    </p>
+  );
+}
+
+/** One radio in the edit-scope card. A plain input — this is two choices, not a form. */
+function ScopeOption({
+  checked,
+  onSelect,
+  label,
+  help,
+  testId,
+}: {
+  checked: boolean;
+  onSelect: () => void;
+  label: string;
+  help: string;
+  testId: string;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border p-3">
+      <input
+        type="radio"
+        name="nutrition-edit-scope"
+        className="mt-0.5"
+        checked={checked}
+        onChange={onSelect}
+        data-testid={testId}
+      />
+      <span className="flex flex-col gap-0.5">
+        <span className="text-sm font-medium">{label}</span>
+        <span className="text-muted-foreground text-xs">{help}</span>
+      </span>
+    </label>
   );
 }
 

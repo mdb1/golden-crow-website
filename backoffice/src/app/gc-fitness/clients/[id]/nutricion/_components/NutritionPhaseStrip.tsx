@@ -95,6 +95,20 @@ export async function NutritionPhaseStrip({
                   {" · "}
                   {t("mealsCount", { count: plan.meals.length })}
                 </span>
+                {/* #949 — every phase was read-only once written: the only way to change
+                    2000 kcal to 2200 was to assign a whole new phase by hand and let the
+                    overlap planner trim this one. A client-authored phase stays read-only
+                    — it is the client's document and the rules deny the coach's write. */}
+                {isSelfAuthoredPlan(plan) ? null : (
+                  <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
+                    <Link
+                      href={`/gc-fitness/clients/${clientId}/nutricion/${plan.id}/editar`}
+                      data-testid={`nutrition-phase-edit-${plan.id}`}
+                    >
+                      {t("edit")}
+                    </Link>
+                  </Button>
+                )}
               </li>
             );
           })}

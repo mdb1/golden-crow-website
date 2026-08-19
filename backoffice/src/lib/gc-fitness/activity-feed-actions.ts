@@ -22,6 +22,11 @@
 //                          writes to `habit_logs`, which no audit trigger
 //                          watches, so the single most frequent CLIENT action in
 //                          the app was invisible here ("faltan hábitos").
+//   • `nutrition_logs`   — #949. Same shape as the habit ticks: marking a meal
+//                          writes to `nutrition_logs`, which no audit trigger
+//                          watches either, so "lo que van marcando los users"
+//                          stopped at habits and left nutrition — the newest
+//                          client-facing surface — invisible to monitoring.
 //
 // The readability work lives in the PURE `activity-feed-model.ts`
 // (classification, Spanish copy, recurrence/frequency labels, the
@@ -42,8 +47,10 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import {
   classifyAuditRecord,
   coachActivityKeysFor,
+  describeNutritionMarks,
   findDuplicateCoachEventIds,
   mergeWorkoutWriteBacks,
+  summarizeNutritionMarks,
   type AuditRecord,
   type ClassifiedEvent,
   type FeedAction,
@@ -51,6 +58,7 @@ import {
   type FeedSignificance,
   type FeedSubjectRef,
   type FeedTarget,
+  type NutritionMarkSummary,
 } from "@/lib/gc-fitness/activity-feed-model";
 import {
   findRecurrenceEdits,
@@ -66,7 +74,8 @@ export type FeedSource =
   | "coach_activity"
   | "admin_operations"
   | "progress_photos"
-  | "habit_logs";
+  | "habit_logs"
+  | "nutrition_logs";
 
 export interface FeedPerson {
   uid: string | null;
@@ -472,6 +481,65 @@ async function fetchHabitCheckIns(
   });
 }
 
+/**
+ * #949 — a client marking their meals. One doc per (client, civil day), rewritten
+ * on every mark, so ONE row per day carrying the whole day's split.
+ */
+interface RawNutritionDay {
+  id: string;
+  clientId: string | null;
+  civilDate: string | null;
+  summary: NutritionMarkSummary;
+  occurredAtISO: string | null;
+}
+
+async function fetchNutritionDays(
+  db: Firestore,
+  from: Date | null,
+  to: Date | null,
+): Promise<RawNutritionDay[]> {
+  // Ranged on `updatedAt`, NOT `createdAt` — unlike every other source here.
+  // The day's document is created by the FIRST mark and rewritten by each one
+  // after it, so `createdAt` would place a day the client finished at 22:00 in
+  // the feed at breakfast time, and a day they came back to tomorrow would never
+  // reappear at all. `updatedAt` is guaranteed on every doc: the rule layer's
+  // create branch requires it and the update branch's whitelist is exactly
+  // `['meals','updatedAt']`.
+  const snap = await rangedQuery(
+    db,
+    FirestoreCollections.nutritionLogs,
+    "updatedAt",
+    from,
+    to,
+    "nutrition_logs",
+  );
+  if (!snap) return [];
+  return snap.docs.flatMap((doc) => {
+    const d = doc.data() as Record<string, unknown>;
+    const meals =
+      d.meals && typeof d.meals === "object"
+        ? (d.meals as Record<string, { status: string }>)
+        : {};
+    // A day document with no marks at all is not an event. It exists because
+    // some other path created it, and "marcó 0 de 4" is a row that says nothing
+    // happened.
+    if (Object.keys(meals).length === 0) return [];
+    const snapshot = d.targetsSnapshot as { meals?: Array<{ mealId?: unknown }> } | undefined;
+    const snapshotMealIds = (snapshot?.meals ?? [])
+      .map((meal) => (typeof meal?.mealId === "string" ? meal.mealId : null))
+      .filter((id): id is string => id !== null);
+    return [
+      {
+        id: `nutrition_logs:${doc.id}`,
+        clientId: typeof d.clientId === "string" ? d.clientId : null,
+        civilDate: typeof d.civilDate === "string" ? d.civilDate : null,
+        summary: summarizeNutritionMarks(meals, snapshotMealIds),
+        occurredAtISO: toIso(d.updatedAt) ?? toIso(d.createdAt),
+      },
+    ];
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Hydration
 // ─────────────────────────────────────────────────────────────────────────────
@@ -838,13 +906,15 @@ async function collectFeed(
   to: Date | null,
 ): Promise<ActivityFeedEvent[]> {
   const db = gcFitnessFirestore();
-  const [auditRaw, coachRaw, adminRaw, photoRaw, habitCheckInRaw] = await Promise.all([
-    fetchAuditRecords(db, from, to),
-    fetchCoachEvents(db, from, to),
-    fetchAdminOperations(db, from, to),
-    fetchPhotoUploads(db, from, to),
-    fetchHabitCheckIns(db, from, to),
-  ]);
+  const [auditRaw, coachRaw, adminRaw, photoRaw, habitCheckInRaw, nutritionDayRaw] =
+    await Promise.all([
+      fetchAuditRecords(db, from, to),
+      fetchCoachEvents(db, from, to),
+      fetchAdminOperations(db, from, to),
+      fetchPhotoUploads(db, from, to),
+      fetchHabitCheckIns(db, from, to),
+      fetchNutritionDays(db, from, to),
+    ]);
 
   // Collapse recurring-series writes (one coach edit → one doc per occurrence).
   const auditGroups = groupRecurringAuditEntries(auditRaw);
@@ -898,6 +968,9 @@ async function collectFeed(
   }
   for (const h of habitCheckInRaw) {
     if (h.clientId) uids.add(h.clientId);
+  }
+  for (const n of nutritionDayRaw) {
+    if (n.clientId) uids.add(n.clientId);
   }
 
   // Identities are needed HERE (hrefs + the actor/client filters). Entity names
@@ -1049,6 +1122,33 @@ async function collectFeed(
       isDeletion: false,
       kind: "habit_log",
       clientUid: h.clientId,
+      correlation: null,
+    });
+  }
+
+  for (const n of nutritionDayRaw) {
+    events.push({
+      id: n.id,
+      source: "nutrition_logs",
+      category: "nutrition",
+      significance: "key",
+      action: "update",
+      occurredAtISO: n.occurredAtISO,
+      title: n.summary.isComplete ? "Cerró el día de comidas" : "Marcó comidas del plan",
+      // The plan's name would cost a point read per day-row and answers a
+      // question nobody asks here — the operator is reading WHO marked and HOW
+      // MUCH, and the client's nutrition screen is one tap away for the rest.
+      subject: null,
+      meta: describeNutritionMarks(n.summary, n.civilDate, n.occurredAtISO),
+      actor: person(n.clientId, "client", users),
+      client: null,
+      // The client's admin page, exactly like a habit tick. There is no
+      // admin-side nutrition route to deep-link into yet, and inventing one that
+      // 404s would be worse than landing one level up.
+      href: n.clientId ? userHref(n.clientId, users) : null,
+      isDeletion: false,
+      kind: "nutrition_log",
+      clientUid: n.clientId,
       correlation: null,
     });
   }

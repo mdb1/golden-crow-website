@@ -7,6 +7,8 @@
 // elision of `templateSnapshot`).
 
 import {
+  describeNutritionMarks,
+  summarizeNutritionMarks,
   classifyAuditRecord,
   coachActivityKeysFor,
   findDuplicateCoachEventIds,
@@ -1165,5 +1167,115 @@ describe("findDuplicateCoachEventIds", () => {
     const deletion = { ...auditHalf, id: "audit_log:a-del" };
     const coachDeleted = { ...coachHalf, occurredAtISO: "2026-08-04T17:31:11.000Z" };
     expect([...findDuplicateCoachEventIds([deletion, coachDeleted])]).toEqual([coachHalf.id]);
+  });
+});
+
+// ── Nutrition marks (#949) ───────────────────────────────────────────────────
+
+describe("summarizeNutritionMarks", () => {
+  const snapshot = ["desayuno", "almuerzo", "merienda", "cena"];
+
+  it("splits the day by status — `done` is the only compliant one", () => {
+    const summary = summarizeNutritionMarks(
+      {
+        desayuno: { status: "done" },
+        almuerzo: { status: "different" },
+        merienda: { status: "missed" },
+      },
+      snapshot,
+    );
+    expect(summary).toEqual({
+      marked: 3,
+      expected: 4,
+      done: 1,
+      different: 1,
+      missed: 1,
+      isComplete: false,
+    });
+  });
+
+  it("is complete when every expected meal carries a mark", () => {
+    const summary = summarizeNutritionMarks(
+      {
+        desayuno: { status: "done" },
+        almuerzo: { status: "done" },
+        merienda: { status: "missed" },
+        cena: { status: "done" },
+      },
+      snapshot,
+    );
+    expect(summary.isComplete).toBe(true);
+  });
+
+  it("counts an unknown status as not-done rather than dropping it", () => {
+    const summary = summarizeNutritionMarks({ desayuno: { status: "zzz" } }, snapshot);
+    expect(summary.marked).toBe(1);
+    expect(summary.done).toBe(0);
+    expect(summary.missed).toBe(1);
+  });
+
+  it("never reports fewer expected meals than the client actually marked", () => {
+    // A plan edited mid-day can leave a mark whose meal is no longer in the
+    // snapshot. "4 de 2" would be nonsense; "4 de 4" is the honest floor.
+    const summary = summarizeNutritionMarks(
+      {
+        a: { status: "done" },
+        b: { status: "done" },
+        c: { status: "done" },
+        d: { status: "done" },
+      },
+      ["a", "b"],
+    );
+    expect(summary.expected).toBe(4);
+    expect(summary.isComplete).toBe(true);
+  });
+
+  it("handles a day with no marks and no snapshot without throwing", () => {
+    const summary = summarizeNutritionMarks({}, []);
+    expect(summary).toEqual({
+      marked: 0,
+      expected: 0,
+      done: 0,
+      different: 0,
+      missed: 0,
+      isComplete: false,
+    });
+  });
+});
+
+describe("describeNutritionMarks", () => {
+  const base = {
+    marked: 4,
+    expected: 4,
+    done: 2,
+    different: 1,
+    missed: 1,
+    isComplete: true,
+  };
+
+  it("leads with the compliant count and spells out the rest", () => {
+    expect(describeNutritionMarks(base, "2026-08-19", "2026-08-19T21:00:00.000Z")).toEqual([
+      "2 de 4 cumplidas",
+      "1 distinto",
+      "1 sin cumplir",
+    ]);
+  });
+
+  it("omits the statuses that did not happen", () => {
+    expect(
+      describeNutritionMarks(
+        { ...base, done: 4, different: 0, missed: 0 },
+        "2026-08-19",
+        "2026-08-19T21:00:00.000Z",
+      ),
+    ).toEqual(["4 de 4 cumplidas"]);
+  });
+
+  it("names the civil day ONLY when the marking was back-dated", () => {
+    // Marked today, for yesterday — the row sits under today's header, so the
+    // day it is about is the fact worth adding.
+    expect(
+      describeNutritionMarks({ ...base, different: 0, missed: 0 }, "2026-08-18", "2026-08-19T09:00:00.000Z"),
+    ).toContain("día 2026-08-18");
   });
 });

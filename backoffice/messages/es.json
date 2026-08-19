@@ -379,7 +379,8 @@
         "bodyWeight": "Peso corporal (30 días)",
         "recentLogs": "Actividad reciente",
         "personalRecords": "Récords personales",
-        "dailySteps": "Pasos diarios"
+        "dailySteps": "Pasos diarios",
+        "nutrition": "Nutrición"
       },
       "personalRecords": {
         "title": "Récords personales",
@@ -799,7 +800,31 @@
         "actionsHelpPhase": "Las comidas que se están cayendo en «{phase}». Responder acá abre el chat con el contexto ya escrito.",
         "actionsPattern": "{done} de {expected} días",
         "actionsReply": "Responder por chat",
-        "actionsAdjust": "Ajustar el plan"
+        "actionsAdjust": "Ajustar el plan",
+        "gramsSuffix": "(g)",
+        "macroKcalEstimate": "Los macros suman ≈{kcal} kcal.",
+        "macroKcalEstimatePartial": "Los macros cargados suman ≈{kcal} kcal (faltan macros).",
+        "macroKcalOver": "{diff} kcal por encima del objetivo.",
+        "macroKcalUnder": "{diff} kcal por debajo del objetivo.",
+        "edit": "Editar",
+        "editTitle": "Editar fase",
+        "editSubtitle": "{name} · {phase}",
+        "editScopeTitle": "Qué querés editar",
+        "editScopeFromDate": "De un día en adelante",
+        "editScopeFromDateHelp": "Deja la fase como está hasta el día anterior y abre una nueva desde el día que elijas. Lo que el cliente ya marcó no se toca.",
+        "editScopeWhole": "Toda la fase",
+        "editScopeWholeHelp": "Corrige la fase entera, fechas incluidas. Es para arreglar un error de carga, no para cambiar el plan a mitad de camino.",
+        "editScopeOnlyWholeScheduled": "La fase todavía no empezó, así que se edita entera.",
+        "editScopeOnlyWholePast": "La fase no está vigente, así que se edita entera.",
+        "editCutoff": "Desde qué día",
+        "editSave": "Guardar cambios",
+        "editSaved": "Fase actualizada",
+        "editSplitSaved": "Fase nueva creada desde ese día",
+        "editSplitTooEarly": "El día de corte tiene que ser posterior al inicio de la fase. Si querés cambiarla entera, elegí «Toda la fase».",
+        "profileTitle": "Nutrición",
+        "profileSubtitle": "Qué está comiendo hoy y cómo viene cumpliéndolo.",
+        "profileManage": "Gestionar nutrición",
+        "profileExpiredHelp": "La última fase se venció y no hay ninguna cargada después."
       }
     }
   },

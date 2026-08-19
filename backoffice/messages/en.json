@@ -379,7 +379,8 @@
         "bodyWeight": "Body weight (30 days)",
         "recentLogs": "Recent activity",
         "personalRecords": "Personal records",
-        "dailySteps": "Daily steps"
+        "dailySteps": "Daily steps",
+        "nutrition": "Nutrition"
       },
       "personalRecords": {
         "title": "Personal records",
@@ -799,7 +800,31 @@
         "actionsHelpPhase": "The meals that keep falling over in “{phase}”. Replying here opens the chat with the context already written.",
         "actionsPattern": "{done} of {expected} days",
         "actionsReply": "Reply in chat",
-        "actionsAdjust": "Adjust the plan"
+        "actionsAdjust": "Adjust the plan",
+        "gramsSuffix": "(g)",
+        "macroKcalEstimate": "The macros add up to ≈{kcal} kcal.",
+        "macroKcalEstimatePartial": "The macros entered add up to ≈{kcal} kcal (some are missing).",
+        "macroKcalOver": "{diff} kcal above the target.",
+        "macroKcalUnder": "{diff} kcal below the target.",
+        "edit": "Edit",
+        "editTitle": "Edit phase",
+        "editSubtitle": "{name} · {phase}",
+        "editScopeTitle": "What do you want to change?",
+        "editScopeFromDate": "From a day onwards",
+        "editScopeFromDateHelp": "Leaves the phase as it is up to the day before and opens a new one from the day you pick. What the client already marked is untouched.",
+        "editScopeWhole": "The whole phase",
+        "editScopeWholeHelp": "Corrects the entire phase, dates included. For fixing a typo, not for changing the plan halfway through.",
+        "editScopeOnlyWholeScheduled": "This phase has not started yet, so it is edited as a whole.",
+        "editScopeOnlyWholePast": "This phase is not in force, so it is edited as a whole.",
+        "editCutoff": "From which day",
+        "editSave": "Save changes",
+        "editSaved": "Phase updated",
+        "editSplitSaved": "New phase created from that day",
+        "editSplitTooEarly": "The cutoff day has to be after the phase starts. To change it entirely, pick “The whole phase”.",
+        "profileTitle": "Nutrition",
+        "profileSubtitle": "What they are eating today and how they are keeping to it.",
+        "profileManage": "Manage nutrition",
+        "profileExpiredHelp": "The last phase expired and no new one has been assigned."
       }
     }
   },
