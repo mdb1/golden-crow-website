@@ -9,11 +9,12 @@ import type {
   DiscoverOrganizationRecord,
 } from "@/lib/discover";
 
+const routerPush = jest.fn();
 const routerRefresh = jest.fn();
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
-    push: jest.fn(),
+    push: routerPush,
     refresh: routerRefresh,
   }),
 }));
@@ -43,6 +44,7 @@ const organization: DiscoverOrganizationRecord = {
 
 describe("DiscoverFeedEntryWorkbench region picker", () => {
   beforeEach(() => {
+    routerPush.mockClear();
     routerRefresh.mockClear();
     jest.mocked(sdkFetch).mockReset();
     jest.mocked(sdkFetch).mockResolvedValue({
@@ -92,5 +94,33 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       category: "",
       region: "ARG, ESP, ENG",
     });
+  });
+
+  it("dismisses publish validation errors with OK without leaving the page", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Publish to Discover" }));
+
+    expect(await screen.findByText("Publish needs attention")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Publishing stopped. Review the highlighted requirement and try again.",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Publish needs attention")).toBeNull();
+    });
+    expect(routerPush).not.toHaveBeenCalled();
   });
 });

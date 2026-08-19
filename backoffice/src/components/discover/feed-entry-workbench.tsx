@@ -1713,7 +1713,13 @@ export function DiscoverFeedEntryWorkbench({
             </div>
           </div>
 
-          {publishDialog?.status !== "publishing" ? (
+          {publishDialog?.status === "error" ? (
+            <DialogFooter className="gap-3 border-sky-100/90 bg-white/55 px-6 py-5 dark:border-sky-300/14 dark:bg-sky-950/16">
+              <Button type="button" onClick={() => setPublishDialog(null)}>
+                {t("OK")}
+              </Button>
+            </DialogFooter>
+          ) : publishDialog?.status === "success" ? (
             <DialogFooter className="gap-3 border-sky-100/90 bg-white/55 px-6 py-5 dark:border-sky-300/14 dark:bg-sky-950/16">
               <Button
                 type="button"
