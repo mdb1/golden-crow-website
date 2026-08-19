@@ -10,6 +10,7 @@ import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 import { BACKOFFICE_VERSION } from "@/lib/app-version";
 import {
   PROFILE_SETUP_STEPS,
+  hasProfileSetupProfessionalDetails,
   normalizeProfileSetupForm,
   profileSetupFormWithSkippedDefaults,
   type ProfileSetupStep,
@@ -127,6 +128,10 @@ export function CompleteProfileFlow({
     () => (form ? normalizeProfileSetupForm(form) : null),
     [form]
   );
+  const professionalDetailsWereFilled = useMemo(
+    () => (form ? hasProfileSetupProfessionalDetails(form) : false),
+    [form]
+  );
   const activeFieldError = useMemo(() => {
     if (!activeStep || !form) {
       return null;
@@ -208,50 +213,78 @@ export function CompleteProfileFlow({
 
     if (activeStep.key === "professionalDetails") {
       return (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="setup-owner-profession">Profession</Label>
-            <Input
-              id="setup-owner-profession"
-              value={form.ownerProfession}
-              onChange={(event) =>
-                updateField("ownerProfession", event.target.value)
-              }
-              placeholder="Clinical genetics specialist"
-              autoFocus
-            />
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="setup-owner-profession">
+                Profession{" "}
+                <span className="font-normal text-muted-foreground">
+                  (optional)
+                </span>
+              </Label>
+              <Input
+                id="setup-owner-profession"
+                value={form.ownerProfession}
+                onChange={(event) =>
+                  updateField("ownerProfession", event.target.value)
+                }
+                placeholder="Clinical genetics specialist"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="setup-owner-company">
+                Company{" "}
+                <span className="font-normal text-muted-foreground">
+                  (optional)
+                </span>
+              </Label>
+              <Input
+                id="setup-owner-company"
+                value={form.ownerCompany}
+                onChange={(event) =>
+                  updateField("ownerCompany", event.target.value)
+                }
+                placeholder="Golden Crow"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="setup-owner-contact-number">
+                Contact{" "}
+                <span className="font-normal text-muted-foreground">
+                  (optional)
+                </span>
+              </Label>
+              <Input
+                id="setup-owner-contact-number"
+                value={form.ownerContactNumber}
+                onChange={(event) =>
+                  updateField("ownerContactNumber", event.target.value)
+                }
+                placeholder="+54 11 5555 5555"
+                inputMode="tel"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="setup-owner-bio">
+                Bio{" "}
+                <span className="font-normal text-muted-foreground">
+                  (optional)
+                </span>
+              </Label>
+              <Input
+                id="setup-owner-bio"
+                value={form.ownerBio}
+                onChange={(event) => updateField("ownerBio", event.target.value)}
+                placeholder="Short professional bio"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="setup-owner-company">Company</Label>
-            <Input
-              id="setup-owner-company"
-              value={form.ownerCompany}
-              onChange={(event) => updateField("ownerCompany", event.target.value)}
-              placeholder="Golden Crow"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="setup-owner-contact-number">Contact</Label>
-            <Input
-              id="setup-owner-contact-number"
-              value={form.ownerContactNumber}
-              onChange={(event) =>
-                updateField("ownerContactNumber", event.target.value)
-              }
-              placeholder="+54 11 5555 5555"
-              inputMode="tel"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="setup-owner-bio">Bio</Label>
-            <Input
-              id="setup-owner-bio"
-              value={form.ownerBio}
-              onChange={(event) => updateField("ownerBio", event.target.value)}
-              placeholder="Short professional bio"
-            />
-          </div>
-        </div>
+          <p className="text-xs text-muted-foreground">
+            These professional details are optional. Leave them blank to skip
+            this step now.
+          </p>
+        </>
       );
     }
 
@@ -353,7 +386,13 @@ export function CompleteProfileFlow({
         </Button>
         {currentStep === PROFILE_SETUP_STEPS.length - 1 ? (
           <Button onClick={() => void handleFinish()} disabled={saving}>
-            {saving ? "Saving profile..." : "Finish profile"}
+            {saving
+              ? professionalDetailsWereFilled
+                ? "Saving profile..."
+                : "Skipping..."
+              : professionalDetailsWereFilled
+                ? "Finish profile"
+                : "Skip"}
           </Button>
         ) : (
           <Button

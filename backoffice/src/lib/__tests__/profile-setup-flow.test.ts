@@ -8,6 +8,7 @@ import {
   DEFAULT_PROFILE_SETUP_OWNER_CONTACT_NUMBER,
   DEFAULT_PROFILE_SETUP_OWNER_PROFESSION,
   PROFILE_SETUP_STEPS,
+  hasProfileSetupProfessionalDetails,
   normalizeProfileSetupForm,
 } from "@/lib/profile-setup-flow";
 
@@ -78,6 +79,28 @@ describe("legacy profile setup flow", () => {
       ownerBio: DEFAULT_PROFILE_SETUP_OWNER_BIO,
       gender: DEFAULT_PROFILE_SETUP_GENDER,
     });
+  });
+
+  it("detects whether optional professional details were filled", () => {
+    expect(
+      hasProfileSetupProfessionalDetails({
+        ...baseForm,
+        ownerProfession: "",
+        ownerCompany: "",
+        ownerContactNumber: "",
+        ownerBio: "",
+      })
+    ).toBe(false);
+
+    expect(
+      hasProfileSetupProfessionalDetails({
+        ...baseForm,
+        ownerProfession: "  Genetics  ",
+        ownerCompany: "",
+        ownerContactNumber: "",
+        ownerBio: "",
+      })
+    ).toBe(true);
   });
 
   it("preserves existing skipped field values when they are already valid", () => {

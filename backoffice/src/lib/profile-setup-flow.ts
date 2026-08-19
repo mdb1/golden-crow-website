@@ -34,6 +34,13 @@ export const DEFAULT_PROFILE_SETUP_CONDITION = "";
 
 const COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
+export const PROFILE_SETUP_PROFESSIONAL_FIELD_KEYS = [
+  "ownerProfession",
+  "ownerCompany",
+  "ownerContactNumber",
+  "ownerBio",
+] as const;
+
 export const PROFILE_SETUP_STEPS: ProfileSetupStep[] = [
   {
     key: "fullName",
@@ -45,16 +52,17 @@ export const PROFILE_SETUP_STEPS: ProfileSetupStep[] = [
   },
   {
     key: "professionalDetails",
-    fieldKeys: [
-      "ownerProfession",
-      "ownerCompany",
-      "ownerContactNumber",
-      "ownerBio",
-    ],
+    fieldKeys: [...PROFILE_SETUP_PROFESSIONAL_FIELD_KEYS],
     title: "Professional details",
     description: "Add optional report-owner details now, or leave them blank.",
   },
 ];
+
+export function hasProfileSetupProfessionalDetails(state: ProfileSetupForm) {
+  return PROFILE_SETUP_PROFESSIONAL_FIELD_KEYS.some(
+    (fieldKey) => state[fieldKey].trim().length > 0
+  );
+}
 
 export function profileSetupFormWithSkippedDefaults(
   state: ProfileSetupDefaults | ProfileSetupForm
