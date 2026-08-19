@@ -75,7 +75,6 @@ type OrganizationInput = {
   name?: unknown;
   imageUrl?: unknown;
   status?: unknown;
-  slug?: unknown;
   websiteUrl?: unknown;
   description?: unknown;
   countryCode?: unknown;
@@ -215,6 +214,18 @@ function normalizeOptionalEmail(value: unknown, label: string): string | undefin
 function normalizeCountryCode(value: unknown): string | undefined {
   const normalized = normalizeOptionalString(value);
   return normalized ? normalized.toUpperCase() : undefined;
+}
+
+function slugifyOrganizationName(name: string) {
+  return (
+    name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .replace(/-{2,}/g, "-") || "organization"
+  );
 }
 
 function normalizeHexColor(value: unknown, label: string): string | undefined {
@@ -692,7 +703,7 @@ function organizationDocument(input: OrganizationInput, context: AdminContext) {
     name,
     imageUrl: normalizeHttpsUrl(input.imageUrl, "Organization image URL"),
     status: normalizeOrganizationStatus(input.status),
-    slug: normalizeOptionalString(input.slug),
+    slug: slugifyOrganizationName(name),
     websiteUrl: normalizeHttpsUrl(input.websiteUrl, "Website URL"),
     description: normalizeOptionalString(input.description),
     countryCode: normalizeCountryCode(input.countryCode),

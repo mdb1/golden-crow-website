@@ -20,12 +20,16 @@ import {
   type DiscoverOrganizationStatus,
   type DiscoverOrganizationType,
 } from "@/lib/discover";
+import {
+  formatDiscoverOrganizationCountry,
+  getDiscoverOrganizationCountryGroups,
+  slugifyDiscoverOrganizationName,
+} from "@/lib/discover-organization-fields";
 
 type OrganizationFormState = {
   name: string;
   imageUrl: string;
   status: DiscoverOrganizationStatus;
-  slug: string;
   websiteUrl: string;
   description: string;
   countryCode: string;
@@ -43,10 +47,9 @@ function toFormState(
     name: organization?.name ?? "",
     imageUrl: organization?.imageUrl ?? "",
     status: organization?.status ?? "active",
-    slug: organization?.slug ?? "",
     websiteUrl: organization?.websiteUrl ?? "",
     description: organization?.description ?? "",
-    countryCode: organization?.countryCode ?? "",
+    countryCode: organization?.countryCode?.toUpperCase() ?? "",
     organizationType: organization?.organizationType ?? "",
     color_hex: organization?.color_hex ?? "",
     verified: organization?.verified ?? false,
@@ -58,8 +61,10 @@ function toFormState(
 function payloadFromState(state: OrganizationFormState) {
   return {
     ...state,
+    slug: slugifyDiscoverOrganizationName(state.name),
     imageUrl: state.imageUrl || null,
     websiteUrl: state.websiteUrl || null,
+    countryCode: state.countryCode || undefined,
     organizationType: state.organizationType || undefined,
     color_hex: normalizedColorHex(state.color_hex) || undefined,
   };
@@ -92,6 +97,14 @@ export function DiscoverOrganizationWorkbench({
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const sourceState = useMemo(() => toFormState(organization), [organization]);
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
+  const countryGroups = useMemo(
+    () => getDiscoverOrganizationCountryGroups(language),
+    [language],
+  );
+  const countryLabel = formatDiscoverOrganizationCountry(
+    state.countryCode,
+    language,
+  );
   const colorHex = normalizedColorHex(state.color_hex);
   const colorHexError =
     state.color_hex.trim() && colorHex === null
@@ -317,23 +330,26 @@ export function DiscoverOrganizationWorkbench({
               </select>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="discover-org-slug">{t("Slug")}</Label>
-              <Input
-                id="discover-org-slug"
-                value={state.slug}
-                onChange={(event) => updateState({ slug: event.target.value })}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="discover-org-country">{t("Country code")}</Label>
-              <Input
+              <Label htmlFor="discover-org-country">{t("Country")}</Label>
+              <select
                 id="discover-org-country"
                 value={state.countryCode}
                 onChange={(event) =>
-                  updateState({ countryCode: event.target.value.toUpperCase() })
+                  updateState({ countryCode: event.target.value })
                 }
-                maxLength={2}
-              />
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">{t("Select country")}</option>
+                {countryGroups.map((group) => (
+                  <optgroup key={group.key} label={t(group.label)}>
+                    {group.options.map((option) => (
+                      <option key={option.code} value={option.code}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </div>
             <div className="flex flex-col gap-2 md:col-span-2">
               <Label htmlFor="discover-org-color">{t("Accent color")}</Label>
@@ -469,7 +485,7 @@ export function DiscoverOrganizationWorkbench({
                 {state.name || t("Organization name")}
               </div>
               <div>{state.websiteUrl || t("No website URL")}</div>
-              <div>{state.countryCode || t("No country code")}</div>
+              <div>{countryLabel || t("No country")}</div>
               <div className="mt-2 flex items-center gap-2">
                 <span
                   className="h-3.5 w-3.5 rounded-full border border-border"

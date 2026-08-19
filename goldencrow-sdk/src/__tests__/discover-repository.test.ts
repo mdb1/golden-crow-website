@@ -291,6 +291,23 @@ describe("discover repository", () => {
     expect(result.organizations[0]?.color_hex).toBe("#4F46E5");
   });
 
+  it("generates organization slugs from names instead of manual input", async () => {
+    const { createDiscoverOrganization } = await import("../repositories/discover.repository");
+
+    const organization = await createDiscoverOrganization(fullAdminContext, {
+      name: "Fundación Médica Ñandú",
+      imageUrl: "https://example.org/publisher.png",
+      countryCode: "ar",
+      slug: "manual-slug",
+    } as Record<string, unknown>);
+    const stored = mockOrganizationDocs.find((doc) => doc.id === organization.id);
+
+    expect(organization.slug).toBe("fundacion-medica-nandu");
+    expect(organization.countryCode).toBe("AR");
+    expect(stored?.data.slug).toBe("fundacion-medica-nandu");
+    expect(stored?.data.countryCode).toBe("AR");
+  });
+
   it("creates upcoming events with the virtual meeting link the app reads", async () => {
     const { createDiscoverFeedItem } = await import("../repositories/discover.repository");
 

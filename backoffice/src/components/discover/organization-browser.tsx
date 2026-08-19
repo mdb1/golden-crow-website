@@ -49,7 +49,6 @@ function organizationPayload(
     name: organization.name,
     imageUrl: organization.imageUrl,
     status,
-    slug: organization.slug,
     websiteUrl: organization.websiteUrl,
     description: organization.description,
     countryCode: organization.countryCode,
