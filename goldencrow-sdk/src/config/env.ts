@@ -11,6 +11,7 @@ export const ENV = {
     `${process.env.BACKOFFICE_ORIGIN ?? "http://localhost:3001"}/login`,
   CLIENT_BOOKING_WEBHOOK_URL:
     process.env.CLIENT_BOOKING_WEBHOOK_URL?.trim() || undefined,
+  REPORTING_API_TOKEN: process.env.REPORTING_API_TOKEN?.trim() || undefined,
 };
 
 import type { ProjectKey } from "../types/sdk.types.js";

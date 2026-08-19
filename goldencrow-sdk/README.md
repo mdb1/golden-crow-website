@@ -21,6 +21,7 @@ Create `goldencrow-sdk/.env` with the following variables:
 | `PORT` | Port to listen on (default: `3000`) |
 | `NODE_ENV` | `development` or `production` |
 | `BACKOFFICE_ORIGIN` | CORS allowed origin for the backoffice (e.g. `http://localhost:3001`) |
+| `REPORTING_API_TOKEN` | Bearer token for the external reporting integration endpoints |
 
 ### Getting Firebase Credentials
 
@@ -42,7 +43,7 @@ npm run dev
 
 ## Available Endpoints
 
-All endpoints (except `/health`, `/auth/login`, `/auth/logout`) require a valid Firebase session cookie.
+All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings`, and `/reporting/*` require a valid Firebase session cookie. Reporting integration endpoints require `Authorization: Bearer <REPORTING_API_TOKEN>`.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -56,6 +57,11 @@ All endpoints (except `/health`, `/auth/login`, `/auth/logout`) require a valid 
 | GET | /reports | List reports (optional ?source= filter) |
 | GET | /reports/:id | Get report detail |
 | DELETE | /reports/:id | Delete report |
+| GET | /reporting/patients?patientId=:id | External reporting lookup by patient ID |
+| GET | /reporting/patients?email=:email | External reporting lookup by patient email |
+| GET | /reporting/patients?medicalRecordNumber=:number | External reporting lookup by medical record number |
+| GET | /reporting/patients/:id | External reporting lookup by patient ID |
+| POST | /reporting/reports/uploaded | External reporting S3 upload notification |
 | GET | /posts | List community posts |
 | GET | /posts/:id | Get post detail |
 | DELETE | /posts/:id | Delete post |

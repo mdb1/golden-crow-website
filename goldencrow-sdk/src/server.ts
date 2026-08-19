@@ -22,6 +22,10 @@ const PUBLIC_PATHS = new Set([
   "/auth/email-signup/eligibility",
 ]);
 
+export function isPublicPath(path: string) {
+  return PUBLIC_PATHS.has(path) || path === "/reporting" || path.startsWith("/reporting/");
+}
+
 const CORS_ORIGINS = [
   ENV.BACKOFFICE_ORIGIN,
   "https://goldencrowvs.com",
@@ -48,7 +52,7 @@ export async function buildServer() {
   // Global auth hook — runs before every route handler
   fastify.addHook("onRequest", async (request, reply) => {
     const requestPath = request.url.split("?")[0] ?? request.url;
-    if (PUBLIC_PATHS.has(requestPath)) return;
+    if (isPublicPath(requestPath)) return;
     await authMiddleware(request, reply);
   });
 
