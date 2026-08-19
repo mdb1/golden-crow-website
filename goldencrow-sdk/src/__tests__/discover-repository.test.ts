@@ -96,6 +96,8 @@ const initialOrganizationDocs: MockDoc[] = [
       name: "Publisher One",
       imageUrl: "https://example.org/publisher.png",
       status: "active",
+      description: "Descripción pública",
+      description_en: "Public description",
       color_hex: "#4f46e5",
       createdAt: "2026-08-01T00:00:00.000Z",
       updatedAt: "2026-08-02T00:00:00.000Z",
@@ -282,13 +284,15 @@ describe("discover repository", () => {
     ]);
   });
 
-  it("returns Discover organization accent colors with the app-facing key", async () => {
+  it("returns Discover organization accent colors and localized descriptions", async () => {
     const { listDiscoverOrganizations } = await import("../repositories/discover.repository");
 
     const result = await listDiscoverOrganizations(fullAdminContext);
 
     expect(result.organizations).toHaveLength(1);
     expect(result.organizations[0]?.color_hex).toBe("#4F46E5");
+    expect(result.organizations[0]?.description).toBe("Descripción pública");
+    expect(result.organizations[0]?.description_en).toBe("Public description");
   });
 
   it("generates organization slugs from names instead of manual input", async () => {
@@ -297,14 +301,20 @@ describe("discover repository", () => {
     const organization = await createDiscoverOrganization(fullAdminContext, {
       name: "Fundación Médica Ñandú",
       imageUrl: "https://example.org/publisher.png",
+      description: "Descripción en español",
+      description_en: "English description",
       countryCode: "ar",
       slug: "manual-slug",
     } as Record<string, unknown>);
     const stored = mockOrganizationDocs.find((doc) => doc.id === organization.id);
 
     expect(organization.slug).toBe("fundacion-medica-nandu");
+    expect(organization.description).toBe("Descripción en español");
+    expect(organization.description_en).toBe("English description");
     expect(organization.countryCode).toBe("AR");
     expect(stored?.data.slug).toBe("fundacion-medica-nandu");
+    expect(stored?.data.description).toBe("Descripción en español");
+    expect(stored?.data.description_en).toBe("English description");
     expect(stored?.data.countryCode).toBe("AR");
   });
 

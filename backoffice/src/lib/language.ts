@@ -73,6 +73,12 @@ const SPANISH_TEXT: Record<string, string> = {
   "Review athlete bookings and their confirmation status.":
     "Revisar reservas de atletas y su estado de confirmación.",
   "Set manually": "Definir manualmente",
+  Description: "Descripción",
+  "Description language": "Idioma de descripción",
+  English: "Inglés",
+  Spanish: "Español",
+  "Add an English organization description to reach a broader audience.":
+    "Agregá una descripción de la organización en inglés para llegar a una audiencia más amplia.",
   "Create and edit achievement definitions that coaches use to reinforce progress.":
     "Crear y editar logros que los coaches usan para reforzar el progreso.",
   "Create and edit challenge definitions for athlete motivation.":

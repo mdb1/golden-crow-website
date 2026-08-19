@@ -53,6 +53,7 @@ const OrganizationBodySchema = z.object({
   status: OrganizationStatusSchema.optional(),
   websiteUrl: z.string().nullable().optional(),
   description: z.string().optional(),
+  description_en: z.string().optional(),
   countryCode: z.string().optional(),
   organizationType: OrganizationTypeSchema.optional(),
   color_hex: z.string().nullable().optional(),

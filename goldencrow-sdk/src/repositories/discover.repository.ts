@@ -77,6 +77,7 @@ type OrganizationInput = {
   status?: unknown;
   websiteUrl?: unknown;
   description?: unknown;
+  description_en?: unknown;
   countryCode?: unknown;
   organizationType?: unknown;
   color_hex?: unknown;
@@ -517,6 +518,7 @@ function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationR
     slug: normalizeOptionalString(data.slug),
     websiteUrl: normalizeOptionalString(data.websiteUrl),
     description: normalizeOptionalString(data.description),
+    description_en: normalizeOptionalString(data.description_en),
     countryCode: normalizeOptionalString(data.countryCode),
     organizationType,
     color_hex: readHexColor(data.color_hex ?? data.colorHex),
@@ -706,6 +708,7 @@ function organizationDocument(input: OrganizationInput, context: AdminContext) {
     slug: slugifyOrganizationName(name),
     websiteUrl: normalizeHttpsUrl(input.websiteUrl, "Website URL"),
     description: normalizeOptionalString(input.description),
+    description_en: normalizeOptionalString(input.description_en),
     countryCode: normalizeCountryCode(input.countryCode),
     organizationType: normalizeOrganizationType(input.organizationType),
     color_hex: normalizeHexColor(input.color_hex ?? input.colorHex, "Organization color") ?? null,

@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
+import { cn } from "@/lib/utils";
 import {
   DISCOVER_ORGANIZATION_STATUS_OPTIONS,
   DISCOVER_ORGANIZATION_TYPE_OPTIONS,
@@ -39,6 +40,7 @@ type OrganizationFormState = {
   status: DiscoverOrganizationStatus;
   websiteUrl: string;
   description: string;
+  description_en: string;
   countryCode: string;
   organizationType: "" | DiscoverOrganizationType;
   color_hex: string;
@@ -56,6 +58,7 @@ function toFormState(
     status: organization?.status ?? "active",
     websiteUrl: organization?.websiteUrl ?? "",
     description: organization?.description ?? "",
+    description_en: organization?.description_en ?? "",
     countryCode: organization?.countryCode?.toUpperCase() ?? "",
     organizationType: organization?.organizationType ?? "",
     color_hex: organization?.color_hex ?? "",
@@ -91,6 +94,13 @@ function colorTextValue(value: string) {
   return normalizedColorHex(value) || value.trim();
 }
 
+const DESCRIPTION_LANGUAGE_OPTIONS = [
+  { value: "es", label: "Spanish" },
+  { value: "en", label: "English" },
+] as const;
+
+type DescriptionLanguage = (typeof DESCRIPTION_LANGUAGE_OPTIONS)[number]["value"];
+
 export function DiscoverOrganizationWorkbench({
   organization,
   mode = "edit",
@@ -104,6 +114,8 @@ export function DiscoverOrganizationWorkbench({
   const t = (text: string) => appText(language, text);
   const router = useRouter();
   const [state, setState] = useState(() => toFormState(organization));
+  const [activeDescriptionLanguage, setActiveDescriptionLanguage] =
+    useState<DescriptionLanguage>("es");
   const [manualColorMode, setManualColorMode] = useState(false);
   const [manualColorDraft, setManualColorDraft] = useState(() =>
     colorTextValue(toFormState(organization).color_hex),
@@ -130,6 +142,17 @@ export function DiscoverOrganizationWorkbench({
   const visibleColorText = manualColorMode
     ? manualColorDraft
     : colorTextValue(state.color_hex);
+  const activeDescriptionId =
+    activeDescriptionLanguage === "es"
+      ? "discover-org-description"
+      : "discover-org-description-en";
+  const activeDescriptionValue =
+    activeDescriptionLanguage === "es"
+      ? state.description
+      : state.description_en;
+  const showEnglishDescriptionWarning = Boolean(
+    state.description.trim() && !state.description_en.trim(),
+  );
 
   function updateState(patch: Partial<OrganizationFormState>) {
     setState((current) => ({ ...current, ...patch }));
@@ -167,6 +190,14 @@ export function DiscoverOrganizationWorkbench({
 
     updateState({ color_hex: nextColor });
     closeManualColorEditor(nextColor);
+  }
+
+  function updateActiveDescription(value: string) {
+    updateState(
+      activeDescriptionLanguage === "es"
+        ? { description: value }
+        : { description_en: value },
+    );
   }
 
   async function handleSave() {
@@ -499,15 +530,47 @@ export function DiscoverOrganizationWorkbench({
               />
             </div>
             <div className="flex flex-col gap-2 md:col-span-2">
-              <Label htmlFor="discover-org-description">{t("Description")}</Label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label htmlFor={activeDescriptionId}>{t("Description")}</Label>
+                <div
+                  role="group"
+                  aria-label={t("Description language")}
+                  className="inline-flex h-8 items-center rounded-md border border-border bg-muted/50 p-0.5"
+                >
+                  {DESCRIPTION_LANGUAGE_OPTIONS.map((option) => {
+                    const active = activeDescriptionLanguage === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setActiveDescriptionLanguage(option.value)}
+                        className={cn(
+                          "h-7 rounded-[6px] px-2.5 text-xs font-medium transition-colors",
+                          active
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {t(option.label)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <Textarea
-                id="discover-org-description"
-                value={state.description}
-                onChange={(event) =>
-                  updateState({ description: event.target.value })
-                }
+                id={activeDescriptionId}
+                value={activeDescriptionValue}
+                onChange={(event) => updateActiveDescription(event.target.value)}
                 rows={4}
               />
+              {showEnglishDescriptionWarning ? (
+                <p className="rounded-md border border-violet-200 bg-violet-50 px-2.5 py-2 text-xs font-medium text-violet-900 dark:border-violet-400/30 dark:bg-violet-500/12 dark:text-violet-100">
+                  {t(
+                    "Add an English organization description to reach a broader audience.",
+                  )}
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="discover-org-contact">{t("Contact email")}</Label>

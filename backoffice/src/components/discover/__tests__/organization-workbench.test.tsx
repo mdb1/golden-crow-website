@@ -28,7 +28,8 @@ const organization: DiscoverOrganizationRecord = {
   status: "active",
   slug: "publisher-one",
   websiteUrl: "https://example.org",
-  description: "Organization description",
+  description: "Descripción pública",
+  description_en: "Public description",
   countryCode: "US",
   organizationType: "patient_advocacy_group",
   color_hex: "#123ABC",
@@ -116,5 +117,68 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(colorInput.value).toBe("#445566");
     expect(colorInput.readOnly).toBe(true);
     expect(screen.getByRole("button", { name: /set manually/i })).toBeTruthy();
+  });
+});
+
+describe("DiscoverOrganizationWorkbench localized description", () => {
+  beforeEach(() => {
+    routerPush.mockClear();
+    routerRefresh.mockClear();
+    jest.mocked(sdkFetch).mockReset();
+    jest.mocked(sdkFetch).mockResolvedValue({ organization });
+  });
+
+  it("edits Spanish and English descriptions separately", async () => {
+    const user = userEvent.setup();
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverOrganizationWorkbench
+          organization={{ ...organization, description_en: "" }}
+        />
+      </AppLanguageProvider>,
+    );
+
+    const description = screen.getByLabelText(
+      "Description",
+    ) as HTMLTextAreaElement;
+    expect(description.value).toBe("Descripción pública");
+    expect(
+      screen.getByText(
+        "Add an English organization description to reach a broader audience.",
+      ),
+    ).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "English" }));
+    const englishDescription = screen.getByLabelText(
+      "Description",
+    ) as HTMLTextAreaElement;
+    expect(englishDescription.value).toBe("");
+
+    await user.type(englishDescription, "Public English description");
+    expect(
+      screen.queryByText(
+        "Add an English organization description to reach a broader audience.",
+      ),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Spanish" }));
+    expect(
+      (screen.getByLabelText("Description") as HTMLTextAreaElement).value,
+    ).toBe("Descripción pública");
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.description).toBe("Descripción pública");
+    expect(body.description_en).toBe("Public English description");
   });
 });

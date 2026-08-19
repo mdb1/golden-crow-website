@@ -19,6 +19,7 @@ export interface DiscoverOrganizationRecord {
   slug?: string;
   websiteUrl?: string;
   description?: string;
+  description_en?: string;
   countryCode?: string;
   organizationType?: DiscoverOrganizationType;
   color_hex?: string;
