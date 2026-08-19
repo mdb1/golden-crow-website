@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, RotateCcw, Save, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  PencilLine,
+  RefreshCw,
+  RotateCcw,
+  Save,
+} from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Button } from "@/components/ui/button";
@@ -80,6 +87,10 @@ function normalizedColorHex(value: string) {
   return /^#[0-9a-fA-F]{6}$/.test(withHash) ? withHash.toUpperCase() : null;
 }
 
+function colorTextValue(value: string) {
+  return normalizedColorHex(value) || value.trim();
+}
+
 export function DiscoverOrganizationWorkbench({
   organization,
   mode = "edit",
@@ -93,6 +104,11 @@ export function DiscoverOrganizationWorkbench({
   const t = (text: string) => appText(language, text);
   const router = useRouter();
   const [state, setState] = useState(() => toFormState(organization));
+  const [manualColorMode, setManualColorMode] = useState(false);
+  const [manualColorDraft, setManualColorDraft] = useState(() =>
+    colorTextValue(toFormState(organization).color_hex),
+  );
+  const [manualColorError, setManualColorError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const sourceState = useMemo(() => toFormState(organization), [organization]);
@@ -106,13 +122,51 @@ export function DiscoverOrganizationWorkbench({
     language,
   );
   const colorHex = normalizedColorHex(state.color_hex);
-  const colorHexError =
+  const appliedColorError =
     state.color_hex.trim() && colorHex === null
       ? t("Organization color must be a 6-digit hex value.")
       : null;
+  const colorError = manualColorError || appliedColorError;
+  const visibleColorText = manualColorMode
+    ? manualColorDraft
+    : colorTextValue(state.color_hex);
 
   function updateState(patch: Partial<OrganizationFormState>) {
     setState((current) => ({ ...current, ...patch }));
+  }
+
+  function closeManualColorEditor(nextColor: string) {
+    setManualColorMode(false);
+    setManualColorDraft(colorTextValue(nextColor));
+    setManualColorError(null);
+  }
+
+  function handleReset() {
+    setState(sourceState);
+    closeManualColorEditor(sourceState.color_hex);
+  }
+
+  function handleColorPickerChange(value: string) {
+    const nextColor = value.toUpperCase();
+    updateState({ color_hex: nextColor });
+    closeManualColorEditor(nextColor);
+  }
+
+  function startManualColorEdit() {
+    setManualColorDraft(colorTextValue(state.color_hex));
+    setManualColorMode(true);
+    setManualColorError(null);
+  }
+
+  function applyManualColor() {
+    const nextColor = normalizedColorHex(manualColorDraft);
+    if (!nextColor) {
+      setManualColorError(t("Organization color must be a 6-digit hex value."));
+      return;
+    }
+
+    updateState({ color_hex: nextColor });
+    closeManualColorEditor(nextColor);
   }
 
   async function handleSave() {
@@ -125,11 +179,11 @@ export function DiscoverOrganizationWorkbench({
       return;
     }
 
-    if (colorHexError) {
+    if (appliedColorError) {
       setToast({
         id: Date.now(),
         tone: "error",
-        message: colorHexError,
+        message: appliedColorError,
       });
       return;
     }
@@ -150,6 +204,7 @@ export function DiscoverOrganizationWorkbench({
           },
         );
         setState(nextState);
+        closeManualColorEditor(nextState.color_hex);
         setToast({
           id: Date.now(),
           tone: "success",
@@ -172,6 +227,7 @@ export function DiscoverOrganizationWorkbench({
         },
       );
       setState(nextState);
+      closeManualColorEditor(nextState.color_hex);
       setToast({
         id: Date.now(),
         tone: "success",
@@ -261,8 +317,10 @@ export function DiscoverOrganizationWorkbench({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setState(sourceState)}
-              disabled={!changed || pending}
+              onClick={handleReset}
+              disabled={
+                (!changed && !manualColorMode && !manualColorError) || pending
+              }
             >
               <RotateCcw className="h-3.5 w-3.5" />
               {t("Reset")}
@@ -358,40 +416,63 @@ export function DiscoverOrganizationWorkbench({
                   type="color"
                   value={colorHex || "#4F46E5"}
                   onChange={(event) =>
-                    updateState({ color_hex: event.target.value.toUpperCase() })
+                    handleColorPickerChange(event.target.value)
                   }
                   className="h-10 w-full cursor-pointer rounded-md border border-input bg-background p-1 sm:w-16"
                   aria-label={t("Accent color picker")}
                 />
                 <Input
                   id="discover-org-color"
-                  value={state.color_hex}
-                  onChange={(event) =>
-                    updateState({ color_hex: event.target.value })
-                  }
-                  onBlur={() => {
-                    if (colorHex) {
-                      updateState({ color_hex: colorHex });
+                  value={visibleColorText}
+                  onChange={(event) => {
+                    setManualColorDraft(event.target.value);
+                    setManualColorError(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (manualColorMode && event.key === "Enter") {
+                      event.preventDefault();
+                      applyManualColor();
                     }
                   }}
+                  readOnly={!manualColorMode}
                   placeholder="#4F46E5"
-                  aria-invalid={Boolean(colorHexError)}
+                  aria-invalid={Boolean(colorError)}
                   aria-describedby={
-                    colorHexError ? "discover-org-color-error" : undefined
+                    colorError ? "discover-org-color-error" : undefined
                   }
                   className={
-                    colorHexError
+                    colorError
                       ? "border-destructive focus-visible:ring-destructive"
-                      : ""
+                      : "read-only:bg-muted/45 read-only:text-muted-foreground"
                   }
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (manualColorMode) {
+                      applyManualColor();
+                      return;
+                    }
+                    startManualColorEdit();
+                  }}
+                  disabled={pending}
+                >
+                  {manualColorMode ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : (
+                    <PencilLine className="h-3.5 w-3.5" />
+                  )}
+                  {manualColorMode ? t("Apply") : t("Set manually")}
+                </Button>
               </div>
-              {colorHexError ? (
+              {colorError ? (
                 <p
                   id="discover-org-color-error"
                   className="text-xs font-medium text-destructive"
                 >
-                  {colorHexError}
+                  {colorError}
                 </p>
               ) : null}
             </div>
