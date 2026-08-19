@@ -54,6 +54,33 @@ function eligibilityResponse() {
   } as unknown as Response;
 }
 
+function invitedBackofficeSignupResponse() {
+  const body = {
+    email: "federico0812+publisher@gmail.com",
+    eligible: true,
+    viaAllowlist: false,
+    viaRoleAssignment: true,
+    canAccessBackoffice: true,
+    canAccessPatientPortal: false,
+    role: "organization_publisher",
+    accountExists: false,
+    accountHasPassword: false,
+    projectAccess: ["mydnamap"],
+  };
+
+  return {
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    headers: { forEach: jest.fn() },
+    clone() {
+      return this;
+    },
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  } as unknown as Response;
+}
+
 describe("patient portal login", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
@@ -129,7 +156,14 @@ describe("patient portal login", () => {
 describe("backoffice login", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
+    fetchMock.mockReset();
+    Object.defineProperty(globalThis, "fetch", {
+      configurable: true,
+      writable: true,
+      value: fetchMock,
+    });
     window.localStorage.clear();
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, "es");
   });
 
   it("omits the feature explainer blocks from the brand panel", () => {
@@ -152,5 +186,33 @@ describe("backoffice login", () => {
     expect(screen.queryByText("Contexto por producto")).toBeNull();
     expect(screen.queryByText("Traceable changes")).toBeNull();
     expect(screen.queryByText("Cambios trazables")).toBeNull();
+  });
+
+  it("shows only the short approval notice for invited new users", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue(invitedBackofficeSignupResponse());
+
+    render(<LoginExperience surface="backoffice" />);
+
+    await user.type(
+      screen.getByLabelText("Email"),
+      "federico0812+publisher@gmail.com",
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Continuar" }),
+    );
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Acceso aprobado");
+    expect(alert.textContent).toContain(
+      "Este email invitado puede crear una cuenta de backoffice. Elegi un password para terminar.",
+    );
+    expect(screen.getAllByText("Acceso aprobado")).toHaveLength(1);
+    expect(screen.getByLabelText("Nuevo password")).toBeTruthy();
+    expect(
+      screen.queryByText(
+        /federico0812\+publisher@gmail\.com fue aprobado mediante la asignacion de rol/i,
+      ),
+    ).toBeNull();
   });
 });

@@ -136,16 +136,6 @@ type SignupEligibility = {
   projectAccess: ProjectKey[];
 };
 
-const ROLE_LABELS: Record<NonNullable<SignupEligibility["role"]>, string> = {
-  full_admin: "full admin",
-  organization_publisher: "organization publisher",
-  institution_admin: "institution admin",
-  institution_operator: "institution operator",
-  institution_laboratory_staff: "institution laboratory staff",
-  institution_doctor: "institution doctor",
-  patient: "patient",
-};
-
 const LEGACY_PROJECT_KEYS = new Set<ProjectKey>(["mydnamap", "pocket-gyms"]);
 const GOOGLE_SIGN_IN_METHOD = "google.com";
 const PASSWORD_SIGN_IN_METHOD = "password";
@@ -380,8 +370,6 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "An account already exists for this email": "Ya existe una cuenta para este email",
   "Use the email sign-in form instead. This new-user flow only creates the first password for invited accounts.":
     "Usa el formulario de inicio con email. Este flujo solo crea el primer password para cuentas invitadas.",
-  "This email can create a backoffice account. Choose a password to finish setup.":
-    "Este email puede crear una cuenta de backoffice. Elegi un password para terminar.",
   "Access check failed": "Fallo la verificacion de acceso",
   "Unable to create the email account.": "No se pudo crear la cuenta con email.",
   "Account was not created": "La cuenta no fue creada",
@@ -394,10 +382,6 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
     "La cuenta es valida, pero no se pudo guardar la sesion del proyecto seleccionado.",
   "Project handoff failed": "Fallo el traspaso de proyecto",
   "Try selecting the project again.": "Intenta seleccionar el proyecto de nuevo.",
-  "approved through an active role assignment":
-    "aprobado mediante una asignacion de rol activa",
-  "approved through the team allowlist":
-    "aprobado mediante la allowlist del equipo",
 };
 
 const PATIENT_PORTAL_SPANISH_TEXT: Record<string, string> = {
@@ -2229,7 +2213,7 @@ export function LoginExperience({
           tone: "success",
           title: "Access approved",
           message:
-            "This email can create a backoffice account. Choose a password to finish setup.",
+            "This invited email can create a backoffice account. Choose a password to finish setup.",
         });
       }
     } catch (err) {
@@ -2390,21 +2374,6 @@ export function LoginExperience({
   }
 
   const canContinueWithEmail = normalizeAuthEmail(email).length > 0;
-
-  const signupAccessLabel = signupEligibility?.viaRoleAssignment
-    ? signupEligibility.role
-      ? loginLanguage === "es"
-        ? `aprobado mediante la asignacion de rol ${t(ROLE_LABELS[signupEligibility.role])}`
-        : `approved through the ${ROLE_LABELS[signupEligibility.role]} role assignment`
-      : t("approved through an active role assignment")
-    : t("approved through the team allowlist");
-
-  const signupAccessSentence =
-    signupEligibility && loginLanguage === "es"
-      ? `${signupEligibility.email} fue ${signupAccessLabel}. Define un password y la cuenta se creara de inmediato.`
-      : signupEligibility
-        ? `${signupEligibility.email} was ${signupAccessLabel}. Set a password and the account will be created immediately.`
-        : "";
 
   const panelTitle = isPatientPortal
     ? phase === "auth" || phase === "select"
@@ -2899,20 +2868,6 @@ export function LoginExperience({
 
           {phase === "signup-password" && signupEligibility ? (
             <div className="space-y-5">
-              {!isPatientPortal ? (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/82 p-4 text-sm text-emerald-950 shadow-[0_18px_44px_rgba(18,105,75,0.12)]">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
-                    <div>
-                      <p className="font-semibold">{t("Access approved")}</p>
-                      <p className="mt-1 leading-6 text-emerald-800">
-                        {signupAccessSentence}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
               <form className="space-y-4" onSubmit={handleEmailAccountCreation}>
                 <FieldShell
                   id="signup-password"
