@@ -135,8 +135,17 @@ describe("backoffice login", () => {
   it("omits the feature explainer blocks from the brand panel", () => {
     render(<LoginExperience surface="backoffice" />);
 
-    expect(screen.getByText("Operaciones Golden Crow")).toBeTruthy();
+    expect(screen.getByText("Golden Crow VS")).toBeTruthy();
+    expect(
+      screen.getByText("Gestiona todo desde un espacio de trabajo unificado."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "El dashboard te da herramientas para tratar con usuarios, roles, reportes, archivos, formularios, instituciones, medicos y pacientes con el contexto correcto siempre visible.",
+      ),
+    ).toBeTruthy();
     expect(screen.getByText("Usuario nuevo invitado?")).toBeTruthy();
+    expect(screen.queryByText("Operaciones Golden Crow")).toBeNull();
     expect(screen.queryByText("Scoped control")).toBeNull();
     expect(screen.queryByText("Control acotado")).toBeNull();
     expect(screen.queryByText("Product aware")).toBeNull();

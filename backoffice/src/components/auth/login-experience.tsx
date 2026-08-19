@@ -268,11 +268,11 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "Hide password": "Ocultar password",
   "Show password": "Mostrar password",
   "Login language": "Idioma del login",
-  "Golden Crow operations": "Operaciones Golden Crow",
-  "Run Golden Crow operations from one focused workspace.":
-    "Gestiona operaciones desde un espacio de trabajo enfocado.",
-  "Manage users, roles, reports, files, 2PQ forms, institutions, doctors, and patients with the right product context always in view.":
-    "Gestiona usuarios, roles, reportes, archivos, formularios 2PQ, instituciones, medicos y pacientes con el contexto correcto siempre visible.",
+  "Golden Crow VS": "Golden Crow VS",
+  "Manage everything from one unified workspace.":
+    "Gestiona todo desde un espacio de trabajo unificado.",
+  "The dashboard gives you tools to work with users, roles, reports, files, forms, institutions, doctors, and patients with the right context always visible.":
+    "El dashboard te da herramientas para tratar con usuarios, roles, reportes, archivos, formularios, instituciones, medicos y pacientes con el contexto correcto siempre visible.",
   "New invited user?": "Usuario nuevo invitado?",
   "Create email account": "Crear cuenta con email",
   "Create email account is not open registration. It confirms approval first, then creates the first email/password account for that invited user.":
@@ -2460,16 +2460,16 @@ export function LoginExperience({
           <aside className="auth-brand-panel flex min-h-[520px] flex-col gap-6 rounded-[1.65rem] p-5 sm:p-7 lg:min-h-[610px] lg:p-8">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-semibold text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
               <CheckCircle2 className="size-4 text-amber-500" />
-              {t("Golden Crow operations")}
+              <span className="italic">{t("Golden Crow VS")}</span>
             </div>
 
             <div className="max-w-[680px] space-y-5">
               <h1 className="font-heading text-4xl font-semibold leading-[1.08] text-slate-950">
-                {t("Run Golden Crow operations from one focused workspace.")}
+                {t("Manage everything from one unified workspace.")}
               </h1>
               <p className="max-w-2xl text-base leading-7 text-slate-700">
                 {t(
-                  "Manage users, roles, reports, files, 2PQ forms, institutions, doctors, and patients with the right product context always in view."
+                  "The dashboard gives you tools to work with users, roles, reports, files, forms, institutions, doctors, and patients with the right context always visible."
                 )}
               </p>
             </div>
