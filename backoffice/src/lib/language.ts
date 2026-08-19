@@ -153,6 +153,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No countries selected": "Sin países seleccionados",
   "countries selected": "países seleccionados",
   "Clear selected": "Limpiar selección",
+  "Clear all": "Limpiar todo",
   Done: "Listo",
   "Load more publishers": "Cargar más publicadores",
   "All publishers": "Todos los publicadores",

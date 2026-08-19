@@ -541,7 +541,7 @@ function CountryRegionPicker({
   }
 
   return (
-    <div className="relative">
+    <div>
       <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
         <div className="relative min-w-0 flex-1">
           <MapPin
@@ -559,7 +559,7 @@ function CountryRegionPicker({
         <Button
           type="button"
           variant="outline"
-          onClick={() => setOpen((current) => !current)}
+          onClick={() => setOpen(true)}
           aria-expanded={open}
           aria-controls={`${id}-country-picker`}
           className="h-10 justify-between sm:w-44"
@@ -569,93 +569,93 @@ function CountryRegionPicker({
         </Button>
       </div>
 
-      {open ? (
-        <div
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
           id={`${id}-country-picker`}
-          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-lg"
+          className="overflow-hidden p-0 sm:max-w-2xl"
         >
-          <div className="relative">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Search countries")}
-              aria-label={t("Search countries")}
-              className="h-9 pl-9"
-            />
-          </div>
-
-          <div className="mt-3 max-h-72 overflow-y-auto pr-1">
-            {visibleGroups.length === 0 ? (
-              <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                {t("No countries match")}
-              </div>
-            ) : (
-              visibleGroups.map((group) => (
-                <div key={group.key} className="mb-3 last:mb-0">
-                  <p className="mb-1 px-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    {t(group.label)}
-                  </p>
-                  <div className="grid gap-1">
-                    {group.options.map((option) => {
-                      const checkboxId = `${id}-${option.regionCode}`;
-
-                      return (
-                        <label
-                          key={option.regionCode}
-                          htmlFor={checkboxId}
-                          className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-muted"
-                        >
-                          <Checkbox
-                            id={checkboxId}
-                            checked={selectedSet.has(option.regionCode)}
-                            onCheckedChange={() => toggleCountry(option.regionCode)}
-                            aria-label={option.label}
-                          />
-                          <span className="min-w-0 flex-1 truncate">
-                            {option.label}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-xs text-muted-foreground">
+          <DialogHeader className="border-b border-border px-5 py-4">
+            <DialogTitle className="font-heading text-xl font-semibold">
+              {t("Select countries")}
+            </DialogTitle>
+            <DialogDescription>
               {selectedCodes.length > 0
-                ? `${selectedCodes.length} ${t("countries selected")}`
+                ? `${selectedCodes.length} ${t("countries selected")}: ${displayValue}`
                 : t("No countries selected")}
-            </span>
-            <div className="flex flex-wrap gap-2 sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => onChange("")}
-                disabled={!displayValue}
-              >
-                <X className="h-3.5 w-3.5" />
-                {t("Clear selected")}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setOpen(false)}
-              >
-                {t("Done")}
-              </Button>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-5">
+            <div className="relative">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("Search countries")}
+                aria-label={t("Search countries")}
+                className="h-10 pl-9"
+              />
+            </div>
+
+            <div className="mt-4 max-h-[52vh] overflow-y-auto pr-1">
+              {visibleGroups.length === 0 ? (
+                <div className="px-2 py-8 text-center text-sm text-muted-foreground">
+                  {t("No countries match")}
+                </div>
+              ) : (
+                visibleGroups.map((group) => (
+                  <div key={group.key} className="mb-4 last:mb-0">
+                    <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      {t(group.label)}
+                    </p>
+                    <div className="grid gap-1 sm:grid-cols-2">
+                      {group.options.map((option) => {
+                        const checkboxId = `${id}-${option.regionCode}`;
+
+                        return (
+                          <label
+                            key={option.regionCode}
+                            htmlFor={checkboxId}
+                            className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-foreground hover:bg-muted"
+                          >
+                            <Checkbox
+                              id={checkboxId}
+                              checked={selectedSet.has(option.regionCode)}
+                              onCheckedChange={() => toggleCountry(option.regionCode)}
+                              aria-label={option.label}
+                            />
+                            <span className="min-w-0 flex-1 truncate">
+                              {option.label}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
-        </div>
-      ) : null}
+
+          <DialogFooter className="px-5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onChange("")}
+              disabled={!displayValue}
+            >
+              <X className="h-3.5 w-3.5" />
+              {t("Clear all")}
+            </Button>
+            <Button type="button" onClick={() => setOpen(false)}>
+              {t("Done")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { DiscoverFeedEntryWorkbench } from "@/components/discover/feed-entry-workbench";
 import { sdkFetch } from "@/lib/sdk-client";
@@ -19,9 +20,44 @@ jest.mock("next/navigation", () => ({
   }),
 }));
 
+jest.mock("next/link", () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...props
+  }: {
+    href: string;
+    children: ReactNode;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}));
+
 jest.mock("@/lib/sdk-client", () => ({
   sdkFetch: jest.fn(),
 }));
+
+jest.mock("@/lib/discover-organization-fields", () => {
+  const actual = jest.requireActual("@/lib/discover-organization-fields");
+
+  return {
+    ...actual,
+    getDiscoverRegionCountryGroups: () => [
+      {
+        key: "recommended",
+        label: "Recommended countries",
+        options: [
+          { regionCode: "ARG", label: "Argentina (ARG)" },
+          { regionCode: "ESP", label: "Spain (ESP)" },
+          { regionCode: "ENG", label: "England (ENG)" },
+        ],
+      },
+    ],
+  };
+});
 
 const organization: DiscoverOrganizationRecord = {
   id: "org-1",
@@ -69,6 +105,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       target: { value: "org-1" },
     });
     fireEvent.click(screen.getByRole("button", { name: /choose countries/i }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
     fireEvent.click(screen.getByRole("checkbox", { name: "Argentina (ARG)" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Spain (ESP)" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "England (ENG)" }));
@@ -76,6 +113,17 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect((screen.getByLabelText("Region") as HTMLInputElement).value).toBe(
       "ARG, ESP, ENG",
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    expect((screen.getByLabelText("Region") as HTMLInputElement).value).toBe("");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Argentina (ARG)" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Spain (ESP)" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "England (ENG)" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
 
