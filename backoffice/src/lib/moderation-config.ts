@@ -103,7 +103,6 @@ const PUBLISHER_NAV_HREFS = new Set([
   "/discover/organizations",
   "/discover/feed-entries",
   "/my-account",
-  "/2pq-dashboard/consents",
 ]);
 const PUBLISHER_SECTION_KEYS = new Set(["mission", "discover", "access"]);
 
@@ -788,7 +787,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/2pq-dashboard/consents",
     description: "Patient-linked informed consent files",
     icon: FileCheck2,
-    visibleRoles: ACCESS_NAV_ROLES,
+    visibleRoles: AREA_ROLES,
   },
   {
     section: "mission",

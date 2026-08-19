@@ -9,10 +9,6 @@ function canPublisherAccessPath(pathname: string) {
     return true;
   }
 
-  if (pathname === "/2pq-dashboard/consents") {
-    return true;
-  }
-
   if (pathname === "/discover/organizations/new") {
     return false;
   }

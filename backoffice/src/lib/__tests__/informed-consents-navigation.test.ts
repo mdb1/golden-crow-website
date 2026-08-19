@@ -1,9 +1,8 @@
 import type { AdminRole } from "@/lib/admin-areas";
 import { getProjectNav } from "@/lib/moderation-config";
 
-const BACKOFFICE_ROLES: AdminRole[] = [
+const INFORMED_CONSENT_NAV_ROLES: AdminRole[] = [
   "full_admin",
-  "organization_publisher",
   "institution_admin",
   "institution_operator",
   "institution_laboratory_staff",
@@ -11,7 +10,7 @@ const BACKOFFICE_ROLES: AdminRole[] = [
 ];
 
 describe("informed consent navigation", () => {
-  it.each(BACKOFFICE_ROLES)(
+  it.each(INFORMED_CONSENT_NAV_ROLES)(
     "shows Consentimientos 2PQ in Mission to %s",
     (role) => {
       const item = getProjectNav("mydnamap", role).find(
@@ -25,7 +24,15 @@ describe("informed consent navigation", () => {
     },
   );
 
-  it.each(BACKOFFICE_ROLES)(
+  it("hides Consentimientos 2PQ from organization publishers", () => {
+    const item = getProjectNav("mydnamap", "organization_publisher").find(
+      (candidate) => candidate.href === "/2pq-dashboard/consents",
+    );
+
+    expect(item).toBeUndefined();
+  });
+
+  it.each(INFORMED_CONSENT_NAV_ROLES)(
     "places Consentimientos 2PQ directly after Prestadores 2PQ for %s",
     (role) => {
       const navigation = getProjectNav("mydnamap", role);

@@ -269,6 +269,47 @@ describe("informed consent repository scoping", () => {
     ]);
   });
 
+  it("rejects organization publishers from informed consent surfaces", async () => {
+    const {
+      createInformedConsentForContext,
+      getInformedConsentFileForContext,
+      listInformedConsentPatientsForContext,
+      listInformedConsentsForContext,
+      sendInformedConsentEmailForContext,
+    } = await import("../repositories/informed-consents.repository");
+    const blockedContext = {
+      ...baseContext,
+      role: "organization_publisher" as const,
+      organizationId: "ORG-00001",
+    };
+    const expectedError = {
+      message: "Organization publishers cannot access informed consents.",
+      statusCode: 403,
+    };
+
+    await expect(listInformedConsentsForContext(blockedContext)).rejects.toMatchObject(expectedError);
+    await expect(listInformedConsentPatientsForContext(blockedContext)).rejects.toMatchObject(expectedError);
+    await expect(
+      createInformedConsentForContext(blockedContext, {
+        patientId: "PAT-00001",
+        file: {
+          name: "consent.pdf",
+          type: "application/pdf",
+          size: 1,
+          content: "data:application/pdf;base64,eA==",
+        },
+      }),
+    ).rejects.toMatchObject(expectedError);
+    await expect(
+      sendInformedConsentEmailForContext(blockedContext, {
+        patientId: "PAT-00001",
+      }),
+    ).rejects.toMatchObject(expectedError);
+    await expect(
+      getInformedConsentFileForContext(blockedContext, "CONS-00001"),
+    ).rejects.toMatchObject(expectedError);
+  });
+
   it("stores uploaded consent bytes in Firestore", async () => {
     const { createInformedConsentForContext } = await import(
       "../repositories/informed-consents.repository"

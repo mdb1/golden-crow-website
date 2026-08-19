@@ -12,10 +12,7 @@ export function canAccessInformedConsentPatient(
   >,
   owner: ConsentOwner,
 ) {
-  if (
-    context.role === "full_admin" ||
-    context.role === "organization_publisher"
-  ) {
+  if (context.role === "full_admin") {
     return true;
   }
 

@@ -26,6 +26,8 @@ const SEQUENCES_COLLECTION = "admin_sequences";
 const CONSENTS_PAGE_SIZE = 20;
 export const INFORMED_CONSENT_FILE_MAX_BYTES = 750_000;
 const CONSENT_EMAIL_SENDER_EMAIL = "dopazoh+admin@gmail.com";
+const ORGANIZATION_PUBLISHER_CONSENT_ERROR =
+  "Organization publishers cannot access informed consents.";
 
 const ALLOWED_FILE_TYPES = new Set([
   "application/pdf",
@@ -103,6 +105,12 @@ async function getPatient(patientId: string) {
     : null;
 }
 
+function assertCanUseInformedConsents(context: AdminContext) {
+  if (context.role === "organization_publisher") {
+    throw new AdminRepositoryError(ORGANIZATION_PUBLISHER_CONSENT_ERROR, 403);
+  }
+}
+
 function consentQueryForContext(context: AdminContext): Query<DocumentData> {
   let query: Query<DocumentData> = adminDb.collection(CONSENTS_COLLECTION);
 
@@ -114,10 +122,7 @@ function consentQueryForContext(context: AdminContext): Query<DocumentData> {
       );
     }
     query = query.where("patientId", "==", context.patientId);
-  } else if (
-    context.role !== "full_admin" &&
-    context.role !== "organization_publisher"
-  ) {
+  } else if (context.role !== "full_admin") {
     if (!context.institutionId) {
       throw new AdminRepositoryError(
         "This account is not linked to an institution.",
@@ -144,10 +149,7 @@ function consentFallbackQueryForContext(
 
   if (context.role === "patient") {
     query = query.where("patientId", "==", context.patientId);
-  } else if (
-    context.role !== "full_admin" &&
-    context.role !== "organization_publisher"
-  ) {
+  } else if (context.role !== "full_admin") {
     query = query.where("institutionId", "==", context.institutionId);
   }
 
@@ -157,10 +159,7 @@ function consentFallbackQueryForContext(
 function patientQueryForContext(context: AdminContext): Query<DocumentData> {
   let query: Query<DocumentData> = adminDb.collection(PATIENTS_COLLECTION);
 
-  if (
-    context.role !== "full_admin" &&
-    context.role !== "organization_publisher"
-  ) {
+  if (context.role !== "full_admin") {
     if (!context.institutionId) {
       throw new AdminRepositoryError(
         "This account is not linked to an institution.",
@@ -189,10 +188,7 @@ function patientFallbackQueryForContext(
 ): Query<DocumentData> {
   let query: Query<DocumentData> = adminDb.collection(PATIENTS_COLLECTION);
 
-  if (
-    context.role !== "full_admin" &&
-    context.role !== "organization_publisher"
-  ) {
+  if (context.role !== "full_admin") {
     query = query.where("institutionId", "==", context.institutionId);
   }
 
@@ -350,6 +346,8 @@ export async function listInformedConsentsForContext(
   context: AdminContext,
   cursor?: string,
 ) {
+  assertCanUseInformedConsents(context);
+
   const snapshot = await getPageWithIndexFallback(
     CONSENTS_COLLECTION,
     consentQueryForContext(context),
@@ -400,6 +398,8 @@ export async function listInformedConsentPatientsForContext(
   patients: InformedConsentPatientOption[];
   nextCursor?: string;
 }> {
+  assertCanUseInformedConsents(context);
+
   if (context.role === "patient") {
     const patient = context.patientId ? await getPatient(context.patientId) : null;
     return {
@@ -440,6 +440,8 @@ export async function createInformedConsentForContext(
   context: AdminContext,
   payload: { patientId?: string; file: InformedConsentFile },
 ) {
+  assertCanUseInformedConsents(context);
+
   const requestedPatientId = payload.patientId?.trim();
   const patientId =
     context.role === "patient" ? context.patientId : requestedPatientId;
@@ -489,6 +491,8 @@ export async function sendInformedConsentEmailForContext(
   context: AdminContext,
   payload: { patientId: string },
 ) {
+  assertCanUseInformedConsents(context);
+
   if (normalizeRoleEmail(context.email) !== CONSENT_EMAIL_SENDER_EMAIL) {
     throw new AdminRepositoryError(
       "This account cannot send consent email requests yet.",
@@ -552,6 +556,8 @@ export async function getInformedConsentFileForContext(
   context: AdminContext,
   consentId: string,
 ) {
+  assertCanUseInformedConsents(context);
+
   const snapshot = await adminDb
     .collection(CONSENTS_COLLECTION)
     .doc(consentId)

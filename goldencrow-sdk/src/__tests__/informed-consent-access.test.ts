@@ -22,14 +22,20 @@ function context(
 }
 
 describe("informed consent access", () => {
-  it.each(["full_admin", "organization_publisher"] as const)(
-    "allows %s to access patient consent records globally",
-    (role) => {
-      expect(canAccessInformedConsentPatient(context({ role }), patient)).toBe(
-        true,
-      );
-    },
-  );
+  it("allows full admins to access patient consent records globally", () => {
+    expect(
+      canAccessInformedConsentPatient(context({ role: "full_admin" }), patient),
+    ).toBe(true);
+  });
+
+  it("blocks organization publishers from patient consent records", () => {
+    expect(
+      canAccessInformedConsentPatient(
+        context({ role: "organization_publisher", organizationId: "ORG-00001" }),
+        patient,
+      ),
+    ).toBe(false);
+  });
 
   it("limits institution roles to their institution", () => {
     expect(
