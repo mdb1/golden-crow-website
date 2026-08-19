@@ -1,4 +1,4 @@
-export type ProfileSetupForm = {
+export type ProfileSetupDefaults = {
   fullName: string;
   username: string;
   iconName: string;
@@ -11,8 +11,9 @@ export type ProfileSetupForm = {
   condition: string;
 };
 
+export type ProfileSetupForm = Omit<ProfileSetupDefaults, "username">;
 export type ProfileSetupFieldKey = keyof ProfileSetupForm;
-export type ProfileSetupStepKey = "fullName" | "username" | "professionalDetails";
+export type ProfileSetupStepKey = "fullName" | "professionalDetails";
 
 export type ProfileSetupStep = {
   key: ProfileSetupStepKey;
@@ -43,13 +44,6 @@ export const PROFILE_SETUP_STEPS: ProfileSetupStep[] = [
     required: true,
   },
   {
-    key: "username",
-    fieldKeys: ["username"],
-    title: "Pick a username",
-    description: "Choose the public community handle tied to this admin account.",
-    required: true,
-  },
-  {
     key: "professionalDetails",
     fieldKeys: [
       "ownerProfession",
@@ -63,12 +57,12 @@ export const PROFILE_SETUP_STEPS: ProfileSetupStep[] = [
 ];
 
 export function profileSetupFormWithSkippedDefaults(
-  state: ProfileSetupForm
+  state: ProfileSetupDefaults | ProfileSetupForm
 ): ProfileSetupForm {
   const iconColorHex = state.iconColorHex.trim();
 
   return {
-    ...state,
+    fullName: state.fullName,
     iconName: state.iconName.trim() || DEFAULT_PROFILE_SETUP_ICON_NAME,
     iconColorHex: COLOR_PATTERN.test(iconColorHex)
       ? iconColorHex
@@ -92,7 +86,6 @@ export function normalizeProfileSetupForm(
 
   return {
     fullName: defaultsApplied.fullName.trim(),
-    username: defaultsApplied.username.trim().toLowerCase(),
     iconName: defaultsApplied.iconName,
     iconColorHex: defaultsApplied.iconColorHex,
     ownerProfession: defaultsApplied.ownerProfession.trim(),

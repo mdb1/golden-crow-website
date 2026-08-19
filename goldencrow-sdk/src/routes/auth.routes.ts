@@ -46,7 +46,6 @@ const EmailSignupSchema = z.object({
 
 const CompleteProfileSchema = z.object({
   fullName: z.string().trim().min(1).max(100),
-  username: z.string().trim().min(3).max(32),
   iconName: z.string().trim().min(1).max(100),
   iconColorHex: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/),
   ownerProfession: z.string().max(120).optional(),

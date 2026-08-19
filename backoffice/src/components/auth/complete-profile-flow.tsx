@@ -13,6 +13,7 @@ import {
   normalizeProfileSetupForm,
   profileSetupFormWithSkippedDefaults,
   type ProfileSetupStep,
+  type ProfileSetupDefaults,
   type ProfileSetupForm,
 } from "@/lib/profile-setup-flow";
 
@@ -28,12 +29,8 @@ type ProfileSetupState = {
     communityUser: boolean;
     reportOwner: boolean;
   };
-  defaults: ProfileSetupForm;
+  defaults: ProfileSetupDefaults;
 };
-
-function isUsernameValid(value: string) {
-  return /^[a-z0-9._-]{3,32}$/.test(value.trim().toLowerCase());
-}
 
 function isPhoneValid(value: string) {
   return !value.trim() || /^[0-9+()\-\s]{7,20}$/.test(value.trim());
@@ -45,10 +42,6 @@ function getFieldError(
 ) {
   if (key === "fullName" && !value.trim()) {
     return "Full name is required.";
-  }
-
-  if (key === "username" && !isUsernameValid(value)) {
-    return "Use 3-32 lowercase letters, numbers, dots, underscores, or hyphens.";
   }
 
   if (key === "iconName" && !value.trim()) {
@@ -207,23 +200,6 @@ export function CompleteProfileFlow({
             value={form.fullName}
             onChange={(event) => updateField("fullName", event.target.value)}
             placeholder="Dr. Jane Doe"
-            autoFocus
-          />
-        </div>
-      );
-    }
-
-    if (activeStep.key === "username") {
-      return (
-        <div className="space-y-2">
-          <Label htmlFor="setup-username">Username</Label>
-          <Input
-            id="setup-username"
-            value={form.username}
-            onChange={(event) => updateField("username", event.target.value)}
-            placeholder="jane.doe"
-            autoCapitalize="none"
-            autoCorrect="off"
             autoFocus
           />
         </div>

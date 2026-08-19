@@ -68,7 +68,6 @@ export interface ProfileSetupState {
 
 export interface CompleteProfileSetupInput {
   fullName: string;
-  username: string;
   iconName: string;
   iconColorHex: string;
   ownerProfession?: string;
@@ -164,21 +163,30 @@ export function buildPatientUsername(
   email: string,
   numericSuffix = randomInt(0, 1000),
 ) {
+  return buildProfileSetupUsername(email, numericSuffix);
+}
+
+export function buildProfileSetupUsername(
+  email: string,
+  numericSuffix?: number,
+) {
+  const base = buildUsernameSuggestion(email);
+
+  if (numericSuffix === undefined) {
+    return base;
+  }
+
   const suffix = Math.min(Math.max(Math.trunc(numericSuffix), 0), 999)
     .toString()
     .padStart(3, "0");
-  const base = buildUsernameSuggestion(email).slice(0, 32 - suffix.length);
-  return `${base}${suffix}`;
+  return `${base.slice(0, 32 - suffix.length)}${suffix}`;
 }
 
 export function buildPatientProfileSetupInput(
-  email: string,
   fullName: string,
-  numericSuffix?: number,
 ): CompleteProfileSetupInput {
   return {
     fullName,
-    username: buildPatientUsername(email, numericSuffix),
     iconName: DEFAULT_ICON_NAME,
     iconColorHex: DEFAULT_ICON_COLOR,
     ownerProfession: "",
@@ -200,14 +208,6 @@ function validateCompleteProfileInput(input: CompleteProfileSetupInput) {
     throw new ProfileSetupError("Full name must be 100 characters or fewer.", 400);
   }
 
-  const username = input.username.trim().toLowerCase();
-  if (!USERNAME_PATTERN.test(username)) {
-    throw new ProfileSetupError(
-      "Username must be 3-32 characters using lowercase letters, numbers, dots, underscores, or hyphens.",
-      400
-    );
-  }
-
   if (!input.iconName.trim()) {
     throw new ProfileSetupError("An icon is required.", 400);
   }
@@ -223,6 +223,72 @@ function validateCompleteProfileInput(input: CompleteProfileSetupInput) {
   if ((input.ownerBio ?? "").trim().length > 600) {
     throw new ProfileSetupError("Bio must be 600 characters or fewer.", 400);
   }
+}
+
+function getExistingProfileUsername(
+  publicProfileData: RecordData,
+  communityUserData: RecordData,
+) {
+  const username = (
+    pickFirstString(publicProfileData, ["username"]) ||
+    pickFirstString(communityUserData, ["username"])
+  ).toLowerCase();
+
+  return USERNAME_PATTERN.test(username) ? username : "";
+}
+
+async function usernameIsReservedByAnotherUser(username: string, uid: string) {
+  const [communitySnapshot, publicSnapshot] = await Promise.all([
+    adminDb
+      .collection("community_users")
+      .where("username", "==", username)
+      .limit(2)
+      .get(),
+    adminDb
+      .collection("public_profiles")
+      .where("username", "==", username)
+      .limit(2)
+      .get(),
+  ]);
+
+  return [communitySnapshot, publicSnapshot].some((snapshot) =>
+    snapshot.docs.some((doc) => doc.id !== uid)
+  );
+}
+
+async function buildAvailableProfileSetupUsername(
+  uid: string,
+  email: string,
+  publicProfileData: RecordData,
+  communityUserData: RecordData,
+) {
+  const existingUsername = getExistingProfileUsername(
+    publicProfileData,
+    communityUserData,
+  );
+
+  if (
+    existingUsername &&
+    !(await usernameIsReservedByAnotherUser(existingUsername, uid))
+  ) {
+    return existingUsername;
+  }
+
+  for (let suffix = 0; suffix <= 999; suffix += 1) {
+    const candidate =
+      suffix === 0
+        ? buildProfileSetupUsername(email)
+        : buildProfileSetupUsername(email, suffix);
+
+    if (!(await usernameIsReservedByAnotherUser(candidate, uid))) {
+      return candidate;
+    }
+  }
+
+  throw new ProfileSetupError(
+    "Unable to create a unique username for this account.",
+    500,
+  );
 }
 
 export async function getEmailSignupEligibility(
@@ -439,7 +505,7 @@ export async function completePatientProfileSetup(
   return completeProfileSetup(
     uid,
     "patient",
-    buildPatientProfileSetupInput(currentState.email, fullName),
+    buildPatientProfileSetupInput(fullName),
   );
 }
 
@@ -470,7 +536,12 @@ export async function completeProfileSetup(
 
   const now = new Date().toISOString();
   const fullName = input.fullName.trim();
-  const username = input.username.trim().toLowerCase();
+  const username = await buildAvailableProfileSetupUsername(
+    uid,
+    authUser.email,
+    publicProfileData,
+    communityUserData,
+  );
   const iconName = input.iconName.trim();
   const iconColorHex = input.iconColorHex.trim();
   const ownerProfession = input.ownerProfession?.trim() ?? "";

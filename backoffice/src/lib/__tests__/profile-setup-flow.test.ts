@@ -13,7 +13,6 @@ import {
 
 const baseForm = {
   fullName: " Dr. Jane Doe ",
-  username: " Jane.Doe ",
   iconName: "",
   iconColorHex: "",
   ownerProfession: " Genetics ",
@@ -25,22 +24,19 @@ const baseForm = {
 };
 
 describe("legacy profile setup flow", () => {
-  it("shows name, username, and one optional professional-details dot", () => {
+  it("shows name and one optional professional-details dot", () => {
     const visibleStepKeys = PROFILE_SETUP_STEPS.map((step) => step.key);
 
     expect(visibleStepKeys).not.toContain("iconName");
     expect(visibleStepKeys).not.toContain("iconColorHex");
     expect(visibleStepKeys).not.toContain("gender");
     expect(visibleStepKeys).not.toContain("condition");
-    expect(visibleStepKeys).toEqual([
-      "fullName",
-      "username",
-      "professionalDetails",
-    ]);
+    expect(visibleStepKeys).not.toContain("username");
+    expect(visibleStepKeys).toEqual(["fullName", "professionalDetails"]);
   });
 
   it("groups all optional professional fields into one visible step", () => {
-    expect(PROFILE_SETUP_STEPS[2]).toMatchObject({
+    expect(PROFILE_SETUP_STEPS[1]).toMatchObject({
       key: "professionalDetails",
       fieldKeys: [
         "ownerProfession",
@@ -54,7 +50,6 @@ describe("legacy profile setup flow", () => {
   it("defaults skipped fields before submitting profile setup", () => {
     expect(normalizeProfileSetupForm(baseForm)).toEqual({
       fullName: "Dr. Jane Doe",
-      username: "jane.doe",
       iconName: DEFAULT_PROFILE_SETUP_ICON_NAME,
       iconColorHex: DEFAULT_PROFILE_SETUP_ICON_COLOR,
       ownerProfession: "Genetics",
