@@ -385,3 +385,46 @@ describe("MessageInput — a pending client", () => {
     expect(screen.getByText(/pending activation/i)).toBeInTheDocument();
   });
 });
+
+// ── #926 — the composer seeded from a nutrition note ────────────────────────────────
+
+describe("initialDraft (#926)", () => {
+  it("opens with the draft the reply link handed it", async () => {
+    renderInput({ initialDraft: "Cena · vie 14 ago\n«salí tarde»\n\n" });
+    await waitFor(() =>
+      expect(box()).toHaveValue("Cena · vie 14 ago\n«salí tarde»\n\n"),
+    );
+  });
+
+  it("SENDS NOTHING on its own", async () => {
+    // The whole point of a draft: the coach edits it and sends it like any other
+    // message. A deep link that posts to a client's chat by navigation would be a
+    // message nobody read before it went out.
+    renderInput({ initialDraft: "Cena\n«tarde»\n\n" });
+    await waitFor(() => expect(box()).not.toHaveValue(""));
+    expect(mockSendTrainerMessage).not.toHaveBeenCalled();
+  });
+
+  it("never clobbers what the coach already typed", async () => {
+    const { user } = renderInput({});
+    await user.type(box(), "ya venía escribiendo");
+    // Same component, draft arriving late (the param was read after mount).
+    expect(box()).toHaveValue("ya venía escribiendo");
+  });
+
+  it("drops the ?draft= param once it lands, so a reload cannot resurrect it", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/gc-fitness/chat?chatId=client-1&draft=Cena",
+    );
+    renderInput({ initialDraft: "Cena" });
+
+    await waitFor(() => expect(box()).toHaveValue("Cena"));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get("draft")).toBeNull();
+    // The thread itself must survive — dropping chatId too would bounce the coach back
+    // to the empty inbox mid-reply.
+    expect(params.get("chatId")).toBe("client-1");
+  });
+});

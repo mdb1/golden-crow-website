@@ -7,6 +7,7 @@
 
 import {
   assignmentTemplateId,
+  nutritionBulkId,
   dateRangeLabel,
   findRecurrenceEdits,
   fmtYmd,
@@ -326,5 +327,108 @@ describe("findRecurrenceEdits", () => {
     const links = findRecurrenceEdits(groups);
     expect(links).toHaveLength(1);
     expect(new Set(links.map((l) => l.deleteIndex)).size).toBe(1);
+  });
+});
+
+// ── #927 — bulk nutrition assign ────────────────────────────────────────────────────
+//
+// One click assigns a template to N clients: N `nutrition_plans` creates, N audit rows,
+// and — before this — N near-identical "Asignó un plan de nutrición" lines in the admin
+// timeline. Unlike the workout collapse above, the key is EXACT (a stamped `bulkId`), so
+// none of the #697 / #785 false-merge failure modes can reappear here.
+
+function nutritionRaw(
+  over: Partial<RawAuditLogEntry> & { id: string },
+): RawAuditLogEntry {
+  return raw({
+    collection: "nutrition_plans",
+    docId: `nut-coach1-${UUID}`,
+    op: "create",
+    changedFields: ["clientId", "trainerId", "startsOn", "endsOn", "bulkId"],
+    changedFieldCount: 5,
+    after: { clientId: "client1", startsOn: "2026-09-01", bulkId: "nutbulk-abc" },
+    ...over,
+  });
+}
+
+describe("nutritionBulkId", () => {
+  it("reads the stamp off a create", () => {
+    expect(nutritionBulkId(nutritionRaw({ id: "a" }))).toBe("nutbulk-abc");
+  });
+
+  it("ignores updates — a trim carries no stamp, the rules whitelist forbids it", () => {
+    expect(
+      nutritionBulkId(
+        nutritionRaw({ id: "a", op: "update", after: { endsOn: "2026-08-31" } }),
+      ),
+    ).toBeNull();
+  });
+
+  it("is null for a single assign, which writes no bulkId at all", () => {
+    expect(
+      nutritionBulkId(nutritionRaw({ id: "a", after: { clientId: "client1" } })),
+    ).toBeNull();
+  });
+
+  it("is null for any other collection", () => {
+    expect(nutritionBulkId(raw({ id: "a", op: "create" }))).toBeNull();
+  });
+});
+
+describe("groupRecurringAuditEntries — bulk nutrition assign", () => {
+  it("folds every client of one bulk into a single group", () => {
+    const groups = groupRecurringAuditEntries([
+      nutritionRaw({ id: "1", clientId: "ana" }),
+      nutritionRaw({ id: "2", clientId: "bruno" }),
+      nutritionRaw({ id: "3", clientId: "carla" }),
+    ]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.count).toBe(3);
+    expect(groups[0]!.root).toBe("nutbulk-abc");
+    // No occurrence DATES: a bulk spans people, not days. The feed spells out the client
+    // count instead of a date range.
+    expect(groups[0]!.dates).toEqual([]);
+  });
+
+  it("groups ACROSS clients — the client is deliberately not part of the key", () => {
+    const groups = groupRecurringAuditEntries([
+      nutritionRaw({ id: "1", clientId: "ana" }),
+      nutritionRaw({ id: "2", clientId: "bruno" }),
+    ]);
+    expect(groups[0]!.members.map((m) => m.clientId)).toEqual(["ana", "bruno"]);
+  });
+
+  it("keeps two different bulks apart", () => {
+    const groups = groupRecurringAuditEntries([
+      nutritionRaw({ id: "1", clientId: "ana" }),
+      nutritionRaw({
+        id: "2",
+        clientId: "ana",
+        after: { clientId: "ana", bulkId: "nutbulk-otro" },
+      }),
+    ]);
+
+    expect(groups).toHaveLength(2);
+  });
+
+  it("never merges two different coaches, even on a colliding bulkId", () => {
+    const groups = groupRecurringAuditEntries([
+      nutritionRaw({ id: "1", trainerId: "coach1" }),
+      nutritionRaw({ id: "2", trainerId: "coach2" }),
+    ]);
+
+    expect(groups).toHaveLength(2);
+  });
+
+  it("leaves single assigns and trims as their own rows", () => {
+    const groups = groupRecurringAuditEntries([
+      nutritionRaw({ id: "1", after: { clientId: "ana" } }),
+      nutritionRaw({ id: "2", after: { clientId: "bruno" } }),
+      nutritionRaw({ id: "3", op: "update", after: { endsOn: "2026-08-31" } }),
+    ]);
+
+    expect(groups).toHaveLength(3);
+    expect(groups.every((g) => g.count === 1)).toBe(true);
   });
 });

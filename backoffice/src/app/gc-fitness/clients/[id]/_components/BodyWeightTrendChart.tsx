@@ -1,6 +1,12 @@
 // BodyWeightTrendChart.tsx — body-weight area chart with a time-range
 // selector (All time / 90d / 30d / 7d). Async React Server Component.
 //
+// #919: the Firestore read moved to `lib/gc-fitness/body-weight-logs.ts` so the coach's
+// nutrition surface can hand the SAME points to this chart AND to the phase table under
+// it, from one read. It also takes optional `phaseBands`, which paint the nutrition
+// phases behind the line — the answer to "¿este plan le está funcionando?" is the shape
+// of the weight inside each block, and a line with no blocks marked cannot show it.
+//
 // Charting uses recharts (already a backoffice dependency for the workout /
 // habit trend widgets); the interactive shell lives in
 // BodyWeightTrendChartClient so range-toggling stays instant on the client.
@@ -26,8 +32,12 @@ import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
-import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
-import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import {
+  BODY_WEIGHT_LOOKBACK_DAYS,
+  loadBodyWeightPoints,
+  type BodyWeightPoint,
+} from "@/lib/gc-fitness/body-weight-logs";
+import type { NutritionPhaseBand } from "@/lib/gc-fitness/nutrition-compliance";
 import { addCivilDays } from "./trend-range";
 import { BodyWeightTrendChartClient } from "./BodyWeightTrendChartClient";
 
@@ -42,85 +52,36 @@ export interface BodyWeightTrendChartProps {
    * reusable by surfaces with no request affordance — the admin coach-less view.
    */
   requestSlot?: ReactNode;
+  /**
+   * Pre-loaded points. Pass them when the caller already read the weigh-ins for something
+   * else on the same page (the nutrition phase table) so the page costs ONE Firestore
+   * read instead of two — and, more importantly, so the chart and the table can never
+   * disagree about which measurements exist.
+   */
+  points?: BodyWeightPoint[];
+  /** Nutrition phases painted behind the line (#919). */
+  phaseBands?: NutritionPhaseBand[];
 }
 
-interface WeightPoint {
-  /** civilDate string YYYY-MM-DD (the measurement date, not createdAt) */
-  date: string;
-  /** weight value (unit-agnostic — see note below) */
-  weight: number;
-}
-
-const MAX_LOOKBACK_DAYS = 365;
-
-function isPlausibleWeightKg(weight: number): boolean {
-  // Guardrail for corrupted entries (ex: 25kg accidental log in adult profile)
-  // so one bad point doesn't flatten the whole chart.
-  return weight >= 35 && weight <= 300;
-}
-
-function toDate(v: unknown): Date | null {
-  if (v && typeof (v as { toDate?: () => Date }).toDate === "function") {
-    return (v as { toDate: () => Date }).toDate();
-  }
-  if (v instanceof Date) return v;
-  if (typeof v === "string") {
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-  return null;
-}
+const MAX_LOOKBACK_DAYS = BODY_WEIGHT_LOOKBACK_DAYS;
 
 export async function BodyWeightTrendChart({
   clientId,
   timezone,
   requestSlot,
+  points: preloaded,
+  phaseBands,
 }: BodyWeightTrendChartProps) {
   const t = await getTranslations("clients.detail.bodyWeightChart");
-  const db = gcFitnessFirestore();
 
   const today = civilDateFormat(new Date(), timezone);
-  const windowStartDate = new Date(
-    Date.now() - MAX_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
-  );
 
-  // SOLE source for this widget: /users/{uid}/body_weight_logs. Body weight
-  // is no longer a habit type — there is no `habits (type == "weight")`
-  // fallback. One 365-day window read feeds all ranges.
-  const directWeightLogsSnap = await db
-    .collection(FirestoreCollections.users)
-    .doc(clientId)
-    .collection("body_weight_logs")
-    .orderBy("recordedAt", "asc")
-    .limit(500)
-    .get()
-    .catch(() => null);
-
+  // SOLE source for this widget: /users/{uid}/body_weight_logs, read through the shared
+  // `loadBodyWeightPoints` (deduped per measurement date, sorted by that date, corrupt
+  // values filtered). Body weight is no longer a habit type — there is no
+  // `habits (type == "weight")` fallback. One 365-day window read feeds all ranges.
   const unitLabel = "kg";
-  let points: WeightPoint[] = (directWeightLogsSnap?.docs ?? [])
-    .map((d) => {
-      const data = d.data() as {
-        valueKg?: unknown;
-        recordedAt?: unknown;
-      };
-      const weight = typeof data.valueKg === "number" ? data.valueKg : null;
-      const date = toDate(data.recordedAt);
-      if (weight === null || !date) return null;
-      if (!isPlausibleWeightKg(weight)) return null;
-      if (date < windowStartDate) return null;
-      return { date: civilDateFormat(date, timezone), weight };
-    })
-    .filter((p): p is WeightPoint => p !== null);
-
-  // Keep one point per measurement date (latest wins) to avoid overplot noise,
-  // then sort by the record's DATE so "latest" means the most recent
-  // measurement, not the last-created row (C2). A backfilled old entry sorts
-  // back into its real position instead of jumping to the front.
-  const byDate = new Map<string, number>();
-  for (const p of points) byDate.set(p.date, p.weight);
-  points = Array.from(byDate.entries())
-    .map(([date, weight]) => ({ date, weight }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const points = preloaded ?? (await loadBodyWeightPoints(clientId, timezone));
 
   if (points.length === 0) {
     return (
@@ -150,6 +111,7 @@ export async function BodyWeightTrendChart({
         today={today}
         rangeStarts={rangeStarts}
         unitLabel={unitLabel}
+        phaseBands={phaseBands}
         labels={{
           title: t("title"),
           noLogs: t("noLogs"),

@@ -9,10 +9,12 @@
 // shared PageHeader supplies the title), so no data/logic is duplicated.
 
 import { redirect } from "next/navigation";
-import { Dumbbell, ListChecks, Activity } from "lucide-react";
+import { Dumbbell, ListChecks, Activity, Utensils } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import { civilDateToday } from "@/lib/gc-fitness/civil-date";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { listClients } from "@/lib/gc-fitness/client-roster";
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import { PillTabs } from "@/components/gc-fitness/pill-tabs";
@@ -23,6 +25,8 @@ import { ExerciseQueryProvider } from "../exercises/providers";
 import { ExerciseLibraryClient } from "../exercises/client";
 import { HabitsQueryProvider } from "../habits/providers";
 import { HabitsLibraryClient } from "../habits/client";
+import { NutritionLibraryQueryProvider } from "./_nutrition/providers";
+import { NutritionLibraryClient } from "./_nutrition/NutritionLibraryClient";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 // Tab title: "GC Fitness - <library>" (issue #170).
@@ -30,10 +34,10 @@ export const generateMetadata = () => sectionMetadata("library");
 
 export const dynamic = "force-dynamic";
 
-type LibraryTab = "workouts" | "exercises" | "habits";
+type LibraryTab = "workouts" | "exercises" | "habits" | "nutrition";
 
 function resolveTab(raw: string | undefined): LibraryTab {
-  if (raw === "exercises" || raw === "habits") return raw;
+  if (raw === "exercises" || raw === "habits" || raw === "nutrition") return raw;
   return "workouts";
 }
 
@@ -86,6 +90,12 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
             icon: <ListChecks />,
             href: "/gc-fitness/library?tab=habits",
           },
+          {
+            key: "nutrition",
+            label: tNav("nutrition"),
+            icon: <Utensils />,
+            href: "/gc-fitness/library?tab=nutrition",
+          },
         ]}
       />
 
@@ -102,6 +112,17 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
       ) : null}
 
       {tab === "habits" ? <HabitsTab trainerUid={trainerUid} /> : null}
+
+      {tab === "nutrition" ? (
+        <NutritionLibraryQueryProvider>
+          {/* Today in the TRAINER's zone. The bulk-assign dialog (#927) needs a default
+              start date and the library has no single client whose zone to ask; the
+              coach's own is the only sane answer, and it is the one they are reading the
+              screen in. Each client's phase boundary is still evaluated in THEIR zone
+              downstream — this only seeds the date picker. */}
+          <NutritionLibraryClient defaultStartsOn={civilDateToday(await getTrainerTimezone())} />
+        </NutritionLibraryQueryProvider>
+      ) : null}
     </div>
   );
 }

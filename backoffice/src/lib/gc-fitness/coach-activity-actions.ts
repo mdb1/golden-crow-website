@@ -4,6 +4,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { COACH_ACTIVITY_COLLECTION } from "@/lib/gc-fitness/coach-activity-log";
+import { collapseActivityGroups } from "./coach-activity-grouping";
 import { coachVisibleClientName } from "./client-name";
 
 export type CoachActivityKind =
@@ -16,6 +17,7 @@ export type CoachActivityKind =
   | "progress_photo_request"
   | "weight_request"
   | "client_added"
+  | "nutrition_plan"
   | "chat";
 
 export interface MyCoachActivityRow {
@@ -29,6 +31,14 @@ export interface MyCoachActivityRow {
   /** True when this row represents a DELETION (e.g. the coach removed a habit
    *  from a client). The UI styles these distinctly (trash icon + red tone). */
   deleted?: boolean;
+  /**
+   * #927 — how many events this row stands for. `1` for every ordinary row; higher when
+   * one action wrote to several clients (a bulk nutrition assign) and they were folded
+   * back together by `collapseActivityGroups`. The UI renders a "×N" badge.
+   */
+  groupCount?: number;
+  /** The shared id that made the fold possible. Only set on grouped events. */
+  groupId?: string | null;
 }
 
 export interface MyCoachActivityPage {
@@ -153,6 +163,7 @@ export async function listMyCoachActivityPage(
       clientId?: string;
       pendingEmail?: string;
       deleted?: boolean;
+      groupId?: string;
       occurredAt?: unknown;
     };
     const evKind = (typeof data.kind === "string" ? data.kind : "workout_assignment") as CoachActivityKind;
@@ -187,6 +198,7 @@ export async function listMyCoachActivityPage(
       clientName: rowClientId
         ? clientNameById.get(rowClientId) ?? rowClientId
         : data.pendingEmail ?? null,
+      groupId: typeof data.groupId === "string" ? data.groupId : null,
     });
   }
 
@@ -206,11 +218,18 @@ export async function listMyCoachActivityPage(
   }
 
   rows.sort((a, b) => (b.occurredAt ?? "").localeCompare(a.occurredAt ?? ""));
-  const pageRows = rows.slice(0, safePageSize);
+  // Fold BEFORE slicing, never after: a bulk assign to 15 clients is 15 events, and
+  // paging on the raw rows would spend a whole page on one action and push the rest of
+  // the day off the screen. Collapsing first means the page holds 20 ACTIONS.
+  //
+  // A filtered-by-client feed is unaffected — the query returns at most one member of any
+  // group, and a group of one is returned untouched.
+  const grouped = collapseActivityGroups(rows);
+  const pageRows = grouped.slice(0, safePageSize);
   return {
     rows: pageRows,
     nextCursor: pageRows.length === safePageSize ? pageRows[pageRows.length - 1].occurredAt : null,
-    hasMore: rows.length > safePageSize,
+    hasMore: grouped.length > safePageSize,
   };
 }
 

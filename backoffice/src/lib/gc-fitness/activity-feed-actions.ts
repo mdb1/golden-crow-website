@@ -689,6 +689,9 @@ const COACH_KIND_CATEGORY: Record<string, FeedCategory> = {
   progress_photo_request: "coach",
   weight_request: "coach",
   client_added: "account",
+  // Nutrition is scheduled work assigned to a client, same family as a workout
+  // assignment — it belongs in the schedule bucket, not in a bucket of its own.
+  nutrition_plan: "schedule",
 };
 
 function coachKindAction(kind: string, deleted: boolean): FeedAction {
@@ -700,6 +703,7 @@ function coachKindAction(kind: string, deleted: boolean): FeedAction {
       return "create";
     case "workout_assignment":
     case "habit_assignment":
+    case "nutrition_plan":
       return "assign";
     case "workout_rest_edited":
       return "update";
@@ -729,6 +733,10 @@ const COACH_KIND_TITLE: Record<string, { active: string; deleted: string }> = {
   progress_photo_request: { active: "Pidió fotos de progreso", deleted: "Canceló el pedido de fotos" },
   weight_request: { active: "Pidió el peso", deleted: "Canceló el pedido de peso" },
   client_added: { active: "Agregó un cliente", deleted: "Quitó un cliente" },
+  nutrition_plan: {
+    active: "Asignó nutrición",
+    deleted: "Eliminó una fase de nutrición",
+  },
 };
 
 /** Kinds whose stored title names the CLIENT, not an entity — the row already

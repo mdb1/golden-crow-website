@@ -39,6 +39,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import type { ClientRosterRow } from "@/lib/gc-fitness/client-roster";
 import type { AttentionReason } from "@/lib/gc-fitness/client-attention";
+import { nutritionNeedsAttention } from "@/lib/gc-fitness/nutrition-coach-reply";
 import { cn } from "@/lib/utils";
 import { RelativeTime } from "./RelativeTime";
 import { RosterEmptyState } from "./RosterEmptyState";
@@ -191,6 +192,33 @@ export function RosterTable({
                     ) * 100,
                   )
                 : null;
+            // `typeof number` and not `!== null`: a row built before the field existed
+            // carries `undefined`, and `Math.round(Math.min(1, undefined))` renders a
+            // confident "NaN%" — a wrong number is worse than an em dash.
+            const nutritionPct =
+              typeof row.nutritionRatio7Days === "number" &&
+              Number.isFinite(row.nutritionRatio7Days)
+                ? Math.round(Math.min(1, Math.max(0, row.nutritionRatio7Days)) * 100)
+                : null;
+            const nutritionGood = (nutritionPct ?? 0) >= 70;
+            // Had a phase, has none today. NOT the same as never having had one — this is
+            // the one a coach has to act on, and it is invisible everywhere else.
+            const nutritionExpired =
+              !row.nutritionHasActivePlan && !row.nutritionNeverHadPlan;
+            // #926 — the same predicate the client's own nutrition screen reads, so the
+            // roster and the profile cannot disagree about who needs a conversation. It
+            // is deliberately SEPARATE from `needsAttentionReasons` (three days of total
+            // silence): a client training happily on a lapsed phase is not "at risk",
+            // they are a client whose coach owes them a plan.
+            const nutritionAttention = nutritionNeedsAttention({
+              ratio7d:
+                typeof row.nutritionRatio7Days === "number" &&
+                Number.isFinite(row.nutritionRatio7Days)
+                  ? row.nutritionRatio7Days
+                  : null,
+              hasActivePlan: row.nutritionHasActivePlan,
+              neverHadPlan: row.nutritionNeverHadPlan,
+            });
             const reasons = row.needsAttentionReasons.map(formatReason).join(", ");
             const attentionTitle = t("needsAttentionTitle", { reasons });
             const { short, medium, long } = row.goalsCount;
@@ -262,8 +290,8 @@ export function RosterTable({
                     )}
                   </div>
 
-                  {/* Metrics row: adherencia + esta semana */}
-                  <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+                  {/* Metrics row: adherencia + nutrición + esta semana */}
+                  <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-3">
                     {/* Adherencia (habit compliance ratio) */}
                     <div className="flex flex-col gap-1.5">
                       <p className="text-xs font-medium text-muted-foreground">
@@ -286,6 +314,67 @@ export function RosterTable({
                           {row.habitsScheduledThisWeek}
                         </p>
                       ) : null}
+                    </div>
+
+                    {/* Nutrición (#923). Un coach con veinte clientes no entra a
+                        veinte perfiles: si esto no está acá, no se mira.
+
+                        Las tres formas de "no hay número" NO son la misma cosa y por eso
+                        no comparten copy:
+                          · nunca tuvo plan      → todavía no empezaron, nada que perseguir
+                          · tuvo y no tiene      → SE LE VENCIÓ LA FASE y nadie cargó la
+                            siguiente. Es el caso que este issue existe para detectar, y
+                            el único que se pinta como alerta
+                          · tiene plan, 0 pedido → la fase empieza mañana; no es un cero */}
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {tTable("nutrition")}
+                      </p>
+                      {nutritionPct !== null ? (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-lg font-semibold tabular-nums text-foreground">
+                              {nutritionPct}%
+                            </span>
+                            {nutritionGood ? (
+                              <TrendingUp className="size-4 text-chart-3" aria-hidden />
+                            ) : (
+                              <TrendingDown className="size-4 text-chart-4" aria-hidden />
+                            )}
+                          </div>
+                          <ComplianceBar pct={nutritionPct} good={nutritionGood} />
+                        </>
+                      ) : (
+                        <span className="text-lg font-semibold tabular-nums text-muted-foreground">
+                          {tCommon("emDash")}
+                        </span>
+                      )}
+                      {nutritionExpired ? (
+                        <p
+                          data-testid="roster-nutrition-expired"
+                          className="text-xs font-medium text-chart-4"
+                        >
+                          {tTable("nutritionNoPlan")}
+                        </p>
+                      ) : nutritionAttention.reasons.includes("low-adherence") ? (
+                        // A red arrow says the number is bad; it does not say to do
+                        // anything. This is the line that names the action, in the same
+                        // words the client's nutrition screen uses.
+                        <p
+                          data-testid="roster-nutrition-attention"
+                          className="text-xs font-medium text-chart-4"
+                        >
+                          {tTable("nutritionNeedsTalk")}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          {row.nutritionNeverHadPlan
+                            ? tTable("nutritionNeverPlanned")
+                            : nutritionPct === null
+                              ? tTable("nutritionNothingAsked")
+                              : null}
+                        </p>
+                      )}
                     </div>
 
                     {/* Este mes — workouts completados (los números son

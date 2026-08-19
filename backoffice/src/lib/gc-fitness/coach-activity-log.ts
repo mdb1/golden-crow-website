@@ -41,7 +41,18 @@ export type CoachActivityLogKind =
   // `user_mirror`, which no audit trigger watches, and the existing-user branch
   // writes `/users/{uid}` whose audit row is attributed to the CLIENT (it is
   // their doc), so the feed never showed the coach doing anything.
-  | "client_added";
+  | "client_added"
+  // #914 — the coach assigning, editing or closing a nutrition PHASE. Nutrition
+  // is phase-shaped (startsOn / endsOn), so one assign can also trim or
+  // supersede a sibling phase; each affected plan gets its own event, because
+  // "My Activity" answers "what did I do to this client" and a silent trim is
+  // exactly the thing a coach later swears they never did.
+  | "nutrition_plan"
+  // #918 — the coach's nutrition LIBRARY: a meal or a whole template created or duplicated.
+  // Only creates and duplicates, deliberately: an EDIT does not reach anything already
+  // assigned (a plan carries frozen copies), so logging edits here would suggest a client's
+  // day changed when nothing of the sort happened.
+  | "nutrition_library";
 
 export interface CoachActivityEvent {
   /** Deterministic id so re-runs / per-occurrence triggers are idempotent. */
@@ -56,6 +67,18 @@ export interface CoachActivityEvent {
   occurredAt?: Date | null;
   /** True when the event represents a deletion (e.g. a series was removed). */
   deleted?: boolean;
+  /**
+   * #927 — ties together the events ONE action produced across several clients, so the
+   * feed can render them as a single row.
+   *
+   * Deliberately grouped at READ and not at write. A bulk nutrition assign touches N
+   * DIFFERENT clients, and the alternative — one event with `clientId: null` — would
+   * vanish the moment a coach filters "Mi Actividad" by a client, which is exactly the
+   * question ("¿qué le hice a esta persona?") the feed exists to answer. Writing one
+   * event per client keeps that filter honest; the collapse in
+   * `coach-activity-grouping.ts` keeps the unfiltered feed from turning into 15 lines.
+   */
+  groupId?: string | null;
 }
 
 export function localizedText(value: unknown): string {
@@ -178,6 +201,35 @@ export function exerciseCreatedEvent(args: {
   };
 }
 
+/**
+ * A nutrition LIBRARY entry created or duplicated (no client). #918.
+ *
+ * eventId `nutlib:${entity}:${id}` — deterministic, so a retried action rewrites the same
+ * row instead of adding a second one.
+ */
+export function nutritionLibraryEvent(args: {
+  trainerId: string;
+  entity: "meal" | "template";
+  entityId: string;
+  name: unknown;
+  change: "created" | "duplicated";
+  occurredAt?: Date | null;
+}): CoachActivityEvent {
+  const name = localizedText(args.name);
+  const noun = args.entity === "meal" ? "Comida" : "Plantilla de nutrición";
+  const verb = args.change === "created" ? "creada" : "duplicada";
+  return {
+    eventId: `nutlib:${args.entity}:${args.entityId}`,
+    trainerId: args.trainerId,
+    kind: "nutrition_library",
+    title: name ? `${noun} ${verb}: ${name}` : `${noun} ${verb}`,
+    detail: null,
+    clientId: null,
+    pendingEmail: null,
+    occurredAt: args.occurredAt ?? null,
+  };
+}
+
 /** Habit assigned to a client. eventId `hab:${id}`. */
 export function habitAssignedEvent(args: {
   trainerId: string;
@@ -197,6 +249,51 @@ export function habitAssignedEvent(args: {
     clientId: args.clientId,
     pendingEmail: args.pendingEmail,
     occurredAt: args.occurredAt ?? null,
+  };
+}
+
+/**
+ * Nutrition phase assigned / edited / closed. eventId `nut:${planId}` so a later edit of
+ * the same phase MERGES onto its own row instead of stacking duplicates in the feed.
+ *
+ * `detail` carries the validity window because that is what distinguishes two phases of
+ * the same plan for a coach scrolling the feed — "Definición" twice tells them nothing.
+ */
+export function nutritionPlanEvent(args: {
+  trainerId: string;
+  planId: string;
+  name: unknown;
+  clientId: string | null;
+  startsOn: string;
+  endsOn: string | null;
+  /** "assigned" | "edited" | "trimmed" | "closed" — what happened to THIS plan. */
+  change: "assigned" | "edited" | "trimmed" | "closed";
+  occurredAt?: Date | null;
+  /** #927 — set when this event is one client's share of a bulk assign. */
+  groupId?: string | null;
+}): CoachActivityEvent {
+  const name = localizedText(args.name);
+  const verb =
+    args.change === "assigned"
+      ? "Nutrición asignada"
+      : args.change === "edited"
+        ? "Nutrición editada"
+        : args.change === "trimmed"
+          ? "Fase de nutrición recortada"
+          : "Fase de nutrición cerrada";
+  const window = args.endsOn
+    ? `${args.startsOn} → ${args.endsOn}`
+    : `${args.startsOn} → sin fecha de fin`;
+  return {
+    eventId: `nut:${args.planId}`,
+    trainerId: args.trainerId,
+    kind: "nutrition_plan",
+    title: name ? `${verb}: ${name}` : verb,
+    detail: window,
+    clientId: args.clientId,
+    pendingEmail: null,
+    occurredAt: args.occurredAt ?? null,
+    groupId: args.groupId ?? null,
   };
 }
 
@@ -315,6 +412,9 @@ export async function recordCoachActivityEvent(
           clientId: event.clientId,
           pendingEmail: event.pendingEmail,
           deleted: event.deleted ?? false,
+          // Only written when there IS one: an unconditional `groupId: null` on every
+          // event would rewrite the field on every merge of a pre-#927 row for nothing.
+          ...(event.groupId ? { groupId: event.groupId } : {}),
           occurredAt: event.occurredAt
             ? Timestamp.fromDate(event.occurredAt)
             : FieldValue.serverTimestamp(),

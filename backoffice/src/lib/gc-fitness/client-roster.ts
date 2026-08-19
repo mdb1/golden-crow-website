@@ -50,6 +50,7 @@ import { coerceLegacyHabitLogValue } from "./habit-compliance";
 import { isHabitNotDeleted } from "./habit-visibility";
 import { civilDateToday } from "./civil-date";
 import { getTrainerTimezone } from "./trainer-timezone";
+import { loadNutritionRosterSummaries } from "./nutrition-roster";
 import {
   computeCompliance,
   logCountsAsCompleted,
@@ -133,6 +134,25 @@ export interface ClientRosterRow {
    *  active habits of how many days the habit's cadence picked in the window. */
   habitsCompletedThisWeek: number;
   habitsScheduledThisWeek: number;
+  /**
+   * Nutrition adherence over the last 7 days, in `[0, 1]` — or **`null` when nothing was
+   * asked** in that window (#923).
+   *
+   * `null` and `0` are different facts and the column must not conflate them: zero is a
+   * client who is failing, null is a client nobody gave a plan to. Showing the second as
+   * "0%" sends the coach to have the wrong conversation.
+   */
+  nutritionRatio7Days: number | null;
+  /**
+   * Whether a nutrition phase is in force TODAY.
+   *
+   * This is the signal #923 exists for. A client whose phase expired and whose next one
+   * nobody loaded is invisible in every other column — their adherence simply stops
+   * moving, which looks like a quiet week rather than a plan that ran out.
+   */
+  nutritionHasActivePlan: boolean;
+  /** True when the client never had any nutrition phase — nothing to chase, not yet. */
+  nutritionNeverHadPlan: boolean;
   /** Workouts in the calendar month containing today (client tz when known).
    *  BOTH derive from `workout_assignments` with `scheduledFor` in-month, so
    *  completed ≤ scheduled always:
@@ -468,6 +488,15 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
   // Resolve the trainer's own timezone ONCE so we never fall back to the
   // accidental server UTC zone for a client that has no stored timezone.
   const trainerTz = await getTrainerTimezone();
+
+  // ONE batched pair of queries for the whole roster (30 uids per chunk), not two more
+  // per client: at twenty clients the per-client version would add forty reads to the
+  // page that loads most. Fail-soft — see `loadNutritionRosterSummaries`.
+  const nutritionByClient = await loadNutritionRosterSummaries(
+    db,
+    clients.map((c) => ({ uid: c.uid, timezone: c.timezone })),
+    trainerTz,
+  );
 
   const rows: ClientRosterRow[] = await Promise.all(
     clients.map(async (c): Promise<ClientRosterRow> => {
@@ -842,6 +871,15 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         long: 0,
       };
 
+      const nutrition = nutritionByClient.get(c.uid) ?? {
+        ratio7d: null,
+        percent7d: null,
+        hasActivePlan: false,
+        activePlanName: null,
+        activePlanEndsOn: null,
+        neverHadPlan: true,
+      };
+
       const isPending = c.uid.startsWith("mirror:");
       // Pending sign-in clients are never flagged at-risk: they have no
       // logged activity yet by definition, so the inactivity predicate
@@ -871,6 +909,9 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         needsAttentionReasons: attention.reasons,
         habitsCompletedThisWeek,
         habitsScheduledThisWeek,
+        nutritionRatio7Days: nutrition.ratio7d,
+        nutritionHasActivePlan: nutrition.hasActivePlan,
+        nutritionNeverHadPlan: nutrition.neverHadPlan,
         workoutsCompletedThisMonth,
         workoutsScheduledThisMonth,
         goalsCount,

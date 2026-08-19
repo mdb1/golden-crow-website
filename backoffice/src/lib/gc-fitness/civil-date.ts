@@ -98,6 +98,38 @@ export function formatCivilDateLabel(
   }
 }
 
+/**
+ * Adds `days` (may be negative) to a `"YYYY-MM-DD"` civil date. Returns `null` on
+ * malformed input.
+ *
+ * Twin of Swift `CivilDate.addDays` and Kotlin `CivilDate.addDays`. This is the SINGLE
+ * rolling-day mechanism the nutrition walks (adherence, streak, phase trimming) derive
+ * from — never re-implement civil-day arithmetic at a call site, which is exactly how
+ * three platforms drift apart.
+ *
+ * The arithmetic runs in UTC anchored at noon: UTC has no DST, and the input carries no
+ * time component, so only the calendar day matters. February 2026 has 28 days, so
+ * `addDays("2026-03-01", -1)` is `"2026-02-28"` — not `"2026-03-00"`, and not
+ * `"2026-02-29"`.
+ */
+export function civilDateAddDays(civilDate: string, days: number): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(civilDate);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  const anchor = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  if (Number.isNaN(anchor.getTime())) return null;
+  anchor.setUTCDate(anchor.getUTCDate() + days);
+
+  const yy = String(anchor.getUTCFullYear()).padStart(4, "0");
+  const mm = String(anchor.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(anchor.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
 // MARK: - Photo-comparator elapsed span (twin of PhotoCompareElapsed.swift /
 //         PhotoCompareElapsed.kt)
 //
@@ -158,6 +190,23 @@ function daysFromCivil({ year, month, day }: CivilYMD): number {
   const doy = Math.floor((153 * (month + (month > 2 ? -3 : 9)) + 2) / 5) + day - 1;
   const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
   return era * 146097 + doe - 719468;
+}
+
+/**
+ * Whole days from `from` to `to` (negative when `to` is earlier), or `null` when either
+ * string is not a well-formed civil date.
+ *
+ * Built on the same `daysFromCivil` serial the photo comparator uses — pure integer
+ * math, no `Date`, no timezone, so a DST boundary cannot make two civil days 0.96 apart.
+ * Exported because the nutrition phase table divides a weight delta by the days between
+ * two WEIGH-INS to get kg/week, and a call site doing its own `(msA - msB) / 86400000`
+ * is precisely the re-implementation this file exists to prevent.
+ */
+export function civilDaysBetween(from: string, to: string): number | null {
+  const a = parseCivilYMD(from);
+  const b = parseCivilYMD(to);
+  if (!a || !b) return null;
+  return daysFromCivil(b) - daysFromCivil(a);
 }
 
 /**
