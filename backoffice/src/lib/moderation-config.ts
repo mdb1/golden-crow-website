@@ -1499,7 +1499,7 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
     return {
       eyebrow: "Discover",
       title: "Organization",
-      description: "Discover publisher detail and snapshot sync.",
+      description: "Discover publisher detail.",
     };
   }
 

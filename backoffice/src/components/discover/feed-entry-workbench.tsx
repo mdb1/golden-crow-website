@@ -1188,7 +1188,7 @@ export function DiscoverFeedEntryWorkbench({
                       <option value="">{t("Choose organization")}</option>
                       {organizations.map((organization) => (
                         <option key={organization.id} value={organization.id}>
-                          {organization.name} ({organization.status})
+                          {organization.name} ({t(organization.status)})
                         </option>
                       ))}
                     </select>
@@ -1407,7 +1407,9 @@ export function DiscoverFeedEntryWorkbench({
                       {selectedOrganization?.name ?? t("Publisher")}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {selectedOrganization?.status ?? t("No publisher selected")}
+                      {selectedOrganization?.status
+                        ? t(selectedOrganization.status)
+                        : t("No publisher selected")}
                     </div>
                   </div>
                 </div>
@@ -1437,7 +1439,9 @@ export function DiscoverFeedEntryWorkbench({
                   <Badge variant="brand">{t(discoverTypeLabel(state.type))}</Badge>
                   <Badge variant="outline">{state.language}</Badge>
                   <Badge variant={selectedOrganization?.status === "active" ? "success" : "warning"}>
-                    {selectedOrganization?.status ?? t("publisher")}
+                    {selectedOrganization?.status
+                      ? t(selectedOrganization.status)
+                      : t("publisher")}
                   </Badge>
                 </div>
 

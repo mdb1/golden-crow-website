@@ -79,6 +79,244 @@ const SPANISH_TEXT: Record<string, string> = {
   Spanish: "Español",
   "Add an English organization description to reach a broader audience.":
     "Agregá una descripción de la organización en inglés para llegar a una audiencia más amplia.",
+  Discover: "Discover",
+  "Discover feed publishers and mobile feed entries.":
+    "Publicadores y entradas móviles del feed Discover.",
+  "Discover publisher": "Publicador de Discover",
+  "Discover entry": "Entrada de Discover",
+  Organizations: "Organizaciones",
+  Organization: "Organización",
+  "New organization": "Nueva organización",
+  "Create organization": "Crear organización",
+  "Back to organizations": "Volver a organizaciones",
+  "Organization type": "Tipo de organización",
+  "Organization name": "Nombre de organización",
+  "Organization name is required.": "El nombre de la organización es obligatorio.",
+  "Organization color must be a 6-digit hex value.":
+    "El color de la organización debe ser un valor hexadecimal de 6 dígitos.",
+  "Organization created.": "Organización creada.",
+  "Organization changes saved.": "Cambios de organización guardados.",
+  "Organization archived.": "Organización archivada.",
+  "Organization reactivated.": "Organización reactivada.",
+  "Unable to save the organization.": "No se pudo guardar la organización.",
+  "Unable to load more organizations.":
+    "No se pudieron cargar más organizaciones.",
+  "Unable to refresh organizations.":
+    "No se pudieron actualizar las organizaciones.",
+  "Unable to update the organization status.":
+    "No se pudo actualizar el estado de la organización.",
+  "No Discover organizations match the loaded rows.":
+    "Ninguna organización de Discover coincide con las filas cargadas.",
+  "Search organization name, URL, email, or slug":
+    "Buscar por nombre, URL, email o slug de organización",
+  "Accent color": "Color principal",
+  "Accent color picker": "Selector de color principal",
+  "No accent color": "Sin color principal",
+  "No image URL": "Sin URL de imagen",
+  "No website URL": "Sin URL de sitio web",
+  "Image URL": "URL de imagen",
+  "Website URL": "URL del sitio web",
+  "Internal notes": "Notas internas",
+  "Verified publisher": "Publicador verificado",
+  Verified: "Verificado",
+  Unverified: "No verificado",
+  active: "activo",
+  inactive: "inactivo",
+  archived: "archivado",
+  draft: "borrador",
+  published: "publicado",
+  Foundation: "Fundación",
+  Hospital: "Hospital",
+  University: "Universidad",
+  Laboratory: "Laboratorio",
+  "Research institute": "Instituto de investigación",
+  "Patient advocacy group": "Grupo de apoyo a pacientes",
+  "Public health agency": "Agencia de salud pública",
+  "Conference organizer": "Organizador de conferencias",
+  Unspecified: "Sin especificar",
+  "Feed entries": "Entradas del feed",
+  "Feed entry": "Entrada del feed",
+  "New feed entry": "Nueva entrada del feed",
+  "Create feed entry": "Crear entrada del feed",
+  "Back to feed entries": "Volver a entradas del feed",
+  Entry: "Entrada",
+  Publisher: "Publicador",
+  publisher: "publicador",
+  "Publisher draft": "Borrador de publicador",
+  "No publisher selected": "Sin publicador seleccionado",
+  "Choose organization": "Elegir organización",
+  "Choose a publisher organization.": "Elegí una organización publicadora.",
+  "Load more publishers": "Cargar más publicadores",
+  "All publishers": "Todos los publicadores",
+  "All statuses": "Todos los estados",
+  Reactivate: "Reactivar",
+  "Unable to load more publishers.":
+    "No se pudieron cargar más publicadores.",
+  "No Discover feed entries match the loaded rows.":
+    "Ninguna entrada de Discover coincide con las filas cargadas.",
+  "Search title, publisher, body, or URL":
+    "Buscar por título, publicador, cuerpo o URL",
+  News: "Noticias",
+  "Research update": "Actualización de investigación",
+  "Upcoming event": "Próximo evento",
+  Opportunity: "Oportunidad",
+  Draft: "Borrador",
+  "Needs content": "Falta contenido",
+  Duplicate: "Duplicar",
+  "Unable to duplicate the feed entry.":
+    "No se pudo duplicar la entrada del feed.",
+  "Unable to load more feed entries.":
+    "No se pudieron cargar más entradas del feed.",
+  "Unable to refresh feed entries.":
+    "No se pudieron actualizar las entradas del feed.",
+  "Unable to save the feed entry.":
+    "No se pudo guardar la entrada del feed.",
+  "Generic information": "Información general",
+  "Feed setup": "Configuración del feed",
+  Complete: "Completo",
+  Name: "Nombre",
+  Type: "Tipo",
+  Language: "Idioma",
+  Title: "Título",
+  Subtitle: "Subtítulo",
+  Body: "Cuerpo",
+  "Source URL": "URL de origen",
+  "Cover image URL": "URL de imagen de portada",
+  "Write the note": "Escribir la nota",
+  "Simple text": "Texto simple",
+  "Rich text": "Texto enriquecido",
+  Heading: "Encabezado",
+  Bold: "Negrita",
+  Italic: "Cursiva",
+  "Bulleted list": "Lista con viñetas",
+  Quote: "Cita",
+  Link: "Enlace",
+  characters: "caracteres",
+  "HTML will be sanitized before storage.":
+    "El HTML se sanitizará antes de guardarse.",
+  "Plain body will be stored as body.":
+    "El cuerpo simple se guardará como body.",
+  "Specific type fields": "Campos específicos del tipo",
+  Category: "Categoría",
+  Region: "Región",
+  "Research topic": "Tema de investigación",
+  Journal: "Revista",
+  Genes: "Genes",
+  Conditions: "Condiciones",
+  "Event date": "Fecha del evento",
+  Location: "Ubicación",
+  "Max attendance": "Asistencia máxima",
+  "Virtual meeting link": "Link de reunión virtual",
+  "Opportunity type": "Tipo de oportunidad",
+  "Choose type": "Elegir tipo",
+  Requirements: "Requisitos",
+  Eligibility: "Elegibilidad",
+  Fellowship: "Beca de investigación",
+  Grant: "Subsidio",
+  Scholarship: "Beca",
+  "Clinical study": "Estudio clínico",
+  "Research program": "Programa de investigación",
+  Training: "Capacitación",
+  "Patient program": "Programa para pacientes",
+  Resource: "Recurso",
+  Job: "Trabajo",
+  Volunteer: "Voluntariado",
+  Dataset: "Conjunto de datos",
+  Challenge: "Desafío",
+  Online: "En línea",
+  Remote: "Remoto",
+  Hybrid: "Híbrido",
+  "United States": "Estados Unidos",
+  Canada: "Canadá",
+  "United Kingdom": "Reino Unido",
+  "European Union": "Unión Europea",
+  "Latin America": "América Latina",
+  "Save draft": "Guardar borrador",
+  "Draft saved.": "Borrador guardado.",
+  "Publish to Discover": "Publicar en Discover",
+  "Publishing...": "Publicando...",
+  "Published to Discover": "Publicado en Discover",
+  "Publish needs attention": "La publicación necesita revisión",
+  "Publishing Discover entry": "Publicando entrada de Discover",
+  "Publishing in progress": "Publicación en curso",
+  "Saving the entry and preparing it for the mobile feed.":
+    "Guardando la entrada y preparándola para el feed móvil.",
+  "Nothing was published": "No se publicó nada",
+  "The item is saved with status published and will appear wherever the app reads the published Discover feed.":
+    "El ítem quedó guardado con estado publicado y aparecerá donde la app lea el feed publicado de Discover.",
+  "The entry stayed unchanged. Fix the form requirement and publish again.":
+    "La entrada no cambió. Corregí el requisito del formulario y publicá de nuevo.",
+  "Validating the publisher, content fields, and compact payload.":
+    "Validando el publicador, los campos de contenido y el payload compacto.",
+  "This entry is now published in Discover.":
+    "Esta entrada ya está publicada en Discover.",
+  "Publishing stopped. Review the highlighted requirement and try again.":
+    "La publicación se detuvo. Revisá el requisito marcado e intentá de nuevo.",
+  "Open entry": "Abrir entrada",
+  "Untitled feed entry": "Entrada del feed sin título",
+  "No subtitle": "Sin subtítulo",
+  "No cover image": "Sin imagen de portada",
+  "Enter a valid cover image URL to preview.":
+    "Ingresá una URL válida de imagen de portada para ver la vista previa.",
+  "Source URL must be a valid HTTPS URL.":
+    "La URL de origen debe ser una URL HTTPS válida.",
+  "Cover image URL must be a valid HTTPS URL.":
+    "La URL de imagen de portada debe ser una URL HTTPS válida.",
+  "Virtual meeting link must be a valid HTTPS URL.":
+    "El link de reunión virtual debe ser una URL HTTPS válida.",
+  "Links must use a valid HTTPS URL.":
+    "Los links deben usar una URL HTTPS válida.",
+  "Paste a HTTPS URL": "Pegá una URL HTTPS",
+  "Only active organizations can publish feed entries.":
+    "Solo organizaciones activas pueden publicar entradas del feed.",
+  "Title is required before publishing.":
+    "El título es obligatorio antes de publicar.",
+  "Subtitle is required before publishing.":
+    "El subtítulo es obligatorio antes de publicar.",
+  "Body is required before publishing.":
+    "El cuerpo es obligatorio antes de publicar.",
+  "Event date is required before publishing.":
+    "La fecha del evento es obligatoria antes de publicar.",
+  "Event location is required before publishing.":
+    "La ubicación del evento es obligatoria antes de publicar.",
+  "Opportunity type is required before publishing.":
+    "El tipo de oportunidad es obligatorio antes de publicar.",
+  "Opportunity requirements are required before publishing.":
+    "Los requisitos de la oportunidad son obligatorios antes de publicar.",
+  "Opportunity eligibility is required before publishing.":
+    "La elegibilidad de la oportunidad es obligatoria antes de publicar.",
+  "Opportunity location is required before publishing.":
+    "La ubicación de la oportunidad es obligatoria antes de publicar.",
+  "feed_organizations publishers": "Publicadores de feed_organizations",
+  "feed_items mobile Discover entries":
+    "Entradas móviles de Discover en feed_items",
+  "Publishers stored in feed_organizations for Discover feed entries.":
+    "Publicadores guardados en feed_organizations para entradas de Discover.",
+  "Create a Discover publisher for mobile feed entries.":
+    "Crear un publicador de Discover para entradas móviles del feed.",
+  "Discover publisher detail.": "Detalle del publicador de Discover.",
+  "Mobile Discover feed entries stored in feed_items.":
+    "Entradas móviles de Discover guardadas en feed_items.",
+  "Create a Discover feed item with a publisher snapshot.":
+    "Crear una entrada del feed Discover con snapshot del publicador.",
+  "Discover feed item detail with type-specific payload validation.":
+    "Detalle de entrada Discover con validación de payload por tipo.",
+  "Create a canonical feed_organizations publisher for Discover feed entries.":
+    "Crear un publicador feed_organizations canónico para entradas de Discover.",
+  "Create a feed_items document with one type-specific payload and an automatic publisher snapshot.":
+    "Crear un documento feed_items con payload específico por tipo y snapshot automático del publicador.",
+  "Manage feed_items documents that the mobile apps read for Discover.":
+    "Gestionar documentos feed_items que las apps móviles leen para Discover.",
+  "Manage feed_organizations publishers used by Discover feed entries.":
+    "Gestionar publicadores feed_organizations usados por las entradas de Discover.",
+  "Edit one feed_items document while preserving the mobile app field contract.":
+    "Editar un documento feed_items conservando el contrato de campos de la app móvil.",
+  "Edit the canonical publisher record used by Discover feed entries.":
+    "Editar el registro canónico del publicador usado por las entradas de Discover.",
+  "Auth user": "Usuario Auth",
+  "Private profile": "Perfil privado",
+  "Public profile": "Perfil público",
+  "Community user": "Usuario de comunidad",
   "Create and edit achievement definitions that coaches use to reinforce progress.":
     "Crear y editar logros que los coaches usan para reforzar el progreso.",
   "Create and edit challenge definitions for athlete motivation.":

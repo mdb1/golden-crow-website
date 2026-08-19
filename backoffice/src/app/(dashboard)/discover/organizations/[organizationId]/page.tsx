@@ -36,7 +36,7 @@ export default async function DiscoverOrganizationDetailPage({
           <PageHero
             eyebrow={t("Discover")}
             title={organization.name}
-            description={t("Edit the canonical publisher and optionally sync its snapshot to existing feed entries.")}
+            description={t("Edit the canonical publisher record used by Discover feed entries.")}
           />
         }
       >
