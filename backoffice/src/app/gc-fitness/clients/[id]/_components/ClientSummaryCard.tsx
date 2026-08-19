@@ -229,63 +229,10 @@ export async function ClientSummaryCard({
         </div>
       </div>
 
-      {/* Nutrición (#923) — que se vea desde donde se opera el cliente, no sólo
-          entrando a su pantalla de nutrición.
-
-          "Sin plan vigente" se pinta como ALERTA sólo cuando hubo una fase antes: es una
-          fase que se venció y nadie cargó la siguiente, y no se nota en ningún otro lado
-          porque la adherencia simplemente deja de moverse. Que nunca haya tenido plan es
-          otra cosa y se dice en gris. */}
-      <div
-        data-testid="client-summary-nutrition"
-        className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-3"
-      >
-        <div className="flex flex-col">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t("nutritionTitle")}
-          </p>
-          {nutrition && nutrition.percent7d !== null ? (
-            <p className="text-sm">
-              <span className="font-semibold tabular-nums">{nutrition.percent7d}%</span>{" "}
-              <span className="text-muted-foreground">{t("nutritionAdherence")}</span>
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {!nutrition || nutrition.neverHadPlan
-                ? t("nutritionNeverPlanned")
-                : t("nutritionNothingAsked")}
-            </p>
-          )}
-        </div>
-
-        {nutrition?.hasActivePlan ? (
-          <div className="flex flex-col">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t("nutritionPhase")}
-            </p>
-            <p className="text-sm">
-              <span className="font-medium">
-                {nutrition.activePlanName?.es || nutrition.activePlanName?.en || "—"}
-              </span>{" "}
-              <span className="text-muted-foreground">
-                {nutrition.activePlanEndsOn
-                  ? t("nutritionEndsOn", {
-                      date: formatCivilDateLabel(nutrition.activePlanEndsOn, {
-                        day: "numeric",
-                        month: "short",
-                      }),
-                    })
-                  : t("nutritionOpenEnded")}
-              </span>
-            </p>
-          </div>
-        ) : nutrition && !nutrition.neverHadPlan ? (
-          <div className="flex flex-col" data-testid="client-summary-nutrition-expired">
-            <p className="text-sm font-medium text-chart-4">{t("nutritionNoPlan")}</p>
-            <p className="text-xs text-muted-foreground">{t("nutritionNoPlanHelp")}</p>
-          </div>
-        ) : null}
-      </div>
+      {/* Nutrición vivía acá como una franja de dos datos (#923). Desde #949 es la
+          sección `NutritionProfileWidget`, JUSTO DEBAJO de esta tarjeta: con la fase
+          vigente, sus macros, sus comidas y su propio estado vacío. La franja se fue
+          entera en vez de quedar duplicada arriba de la sección que la reemplaza. */}
     </section>
   );
 }

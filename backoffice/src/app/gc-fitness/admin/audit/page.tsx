@@ -57,6 +57,10 @@ const CATEGORY_OPTIONS: FeedCategory[] = [
   "schedule",
   "routine",
   "habit",
+  // #949 — `nutrition` was missing from this list while nutrition events were
+  // already being classified under it, so checking ANY box hid every nutrition
+  // row (an unlisted category can never be in the surviving set).
+  "nutrition",
   "exercise",
   "photo",
   "account",
@@ -71,6 +75,7 @@ const SOURCE_OPTIONS: Array<{ value: "all" | FeedSource; label: string }> = [
   { value: "admin_operations", label: "Operaciones de admin" },
   { value: "progress_photos", label: "Fotos de progreso" },
   { value: "habit_logs", label: "Hábitos marcados" },
+  { value: "nutrition_logs", label: "Comidas marcadas" },
 ];
 
 function str(value: string | string[] | undefined): string {

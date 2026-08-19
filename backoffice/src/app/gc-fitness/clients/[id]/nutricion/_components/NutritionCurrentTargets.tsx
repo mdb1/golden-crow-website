@@ -3,7 +3,8 @@ import { getTranslations } from "next-intl/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 import type { NutritionPhase } from "@/lib/gc-fitness/nutrition-plan-form";
-import type { MacroTargets } from "@/lib/gc-fitness/nutrition-schema";
+
+import { MacroTiles } from "./MacroTiles";
 
 /**
  * The targets in force TODAY, or the empty state.
@@ -48,52 +49,20 @@ export async function NutritionCurrentTargets({
         </span>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <MacroTile label={t("kcal")} value={plan.targets.kcal} unit="kcal" empty={t("noMacro")} />
-          <MacroTile label={t("protein")} value={plan.targets.proteinG} unit="g" empty={t("noMacro")} />
-          <MacroTile label={t("carbs")} value={plan.targets.carbsG} unit="g" empty={t("noMacro")} />
-          <MacroTile label={t("fat")} value={plan.targets.fatG} unit="g" empty={t("noMacro")} />
-        </div>
+        <MacroTiles
+          targets={plan.targets}
+          labels={{
+            kcal: t("kcal"),
+            protein: t("protein"),
+            carbs: t("carbs"),
+            fat: t("fat"),
+            empty: t("noMacro"),
+          }}
+        />
         <p className="text-muted-foreground mt-3 text-xs">
           {t("mealsCount", { count: plan.meals.length })} · {todayCivil}
         </p>
       </CardContent>
     </Card>
-  );
-}
-
-/**
- * One macro.
- *
- * An ABSENT macro renders as an em dash, never as `0`. A coach who set only calories did
- * not set a zero protein target, and showing one would be the app putting words in their
- * mouth — the whole reason every macro field is nullable in the wire shape.
- */
-function MacroTile({
-  label,
-  value,
-  unit,
-  empty,
-}: {
-  label: string;
-  value: MacroTargets["kcal"];
-  unit: string;
-  empty: string;
-}) {
-  const hasValue = typeof value === "number" && Number.isFinite(value);
-  return (
-    <div className="bg-muted/40 rounded-lg border p-3">
-      <div className="text-muted-foreground text-[11px] uppercase tracking-wide">{label}</div>
-      <div className="text-xl font-semibold tabular-nums">
-        {hasValue ? (
-          <>
-            {value}
-            <span className="text-muted-foreground ml-1 text-xs font-medium">{unit}</span>
-          </>
-        ) : (
-          empty
-        )}
-      </div>
-    </div>
   );
 }

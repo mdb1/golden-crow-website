@@ -9,8 +9,14 @@
 // macro as "—". Holding them as `number` would force a decision on every keystroke and turn
 // a half-typed "2." into a cleared field.
 
+import { useTranslations } from "next-intl";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  estimateKcalFromMacros,
+  macroKcalMismatch,
+} from "@/lib/gc-fitness/nutrition-macro-math";
 
 export interface MacroDraft {
   kcal: string;
@@ -90,12 +96,47 @@ export function MacroFields({
     <div className="flex flex-col gap-2">
       <Label>{legend}</Label>
       <div className="grid grid-cols-4 gap-2">
+        {/* #949 — the three macro boxes say GRAMS. Unlabelled, they are as readable as
+            percentages, and a coach who guesses percentages ships a plan asking for
+            40 g of carbs. */}
         {field("kcal", "kcal")}
-        {field("proteinG", "P")}
-        {field("carbsG", "C")}
-        {field("fatG", "G")}
+        {field("proteinG", "P (g)")}
+        {field("carbsG", "C (g)")}
+        {field("fatG", "G (g)")}
       </div>
+      <MacroKcalHint value={value} testId={`${testIdPrefix}-kcal-hint`} />
       {help ? <p className="text-xs text-muted-foreground">{help}</p> : null}
     </div>
+  );
+}
+
+/**
+ * "Los macros suman ≈1930 kcal" (#949) — the same hint the assign form prints, from the
+ * same pure helper, so a plan built in the library and one typed for a client cannot
+ * disagree about what 90/280/50 adds up to.
+ */
+function MacroKcalHint({ value, testId }: { value: MacroDraft; testId: string }) {
+  const t = useTranslations("clients.detail.nutrition");
+  const estimate = estimateKcalFromMacros({
+    proteinG: numberOrNull(value.proteinG),
+    carbsG: numberOrNull(value.carbsG),
+    fatG: numberOrNull(value.fatG),
+  });
+  if (!estimate) return null;
+  const mismatch = macroKcalMismatch(numberOrNull(value.kcal), estimate);
+
+  return (
+    <p className="text-xs text-muted-foreground" data-testid={testId}>
+      {estimate.isPartial
+        ? t("macroKcalEstimatePartial", { kcal: estimate.kcal })
+        : t("macroKcalEstimate", { kcal: estimate.kcal })}
+      {mismatch !== null ? (
+        <span className="ml-1 font-medium text-chart-4">
+          {mismatch > 0
+            ? t("macroKcalOver", { diff: mismatch })
+            : t("macroKcalUnder", { diff: Math.abs(mismatch) })}
+        </span>
+      ) : null}
+    </p>
   );
 }

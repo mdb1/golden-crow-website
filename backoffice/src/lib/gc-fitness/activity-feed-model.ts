@@ -1523,3 +1523,96 @@ export function mergeWorkoutWriteBacks<T extends MergeableEvent>(events: T[]): T
       return notes ? { ...e, notes: [...(e.notes ?? []), ...notes] } : e;
     });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Nutrition marks (#949)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * What a client's day of nutrition marking looks like in the feed.
+ *
+ * ── WHY ONE ROW PER DAY AND NOT ONE PER MEAL ─────────────────────────────────
+ *
+ * `nutrition_logs` is one document per (client, civil day) and marking a meal
+ * UPDATES it. There is no per-meal document to iterate, and there should not be
+ * one: a client with four meals would otherwise push four rows a day into a feed
+ * that already has to stay readable across a whole roster. The day is the unit
+ * the product itself uses — the streak, the adherence and the client's own
+ * screen all read the day, not the meal.
+ *
+ * ── `expected` COMES FROM THE SNAPSHOT, NOT FROM THE PLAN ────────────────────
+ *
+ * The day froze `targetsSnapshot` when it was first written. Counting against
+ * today's plan instead would re-score history every time a coach edits a phase:
+ * a day where the client marked all three meals would start reading "3 de 5"
+ * the moment a fourth and fifth meal were added weeks later.
+ */
+export interface NutritionMarkSummary {
+  /** Meals the client marked, whatever the status. */
+  marked: number;
+  /** Meals the day ASKED for, per the frozen snapshot. */
+  expected: number;
+  done: number;
+  different: number;
+  missed: number;
+  /** Every expected meal has a mark. */
+  isComplete: boolean;
+}
+
+/**
+ * Counts one day's marks.
+ *
+ * Marks for meals that are NOT in the snapshot still count in `marked` — a plan
+ * edited mid-day can leave one behind, and dropping it silently would make the
+ * row claim the client marked fewer meals than they did. `expected` is never
+ * less than `marked` for the same reason.
+ */
+export function summarizeNutritionMarks(
+  meals: Record<string, { status: string }>,
+  snapshotMealIds: string[],
+): NutritionMarkSummary {
+  const entries = Object.values(meals ?? {});
+  let done = 0;
+  let different = 0;
+  let missed = 0;
+  for (const entry of entries) {
+    if (entry.status === "done") done += 1;
+    else if (entry.status === "different") different += 1;
+    else missed += 1;
+  }
+  const marked = entries.length;
+  const expected = Math.max(snapshotMealIds.length, marked);
+  return {
+    marked,
+    expected,
+    done,
+    different,
+    missed,
+    isComplete: expected > 0 && marked >= expected,
+  };
+}
+
+/**
+ * The "·"-joined facts under a nutrition row.
+ *
+ * `done` is the only compliant status (`statusCountsAsCompliant`), so the split
+ * is spelled out rather than collapsed into one percentage — a day of 4 marks
+ * that were all "distinto" is not the same day as 4 "cumplí", and a single
+ * number would render them identically.
+ */
+export function describeNutritionMarks(
+  summary: NutritionMarkSummary,
+  civilDate: string | null,
+  occurredAtISO: string | null,
+): string[] {
+  const meta: string[] = [`${summary.done} de ${summary.expected} cumplidas`];
+  if (summary.different > 0) meta.push(`${summary.different} distinto`);
+  if (summary.missed > 0) meta.push(`${summary.missed} sin cumplir`);
+  // Only when the marking is NOT for the day it was written: a back-dated day is
+  // the interesting case; on the normal one the civil date just repeats the day
+  // header the row already sits under.
+  if (civilDate && civilDate !== (occurredAtISO ?? "").slice(0, 10)) {
+    meta.push(`día ${civilDate}`);
+  }
+  return meta;
+}

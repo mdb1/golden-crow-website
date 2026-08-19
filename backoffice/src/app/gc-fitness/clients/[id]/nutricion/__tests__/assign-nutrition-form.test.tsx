@@ -15,11 +15,14 @@ import userEvent from "@testing-library/user-event";
 
 const assignNutritionPlan = jest.fn().mockResolvedValue({ id: "nut-1", applied: [] });
 const previewNutritionAssign = jest.fn().mockResolvedValue([]);
+const updateNutritionPlan = jest.fn().mockResolvedValue({ applied: [] });
 const routerPush = jest.fn();
 
 jest.mock("@/lib/gc-fitness/nutrition-actions", () => ({
   assignNutritionPlan: (input: unknown) => assignNutritionPlan(input),
   previewNutritionAssign: (input: unknown) => previewNutritionAssign(input),
+  updateNutritionPlan: (planId: string, input: unknown) =>
+    updateNutritionPlan(planId, input),
 }));
 
 jest.mock("next/navigation", () => ({
@@ -52,7 +55,7 @@ describe("AssignNutritionForm", () => {
     // query has to say which one it means — the same ambiguity a screen reader hits.
     const daily = within(screen.getByTestId("nutrition-daily-targets"));
     await user.type(daily.getByLabelText("Calories"), "2000");
-    await user.type(daily.getByLabelText("Protein"), "170");
+    await user.type(daily.getByLabelText(/^Protein/), "170");
     await user.type(screen.getByLabelText("Name"), "Desayuno");
 
     await user.click(screen.getByTestId("nutrition-save"));
@@ -284,5 +287,193 @@ describe("AssignNutritionForm — from a template (#918)", () => {
 
     expect(await screen.findByTestId("nutrition-deviation-meal-1")).toBeInTheDocument();
     expect(screen.queryByTestId("nutrition-deviation-meal-0")).not.toBeInTheDocument();
+  });
+});
+
+// ── #949 — the kcal hint and the phase editor ────────────────────────────────────────
+
+/** A phase in force since the 1st, as the editor receives it. */
+function currentPhase() {
+  return {
+    id: "nut-current",
+    clientId: "client-sofia",
+    trainerId: "coach-1",
+    source: "coach" as const,
+    name: { es: "Definición", en: "Cut" },
+    startsOn: "2026-09-01",
+    endsOn: "2026-09-30",
+    targets: { kcal: 2000, proteinG: 90, carbsG: 280, fatG: 50 },
+    meals: [
+      {
+        mealId: "meal-breakfast",
+        name: { es: "Desayuno", en: "Breakfast" },
+        moment: "breakfast" as const,
+        targets: { kcal: 400, proteinG: 30, carbsG: null, fatG: null },
+        options: [
+          { id: "opt-a", text: { es: "Una banana", en: "A banana" }, targets: { kcal: 120 } },
+        ],
+        order: 0,
+      },
+    ],
+  };
+}
+
+function renderEditor(overrides: Record<string, unknown> = {}) {
+  return render(
+    <AssignNutritionForm
+      clientId="client-sofia"
+      defaultStartsOn="2026-09-15"
+      editing={{
+        planId: "nut-current",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        plan: currentPhase() as any,
+        state: "current",
+        todayCivil: "2026-09-15",
+        ...overrides,
+      }}
+    />,
+  );
+}
+
+describe("AssignNutritionForm — macro kcal hint (#949)", () => {
+  it("adds up the macros with the 4/4/9 factors and flags a gap against the typed kcal", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    const daily = within(screen.getByTestId("nutrition-daily-targets"));
+    await user.type(daily.getByLabelText(/^Protein/), "90");
+    await user.type(daily.getByLabelText(/^Carbs/), "280");
+    await user.type(daily.getByLabelText(/^Fat/), "100");
+
+    const hint = await screen.findByTestId("nutrition-daily-kcal-hint");
+    expect(hint).toHaveTextContent("2380");
+
+    // 2 380 vs a typed 2 000 is 380 kcal apart — worth saying out loud.
+    await user.type(daily.getByLabelText("Calories"), "2000");
+    expect(
+      await screen.findByTestId("nutrition-daily-kcal-hint-mismatch"),
+    ).toBeInTheDocument();
+  });
+
+  it("says nothing at all until a macro is typed", () => {
+    renderForm();
+    expect(screen.queryByTestId("nutrition-daily-kcal-hint")).not.toBeInTheDocument();
+  });
+
+  it("never flags a mismatch from a PARTIAL set of macros — it is low by construction", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    const daily = within(screen.getByTestId("nutrition-daily-targets"));
+    await user.type(daily.getByLabelText(/^Protein/), "90");
+    await user.type(daily.getByLabelText("Calories"), "2000");
+
+    expect(await screen.findByTestId("nutrition-daily-kcal-hint")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("nutrition-daily-kcal-hint-mismatch"),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("AssignNutritionForm — editing a phase (#949)", () => {
+  it("prefills from the phase and defaults a RUNNING one to the split branch", async () => {
+    renderEditor();
+
+    expect(screen.getByLabelText("Phase name")).toHaveValue("Definición");
+    expect(screen.getByTestId("nutrition-edit-scope-from-date")).toBeChecked();
+    // The cutoff, not the phase's own start: the split opens a NEW phase from today.
+    expect(screen.getByLabelText("From which day")).toHaveValue("2026-09-15");
+
+    // The overlap preview must NOT exclude the phase being split — the trim it causes is
+    // the whole point, and the coach has to read it before saving.
+    await waitFor(() => expect(previewNutritionAssign).toHaveBeenCalled());
+    const last = previewNutritionAssign.mock.calls.at(-1)![0] as Record<string, unknown>;
+    expect(last.excludePlanId).toBeUndefined();
+  });
+
+  it("splits into a NEW phase — the original is never rewritten", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    const daily = within(screen.getByTestId("nutrition-daily-targets"));
+    await user.clear(daily.getByLabelText("Calories"));
+    await user.type(daily.getByLabelText("Calories"), "2200");
+    await user.click(screen.getByTestId("nutrition-save"));
+
+    await waitFor(() => expect(assignNutritionPlan).toHaveBeenCalledTimes(1));
+    expect(updateNutritionPlan).not.toHaveBeenCalled();
+    const payload = assignNutritionPlan.mock.calls[0]![0] as {
+      startsOn: string;
+      endsOn: string | null;
+      targets: Record<string, unknown>;
+      meals: Array<{ mealId?: string; options: Array<{ id?: string }> }>;
+    };
+    expect(payload.startsOn).toBe("2026-09-15");
+    expect(payload.endsOn).toBe("2026-09-30");
+    expect(payload.targets).toMatchObject({ kcal: 2200, proteinG: 90 });
+    // ⚠️ The mealId and the option id SURVIVE. Minting fresh ones would orphan every mark
+    // the client already made — the daily log keys its `meals` map by `mealId`.
+    expect(payload.meals[0]!.mealId).toBe("meal-breakfast");
+    expect(payload.meals[0]!.options[0]!.id).toBe("opt-a");
+  });
+
+  it("rewrites the document in place when the coach picks the whole phase", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByTestId("nutrition-edit-scope-whole"));
+    // Switching back to the whole phase restores its own start date.
+    expect(screen.getByLabelText("From")).toHaveValue("2026-09-01");
+
+    await user.click(screen.getByTestId("nutrition-save"));
+
+    await waitFor(() => expect(updateNutritionPlan).toHaveBeenCalledTimes(1));
+    expect(assignNutritionPlan).not.toHaveBeenCalled();
+    expect(updateNutritionPlan.mock.calls[0]![0]).toBe("nut-current");
+
+    // A whole-phase edit must not warn that the phase collides with itself.
+    await waitFor(() => {
+      const last = previewNutritionAssign.mock.calls.at(-1)![0] as Record<string, unknown>;
+      expect(last.excludePlanId).toBe("nut-current");
+    });
+  });
+
+  it("refuses a cutoff on or before the phase's first day instead of erasing it", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    const cutoff = screen.getByLabelText("From which day");
+    await user.clear(cutoff);
+    await user.type(cutoff, "2026-09-01");
+    await user.click(screen.getByTestId("nutrition-save"));
+
+    expect(await screen.findByTestId("nutrition-form-error")).toBeInTheDocument();
+    expect(assignNutritionPlan).not.toHaveBeenCalled();
+    expect(updateNutritionPlan).not.toHaveBeenCalled();
+  });
+
+  it("offers only the whole-phase branch for a phase that has not started", () => {
+    renderEditor({ state: "scheduled", todayCivil: "2026-08-20" });
+
+    expect(screen.queryByTestId("nutrition-edit-scope-from-date")).not.toBeInTheDocument();
+    expect(screen.getByTestId("nutrition-edit-scope-whole")).toBeChecked();
+  });
+
+  it("hides the template picker while editing", () => {
+    render(
+      <AssignNutritionForm
+        clientId="client-sofia"
+        defaultStartsOn="2026-09-15"
+        templates={[TEMPLATE]}
+        editing={{
+          planId: "nut-current",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          plan: currentPhase() as any,
+          state: "current",
+          todayCivil: "2026-09-15",
+        }}
+      />,
+    );
+    expect(screen.queryByTestId("nutrition-template-picker")).not.toBeInTheDocument();
   });
 });

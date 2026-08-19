@@ -90,6 +90,7 @@ import { PendingClientPreload } from "./_components/PendingClientPreload";
 import { RemovePendingClientButton } from "./_components/RemovePendingClientButton";
 import { UnlinkClientButton } from "./_components/UnlinkClientButton";
 import { ClientSummaryCard } from "./_components/ClientSummaryCard";
+import { NutritionProfileWidget } from "./_components/NutritionProfileWidget";
 import { ClientCalendarPeek } from "./_components/ClientCalendarPeek";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
@@ -425,6 +426,14 @@ export default async function ClientDetailPage({
         timezone={timezone}
         goals={goals}
       />
+
+      {/* #949 — nutrición era UN BOTÓN en el header y nada más. Ahora es una
+          sección propia, justo debajo del resumen, y con estado vacío: un
+          cliente sin plan es el caso más accionable y era el único del que la
+          página no decía nada. */}
+      <Suspense fallback={<WidgetSkeleton title={tSkeleton("nutrition")} />}>
+        <NutritionProfileWidget clientId={id} timezone={timezone} />
+      </Suspense>
 
       <ClientChartsSection
         slots={chartSlots}
