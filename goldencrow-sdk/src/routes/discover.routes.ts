@@ -5,15 +5,19 @@ import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import { canAccessDiscover } from "../repositories/roles.repository.js";
 import {
   createDiscoverFeedItem,
+  createDiscoverIndividual,
   createDiscoverOrganization,
   deleteDiscoverFeedItem,
   duplicateDiscoverFeedItem,
   getDiscoverFeedItem,
+  getDiscoverIndividual,
   getDiscoverOrganization,
   listDiscoverFeedItems,
+  listDiscoverIndividuals,
   listDiscoverOrganizations,
   syncDiscoverPublisherSnapshot,
   updateDiscoverFeedItem,
+  updateDiscoverIndividual,
   updateDiscoverOrganization,
 } from "../repositories/discover.repository.js";
 
@@ -28,6 +32,17 @@ const OrganizationTypeSchema = z.enum([
   "public_health_agency",
   "conference_organizer",
   "company",
+  "other",
+]);
+const IndividualTypeSchema = z.enum([
+  "researcher",
+  "clinician",
+  "genetic_counselor",
+  "patient_advocate",
+  "bioinformatician",
+  "educator",
+  "journalist",
+  "community_leader",
   "other",
 ]);
 const FeedTypeSchema = z.enum([
@@ -56,6 +71,22 @@ const OrganizationBodySchema = z.object({
   description_en: z.string().optional(),
   countryCode: z.string().optional(),
   organizationType: OrganizationTypeSchema.optional(),
+  color_hex: z.string().nullable().optional(),
+  colorHex: z.string().nullable().optional(),
+  verified: z.boolean().optional(),
+  contactEmail: z.string().optional(),
+  internalNotes: z.string().optional(),
+});
+
+const IndividualBodySchema = z.object({
+  name: z.string().optional(),
+  imageUrl: z.string().nullable().optional(),
+  status: OrganizationStatusSchema.optional(),
+  websiteUrl: z.string().nullable().optional(),
+  description: z.string().optional(),
+  description_en: z.string().optional(),
+  countryCode: z.string().optional(),
+  individualType: IndividualTypeSchema.optional(),
   color_hex: z.string().nullable().optional(),
   colorHex: z.string().nullable().optional(),
   verified: z.boolean().optional(),
@@ -95,6 +126,7 @@ const OpportunityPayloadSchema = z.object({
 
 const FeedItemBodySchema = z.object({
   publisherOrganizationId: z.string().optional(),
+  publisherIndividualId: z.string().optional(),
   type: FeedTypeSchema.optional(),
   status: FeedStatusSchema.optional(),
   publishedAt: z.string().nullable().optional(),
@@ -217,6 +249,81 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
           request.params.organizationId,
         );
         return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/discover/individuals",
+    {
+      schema: { querystring: QuerySchema },
+    },
+    async (request, reply) => {
+      try {
+        const result = await listDiscoverIndividuals(request.adminContext!, request.query);
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/discover/individuals",
+    {
+      schema: { body: IndividualBodySchema },
+    },
+    async (request, reply) => {
+      try {
+        const individual = await createDiscoverIndividual(
+          request.adminContext!,
+          request.body,
+        );
+        return reply.send({ individual });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/discover/individuals/:individualId",
+    {
+      schema: {
+        params: z.object({ individualId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const individual = await getDiscoverIndividual(
+          request.adminContext!,
+          request.params.individualId,
+        );
+        return reply.send({ individual });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.put(
+    "/discover/individuals/:individualId",
+    {
+      schema: {
+        params: z.object({ individualId: z.string().min(1) }),
+        body: IndividualBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const individual = await updateDiscoverIndividual(
+          request.adminContext!,
+          request.params.individualId,
+          request.body,
+        );
+        return reply.send({ individual });
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

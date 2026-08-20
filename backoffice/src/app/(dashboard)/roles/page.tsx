@@ -21,7 +21,10 @@ import { sdkFetchServer } from "@/lib/sdk-server";
 
 export default async function RolesPage() {
   const adminContext = await getAdminContextServer();
-  if (adminContext.role === "organization_publisher") {
+  if (
+    adminContext.role === "organization_publisher" ||
+    adminContext.role === "individual_publisher"
+  ) {
     redirect("/my-account");
   }
   const language = await getServerAppLanguage();

@@ -21,9 +21,12 @@ export async function requireDiscoverAccess() {
   if (
     adminContext.project !== "mydnamap" ||
     (adminContext.role !== "full_admin" &&
-      adminContext.role !== "organization_publisher") ||
+      adminContext.role !== "organization_publisher" &&
+      adminContext.role !== "individual_publisher") ||
     (adminContext.role === "organization_publisher" &&
-      !adminContext.organizationId)
+      !adminContext.organizationId) ||
+    (adminContext.role === "individual_publisher" &&
+      !adminContext.individualId)
   ) {
     redirect("/");
   }

@@ -28,6 +28,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Pocket Genes Admin": "Administración Pocket Genes",
   "Full admin": "Administrador total",
   "Institution admin": "Administrador de institución",
+  "Individual publisher": "Publicador individual",
   "Institution operator": "Operario de institución",
   "Institution laboratory staff": "Personal de laboratorio de institución",
   "Institution doctor": "Médico de institución",
@@ -79,6 +80,8 @@ const SPANISH_TEXT: Record<string, string> = {
   Spanish: "Español",
   "Add an English organization description to reach a broader audience.":
     "Agregá una descripción de la organización en inglés para llegar a una audiencia más amplia.",
+  "Add an English individual publisher description to reach a broader audience.":
+    "Agregá una descripción del publicador individual en inglés para llegar a una audiencia más amplia.",
   Discover: "Discover",
   "Discover feed publishers and mobile feed entries.":
     "Publicadores y entradas móviles del feed Discover.",
@@ -86,6 +89,33 @@ const SPANISH_TEXT: Record<string, string> = {
   "Discover entry": "Entrada de Discover",
   Organizations: "Organizaciones",
   Organization: "Organización",
+  "Individual Publishers": "Publicadores individuales",
+  "New individual publisher": "Nuevo publicador individual",
+  "Create individual publisher": "Crear publicador individual",
+  "Back to individual publishers": "Volver a publicadores individuales",
+  "Individual type": "Tipo de individuo",
+  "Individual publisher name": "Nombre del publicador individual",
+  "Individual publisher name is required.":
+    "El nombre del publicador individual es obligatorio.",
+  "Individual publisher color must be a 6-digit hex value.":
+    "El color del publicador individual debe ser un valor hexadecimal de 6 dígitos.",
+  "Individual publisher created.": "Publicador individual creado.",
+  "Individual publisher changes saved.":
+    "Cambios del publicador individual guardados.",
+  "Individual publisher archived.": "Publicador individual archivado.",
+  "Individual publisher reactivated.": "Publicador individual reactivado.",
+  "Unable to save the individual publisher.":
+    "No se pudo guardar el publicador individual.",
+  "Unable to load more individual publishers.":
+    "No se pudieron cargar más publicadores individuales.",
+  "Unable to refresh individual publishers.":
+    "No se pudieron actualizar los publicadores individuales.",
+  "Unable to update the individual publisher status.":
+    "No se pudo actualizar el estado del publicador individual.",
+  "No Discover individual publishers match the loaded rows.":
+    "Ningún publicador individual de Discover coincide con las filas cargadas.",
+  "Search individual publisher name, URL, email, or slug":
+    "Buscar por nombre, URL, email o slug de publicador individual",
   "New organization": "Nueva organización",
   "Create organization": "Crear organización",
   "Back to organizations": "Volver a organizaciones",
@@ -133,6 +163,14 @@ const SPANISH_TEXT: Record<string, string> = {
   "Patient advocacy group": "Grupo de apoyo a pacientes",
   "Public health agency": "Agencia de salud pública",
   "Conference organizer": "Organizador de conferencias",
+  Researcher: "Investigador",
+  Clinician: "Clínico",
+  "Genetic counselor": "Asesor genético",
+  "Patient advocate": "Referente de pacientes",
+  Bioinformatician: "Bioinformático",
+  Educator: "Educador",
+  Journalist: "Periodista",
+  "Community leader": "Líder comunitario",
   Unspecified: "Sin especificar",
   "Feed entries": "Entradas del feed",
   "Feed entry": "Entrada del feed",
@@ -145,7 +183,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Publisher draft": "Borrador de publicador",
   "No publisher selected": "Sin publicador seleccionado",
   "Choose organization": "Elegir organización",
+  "Choose publisher": "Elegir publicador",
   "Choose a publisher organization.": "Elegí una organización publicadora.",
+  "Choose one publisher.": "Elegí un publicador.",
   "Select countries": "Seleccionar países",
   "Choose countries": "Elegir países",
   "Search countries": "Buscar países",
@@ -278,6 +318,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Paste a HTTPS URL": "Pegá una URL HTTPS",
   "Only active organizations can publish feed entries.":
     "Solo organizaciones activas pueden publicar entradas del feed.",
+  "Only active publishers can publish feed entries.":
+    "Solo publicadores activos pueden publicar entradas del feed.",
   "Title is required before publishing.":
     "El título es obligatorio antes de publicar.",
   "Subtitle is required before publishing.":
@@ -297,10 +339,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Opportunity location is required before publishing.":
     "La ubicación de la oportunidad es obligatoria antes de publicar.",
   "feed_organizations publishers": "Publicadores de feed_organizations",
+  "feed_individuals publishers": "Publicadores de feed_individuals",
   "feed_items mobile Discover entries":
     "Entradas móviles de Discover en feed_items",
   "Publishers stored in feed_organizations for Discover feed entries.":
     "Publicadores guardados en feed_organizations para entradas de Discover.",
+  "Publishers stored in feed_individuals for Discover feed entries.":
+    "Publicadores guardados en feed_individuals para entradas de Discover.",
   "Create a Discover publisher for mobile feed entries.":
     "Crear un publicador de Discover para entradas móviles del feed.",
   "Discover publisher detail.": "Detalle del publicador de Discover.",
@@ -312,16 +357,28 @@ const SPANISH_TEXT: Record<string, string> = {
     "Detalle de entrada Discover con validación de payload por tipo.",
   "Create a canonical feed_organizations publisher for Discover feed entries.":
     "Crear un publicador feed_organizations canónico para entradas de Discover.",
+  "Create a canonical feed_individuals publisher for Discover feed entries.":
+    "Crear un publicador feed_individuals canónico para entradas de Discover.",
   "Create a feed_items document with one type-specific payload and an automatic publisher snapshot.":
     "Crear un documento feed_items con payload específico por tipo y snapshot automático del publicador.",
   "Manage feed_items documents that the mobile apps read for Discover.":
     "Gestionar documentos feed_items que las apps móviles leen para Discover.",
   "Manage feed_organizations publishers used by Discover feed entries.":
     "Gestionar publicadores feed_organizations usados por las entradas de Discover.",
+  "Manage feed_individuals publishers used by Discover feed entries.":
+    "Gestionar publicadores feed_individuals usados por las entradas de Discover.",
   "Edit one feed_items document while preserving the mobile app field contract.":
     "Editar un documento feed_items conservando el contrato de campos de la app móvil.",
   "Edit the canonical publisher record used by Discover feed entries.":
     "Editar el registro canónico del publicador usado por las entradas de Discover.",
+  "Edit the canonical individual publisher record used by Discover feed entries.":
+    "Editar el registro canónico del publicador individual usado por las entradas de Discover.",
+  "Individual-scoped Discover publishing access for one feed_individuals publisher and its feed entries.":
+    "Acceso de publicación Discover limitado a un publicador de feed_individuals y sus entradas del feed.",
+  "Can access only Discover individual publishers and feed entries for one linked individual publisher.":
+    "Puede acceder sólo a publicadores individuales de Discover y entradas del feed de un publicador individual vinculado.",
+  "Can create, edit, duplicate, and delete feed entries only for that individual publisher.":
+    "Puede crear, editar, duplicar y eliminar entradas del feed sólo para ese publicador individual.",
   "Auth user": "Usuario Auth",
   "Private profile": "Perfil privado",
   "Public profile": "Perfil público",
@@ -2062,6 +2119,14 @@ const SPANISH_TEXT: Record<string, string> = {
   "Role assignment created.": "Asignación de rol creada.",
   "Role assignment operations": "Operaciones de asignación de rol",
   "Role assignment saved.": "Asignación de rol guardada.",
+  "Individual publisher roles require an individual publisher.":
+    "Los roles de publicador individual requieren un publicador individual.",
+  "Select individual publisher": "Seleccionar publicador individual",
+  "No individual publisher": "Sin publicador individual",
+  "Discover individual publisher scope":
+    "Alcance del publicador individual de Discover",
+  "Open individual publisher": "Abrir publicador individual",
+  "Individual publisher id": "ID de publicador individual",
   "These CRUD chips apply only to role assignment records, not to every 2PQ operational screen.":
     "Estos indicadores CRUD aplican solo a registros de asignación de rol, no a todas las pantallas operativas 2PQ.",
   "Role detail is where email-based access, institution scope, doctor scope, and patient scope all come together in one typed form.":

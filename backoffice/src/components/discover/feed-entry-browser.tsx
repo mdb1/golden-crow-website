@@ -33,6 +33,7 @@ import {
   type DiscoverFeedItemsPage,
   type DiscoverFeedStatus,
   type DiscoverFeedType,
+  type DiscoverIndividualRecord,
   type DiscoverOrganizationRecord,
 } from "@/lib/discover";
 
@@ -60,11 +61,13 @@ export function DiscoverFeedEntryBrowser({
   initialFeedItems,
   initialNextCursor,
   organizations,
+  individuals,
   initialLoadError,
 }: {
   initialFeedItems: DiscoverFeedItemRecord[];
   initialNextCursor: string | null;
   organizations: DiscoverOrganizationRecord[];
+  individuals: DiscoverIndividualRecord[];
   initialLoadError?: string | null;
 }) {
   const { language } = useAppLanguage();
@@ -75,7 +78,7 @@ export function DiscoverFeedEntryBrowser({
   const [query, setQuery] = useState("");
   const [type, setType] = useState<"all" | DiscoverFeedType>("all");
   const [status, setStatus] = useState<"all" | DiscoverFeedStatus>("all");
-  const [organizationId, setOrganizationId] = useState("all");
+  const [publisherFilter, setPublisherFilter] = useState("all");
   const [pending, setPending] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(
     initialLoadError
@@ -92,6 +95,10 @@ export function DiscoverFeedEntryBrowser({
     () => new Map(organizations.map((organization) => [organization.id, organization])),
     [organizations],
   );
+  const individualById = useMemo(
+    () => new Map(individuals.map((individual) => [individual.id, individual])),
+    [individuals],
+  );
   const filteredFeedItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -100,6 +107,7 @@ export function DiscoverFeedEntryBrowser({
       const searchable = [
         item.id,
         item.publisherOrganizationId,
+        item.publisherIndividualId,
         item.publisherSnapshot.name,
         item.type,
         item.status,
@@ -127,11 +135,14 @@ export function DiscoverFeedEntryBrowser({
         (!normalizedQuery || searchable.includes(normalizedQuery)) &&
         (type === "all" || item.type === type) &&
         (status === "all" || item.status === status) &&
-        (organizationId === "all" ||
-          item.publisherOrganizationId === organizationId)
+        (publisherFilter === "all" ||
+          (publisherFilter.startsWith("organization:") &&
+            item.publisherOrganizationId === publisherFilter.slice("organization:".length)) ||
+          (publisherFilter.startsWith("individual:") &&
+            item.publisherIndividualId === publisherFilter.slice("individual:".length)))
       );
     });
-  }, [feedItems, organizationId, query, status, type]);
+  }, [feedItems, publisherFilter, query, status, type]);
 
   async function loadMore() {
     if (!nextCursor) {
@@ -288,16 +299,29 @@ export function DiscoverFeedEntryBrowser({
             ))}
           </select>
           <select
-            value={organizationId}
-            onChange={(event) => setOrganizationId(event.target.value)}
+            value={publisherFilter}
+            onChange={(event) => setPublisherFilter(event.target.value)}
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="all">{t("All publishers")}</option>
-            {organizations.map((organization) => (
-              <option key={organization.id} value={organization.id}>
-                {organization.name}
-              </option>
-            ))}
+            {organizations.length > 0 ? (
+              <optgroup label={t("Organizations")}>
+                {organizations.map((organization) => (
+                  <option key={organization.id} value={`organization:${organization.id}`}>
+                    {organization.name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+            {individuals.length > 0 ? (
+              <optgroup label={t("Individual Publishers")}>
+                {individuals.map((individual) => (
+                  <option key={individual.id} value={`individual:${individual.id}`}>
+                    {individual.name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
           </select>
         </div>
       </div>
@@ -317,7 +341,11 @@ export function DiscoverFeedEntryBrowser({
           </div>
         ) : (
           filteredFeedItems.map((item) => {
-            const organization = organizationById.get(item.publisherOrganizationId);
+            const publisher = item.publisherOrganizationId
+              ? organizationById.get(item.publisherOrganizationId)
+              : item.publisherIndividualId
+                ? individualById.get(item.publisherIndividualId)
+                : undefined;
             const blocker = hasPublishBlocker(item);
 
             return (
@@ -350,7 +378,11 @@ export function DiscoverFeedEntryBrowser({
                   <div className="font-medium text-foreground">
                     {item.publisherSnapshot.name}
                   </div>
-                  <div>{organization?.status ? t(organization.status) : item.publisherOrganizationId}</div>
+                  <div>
+                    {publisher?.status
+                      ? t(publisher.status)
+                      : item.publisherOrganizationId ?? item.publisherIndividualId}
+                  </div>
                 </div>
 
                 <div>

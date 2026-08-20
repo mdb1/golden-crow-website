@@ -15,7 +15,7 @@ export function getRoleBadgeVariant(role: AdminRole) {
     return "destructive" as const;
   }
 
-  if (role === "organization_publisher") {
+  if (role === "organization_publisher" || role === "individual_publisher") {
     return "secondary" as const;
   }
 
@@ -260,6 +260,10 @@ export function getRoleCreateRestrictionMessage(context: AdminContextRecord) {
     return "Organization publishers cannot create role assignments.";
   }
 
+  if (context.role === "individual_publisher") {
+    return "Individual publishers cannot create role assignments.";
+  }
+
   return "The current scope cannot create role assignments.";
 }
 
@@ -317,6 +321,11 @@ export const ROLE_CAPABILITY_LINES: Record<AdminRole, string[]> = {
   organization_publisher: [
     "Can access only Discover organizations and feed entries for one linked organization.",
     "Can create, edit, duplicate, and delete feed entries only for that organization.",
+    "Cannot access 2PQ, institution areas, reports, community moderation, learning, or role management.",
+  ],
+  individual_publisher: [
+    "Can access only Discover individual publishers and feed entries for one linked individual publisher.",
+    "Can create, edit, duplicate, and delete feed entries only for that individual publisher.",
     "Cannot access 2PQ, institution areas, reports, community moderation, learning, or role management.",
   ],
   institution_admin: [

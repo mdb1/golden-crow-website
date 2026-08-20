@@ -4,6 +4,7 @@ import { PageHero } from "@/components/page-hero";
 import { requireDiscoverAccess } from "@/lib/discover-server";
 import type {
   DiscoverFeedItemsPage,
+  DiscoverIndividualsPage,
   DiscoverOrganizationsPage,
 } from "@/lib/discover";
 import { appText } from "@/lib/language";
@@ -20,16 +21,27 @@ async function loadDiscoverPageData<T>(path: string) {
 }
 
 export default async function DiscoverFeedEntriesPage() {
-  await requireDiscoverAccess();
+  const adminContext = await requireDiscoverAccess();
 
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
-  const [feedPageResult, organizationsPageResult] = await Promise.all([
+  const [feedPageResult, organizationsPageResult, individualsPageResult] = await Promise.all([
     loadDiscoverPageData<DiscoverFeedItemsPage>("/discover/feed-items"),
-    loadDiscoverPageData<DiscoverOrganizationsPage>("/discover/organizations?limit=50"),
+    adminContext.role === "individual_publisher"
+      ? Promise.resolve({
+          data: { organizations: [], nextCursor: null },
+          failed: false,
+        })
+      : loadDiscoverPageData<DiscoverOrganizationsPage>("/discover/organizations?limit=50"),
+    adminContext.role === "organization_publisher"
+      ? Promise.resolve({
+          data: { individuals: [], nextCursor: null },
+          failed: false,
+        })
+      : loadDiscoverPageData<DiscoverIndividualsPage>("/discover/individuals?limit=50"),
   ]);
   const initialLoadError =
-    feedPageResult.failed || organizationsPageResult.failed
+    feedPageResult.failed || organizationsPageResult.failed || individualsPageResult.failed
       ? t("Unable to load Discover data. Refresh the page or contact support if it repeats.")
       : null;
 
@@ -48,6 +60,7 @@ export default async function DiscoverFeedEntriesPage() {
           initialFeedItems={feedPageResult.data?.feedItems ?? []}
           initialNextCursor={feedPageResult.data?.nextCursor ?? null}
           organizations={organizationsPageResult.data?.organizations ?? []}
+          individuals={individualsPageResult.data?.individuals ?? []}
           initialLoadError={initialLoadError}
         />
       </HeaderUnclutterScope>

@@ -21,8 +21,12 @@ import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
 import { cn } from "@/lib/utils";
 import {
+  DISCOVER_INDIVIDUAL_TYPE_OPTIONS,
   DISCOVER_ORGANIZATION_STATUS_OPTIONS,
   DISCOVER_ORGANIZATION_TYPE_OPTIONS,
+  type DiscoverIndividualRecord,
+  type DiscoverIndividualStatus,
+  type DiscoverIndividualType,
   type DiscoverOrganizationRecord,
   type DiscoverOrganizationStatus,
   type DiscoverOrganizationType,
@@ -33,15 +37,19 @@ import {
   slugifyDiscoverOrganizationName,
 } from "@/lib/discover-organization-fields";
 
+type PublisherKind = "organization" | "individual";
+type PublisherRecord = DiscoverOrganizationRecord | DiscoverIndividualRecord;
+
 type OrganizationFormState = {
   name: string;
   imageUrl: string;
-  status: DiscoverOrganizationStatus;
+  status: DiscoverOrganizationStatus | DiscoverIndividualStatus;
   websiteUrl: string;
   description: string;
   description_en: string;
   countryCode: string;
   organizationType: "" | DiscoverOrganizationType;
+  individualType: "" | DiscoverIndividualType;
   color_hex: string;
   verified: boolean;
   contactEmail: string;
@@ -49,32 +57,43 @@ type OrganizationFormState = {
 };
 
 function toFormState(
-  organization?: DiscoverOrganizationRecord | null,
+  publisher?: PublisherRecord | null,
 ): OrganizationFormState {
+  const organization = publisher as Partial<DiscoverOrganizationRecord> | undefined;
+  const individual = publisher as Partial<DiscoverIndividualRecord> | undefined;
+
   return {
-    name: organization?.name ?? "",
-    imageUrl: organization?.imageUrl ?? "",
-    status: organization?.status ?? "active",
-    websiteUrl: organization?.websiteUrl ?? "",
-    description: organization?.description ?? "",
-    description_en: organization?.description_en ?? "",
-    countryCode: organization?.countryCode?.toUpperCase() ?? "",
+    name: publisher?.name ?? "",
+    imageUrl: publisher?.imageUrl ?? "",
+    status: publisher?.status ?? "active",
+    websiteUrl: publisher?.websiteUrl ?? "",
+    description: publisher?.description ?? "",
+    description_en: publisher?.description_en ?? "",
+    countryCode: publisher?.countryCode?.toUpperCase() ?? "",
     organizationType: organization?.organizationType ?? "",
-    color_hex: organization?.color_hex ?? "",
-    verified: organization?.verified ?? false,
-    contactEmail: organization?.contactEmail ?? "",
-    internalNotes: organization?.internalNotes ?? "",
+    individualType: individual?.individualType ?? "",
+    color_hex: publisher?.color_hex ?? "",
+    verified: publisher?.verified ?? false,
+    contactEmail: publisher?.contactEmail ?? "",
+    internalNotes: publisher?.internalNotes ?? "",
   };
 }
 
-function payloadFromState(state: OrganizationFormState) {
+function payloadFromState(state: OrganizationFormState, publisherKind: PublisherKind) {
   return {
     ...state,
     slug: slugifyDiscoverOrganizationName(state.name),
     imageUrl: state.imageUrl || null,
     websiteUrl: state.websiteUrl || null,
     countryCode: state.countryCode || undefined,
-    organizationType: state.organizationType || undefined,
+    organizationType:
+      publisherKind === "organization"
+        ? state.organizationType || undefined
+        : undefined,
+    individualType:
+      publisherKind === "individual"
+        ? state.individualType || undefined
+        : undefined,
     color_hex: normalizedColorHex(state.color_hex) || undefined,
   };
 }
@@ -100,29 +119,31 @@ const DESCRIPTION_LANGUAGE_OPTIONS = [
 
 type DescriptionLanguage = (typeof DESCRIPTION_LANGUAGE_OPTIONS)[number]["value"];
 
-export function DiscoverOrganizationWorkbench({
-  organization,
+function DiscoverPublisherWorkbench({
+  publisher,
+  publisherKind,
   mode = "edit",
   canManageSystemFields = true,
 }: {
-  organization?: DiscoverOrganizationRecord;
+  publisher?: PublisherRecord;
+  publisherKind: PublisherKind;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const router = useRouter();
-  const [state, setState] = useState(() => toFormState(organization));
+  const [state, setState] = useState(() => toFormState(publisher));
   const [activeDescriptionLanguage, setActiveDescriptionLanguage] =
     useState<DescriptionLanguage>("es");
   const [manualColorMode, setManualColorMode] = useState(false);
   const [manualColorDraft, setManualColorDraft] = useState(() =>
-    colorTextValue(toFormState(organization).color_hex),
+    colorTextValue(toFormState(publisher).color_hex),
   );
   const [manualColorError, setManualColorError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
-  const sourceState = useMemo(() => toFormState(organization), [organization]);
+  const sourceState = useMemo(() => toFormState(publisher), [publisher]);
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
   const countryGroups = useMemo(
     () => getDiscoverOrganizationCountryGroups(language),
@@ -132,10 +153,30 @@ export function DiscoverOrganizationWorkbench({
     state.countryCode,
     language,
   );
+  const isIndividual = publisherKind === "individual";
+  const publisherListHref = isIndividual
+    ? "/discover/individuals"
+    : "/discover/organizations";
+  const publisherDetailHref = (id: string) =>
+    isIndividual
+      ? `/discover/individuals/${id}`
+      : `/discover/organizations/${id}`;
+  const endpointBase = isIndividual
+    ? "/discover/individuals"
+    : "/discover/organizations";
+  const typeOptions = isIndividual
+    ? DISCOVER_INDIVIDUAL_TYPE_OPTIONS
+    : DISCOVER_ORGANIZATION_TYPE_OPTIONS;
+  const publisherNameLabel = isIndividual
+    ? t("Individual publisher name")
+    : t("Organization name");
+  const colorErrorText = isIndividual
+    ? t("Individual publisher color must be a 6-digit hex value.")
+    : t("Organization color must be a 6-digit hex value.");
   const colorHex = normalizedColorHex(state.color_hex);
   const appliedColorError =
     state.color_hex.trim() && colorHex === null
-      ? t("Organization color must be a 6-digit hex value.")
+      ? colorErrorText
       : null;
   const colorError = manualColorError || appliedColorError;
   const visibleColorText = manualColorMode
@@ -183,7 +224,7 @@ export function DiscoverOrganizationWorkbench({
   function applyManualColor() {
     const nextColor = normalizedColorHex(manualColorDraft);
     if (!nextColor) {
-      setManualColorError(t("Organization color must be a 6-digit hex value."));
+      setManualColorError(colorErrorText);
       return;
     }
 
@@ -204,7 +245,9 @@ export function DiscoverOrganizationWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Organization name is required."),
+        message: isIndividual
+          ? t("Individual publisher name is required.")
+          : t("Organization name is required."),
       });
       return;
     }
@@ -226,34 +269,45 @@ export function DiscoverOrganizationWorkbench({
     setPending(true);
     try {
       if (mode === "create") {
-        const response = await sdkFetch<{ organization: DiscoverOrganizationRecord }>(
-          "/discover/organizations",
+        const response = await sdkFetch<
+          { organization: DiscoverOrganizationRecord } |
+          { individual: DiscoverIndividualRecord }
+        >(
+          endpointBase,
           {
             method: "POST",
-            body: JSON.stringify(payloadFromState(nextState)),
+            body: JSON.stringify(payloadFromState(nextState, publisherKind)),
           },
         );
+        const saved = isIndividual
+          ? (response as { individual: DiscoverIndividualRecord }).individual
+          : (response as { organization: DiscoverOrganizationRecord }).organization;
         setState(nextState);
         closeManualColorEditor(nextState.color_hex);
         setToast({
           id: Date.now(),
           tone: "success",
-          message: t("Organization created."),
+          message: isIndividual
+            ? t("Individual publisher created.")
+            : t("Organization created."),
         });
-        router.push(`/discover/organizations/${response.organization.id}`);
+        router.push(publisherDetailHref(saved.id));
         router.refresh();
         return;
       }
 
-      if (!organization) {
+      if (!publisher) {
         return;
       }
 
-      await sdkFetch<{ organization: DiscoverOrganizationRecord }>(
-        `/discover/organizations/${organization.id}`,
+      await sdkFetch<
+        { organization: DiscoverOrganizationRecord } |
+        { individual: DiscoverIndividualRecord }
+      >(
+        `${endpointBase}/${publisher.id}`,
         {
           method: "PUT",
-          body: JSON.stringify(payloadFromState(nextState)),
+          body: JSON.stringify(payloadFromState(nextState, publisherKind)),
         },
       );
       setState(nextState);
@@ -261,7 +315,9 @@ export function DiscoverOrganizationWorkbench({
       setToast({
         id: Date.now(),
         tone: "success",
-        message: t("Organization changes saved."),
+        message: isIndividual
+          ? t("Individual publisher changes saved.")
+          : t("Organization changes saved."),
       });
       router.refresh();
     } catch (error) {
@@ -271,7 +327,9 @@ export function DiscoverOrganizationWorkbench({
         message:
           error instanceof Error
             ? error.message
-            : t("Unable to save the organization."),
+            : isIndividual
+              ? t("Unable to save the individual publisher.")
+              : t("Unable to save the organization."),
       });
     } finally {
       setPending(false);
@@ -284,14 +342,14 @@ export function DiscoverOrganizationWorkbench({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/discover/organizations">
+          <Link href={publisherListHref}>
             <ArrowLeft className="h-3.5 w-3.5" />
-            {t("Back to organizations")}
+            {isIndividual ? t("Back to individual publishers") : t("Back to organizations")}
           </Link>
         </Button>
-        {organization ? (
+        {publisher ? (
           <span className="font-mono text-xs text-muted-foreground">
-            {organization.id}
+            {publisher.id}
           </span>
         ) : null}
       </div>
@@ -300,7 +358,13 @@ export function DiscoverOrganizationWorkbench({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 items-center gap-2">
             <h2 className="font-heading text-xl font-semibold text-foreground">
-              {mode === "create" ? t("Create organization") : t("Organization")}
+              {mode === "create"
+                ? isIndividual
+                  ? t("Create individual publisher")
+                  : t("Create organization")
+                : isIndividual
+                  ? t("Individual publisher")
+                  : t("Organization")}
             </h2>
             <HeaderUnclutterButton />
           </div>
@@ -337,20 +401,29 @@ export function DiscoverOrganizationWorkbench({
               </select>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="discover-org-type">{t("Organization type")}</Label>
+              <Label htmlFor="discover-org-type">
+                {isIndividual ? t("Individual type") : t("Organization type")}
+              </Label>
               <select
                 id="discover-org-type"
-                value={state.organizationType}
+                value={isIndividual ? state.individualType : state.organizationType}
                 onChange={(event) =>
-                  updateState({
-                    organizationType: event.target
-                      .value as OrganizationFormState["organizationType"],
-                  })
+                  updateState(
+                    isIndividual
+                      ? {
+                          individualType: event.target
+                            .value as OrganizationFormState["individualType"],
+                        }
+                      : {
+                          organizationType: event.target
+                            .value as OrganizationFormState["organizationType"],
+                        },
+                  )
                 }
                 className="h-10 rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="">{t("Unspecified")}</option>
-                {DISCOVER_ORGANIZATION_TYPE_OPTIONS.map((option) => (
+                {typeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {t(option.label)}
                   </option>
@@ -505,9 +578,9 @@ export function DiscoverOrganizationWorkbench({
               />
               {showEnglishDescriptionWarning ? (
                 <p className="rounded-md border border-violet-200 bg-violet-50 px-2.5 py-2 text-xs font-medium text-violet-900 dark:border-violet-400/30 dark:bg-violet-500/12 dark:text-violet-100">
-                  {t(
-                    "Add an English organization description to reach a broader audience.",
-                  )}
+                  {isIndividual
+                    ? t("Add an English individual publisher description to reach a broader audience.")
+                    : t("Add an English organization description to reach a broader audience.")}
                 </p>
               ) : null}
             </div>
@@ -565,7 +638,7 @@ export function DiscoverOrganizationWorkbench({
             </div>
             <div className="rounded-md border border-border px-3 py-3 text-sm text-muted-foreground">
               <div className="font-medium text-foreground">
-                {state.name || t("Organization name")}
+                {state.name || publisherNameLabel}
               </div>
               <div>{state.websiteUrl || t("No website URL")}</div>
               <div>{countryLabel || t("No country")}</div>
@@ -608,7 +681,9 @@ export function DiscoverOrganizationWorkbench({
                 {pending
                   ? t("Saving...")
                   : mode === "create"
-                    ? t("Create organization")
+                    ? isIndividual
+                      ? t("Create individual publisher")
+                      : t("Create organization")
                     : t("Save changes")}
               </Button>
             </div>
@@ -616,5 +691,43 @@ export function DiscoverOrganizationWorkbench({
         </div>
       </section>
     </div>
+  );
+}
+
+export function DiscoverOrganizationWorkbench({
+  organization,
+  mode = "edit",
+  canManageSystemFields = true,
+}: {
+  organization?: DiscoverOrganizationRecord;
+  mode?: "create" | "edit";
+  canManageSystemFields?: boolean;
+}) {
+  return (
+    <DiscoverPublisherWorkbench
+      publisher={organization}
+      publisherKind="organization"
+      mode={mode}
+      canManageSystemFields={canManageSystemFields}
+    />
+  );
+}
+
+export function DiscoverIndividualWorkbench({
+  individual,
+  mode = "edit",
+  canManageSystemFields = true,
+}: {
+  individual?: DiscoverIndividualRecord;
+  mode?: "create" | "edit";
+  canManageSystemFields?: boolean;
+}) {
+  return (
+    <DiscoverPublisherWorkbench
+      publisher={individual}
+      publisherKind="individual"
+      mode={mode}
+      canManageSystemFields={canManageSystemFields}
+    />
   );
 }

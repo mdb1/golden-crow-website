@@ -26,8 +26,8 @@ const SEQUENCES_COLLECTION = "admin_sequences";
 const CONSENTS_PAGE_SIZE = 20;
 export const INFORMED_CONSENT_FILE_MAX_BYTES = 750_000;
 const CONSENT_EMAIL_SENDER_EMAIL = "dopazoh+admin@gmail.com";
-const ORGANIZATION_PUBLISHER_CONSENT_ERROR =
-  "Organization publishers cannot access informed consents.";
+const PUBLISHER_CONSENT_ERROR =
+  "Discover publishers cannot access informed consents.";
 
 const ALLOWED_FILE_TYPES = new Set([
   "application/pdf",
@@ -106,8 +106,11 @@ async function getPatient(patientId: string) {
 }
 
 function assertCanUseInformedConsents(context: AdminContext) {
-  if (context.role === "organization_publisher") {
-    throw new AdminRepositoryError(ORGANIZATION_PUBLISHER_CONSENT_ERROR, 403);
+  if (
+    context.role === "organization_publisher" ||
+    context.role === "individual_publisher"
+  ) {
+    throw new AdminRepositoryError(PUBLISHER_CONSENT_ERROR, 403);
   }
 }
 

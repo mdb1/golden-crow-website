@@ -102,7 +102,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     );
 
     fireEvent.change(screen.getByLabelText("Publisher"), {
-      target: { value: "org-1" },
+      target: { value: "organization:org-1" },
     });
     fireEvent.click(screen.getByRole("button", { name: /choose countries/i }));
     expect(screen.getByRole("dialog")).toBeTruthy();

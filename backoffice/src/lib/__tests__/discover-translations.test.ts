@@ -41,8 +41,10 @@ function discoverUiKeys() {
   [
     "Discover feed publishers and mobile feed entries.",
     "feed_organizations publishers",
+    "feed_individuals publishers",
     "feed_items mobile Discover entries",
     "Publishers stored in feed_organizations for Discover feed entries.",
+    "Publishers stored in feed_individuals for Discover feed entries.",
     "Create a Discover publisher for mobile feed entries.",
     "Discover publisher detail.",
     "Mobile Discover feed entries stored in feed_items.",

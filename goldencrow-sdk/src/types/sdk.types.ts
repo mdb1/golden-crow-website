@@ -20,6 +20,7 @@ export type AdminUserSex =
 export type AdminRole =
   | "full_admin"
   | "organization_publisher"
+  | "individual_publisher"
   | "institution_admin"
   | "institution_operator"
   | "institution_laboratory_staff"
@@ -70,6 +71,7 @@ export interface UserRoleRecord {
   email: string;
   role: AdminRole;
   organizationId?: string;
+  individualId?: string;
   institutionId?: string;
   doctorId?: string;
   patientId?: string;
@@ -105,6 +107,7 @@ export interface AdminContext {
   uid: string;
   role: AdminRole;
   organizationId?: string;
+  individualId?: string;
   institutionId?: string;
   doctorId?: string;
   patientId?: string;
@@ -221,6 +224,7 @@ export interface InformedConsentPatientOption {
 
 export interface RoleManagementRecord extends UserRoleRecord {
   organizationName?: string;
+  individualName?: string;
   institutionName?: string;
   doctorName?: string;
   patientName?: string;
@@ -584,6 +588,17 @@ export type DiscoverOrganizationType =
   | "conference_organizer"
   | "company"
   | "other";
+export type DiscoverIndividualStatus = DiscoverOrganizationStatus;
+export type DiscoverIndividualType =
+  | "researcher"
+  | "clinician"
+  | "genetic_counselor"
+  | "patient_advocate"
+  | "bioinformatician"
+  | "educator"
+  | "journalist"
+  | "community_leader"
+  | "other";
 
 export interface DiscoverOrganizationRecord {
   id: string;
@@ -596,6 +611,27 @@ export interface DiscoverOrganizationRecord {
   description_en?: string;
   countryCode?: string;
   organizationType?: DiscoverOrganizationType;
+  color_hex?: string;
+  verified: boolean;
+  contactEmail?: string;
+  internalNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdByUserId?: string;
+  updatedByUserId?: string;
+}
+
+export interface DiscoverIndividualRecord {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  status: DiscoverIndividualStatus;
+  slug?: string;
+  websiteUrl?: string;
+  description?: string;
+  description_en?: string;
+  countryCode?: string;
+  individualType?: DiscoverIndividualType;
   color_hex?: string;
   verified: boolean;
   contactEmail?: string;
@@ -623,7 +659,8 @@ export interface DiscoverPublisherSnapshot {
 
 export interface DiscoverFeedItemRecord {
   id: string;
-  publisherOrganizationId: string;
+  publisherOrganizationId: string | null;
+  publisherIndividualId: string | null;
   publisherSnapshot: DiscoverPublisherSnapshot;
   type: DiscoverFeedType;
   publishedAt: string | null;

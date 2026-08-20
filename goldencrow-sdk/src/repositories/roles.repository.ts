@@ -23,12 +23,14 @@ import type {
 
 const USER_ROLES_COLLECTION = "user_roles";
 const FEED_ORGANIZATIONS_COLLECTION = "feed_organizations";
+const FEED_INDIVIDUALS_COLLECTION = "feed_individuals";
 const BOOTSTRAP_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
 const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
   full_admin: [
     "full_admin",
     "organization_publisher",
+    "individual_publisher",
     "institution_admin",
     "institution_operator",
     "institution_laboratory_staff",
@@ -51,6 +53,7 @@ const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
   institution_laboratory_staff: [],
   institution_doctor: ["patient"],
   organization_publisher: [],
+  individual_publisher: [],
   patient: [],
 };
 
@@ -148,6 +151,7 @@ function isAdminRole(value: string): value is AdminRole {
   return (
     value === "full_admin" ||
     value === "organization_publisher" ||
+    value === "individual_publisher" ||
     value === "institution_admin" ||
     value === "institution_operator" ||
     value === "institution_laboratory_staff" ||
@@ -169,6 +173,7 @@ function toUserRoleRecord(
     email,
     role: resolvedRole,
     organizationId: normalizeOptionalString(data.organizationId),
+    individualId: normalizeOptionalString(data.individualId),
     institutionId: normalizeOptionalString(data.institutionId),
     doctorId: normalizeOptionalString(data.doctorId),
     patientId: normalizeOptionalString(data.patientId),
@@ -219,6 +224,7 @@ export async function getUserRoleByEmail(
 function getLinkedCollectionIds(payload: {
   role: AdminRole;
   organizationId?: string;
+  individualId?: string;
   institutionId?: string;
   doctorId?: string;
   patientId?: string;
@@ -228,9 +234,14 @@ function getLinkedCollectionIds(payload: {
       payload.role === "organization_publisher"
         ? payload.organizationId
         : undefined,
+    individualId:
+      payload.role === "individual_publisher"
+        ? payload.individualId
+        : undefined,
     institutionId:
       payload.role === "full_admin" ||
-      payload.role === "organization_publisher"
+      payload.role === "organization_publisher" ||
+      payload.role === "individual_publisher"
         ? undefined
         : payload.institutionId,
     doctorId:
@@ -245,10 +256,15 @@ async function validateLinkedRoleEntities(
   email: string,
   payload: Pick<
     UserRoleRecord,
-    "role" | "organizationId" | "institutionId" | "doctorId" | "patientId"
+    | "role"
+    | "organizationId"
+    | "individualId"
+    | "institutionId"
+    | "doctorId"
+    | "patientId"
   >,
 ): Promise<string | null> {
-  const { organizationId, institutionId, doctorId, patientId } =
+  const { organizationId, individualId, institutionId, doctorId, patientId } =
     getLinkedCollectionIds(payload);
   const normalizedEmail = normalizeRoleEmail(email);
 
@@ -267,6 +283,22 @@ async function validateLinkedRoleEntities(
       .get();
     if (!organizationSnapshot.exists) {
       return "The selected organization does not exist.";
+    }
+
+    return null;
+  }
+
+  if (payload.role === "individual_publisher") {
+    if (!individualId) {
+      return "Individual publisher roles require an individual id.";
+    }
+
+    const individualSnapshot = await adminDb
+      .collection(FEED_INDIVIDUALS_COLLECTION)
+      .doc(individualId)
+      .get();
+    if (!individualSnapshot.exists) {
+      return "The selected individual publisher does not exist.";
     }
 
     return null;
@@ -354,6 +386,7 @@ function toRoleManagementRecord(
   return {
     ...record,
     organizationName: extras?.organizationName,
+    individualName: extras?.individualName,
     institutionName: extras?.institutionName,
     doctorName: extras?.doctorName,
     patientName: extras?.patientName,
@@ -364,12 +397,18 @@ function toRoleManagementRecord(
 async function hydrateRoleManagementRecord(
   record: UserRoleRecord,
 ): Promise<RoleManagementRecord> {
-  const [organizationSnap, institutionSnap, doctorSnap, patientSnap] =
+  const [organizationSnap, individualSnap, institutionSnap, doctorSnap, patientSnap] =
     await Promise.all([
       record.organizationId
         ? adminDb
             .collection(FEED_ORGANIZATIONS_COLLECTION)
             .doc(record.organizationId)
+            .get()
+        : Promise.resolve(null),
+      record.individualId
+        ? adminDb
+            .collection(FEED_INDIVIDUALS_COLLECTION)
+            .doc(record.individualId)
             .get()
         : Promise.resolve(null),
       record.institutionId
@@ -389,6 +428,12 @@ async function hydrateRoleManagementRecord(
         ? (normalizeOptionalString(
             (organizationSnap.data() as Record<string, unknown>).name,
           ) ?? organizationSnap.id)
+        : undefined,
+    individualName:
+      individualSnap && individualSnap.exists
+        ? (normalizeOptionalString(
+            (individualSnap.data() as Record<string, unknown>).name,
+          ) ?? individualSnap.id)
         : undefined,
     institutionName:
       institutionSnap && institutionSnap.exists
@@ -432,6 +477,7 @@ export async function resolveAdminContext(input: {
       uid,
       role: roleRecord.role,
       organizationId: roleRecord.organizationId,
+      individualId: roleRecord.individualId,
       institutionId: roleRecord.institutionId,
       doctorId: roleRecord.doctorId,
       patientId: roleRecord.patientId,
@@ -460,6 +506,7 @@ export async function resolveAdminContext(input: {
       uid,
       role: roleRecord.role,
       organizationId: roleRecord.organizationId,
+      individualId: roleRecord.individualId,
       institutionId: roleRecord.institutionId,
       doctorId: roleRecord.doctorId,
       patientId: roleRecord.patientId,
@@ -501,6 +548,18 @@ export function getAdminCapabilities(context: AdminContext): string[] {
       "discover:feed-items:read:own-organization",
       "discover:feed-items:write:own-organization",
       "discover:feed-items:delete:own-organization",
+    ];
+  }
+
+  if (context.role === "individual_publisher") {
+    return [
+      ...base,
+      "discover:individuals:read:own",
+      "discover:individuals:write:own",
+      "discover:feed-items:create:own-individual",
+      "discover:feed-items:read:own-individual",
+      "discover:feed-items:write:own-individual",
+      "discover:feed-items:delete:own-individual",
     ];
   }
 
@@ -551,7 +610,8 @@ export function canManageLegacyModeration(context: AdminContext) {
 export function canAccessDiscover(context: AdminContext) {
   return (
     context.role === "full_admin" ||
-    (context.role === "organization_publisher" && Boolean(context.organizationId))
+    (context.role === "organization_publisher" && Boolean(context.organizationId)) ||
+    (context.role === "individual_publisher" && Boolean(context.individualId))
   );
 }
 
@@ -768,7 +828,12 @@ export function validateRoleScope(
   context: AdminContext,
   payload: Pick<
     UserRoleRecord,
-    "role" | "organizationId" | "institutionId" | "doctorId" | "patientId"
+    | "role"
+    | "organizationId"
+    | "individualId"
+    | "institutionId"
+    | "doctorId"
+    | "patientId"
   >,
 ): string | null {
   if (!canAssignRole(context, payload.role)) {
@@ -785,6 +850,12 @@ export function validateRoleScope(
     return payload.organizationId
       ? null
       : "Organization publisher roles require an organization id.";
+  }
+
+  if (payload.role === "individual_publisher") {
+    return payload.individualId
+      ? null
+      : "Individual publisher roles require an individual id.";
   }
 
   if (!payload.institutionId) {
@@ -851,12 +922,16 @@ export async function listUserRolesForContext(
 
   const institutionIds = new Set<string>();
   const organizationIds = new Set<string>();
+  const individualIds = new Set<string>();
   const doctorIds = new Set<string>();
   const patientIds = new Set<string>();
 
   records.forEach((record) => {
     if (record.organizationId) {
       organizationIds.add(record.organizationId);
+    }
+    if (record.individualId) {
+      individualIds.add(record.individualId);
     }
     if (record.institutionId) {
       institutionIds.add(record.institutionId);
@@ -869,13 +944,21 @@ export async function listUserRolesForContext(
     }
   });
 
-  const [organizationSnaps, institutionSnaps, doctorSnaps, patientSnaps] =
+  const [organizationSnaps, individualSnaps, institutionSnaps, doctorSnaps, patientSnaps] =
     await Promise.all([
       Promise.all(
         [...organizationIds].map((organizationId) =>
           adminDb
             .collection(FEED_ORGANIZATIONS_COLLECTION)
             .doc(organizationId)
+            .get(),
+        ),
+      ),
+      Promise.all(
+        [...individualIds].map((individualId) =>
+          adminDb
+            .collection(FEED_INDIVIDUALS_COLLECTION)
+            .doc(individualId)
             .get(),
         ),
       ),
@@ -898,6 +981,15 @@ export async function listUserRolesForContext(
 
   const organizationNames = new Map(
     organizationSnaps
+      .filter((snapshot) => snapshot.exists)
+      .map((snapshot) => {
+        const data = snapshot.data() as Record<string, unknown>;
+        return [snapshot.id, normalizeOptionalString(data.name) ?? snapshot.id];
+      }),
+  );
+
+  const individualNames = new Map(
+    individualSnaps
       .filter((snapshot) => snapshot.exists)
       .map((snapshot) => {
         const data = snapshot.data() as Record<string, unknown>;
@@ -943,6 +1035,9 @@ export async function listUserRolesForContext(
       toRoleManagementRecord(record, {
         organizationName: record.organizationId
           ? organizationNames.get(record.organizationId)
+          : undefined,
+        individualName: record.individualId
+          ? individualNames.get(record.individualId)
           : undefined,
         institutionName: record.institutionId
           ? institutionNames.get(record.institutionId)
@@ -1153,9 +1248,14 @@ export async function upsertUserRoleForContext(
       payload.role === "organization_publisher"
         ? (payload.organizationId ?? null)
         : null,
+    individualId:
+      payload.role === "individual_publisher"
+        ? (payload.individualId ?? null)
+        : null,
     institutionId:
       payload.role === "full_admin" ||
-      payload.role === "organization_publisher"
+      payload.role === "organization_publisher" ||
+      payload.role === "individual_publisher"
         ? null
         : (payload.institutionId ?? null),
     doctorId:

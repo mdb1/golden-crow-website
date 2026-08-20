@@ -8,6 +8,7 @@ function isAdminRole(value: string | undefined): value is AdminRole {
   return (
     value === "full_admin" ||
     value === "organization_publisher" ||
+    value === "individual_publisher" ||
     value === "institution_admin" ||
     value === "institution_operator" ||
     value === "institution_laboratory_staff" ||
@@ -22,7 +23,10 @@ export default async function RoleAccessPage({
   searchParams: Promise<{ role?: string }>;
 }) {
   const adminContext = await getAdminContextServer();
-  if (adminContext.role === "organization_publisher") {
+  if (
+    adminContext.role === "organization_publisher" ||
+    adminContext.role === "individual_publisher"
+  ) {
     redirect("/my-account");
   }
   const surface = getSurfaceSpec("roles");

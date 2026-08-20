@@ -184,6 +184,7 @@ function scopeText(account: MyAccountRecord) {
   return (
     [
       role.organizationName ?? role.organizationId,
+      role.individualName ?? role.individualId,
       role.institutionName ?? role.institutionId,
       role.doctorName ?? role.doctorId,
       role.patientName ?? role.patientId,
@@ -1004,6 +1005,7 @@ export function MyAccountWorkbench({
           />
           <ReadOnlyField label="Scope" value={currentScope} />
           <ReadOnlyField label="Organization id" value={account.role?.organizationId} mono />
+          <ReadOnlyField label="Individual publisher id" value={account.role?.individualId} mono />
           <ReadOnlyField label="Institution id" value={account.role?.institutionId} mono />
           <ReadOnlyField label="Doctor id" value={account.role?.doctorId} mono />
           <ReadOnlyField label="Patient id" value={account.role?.patientId} mono />

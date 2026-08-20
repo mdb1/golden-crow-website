@@ -10,6 +10,17 @@ export type DiscoverOrganizationType =
   | "conference_organizer"
   | "company"
   | "other";
+export type DiscoverIndividualStatus = DiscoverOrganizationStatus;
+export type DiscoverIndividualType =
+  | "researcher"
+  | "clinician"
+  | "genetic_counselor"
+  | "patient_advocate"
+  | "bioinformatician"
+  | "educator"
+  | "journalist"
+  | "community_leader"
+  | "other";
 
 export interface DiscoverOrganizationRecord {
   id: string;
@@ -22,6 +33,27 @@ export interface DiscoverOrganizationRecord {
   description_en?: string;
   countryCode?: string;
   organizationType?: DiscoverOrganizationType;
+  color_hex?: string;
+  verified: boolean;
+  contactEmail?: string;
+  internalNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdByUserId?: string;
+  updatedByUserId?: string;
+}
+
+export interface DiscoverIndividualRecord {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  status: DiscoverIndividualStatus;
+  slug?: string;
+  websiteUrl?: string;
+  description?: string;
+  description_en?: string;
+  countryCode?: string;
+  individualType?: DiscoverIndividualType;
   color_hex?: string;
   verified: boolean;
   contactEmail?: string;
@@ -49,7 +81,8 @@ export interface DiscoverPublisherSnapshot {
 
 export interface DiscoverFeedItemRecord {
   id: string;
-  publisherOrganizationId: string;
+  publisherOrganizationId: string | null;
+  publisherIndividualId: string | null;
   publisherSnapshot: DiscoverPublisherSnapshot;
   type: DiscoverFeedType;
   publishedAt: string | null;
@@ -77,6 +110,11 @@ export interface DiscoverOrganizationsPage {
   nextCursor: string | null;
 }
 
+export interface DiscoverIndividualsPage {
+  individuals: DiscoverIndividualRecord[];
+  nextCursor: string | null;
+}
+
 export interface DiscoverFeedItemsPage {
   feedItems: DiscoverFeedItemRecord[];
   nextCursor: string | null;
@@ -98,6 +136,18 @@ export const DISCOVER_ORGANIZATION_TYPE_OPTIONS = [
   { value: "public_health_agency", label: "Public health agency" },
   { value: "conference_organizer", label: "Conference organizer" },
   { value: "company", label: "Company" },
+  { value: "other", label: "Other" },
+] as const;
+
+export const DISCOVER_INDIVIDUAL_TYPE_OPTIONS = [
+  { value: "researcher", label: "Researcher" },
+  { value: "clinician", label: "Clinician" },
+  { value: "genetic_counselor", label: "Genetic counselor" },
+  { value: "patient_advocate", label: "Patient advocate" },
+  { value: "bioinformatician", label: "Bioinformatician" },
+  { value: "educator", label: "Educator" },
+  { value: "journalist", label: "Journalist" },
+  { value: "community_leader", label: "Community leader" },
   { value: "other", label: "Other" },
 ] as const;
 
@@ -147,6 +197,19 @@ export function discoverOrganizationTypeLabel(
 
   return (
     DISCOVER_ORGANIZATION_TYPE_OPTIONS.find((option) => option.value === type)
+      ?.label ?? type
+  );
+}
+
+export function discoverIndividualTypeLabel(
+  type?: DiscoverIndividualType,
+) {
+  if (!type) {
+    return "Unspecified";
+  }
+
+  return (
+    DISCOVER_INDIVIDUAL_TYPE_OPTIONS.find((option) => option.value === type)
       ?.label ?? type
   );
 }

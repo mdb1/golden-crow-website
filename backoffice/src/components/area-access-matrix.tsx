@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 const roleBadgeVariants: Record<AdminRole, ComponentProps<typeof Badge>["variant"]> = {
   full_admin: "destructive",
   organization_publisher: "secondary",
+  individual_publisher: "secondary",
   institution_admin: "brand",
   institution_operator: "secondary",
   institution_laboratory_staff: "secondary",

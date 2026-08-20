@@ -3,7 +3,10 @@ import { getAdminContextServer } from "@/lib/admin-context-server";
 
 export default async function DashboardIndexPage() {
   const adminContext = await getAdminContextServer();
-  if (adminContext.role === "organization_publisher") {
+  if (
+    adminContext.role === "organization_publisher" ||
+    adminContext.role === "individual_publisher"
+  ) {
     redirect("/discover/feed-entries");
   }
 

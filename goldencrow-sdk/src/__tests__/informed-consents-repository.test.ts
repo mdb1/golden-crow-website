@@ -283,7 +283,7 @@ describe("informed consent repository scoping", () => {
       organizationId: "ORG-00001",
     };
     const expectedError = {
-      message: "Organization publishers cannot access informed consents.",
+      message: "Discover publishers cannot access informed consents.",
       statusCode: 403,
     };
 

@@ -9,7 +9,10 @@ import type {
   PatientListItem,
 } from "@/lib/admin-areas";
 import { getAssignableRoleOptionsForContext, ROLE_OPTIONS } from "@/lib/admin-areas";
-import type { DiscoverOrganizationsPage } from "@/lib/discover";
+import type {
+  DiscoverIndividualsPage,
+  DiscoverOrganizationsPage,
+} from "@/lib/discover";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { canCreateRoleUi } from "@/lib/areas-ui";
 import { appText } from "@/lib/language";
@@ -48,6 +51,7 @@ export default async function NewRolePage({
     doctorsPayload,
     patientsPayload,
     organizationsPayload,
+    individualsPayload,
   ] =
     await Promise.all([
       sdkFetchServer<{ institutions: InstitutionRecord[] }>(
@@ -60,6 +64,11 @@ export default async function NewRolePage({
             "/discover/organizations?limit=50",
           )
         : Promise.resolve({ organizations: [], nextCursor: null }),
+      adminContext.role === "full_admin" && adminContext.isBootstrap
+        ? sdkFetchServer<DiscoverIndividualsPage>(
+            "/discover/individuals?limit=50",
+          )
+        : Promise.resolve({ individuals: [], nextCursor: null }),
     ]);
 
   return (
@@ -81,6 +90,7 @@ export default async function NewRolePage({
           doctors={doctorsPayload.doctors}
           patients={patientsPayload.patients}
           organizations={organizationsPayload.organizations}
+          individuals={individualsPayload.individuals}
           initialEmail={email}
           initialInstitutionId={institutionId}
           fixedRole={fixedRole}

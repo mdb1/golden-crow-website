@@ -25,6 +25,7 @@ import {
   type RoleManagementRecord,
 } from "@/lib/admin-areas";
 import type { DiscoverOrganizationRecord } from "@/lib/discover";
+import type { DiscoverIndividualRecord } from "@/lib/discover";
 import {
   canCreateRoleUi,
   canEditRoleUi,
@@ -41,6 +42,7 @@ type RoleFormState = {
   email: string;
   role: RoleManagementRecord["role"];
   organizationId: string;
+  individualId: string;
   institutionId: string;
   doctorId: string;
   patientId: string;
@@ -62,6 +64,7 @@ function toRoleFormState(
     email: record?.email ?? defaults?.email ?? "",
     role: record?.role ?? defaults?.role ?? "institution_admin",
     organizationId: record?.organizationId ?? "",
+    individualId: record?.individualId ?? "",
     institutionId: record?.institutionId ?? defaults?.institutionId ?? "",
     doctorId: record?.doctorId ?? defaults?.doctorId ?? "",
     patientId: record?.patientId ?? "",
@@ -81,6 +84,7 @@ export function RoleWorkbench({
   doctors,
   patients,
   organizations = [],
+  individuals = [],
   mode = "edit",
   initialEmail,
   initialInstitutionId,
@@ -91,6 +95,7 @@ export function RoleWorkbench({
   doctors: DoctorListItem[];
   patients: PatientListItem[];
   organizations?: DiscoverOrganizationRecord[];
+  individuals?: DiscoverIndividualRecord[];
   mode?: "create" | "edit";
   initialEmail?: string;
   initialInstitutionId?: string;
@@ -192,9 +197,16 @@ export function RoleWorkbench({
     value: organization.id,
     label: `${organization.name} (${organization.id})`,
   }));
+  const individualOptions = individuals.map((individual) => ({
+    value: individual.id,
+    label: `${individual.name} (${individual.id})`,
+  }));
 
   const selectedOrganization = organizations.find(
     (organization) => organization.id === state.organizationId
+  );
+  const selectedIndividual = individuals.find(
+    (individual) => individual.id === state.individualId
   );
   const selectedInstitution = institutions.find(
     (institution) => institution.id === state.institutionId
@@ -209,6 +221,7 @@ export function RoleWorkbench({
           ...current,
           role: nextRole,
           organizationId: "",
+          individualId: "",
           institutionId: "",
           doctorId: "",
           patientId: "",
@@ -219,6 +232,18 @@ export function RoleWorkbench({
         return {
           ...current,
           role: nextRole,
+          individualId: "",
+          institutionId: "",
+          doctorId: "",
+          patientId: "",
+        };
+      }
+
+      if (nextRole === "individual_publisher") {
+        return {
+          ...current,
+          role: nextRole,
+          organizationId: "",
           institutionId: "",
           doctorId: "",
           patientId: "",
@@ -235,6 +260,7 @@ export function RoleWorkbench({
           ...current,
           role: nextRole,
           organizationId: "",
+          individualId: "",
           institutionId,
           doctorId: "",
           patientId: "",
@@ -246,6 +272,7 @@ export function RoleWorkbench({
           ...current,
           role: nextRole,
           organizationId: "",
+          individualId: "",
           institutionId,
           doctorId:
             adminContext.role === "institution_doctor"
@@ -259,6 +286,7 @@ export function RoleWorkbench({
         ...current,
         role: nextRole,
         organizationId: "",
+        individualId: "",
         institutionId,
         doctorId:
           adminContext.role === "institution_doctor"
@@ -291,8 +319,21 @@ export function RoleWorkbench({
     }
 
     if (
+      state.role === "individual_publisher" &&
+      !state.individualId.trim()
+    ) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Individual publisher roles require an individual publisher."),
+      });
+      return;
+    }
+
+    if (
       state.role !== "full_admin" &&
       state.role !== "organization_publisher" &&
+      state.role !== "individual_publisher" &&
       !state.institutionId.trim()
     ) {
       setToast({
@@ -334,9 +375,14 @@ export function RoleWorkbench({
               state.role === "organization_publisher"
                 ? state.organizationId
                 : undefined,
+            individualId:
+              state.role === "individual_publisher"
+                ? state.individualId
+                : undefined,
             institutionId:
               state.role === "full_admin" ||
-              state.role === "organization_publisher"
+              state.role === "organization_publisher" ||
+              state.role === "individual_publisher"
                 ? undefined
                 : state.institutionId,
             doctorId:
@@ -507,7 +553,32 @@ export function RoleWorkbench({
             </div>
           ) : null}
 
-          {state.role !== "full_admin" && state.role !== "organization_publisher" ? (
+          {state.role === "individual_publisher" ? (
+            <div className="space-y-2">
+              <Label htmlFor="role-individual">{t("Individual publisher")}</Label>
+              <OptionSelectField
+                options={individualOptions}
+                value={state.individualId}
+                onChange={(individualId) =>
+                  setState((current) => ({
+                    ...current,
+                    individualId,
+                    organizationId: "",
+                    institutionId: "",
+                    doctorId: "",
+                    patientId: "",
+                  }))
+                }
+                placeholder={t("Select individual publisher")}
+                emptyLabel={t("No individual publisher")}
+                disabled={!isEditable || adminContext.role !== "full_admin"}
+              />
+            </div>
+          ) : null}
+
+          {state.role !== "full_admin" &&
+          state.role !== "organization_publisher" &&
+          state.role !== "individual_publisher" ? (
             <div className="space-y-2">
               <Label htmlFor="role-institution">{t("Institution")}</Label>
               <OptionSelectField
@@ -648,7 +719,32 @@ export function RoleWorkbench({
             </div>
           ) : null}
 
-          {state.role !== "organization_publisher" ? (
+          {state.role === "individual_publisher" ? (
+            <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
+              <p className="font-medium text-foreground">
+                {selectedIndividual?.name ??
+                  roleRecord?.individualName ??
+                  t("No individual publisher")}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {compactList([
+                  selectedIndividual?.contactEmail,
+                  selectedIndividual?.countryCode,
+                  selectedIndividual?.websiteUrl,
+                ]) || t("Discover individual publisher scope")}
+              </p>
+              {state.individualId ? (
+                <Button variant="link" size="sm" className="px-0" asChild>
+                  <Link href={`/discover/individuals/${state.individualId}`}>
+                    {t("Open individual publisher")}
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {state.role !== "organization_publisher" &&
+          state.role !== "individual_publisher" ? (
             <>
               <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
                 <p className="font-medium text-foreground">

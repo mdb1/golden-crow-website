@@ -1,23 +1,23 @@
 import { redirect } from "next/navigation";
-import { DiscoverOrganizationBrowser } from "@/components/discover/organization-browser";
+import { DiscoverIndividualBrowser } from "@/components/discover/organization-browser";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { requireDiscoverAccess } from "@/lib/discover-server";
-import type { DiscoverOrganizationsPage } from "@/lib/discover";
+import type { DiscoverIndividualsPage } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 import { getServerAppLanguage } from "@/lib/server-language";
 
-export default async function DiscoverOrganizationsPage() {
+export default async function DiscoverIndividualsPage() {
   const adminContext = await requireDiscoverAccess();
-  if (adminContext.role === "individual_publisher") {
-    redirect("/discover/individuals");
+  if (adminContext.role === "organization_publisher") {
+    redirect("/discover/organizations");
   }
 
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
-  const page = await sdkFetchServer<DiscoverOrganizationsPage>(
-    "/discover/organizations",
+  const page = await sdkFetchServer<DiscoverIndividualsPage>(
+    "/discover/individuals",
   );
 
   return (
@@ -26,16 +26,16 @@ export default async function DiscoverOrganizationsPage() {
         header={
           <PageHero
             eyebrow={t("Discover")}
-            title={t("Organizations")}
-            description={t("Manage feed_organizations publishers used by Discover feed entries.")}
+            title={t("Individual Publishers")}
+            description={t("Manage feed_individuals publishers used by Discover feed entries.")}
           />
         }
       >
-        <DiscoverOrganizationBrowser
-          initialOrganizations={page.organizations}
+        <DiscoverIndividualBrowser
+          initialIndividuals={page.individuals}
           initialNextCursor={page.nextCursor}
-          canCreateOrganizations={adminContext.role === "full_admin"}
-          canManageOrganizationStatus={adminContext.role === "full_admin"}
+          canCreateIndividuals={adminContext.role === "full_admin"}
+          canManageIndividualStatus={adminContext.role === "full_admin"}
         />
       </HeaderUnclutterScope>
     </div>

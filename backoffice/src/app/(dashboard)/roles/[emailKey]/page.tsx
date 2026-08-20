@@ -10,6 +10,8 @@ import type {
   RoleManagementRecord,
 } from "@/lib/admin-areas";
 import type {
+  DiscoverIndividualRecord,
+  DiscoverIndividualsPage,
   DiscoverOrganizationRecord,
   DiscoverOrganizationsPage,
 } from "@/lib/discover";
@@ -31,11 +33,13 @@ async function getRoleOptions() {
     doctorsResult,
     patientsResult,
     organizationsResult,
+    individualsResult,
   ] = await Promise.allSettled([
     sdkFetchServer<{ institutions: InstitutionRecord[] }>("/areas/institutions"),
     sdkFetchServer<{ doctors: DoctorListItem[] }>("/areas/doctors"),
     sdkFetchServer<{ patients: PatientListItem[] }>("/areas/patients"),
     sdkFetchServer<DiscoverOrganizationsPage>("/discover/organizations?limit=50"),
+    sdkFetchServer<DiscoverIndividualsPage>("/discover/individuals?limit=50"),
   ]);
 
   return {
@@ -50,11 +54,16 @@ async function getRoleOptions() {
       organizationsResult.status === "fulfilled"
         ? organizationsResult.value.organizations
         : ([] as DiscoverOrganizationRecord[]),
+    individuals:
+      individualsResult.status === "fulfilled"
+        ? individualsResult.value.individuals
+        : ([] as DiscoverIndividualRecord[]),
     optionsUnavailable:
       institutionsResult.status === "rejected" ||
       doctorsResult.status === "rejected" ||
       patientsResult.status === "rejected",
     organizationsUnavailable: organizationsResult.status === "rejected",
+    individualsUnavailable: individualsResult.status === "rejected",
   };
 }
 
@@ -86,13 +95,18 @@ export default async function RoleDetailPage({
     doctors,
     patients,
     organizations,
+    individuals,
     optionsUnavailable,
     organizationsUnavailable,
+    individualsUnavailable,
   } =
     await getRoleOptions();
   const organizationOptionsUnavailable =
     rolePayload.role.role === "organization_publisher" &&
     organizationsUnavailable;
+  const individualOptionsUnavailable =
+    rolePayload.role.role === "individual_publisher" &&
+    individualsUnavailable;
 
   return (
     <div className="flex flex-col gap-6">
@@ -105,7 +119,7 @@ export default async function RoleDetailPage({
           />
         }
       >
-        {optionsUnavailable || organizationOptionsUnavailable ? (
+        {optionsUnavailable || organizationOptionsUnavailable || individualOptionsUnavailable ? (
           <HelperBanner title={t("Some linked option lists could not be loaded.")} tone="amber">
             {t("The role record is open, but one or more institution, doctor, or patient selector lists failed to load. Refresh after the SDK data source recovers.")}
           </HelperBanner>
@@ -116,6 +130,7 @@ export default async function RoleDetailPage({
           doctors={doctors}
           patients={patients}
           organizations={organizations}
+          individuals={individuals}
         />
       </HeaderUnclutterScope>
     </div>

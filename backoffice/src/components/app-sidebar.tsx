@@ -23,7 +23,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 function canSeeDiscoverSection(adminContext: AdminContextRecord) {
-  return adminContext.isBootstrap || adminContext.role === "organization_publisher";
+  return (
+    adminContext.isBootstrap ||
+    adminContext.role === "organization_publisher" ||
+    adminContext.role === "individual_publisher"
+  );
 }
 
 export function AppSidebar({

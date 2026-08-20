@@ -8,6 +8,7 @@ interface SdkContextResponse {
     uid: string;
     role: string;
     organizationId?: string;
+    individualId?: string;
     institutionId?: string;
     doctorId?: string;
     patientId?: string;
@@ -27,6 +28,7 @@ export async function getAdminContextServer(activeProject?: string): Promise<Adm
     uid: ctx.uid,
     role: ctx.role as AdminRole,
     organizationId: ctx.organizationId,
+    individualId: ctx.individualId,
     institutionId: ctx.institutionId,
     doctorId: ctx.doctorId,
     patientId: ctx.patientId,

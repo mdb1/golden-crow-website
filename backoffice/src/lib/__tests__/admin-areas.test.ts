@@ -11,7 +11,7 @@ function roleValues(
 }
 
 describe("getAssignableRoleOptionsForContext", () => {
-  it("hides organization publisher creation from non-God full admins", () => {
+  it("hides publisher creation from non-God full admins", () => {
     const values = roleValues(
       getAssignableRoleOptionsForContext({
         role: "full_admin",
@@ -22,9 +22,10 @@ describe("getAssignableRoleOptionsForContext", () => {
     expect(values).toContain("full_admin");
     expect(values).toContain("institution_admin");
     expect(values).not.toContain("organization_publisher");
+    expect(values).not.toContain("individual_publisher");
   });
 
-  it("keeps organization publisher creation available for God Mode users", () => {
+  it("keeps publisher creation available for God Mode users", () => {
     const values = roleValues(
       getAssignableRoleOptionsForContext({
         role: "full_admin",
@@ -33,6 +34,7 @@ describe("getAssignableRoleOptionsForContext", () => {
     );
 
     expect(values).toContain("organization_publisher");
+    expect(values).toContain("individual_publisher");
   });
 });
 
@@ -61,6 +63,11 @@ describe("getVisibleRoleRecordsForContext", () => {
       organizationId: "org-1",
     }),
     roleRecord({
+      email: "individual@example.com",
+      role: "individual_publisher",
+      individualId: "person-1",
+    }),
+    roleRecord({
       email: "admin@example.com",
       role: "full_admin",
     }),
@@ -71,7 +78,7 @@ describe("getVisibleRoleRecordsForContext", () => {
     }),
   ];
 
-  it("hides bootstrap and organization publisher records from non-God full admins", () => {
+  it("hides bootstrap and publisher records from non-God full admins", () => {
     const values = getVisibleRoleRecordsForContext(records, {
       role: "full_admin",
       isBootstrap: false,
@@ -89,6 +96,7 @@ describe("getVisibleRoleRecordsForContext", () => {
     expect(values).toEqual([
       "bootstrap@example.com",
       "publisher@example.com",
+      "individual@example.com",
       "admin@example.com",
       "institution@example.com",
     ]);

@@ -144,6 +144,7 @@ const LOGIN_LANGUAGE_OPTIONS: AppLanguage[] = ["en", "es"];
 const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "full admin": "administrador total",
   "organization publisher": "publicador de organizacion",
+  "individual publisher": "publicador individual",
   "institution admin": "administrador de institucion",
   "institution operator": "operador de institucion",
   "institution laboratory staff": "personal de laboratorio de institucion",

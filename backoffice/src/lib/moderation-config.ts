@@ -46,7 +46,11 @@ import {
 import { getTwoPQAreaConfig, TWO_PQ_AREA_CONFIGS } from "./two-pq-areas";
 
 const FULL_ADMIN_ROLES: AdminRole[] = ["full_admin"];
-const DISCOVER_ROLES: AdminRole[] = ["full_admin", "organization_publisher"];
+const DISCOVER_ROLES: AdminRole[] = [
+  "full_admin",
+  "organization_publisher",
+  "individual_publisher",
+];
 const AREA_ROLES: AdminRole[] = [
   "full_admin",
   "institution_admin",
@@ -81,6 +85,7 @@ const ACCESS_NAV_ROLES: AdminRole[] = [
   "institution_laboratory_staff",
   "institution_doctor",
   "organization_publisher",
+  "individual_publisher",
 ];
 const DOCTOR_VISIBLE_TWO_PQ_AREAS = new Set(["cases", "sampling"]);
 const OPERATOR_MISSION_HREFS = new Set([
@@ -99,8 +104,13 @@ const LABORATORY_STAFF_MISSION_HREFS = new Set([
   "/2pq-dashboard/consents",
   "/2pq-dashboard/contact",
 ]);
-const PUBLISHER_NAV_HREFS = new Set([
+const ORGANIZATION_PUBLISHER_NAV_HREFS = new Set([
   "/discover/organizations",
+  "/discover/feed-entries",
+  "/my-account",
+]);
+const INDIVIDUAL_PUBLISHER_NAV_HREFS = new Set([
+  "/discover/individuals",
   "/discover/feed-entries",
   "/my-account",
 ]);
@@ -923,7 +933,15 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/discover/organizations",
     description: "feed_organizations publishers",
     icon: Building2,
-    visibleRoles: DISCOVER_ROLES,
+    visibleRoles: ["full_admin", "organization_publisher"],
+  },
+  {
+    section: "discover",
+    label: "Individual Publishers",
+    href: "/discover/individuals",
+    description: "feed_individuals publishers",
+    icon: UserPlus,
+    visibleRoles: ["full_admin", "individual_publisher"],
   },
   {
     section: "discover",
@@ -1093,7 +1111,15 @@ function getMyDnaMapNav(role: AdminRole) {
   );
 
   if (role === "organization_publisher") {
-    return visibleNav.filter((item) => PUBLISHER_NAV_HREFS.has(item.href));
+    return visibleNav.filter((item) =>
+      ORGANIZATION_PUBLISHER_NAV_HREFS.has(item.href)
+    );
+  }
+
+  if (role === "individual_publisher") {
+    return visibleNav.filter((item) =>
+      INDIVIDUAL_PUBLISHER_NAV_HREFS.has(item.href)
+    );
   }
 
   if (
@@ -1123,7 +1149,7 @@ function getMyDnaMapSections(role: AdminRole) {
     (section) => !section.visibleRoles || section.visibleRoles.includes(role)
   );
 
-  if (role === "organization_publisher") {
+  if (role === "organization_publisher" || role === "individual_publisher") {
     return visibleSections.filter((section) =>
       PUBLISHER_SECTION_KEYS.has(section.key)
     );
@@ -1500,6 +1526,30 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
       eyebrow: "Discover",
       title: "Organization",
       description: "Discover publisher detail.",
+    };
+  }
+
+  if (pathname === "/discover/individuals") {
+    return {
+      eyebrow: "Discover",
+      title: "Individual Publishers",
+      description: "Publishers stored in feed_individuals for Discover feed entries.",
+    };
+  }
+
+  if (pathname === "/discover/individuals/new") {
+    return {
+      eyebrow: "Discover",
+      title: "New individual publisher",
+      description: "Create a Discover individual publisher for mobile feed entries.",
+    };
+  }
+
+  if (pathname.startsWith("/discover/individuals/")) {
+    return {
+      eyebrow: "Discover",
+      title: "Individual publisher",
+      description: "Discover individual publisher detail.",
     };
   }
 

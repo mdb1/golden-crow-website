@@ -24,13 +24,16 @@ describe("informed consent navigation", () => {
     },
   );
 
-  it("hides Consentimientos 2PQ from organization publishers", () => {
-    const item = getProjectNav("mydnamap", "organization_publisher").find(
-      (candidate) => candidate.href === "/2pq-dashboard/consents",
-    );
+  it.each(["organization_publisher", "individual_publisher"] as const)(
+    "hides Consentimientos 2PQ from %s",
+    (role) => {
+      const item = getProjectNav("mydnamap", role).find(
+        (candidate) => candidate.href === "/2pq-dashboard/consents",
+      );
 
-    expect(item).toBeUndefined();
-  });
+      expect(item).toBeUndefined();
+    },
+  );
 
   it.each(INFORMED_CONSENT_NAV_ROLES)(
     "places Consentimientos 2PQ directly after Prestadores 2PQ for %s",

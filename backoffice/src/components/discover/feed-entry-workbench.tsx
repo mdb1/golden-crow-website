@@ -68,6 +68,8 @@ import {
   type DiscoverFeedItemRecord,
   type DiscoverFeedStatus,
   type DiscoverFeedType,
+  type DiscoverIndividualRecord,
+  type DiscoverIndividualsPage,
   type DiscoverOrganizationRecord,
   type DiscoverOrganizationsPage,
 } from "@/lib/discover";
@@ -81,6 +83,7 @@ type BodyMode = "plain" | "rich";
 
 type FeedEntryFormState = {
   publisherOrganizationId: string;
+  publisherIndividualId: string;
   type: DiscoverFeedType;
   language: "en" | "es";
   title: string;
@@ -268,6 +271,7 @@ function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
 
   return {
     publisherOrganizationId: item?.publisherOrganizationId ?? "",
+    publisherIndividualId: item?.publisherIndividualId ?? "",
     type: item?.type ?? "news",
     language: item?.language ?? "en",
     title: item?.title ?? "",
@@ -361,7 +365,8 @@ function payloadFromState(
   publishedAt: string | null,
 ) {
   return {
-    publisherOrganizationId: state.publisherOrganizationId,
+    publisherOrganizationId: state.publisherOrganizationId || undefined,
+    publisherIndividualId: state.publisherIndividualId || undefined,
     type: state.type,
     status,
     publishedAt,
@@ -689,13 +694,19 @@ export function DiscoverFeedEntryWorkbench({
   mode = "edit",
   initialOrganizations,
   initialOrganizationsNextCursor,
+  initialIndividuals = [],
+  initialIndividualsNextCursor = null,
   scopedOrganizationId,
+  scopedIndividualId,
 }: {
   feedItem?: DiscoverFeedItemRecord;
   mode?: "create" | "edit";
   initialOrganizations: DiscoverOrganizationRecord[];
   initialOrganizationsNextCursor: string | null;
+  initialIndividuals?: DiscoverIndividualRecord[];
+  initialIndividualsNextCursor?: string | null;
   scopedOrganizationId?: string;
+  scopedIndividualId?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -703,9 +714,21 @@ export function DiscoverFeedEntryWorkbench({
   const richEditorRef = useRef<HTMLDivElement | null>(null);
   const [state, setState] = useState(() => {
     const initialState = toFormState(feedItem);
-    return mode === "create" && scopedOrganizationId
-      ? { ...initialState, publisherOrganizationId: scopedOrganizationId }
-      : initialState;
+    if (mode === "create" && scopedOrganizationId) {
+      return {
+        ...initialState,
+        publisherOrganizationId: scopedOrganizationId,
+        publisherIndividualId: "",
+      };
+    }
+    if (mode === "create" && scopedIndividualId) {
+      return {
+        ...initialState,
+        publisherOrganizationId: "",
+        publisherIndividualId: scopedIndividualId,
+      };
+    }
+    return initialState;
   });
   const [bodyMode, setBodyMode] = useState<BodyMode>(
     feedItem?.html_body ? "rich" : "plain",
@@ -714,19 +737,39 @@ export function DiscoverFeedEntryWorkbench({
   const [organizationsNextCursor, setOrganizationsNextCursor] = useState(
     initialOrganizationsNextCursor,
   );
+  const [individuals, setIndividuals] = useState(initialIndividuals);
+  const [individualsNextCursor, setIndividualsNextCursor] = useState(
+    initialIndividualsNextCursor,
+  );
   const [pending, setPending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [publishDialog, setPublishDialog] = useState<PublishDialogState | null>(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const sourceState = useMemo(() => {
     const initialState = toFormState(feedItem);
-    return mode === "create" && scopedOrganizationId
-      ? { ...initialState, publisherOrganizationId: scopedOrganizationId }
-      : initialState;
-  }, [feedItem, mode, scopedOrganizationId]);
+    if (mode === "create" && scopedOrganizationId) {
+      return {
+        ...initialState,
+        publisherOrganizationId: scopedOrganizationId,
+        publisherIndividualId: "",
+      };
+    }
+    if (mode === "create" && scopedIndividualId) {
+      return {
+        ...initialState,
+        publisherOrganizationId: "",
+        publisherIndividualId: scopedIndividualId,
+      };
+    }
+    return initialState;
+  }, [feedItem, mode, scopedIndividualId, scopedOrganizationId]);
   const selectedOrganization = organizations.find(
     (organization) => organization.id === state.publisherOrganizationId,
   );
+  const selectedIndividual = individuals.find(
+    (individual) => individual.id === state.publisherIndividualId,
+  );
+  const selectedPublisher = selectedOrganization ?? selectedIndividual;
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
   const bodyCharacterCount = bodyMode === "rich"
     ? htmlToPlainText(state.html_body).length
@@ -739,10 +782,40 @@ export function DiscoverFeedEntryWorkbench({
   const editStatus = feedItem?.status ?? "draft";
   const editPublishedAt = feedItem?.publishedAt ?? null;
   const isWorking = pending || deletePending;
-  const canChangePublisher = !scopedOrganizationId;
+  const canChangePublisher = !scopedOrganizationId && !scopedIndividualId;
+  const hasMorePublishers = Boolean(
+    (organizationsNextCursor || individualsNextCursor) && canChangePublisher,
+  );
+  const publisherSelectValue = state.publisherIndividualId
+    ? `individual:${state.publisherIndividualId}`
+    : state.publisherOrganizationId
+      ? `organization:${state.publisherOrganizationId}`
+      : "";
 
   function updateState(patch: Partial<FeedEntryFormState>) {
     setState((current) => ({ ...current, ...patch }));
+  }
+
+  function selectPublisher(value: string) {
+    const [kind, id] = value.split(":", 2);
+    if (kind === "organization" && id) {
+      updateState({
+        publisherOrganizationId: id,
+        publisherIndividualId: "",
+      });
+      return;
+    }
+    if (kind === "individual" && id) {
+      updateState({
+        publisherOrganizationId: "",
+        publisherIndividualId: id,
+      });
+      return;
+    }
+    updateState({
+      publisherOrganizationId: "",
+      publisherIndividualId: "",
+    });
   }
 
   function updatePayload<T extends DiscoverFeedType>(
@@ -820,21 +893,35 @@ export function DiscoverFeedEntryWorkbench({
   }
 
   async function loadMoreOrganizations() {
-    if (!organizationsNextCursor || !canChangePublisher) {
+    if (!hasMorePublishers) {
       return;
     }
 
     setPending(true);
     try {
-      const params = new URLSearchParams({
-        cursor: organizationsNextCursor,
-        limit: "50",
-      });
-      const page = await sdkFetch<DiscoverOrganizationsPage>(
-        `/discover/organizations?${params.toString()}`,
-      );
-      setOrganizations((current) => [...current, ...page.organizations]);
-      setOrganizationsNextCursor(page.nextCursor);
+      if (organizationsNextCursor) {
+        const params = new URLSearchParams({
+          cursor: organizationsNextCursor,
+          limit: "50",
+        });
+        const page = await sdkFetch<DiscoverOrganizationsPage>(
+          `/discover/organizations?${params.toString()}`,
+        );
+        setOrganizations((current) => [...current, ...page.organizations]);
+        setOrganizationsNextCursor(page.nextCursor);
+      }
+
+      if (individualsNextCursor) {
+        const params = new URLSearchParams({
+          cursor: individualsNextCursor,
+          limit: "50",
+        });
+        const page = await sdkFetch<DiscoverIndividualsPage>(
+          `/discover/individuals?${params.toString()}`,
+        );
+        setIndividuals((current) => [...current, ...page.individuals]);
+        setIndividualsNextCursor(page.nextCursor);
+      }
     } catch {
       setToast({
         id: Date.now(),
@@ -865,8 +952,11 @@ export function DiscoverFeedEntryWorkbench({
   }
 
   function validate(nextState: FeedEntryFormState, status: DiscoverFeedStatus) {
-    if (!nextState.publisherOrganizationId) {
-      return t("Choose a publisher organization.");
+    if (
+      (nextState.publisherOrganizationId && nextState.publisherIndividualId) ||
+      (!nextState.publisherOrganizationId && !nextState.publisherIndividualId)
+    ) {
+      return t("Choose one publisher.");
     }
 
     const nextSourceUrlError = sourceUrlErrorFor(nextState.source_url);
@@ -888,8 +978,8 @@ export function DiscoverFeedEntryWorkbench({
       }
     }
 
-    if (status === "published" && selectedOrganization?.status !== "active") {
-      return t("Only active organizations can publish feed entries.");
+    if (status === "published" && selectedPublisher?.status !== "active") {
+      return t("Only active publishers can publish feed entries.");
     }
 
     if (status === "published") {
@@ -1278,7 +1368,7 @@ export function DiscoverFeedEntryWorkbench({
                   {mode === "create" ? t("Create feed entry") : t("Edit feed entry")}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {selectedOrganization?.name ?? t("Publisher draft")}
+                  {selectedPublisher?.name ?? t("Publisher draft")}
                 </p>
               </div>
               <HeaderUnclutterButton />
@@ -1349,21 +1439,40 @@ export function DiscoverFeedEntryWorkbench({
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <select
                       id="discover-feed-publisher"
-                      value={state.publisherOrganizationId}
+                      value={publisherSelectValue}
                       onChange={(event) =>
-                        updateState({ publisherOrganizationId: event.target.value })
+                        selectPublisher(event.target.value)
                       }
                       className="h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
                       disabled={!canChangePublisher}
                     >
-                      <option value="">{t("Choose organization")}</option>
-                      {organizations.map((organization) => (
-                        <option key={organization.id} value={organization.id}>
-                          {organization.name} ({t(organization.status)})
-                        </option>
-                      ))}
+                      <option value="">{t("Choose publisher")}</option>
+                      {organizations.length > 0 ? (
+                        <optgroup label={t("Organizations")}>
+                          {organizations.map((organization) => (
+                            <option
+                              key={organization.id}
+                              value={`organization:${organization.id}`}
+                            >
+                              {organization.name} ({t(organization.status)})
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null}
+                      {individuals.length > 0 ? (
+                        <optgroup label={t("Individual Publishers")}>
+                          {individuals.map((individual) => (
+                            <option
+                              key={individual.id}
+                              value={`individual:${individual.id}`}
+                            >
+                              {individual.name} ({t(individual.status)})
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null}
                     </select>
-                    {organizationsNextCursor && canChangePublisher ? (
+                    {hasMorePublishers ? (
                       <Button
                         type="button"
                         variant="outline"
@@ -1561,10 +1670,10 @@ export function DiscoverFeedEntryWorkbench({
             <div className="sticky top-[calc(var(--app-header-height)+1rem)] flex flex-col gap-4">
               <div className="rounded-md border border-border bg-background/86 p-4 shadow-sm">
                 <div className="flex items-center gap-3">
-                  {selectedOrganization?.imageUrl ? (
+                  {selectedPublisher?.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={selectedOrganization.imageUrl}
+                      src={selectedPublisher.imageUrl}
                       alt=""
                       className="h-10 w-10 rounded-md border border-border object-cover"
                     />
@@ -1575,11 +1684,11 @@ export function DiscoverFeedEntryWorkbench({
                   )}
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium text-foreground">
-                      {selectedOrganization?.name ?? t("Publisher")}
+                      {selectedPublisher?.name ?? t("Publisher")}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {selectedOrganization?.status
-                        ? t(selectedOrganization.status)
+                      {selectedPublisher?.status
+                        ? t(selectedPublisher.status)
                         : t("No publisher selected")}
                     </div>
                   </div>
@@ -1609,9 +1718,9 @@ export function DiscoverFeedEntryWorkbench({
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Badge variant="brand">{t(discoverTypeLabel(state.type))}</Badge>
                   <Badge variant="outline">{state.language}</Badge>
-                  <Badge variant={selectedOrganization?.status === "active" ? "success" : "warning"}>
-                    {selectedOrganization?.status
-                      ? t(selectedOrganization.status)
+                  <Badge variant={selectedPublisher?.status === "active" ? "success" : "warning"}>
+                    {selectedPublisher?.status
+                      ? t(selectedPublisher.status)
                       : t("publisher")}
                   </Badge>
                 </div>

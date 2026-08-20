@@ -5,6 +5,7 @@ export type AuthSurface = "backoffice" | "patient-portal";
 const BACKOFFICE_ROLES = new Set<AdminRole>([
   "full_admin",
   "organization_publisher",
+  "individual_publisher",
   "institution_admin",
   "institution_operator",
   "institution_laboratory_staff",

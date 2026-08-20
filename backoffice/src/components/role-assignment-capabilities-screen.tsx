@@ -54,6 +54,7 @@ const roleBadgeVariants: Record<
 > = {
   full_admin: "destructive",
   organization_publisher: "secondary",
+  individual_publisher: "secondary",
   institution_admin: "brand",
   institution_operator: "secondary",
   institution_laboratory_staff: "secondary",
@@ -179,7 +180,7 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       tone: "allow",
       title: "Can assign every role type",
       description:
-        "Full admins can create and update full admin, institution admin, institution operator, institution laboratory staff, institution doctor, and patient role assignments.",
+        "Full admins can create and update full admin, Discover publisher, institution admin, institution operator, institution laboratory staff, institution doctor, and patient role assignments.",
     },
     {
       tone: "allow",
@@ -218,6 +219,32 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       title: "Can publish for that organization",
       description:
         "They can create, update, duplicate, and delete Discover feed entries only when the publisher organization matches their scope.",
+    },
+    {
+      tone: "limit",
+      title: "Cannot manage role assignments",
+      description:
+        "Publisher accounts cannot create or modify role assignments, including other publisher roles.",
+    },
+    {
+      tone: "limit",
+      title: "Cannot access institution workflows",
+      description:
+        "2PQ, institution areas, community moderation, reports, learning, and global account moderation remain outside this role.",
+    },
+  ],
+  individual_publisher: [
+    {
+      tone: "allow",
+      title: "Can manage one individual publisher",
+      description:
+        "Individual publishers can work only with the feed_individuals record linked to their role assignment.",
+    },
+    {
+      tone: "allow",
+      title: "Can publish for that individual",
+      description:
+        "They can create, update, duplicate, and delete Discover feed entries only when the individual publisher matches their scope.",
     },
     {
       tone: "limit",

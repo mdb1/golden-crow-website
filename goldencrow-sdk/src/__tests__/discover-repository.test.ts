@@ -68,6 +68,7 @@ class QueryStub {
 const mockQueryStubs: QueryStub[] = [];
 const mockFeedDocs: MockDoc[] = [];
 const mockOrganizationDocs: MockDoc[] = [];
+const mockIndividualDocs: MockDoc[] = [];
 let mockGeneratedId = 0;
 let failNextFeedItemsQuery = true;
 
@@ -105,6 +106,23 @@ const initialOrganizationDocs: MockDoc[] = [
   },
 ];
 
+const initialIndividualDocs: MockDoc[] = [
+  {
+    id: "person-1",
+    data: {
+      name: "Dr. Publisher One",
+      imageUrl: "https://example.org/individual.png",
+      status: "active",
+      description: "Descripción individual",
+      description_en: "Individual description",
+      individualType: "researcher",
+      color_hex: "#14b8a6",
+      createdAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-02T00:00:00.000Z",
+    },
+  },
+];
+
 function cloneDoc(doc: MockDoc): MockDoc {
   return {
     id: doc.id,
@@ -118,6 +136,9 @@ function collectionDocs(name: string) {
   }
   if (name === "feed_organizations") {
     return mockOrganizationDocs;
+  }
+  if (name === "feed_individuals") {
+    return mockIndividualDocs;
   }
 
   throw new Error(`Unexpected collection ${name}`);
@@ -231,6 +252,11 @@ describe("discover repository", () => {
       mockOrganizationDocs.length,
       ...initialOrganizationDocs.map(cloneDoc),
     );
+    mockIndividualDocs.splice(
+      0,
+      mockIndividualDocs.length,
+      ...initialIndividualDocs.map(cloneDoc),
+    );
     mockQueryStubs.length = 0;
     mockGeneratedId = 0;
     failNextFeedItemsQuery = true;
@@ -295,6 +321,18 @@ describe("discover repository", () => {
     expect(result.organizations[0]?.description_en).toBe("Public description");
   });
 
+  it("returns Discover individual publishers", async () => {
+    const { listDiscoverIndividuals } = await import("../repositories/discover.repository");
+
+    const result = await listDiscoverIndividuals(fullAdminContext);
+
+    expect(result.individuals).toHaveLength(1);
+    expect(result.individuals[0]?.color_hex).toBe("#14B8A6");
+    expect(result.individuals[0]?.individualType).toBe("researcher");
+    expect(result.individuals[0]?.description).toBe("Descripción individual");
+    expect(result.individuals[0]?.description_en).toBe("Individual description");
+  });
+
   it("generates organization slugs from names instead of manual input", async () => {
     const { createDiscoverOrganization } = await import("../repositories/discover.repository");
 
@@ -354,5 +392,32 @@ describe("discover repository", () => {
     expect(payload.source_url).toBeUndefined();
     expect(stored?.source_url).toBe("https://example.org/events/register");
     expect(stored?.sourceUrl).toBe("https://example.org/events/register");
+  });
+
+  it("creates feed entries for individual publishers", async () => {
+    const { createDiscoverFeedItem } = await import("../repositories/discover.repository");
+
+    const feedItem = await createDiscoverFeedItem(fullAdminContext, {
+      publisherIndividualId: "person-1",
+      type: "news",
+      status: "published",
+      publishedAt: "2026-08-05T10:00:00.000Z",
+      language: "en",
+      title: "Individual publisher update",
+      subtitle: "A concise update.",
+      body: "Plain text details.",
+      news: {
+        category: "Research",
+        region: "ARG",
+      },
+    });
+
+    const stored = mockFeedDocs.find((doc) => doc.id === feedItem.id)?.data;
+
+    expect(feedItem.publisherOrganizationId).toBeNull();
+    expect(feedItem.publisherIndividualId).toBe("person-1");
+    expect(feedItem.publisherSnapshot.name).toBe("Dr. Publisher One");
+    expect(stored?.publisherOrganizationId).toBeNull();
+    expect(stored?.publisherIndividualId).toBe("person-1");
   });
 });

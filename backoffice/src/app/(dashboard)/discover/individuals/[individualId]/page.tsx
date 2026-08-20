@@ -1,35 +1,35 @@
 import { redirect } from "next/navigation";
-import { DiscoverOrganizationWorkbench } from "@/components/discover/organization-workbench";
+import { DiscoverIndividualWorkbench } from "@/components/discover/organization-workbench";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { requireDiscoverAccess } from "@/lib/discover-server";
-import type { DiscoverOrganizationRecord } from "@/lib/discover";
+import type { DiscoverIndividualRecord } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 import { getServerAppLanguage } from "@/lib/server-language";
 
-export default async function DiscoverOrganizationDetailPage({
+export default async function DiscoverIndividualDetailPage({
   params,
 }: {
-  params: Promise<{ organizationId: string }>;
+  params: Promise<{ individualId: string }>;
 }) {
   const adminContext = await requireDiscoverAccess();
-  if (adminContext.role === "individual_publisher") {
-    redirect("/discover/individuals");
+  if (adminContext.role === "organization_publisher") {
+    redirect("/discover/organizations");
   }
 
-  const { organizationId } = await params;
+  const { individualId } = await params;
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
 
-  let organization: DiscoverOrganizationRecord;
+  let individual: DiscoverIndividualRecord;
   try {
-    const response = await sdkFetchServer<{ organization: DiscoverOrganizationRecord }>(
-      `/discover/organizations/${encodeURIComponent(organizationId)}`,
+    const response = await sdkFetchServer<{ individual: DiscoverIndividualRecord }>(
+      `/discover/individuals/${encodeURIComponent(individualId)}`,
     );
-    organization = response.organization;
+    individual = response.individual;
   } catch {
-    redirect("/discover/organizations");
+    redirect("/discover/individuals");
   }
 
   return (
@@ -38,13 +38,13 @@ export default async function DiscoverOrganizationDetailPage({
         header={
           <PageHero
             eyebrow={t("Discover")}
-            title={organization.name}
-            description={t("Edit the canonical publisher record used by Discover feed entries.")}
+            title={individual.name}
+            description={t("Edit the canonical individual publisher record used by Discover feed entries.")}
           />
         }
       >
-        <DiscoverOrganizationWorkbench
-          organization={organization}
+        <DiscoverIndividualWorkbench
+          individual={individual}
           canManageSystemFields={adminContext.role === "full_admin"}
         />
       </HeaderUnclutterScope>

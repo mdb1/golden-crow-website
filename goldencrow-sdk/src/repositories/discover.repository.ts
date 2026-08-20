@@ -12,6 +12,9 @@ import type {
   DiscoverFeedItemRecord,
   DiscoverFeedStatus,
   DiscoverFeedType,
+  DiscoverIndividualRecord,
+  DiscoverIndividualStatus,
+  DiscoverIndividualType,
   DiscoverListPage,
   DiscoverOrganizationRecord,
   DiscoverOrganizationStatus,
@@ -21,6 +24,7 @@ import type {
 const adminDb = adminDbFor("mydnamap");
 
 const ORGANIZATIONS_COLLECTION = "feed_organizations";
+const INDIVIDUALS_COLLECTION = "feed_individuals";
 const FEED_ITEMS_COLLECTION = "feed_items";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
@@ -40,6 +44,17 @@ const ORGANIZATION_TYPES = new Set<DiscoverOrganizationType>([
   "public_health_agency",
   "conference_organizer",
   "company",
+  "other",
+]);
+const INDIVIDUAL_TYPES = new Set<DiscoverIndividualType>([
+  "researcher",
+  "clinician",
+  "genetic_counselor",
+  "patient_advocate",
+  "bioinformatician",
+  "educator",
+  "journalist",
+  "community_leader",
   "other",
 ]);
 const FEED_TYPES = new Set<DiscoverFeedType>([
@@ -87,8 +102,25 @@ type OrganizationInput = {
   internalNotes?: unknown;
 };
 
+type IndividualInput = {
+  name?: unknown;
+  imageUrl?: unknown;
+  status?: unknown;
+  websiteUrl?: unknown;
+  description?: unknown;
+  description_en?: unknown;
+  countryCode?: unknown;
+  individualType?: unknown;
+  color_hex?: unknown;
+  colorHex?: unknown;
+  verified?: unknown;
+  contactEmail?: unknown;
+  internalNotes?: unknown;
+};
+
 type FeedItemInput = {
   publisherOrganizationId?: unknown;
+  publisherIndividualId?: unknown;
   type?: unknown;
   status?: unknown;
   publishedAt?: unknown;
@@ -115,7 +147,8 @@ function requireFullAdmin(context: AdminContext) {
 function requireDiscoverAccess(context: AdminContext) {
   if (
     context.role !== "full_admin" &&
-    context.role !== "organization_publisher"
+    context.role !== "organization_publisher" &&
+    context.role !== "individual_publisher"
   ) {
     throw new AdminRepositoryError("Discover access required.", 403);
   }
@@ -126,12 +159,45 @@ function requireDiscoverAccess(context: AdminContext) {
       403,
     );
   }
+
+  if (context.role === "individual_publisher" && !context.individualId) {
+    throw new AdminRepositoryError(
+      "Individual publisher roles require an individual scope.",
+      403,
+    );
+  }
 }
 
 function scopedOrganizationId(context: AdminContext) {
   return context.role === "organization_publisher"
     ? context.organizationId
     : undefined;
+}
+
+function scopedIndividualId(context: AdminContext) {
+  return context.role === "individual_publisher"
+    ? context.individualId
+    : undefined;
+}
+
+function requireOrganizationSurfaceAccess(context: AdminContext) {
+  requireDiscoverAccess(context);
+  if (context.role === "individual_publisher") {
+    throw new AdminRepositoryError(
+      "This publisher can access only its own individual publisher record.",
+      403,
+    );
+  }
+}
+
+function requireIndividualSurfaceAccess(context: AdminContext) {
+  requireDiscoverAccess(context);
+  if (context.role === "organization_publisher") {
+    throw new AdminRepositoryError(
+      "This publisher can access only its own organization publisher record.",
+      403,
+    );
+  }
 }
 
 function assertOrganizationScope(context: AdminContext, organizationId: string) {
@@ -144,19 +210,43 @@ function assertOrganizationScope(context: AdminContext, organizationId: string) 
   }
 }
 
+function assertIndividualScope(context: AdminContext, individualId: string) {
+  const ownIndividualId = scopedIndividualId(context);
+  if (ownIndividualId && ownIndividualId !== individualId) {
+    throw new AdminRepositoryError(
+      "This publisher can access only its own individual publisher record.",
+      403,
+    );
+  }
+}
+
 function assertFeedItemScope(
   context: AdminContext,
-  data: Pick<DiscoverFeedItemRecord, "publisherOrganizationId"> | Record<string, unknown>,
+  data:
+    | Pick<DiscoverFeedItemRecord, "publisherOrganizationId" | "publisherIndividualId">
+    | Record<string, unknown>,
 ) {
   const ownOrganizationId = scopedOrganizationId(context);
+  const ownIndividualId = scopedIndividualId(context);
   const publisherOrganizationId =
     "publisherOrganizationId" in data
       ? normalizeOptionalString(data.publisherOrganizationId)
+      : undefined;
+  const publisherIndividualId =
+    "publisherIndividualId" in data
+      ? normalizeOptionalString(data.publisherIndividualId)
       : undefined;
 
   if (ownOrganizationId && publisherOrganizationId !== ownOrganizationId) {
     throw new AdminRepositoryError(
       "This publisher can access only feed entries for its own organization.",
+      403,
+    );
+  }
+
+  if (ownIndividualId && publisherIndividualId !== ownIndividualId) {
+    throw new AdminRepositoryError(
+      "This publisher can access only feed entries for its own individual publisher record.",
       403,
     );
   }
@@ -217,7 +307,7 @@ function normalizeCountryCode(value: unknown): string | undefined {
   return normalized ? normalized.toUpperCase() : undefined;
 }
 
-function slugifyOrganizationName(name: string) {
+function slugifyPublisherName(name: string, fallback: string) {
   return (
     name
       .normalize("NFD")
@@ -225,8 +315,16 @@ function slugifyOrganizationName(name: string) {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
-      .replace(/-{2,}/g, "-") || "organization"
+      .replace(/-{2,}/g, "-") || fallback
   );
+}
+
+function slugifyOrganizationName(name: string) {
+  return slugifyPublisherName(name, "organization");
+}
+
+function slugifyIndividualName(name: string) {
+  return slugifyPublisherName(name, "individual");
 }
 
 function normalizeHexColor(value: unknown, label: string): string | undefined {
@@ -532,6 +630,39 @@ function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationR
   };
 }
 
+function toIndividualRecord(doc: QueryDocumentSnapshot): DiscoverIndividualRecord {
+  const data = doc.data() as Record<string, unknown>;
+  const status = ORGANIZATION_STATUSES.has(data.status as DiscoverIndividualStatus)
+    ? (data.status as DiscoverIndividualStatus)
+    : "inactive";
+  const individualType = INDIVIDUAL_TYPES.has(
+    data.individualType as DiscoverIndividualType,
+  )
+    ? (data.individualType as DiscoverIndividualType)
+    : undefined;
+
+  return {
+    id: doc.id,
+    name: normalizeOptionalString(data.name) ?? doc.id,
+    imageUrl: normalizeNullableString(data.imageUrl),
+    status,
+    slug: normalizeOptionalString(data.slug),
+    websiteUrl: normalizeOptionalString(data.websiteUrl),
+    description: normalizeOptionalString(data.description),
+    description_en: normalizeOptionalString(data.description_en),
+    countryCode: normalizeOptionalString(data.countryCode),
+    individualType,
+    color_hex: readHexColor(data.color_hex ?? data.colorHex),
+    verified: data.verified === true,
+    contactEmail: normalizeOptionalString(data.contactEmail),
+    internalNotes: normalizeOptionalString(data.internalNotes),
+    createdAt: timestampToIso(data.createdAt) ?? "",
+    updatedAt: timestampToIso(data.updatedAt) ?? "",
+    createdByUserId: normalizeOptionalString(data.createdByUserId),
+    updatedByUserId: normalizeOptionalString(data.updatedByUserId),
+  };
+}
+
 function getPayloadKey(type: DiscoverFeedType) {
   return type;
 }
@@ -568,7 +699,8 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
   const language = languageValue === "es" ? "es" : "en";
   const record: DiscoverFeedItemRecord = {
     id: doc.id,
-    publisherOrganizationId: normalizeOptionalString(data.publisherOrganizationId) ?? "",
+    publisherOrganizationId: normalizeNullableString(data.publisherOrganizationId),
+    publisherIndividualId: normalizeNullableString(data.publisherIndividualId),
     publisherSnapshot: {
       name: normalizeOptionalString(publisherSnapshot.name) ?? "Unknown publisher",
       imageUrl: normalizeNullableString(publisherSnapshot.imageUrl),
@@ -698,6 +830,12 @@ function normalizeOrganizationType(value: unknown): DiscoverOrganizationType | u
     : undefined;
 }
 
+function normalizeIndividualType(value: unknown): DiscoverIndividualType | undefined {
+  return INDIVIDUAL_TYPES.has(value as DiscoverIndividualType)
+    ? (value as DiscoverIndividualType)
+    : undefined;
+}
+
 function organizationDocument(input: OrganizationInput, context: AdminContext) {
   const name = normalizeRequiredString(input.name, "Organization name");
 
@@ -720,10 +858,41 @@ function organizationDocument(input: OrganizationInput, context: AdminContext) {
   };
 }
 
+function individualDocument(input: IndividualInput, context: AdminContext) {
+  const name = normalizeRequiredString(input.name, "Individual publisher name");
+
+  return {
+    name,
+    imageUrl: normalizeHttpsUrl(input.imageUrl, "Individual publisher image URL"),
+    status: normalizeOrganizationStatus(input.status),
+    slug: slugifyIndividualName(name),
+    websiteUrl: normalizeHttpsUrl(input.websiteUrl, "Website URL"),
+    description: normalizeOptionalString(input.description),
+    description_en: normalizeOptionalString(input.description_en),
+    countryCode: normalizeCountryCode(input.countryCode),
+    individualType: normalizeIndividualType(input.individualType),
+    color_hex: normalizeHexColor(input.color_hex ?? input.colorHex, "Individual publisher color") ?? null,
+    verified: normalizeBoolean(input.verified),
+    contactEmail: normalizeOptionalEmail(input.contactEmail, "Contact email"),
+    internalNotes: normalizeOptionalString(input.internalNotes),
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedByUserId: context.uid,
+  };
+}
+
 async function getOrganizationSnapshot(organizationId: string) {
   const snapshot = await adminDb
     .collection(ORGANIZATIONS_COLLECTION)
     .doc(organizationId)
+    .get();
+
+  return snapshot.exists ? (snapshot as QueryDocumentSnapshot) : null;
+}
+
+async function getIndividualSnapshot(individualId: string) {
+  const snapshot = await adminDb
+    .collection(INDIVIDUALS_COLLECTION)
+    .doc(individualId)
     .get();
 
   return snapshot.exists ? (snapshot as QueryDocumentSnapshot) : null;
@@ -909,22 +1078,42 @@ async function feedItemDocument(
   context: AdminContext,
   existing?: Record<string, unknown>,
 ) {
-  const publisherOrganizationId = normalizeRequiredString(
-    input.publisherOrganizationId,
-    "Publisher organization",
-  );
-  assertOrganizationScope(context, publisherOrganizationId);
-  const organizationSnapshot = await getOrganizationSnapshot(publisherOrganizationId);
-  if (!organizationSnapshot) {
-    throw new AdminRepositoryError("Publisher organization not found.", 404);
+  const publisherOrganizationId = normalizeOptionalString(input.publisherOrganizationId);
+  const publisherIndividualId = normalizeOptionalString(input.publisherIndividualId);
+
+  if (publisherOrganizationId && publisherIndividualId) {
+    throw new AdminRepositoryError(
+      "Choose either an organization publisher or an individual publisher, not both.",
+      400,
+    );
   }
-  const organization = toOrganizationRecord(organizationSnapshot);
+
+  if (!publisherOrganizationId && !publisherIndividualId) {
+    throw new AdminRepositoryError("Choose a publisher.", 400);
+  }
+
+  if (publisherOrganizationId) {
+    assertOrganizationScope(context, publisherOrganizationId);
+  }
+  if (publisherIndividualId) {
+    assertIndividualScope(context, publisherIndividualId);
+  }
+
+  const publisherSnapshot = publisherOrganizationId
+    ? await getOrganizationSnapshot(publisherOrganizationId)
+    : await getIndividualSnapshot(publisherIndividualId!);
+  if (!publisherSnapshot) {
+    throw new AdminRepositoryError("Publisher not found.", 404);
+  }
+  const publisher = publisherOrganizationId
+    ? toOrganizationRecord(publisherSnapshot)
+    : toIndividualRecord(publisherSnapshot);
   const type = normalizeFeedType(input.type);
   const status = normalizeFeedStatus(input.status);
 
-  if (status === "published" && organization.status !== "active") {
+  if (status === "published" && publisher.status !== "active") {
     throw new AdminRepositoryError(
-      "Only active organizations can publish feed entries.",
+      "Only active publishers can publish feed entries.",
       400,
     );
   }
@@ -944,10 +1133,11 @@ async function feedItemDocument(
 
   return {
     id: feedItemId,
-    publisherOrganizationId,
+    publisherOrganizationId: publisherOrganizationId ?? null,
+    publisherIndividualId: publisherIndividualId ?? null,
     publisherSnapshot: {
-      name: organization.name,
-      imageUrl: organization.imageUrl,
+      name: publisher.name,
+      imageUrl: publisher.imageUrl,
     },
     type,
     status,
@@ -971,7 +1161,7 @@ export async function listDiscoverOrganizations(
   context: AdminContext,
   options: { cursor?: string; limit?: unknown } = {},
 ) {
-  requireDiscoverAccess(context);
+  requireOrganizationSurfaceAccess(context);
 
   const ownOrganizationId = scopedOrganizationId(context);
   if (ownOrganizationId) {
@@ -999,7 +1189,7 @@ export async function getDiscoverOrganization(
   context: AdminContext,
   organizationId: string,
 ) {
-  requireDiscoverAccess(context);
+  requireOrganizationSurfaceAccess(context);
   assertOrganizationScope(context, organizationId);
   const snapshot = await getOrganizationSnapshot(organizationId);
   if (!snapshot) {
@@ -1031,7 +1221,7 @@ export async function updateDiscoverOrganization(
   organizationId: string,
   input: OrganizationInput,
 ) {
-  requireDiscoverAccess(context);
+  requireOrganizationSurfaceAccess(context);
   assertOrganizationScope(context, organizationId);
   const existing = await getOrganizationSnapshot(organizationId);
   if (!existing) {
@@ -1063,7 +1253,7 @@ export async function syncDiscoverPublisherSnapshot(
   context: AdminContext,
   organizationId: string,
 ) {
-  requireDiscoverAccess(context);
+  requireOrganizationSurfaceAccess(context);
   assertOrganizationScope(context, organizationId);
   const organization = await getDiscoverOrganization(context, organizationId);
   const snapshot = await adminDb
@@ -1094,12 +1284,111 @@ export async function syncDiscoverPublisherSnapshot(
   return { updated };
 }
 
+export async function listDiscoverIndividuals(
+  context: AdminContext,
+  options: { cursor?: string; limit?: unknown } = {},
+) {
+  requireIndividualSurfaceAccess(context);
+
+  const ownIndividualId = scopedIndividualId(context);
+  if (ownIndividualId) {
+    const individual = await getDiscoverIndividual(context, ownIndividualId);
+    return {
+      individuals: [individual],
+      nextCursor: null,
+    };
+  }
+
+  const page = await listCollectionPage(
+    INDIVIDUALS_COLLECTION,
+    options.cursor,
+    options.limit,
+    toIndividualRecord,
+  );
+
+  return {
+    individuals: page.records,
+    nextCursor: page.nextCursor,
+  };
+}
+
+export async function getDiscoverIndividual(
+  context: AdminContext,
+  individualId: string,
+) {
+  requireIndividualSurfaceAccess(context);
+  assertIndividualScope(context, individualId);
+  const snapshot = await getIndividualSnapshot(individualId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("Individual publisher not found.", 404);
+  }
+
+  return toIndividualRecord(snapshot);
+}
+
+export async function createDiscoverIndividual(
+  context: AdminContext,
+  input: IndividualInput,
+) {
+  requireFullAdmin(context);
+  const ref = adminDb.collection(INDIVIDUALS_COLLECTION).doc();
+  await ref.set(
+    withoutUndefined({
+      ...individualDocument(input, context),
+      createdAt: FieldValue.serverTimestamp(),
+      createdByUserId: context.uid,
+    }),
+  );
+
+  return getDiscoverIndividual(context, ref.id);
+}
+
+export async function updateDiscoverIndividual(
+  context: AdminContext,
+  individualId: string,
+  input: IndividualInput,
+) {
+  requireIndividualSurfaceAccess(context);
+  assertIndividualScope(context, individualId);
+  const existing = await getIndividualSnapshot(individualId);
+  if (!existing) {
+    throw new AdminRepositoryError("Individual publisher not found.", 404);
+  }
+  const existingRecord = toIndividualRecord(existing);
+  const scopedInput =
+    context.role === "individual_publisher"
+      ? {
+          ...input,
+          status: existingRecord.status,
+          verified: existingRecord.verified,
+          internalNotes: existingRecord.internalNotes,
+        }
+      : input;
+
+  await existing.ref.set(
+    withoutUndefined({
+      ...existing.data(),
+      ...individualDocument(scopedInput, context),
+    }),
+    { merge: false },
+  );
+
+  return getDiscoverIndividual(context, individualId);
+}
+
 export async function listDiscoverFeedItems(
   context: AdminContext,
   options: { cursor?: string; limit?: unknown } = {},
 ) {
   requireDiscoverAccess(context);
   const ownOrganizationId = scopedOrganizationId(context);
+  const ownIndividualId = scopedIndividualId(context);
+  const scopeField = ownOrganizationId
+    ? "publisherOrganizationId"
+    : ownIndividualId
+      ? "publisherIndividualId"
+      : undefined;
+  const scopeValue = ownOrganizationId ?? ownIndividualId;
 
   let page: DiscoverListPage<DiscoverFeedItemRecord>;
   try {
@@ -1108,19 +1397,19 @@ export async function listDiscoverFeedItems(
       options.cursor,
       options.limit,
       toFeedItemRecord,
-      ownOrganizationId
-        ? (query) => query.where("publisherOrganizationId", "==", ownOrganizationId)
+      scopeField && scopeValue
+        ? (query) => query.where(scopeField, "==", scopeValue)
         : undefined,
     );
   } catch (error) {
-    if (!ownOrganizationId || !isMissingFirestoreIndexError(error)) {
+    if (!scopeField || !scopeValue || !isMissingFirestoreIndexError(error)) {
       throw error;
     }
 
     page = await listScopedCollectionPageByDocumentCursor(
       FEED_ITEMS_COLLECTION,
-      "publisherOrganizationId",
-      ownOrganizationId,
+      scopeField,
+      scopeValue,
       options.cursor,
       options.limit,
       toFeedItemRecord,
@@ -1213,11 +1502,12 @@ export async function duplicateDiscoverFeedItem(
   context: AdminContext,
   feedItemId: string,
 ) {
-  requireFullAdmin(context);
+  requireDiscoverAccess(context);
   const source = await getDiscoverFeedItem(context, feedItemId);
   const sourcePayload = source[source.type] as Record<string, unknown> | undefined;
   const duplicateInput: FeedItemInput = {
-    publisherOrganizationId: source.publisherOrganizationId,
+    publisherOrganizationId: source.publisherOrganizationId ?? undefined,
+    publisherIndividualId: source.publisherIndividualId ?? undefined,
     type: source.type,
     status: "draft",
     publishedAt: source.publishedAt,

@@ -1,6 +1,7 @@
 export type AdminRole =
   | "full_admin"
   | "organization_publisher"
+  | "individual_publisher"
   | "institution_admin"
   | "institution_operator"
   | "institution_laboratory_staff"
@@ -32,6 +33,7 @@ export interface AdminContextRecord {
   uid: string;
   role: AdminRole;
   organizationId?: string;
+  individualId?: string;
   institutionId?: string;
   doctorId?: string;
   patientId?: string;
@@ -119,6 +121,7 @@ export interface RoleManagementRecord {
   email: string;
   role: AdminRole;
   organizationId?: string;
+  individualId?: string;
   institutionId?: string;
   doctorId?: string;
   patientId?: string;
@@ -131,6 +134,7 @@ export interface RoleManagementRecord {
   updatedAt: string;
   createdByEmail?: string;
   organizationName?: string;
+  individualName?: string;
   institutionName?: string;
   doctorName?: string;
   patientName?: string;
@@ -255,6 +259,7 @@ export interface ChangeMyAccountEmailResponse {
 export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
   full_admin: "Full admin",
   organization_publisher: "Organization publisher",
+  individual_publisher: "Individual publisher",
   institution_admin: "Institution admin",
   institution_operator: "Institution operator",
   institution_laboratory_staff: "Institution laboratory staff",
@@ -267,6 +272,8 @@ export const ADMIN_ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
     "Global control over institutions, users, roles, and the legacy moderation tools.",
   organization_publisher:
     "Organization-scoped Discover publishing access for one feed_organizations publisher and its feed entries.",
+  individual_publisher:
+    "Individual-scoped Discover publishing access for one feed_individuals publisher and its feed entries.",
   institution_admin:
     "Institution-scoped control over one institution, its doctors, its patients, and local role assignments.",
   institution_operator:
@@ -282,6 +289,7 @@ export const ADMIN_ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
 export const ROLE_OPTIONS: Array<{ value: AdminRole; label: string }> = [
   { value: "full_admin", label: "Full admin" },
   { value: "organization_publisher", label: "Organization publisher" },
+  { value: "individual_publisher", label: "Individual publisher" },
   { value: "institution_admin", label: "Institution admin" },
   { value: "institution_operator", label: "Institution operator" },
   {
@@ -340,7 +348,11 @@ export function getAssignableRoleOptionsForContext(
   const options = getAssignableRoleOptions(context.role);
 
   if (context.role === "full_admin" && !context.isBootstrap) {
-    return options.filter((option) => option.value !== "organization_publisher");
+    return options.filter(
+      (option) =>
+        option.value !== "organization_publisher" &&
+        option.value !== "individual_publisher",
+    );
   }
 
   return options;
@@ -357,7 +369,9 @@ export function getVisibleRoleRecordsForContext(
   if (context.role === "full_admin") {
     return records.filter(
       (record) =>
-        !record.bootstrap && record.role !== "organization_publisher",
+        !record.bootstrap &&
+        record.role !== "organization_publisher" &&
+        record.role !== "individual_publisher",
     );
   }
 
