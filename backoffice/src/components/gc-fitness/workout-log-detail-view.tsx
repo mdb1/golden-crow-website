@@ -22,6 +22,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ProgressiveOverloadBadge } from "@/components/gc-fitness/progressive-overload-badge";
 import type { WorkoutLogDetail } from "@/lib/gc-fitness/recent-logs-actions";
 import { WorkoutHeartRateChart } from "@/components/gc-fitness/workout-heart-rate-chart";
 // quick-260714-m57 (#403) — W/F/D badge on logged sets in "Detalle de series".
@@ -120,6 +121,9 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                 ? t("sourceCoach")
                 : t("sourceClient")}
             </Badge>
+            {detail.progressiveOverload ? (
+              <ProgressiveOverloadBadge label={t("progressiveOverloadTitle")} />
+            ) : null}
           </div>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm md:grid-cols-3">

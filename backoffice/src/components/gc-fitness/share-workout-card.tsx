@@ -39,6 +39,11 @@ import type { AssignmentDetail } from "@/lib/gc-fitness/schedule-month-actions";
 // SHARE-CARD-SPEC §2 palette — hardcoded hex, never inherit page theme.
 const BG = "#000000";
 const ACCENT = "#D9A441"; // BrandAmber — eyebrow, index badge, divider, footer
+// #576 — mismo valor que el `overloadRed` de iOS y el `OVERLOAD_RED` de Android: el rojo del
+// tema se apaga sobre el fondo fijo de la tarjeta, y esta imagen no puede cambiar con el tema
+// de quien la comparte.
+const OVERLOAD_RED = "#FF453A";
+const OVERLOAD_RED_BG = "rgba(255, 69, 58, 0.16)";
 const STAT_NUMBER = "#F0C04A"; // bright gold — the big stat number
 const SURFACE = "#1C1C1E"; // exercise cards + stat pills
 const CARD_BORDER = "rgba(255,255,255,0.10)";
@@ -96,6 +101,17 @@ export interface ShareCardModel {
   completionA11y: string;
   /** Show the green ✓ next to the eyebrow (success variant only). */
   showCompletionCheck: boolean;
+  /**
+   * #576 — texto de la cápsula roja "Sobrecarga" al lado del eyebrow, o null.
+   *
+   * Gemela de la que dibujan las apps en SU imagen compartida. Va acá y no sólo en la pantalla
+   * porque la imagen es lo que el coach manda por WhatsApp: si el modo desaparece al compartir,
+   * el log llega sin la única explicación de por qué las reps superan el plan.
+   *
+   * Siempre null en la variante de asignación PRESCRIPTA — todavía no hay log, así que no hay
+   * modo del cual hablar.
+   */
+  progressiveOverloadLabel: string | null;
   title: string;
   /** Pre-built sub-line ("Coach: X · Y" / "Y"); null = no sub-line. */
   subLine: string | null;
@@ -572,6 +588,9 @@ function buildSuccessModel(
     eyebrow: t("shareEyebrow"),
     completionA11y: t("shareCompletedA11y"),
     showCompletionCheck: true,
+    progressiveOverloadLabel: detail.progressiveOverload
+      ? t("shareProgressiveOverload")
+      : null,
     title: detail.workoutName,
     subLine: buildSubLine(detail.coachName, detail.clientName, t),
     stats,
@@ -696,6 +715,8 @@ function buildAssignmentModel(
 
   return {
     eyebrow: t("shareEyebrowPrescribed"),
+    // Prescripción, no log: no hay modo del cual hablar todavía.
+    progressiveOverloadLabel: null,
     completionA11y: t("shareCompletedA11y"),
     showCompletionCheck: false,
     title: assignment.templateName,
@@ -929,6 +950,44 @@ function ShareCardRenderer({
                     }}
                   >
                     ✓
+                  </span>
+                ) : null}
+                {/*
+                  #576 — la cápsula del modo, gemela de la de iOS/Android en su share card.
+
+                  ⚠️ Rojo HEX literal y estilos inline, como el resto de esta tarjeta: la imagen
+                  se rasteriza con `html-to-image` y no puede depender del tema de quien la
+                  comparte ni de clases de Tailwind. Y la escalera lleva `width`/`height` como
+                  ATRIBUTOS: un `<svg>` dimensionado sólo por CSS puede rasterizar a tamaño cero
+                  dentro del `foreignObject` que arma html-to-image, y saldría una cápsula con la
+                  palabra y sin glifo.
+                */}
+                {model.progressiveOverloadLabel ? (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "4px 14px",
+                      borderRadius: 999,
+                      backgroundColor: OVERLOAD_RED_BG,
+                      color: OVERLOAD_RED,
+                      fontSize: 20,
+                      fontWeight: 700,
+                      letterSpacing: 1,
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      width={18}
+                      height={18}
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M3 21 L3 15 L9 15 L9 9 L15 9 L15 3 L21 3 L21 21 Z" />
+                    </svg>
+                    {model.progressiveOverloadLabel}
                   </span>
                 ) : null}
               </div>

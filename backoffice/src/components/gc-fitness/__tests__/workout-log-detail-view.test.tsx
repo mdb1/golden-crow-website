@@ -91,6 +91,7 @@ function detail(overrides: Partial<WorkoutLogDetail> = {}): WorkoutLogDetail {
     rpe: null,
     athleteNotes: null,
     source: "client",
+    progressiveOverload: false,
     sets: [set()],
     ...overrides,
   } as WorkoutLogDetail;
@@ -473,5 +474,29 @@ describe("WorkoutLogDetailView — the header facts", () => {
   it("shows the client's own notes verbatim", () => {
     renderDetail(detail({ athleteNotes: "Hombro molesto en la 3a" }));
     expect(screen.getByText("Hombro molesto en la 3a")).toBeInTheDocument();
+  });
+});
+
+// ── #576 Modo sobrecarga progresiva ─────────────────────────────────────────
+//
+// Esta vista es el único lugar donde el coach ve lo que el cliente REALMENTE hizo, y el modo
+// sobrecarga cambia cómo se lee la tabla: la app le subió la prescripción set a set, así que
+// reps o kilos por encima del plan son la app haciendo su trabajo, no el cliente haciendo la
+// suya. Sin la insignia el coach ve un desvío sin causa — y "un desvío sin causa" es
+// exactamente el tipo de dato que hace que un coach corrija a alguien que no hizo nada mal.
+
+describe("progressive overload badge (#576)", () => {
+  it("se muestra cuando el log se registró en modo sobrecarga", () => {
+    renderDetail(detail({ progressiveOverload: true }));
+
+    expect(screen.getByText("Progressive overload")).toBeInTheDocument();
+  });
+
+  it("NO se muestra en un entrenamiento normal", () => {
+    // La insignia afirma algo sobre cómo entrenó el usuario. Mostrarla de más es peor que no
+    // mostrarla: le atribuye al cliente un modo que no usó.
+    renderDetail(detail({ progressiveOverload: false }));
+
+    expect(screen.queryByText("Progressive overload")).not.toBeInTheDocument();
   });
 });
