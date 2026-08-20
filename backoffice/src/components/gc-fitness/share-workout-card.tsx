@@ -39,11 +39,12 @@ import type { AssignmentDetail } from "@/lib/gc-fitness/schedule-month-actions";
 // SHARE-CARD-SPEC §2 palette — hardcoded hex, never inherit page theme.
 const BG = "#000000";
 const ACCENT = "#D9A441"; // BrandAmber — eyebrow, index badge, divider, footer
-// #576 — mismo valor que el `overloadRed` de iOS y el `OVERLOAD_RED` de Android: el rojo del
-// tema se apaga sobre el fondo fijo de la tarjeta, y esta imagen no puede cambiar con el tema
-// de quien la comparte.
-const OVERLOAD_RED = "#FF453A";
-const OVERLOAD_RED_BG = "rgba(255, 69, 58, 0.16)";
+// #576 — mismo valor que el `overloadTint` de iOS y el `OVERLOAD_TINT` de Android: la variante
+// CLARA del indigo (`#818CF8`, el WorkoutIndigo de modo oscuro). El lienzo de esta tarjeta es
+// negro fijo, y el `#6366F1` de modo claro sobre negro se apaga hasta dejar de leerse. Hex
+// literal como el resto de la paleta: la imagen no puede cambiar con el tema de quien comparte.
+const OVERLOAD_TINT = "#818CF8";
+const OVERLOAD_TINT_BG = "rgba(129, 140, 248, 0.16)";
 const STAT_NUMBER = "#F0C04A"; // bright gold — the big stat number
 const SURFACE = "#1C1C1E"; // exercise cards + stat pills
 const CARD_BORDER = "rgba(255,255,255,0.10)";
@@ -970,8 +971,8 @@ function ShareCardRenderer({
                       gap: 8,
                       padding: "4px 14px",
                       borderRadius: 999,
-                      backgroundColor: OVERLOAD_RED_BG,
-                      color: OVERLOAD_RED,
+                      backgroundColor: OVERLOAD_TINT_BG,
+                      color: OVERLOAD_TINT,
                       fontSize: 20,
                       fontWeight: 700,
                       letterSpacing: 1,
