@@ -28,6 +28,7 @@ import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import { PillTabs, type PillTabItem } from "@/components/gc-fitness/pill-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ProgressiveOverloadBadge } from "@/components/gc-fitness/progressive-overload-badge";
 import { cn } from "@/lib/utils";
 import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 import {
@@ -419,6 +420,9 @@ function RecentLogItem({
               <CalendarClock />
               {t("forDay", { date: formatCivilDate(row.forCivilDate, locale) })}
             </Badge>
+          ) : null}
+          {row.workout?.progressiveOverload ? (
+            <ProgressiveOverloadBadge label={t("progressiveOverloadBadge")} />
           ) : null}
           {row.workout?.rpe != null ? (
             <Badge

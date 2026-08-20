@@ -88,6 +88,15 @@ export interface RecentLogRow {
     hasNotes: boolean;
     /** Origin of the workout log: coach-run backoffice session or client-run iOS session. */
     source?: "coach" | "client";
+    /**
+     * #576 — el atleta hizo este entrenamiento en modo sobrecarga progresiva: la app le subió
+     * la prescripción set a set en vez de darle la del plan.
+     *
+     * Le importa al coach y no es deducible de los números: un log en modo sobrecarga tiene
+     * reps o kilos por encima de lo que el coach prescribió, y sin esto se lee como que el
+     * cliente hizo la suya. Wire snake_case `progressive_overload` (iOS/Android).
+     */
+    progressiveOverload: boolean;
   };
 }
 
@@ -143,6 +152,11 @@ export interface WorkoutLogDetail {
   athleteNotes: string | null;
   /** Origin of the workout log: coach-run backoffice session or client-run iOS session. */
   source?: "coach" | "client";
+  /**
+   * #576 — hecho en modo sobrecarga progresiva. Wire snake_case `progressive_overload`.
+   * Ausente en todo log anterior al modo ⇒ `false`, que es lo correcto.
+   */
+  progressiveOverload: boolean;
   sets: Array<{
     index: number;
     setLogId: string;
@@ -1120,6 +1134,7 @@ async function buildRecentLogs(params: {
         rpe,
         hasNotes,
         source,
+        progressiveOverload: data.progressive_overload === true,
       },
     });
   });
@@ -2176,6 +2191,9 @@ async function buildWorkoutLogDetail(
     rpe,
     athleteNotes,
     source,
+    // Estricto `=== true` y no truthy: el campo es un booleano en el wire, y un string vacío o
+    // un 0 que se colara desde un cliente viejo no debe encender una insignia.
+    progressiveOverload: data.progressive_overload === true,
     sets,
   };
 }
