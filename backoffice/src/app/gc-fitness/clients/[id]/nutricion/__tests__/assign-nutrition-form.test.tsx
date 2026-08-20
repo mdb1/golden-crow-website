@@ -375,6 +375,56 @@ describe("AssignNutritionForm — macro kcal hint (#949)", () => {
   });
 });
 
+describe("AssignNutritionForm — meal rollup against the day (#961)", () => {
+  /**
+   * La aserción del issue: cuatro comidas internamente coherentes pueden sumar MUY por debajo
+   * del objetivo del día, y hasta ahora la pantalla no lo decía. El aviso de #949 compara cada
+   * comida contra SU propia línea de calorías, no contra el día.
+   */
+  it("adds the meals up and says how far they are from the day's calories", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    const daily = within(screen.getByTestId("nutrition-daily-targets"));
+    await user.type(daily.getByLabelText("Calories"), "2000");
+
+    // El formulario arranca con una comida; se le cargan 700 kcal.
+    const meals = within(screen.getByTestId("nutrition-meals"));
+    await user.type(meals.getByLabelText("Calories"), "700");
+
+    const kcalTile = await screen.findByTestId("nutrition-meal-rollup-kcal");
+    expect(kcalTile).toHaveTextContent("700");
+    expect(kcalTile).toHaveTextContent("2000");
+    // 1 300 kcal de un día sin repartir, dicho en la tarjeta y no escondido en una resta.
+    expect(kcalTile).toHaveTextContent("1300");
+  });
+
+  /**
+   * La aserción que evita el peor resultado posible: decirle al coach que le faltan 90 g de
+   * proteína porque la comida no la tiene cargada. El total se muestra igual (es un piso
+   * útil), la DIFERENCIA se calla y en su lugar se dice qué falta cargar.
+   */
+  it("never claims a shortfall for a macro some meal left blank", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    const daily = within(screen.getByTestId("nutrition-daily-targets"));
+    await user.type(daily.getByLabelText(/^Protein/), "90");
+
+    const meals = within(screen.getByTestId("nutrition-meals"));
+    await user.type(meals.getByLabelText("Calories"), "700");
+
+    const proteinTile = await screen.findByTestId("nutrition-meal-rollup-protein");
+    expect(proteinTile).not.toHaveTextContent("90 g short");
+    expect(proteinTile).toHaveTextContent("1 of 1 meals missing this one");
+  });
+
+  it("stays quiet while the meals have no numbers at all", async () => {
+    renderForm();
+    expect(await screen.findByTestId("nutrition-meal-rollup-empty")).toBeInTheDocument();
+  });
+});
+
 describe("AssignNutritionForm — editing a phase (#949)", () => {
   it("prefills from the phase and defaults a RUNNING one to the split branch", async () => {
     renderEditor();

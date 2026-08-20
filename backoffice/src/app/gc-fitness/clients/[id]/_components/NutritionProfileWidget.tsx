@@ -5,12 +5,33 @@ import { getTranslations } from "next-intl/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
-import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
-import { listNutritionPlansForClient } from "@/lib/gc-fitness/nutrition-actions";
+import { civilDateAddDays, formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
+import { nutritionAdherenceByMeal } from "@/lib/gc-fitness/nutrition-adherence";
+import {
+  listNutritionLogsForClient,
+  listNutritionPlansForClient,
+} from "@/lib/gc-fitness/nutrition-actions";
+import {
+  buildNutritionWeekGrid,
+  civilWeekStart,
+} from "@/lib/gc-fitness/nutrition-compliance";
 import { buildNutritionPhaseStrip } from "@/lib/gc-fitness/nutrition-plan-form";
 import { loadNutritionRosterSummaries } from "@/lib/gc-fitness/nutrition-roster";
 
+import { NutritionAdherenceCharts } from "../nutricion/_components/NutritionAdherenceCharts";
+import { NutritionComplianceGrid } from "../nutricion/_components/NutritionComplianceGrid";
 import { MacroTiles } from "../nutricion/_components/MacroTiles";
+
+/**
+ * #961 — cuántas semanas trae la grilla del perfil.
+ *
+ * Las mismas ocho que la pantalla de nutrición, para que la tira de barras no cuente una
+ * historia más corta en un lado que en el otro. La VENTANA DE LECTURA, en cambio, es sólo la
+ * que esas ocho semanas necesitan (~9 semanas de logs) y no el año que lee `/nutricion`: el
+ * perfil no dibuja fases históricas ni la tabla de peso, así que pagar 365 días de logs acá
+ * sería comprar datos que nadie mira.
+ */
+const PROFILE_GRID_WEEKS = 8;
 
 /**
  * Nutrition on the client's profile (#949).
@@ -61,6 +82,44 @@ export async function NutritionProfileWidget({
   const scheduled = phases.filter((phase) => phase.state === "scheduled");
 
   const manageHref = `/gc-fitness/clients/${clientId}/nutricion`;
+
+  // #961 — la semana y la adherencia, acá.
+  //
+  // El pedido es literal: el coach quiere ver "esta semana" con sus controles de anterior /
+  // siguiente y algún gráfico SIN salir del perfil. Todo lo que se dibuja abajo son los
+  // componentes de `/nutricion` reusados tal cual — no una segunda versión que pueda contar
+  // otra historia sobre el mismo día.
+  //
+  // Cuesta UNA lectura más, y sólo cuando hay fase: sin plan no hay nada que medir, así que
+  // el caso más barato (un cliente sin plan) sigue costando lo que costaba.
+  const gridWindowStart =
+    civilDateAddDays(civilWeekStart(context.todayCivil), -(PROFILE_GRID_WEEKS - 1) * 7) ??
+    context.todayCivil;
+  const logs =
+    phases.length > 0
+      ? await listNutritionLogsForClient(clientId, gridWindowStart, context.todayCivil)
+      : [];
+  const weeks =
+    phases.length > 0
+      ? Array.from({ length: PROFILE_GRID_WEEKS }, (_, offset) => {
+          const anchor =
+            civilDateAddDays(
+              civilWeekStart(context.todayCivil),
+              -(PROFILE_GRID_WEEKS - 1 - offset) * 7,
+            ) ?? context.todayCivil;
+          return buildNutritionWeekGrid(plans, logs, anchor, context.todayCivil);
+        })
+      : [];
+  // Recortado a la ventana leída, igual que en `/nutricion`: una fase que arrancó antes
+  // contaría los días no leídos como sin marcar y reportaría un fracaso que nadie tuvo.
+  const adherenceByMeal = current
+    ? nutritionAdherenceByMeal(
+        plans,
+        logs,
+        current.plan.startsOn > gridWindowStart ? current.plan.startsOn : gridWindowStart,
+        context.todayCivil,
+      )
+    : [];
 
   return (
     <section className="rounded-xl border bg-card p-4" data-testid="client-nutrition-section">
@@ -160,6 +219,10 @@ export async function NutritionProfileWidget({
                 ))}
             </ul>
           ) : null}
+
+          <NutritionComplianceGrid weeks={weeks} />
+
+          <NutritionAdherenceCharts weeks={weeks} byMeal={adherenceByMeal} />
 
           {scheduled.length > 0 ? (
             <p className="text-xs text-muted-foreground">

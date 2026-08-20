@@ -64,7 +64,10 @@ import type { NutritionTemplateRow } from "@/lib/gc-fitness/nutrition-library-mo
 import {
   estimateKcalFromMacros,
   macroKcalMismatch,
+  rollupDeltaIsWorthShowing,
+  rollupMealMacros,
 } from "@/lib/gc-fitness/nutrition-macro-math";
+import type { MacroRollupLine } from "@/lib/gc-fitness/nutrition-macro-math";
 import { nutritionPlanFormSchema } from "@/lib/gc-fitness/nutrition-plan-form";
 import type {
   NutritionOverlapNotice,
@@ -877,6 +880,10 @@ export function AssignNutritionForm({
               </div>
             </div>
           ))}
+          <MealRollupPanel
+            meals={meals}
+            targets={{ kcal, proteinG, carbsG, fatG }}
+          />
         </CardContent>
       </Card>
 
@@ -950,6 +957,143 @@ function MacroInput({
         onChange={(event) => onChange(event.target.value)}
       />
     </div>
+  );
+}
+
+/**
+ * #961 — ¿lo que repartí entre las comidas llega al día?
+ *
+ * Es la pregunta que el coach hace en voz alta mientras carga el plan, y hasta ahora la
+ * pantalla no la contestaba: el aviso de #949 compara CADA comida contra su propia línea de
+ * calorías, así que cuatro comidas internamente coherentes podían sumar 1.760 de un objetivo
+ * de 2.000 sin que nada lo dijera. Ochocientas calorías se van así, y el síntoma aparece
+ * semanas después como "el cliente no baja".
+ *
+ * Va abajo de las comidas y no arriba con los objetivos a propósito: es el resultado de lo que
+ * acabás de repartir, y leerlo antes de repartir no significa nada.
+ *
+ * ⚠️ Misma disciplina que el resto del editor: **no bloquea el guardado ni reescribe nada**.
+ * Un coach puede repartir a propósito menos de lo que pide el día.
+ *
+ * ⚠️ Y cuando a alguna comida le falta el macro, se muestra el total pero NO la diferencia:
+ * "faltan 69 g de proteína" porque tres comidas no la tienen cargada es un número falso que
+ * manda a corregir un plan que está bien. Ver `rollupMealMacros`.
+ */
+function MealRollupPanel({
+  meals,
+  targets,
+}: {
+  meals: DraftMeal[];
+  targets: { kcal: string; proteinG: string; carbsG: string; fatG: string };
+}) {
+  const t = useTranslations("clients.detail.nutrition");
+  const rollup = rollupMealMacros(
+    meals.map((meal) => ({
+      kcal: numberOrNull(meal.kcal),
+      proteinG: numberOrNull(meal.proteinG),
+      carbsG: numberOrNull(meal.carbsG),
+      fatG: numberOrNull(meal.fatG),
+    })),
+    {
+      kcal: numberOrNull(targets.kcal),
+      proteinG: numberOrNull(targets.proteinG),
+      carbsG: numberOrNull(targets.carbsG),
+      fatG: numberOrNull(targets.fatG),
+    },
+  );
+
+  if (meals.length === 0) return null;
+
+  const lines: Array<{
+    key: string;
+    label: string;
+    unit: string;
+    metric: "kcal" | "grams";
+    line: MacroRollupLine;
+  }> = [
+    { key: "kcal", label: t("kcal"), unit: "", metric: "kcal", line: rollup.kcal },
+    { key: "protein", label: t("protein"), unit: " g", metric: "grams", line: rollup.proteinG },
+    { key: "carbs", label: t("carbs"), unit: " g", metric: "grams", line: rollup.carbsG },
+    { key: "fat", label: t("fat"), unit: " g", metric: "grams", line: rollup.fatG },
+  ];
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3" data-testid="nutrition-meal-rollup">
+      <div>
+        <p className="text-sm font-medium">{t("rollupTitle")}</p>
+        <p className="text-muted-foreground text-xs">{t("rollupHelp")}</p>
+      </div>
+      {rollup.isEmpty ? (
+        <p className="text-muted-foreground text-xs" data-testid="nutrition-meal-rollup-empty">
+          {t("rollupEmpty")}
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {lines.map(({ key, label, unit, metric, line }) => (
+            <div
+              key={key}
+              className="flex flex-col gap-0.5 rounded-md border bg-background p-2"
+              data-testid={`nutrition-meal-rollup-${key}`}
+            >
+              <span className="text-muted-foreground text-[11px] uppercase tracking-wide">
+                {label}
+              </span>
+              <span className="text-base font-semibold tabular-nums">
+                {line.total}
+                {unit}
+              </span>
+              <span className="text-muted-foreground text-[11px] tabular-nums">
+                {line.target === null
+                  ? t("rollupNoTarget")
+                  : t("rollupOfTarget", { target: `${line.target}${unit}` })}
+              </span>
+              <MealRollupDelta line={line} metric={metric} unit={unit} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * La única línea que puede MENTIR, así que es la que más se calla.
+ *
+ * Tres estados y ninguno es "0": "faltan X", "X de más", y "cierra" cuando la diferencia
+ * está adentro de la tolerancia. Cuando el total está incompleto no se dice nada del
+ * objetivo — se dice CUÁNTAS comidas faltan cargar, que es lo accionable.
+ */
+function MealRollupDelta({
+  line,
+  metric,
+  unit,
+}: {
+  line: MacroRollupLine;
+  metric: "kcal" | "grams";
+  unit: string;
+}) {
+  const t = useTranslations("clients.detail.nutrition");
+
+  if (line.mealsMissing > 0) {
+    return (
+      <span className="text-muted-foreground text-[11px]">
+        {t("rollupPartial", {
+          missing: line.mealsMissing,
+          total: line.mealsCounted + line.mealsMissing,
+        })}
+      </span>
+    );
+  }
+  if (line.delta === null) return null;
+  if (!rollupDeltaIsWorthShowing(line, metric)) {
+    return <span className="text-[11px] font-medium text-emerald-600">{t("rollupOnTarget")}</span>;
+  }
+  return (
+    <span className="text-chart-4 text-[11px] font-medium tabular-nums">
+      {line.delta > 0
+        ? t("rollupOver", { diff: `${line.delta}${unit}` })
+        : t("rollupUnder", { diff: `${Math.abs(line.delta)}${unit}` })}
+    </span>
   );
 }
 
