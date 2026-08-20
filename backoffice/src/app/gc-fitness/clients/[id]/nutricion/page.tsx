@@ -33,6 +33,7 @@ import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 import { BodyWeightTrendChart } from "../_components/BodyWeightTrendChart";
 import { NutritionCoachActions } from "./_components/NutritionCoachActions";
+import { NutritionAdherenceCharts } from "./_components/NutritionAdherenceCharts";
 import { NutritionComplianceGrid } from "./_components/NutritionComplianceGrid";
 import { NutritionNotesFeed } from "./_components/NutritionNotesFeed";
 import { NutritionPhaseStrip } from "./_components/NutritionPhaseStrip";
@@ -145,18 +146,21 @@ export default async function ClientNutritionPage({
   //
   // The breakdown comes from the same `nutritionAdherenceByMeal` the grid rows carry, on
   // purpose: a second count is a second chance to disagree with the client's own screen.
-  const failing = current
-    ? failingMeals(
-        nutritionAdherenceByMeal(
-          plans,
-          logs,
-          // Clamped to the read window: a phase that started before it would otherwise
-          // count unread days as unmarked and report a failure nobody had.
-          current.plan.startsOn > windowStart ? current.plan.startsOn : windowStart,
-          context.todayCivil,
-        ),
+  //
+  // #961 — la lista COMPLETA se calcula una vez y se usa dos veces: `failingMeals` se queda
+  // con las que valen una conversación, y el gráfico dibuja todas. Calcularla dos veces sería
+  // una segunda oportunidad de discrepar sobre el mismo hecho (#173).
+  const adherenceByMeal = current
+    ? nutritionAdherenceByMeal(
+        plans,
+        logs,
+        // Clamped to the read window: a phase that started before it would otherwise
+        // count unread days as unmarked and report a failure nobody had.
+        current.plan.startsOn > windowStart ? current.plan.startsOn : windowStart,
+        context.todayCivil,
       )
     : [];
+  const failing = failingMeals(adherenceByMeal);
   const phaseRows = buildNutritionPhaseRows(
     plans,
     logs,
@@ -217,6 +221,11 @@ export default async function ClientNutritionPage({
       />
 
       <NutritionComplianceGrid weeks={weeks} />
+
+      {/* #961 — la tendencia que la grilla no puede mostrar: la grilla dice qué pasó ESTA
+          semana, el gráfico dice si viene mejorando. Sin lecturas nuevas: las dos series
+          salen de `weeks` y de `adherenceByMeal`, que ya estaban calculadas. */}
+      <NutritionAdherenceCharts weeks={weeks} byMeal={adherenceByMeal} />
 
       <NutritionNotesFeed notes={notes} locale={locale} clientId={id} />
 
