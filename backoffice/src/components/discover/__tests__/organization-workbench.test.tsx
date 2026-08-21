@@ -329,6 +329,11 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     renderWorkbench();
 
     expect(screen.getByDisplayValue("https://facebook.com/publisher-one")).toBeTruthy();
+    expect(
+      document.querySelector(
+        'img[src="/discover/social-network-assets/facebook.png"]',
+      ),
+    ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Add social link" }));
 
     [
@@ -351,6 +356,32 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       "Other link",
     ].forEach((label) => {
       expect(screen.getByRole("button", { name: new RegExp(label, "i") })).toBeTruthy();
+    });
+
+    [
+      "x-twitter",
+      "instagram",
+      "tiktok",
+      "youtube",
+      "linkedin",
+      "whatsapp",
+      "telegram",
+      "threads",
+      "pinterest",
+      "snapchat",
+      "reddit",
+      "discord",
+      "twitch",
+      "bluesky",
+      "mastodon",
+      "email",
+      "other-link",
+    ].forEach((assetName) => {
+      expect(
+        document.querySelector(
+          `img[src="/discover/social-network-assets/${assetName}.png"]`,
+        ),
+      ).toBeTruthy();
     });
   });
 });
