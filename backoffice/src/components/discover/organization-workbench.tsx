@@ -638,18 +638,6 @@ function DiscoverPublisherWorkbench({
               />
               {t("Verified publisher")}
             </label>
-            <div className="flex flex-col gap-2 md:col-span-2">
-              <Label htmlFor="discover-org-notes">{t("Internal notes")}</Label>
-              <Textarea
-                id="discover-org-notes"
-                value={state.internalNotes}
-                onChange={(event) =>
-                  updateState({ internalNotes: event.target.value })
-                }
-                disabled={!canManageSystemFields}
-                rows={3}
-              />
-            </div>
           </div>
 
           <div className="flex flex-col gap-3">

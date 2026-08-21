@@ -139,6 +139,13 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
   });
 
+  it("does not render the internal notes block", () => {
+    renderWorkbench("es");
+
+    expect(screen.queryByLabelText("Notas internas")).toBeNull();
+    expect(screen.queryByLabelText("Internal notes")).toBeNull();
+  });
+
   it("saves multiple organization categories as comma-separated canonical keys", async () => {
     const user = userEvent.setup();
     renderWorkbench();
