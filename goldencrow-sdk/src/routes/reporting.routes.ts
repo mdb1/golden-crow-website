@@ -5,6 +5,7 @@ import { ENV } from "../config/env.js";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   getReportingPatient,
+  getReportingTwoPQCaseByCode,
   recordUploadedReportNotification,
 } from "../repositories/reporting.repository.js";
 
@@ -34,6 +35,13 @@ const UploadedReportNotificationSchema = z.object({
   reportType: z.string().trim().min(1).optional(),
   sampleId: z.string().trim().min(1).optional(),
   downloadUrl: z.string().trim().url().optional(),
+});
+
+const TwoPQCaseLookupParamsSchema = z.object({
+  caseCode: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9]{6}$/, "caseCode must contain exactly 6 letters or numbers"),
 });
 
 function getBearerToken(request: FastifyRequest) {
@@ -123,6 +131,29 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
       try {
         const result = await recordUploadedReportNotification(request.body);
         return reply.status(201).send(result);
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  f.get(
+    "/reporting/2pq/cases/:caseCode",
+    {
+      schema: {
+        params: TwoPQCaseLookupParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const caseSnapshot = await getReportingTwoPQCaseByCode(
+          request.params.caseCode,
+        );
+        return reply.send({ caseSnapshot });
       } catch (error) {
         if (isAdminRepositoryError(error)) {
           return reply.status(error.statusCode).send({ error: error.message });

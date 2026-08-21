@@ -38,11 +38,12 @@ export function AppSidebar({
   const pathname = usePathname();
   const { language } = useAppLanguage();
   const canShowDiscoverSection = canSeeDiscoverSection(adminContext);
+  const navRole = adminContext.isBootstrap ? "full_admin" : adminContext.role;
   const baseVisibleSections = getProjectSections(
     adminContext.project,
-    adminContext.role,
+    navRole,
   );
-  const baseVisibleNav = getProjectNav(adminContext.project, adminContext.role);
+  const baseVisibleNav = getProjectNav(adminContext.project, navRole);
   const visibleSections = canShowDiscoverSection
     ? baseVisibleSections
     : baseVisibleSections.filter((section) => section.key !== "discover");

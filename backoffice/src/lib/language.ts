@@ -38,6 +38,17 @@ const SPANISH_TEXT: Record<string, string> = {
   "Switch to dark mode": "Cambiar a modo oscuro",
   "Switch to light mode": "Cambiar a modo claro",
   Appearance: "Apariencia",
+  "API documentation": "Documentación API",
+  "API Keys": "Claves API",
+  "Reporting API reference and integration examples":
+    "Referencia de la API de reportes y ejemplos de integración",
+  "Reporting bearer token setup and rotation notes":
+    "Configuración del bearer token de reportes y notas de rotación",
+  "2PQ API": "API 2PQ",
+  "Reporting API reference for patient lookup, report upload notifications, and 2PQ case lookup.":
+    "Referencia de la API de reportes para buscar pacientes, notificar reportes subidos y consultar casos 2PQ.",
+  "Reporting API bearer token handling for full admins.":
+    "Gestión del bearer token de la API de reportes para administradores totales.",
   "Sign out": "Cerrar sesión",
   "Signing out...": "Cerrando sesión...",
   Switch: "Cambiar",

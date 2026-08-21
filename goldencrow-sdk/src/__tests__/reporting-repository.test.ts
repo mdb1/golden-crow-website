@@ -4,6 +4,10 @@ type MockDocData = Record<string, unknown>;
 type MockDocumentRef = { id: string; collectionName: string };
 
 const mockPatients = new Map<string, MockDocData>();
+const mockInstitutions = new Map<string, MockDocData>();
+const mockDoctors = new Map<string, MockDocData>();
+const mockTwoPQCases = new Map<string, MockDocData>();
+const mockTwoPQSamplings = new Map<string, MockDocData>();
 const mockTransactionGet = jest.fn();
 const mockTransactionSet = jest.fn();
 const mockFieldValueIncrement = jest.fn((value: number) => ({
@@ -13,6 +17,25 @@ const mockFieldValueIncrement = jest.fn((value: number) => ({
 const mockServerTimestamp = jest.fn(() => ({
   __op: "serverTimestamp",
 }));
+
+function sourceForCollection(collectionName: string) {
+  if (collectionName === "patients") {
+    return mockPatients;
+  }
+  if (collectionName === "institutions") {
+    return mockInstitutions;
+  }
+  if (collectionName === "doctors") {
+    return mockDoctors;
+  }
+  if (collectionName === "2pq_case") {
+    return mockTwoPQCases;
+  }
+  if (collectionName === "2pq_sampling") {
+    return mockTwoPQSamplings;
+  }
+  return new Map<string, MockDocData>();
+}
 
 class QueryStub {
   private field?: string;
@@ -33,7 +56,7 @@ class QueryStub {
   }
 
   async get() {
-    const source = this.collectionName === "patients" ? mockPatients : new Map();
+    const source = sourceForCollection(this.collectionName);
     const docs = [...source.entries()]
       .filter(([, data]) => !this.field || data[this.field] === this.value)
       .slice(0, this.limitValue)
@@ -55,7 +78,7 @@ class QueryStub {
       id: documentId,
       collectionName: this.collectionName,
       get: jest.fn(async () => {
-        const source = this.collectionName === "patients" ? mockPatients : new Map();
+        const source = sourceForCollection(this.collectionName);
         const data = source.get(documentId);
         return {
           id: documentId,
@@ -94,6 +117,10 @@ describe("reporting repository", () => {
   beforeEach(() => {
     jest.resetModules();
     mockPatients.clear();
+    mockInstitutions.clear();
+    mockDoctors.clear();
+    mockTwoPQCases.clear();
+    mockTwoPQSamplings.clear();
     mockCollection.mockClear();
     mockRunTransaction.mockClear();
     mockTransactionGet.mockReset();
@@ -113,6 +140,69 @@ describe("reporting repository", () => {
       additionalInformation: {
         documentId: "12345678",
       },
+    });
+
+    mockInstitutions.set("INST-00001", {
+      name: "Fertility Clinic",
+      email: "ops@clinic.example",
+      phoneNumber: "+5491100000000",
+      status: "active",
+    });
+
+    mockDoctors.set("DOC-00001", {
+      fullName: "Dr. Grace Hopper",
+      email: "grace@example.com",
+      phone: "+5491100000001",
+      status: "active",
+    });
+
+    mockTwoPQCases.set("CASE-00001", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      patientId: "PAT-00001",
+      parent_batch: "SEQ-00001",
+      children_cases: ["CASE-OTHER"],
+      children_sampling: ["SAMP-00001"],
+      three_letter_code: "ABC",
+      caseLabel: "ABCXXX",
+      caseStatus: "processing",
+      caseType: "2PQ",
+      priority: "standard",
+      requestedAt: "2026-08-19",
+      notes: "Current case only.",
+      updatedAt: "2026-08-19T12:00:00.000Z",
+    });
+
+    mockTwoPQCases.set("CASE-OTHER", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      patientId: "PAT-00001",
+      parent_batch: "SEQ-00001",
+      three_letter_code: "DEF",
+      caseLabel: "DEFXXX",
+    });
+
+    mockTwoPQSamplings.set("SAMP-00001", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      patientId: "PAT-00001",
+      parent_case: "CASE-00001",
+      caseLabel: "ABCXXX",
+      sampleId: "ABC001",
+      sampleType: "biopsy",
+      processingStatus: "received",
+      qcStatus: "accepted",
+      collectionDate: "2026-08-18",
+      updatedAt: "2026-08-19T11:00:00.000Z",
+    });
+
+    mockTwoPQSamplings.set("SAMP-OTHER", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      patientId: "PAT-00001",
+      parent_case: "CASE-OTHER",
+      caseLabel: "DEFXXX",
+      sampleId: "DEF001",
     });
 
     mockTransactionGet.mockResolvedValue({
@@ -217,5 +307,67 @@ describe("reporting repository", () => {
       }),
       { merge: true },
     );
+  });
+
+  it("returns a current-case 2PQ snapshot by six-character sampling code", async () => {
+    const { getReportingTwoPQCaseByCode } = await import(
+      "../repositories/reporting.repository"
+    );
+
+    const snapshot = await getReportingTwoPQCaseByCode("abc001");
+
+    expect(snapshot).toMatchObject({
+      code: "ABC001",
+      main_case: {
+        id: "CASE-00001",
+        patient_id: "PAT-00001",
+        institution_id: "INST-00001",
+        doctor_id: "DOC-00001",
+        children_sampling_ids: ["SAMP-00001"],
+        last_updated: "2026-08-19T12:00:00.000Z",
+      },
+      patient: {
+        id: "PAT-00001",
+        fullName: "Ada Lovelace",
+      },
+      institution: {
+        id: "INST-00001",
+        name: "Fertility Clinic",
+      },
+      doctor: {
+        id: "DOC-00001",
+        name: "Dr. Grace Hopper",
+      },
+      entities: {
+        cases: [
+          {
+            id: "CASE-00001",
+            scope: {
+              patientId: "PAT-00001",
+            },
+            relations: {
+              samplingIds: ["SAMP-00001"],
+            },
+          },
+        ],
+        samplings: [
+          {
+            id: "SAMP-00001",
+            identity: {
+              sampleId: "ABC001",
+            },
+            relations: {
+              caseId: "CASE-00001",
+            },
+          },
+        ],
+      },
+    });
+
+    const serialized = JSON.stringify(snapshot);
+    expect(serialized).not.toContain("SEQ-00001");
+    expect(serialized).not.toContain("CASE-OTHER");
+    expect(serialized).not.toContain("parent_batch");
+    expect(serialized).not.toContain("sibling_case_ids");
   });
 });

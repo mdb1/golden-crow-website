@@ -41,7 +41,7 @@
 
 import "@testing-library/jest-dom";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 
@@ -97,8 +97,13 @@ async function createdPayload(): Promise<Record<string, unknown>> {
 }
 
 beforeEach(() => {
+  jest.useRealTimers();
   jest.clearAllMocks();
   mockCreateExercise.mockResolvedValue({ id: "custom-1" });
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 describe("QuickCreateExercise — the payload", () => {
@@ -210,12 +215,12 @@ describe("QuickCreateExercise — the name prefill", () => {
     expect(nameField()).toHaveValue("Landmine Press");
   });
 
-  it("stops following the search box once the coach edits the name", async () => {
-    const user = userEvent.setup();
+  it("stops following the search box once the coach edits the name", () => {
     const { rerender } = renderPanel({ searchTerm: "Landmine" });
 
-    await user.clear(nameField());
-    await user.type(nameField(), "Landmine Press (Half Kneeling)");
+    fireEvent.change(nameField(), {
+      target: { value: "Landmine Press (Half Kneeling)" },
+    });
 
     // The coach keeps typing in the search box behind the panel.
     rerender(
