@@ -476,6 +476,7 @@ function DiscoverPublisherWorkbench({
               selectedCountLabel={(count: number) =>
                 `${count} ${count === 1 ? t("category selected") : t("categories selected")}`
               }
+              className="md:col-span-2"
             />
             <div className="flex flex-col gap-2 md:col-span-2">
               <Label htmlFor="discover-org-color">{t("Accent color")}</Label>

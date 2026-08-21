@@ -3,9 +3,15 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppLanguageProvider } from "@/components/app-language-provider";
-import { DiscoverOrganizationWorkbench } from "@/components/discover/organization-workbench";
+import {
+  DiscoverIndividualWorkbench,
+  DiscoverOrganizationWorkbench,
+} from "@/components/discover/organization-workbench";
 import { sdkFetch } from "@/lib/sdk-client";
-import type { DiscoverOrganizationRecord } from "@/lib/discover";
+import type {
+  DiscoverIndividualRecord,
+  DiscoverOrganizationRecord,
+} from "@/lib/discover";
 
 const routerPush = jest.fn();
 const routerRefresh = jest.fn();
@@ -44,6 +50,24 @@ const organization: DiscoverOrganizationRecord = {
   updatedAt: "2026-08-02T00:00:00.000Z",
 };
 
+const individual: DiscoverIndividualRecord = {
+  id: "individual-1",
+  name: "Individual One",
+  imageUrl: "https://example.org/individual.png",
+  status: "active",
+  slug: "individual-one",
+  websiteUrl: "https://example.org/individual",
+  description: "Descripción individual",
+  description_en: "Individual description",
+  countryCode: "AR",
+  individualType: "pro_clinical_geneticists,pro_physicians",
+  color_hex: "#123ABC",
+  verified: true,
+  contactEmail: "individual@example.org",
+  createdAt: "2026-08-01T00:00:00.000Z",
+  updatedAt: "2026-08-02T00:00:00.000Z",
+};
+
 function renderWorkbench(initialLanguage: "en" | "es" = "en") {
   render(
     <AppLanguageProvider
@@ -51,6 +75,17 @@ function renderWorkbench(initialLanguage: "en" | "es" = "en") {
       forcedLanguage={initialLanguage}
     >
       <DiscoverOrganizationWorkbench organization={organization} />
+    </AppLanguageProvider>,
+  );
+}
+
+function renderIndividualWorkbench(initialLanguage: "en" | "es" = "en") {
+  render(
+    <AppLanguageProvider
+      initialLanguage={initialLanguage}
+      forcedLanguage={initialLanguage}
+    >
+      <DiscoverIndividualWorkbench individual={individual} />
     </AppLanguageProvider>,
   );
 }
@@ -171,6 +206,16 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     );
   });
 
+  it("keeps the category picker on a full-width form row", () => {
+    renderWorkbench();
+
+    const categoryButton = screen.getByRole("button", {
+      name: /2 categories selected/i,
+    });
+
+    expect(categoryButton.parentElement?.className).toContain("md:col-span-2");
+  });
+
   it("shows publisher categories translated in Spanish", async () => {
     const user = userEvent.setup();
     renderWorkbench("es");
@@ -188,6 +233,20 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
 
     expect(screen.getByText("Sociedades médicas")).toBeTruthy();
     expect(screen.queryByText("Medical Societies")).toBeNull();
+  });
+
+  it("shows individual publisher categories as singular person labels", async () => {
+    const user = userEvent.setup();
+    renderIndividualWorkbench("es");
+
+    await user.click(
+      screen.getByRole("button", { name: /2 categorías seleccionadas/i }),
+    );
+
+    expect(screen.getAllByText("Genetista clínico").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Médico").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Genetistas clínicos")).toBeNull();
+    expect(screen.queryByText("Médicos")).toBeNull();
   });
 
   it("saves multiple country coverage selections as comma-separated country codes", async () => {
