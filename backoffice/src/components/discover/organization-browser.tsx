@@ -68,6 +68,7 @@ function publisherPayload(
     websiteUrl: publisher.websiteUrl,
     description: publisher.description,
     description_en: publisher.description_en,
+    social: publisher.social,
     countryCode: publisher.countryCode,
     organizationType:
       publisherKind === "organization"

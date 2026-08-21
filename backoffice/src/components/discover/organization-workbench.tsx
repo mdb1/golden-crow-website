@@ -14,6 +14,7 @@ import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { PublisherCategoryMultiSelect } from "@/components/discover/publisher-category-multi-select";
 import { PublisherCountryMultiSelect } from "@/components/discover/publisher-country-multi-select";
+import { PublisherSocialLinksEditor } from "@/components/discover/publisher-social-links-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,7 @@ import {
   type DiscoverIndividualStatus,
   type DiscoverOrganizationRecord,
   type DiscoverOrganizationStatus,
+  type DiscoverPublisherSocialLinks,
 } from "@/lib/discover";
 import {
   discoverIndividualCategoryProvider,
@@ -49,6 +51,7 @@ type OrganizationFormState = {
   websiteUrl: string;
   description: string;
   description_en: string;
+  social: DiscoverPublisherSocialLinks;
   countryCode: string;
   organizationType: string;
   individualType: string;
@@ -71,6 +74,7 @@ function toFormState(
     websiteUrl: publisher?.websiteUrl ?? "",
     description: publisher?.description ?? "",
     description_en: publisher?.description_en ?? "",
+    social: publisher?.social ?? {},
     countryCode: serializeDiscoverOrganizationCountryCodes(
       publisher?.countryCode ? publisher.countryCode.split(",") : [],
     ),
@@ -94,12 +98,14 @@ function payloadFromState(state: OrganizationFormState, publisherKind: Publisher
   const individualType = discoverIndividualCategoryProvider.normalizeCsv(
     state.individualType,
   );
+  const social = cleanPublisherSocialLinks(state.social);
 
   return {
     ...state,
     slug: slugifyDiscoverOrganizationName(state.name),
     imageUrl: state.imageUrl || null,
     websiteUrl: state.websiteUrl || null,
+    social: Object.keys(social).length ? social : undefined,
     countryCode:
       serializeDiscoverOrganizationCountryCodes(state.countryCode.split(",")) ||
       undefined,
@@ -113,6 +119,12 @@ function payloadFromState(state: OrganizationFormState, publisherKind: Publisher
         : undefined,
     color_hex: normalizedColorHex(state.color_hex) || undefined,
   };
+}
+
+function cleanPublisherSocialLinks(social: DiscoverPublisherSocialLinks) {
+  return Object.fromEntries(
+    Object.entries(social).filter(([, value]) => value.trim()),
+  ) as DiscoverPublisherSocialLinks;
 }
 
 function normalizedColorHex(value: string) {
@@ -273,6 +285,15 @@ function DiscoverPublisherWorkbench({
         id: Date.now(),
         tone: "error",
         message: appliedColorError,
+      });
+      return;
+    }
+
+    if (!state.imageUrl.trim()) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Image URL is required."),
       });
       return;
     }
@@ -538,8 +559,14 @@ function DiscoverPublisherWorkbench({
                 value={state.imageUrl}
                 onChange={(event) => updateState({ imageUrl: event.target.value })}
                 placeholder="https://"
+                required
               />
             </div>
+            <PublisherSocialLinksEditor
+              value={state.social}
+              onChange={(social) => updateState({ social })}
+              t={t}
+            />
             <div className="flex flex-col gap-2 md:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Label htmlFor={activeDescriptionId}>{t("Description")}</Label>

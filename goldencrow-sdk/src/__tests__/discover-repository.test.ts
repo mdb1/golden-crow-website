@@ -99,6 +99,10 @@ const initialOrganizationDocs: MockDoc[] = [
       status: "active",
       description: "Descripción pública",
       description_en: "Public description",
+      social: {
+        facebook: "https://facebook.com/publisher-one",
+        email: "mailto:hello@example.org",
+      },
       organizationType:
         "org_patient_advocacy_organizations,org_genetics_research_institutes",
       color_hex: "#4f46e5",
@@ -322,6 +326,10 @@ describe("discover repository", () => {
     expect(result.organizations[0]?.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
     );
+    expect(result.organizations[0]?.social).toEqual({
+      facebook: "https://facebook.com/publisher-one",
+      email: "mailto:hello@example.org",
+    });
     expect(result.organizations[0]?.description).toBe("Descripción pública");
     expect(result.organizations[0]?.description_en).toBe("Public description");
   });
@@ -344,8 +352,13 @@ describe("discover repository", () => {
     const organization = await createDiscoverOrganization(fullAdminContext, {
       name: "Fundación Médica Ñandú",
       imageUrl: "https://example.org/publisher.png",
+      websiteUrl: "http://example.org",
       description: "Descripción en español",
       description_en: "English description",
+      social: {
+        instagram: "https://instagram.com/fundacion",
+        email: "info@example.org",
+      },
       countryCode: "ar, us, ar",
       organizationType:
         "org_patient_advocacy_organizations,org_genetics_research_institutes",
@@ -356,6 +369,11 @@ describe("discover repository", () => {
     expect(organization.slug).toBe("fundacion-medica-nandu");
     expect(organization.description).toBe("Descripción en español");
     expect(organization.description_en).toBe("English description");
+    expect(organization.websiteUrl).toBe("http://example.org/");
+    expect(organization.social).toEqual({
+      instagram: "https://instagram.com/fundacion",
+      email: "mailto:info@example.org",
+    });
     expect(organization.countryCode).toBe("AR,US");
     expect(organization.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
@@ -363,10 +381,33 @@ describe("discover repository", () => {
     expect(stored?.data.slug).toBe("fundacion-medica-nandu");
     expect(stored?.data.description).toBe("Descripción en español");
     expect(stored?.data.description_en).toBe("English description");
+    expect(stored?.data.websiteUrl).toBe("http://example.org/");
+    expect(stored?.data.social).toEqual({
+      instagram: "https://instagram.com/fundacion",
+      email: "mailto:info@example.org",
+    });
     expect(stored?.data.countryCode).toBe("AR,US");
     expect(stored?.data.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
     );
+  });
+
+  it("requires image URLs when creating publishers", async () => {
+    const { createDiscoverOrganization, createDiscoverIndividual } = await import(
+      "../repositories/discover.repository"
+    );
+
+    await expect(
+      createDiscoverOrganization(fullAdminContext, {
+        name: "Missing image",
+      } as Record<string, unknown>),
+    ).rejects.toThrow("Organization image URL is required.");
+
+    await expect(
+      createDiscoverIndividual(fullAdminContext, {
+        name: "Missing image",
+      } as Record<string, unknown>),
+    ).rejects.toThrow("Individual publisher image URL is required.");
   });
 
   it("rejects publisher category keys outside the fixed provider lists", async () => {
@@ -377,6 +418,7 @@ describe("discover repository", () => {
     await expect(
       createDiscoverOrganization(fullAdminContext, {
         name: "Invalid organization",
+        imageUrl: "https://example.org/invalid-organization.png",
         organizationType: "org_patient_advocacy_organizations,pro_physicians",
       } as Record<string, unknown>),
     ).rejects.toThrow("Organization categories contain invalid keys: pro_physicians");
@@ -384,6 +426,7 @@ describe("discover repository", () => {
     await expect(
       createDiscoverIndividual(fullAdminContext, {
         name: "Invalid individual",
+        imageUrl: "https://example.org/invalid-individual.png",
         individualType: "pro_physicians,org_universities",
       } as Record<string, unknown>),
     ).rejects.toThrow(

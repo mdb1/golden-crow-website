@@ -21,6 +21,7 @@ import type {
   DiscoverListPage,
   DiscoverOrganizationRecord,
   DiscoverOrganizationStatus,
+  DiscoverPublisherSocialLinks,
 } from "../types/sdk.types.js";
 
 const adminDb = adminDbFor("mydnamap");
@@ -54,6 +55,15 @@ const SNAPSHOT_SYNC_STATUSES = new Set<DiscoverFeedStatus>([
   "draft",
   "published",
 ]);
+const SOCIAL_KEYS = [
+  "facebook",
+  "twitter",
+  "instagram",
+  "tiktok",
+  "youtube",
+  "email",
+  "other",
+] as const;
 
 type PageCursor = {
   updatedAtMillis: number;
@@ -72,6 +82,7 @@ type OrganizationInput = {
   websiteUrl?: unknown;
   description?: unknown;
   description_en?: unknown;
+  social?: unknown;
   countryCode?: unknown;
   organizationType?: unknown;
   color_hex?: unknown;
@@ -88,6 +99,7 @@ type IndividualInput = {
   websiteUrl?: unknown;
   description?: unknown;
   description_en?: unknown;
+  social?: unknown;
   countryCode?: unknown;
   individualType?: unknown;
   color_hex?: unknown;
@@ -248,8 +260,20 @@ function normalizeRequiredString(value: unknown, label: string) {
   return normalized;
 }
 
-function normalizeHttpsUrl(value: unknown, label: string): string | null {
-  const normalized = normalizeNullableString(value);
+function normalizeUrl(
+  value: unknown,
+  label: string,
+  {
+    required = false,
+    httpsOnly = false,
+  }: {
+    required?: boolean;
+    httpsOnly?: boolean;
+  } = {},
+): string | null {
+  const normalized = required
+    ? normalizeRequiredString(value, label)
+    : normalizeNullableString(value);
   if (!normalized) {
     return null;
   }
@@ -258,14 +282,30 @@ function normalizeHttpsUrl(value: unknown, label: string): string | null {
   try {
     url = new URL(normalized);
   } catch {
-    throw new AdminRepositoryError(`${label} must be a valid HTTPS URL.`, 400);
+    throw new AdminRepositoryError(`${label} must be a valid URL.`, 400);
   }
 
-  if (url.protocol !== "https:") {
+  if (httpsOnly && url.protocol !== "https:") {
     throw new AdminRepositoryError(`${label} must use HTTPS.`, 400);
   }
 
+  if (!httpsOnly && url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new AdminRepositoryError(`${label} must use HTTP or HTTPS.`, 400);
+  }
+
   return url.toString();
+}
+
+function normalizeHttpsUrl(value: unknown, label: string): string | null {
+  return normalizeUrl(value, label, { httpsOnly: true });
+}
+
+function normalizeRequiredHttpsUrl(value: unknown, label: string): string {
+  return normalizeUrl(value, label, { required: true, httpsOnly: true })!;
+}
+
+function normalizeOptionalHttpUrl(value: unknown, label: string): string | null {
+  return normalizeUrl(value, label);
 }
 
 function normalizeOptionalEmail(value: unknown, label: string): string | undefined {
@@ -279,6 +319,59 @@ function normalizeOptionalEmail(value: unknown, label: string): string | undefin
   }
 
   return normalized;
+}
+
+function normalizeSocialEmail(value: unknown, label: string): string | undefined {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const rawEmail = normalized.startsWith("mailto:")
+    ? normalized.slice("mailto:".length)
+    : normalized;
+  const email = normalizeOptionalEmail(rawEmail, label);
+  return email ? `mailto:${email.toLowerCase()}` : undefined;
+}
+
+function normalizeSocialLinksForRead(value: unknown): DiscoverPublisherSocialLinks | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const source = value as Record<string, unknown>;
+  const social = Object.fromEntries(
+    SOCIAL_KEYS.flatMap((key) => {
+      const normalized = normalizeOptionalString(source[key]);
+      return normalized ? [[key, normalized]] : [];
+    }),
+  ) as DiscoverPublisherSocialLinks;
+
+  return Object.keys(social).length ? social : undefined;
+}
+
+function normalizeSocialLinks(value: unknown): DiscoverPublisherSocialLinks | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new AdminRepositoryError("Social links must be an object.", 400);
+  }
+
+  const source = value as Record<string, unknown>;
+  const entries = SOCIAL_KEYS.flatMap((key) => {
+    if (key === "email") {
+      const email = normalizeSocialEmail(source[key], "Social email");
+      return email ? [[key, email]] : [];
+    }
+
+    const url = normalizeOptionalHttpUrl(source[key], `Social ${key} URL`);
+    return url ? [[key, url]] : [];
+  });
+  const social = Object.fromEntries(entries) as DiscoverPublisherSocialLinks;
+
+  return Object.keys(social).length ? social : undefined;
 }
 
 function normalizeCountryCode(value: unknown): string | undefined {
@@ -622,6 +715,7 @@ function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationR
     websiteUrl: normalizeOptionalString(data.websiteUrl),
     description: normalizeOptionalString(data.description),
     description_en: normalizeOptionalString(data.description_en),
+    social: normalizeSocialLinksForRead(data.social),
     countryCode: normalizeOptionalString(data.countryCode),
     organizationType: organizationType || undefined,
     color_hex: readHexColor(data.color_hex ?? data.colorHex),
@@ -653,6 +747,7 @@ function toIndividualRecord(doc: QueryDocumentSnapshot): DiscoverIndividualRecor
     websiteUrl: normalizeOptionalString(data.websiteUrl),
     description: normalizeOptionalString(data.description),
     description_en: normalizeOptionalString(data.description_en),
+    social: normalizeSocialLinksForRead(data.social),
     countryCode: normalizeOptionalString(data.countryCode),
     individualType: individualType || undefined,
     color_hex: readHexColor(data.color_hex ?? data.colorHex),
@@ -866,12 +961,13 @@ function organizationDocument(input: OrganizationInput, context: AdminContext) {
 
   return {
     name,
-    imageUrl: normalizeHttpsUrl(input.imageUrl, "Organization image URL"),
+    imageUrl: normalizeRequiredHttpsUrl(input.imageUrl, "Organization image URL"),
     status: normalizeOrganizationStatus(input.status),
     slug: slugifyOrganizationName(name),
-    websiteUrl: normalizeHttpsUrl(input.websiteUrl, "Website URL"),
+    websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
     description: normalizeOptionalString(input.description),
     description_en: normalizeOptionalString(input.description_en),
+    social: normalizeSocialLinks(input.social) ?? null,
     countryCode: normalizeCountryCode(input.countryCode),
     organizationType: normalizeOrganizationType(input.organizationType),
     color_hex: normalizeHexColor(input.color_hex ?? input.colorHex, "Organization color") ?? null,
@@ -888,12 +984,13 @@ function individualDocument(input: IndividualInput, context: AdminContext) {
 
   return {
     name,
-    imageUrl: normalizeHttpsUrl(input.imageUrl, "Individual publisher image URL"),
+    imageUrl: normalizeRequiredHttpsUrl(input.imageUrl, "Individual publisher image URL"),
     status: normalizeOrganizationStatus(input.status),
     slug: slugifyIndividualName(name),
-    websiteUrl: normalizeHttpsUrl(input.websiteUrl, "Website URL"),
+    websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
     description: normalizeOptionalString(input.description),
     description_en: normalizeOptionalString(input.description_en),
+    social: normalizeSocialLinks(input.social) ?? null,
     countryCode: normalizeCountryCode(input.countryCode),
     individualType: normalizeIndividualType(input.individualType),
     color_hex: normalizeHexColor(input.color_hex ?? input.colorHex, "Individual publisher color") ?? null,

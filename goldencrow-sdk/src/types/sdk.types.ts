@@ -580,6 +580,17 @@ export type DiscoverOrganizationStatus = "active" | "inactive" | "archived";
 export type DiscoverOrganizationType = string;
 export type DiscoverIndividualStatus = DiscoverOrganizationStatus;
 export type DiscoverIndividualType = string;
+export type DiscoverPublisherSocialKey =
+  | "facebook"
+  | "twitter"
+  | "instagram"
+  | "tiktok"
+  | "youtube"
+  | "email"
+  | "other";
+export type DiscoverPublisherSocialLinks = Partial<
+  Record<DiscoverPublisherSocialKey, string>
+>;
 
 export interface DiscoverOrganizationRecord {
   id: string;
@@ -590,6 +601,7 @@ export interface DiscoverOrganizationRecord {
   websiteUrl?: string;
   description?: string;
   description_en?: string;
+  social?: DiscoverPublisherSocialLinks;
   countryCode?: string;
   organizationType?: DiscoverOrganizationType;
   color_hex?: string;
@@ -611,6 +623,7 @@ export interface DiscoverIndividualRecord {
   websiteUrl?: string;
   description?: string;
   description_en?: string;
+  social?: DiscoverPublisherSocialLinks;
   countryCode?: string;
   individualType?: DiscoverIndividualType;
   color_hex?: string;

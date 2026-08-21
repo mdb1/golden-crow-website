@@ -30,6 +30,9 @@ const organization: DiscoverOrganizationRecord = {
   websiteUrl: "https://example.org",
   description: "Descripción pública",
   description_en: "Public description",
+  social: {
+    facebook: "https://facebook.com/publisher-one",
+  },
   countryCode: "US",
   organizationType:
     "org_patient_advocacy_organizations,org_genetics_research_institutes",
@@ -178,6 +181,47 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
     ) as Record<string, unknown>;
     expect(body.countryCode).toBe("US,AR");
+  });
+
+  it("requires an image URL before saving", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.clear(screen.getByLabelText("Image URL"));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(screen.getByText("Image URL is required.")).toBeTruthy();
+    expect(sdkFetch).not.toHaveBeenCalled();
+  });
+
+  it("adds social network links as a nested social object", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    expect(screen.getByDisplayValue("https://facebook.com/publisher-one")).toBeTruthy();
+
+    await user.selectOptions(screen.getByLabelText("Social network"), "instagram");
+    await user.click(screen.getByRole("button", { name: "Add social link" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Instagram profile" }),
+      "https://instagram.com/publisher.one",
+    );
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.social).toEqual({
+      facebook: "https://facebook.com/publisher-one",
+      instagram: "https://instagram.com/publisher.one",
+    });
   });
 });
 

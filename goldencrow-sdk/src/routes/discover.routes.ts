@@ -39,6 +39,16 @@ const QuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
 
+const SocialLinksSchema = z.object({
+  facebook: z.string().optional(),
+  twitter: z.string().optional(),
+  instagram: z.string().optional(),
+  tiktok: z.string().optional(),
+  youtube: z.string().optional(),
+  email: z.string().optional(),
+  other: z.string().optional(),
+}).optional();
+
 const OrganizationBodySchema = z.object({
   name: z.string().optional(),
   imageUrl: z.string().nullable().optional(),
@@ -46,6 +56,7 @@ const OrganizationBodySchema = z.object({
   websiteUrl: z.string().nullable().optional(),
   description: z.string().optional(),
   description_en: z.string().optional(),
+  social: SocialLinksSchema,
   countryCode: z.string().optional(),
   organizationType: z.string().optional(),
   color_hex: z.string().nullable().optional(),
@@ -62,6 +73,7 @@ const IndividualBodySchema = z.object({
   websiteUrl: z.string().nullable().optional(),
   description: z.string().optional(),
   description_en: z.string().optional(),
+  social: SocialLinksSchema,
   countryCode: z.string().optional(),
   individualType: z.string().optional(),
   color_hex: z.string().nullable().optional(),
