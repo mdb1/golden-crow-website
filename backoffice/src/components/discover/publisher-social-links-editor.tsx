@@ -3,8 +3,14 @@
 import { useState, type ReactElement } from "react";
 import { AtSign, Globe, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import type {
   DiscoverPublisherSocialKey,
   DiscoverPublisherSocialLinks,
@@ -128,9 +134,7 @@ export function PublisherSocialLinksEditor({
   const availableOptions = SOCIAL_OPTIONS.filter(
     (option) => !selectedKeys.has(option.key),
   );
-  const [nextKey, setNextKey] = useState<DiscoverPublisherSocialKey>(
-    availableOptions[0]?.key ?? "facebook",
-  );
+  const [pickerOpen, setPickerOpen] = useState(false);
   const rows = SOCIAL_OPTIONS.filter((option) => selectedKeys.has(option.key));
 
   function updateSocial(
@@ -146,16 +150,9 @@ export function PublisherSocialLinksEditor({
     onChange(nextSocial);
   }
 
-  function addSocial() {
-    const option = availableOptions.find((entry) => entry.key === nextKey);
-    if (!option) {
-      return;
-    }
-
+  function addSocial(option: SocialOption) {
     onChange({ ...social, [option.key]: "" });
-    setNextKey(
-      availableOptions.find((entry) => entry.key !== option.key)?.key ?? option.key,
-    );
+    setPickerOpen(false);
   }
 
   return (
@@ -169,35 +166,18 @@ export function PublisherSocialLinksEditor({
             {t("Add one optional link for each social network.")}
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Label className="sr-only" htmlFor="discover-social-next">
-            {t("Social network")}
-          </Label>
-          <select
-            id="discover-social-next"
-            value={nextKey}
-            onChange={(event) =>
-              setNextKey(event.target.value as DiscoverPublisherSocialKey)
-            }
-            disabled={!availableOptions.length}
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            {availableOptions.map((option) => (
-              <option key={option.key} value={option.key}>
-                {t(option.label)}
-              </option>
-            ))}
-          </select>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={addSocial}
-            disabled={!availableOptions.length}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {t("Add social link")}
-          </Button>
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setPickerOpen(true)}
+          disabled={!availableOptions.length}
+          className="self-start lg:self-auto"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {availableOptions.length
+            ? t("Add social link")
+            : t("All social networks added")}
+        </Button>
       </div>
 
       {rows.length ? (
@@ -241,6 +221,43 @@ export function PublisherSocialLinksEditor({
           {t("No social links added")}
         </div>
       )}
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="p-0 sm:max-w-2xl">
+          <DialogHeader className="border-b border-border px-5 py-4">
+            <DialogTitle>{t("Choose social network")}</DialogTitle>
+            <DialogDescription>
+              {t("Select a social network to add one optional link.")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 px-5 py-4 sm:grid-cols-2">
+            {availableOptions.map((option) => {
+              const Icon = option.icon;
+
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => addSocial(option)}
+                  className="flex min-w-0 items-center gap-3 rounded-md border border-border bg-background px-3 py-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/60"
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {t(option.label)}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {option.placeholder}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

@@ -124,6 +124,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Agregá un enlace opcional por cada red social.",
   "Social network": "Red social",
   "Add social link": "Agregar red social",
+  "Choose social network": "Elegir red social",
+  "Select a social network to add one optional link.":
+    "Elegí una red social para agregar un enlace opcional.",
+  "All social networks added": "Todas las redes sociales agregadas",
   "No social links added": "Sin redes sociales agregadas",
   "Facebook profile": "Perfil de Facebook",
   "X / Twitter profile": "Perfil en X / Twitter",

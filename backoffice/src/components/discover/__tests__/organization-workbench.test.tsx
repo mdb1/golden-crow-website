@@ -295,9 +295,11 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     renderWorkbench();
 
     expect(screen.getByDisplayValue("https://facebook.com/publisher-one")).toBeTruthy();
+    expect(screen.queryByLabelText("Social network")).toBeNull();
 
-    await user.selectOptions(screen.getByLabelText("Social network"), "instagram");
     await user.click(screen.getByRole("button", { name: "Add social link" }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /Instagram profile/i }));
     await user.type(
       screen.getByRole("textbox", { name: "Instagram profile" }),
       "https://instagram.com/publisher.one",
