@@ -44,9 +44,12 @@ const organization: DiscoverOrganizationRecord = {
   updatedAt: "2026-08-02T00:00:00.000Z",
 };
 
-function renderWorkbench() {
+function renderWorkbench(initialLanguage: "en" | "es" = "en") {
   render(
-    <AppLanguageProvider initialLanguage="en">
+    <AppLanguageProvider
+      initialLanguage={initialLanguage}
+      forcedLanguage={initialLanguage}
+    >
       <DiscoverOrganizationWorkbench organization={organization} />
     </AppLanguageProvider>,
   );
@@ -159,6 +162,25 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(body.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes,org_medical_societies",
     );
+  });
+
+  it("shows publisher categories translated in Spanish", async () => {
+    const user = userEvent.setup();
+    renderWorkbench("es");
+
+    expect(
+      screen.getAllByText("Organizaciones de apoyo a pacientes").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Institutos de investigación genética").length,
+    ).toBeGreaterThan(0);
+
+    await user.click(
+      screen.getByRole("button", { name: /2 categorías seleccionadas/i }),
+    );
+
+    expect(screen.getByText("Sociedades médicas")).toBeTruthy();
+    expect(screen.queryByText("Medical Societies")).toBeNull();
   });
 
   it("saves multiple country coverage selections as comma-separated country codes", async () => {

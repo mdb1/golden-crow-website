@@ -221,6 +221,9 @@ function DiscoverPublisherWorkbench({
   const selectedCategoryLabels = categoryProvider.labelsForCsv(
     isIndividual ? state.individualType : state.organizationType,
   );
+  const selectedCategoryDisplayLabels = selectedCategoryLabels.map((label) =>
+    t(label),
+  );
 
   function updateState(patch: Partial<OrganizationFormState>) {
     setState((current) => ({ ...current, ...patch }));
@@ -457,6 +460,7 @@ function DiscoverPublisherWorkbench({
                     : { organizationType: value },
                 )
               }
+              optionLabel={(option) => t(option.label)}
               label={isIndividual ? t("Professional categories") : t("Organization categories")}
               dialogTitle={
                 isIndividual
@@ -467,6 +471,7 @@ function DiscoverPublisherWorkbench({
               emptyLabel={t("No categories selected")}
               searchPlaceholder={t("Search categories")}
               clearLabel={t("Clear all")}
+              removeLabel={t("Remove")}
               doneLabel={t("Done")}
               selectedCountLabel={(count: number) =>
                 `${count} ${count === 1 ? t("category selected") : t("categories selected")}`
@@ -669,8 +674,8 @@ function DiscoverPublisherWorkbench({
               <div>{state.websiteUrl || t("No website URL")}</div>
               <div>{countryLabel || t("No country")}</div>
               <div>
-                {selectedCategoryLabels.length
-                  ? selectedCategoryLabels.join(", ")
+                {selectedCategoryDisplayLabels.length
+                  ? selectedCategoryDisplayLabels.join(", ")
                   : t("No categories selected")}
               </div>
               <div className="mt-2 flex items-center gap-2">

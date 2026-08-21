@@ -1,5 +1,9 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import {
+  DISCOVER_INDIVIDUAL_CATEGORY_OPTIONS,
+  DISCOVER_ORGANIZATION_CATEGORY_OPTIONS,
+} from "@/lib/discover-publisher-categories";
 import { appText } from "@/lib/language";
 
 function sourceFilesIn(directory: string): string[] {
@@ -39,6 +43,8 @@ function discoverUiKeys() {
   }
 
   [
+    ...DISCOVER_ORGANIZATION_CATEGORY_OPTIONS.map((option) => option.label),
+    ...DISCOVER_INDIVIDUAL_CATEGORY_OPTIONS.map((option) => option.label),
     "Discover feed publishers and mobile feed entries.",
     "feed_organizations publishers",
     "feed_individuals publishers",

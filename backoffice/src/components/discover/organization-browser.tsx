@@ -140,6 +140,9 @@ function DiscoverPublisherBrowser({
         ? individual.individualType
         : organization.organizationType;
       const currentTypeLabels = categoryProvider.labelsForCsv(currentType);
+      const translatedTypeLabels = currentTypeLabels.map((label) =>
+        appText(language, label),
+      );
       const searchable = [
         publisher.id,
         publisher.name,
@@ -150,6 +153,7 @@ function DiscoverPublisherBrowser({
         publisher.countryCode,
         currentType,
         ...currentTypeLabels,
+        ...translatedTypeLabels,
         publisher.color_hex,
         publisher.contactEmail,
       ]
@@ -172,6 +176,7 @@ function DiscoverPublisherBrowser({
     categoryProvider,
     countryCode,
     isIndividual,
+    language,
     publisherType,
     publishers,
     query,

@@ -28,12 +28,14 @@ type PublisherCategoryMultiSelectProps = {
   provider: CategorySelectProvider;
   value: string;
   onChange: (value: string) => void;
+  optionLabel?: (option: DiscoverPublisherCategoryOption) => string;
   label: string;
   dialogTitle: string;
   dialogDescription: string;
   emptyLabel: string;
   searchPlaceholder: string;
   clearLabel: string;
+  removeLabel: string;
   doneLabel: string;
   selectedCountLabel: (count: number) => string;
   className?: string;
@@ -43,12 +45,14 @@ export function PublisherCategoryMultiSelect({
   provider,
   value,
   onChange,
+  optionLabel = (option) => option.label,
   label,
   dialogTitle,
   dialogDescription,
   emptyLabel,
   searchPlaceholder,
   clearLabel,
+  removeLabel,
   doneLabel,
   selectedCountLabel,
   className,
@@ -73,9 +77,11 @@ export function PublisherCategoryMultiSelect({
     }
 
     return provider.options.filter((option) =>
-      option.label.toLowerCase().includes(normalizedQuery),
+      `${option.label} ${optionLabel(option)}`
+        .toLowerCase()
+        .includes(normalizedQuery),
     );
-  }, [provider.options, query]);
+  }, [optionLabel, provider.options, query]);
 
   function updateSelected(nextKeys: readonly string[]) {
     onChange(provider.serialize(nextKeys));
@@ -128,12 +134,12 @@ export function PublisherCategoryMultiSelect({
               variant="secondary"
               className="h-auto max-w-full gap-1 rounded-md py-1 pr-1"
             >
-              <span className="truncate">{option.label}</span>
+              <span className="truncate">{optionLabel(option)}</span>
               <button
                 type="button"
                 onClick={() => removeOption(option.value)}
                 className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
-                aria-label={`Remove ${option.label}`}
+                aria-label={`${removeLabel} ${optionLabel(option)}`}
               >
                 <X className="h-3 w-3" />
               </button>
@@ -183,10 +189,10 @@ export function PublisherCategoryMultiSelect({
                           checked={selected}
                           onCheckedChange={() => toggleOption(option.value)}
                           onClick={(event) => event.stopPropagation()}
-                          aria-label={option.label}
+                          aria-label={optionLabel(option)}
                         />
                         <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
-                          {option.label}
+                          {optionLabel(option)}
                         </span>
                         {selected ? (
                           <Check className="h-4 w-4 shrink-0 text-primary" />
