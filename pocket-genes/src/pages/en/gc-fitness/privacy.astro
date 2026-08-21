@@ -7,7 +7,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
     <div class="legal-container">
       <p class="legal-lang"><a href="/gc-fitness/privacy">Versión en español</a></p>
       <h1>Privacy Policy — GC Fitness</h1>
-      <p class="legal-updated">Effective date: June 12, 2026</p>
+      <p class="legal-updated">Effective date: August 21, 2026</p>
 
       <p>
         This policy describes how Golden Crow ("we") handles your personal data when you use the
@@ -47,6 +47,43 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
         On iOS, with your permission, the app writes your workouts to Apple Health and reads data
         such as heart rate, active energy, and steps to display them in the app. Apple Health data
         is processed on your device and is never used for advertising.
+      </p>
+
+      <h2>Health Connect (Android)</h2>
+      <p>
+        On Android, GC Fitness can connect to <strong>Health Connect</strong> to complete two
+        features. This is optional: the rest of the app works without it, and you can withdraw
+        access at any time from within Health Connect (or from Settings → Health → Health Connect
+        inside GC Fitness, which takes you there).
+      </p>
+      <p>We request <strong>read access to exactly two record types</strong>, and no others:</p>
+      <ul>
+        <li><strong>Steps</strong> — your daily step totals. We use them to draw the Steps chart on
+          your Progress tab, and we store the daily total in your own record in our database so
+          that <em>your coach</em> can see how active you are between training sessions.</li>
+        <li><strong>Heart rate</strong> — the samples recorded during a workout you complete in the
+          app, read only for that workout's time window. We use them to draw the heart-rate line
+          on that workout's summary (with its minimum, average and maximum) and we store that
+          series alongside that workout, visible to you and to your coach.</li>
+      </ul>
+      <p>
+        <strong>Read-only.</strong> GC Fitness never writes data to Health Connect, and never reads
+        any health data other than the two record types above.
+      </p>
+      <p>
+        <strong>Sharing.</strong> Data read from Health Connect is shared only with the coach
+        assigned to you — the purpose of the service — and with Google Firebase as our
+        infrastructure processor (see below). It is <strong>never used for advertising, never sold,
+        and never shared with any other third party</strong>. We do not transfer it to any
+        advertising or analytics network.
+      </p>
+      <p>
+        <strong>Retention and deletion.</strong> Step totals and workout heart-rate series are kept
+        with the rest of your training data while your account is active, and are deleted with it
+        when you delete your account (Settings → Delete account). Withdrawing the Health Connect
+        permission stops any further reading immediately; to also remove what was already stored,
+        delete your account or write to us at
+        <a href="mailto:support@goldencrowvs.com">support@goldencrowvs.com</a>.
       </p>
 
       <h2>Who we share data with</h2>
