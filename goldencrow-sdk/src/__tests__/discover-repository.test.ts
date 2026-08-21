@@ -435,7 +435,7 @@ describe("discover repository", () => {
         imageUrl: "https://example.org/invalid-organization.png",
         organizationType: "org_patient_advocacy_organizations,pro_physicians",
       } as Record<string, unknown>),
-    ).rejects.toThrow("Organization categories contain invalid keys: pro_physicians");
+    ).rejects.toThrow("Organization category contains invalid keys: pro_physicians");
 
     await expect(
       createDiscoverIndividual(fullAdminContext, {
@@ -444,7 +444,7 @@ describe("discover repository", () => {
         individualType: "pro_physicians,org_universities",
       } as Record<string, unknown>),
     ).rejects.toThrow(
-      "Individual publisher categories contain invalid keys: org_universities",
+      "Individual publisher category contains invalid keys: org_universities",
     );
   });
 

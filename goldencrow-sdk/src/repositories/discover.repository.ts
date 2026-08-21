@@ -942,7 +942,7 @@ function normalizeOrganizationType(value: unknown): string | undefined {
   const invalidKeys = discoverOrganizationCategoryProvider.invalidKeys(normalized);
   if (invalidKeys.length) {
     throw new AdminRepositoryError(
-      `Organization categories contain invalid keys: ${invalidKeys.join(", ")}`,
+      `Organization category contains invalid keys: ${invalidKeys.join(", ")}`,
       400,
     );
   }
@@ -959,7 +959,7 @@ function normalizeIndividualType(value: unknown): string | undefined {
   const invalidKeys = discoverIndividualCategoryProvider.invalidKeys(normalized);
   if (invalidKeys.length) {
     throw new AdminRepositoryError(
-      `Individual publisher categories contain invalid keys: ${invalidKeys.join(", ")}`,
+      `Individual publisher category contains invalid keys: ${invalidKeys.join(", ")}`,
       400,
     );
   }

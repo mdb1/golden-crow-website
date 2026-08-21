@@ -461,11 +461,11 @@ function DiscoverPublisherWorkbench({
                 )
               }
               optionLabel={(option) => t(option.label)}
-              label={isIndividual ? t("Professional categories") : t("Organization categories")}
+              label={isIndividual ? t("Professional categories") : t("Organization category")}
               dialogTitle={
                 isIndividual
                   ? t("Select professional categories")
-                  : t("Select organization categories")
+                  : t("Select organization category")
               }
               dialogDescription={t("Choose one or more canonical Discover categories. They will be saved as comma-separated keys.")}
               emptyLabel={t("No categories selected")}

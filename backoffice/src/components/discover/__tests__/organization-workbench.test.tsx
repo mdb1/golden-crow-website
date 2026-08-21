@@ -187,7 +187,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
 
     await user.click(screen.getByRole("button", { name: /2 categories selected/i }));
     expect(screen.queryByText("org_medical_societies")).toBeNull();
-    await user.click(screen.getByRole("checkbox", { name: "Medical Societies" }));
+    await user.click(screen.getByRole("checkbox", { name: "Medical Society" }));
     await user.click(screen.getByRole("button", { name: "Done" }));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -229,18 +229,20 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     renderWorkbench("es");
 
     expect(
-      screen.getAllByText("Organizaciones de apoyo a pacientes").length,
+      screen.getAllByText("Organización de apoyo a pacientes").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("Institutos de investigación genética").length,
+      screen.getAllByText("Instituto de investigación genética").length,
     ).toBeGreaterThan(0);
 
     await user.click(
-      screen.getByRole("button", { name: /2 categorías seleccionadas/i }),
+      screen.getByRole("button", { name: /2 opciones seleccionadas/i }),
     );
 
-    expect(screen.getByText("Sociedades médicas")).toBeTruthy();
+    expect(screen.getByText("Sociedad médica")).toBeTruthy();
+    expect(screen.getByText("Proveedor de farmacogenómica")).toBeTruthy();
     expect(screen.queryByText("Medical Societies")).toBeNull();
+    expect(screen.queryByText("Proveedores de farmacogenómica")).toBeNull();
   });
 
   it("shows individual publisher categories as singular person labels", async () => {
@@ -248,7 +250,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     renderIndividualWorkbench("es");
 
     await user.click(
-      screen.getByRole("button", { name: /2 categorías seleccionadas/i }),
+      screen.getByRole("button", { name: /2 opciones seleccionadas/i }),
     );
 
     expect(screen.getAllByText("Genetista clínico").length).toBeGreaterThan(0);
