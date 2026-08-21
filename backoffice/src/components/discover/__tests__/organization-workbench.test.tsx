@@ -216,6 +216,14 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(categoryButton.parentElement?.className).toContain("md:col-span-2");
   });
 
+  it("keeps the country coverage picker on a full-width form row", () => {
+    renderWorkbench();
+
+    expect(screen.getByText("Country coverage").parentElement?.className).toContain(
+      "md:col-span-2",
+    );
+  });
+
   it("shows publisher categories translated in Spanish", async () => {
     const user = userEvent.setup();
     renderWorkbench("es");
