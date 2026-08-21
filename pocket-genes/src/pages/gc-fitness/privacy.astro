@@ -7,7 +7,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     <div class="legal-container">
       <p class="legal-lang"><a href="/en/gc-fitness/privacy">English version</a></p>
       <h1>Política de Privacidad — GC Fitness</h1>
-      <p class="legal-updated">Vigente desde: 12 de junio de 2026</p>
+      <p class="legal-updated">Vigente desde: 21 de agosto de 2026</p>
 
       <p>
         Esta política describe cómo Golden Crow («nosotros») trata tus datos personales cuando
@@ -46,6 +46,45 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         En iOS, si lo autorizás, la app escribe tus entrenamientos en Apple Health y lee datos como
         frecuencia cardíaca, energía activa y pasos para mostrarlos en la app. Esos datos de Apple
         Health se procesan en tu dispositivo y no se usan con fines publicitarios.
+      </p>
+
+      <h2>Health Connect (Android)</h2>
+      <p>
+        En Android, GC Fitness puede conectarse a <strong>Health Connect</strong> para completar dos
+        funciones. Es opcional: el resto de la app funciona sin eso, y podés retirar el acceso
+        cuando quieras desde Health Connect (o desde Ajustes → Salud → Health Connect dentro de GC
+        Fitness, que te lleva ahí).
+      </p>
+      <p>Pedimos <strong>acceso de lectura a exactamente dos tipos de dato</strong>, y a ningún otro:</p>
+      <ul>
+        <li><strong>Pasos</strong> — la cantidad de pasos de cada día. Los usamos para dibujar el
+          gráfico de Pasos en tu pestaña Progreso, y guardamos el total diario en tu propio registro
+          en nuestra base de datos para que <em>tu entrenador</em> vea qué tan activo estás entre
+          sesiones.</li>
+        <li><strong>Pulsaciones</strong> — las muestras registradas durante un entrenamiento que
+          completás en la app, leídas sólo para la ventana de tiempo de ese entrenamiento. Las
+          usamos para dibujar la línea de frecuencia cardíaca en el resumen de ese entrenamiento
+          (con su mínimo, promedio y máximo) y guardamos esa serie junto a ese entrenamiento,
+          visible para vos y para tu entrenador.</li>
+      </ul>
+      <p>
+        <strong>Sólo lectura.</strong> GC Fitness nunca escribe datos en Health Connect ni lee
+        ningún dato de salud además de esos dos tipos.
+      </p>
+      <p>
+        <strong>Con quién se comparten.</strong> Los datos leídos de Health Connect se comparten
+        únicamente con el entrenador asignado a vos — que es el propósito del servicio — y con
+        Google Firebase como proveedor de infraestructura (ver más abajo). <strong>Nunca se usan
+        con fines publicitarios, nunca se venden y nunca se comparten con ningún otro
+        tercero.</strong> No los transferimos a ninguna red de publicidad ni de analítica.
+      </p>
+      <p>
+        <strong>Retención y borrado.</strong> Los totales de pasos y las series de pulsaciones de
+        los entrenamientos se conservan junto con el resto de tus datos de entrenamiento mientras tu
+        cuenta esté activa, y se borran con ella cuando eliminás tu cuenta (Ajustes → Eliminar
+        cuenta). Retirar el permiso de Health Connect detiene de inmediato cualquier lectura
+        posterior; para borrar además lo ya almacenado, eliminá tu cuenta o escribinos a
+        <a href="mailto:support@goldencrowvs.com">support@goldencrowvs.com</a>.
       </p>
 
       <h2>Con quién compartimos datos</h2>
