@@ -23,6 +23,14 @@
 //
 // Nothing in this file throws. A mail failure must never turn a completed
 // client-add into an error for the coach (see client-invite.ts).
+//
+// ⚠️ NODEMAILER IS PINNED TO ^7 AND CANNOT MOVE TO 8+ WHILE next-auth 4 IS
+// INSTALLED. `next-auth@4.24.15` declares `peerOptional nodemailer@^7.0.7`, so a
+// root `nodemailer@9` makes `npm install` fail outright with ERESOLVE — which is
+// a FAILED PRODUCTION BUILD, because `main` auto-deploys and this repo runs no
+// PR checks on purpose. That is exactly how PR #350 (a Dependabot 7.0.13 -> 9.0.1
+// bump) took the deploy down. Nothing in this file needs anything newer than 7;
+// if a nodemailer major is ever genuinely wanted, next-auth has to go first.
 
 import "server-only";
 
