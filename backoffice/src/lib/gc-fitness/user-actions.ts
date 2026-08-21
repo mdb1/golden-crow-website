@@ -74,6 +74,13 @@ import {
 import { planChatCoachRepoint } from "./chat-coach-repoint";
 import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
+// #970 — the client invite email. Both helpers are ASYNC, which matters: this
+// file carries "use server", so everything it re-exports would become a Server
+// Action. These are imported, never re-exported; the synchronous copy builder
+// they wrap lives in ./email/invite-email.ts for the same reason.
+import { deliverClientInvite } from "./email/client-invite";
+import { coachNameFallback } from "./email/coach-name";
+import { inviteEmailLocale } from "./email/locale";
 
 /**
  * Per-template length cap. 240 chars is generous for a quick-reply
@@ -239,9 +246,10 @@ export async function updatePreferredLocale(
   return { ok: true };
 }
 
+// #970 — delegates so the name in a client-facing email SUBJECT and the name
+// on the roster can never drift apart. See ./email/coach-name.ts.
 function fallbackName(email: string): string {
-  const localPart = email.split("@")[0] ?? email;
-  return localPart || email;
+  return coachNameFallback(email);
 }
 
 /**
@@ -520,6 +528,23 @@ export async function provisionClient(input: unknown): Promise<
     if (mirrorOutcomeKind === "alreadyYours") {
       return { ok: true, mode: "already-linked" };
     }
+    // #970 — THE invitation. This person has no account: the email is the only
+    // thing that tells them the app exists. Best-effort by contract, same as the
+    // activity log below — the client is already linked, and failing the add
+    // over a mail server would be worse than a resend button.
+    //
+    // Note this is UNREACHABLE on the `alreadyYours` return above, which is
+    // exactly the dedup: a coach re-adding their own pending client never gets
+    // here, so a re-add cannot re-send.
+    await deliverClientInvite({
+      to: parsed.email,
+      kind: "download",
+      clientName: displayName,
+      coachName: coachDisplayName,
+      coachEmail: session.email,
+      locale: await inviteEmailLocale(),
+      markerRef: mirrorRef,
+    });
     // #682 — leave a coach-attributed trail. Best-effort by contract: a logging
     // failure must never turn a completed link into an error for the coach.
     await recordCoachActivityEvent(
@@ -701,6 +726,20 @@ export async function provisionClient(input: unknown): Promise<
   if (userOutcomeKind === "alreadyYours") {
     return { ok: true, mode: "already-linked" };
   }
+
+  // #970 — this person ALREADY has the app, so the news is the coach, not the
+  // download (`kind: "linked"` — different copy, same delivery path). Placed
+  // after the `alreadyYours` return above so a re-link of your own client is
+  // silent.
+  await deliverClientInvite({
+    to: parsed.email,
+    kind: "linked",
+    clientName: displayName,
+    coachName: coachDisplayName,
+    coachEmail: session.email,
+    locale: await inviteEmailLocale(),
+    markerRef: userRef,
+  });
 
   // #682 — same trail as the mirror branch above. The `/users/{uid}` write this
   // action performs DOES reach `audit_log`, but it is the client's own doc, so

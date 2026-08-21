@@ -26,6 +26,30 @@ jest.mock("next/cache", () => ({
 }));
 jest.mock("next-intl/server", () => ({
   getTranslations: jest.fn(async () => (key: string) => key),
+  // #970 — the invite email is written in the COACH's language.
+  getLocale: jest.fn(async () => "es"),
+}));
+
+// #970 — the transport is mocked, NOT the deliver helper: that keeps the real
+// copy builder and the real marker write in the assertion path, so these tests
+// see the actual `to`/`subject` that would reach a mail server.
+type SentMail = {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  replyTo?: string;
+};
+type SendResult =
+  | { ok: true }
+  | { ok: false; reason: "disabled" }
+  | { ok: false; reason: "failed"; detail: string };
+const mockSendMail = jest.fn<Promise<SendResult>, [SentMail]>(async () => ({
+  ok: true,
+}));
+jest.mock("../email/smtp", () => ({
+  sendMail: (input: SentMail) => mockSendMail(input),
+  isEmailConfigured: () => true,
 }));
 
 const SERVER_TIMESTAMP = "SERVER_TIMESTAMP_SENTINEL";
@@ -107,6 +131,13 @@ class MockDocRef {
       data: () => (data ? { ...data } : undefined),
       get: (field: string) => data?.[field],
     };
+  }
+  // #970 — deliverClientInvite stamps the invite marker with a NON-transaction
+  // update(). Without this the call threw, was swallowed by the helper's catch,
+  // and the marker assertions below would have been unfalsifiable.
+  async update(patch: DocData) {
+    if (!this.store.has(this.id)) throw new Error(`no document to update: ${this.id}`);
+    this._apply(patch, true);
   }
   _apply(patch: DocData, merge: boolean) {
     this.store.set(
@@ -199,6 +230,7 @@ beforeEach(() => {
   mockState.sessionUid = "coach-B";
   authUsersByEmail.clear();
   mockSetCustomUserClaims.mockClear();
+  mockSendMail.mockClear();
   jest.spyOn(console, "warn").mockImplementation(() => undefined);
 });
 
@@ -423,5 +455,115 @@ describe("WR-02 — chat write payload", () => {
     expect(chat.createdAt).toBe(SERVER_TIMESTAMP);
     // The bogus always-{} unreadCount write is gone entirely.
     expect("unreadCount" in chat).toBe(false);
+  });
+});
+
+// ── #970 — the client invite email ────────────────────────────────────────
+
+describe("#970 — the client email", () => {
+  it("mirror branch: sends the DOWNLOAD email and stamps the mirror doc", async () => {
+    const result = await provisionClient({
+      email: CLIENT_EMAIL,
+      displayName: "Cli Ent",
+    });
+    expect(result).toEqual({ ok: true, mode: "precreated-mirror" });
+
+    expect(mockSendMail).toHaveBeenCalledTimes(1);
+    const sent = mockSendMail.mock.calls[0][0];
+    expect(sent.to).toBe(MIRROR_ID);
+    // The coach's name is in the subject — that is what makes it read as an
+    // invitation from a person rather than as a product blast.
+    expect(sent.subject).toContain("coach-B");
+    // The load-bearing instruction: matching happens server-side on the
+    // NORMALIZED address, so signing in with a different account silently
+    // produces a coach-less client. The body has to name the address.
+    expect(sent.text).toContain(MIRROR_ID);
+    expect(sent.text).toContain("https://goldencrowvs.com/gc-fitness/start");
+    // Replies reach the coach, not a mailbox nobody reads.
+    expect(sent.replyTo).toBe("coach-B@example.com");
+
+    const mirror = db().read(FirestoreCollections.userMirror, MIRROR_ID)!;
+    expect(mirror.inviteEmailStatus).toBe("sent");
+    expect(mirror.inviteEmailSentAt).toBe(SERVER_TIMESTAMP);
+  });
+
+  it("existing-user branch: sends the LINKED email and stamps /users/{uid}", async () => {
+    seedAuthClient();
+    db().seed(FirestoreCollections.users, CLIENT_UID, { role: "client" });
+
+    const result = await provisionClient({ email: CLIENT_EMAIL });
+    expect(result).toEqual({ ok: true, mode: "attached-existing-user" });
+
+    expect(mockSendMail).toHaveBeenCalledTimes(1);
+    const sent = mockSendMail.mock.calls[0][0];
+    // Different copy on purpose: this person already HAS the app, so telling
+    // them to download it would be noise. The news is the coach.
+    expect(sent.subject).toContain("ahora es tu coach");
+    expect(sent.text).not.toContain("Descargá la app");
+
+    const user = db().read(FirestoreCollections.users, CLIENT_UID)!;
+    expect(user.inviteEmailStatus).toBe("sent");
+  });
+
+  /**
+   * The dedup, and it is not a new guard: `decideLinkOutcome` already answered
+   * `alreadyYours` for a client who is yours, and BOTH branches return
+   * `already-linked` before reaching any write. A coach fixing a typo in the
+   * name, or double-submitting, must not mail the client again.
+   */
+  it("re-adding your OWN client sends nothing, on either branch", async () => {
+    db().seed(FirestoreCollections.userMirror, MIRROR_ID, {
+      coachId: "coach-B",
+      pre_created: true,
+    });
+    expect(await provisionClient({ email: CLIENT_EMAIL })).toEqual({
+      ok: true,
+      mode: "already-linked",
+    });
+    expect(mockSendMail).not.toHaveBeenCalled();
+
+    // Same for someone who already has an account.
+    mockState.db = new MockDb();
+    seedAuthClient();
+    db().seed(FirestoreCollections.users, CLIENT_UID, {
+      role: "client",
+      coachId: "coach-B",
+    });
+    expect(await provisionClient({ email: CLIENT_EMAIL })).toEqual({
+      ok: true,
+      mode: "already-linked",
+    });
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A mail server being down cannot un-add a client. The link is committed
+   * before the send is even attempted; the failure is recorded on the doc and
+   * repaired with the resend button.
+   */
+  it("a failed send still returns ok and records the failure", async () => {
+    mockSendMail.mockResolvedValueOnce({
+      ok: false,
+      reason: "failed",
+      detail: "ECONNREFUSED",
+    });
+
+    const result = await provisionClient({ email: CLIENT_EMAIL });
+    expect(result).toEqual({ ok: true, mode: "precreated-mirror" });
+
+    const mirror = db().read(FirestoreCollections.userMirror, MIRROR_ID)!;
+    expect(mirror.inviteEmailStatus).toBe("failed");
+    expect("inviteEmailSentAt" in mirror).toBe(false);
+  });
+
+  /** No SMTP configured (local, CI, preview) must never look like a send. */
+  it("with no transport configured nothing is claimed as sent", async () => {
+    mockSendMail.mockResolvedValueOnce({ ok: false, reason: "disabled" });
+
+    await provisionClient({ email: CLIENT_EMAIL });
+
+    const mirror = db().read(FirestoreCollections.userMirror, MIRROR_ID)!;
+    expect(mirror.inviteEmailStatus).toBe("skipped");
+    expect("inviteEmailSentAt" in mirror).toBe(false);
   });
 });
