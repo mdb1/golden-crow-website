@@ -76,4 +76,23 @@ describe("Discover Spanish translations", () => {
 
     expect(untranslated).toEqual([]);
   });
+
+  it("uses editor-facing Spanish copy for individual publishers", () => {
+    expect(appText("es", "Individual Publishers")).toBe("Editores");
+    expect(appText("es", "Individual publisher")).toBe("Editor");
+    expect(appText("es", "New individual publisher")).toBe("Nuevo editor");
+    expect(appText("es", "Create individual publisher")).toBe("Crear editor");
+    expect(appText("es", "Back to individual publishers")).toBe(
+      "Volver a editores",
+    );
+    expect(appText("es", "Individual publisher name")).toBe(
+      "Nombre del editor",
+    );
+    expect(appText("es", "Individual publisher created.")).toBe(
+      "Editor creado.",
+    );
+    expect(appText("es", "Select individual publisher")).toBe(
+      "Seleccionar editor",
+    );
+  });
 });

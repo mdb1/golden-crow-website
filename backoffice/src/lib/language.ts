@@ -28,7 +28,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Pocket Genes Admin": "Administración Pocket Genes",
   "Full admin": "Administrador total",
   "Institution admin": "Administrador de institución",
-  "Individual publisher": "Publicador individual",
+  "Individual publisher": "Editor",
   "Institution operator": "Operario de institución",
   "Institution laboratory staff": "Personal de laboratorio de institución",
   "Institution doctor": "Médico de institución",
@@ -92,7 +92,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Add an English organization description to reach a broader audience.":
     "Agregá una descripción de la organización en inglés para llegar a una audiencia más amplia.",
   "Add an English individual publisher description to reach a broader audience.":
-    "Agregá una descripción del publicador individual en inglés para llegar a una audiencia más amplia.",
+    "Agregá una descripción del editor en inglés para llegar a una audiencia más amplia.",
   Discover: "Discover",
   "Discover feed publishers and mobile feed entries.":
     "Publicadores y entradas móviles del feed Discover.",
@@ -100,10 +100,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Discover entry": "Entrada de Discover",
   Organizations: "Organizaciones",
   Organization: "Organización",
-  "Individual Publishers": "Publicadores individuales",
-  "New individual publisher": "Nuevo publicador individual",
-  "Create individual publisher": "Crear publicador individual",
-  "Back to individual publishers": "Volver a publicadores individuales",
+  "Individual Publishers": "Editores",
+  "New individual publisher": "Nuevo editor",
+  "Create individual publisher": "Crear editor",
+  "Back to individual publishers": "Volver a editores",
   "Individual type": "Tipo de individuo",
   "Organization categories": "Categorías de organización",
   "Professional categories": "Categorías profesionales",
@@ -135,28 +135,28 @@ const SPANISH_TEXT: Record<string, string> = {
   "TikTok profile": "Perfil de TikTok",
   "YouTube channel": "Canal de YouTube",
   "Other link": "Otro enlace",
-  "Individual publisher name": "Nombre del publicador individual",
+  "Individual publisher name": "Nombre del editor",
   "Individual publisher name is required.":
-    "El nombre del publicador individual es obligatorio.",
+    "El nombre del editor es obligatorio.",
   "Individual publisher color must be a 6-digit hex value.":
-    "El color del publicador individual debe ser un valor hexadecimal de 6 dígitos.",
-  "Individual publisher created.": "Publicador individual creado.",
+    "El color del editor debe ser un valor hexadecimal de 6 dígitos.",
+  "Individual publisher created.": "Editor creado.",
   "Individual publisher changes saved.":
-    "Cambios del publicador individual guardados.",
-  "Individual publisher archived.": "Publicador individual archivado.",
-  "Individual publisher reactivated.": "Publicador individual reactivado.",
+    "Cambios del editor guardados.",
+  "Individual publisher archived.": "Editor archivado.",
+  "Individual publisher reactivated.": "Editor reactivado.",
   "Unable to save the individual publisher.":
-    "No se pudo guardar el publicador individual.",
+    "No se pudo guardar el editor.",
   "Unable to load more individual publishers.":
-    "No se pudieron cargar más publicadores individuales.",
+    "No se pudieron cargar más editores.",
   "Unable to refresh individual publishers.":
-    "No se pudieron actualizar los publicadores individuales.",
+    "No se pudieron actualizar los editores.",
   "Unable to update the individual publisher status.":
-    "No se pudo actualizar el estado del publicador individual.",
+    "No se pudo actualizar el estado del editor.",
   "No Discover individual publishers match the loaded rows.":
-    "Ningún publicador individual de Discover coincide con las filas cargadas.",
+    "Ningún editor de Discover coincide con las filas cargadas.",
   "Search individual publisher name, URL, email, or slug":
-    "Buscar por nombre, URL, email o slug de publicador individual",
+    "Buscar por nombre, URL, email o slug de editor",
   "New organization": "Nueva organización",
   "Create organization": "Crear organización",
   "Back to organizations": "Volver a organizaciones",
@@ -504,13 +504,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Opportunity location is required before publishing.":
     "La ubicación de la oportunidad es obligatoria antes de publicar.",
   "feed_organizations publishers": "Publicadores de feed_organizations",
-  "feed_individuals publishers": "Publicadores de feed_individuals",
+  "feed_individuals publishers": "Editores",
   "feed_items mobile Discover entries":
     "Entradas móviles de Discover en feed_items",
   "Publishers stored in feed_organizations for Discover feed entries.":
     "Publicadores guardados en feed_organizations para entradas de Discover.",
   "Publishers stored in feed_individuals for Discover feed entries.":
-    "Publicadores guardados en feed_individuals para entradas de Discover.",
+    "Editores disponibles para entradas de Discover.",
   "Create a Discover publisher for mobile feed entries.":
     "Crear un publicador de Discover para entradas móviles del feed.",
   "Discover publisher detail.": "Detalle del publicador de Discover.",
@@ -523,7 +523,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Create a canonical feed_organizations publisher for Discover feed entries.":
     "Crear un publicador feed_organizations canónico para entradas de Discover.",
   "Create a canonical feed_individuals publisher for Discover feed entries.":
-    "Crear un publicador feed_individuals canónico para entradas de Discover.",
+    "Crear un editor para entradas de Discover.",
+  "Create a Discover individual publisher for mobile feed entries.":
+    "Crear un editor para entradas móviles de Discover.",
   "Create a feed_items document with one type-specific payload and an automatic publisher snapshot.":
     "Crear un documento feed_items con payload específico por tipo y snapshot automático del publicador.",
   "Manage feed_items documents that the mobile apps read for Discover.":
@@ -531,19 +533,20 @@ const SPANISH_TEXT: Record<string, string> = {
   "Manage feed_organizations publishers used by Discover feed entries.":
     "Gestionar publicadores feed_organizations usados por las entradas de Discover.",
   "Manage feed_individuals publishers used by Discover feed entries.":
-    "Gestionar publicadores feed_individuals usados por las entradas de Discover.",
+    "Gestionar editores usados por las entradas de Discover.",
   "Edit one feed_items document while preserving the mobile app field contract.":
     "Editar un documento feed_items conservando el contrato de campos de la app móvil.",
   "Edit the canonical publisher record used by Discover feed entries.":
     "Editar el registro canónico del publicador usado por las entradas de Discover.",
   "Edit the canonical individual publisher record used by Discover feed entries.":
-    "Editar el registro canónico del publicador individual usado por las entradas de Discover.",
+    "Editar el registro del editor usado por las entradas de Discover.",
+  "Discover individual publisher detail.": "Detalle del editor de Discover.",
   "Individual-scoped Discover publishing access for one feed_individuals publisher and its feed entries.":
-    "Acceso de publicación Discover limitado a un publicador de feed_individuals y sus entradas del feed.",
+    "Acceso de publicación en Discover limitado a un editor y sus entradas del feed.",
   "Can access only Discover individual publishers and feed entries for one linked individual publisher.":
-    "Puede acceder sólo a publicadores individuales de Discover y entradas del feed de un publicador individual vinculado.",
+    "Puede acceder sólo a editores de Discover y entradas del feed de un editor vinculado.",
   "Can create, edit, duplicate, and delete feed entries only for that individual publisher.":
-    "Puede crear, editar, duplicar y eliminar entradas del feed sólo para ese publicador individual.",
+    "Puede crear, editar, duplicar y eliminar entradas del feed sólo para ese editor.",
   "Auth user": "Usuario Auth",
   "Private profile": "Perfil privado",
   "Public profile": "Perfil público",
@@ -2285,13 +2288,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Role assignment operations": "Operaciones de asignación de rol",
   "Role assignment saved.": "Asignación de rol guardada.",
   "Individual publisher roles require an individual publisher.":
-    "Los roles de publicador individual requieren un publicador individual.",
-  "Select individual publisher": "Seleccionar publicador individual",
-  "No individual publisher": "Sin publicador individual",
+    "Los roles de editor requieren seleccionar un editor.",
+  "Select individual publisher": "Seleccionar editor",
+  "No individual publisher": "Sin editor",
   "Discover individual publisher scope":
-    "Alcance del publicador individual de Discover",
-  "Open individual publisher": "Abrir publicador individual",
-  "Individual publisher id": "ID de publicador individual",
+    "Alcance del editor de Discover",
+  "Open individual publisher": "Abrir editor",
+  "Individual publisher id": "ID de editor",
   "These CRUD chips apply only to role assignment records, not to every 2PQ operational screen.":
     "Estos indicadores CRUD aplican solo a registros de asignación de rol, no a todas las pantallas operativas 2PQ.",
   "Role detail is where email-based access, institution scope, doctor scope, and patient scope all come together in one typed form.":
@@ -2895,12 +2898,20 @@ const SPANISH_TEXT: Record<string, string> = {
     "Los operarios de institución pueden crear y actualizar asignaciones de operario de institución, personal de laboratorio de institución, médico de institución y paciente dentro de su propia institución.",
   "Institution laboratory staff cannot create, update, or promote role assignments inside their institution.":
     "El personal de laboratorio de institución no puede crear, actualizar ni promover asignaciones de rol dentro de su institución.",
+  "Individual publishers cannot create role assignments.":
+    "Los editores no pueden crear asignaciones de rol.",
   "Institution operators can update existing institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution. They cannot create a new role assignment directly.":
     "Los operarios de institución pueden actualizar asignaciones existentes de operario de institución, personal de laboratorio de institución, médico de institución y paciente dentro de su propia institución. No pueden crear una asignación de rol nueva directamente.",
   "They can maintain doctor and patient records for their institution while keeping role creation reserved for the institution administrator.":
     "Pueden mantener registros de médicos y pacientes de su institución, mientras la creación de roles queda reservada al administrador de la institución.",
   "Institution laboratory staff can enter the backoffice and work inside the permitted 2PQ surfaces for their institution.":
     "El personal de laboratorio de institución puede ingresar al backoffice y trabajar dentro de las superficies 2PQ permitidas para su institución.",
+  "Can manage one individual publisher": "Puede gestionar un editor",
+  "Individual publishers can work only with the feed_individuals record linked to their role assignment.":
+    "Los editores trabajan sólo con el registro vinculado a su asignación de rol.",
+  "Can publish for that individual": "Puede publicar desde ese perfil",
+  "They can create, update, duplicate, and delete Discover feed entries only when the individual publisher matches their scope.":
+    "Puede crear, actualizar, duplicar y eliminar entradas de Discover sólo cuando corresponden al editor de su alcance.",
   "They can read their institution, doctor roster, and patient records as context for laboratory workflows, without administering those records.":
     "Puede leer su institución, el listado de médicos y los registros de pacientes como contexto para los flujos de laboratorio, sin administrar esos registros.",
   "Institution laboratory staff can create 2PQ cases through the corresponding form and update existing case records inside their institution.":
