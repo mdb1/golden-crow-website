@@ -50,10 +50,31 @@ interface SmtpConfig {
   from: string;
 }
 
+/**
+ * Google DISPLAYS an App Password as four space-separated groups of four
+ * ("abcd efgh ijkl mnop"), but the credential is the 16 characters. Pasted as
+ * shown, the spaces travel as part of the password and Gmail answers
+ * `535 Username and Password not accepted` — an error that reads like a wrong
+ * password, so the natural next move is to regenerate it and paste it wrong
+ * again.
+ *
+ * The pattern is deliberately narrow: ONLY the exact Google display shape is
+ * de-spaced. A legitimate SMTP password that happens to contain a space is
+ * left alone — silently mangling a correct credential would be a worse bug
+ * than the one this fixes.
+ */
+export function normalizeSmtpPassword(raw: string): string {
+  const trimmed = raw.trim();
+  return /^[A-Za-z0-9]{4}(?: [A-Za-z0-9]{4}){3}$/.test(trimmed)
+    ? trimmed.replace(/ /g, "")
+    : trimmed;
+}
+
 function readConfig(): SmtpConfig | null {
   const host = process.env.GC_FITNESS_SMTP_HOST?.trim();
   const user = process.env.GC_FITNESS_SMTP_USER?.trim();
-  const password = process.env.GC_FITNESS_SMTP_PASSWORD?.trim();
+  const rawPassword = process.env.GC_FITNESS_SMTP_PASSWORD;
+  const password = rawPassword ? normalizeSmtpPassword(rawPassword) : undefined;
   if (!host || !user || !password) return null;
   const port = Number.parseInt(process.env.GC_FITNESS_SMTP_PORT ?? "465", 10);
   return {
