@@ -20,12 +20,8 @@ import { appText } from "@/lib/language";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
 import {
-  DISCOVER_INDIVIDUAL_TYPE_OPTIONS,
   DISCOVER_ORGANIZATION_STATUS_OPTIONS,
-  DISCOVER_ORGANIZATION_TYPE_OPTIONS,
-  discoverIndividualTypeLabel,
   discoverOrganizationStatusLabel,
-  discoverOrganizationTypeLabel,
   type DiscoverIndividualRecord,
   type DiscoverIndividualsPage,
   type DiscoverIndividualStatus,
@@ -33,6 +29,10 @@ import {
   type DiscoverOrganizationStatus,
   type DiscoverOrganizationsPage,
 } from "@/lib/discover";
+import {
+  discoverIndividualCategoryProvider,
+  discoverOrganizationCategoryProvider,
+} from "@/lib/discover-publisher-categories";
 
 type PublisherKind = "organization" | "individual";
 type PublisherRecord = DiscoverOrganizationRecord | DiscoverIndividualRecord;
@@ -118,9 +118,9 @@ function DiscoverPublisherBrowser({
     : "/discover/organizations/new";
   const detailHref = (id: string) =>
     isIndividual ? `/discover/individuals/${id}` : `/discover/organizations/${id}`;
-  const typeOptions = isIndividual
-    ? DISCOVER_INDIVIDUAL_TYPE_OPTIONS
-    : DISCOVER_ORGANIZATION_TYPE_OPTIONS;
+  const categoryProvider = isIndividual
+    ? discoverIndividualCategoryProvider
+    : discoverOrganizationCategoryProvider;
 
   function publishersFromPage(page: PublisherPage): PublisherRecord[] {
     return isIndividual
@@ -138,6 +138,7 @@ function DiscoverPublisherBrowser({
       const currentType = isIndividual
         ? individual.individualType
         : organization.organizationType;
+      const currentTypeLabels = categoryProvider.labelsForCsv(currentType);
       const searchable = [
         publisher.id,
         publisher.name,
@@ -147,6 +148,7 @@ function DiscoverPublisherBrowser({
         publisher.description_en,
         publisher.countryCode,
         currentType,
+        ...currentTypeLabels,
         publisher.color_hex,
         publisher.contactEmail,
       ]
@@ -157,14 +159,24 @@ function DiscoverPublisherBrowser({
       return (
         (!normalizedQuery || searchable.includes(normalizedQuery)) &&
         (status === "all" || publisher.status === status) &&
-        (publisherType === "all" || currentType === publisherType) &&
+        (publisherType === "all" ||
+          categoryProvider.hasKey(currentType, publisherType)) &&
         (!normalizedCountry ||
           (publisher.countryCode ?? "").toLowerCase().includes(normalizedCountry)) &&
         (verified === "all" ||
           (verified === "verified" ? publisher.verified : !publisher.verified))
       );
     });
-  }, [countryCode, isIndividual, publisherType, publishers, query, status, verified]);
+  }, [
+    categoryProvider,
+    countryCode,
+    isIndividual,
+    publisherType,
+    publishers,
+    query,
+    status,
+    verified,
+  ]);
 
   async function loadMore() {
     if (!nextCursor) {
@@ -322,8 +334,8 @@ function DiscoverPublisherBrowser({
             onChange={(event) => setPublisherType(event.target.value)}
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="all">{t("All types")}</option>
-            {typeOptions.map((option) => (
+            <option value="all">{t("All categories")}</option>
+            {categoryProvider.options.map((option) => (
               <option key={option.value} value={option.value}>
                 {t(option.label)}
               </option>
@@ -351,7 +363,7 @@ function DiscoverPublisherBrowser({
       <div className="glass-panel overflow-hidden">
         <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_110px_170px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
           <span>{isIndividual ? t("Individual publisher") : t("Organization")}</span>
-          <span>{t("Type")}</span>
+          <span>{t("Categories")}</span>
           <span>{t("Status")}</span>
           <span>{t("Updated")}</span>
           <span className="text-right">{t("Action")}</span>
@@ -367,9 +379,11 @@ function DiscoverPublisherBrowser({
           filteredPublishers.map((publisher) => {
             const organization = publisher as DiscoverOrganizationRecord;
             const individual = publisher as DiscoverIndividualRecord;
-            const typeLabel = isIndividual
-              ? discoverIndividualTypeLabel(individual.individualType)
-              : discoverOrganizationTypeLabel(organization.organizationType);
+            const categoryLabels = categoryProvider.labelsForCsv(
+              isIndividual
+                ? individual.individualType
+                : organization.organizationType,
+            );
 
             return (
             <div
@@ -409,8 +423,18 @@ function DiscoverPublisherBrowser({
                 </p>
               </div>
 
-              <div className="text-sm text-muted-foreground">
-                {t(typeLabel)}
+              <div className="flex flex-wrap gap-1.5">
+                {categoryLabels.length ? (
+                  categoryLabels.map((label) => (
+                    <Badge key={label} variant="secondary" className="rounded-md">
+                      {t(label)}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    {t("Unspecified")}
+                  </span>
+                )}
               </div>
 
               <div>

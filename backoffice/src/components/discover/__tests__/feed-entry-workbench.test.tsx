@@ -69,7 +69,8 @@ const organization: DiscoverOrganizationRecord = {
   description: "Descripción pública",
   description_en: "Public description",
   countryCode: "AR",
-  organizationType: "patient_advocacy_group",
+  organizationType:
+    "org_patient_advocacy_organizations,org_genetics_research_institutes",
   color_hex: "#123ABC",
   verified: true,
   contactEmail: "hello@example.org",

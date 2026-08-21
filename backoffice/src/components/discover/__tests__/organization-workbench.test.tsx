@@ -31,7 +31,8 @@ const organization: DiscoverOrganizationRecord = {
   description: "Descripción pública",
   description_en: "Public description",
   countryCode: "US",
-  organizationType: "patient_advocacy_group",
+  organizationType:
+    "org_patient_advocacy_organizations,org_genetics_research_institutes",
   color_hex: "#123ABC",
   verified: true,
   contactEmail: "hello@example.org",
@@ -130,6 +131,30 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     ).toBeNull();
     expect(screen.getByRole("button", { name: "Reset" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
+  });
+
+  it("saves multiple organization categories as comma-separated canonical keys", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: /2 categories selected/i }));
+    await user.click(screen.getByRole("checkbox", { name: "Medical Societies" }));
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.organizationType).toBe(
+      "org_patient_advocacy_organizations,org_genetics_research_institutes,org_medical_societies",
+    );
   });
 });
 

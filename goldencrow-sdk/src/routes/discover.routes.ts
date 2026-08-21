@@ -22,29 +22,6 @@ import {
 } from "../repositories/discover.repository.js";
 
 const OrganizationStatusSchema = z.enum(["active", "inactive", "archived"]);
-const OrganizationTypeSchema = z.enum([
-  "foundation",
-  "hospital",
-  "university",
-  "laboratory",
-  "research_institute",
-  "patient_advocacy_group",
-  "public_health_agency",
-  "conference_organizer",
-  "company",
-  "other",
-]);
-const IndividualTypeSchema = z.enum([
-  "researcher",
-  "clinician",
-  "genetic_counselor",
-  "patient_advocate",
-  "bioinformatician",
-  "educator",
-  "journalist",
-  "community_leader",
-  "other",
-]);
 const FeedTypeSchema = z.enum([
   "news",
   "research_update",
@@ -70,7 +47,7 @@ const OrganizationBodySchema = z.object({
   description: z.string().optional(),
   description_en: z.string().optional(),
   countryCode: z.string().optional(),
-  organizationType: OrganizationTypeSchema.optional(),
+  organizationType: z.string().optional(),
   color_hex: z.string().nullable().optional(),
   colorHex: z.string().nullable().optional(),
   verified: z.boolean().optional(),
@@ -86,7 +63,7 @@ const IndividualBodySchema = z.object({
   description: z.string().optional(),
   description_en: z.string().optional(),
   countryCode: z.string().optional(),
-  individualType: IndividualTypeSchema.optional(),
+  individualType: z.string().optional(),
   color_hex: z.string().nullable().optional(),
   colorHex: z.string().nullable().optional(),
   verified: z.boolean().optional(),

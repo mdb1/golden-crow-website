@@ -105,6 +105,18 @@ const SPANISH_TEXT: Record<string, string> = {
   "Create individual publisher": "Crear publicador individual",
   "Back to individual publishers": "Volver a publicadores individuales",
   "Individual type": "Tipo de individuo",
+  "Organization categories": "Categorías de organización",
+  "Professional categories": "Categorías profesionales",
+  "Select organization categories": "Seleccionar categorías de organización",
+  "Select professional categories": "Seleccionar categorías profesionales",
+  "Choose one or more canonical Discover categories. They will be saved as comma-separated keys.":
+    "Elegí una o más categorías canónicas de Discover. Se guardan como claves separadas por coma.",
+  "No categories selected": "Sin categorías seleccionadas",
+  "Search categories": "Buscar categorías",
+  "category selected": "categoría seleccionada",
+  "categories selected": "categorías seleccionadas",
+  "All categories": "Todas las categorías",
+  Categories: "Categorías",
   "Individual publisher name": "Nombre del publicador individual",
   "Individual publisher name is required.":
     "El nombre del publicador individual es obligatorio.",

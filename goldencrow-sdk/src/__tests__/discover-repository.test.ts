@@ -99,6 +99,8 @@ const initialOrganizationDocs: MockDoc[] = [
       status: "active",
       description: "Descripción pública",
       description_en: "Public description",
+      organizationType:
+        "org_patient_advocacy_organizations,org_genetics_research_institutes",
       color_hex: "#4f46e5",
       createdAt: "2026-08-01T00:00:00.000Z",
       updatedAt: "2026-08-02T00:00:00.000Z",
@@ -317,6 +319,9 @@ describe("discover repository", () => {
 
     expect(result.organizations).toHaveLength(1);
     expect(result.organizations[0]?.color_hex).toBe("#4F46E5");
+    expect(result.organizations[0]?.organizationType).toBe(
+      "org_patient_advocacy_organizations,org_genetics_research_institutes",
+    );
     expect(result.organizations[0]?.description).toBe("Descripción pública");
     expect(result.organizations[0]?.description_en).toBe("Public description");
   });
@@ -328,7 +333,7 @@ describe("discover repository", () => {
 
     expect(result.individuals).toHaveLength(1);
     expect(result.individuals[0]?.color_hex).toBe("#14B8A6");
-    expect(result.individuals[0]?.individualType).toBe("researcher");
+    expect(result.individuals[0]?.individualType).toBe("pro_research_scientists");
     expect(result.individuals[0]?.description).toBe("Descripción individual");
     expect(result.individuals[0]?.description_en).toBe("Individual description");
   });
@@ -342,6 +347,8 @@ describe("discover repository", () => {
       description: "Descripción en español",
       description_en: "English description",
       countryCode: "ar",
+      organizationType:
+        "org_patient_advocacy_organizations,org_genetics_research_institutes",
       slug: "manual-slug",
     } as Record<string, unknown>);
     const stored = mockOrganizationDocs.find((doc) => doc.id === organization.id);
@@ -350,10 +357,38 @@ describe("discover repository", () => {
     expect(organization.description).toBe("Descripción en español");
     expect(organization.description_en).toBe("English description");
     expect(organization.countryCode).toBe("AR");
+    expect(organization.organizationType).toBe(
+      "org_patient_advocacy_organizations,org_genetics_research_institutes",
+    );
     expect(stored?.data.slug).toBe("fundacion-medica-nandu");
     expect(stored?.data.description).toBe("Descripción en español");
     expect(stored?.data.description_en).toBe("English description");
     expect(stored?.data.countryCode).toBe("AR");
+    expect(stored?.data.organizationType).toBe(
+      "org_patient_advocacy_organizations,org_genetics_research_institutes",
+    );
+  });
+
+  it("rejects publisher category keys outside the fixed provider lists", async () => {
+    const { createDiscoverOrganization, createDiscoverIndividual } = await import(
+      "../repositories/discover.repository"
+    );
+
+    await expect(
+      createDiscoverOrganization(fullAdminContext, {
+        name: "Invalid organization",
+        organizationType: "org_patient_advocacy_organizations,pro_physicians",
+      } as Record<string, unknown>),
+    ).rejects.toThrow("Organization categories contain invalid keys: pro_physicians");
+
+    await expect(
+      createDiscoverIndividual(fullAdminContext, {
+        name: "Invalid individual",
+        individualType: "pro_physicians,org_universities",
+      } as Record<string, unknown>),
+    ).rejects.toThrow(
+      "Individual publisher categories contain invalid keys: org_universities",
+    );
   });
 
   it("creates upcoming events with the virtual meeting link the app reads", async () => {

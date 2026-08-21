@@ -1,26 +1,16 @@
+import {
+  DISCOVER_INDIVIDUAL_CATEGORY_OPTIONS,
+  DISCOVER_ORGANIZATION_CATEGORY_OPTIONS,
+  discoverIndividualCategoryProvider,
+  discoverOrganizationCategoryProvider,
+  type DiscoverIndividualCategoryKey,
+  type DiscoverOrganizationCategoryKey,
+} from "./discover-publisher-categories";
+
 export type DiscoverOrganizationStatus = "active" | "inactive" | "archived";
-export type DiscoverOrganizationType =
-  | "foundation"
-  | "hospital"
-  | "university"
-  | "laboratory"
-  | "research_institute"
-  | "patient_advocacy_group"
-  | "public_health_agency"
-  | "conference_organizer"
-  | "company"
-  | "other";
+export type DiscoverOrganizationType = DiscoverOrganizationCategoryKey;
 export type DiscoverIndividualStatus = DiscoverOrganizationStatus;
-export type DiscoverIndividualType =
-  | "researcher"
-  | "clinician"
-  | "genetic_counselor"
-  | "patient_advocate"
-  | "bioinformatician"
-  | "educator"
-  | "journalist"
-  | "community_leader"
-  | "other";
+export type DiscoverIndividualType = DiscoverIndividualCategoryKey;
 
 export interface DiscoverOrganizationRecord {
   id: string;
@@ -32,7 +22,7 @@ export interface DiscoverOrganizationRecord {
   description?: string;
   description_en?: string;
   countryCode?: string;
-  organizationType?: DiscoverOrganizationType;
+  organizationType?: string;
   color_hex?: string;
   verified: boolean;
   contactEmail?: string;
@@ -53,7 +43,7 @@ export interface DiscoverIndividualRecord {
   description?: string;
   description_en?: string;
   countryCode?: string;
-  individualType?: DiscoverIndividualType;
+  individualType?: string;
   color_hex?: string;
   verified: boolean;
   contactEmail?: string;
@@ -126,30 +116,11 @@ export const DISCOVER_ORGANIZATION_STATUS_OPTIONS = [
   { value: "archived", label: "Archived" },
 ] as const;
 
-export const DISCOVER_ORGANIZATION_TYPE_OPTIONS = [
-  { value: "foundation", label: "Foundation" },
-  { value: "hospital", label: "Hospital" },
-  { value: "university", label: "University" },
-  { value: "laboratory", label: "Laboratory" },
-  { value: "research_institute", label: "Research institute" },
-  { value: "patient_advocacy_group", label: "Patient advocacy group" },
-  { value: "public_health_agency", label: "Public health agency" },
-  { value: "conference_organizer", label: "Conference organizer" },
-  { value: "company", label: "Company" },
-  { value: "other", label: "Other" },
-] as const;
+export const DISCOVER_ORGANIZATION_TYPE_OPTIONS =
+  DISCOVER_ORGANIZATION_CATEGORY_OPTIONS;
 
-export const DISCOVER_INDIVIDUAL_TYPE_OPTIONS = [
-  { value: "researcher", label: "Researcher" },
-  { value: "clinician", label: "Clinician" },
-  { value: "genetic_counselor", label: "Genetic counselor" },
-  { value: "patient_advocate", label: "Patient advocate" },
-  { value: "bioinformatician", label: "Bioinformatician" },
-  { value: "educator", label: "Educator" },
-  { value: "journalist", label: "Journalist" },
-  { value: "community_leader", label: "Community leader" },
-  { value: "other", label: "Other" },
-] as const;
+export const DISCOVER_INDIVIDUAL_TYPE_OPTIONS =
+  DISCOVER_INDIVIDUAL_CATEGORY_OPTIONS;
 
 export const DISCOVER_FEED_TYPE_OPTIONS = [
   { value: "news", label: "News" },
@@ -189,29 +160,15 @@ export function discoverOrganizationStatusLabel(
 }
 
 export function discoverOrganizationTypeLabel(
-  type?: DiscoverOrganizationType,
+  type?: string,
 ) {
-  if (!type) {
-    return "Unspecified";
-  }
-
-  return (
-    DISCOVER_ORGANIZATION_TYPE_OPTIONS.find((option) => option.value === type)
-      ?.label ?? type
-  );
+  return discoverOrganizationCategoryProvider.formatCsv(type, "Unspecified");
 }
 
 export function discoverIndividualTypeLabel(
-  type?: DiscoverIndividualType,
+  type?: string,
 ) {
-  if (!type) {
-    return "Unspecified";
-  }
-
-  return (
-    DISCOVER_INDIVIDUAL_TYPE_OPTIONS.find((option) => option.value === type)
-      ?.label ?? type
-  );
+  return discoverIndividualCategoryProvider.formatCsv(type, "Unspecified");
 }
 
 export function getDiscoverPayload(

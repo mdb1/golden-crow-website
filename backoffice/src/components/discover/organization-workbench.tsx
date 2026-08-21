@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { PublisherCategoryMultiSelect } from "@/components/discover/publisher-category-multi-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,16 +22,16 @@ import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
 import { cn } from "@/lib/utils";
 import {
-  DISCOVER_INDIVIDUAL_TYPE_OPTIONS,
   DISCOVER_ORGANIZATION_STATUS_OPTIONS,
-  DISCOVER_ORGANIZATION_TYPE_OPTIONS,
   type DiscoverIndividualRecord,
   type DiscoverIndividualStatus,
-  type DiscoverIndividualType,
   type DiscoverOrganizationRecord,
   type DiscoverOrganizationStatus,
-  type DiscoverOrganizationType,
 } from "@/lib/discover";
+import {
+  discoverIndividualCategoryProvider,
+  discoverOrganizationCategoryProvider,
+} from "@/lib/discover-publisher-categories";
 import {
   formatDiscoverOrganizationCountry,
   getDiscoverOrganizationCountryGroups,
@@ -48,8 +49,8 @@ type OrganizationFormState = {
   description: string;
   description_en: string;
   countryCode: string;
-  organizationType: "" | DiscoverOrganizationType;
-  individualType: "" | DiscoverIndividualType;
+  organizationType: string;
+  individualType: string;
   color_hex: string;
   verified: boolean;
   contactEmail: string;
@@ -70,8 +71,12 @@ function toFormState(
     description: publisher?.description ?? "",
     description_en: publisher?.description_en ?? "",
     countryCode: publisher?.countryCode?.toUpperCase() ?? "",
-    organizationType: organization?.organizationType ?? "",
-    individualType: individual?.individualType ?? "",
+    organizationType: discoverOrganizationCategoryProvider.normalizeCsv(
+      organization?.organizationType,
+    ),
+    individualType: discoverIndividualCategoryProvider.normalizeCsv(
+      individual?.individualType,
+    ),
     color_hex: publisher?.color_hex ?? "",
     verified: publisher?.verified ?? false,
     contactEmail: publisher?.contactEmail ?? "",
@@ -80,6 +85,13 @@ function toFormState(
 }
 
 function payloadFromState(state: OrganizationFormState, publisherKind: PublisherKind) {
+  const organizationType = discoverOrganizationCategoryProvider.normalizeCsv(
+    state.organizationType,
+  );
+  const individualType = discoverIndividualCategoryProvider.normalizeCsv(
+    state.individualType,
+  );
+
   return {
     ...state,
     slug: slugifyDiscoverOrganizationName(state.name),
@@ -88,11 +100,11 @@ function payloadFromState(state: OrganizationFormState, publisherKind: Publisher
     countryCode: state.countryCode || undefined,
     organizationType:
       publisherKind === "organization"
-        ? state.organizationType || undefined
+        ? organizationType || undefined
         : undefined,
     individualType:
       publisherKind === "individual"
-        ? state.individualType || undefined
+        ? individualType || undefined
         : undefined,
     color_hex: normalizedColorHex(state.color_hex) || undefined,
   };
@@ -164,9 +176,9 @@ function DiscoverPublisherWorkbench({
   const endpointBase = isIndividual
     ? "/discover/individuals"
     : "/discover/organizations";
-  const typeOptions = isIndividual
-    ? DISCOVER_INDIVIDUAL_TYPE_OPTIONS
-    : DISCOVER_ORGANIZATION_TYPE_OPTIONS;
+  const categoryProvider = isIndividual
+    ? discoverIndividualCategoryProvider
+    : discoverOrganizationCategoryProvider;
   const publisherNameLabel = isIndividual
     ? t("Individual publisher name")
     : t("Organization name");
@@ -192,6 +204,9 @@ function DiscoverPublisherWorkbench({
       : state.description_en;
   const showEnglishDescriptionWarning = Boolean(
     state.description.trim() && !state.description_en.trim(),
+  );
+  const selectedCategoryLabels = categoryProvider.labelsForCsv(
+    isIndividual ? state.individualType : state.organizationType,
   );
 
   function updateState(patch: Partial<OrganizationFormState>) {
@@ -400,36 +415,31 @@ function DiscoverPublisherWorkbench({
                 ))}
               </select>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="discover-org-type">
-                {isIndividual ? t("Individual type") : t("Organization type")}
-              </Label>
-              <select
-                id="discover-org-type"
-                value={isIndividual ? state.individualType : state.organizationType}
-                onChange={(event) =>
-                  updateState(
-                    isIndividual
-                      ? {
-                          individualType: event.target
-                            .value as OrganizationFormState["individualType"],
-                        }
-                      : {
-                          organizationType: event.target
-                            .value as OrganizationFormState["organizationType"],
-                        },
-                  )
-                }
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">{t("Unspecified")}</option>
-                {typeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {t(option.label)}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <PublisherCategoryMultiSelect
+              provider={categoryProvider}
+              value={isIndividual ? state.individualType : state.organizationType}
+              onChange={(value: string) =>
+                updateState(
+                  isIndividual
+                    ? { individualType: value }
+                    : { organizationType: value },
+                )
+              }
+              label={isIndividual ? t("Professional categories") : t("Organization categories")}
+              dialogTitle={
+                isIndividual
+                  ? t("Select professional categories")
+                  : t("Select organization categories")
+              }
+              dialogDescription={t("Choose one or more canonical Discover categories. They will be saved as comma-separated keys.")}
+              emptyLabel={t("No categories selected")}
+              searchPlaceholder={t("Search categories")}
+              clearLabel={t("Clear all")}
+              doneLabel={t("Done")}
+              selectedCountLabel={(count: number) =>
+                `${count} ${count === 1 ? t("category selected") : t("categories selected")}`
+              }
+            />
             <div className="flex flex-col gap-2">
               <Label htmlFor="discover-org-country">{t("Country")}</Label>
               <select
@@ -642,6 +652,11 @@ function DiscoverPublisherWorkbench({
               </div>
               <div>{state.websiteUrl || t("No website URL")}</div>
               <div>{countryLabel || t("No country")}</div>
+              <div>
+                {selectedCategoryLabels.length
+                  ? selectedCategoryLabels.join(", ")
+                  : t("No categories selected")}
+              </div>
               <div className="mt-2 flex items-center gap-2">
                 <span
                   className="h-3.5 w-3.5 rounded-full border border-border"

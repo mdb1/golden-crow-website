@@ -577,28 +577,9 @@ export interface ModerationDocumentRecord {
 }
 
 export type DiscoverOrganizationStatus = "active" | "inactive" | "archived";
-export type DiscoverOrganizationType =
-  | "foundation"
-  | "hospital"
-  | "university"
-  | "laboratory"
-  | "research_institute"
-  | "patient_advocacy_group"
-  | "public_health_agency"
-  | "conference_organizer"
-  | "company"
-  | "other";
+export type DiscoverOrganizationType = string;
 export type DiscoverIndividualStatus = DiscoverOrganizationStatus;
-export type DiscoverIndividualType =
-  | "researcher"
-  | "clinician"
-  | "genetic_counselor"
-  | "patient_advocate"
-  | "bioinformatician"
-  | "educator"
-  | "journalist"
-  | "community_leader"
-  | "other";
+export type DiscoverIndividualType = string;
 
 export interface DiscoverOrganizationRecord {
   id: string;

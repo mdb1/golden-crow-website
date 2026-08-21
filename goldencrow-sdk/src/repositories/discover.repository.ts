@@ -7,6 +7,10 @@ import {
 } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
 import { AdminRepositoryError } from "./admin-errors.js";
+import {
+  discoverIndividualCategoryProvider,
+  discoverOrganizationCategoryProvider,
+} from "../lib/discover-publisher-categories.js";
 import type {
   AdminContext,
   DiscoverFeedItemRecord,
@@ -14,11 +18,9 @@ import type {
   DiscoverFeedType,
   DiscoverIndividualRecord,
   DiscoverIndividualStatus,
-  DiscoverIndividualType,
   DiscoverListPage,
   DiscoverOrganizationRecord,
   DiscoverOrganizationStatus,
-  DiscoverOrganizationType,
 } from "../types/sdk.types.js";
 
 const adminDb = adminDbFor("mydnamap");
@@ -33,29 +35,6 @@ const ORGANIZATION_STATUSES = new Set<DiscoverOrganizationStatus>([
   "active",
   "inactive",
   "archived",
-]);
-const ORGANIZATION_TYPES = new Set<DiscoverOrganizationType>([
-  "foundation",
-  "hospital",
-  "university",
-  "laboratory",
-  "research_institute",
-  "patient_advocacy_group",
-  "public_health_agency",
-  "conference_organizer",
-  "company",
-  "other",
-]);
-const INDIVIDUAL_TYPES = new Set<DiscoverIndividualType>([
-  "researcher",
-  "clinician",
-  "genetic_counselor",
-  "patient_advocate",
-  "bioinformatician",
-  "educator",
-  "journalist",
-  "community_leader",
-  "other",
 ]);
 const FEED_TYPES = new Set<DiscoverFeedType>([
   "news",
@@ -602,11 +581,9 @@ function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationR
   const status = ORGANIZATION_STATUSES.has(data.status as DiscoverOrganizationStatus)
     ? (data.status as DiscoverOrganizationStatus)
     : "inactive";
-  const organizationType = ORGANIZATION_TYPES.has(
-    data.organizationType as DiscoverOrganizationType,
-  )
-    ? (data.organizationType as DiscoverOrganizationType)
-    : undefined;
+  const organizationType = discoverOrganizationCategoryProvider.normalizeCsv(
+    normalizeOptionalString(data.organizationType),
+  );
 
   return {
     id: doc.id,
@@ -618,7 +595,7 @@ function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationR
     description: normalizeOptionalString(data.description),
     description_en: normalizeOptionalString(data.description_en),
     countryCode: normalizeOptionalString(data.countryCode),
-    organizationType,
+    organizationType: organizationType || undefined,
     color_hex: readHexColor(data.color_hex ?? data.colorHex),
     verified: data.verified === true,
     contactEmail: normalizeOptionalString(data.contactEmail),
@@ -635,11 +612,9 @@ function toIndividualRecord(doc: QueryDocumentSnapshot): DiscoverIndividualRecor
   const status = ORGANIZATION_STATUSES.has(data.status as DiscoverIndividualStatus)
     ? (data.status as DiscoverIndividualStatus)
     : "inactive";
-  const individualType = INDIVIDUAL_TYPES.has(
-    data.individualType as DiscoverIndividualType,
-  )
-    ? (data.individualType as DiscoverIndividualType)
-    : undefined;
+  const individualType = discoverIndividualCategoryProvider.normalizeCsv(
+    normalizeOptionalString(data.individualType),
+  );
 
   return {
     id: doc.id,
@@ -651,7 +626,7 @@ function toIndividualRecord(doc: QueryDocumentSnapshot): DiscoverIndividualRecor
     description: normalizeOptionalString(data.description),
     description_en: normalizeOptionalString(data.description_en),
     countryCode: normalizeOptionalString(data.countryCode),
-    individualType,
+    individualType: individualType || undefined,
     color_hex: readHexColor(data.color_hex ?? data.colorHex),
     verified: data.verified === true,
     contactEmail: normalizeOptionalString(data.contactEmail),
@@ -824,16 +799,38 @@ function normalizeOrganizationStatus(value: unknown) {
     : "active";
 }
 
-function normalizeOrganizationType(value: unknown): DiscoverOrganizationType | undefined {
-  return ORGANIZATION_TYPES.has(value as DiscoverOrganizationType)
-    ? (value as DiscoverOrganizationType)
-    : undefined;
+function normalizeOrganizationType(value: unknown): string | undefined {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const invalidKeys = discoverOrganizationCategoryProvider.invalidKeys(normalized);
+  if (invalidKeys.length) {
+    throw new AdminRepositoryError(
+      `Organization categories contain invalid keys: ${invalidKeys.join(", ")}`,
+      400,
+    );
+  }
+
+  return discoverOrganizationCategoryProvider.normalizeCsv(normalized) || undefined;
 }
 
-function normalizeIndividualType(value: unknown): DiscoverIndividualType | undefined {
-  return INDIVIDUAL_TYPES.has(value as DiscoverIndividualType)
-    ? (value as DiscoverIndividualType)
-    : undefined;
+function normalizeIndividualType(value: unknown): string | undefined {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const invalidKeys = discoverIndividualCategoryProvider.invalidKeys(normalized);
+  if (invalidKeys.length) {
+    throw new AdminRepositoryError(
+      `Individual publisher categories contain invalid keys: ${invalidKeys.join(", ")}`,
+      400,
+    );
+  }
+
+  return discoverIndividualCategoryProvider.normalizeCsv(normalized) || undefined;
 }
 
 function organizationDocument(input: OrganizationInput, context: AdminContext) {
