@@ -38,7 +38,7 @@ import { listClientAppDevices } from "@/lib/gc-fitness/client-app-devices";
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import {
   getCurrentTrainer,
@@ -88,6 +88,11 @@ import {
 } from "@/lib/gc-fitness/client-request-fulfillment";
 import { PendingClientPreload } from "./_components/PendingClientPreload";
 import { RemovePendingClientButton } from "./_components/RemovePendingClientButton";
+// #970 — "did the client actually get the email?", plus the only way to retry.
+import {
+  ClientInviteCard,
+  type ClientInviteStatus,
+} from "./_components/ClientInviteCard";
 import { UnlinkClientButton } from "./_components/UnlinkClientButton";
 import { ClientSummaryCard } from "./_components/ClientSummaryCard";
 import { NutritionProfileWidget } from "./_components/NutritionProfileWidget";
@@ -142,12 +147,16 @@ export default async function ClientDetailPage({
       coachDisplayName?: string;
       coachPhotoURL?: string;
       pre_created?: boolean;
+      inviteEmailStatus?: string;
+      inviteEmailSentAt?: { toDate?: () => Date };
     };
     if (mirror.coachId !== trainer.uid) notFound();
     return (
       <PendingClientView
         normalizedEmail={normalizedEmail}
         mirror={mirror}
+        inviteStatus={inviteStatusOf(mirror.inviteEmailStatus)}
+        inviteSentAtLabel={await formatInstantLabel(mirror.inviteEmailSentAt)}
       />
     );
   }
@@ -173,6 +182,8 @@ export default async function ClientDetailPage({
     bodyWeightKg?: number;
     progressPhotosRequestedAt?: unknown;
     bodyWeightRequestedAt?: unknown;
+    inviteEmailStatus?: string;
+    inviteEmailSentAt?: { toDate?: () => Date };
   };
   if (client.coachId !== trainer.uid) notFound();
 
@@ -476,6 +487,14 @@ export default async function ClientDetailPage({
         </Suspense>
       </div>
 
+      {/* #970 — the "your coach added you" email. Above the unlink control on
+          purpose: it is the harmless one of the two. */}
+      <ClientInviteCard
+        target={{ clientId: id }}
+        status={inviteStatusOf(client.inviteEmailStatus)}
+        sentAtLabel={await formatInstantLabel(client.inviteEmailSentAt, timezone)}
+      />
+
       {/* #753 — last on the page on purpose: it is the only control here that
           removes the client from the roster, and nothing above it should be
           reachable by an accidental tap on the way to it. */}
@@ -549,6 +568,8 @@ function WidgetSkeleton({ title }: { title: string }) {
 function PendingClientView({
   normalizedEmail,
   mirror,
+  inviteStatus,
+  inviteSentAtLabel,
 }: {
   normalizedEmail: string;
   mirror: {
@@ -559,6 +580,8 @@ function PendingClientView({
     coachPhotoURL?: string;
     pre_created?: boolean;
   };
+  inviteStatus: ClientInviteStatus;
+  inviteSentAtLabel: string | null;
 }) {
   const displayName = mirror.displayName ?? mirror.email ?? normalizedEmail;
   const email = mirror.email ?? normalizedEmail;
@@ -590,6 +613,15 @@ function PendingClientView({
           sign-in, convertMirrorToCanonical migrates clientId atomically. */}
       <PendingClientPreload normalizedEmail={normalizedEmail} />
 
+      {/* #970 — for a PENDING client the email is the whole product: it is the
+          only thing that tells this person the app exists. If it silently
+          failed, nothing else on this page would say so. */}
+      <ClientInviteCard
+        target={{ email: normalizedEmail }}
+        status={inviteStatus}
+        sentAtLabel={inviteSentAtLabel}
+      />
+
       {/* #753 — undo a mistyped invite without asking an operator. */}
       <RemovePendingClientButton email={normalizedEmail} />
 
@@ -600,4 +632,39 @@ function PendingClientView({
       </p>
     </div>
   );
+}
+
+// ── #970 invite-status helpers ──────────────────────────────────────────────
+
+/**
+ * Widens the stored string to the card's union. `unknown` covers BOTH a client
+ * added before this feature existed AND one whose marker write failed — the
+ * card's copy for it says "not sent yet", which is the safe reading: offering a
+ * send that turns out to be a re-send is a smaller harm than hiding the button
+ * from someone who never got the email.
+ */
+function inviteStatusOf(value: string | undefined): ClientInviteStatus {
+  return value === "sent" || value === "failed" || value === "skipped"
+    ? value
+    : "unknown";
+}
+
+/**
+ * Formats a Firestore Timestamp in the reader's zone. Falls back to the
+ * trainer's zone — `#747`'s lesson: `?? "UTC"` is not a neutral default,
+ * it renders every instant for a reader who does not live there.
+ */
+async function formatInstantLabel(
+  value: { toDate?: () => Date } | undefined,
+  timezone?: string,
+): Promise<string | null> {
+  if (typeof value?.toDate !== "function") return null;
+  const date = value.toDate();
+  if (Number.isNaN(date.getTime())) return null;
+  const zone = timezone ?? (await getTrainerTimezone());
+  return new Intl.DateTimeFormat(await getLocale(), {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: zone,
+  }).format(date);
 }

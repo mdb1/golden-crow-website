@@ -840,6 +840,26 @@
         "profileManage": "Gestionar nutrición",
         "profileExpiredHelp": "La última fase se venció y no hay ninguna cargada después."
       }
+    },
+    "invite": {
+      "statusSent": "Invitación enviada",
+      "statusFailed": "No se pudo enviar la invitación",
+      "statusSkipped": "El envío de mails no está configurado",
+      "statusUnknown": "Sin invitación enviada",
+      "sentAt": "Se envió el {when}.",
+      "hint": {
+        "sent": "El mail con el link para descargar la app ya salió.",
+        "failed": "El mail rebotó o el servidor no respondió. Probá de nuevo; si vuelve a fallar, revisá que el mail esté bien escrito.",
+        "skipped": "Falta configurar el servidor de mails, así que no se envió nada.",
+        "unknown": "Todavía no se le mandó el mail con el link para descargar la app."
+      },
+      "resendCta": "Enviar de nuevo",
+      "sending": "Enviando…",
+      "toastSent": "Mail enviado.",
+      "toastFailed": "No se pudo enviar el mail.",
+      "toastCooldown": "Recién lo enviaste. Esperá unos minutos antes de reintentar.",
+      "toastNoTarget": "No se pudo enviar: no encontramos a este cliente.",
+      "toastNotConfigured": "El envío de mails no está configurado en este entorno."
     }
   },
   "templates": {

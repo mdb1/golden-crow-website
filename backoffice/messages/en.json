@@ -840,6 +840,26 @@
         "profileManage": "Manage nutrition",
         "profileExpiredHelp": "The last phase expired and no new one has been assigned."
       }
+    },
+    "invite": {
+      "statusSent": "Invitation sent",
+      "statusFailed": "The invitation could not be sent",
+      "statusSkipped": "Email sending is not configured",
+      "statusUnknown": "No invitation sent yet",
+      "sentAt": "Sent on {when}.",
+      "hint": {
+        "sent": "The email with the app download link has gone out.",
+        "failed": "The email bounced or the server did not answer. Try again; if it fails twice, check the address is spelled right.",
+        "skipped": "The mail server is not configured, so nothing was sent.",
+        "unknown": "This person has not been sent the app download link yet."
+      },
+      "resendCta": "Send again",
+      "sending": "Sending…",
+      "toastSent": "Email sent.",
+      "toastFailed": "The email could not be sent.",
+      "toastCooldown": "You just sent it. Wait a few minutes before retrying.",
+      "toastNoTarget": "Could not send: we could not find this client.",
+      "toastNotConfigured": "Email sending is not configured in this environment."
     }
   },
   "templates": {
