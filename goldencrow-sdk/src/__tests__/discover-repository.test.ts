@@ -346,7 +346,7 @@ describe("discover repository", () => {
       imageUrl: "https://example.org/publisher.png",
       description: "Descripción en español",
       description_en: "English description",
-      countryCode: "ar",
+      countryCode: "ar, us, ar",
       organizationType:
         "org_patient_advocacy_organizations,org_genetics_research_institutes",
       slug: "manual-slug",
@@ -356,14 +356,14 @@ describe("discover repository", () => {
     expect(organization.slug).toBe("fundacion-medica-nandu");
     expect(organization.description).toBe("Descripción en español");
     expect(organization.description_en).toBe("English description");
-    expect(organization.countryCode).toBe("AR");
+    expect(organization.countryCode).toBe("AR,US");
     expect(organization.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
     );
     expect(stored?.data.slug).toBe("fundacion-medica-nandu");
     expect(stored?.data.description).toBe("Descripción en español");
     expect(stored?.data.description_en).toBe("English description");
-    expect(stored?.data.countryCode).toBe("AR");
+    expect(stored?.data.countryCode).toBe("AR,US");
     expect(stored?.data.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
     );

@@ -22,7 +22,8 @@ export type DiscoverRegionCountryGroup = {
   options: DiscoverRegionCountryOption[];
 };
 
-const RECOMMENDED_COUNTRY_CODES = ["AR", "US", "AU", "NZ"] as const;
+const GLOBAL_COUNTRY_CODE = "GLOBAL";
+const RECOMMENDED_COUNTRY_CODES = ["GLOBAL", "AR", "US", "AU", "NZ"] as const;
 const RECOMMENDED_REGION_COUNTRY_CODES = [
   "ARG",
   "ESP",
@@ -336,6 +337,10 @@ const countryNameCache = new Map<string, string>();
 
 function countryNameForCode(code: string, language: AppLanguage) {
   const normalizedCode = code.trim().toUpperCase();
+  if (normalizedCode === GLOBAL_COUNTRY_CODE) {
+    return language === "es" ? "Global" : "Global";
+  }
+
   const cacheKey = `${language}:${normalizedCode}`;
   const cached = countryNameCache.get(cacheKey);
   if (cached) {
@@ -373,6 +378,38 @@ export function formatDiscoverOrganizationCountry(
 ) {
   const normalizedCode = countryCode.trim().toUpperCase();
   return normalizedCode ? countryOption(normalizedCode, language).label : null;
+}
+
+export function parseDiscoverOrganizationCountryCodes(countryCode: string) {
+  const seen = new Set<string>();
+  const codes = countryCode
+    .split(",")
+    .map((token) => token.trim().toUpperCase())
+    .filter((token) => token === GLOBAL_COUNTRY_CODE || isAlpha2CountryCode(token))
+    .filter((token) => {
+      if (seen.has(token)) {
+        return false;
+      }
+      seen.add(token);
+      return true;
+    });
+
+  return codes.includes(GLOBAL_COUNTRY_CODE) ? [GLOBAL_COUNTRY_CODE] : codes;
+}
+
+export function serializeDiscoverOrganizationCountryCodes(
+  countryCodes: readonly string[],
+) {
+  return parseDiscoverOrganizationCountryCodes(countryCodes.join(",")).join(",");
+}
+
+export function formatDiscoverOrganizationCountries(
+  countryCode: string,
+  language: AppLanguage,
+) {
+  return parseDiscoverOrganizationCountryCodes(countryCode)
+    .map((code) => countryOption(code, language).label)
+    .join(", ");
 }
 
 export function getDiscoverOrganizationCountryGroups(

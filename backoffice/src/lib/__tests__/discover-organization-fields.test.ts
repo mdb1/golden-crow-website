@@ -1,10 +1,13 @@
 import {
   DISCOVER_ORGANIZATION_COUNTRY_CODES,
+  formatDiscoverOrganizationCountries,
   formatDiscoverOrganizationCountry,
   formatDiscoverRegionCodes,
   getDiscoverOrganizationCountryGroups,
   getDiscoverRegionCountryGroups,
+  parseDiscoverOrganizationCountryCodes,
   parseDiscoverRegionCodes,
+  serializeDiscoverOrganizationCountryCodes,
   slugifyDiscoverOrganizationName,
 } from "@/lib/discover-organization-fields";
 
@@ -13,6 +16,7 @@ describe("discover organization fields", () => {
     const groups = getDiscoverOrganizationCountryGroups("en");
 
     expect(groups[0]?.options.map((option) => option.code)).toEqual([
+      "GLOBAL",
       "AR",
       "US",
       "AU",
@@ -27,6 +31,22 @@ describe("discover organization fields", () => {
   it("formats country codes with readable names", () => {
     expect(formatDiscoverOrganizationCountry("us", "en")).toBe(
       "United States (US)",
+    );
+  });
+
+  it("serializes organization country coverage as canonical comma-separated codes", () => {
+    expect(parseDiscoverOrganizationCountryCodes("ar, us, AR")).toEqual([
+      "AR",
+      "US",
+    ]);
+    expect(serializeDiscoverOrganizationCountryCodes(["ar", "us", "AR"])).toBe(
+      "AR,US",
+    );
+    expect(
+      serializeDiscoverOrganizationCountryCodes(["AR", "GLOBAL", "US"]),
+    ).toBe("GLOBAL");
+    expect(formatDiscoverOrganizationCountries("ar,us", "en")).toBe(
+      "Argentina (AR), United States (US)",
     );
   });
 

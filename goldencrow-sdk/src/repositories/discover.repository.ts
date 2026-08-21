@@ -283,7 +283,35 @@ function normalizeOptionalEmail(value: unknown, label: string): string | undefin
 
 function normalizeCountryCode(value: unknown): string | undefined {
   const normalized = normalizeOptionalString(value);
-  return normalized ? normalized.toUpperCase() : undefined;
+  if (!normalized) {
+    return undefined;
+  }
+
+  const seen = new Set<string>();
+  const countryCodes = normalized
+    .split(",")
+    .map((token) => token.trim().toUpperCase())
+    .filter((token) => {
+      if (!token) {
+        return false;
+      }
+
+      if (token !== "GLOBAL" && !/^[A-Z]{2}$/.test(token)) {
+        throw new AdminRepositoryError(
+          `Country coverage contains an invalid key: ${token}`,
+          400,
+        );
+      }
+
+      if (seen.has(token)) {
+        return false;
+      }
+
+      seen.add(token);
+      return true;
+    });
+
+  return countryCodes.includes("GLOBAL") ? "GLOBAL" : countryCodes.join(",");
 }
 
 function slugifyPublisherName(name: string, fallback: string) {

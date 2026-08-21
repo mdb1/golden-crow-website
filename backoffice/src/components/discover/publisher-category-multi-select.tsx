@@ -73,7 +73,7 @@ export function PublisherCategoryMultiSelect({
     }
 
     return provider.options.filter((option) =>
-      `${option.label} ${option.value}`.toLowerCase().includes(normalizedQuery),
+      option.label.toLowerCase().includes(normalizedQuery),
     );
   }, [provider.options, query]);
 
@@ -143,7 +143,7 @@ export function PublisherCategoryMultiSelect({
       ) : null}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl p-0">
+        <DialogContent className="p-0 sm:max-w-5xl">
           <DialogHeader className="border-b border-border px-5 py-4">
             <DialogTitle>{dialogTitle}</DialogTitle>
             <DialogDescription>{dialogDescription}</DialogDescription>
@@ -160,44 +160,41 @@ export function PublisherCategoryMultiSelect({
               />
             </label>
 
-            <div className="max-h-[min(28rem,52vh)] overflow-y-auto rounded-md border border-border">
+            <div className="max-h-[min(30rem,56vh)] overflow-y-auto rounded-md border border-border p-1">
               {filteredOptions.length ? (
-                filteredOptions.map((option) => {
-                  const selected = selectedSet.has(option.value);
-                  return (
-                    <div
-                      key={option.value}
-                      onClick={() => toggleOption(option.value)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          toggleOption(option.value);
-                        }
-                      }}
-                      className="flex w-full cursor-pointer items-center gap-3 border-b border-border/70 px-3 py-2.5 text-left last:border-b-0 hover:bg-muted/55"
-                    >
-                      <Checkbox
-                        checked={selected}
-                        onCheckedChange={() => toggleOption(option.value)}
-                        onClick={(event) => event.stopPropagation()}
-                        aria-label={option.label}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium text-foreground">
+                <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredOptions.map((option) => {
+                    const selected = selectedSet.has(option.value);
+                    return (
+                      <div
+                        key={option.value}
+                        onClick={() => toggleOption(option.value)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            toggleOption(option.value);
+                          }
+                        }}
+                        className="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-left hover:bg-muted/55"
+                      >
+                        <Checkbox
+                          checked={selected}
+                          onCheckedChange={() => toggleOption(option.value)}
+                          onClick={(event) => event.stopPropagation()}
+                          aria-label={option.label}
+                        />
+                        <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
                           {option.label}
                         </span>
-                        <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                          {option.value}
-                        </span>
-                      </span>
-                      {selected ? (
-                        <Check className="h-4 w-4 shrink-0 text-primary" />
-                      ) : null}
-                    </div>
-                  );
-                })
+                        {selected ? (
+                          <Check className="h-4 w-4 shrink-0 text-primary" />
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
                 <div className="px-3 py-8 text-center text-sm text-muted-foreground">
                   {emptyLabel}

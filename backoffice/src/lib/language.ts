@@ -107,6 +107,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Individual type": "Tipo de individuo",
   "Organization categories": "Categorías de organización",
   "Professional categories": "Categorías profesionales",
+  "Country coverage": "Cobertura por país",
   "Select organization categories": "Seleccionar categorías de organización",
   "Select professional categories": "Seleccionar categorías profesionales",
   "Choose one or more canonical Discover categories. They will be saved as comma-separated keys.":
@@ -115,6 +116,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Search categories": "Buscar categorías",
   "category selected": "categoría seleccionada",
   "categories selected": "categorías seleccionadas",
+  "country selected": "país seleccionado",
   "All categories": "Todas las categorías",
   Categories: "Categorías",
   "Individual publisher name": "Nombre del publicador individual",

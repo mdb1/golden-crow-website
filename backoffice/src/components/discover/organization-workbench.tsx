@@ -13,6 +13,7 @@ import {
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { PublisherCategoryMultiSelect } from "@/components/discover/publisher-category-multi-select";
+import { PublisherCountryMultiSelect } from "@/components/discover/publisher-country-multi-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,8 +34,8 @@ import {
   discoverOrganizationCategoryProvider,
 } from "@/lib/discover-publisher-categories";
 import {
-  formatDiscoverOrganizationCountry,
-  getDiscoverOrganizationCountryGroups,
+  formatDiscoverOrganizationCountries,
+  serializeDiscoverOrganizationCountryCodes,
   slugifyDiscoverOrganizationName,
 } from "@/lib/discover-organization-fields";
 
@@ -70,7 +71,9 @@ function toFormState(
     websiteUrl: publisher?.websiteUrl ?? "",
     description: publisher?.description ?? "",
     description_en: publisher?.description_en ?? "",
-    countryCode: publisher?.countryCode?.toUpperCase() ?? "",
+    countryCode: serializeDiscoverOrganizationCountryCodes(
+      publisher?.countryCode ? publisher.countryCode.split(",") : [],
+    ),
     organizationType: discoverOrganizationCategoryProvider.normalizeCsv(
       organization?.organizationType,
     ),
@@ -97,7 +100,9 @@ function payloadFromState(state: OrganizationFormState, publisherKind: Publisher
     slug: slugifyDiscoverOrganizationName(state.name),
     imageUrl: state.imageUrl || null,
     websiteUrl: state.websiteUrl || null,
-    countryCode: state.countryCode || undefined,
+    countryCode:
+      serializeDiscoverOrganizationCountryCodes(state.countryCode.split(",")) ||
+      undefined,
     organizationType:
       publisherKind === "organization"
         ? organizationType || undefined
@@ -157,11 +162,7 @@ function DiscoverPublisherWorkbench({
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const sourceState = useMemo(() => toFormState(publisher), [publisher]);
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
-  const countryGroups = useMemo(
-    () => getDiscoverOrganizationCountryGroups(language),
-    [language],
-  );
-  const countryLabel = formatDiscoverOrganizationCountry(
+  const countryLabel = formatDiscoverOrganizationCountries(
     state.countryCode,
     language,
   );
@@ -415,6 +416,16 @@ function DiscoverPublisherWorkbench({
                 ))}
               </select>
             </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="discover-org-country">{t("Country coverage")}</Label>
+              <PublisherCountryMultiSelect
+                id="discover-org-country"
+                value={state.countryCode}
+                onChange={(countryCode) => updateState({ countryCode })}
+                language={language}
+                t={t}
+              />
+            </div>
             <PublisherCategoryMultiSelect
               provider={categoryProvider}
               value={isIndividual ? state.individualType : state.organizationType}
@@ -440,28 +451,6 @@ function DiscoverPublisherWorkbench({
                 `${count} ${count === 1 ? t("category selected") : t("categories selected")}`
               }
             />
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="discover-org-country">{t("Country")}</Label>
-              <select
-                id="discover-org-country"
-                value={state.countryCode}
-                onChange={(event) =>
-                  updateState({ countryCode: event.target.value })
-                }
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">{t("Select country")}</option>
-                {countryGroups.map((group) => (
-                  <optgroup key={group.key} label={t(group.label)}>
-                    {group.options.map((option) => (
-                      <option key={option.code} value={option.code}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
             <div className="flex flex-col gap-2 md:col-span-2">
               <Label htmlFor="discover-org-color">{t("Accent color")}</Label>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

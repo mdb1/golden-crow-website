@@ -138,6 +138,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     renderWorkbench();
 
     await user.click(screen.getByRole("button", { name: /2 categories selected/i }));
+    expect(screen.queryByText("org_medical_societies")).toBeNull();
     await user.click(screen.getByRole("checkbox", { name: "Medical Societies" }));
     await user.click(screen.getByRole("button", { name: "Done" }));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
@@ -155,6 +156,28 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(body.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes,org_medical_societies",
     );
+  });
+
+  it("saves multiple country coverage selections as comma-separated country codes", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: /choose countries/i }));
+    await user.click(screen.getByRole("checkbox", { name: "Argentina (AR)" }));
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.countryCode).toBe("US,AR");
   });
 });
 
