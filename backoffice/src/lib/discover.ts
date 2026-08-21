@@ -17,6 +17,17 @@ export type DiscoverPublisherSocialKey =
   | "instagram"
   | "tiktok"
   | "youtube"
+  | "linkedin"
+  | "whatsapp"
+  | "telegram"
+  | "threads"
+  | "pinterest"
+  | "snapchat"
+  | "reddit"
+  | "discord"
+  | "twitch"
+  | "bluesky"
+  | "mastodon"
   | "email"
   | "other";
 export type DiscoverPublisherSocialLinks = Partial<

@@ -299,10 +299,10 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
 
     await user.click(screen.getByRole("button", { name: "Add social link" }));
     expect(screen.getByRole("dialog")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: /Instagram profile/i }));
+    await user.click(screen.getByRole("button", { name: /LinkedIn profile/i }));
     await user.type(
-      screen.getByRole("textbox", { name: "Instagram profile" }),
-      "https://instagram.com/publisher.one",
+      screen.getByRole("textbox", { name: "LinkedIn profile" }),
+      "https://linkedin.com/in/publisher-one",
     );
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -318,7 +318,37 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     ) as Record<string, unknown>;
     expect(body.social).toEqual({
       facebook: "https://facebook.com/publisher-one",
-      instagram: "https://instagram.com/publisher.one",
+      linkedin: "https://linkedin.com/in/publisher-one",
+    });
+  });
+
+  it("offers all supported social platforms in the picker", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    expect(screen.getByDisplayValue("https://facebook.com/publisher-one")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Add social link" }));
+
+    [
+      "X / Twitter profile",
+      "Instagram profile",
+      "TikTok profile",
+      "YouTube channel",
+      "LinkedIn profile",
+      "WhatsApp",
+      "Telegram",
+      "Threads profile",
+      "Pinterest profile",
+      "Snapchat profile",
+      "Reddit profile",
+      "Discord server",
+      "Twitch channel",
+      "Bluesky profile",
+      "Mastodon profile",
+      "Contact email",
+      "Other link",
+    ].forEach((label) => {
+      expect(screen.getByRole("button", { name: new RegExp(label, "i") })).toBeTruthy();
     });
   });
 });

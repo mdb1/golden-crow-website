@@ -68,7 +68,13 @@ function discoverUiKeys() {
 
 describe("Discover Spanish translations", () => {
   it("covers the Discover route and workbench UI", () => {
-    const intentionallyUnchanged = new Set(["Discover", "Genes", "OK"]);
+    const intentionallyUnchanged = new Set([
+      "Discover",
+      "Genes",
+      "OK",
+      "Telegram",
+      "WhatsApp",
+    ]);
     const untranslated = [...discoverUiKeys()]
       .filter((key) => !intentionallyUnchanged.has(key))
       .filter((key) => appText("es", key) === key)

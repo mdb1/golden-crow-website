@@ -348,6 +348,29 @@ describe("discover repository", () => {
 
   it("generates organization slugs from names instead of manual input", async () => {
     const { createDiscoverOrganization } = await import("../repositories/discover.repository");
+    const social = {
+      twitter: "https://x.com/fundacion",
+      instagram: "https://instagram.com/fundacion",
+      tiktok: "https://tiktok.com/@fundacion",
+      youtube: "https://youtube.com/@fundacion",
+      linkedin: "https://linkedin.com/in/fundacion",
+      whatsapp: "https://wa.me/5491112345678",
+      telegram: "https://t.me/fundacion",
+      threads: "https://threads.net/@fundacion",
+      pinterest: "https://pinterest.com/fundacion",
+      snapchat: "https://snapchat.com/add/fundacion",
+      reddit: "https://reddit.com/u/fundacion",
+      discord: "https://discord.gg/fundacion",
+      twitch: "https://twitch.tv/fundacion",
+      bluesky: "https://bsky.app/profile/fundacion.bsky.social",
+      mastodon: "https://mastodon.social/@fundacion",
+      email: "info@example.org",
+      other: "https://example.org/social",
+    };
+    const expectedSocial = {
+      ...social,
+      email: "mailto:info@example.org",
+    };
 
     const organization = await createDiscoverOrganization(fullAdminContext, {
       name: "Fundación Médica Ñandú",
@@ -355,10 +378,7 @@ describe("discover repository", () => {
       websiteUrl: "http://example.org",
       description: "Descripción en español",
       description_en: "English description",
-      social: {
-        instagram: "https://instagram.com/fundacion",
-        email: "info@example.org",
-      },
+      social,
       countryCode: "ar, us, ar",
       organizationType:
         "org_patient_advocacy_organizations,org_genetics_research_institutes",
@@ -370,10 +390,7 @@ describe("discover repository", () => {
     expect(organization.description).toBe("Descripción en español");
     expect(organization.description_en).toBe("English description");
     expect(organization.websiteUrl).toBe("http://example.org/");
-    expect(organization.social).toEqual({
-      instagram: "https://instagram.com/fundacion",
-      email: "mailto:info@example.org",
-    });
+    expect(organization.social).toEqual(expectedSocial);
     expect(organization.countryCode).toBe("AR,US");
     expect(organization.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
@@ -382,10 +399,7 @@ describe("discover repository", () => {
     expect(stored?.data.description).toBe("Descripción en español");
     expect(stored?.data.description_en).toBe("English description");
     expect(stored?.data.websiteUrl).toBe("http://example.org/");
-    expect(stored?.data.social).toEqual({
-      instagram: "https://instagram.com/fundacion",
-      email: "mailto:info@example.org",
-    });
+    expect(stored?.data.social).toEqual(expectedSocial);
     expect(stored?.data.countryCode).toBe("AR,US");
     expect(stored?.data.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
