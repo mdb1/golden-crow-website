@@ -137,6 +137,7 @@ const FeedItemBodySchema = z.object({
   html_body: z.string().nullable().optional(),
   image_url: z.string().nullable().optional(),
   source_url: z.string().nullable().optional(),
+  source_button_text: z.string().nullable().optional(),
   news: NewsPayloadSchema.optional(),
   research_update: ResearchUpdatePayloadSchema.optional(),
   upcoming_event: UpcomingEventPayloadSchema.optional(),

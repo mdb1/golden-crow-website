@@ -145,6 +145,48 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     });
   });
 
+  it("stores the note main button link and text as root fields", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publisher"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.change(screen.getByLabelText("Main button link"), {
+      target: { value: "https://example.org/register" },
+    });
+    fireEvent.change(screen.getByLabelText("Main button text"), {
+      target: { value: "Open organizer website" },
+    });
+
+    expect(
+      screen.getByPlaceholderText("Open organizer website"),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items", {
+        method: "POST",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.source_url).toBe("https://example.org/register");
+    expect(body.source_button_text).toBe("Open organizer website");
+  });
+
   it("dismisses publish validation errors with OK without leaving the page", async () => {
     render(
       <AppLanguageProvider initialLanguage="en">

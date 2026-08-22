@@ -676,6 +676,7 @@ export interface DiscoverFeedItemRecord {
   html_body: string | null;
   image_url: string | null;
   source_url: string | null;
+  source_button_text: string | null;
   status: DiscoverFeedStatus;
   createdAt: string;
   updatedAt: string;

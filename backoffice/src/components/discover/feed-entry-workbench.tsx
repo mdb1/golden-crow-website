@@ -92,6 +92,7 @@ type FeedEntryFormState = {
   html_body: string;
   image_url: string;
   source_url: string;
+  source_button_text: string;
   news: {
     category: string;
     region: string;
@@ -280,6 +281,7 @@ function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
     html_body: item?.html_body ?? "",
     image_url: item?.image_url ?? "",
     source_url: item?.source_url ?? "",
+    source_button_text: item?.source_button_text ?? "",
     news: {
       category: stringFromPayload(news.category),
       region: stringFromPayload(news.region),
@@ -377,6 +379,7 @@ function payloadFromState(
     html_body: state.html_body || null,
     image_url: state.image_url || null,
     source_url: state.source_url || null,
+    source_button_text: state.source_url ? state.source_button_text || null : null,
     [state.type]: payloadForType(state),
   };
 }
@@ -936,7 +939,7 @@ export function DiscoverFeedEntryWorkbench({
   function sourceUrlErrorFor(value: string) {
     return isValidHttpsUrl(value)
       ? null
-      : t("Source URL must be a valid HTTPS URL.");
+      : t("Main button link must be a valid HTTPS URL.");
   }
 
   function imageUrlErrorFor(value: string) {
@@ -1517,26 +1520,50 @@ export function DiscoverFeedEntryWorkbench({
                   </select>
                 </FieldShell>
 
-                <FieldShell
-                  label={t("Source URL")}
-                  htmlFor="discover-feed-source"
-                  error={sourceUrlError}
-                >
-                  <Input
-                    id="discover-feed-source"
-                    type="url"
-                    value={state.source_url}
-                    onChange={(event) =>
-                      updateState({ source_url: event.target.value })
-                    }
-                    placeholder="https://"
-                    aria-invalid={Boolean(sourceUrlError)}
-                    aria-describedby={
-                      sourceUrlError ? "discover-feed-source-error" : undefined
-                    }
-                    className={`h-11 ${sourceUrlError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                  />
-                </FieldShell>
+                <div className="grid gap-4 rounded-md border border-border bg-muted/20 p-4 md:col-span-2 md:grid-cols-[minmax(0,1fr)_minmax(16rem,0.72fr)]">
+                  <FieldShell
+                    label={t("Main button link")}
+                    htmlFor="discover-feed-source"
+                    error={sourceUrlError}
+                  >
+                    <Input
+                      id="discover-feed-source"
+                      type="url"
+                      value={state.source_url}
+                      onChange={(event) => {
+                        const sourceUrl = event.target.value;
+                        updateState({
+                          source_url: sourceUrl,
+                          source_button_text: sourceUrl.trim()
+                            ? state.source_button_text
+                            : "",
+                        });
+                      }}
+                      placeholder="https://"
+                      aria-invalid={Boolean(sourceUrlError)}
+                      aria-describedby={
+                        sourceUrlError ? "discover-feed-source-error" : undefined
+                      }
+                      className={`h-11 ${sourceUrlError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    />
+                  </FieldShell>
+
+                  <FieldShell
+                    label={t("Main button text")}
+                    htmlFor="discover-feed-source-button-text"
+                  >
+                    <Input
+                      id="discover-feed-source-button-text"
+                      value={state.source_button_text}
+                      onChange={(event) =>
+                        updateState({ source_button_text: event.target.value })
+                      }
+                      placeholder={t("Open organizer website")}
+                      disabled={!state.source_url.trim()}
+                      className="h-11"
+                    />
+                  </FieldShell>
+                </div>
 
                 <FieldShell label={t("Title")} htmlFor="discover-feed-title" className="md:col-span-2">
                   <Input

@@ -133,7 +133,9 @@ type FeedItemInput = {
   html_body?: unknown;
   image_url?: unknown;
   source_url?: unknown;
+  source_button_text?: unknown;
   sourceUrl?: unknown;
+  sourceButtonText?: unknown;
   news?: unknown;
   research_update?: unknown;
   upcoming_event?: unknown;
@@ -804,6 +806,7 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
       : {};
   const activePayload = payloadForSerializedItem(data, type);
   const legacySourceUrl = data.sourceUrl ?? data.source_url;
+  const legacySourceButtonText = data.sourceButtonText ?? data.source_button_text;
   const languageValue = data.language ?? data.locale;
   const language = languageValue === "es" ? "es" : "en";
   const record: DiscoverFeedItemRecord = {
@@ -831,6 +834,7 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
       normalizeNullableString(data.image_url) ??
       normalizeNullableString(activePayload.imageUrl),
     source_url: normalizeNullableString(legacySourceUrl),
+    source_button_text: normalizeNullableString(legacySourceButtonText),
     status,
     createdAt: timestampToIso(data.createdAt) ?? "",
     updatedAt: timestampToIso(data.updatedAt) ?? "",
@@ -1092,6 +1096,9 @@ function normalizeRootContent(input: FeedItemInput, status: DiscoverFeedStatus) 
     html_body: htmlBody,
     image_url: normalizeHttpsUrl(input.image_url, "Image URL"),
     source_url: normalizeHttpsUrl(input.source_url ?? input.sourceUrl, "Source URL"),
+    source_button_text: normalizeNullableString(
+      input.source_button_text ?? input.sourceButtonText,
+    ),
     language: normalizeLanguage(input.language),
   };
 }
@@ -1282,7 +1289,9 @@ async function feedItemDocument(
     html_body: root.html_body,
     image_url: root.image_url,
     source_url: root.source_url,
+    source_button_text: root.source_url ? root.source_button_text : null,
     sourceUrl: root.source_url,
+    sourceButtonText: root.source_url ? root.source_button_text : null,
     archivedAt,
     [getPayloadKey(type)]: payload,
     updatedAt: FieldValue.serverTimestamp(),
@@ -1651,6 +1660,7 @@ export async function duplicateDiscoverFeedItem(
     html_body: source.html_body,
     image_url: source.image_url,
     source_url: source.source_url,
+    source_button_text: source.source_button_text,
     [source.type]: {
       ...sourcePayload,
     },

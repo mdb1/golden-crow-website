@@ -407,6 +407,9 @@ const SPANISH_TEXT: Record<string, string> = {
   Subtitle: "Subtítulo",
   Body: "Cuerpo",
   "Source URL": "URL de origen",
+  "Main button link": "Enlace del botón principal",
+  "Main button text": "Texto del botón principal",
+  "Open organizer website": "Abrir sitio web del organizador",
   "Cover image URL": "URL de imagen de portada",
   "Write the note": "Escribir la nota",
   "Simple text": "Texto simple",
@@ -486,6 +489,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Ingresá una URL válida de imagen de portada para ver la vista previa.",
   "Source URL must be a valid HTTPS URL.":
     "La URL de origen debe ser una URL HTTPS válida.",
+  "Main button link must be a valid HTTPS URL.":
+    "El enlace del botón principal debe ser una URL HTTPS válida.",
   "Cover image URL must be a valid HTTPS URL.":
     "La URL de imagen de portada debe ser una URL HTTPS válida.",
   "Virtual meeting link must be a valid HTTPS URL.":

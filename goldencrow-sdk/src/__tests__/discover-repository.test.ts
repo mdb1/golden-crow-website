@@ -461,6 +461,7 @@ describe("discover repository", () => {
       subtitle: "A practical session for families and clinicians.",
       body: "Plain text event details.",
       source_url: "https://example.org/events/register",
+      source_button_text: "Register now",
       upcoming_event: {
         date: "2026-09-04T18:00:00.000Z",
         location: "Online",
@@ -482,8 +483,12 @@ describe("discover repository", () => {
     expect(payload.location).toBe("Online");
     expect(payload.max_attendance).toBe(250);
     expect(payload.source_url).toBeUndefined();
+    expect(payload.source_button_text).toBeUndefined();
+    expect(feedItem.source_button_text).toBe("Register now");
     expect(stored?.source_url).toBe("https://example.org/events/register");
     expect(stored?.sourceUrl).toBe("https://example.org/events/register");
+    expect(stored?.source_button_text).toBe("Register now");
+    expect(stored?.sourceButtonText).toBe("Register now");
   });
 
   it("creates feed entries for individual publishers", async () => {
