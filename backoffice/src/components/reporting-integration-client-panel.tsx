@@ -280,20 +280,9 @@ function ClientStatusPills({
   );
 }
 
-function ClientSummaryRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
+function ClientSummaryRow({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-start gap-x-4 gap-y-1">
-      <p className="w-28 shrink-0 pt-1 text-xs font-medium uppercase text-muted-foreground">
-        {label}
-      </p>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
+    <div className="flex min-w-0 flex-wrap items-center gap-2">{children}</div>
   );
 }
 
@@ -308,15 +297,15 @@ function ClientSummaryBlock({
 }) {
   return (
     <div className="min-w-0 space-y-3">
-      <ClientSummaryRow label="Client name">
+      <ClientSummaryRow>
         <p className="break-words text-lg font-semibold leading-tight text-foreground">
           {client.name}
         </p>
       </ClientSummaryRow>
-      <ClientSummaryRow label="Client status">
+      <ClientSummaryRow>
         <ClientStatusPills client={client} />
       </ClientSummaryRow>
-      <ClientSummaryRow label="Client ID">
+      <ClientSummaryRow>
         <div className="flex min-w-0 items-center gap-2">
           <code className="block min-w-0 overflow-x-auto break-all rounded-md bg-muted/60 px-2 py-1 text-xs text-foreground">
             {client.client_id}
