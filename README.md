@@ -1,6 +1,6 @@
 # Golden Crow Website
 
-Monorepo containing the Golden Crow marketing site, backoffice admin dashboard, internal backend SDK, and public OpenAPI service.
+Monorepo containing the Golden Crow marketing site, backoffice admin dashboard, public OpenAPI route layer, and internal backend SDK.
 
 ## Live URLs
 
@@ -9,16 +9,15 @@ Monorepo containing the Golden Crow marketing site, backoffice admin dashboard, 
 | Website | https://goldencrowvs.com |
 | Backoffice | https://golden-crow-backoffice.vercel.app |
 | SDK | https://golden-crow-sdk.vercel.app/health |
-| Public OpenAPI | https://goldencrow-openapi.vercel.app/openapi.json |
+| Public OpenAPI | https://golden-crow-backoffice.vercel.app/open-api/openapi.json |
 
 ## Project Structure
 
 ```
 golden-crow-website/
 ├── pocket-genes/      # Astro static marketing site (GitHub Pages)
-├── backoffice/        # Next.js 16 admin dashboard (Vercel)
+├── backoffice/        # Next.js 16 admin dashboard and /open-api routes (Vercel)
 ├── goldencrow-sdk/    # Internal Fastify service wrapping Firebase Admin (Vercel)
-├── goldencrow-openapi/ # Public versioned OpenAPI service for external integrations (Vercel)
 └── .github/workflows/ # CI/CD for GitHub Pages
 ```
 
@@ -38,19 +37,13 @@ npm install
 npm run dev
 # Runs on http://localhost:3000
 
-# Terminal 2 — Public OpenAPI (optional unless testing external integrations)
-cd goldencrow-openapi
-npm install
-npm run dev
-# Runs on http://localhost:4010
-
-# Terminal 3 — Backoffice
+# Terminal 2 — Backoffice and public /open-api routes
 cd backoffice
 npm install
 npm run dev
 # Runs on http://localhost:3001
 
-# Terminal 4 — Website (optional)
+# Terminal 3 — Website (optional)
 cd pocket-genes
 npm install
 npm run dev
@@ -71,16 +64,7 @@ npm run dev
 | `PORT` | `3000` (local) |
 | `NODE_ENV` | `development` (local) / `production` (Vercel) |
 | `BACKOFFICE_ORIGIN` | `http://localhost:3001` (local) / `https://golden-crow-backoffice.vercel.app` (Vercel) |
-| `GOLDENCROW_OPENAPI_INTERNAL_TOKEN` | Shared service token also configured in `goldencrow-openapi` |
-
-### goldencrow-openapi/.env
-
-| Variable | Value |
-|----------|-------|
-| `GOLDENCROW_OPENAPI_PUBLIC_URL` | `http://localhost:4010` (local) / `https://goldencrow-openapi.vercel.app` (Vercel, no trailing slash) |
-| `GOLDENCROW_SDK_URL` | `http://localhost:3000` (local) / `https://golden-crow-sdk.vercel.app` (Vercel, no trailing slash) |
-| `GOLDENCROW_OPENAPI_INTERNAL_TOKEN` | Same shared service token configured in `goldencrow-sdk` |
-| `REPORTING_API_TOKEN` | External bearer token issued to reporting integration clients |
+| `GOLDENCROW_OPENAPI_INTERNAL_TOKEN` | Shared service token also configured in `backoffice` for `/open-api` routes |
 
 ### backoffice/.env.local
 
@@ -96,8 +80,10 @@ npm run dev
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | `1:355295584619:web:1b3eb5bd34a4cc03da6c2e` |
 | `NEXT_PUBLIC_SDK_URL` | `http://localhost:3000` (local) / `https://golden-crow-sdk.vercel.app` (Vercel, no trailing slash) |
 | `GOLDENCROW_SDK_URL` | `http://localhost:3000` (local) / `https://golden-crow-sdk.vercel.app` (Vercel, no trailing slash) |
-| `GOLDENCROW_OPENAPI_URL` | `http://localhost:4010` (local) / `https://goldencrow-openapi.vercel.app` (Vercel, no trailing slash) |
+| `GOLDENCROW_OPENAPI_URL` | `http://localhost:3001` (local) / `https://golden-crow-backoffice.vercel.app` (Vercel, no trailing slash) |
+| `REPORTING_API_TOKEN` | External bearer token accepted by `/open-api/*` routes |
 | `BACKOFFICE_REPORTING_API_TOKEN` | Optional server-only override for the full-admin API key reveal UI |
+| `GOLDENCROW_OPENAPI_INTERNAL_TOKEN` | Shared service token used by `/open-api/*` routes to call the SDK internal bridge |
 
 Copy from the `.env.example` / `.env.local.example` files and fill in the values.
 
@@ -106,11 +92,10 @@ Copy from the `.env.example` / `.env.local.example` files and fill in the values
 ### Website (pocket-genes)
 Deployed automatically to **GitHub Pages** on push to `main` via `.github/workflows/deploy.yml`.
 
-### Backoffice, SDK & Public OpenAPI
+### Backoffice & SDK
 Deployed on **Vercel** as separate projects from the same repo:
-- Backoffice: root directory set to `backoffice`
+- Backoffice: root directory set to `backoffice`; serves both dashboard pages and public `/open-api/*` routes
 - SDK: root directory set to `goldencrow-sdk`
-- Public OpenAPI: root directory set to `goldencrow-openapi`
 
 Set the environment variables listed above in each Vercel project's settings. Make sure service URLs have **no trailing slash**.
 

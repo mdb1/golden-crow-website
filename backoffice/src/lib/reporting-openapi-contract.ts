@@ -80,7 +80,7 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
     },
     servers: [{ url: serverUrl }],
     paths: {
-      "/v1/reporting/patients": {
+      "/open-api/reporting/patients": {
         get: {
           tags: ["Reporting"],
           summary: "Look up a patient for report production.",
@@ -130,13 +130,13 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
           "x-codeSamples": [
             {
               lang: "curl",
-              source: `curl -X GET "${serverUrl}/v1/reporting/patients?patientId=PAT-00001" \\
+              source: `curl -X GET "${serverUrl}/open-api/reporting/patients?patientId=PAT-00001" \\
   -H "Authorization: Bearer <REPORTING_API_TOKEN>"`,
             },
           ],
         },
       },
-      "/v1/reporting/reports/uploaded": {
+      "/open-api/reporting/reports/uploaded": {
         post: {
           tags: ["Reporting"],
           summary: "Notify GoldenCrow that a report file is available.",
@@ -175,7 +175,7 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
           "x-codeSamples": [
             {
               lang: "curl",
-              source: `curl -X POST "${serverUrl}/v1/reporting/reports/uploaded" \\
+              source: `curl -X POST "${serverUrl}/open-api/reporting/reports/uploaded" \\
   -H "Authorization: Bearer <REPORTING_API_TOKEN>" \\
   -H "Content-Type: application/json" \\
   --data '{
@@ -190,7 +190,7 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
           ],
         },
       },
-      "/v1/reporting/2pq/cases/{caseCode}": {
+      "/open-api/reporting/2pq/cases/{caseCode}": {
         get: {
           tags: ["Reporting"],
           summary: "Look up the current 2PQ case by six-character code.",
@@ -264,7 +264,7 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
           "x-codeSamples": [
             {
               lang: "curl",
-              source: `curl -X GET "${serverUrl}/v1/reporting/2pq/cases/ABC001" \\
+              source: `curl -X GET "${serverUrl}/open-api/reporting/2pq/cases/ABC001" \\
   -H "Authorization: Bearer <REPORTING_API_TOKEN>"`,
             },
           ],

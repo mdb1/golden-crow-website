@@ -32,9 +32,9 @@ export default async function ReportingApiKeysPage() {
             </div>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               This is the only public reporting API token offered for now. It
-              belongs to the GoldenCrow OpenAPI deployment, not the internal
-              SDK. Full admins can reveal the current value here; rotation is
-              still handled manually in deployment settings.
+              belongs to the public <code>/open-api</code> route layer, not the
+              internal SDK. Full admins can reveal the current value here;
+              rotation is still handled manually in deployment settings.
             </p>
           </div>
           <Badge variant="secondary">Bearer token</Badge>
@@ -54,7 +54,7 @@ export default async function ReportingApiKeysPage() {
               Scope
             </p>
             <p className="mt-2 text-sm text-foreground">
-              Public <code>/v1/reporting/*</code> endpoints.
+              Public <code>/open-api/reporting/*</code> endpoints.
             </p>
           </div>
           <div className="rounded-lg border bg-muted/25 p-4">
@@ -62,7 +62,8 @@ export default async function ReportingApiKeysPage() {
               Storage
             </p>
             <p className="mt-2 text-sm text-foreground">
-              <code>goldencrow-openapi</code> deployment environment variable.
+              Backoffice deployment environment variable used only by public{" "}
+              <code>/open-api/*</code> routes.
             </p>
           </div>
         </div>
@@ -101,11 +102,11 @@ export default async function ReportingApiKeysPage() {
             </li>
             <li>
               Replace <code>REPORTING_API_TOKEN</code> in the public OpenAPI
-              deployment environment for <code>goldencrow-openapi</code>.
+              environment for the backoffice deployment.
             </li>
             <li>
-              Redeploy <code>goldencrow-openapi</code> so the new value is
-              loaded by the public reporting API.
+              Redeploy the backoffice so the new value is loaded by the public{" "}
+              <code>/open-api</code> route layer.
             </li>
             <li>
               Give the integration owner the new token and stop accepting the old

@@ -13,7 +13,7 @@ import type {
 } from "@/lib/reporting-openapi-contract";
 import { getReportingApiToken } from "@/lib/reporting-api-token";
 
-const DEFAULT_OPENAPI_URL = "https://goldencrow-openapi.vercel.app";
+const DEFAULT_OPENAPI_URL = "https://golden-crow-backoffice.vercel.app";
 const METHOD_ORDER = ["get", "post", "put", "patch", "delete"] as const;
 
 function resolveOpenApiBaseUrl() {
@@ -26,7 +26,7 @@ function resolveOpenApiBaseUrl() {
 
 async function fetchOpenApiDocument(baseUrl: string) {
   try {
-    const response = await fetch(`${baseUrl}/openapi.json`, {
+    const response = await fetch(`${baseUrl}/open-api/openapi.json`, {
       cache: "no-store",
     });
     if (!response.ok) {
@@ -48,7 +48,7 @@ function methodClassName(method: string) {
 
 function publicOperations(document: OpenApiDocument | null) {
   return Object.entries(document?.paths ?? {}).flatMap(([path, pathItem]) => {
-    if (!path.startsWith("/v1/")) {
+    if (!path.startsWith("/open-api/")) {
       return [];
     }
 
@@ -131,7 +131,9 @@ export default async function ReportingApiDocumentationPage() {
             <div>
               <p className="font-medium text-foreground">OpenAPI source</p>
               <code className="mt-1 block overflow-x-auto rounded-md bg-muted px-2 py-1 text-xs text-foreground">
-                {fetchedDocument ? `${baseUrl}/openapi.json` : "Bundled contract"}
+                {fetchedDocument
+                  ? `${baseUrl}/open-api/openapi.json`
+                  : "Bundled contract"}
               </code>
             </div>
             <div>

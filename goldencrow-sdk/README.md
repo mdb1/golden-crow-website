@@ -43,7 +43,7 @@ npm run dev
 
 ## Available Endpoints
 
-All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings`, and `/internal/openapi/*` require a valid Firebase session cookie. The `/internal/openapi/*` bridge routes are not public API routes; they require `X-Goldencrow-Internal-Token: <GOLDENCROW_OPENAPI_INTERNAL_TOKEN>` and are intended only for the `goldencrow-openapi` service.
+All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings`, and `/internal/openapi/*` require a valid Firebase session cookie. The `/internal/openapi/*` bridge routes are not public API routes; they require `X-Goldencrow-Internal-Token: <GOLDENCROW_OPENAPI_INTERNAL_TOKEN>` and are intended only for the backoffice `/open-api` route layer.
 
 | Method | Path | Description |
 |--------|------|-------------|
