@@ -346,6 +346,7 @@ export function ReportingIntegrationClientPanel() {
   const [hasLoadedEvents, setHasLoadedEvents] = useState(false);
   const [isPreviousClientsOpen, setIsPreviousClientsOpen] = useState(false);
   const [isEventLogOpen, setIsEventLogOpen] = useState(false);
+  const [isDangerZoneOpen, setIsDangerZoneOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -942,44 +943,66 @@ export function ReportingIntegrationClientPanel() {
 
       {currentClient ? (
         <section className="border-b pb-6">
-          <h2 className="text-base font-semibold">
-            Danger zone - Irreversible actions
-          </h2>
-          <div className="mt-3 grid gap-4 text-sm text-muted-foreground lg:grid-cols-2">
-            <div>
-              <h3 className="text-sm font-medium text-foreground">
-                Client secret renewal
-              </h3>
-              <p className="mt-1">
-                If a partner loses the secret, use <code>Renew secret</code> on
-                the active client. The <code>client_id</code>, scopes, quota,
-                and event history stay the same. The previous{" "}
-                <code>client_secret</code> stops minting new access tokens;
-                already issued access tokens can keep working until their
-                24-hour expiration.
-              </p>
-              {currentClient.has_client_secret ? (
+          <button
+            type="button"
+            className="flex min-w-0 items-start gap-2 text-left"
+            onClick={() => setIsDangerZoneOpen((open) => !open)}
+            aria-expanded={isDangerZoneOpen}
+          >
+            <Ban className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0">
+              <span className="flex items-center gap-2">
+                <span className="text-base font-semibold">Danger zone</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${
+                    isDangerZoneOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </span>
+              <span className="mt-1 block text-sm text-muted-foreground">
+                Irreversible actions that permanently delete or revoke a client
+                credential.
+              </span>
+            </span>
+          </button>
+
+          {isDangerZoneOpen ? (
+            <div className="mt-4 grid gap-4 text-sm text-muted-foreground lg:grid-cols-2">
+              <div>
+                <h3 className="text-sm font-medium text-foreground">
+                  Client secret renewal
+                </h3>
+                <p className="mt-1">
+                  If a partner loses the secret, use <code>Renew secret</code>{" "}
+                  on the active client. The <code>client_id</code>, scopes,
+                  quota, and event history stay the same. The previous{" "}
+                  <code>client_secret</code> stops minting new access tokens;
+                  already issued access tokens can keep working until their
+                  24-hour expiration.
+                </p>
+                {currentClient.has_client_secret ? (
+                  <div className="mt-3">
+                    <SecretActionDialog client={currentClient} />
+                  </div>
+                ) : null}
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-foreground">
+                  Client revocation
+                </h3>
+                <p className="mt-1">
+                  If the integration should no longer have access, use{" "}
+                  <code>Revoke</code> on the active client. The client can no
+                  longer mint new access tokens, and existing access tokens for
+                  that client fail immediately. Revocation cannot be undone;
+                  create a new client for a replacement integration.
+                </p>
                 <div className="mt-3">
-                  <SecretActionDialog client={currentClient} />
+                  <RevokeDialog client={currentClient} />
                 </div>
-              ) : null}
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-foreground">
-                Client revocation
-              </h3>
-              <p className="mt-1">
-                If the integration should no longer have access, use{" "}
-                <code>Revoke</code> on the active client. The client can no
-                longer mint new access tokens, and existing access tokens for
-                that client fail immediately. Revocation cannot be undone;
-                create a new client for a replacement integration.
-              </p>
-              <div className="mt-3">
-                <RevokeDialog client={currentClient} />
               </div>
             </div>
-          </div>
+          ) : null}
         </section>
       ) : null}
 
