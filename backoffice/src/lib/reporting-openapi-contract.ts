@@ -69,14 +69,17 @@ function errorResponses() {
   };
 }
 
-export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocument {
+const EXAMPLE_PATIENT_REF = "gcp_<opaque_patient_ref>";
+
+export function buildReportingOpenApiDocument(
+  serverUrl: string,
+): OpenApiDocument {
   return {
     openapi: "3.1.0",
     info: {
       title: "GoldenCrow Public API",
       version: "1.0.0",
-      description:
-        "Public integration API for selected GoldenCrow workflows.",
+      description: "Public integration API for selected GoldenCrow workflows.",
     },
     servers: [{ url: serverUrl }],
     paths: {
@@ -85,15 +88,8 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
           tags: ["Reporting"],
           summary: "Look up a patient for report production.",
           description:
-            "Returns the patient ID and scoped patient data needed by an external reporting workflow. Provide one lookup field.",
+            "Returns an opaque patient reference and scoped patient data needed by an external reporting workflow. Provide one lookup field.",
           parameters: [
-            {
-              name: "patientId",
-              in: "query",
-              required: false,
-              description:
-                "Preferred lookup when the integration already knows the Firebase patient document ID.",
-            },
             {
               name: "email",
               in: "query",
@@ -110,7 +106,7 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
           responses: {
             "200": jsonResponse("Patient found.", {
               patient: {
-                id: "PAT-00001",
+                patientRef: EXAMPLE_PATIENT_REF,
                 institutionId: "INST-00001",
                 doctorId: "DOC-00001",
                 fullName: "Ada Lovelace",
@@ -120,7 +116,7 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
               },
             }),
             "400": jsonResponse("No lookup field was provided.", {
-              error: "Provide patientId, email, or medicalRecordNumber.",
+              error: "Provide email or medicalRecordNumber.",
             }),
             "404": jsonResponse("Patient not found.", {
               error: "Patient not found.",
@@ -130,7 +126,7 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
           "x-codeSamples": [
             {
               lang: "curl",
-              source: `curl -X GET "${serverUrl}/open-api/reporting/patients?patientId=PAT-00001" \\
+              source: `curl -X GET "${serverUrl}/open-api/reporting/patients?email=ada%40example.com" \\
   -H "Authorization: Bearer <REPORTING_API_TOKEN>"`,
             },
           ],
@@ -146,10 +142,10 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
             content: {
               "application/json": {
                 example: {
-                  patientId: "PAT-00001",
+                  patientRef: EXAMPLE_PATIENT_REF,
                   reportCode: "REP-0001",
                   bucket: "reports-bucket",
-                  key: "reports/PAT-00001/REP-0001.pdf",
+                  key: "reports/REP-0001.pdf",
                   contentType: "application/pdf",
                   uploadedAt: "2026-08-19T12:30:00.000Z",
                 },
@@ -161,7 +157,7 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
               ok: true,
               reportId: "aws-report-1",
               reportCode: "REP-0001",
-              patientId: "PAT-00001",
+              patientRef: EXAMPLE_PATIENT_REF,
               status: "available",
             }),
             "400": jsonResponse("Invalid upload notification.", {
@@ -179,10 +175,10 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
   -H "Authorization: Bearer <REPORTING_API_TOKEN>" \\
   -H "Content-Type: application/json" \\
   --data '{
-    "patientId": "PAT-00001",
+    "patientRef": "${EXAMPLE_PATIENT_REF}",
     "reportCode": "REP-0001",
     "bucket": "reports-bucket",
-    "key": "reports/PAT-00001/REP-0001.pdf",
+    "key": "reports/REP-0001.pdf",
     "contentType": "application/pdf",
     "uploadedAt": "2026-08-19T12:30:00.000Z"
   }'`,
@@ -207,50 +203,48 @@ export function buildReportingOpenApiDocument(serverUrl: string): OpenApiDocumen
           ],
           responses: {
             "200": jsonResponse("2PQ case snapshot found.", {
-              caseSnapshot: {
-                code: "ABC001",
-                generatedAt: "2026-08-21T12:00:00.000Z",
-                main_case: {
-                  id: "CASE-00001",
-                  patient_id: "PAT-00001",
-                  institution_id: "INST-00001",
-                  doctor_id: "DOC-00001",
-                  children_sampling_ids: ["SAMP-00001"],
-                  last_updated: "2026-08-19T12:00:00.000Z",
-                },
-                patient: {
-                  id: "PAT-00001",
-                  fullName: "Ada Lovelace",
-                  email: "ada@example.com",
-                },
-                entities: {
-                  cases: [
-                    {
-                      id: "CASE-00001",
-                      kind: "case",
-                      scope: {
-                        institutionId: "INST-00001",
-                        doctorId: "DOC-00001",
-                        patientId: "PAT-00001",
-                      },
-                      relations: {
-                        samplingIds: ["SAMP-00001"],
-                      },
+              code: "ABC001",
+              generatedAt: "2026-08-21T12:00:00.000Z",
+              main_case: {
+                id: "CASE-00001",
+                patient_ref: EXAMPLE_PATIENT_REF,
+                institution_id: "INST-00001",
+                doctor_id: "DOC-00001",
+                children_sampling_ids: ["SAMP-00001"],
+                last_updated: "2026-08-19T12:00:00.000Z",
+              },
+              patient: {
+                patientRef: EXAMPLE_PATIENT_REF,
+                fullName: "Ada Lovelace",
+                email: "ada@example.com",
+              },
+              entities: {
+                cases: [
+                  {
+                    id: "CASE-00001",
+                    kind: "case",
+                    scope: {
+                      institutionId: "INST-00001",
+                      doctorId: "DOC-00001",
+                      patientRef: EXAMPLE_PATIENT_REF,
                     },
-                  ],
-                  samplings: [
-                    {
-                      id: "SAMP-00001",
-                      kind: "sampling",
-                      identity: {
-                        sampleId: "ABC001",
-                      },
-                      relations: {
-                        caseId: "CASE-00001",
-                      },
+                    relations: {
+                      samplingIds: ["SAMP-00001"],
                     },
-                  ],
-                },
+                  },
+                ],
+                samplings: [
+                  {
+                    id: "SAMP-00001",
+                    kind: "sampling",
+                    identity: {
+                      sampleId: "ABC001",
+                    },
+                    relations: {
+                      caseId: "CASE-00001",
+                    },
+                  },
+                ],
               },
             }),
             "400": jsonResponse("Invalid six-character code.", {

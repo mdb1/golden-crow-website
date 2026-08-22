@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { buildReportingOpenApiDocument } from "@/lib/reporting-openapi-contract";
 import { getReportingApiToken } from "@/lib/reporting-api-token";
@@ -7,18 +8,16 @@ import { resolveSdkBaseUrl } from "@/lib/sdk-url";
 
 const PatientLookupQuerySchema = z
   .object({
-    patientId: z.string().trim().min(1).optional(),
     email: z.string().trim().toLowerCase().email().optional(),
     medicalRecordNumber: z.string().trim().min(1).optional(),
   })
   .refine(
-    (value) =>
-      Boolean(value.patientId || value.email || value.medicalRecordNumber),
-    "Provide patientId, email, or medicalRecordNumber",
+    (value) => Boolean(value.email || value.medicalRecordNumber),
+    "Provide email or medicalRecordNumber",
   );
 
 const UploadedReportNotificationSchema = z.object({
-  patientId: z.string().trim().min(1),
+  patientRef: z.string().trim().min(1),
   reportId: z.string().trim().min(1).optional(),
   reportCode: z.string().trim().min(1).optional(),
   bucket: z.string().trim().min(1),
@@ -33,6 +32,8 @@ const UploadedReportNotificationSchema = z.object({
   sampleId: z.string().trim().min(1).optional(),
   downloadUrl: z.string().trim().url().optional(),
 });
+
+type PublicRecord = Record<string, unknown>;
 
 const TwoPQCaseLookupParamsSchema = z.object({
   caseCode: z
@@ -51,6 +52,197 @@ class SdkBridgeError extends Error {
   ) {
     super("SDK bridge request failed");
   }
+}
+
+function isRecord(value: unknown): value is PublicRecord {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function getInternalOpenApiToken() {
+  return process.env.GOLDENCROW_OPENAPI_INTERNAL_TOKEN?.trim();
+}
+
+function patientRefSigningSecret() {
+  const configuredSecret = process.env.GOLDENCROW_PATIENT_REF_SECRET?.trim();
+  const secret = configuredSecret || getInternalOpenApiToken();
+  if (!secret) {
+    throw new SdkBridgeError(503, {
+      error: "Internal OpenAPI token is not configured",
+    });
+  }
+
+  return secret;
+}
+
+function signPatientRefPayload(payload: string) {
+  return createHmac("sha256", patientRefSigningSecret())
+    .update(payload)
+    .digest("base64url");
+}
+
+function createPatientRef(patientId: string) {
+  const payload = Buffer.from(JSON.stringify({ patientId }), "utf8").toString(
+    "base64url",
+  );
+  return `gcp_${payload}.${signPatientRefPayload(payload)}`;
+}
+
+function decodePatientRef(patientRef: string) {
+  const normalized = patientRef.trim();
+  if (!normalized.startsWith("gcp_")) {
+    throw new SdkBridgeError(400, { error: "Invalid patientRef." });
+  }
+
+  const [payload, signature] = normalized.slice(4).split(".");
+  if (!payload || !signature) {
+    throw new SdkBridgeError(400, { error: "Invalid patientRef." });
+  }
+
+  const expectedSignature = signPatientRefPayload(payload);
+  const signatureBuffer = Buffer.from(signature, "base64url");
+  const expectedSignatureBuffer = Buffer.from(expectedSignature, "base64url");
+  if (
+    signatureBuffer.length !== expectedSignatureBuffer.length ||
+    !timingSafeEqual(signatureBuffer, expectedSignatureBuffer)
+  ) {
+    throw new SdkBridgeError(400, { error: "Invalid patientRef." });
+  }
+
+  let decodedPayload: unknown;
+  try {
+    decodedPayload = JSON.parse(Buffer.from(payload, "base64url").toString());
+  } catch {
+    throw new SdkBridgeError(400, { error: "Invalid patientRef." });
+  }
+
+  if (!isRecord(decodedPayload)) {
+    throw new SdkBridgeError(400, { error: "Invalid patientRef." });
+  }
+
+  const patientId = stringValue(decodedPayload.patientId);
+  if (!patientId) {
+    throw new SdkBridgeError(400, { error: "Invalid patientRef." });
+  }
+
+  return patientId;
+}
+
+function publicPatientRecord(patient: unknown, fallbackPatientRef?: string) {
+  if (!isRecord(patient)) {
+    return patient;
+  }
+
+  const { id, ...patientData } = patient;
+  const patientId = stringValue(id);
+  const patientRef = patientId
+    ? createPatientRef(patientId)
+    : fallbackPatientRef;
+
+  return patientRef ? { ...patientData, patientRef } : patientData;
+}
+
+function publicPatientLookupResponse(response: unknown) {
+  if (!isRecord(response)) {
+    return response;
+  }
+
+  return {
+    ...response,
+    patient: publicPatientRecord(response.patient),
+  };
+}
+
+function publicUploadNotificationResponse(
+  response: unknown,
+  patientRef: string,
+) {
+  if (!isRecord(response)) {
+    return response;
+  }
+
+  const { patientId: _patientId, ...responseData } = response;
+  return {
+    ...responseData,
+    patientRef,
+  };
+}
+
+function publicTwoPQScope(scope: unknown) {
+  if (!isRecord(scope)) {
+    return scope;
+  }
+
+  const { patientId, ...scopeData } = scope;
+  const normalizedPatientId = stringValue(patientId);
+  const patientRef = normalizedPatientId
+    ? createPatientRef(normalizedPatientId)
+    : undefined;
+
+  return patientRef ? { ...scopeData, patientRef } : scopeData;
+}
+
+function publicTwoPQEntity(entity: unknown) {
+  if (!isRecord(entity)) {
+    return entity;
+  }
+
+  return {
+    ...entity,
+    scope: publicTwoPQScope(entity.scope),
+  };
+}
+
+function publicTwoPQCaseSnapshot(snapshot: unknown) {
+  if (!isRecord(snapshot)) {
+    return snapshot;
+  }
+
+  const mainCase = isRecord(snapshot.main_case) ? snapshot.main_case : null;
+  const patientId =
+    stringValue(isRecord(snapshot.patient) ? snapshot.patient.id : undefined) ??
+    stringValue(mainCase?.patient_id);
+  const patientRef = patientId ? createPatientRef(patientId) : undefined;
+
+  let publicMainCase: unknown = snapshot.main_case;
+  if (mainCase) {
+    const { patient_id: _patientId, ...mainCaseData } = mainCase;
+    publicMainCase = {
+      ...mainCaseData,
+      patient_ref: patientRef ?? null,
+    };
+  }
+
+  let publicEntities = snapshot.entities;
+  if (isRecord(snapshot.entities)) {
+    publicEntities = {
+      ...snapshot.entities,
+      cases: Array.isArray(snapshot.entities.cases)
+        ? snapshot.entities.cases.map(publicTwoPQEntity)
+        : snapshot.entities.cases,
+      samplings: Array.isArray(snapshot.entities.samplings)
+        ? snapshot.entities.samplings.map(publicTwoPQEntity)
+        : snapshot.entities.samplings,
+    };
+  }
+
+  return {
+    ...snapshot,
+    main_case: publicMainCase,
+    patient: publicPatientRecord(snapshot.patient, patientRef),
+    entities: publicEntities,
+  };
+}
+
+function publicTwoPQCaseResponse(response: unknown) {
+  if (!isRecord(response)) {
+    return response;
+  }
+
+  return publicTwoPQCaseSnapshot(response.caseSnapshot ?? response);
 }
 
 function publicOrigin(request: Request) {
@@ -93,9 +285,6 @@ function optionalQueryValue(searchParams: URLSearchParams, key: string) {
 
 function patientLookupPath(query: z.infer<typeof PatientLookupQuerySchema>) {
   const params = new URLSearchParams();
-  if (query.patientId) {
-    params.set("patientId", query.patientId);
-  }
   if (query.email) {
     params.set("email", query.email);
   }
@@ -110,7 +299,7 @@ async function sdkBridgeFetch(
   path: string,
   init: { method?: string; body?: unknown } = {},
 ) {
-  const internalToken = process.env.GOLDENCROW_OPENAPI_INTERNAL_TOKEN?.trim();
+  const internalToken = getInternalOpenApiToken();
   if (!internalToken) {
     throw new SdkBridgeError(503, {
       error: "Internal OpenAPI token is not configured",
@@ -177,9 +366,11 @@ export async function handlePatientLookup(request: Request) {
 
   const searchParams = new URL(request.url).searchParams;
   const parsedQuery = PatientLookupQuerySchema.safeParse({
-    patientId: optionalQueryValue(searchParams, "patientId"),
     email: optionalQueryValue(searchParams, "email"),
-    medicalRecordNumber: optionalQueryValue(searchParams, "medicalRecordNumber"),
+    medicalRecordNumber: optionalQueryValue(
+      searchParams,
+      "medicalRecordNumber",
+    ),
   });
   if (!parsedQuery.success) {
     return json(
@@ -189,9 +380,11 @@ export async function handlePatientLookup(request: Request) {
   }
 
   try {
-    return json(
-      await sdkBridgeFetch(request, patientLookupPath(parsedQuery.data)),
+    const sdkResponse = await sdkBridgeFetch(
+      request,
+      patientLookupPath(parsedQuery.data),
     );
+    return json(publicPatientLookupResponse(sdkResponse));
   } catch (error) {
     if (error instanceof SdkBridgeError) {
       return bridgeErrorResponse(error);
@@ -222,17 +415,20 @@ export async function handleUploadedReportNotification(request: Request) {
   }
 
   try {
-    return json(
-      await sdkBridgeFetch(
-        request,
-        "/internal/openapi/reporting/reports/uploaded",
-        {
-          method: "POST",
-          body: parsedBody.data,
+    const { patientRef, ...publicPayload } = parsedBody.data;
+    const patientId = decodePatientRef(patientRef);
+    const sdkResponse = await sdkBridgeFetch(
+      request,
+      "/internal/openapi/reporting/reports/uploaded",
+      {
+        method: "POST",
+        body: {
+          ...publicPayload,
+          patientId,
         },
-      ),
-      201,
+      },
     );
+    return json(publicUploadNotificationResponse(sdkResponse, patientRef), 201);
   } catch (error) {
     if (error instanceof SdkBridgeError) {
       return bridgeErrorResponse(error);
@@ -241,7 +437,10 @@ export async function handleUploadedReportNotification(request: Request) {
   }
 }
 
-export async function handleTwoPQCaseLookup(request: Request, caseCode: string) {
+export async function handleTwoPQCaseLookup(
+  request: Request,
+  caseCode: string,
+) {
   const authError = requireReportingToken(request);
   if (authError) {
     return authError;
@@ -250,20 +449,21 @@ export async function handleTwoPQCaseLookup(request: Request, caseCode: string) 
   const parsedParams = TwoPQCaseLookupParamsSchema.safeParse({ caseCode });
   if (!parsedParams.success) {
     return json(
-      { error: parsedParams.error.issues[0]?.message ?? "Invalid path params." },
+      {
+        error: parsedParams.error.issues[0]?.message ?? "Invalid path params.",
+      },
       400,
     );
   }
 
   try {
-    return json(
-      await sdkBridgeFetch(
-        request,
-        `/internal/openapi/reporting/2pq/cases/${encodeURIComponent(
-          parsedParams.data.caseCode,
-        )}`,
-      ),
+    const sdkResponse = await sdkBridgeFetch(
+      request,
+      `/internal/openapi/reporting/2pq/cases/${encodeURIComponent(
+        parsedParams.data.caseCode,
+      )}`,
     );
+    return json(publicTwoPQCaseResponse(sdkResponse));
   } catch (error) {
     if (error instanceof SdkBridgeError) {
       return bridgeErrorResponse(error);
