@@ -1049,10 +1049,12 @@ export function ReportingIntegrationClientPanel() {
                   <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
                     <ClientSummaryBlock client={client} />
 
-                    <div className="flex flex-wrap gap-2 lg:justify-end">
-                      <SecretActionDialog client={client} compact />
-                      <RevokeDialog client={client} compact />
-                    </div>
+                    {client.status !== "revoked" ? (
+                      <div className="flex flex-wrap gap-2 lg:justify-end">
+                        <SecretActionDialog client={client} compact />
+                        <RevokeDialog client={client} compact />
+                      </div>
+                    ) : null}
                   </div>
 
                   <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
