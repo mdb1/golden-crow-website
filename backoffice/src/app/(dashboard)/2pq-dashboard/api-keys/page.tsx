@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Repeat2, ShieldCheck } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
 import { ReportingIntegrationClientPanel } from "@/components/reporting-integration-client-panel";
@@ -26,7 +27,7 @@ export default async function ReportingApiKeysPage() {
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-base font-semibold">
-              How a full admin obtains it
+              How to obtain a client id and secret
             </h2>
           </div>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted-foreground">
@@ -52,9 +53,15 @@ export default async function ReportingApiKeysPage() {
           <div className="flex items-center gap-2">
             <Repeat2 className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-base font-semibold">
-              How the integration uses it
+              How to obtain an access token
             </h2>
           </div>
+          <Link
+            href="/2pq-dashboard/api-documentation"
+            className="mt-2 inline-flex text-sm font-medium text-primary hover:underline"
+          >
+            API Documentation
+          </Link>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted-foreground">
             <li>
               Call <code>POST /open-api/oauth/token</code> with{" "}

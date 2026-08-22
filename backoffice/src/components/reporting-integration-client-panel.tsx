@@ -739,12 +739,8 @@ export function ReportingIntegrationClientPanel() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-base font-semibold">Last valid client</h2>
+              <h2 className="text-base font-semibold">Active client</h2>
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              The latest active client stays visible here. Full secrets are
-              never shown after their one-time reveal.
-            </p>
           </div>
 
           {!isLoadingClients && !currentClient ? (
