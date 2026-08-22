@@ -656,7 +656,7 @@ export function ReportingIntegrationClientPanel() {
         <AlertDialogTrigger asChild>
           <Button
             type="button"
-            variant={isFirstSecret ? "default" : "outline"}
+            variant={isFirstSecret ? "default" : "warning"}
             size={compact ? "sm" : "default"}
             disabled={client.status === "revoked" || pendingAction !== null}
           >
@@ -680,6 +680,7 @@ export function ReportingIntegrationClientPanel() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              variant={isFirstSecret ? "default" : "warning"}
               onClick={() => void generateOrRenewSecret(client)}
               disabled={pendingAction === actionKey}
             >
