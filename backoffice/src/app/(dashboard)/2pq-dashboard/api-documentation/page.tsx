@@ -214,11 +214,14 @@ export default async function ReportingApiDocumentationPage() {
               </div>
 
               {codeSample ? (
-                <ApiCodeDisplay
-                  title="Sample curl"
-                  code={codeSample}
-                  className="mt-5"
-                />
+                <div className="mt-5">
+                  <h3 className="text-sm font-semibold">Sample curl</h3>
+                  <ApiCodeDisplay
+                    title="curl"
+                    code={codeSample}
+                    className="mt-3"
+                  />
+                </div>
               ) : null}
             </article>
           );
