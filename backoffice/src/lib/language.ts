@@ -466,6 +466,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Save draft": "Guardar borrador",
   "Draft saved.": "Borrador guardado.",
   "Publish to Discover": "Publicar en Discover",
+  "View publication in the app": "Ver publicación en la app",
   "Publishing...": "Publicando...",
   "Published to Discover": "Publicado en Discover",
   "Publish needs attention": "La publicación necesita revisión",

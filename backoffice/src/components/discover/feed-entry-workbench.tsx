@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Check,
   CheckCircle2,
+  ExternalLink,
   Heading2,
   ImageIcon,
   Italic,
@@ -123,6 +124,9 @@ type PublishDialogState = {
   message?: string;
 };
 
+const DISCOVER_PUBLIC_FEED_ENTRY_BASE_URL =
+  "https://goldencrowvs.com/pocket-genes/discover/feed_entries";
+
 const DISCOVER_OPPORTUNITY_TYPE_OPTIONS = [
   { value: "fellowship", label: "Fellowship" },
   { value: "grant", label: "Grant" },
@@ -214,6 +218,10 @@ function toDateTimeInput(value?: string | null) {
 
 function fromDateTimeInput(value: string) {
   return value ? new Date(value).toISOString() : null;
+}
+
+function publicDiscoverFeedEntryUrl(feedItemId: string) {
+  return `${DISCOVER_PUBLIC_FEED_ENTRY_BASE_URL}?id=${encodeURIComponent(feedItemId)}`;
 }
 
 function lines(value: string) {
@@ -748,6 +756,10 @@ export function DiscoverFeedEntryWorkbench({
   const [deletePending, setDeletePending] = useState(false);
   const [publishDialog, setPublishDialog] = useState<PublishDialogState | null>(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [persistedState, setPersistedState] = useState<FeedEntryFormState | null>(null);
+  const [publishedFeedItemId, setPublishedFeedItemId] = useState<string | null>(
+    feedItem?.status === "published" ? feedItem.id : null,
+  );
   const sourceState = useMemo(() => {
     const initialState = toFormState(feedItem);
     if (mode === "create" && scopedOrganizationId) {
@@ -766,6 +778,7 @@ export function DiscoverFeedEntryWorkbench({
     }
     return initialState;
   }, [feedItem, mode, scopedIndividualId, scopedOrganizationId]);
+  const savedState = persistedState ?? sourceState;
   const selectedOrganization = organizations.find(
     (organization) => organization.id === state.publisherOrganizationId,
   );
@@ -773,7 +786,7 @@ export function DiscoverFeedEntryWorkbench({
     (individual) => individual.id === state.publisherIndividualId,
   );
   const selectedPublisher = selectedOrganization ?? selectedIndividual;
-  const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
+  const changed = JSON.stringify(state) !== JSON.stringify(savedState);
   const bodyCharacterCount = bodyMode === "rich"
     ? htmlToPlainText(state.html_body).length
     : state.body.length;
@@ -794,6 +807,15 @@ export function DiscoverFeedEntryWorkbench({
     : state.publisherOrganizationId
       ? `organization:${state.publisherOrganizationId}`
       : "";
+  const publishedAppUrl =
+    !changed && publishedFeedItemId
+      ? publicDiscoverFeedEntryUrl(publishedFeedItemId)
+      : null;
+
+  useEffect(() => {
+    setPersistedState(null);
+    setPublishedFeedItemId(feedItem?.status === "published" ? feedItem.id : null);
+  }, [feedItem?.id, feedItem?.status]);
 
   function updateState(patch: Partial<FeedEntryFormState>) {
     setState((current) => ({ ...current, ...patch }));
@@ -1043,6 +1065,8 @@ export function DiscoverFeedEntryWorkbench({
             body: JSON.stringify(payloadFromState(state, status, publishedAt)),
           },
         );
+        setPersistedState(state);
+        setPublishedFeedItemId(status === "published" ? response.feedItem.id : null);
         router.refresh();
         return response.feedItem;
       }
@@ -1058,6 +1082,8 @@ export function DiscoverFeedEntryWorkbench({
           body: JSON.stringify(payloadFromState(state, status, publishedAt)),
         },
       );
+      setPersistedState(state);
+      setPublishedFeedItemId(status === "published" ? response.feedItem.id : null);
       router.refresh();
       return response.feedItem;
     } catch (error) {
@@ -1380,7 +1406,7 @@ export function DiscoverFeedEntryWorkbench({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setState(sourceState)}
+                onClick={() => setState(savedState)}
                 disabled={!changed || isWorking}
               >
                 <RotateCcw className="h-3.5 w-3.5" />
@@ -1780,27 +1806,40 @@ export function DiscoverFeedEntryWorkbench({
             <div className="min-w-0 text-sm text-muted-foreground">
               {changed ? t("Unsaved changes") : t("No unsaved changes")}
             </div>
-            <Button
-              size="lg"
-              onClick={() => void (mode === "edit" ? saveChanges() : publish())}
-              disabled={isWorking}
-              className="h-14 min-w-[min(100%,22rem)] justify-center text-base font-semibold"
-            >
-              {pending ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : mode === "edit" ? (
-                <Save className="h-5 w-5" />
-              ) : (
-                <UploadCloud className="h-5 w-5" />
-              )}
-              {mode === "edit"
-                ? pending
-                  ? t("Saving...")
-                  : t("Save changes")
-                : pending
-                  ? t("Publishing...")
-                  : t("Publish to Discover")}
-            </Button>
+            {publishedAppUrl ? (
+              <Button
+                size="lg"
+                asChild
+                className="h-14 min-w-[min(100%,22rem)] justify-center text-base font-semibold"
+              >
+                <a href={publishedAppUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-5 w-5" />
+                  {t("View publication in the app")}
+                </a>
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                onClick={() => void (mode === "edit" ? saveChanges() : publish())}
+                disabled={isWorking}
+                className="h-14 min-w-[min(100%,22rem)] justify-center text-base font-semibold"
+              >
+                {pending ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : mode === "edit" ? (
+                  <Save className="h-5 w-5" />
+                ) : (
+                  <UploadCloud className="h-5 w-5" />
+                )}
+                {mode === "edit"
+                  ? pending
+                    ? t("Saving...")
+                    : t("Save changes")
+                  : pending
+                    ? t("Publishing...")
+                    : t("Publish to Discover")}
+              </Button>
+            )}
           </div>
         </div>
       </section>

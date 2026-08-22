@@ -200,6 +200,53 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(body.source_button_text).toBe("Open organizer website");
   });
 
+  it("shows the public app link after a successful publish with no unsaved changes", async () => {
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      feedItem: {
+        id: "czSoZHYDbliMmxOrMLsx",
+      } as DiscoverFeedItemRecord,
+    });
+
+    render(
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publicador"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.change(screen.getByLabelText("Título"), {
+      target: { value: "Nueva publicación" },
+    });
+    fireEvent.change(screen.getByLabelText("Subtítulo"), {
+      target: { value: "Resumen de la publicación" },
+    });
+    fireEvent.change(
+      document.querySelector("#discover-feed-body") as HTMLTextAreaElement,
+      {
+        target: { value: "Contenido completo de la publicación." },
+      },
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Publicar en Discover" }));
+
+    expect(await screen.findByText("Publicado en Discover")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    const publicAppLink = await screen.findByRole("link", {
+      name: "Ver publicación en la app",
+    });
+    expect(publicAppLink.getAttribute("href")).toBe(
+      "https://goldencrowvs.com/pocket-genes/discover/feed_entries?id=czSoZHYDbliMmxOrMLsx",
+    );
+    expect(screen.getByText("Sin cambios sin guardar")).toBeTruthy();
+  });
+
   it("dismisses publish validation errors with OK without leaving the page", async () => {
     render(
       <AppLanguageProvider initialLanguage="en">
