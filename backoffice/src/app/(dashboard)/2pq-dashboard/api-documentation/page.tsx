@@ -5,9 +5,7 @@ import { ApiCodeDisplay } from "@/components/api-code-display";
 import { PageHero } from "@/components/page-hero";
 import { Badge } from "@/components/ui/badge";
 import { getAdminContextServer } from "@/lib/admin-context-server";
-import {
-  buildReportingOpenApiDocument,
-} from "@/lib/reporting-openapi-contract";
+import { buildReportingOpenApiDocument } from "@/lib/reporting-openapi-contract";
 import type {
   OpenApiDocument,
   OpenApiOperation,
@@ -16,9 +14,10 @@ import type {
 const DEFAULT_OPENAPI_URL = "https://golden-crow-backoffice.vercel.app";
 const METHOD_ORDER = ["get", "post", "put", "patch", "delete"] as const;
 
-function resolveOpenApiBaseUrl(headerStore: Awaited<ReturnType<typeof headers>>) {
-  const host =
-    headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+function resolveOpenApiBaseUrl(
+  headerStore: Awaited<ReturnType<typeof headers>>,
+) {
+  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
   if (!host) {
     return DEFAULT_OPENAPI_URL;
   }
@@ -197,17 +196,14 @@ export default async function ReportingApiDocumentationPage() {
 
                   {requestExample !== undefined ? (
                     <ApiCodeDisplay
-                      title="JSON body"
+                      title="Request body example"
                       code={stringifyExample(requestExample)}
                       className="mt-4"
                     />
                   ) : null}
                 </div>
 
-                <div className="grid min-w-0 gap-4">
-                  {codeSample ? (
-                    <ApiCodeDisplay title="Example request" code={codeSample} />
-                  ) : null}
+                <div className="min-w-0">
                   {responseExample !== undefined ? (
                     <ApiCodeDisplay
                       title="Example response"
@@ -216,6 +212,14 @@ export default async function ReportingApiDocumentationPage() {
                   ) : null}
                 </div>
               </div>
+
+              {codeSample ? (
+                <ApiCodeDisplay
+                  title="Sample curl"
+                  code={codeSample}
+                  className="mt-5"
+                />
+              ) : null}
             </article>
           );
         })}
