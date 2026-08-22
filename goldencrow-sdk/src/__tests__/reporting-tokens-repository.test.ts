@@ -6,10 +6,18 @@ type MockDocumentRef = {
   collectionName: string;
   set: jest.Mock;
 };
+type MockQueryState = {
+  collectionName: string;
+  orderField?: string;
+  direction?: "asc" | "desc";
+  startAfterValue?: string;
+  limitValue?: number;
+};
 
 const CLIENTS_COLLECTION = "openapi_reporting_integration_clients";
 const TOKENS_COLLECTION = "openapi_reporting_access_tokens";
 const AUDIT_LOGS_COLLECTION = "openapi_reporting_audit_logs";
+const ACCESS_EVENTS_COLLECTION = "openapi_reporting_access_events";
 
 const mockDocs = new Map<string, MockDocData>();
 let mockAutoId = 0;
@@ -63,6 +71,64 @@ function makeDocRef(collectionName: string, id?: string): MockDocumentRef {
   };
 }
 
+function queryDocs(state: MockQueryState) {
+  let docs = [...mockDocs.entries()]
+    .filter(([key]) => key.startsWith(`${state.collectionName}/`))
+    .map(([key, value]) => ({
+      id: key.slice(state.collectionName.length + 1),
+      data: () => value,
+    }));
+
+  if (state.orderField) {
+    docs = docs.sort((left, right) => {
+      const leftValue = String(left.data()[state.orderField!] ?? "");
+      const rightValue = String(right.data()[state.orderField!] ?? "");
+      return state.direction === "asc"
+        ? leftValue.localeCompare(rightValue)
+        : rightValue.localeCompare(leftValue);
+    });
+  }
+
+  if (state.orderField && state.startAfterValue) {
+    docs = docs.filter((doc) => {
+      const value = String(doc.data()[state.orderField!] ?? "");
+      return state.direction === "asc"
+        ? value > state.startAfterValue!
+        : value < state.startAfterValue!;
+    });
+  }
+
+  return state.limitValue === undefined
+    ? docs
+    : docs.slice(0, state.limitValue);
+}
+
+function makeQuery(state: MockQueryState) {
+  return {
+    doc: (id?: string) => makeDocRef(state.collectionName, id),
+    orderBy: (orderField: string, direction: "asc" | "desc" = "asc") =>
+      makeQuery({
+        ...state,
+        orderField,
+        direction,
+      }),
+    startAfter: (startAfterValue: string) =>
+      makeQuery({
+        ...state,
+        startAfterValue,
+      }),
+    limit: (limitValue: number) =>
+      makeQuery({
+        ...state,
+        limitValue,
+      }),
+    get: jest.fn(async () => ({
+      docs: queryDocs(state),
+      empty: queryDocs(state).length === 0,
+    })),
+  };
+}
+
 const mockTransactionGet = jest.fn(async (ref: MockDocumentRef) => {
   const data = mockDocs.get(docKey(ref));
   return {
@@ -97,9 +163,9 @@ jest.mock("firebase-admin/firestore", () => ({
 
 jest.mock("../config/firebase.js", () => ({
   adminDbFor: jest.fn(() => ({
-    collection: jest.fn((collectionName: string) => ({
-      doc: (id?: string) => makeDocRef(collectionName, id),
-    })),
+    collection: jest.fn((collectionName: string) =>
+      makeQuery({ collectionName }),
+    ),
     runTransaction: mockRunTransaction,
   })),
 }));
@@ -172,6 +238,48 @@ describe("reporting integration client repository", () => {
       createdByEmail: "admin@example.com",
     });
     expect(JSON.stringify(stored)).not.toContain(created.client_secret);
+    expect(docsIn(ACCESS_EVENTS_COLLECTION)).toHaveLength(1);
+    expect(docsIn(ACCESS_EVENTS_COLLECTION)[0]).toMatchObject({
+      eventType: "integration_client.created",
+      clientId: created.client_id,
+      clientName: "Reporting partner",
+      actorUid: "admin-1",
+      actorEmail: "admin@example.com",
+      secretPrefix: created.client_secret.slice(0, 18),
+    });
+  });
+
+  it("lists integration clients and API access events with safe metadata", async () => {
+    const {
+      createReportingIntegrationClient,
+      listReportingIntegrationClientAccessEvents,
+      listReportingIntegrationClients,
+    } = await import("../repositories/reporting-tokens.repository");
+
+    const first = await createReportingIntegrationClient(fullAdminContext, {
+      name: "First partner",
+    });
+    const second = await createReportingIntegrationClient(fullAdminContext, {
+      name: "Second partner",
+    });
+
+    const clients = await listReportingIntegrationClients(fullAdminContext, {
+      limit: 1,
+    });
+    const events =
+      await listReportingIntegrationClientAccessEvents(fullAdminContext);
+
+    expect(clients.clients).toHaveLength(1);
+    expect(clients.next_cursor).toBeDefined();
+    expect(JSON.stringify(clients)).not.toContain(first.client_secret);
+    expect(JSON.stringify(clients)).not.toContain(second.client_secret);
+    expect(events.events).toHaveLength(2);
+    expect(events.events[0]).toMatchObject({
+      event_type: "integration_client.created",
+      actor: {
+        email: "admin@example.com",
+      },
+    });
   });
 
   it("exchanges valid client credentials for a 24-hour access token", async () => {
@@ -271,10 +379,11 @@ describe("reporting integration client repository", () => {
     });
   });
 
-  it("rejects access tokens when their integration client is revoked", async () => {
+  it("rotates the client secret while preserving already issued active access tokens", async () => {
     const {
       createReportingIntegrationClient,
       exchangeReportingClientCredentials,
+      rotateReportingIntegrationClientSecret,
       verifyReportingAccessToken,
     } = await import("../repositories/reporting-tokens.repository");
 
@@ -286,11 +395,84 @@ describe("reporting integration client repository", () => {
       client_id: created.client_id,
       client_secret: created.client_secret,
     });
-    const storedClient =
-      mockDocs.get(`${CLIENTS_COLLECTION}/${created.client_id}`) ?? {};
-    mockDocs.set(`${CLIENTS_COLLECTION}/${created.client_id}`, {
-      ...storedClient,
+    const rotated = await rotateReportingIntegrationClientSecret(
+      fullAdminContext,
+      created.client_id,
+    );
+
+    expect(rotated.client_secret).toMatch(/^gcs_live_/);
+    expect(rotated.client_secret).not.toBe(created.client_secret);
+    expect(rotated.client).toMatchObject({
+      client_id: created.client_id,
+      status: "active",
+      secret_prefix: rotated.client_secret.slice(0, 18),
+      last_secret_rotated_by: {
+        email: "admin@example.com",
+      },
+    });
+    await expect(
+      exchangeReportingClientCredentials({
+        grant_type: "client_credentials",
+        client_id: created.client_id,
+        client_secret: created.client_secret,
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 401,
+    });
+    await expect(
+      exchangeReportingClientCredentials({
+        grant_type: "client_credentials",
+        client_id: created.client_id,
+        client_secret: rotated.client_secret,
+      }),
+    ).resolves.toMatchObject({
+      access_token: expect.stringMatching(/^rpt_access_/),
+    });
+    await expect(
+      verifyReportingAccessToken(token.access_token),
+    ).resolves.toMatchObject({
+      ok: true,
+      client_id: created.client_id,
+    });
+    expect(docsIn(ACCESS_EVENTS_COLLECTION)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: "integration_client.secret_rotated",
+          clientId: created.client_id,
+          previousSecretPrefix: created.client_secret.slice(0, 18),
+          secretPrefix: rotated.client_secret.slice(0, 18),
+        }),
+      ]),
+    );
+  });
+
+  it("rejects token exchange and access-token verification after client revocation", async () => {
+    const {
+      createReportingIntegrationClient,
+      exchangeReportingClientCredentials,
+      revokeReportingIntegrationClient,
+      verifyReportingAccessToken,
+    } = await import("../repositories/reporting-tokens.repository");
+
+    const created = await createReportingIntegrationClient(fullAdminContext, {
+      name: "Reporting partner",
+    });
+    const token = await exchangeReportingClientCredentials({
+      grant_type: "client_credentials",
+      client_id: created.client_id,
+      client_secret: created.client_secret,
+    });
+    const revoked = await revokeReportingIntegrationClient(
+      fullAdminContext,
+      created.client_id,
+    );
+
+    expect(revoked.client).toMatchObject({
+      client_id: created.client_id,
       status: "revoked",
+      revoked_by: {
+        email: "admin@example.com",
+      },
     });
 
     await expect(
@@ -298,5 +480,23 @@ describe("reporting integration client repository", () => {
     ).rejects.toMatchObject({
       statusCode: 401,
     });
+    await expect(
+      exchangeReportingClientCredentials({
+        grant_type: "client_credentials",
+        client_id: created.client_id,
+        client_secret: created.client_secret,
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 401,
+    });
+    expect(docsIn(ACCESS_EVENTS_COLLECTION)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: "integration_client.revoked",
+          clientId: created.client_id,
+          status: "revoked",
+        }),
+      ]),
+    );
   });
 });

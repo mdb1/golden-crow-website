@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, type Query } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import type { AdminContext } from "../types/sdk.types.js";
@@ -9,6 +9,7 @@ const adminDb = adminDbFor("mydnamap");
 const CLIENTS_COLLECTION = "openapi_reporting_integration_clients";
 const TOKENS_COLLECTION = "openapi_reporting_access_tokens";
 const AUDIT_LOGS_COLLECTION = "openapi_reporting_audit_logs";
+const ACCESS_EVENTS_COLLECTION = "openapi_reporting_access_events";
 const CLIENT_ID_PREFIX = "gci_live_";
 const CLIENT_SECRET_PREFIX = "gcs_live_";
 const ACCESS_TOKEN_PREFIX = "rpt_access_";
@@ -16,10 +17,16 @@ const RANDOM_BYTES = 32;
 const ACCESS_TOKEN_TTL_SECONDS = 24 * 60 * 60;
 const QUOTA_WINDOW_SECONDS = 60;
 const DEFAULT_QUOTA_PER_MINUTE = 60;
+const DEFAULT_PAGE_LIMIT = 20;
+const MAX_PAGE_LIMIT = 50;
 const REPORTING_SCOPES = ["reporting:read", "reporting:write"] as const;
 
 type ReportingScope = (typeof REPORTING_SCOPES)[number];
 type IntegrationClientStatus = "active" | "revoked";
+type IntegrationClientAccessEventType =
+  | "integration_client.created"
+  | "integration_client.secret_rotated"
+  | "integration_client.revoked";
 
 export interface ReportingIntegrationClientCreateInput {
   name: string;
@@ -41,6 +48,76 @@ export interface ReportingIntegrationClientCreateResult {
     uid: string;
     email: string;
   };
+}
+
+export interface ReportingIntegrationClientSummary {
+  client_id: string;
+  name: string;
+  scopes: ReportingScope[];
+  quota: {
+    limit: number;
+    window_seconds: number;
+  };
+  status: IntegrationClientStatus;
+  created_at: string;
+  created_by: {
+    uid: string;
+    email: string;
+  };
+  secret_prefix?: string;
+  last_secret_rotated_at?: string;
+  last_secret_rotated_by?: {
+    uid: string;
+    email: string;
+  };
+  revoked_at?: string;
+  revoked_by?: {
+    uid: string;
+    email: string;
+  };
+  last_token_issued_at?: string;
+  last_used_at?: string;
+  usage_count: number;
+  token_issue_count: number;
+}
+
+export interface ReportingIntegrationClientListResult {
+  clients: ReportingIntegrationClientSummary[];
+  next_cursor?: string;
+}
+
+export interface ReportingIntegrationClientSecretRotateResult {
+  client: ReportingIntegrationClientSummary;
+  client_secret: string;
+}
+
+export interface ReportingIntegrationClientRevokeResult {
+  client: ReportingIntegrationClientSummary;
+}
+
+export interface ReportingIntegrationClientAccessEvent {
+  id: string;
+  event_type: IntegrationClientAccessEventType;
+  client_id: string;
+  client_name: string;
+  occurred_at: string;
+  actor: {
+    uid: string;
+    email: string;
+  };
+  status?: IntegrationClientStatus;
+  secret_prefix?: string;
+  previous_secret_prefix?: string;
+  quota?: {
+    limit: number;
+    window_seconds: number;
+  };
+  scopes?: ReportingScope[];
+}
+
+export interface ReportingIntegrationClientAccessEventListResult {
+  events: ReportingIntegrationClientAccessEvent[];
+  next_cursor?: string;
 }
 
 export interface ReportingOAuthTokenInput {
@@ -74,12 +151,23 @@ type IntegrationClientRecord = {
   clientId: string;
   name: string;
   clientSecretHash: string;
+  clientSecretPrefix?: string;
   scopes: ReportingScope[];
   quotaPerMinute: number;
   status: IntegrationClientStatus;
   createdAt: string;
   createdByUid: string;
   createdByEmail: string;
+  lastSecretRotatedAt?: string;
+  lastSecretRotatedByUid?: string;
+  lastSecretRotatedByEmail?: string;
+  revokedAt?: string;
+  revokedByUid?: string;
+  revokedByEmail?: string;
+  lastTokenIssuedAt?: string;
+  lastUsedAt?: string;
+  usageCount: number;
+  tokenIssueCount: number;
   quotaWindow?: string;
   quotaWindowCount?: number;
 };
@@ -97,6 +185,15 @@ type AccessTokenRecord = {
 type SnapshotLike = {
   exists: boolean;
   data: () => Record<string, unknown> | undefined;
+};
+
+type QueryDocumentLike = {
+  id: string;
+  data: () => Record<string, unknown> | undefined;
+};
+
+type QuerySnapshotLike = {
+  docs: QueryDocumentLike[];
 };
 
 function defaultQuotaPerMinute() {
@@ -120,6 +217,30 @@ function normalizeQuota(value: number | undefined) {
   }
 
   return Math.floor(value);
+}
+
+function normalizePageLimit(value: number | undefined) {
+  if (value === undefined) {
+    return DEFAULT_PAGE_LIMIT;
+  }
+
+  if (!Number.isFinite(value) || value <= 0) {
+    return DEFAULT_PAGE_LIMIT;
+  }
+
+  return Math.min(MAX_PAGE_LIMIT, Math.floor(value));
+}
+
+function normalizeCursor(value: string | undefined) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  const timestamp = new Date(normalized);
+  return Number.isNaN(timestamp.getTime())
+    ? undefined
+    : timestamp.toISOString();
 }
 
 function generateCredential(prefix: string) {
@@ -225,6 +346,7 @@ function readClientRecord(snapshot: SnapshotLike): IntegrationClientRecord {
   const clientId = asString(data.clientId);
   const name = asString(data.name);
   const clientSecretHash = asString(data.clientSecretHash);
+  const clientSecretPrefix = asString(data.clientSecretPrefix);
   const createdAt = asString(data.createdAt);
   const createdByUid = asString(data.createdByUid);
   const createdByEmail = asString(data.createdByEmail);
@@ -241,12 +363,23 @@ function readClientRecord(snapshot: SnapshotLike): IntegrationClientRecord {
     clientId,
     name,
     clientSecretHash,
+    clientSecretPrefix,
     scopes: normalizeScopes(data.scopes),
     quotaPerMinute: asNumber(data.quotaPerMinute) ?? DEFAULT_QUOTA_PER_MINUTE,
     status,
     createdAt,
     createdByUid: createdByUid ?? "",
     createdByEmail: createdByEmail ?? "",
+    lastSecretRotatedAt: asString(data.lastSecretRotatedAt),
+    lastSecretRotatedByUid: asString(data.lastSecretRotatedByUid),
+    lastSecretRotatedByEmail: asString(data.lastSecretRotatedByEmail),
+    revokedAt: asString(data.revokedAt),
+    revokedByUid: asString(data.revokedByUid),
+    revokedByEmail: asString(data.revokedByEmail),
+    lastTokenIssuedAt: asString(data.lastTokenIssuedAt),
+    lastUsedAt: asString(data.lastUsedAt),
+    usageCount: asNumber(data.usageCount) ?? 0,
+    tokenIssueCount: asNumber(data.tokenIssueCount) ?? 0,
     quotaWindow: asString(data.quotaWindow),
     quotaWindowCount: asNumber(data.quotaWindowCount),
   };
@@ -280,10 +413,10 @@ function readAccessTokenRecord(snapshot: SnapshotLike): AccessTokenRecord {
   };
 }
 
-function assertCanCreateIntegrationClient(context: AdminContext) {
+function assertCanManageIntegrationClients(context: AdminContext) {
   if (context.role !== "full_admin" && !context.isBootstrap) {
     throw new AdminRepositoryError(
-      "Only full admins can create reporting integration clients.",
+      "Only full admins can manage reporting integration clients.",
       403,
     );
   }
@@ -335,19 +468,207 @@ function auditLogRef() {
   return adminDb.collection(AUDIT_LOGS_COLLECTION).doc();
 }
 
+function accessEventRef() {
+  return adminDb.collection(ACCESS_EVENTS_COLLECTION).doc();
+}
+
+function eventFromRecord(
+  id: string,
+  data: Record<string, unknown> | undefined,
+): ReportingIntegrationClientAccessEvent | null {
+  if (!data) {
+    return null;
+  }
+
+  const eventType = asString(data.eventType);
+  const clientId = asString(data.clientId);
+  const clientName = asString(data.clientName);
+  const occurredAt = asString(data.occurredAt);
+  const actorUid = asString(data.actorUid);
+  const actorEmail = asString(data.actorEmail);
+  if (
+    eventType !== "integration_client.created" &&
+    eventType !== "integration_client.secret_rotated" &&
+    eventType !== "integration_client.revoked"
+  ) {
+    return null;
+  }
+
+  if (!clientId || !clientName || !occurredAt || !actorUid || !actorEmail) {
+    return null;
+  }
+
+  const status =
+    data.status === "revoked"
+      ? "revoked"
+      : data.status === "active"
+        ? "active"
+        : undefined;
+  const quotaLimit = asNumber(data.quotaPerMinute);
+
+  return {
+    id,
+    event_type: eventType,
+    client_id: clientId,
+    client_name: clientName,
+    occurred_at: occurredAt,
+    actor: {
+      uid: actorUid,
+      email: actorEmail,
+    },
+    status,
+    secret_prefix: asString(data.secretPrefix),
+    previous_secret_prefix: asString(data.previousSecretPrefix),
+    quota: quotaLimit
+      ? {
+          limit: quotaLimit,
+          window_seconds: QUOTA_WINDOW_SECONDS,
+        }
+      : undefined,
+    scopes: normalizeScopes(data.scopes),
+  };
+}
+
+function clientSummaryFromRecord(
+  record: IntegrationClientRecord,
+): ReportingIntegrationClientSummary {
+  const summary: ReportingIntegrationClientSummary = {
+    client_id: record.clientId,
+    name: record.name,
+    scopes: record.scopes,
+    quota: {
+      limit: record.quotaPerMinute,
+      window_seconds: QUOTA_WINDOW_SECONDS,
+    },
+    status: record.status,
+    created_at: record.createdAt,
+    created_by: {
+      uid: record.createdByUid,
+      email: record.createdByEmail,
+    },
+    secret_prefix: record.clientSecretPrefix,
+    usage_count: record.usageCount,
+    token_issue_count: record.tokenIssueCount,
+  };
+
+  if (record.lastSecretRotatedAt) {
+    summary.last_secret_rotated_at = record.lastSecretRotatedAt;
+    summary.last_secret_rotated_by = {
+      uid: record.lastSecretRotatedByUid ?? "",
+      email: record.lastSecretRotatedByEmail ?? "",
+    };
+  }
+
+  if (record.revokedAt) {
+    summary.revoked_at = record.revokedAt;
+    summary.revoked_by = {
+      uid: record.revokedByUid ?? "",
+      email: record.revokedByEmail ?? "",
+    };
+  }
+
+  if (record.lastTokenIssuedAt) {
+    summary.last_token_issued_at = record.lastTokenIssuedAt;
+  }
+
+  if (record.lastUsedAt) {
+    summary.last_used_at = record.lastUsedAt;
+  }
+
+  return summary;
+}
+
+function accessEventPayload(input: {
+  eventType: IntegrationClientAccessEventType;
+  client: IntegrationClientRecord | ReportingIntegrationClientSummary;
+  actor: AdminContext;
+  occurredAt: string;
+  secretPrefix?: string;
+  previousSecretPrefix?: string;
+  status?: IntegrationClientStatus;
+}) {
+  const payload = {
+    eventType: input.eventType,
+    clientId:
+      "clientId" in input.client
+        ? input.client.clientId
+        : input.client.client_id,
+    clientName: input.client.name,
+    occurredAt: input.occurredAt,
+    actorUid: input.actor.uid,
+    actorEmail: input.actor.email,
+    status: input.status ?? input.client.status,
+    secretPrefix: input.secretPrefix,
+    previousSecretPrefix: input.previousSecretPrefix,
+    scopes: [...input.client.scopes],
+    quotaPerMinute:
+      "quotaPerMinute" in input.client
+        ? input.client.quotaPerMinute
+        : input.client.quota.limit,
+    quotaWindowSeconds: QUOTA_WINDOW_SECONDS,
+  };
+
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined),
+  );
+}
+
+function pageFromDocs<T>(
+  docs: QueryDocumentLike[],
+  limit: number,
+  mapper: (doc: QueryDocumentLike) => T | null,
+  cursorField: string,
+) {
+  const pageDocs = docs.slice(0, limit);
+  const items = pageDocs
+    .map((doc) => mapper(doc))
+    .filter((item): item is T => item !== null);
+  const lastDoc = pageDocs.at(-1);
+  const lastData = lastDoc?.data();
+  const nextCursor =
+    docs.length > limit ? asString(lastData?.[cursorField]) : undefined;
+
+  return {
+    items,
+    nextCursor,
+  };
+}
+
+async function paginatedQuery(
+  collectionName: string,
+  orderField: string,
+  input: { limit?: number; cursor?: string } = {},
+) {
+  const pageLimit = normalizePageLimit(input.limit);
+  const cursor = normalizeCursor(input.cursor);
+  let query: Query = adminDb
+    .collection(collectionName)
+    .orderBy(orderField, "desc");
+  if (cursor) {
+    query = query.startAfter(cursor);
+  }
+
+  const snapshot = (await query
+    .limit(pageLimit + 1)
+    .get()) as QuerySnapshotLike;
+  return {
+    docs: snapshot.docs,
+    pageLimit,
+  };
+}
+
 export async function createReportingIntegrationClient(
   context: AdminContext,
   input: ReportingIntegrationClientCreateInput,
 ): Promise<ReportingIntegrationClientCreateResult> {
-  assertCanCreateIntegrationClient(context);
+  assertCanManageIntegrationClients(context);
 
   const name = normalizeName(input.name);
   const quotaPerMinute = normalizeQuota(input.quotaPerMinute);
   const clientId = generateCredential(CLIENT_ID_PREFIX);
   const clientSecret = generateCredential(CLIENT_SECRET_PREFIX);
   const now = new Date().toISOString();
-
-  await clientRef(clientId).set({
+  const clientData = {
     clientId,
     name,
     clientSecretHash: hashSecret(clientSecret),
@@ -355,12 +676,30 @@ export async function createReportingIntegrationClient(
     scopes: [...REPORTING_SCOPES],
     quotaPerMinute,
     quotaWindowSeconds: QUOTA_WINDOW_SECONDS,
-    status: "active",
+    status: "active" as const,
     createdAt: now,
     createdByUid: context.uid,
     createdByEmail: context.email,
     usageCount: 0,
     tokenIssueCount: 0,
+  };
+
+  await adminDb.runTransaction(async (transaction) => {
+    transaction.set(clientRef(clientId), clientData);
+    transaction.set(
+      accessEventRef(),
+      accessEventPayload({
+        eventType: "integration_client.created",
+        client: readClientRecord({
+          exists: true,
+          data: () => clientData,
+        }),
+        actor: context,
+        occurredAt: now,
+        secretPrefix: secretPrefix(clientSecret),
+        status: "active",
+      }),
+    );
   });
 
   return {
@@ -379,6 +718,160 @@ export async function createReportingIntegrationClient(
       email: context.email,
     },
   };
+}
+
+export async function listReportingIntegrationClients(
+  context: AdminContext,
+  input: { limit?: number; cursor?: string } = {},
+): Promise<ReportingIntegrationClientListResult> {
+  assertCanManageIntegrationClients(context);
+
+  const { docs, pageLimit } = await paginatedQuery(
+    CLIENTS_COLLECTION,
+    "createdAt",
+    input,
+  );
+  const { items, nextCursor } = pageFromDocs(
+    docs,
+    pageLimit,
+    (doc) =>
+      clientSummaryFromRecord(
+        readClientRecord({
+          exists: true,
+          data: doc.data,
+        }),
+      ),
+    "createdAt",
+  );
+
+  return {
+    clients: items,
+    next_cursor: nextCursor,
+  };
+}
+
+export async function listReportingIntegrationClientAccessEvents(
+  context: AdminContext,
+  input: { limit?: number; cursor?: string } = {},
+): Promise<ReportingIntegrationClientAccessEventListResult> {
+  assertCanManageIntegrationClients(context);
+
+  const { docs, pageLimit } = await paginatedQuery(
+    ACCESS_EVENTS_COLLECTION,
+    "occurredAt",
+    input,
+  );
+  const { items, nextCursor } = pageFromDocs(
+    docs,
+    pageLimit,
+    (doc) => eventFromRecord(doc.id, doc.data()),
+    "occurredAt",
+  );
+
+  return {
+    events: items,
+    next_cursor: nextCursor,
+  };
+}
+
+export async function rotateReportingIntegrationClientSecret(
+  context: AdminContext,
+  clientIdInput: string,
+): Promise<ReportingIntegrationClientSecretRotateResult> {
+  assertCanManageIntegrationClients(context);
+
+  const clientId = normalizeClientId(clientIdInput);
+  const newSecret = generateCredential(CLIENT_SECRET_PREFIX);
+  const newSecretPrefix = secretPrefix(newSecret);
+  const now = new Date().toISOString();
+
+  return adminDb.runTransaction(async (transaction) => {
+    const ref = clientRef(clientId);
+    const snapshot = (await transaction.get(ref)) as SnapshotLike;
+    const client = readClientRecord(snapshot);
+    assertActiveClient(client);
+
+    const update = {
+      clientSecretHash: hashSecret(newSecret),
+      clientSecretPrefix: newSecretPrefix,
+      lastSecretRotatedAt: now,
+      lastSecretRotatedByUid: context.uid,
+      lastSecretRotatedByEmail: context.email,
+      secretVersion: FieldValue.increment(1),
+    };
+    transaction.update(ref, update);
+
+    const updatedClient: IntegrationClientRecord = {
+      ...client,
+      clientSecretHash: update.clientSecretHash,
+      clientSecretPrefix: newSecretPrefix,
+      lastSecretRotatedAt: now,
+      lastSecretRotatedByUid: context.uid,
+      lastSecretRotatedByEmail: context.email,
+    };
+    transaction.set(
+      accessEventRef(),
+      accessEventPayload({
+        eventType: "integration_client.secret_rotated",
+        client: updatedClient,
+        actor: context,
+        occurredAt: now,
+        secretPrefix: newSecretPrefix,
+        previousSecretPrefix: client.clientSecretPrefix,
+      }),
+    );
+
+    return {
+      client: clientSummaryFromRecord(updatedClient),
+      client_secret: newSecret,
+    };
+  });
+}
+
+export async function revokeReportingIntegrationClient(
+  context: AdminContext,
+  clientIdInput: string,
+): Promise<ReportingIntegrationClientRevokeResult> {
+  assertCanManageIntegrationClients(context);
+
+  const clientId = normalizeClientId(clientIdInput);
+  const now = new Date().toISOString();
+
+  return adminDb.runTransaction(async (transaction) => {
+    const ref = clientRef(clientId);
+    const snapshot = (await transaction.get(ref)) as SnapshotLike;
+    const client = readClientRecord(snapshot);
+    const updatedClient: IntegrationClientRecord = {
+      ...client,
+      status: "revoked",
+      revokedAt: client.revokedAt ?? now,
+      revokedByUid: client.revokedByUid ?? context.uid,
+      revokedByEmail: client.revokedByEmail ?? context.email,
+    };
+
+    if (client.status !== "revoked") {
+      transaction.update(ref, {
+        status: "revoked",
+        revokedAt: now,
+        revokedByUid: context.uid,
+        revokedByEmail: context.email,
+      });
+      transaction.set(
+        accessEventRef(),
+        accessEventPayload({
+          eventType: "integration_client.revoked",
+          client: updatedClient,
+          actor: context,
+          occurredAt: now,
+          status: "revoked",
+        }),
+      );
+    }
+
+    return {
+      client: clientSummaryFromRecord(updatedClient),
+    };
+  });
 }
 
 export async function exchangeReportingClientCredentials(

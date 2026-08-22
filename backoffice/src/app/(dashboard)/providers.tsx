@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState } from "react";
 import { AdminContextProvider } from "@/components/admin-context-provider";
+import { Toaster } from "@/components/ui/sonner";
 import type { AdminContextRecord } from "@/lib/admin-areas";
 
 export function Providers({
@@ -20,12 +21,13 @@ export function Providers({
             staleTime: 60 * 1000,
           },
         },
-      })
+      }),
   );
   return (
     <AdminContextProvider value={adminContext}>
       <QueryClientProvider client={queryClient}>
         {children}
+        <Toaster richColors position="top-right" />
         {process.env.NODE_ENV === "development" && (
           <ReactQueryDevtools initialIsOpen={false} />
         )}

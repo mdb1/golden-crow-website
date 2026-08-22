@@ -58,7 +58,11 @@ All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings
 | GET | /reports | List reports (optional ?source= filter) |
 | GET | /reports/:id | Get report detail |
 | DELETE | /reports/:id | Delete report |
+| GET | /reporting/integration-clients | List public reporting integration clients for a full admin |
 | POST | /reporting/integration-clients | Create a public reporting integration client for a full admin |
+| GET | /reporting/integration-clients/events | List key-management events from `openapi_reporting_access_events` |
+| POST | /reporting/integration-clients/:clientId/secret/rotate | Rotate a client secret and reveal the replacement once |
+| POST | /reporting/integration-clients/:clientId/revoke | Revoke a client so token exchange and business API requests fail |
 | POST | /internal/openapi/reporting/tokens/verify | Internal bridge for public reporting access-token verification and quota checks |
 | POST | /internal/openapi/oauth/token | Internal bridge for client-credentials access-token exchange |
 | GET | /internal/openapi/reporting/patients?patientId=:id | Internal bridge for public reporting patient lookup |
