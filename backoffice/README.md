@@ -24,7 +24,6 @@ Create `backoffice/.env.local` with the following variables:
 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket (e.g. `project-id.appspot.com`) |
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase app ID |
-| `GOLDENCROW_OPENAPI_URL` | Public OpenAPI base URL, same backoffice origin by default (e.g. `http://localhost:3001`) |
 | `REPORTING_API_TOKEN` | External bearer token accepted by `/open-api/*` routes |
 | `GOLDENCROW_OPENAPI_INTERNAL_TOKEN` | Shared service token used by `/open-api/*` routes to call the SDK internal bridge |
 | `BACKOFFICE_REPORTING_API_TOKEN` | Optional server-only override for the full-admin API key reveal UI |

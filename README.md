@@ -80,7 +80,6 @@ npm run dev
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | `1:355295584619:web:1b3eb5bd34a4cc03da6c2e` |
 | `NEXT_PUBLIC_SDK_URL` | `http://localhost:3000` (local) / `https://golden-crow-sdk.vercel.app` (Vercel, no trailing slash) |
 | `GOLDENCROW_SDK_URL` | `http://localhost:3000` (local) / `https://golden-crow-sdk.vercel.app` (Vercel, no trailing slash) |
-| `GOLDENCROW_OPENAPI_URL` | `http://localhost:3001` (local) / `https://golden-crow-backoffice.vercel.app` (Vercel, no trailing slash) |
 | `REPORTING_API_TOKEN` | External bearer token accepted by `/open-api/*` routes |
 | `BACKOFFICE_REPORTING_API_TOKEN` | Optional server-only override for the full-admin API key reveal UI |
 | `GOLDENCROW_OPENAPI_INTERNAL_TOKEN` | Shared service token used by `/open-api/*` routes to call the SDK internal bridge |

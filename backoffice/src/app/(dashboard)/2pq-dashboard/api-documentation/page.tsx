@@ -1,5 +1,6 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { FileCode2, Server } from "lucide-react";
+import { FileCode2 } from "lucide-react";
 import { ApiCodeDisplay } from "@/components/api-code-display";
 import { PageHero } from "@/components/page-hero";
 import { Badge } from "@/components/ui/badge";
@@ -15,26 +16,19 @@ import type {
 const DEFAULT_OPENAPI_URL = "https://golden-crow-backoffice.vercel.app";
 const METHOD_ORDER = ["get", "post", "put", "patch", "delete"] as const;
 
-function resolveOpenApiBaseUrl() {
-  return (
-    process.env.GOLDENCROW_OPENAPI_URL?.replace(/\/+$/, "") ||
-    process.env.NEXT_PUBLIC_GOLDENCROW_OPENAPI_URL?.replace(/\/+$/, "") ||
-    DEFAULT_OPENAPI_URL
-  );
-}
-
-async function fetchOpenApiDocument(baseUrl: string) {
-  try {
-    const response = await fetch(`${baseUrl}/open-api/openapi.json`, {
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      return null;
-    }
-    return (await response.json()) as OpenApiDocument;
-  } catch {
-    return null;
+function resolveOpenApiBaseUrl(headerStore: Awaited<ReturnType<typeof headers>>) {
+  const host =
+    headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+  if (!host) {
+    return DEFAULT_OPENAPI_URL;
   }
+
+  const protocol =
+    headerStore.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") || host.startsWith("127.0.0.1")
+      ? "http"
+      : "https");
+  return `${protocol}://${host}`.replace(/\/+$/, "");
 }
 
 function methodClassName(method: string) {
@@ -100,9 +94,8 @@ export default async function ReportingApiDocumentationPage() {
     redirect("/2pq-dashboard");
   }
 
-  const baseUrl = resolveOpenApiBaseUrl();
-  const fetchedDocument = await fetchOpenApiDocument(baseUrl);
-  const document = fetchedDocument ?? buildReportingOpenApiDocument(baseUrl);
+  const baseUrl = resolveOpenApiBaseUrl(await headers());
+  const document = buildReportingOpenApiDocument(baseUrl);
   const operations = publicOperations(document);
 
   return (
@@ -110,45 +103,13 @@ export default async function ReportingApiDocumentationPage() {
       <PageHero
         eyebrow="2PQ API"
         title="API documentation"
-        description="Swagger-style reference rendered from the GoldenCrow public OpenAPI contract."
+        description="Endpoint reference for external integrations using the public /open-api backend."
       />
-
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
-        <div className="flex items-center gap-2">
-          <Server className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-base font-semibold">Public API contract</h2>
-        </div>
-        <div className="mt-4 grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
-          <div>
-            <p className="font-medium text-foreground">Base URL</p>
-            <code className="mt-1 block overflow-x-auto rounded-md bg-muted px-2 py-1 text-xs text-foreground">
-              {document?.servers?.[0]?.url ?? baseUrl}
-            </code>
-          </div>
-          <div>
-            <p className="font-medium text-foreground">OpenAPI source</p>
-            <code className="mt-1 block overflow-x-auto rounded-md bg-muted px-2 py-1 text-xs text-foreground">
-              {fetchedDocument
-                ? `${baseUrl}/open-api/openapi.json`
-                : "Bundled contract"}
-            </code>
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Response format</p>
-            <code className="mt-1 block overflow-x-auto rounded-md bg-muted px-2 py-1 text-xs text-foreground">
-              application/json
-            </code>
-          </div>
-        </div>
-      </section>
 
       <section className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <FileCode2 className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-lg font-semibold">Public endpoints</h2>
-          {document?.info?.version ? (
-            <Badge variant="secondary">v{document.info.version}</Badge>
-          ) : null}
+          <h2 className="text-lg font-semibold">Integrator endpoints</h2>
         </div>
 
         {operations.map(({ method, path, operation }) => {
