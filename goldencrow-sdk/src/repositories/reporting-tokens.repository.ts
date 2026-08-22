@@ -654,13 +654,22 @@ function pageFromDocs<T>(
 async function paginatedQuery(
   collectionName: string,
   orderField: string,
-  input: { limit?: number; cursor?: string } = {},
+  input: {
+    limit?: number;
+    cursor?: string;
+    whereEquals?: {
+      field: string;
+      value: string;
+    };
+  } = {},
 ) {
   const pageLimit = normalizePageLimit(input.limit);
   const cursor = normalizeCursor(input.cursor);
-  let query: Query = adminDb
-    .collection(collectionName)
-    .orderBy(orderField, "desc");
+  let query: Query = adminDb.collection(collectionName);
+  if (input.whereEquals) {
+    query = query.where(input.whereEquals.field, "==", input.whereEquals.value);
+  }
+  query = query.orderBy(orderField, "desc");
   if (cursor) {
     query = query.startAfter(cursor);
   }
@@ -771,7 +780,15 @@ export async function listReportingIntegrationClientAccessEvents(
   const { docs, pageLimit } = await paginatedQuery(
     ACCESS_EVENTS_COLLECTION,
     "occurredAt",
-    input,
+    {
+      ...input,
+      whereEquals: context.isBootstrap
+        ? undefined
+        : {
+            field: "actorUid",
+            value: context.uid,
+          },
+    },
   );
   const { items, nextCursor } = pageFromDocs(
     docs,

@@ -8,6 +8,11 @@ type MockDocumentRef = {
 };
 type MockQueryState = {
   collectionName: string;
+  whereFilters?: Array<{
+    field: string;
+    op: "==";
+    value: unknown;
+  }>;
   orderField?: string;
   direction?: "asc" | "desc";
   startAfterValue?: string;
@@ -94,6 +99,14 @@ function queryDocs(state: MockQueryState) {
       return doc;
     });
 
+  if (state.whereFilters?.length) {
+    docs = docs.filter((doc) =>
+      state.whereFilters!.every(
+        (filter) => doc.data()[filter.field] === filter.value,
+      ),
+    );
+  }
+
   if (state.orderField) {
     docs = docs.sort((left, right) => {
       const leftValue = String(left.data()[state.orderField!] ?? "");
@@ -121,6 +134,11 @@ function queryDocs(state: MockQueryState) {
 function makeQuery(state: MockQueryState) {
   return {
     doc: (id?: string) => makeDocRef(state.collectionName, id),
+    where: (field: string, op: "==", value: unknown) =>
+      makeQuery({
+        ...state,
+        whereFilters: [...(state.whereFilters ?? []), { field, op, value }],
+      }),
     orderBy: (orderField: string, direction: "asc" | "desc" = "asc") =>
       makeQuery({
         ...state,
@@ -193,6 +211,19 @@ const fullAdminContext = {
   canAccessBackoffice: true,
   canAccessPatientPortal: false,
   projectAccess: ["mydnamap" as const],
+};
+
+const otherFullAdminContext = {
+  ...fullAdminContext,
+  email: "other-admin@example.com",
+  uid: "admin-2",
+};
+
+const godModeContext = {
+  ...fullAdminContext,
+  email: "god@example.com",
+  uid: "god-1",
+  isBootstrap: true,
 };
 
 describe("reporting integration client repository", () => {
@@ -281,12 +312,20 @@ describe("reporting integration client repository", () => {
     const second = await createReportingIntegrationClient(fullAdminContext, {
       name: "Second partner",
     });
+    const otherAdminClient = await createReportingIntegrationClient(
+      otherFullAdminContext,
+      {
+        name: "Other admin partner",
+      },
+    );
 
     const clients = await listReportingIntegrationClients(fullAdminContext, {
       limit: 1,
     });
     const events =
       await listReportingIntegrationClientAccessEvents(fullAdminContext);
+    const godModeEvents =
+      await listReportingIntegrationClientAccessEvents(godModeContext);
 
     expect(clients.clients).toHaveLength(1);
     expect(clients.next_cursor).toBeDefined();
@@ -294,6 +333,9 @@ describe("reporting integration client repository", () => {
     expect(first).not.toHaveProperty("client_secret");
     expect(second).not.toHaveProperty("client_secret");
     expect(events.events).toHaveLength(2);
+    expect(events.events.every((event) => event.actor.uid === "admin-1")).toBe(
+      true,
+    );
     expect(events.events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -311,6 +353,21 @@ describe("reporting integration client repository", () => {
     );
     expect(JSON.stringify(events.events)).not.toContain(second.client_id);
     expect(JSON.stringify(events.events)).not.toContain(first.client_id);
+    expect(JSON.stringify(events.events)).not.toContain(
+      otherAdminClient.client_id,
+    );
+    expect(godModeEvents.events).toHaveLength(3);
+    expect(godModeEvents.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          actor: expect.objectContaining({ uid: "admin-1" }),
+        }),
+        expect.objectContaining({
+          actor: expect.objectContaining({ uid: "admin-2" }),
+          client_id: eventLogClientId(otherAdminClient.client_id),
+        }),
+      ]),
+    );
   });
 
   it("masks legacy access event client ids when listing events", async () => {
