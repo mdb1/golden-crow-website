@@ -83,6 +83,84 @@ export function buildReportingOpenApiDocument(
     },
     servers: [{ url: serverUrl }],
     paths: {
+      "/open-api/reporting/2pq/cases/{caseCode}": {
+        get: {
+          tags: ["Reporting"],
+          summary: "Look up the current 2PQ case by six-character code.",
+          description:
+            "Returns only the current case, its patient, and sampling records linked to that case. It does not include parent batch metadata or sibling cases.",
+          parameters: [
+            {
+              name: "caseCode",
+              in: "path",
+              required: true,
+              description:
+                "Exactly 6 letters or numbers, for example ABCXXX for the case or ABC001 for a sampling code.",
+            },
+          ],
+          responses: {
+            "200": jsonResponse("2PQ case snapshot found.", {
+              code: "ABC001",
+              generatedAt: "2026-08-21T12:00:00.000Z",
+              main_case: {
+                id: "CASE-00001",
+                patient_id: EXAMPLE_PATIENT_ID,
+                institution_id: "INST-00001",
+                doctor_id: "DOC-00001",
+                children_sampling_ids: ["SAMP-00001"],
+                last_updated: "2026-08-19T12:00:00.000Z",
+              },
+              patient: {
+                id: EXAMPLE_PATIENT_ID,
+                fullName: "Ada Lovelace",
+                email: "ada@example.com",
+              },
+              entities: {
+                cases: [
+                  {
+                    id: "CASE-00001",
+                    kind: "case",
+                    scope: {
+                      institutionId: "INST-00001",
+                      doctorId: "DOC-00001",
+                      patientId: EXAMPLE_PATIENT_ID,
+                    },
+                    relations: {
+                      samplingIds: ["SAMP-00001"],
+                    },
+                  },
+                ],
+                samplings: [
+                  {
+                    id: "SAMP-00001",
+                    kind: "sampling",
+                    identity: {
+                      sampleId: "ABC001",
+                    },
+                    relations: {
+                      caseId: "CASE-00001",
+                    },
+                  },
+                ],
+              },
+            }),
+            "400": jsonResponse("Invalid six-character code.", {
+              error: "caseCode must contain exactly 6 letters or numbers.",
+            }),
+            "404": jsonResponse("2PQ case not found.", {
+              error: "2PQ case not found.",
+            }),
+            ...errorResponses(),
+          },
+          "x-codeSamples": [
+            {
+              lang: "curl",
+              source: `curl -X GET "${serverUrl}/open-api/reporting/2pq/cases/ABC001" \\
+  -H "Authorization: Bearer <REPORTING_API_TOKEN>"`,
+            },
+          ],
+        },
+      },
       "/open-api/reporting/patients": {
         get: {
           tags: ["Reporting"],
@@ -167,84 +245,6 @@ export function buildReportingOpenApiDocument(
   --data '{
     "caseCode": "ABC001"
   }'`,
-            },
-          ],
-        },
-      },
-      "/open-api/reporting/2pq/cases/{caseCode}": {
-        get: {
-          tags: ["Reporting"],
-          summary: "Look up the current 2PQ case by six-character code.",
-          description:
-            "Returns only the current case, its patient, and sampling records linked to that case. It does not include parent batch metadata or sibling cases.",
-          parameters: [
-            {
-              name: "caseCode",
-              in: "path",
-              required: true,
-              description:
-                "Exactly 6 letters or numbers, for example ABCXXX for the case or ABC001 for a sampling code.",
-            },
-          ],
-          responses: {
-            "200": jsonResponse("2PQ case snapshot found.", {
-              code: "ABC001",
-              generatedAt: "2026-08-21T12:00:00.000Z",
-              main_case: {
-                id: "CASE-00001",
-                patient_id: EXAMPLE_PATIENT_ID,
-                institution_id: "INST-00001",
-                doctor_id: "DOC-00001",
-                children_sampling_ids: ["SAMP-00001"],
-                last_updated: "2026-08-19T12:00:00.000Z",
-              },
-              patient: {
-                id: EXAMPLE_PATIENT_ID,
-                fullName: "Ada Lovelace",
-                email: "ada@example.com",
-              },
-              entities: {
-                cases: [
-                  {
-                    id: "CASE-00001",
-                    kind: "case",
-                    scope: {
-                      institutionId: "INST-00001",
-                      doctorId: "DOC-00001",
-                      patientId: EXAMPLE_PATIENT_ID,
-                    },
-                    relations: {
-                      samplingIds: ["SAMP-00001"],
-                    },
-                  },
-                ],
-                samplings: [
-                  {
-                    id: "SAMP-00001",
-                    kind: "sampling",
-                    identity: {
-                      sampleId: "ABC001",
-                    },
-                    relations: {
-                      caseId: "CASE-00001",
-                    },
-                  },
-                ],
-              },
-            }),
-            "400": jsonResponse("Invalid six-character code.", {
-              error: "caseCode must contain exactly 6 letters or numbers.",
-            }),
-            "404": jsonResponse("2PQ case not found.", {
-              error: "2PQ case not found.",
-            }),
-            ...errorResponses(),
-          },
-          "x-codeSamples": [
-            {
-              lang: "curl",
-              source: `curl -X GET "${serverUrl}/open-api/reporting/2pq/cases/ABC001" \\
-  -H "Authorization: Bearer <REPORTING_API_TOKEN>"`,
             },
           ],
         },
