@@ -943,13 +943,33 @@ export function ReportingIntegrationClientPanel() {
 
       <section className="border-b pb-6">
         <h2 className="text-base font-semibold">Secret recovery</h2>
-        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          If a partner loses the secret, use <code>Renew secret</code> on the
-          active client. The <code>client_id</code>, scopes, quota, and event
-          history stay the same. The previous <code>client_secret</code> stops
-          minting new access tokens; already issued access tokens can keep
-          working until their 24-hour expiration.
-        </p>
+        <div className="mt-3 grid gap-4 text-sm text-muted-foreground lg:grid-cols-2">
+          <div>
+            <h3 className="text-sm font-medium text-foreground">
+              Client secret renewal
+            </h3>
+            <p className="mt-1">
+              If a partner loses the secret, use <code>Renew secret</code> on
+              the active client. The <code>client_id</code>, scopes, quota, and
+              event history stay the same. The previous{" "}
+              <code>client_secret</code> stops minting new access tokens;
+              already issued access tokens can keep working until their 24-hour
+              expiration.
+            </p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-foreground">
+              Client revocation
+            </h3>
+            <p className="mt-1">
+              If the integration should no longer have access, use{" "}
+              <code>Revoke</code> on the active client. The client can no longer
+              mint new access tokens, and existing access tokens for that client
+              fail immediately. Revocation cannot be undone; create a new client
+              for a replacement integration.
+            </p>
+          </div>
+        </div>
       </section>
 
       <section className="border-b pb-6">
