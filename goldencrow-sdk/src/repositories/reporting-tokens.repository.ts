@@ -56,6 +56,7 @@ export interface ReportingIntegrationClientCreateResult {
     uid: string;
     email: string;
   };
+  has_client_secret: boolean;
 }
 
 export interface ReportingIntegrationClientSummary {
@@ -72,7 +73,7 @@ export interface ReportingIntegrationClientSummary {
     uid: string;
     email: string;
   };
-  secret_prefix?: string;
+  has_client_secret: boolean;
   last_secret_rotated_at?: string;
   last_secret_rotated_by?: {
     uid: string;
@@ -114,8 +115,6 @@ export interface ReportingIntegrationClientAccessEvent {
     email: string;
   };
   status?: IntegrationClientStatus;
-  secret_prefix?: string;
-  previous_secret_prefix?: string;
   quota?: {
     limit: number;
     window_seconds: number;
@@ -159,7 +158,6 @@ type IntegrationClientRecord = {
   clientId: string;
   name: string;
   clientSecretHash?: string;
-  clientSecretPrefix?: string;
   scopes: ReportingScope[];
   quotaPerMinute: number;
   status: IntegrationClientStatus;
@@ -281,10 +279,6 @@ function generateTokenId() {
 
 function hashSecret(value: string) {
   return createHash("sha256").update(value).digest("hex");
-}
-
-function secretPrefix(value: string) {
-  return value.slice(0, 18);
 }
 
 function eventLogClientId(value: string) {
@@ -536,7 +530,6 @@ function readClientRecord(snapshot: SnapshotLike): IntegrationClientRecord {
   const clientId = asString(data.clientId);
   const name = asString(data.name);
   const clientSecretHash = asString(data.clientSecretHash);
-  const clientSecretPrefix = asString(data.clientSecretPrefix);
   const createdAt = asString(data.createdAt);
   const createdByUid = asString(data.createdByUid);
   const createdByEmail = asString(data.createdByEmail);
@@ -553,7 +546,6 @@ function readClientRecord(snapshot: SnapshotLike): IntegrationClientRecord {
     clientId,
     name,
     clientSecretHash,
-    clientSecretPrefix,
     scopes: normalizeScopes(data.scopes),
     quotaPerMinute: asNumber(data.quotaPerMinute) ?? DEFAULT_QUOTA_PER_MINUTE,
     status,
@@ -666,6 +658,27 @@ function accessEventRef() {
   return adminDb.collection(ACCESS_EVENTS_COLLECTION).doc();
 }
 
+async function deleteLegacySecretMetadata(
+  collectionName: string,
+  docs: QueryDocumentLike[],
+  fields: string[],
+) {
+  await Promise.all(
+    docs.map((doc) => {
+      const data = doc.data() ?? {};
+      const deletedFields = Object.fromEntries(
+        fields
+          .filter((field) => Object.prototype.hasOwnProperty.call(data, field))
+          .map((field) => [field, FieldValue.delete()]),
+      );
+
+      return Object.keys(deletedFields).length
+        ? adminDb.collection(collectionName).doc(doc.id).update(deletedFields)
+        : Promise.resolve();
+    }),
+  );
+}
+
 function eventFromRecord(
   id: string,
   data: Record<string, unknown> | undefined,
@@ -712,8 +725,6 @@ function eventFromRecord(
       email: actorEmail,
     },
     status,
-    secret_prefix: asString(data.secretPrefix),
-    previous_secret_prefix: asString(data.previousSecretPrefix),
     quota: quotaLimit
       ? {
           limit: quotaLimit,
@@ -741,7 +752,7 @@ function clientSummaryFromRecord(
       uid: record.createdByUid,
       email: record.createdByEmail,
     },
-    secret_prefix: record.clientSecretPrefix,
+    has_client_secret: Boolean(record.clientSecretHash),
     usage_count: record.usageCount,
     token_issue_count: record.tokenIssueCount,
   };
@@ -778,8 +789,6 @@ function accessEventPayload(input: {
   client: IntegrationClientRecord | ReportingIntegrationClientSummary;
   actor: AdminContext;
   occurredAt: string;
-  secretPrefix?: string;
-  previousSecretPrefix?: string;
   status?: IntegrationClientStatus;
 }) {
   const clientId =
@@ -792,8 +801,6 @@ function accessEventPayload(input: {
     actorUid: input.actor.uid,
     actorEmail: input.actor.email,
     status: input.status ?? input.client.status,
-    secretPrefix: input.secretPrefix,
-    previousSecretPrefix: input.previousSecretPrefix,
     scopes: [...input.client.scopes],
     quotaPerMinute:
       "quotaPerMinute" in input.client
@@ -933,6 +940,7 @@ export async function createReportingIntegrationClient(
       uid: context.uid,
       email: context.email,
     },
+    has_client_secret: false,
   };
 }
 
@@ -955,6 +963,9 @@ export async function listReportingIntegrationClients(
           },
     },
   );
+  await deleteLegacySecretMetadata(CLIENTS_COLLECTION, docs, [
+    "clientSecretPrefix",
+  ]);
   const { items, nextCursor } = pageFromDocs(
     docs,
     pageLimit,
@@ -993,6 +1004,10 @@ export async function listReportingIntegrationClientAccessEvents(
           },
     },
   );
+  await deleteLegacySecretMetadata(ACCESS_EVENTS_COLLECTION, docs, [
+    "previousSecretPrefix",
+    "secretPrefix",
+  ]);
   const { items, nextCursor } = pageFromDocs(
     docs,
     pageLimit,
@@ -1014,7 +1029,6 @@ export async function rotateReportingIntegrationClientSecret(
 
   const clientId = normalizeClientId(clientIdInput);
   const newSecret = generateCredential(CLIENT_SECRET_PREFIX);
-  const newSecretPrefix = secretPrefix(newSecret);
   const now = new Date().toISOString();
 
   return adminDb.runTransaction(async (transaction) => {
@@ -1025,7 +1039,7 @@ export async function rotateReportingIntegrationClientSecret(
 
     const update = {
       clientSecretHash: hashSecret(newSecret),
-      clientSecretPrefix: newSecretPrefix,
+      clientSecretPrefix: FieldValue.delete(),
       lastSecretRotatedAt: now,
       lastSecretRotatedByUid: context.uid,
       lastSecretRotatedByEmail: context.email,
@@ -1036,7 +1050,6 @@ export async function rotateReportingIntegrationClientSecret(
     const updatedClient: IntegrationClientRecord = {
       ...client,
       clientSecretHash: update.clientSecretHash,
-      clientSecretPrefix: newSecretPrefix,
       lastSecretRotatedAt: now,
       lastSecretRotatedByUid: context.uid,
       lastSecretRotatedByEmail: context.email,
@@ -1050,8 +1063,6 @@ export async function rotateReportingIntegrationClientSecret(
         client: updatedClient,
         actor: context,
         occurredAt: now,
-        secretPrefix: newSecretPrefix,
-        previousSecretPrefix: client.clientSecretPrefix,
       }),
     );
 

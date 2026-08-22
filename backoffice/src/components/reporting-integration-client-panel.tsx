@@ -52,7 +52,7 @@ type ReportingIntegrationClientSummary = {
     uid: string;
     email: string;
   };
-  secret_prefix?: string;
+  has_client_secret: boolean;
   last_secret_rotated_at?: string;
   last_secret_rotated_by?: {
     uid: string;
@@ -71,7 +71,6 @@ type ReportingIntegrationClientSummary = {
 
 type ReportingIntegrationClientCreateResponse = Omit<
   ReportingIntegrationClientSummary,
-  | "secret_prefix"
   | "last_secret_rotated_at"
   | "last_secret_rotated_by"
   | "revoked_at"
@@ -106,8 +105,6 @@ type ReportingIntegrationClientAccessEvent = {
     email: string;
   };
   status?: "active" | "revoked";
-  secret_prefix?: string;
-  previous_secret_prefix?: string;
 };
 
 type ClientListResponse = {
@@ -227,11 +224,11 @@ function eventBody(event: ReportingIntegrationClientAccessEvent) {
   }
 
   if (event.event_type === "integration_client.secret_created") {
-    return `Created the first secret for ${event.client_name}. Stored prefix: ${event.secret_prefix ?? "hidden"}.`;
+    return `Created the first secret for ${event.client_name}.`;
   }
 
   if (event.event_type === "integration_client.secret_rotated") {
-    return `Renewed the secret for ${event.client_name}. Previous prefix ${event.previous_secret_prefix ?? "hidden"}, new prefix ${event.secret_prefix ?? "hidden"}.`;
+    return `Renewed the secret for ${event.client_name}.`;
   }
 
   return `Revoked ${event.client_name}. Token exchanges and business API requests for this client now fail.`;
@@ -255,11 +252,69 @@ function ClientReadOnlyField({
         className={
           mono
             ? "mt-1 break-all font-mono text-xs text-foreground"
-            : "mt-1 break-words text-sm font-medium text-foreground"
+            : "mt-1 break-words text-sm text-foreground"
         }
       >
         {value}
       </p>
+    </div>
+  );
+}
+
+function ClientStatusField({
+  status,
+  hasClientSecret,
+}: {
+  status: ReportingIntegrationClientSummary["status"];
+  hasClientSecret: boolean;
+}) {
+  const isRevoked = status === "revoked";
+
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-medium uppercase text-muted-foreground">
+        Client status
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Badge variant={isRevoked ? "destructive" : "success"}>{status}</Badge>
+        <Badge variant={hasClientSecret ? "secondary" : "warning"}>
+          {hasClientSecret ? "secret generated" : "secret required"}
+        </Badge>
+      </div>
+    </div>
+  );
+}
+
+function ClientIdField({
+  clientId,
+  isCopied = false,
+  onCopy,
+}: {
+  clientId: string;
+  isCopied?: boolean;
+  onCopy?: () => void;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-medium uppercase text-muted-foreground">
+        Client ID
+      </p>
+      <div className="mt-2 flex min-w-0 items-center gap-2">
+        <code className="block min-w-0 overflow-x-auto break-all rounded-md bg-muted/60 px-2 py-1 text-xs text-foreground">
+          {clientId}
+        </code>
+        {onCopy ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            onClick={onCopy}
+            aria-label="Copy client ID"
+          >
+            {isCopied ? <Check /> : <Copy />}
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -471,7 +526,7 @@ export function ReportingIntegrationClientPanel() {
   async function generateOrRenewSecret(
     client: ReportingIntegrationClientSummary,
   ) {
-    const isFirstSecret = !client.secret_prefix;
+    const isFirstSecret = !client.has_client_secret;
     const actionKey = `secret:${client.client_id}`;
     setPendingAction(actionKey);
     setError(null);
@@ -583,7 +638,7 @@ export function ReportingIntegrationClientPanel() {
     client: ReportingIntegrationClientSummary;
     compact?: boolean;
   }) {
-    const isFirstSecret = !client.secret_prefix;
+    const isFirstSecret = !client.has_client_secret;
     const actionKey = `secret:${client.client_id}`;
     const label = isFirstSecret ? "Create secret" : "Renew secret";
 
@@ -757,63 +812,30 @@ export function ReportingIntegrationClientPanel() {
             </p>
           ) : currentClient ? (
             <div>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">
-                    Client name
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="mt-1 text-sm font-semibold">
-                      {currentClient.name}
-                    </h3>
-                    <Badge variant="success">active</Badge>
-                    <Badge
-                      variant={
-                        currentClient.secret_prefix ? "secondary" : "warning"
-                      }
-                    >
-                      {currentClient.secret_prefix
-                        ? "secret generated"
-                        : "secret required"}
-                    </Badge>
-                  </div>
-                  <div className="mt-2 flex min-w-0 items-center gap-2">
-                    <code className="block min-w-0 overflow-x-auto break-all rounded-md bg-muted/60 px-2 py-1 text-xs text-foreground">
-                      {currentClient.client_id}
-                    </code>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      onClick={() => copyValue("id", currentClient.client_id)}
-                      aria-label="Copy client ID"
-                    >
-                      {copiedField === "id" ? <Check /> : <Copy />}
-                    </Button>
-                  </div>
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                  <ClientReadOnlyField
+                    label="Client name"
+                    value={currentClient.name}
+                  />
+                  <ClientStatusField
+                    status={currentClient.status}
+                    hasClientSecret={currentClient.has_client_secret}
+                  />
+                  <ClientIdField
+                    clientId={currentClient.client_id}
+                    isCopied={copiedField === "id"}
+                    onCopy={() => copyValue("id", currentClient.client_id)}
+                  />
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 lg:justify-end">
                   <SecretActionDialog client={currentClient} />
                   <RevokeDialog client={currentClient} />
                 </div>
               </div>
 
-              <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <ClientReadOnlyField
-                  label="client_id"
-                  value={currentClient.client_id}
-                  mono
-                />
-                <ClientReadOnlyField
-                  label="secret"
-                  value={
-                    currentClient.secret_prefix
-                      ? `${currentClient.secret_prefix}...`
-                      : "Not generated"
-                  }
-                  mono
-                />
+              <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <ClientReadOnlyField
                   label="quota"
                   value={`${currentClient.quota.limit} requests / ${currentClient.quota.window_seconds}s`}
@@ -822,9 +844,6 @@ export function ReportingIntegrationClientPanel() {
                   label="created by"
                   value={currentClient.created_by.email}
                 />
-              </dl>
-
-              <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <ClientReadOnlyField
                   label="created"
                   value={formatDate(currentClient.created_at)}
@@ -843,12 +862,17 @@ export function ReportingIntegrationClientPanel() {
                 />
               </dl>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                {currentClient.scopes.map((scope) => (
-                  <Badge key={scope} variant="outline">
-                    {scope}
-                  </Badge>
-                ))}
+              <div className="mt-5">
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  Scopes
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {currentClient.scopes.map((scope) => (
+                    <Badge key={scope} variant="outline">
+                      {scope}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
@@ -979,93 +1003,63 @@ export function ReportingIntegrationClientPanel() {
                 </p>
               ) : null}
 
-              {previousClients.map((client) => {
-                const isRevoked = client.status === "revoked";
-
-                return (
-                  <article
-                    key={client.client_id}
-                    className="border-t py-4 first:border-t-0"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium uppercase text-muted-foreground">
-                          Client name
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="mt-1 text-sm font-semibold">
-                            {client.name}
-                          </h3>
-                          <Badge
-                            variant={isRevoked ? "destructive" : "success"}
-                          >
-                            {client.status}
-                          </Badge>
-                          <Badge
-                            variant={
-                              client.secret_prefix ? "secondary" : "warning"
-                            }
-                          >
-                            {client.secret_prefix
-                              ? "secret generated"
-                              : "secret required"}
-                          </Badge>
-                        </div>
-                        <code className="mt-2 block overflow-x-auto break-all rounded-md bg-muted/60 px-2 py-1 text-xs text-foreground">
-                          {client.client_id}
-                        </code>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <SecretActionDialog client={client} compact />
-                        <RevokeDialog client={client} compact />
-                      </div>
+              {previousClients.map((client) => (
+                <article
+                  key={client.client_id}
+                  className="border-t py-4 first:border-t-0"
+                >
+                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                      <ClientReadOnlyField
+                        label="Client name"
+                        value={client.name}
+                      />
+                      <ClientStatusField
+                        status={client.status}
+                        hasClientSecret={client.has_client_secret}
+                      />
+                      <ClientIdField clientId={client.client_id} />
                     </div>
 
-                    <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <ClientReadOnlyField
-                        label="secret"
-                        value={
-                          client.secret_prefix
-                            ? `${client.secret_prefix}...`
-                            : "Not generated"
-                        }
-                        mono
-                      />
-                      <ClientReadOnlyField
-                        label="quota"
-                        value={`${client.quota.limit} / ${client.quota.window_seconds}s`}
-                      />
-                      <ClientReadOnlyField
-                        label="last token"
-                        value={formatDate(client.last_token_issued_at)}
-                      />
-                      <ClientReadOnlyField
-                        label="last request"
-                        value={formatDate(client.last_used_at)}
-                      />
-                    </dl>
-
-                    <div className="mt-3 grid gap-2 text-xs text-muted-foreground lg:grid-cols-3">
-                      <p>Created by {client.created_by.email}</p>
-                      <p>Created at {formatDate(client.created_at)}</p>
-                      {client.last_secret_rotated_at ? (
-                        <p>
-                          Secret event by{" "}
-                          {client.last_secret_rotated_by?.email} at{" "}
-                          {formatDate(client.last_secret_rotated_at)}
-                        </p>
-                      ) : null}
-                      {client.revoked_at ? (
-                        <p className="text-destructive">
-                          Revoked by {client.revoked_by?.email} at{" "}
-                          {formatDate(client.revoked_at)}
-                        </p>
-                      ) : null}
+                    <div className="flex flex-wrap gap-2 lg:justify-end">
+                      <SecretActionDialog client={client} compact />
+                      <RevokeDialog client={client} compact />
                     </div>
-                  </article>
-                );
-              })}
+                  </div>
+
+                  <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <ClientReadOnlyField
+                      label="quota"
+                      value={`${client.quota.limit} / ${client.quota.window_seconds}s`}
+                    />
+                    <ClientReadOnlyField
+                      label="last token"
+                      value={formatDate(client.last_token_issued_at)}
+                    />
+                    <ClientReadOnlyField
+                      label="last request"
+                      value={formatDate(client.last_used_at)}
+                    />
+                  </dl>
+
+                  <div className="mt-3 grid gap-2 text-xs text-muted-foreground lg:grid-cols-3">
+                    <p>Created by {client.created_by.email}</p>
+                    <p>Created at {formatDate(client.created_at)}</p>
+                    {client.last_secret_rotated_at ? (
+                      <p>
+                        Secret event by {client.last_secret_rotated_by?.email}{" "}
+                        at {formatDate(client.last_secret_rotated_at)}
+                      </p>
+                    ) : null}
+                    {client.revoked_at ? (
+                      <p className="text-destructive">
+                        Revoked by {client.revoked_by?.email} at{" "}
+                        {formatDate(client.revoked_at)}
+                      </p>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
             </div>
 
             {clientCursor ? (

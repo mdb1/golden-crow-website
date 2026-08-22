@@ -5,6 +5,7 @@ type MockDocumentRef = {
   id: string;
   collectionName: string;
   set: jest.Mock;
+  update: jest.Mock;
 };
 type MockQueryState = {
   collectionName: string;
@@ -29,6 +30,9 @@ let mockAutoId = 0;
 const mockFieldValueIncrement = jest.fn((value: number) => ({
   __op: "increment",
   value,
+}));
+const mockFieldValueDelete = jest.fn(() => ({
+  __op: "delete",
 }));
 
 function docKey(ref: MockDocumentRef) {
@@ -81,6 +85,8 @@ function applyUpdate(ref: MockDocumentRef, update: MockDocData) {
       typeof operation.value === "number"
     ) {
       next[field] = Number(next[field] ?? 0) + operation.value;
+    } else if (operation && operation.__op === "delete") {
+      delete next[field];
     } else {
       next[field] = value;
     }
@@ -91,13 +97,17 @@ function applyUpdate(ref: MockDocumentRef, update: MockDocData) {
 
 function makeDocRef(collectionName: string, id?: string): MockDocumentRef {
   const documentId = id ?? `auto-${++mockAutoId}`;
-  return {
+  const ref: MockDocumentRef = {
     id: documentId,
     collectionName,
     set: jest.fn(async (data: MockDocData) => {
       mockDocs.set(`${collectionName}/${documentId}`, { ...data });
     }),
+    update: jest.fn(async (update: MockDocData) => {
+      applyUpdate(ref, update);
+    }),
   };
+  return ref;
 }
 
 function queryDocs(state: MockQueryState) {
@@ -211,6 +221,7 @@ const mockRunTransaction = jest.fn(
 jest.mock("firebase-admin/firestore", () => ({
   FieldValue: {
     increment: mockFieldValueIncrement,
+    delete: mockFieldValueDelete,
   },
 }));
 
@@ -262,6 +273,7 @@ describe("reporting integration client repository", () => {
       ...originalEnv,
       GOLDENCROW_OPENAPI_REPORTING_QUOTA_PER_MINUTE: "1",
     };
+    mockFieldValueDelete.mockClear();
   });
 
   afterEach(() => {
@@ -286,6 +298,7 @@ describe("reporting integration client repository", () => {
         window_seconds: 60,
       },
       status: "active",
+      has_client_secret: false,
       created_by: {
         uid: "admin-1",
         email: "admin@example.com",
@@ -322,7 +335,8 @@ describe("reporting integration client repository", () => {
         name: "Second active partner",
       }),
     ).rejects.toMatchObject({
-      message: "Revoke the active integration client before creating a new one.",
+      message:
+        "Revoke the active integration client before creating a new one.",
       statusCode: 409,
     });
   });
@@ -401,9 +415,8 @@ describe("reporting integration client repository", () => {
   });
 
   it("masks legacy access event client ids when listing events", async () => {
-    const { listReportingIntegrationClientAccessEvents } = await import(
-      "../repositories/reporting-tokens.repository"
-    );
+    const { listReportingIntegrationClientAccessEvents } =
+      await import("../repositories/reporting-tokens.repository");
     const fullClientId = "gci_live_abcdefghijklmnopqrstuvwxyz123456";
     mockDocs.set(`${ACCESS_EVENTS_COLLECTION}/legacy-full-client-id`, {
       eventType: "integration_client.revoked",
@@ -413,6 +426,8 @@ describe("reporting integration client repository", () => {
       actorUid: "admin-1",
       actorEmail: "admin@example.com",
       status: "revoked",
+      previousSecretPrefix: "gcs_live_previous",
+      secretPrefix: "gcs_live_current",
     });
 
     const events =
@@ -424,7 +439,50 @@ describe("reporting integration client repository", () => {
       client_name: "Legacy partner",
       status: "revoked",
     });
+    expect(events.events[0]).not.toHaveProperty("previous_secret_prefix");
+    expect(events.events[0]).not.toHaveProperty("secret_prefix");
     expect(JSON.stringify(events.events)).not.toContain(fullClientId);
+    expect(JSON.stringify(events.events)).not.toContain("gcs_live_previous");
+    expect(JSON.stringify(events.events)).not.toContain("gcs_live_current");
+    expect(
+      mockDocs.get(`${ACCESS_EVENTS_COLLECTION}/legacy-full-client-id`),
+    ).not.toHaveProperty("previousSecretPrefix");
+    expect(
+      mockDocs.get(`${ACCESS_EVENTS_COLLECTION}/legacy-full-client-id`),
+    ).not.toHaveProperty("secretPrefix");
+  });
+
+  it("deletes legacy client secret prefix metadata when listing clients", async () => {
+    const { listReportingIntegrationClients } =
+      await import("../repositories/reporting-tokens.repository");
+    const clientId = "gci_live_abcdefghijklmnopqrstuvwxyz123456";
+    mockDocs.set(`${CLIENTS_COLLECTION}/${clientId}`, {
+      clientId,
+      name: "Legacy partner",
+      clientSecretHash: "a".repeat(64),
+      clientSecretPrefix: "gcs_live_current",
+      scopes: ["reporting:read", "reporting:write"],
+      quotaPerMinute: 60,
+      status: "active",
+      createdAt: "2026-08-22T12:00:00.000Z",
+      createdByUid: "admin-1",
+      createdByEmail: "admin@example.com",
+      usageCount: 0,
+      tokenIssueCount: 0,
+    });
+
+    const clients = await listReportingIntegrationClients(fullAdminContext);
+
+    expect(clients.clients).toEqual([
+      expect.objectContaining({
+        client_id: clientId,
+        has_client_secret: true,
+      }),
+    ]);
+    expect(JSON.stringify(clients.clients)).not.toContain("gcs_live_current");
+    expect(
+      mockDocs.get(`${CLIENTS_COLLECTION}/${clientId}`),
+    ).not.toHaveProperty("clientSecretPrefix");
   });
 
   it("generates the first client secret only through the explicit secret action", async () => {
@@ -457,14 +515,16 @@ describe("reporting integration client repository", () => {
     expect(generated.client).toMatchObject({
       client_id: created.client_id,
       status: "active",
-      secret_prefix: generated.client_secret.slice(0, 18),
+      has_client_secret: true,
     });
     expect(
       mockDocs.get(`${CLIENTS_COLLECTION}/${created.client_id}`),
     ).toMatchObject({
       clientSecretHash: expect.any(String),
-      clientSecretPrefix: generated.client_secret.slice(0, 18),
     });
+    expect(
+      mockDocs.get(`${CLIENTS_COLLECTION}/${created.client_id}`),
+    ).not.toHaveProperty("clientSecretPrefix");
     expect(JSON.stringify([...mockDocs.values()])).not.toContain(
       generated.client_secret,
     );
@@ -473,12 +533,17 @@ describe("reporting integration client repository", () => {
         expect.objectContaining({
           eventType: "integration_client.secret_created",
           clientId: eventLogClientId(created.client_id),
-          secretPrefix: generated.client_secret.slice(0, 18),
         }),
       ]),
     );
+    expect(docsIn(ACCESS_EVENTS_COLLECTION)[1]).not.toHaveProperty(
+      "secretPrefix",
+    );
     expect(JSON.stringify(docsIn(ACCESS_EVENTS_COLLECTION))).not.toContain(
       created.client_id,
+    );
+    expect(JSON.stringify(docsIn(ACCESS_EVENTS_COLLECTION))).not.toContain(
+      generated.client_secret.slice(0, 18),
     );
   });
 
@@ -636,7 +701,7 @@ describe("reporting integration client repository", () => {
     expect(rotated.client).toMatchObject({
       client_id: created.client_id,
       status: "active",
-      secret_prefix: rotated.client_secret.slice(0, 18),
+      has_client_secret: true,
       last_secret_rotated_by: {
         email: "admin@example.com",
       },
@@ -670,10 +735,14 @@ describe("reporting integration client repository", () => {
         expect.objectContaining({
           eventType: "integration_client.secret_rotated",
           clientId: eventLogClientId(created.client_id),
-          previousSecretPrefix: generated.client_secret.slice(0, 18),
-          secretPrefix: rotated.client_secret.slice(0, 18),
         }),
       ]),
+    );
+    expect(JSON.stringify(docsIn(ACCESS_EVENTS_COLLECTION))).not.toContain(
+      generated.client_secret.slice(0, 18),
+    );
+    expect(JSON.stringify(docsIn(ACCESS_EVENTS_COLLECTION))).not.toContain(
+      rotated.client_secret.slice(0, 18),
     );
     expect(JSON.stringify(docsIn(ACCESS_EVENTS_COLLECTION))).not.toContain(
       created.client_id,
