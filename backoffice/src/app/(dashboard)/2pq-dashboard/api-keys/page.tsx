@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { KeyRound, Repeat2, ShieldCheck } from "lucide-react";
+import { Repeat2, ShieldCheck } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
 import { ReportingIntegrationClientPanel } from "@/components/reporting-integration-client-panel";
-import { Badge } from "@/components/ui/badge";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 
 export default async function ReportingApiKeysPage() {
@@ -19,54 +18,6 @@ export default async function ReportingApiKeysPage() {
         title="API Keys"
         description="Full-admin integration-client creation for public reporting integrations."
       />
-
-      <section className="border-b pb-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-base font-semibold">
-                Reporting integration client
-              </h2>
-            </div>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              Full admins create an integration client for an external reporting
-              backend, then generate its one-time <code>client_secret</code> in
-              a separate action. The integration exchanges the{" "}
-              <code>client_id</code> and <code>client_secret</code> for 24-hour
-              access tokens.
-            </p>
-          </div>
-          <Badge variant="secondary">Standard mode</Badge>
-        </div>
-
-        <div className="mt-5 grid gap-5 md:grid-cols-3">
-          <div className="border-l pl-3">
-            <p className="text-xs font-medium uppercase text-muted-foreground">
-              Header
-            </p>
-            <code className="mt-2 block overflow-x-auto text-xs text-foreground">
-              Authorization: Bearer &lt;access_token&gt;
-            </code>
-          </div>
-          <div className="border-l pl-3">
-            <p className="text-xs font-medium uppercase text-muted-foreground">
-              Token endpoint
-            </p>
-            <p className="mt-2 text-sm text-foreground">
-              <code>POST /open-api/oauth/token</code>
-            </p>
-          </div>
-          <div className="border-l pl-3">
-            <p className="text-xs font-medium uppercase text-muted-foreground">
-              Quota
-            </p>
-            <p className="mt-2 text-sm text-foreground">
-              Default limit is 60 requests per minute per client.
-            </p>
-          </div>
-        </div>
-      </section>
 
       <ReportingIntegrationClientPanel />
 
