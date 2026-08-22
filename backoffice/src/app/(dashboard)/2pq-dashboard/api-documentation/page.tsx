@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { FileCode2, Server } from "lucide-react";
+import { ApiCodeDisplay } from "@/components/api-code-display";
 import { PageHero } from "@/components/page-hero";
 import { Badge } from "@/components/ui/badge";
 import { getAdminContextServer } from "@/lib/admin-context-server";
@@ -158,7 +159,7 @@ export default async function ReportingApiDocumentationPage() {
           return (
             <article
               key={`${method}-${path}`}
-              className="rounded-lg border bg-card p-5 shadow-sm"
+              className="min-w-0 rounded-lg border bg-card p-5 shadow-sm"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -187,8 +188,8 @@ export default async function ReportingApiDocumentationPage() {
                 </Badge>
               </div>
 
-              <div className="mt-5 grid gap-5 lg:grid-cols-2">
-                <div>
+              <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                <div className="min-w-0">
                   <h3 className="text-sm font-semibold">Request</h3>
                   <div className="mt-3 rounded-lg border bg-muted/35 p-3">
                     <p className="text-xs font-medium uppercase text-muted-foreground">
@@ -234,33 +235,23 @@ export default async function ReportingApiDocumentationPage() {
                   ) : null}
 
                   {requestExample !== undefined ? (
-                    <div className="mt-4">
-                      <h3 className="text-sm font-semibold">JSON body</h3>
-                      <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-slate-950 p-4 text-xs leading-5 text-slate-50">
-                        <code>{stringifyExample(requestExample)}</code>
-                      </pre>
-                    </div>
+                    <ApiCodeDisplay
+                      title="JSON body"
+                      code={stringifyExample(requestExample)}
+                      className="mt-4"
+                    />
                   ) : null}
                 </div>
 
-                <div className="grid gap-4">
+                <div className="grid min-w-0 gap-4">
                   {codeSample ? (
-                    <div>
-                      <h3 className="text-sm font-semibold">Example request</h3>
-                      <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-slate-950 p-4 text-xs leading-5 text-slate-50">
-                        <code>{codeSample}</code>
-                      </pre>
-                    </div>
+                    <ApiCodeDisplay title="Example request" code={codeSample} />
                   ) : null}
                   {responseExample !== undefined ? (
-                    <div>
-                      <h3 className="text-sm font-semibold">
-                        Example response
-                      </h3>
-                      <pre className="mt-3 max-h-80 overflow-auto rounded-lg bg-slate-950 p-4 text-xs leading-5 text-slate-50">
-                        <code>{stringifyExample(responseExample)}</code>
-                      </pre>
-                    </div>
+                    <ApiCodeDisplay
+                      title="Example response"
+                      code={stringifyExample(responseExample)}
+                    />
                   ) : null}
                 </div>
               </div>
