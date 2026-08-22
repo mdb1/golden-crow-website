@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { FileCode2, LockKeyhole, Server } from "lucide-react";
+import { FileCode2, Server } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
-import { ReportingApiTokenReveal } from "@/components/reporting-api-token-reveal";
 import { Badge } from "@/components/ui/badge";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import {
@@ -11,7 +10,6 @@ import type {
   OpenApiDocument,
   OpenApiOperation,
 } from "@/lib/reporting-openapi-contract";
-import { getReportingApiToken } from "@/lib/reporting-api-token";
 
 const DEFAULT_OPENAPI_URL = "https://golden-crow-backoffice.vercel.app";
 const METHOD_ORDER = ["get", "post", "put", "patch", "delete"] as const;
@@ -105,7 +103,6 @@ export default async function ReportingApiDocumentationPage() {
   const fetchedDocument = await fetchOpenApiDocument(baseUrl);
   const document = fetchedDocument ?? buildReportingOpenApiDocument(baseUrl);
   const operations = publicOperations(document);
-  const reportingApiToken = getReportingApiToken();
 
   return (
     <div className="flex flex-col gap-6">
@@ -115,52 +112,32 @@ export default async function ReportingApiDocumentationPage() {
         description="Swagger-style reference rendered from the GoldenCrow public OpenAPI contract."
       />
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
-        <div className="rounded-lg border bg-card p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Server className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-base font-semibold">Public API contract</h2>
-          </div>
-          <div className="mt-4 grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
-            <div>
-              <p className="font-medium text-foreground">Base URL</p>
-              <code className="mt-1 block overflow-x-auto rounded-md bg-muted px-2 py-1 text-xs text-foreground">
-                {document?.servers?.[0]?.url ?? baseUrl}
-              </code>
-            </div>
-            <div>
-              <p className="font-medium text-foreground">OpenAPI source</p>
-              <code className="mt-1 block overflow-x-auto rounded-md bg-muted px-2 py-1 text-xs text-foreground">
-                {fetchedDocument
-                  ? `${baseUrl}/open-api/openapi.json`
-                  : "Bundled contract"}
-              </code>
-            </div>
-            <div>
-              <p className="font-medium text-foreground">Response format</p>
-              <code className="mt-1 block overflow-x-auto rounded-md bg-muted px-2 py-1 text-xs text-foreground">
-                application/json
-              </code>
-            </div>
-          </div>
+      <section className="rounded-lg border bg-card p-5 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Server className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-base font-semibold">Public API contract</h2>
         </div>
-
-        <div className="rounded-lg border bg-card p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <LockKeyhole className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-base font-semibold">Authentication</h2>
+        <div className="mt-4 grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
+          <div>
+            <p className="font-medium text-foreground">Base URL</p>
+            <code className="mt-1 block overflow-x-auto rounded-md bg-muted px-2 py-1 text-xs text-foreground">
+              {document?.servers?.[0]?.url ?? baseUrl}
+            </code>
           </div>
-          <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-            <p>
-              Public reporting endpoints use{" "}
-              <code>Authorization: Bearer &lt;REPORTING_API_TOKEN&gt;</code>.
-            </p>
-            <p>
-              Internal SDK bridge tokens are not part of the public API
-              contract.
-            </p>
+          <div>
+            <p className="font-medium text-foreground">OpenAPI source</p>
+            <code className="mt-1 block overflow-x-auto rounded-md bg-muted px-2 py-1 text-xs text-foreground">
+              {fetchedDocument
+                ? `${baseUrl}/open-api/openapi.json`
+                : "Bundled contract"}
+            </code>
           </div>
-          <ReportingApiTokenReveal token={reportingApiToken} />
+          <div>
+            <p className="font-medium text-foreground">Response format</p>
+            <code className="mt-1 block overflow-x-auto rounded-md bg-muted px-2 py-1 text-xs text-foreground">
+              application/json
+            </code>
+          </div>
         </div>
       </section>
 
