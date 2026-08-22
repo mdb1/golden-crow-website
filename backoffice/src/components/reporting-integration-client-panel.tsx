@@ -126,7 +126,6 @@ type RevealedSecret = {
 };
 
 const PAGE_LIMIT = 20;
-const DEFAULT_CLIENT_NAME = "2PQ reporting integration";
 
 function formatDate(value: string | undefined) {
   if (!value) {
@@ -277,7 +276,7 @@ export function ReportingIntegrationClientPanel() {
     null,
   );
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [draftClientName, setDraftClientName] = useState(DEFAULT_CLIENT_NAME);
+  const [draftClientName, setDraftClientName] = useState("");
   const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -421,7 +420,7 @@ export function ReportingIntegrationClientPanel() {
       );
       setClients((current) => mergeClients(current, [client]));
       setCreateDialogOpen(false);
-      setDraftClientName(DEFAULT_CLIENT_NAME);
+      setDraftClientName("");
       toast.success(
         "Integration client created. Generate a secret to enable it.",
       );
