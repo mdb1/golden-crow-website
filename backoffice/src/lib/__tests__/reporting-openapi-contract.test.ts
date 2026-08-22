@@ -49,4 +49,21 @@ describe("reporting OpenAPI contract", () => {
     });
     expect(example).not.toHaveProperty("patient");
   });
+
+  it("documents report upload notifications with caseCode and download_url", () => {
+    const document = buildReportingOpenApiDocument(
+      "https://public.example.com",
+    );
+    const operation =
+      document.paths?.["/open-api/reporting/reports/upload"]?.post;
+    const requestExample =
+      operation?.requestBody?.content?.["application/json"]?.example;
+    const curlSample = operation?.["x-codeSamples"]?.[0]?.source;
+
+    expect(requestExample).toMatchObject({
+      caseCode: "ABC001",
+      download_url: "https://reports.example.com/ABC001.pdf",
+    });
+    expect(curlSample).toContain('"download_url"');
+  });
 });

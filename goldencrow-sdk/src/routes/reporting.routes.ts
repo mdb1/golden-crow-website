@@ -31,12 +31,15 @@ const CaseCodeSchema = z
 const CaseCodeUploadNotificationSchema = z
   .object({
     caseCode: CaseCodeSchema,
+    download_url: z.string().trim().url("download_url must be a valid URL."),
   })
   .strict();
 
 const UploadedReportNotificationSchema = CaseCodeUploadNotificationSchema;
 
-type UploadedReportNotificationBody = z.infer<typeof UploadedReportNotificationSchema>;
+type UploadedReportNotificationBody = z.infer<
+  typeof UploadedReportNotificationSchema
+>;
 
 const TwoPQCaseLookupParamsSchema = z.object({
   caseCode: CaseCodeSchema,
@@ -104,6 +107,7 @@ function reportKeyForCaseCode(caseCode: string) {
 function reportUploadPayloadForCaseCode(
   caseCode: string,
   patientId: string,
+  downloadUrl: string,
 ): ReportUploadNotificationInput {
   return {
     patientId,
@@ -118,6 +122,7 @@ function reportUploadPayloadForCaseCode(
     providerFormat: "pdf",
     reportType: "2pq",
     sampleId: caseCode,
+    downloadUrl,
   };
 }
 
@@ -135,7 +140,11 @@ async function normalizeUploadNotificationBody(
     throw new Error("2PQ case does not have a patient id.");
   }
 
-  return reportUploadPayloadForCaseCode(body.caseCode, patientId);
+  return reportUploadPayloadForCaseCode(
+    body.caseCode,
+    patientId,
+    body.download_url,
+  );
 }
 
 function adminErrorResponse(reply: FastifyReply, error: unknown) {

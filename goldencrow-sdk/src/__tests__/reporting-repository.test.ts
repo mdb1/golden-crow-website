@@ -90,11 +90,12 @@ class QueryStub {
   }
 }
 
-const mockRunTransaction = jest.fn(async (callback: (transaction: unknown) => unknown) =>
-  callback({
-    get: mockTransactionGet,
-    set: mockTransactionSet,
-  }),
+const mockRunTransaction = jest.fn(
+  async (callback: (transaction: unknown) => unknown) =>
+    callback({
+      get: mockTransactionGet,
+      set: mockTransactionSet,
+    }),
 );
 
 const mockCollection = jest.fn((name: string) => new QueryStub(name));
@@ -212,9 +213,8 @@ describe("reporting repository", () => {
   });
 
   it("finds a patient by normalized email and returns the reporting payload", async () => {
-    const { getReportingPatient } = await import(
-      "../repositories/reporting.repository"
-    );
+    const { getReportingPatient } =
+      await import("../repositories/reporting.repository");
 
     const patient = await getReportingPatient({
       email: " ADA@example.com ",
@@ -237,9 +237,8 @@ describe("reporting repository", () => {
   });
 
   it("records an S3 upload notification in uploaded_reports and report_codes", async () => {
-    const { recordUploadedReportNotification } = await import(
-      "../repositories/reporting.repository"
-    );
+    const { recordUploadedReportNotification } =
+      await import("../repositories/reporting.repository");
 
     const result = await recordUploadedReportNotification({
       patientId: "PAT-00001",
@@ -254,6 +253,7 @@ describe("reporting repository", () => {
       providerName: "external-lab",
       reportType: "genetic",
       sampleId: "sample-1",
+      downloadUrl: "https://reports.example.com/aws-report-1.pdf",
     });
 
     expect(result).toEqual({
@@ -273,6 +273,7 @@ describe("reporting repository", () => {
       }),
       expect.objectContaining({
         file_name: "ada-report.pdf",
+        download_url: "https://reports.example.com/aws-report-1.pdf",
         provider_name: "external-lab",
         tracking_progress_status: "document_ready",
         report_code: "REP-0001",
@@ -310,9 +311,8 @@ describe("reporting repository", () => {
   });
 
   it("returns a current-case 2PQ snapshot by six-character sampling code", async () => {
-    const { getReportingTwoPQCaseByCode } = await import(
-      "../repositories/reporting.repository"
-    );
+    const { getReportingTwoPQCaseByCode } =
+      await import("../repositories/reporting.repository");
 
     const snapshot = await getReportingTwoPQCaseByCode("abc001");
 

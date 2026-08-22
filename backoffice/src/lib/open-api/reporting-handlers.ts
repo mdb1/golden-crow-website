@@ -24,6 +24,7 @@ const CaseCodeSchema = z
 const UploadReportNotificationSchema = z
   .object({
     caseCode: CaseCodeSchema,
+    download_url: z.string().trim().url("download_url must be a valid URL."),
   })
   .strict();
 
@@ -249,13 +250,13 @@ export async function handleReportUploadNotification(request: Request) {
   }
 
   try {
-    const { caseCode } = parsedBody.data;
+    const { caseCode, download_url } = parsedBody.data;
     const sdkResponse = await sdkBridgeFetch(
       request,
       "/internal/openapi/reporting/reports/upload",
       {
         method: "POST",
-        body: { caseCode },
+        body: { caseCode, download_url },
         bearerToken: accessToken,
       },
     );

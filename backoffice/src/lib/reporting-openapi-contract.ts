@@ -262,6 +262,7 @@ export function buildReportingOpenApiDocument(
               "application/json": {
                 example: {
                   caseCode: "ABC001",
+                  download_url: "https://reports.example.com/ABC001.pdf",
                 },
               },
             },
@@ -290,7 +291,8 @@ export function buildReportingOpenApiDocument(
   -H "Authorization: Bearer <access_token>" \\
   -H "Content-Type: application/json" \\
   --data '{
-    "caseCode": "ABC001"
+    "caseCode": "ABC001",
+    "download_url": "https://reports.example.com/ABC001.pdf"
   }'`,
             },
           ],

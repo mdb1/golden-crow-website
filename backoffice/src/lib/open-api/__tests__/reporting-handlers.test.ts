@@ -5,7 +5,8 @@ import {
   handleTwoPQCaseLookup,
 } from "@/lib/open-api/reporting-handlers";
 
-const REPORTING_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3ODc1MTUyMDB9.signature";
+const REPORTING_TOKEN =
+  "eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3ODc1MTUyMDB9.signature";
 
 function authorizedRequest(url: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
@@ -178,7 +179,7 @@ describe("public reporting OpenAPI handlers", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it("accepts only caseCode for upload notifications and lets the SDK derive the report payload", async () => {
+  it("accepts caseCode and download_url for upload notifications and lets the SDK derive the report payload", async () => {
     mockSdkResponse(
       {
         ok: true,
@@ -200,6 +201,7 @@ describe("public reporting OpenAPI handlers", () => {
           },
           body: JSON.stringify({
             caseCode: "abc001",
+            download_url: "https://reports.example.com/ABC001.pdf",
           }),
         },
       ),
@@ -216,10 +218,13 @@ describe("public reporting OpenAPI handlers", () => {
       0,
       "https://sdk.example.com/internal/openapi/reporting/reports/upload",
     );
-    expect(internalUploadBody).toEqual({ caseCode: "ABC001" });
+    expect(internalUploadBody).toEqual({
+      caseCode: "ABC001",
+      download_url: "https://reports.example.com/ABC001.pdf",
+    });
   });
 
-  it("rejects upload notification bodies with fields other than caseCode", async () => {
+  it("rejects upload notification bodies with fields other than caseCode and download_url", async () => {
     const response = await handleReportUploadNotification(
       authorizedRequest(
         "https://public.example.com/open-api/reporting/reports/upload",
@@ -230,6 +235,7 @@ describe("public reporting OpenAPI handlers", () => {
           },
           body: JSON.stringify({
             caseCode: "ABC001",
+            download_url: "https://reports.example.com/ABC001.pdf",
             bucket: "reports-bucket",
           }),
         },
