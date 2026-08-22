@@ -102,6 +102,8 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       </AppLanguageProvider>,
     );
 
+    expect(screen.getByRole("heading", { name: "Preview" })).toBeTruthy();
+
     fireEvent.change(screen.getByLabelText("Publisher"), {
       target: { value: "organization:org-1" },
     });

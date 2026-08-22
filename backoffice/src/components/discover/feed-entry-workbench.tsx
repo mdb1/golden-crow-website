@@ -1703,6 +1703,11 @@ export function DiscoverFeedEntryWorkbench({
           <aside className="border-t border-border/75 bg-muted/22 px-5 py-5 xl:border-l xl:border-t-0">
             <div className="sticky top-[calc(var(--app-header-height)+1rem)] flex flex-col gap-4">
               <div className="rounded-md border border-border bg-background/86 p-4 shadow-sm">
+                <div className="mb-4 border-b border-border/70 pb-3">
+                  <h3 className="font-heading text-base font-semibold text-foreground">
+                    {t("Preview")}
+                  </h3>
+                </div>
                 <div className="flex items-center gap-3">
                   {selectedPublisher?.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
