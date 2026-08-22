@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { toast } from "sonner";
 import {
   Ban,
@@ -261,60 +262,78 @@ function ClientReadOnlyField({
   );
 }
 
-function ClientStatusField({
-  status,
-  hasClientSecret,
+function ClientStatusPills({
+  client,
 }: {
-  status: ReportingIntegrationClientSummary["status"];
-  hasClientSecret: boolean;
+  client: ReportingIntegrationClientSummary;
 }) {
+  const { status, has_client_secret: hasClientSecret } = client;
   const isRevoked = status === "revoked";
 
   return (
-    <div className="min-w-0">
-      <p className="text-xs font-medium uppercase text-muted-foreground">
-        Client status
-      </p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        <Badge variant={isRevoked ? "destructive" : "success"}>{status}</Badge>
-        <Badge variant={hasClientSecret ? "secondary" : "warning"}>
-          {hasClientSecret ? "secret generated" : "secret required"}
-        </Badge>
-      </div>
+    <div className="flex flex-wrap gap-2">
+      <Badge variant={isRevoked ? "destructive" : "success"}>{status}</Badge>
+      <Badge variant={hasClientSecret ? "secondary" : "warning"}>
+        {hasClientSecret ? "secret generated" : "secret required"}
+      </Badge>
     </div>
   );
 }
 
-function ClientIdField({
-  clientId,
+function ClientSummaryRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 flex-wrap items-start gap-x-4 gap-y-1">
+      <p className="w-28 shrink-0 pt-1 text-xs font-medium uppercase text-muted-foreground">
+        {label}
+      </p>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+function ClientSummaryBlock({
+  client,
   isCopied = false,
   onCopy,
 }: {
-  clientId: string;
+  client: ReportingIntegrationClientSummary;
   isCopied?: boolean;
   onCopy?: () => void;
 }) {
   return (
-    <div className="min-w-0">
-      <p className="text-xs font-medium uppercase text-muted-foreground">
-        Client ID
-      </p>
-      <div className="mt-2 flex min-w-0 items-center gap-2">
-        <code className="block min-w-0 overflow-x-auto break-all rounded-md bg-muted/60 px-2 py-1 text-xs text-foreground">
-          {clientId}
-        </code>
-        {onCopy ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={onCopy}
-            aria-label="Copy client ID"
-          >
-            {isCopied ? <Check /> : <Copy />}
-          </Button>
-        ) : null}
-      </div>
+    <div className="min-w-0 space-y-3">
+      <ClientSummaryRow label="Client name">
+        <p className="break-words text-lg font-semibold leading-tight text-foreground">
+          {client.name}
+        </p>
+      </ClientSummaryRow>
+      <ClientSummaryRow label="Client status">
+        <ClientStatusPills client={client} />
+      </ClientSummaryRow>
+      <ClientSummaryRow label="Client ID">
+        <div className="flex min-w-0 items-center gap-2">
+          <code className="block min-w-0 overflow-x-auto break-all rounded-md bg-muted/60 px-2 py-1 text-xs text-foreground">
+            {client.client_id}
+          </code>
+          {onCopy ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={onCopy}
+              aria-label="Copy client ID"
+            >
+              {isCopied ? <Check /> : <Copy />}
+            </Button>
+          ) : null}
+        </div>
+      </ClientSummaryRow>
     </div>
   );
 }
@@ -809,21 +828,11 @@ export function ReportingIntegrationClientPanel() {
           ) : currentClient ? (
             <div>
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                  <ClientReadOnlyField
-                    label="Client name"
-                    value={currentClient.name}
-                  />
-                  <ClientStatusField
-                    status={currentClient.status}
-                    hasClientSecret={currentClient.has_client_secret}
-                  />
-                  <ClientIdField
-                    clientId={currentClient.client_id}
-                    isCopied={copiedField === "id"}
-                    onCopy={() => copyValue("id", currentClient.client_id)}
-                  />
-                </div>
+                <ClientSummaryBlock
+                  client={currentClient}
+                  isCopied={copiedField === "id"}
+                  onCopy={() => copyValue("id", currentClient.client_id)}
+                />
 
                 <div className="flex flex-wrap gap-2 lg:justify-end">
                   <SecretActionDialog client={currentClient} />
@@ -1025,17 +1034,7 @@ export function ReportingIntegrationClientPanel() {
                   className="border-t py-4 first:border-t-0"
                 >
                   <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-                    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                      <ClientReadOnlyField
-                        label="Client name"
-                        value={client.name}
-                      />
-                      <ClientStatusField
-                        status={client.status}
-                        hasClientSecret={client.has_client_secret}
-                      />
-                      <ClientIdField clientId={client.client_id} />
-                    </div>
+                    <ClientSummaryBlock client={client} />
 
                     <div className="flex flex-wrap gap-2 lg:justify-end">
                       <SecretActionDialog client={client} compact />

@@ -208,10 +208,14 @@ export default async function ReportingApiDocumentationPage() {
 
                 <div className="min-w-0">
                   {responseExample !== undefined ? (
-                    <ApiCodeDisplay
-                      title="Example response"
-                      code={stringifyExample(responseExample)}
-                    />
+                    <>
+                      <h3 className="text-sm font-semibold">Response</h3>
+                      <ApiCodeDisplay
+                        title="Example response"
+                        code={stringifyExample(responseExample)}
+                        className="mt-3"
+                      />
+                    </>
                   ) : null}
                 </div>
               </div>
