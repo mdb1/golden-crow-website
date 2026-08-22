@@ -11,7 +11,6 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  ShieldAlert,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -248,7 +247,7 @@ function ClientReadOnlyField({
   mono?: boolean;
 }) {
   return (
-    <div className="min-w-0 rounded-md border bg-muted/25 p-3">
+    <div className="min-w-0">
       <p className="text-xs font-medium uppercase text-muted-foreground">
         {label}
       </p>
@@ -256,7 +255,7 @@ function ClientReadOnlyField({
         className={
           mono
             ? "mt-1 break-all font-mono text-xs text-foreground"
-            : "mt-1 break-words text-sm text-foreground"
+            : "mt-1 break-words text-sm font-medium text-foreground"
         }
       >
         {value}
@@ -618,13 +617,17 @@ export function ReportingIntegrationClientPanel() {
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke {client.name}?</AlertDialogTitle>
+            <AlertDialogTitle>Revoke this client?</AlertDialogTitle>
             <AlertDialogDescription>
-              This immediately blocks new token exchanges and all business API
-              requests made with existing access tokens for this client. This
-              action cannot be undone.
+              Continue only if this integration should permanently lose API
+              access, for example because its secret may have been exposed.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="rounded-md border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
+            Revoking <span className="font-medium">{client.name}</span> blocks
+            new token exchanges and makes existing access tokens for this client
+            fail immediately. This action cannot be undone.
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -641,8 +644,8 @@ export function ReportingIntegrationClientPanel() {
   }
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
+    <div className="space-y-8">
+      <section className="border-b pb-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -711,15 +714,18 @@ export function ReportingIntegrationClientPanel() {
 
         <div className="mt-4">
           {isLoadingClients && !clients.length ? (
-            <p className="rounded-lg border bg-muted/25 p-4 text-sm text-muted-foreground">
+            <p className="border-l pl-3 text-sm text-muted-foreground">
               Loading integration clients.
             </p>
           ) : currentClient ? (
-            <div className="rounded-lg border bg-background p-4">
+            <div>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">
+                    Client name
+                  </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-semibold">
+                    <h3 className="mt-1 text-sm font-semibold">
                       {currentClient.name}
                     </h3>
                     <Badge variant="success">active</Badge>
@@ -755,7 +761,7 @@ export function ReportingIntegrationClientPanel() {
                 </div>
               </div>
 
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <ClientReadOnlyField
                   label="client_id"
                   value={currentClient.client_id}
@@ -780,7 +786,7 @@ export function ReportingIntegrationClientPanel() {
                 />
               </dl>
 
-              <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <ClientReadOnlyField
                   label="created"
                   value={formatDate(currentClient.created_at)}
@@ -808,7 +814,7 @@ export function ReportingIntegrationClientPanel() {
               </div>
             </div>
           ) : (
-            <div className="rounded-lg border bg-muted/25 p-4">
+            <div className="border-l pl-3">
               <p className="text-sm font-medium">No active client</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Create an integration client first, then generate its secret in
@@ -877,40 +883,18 @@ export function ReportingIntegrationClientPanel() {
         </section>
       ) : null}
 
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-base font-semibold">
-            Reset or revoke credentials
-          </h2>
-        </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-lg border bg-muted/25 p-4">
-            <h3 className="text-sm font-semibold">Lost secret</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Use <code>Renew secret</code> on the active client. The{" "}
-              <code>client_id</code>, scopes, quota, and event history stay the
-              same. The previous <code>client_secret</code> stops minting new
-              access tokens. Already issued access tokens can keep working until
-              their 24-hour expiration.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-destructive/25 bg-destructive/10 p-4">
-            <h3 className="text-sm font-semibold text-destructive">
-              Suspected compromise
-            </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Use <code>Revoke</code>. The client cannot mint new access tokens,
-              and business API requests made with existing tokens for that
-              client fail immediately. This cannot be undone; create a new
-              client for the replacement integration.
-            </p>
-          </div>
-        </div>
+      <section className="border-b pb-6">
+        <h2 className="text-base font-semibold">Secret recovery</h2>
+        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+          If a partner loses the secret, use <code>Renew secret</code> on the
+          active client. The <code>client_id</code>, scopes, quota, and event
+          history stay the same. The previous <code>client_secret</code> stops
+          minting new access tokens; already issued access tokens can keep
+          working until their 24-hour expiration.
+        </p>
       </section>
 
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <section className="border-b pb-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -935,7 +919,7 @@ export function ReportingIntegrationClientPanel() {
 
         <div className="mt-4 space-y-3">
           {!isLoadingClients && !clients.length ? (
-            <p className="rounded-lg border bg-muted/25 p-4 text-sm text-muted-foreground">
+            <p className="border-l pl-3 text-sm text-muted-foreground">
               No integration clients have been created yet.
             </p>
           ) : null}
@@ -946,12 +930,17 @@ export function ReportingIntegrationClientPanel() {
             return (
               <article
                 key={client.client_id}
-                className="rounded-lg border bg-background p-4"
+                className="border-t py-4 first:border-t-0"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
+                    <p className="text-xs font-medium uppercase text-muted-foreground">
+                      Client name
+                    </p>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-semibold">{client.name}</h3>
+                      <h3 className="mt-1 text-sm font-semibold">
+                        {client.name}
+                      </h3>
                       <Badge variant={isRevoked ? "destructive" : "success"}>
                         {client.status}
                       </Badge>
@@ -974,7 +963,7 @@ export function ReportingIntegrationClientPanel() {
                   </div>
                 </div>
 
-                <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <ClientReadOnlyField
                     label="secret"
                     value={
@@ -1034,7 +1023,7 @@ export function ReportingIntegrationClientPanel() {
         ) : null}
       </section>
 
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <section>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -1051,13 +1040,13 @@ export function ReportingIntegrationClientPanel() {
 
         <div className="mt-4 space-y-3">
           {isLoadingEvents && !events.length ? (
-            <p className="rounded-lg border bg-muted/25 p-4 text-sm text-muted-foreground">
+            <p className="border-l pl-3 text-sm text-muted-foreground">
               Loading API access events.
             </p>
           ) : null}
 
           {!isLoadingEvents && !events.length ? (
-            <p className="rounded-lg border bg-muted/25 p-4 text-sm text-muted-foreground">
+            <p className="border-l pl-3 text-sm text-muted-foreground">
               No API access events have been recorded yet.
             </p>
           ) : null}
@@ -1065,7 +1054,7 @@ export function ReportingIntegrationClientPanel() {
           {events.map((event) => (
             <article
               key={event.id}
-              className="grid gap-3 rounded-lg border bg-background p-4 lg:grid-cols-[10rem_minmax(0,1fr)]"
+              className="grid gap-3 border-t py-4 first:border-t-0 lg:grid-cols-[10rem_minmax(0,1fr)]"
             >
               <time className="text-xs text-muted-foreground">
                 {formatDate(event.occurred_at)}

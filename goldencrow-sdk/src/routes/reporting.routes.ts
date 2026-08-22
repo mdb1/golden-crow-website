@@ -1,12 +1,12 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
-import { ENV } from "../config/env.js";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   getReportingPatient,
   getReportingTwoPQCaseByCode,
   recordUploadedReportNotification,
+  type ReportUploadNotificationInput,
 } from "../repositories/reporting.repository.js";
 import {
   exchangeReportingClientCredentials,
@@ -15,49 +15,32 @@ import {
 
 const PatientLookupQuerySchema = z
   .object({
-    patientId: z.string().trim().min(1).optional(),
-    email: z.string().trim().toLowerCase().email().optional(),
-    medicalRecordNumber: z.string().trim().min(1).optional(),
-  })
-  .refine(
-    (value) =>
-      Boolean(value.patientId || value.email || value.medicalRecordNumber),
-    "Provide patientId, email, or medicalRecordNumber",
-  );
-
-const UploadedReportNotificationSchema = z.object({
-  patientId: z.string().trim().min(1),
-  reportId: z.string().trim().min(1).optional(),
-  reportCode: z.string().trim().min(1).optional(),
-  bucket: z.string().trim().min(1),
-  key: z.string().trim().min(1),
-  fileName: z.string().trim().min(1).optional(),
-  contentType: z.string().trim().min(1).optional(),
-  size: z.number().finite().nonnegative().optional(),
-  uploadedAt: z.string().trim().datetime().optional(),
-  providerName: z.string().trim().min(1).optional(),
-  providerFormat: z.string().trim().min(1).optional(),
-  reportType: z.string().trim().min(1).optional(),
-  sampleId: z.string().trim().min(1).optional(),
-  downloadUrl: z.string().trim().url().optional(),
-});
-
-const TwoPQCaseLookupParamsSchema = z.object({
-  caseCode: z
-    .string()
-    .trim()
-    .regex(
-      /^[A-Za-z0-9]{6}$/,
-      "caseCode must contain exactly 6 letters or numbers",
-    ),
-});
-
-const ReportingAccessTokenVerificationSchema = z
-  .object({
-    token: z.string().trim().min(1),
-    endpoint: z.string().trim().min(1).optional(),
+    patientId: z.string().trim().min(1),
   })
   .strict();
+
+const CaseCodeSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^[A-Za-z0-9]{6}$/,
+    "caseCode must contain exactly 6 letters or numbers",
+  )
+  .transform((value) => value.toUpperCase());
+
+const CaseCodeUploadNotificationSchema = z
+  .object({
+    caseCode: CaseCodeSchema,
+  })
+  .strict();
+
+const UploadedReportNotificationSchema = CaseCodeUploadNotificationSchema;
+
+type UploadedReportNotificationBody = z.infer<typeof UploadedReportNotificationSchema>;
+
+const TwoPQCaseLookupParamsSchema = z.object({
+  caseCode: CaseCodeSchema,
+});
 
 const OAuthTokenRequestSchema = z
   .object({
@@ -67,65 +50,111 @@ const OAuthTokenRequestSchema = z
   })
   .strict();
 
-function getInternalOpenApiToken(request: FastifyRequest) {
-  const headerValue = request.headers["x-goldencrow-internal-token"];
+function getBearerToken(request: FastifyRequest) {
+  const headerValue = request.headers.authorization;
   const value = Array.isArray(headerValue) ? headerValue[0] : headerValue;
-  return value?.trim();
+  const match = value?.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim();
 }
 
-function requireInternalOpenApiToken(
+async function requireReportingAccessToken(
   request: FastifyRequest,
   reply: FastifyReply,
+  endpoint: string,
 ) {
-  if (!ENV.GOLDENCROW_OPENAPI_INTERNAL_TOKEN) {
-    reply
-      .status(503)
-      .send({ error: "Internal OpenAPI token is not configured" });
+  const token = getBearerToken(request);
+  if (!token) {
+    reply.status(401).send({ error: "Missing reporting access token." });
     return false;
   }
 
-  if (
-    getInternalOpenApiToken(request) !== ENV.GOLDENCROW_OPENAPI_INTERNAL_TOKEN
-  ) {
-    reply.status(401).send({ error: "Invalid internal OpenAPI token" });
-    return false;
+  try {
+    await verifyReportingAccessToken(token, endpoint);
+  } catch (error) {
+    if (isAdminRepositoryError(error)) {
+      reply.status(error.statusCode).send({ error: error.message });
+      return false;
+    }
+
+    throw error;
   }
 
   return true;
 }
 
+function reportsBucketName() {
+  return (
+    process.env.GOLDENCROW_REPORTING_REPORTS_BUCKET?.trim() ||
+    process.env.REPORTING_REPORTS_BUCKET?.trim() ||
+    "goldencrow-reporting-reports"
+  );
+}
+
+function reportsKeyPrefix() {
+  return (
+    process.env.GOLDENCROW_REPORTING_REPORTS_PREFIX?.trim() || "reports/2pq"
+  ).replace(/^\/+|\/+$/g, "");
+}
+
+function reportKeyForCaseCode(caseCode: string) {
+  const prefix = reportsKeyPrefix();
+  return prefix ? `${prefix}/${caseCode}.pdf` : `${caseCode}.pdf`;
+}
+
+function reportUploadPayloadForCaseCode(
+  caseCode: string,
+  patientId: string,
+): ReportUploadNotificationInput {
+  return {
+    patientId,
+    reportId: `2pq-${caseCode.toLowerCase()}`,
+    reportCode: caseCode,
+    bucket: reportsBucketName(),
+    key: reportKeyForCaseCode(caseCode),
+    fileName: `${caseCode}.pdf`,
+    contentType: "application/pdf",
+    uploadedAt: new Date().toISOString(),
+    providerName: "aws-s3",
+    providerFormat: "pdf",
+    reportType: "2pq",
+    sampleId: caseCode,
+  };
+}
+
+async function normalizeUploadNotificationBody(
+  body: UploadedReportNotificationBody,
+): Promise<ReportUploadNotificationInput> {
+  const caseSnapshot = await getReportingTwoPQCaseByCode(body.caseCode);
+  const patientId =
+    caseSnapshot.patient?.id ?? caseSnapshot.main_case.patient_id;
+  if (!patientId) {
+    throw new Error("2PQ case does not have a patient id.");
+  }
+
+  if (typeof patientId !== "string") {
+    throw new Error("2PQ case does not have a patient id.");
+  }
+
+  return reportUploadPayloadForCaseCode(body.caseCode, patientId);
+}
+
+function adminErrorResponse(reply: FastifyReply, error: unknown) {
+  if (isAdminRepositoryError(error)) {
+    return reply.status(error.statusCode).send({ error: error.message });
+  }
+
+  if (
+    error instanceof Error &&
+    error.message === "2PQ case does not have a patient id."
+  ) {
+    return reply.status(422).send({ error: error.message });
+  }
+
+  throw error;
+}
+
 export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
-
-  f.addHook("onRequest", async (request, reply) => {
-    if (!requireInternalOpenApiToken(request, reply)) {
-      return reply;
-    }
-  });
-
-  f.post(
-    "/internal/openapi/reporting/tokens/verify",
-    {
-      schema: {
-        body: ReportingAccessTokenVerificationSchema,
-      },
-    },
-    async (request, reply) => {
-      try {
-        const result = await verifyReportingAccessToken(
-          request.body.token,
-          request.body.endpoint,
-        );
-        return reply.send(result);
-      } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
-      }
-    },
-  );
 
   f.post(
     "/internal/openapi/oauth/token",
@@ -139,11 +168,7 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
         const result = await exchangeReportingClientCredentials(request.body);
         return reply.send(result);
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return adminErrorResponse(reply, error);
       }
     },
   );
@@ -156,15 +181,21 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
+      if (
+        !(await requireReportingAccessToken(
+          request,
+          reply,
+          "/open-api/reporting/patients",
+        ))
+      ) {
+        return reply;
+      }
+
       try {
         const patient = await getReportingPatient(request.query);
         return reply.send({ patient });
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return adminErrorResponse(reply, error);
       }
     },
   );
@@ -179,17 +210,23 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
+      if (
+        !(await requireReportingAccessToken(
+          request,
+          reply,
+          "/open-api/reporting/patients",
+        ))
+      ) {
+        return reply;
+      }
+
       try {
         const patient = await getReportingPatient({
           patientId: request.params.patientId,
         });
         return reply.send({ patient });
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return adminErrorResponse(reply, error);
       }
     },
   );
@@ -202,15 +239,23 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
+      if (
+        !(await requireReportingAccessToken(
+          request,
+          reply,
+          "/open-api/reporting/reports/upload",
+        ))
+      ) {
+        return reply;
+      }
+
       try {
-        const result = await recordUploadedReportNotification(request.body);
+        const result = await recordUploadedReportNotification(
+          await normalizeUploadNotificationBody(request.body),
+        );
         return reply.status(201).send(result);
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return adminErrorResponse(reply, error);
       }
     },
   );
@@ -223,17 +268,23 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
+      if (
+        !(await requireReportingAccessToken(
+          request,
+          reply,
+          "/open-api/reporting/2pq/cases/{caseCode}",
+        ))
+      ) {
+        return reply;
+      }
+
       try {
         const caseSnapshot = await getReportingTwoPQCaseByCode(
           request.params.caseCode,
         );
         return reply.send({ caseSnapshot });
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return adminErrorResponse(reply, error);
       }
     },
   );

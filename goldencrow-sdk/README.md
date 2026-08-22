@@ -21,7 +21,6 @@ Create `goldencrow-sdk/.env` with the following variables:
 | `PORT` | Port to listen on (default: `3000`) |
 | `NODE_ENV` | `development` or `production` |
 | `BACKOFFICE_ORIGIN` | CORS allowed origin for the backoffice (e.g. `http://localhost:3001`) |
-| `GOLDENCROW_OPENAPI_INTERNAL_TOKEN` | Shared service token accepted by internal OpenAPI bridge routes |
 | `GOLDENCROW_OPENAPI_REPORTING_QUOTA_PER_MINUTE` | Optional per-client public reporting quota override (default: `60`) |
 
 ### Getting Firebase Credentials
@@ -44,7 +43,7 @@ npm run dev
 
 ## Available Endpoints
 
-All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings`, and `/internal/openapi/*` require a valid Firebase session cookie. The `/internal/openapi/*` bridge routes are not public API routes; they require `X-Goldencrow-Internal-Token: <GOLDENCROW_OPENAPI_INTERNAL_TOKEN>` and are intended only for the backoffice `/open-api` route layer.
+All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings`, and `/internal/openapi/*` require a valid Firebase session cookie. The `/internal/openapi/*` bridge routes are intended for the backoffice `/open-api` route layer; reporting data and write routes require `Authorization: Bearer <access_token>`.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -63,7 +62,6 @@ All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings
 | GET | /reporting/integration-clients/events | List key-management events from `openapi_reporting_access_events` |
 | POST | /reporting/integration-clients/:clientId/secret/rotate | Create or renew a client secret and reveal it once |
 | POST | /reporting/integration-clients/:clientId/revoke | Revoke a client so token exchange and business API requests fail |
-| POST | /internal/openapi/reporting/tokens/verify | Internal bridge for public reporting access-token verification and quota checks |
 | POST | /internal/openapi/oauth/token | Internal bridge for client-credentials access-token exchange |
 | GET | /internal/openapi/reporting/patients?patientId=:id | Internal bridge for public reporting patient lookup |
 | GET | /internal/openapi/reporting/patients/:id | Internal bridge for public reporting patient lookup by patient ID |

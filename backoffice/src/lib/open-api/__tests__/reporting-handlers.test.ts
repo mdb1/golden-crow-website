@@ -23,30 +23,13 @@ function mockSdkResponse(payload: unknown, status = 200) {
   );
 }
 
-function mockTokenVerification() {
-  mockSdkResponse({
-    ok: true,
-    tokenType: "Bearer",
-    expiresAt: "2026-08-22T12:00:00.000Z",
-    quota: {
-      limit: 60,
-      remaining: 59,
-      resetAt: "2026-08-21T12:01:00.000Z",
-      windowSeconds: 60,
-    },
-  });
-}
-
-function expectTokenVerificationCall(index: number, endpoint: string) {
+function expectSdkCall(index: number, expectedUrl: string) {
   const [url, init] = (global.fetch as jest.Mock).mock.calls[index];
 
-  expect(url.toString()).toBe(
-    "https://sdk.example.com/internal/openapi/reporting/tokens/verify",
+  expect(url.toString()).toBe(expectedUrl);
+  expect((init.headers as Headers).get("authorization")).toBe(
+    `Bearer ${REPORTING_TOKEN}`,
   );
-  expect(JSON.parse(init.body)).toMatchObject({
-    token: REPORTING_TOKEN,
-    endpoint,
-  });
 }
 
 describe("public reporting OpenAPI handlers", () => {
@@ -56,7 +39,6 @@ describe("public reporting OpenAPI handlers", () => {
   beforeEach(() => {
     process.env = {
       ...originalEnv,
-      GOLDENCROW_OPENAPI_INTERNAL_TOKEN: "internal-openapi-secret",
       GOLDENCROW_SDK_URL: "https://sdk.example.com",
     };
     global.fetch = jest.fn() as unknown as typeof fetch;
@@ -83,7 +65,6 @@ describe("public reporting OpenAPI handlers", () => {
   });
 
   it("unwraps 2PQ case snapshots and preserves patient ids", async () => {
-    mockTokenVerification();
     mockSdkResponse({
       caseSnapshot: {
         code: "ABC001",
@@ -140,14 +121,13 @@ describe("public reporting OpenAPI handlers", () => {
     expect(body.main_case.patient_id).toBe("PAT-00016");
     expect(body.patient.id).toBe("PAT-00016");
     expect(body.entities.cases[0].scope.patientId).toBe("PAT-00016");
-    expectTokenVerificationCall(0, "/open-api/reporting/2pq/cases/{caseCode}");
-    expect((global.fetch as jest.Mock).mock.calls[1][0].toString()).toBe(
+    expectSdkCall(
+      0,
       "https://sdk.example.com/internal/openapi/reporting/2pq/cases/ABC001",
     );
   });
 
   it("looks up patients by patientId and returns the patient fields directly", async () => {
-    mockTokenVerification();
     mockSdkResponse({
       patient: {
         id: "PAT-00016",
@@ -169,16 +149,13 @@ describe("public reporting OpenAPI handlers", () => {
     expect(lookupBody.patient).toBeUndefined();
     expect(lookupBody.id).toBe("PAT-00016");
     expect(lookupBody.fullName).toBe("Ada Lovelace");
-    expectTokenVerificationCall(0, "/open-api/reporting/patients");
-    expect((global.fetch as jest.Mock).mock.calls[1][0].toString()).toBe(
+    expectSdkCall(
+      0,
       "https://sdk.example.com/internal/openapi/reporting/patients?patientId=PAT-00016",
     );
   });
 
   it("rejects patient lookups by email or medical record number", async () => {
-    mockTokenVerification();
-    mockTokenVerification();
-
     const emailResponse = await handlePatientLookup(
       authorizedRequest(
         "https://public.example.com/open-api/reporting/patients?email=ada%40example.com",
@@ -198,27 +175,10 @@ describe("public reporting OpenAPI handlers", () => {
 
     expect(medicalRecordResponse.status).toBe(400);
     expect(medicalRecordBody.error).toBe("Only patientId lookup is supported.");
-    expectTokenVerificationCall(0, "/open-api/reporting/patients");
-    expectTokenVerificationCall(1, "/open-api/reporting/patients");
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it("accepts only caseCode for upload notifications and derives the internal SDK payload", async () => {
-    mockTokenVerification();
-    mockSdkResponse({
-      caseSnapshot: {
-        code: "ABC001",
-        main_case: {
-          id: "CASE-00001",
-          patient_id: "PAT-00016",
-        },
-        patient: {
-          id: "PAT-00016",
-          fullName: "Ada Lovelace",
-          email: "ada@example.com",
-        },
-      },
-    });
-
+  it("accepts only caseCode for upload notifications and lets the SDK derive the report payload", async () => {
     mockSdkResponse(
       {
         ok: true,
@@ -246,32 +206,20 @@ describe("public reporting OpenAPI handlers", () => {
     );
     const uploadBody = await uploadResponse.json();
     const internalUploadBody = JSON.parse(
-      (global.fetch as jest.Mock).mock.calls[2][1].body,
+      (global.fetch as jest.Mock).mock.calls[0][1].body,
     );
 
     expect(uploadResponse.status).toBe(201);
     expect(uploadBody.patientId).toBe("PAT-00016");
     expect(uploadBody.caseCode).toBe("ABC001");
-    expectTokenVerificationCall(0, "/open-api/reporting/reports/upload");
-    expect((global.fetch as jest.Mock).mock.calls[1][0].toString()).toBe(
-      "https://sdk.example.com/internal/openapi/reporting/2pq/cases/ABC001",
-    );
-    expect((global.fetch as jest.Mock).mock.calls[2][0].toString()).toBe(
+    expectSdkCall(
+      0,
       "https://sdk.example.com/internal/openapi/reporting/reports/upload",
     );
-    expect(internalUploadBody.patientId).toBe("PAT-00016");
-    expect(internalUploadBody.reportId).toBe("2pq-abc001");
-    expect(internalUploadBody.reportCode).toBe("ABC001");
-    expect(internalUploadBody.bucket).toBe("goldencrow-reporting-reports");
-    expect(internalUploadBody.key).toBe("reports/2pq/ABC001.pdf");
-    expect(internalUploadBody.contentType).toBe("application/pdf");
-    expect(internalUploadBody.reportType).toBe("2pq");
-    expect(internalUploadBody.sampleId).toBe("ABC001");
+    expect(internalUploadBody).toEqual({ caseCode: "ABC001" });
   });
 
   it("rejects upload notification bodies with fields other than caseCode", async () => {
-    mockTokenVerification();
-
     const response = await handleReportUploadNotification(
       authorizedRequest(
         "https://public.example.com/open-api/reporting/reports/upload",
@@ -291,7 +239,7 @@ describe("public reporting OpenAPI handlers", () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toContain("Unrecognized key");
-    expectTokenVerificationCall(0, "/open-api/reporting/reports/upload");
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("exchanges client credentials for a reporting access token", async () => {

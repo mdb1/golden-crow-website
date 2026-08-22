@@ -20,7 +20,7 @@ export default async function ReportingApiKeysPage() {
         description="Full-admin integration-client creation for public reporting integrations."
       />
 
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <section className="border-b pb-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -40,16 +40,16 @@ export default async function ReportingApiKeysPage() {
           <Badge variant="secondary">Standard mode</Badge>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <div className="rounded-lg border bg-muted/25 p-4">
+        <div className="mt-5 grid gap-5 md:grid-cols-3">
+          <div className="border-l pl-3">
             <p className="text-xs font-medium uppercase text-muted-foreground">
               Header
             </p>
-            <code className="mt-2 block overflow-x-auto rounded-md bg-background px-2 py-1 text-xs text-foreground">
+            <code className="mt-2 block overflow-x-auto text-xs text-foreground">
               Authorization: Bearer &lt;access_token&gt;
             </code>
           </div>
-          <div className="rounded-lg border bg-muted/25 p-4">
+          <div className="border-l pl-3">
             <p className="text-xs font-medium uppercase text-muted-foreground">
               Token endpoint
             </p>
@@ -57,7 +57,7 @@ export default async function ReportingApiKeysPage() {
               <code>POST /open-api/oauth/token</code>
             </p>
           </div>
-          <div className="rounded-lg border bg-muted/25 p-4">
+          <div className="border-l pl-3">
             <p className="text-xs font-medium uppercase text-muted-foreground">
               Quota
             </p>
@@ -70,8 +70,8 @@ export default async function ReportingApiKeysPage() {
 
       <ReportingIntegrationClientPanel />
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <article className="rounded-lg border bg-card p-5 shadow-sm">
+      <section className="grid gap-6 lg:grid-cols-2">
+        <article>
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-base font-semibold">
@@ -97,7 +97,7 @@ export default async function ReportingApiKeysPage() {
           </ol>
         </article>
 
-        <article className="rounded-lg border bg-card p-5 shadow-sm">
+        <article>
           <div className="flex items-center gap-2">
             <Repeat2 className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-base font-semibold">

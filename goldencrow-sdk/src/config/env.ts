@@ -11,8 +11,6 @@ export const ENV = {
     `${process.env.BACKOFFICE_ORIGIN ?? "http://localhost:3001"}/login`,
   CLIENT_BOOKING_WEBHOOK_URL:
     process.env.CLIENT_BOOKING_WEBHOOK_URL?.trim() || undefined,
-  GOLDENCROW_OPENAPI_INTERNAL_TOKEN:
-    process.env.GOLDENCROW_OPENAPI_INTERNAL_TOKEN?.trim() || undefined,
 };
 
 import type { ProjectKey } from "../types/sdk.types.js";
@@ -22,7 +20,7 @@ export const TEAM_ALLOWLIST = new Set<string>(
   (process.env.TEAM_ALLOWLIST ?? "")
     .split(",")
     .map((e) => e.trim())
-    .filter(Boolean)
+    .filter(Boolean),
 );
 
 // Per-project access lists. Fall back to TEAM_ALLOWLIST for backwards compat.
@@ -30,14 +28,14 @@ export const TEAM_ALLOWLIST_MYDNAMAP = new Set<string>(
   (process.env.TEAM_ALLOWLIST_MYDNAMAP ?? "")
     .split(",")
     .map((e) => e.trim())
-    .filter(Boolean)
+    .filter(Boolean),
 );
 
 export const TEAM_ALLOWLIST_POCKETGYMS = new Set<string>(
   (process.env.TEAM_ALLOWLIST_POCKETGYMS ?? "")
     .split(",")
     .map((e) => e.trim())
-    .filter(Boolean)
+    .filter(Boolean),
 );
 
 // GC Fitness — Phase 11 trainer-facing surface. The allowlist names the
@@ -47,7 +45,7 @@ export const TEAM_ALLOWLIST_GC_FITNESS = new Set<string>(
   (process.env.TEAM_ALLOWLIST_GC_FITNESS ?? "")
     .split(",")
     .map((e) => e.trim())
-    .filter(Boolean)
+    .filter(Boolean),
 );
 
 /**

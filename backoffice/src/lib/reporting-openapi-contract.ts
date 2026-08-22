@@ -66,9 +66,6 @@ function errorResponses() {
     "429": jsonResponse("The integration client exceeded its request quota.", {
       error: "Client quota exceeded.",
     }),
-    "503": jsonResponse("The API is missing required runtime configuration.", {
-      error: "Internal OpenAPI token is not configured",
-    }),
   };
 }
 
@@ -120,12 +117,6 @@ export function buildReportingOpenApiDocument(
             "401": jsonResponse("Invalid client credentials.", {
               error: "Invalid client credentials.",
             }),
-            "503": jsonResponse(
-              "The API is missing required runtime configuration.",
-              {
-                error: "Internal OpenAPI token is not configured",
-              },
-            ),
           },
           "x-codeSamples": [
             {
