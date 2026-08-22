@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { z } from "zod";
 import { buildReportingOpenApiDocument } from "@/lib/reporting-openapi-contract";
 import { getReportingApiToken } from "@/lib/reporting-api-token";
@@ -16,33 +16,25 @@ const PatientLookupQuerySchema = z
     "Provide email or medicalRecordNumber",
   );
 
-const UploadedReportNotificationSchema = z.object({
-  patientRef: z.string().trim().min(1),
-  reportId: z.string().trim().min(1).optional(),
-  reportCode: z.string().trim().min(1).optional(),
-  bucket: z.string().trim().min(1),
-  key: z.string().trim().min(1),
-  fileName: z.string().trim().min(1).optional(),
-  contentType: z.string().trim().min(1).optional(),
-  size: z.number().finite().nonnegative().optional(),
-  uploadedAt: z.string().trim().datetime().optional(),
-  providerName: z.string().trim().min(1).optional(),
-  providerFormat: z.string().trim().min(1).optional(),
-  reportType: z.string().trim().min(1).optional(),
-  sampleId: z.string().trim().min(1).optional(),
-  downloadUrl: z.string().trim().url().optional(),
-});
-
 type PublicRecord = Record<string, unknown>;
 
+const CaseCodeSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^[A-Za-z0-9]{6}$/,
+    "caseCode must contain exactly 6 letters or numbers",
+  )
+  .transform((value) => value.toUpperCase());
+
+const UploadReportNotificationSchema = z
+  .object({
+    caseCode: CaseCodeSchema,
+  })
+  .strict();
+
 const TwoPQCaseLookupParamsSchema = z.object({
-  caseCode: z
-    .string()
-    .trim()
-    .regex(
-      /^[A-Za-z0-9]{6}$/,
-      "caseCode must contain exactly 6 letters or numbers",
-    ),
+  caseCode: CaseCodeSchema,
 });
 
 class SdkBridgeError extends Error {
@@ -91,46 +83,6 @@ function createPatientRef(patientId: string) {
   return `gcp_${payload}.${signPatientRefPayload(payload)}`;
 }
 
-function decodePatientRef(patientRef: string) {
-  const normalized = patientRef.trim();
-  if (!normalized.startsWith("gcp_")) {
-    throw new SdkBridgeError(400, { error: "Invalid patientRef." });
-  }
-
-  const [payload, signature] = normalized.slice(4).split(".");
-  if (!payload || !signature) {
-    throw new SdkBridgeError(400, { error: "Invalid patientRef." });
-  }
-
-  const expectedSignature = signPatientRefPayload(payload);
-  const signatureBuffer = Buffer.from(signature, "base64url");
-  const expectedSignatureBuffer = Buffer.from(expectedSignature, "base64url");
-  if (
-    signatureBuffer.length !== expectedSignatureBuffer.length ||
-    !timingSafeEqual(signatureBuffer, expectedSignatureBuffer)
-  ) {
-    throw new SdkBridgeError(400, { error: "Invalid patientRef." });
-  }
-
-  let decodedPayload: unknown;
-  try {
-    decodedPayload = JSON.parse(Buffer.from(payload, "base64url").toString());
-  } catch {
-    throw new SdkBridgeError(400, { error: "Invalid patientRef." });
-  }
-
-  if (!isRecord(decodedPayload)) {
-    throw new SdkBridgeError(400, { error: "Invalid patientRef." });
-  }
-
-  const patientId = stringValue(decodedPayload.patientId);
-  if (!patientId) {
-    throw new SdkBridgeError(400, { error: "Invalid patientRef." });
-  }
-
-  return patientId;
-}
-
 function publicPatientRecord(patient: unknown, fallbackPatientRef?: string) {
   if (!isRecord(patient)) {
     return patient;
@@ -156,18 +108,17 @@ function publicPatientLookupResponse(response: unknown) {
   };
 }
 
-function publicUploadNotificationResponse(
-  response: unknown,
-  patientRef: string,
-) {
+function publicUploadNotificationResponse(response: unknown, caseCode: string) {
   if (!isRecord(response)) {
     return response;
   }
 
+  const patientId = stringValue(response.patientId);
   const { patientId: _patientId, ...responseData } = response;
   return {
     ...responseData,
-    patientRef,
+    caseCode,
+    ...(patientId ? { patientRef: createPatientRef(patientId) } : {}),
   };
 }
 
@@ -243,6 +194,70 @@ function publicTwoPQCaseResponse(response: unknown) {
   }
 
   return publicTwoPQCaseSnapshot(response.caseSnapshot ?? response);
+}
+
+function internalTwoPQCaseSnapshot(response: unknown) {
+  if (!isRecord(response)) {
+    return null;
+  }
+
+  const snapshot = response.caseSnapshot ?? response;
+  return isRecord(snapshot) ? snapshot : null;
+}
+
+function internalPatientIdFromTwoPQCaseSnapshot(snapshot: PublicRecord | null) {
+  if (!snapshot) {
+    return undefined;
+  }
+
+  const patient = isRecord(snapshot.patient) ? snapshot.patient : null;
+  const mainCase = isRecord(snapshot.main_case) ? snapshot.main_case : null;
+  return stringValue(patient?.id) ?? stringValue(mainCase?.patient_id);
+}
+
+function twoPQCaseLookupPath(caseCode: string) {
+  return `/internal/openapi/reporting/2pq/cases/${encodeURIComponent(
+    caseCode,
+  )}`;
+}
+
+function reportsBucketName() {
+  return (
+    process.env.GOLDENCROW_REPORTING_REPORTS_BUCKET?.trim() ||
+    process.env.REPORTING_REPORTS_BUCKET?.trim() ||
+    "goldencrow-reporting-reports"
+  );
+}
+
+function reportsKeyPrefix() {
+  return (
+    process.env.GOLDENCROW_REPORTING_REPORTS_PREFIX?.trim() || "reports/2pq"
+  ).replace(/^\/+|\/+$/g, "");
+}
+
+function reportKeyForCaseCode(caseCode: string) {
+  const prefix = reportsKeyPrefix();
+  return prefix ? `${prefix}/${caseCode}.pdf` : `${caseCode}.pdf`;
+}
+
+function internalUploadNotificationPayload(
+  caseCode: string,
+  patientId: string,
+) {
+  return {
+    patientId,
+    reportId: `2pq-${caseCode.toLowerCase()}`,
+    reportCode: caseCode,
+    bucket: reportsBucketName(),
+    key: reportKeyForCaseCode(caseCode),
+    fileName: `${caseCode}.pdf`,
+    contentType: "application/pdf",
+    uploadedAt: new Date().toISOString(),
+    providerName: "aws-s3",
+    providerFormat: "pdf",
+    reportType: "2pq",
+    sampleId: caseCode,
+  };
 }
 
 function publicOrigin(request: Request) {
@@ -393,7 +408,7 @@ export async function handlePatientLookup(request: Request) {
   }
 }
 
-export async function handleUploadedReportNotification(request: Request) {
+export async function handleReportUploadNotification(request: Request) {
   const authError = requireReportingToken(request);
   if (authError) {
     return authError;
@@ -406,7 +421,7 @@ export async function handleUploadedReportNotification(request: Request) {
     return json({ error: "Invalid JSON body." }, 400);
   }
 
-  const parsedBody = UploadedReportNotificationSchema.safeParse(payload);
+  const parsedBody = UploadReportNotificationSchema.safeParse(payload);
   if (!parsedBody.success) {
     return json(
       { error: parsedBody.error.issues[0]?.message ?? "Invalid request body." },
@@ -415,20 +430,27 @@ export async function handleUploadedReportNotification(request: Request) {
   }
 
   try {
-    const { patientRef, ...publicPayload } = parsedBody.data;
-    const patientId = decodePatientRef(patientRef);
+    const { caseCode } = parsedBody.data;
+    const caseResponse = await sdkBridgeFetch(
+      request,
+      twoPQCaseLookupPath(caseCode),
+    );
+    const patientId = internalPatientIdFromTwoPQCaseSnapshot(
+      internalTwoPQCaseSnapshot(caseResponse),
+    );
+    if (!patientId) {
+      return json({ error: "2PQ case does not have a patient id." }, 422);
+    }
+
     const sdkResponse = await sdkBridgeFetch(
       request,
       "/internal/openapi/reporting/reports/uploaded",
       {
         method: "POST",
-        body: {
-          ...publicPayload,
-          patientId,
-        },
+        body: internalUploadNotificationPayload(caseCode, patientId),
       },
     );
-    return json(publicUploadNotificationResponse(sdkResponse, patientRef), 201);
+    return json(publicUploadNotificationResponse(sdkResponse, caseCode), 201);
   } catch (error) {
     if (error instanceof SdkBridgeError) {
       return bridgeErrorResponse(error);
@@ -459,9 +481,7 @@ export async function handleTwoPQCaseLookup(
   try {
     const sdkResponse = await sdkBridgeFetch(
       request,
-      `/internal/openapi/reporting/2pq/cases/${encodeURIComponent(
-        parsedParams.data.caseCode,
-      )}`,
+      twoPQCaseLookupPath(parsedParams.data.caseCode),
     );
     return json(publicTwoPQCaseResponse(sdkResponse));
   } catch (error) {

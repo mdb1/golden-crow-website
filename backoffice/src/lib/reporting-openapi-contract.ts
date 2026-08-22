@@ -132,22 +132,17 @@ export function buildReportingOpenApiDocument(
           ],
         },
       },
-      "/open-api/reporting/reports/uploaded": {
+      "/open-api/reporting/reports/upload": {
         post: {
           tags: ["Reporting"],
-          summary: "Notify GoldenCrow that a report file is available.",
+          summary: "Notify GoldenCrow that a 2PQ report file is available.",
           description:
-            "Creates or updates the uploaded report and report code records after the report file has been uploaded to external storage.",
+            "Creates or updates the uploaded report and report code records for the current 2PQ case.",
           requestBody: {
             content: {
               "application/json": {
                 example: {
-                  patientRef: EXAMPLE_PATIENT_REF,
-                  reportCode: "REP-0001",
-                  bucket: "reports-bucket",
-                  key: "reports/REP-0001.pdf",
-                  contentType: "application/pdf",
-                  uploadedAt: "2026-08-19T12:30:00.000Z",
+                  caseCode: "ABC001",
                 },
               },
             },
@@ -155,32 +150,28 @@ export function buildReportingOpenApiDocument(
           responses: {
             "201": jsonResponse("Upload notification accepted.", {
               ok: true,
-              reportId: "aws-report-1",
-              reportCode: "REP-0001",
+              reportId: "2pq-abc001",
+              reportCode: "ABC001",
+              caseCode: "ABC001",
               patientRef: EXAMPLE_PATIENT_REF,
               status: "available",
             }),
             "400": jsonResponse("Invalid upload notification.", {
-              error: "bucket is required.",
+              error: "caseCode must contain exactly 6 letters or numbers.",
             }),
-            "404": jsonResponse("Patient not found.", {
-              error: "Patient not found.",
+            "404": jsonResponse("2PQ case or patient not found.", {
+              error: "2PQ case not found.",
             }),
             ...errorResponses(),
           },
           "x-codeSamples": [
             {
               lang: "curl",
-              source: `curl -X POST "${serverUrl}/open-api/reporting/reports/uploaded" \\
+              source: `curl -X POST "${serverUrl}/open-api/reporting/reports/upload" \\
   -H "Authorization: Bearer <REPORTING_API_TOKEN>" \\
   -H "Content-Type: application/json" \\
   --data '{
-    "patientRef": "${EXAMPLE_PATIENT_REF}",
-    "reportCode": "REP-0001",
-    "bucket": "reports-bucket",
-    "key": "reports/REP-0001.pdf",
-    "contentType": "application/pdf",
-    "uploadedAt": "2026-08-19T12:30:00.000Z"
+    "caseCode": "ABC001"
   }'`,
             },
           ],

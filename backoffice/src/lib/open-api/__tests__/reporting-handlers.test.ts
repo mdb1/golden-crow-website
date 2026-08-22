@@ -1,7 +1,7 @@
 import {
   handlePatientLookup,
+  handleReportUploadNotification,
   handleTwoPQCaseLookup,
-  handleUploadedReportNotification,
 } from "@/lib/open-api/reporting-handlers";
 
 const REPORTING_TOKEN = "test-reporting-token";
@@ -108,7 +108,7 @@ describe("public reporting OpenAPI handlers", () => {
     expect(JSON.stringify(body)).not.toContain("PAT-00016");
   });
 
-  it("returns patientRef publicly and sends raw patient id only to the internal SDK bridge", async () => {
+  it("returns patientRef publicly without leaking the raw patient id", async () => {
     mockSdkResponse({
       patient: {
         id: "PAT-00016",
@@ -131,31 +131,45 @@ describe("public reporting OpenAPI handlers", () => {
     expect(lookupBody.patient.id).toBeUndefined();
     expect(patientRef).toMatch(/^gcp_/);
     expect(JSON.stringify(lookupBody)).not.toContain("PAT-00016");
+  });
+
+  it("accepts only caseCode for upload notifications and derives the internal SDK payload", async () => {
+    mockSdkResponse({
+      caseSnapshot: {
+        code: "ABC001",
+        main_case: {
+          id: "CASE-00001",
+          patient_id: "PAT-00016",
+        },
+        patient: {
+          id: "PAT-00016",
+          fullName: "Ada Lovelace",
+          email: "ada@example.com",
+        },
+      },
+    });
 
     mockSdkResponse(
       {
         ok: true,
-        reportId: "aws-report-1",
-        reportCode: "REP-0001",
+        reportId: "2pq-abc001",
+        reportCode: "ABC001",
         patientId: "PAT-00016",
         status: "available",
       },
       201,
     );
 
-    const uploadResponse = await handleUploadedReportNotification(
+    const uploadResponse = await handleReportUploadNotification(
       authorizedRequest(
-        "https://public.example.com/open-api/reporting/reports/uploaded",
+        "https://public.example.com/open-api/reporting/reports/upload",
         {
           method: "POST",
           headers: {
             "content-type": "application/json",
           },
           body: JSON.stringify({
-            patientRef,
-            reportCode: "REP-0001",
-            bucket: "reports-bucket",
-            key: "reports/REP-0001.pdf",
+            caseCode: "abc001",
           }),
         },
       ),
@@ -167,9 +181,42 @@ describe("public reporting OpenAPI handlers", () => {
 
     expect(uploadResponse.status).toBe(201);
     expect(uploadBody.patientId).toBeUndefined();
-    expect(uploadBody.patientRef).toBe(patientRef);
+    expect(uploadBody.caseCode).toBe("ABC001");
+    expect(uploadBody.patientRef).toMatch(/^gcp_/);
     expect(JSON.stringify(uploadBody)).not.toContain("PAT-00016");
+    expect((global.fetch as jest.Mock).mock.calls[0][0].toString()).toBe(
+      "https://sdk.example.com/internal/openapi/reporting/2pq/cases/ABC001",
+    );
     expect(internalUploadBody.patientId).toBe("PAT-00016");
-    expect(internalUploadBody.patientRef).toBeUndefined();
+    expect(internalUploadBody.reportId).toBe("2pq-abc001");
+    expect(internalUploadBody.reportCode).toBe("ABC001");
+    expect(internalUploadBody.bucket).toBe("goldencrow-reporting-reports");
+    expect(internalUploadBody.key).toBe("reports/2pq/ABC001.pdf");
+    expect(internalUploadBody.contentType).toBe("application/pdf");
+    expect(internalUploadBody.reportType).toBe("2pq");
+    expect(internalUploadBody.sampleId).toBe("ABC001");
+  });
+
+  it("rejects upload notification bodies with fields other than caseCode", async () => {
+    const response = await handleReportUploadNotification(
+      authorizedRequest(
+        "https://public.example.com/open-api/reporting/reports/upload",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            caseCode: "ABC001",
+            bucket: "reports-bucket",
+          }),
+        },
+      ),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toContain("Unrecognized key");
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });
