@@ -22,7 +22,7 @@ const buttonVariants = cva(
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         warning:
-          "border-amber-300/70 bg-amber-100 text-amber-950 hover:border-amber-400 hover:bg-amber-200 focus-visible:border-amber-500 focus-visible:ring-amber-400/35 dark:border-amber-400/35 dark:bg-amber-400/18 dark:text-amber-100 dark:hover:border-amber-300/50 dark:hover:bg-amber-400/28 dark:focus-visible:ring-amber-300/35",
+          "border-orange-300/70 bg-orange-100 text-orange-950 hover:border-orange-400 hover:bg-orange-200 focus-visible:border-orange-500 focus-visible:ring-orange-400/35 dark:border-orange-400/35 dark:bg-orange-400/18 dark:text-orange-100 dark:hover:border-orange-300/50 dark:hover:bg-orange-400/28 dark:focus-visible:ring-orange-300/35",
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         // Destructive bg bumped 10→15 so the red-tinted action reads as a
