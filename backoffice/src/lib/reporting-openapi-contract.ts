@@ -177,15 +177,13 @@ export function buildReportingOpenApiDocument(
           ],
           responses: {
             "200": jsonResponse("Patient found.", {
-              patient: {
-                id: EXAMPLE_PATIENT_ID,
-                institutionId: "INST-00001",
-                doctorId: "DOC-00001",
-                fullName: "Ada Lovelace",
-                email: "ada@example.com",
-                medicalRecordNumber: "MRN-1",
-                status: "active",
-              },
+              id: EXAMPLE_PATIENT_ID,
+              institutionId: "INST-00001",
+              doctorId: "DOC-00001",
+              fullName: "Ada Lovelace",
+              email: "ada@example.com",
+              medicalRecordNumber: "MRN-1",
+              status: "active",
             }),
             "400": jsonResponse("patientId was not provided.", {
               error: "Provide patientId.",

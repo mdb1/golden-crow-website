@@ -72,6 +72,14 @@ function publicTwoPQCaseResponse(response: unknown) {
   return response.caseSnapshot ?? response;
 }
 
+function publicPatientLookupResponse(response: unknown) {
+  if (!isRecord(response)) {
+    return response;
+  }
+
+  return isRecord(response.patient) ? response.patient : response;
+}
+
 function internalTwoPQCaseSnapshot(response: unknown) {
   if (!isRecord(response)) {
     return null;
@@ -268,9 +276,11 @@ export async function handlePatientLookup(request: Request) {
   }
 
   try {
-    return json(
-      await sdkBridgeFetch(request, patientLookupPath(parsedQuery.data)),
+    const sdkResponse = await sdkBridgeFetch(
+      request,
+      patientLookupPath(parsedQuery.data),
     );
+    return json(publicPatientLookupResponse(sdkResponse));
   } catch (error) {
     if (error instanceof SdkBridgeError) {
       return bridgeErrorResponse(error);

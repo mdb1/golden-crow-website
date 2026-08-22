@@ -9,4 +9,19 @@ describe("reporting OpenAPI contract", () => {
 
     expect(paths[0]).toBe("/open-api/reporting/2pq/cases/{caseCode}");
   });
+
+  it("documents patient lookup as an unwrapped patient response", () => {
+    const document = buildReportingOpenApiDocument(
+      "https://public.example.com",
+    );
+    const example =
+      document.paths?.["/open-api/reporting/patients"]?.get?.responses?.["200"]
+        ?.content?.["application/json"]?.example;
+
+    expect(example).toMatchObject({
+      id: expect.stringMatching(/^PAT-/),
+      fullName: "Ada Lovelace",
+    });
+    expect(example).not.toHaveProperty("patient");
+  });
 });

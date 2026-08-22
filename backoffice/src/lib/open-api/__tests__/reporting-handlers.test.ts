@@ -101,7 +101,7 @@ describe("public reporting OpenAPI handlers", () => {
     expect(body.entities.cases[0].scope.patientId).toBe("PAT-00016");
   });
 
-  it("looks up patients by patientId and returns the raw patient id", async () => {
+  it("looks up patients by patientId and returns the patient fields directly", async () => {
     mockSdkResponse({
       patient: {
         id: "PAT-00016",
@@ -120,7 +120,9 @@ describe("public reporting OpenAPI handlers", () => {
     );
     const lookupBody = await lookupResponse.json();
 
-    expect(lookupBody.patient.id).toBe("PAT-00016");
+    expect(lookupBody.patient).toBeUndefined();
+    expect(lookupBody.id).toBe("PAT-00016");
+    expect(lookupBody.fullName).toBe("Ada Lovelace");
     expect((global.fetch as jest.Mock).mock.calls[0][0].toString()).toBe(
       "https://sdk.example.com/internal/openapi/reporting/patients?patientId=PAT-00016",
     );
