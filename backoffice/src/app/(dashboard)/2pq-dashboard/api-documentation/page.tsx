@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { AlertCircle, FileCode2, LockKeyhole, Server } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
+import { ReportingApiTokenReveal } from "@/components/reporting-api-token-reveal";
 import { Badge } from "@/components/ui/badge";
 import { getAdminContextServer } from "@/lib/admin-context-server";
+import { getReportingApiToken } from "@/lib/reporting-api-token";
 
 type OpenApiParameter = {
   name?: string;
@@ -143,6 +145,7 @@ export default async function ReportingApiDocumentationPage() {
   const baseUrl = resolveOpenApiBaseUrl();
   const document = await fetchOpenApiDocument(baseUrl);
   const operations = publicOperations(document);
+  const reportingApiToken = getReportingApiToken();
 
   return (
     <div className="flex flex-col gap-6">
@@ -195,6 +198,7 @@ export default async function ReportingApiDocumentationPage() {
               contract.
             </p>
           </div>
+          <ReportingApiTokenReveal token={reportingApiToken} />
         </div>
       </section>
 

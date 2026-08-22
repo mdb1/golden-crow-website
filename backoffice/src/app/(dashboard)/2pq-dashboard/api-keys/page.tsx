@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { KeyRound, RefreshCw, ShieldCheck } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
+import { ReportingApiTokenReveal } from "@/components/reporting-api-token-reveal";
 import { Badge } from "@/components/ui/badge";
 import { getAdminContextServer } from "@/lib/admin-context-server";
+import { getReportingApiToken } from "@/lib/reporting-api-token";
 
 export default async function ReportingApiKeysPage() {
   const { role, isBootstrap } = await getAdminContextServer();
@@ -10,6 +12,8 @@ export default async function ReportingApiKeysPage() {
   if (role !== "full_admin" && !isBootstrap) {
     redirect("/2pq-dashboard");
   }
+
+  const reportingApiToken = getReportingApiToken();
 
   return (
     <div className="flex flex-col gap-6">
@@ -29,8 +33,8 @@ export default async function ReportingApiKeysPage() {
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               This is the only public reporting API token offered for now. It
               belongs to the GoldenCrow OpenAPI deployment, not the internal
-              SDK. The backoffice documents the key and its usage, but it does
-              not reveal or rotate the secret value in the UI.
+              SDK. Full admins can reveal the current value here; rotation is
+              still handled manually in deployment settings.
             </p>
           </div>
           <Badge variant="secondary">Bearer token</Badge>
@@ -62,6 +66,8 @@ export default async function ReportingApiKeysPage() {
             </p>
           </div>
         </div>
+
+        <ReportingApiTokenReveal token={reportingApiToken} />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
@@ -72,16 +78,14 @@ export default async function ReportingApiKeysPage() {
           </div>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted-foreground">
             <li>
-              Open the production deployment secrets or environment settings for
-              the public <code>goldencrow-openapi</code> service.
+              Click <code>Obtain API Key</code> on this page to reveal the
+              current token.
             </li>
             <li>
-              Read the current <code>REPORTING_API_TOKEN</code> value from that
-              secure environment.
+              Use it only as a bearer token in the Authorization header.
             </li>
             <li>
-              Share it with the integration owner through a secure channel, then
-              use it only as a bearer token in the Authorization header.
+              Share it with the integration owner through a secure channel.
             </li>
           </ol>
         </article>

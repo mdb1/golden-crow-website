@@ -97,6 +97,7 @@ npm run dev
 | `NEXT_PUBLIC_SDK_URL` | `http://localhost:3000` (local) / `https://golden-crow-sdk.vercel.app` (Vercel, no trailing slash) |
 | `GOLDENCROW_SDK_URL` | `http://localhost:3000` (local) / `https://golden-crow-sdk.vercel.app` (Vercel, no trailing slash) |
 | `GOLDENCROW_OPENAPI_URL` | `http://localhost:4010` (local) / `https://goldencrow-openapi.vercel.app` (Vercel, no trailing slash) |
+| `BACKOFFICE_REPORTING_API_TOKEN` | Optional server-only override for the full-admin API key reveal UI |
 
 Copy from the `.env.example` / `.env.local.example` files and fill in the values.
 
