@@ -1691,7 +1691,7 @@ export function DiscoverFeedEntryWorkbench({
               </div>
             </section>
 
-            <section className="flex flex-col gap-4">
+            <section className="flex flex-col gap-4 rounded-md border border-sky-200/70 bg-sky-50/45 px-4 py-4 dark:border-sky-300/16 dark:bg-sky-400/8">
               <SectionTitle
                 eyebrow={t("Specific type fields")}
                 title={t(discoverTypeLabel(state.type))}
