@@ -8,6 +8,10 @@ import {
   getReportingTwoPQCaseByCode,
   recordUploadedReportNotification,
 } from "../repositories/reporting.repository.js";
+import {
+  refreshReportingAccessToken,
+  verifyReportingAccessToken,
+} from "../repositories/reporting-tokens.repository.js";
 
 const PatientLookupQuerySchema = z
   .object({
@@ -48,6 +52,19 @@ const TwoPQCaseLookupParamsSchema = z.object({
     ),
 });
 
+const ReportingAccessTokenVerificationSchema = z
+  .object({
+    token: z.string().trim().min(1),
+    endpoint: z.string().trim().min(1).optional(),
+  })
+  .strict();
+
+const ReportingAccessTokenRefreshSchema = z
+  .object({
+    token: z.string().trim().min(1),
+  })
+  .strict();
+
 function getInternalOpenApiToken(request: FastifyRequest) {
   const headerValue = request.headers["x-goldencrow-internal-token"];
   const value = Array.isArray(headerValue) ? headerValue[0] : headerValue;
@@ -83,6 +100,51 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
       return reply;
     }
   });
+
+  f.post(
+    "/internal/openapi/reporting/tokens/verify",
+    {
+      schema: {
+        body: ReportingAccessTokenVerificationSchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await verifyReportingAccessToken(
+          request.body.token,
+          request.body.endpoint,
+        );
+        return reply.send(result);
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  f.post(
+    "/internal/openapi/reporting/tokens/refresh",
+    {
+      schema: {
+        body: ReportingAccessTokenRefreshSchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await refreshReportingAccessToken(request.body.token);
+        return reply.status(201).send(result);
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    },
+  );
 
   f.get(
     "/internal/openapi/reporting/patients",

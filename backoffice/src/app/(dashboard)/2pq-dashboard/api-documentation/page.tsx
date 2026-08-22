@@ -156,7 +156,7 @@ export default async function ReportingApiDocumentationPage() {
                       Auth header
                     </p>
                     <code className="mt-1 block overflow-x-auto text-xs text-foreground">
-                      Authorization: Bearer &lt;REPORTING_API_TOKEN&gt;
+                      Authorization: Bearer &lt;REPORTING_ACCESS_TOKEN&gt;
                     </code>
                   </div>
 

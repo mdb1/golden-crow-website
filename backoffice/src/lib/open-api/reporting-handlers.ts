@@ -2,7 +2,6 @@ import "server-only";
 
 import { z } from "zod";
 import { buildReportingOpenApiDocument } from "@/lib/reporting-openapi-contract";
-import { getReportingApiToken } from "@/lib/reporting-api-token";
 import { resolveSdkBaseUrl } from "@/lib/sdk-url";
 
 const PatientLookupQuerySchema = z
@@ -78,6 +77,15 @@ function publicPatientLookupResponse(response: unknown) {
   }
 
   return isRecord(response.patient) ? response.patient : response;
+}
+
+function publicReportingTokenResponse(response: unknown) {
+  if (!isRecord(response)) {
+    return response;
+  }
+
+  const { issuedTo: _issuedTo, ...publicResponse } = response;
+  return publicResponse;
 }
 
 function internalTwoPQCaseSnapshot(response: unknown) {
@@ -171,10 +179,27 @@ function getBearerToken(request: Request) {
   return match?.[1]?.trim();
 }
 
-function requireReportingToken(request: Request) {
-  if (getBearerToken(request) !== getReportingApiToken()) {
-    return json({ error: "Invalid reporting API token" }, 401);
+async function requireReportingAccessToken(request: Request, endpoint: string) {
+  const token = getBearerToken(request);
+  if (!token) {
+    return json({ error: "Missing reporting access token." }, 401);
   }
+
+  try {
+    await sdkBridgeFetch(request, "/internal/openapi/reporting/tokens/verify", {
+      method: "POST",
+      body: {
+        token,
+        endpoint,
+      },
+    });
+  } catch (error) {
+    if (error instanceof SdkBridgeError) {
+      return bridgeErrorResponse(error);
+    }
+    throw error;
+  }
+
   return null;
 }
 
@@ -255,7 +280,10 @@ export function handleOpenApiDocument(request: Request) {
 }
 
 export async function handlePatientLookup(request: Request) {
-  const authError = requireReportingToken(request);
+  const authError = await requireReportingAccessToken(
+    request,
+    "/open-api/reporting/patients",
+  );
   if (authError) {
     return authError;
   }
@@ -290,7 +318,10 @@ export async function handlePatientLookup(request: Request) {
 }
 
 export async function handleReportUploadNotification(request: Request) {
-  const authError = requireReportingToken(request);
+  const authError = await requireReportingAccessToken(
+    request,
+    "/open-api/reporting/reports/upload",
+  );
   if (authError) {
     return authError;
   }
@@ -344,7 +375,10 @@ export async function handleTwoPQCaseLookup(
   request: Request,
   caseCode: string,
 ) {
-  const authError = requireReportingToken(request);
+  const authError = await requireReportingAccessToken(
+    request,
+    "/open-api/reporting/2pq/cases/{caseCode}",
+  );
   if (authError) {
     return authError;
   }
@@ -365,6 +399,30 @@ export async function handleTwoPQCaseLookup(
       twoPQCaseLookupPath(parsedParams.data.caseCode),
     );
     return json(publicTwoPQCaseResponse(sdkResponse));
+  } catch (error) {
+    if (error instanceof SdkBridgeError) {
+      return bridgeErrorResponse(error);
+    }
+    throw error;
+  }
+}
+
+export async function handleReportingTokenRefresh(request: Request) {
+  const token = getBearerToken(request);
+  if (!token) {
+    return json({ error: "Missing reporting access token." }, 401);
+  }
+
+  try {
+    const sdkResponse = await sdkBridgeFetch(
+      request,
+      "/internal/openapi/reporting/tokens/refresh",
+      {
+        method: "POST",
+        body: { token },
+      },
+    );
+    return json(publicReportingTokenResponse(sdkResponse), 201);
   } catch (error) {
     if (error instanceof SdkBridgeError) {
       return bridgeErrorResponse(error);

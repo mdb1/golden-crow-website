@@ -22,6 +22,7 @@ Create `goldencrow-sdk/.env` with the following variables:
 | `NODE_ENV` | `development` or `production` |
 | `BACKOFFICE_ORIGIN` | CORS allowed origin for the backoffice (e.g. `http://localhost:3001`) |
 | `GOLDENCROW_OPENAPI_INTERNAL_TOKEN` | Shared service token accepted by internal OpenAPI bridge routes |
+| `GOLDENCROW_OPENAPI_REPORTING_QUOTA_PER_MINUTE` | Optional per-token public reporting quota override (default: `60`) |
 
 ### Getting Firebase Credentials
 
@@ -57,6 +58,9 @@ All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings
 | GET | /reports | List reports (optional ?source= filter) |
 | GET | /reports/:id | Get report detail |
 | DELETE | /reports/:id | Delete report |
+| POST | /reporting/access-tokens | Issue a 24-hour public reporting access token for a full admin |
+| POST | /internal/openapi/reporting/tokens/verify | Internal bridge for public reporting access-token verification and quota checks |
+| POST | /internal/openapi/reporting/tokens/refresh | Internal bridge for public reporting access-token refresh |
 | GET | /internal/openapi/reporting/patients?patientId=:id | Internal bridge for public reporting patient lookup |
 | GET | /internal/openapi/reporting/patients?email=:email | Internal bridge for public reporting patient lookup |
 | GET | /internal/openapi/reporting/patients?medicalRecordNumber=:number | Internal bridge for public reporting patient lookup |

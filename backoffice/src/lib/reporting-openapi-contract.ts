@@ -60,11 +60,14 @@ function jsonResponse(description: string, example: unknown) {
 
 function errorResponses() {
   return {
-    "401": jsonResponse("Invalid or missing reporting token.", {
-      error: "Invalid reporting API token",
+    "401": jsonResponse("Invalid, missing, expired, or revoked access token.", {
+      error: "Invalid reporting access token.",
+    }),
+    "429": jsonResponse("The token exceeded its request quota.", {
+      error: "Reporting access token quota exceeded.",
     }),
     "503": jsonResponse("The API is missing required runtime configuration.", {
-      error: "Reporting API token is not configured",
+      error: "Internal OpenAPI token is not configured",
     }),
   };
 }
@@ -156,7 +159,7 @@ export function buildReportingOpenApiDocument(
             {
               lang: "curl",
               source: `curl -X GET "${serverUrl}/open-api/reporting/2pq/cases/ABC001" \\
-  -H "Authorization: Bearer <REPORTING_API_TOKEN>"`,
+  -H "Authorization: Bearer <REPORTING_ACCESS_TOKEN>"`,
             },
           ],
         },
@@ -197,7 +200,7 @@ export function buildReportingOpenApiDocument(
             {
               lang: "curl",
               source: `curl -X GET "${serverUrl}/open-api/reporting/patients?patientId=${EXAMPLE_PATIENT_ID}" \\
-  -H "Authorization: Bearer <REPORTING_API_TOKEN>"`,
+  -H "Authorization: Bearer <REPORTING_ACCESS_TOKEN>"`,
             },
           ],
         },
@@ -238,11 +241,39 @@ export function buildReportingOpenApiDocument(
             {
               lang: "curl",
               source: `curl -X POST "${serverUrl}/open-api/reporting/reports/upload" \\
-  -H "Authorization: Bearer <REPORTING_API_TOKEN>" \\
+  -H "Authorization: Bearer <REPORTING_ACCESS_TOKEN>" \\
   -H "Content-Type: application/json" \\
   --data '{
     "caseCode": "ABC001"
   }'`,
+            },
+          ],
+        },
+      },
+      "/open-api/auth/token/refresh": {
+        post: {
+          tags: ["Auth"],
+          summary: "Refresh a reporting access token.",
+          description:
+            "Revokes the current reporting access token and returns a replacement token with a fresh 24-hour expiration.",
+          responses: {
+            "201": jsonResponse("Token refreshed.", {
+              token: "rpt_access_VGhpcy1pcy1hbi1leGFtcGxlLXRva2VuLXZhbHVl",
+              tokenType: "Bearer",
+              expiresAt: "2026-08-22T12:00:00.000Z",
+              expiresInSeconds: 86400,
+              quota: {
+                limit: 60,
+                windowSeconds: 60,
+              },
+            }),
+            ...errorResponses(),
+          },
+          "x-codeSamples": [
+            {
+              lang: "curl",
+              source: `curl -X POST "${serverUrl}/open-api/auth/token/refresh" \\
+  -H "Authorization: Bearer <REPORTING_ACCESS_TOKEN>"`,
             },
           ],
         },
