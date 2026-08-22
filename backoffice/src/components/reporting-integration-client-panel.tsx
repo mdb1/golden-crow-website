@@ -1097,7 +1097,7 @@ export function ReportingIntegrationClientPanel() {
                       </p>
                     ) : null}
                     {client.revoked_at ? (
-                      <p className="text-destructive">
+                      <p className="col-span-full text-destructive">
                         Revoked by {client.revoked_by?.email} at{" "}
                         {formatDate(client.revoked_at)}
                       </p>
