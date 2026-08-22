@@ -875,8 +875,10 @@ export function ReportingIntegrationClientPanel() {
             <div className="border-l pl-3">
               <p className="text-sm font-medium">No active client</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Create an integration client first, then generate its secret in
-                a separate step.
+                Create an integration client to give an external backend its own
+                identity for accessing the OpenAPI endpoints. The client secret
+                is generated afterward so it can be copied once and stored
+                securely by the integration.
               </p>
             </div>
           )}
