@@ -69,7 +69,7 @@ function errorResponses() {
   };
 }
 
-const EXAMPLE_PATIENT_REF = "gcp_<opaque_patient_ref>";
+const EXAMPLE_PATIENT_ID = "PAT-8F4K2Z9Q1M7X5C3V6B0N2R8T4Y1L9P5WA7D2";
 
 export function buildReportingOpenApiDocument(
   serverUrl: string,
@@ -88,8 +88,14 @@ export function buildReportingOpenApiDocument(
           tags: ["Reporting"],
           summary: "Look up a patient for report production.",
           description:
-            "Returns an opaque patient reference and scoped patient data needed by an external reporting workflow. Provide one lookup field.",
+            "Returns the patient ID and scoped patient data needed by an external reporting workflow. Provide one lookup field.",
           parameters: [
+            {
+              name: "patientId",
+              in: "query",
+              required: false,
+              description: "GoldenCrow patient ID.",
+            },
             {
               name: "email",
               in: "query",
@@ -106,7 +112,7 @@ export function buildReportingOpenApiDocument(
           responses: {
             "200": jsonResponse("Patient found.", {
               patient: {
-                patientRef: EXAMPLE_PATIENT_REF,
+                id: EXAMPLE_PATIENT_ID,
                 institutionId: "INST-00001",
                 doctorId: "DOC-00001",
                 fullName: "Ada Lovelace",
@@ -116,7 +122,7 @@ export function buildReportingOpenApiDocument(
               },
             }),
             "400": jsonResponse("No lookup field was provided.", {
-              error: "Provide email or medicalRecordNumber.",
+              error: "Provide patientId, email, or medicalRecordNumber.",
             }),
             "404": jsonResponse("Patient not found.", {
               error: "Patient not found.",
@@ -126,7 +132,7 @@ export function buildReportingOpenApiDocument(
           "x-codeSamples": [
             {
               lang: "curl",
-              source: `curl -X GET "${serverUrl}/open-api/reporting/patients?email=ada%40example.com" \\
+              source: `curl -X GET "${serverUrl}/open-api/reporting/patients?patientId=${EXAMPLE_PATIENT_ID}" \\
   -H "Authorization: Bearer <REPORTING_API_TOKEN>"`,
             },
           ],
@@ -153,7 +159,7 @@ export function buildReportingOpenApiDocument(
               reportId: "2pq-abc001",
               reportCode: "ABC001",
               caseCode: "ABC001",
-              patientRef: EXAMPLE_PATIENT_REF,
+              patientId: EXAMPLE_PATIENT_ID,
               status: "available",
             }),
             "400": jsonResponse("Invalid upload notification.", {
@@ -198,14 +204,14 @@ export function buildReportingOpenApiDocument(
               generatedAt: "2026-08-21T12:00:00.000Z",
               main_case: {
                 id: "CASE-00001",
-                patient_ref: EXAMPLE_PATIENT_REF,
+                patient_id: EXAMPLE_PATIENT_ID,
                 institution_id: "INST-00001",
                 doctor_id: "DOC-00001",
                 children_sampling_ids: ["SAMP-00001"],
                 last_updated: "2026-08-19T12:00:00.000Z",
               },
               patient: {
-                patientRef: EXAMPLE_PATIENT_REF,
+                id: EXAMPLE_PATIENT_ID,
                 fullName: "Ada Lovelace",
                 email: "ada@example.com",
               },
@@ -217,7 +223,7 @@ export function buildReportingOpenApiDocument(
                     scope: {
                       institutionId: "INST-00001",
                       doctorId: "DOC-00001",
-                      patientRef: EXAMPLE_PATIENT_REF,
+                      patientId: EXAMPLE_PATIENT_ID,
                     },
                     relations: {
                       samplingIds: ["SAMP-00001"],

@@ -31,7 +31,6 @@ describe("public reporting OpenAPI handlers", () => {
       ...originalEnv,
       BACKOFFICE_REPORTING_API_TOKEN: REPORTING_TOKEN,
       GOLDENCROW_OPENAPI_INTERNAL_TOKEN: "internal-openapi-secret",
-      GOLDENCROW_PATIENT_REF_SECRET: "patient-ref-secret",
       GOLDENCROW_SDK_URL: "https://sdk.example.com",
     };
     global.fetch = jest.fn() as unknown as typeof fetch;
@@ -43,7 +42,7 @@ describe("public reporting OpenAPI handlers", () => {
     jest.resetAllMocks();
   });
 
-  it("unwraps 2PQ case snapshots and redacts sequential patient ids", async () => {
+  it("unwraps 2PQ case snapshots and preserves patient ids", async () => {
     mockSdkResponse({
       caseSnapshot: {
         code: "ABC001",
@@ -97,18 +96,12 @@ describe("public reporting OpenAPI handlers", () => {
     expect(response.status).toBe(200);
     expect(body.caseSnapshot).toBeUndefined();
     expect(body.code).toBe("ABC001");
-    expect(body.main_case.patient_id).toBeUndefined();
-    expect(body.patient.id).toBeUndefined();
-    expect(body.entities.cases[0].scope.patientId).toBeUndefined();
-    expect(body.main_case.patient_ref).toMatch(/^gcp_/);
-    expect(body.patient.patientRef).toBe(body.main_case.patient_ref);
-    expect(body.entities.cases[0].scope.patientRef).toBe(
-      body.main_case.patient_ref,
-    );
-    expect(JSON.stringify(body)).not.toContain("PAT-00016");
+    expect(body.main_case.patient_id).toBe("PAT-00016");
+    expect(body.patient.id).toBe("PAT-00016");
+    expect(body.entities.cases[0].scope.patientId).toBe("PAT-00016");
   });
 
-  it("returns patientRef publicly without leaking the raw patient id", async () => {
+  it("looks up patients by patientId and returns the raw patient id", async () => {
     mockSdkResponse({
       patient: {
         id: "PAT-00016",
@@ -122,15 +115,15 @@ describe("public reporting OpenAPI handlers", () => {
 
     const lookupResponse = await handlePatientLookup(
       authorizedRequest(
-        "https://public.example.com/open-api/reporting/patients?email=ada%40example.com",
+        "https://public.example.com/open-api/reporting/patients?patientId=PAT-00016",
       ),
     );
     const lookupBody = await lookupResponse.json();
-    const patientRef = lookupBody.patient.patientRef;
 
-    expect(lookupBody.patient.id).toBeUndefined();
-    expect(patientRef).toMatch(/^gcp_/);
-    expect(JSON.stringify(lookupBody)).not.toContain("PAT-00016");
+    expect(lookupBody.patient.id).toBe("PAT-00016");
+    expect((global.fetch as jest.Mock).mock.calls[0][0].toString()).toBe(
+      "https://sdk.example.com/internal/openapi/reporting/patients?patientId=PAT-00016",
+    );
   });
 
   it("accepts only caseCode for upload notifications and derives the internal SDK payload", async () => {
@@ -180,10 +173,8 @@ describe("public reporting OpenAPI handlers", () => {
     );
 
     expect(uploadResponse.status).toBe(201);
-    expect(uploadBody.patientId).toBeUndefined();
+    expect(uploadBody.patientId).toBe("PAT-00016");
     expect(uploadBody.caseCode).toBe("ABC001");
-    expect(uploadBody.patientRef).toMatch(/^gcp_/);
-    expect(JSON.stringify(uploadBody)).not.toContain("PAT-00016");
     expect((global.fetch as jest.Mock).mock.calls[0][0].toString()).toBe(
       "https://sdk.example.com/internal/openapi/reporting/2pq/cases/ABC001",
     );

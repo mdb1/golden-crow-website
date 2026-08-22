@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { adminAuthFor, adminDbFor } from "../config/firebase.js";
 
 // Pitfall 16 — Bind once to the MyDNAMap project at module load. Every
@@ -52,8 +53,11 @@ const PATIENTS_COLLECTION = "patients";
 const INFORMED_CONSENTS_COLLECTION = "2pq-informed-consent";
 const USER_ROLES_COLLECTION = "user_roles";
 const SEQUENCES_COLLECTION = "admin_sequences";
+const PATIENT_ID_RANDOM_LENGTH = 36;
+const PATIENT_ID_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const PATIENT_ID_MAX_GENERATION_ATTEMPTS = 10;
 
-type SequenceKey = "institution" | "doctor" | "patient";
+type SequenceKey = "institution" | "doctor";
 
 const SEQUENCE_CONFIG: Record<
   SequenceKey,
@@ -61,7 +65,6 @@ const SEQUENCE_CONFIG: Record<
 > = {
   institution: { documentId: "institutions", prefix: "INST", padding: 5 },
   doctor: { documentId: "doctors", prefix: "DOC", padding: 5 },
-  patient: { documentId: "patients", prefix: "PAT", padding: 5 },
 };
 
 function normalizeOptionalString(value: unknown): string | undefined {
@@ -237,6 +240,36 @@ async function getNextEntityId(sequenceKey: SequenceKey) {
 
     return `${config.prefix}-${String(next).padStart(config.padding, "0")}`;
   });
+}
+
+function generateRandomBase36Chain(length: number) {
+  let value = "";
+  for (let index = 0; index < length; index += 1) {
+    value += PATIENT_ID_ALPHABET.charAt(randomInt(PATIENT_ID_ALPHABET.length));
+  }
+  return value;
+}
+
+async function getNextPatientId() {
+  for (
+    let attempt = 0;
+    attempt < PATIENT_ID_MAX_GENERATION_ATTEMPTS;
+    attempt += 1
+  ) {
+    const patientId = `PAT-${generateRandomBase36Chain(PATIENT_ID_RANDOM_LENGTH)}`;
+    const snapshot = await adminDb
+      .collection(PATIENTS_COLLECTION)
+      .doc(patientId)
+      .get();
+    if (!snapshot.exists) {
+      return patientId;
+    }
+  }
+
+  throw new AdminRepositoryError(
+    "Could not generate a unique patient id.",
+    500,
+  );
 }
 
 async function getInstitutionById(institutionId: string) {
@@ -1336,7 +1369,7 @@ export async function createPatientForContext(
   await ensureInstitutionExists(institutionId);
   await validateDoctorInstitutionLink(institutionId, doctorId);
 
-  const patientId = await getNextEntityId("patient");
+  const patientId = await getNextPatientId();
   const now = new Date().toISOString();
   const document = {
     id: patientId,

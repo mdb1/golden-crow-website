@@ -1,6 +1,5 @@
 import "server-only";
 
-import { createHmac } from "node:crypto";
 import { z } from "zod";
 import { buildReportingOpenApiDocument } from "@/lib/reporting-openapi-contract";
 import { getReportingApiToken } from "@/lib/reporting-api-token";
@@ -8,12 +7,14 @@ import { resolveSdkBaseUrl } from "@/lib/sdk-url";
 
 const PatientLookupQuerySchema = z
   .object({
+    patientId: z.string().trim().min(1).optional(),
     email: z.string().trim().toLowerCase().email().optional(),
     medicalRecordNumber: z.string().trim().min(1).optional(),
   })
   .refine(
-    (value) => Boolean(value.email || value.medicalRecordNumber),
-    "Provide email or medicalRecordNumber",
+    (value) =>
+      Boolean(value.patientId || value.email || value.medicalRecordNumber),
+    "Provide patientId, email, or medicalRecordNumber",
   );
 
 type PublicRecord = Record<string, unknown>;
@@ -58,133 +59,14 @@ function getInternalOpenApiToken() {
   return process.env.GOLDENCROW_OPENAPI_INTERNAL_TOKEN?.trim();
 }
 
-function patientRefSigningSecret() {
-  const configuredSecret = process.env.GOLDENCROW_PATIENT_REF_SECRET?.trim();
-  const secret = configuredSecret || getInternalOpenApiToken();
-  if (!secret) {
-    throw new SdkBridgeError(503, {
-      error: "Internal OpenAPI token is not configured",
-    });
-  }
-
-  return secret;
-}
-
-function signPatientRefPayload(payload: string) {
-  return createHmac("sha256", patientRefSigningSecret())
-    .update(payload)
-    .digest("base64url");
-}
-
-function createPatientRef(patientId: string) {
-  const payload = Buffer.from(JSON.stringify({ patientId }), "utf8").toString(
-    "base64url",
-  );
-  return `gcp_${payload}.${signPatientRefPayload(payload)}`;
-}
-
-function publicPatientRecord(patient: unknown, fallbackPatientRef?: string) {
-  if (!isRecord(patient)) {
-    return patient;
-  }
-
-  const { id, ...patientData } = patient;
-  const patientId = stringValue(id);
-  const patientRef = patientId
-    ? createPatientRef(patientId)
-    : fallbackPatientRef;
-
-  return patientRef ? { ...patientData, patientRef } : patientData;
-}
-
-function publicPatientLookupResponse(response: unknown) {
+function publicUploadNotificationResponse(response: unknown, caseCode: string) {
   if (!isRecord(response)) {
     return response;
   }
 
   return {
     ...response,
-    patient: publicPatientRecord(response.patient),
-  };
-}
-
-function publicUploadNotificationResponse(response: unknown, caseCode: string) {
-  if (!isRecord(response)) {
-    return response;
-  }
-
-  const patientId = stringValue(response.patientId);
-  const { patientId: _patientId, ...responseData } = response;
-  return {
-    ...responseData,
     caseCode,
-    ...(patientId ? { patientRef: createPatientRef(patientId) } : {}),
-  };
-}
-
-function publicTwoPQScope(scope: unknown) {
-  if (!isRecord(scope)) {
-    return scope;
-  }
-
-  const { patientId, ...scopeData } = scope;
-  const normalizedPatientId = stringValue(patientId);
-  const patientRef = normalizedPatientId
-    ? createPatientRef(normalizedPatientId)
-    : undefined;
-
-  return patientRef ? { ...scopeData, patientRef } : scopeData;
-}
-
-function publicTwoPQEntity(entity: unknown) {
-  if (!isRecord(entity)) {
-    return entity;
-  }
-
-  return {
-    ...entity,
-    scope: publicTwoPQScope(entity.scope),
-  };
-}
-
-function publicTwoPQCaseSnapshot(snapshot: unknown) {
-  if (!isRecord(snapshot)) {
-    return snapshot;
-  }
-
-  const mainCase = isRecord(snapshot.main_case) ? snapshot.main_case : null;
-  const patientId =
-    stringValue(isRecord(snapshot.patient) ? snapshot.patient.id : undefined) ??
-    stringValue(mainCase?.patient_id);
-  const patientRef = patientId ? createPatientRef(patientId) : undefined;
-
-  let publicMainCase: unknown = snapshot.main_case;
-  if (mainCase) {
-    const { patient_id: _patientId, ...mainCaseData } = mainCase;
-    publicMainCase = {
-      ...mainCaseData,
-      patient_ref: patientRef ?? null,
-    };
-  }
-
-  let publicEntities = snapshot.entities;
-  if (isRecord(snapshot.entities)) {
-    publicEntities = {
-      ...snapshot.entities,
-      cases: Array.isArray(snapshot.entities.cases)
-        ? snapshot.entities.cases.map(publicTwoPQEntity)
-        : snapshot.entities.cases,
-      samplings: Array.isArray(snapshot.entities.samplings)
-        ? snapshot.entities.samplings.map(publicTwoPQEntity)
-        : snapshot.entities.samplings,
-    };
-  }
-
-  return {
-    ...snapshot,
-    main_case: publicMainCase,
-    patient: publicPatientRecord(snapshot.patient, patientRef),
-    entities: publicEntities,
   };
 }
 
@@ -193,7 +75,7 @@ function publicTwoPQCaseResponse(response: unknown) {
     return response;
   }
 
-  return publicTwoPQCaseSnapshot(response.caseSnapshot ?? response);
+  return response.caseSnapshot ?? response;
 }
 
 function internalTwoPQCaseSnapshot(response: unknown) {
@@ -300,6 +182,9 @@ function optionalQueryValue(searchParams: URLSearchParams, key: string) {
 
 function patientLookupPath(query: z.infer<typeof PatientLookupQuerySchema>) {
   const params = new URLSearchParams();
+  if (query.patientId) {
+    params.set("patientId", query.patientId);
+  }
   if (query.email) {
     params.set("email", query.email);
   }
@@ -381,6 +266,7 @@ export async function handlePatientLookup(request: Request) {
 
   const searchParams = new URL(request.url).searchParams;
   const parsedQuery = PatientLookupQuerySchema.safeParse({
+    patientId: optionalQueryValue(searchParams, "patientId"),
     email: optionalQueryValue(searchParams, "email"),
     medicalRecordNumber: optionalQueryValue(
       searchParams,
@@ -395,11 +281,9 @@ export async function handlePatientLookup(request: Request) {
   }
 
   try {
-    const sdkResponse = await sdkBridgeFetch(
-      request,
-      patientLookupPath(parsedQuery.data),
+    return json(
+      await sdkBridgeFetch(request, patientLookupPath(parsedQuery.data)),
     );
-    return json(publicPatientLookupResponse(sdkResponse));
   } catch (error) {
     if (error instanceof SdkBridgeError) {
       return bridgeErrorResponse(error);
