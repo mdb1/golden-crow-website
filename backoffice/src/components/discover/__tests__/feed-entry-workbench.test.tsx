@@ -200,6 +200,32 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(body.source_button_text).toBe("Open organizer website");
   });
 
+  it("shows cover image URL guidance and an example link", () => {
+    render(
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    expect(
+      screen.getByText(
+        /Usá una imagen pública HTTPS en PNG, JPG, JPEG o WebP\./,
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/Tamaño recomendado: 1024 x 500 px, hasta 1 MB/),
+    ).toBeTruthy();
+
+    const exampleLink = screen.getByRole("link", { name: "See example" });
+    expect(exampleLink.getAttribute("href")).toBe(
+      "https://goldencrowvs.com/pocket-genes/banner.png",
+    );
+  });
+
   it("shows the public app link after a successful publish with no unsaved changes", async () => {
     jest.mocked(sdkFetch).mockResolvedValueOnce({
       feedItem: {

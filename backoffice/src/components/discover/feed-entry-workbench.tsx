@@ -1581,10 +1581,26 @@ export function DiscoverFeedEntryWorkbench({
                     placeholder="https://"
                     aria-invalid={Boolean(imageUrlError)}
                     aria-describedby={
-                      imageUrlError ? "discover-feed-image-error" : undefined
+                      imageUrlError
+                        ? "discover-feed-image-guidance discover-feed-image-error"
+                        : "discover-feed-image-guidance"
                     }
                     className={`h-11 ${imageUrlError ? "border-destructive focus-visible:ring-destructive" : ""}`}
                   />
+                  <p
+                    id="discover-feed-image-guidance"
+                    className="text-xs leading-5 text-muted-foreground"
+                  >
+                    {t("Use a public HTTPS image in PNG, JPG, JPEG, or WebP. Recommended size: 1024 x 500 px, up to 1 MB, high quality, with no important text or faces close to the edges.")}{" "}
+                    <a
+                      href="https://goldencrowvs.com/pocket-genes/banner.png"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-sky-700 underline underline-offset-2 hover:text-sky-900 dark:text-sky-300 dark:hover:text-sky-200"
+                    >
+                      See example
+                    </a>
+                  </p>
                 </FieldShell>
               </div>
             </section>

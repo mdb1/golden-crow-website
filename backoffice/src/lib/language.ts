@@ -414,6 +414,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Main button text": "Texto del botón principal",
   "Open organizer website": "Abrir sitio web del organizador",
   "Cover image URL": "URL de imagen de portada",
+  "Use a public HTTPS image in PNG, JPG, JPEG, or WebP. Recommended size: 1024 x 500 px, up to 1 MB, high quality, with no important text or faces close to the edges.":
+    "Usá una imagen pública HTTPS en PNG, JPG, JPEG o WebP. Tamaño recomendado: 1024 x 500 px, hasta 1 MB, calidad alta, sin texto importante ni caras cerca de los bordes.",
   "Write the note": "Escribir la nota",
   "Simple text": "Texto simple",
   "Rich text": "Texto enriquecido",
