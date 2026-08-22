@@ -30,10 +30,11 @@ export default async function ReportingApiKeysPage() {
               </h2>
             </div>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              Full admins can create a client credential for an external
-              reporting backend. The client receives a <code>client_id</code>{" "}
-              and one-time <code>client_secret</code>, then exchanges those
-              credentials for 24-hour access tokens.
+              Full admins create an integration client for an external reporting
+              backend, then generate its one-time <code>client_secret</code> in
+              a separate action. The integration exchanges the{" "}
+              <code>client_id</code> and <code>client_secret</code> for 24-hour
+              access tokens.
             </p>
           </div>
           <Badge variant="secondary">Standard mode</Badge>
@@ -65,9 +66,9 @@ export default async function ReportingApiKeysPage() {
             </p>
           </div>
         </div>
-
-        <ReportingIntegrationClientPanel />
       </section>
+
+      <ReportingIntegrationClientPanel />
 
       <section className="grid gap-4 lg:grid-cols-2">
         <article className="rounded-lg border bg-card p-5 shadow-sm">
@@ -79,10 +80,14 @@ export default async function ReportingApiKeysPage() {
           </div>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted-foreground">
             <li>
-              Enter a name and click <code>Create client</code>.
+              Click <code>Create client</code> and enter the integration name in
+              the confirmation dialog.
             </li>
             <li>
-              Copy the <code>client_id</code> and one-time{" "}
+              Open the created client and click <code>Create secret</code>.
+            </li>
+            <li>
+              Copy the visible <code>client_id</code> and one-time{" "}
               <code>client_secret</code>.
             </li>
             <li>

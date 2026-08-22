@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Ban,
@@ -9,6 +9,7 @@ import {
   Copy,
   KeyRound,
   Plus,
+  RefreshCw,
   RotateCcw,
   ShieldAlert,
 } from "lucide-react";
@@ -25,6 +26,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -59,24 +69,20 @@ type ReportingIntegrationClientSummary = {
   token_issue_count: number;
 };
 
-type ReportingIntegrationClientCreateResponse = {
-  client_id: string;
-  client_secret: string;
-  name: string;
-  scopes: string[];
-  quota: {
-    limit: number;
-    window_seconds: number;
-  };
-  status: "active" | "revoked";
-  created_at: string;
-  created_by: {
-    uid: string;
-    email: string;
-  };
-};
+type ReportingIntegrationClientCreateResponse = Omit<
+  ReportingIntegrationClientSummary,
+  | "secret_prefix"
+  | "last_secret_rotated_at"
+  | "last_secret_rotated_by"
+  | "revoked_at"
+  | "revoked_by"
+  | "last_token_issued_at"
+  | "last_used_at"
+  | "usage_count"
+  | "token_issue_count"
+>;
 
-type ReportingIntegrationClientSecretRotateResponse = {
+type ReportingIntegrationClientSecretResponse = {
   client: ReportingIntegrationClientSummary;
   client_secret: string;
 };
@@ -89,6 +95,7 @@ type ReportingIntegrationClientAccessEvent = {
   id: string;
   event_type:
     | "integration_client.created"
+    | "integration_client.secret_created"
     | "integration_client.secret_rotated"
     | "integration_client.revoked";
   client_id: string;
@@ -101,11 +108,6 @@ type ReportingIntegrationClientAccessEvent = {
   status?: "active" | "revoked";
   secret_prefix?: string;
   previous_secret_prefix?: string;
-  quota?: {
-    limit: number;
-    window_seconds: number;
-  };
-  scopes?: string[];
 };
 
 type ClientListResponse = {
@@ -119,12 +121,13 @@ type EventListResponse = {
 };
 
 type RevealedSecret = {
-  action: "created" | "rotated";
+  action: "created" | "renewed";
   client: ReportingIntegrationClientSummary;
   client_secret: string;
 };
 
 const PAGE_LIMIT = 20;
+const DEFAULT_CLIENT_NAME = "2PQ reporting integration";
 
 function formatDate(value: string | undefined) {
   if (!value) {
@@ -142,21 +145,41 @@ function formatDate(value: string | undefined) {
   });
 }
 
-function summaryFromCreateResponse(
+function createResponseToSummary(
   body: ReportingIntegrationClientCreateResponse,
 ): ReportingIntegrationClientSummary {
   return {
-    client_id: body.client_id,
-    name: body.name,
-    scopes: body.scopes,
-    quota: body.quota,
-    status: body.status,
-    created_at: body.created_at,
-    created_by: body.created_by,
-    secret_prefix: body.client_secret.slice(0, 18),
+    ...body,
     usage_count: 0,
     token_issue_count: 0,
   };
+}
+
+function latestTimestamp(client: ReportingIntegrationClientSummary) {
+  const values = [
+    client.last_secret_rotated_at,
+    client.last_token_issued_at,
+    client.last_used_at,
+    client.created_at,
+  ]
+    .map((value) => (value ? new Date(value).getTime() : 0))
+    .filter((value) => Number.isFinite(value));
+
+  return Math.max(...values, 0);
+}
+
+function mergeClients(
+  current: ReportingIntegrationClientSummary[],
+  incoming: ReportingIntegrationClientSummary[],
+) {
+  const byId = new Map(current.map((client) => [client.client_id, client]));
+  for (const client of incoming) {
+    byId.set(client.client_id, client);
+  }
+
+  return [...byId.values()].sort(
+    (left, right) => latestTimestamp(right) - latestTimestamp(left),
+  );
 }
 
 async function parseResponse(response: Response) {
@@ -172,19 +195,12 @@ async function parseResponse(response: Response) {
   }
 }
 
-function mergeClients(
-  current: ReportingIntegrationClientSummary[],
-  incoming: ReportingIntegrationClientSummary[],
-) {
-  const byId = new Map(current.map((client) => [client.client_id, client]));
-  for (const client of incoming) {
-    byId.set(client.client_id, client);
-  }
-
-  return [...byId.values()].sort(
-    (left, right) =>
-      new Date(right.created_at).getTime() -
-      new Date(left.created_at).getTime(),
+function isErrorBody(value: unknown): value is { error: string } {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    "error" in value &&
+    typeof (value as { error?: unknown }).error === "string",
   );
 }
 
@@ -195,8 +211,12 @@ function eventTitle(
     return "Integration client created";
   }
 
+  if (eventType === "integration_client.secret_created") {
+    return "Client secret created";
+  }
+
   if (eventType === "integration_client.secret_rotated") {
-    return "Client secret rotated";
+    return "Client secret renewed";
   }
 
   return "Integration client revoked";
@@ -204,27 +224,48 @@ function eventTitle(
 
 function eventBody(event: ReportingIntegrationClientAccessEvent) {
   if (event.event_type === "integration_client.created") {
-    return `Created ${event.client_name} with secret prefix ${event.secret_prefix ?? "hidden"}.`;
+    return `Created ${event.client_name}. No full client secret is stored in the event log.`;
+  }
+
+  if (event.event_type === "integration_client.secret_created") {
+    return `Created the first secret for ${event.client_name}. Stored prefix: ${event.secret_prefix ?? "hidden"}.`;
   }
 
   if (event.event_type === "integration_client.secret_rotated") {
-    return `Rotated ${event.client_name}; previous prefix ${event.previous_secret_prefix ?? "hidden"}, new prefix ${event.secret_prefix ?? "hidden"}.`;
+    return `Renewed the secret for ${event.client_name}. Previous prefix ${event.previous_secret_prefix ?? "hidden"}, new prefix ${event.secret_prefix ?? "hidden"}.`;
   }
 
-  return `Revoked ${event.client_name}. Token exchanges and business requests for this client now fail.`;
+  return `Revoked ${event.client_name}. Token exchanges and business API requests for this client now fail.`;
 }
 
-function isErrorBody(value: unknown): value is { error: string } {
-  return Boolean(
-    value &&
-    typeof value === "object" &&
-    "error" in value &&
-    typeof (value as { error?: unknown }).error === "string",
+function ClientReadOnlyField({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="min-w-0 rounded-md border bg-muted/25 p-3">
+      <p className="text-xs font-medium uppercase text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className={
+          mono
+            ? "mt-1 break-all font-mono text-xs text-foreground"
+            : "mt-1 break-words text-sm text-foreground"
+        }
+      >
+        {value}
+      </p>
+    </div>
   );
 }
 
 export function ReportingIntegrationClientPanel() {
-  const [name, setName] = useState("2PQ reporting integration");
   const [clients, setClients] = useState<ReportingIntegrationClientSummary[]>(
     [],
   );
@@ -236,6 +277,8 @@ export function ReportingIntegrationClientPanel() {
   const [revealedSecret, setRevealedSecret] = useState<RevealedSecret | null>(
     null,
   );
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [draftClientName, setDraftClientName] = useState(DEFAULT_CLIENT_NAME);
   const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -244,9 +287,10 @@ export function ReportingIntegrationClientPanel() {
   const [copiedField, setCopiedField] = useState<"id" | "secret" | null>(null);
 
   const activeClients = useMemo(
-    () => clients.filter((client) => client.status === "active").length,
+    () => clients.filter((client) => client.status === "active"),
     [clients],
   );
+  const currentClient = activeClients[0] ?? null;
 
   async function loadClients(
     options: { append?: boolean; cursor?: string } = {},
@@ -257,6 +301,7 @@ export function ReportingIntegrationClientPanel() {
       if (options.cursor) {
         params.set("cursor", options.cursor);
       }
+
       const response = await fetch(
         `/api/open-api/reporting/integration-clients?${params.toString()}`,
       );
@@ -297,6 +342,7 @@ export function ReportingIntegrationClientPanel() {
       if (options.cursor) {
         params.set("cursor", options.cursor);
       }
+
       const response = await fetch(
         `/api/open-api/reporting/integration-clients/events?${params.toString()}`,
       );
@@ -340,10 +386,16 @@ export function ReportingIntegrationClientPanel() {
     void refreshAccessState();
   }, []);
 
-  async function createClient() {
+  async function createClient(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    const name = draftClientName.trim();
+    if (!name) {
+      toast.error("Integration name is required.");
+      return;
+    }
+
     setIsCreating(true);
     setError(null);
-    setCopiedField(null);
 
     try {
       const response = await fetch(
@@ -365,15 +417,15 @@ export function ReportingIntegrationClientPanel() {
         );
       }
 
-      const created = body as ReportingIntegrationClientCreateResponse;
-      const client = summaryFromCreateResponse(created);
+      const client = createResponseToSummary(
+        body as ReportingIntegrationClientCreateResponse,
+      );
       setClients((current) => mergeClients(current, [client]));
-      setRevealedSecret({
-        action: "created",
-        client,
-        client_secret: created.client_secret,
-      });
-      toast.success("Integration client created.");
+      setCreateDialogOpen(false);
+      setDraftClientName(DEFAULT_CLIENT_NAME);
+      toast.success(
+        "Integration client created. Generate a secret to enable it.",
+      );
       void loadEvents();
     } catch (requestError) {
       const message =
@@ -387,8 +439,11 @@ export function ReportingIntegrationClientPanel() {
     }
   }
 
-  async function rotateClientSecret(client: ReportingIntegrationClientSummary) {
-    const actionKey = `rotate:${client.client_id}`;
+  async function generateOrRenewSecret(
+    client: ReportingIntegrationClientSummary,
+  ) {
+    const isFirstSecret = !client.secret_prefix;
+    const actionKey = `secret:${client.client_id}`;
     setPendingAction(actionKey);
     setError(null);
     setCopiedField(null);
@@ -405,24 +460,26 @@ export function ReportingIntegrationClientPanel() {
       const body = await parseResponse(response);
       if (!response.ok) {
         throw new Error(
-          isErrorBody(body) ? body.error : "Could not rotate client secret.",
+          isErrorBody(body) ? body.error : "Could not generate client secret.",
         );
       }
 
-      const rotated = body as ReportingIntegrationClientSecretRotateResponse;
-      setClients((current) => mergeClients(current, [rotated.client]));
+      const result = body as ReportingIntegrationClientSecretResponse;
+      setClients((current) => mergeClients(current, [result.client]));
       setRevealedSecret({
-        action: "rotated",
-        client: rotated.client,
-        client_secret: rotated.client_secret,
+        action: isFirstSecret ? "created" : "renewed",
+        client: result.client,
+        client_secret: result.client_secret,
       });
-      toast.success("Client secret rotated.");
+      toast.success(
+        isFirstSecret ? "Client secret created." : "Client secret renewed.",
+      );
       void loadEvents();
     } catch (requestError) {
       const message =
         requestError instanceof Error
           ? requestError.message
-          : "Could not rotate client secret.";
+          : "Could not generate client secret.";
       setError(message);
       toast.error(message);
     } finally {
@@ -455,6 +512,9 @@ export function ReportingIntegrationClientPanel() {
 
       const revoked = body as ReportingIntegrationClientRevokeResponse;
       setClients((current) => mergeClients(current, [revoked.client]));
+      if (revealedSecret?.client.client_id === client.client_id) {
+        setRevealedSecret(null);
+      }
       toast.success("Integration client revoked.");
       void loadEvents();
     } catch (requestError) {
@@ -483,98 +543,339 @@ export function ReportingIntegrationClientPanel() {
     }
   }
 
-  return (
-    <div className="mt-5 space-y-5">
-      <div className="rounded-lg border bg-muted/25 p-4">
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-          <div className="min-w-0">
-            <Label htmlFor="reporting-integration-name">Integration name</Label>
-            <Input
-              id="reporting-integration-name"
-              className="mt-2"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              disabled={isCreating}
-            />
-          </div>
+  function SecretActionDialog({
+    client,
+    compact = false,
+  }: {
+    client: ReportingIntegrationClientSummary;
+    compact?: boolean;
+  }) {
+    const isFirstSecret = !client.secret_prefix;
+    const actionKey = `secret:${client.client_id}`;
+    const label = isFirstSecret ? "Create secret" : "Renew secret";
+
+    return (
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
           <Button
             type="button"
-            onClick={createClient}
-            disabled={isCreating || !name.trim()}
+            variant={isFirstSecret ? "default" : "outline"}
+            size={compact ? "sm" : "default"}
+            disabled={client.status === "revoked" || pendingAction !== null}
           >
-            <Plus />
-            {isCreating ? "Creating" : "Create client"}
+            {isFirstSecret ? <Plus /> : <RefreshCw />}
+            {label}
           </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isFirstSecret
+                ? `Create secret for ${client.name}?`
+                : `Renew secret for ${client.name}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isFirstSecret
+                ? "This generates the one-time client_secret required for token exchange. Copy it when it appears; the full value will not be available later."
+                : "This replaces the current client_secret. The old secret stops working for new token exchanges. Existing access tokens can keep working until their 24-hour expiration."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void generateOrRenewSecret(client)}
+              disabled={pendingAction === actionKey}
+            >
+              {pendingAction === actionKey ? "Working" : label}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
+  function RevokeDialog({
+    client,
+    compact = false,
+  }: {
+    client: ReportingIntegrationClientSummary;
+    compact?: boolean;
+  }) {
+    const actionKey = `revoke:${client.client_id}`;
+
+    return (
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            type="button"
+            variant="destructive"
+            size={compact ? "sm" : "default"}
+            disabled={client.status === "revoked" || pendingAction !== null}
+          >
+            <Ban />
+            Revoke
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke {client.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This immediately blocks new token exchanges and all business API
+              requests made with existing access tokens for this client. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => void revokeClient(client)}
+              disabled={pendingAction === actionKey}
+            >
+              {pendingAction === actionKey ? "Revoking" : "Revoke client"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <section className="rounded-lg border bg-card p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-base font-semibold">Last valid client</h2>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              The latest active client stays visible here. Full secrets are
+              never shown after their one-time reveal.
+            </p>
+          </div>
+
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button type="button">
+                <Plus />
+                Create client
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <form onSubmit={createClient}>
+                <DialogHeader>
+                  <DialogTitle>Create integration client</DialogTitle>
+                  <DialogDescription>
+                    Name the external backend or partner that will use this
+                    client. The secret is generated separately after creation.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="mt-4">
+                  <Label htmlFor="reporting-client-name">Client name</Label>
+                  <Input
+                    id="reporting-client-name"
+                    className="mt-2"
+                    value={draftClientName}
+                    onChange={(event) => setDraftClientName(event.target.value)}
+                    disabled={isCreating}
+                    autoFocus
+                  />
+                </div>
+                <DialogFooter className="mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCreateDialogOpen(false)}
+                    disabled={isCreating}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isCreating || !draftClientName.trim()}
+                  >
+                    {isCreating ? "Creating" : "Create client"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {error ? (
-          <p className="mt-3 text-sm text-destructive">{error}</p>
+          <p className="mt-4 rounded-md border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </p>
         ) : null}
 
-        {revealedSecret ? (
-          <div className="mt-4 space-y-3 rounded-lg border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-300/30 dark:bg-amber-400/10">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+        <div className="mt-4">
+          {isLoadingClients && !clients.length ? (
+            <p className="rounded-lg border bg-muted/25 p-4 text-sm text-muted-foreground">
+              Loading integration clients.
+            </p>
+          ) : currentClient ? (
+            <div className="rounded-lg border bg-background p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold">
+                      {currentClient.name}
+                    </h3>
+                    <Badge variant="success">active</Badge>
+                    <Badge
+                      variant={
+                        currentClient.secret_prefix ? "secondary" : "warning"
+                      }
+                    >
+                      {currentClient.secret_prefix
+                        ? "secret generated"
+                        : "secret required"}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 flex min-w-0 items-center gap-2">
+                    <code className="block min-w-0 overflow-x-auto break-all rounded-md bg-muted/60 px-2 py-1 text-xs text-foreground">
+                      {currentClient.client_id}
+                    </code>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={() => copyValue("id", currentClient.client_id)}
+                      aria-label="Copy client ID"
+                    >
+                      {copiedField === "id" ? <Check /> : <Copy />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <SecretActionDialog client={currentClient} />
+                  <RevokeDialog client={currentClient} />
+                </div>
+              </div>
+
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <ClientReadOnlyField
+                  label="client_id"
+                  value={currentClient.client_id}
+                  mono
+                />
+                <ClientReadOnlyField
+                  label="secret"
+                  value={
+                    currentClient.secret_prefix
+                      ? `${currentClient.secret_prefix}...`
+                      : "Not generated"
+                  }
+                  mono
+                />
+                <ClientReadOnlyField
+                  label="quota"
+                  value={`${currentClient.quota.limit} requests / ${currentClient.quota.window_seconds}s`}
+                />
+                <ClientReadOnlyField
+                  label="created by"
+                  value={currentClient.created_by.email}
+                />
+              </dl>
+
+              <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <ClientReadOnlyField
+                  label="created"
+                  value={formatDate(currentClient.created_at)}
+                />
+                <ClientReadOnlyField
+                  label="last secret event"
+                  value={formatDate(currentClient.last_secret_rotated_at)}
+                />
+                <ClientReadOnlyField
+                  label="tokens issued"
+                  value={String(currentClient.token_issue_count)}
+                />
+                <ClientReadOnlyField
+                  label="requests accepted"
+                  value={String(currentClient.usage_count)}
+                />
+              </dl>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {currentClient.scopes.map((scope) => (
+                  <Badge key={scope} variant="outline">
+                    {scope}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border bg-muted/25 p-4">
+              <p className="text-sm font-medium">No active client</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Create an integration client first, then generate its secret in
+                a separate step.
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {revealedSecret ? (
+        <section className="rounded-lg border border-amber-200 bg-amber-50/70 p-5 shadow-sm dark:border-amber-300/30 dark:bg-amber-400/10">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base font-semibold text-amber-950 dark:text-amber-100">
                   {revealedSecret.action === "created"
                     ? "Client secret created"
-                    : "New client secret generated"}
-                </p>
-                <p className="mt-1 text-sm text-amber-900/80 dark:text-amber-100/80">
-                  Copy this value now. The full secret is shown only once.
-                </p>
+                    : "Client secret renewed"}
+                </h2>
+                <Badge variant="warning">One-time reveal</Badge>
               </div>
-              <Badge variant="warning">One-time reveal</Badge>
+              <p className="mt-2 text-sm text-amber-900/80 dark:text-amber-100/80">
+                Copy this secret now. It will not be accessible again from the
+                backoffice after this message is dismissed or the page reloads.
+              </p>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setRevealedSecret(null)}
+            >
+              Dismiss
+            </Button>
+          </div>
 
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className="min-w-0 rounded-lg border bg-background p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">
-                    client_id
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      copyValue("id", revealedSecret.client.client_id)
-                    }
-                  >
-                    {copiedField === "id" ? <Check /> : <Copy />}
-                    {copiedField === "id" ? "Copied" : "Copy"}
-                  </Button>
-                </div>
-                <code className="mt-2 block overflow-x-auto break-all rounded-md bg-muted/60 px-3 py-2 text-xs text-foreground">
-                  {revealedSecret.client.client_id}
-                </code>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <ClientReadOnlyField
+              label="client_id"
+              value={revealedSecret.client.client_id}
+              mono
+            />
+            <div className="min-w-0 rounded-md border bg-background p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  client_secret
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    copyValue("secret", revealedSecret.client_secret)
+                  }
+                >
+                  {copiedField === "secret" ? <Check /> : <Copy />}
+                  {copiedField === "secret" ? "Copied" : "Copy"}
+                </Button>
               </div>
-
-              <div className="min-w-0 rounded-lg border bg-background p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">
-                    client_secret
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      copyValue("secret", revealedSecret.client_secret)
-                    }
-                  >
-                    {copiedField === "secret" ? <Check /> : <Copy />}
-                    {copiedField === "secret" ? "Copied" : "Copy"}
-                  </Button>
-                </div>
-                <code className="mt-2 block overflow-x-auto break-all rounded-md bg-muted/60 px-3 py-2 text-xs text-foreground">
-                  {revealedSecret.client_secret}
-                </code>
-              </div>
+              <code className="mt-2 block overflow-x-auto break-all rounded-md bg-muted/60 px-3 py-2 text-xs text-foreground">
+                {revealedSecret.client_secret}
+              </code>
             </div>
           </div>
-        ) : null}
-      </div>
+        </section>
+      ) : null}
 
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <div className="flex items-center gap-2">
@@ -587,7 +888,7 @@ export function ReportingIntegrationClientPanel() {
           <div className="rounded-lg border bg-muted/25 p-4">
             <h3 className="text-sm font-semibold">Lost secret</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Use <code>Reset secret</code> on the active client. The{" "}
+              Use <code>Renew secret</code> on the active client. The{" "}
               <code>client_id</code>, scopes, quota, and event history stay the
               same. The previous <code>client_secret</code> stops minting new
               access tokens. Already issued access tokens can keep working until
@@ -617,7 +918,7 @@ export function ReportingIntegrationClientPanel() {
               <h2 className="text-base font-semibold">Integration clients</h2>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              {activeClients} active of {clients.length} loaded clients.
+              {activeClients.length} active of {clients.length} loaded clients.
             </p>
           </div>
           <Button
@@ -633,12 +934,6 @@ export function ReportingIntegrationClientPanel() {
         </div>
 
         <div className="mt-4 space-y-3">
-          {isLoadingClients && !clients.length ? (
-            <p className="rounded-lg border bg-muted/25 p-4 text-sm text-muted-foreground">
-              Loading integration clients.
-            </p>
-          ) : null}
-
           {!isLoadingClients && !clients.length ? (
             <p className="rounded-lg border bg-muted/25 p-4 text-sm text-muted-foreground">
               No integration clients have been created yet.
@@ -647,8 +942,6 @@ export function ReportingIntegrationClientPanel() {
 
           {clients.map((client) => {
             const isRevoked = client.status === "revoked";
-            const rotateActionKey = `rotate:${client.client_id}`;
-            const revokeActionKey = `revoke:${client.client_id}`;
 
             return (
               <article
@@ -662,6 +955,13 @@ export function ReportingIntegrationClientPanel() {
                       <Badge variant={isRevoked ? "destructive" : "success"}>
                         {client.status}
                       </Badge>
+                      <Badge
+                        variant={client.secret_prefix ? "secondary" : "warning"}
+                      >
+                        {client.secret_prefix
+                          ? "secret generated"
+                          : "secret required"}
+                      </Badge>
                     </div>
                     <code className="mt-2 block overflow-x-auto break-all rounded-md bg-muted/60 px-2 py-1 text-xs text-foreground">
                       {client.client_id}
@@ -669,128 +969,41 @@ export function ReportingIntegrationClientPanel() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={isRevoked || pendingAction !== null}
-                        >
-                          <RotateCcw />
-                          Reset secret
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Reset secret for {client.name}?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            A new one-time <code>client_secret</code> will be
-                            generated for this same <code>client_id</code>. The
-                            old secret will stop working for new token
-                            exchanges. Existing access tokens can keep working
-                            until their 24-hour expiration.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => void rotateClientSecret(client)}
-                            disabled={pendingAction === rotateActionKey}
-                          >
-                            {pendingAction === rotateActionKey
-                              ? "Resetting"
-                              : "Reset secret"}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          disabled={isRevoked || pendingAction !== null}
-                        >
-                          <Ban />
-                          Revoke
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Revoke {client.name}?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This immediately blocks new token exchanges and all
-                            business API requests made with existing access
-                            tokens for this client. This action cannot be
-                            undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            variant="destructive"
-                            onClick={() => void revokeClient(client)}
-                            disabled={pendingAction === revokeActionKey}
-                          >
-                            {pendingAction === revokeActionKey
-                              ? "Revoking"
-                              : "Revoke client"}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <SecretActionDialog client={client} compact />
+                    <RevokeDialog client={client} compact />
                   </div>
                 </div>
 
                 <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="rounded-md border bg-muted/25 p-3">
-                    <dt className="text-xs font-medium uppercase text-muted-foreground">
-                      Secret prefix
-                    </dt>
-                    <dd className="mt-1 font-mono text-xs text-foreground">
-                      {client.secret_prefix ?? "hidden"}
-                    </dd>
-                  </div>
-                  <div className="rounded-md border bg-muted/25 p-3">
-                    <dt className="text-xs font-medium uppercase text-muted-foreground">
-                      Quota
-                    </dt>
-                    <dd className="mt-1 text-sm text-foreground">
-                      {client.quota.limit} / {client.quota.window_seconds}s
-                    </dd>
-                  </div>
-                  <div className="rounded-md border bg-muted/25 p-3">
-                    <dt className="text-xs font-medium uppercase text-muted-foreground">
-                      Tokens issued
-                    </dt>
-                    <dd className="mt-1 text-sm text-foreground">
-                      {client.token_issue_count}
-                    </dd>
-                  </div>
-                  <div className="rounded-md border bg-muted/25 p-3">
-                    <dt className="text-xs font-medium uppercase text-muted-foreground">
-                      Requests accepted
-                    </dt>
-                    <dd className="mt-1 text-sm text-foreground">
-                      {client.usage_count}
-                    </dd>
-                  </div>
+                  <ClientReadOnlyField
+                    label="secret"
+                    value={
+                      client.secret_prefix
+                        ? `${client.secret_prefix}...`
+                        : "Not generated"
+                    }
+                    mono
+                  />
+                  <ClientReadOnlyField
+                    label="quota"
+                    value={`${client.quota.limit} / ${client.quota.window_seconds}s`}
+                  />
+                  <ClientReadOnlyField
+                    label="last token"
+                    value={formatDate(client.last_token_issued_at)}
+                  />
+                  <ClientReadOnlyField
+                    label="last request"
+                    value={formatDate(client.last_used_at)}
+                  />
                 </dl>
 
                 <div className="mt-3 grid gap-2 text-xs text-muted-foreground lg:grid-cols-3">
                   <p>Created by {client.created_by.email}</p>
-                  <p>Last token: {formatDate(client.last_token_issued_at)}</p>
-                  <p>Last request: {formatDate(client.last_used_at)}</p>
+                  <p>Created at {formatDate(client.created_at)}</p>
                   {client.last_secret_rotated_at ? (
                     <p>
-                      Rotated by {client.last_secret_rotated_by?.email} at{" "}
+                      Secret event by {client.last_secret_rotated_by?.email} at{" "}
                       {formatDate(client.last_secret_rotated_at)}
                     </p>
                   ) : null}
@@ -800,14 +1013,6 @@ export function ReportingIntegrationClientPanel() {
                       {formatDate(client.revoked_at)}
                     </p>
                   ) : null}
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {client.scopes.map((scope) => (
-                    <Badge key={scope} variant="outline">
-                      {scope}
-                    </Badge>
-                  ))}
                 </div>
               </article>
             );
@@ -837,8 +1042,8 @@ export function ReportingIntegrationClientPanel() {
               <h2 className="text-base font-semibold">Event log</h2>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Key-management events only. Full secrets are never stored or shown
-              here.
+              API access-management events only. Full secrets are never stored
+              or shown here.
             </p>
           </div>
           <Badge variant="outline">{events.length} loaded</Badge>

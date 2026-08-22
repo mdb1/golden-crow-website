@@ -25,6 +25,7 @@ type ReportingScope = (typeof REPORTING_SCOPES)[number];
 type IntegrationClientStatus = "active" | "revoked";
 type IntegrationClientAccessEventType =
   | "integration_client.created"
+  | "integration_client.secret_created"
   | "integration_client.secret_rotated"
   | "integration_client.revoked";
 
@@ -35,7 +36,6 @@ export interface ReportingIntegrationClientCreateInput {
 
 export interface ReportingIntegrationClientCreateResult {
   client_id: string;
-  client_secret: string;
   name: string;
   scopes: ReportingScope[];
   quota: {
@@ -150,7 +150,7 @@ export interface ReportingAccessTokenVerificationResult {
 type IntegrationClientRecord = {
   clientId: string;
   name: string;
-  clientSecretHash: string;
+  clientSecretHash?: string;
   clientSecretPrefix?: string;
   scopes: ReportingScope[];
   quotaPerMinute: number;
@@ -355,7 +355,7 @@ function readClientRecord(snapshot: SnapshotLike): IntegrationClientRecord {
       ? "revoked"
       : ("active" as IntegrationClientStatus);
 
-  if (!clientId || !name || !clientSecretHash || !createdAt) {
+  if (!clientId || !name || !createdAt) {
     throw new AdminRepositoryError("Invalid client credentials.", 401);
   }
 
@@ -488,6 +488,7 @@ function eventFromRecord(
   const actorEmail = asString(data.actorEmail);
   if (
     eventType !== "integration_client.created" &&
+    eventType !== "integration_client.secret_created" &&
     eventType !== "integration_client.secret_rotated" &&
     eventType !== "integration_client.revoked"
   ) {
@@ -666,13 +667,10 @@ export async function createReportingIntegrationClient(
   const name = normalizeName(input.name);
   const quotaPerMinute = normalizeQuota(input.quotaPerMinute);
   const clientId = generateCredential(CLIENT_ID_PREFIX);
-  const clientSecret = generateCredential(CLIENT_SECRET_PREFIX);
   const now = new Date().toISOString();
   const clientData = {
     clientId,
     name,
-    clientSecretHash: hashSecret(clientSecret),
-    clientSecretPrefix: secretPrefix(clientSecret),
     scopes: [...REPORTING_SCOPES],
     quotaPerMinute,
     quotaWindowSeconds: QUOTA_WINDOW_SECONDS,
@@ -696,7 +694,6 @@ export async function createReportingIntegrationClient(
         }),
         actor: context,
         occurredAt: now,
-        secretPrefix: secretPrefix(clientSecret),
         status: "active",
       }),
     );
@@ -704,7 +701,6 @@ export async function createReportingIntegrationClient(
 
   return {
     client_id: clientId,
-    client_secret: clientSecret,
     name,
     scopes: [...REPORTING_SCOPES],
     quota: {
@@ -812,7 +808,9 @@ export async function rotateReportingIntegrationClientSecret(
     transaction.set(
       accessEventRef(),
       accessEventPayload({
-        eventType: "integration_client.secret_rotated",
+        eventType: client.clientSecretHash
+          ? "integration_client.secret_rotated"
+          : "integration_client.secret_created",
         client: updatedClient,
         actor: context,
         occurredAt: now,
@@ -893,6 +891,13 @@ export async function exchangeReportingClientCredentials(
     const snapshot = (await transaction.get(ref)) as SnapshotLike;
     const client = readClientRecord(snapshot);
     assertActiveClient(client);
+
+    if (!client.clientSecretHash) {
+      throw new AdminRepositoryError(
+        "Client secret has not been generated.",
+        401,
+      );
+    }
 
     if (!safeHashEquals(hashSecret(clientSecret), client.clientSecretHash)) {
       throw new AdminRepositoryError("Invalid client credentials.", 401);

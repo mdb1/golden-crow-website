@@ -202,7 +202,7 @@ describe("reporting integration client repository", () => {
     process.env = originalEnv;
   });
 
-  it("creates a full-admin integration client without storing the plaintext secret", async () => {
+  it("creates a full-admin integration client without generating a secret", async () => {
     const { createReportingIntegrationClient } =
       await import("../repositories/reporting-tokens.repository");
 
@@ -213,7 +213,6 @@ describe("reporting integration client repository", () => {
 
     expect(created).toMatchObject({
       client_id: expect.stringMatching(/^gci_live_/),
-      client_secret: expect.stringMatching(/^gcs_live_/),
       name: "Reporting partner",
       scopes: ["reporting:read", "reporting:write"],
       quota: {
@@ -226,18 +225,18 @@ describe("reporting integration client repository", () => {
         email: "admin@example.com",
       },
     });
+    expect(created).not.toHaveProperty("client_secret");
     expect(stored).toMatchObject({
       clientId: created.client_id,
       name: "Reporting partner",
-      clientSecretHash: expect.any(String),
-      clientSecretPrefix: created.client_secret.slice(0, 18),
       scopes: ["reporting:read", "reporting:write"],
       quotaPerMinute: 1,
       status: "active",
       createdByUid: "admin-1",
       createdByEmail: "admin@example.com",
     });
-    expect(JSON.stringify(stored)).not.toContain(created.client_secret);
+    expect(stored).not.toHaveProperty("clientSecretHash");
+    expect(stored).not.toHaveProperty("clientSecretPrefix");
     expect(docsIn(ACCESS_EVENTS_COLLECTION)).toHaveLength(1);
     expect(docsIn(ACCESS_EVENTS_COLLECTION)[0]).toMatchObject({
       eventType: "integration_client.created",
@@ -245,8 +244,10 @@ describe("reporting integration client repository", () => {
       clientName: "Reporting partner",
       actorUid: "admin-1",
       actorEmail: "admin@example.com",
-      secretPrefix: created.client_secret.slice(0, 18),
     });
+    expect(docsIn(ACCESS_EVENTS_COLLECTION)[0]).not.toHaveProperty(
+      "secretPrefix",
+    );
   });
 
   it("lists integration clients and API access events with safe metadata", async () => {
@@ -271,8 +272,9 @@ describe("reporting integration client repository", () => {
 
     expect(clients.clients).toHaveLength(1);
     expect(clients.next_cursor).toBeDefined();
-    expect(JSON.stringify(clients)).not.toContain(first.client_secret);
-    expect(JSON.stringify(clients)).not.toContain(second.client_secret);
+    expect(JSON.stringify(clients)).not.toContain("clientSecretHash");
+    expect(first).not.toHaveProperty("client_secret");
+    expect(second).not.toHaveProperty("client_secret");
     expect(events.events).toHaveLength(2);
     expect(events.events[0]).toMatchObject({
       event_type: "integration_client.created",
@@ -282,19 +284,76 @@ describe("reporting integration client repository", () => {
     });
   });
 
-  it("exchanges valid client credentials for a 24-hour access token", async () => {
+  it("generates the first client secret only through the explicit secret action", async () => {
     const {
       createReportingIntegrationClient,
       exchangeReportingClientCredentials,
+      rotateReportingIntegrationClientSecret,
     } = await import("../repositories/reporting-tokens.repository");
 
     const created = await createReportingIntegrationClient(fullAdminContext, {
       name: "Reporting partner",
     });
+
+    await expect(
+      exchangeReportingClientCredentials({
+        grant_type: "client_credentials",
+        client_id: created.client_id,
+        client_secret: "gcs_live_missing",
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 401,
+    });
+
+    const generated = await rotateReportingIntegrationClientSecret(
+      fullAdminContext,
+      created.client_id,
+    );
+
+    expect(generated.client_secret).toMatch(/^gcs_live_/);
+    expect(generated.client).toMatchObject({
+      client_id: created.client_id,
+      status: "active",
+      secret_prefix: generated.client_secret.slice(0, 18),
+    });
+    expect(
+      mockDocs.get(`${CLIENTS_COLLECTION}/${created.client_id}`),
+    ).toMatchObject({
+      clientSecretHash: expect.any(String),
+      clientSecretPrefix: generated.client_secret.slice(0, 18),
+    });
+    expect(JSON.stringify([...mockDocs.values()])).not.toContain(
+      generated.client_secret,
+    );
+    expect(docsIn(ACCESS_EVENTS_COLLECTION)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: "integration_client.secret_created",
+          clientId: created.client_id,
+          secretPrefix: generated.client_secret.slice(0, 18),
+        }),
+      ]),
+    );
+  });
+
+  it("exchanges valid client credentials for a 24-hour access token", async () => {
+    const {
+      createReportingIntegrationClient,
+      exchangeReportingClientCredentials,
+      rotateReportingIntegrationClientSecret,
+    } = await import("../repositories/reporting-tokens.repository");
+
+    const created = await createReportingIntegrationClient(fullAdminContext, {
+      name: "Reporting partner",
+    });
+    const generated = await rotateReportingIntegrationClientSecret(
+      fullAdminContext,
+      created.client_id,
+    );
     const token = await exchangeReportingClientCredentials({
       grant_type: "client_credentials",
       client_id: created.client_id,
-      client_secret: created.client_secret,
+      client_secret: generated.client_secret,
     });
 
     expect(token).toMatchObject({
@@ -318,7 +377,7 @@ describe("reporting integration client repository", () => {
       exchangeReportingClientCredentials({
         grant_type: "client_credentials",
         client_id: created.client_id,
-        client_secret: `${created.client_secret}x`,
+        client_secret: `${generated.client_secret}x`,
       }),
     ).rejects.toMatchObject({
       statusCode: 401,
@@ -329,16 +388,21 @@ describe("reporting integration client repository", () => {
     const {
       createReportingIntegrationClient,
       exchangeReportingClientCredentials,
+      rotateReportingIntegrationClientSecret,
       verifyReportingAccessToken,
     } = await import("../repositories/reporting-tokens.repository");
 
     const created = await createReportingIntegrationClient(fullAdminContext, {
       name: "Reporting partner",
     });
+    const generated = await rotateReportingIntegrationClientSecret(
+      fullAdminContext,
+      created.client_id,
+    );
     const token = await exchangeReportingClientCredentials({
       grant_type: "client_credentials",
       client_id: created.client_id,
-      client_secret: created.client_secret,
+      client_secret: generated.client_secret,
     });
 
     await expect(
@@ -390,10 +454,14 @@ describe("reporting integration client repository", () => {
     const created = await createReportingIntegrationClient(fullAdminContext, {
       name: "Reporting partner",
     });
+    const generated = await rotateReportingIntegrationClientSecret(
+      fullAdminContext,
+      created.client_id,
+    );
     const token = await exchangeReportingClientCredentials({
       grant_type: "client_credentials",
       client_id: created.client_id,
-      client_secret: created.client_secret,
+      client_secret: generated.client_secret,
     });
     const rotated = await rotateReportingIntegrationClientSecret(
       fullAdminContext,
@@ -401,7 +469,7 @@ describe("reporting integration client repository", () => {
     );
 
     expect(rotated.client_secret).toMatch(/^gcs_live_/);
-    expect(rotated.client_secret).not.toBe(created.client_secret);
+    expect(rotated.client_secret).not.toBe(generated.client_secret);
     expect(rotated.client).toMatchObject({
       client_id: created.client_id,
       status: "active",
@@ -414,7 +482,7 @@ describe("reporting integration client repository", () => {
       exchangeReportingClientCredentials({
         grant_type: "client_credentials",
         client_id: created.client_id,
-        client_secret: created.client_secret,
+        client_secret: generated.client_secret,
       }),
     ).rejects.toMatchObject({
       statusCode: 401,
@@ -439,7 +507,7 @@ describe("reporting integration client repository", () => {
         expect.objectContaining({
           eventType: "integration_client.secret_rotated",
           clientId: created.client_id,
-          previousSecretPrefix: created.client_secret.slice(0, 18),
+          previousSecretPrefix: generated.client_secret.slice(0, 18),
           secretPrefix: rotated.client_secret.slice(0, 18),
         }),
       ]),
@@ -450,6 +518,7 @@ describe("reporting integration client repository", () => {
     const {
       createReportingIntegrationClient,
       exchangeReportingClientCredentials,
+      rotateReportingIntegrationClientSecret,
       revokeReportingIntegrationClient,
       verifyReportingAccessToken,
     } = await import("../repositories/reporting-tokens.repository");
@@ -457,10 +526,14 @@ describe("reporting integration client repository", () => {
     const created = await createReportingIntegrationClient(fullAdminContext, {
       name: "Reporting partner",
     });
+    const generated = await rotateReportingIntegrationClientSecret(
+      fullAdminContext,
+      created.client_id,
+    );
     const token = await exchangeReportingClientCredentials({
       grant_type: "client_credentials",
       client_id: created.client_id,
-      client_secret: created.client_secret,
+      client_secret: generated.client_secret,
     });
     const revoked = await revokeReportingIntegrationClient(
       fullAdminContext,
@@ -484,7 +557,7 @@ describe("reporting integration client repository", () => {
       exchangeReportingClientCredentials({
         grant_type: "client_credentials",
         client_id: created.client_id,
-        client_secret: created.client_secret,
+        client_secret: generated.client_secret,
       }),
     ).rejects.toMatchObject({
       statusCode: 401,
