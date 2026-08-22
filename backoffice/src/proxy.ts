@@ -9,7 +9,9 @@ import { authMiddleware } from "next-firebase-auth-edge";
 //      (cookie-based SSR auth for the gc-fitness trainer surface; access is
 //      based on a valid trainer session cookie minted by the GC Fitness login
 //      flow. Public login/forbidden pages bypass the gate.)
-//   2. Everything else                                    →  NextAuth `withAuth`
+//   2. /open-api/*                                      →  public OpenAPI
+//      (client_id/client_secret and bearer tokens are validated inside handlers)
+//   3. Everything else                                  →  NextAuth `withAuth`
 //      (existing MyDNAMap / Pocket Gyms behavior preserved unchanged)
 //
 // Public gc-fitness pages (login, forbidden) bypass the auth check so users can
@@ -59,6 +61,10 @@ export default async function proxy(request: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (patientPortalAuthHandler as any)(request);
+  }
+
+  if (pathname === "/open-api" || pathname.startsWith("/open-api/")) {
+    return NextResponse.next();
   }
 
   // ── gc-fitness branch ────────────────────────────────────────────────
@@ -191,7 +197,7 @@ export const config = {
     // self-hosted via next.config rewrites (#378) — otherwise this middleware
     // would route them through the NextAuth branch and redirect the handler to
     // /login, breaking the proxied sign-in flow.
-    "/((?!login|access-denied|botfarm|api/auth|api/sdk|_next/static|_next/image|favicon.ico|gc-fitness|api/gc-fitness|patient-portal|__).*)",
+    "/((?!login|access-denied|botfarm|api/auth|api/sdk|open-api|_next/static|_next/image|favicon.ico|gc-fitness|api/gc-fitness|patient-portal|__).*)",
     "/patient-portal/:path*",
     "/gc-fitness/:path*",
     "/api/gc-fitness/login",
