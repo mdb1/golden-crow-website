@@ -16,7 +16,7 @@ export default async function ReportingApiKeysPage() {
       <PageHero
         eyebrow="2PQ API"
         title="API Keys"
-        description="Full-admin reference for the current reporting bearer token and the manual rotation flow."
+        description="Full-admin reference for the public reporting bearer token and the manual rotation flow."
       />
 
       <section className="rounded-lg border bg-card p-5 shadow-sm">
@@ -27,9 +27,10 @@ export default async function ReportingApiKeysPage() {
               <h2 className="text-base font-semibold">REPORTING_API_TOKEN</h2>
             </div>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              This is the only reporting API token offered for now. The
-              backoffice documents the key and its usage, but it does not reveal
-              or rotate the secret value in the UI.
+              This is the only public reporting API token offered for now. It
+              belongs to the GoldenCrow OpenAPI deployment, not the internal
+              SDK. The backoffice documents the key and its usage, but it does
+              not reveal or rotate the secret value in the UI.
             </p>
           </div>
           <Badge variant="secondary">Bearer token</Badge>
@@ -49,7 +50,7 @@ export default async function ReportingApiKeysPage() {
               Scope
             </p>
             <p className="mt-2 text-sm text-foreground">
-              All <code>/reporting/*</code> endpoints.
+              Public <code>/v1/reporting/*</code> endpoints.
             </p>
           </div>
           <div className="rounded-lg border bg-muted/25 p-4">
@@ -57,7 +58,7 @@ export default async function ReportingApiKeysPage() {
               Storage
             </p>
             <p className="mt-2 text-sm text-foreground">
-              Deployment environment variable, not Firestore.
+              <code>goldencrow-openapi</code> deployment environment variable.
             </p>
           </div>
         </div>
@@ -72,7 +73,7 @@ export default async function ReportingApiKeysPage() {
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted-foreground">
             <li>
               Open the production deployment secrets or environment settings for
-              the SDK service.
+              the public <code>goldencrow-openapi</code> service.
             </li>
             <li>
               Read the current <code>REPORTING_API_TOKEN</code> value from that
@@ -95,11 +96,12 @@ export default async function ReportingApiKeysPage() {
               Generate a new high-entropy token outside the backoffice.
             </li>
             <li>
-              Replace <code>REPORTING_API_TOKEN</code> in the SDK deployment
-              environment.
+              Replace <code>REPORTING_API_TOKEN</code> in the public OpenAPI
+              deployment environment for <code>goldencrow-openapi</code>.
             </li>
             <li>
-              Redeploy the SDK so the new value is loaded by the reporting API.
+              Redeploy <code>goldencrow-openapi</code> so the new value is
+              loaded by the public reporting API.
             </li>
             <li>
               Give the integration owner the new token and stop accepting the old

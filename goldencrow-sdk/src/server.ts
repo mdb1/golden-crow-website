@@ -23,7 +23,11 @@ const PUBLIC_PATHS = new Set([
 ]);
 
 export function isPublicPath(path: string) {
-  return PUBLIC_PATHS.has(path) || path === "/reporting" || path.startsWith("/reporting/");
+  return (
+    PUBLIC_PATHS.has(path) ||
+    path === "/internal/openapi" ||
+    path.startsWith("/internal/openapi/")
+  );
 }
 
 const CORS_ORIGINS = [

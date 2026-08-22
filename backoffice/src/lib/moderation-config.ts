@@ -819,7 +819,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     section: "mission",
     label: "API documentation",
     href: "/2pq-dashboard/api-documentation",
-    description: "Reporting API reference and integration examples",
+    description: "Public OpenAPI reference and integration examples",
     icon: FileCode2,
     visibleRoles: FULL_ADMIN_ROLES,
   },
@@ -827,7 +827,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     section: "mission",
     label: "API Keys",
     href: "/2pq-dashboard/api-keys",
-    description: "Reporting bearer token setup and rotation notes",
+    description: "Public reporting bearer token setup and rotation notes",
     icon: KeyRound,
     visibleRoles: FULL_ADMIN_ROLES,
   },
@@ -1253,7 +1253,7 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
     return {
       eyebrow: "2PQ API",
       title: "API documentation",
-      description: "Reporting API reference for patient lookup, report upload notifications, and 2PQ case lookup.",
+      description: "Public OpenAPI reference for patient lookup, report upload notifications, and 2PQ case lookup.",
     };
   }
 
@@ -1261,7 +1261,7 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
     return {
       eyebrow: "2PQ API",
       title: "API Keys",
-      description: "Reporting API bearer token handling for full admins.",
+      description: "Public reporting API bearer token handling for full admins.",
     };
   }
 

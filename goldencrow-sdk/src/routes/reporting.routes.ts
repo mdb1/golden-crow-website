@@ -44,21 +44,25 @@ const TwoPQCaseLookupParamsSchema = z.object({
     .regex(/^[A-Za-z0-9]{6}$/, "caseCode must contain exactly 6 letters or numbers"),
 });
 
-function getBearerToken(request: FastifyRequest) {
-  const authorization = request.headers.authorization;
-  const value = Array.isArray(authorization) ? authorization[0] : authorization;
-  const match = value?.match(/^Bearer\s+(.+)$/i);
-  return match?.[1]?.trim();
+function getInternalOpenApiToken(request: FastifyRequest) {
+  const headerValue = request.headers["x-goldencrow-internal-token"];
+  const value = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+  return value?.trim();
 }
 
-function requireReportingToken(request: FastifyRequest, reply: FastifyReply) {
-  if (!ENV.REPORTING_API_TOKEN) {
-    reply.status(503).send({ error: "Reporting API token is not configured" });
+function requireInternalOpenApiToken(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  if (!ENV.GOLDENCROW_OPENAPI_INTERNAL_TOKEN) {
+    reply.status(503).send({ error: "Internal OpenAPI token is not configured" });
     return false;
   }
 
-  if (getBearerToken(request) !== ENV.REPORTING_API_TOKEN) {
-    reply.status(401).send({ error: "Invalid reporting API token" });
+  if (
+    getInternalOpenApiToken(request) !== ENV.GOLDENCROW_OPENAPI_INTERNAL_TOKEN
+  ) {
+    reply.status(401).send({ error: "Invalid internal OpenAPI token" });
     return false;
   }
 
@@ -69,13 +73,13 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
   f.addHook("onRequest", async (request, reply) => {
-    if (!requireReportingToken(request, reply)) {
+    if (!requireInternalOpenApiToken(request, reply)) {
       return reply;
     }
   });
 
   f.get(
-    "/reporting/patients",
+    "/internal/openapi/reporting/patients",
     {
       schema: {
         querystring: PatientLookupQuerySchema,
@@ -96,7 +100,7 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
   );
 
   f.get(
-    "/reporting/patients/:patientId",
+    "/internal/openapi/reporting/patients/:patientId",
     {
       schema: {
         params: z.object({
@@ -121,7 +125,7 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
   );
 
   f.post(
-    "/reporting/reports/uploaded",
+    "/internal/openapi/reporting/reports/uploaded",
     {
       schema: {
         body: UploadedReportNotificationSchema,
@@ -142,7 +146,7 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
   );
 
   f.get(
-    "/reporting/2pq/cases/:caseCode",
+    "/internal/openapi/reporting/2pq/cases/:caseCode",
     {
       schema: {
         params: TwoPQCaseLookupParamsSchema,

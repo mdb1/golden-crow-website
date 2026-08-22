@@ -40,15 +40,15 @@ const SPANISH_TEXT: Record<string, string> = {
   Appearance: "Apariencia",
   "API documentation": "Documentación API",
   "API Keys": "Claves API",
-  "Reporting API reference and integration examples":
-    "Referencia de la API de reportes y ejemplos de integración",
-  "Reporting bearer token setup and rotation notes":
-    "Configuración del bearer token de reportes y notas de rotación",
+  "Public OpenAPI reference and integration examples":
+    "Referencia OpenAPI pública y ejemplos de integración",
+  "Public reporting bearer token setup and rotation notes":
+    "Configuración del bearer token público de reportes y notas de rotación",
   "2PQ API": "API 2PQ",
-  "Reporting API reference for patient lookup, report upload notifications, and 2PQ case lookup.":
-    "Referencia de la API de reportes para buscar pacientes, notificar reportes subidos y consultar casos 2PQ.",
-  "Reporting API bearer token handling for full admins.":
-    "Gestión del bearer token de la API de reportes para administradores totales.",
+  "Public OpenAPI reference for patient lookup, report upload notifications, and 2PQ case lookup.":
+    "Referencia OpenAPI pública para buscar pacientes, notificar reportes subidos y consultar casos 2PQ.",
+  "Public reporting API bearer token handling for full admins.":
+    "Gestión del bearer token público de la API de reportes para administradores totales.",
   "Sign out": "Cerrar sesión",
   "Signing out...": "Cerrando sesión...",
   Switch: "Cambiar",

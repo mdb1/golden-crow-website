@@ -21,7 +21,7 @@ Create `goldencrow-sdk/.env` with the following variables:
 | `PORT` | Port to listen on (default: `3000`) |
 | `NODE_ENV` | `development` or `production` |
 | `BACKOFFICE_ORIGIN` | CORS allowed origin for the backoffice (e.g. `http://localhost:3001`) |
-| `REPORTING_API_TOKEN` | Bearer token for the external reporting integration endpoints |
+| `GOLDENCROW_OPENAPI_INTERNAL_TOKEN` | Shared service token accepted by internal OpenAPI bridge routes |
 
 ### Getting Firebase Credentials
 
@@ -43,7 +43,7 @@ npm run dev
 
 ## Available Endpoints
 
-All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings`, and `/reporting/*` require a valid Firebase session cookie. Reporting integration endpoints require `Authorization: Bearer <REPORTING_API_TOKEN>`.
+All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings`, and `/internal/openapi/*` require a valid Firebase session cookie. The `/internal/openapi/*` bridge routes are not public API routes; they require `X-Goldencrow-Internal-Token: <GOLDENCROW_OPENAPI_INTERNAL_TOKEN>` and are intended only for the `goldencrow-openapi` service.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -57,11 +57,12 @@ All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings
 | GET | /reports | List reports (optional ?source= filter) |
 | GET | /reports/:id | Get report detail |
 | DELETE | /reports/:id | Delete report |
-| GET | /reporting/patients?patientId=:id | External reporting lookup by patient ID |
-| GET | /reporting/patients?email=:email | External reporting lookup by patient email |
-| GET | /reporting/patients?medicalRecordNumber=:number | External reporting lookup by medical record number |
-| GET | /reporting/patients/:id | External reporting lookup by patient ID |
-| POST | /reporting/reports/uploaded | External reporting S3 upload notification |
+| GET | /internal/openapi/reporting/patients?patientId=:id | Internal bridge for public reporting patient lookup |
+| GET | /internal/openapi/reporting/patients?email=:email | Internal bridge for public reporting patient lookup |
+| GET | /internal/openapi/reporting/patients?medicalRecordNumber=:number | Internal bridge for public reporting patient lookup |
+| GET | /internal/openapi/reporting/patients/:id | Internal bridge for public reporting patient lookup by patient ID |
+| POST | /internal/openapi/reporting/reports/uploaded | Internal bridge for public reporting upload notifications |
+| GET | /internal/openapi/reporting/2pq/cases/:caseCode | Internal bridge for public 2PQ case lookup |
 | GET | /posts | List community posts |
 | GET | /posts/:id | Get post detail |
 | DELETE | /posts/:id | Delete post |
