@@ -61,11 +61,13 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
 import {
+  DISCOVER_FEED_TYPES,
   DISCOVER_FEED_TYPE_OPTIONS,
-  arrayFromPayload,
+  discoverFeedTypeDefinition,
   discoverTypeLabel,
   getDiscoverPayload,
   stringFromPayload,
+  type DiscoverFeedPayloadFieldDefinition,
   type DiscoverFeedItemRecord,
   type DiscoverFeedStatus,
   type DiscoverFeedType,
@@ -81,6 +83,8 @@ import {
 } from "@/lib/discover-organization-fields";
 
 type BodyMode = "plain" | "rich";
+type FeedEntryPayloadState = Record<string, string>;
+type FeedEntryPayloadsState = Record<DiscoverFeedType, FeedEntryPayloadState>;
 
 type FeedEntryFormState = {
   publisherOrganizationId: string;
@@ -94,28 +98,7 @@ type FeedEntryFormState = {
   image_url: string;
   source_url: string;
   source_button_text: string;
-  news: {
-    category: string;
-    region: string;
-  };
-  research_update: {
-    research_topic: string;
-    genesText: string;
-    conditionsText: string;
-    journal: string;
-  };
-  upcoming_event: {
-    date: string;
-    location: string;
-    max_attendance: string;
-    virtual_meeting_link: string;
-  };
-  opportunity: {
-    opportunity_type: string;
-    requirements: string;
-    eligibility: string;
-    location: string;
-  };
+  payloads: FeedEntryPayloadsState;
 };
 
 type PublishDialogState = {
@@ -126,26 +109,6 @@ type PublishDialogState = {
 
 const DISCOVER_PUBLIC_FEED_ENTRY_BASE_URL =
   "https://goldencrowvs.com/pocket-genes/discover/feed_entries";
-
-const DISCOVER_OPPORTUNITY_TYPE_OPTIONS = [
-  { value: "fellowship", label: "Fellowship" },
-  { value: "grant", label: "Grant" },
-  { value: "scholarship", label: "Scholarship" },
-  { value: "clinical_study", label: "Clinical study" },
-  { value: "research_program", label: "Research program" },
-  { value: "training", label: "Training" },
-  { value: "patient_program", label: "Patient program" },
-  { value: "resource", label: "Resource" },
-  { value: "job", label: "Job" },
-  { value: "volunteer", label: "Volunteer" },
-  { value: "dataset", label: "Dataset" },
-  { value: "challenge", label: "Challenge" },
-  { value: "other", label: "Other" },
-] as const;
-
-const DISCOVER_OPPORTUNITY_TYPE_VALUES = new Set<string>(
-  DISCOVER_OPPORTUNITY_TYPE_OPTIONS.map((option) => option.value),
-);
 
 const DISCOVER_LOCATION_SUGGESTIONS = [
   "Online",
@@ -237,6 +200,85 @@ function payloadText(value: unknown) {
     : stringFromPayload(value);
 }
 
+function payloadSourceValue(
+  payload: Record<string, unknown>,
+  field: DiscoverFeedPayloadFieldDefinition,
+) {
+  const keys = [field.key, ...(field.aliases ?? [])];
+
+  for (const key of keys) {
+    if (payload[key] !== undefined && payload[key] !== null) {
+      return payload[key];
+    }
+  }
+
+  return undefined;
+}
+
+function payloadDateText(value: unknown) {
+  if (typeof value === "string" || value instanceof Date) {
+    return toDateTimeInput(value instanceof Date ? value.toISOString() : value);
+  }
+
+  return "";
+}
+
+function payloadFieldText(
+  payload: Record<string, unknown>,
+  field: DiscoverFeedPayloadFieldDefinition,
+) {
+  const value = payloadSourceValue(payload, field);
+
+  if (field.kind === "array") {
+    return payloadText(value);
+  }
+
+  if (field.kind === "timestamp") {
+    return payloadDateText(value);
+  }
+
+  if (field.kind === "boolean") {
+    return value === true ? "true" : value === false ? "false" : "";
+  }
+
+  if (field.kind === "integer") {
+    return typeof value === "number" && Number.isFinite(value)
+      ? String(value)
+      : stringFromPayload(value);
+  }
+
+  return stringFromPayload(value);
+}
+
+function emptyPayloadState(): FeedEntryPayloadsState {
+  return Object.fromEntries(
+    DISCOVER_FEED_TYPES.map((type) => [
+      type,
+      Object.fromEntries(
+        discoverFeedTypeDefinition(type).fields.map((field) => [field.key, ""]),
+      ),
+    ]),
+  ) as FeedEntryPayloadsState;
+}
+
+function payloadsFromItem(item?: DiscoverFeedItemRecord): FeedEntryPayloadsState {
+  const payloads = emptyPayloadState();
+
+  if (!item) {
+    return payloads;
+  }
+
+  for (const type of DISCOVER_FEED_TYPES) {
+    const payload = item[type] ?? {};
+
+    for (const field of discoverFeedTypeDefinition(type).fields) {
+      payloads[type][field.key] = payloadFieldText(payload, field);
+    }
+  }
+
+  return payloads;
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -270,14 +312,6 @@ function htmlToPlainText(value: string) {
 }
 
 function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
-  const news = item?.news ?? {};
-  const research = item?.research_update ?? {};
-  const event = item?.upcoming_event ?? {};
-  const opportunity = item?.opportunity ?? {};
-  const opportunityType =
-    stringFromPayload(opportunity.opportunity_type) ||
-    stringFromPayload(opportunity.opportunityType);
-
   return {
     publisherOrganizationId: item?.publisherOrganizationId ?? "",
     publisherIndividualId: item?.publisherIndividualId ?? "",
@@ -290,83 +324,36 @@ function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
     image_url: item?.image_url ?? "",
     source_url: item?.source_url ?? "",
     source_button_text: item?.source_button_text ?? "",
-    news: {
-      category: stringFromPayload(news.category),
-      region: stringFromPayload(news.region),
-    },
-    research_update: {
-      research_topic:
-        stringFromPayload(research.research_topic) || stringFromPayload(research.topic),
-      genesText: arrayFromPayload(research.genes).join("\n"),
-      conditionsText: arrayFromPayload(research.conditions).join("\n"),
-      journal:
-        stringFromPayload(research.journal) || stringFromPayload(research.journalName),
-    },
-    upcoming_event: {
-      date: toDateTimeInput(
-        stringFromPayload(event.date) || stringFromPayload(event.startsAt),
-      ),
-      location:
-        stringFromPayload(event.location) || stringFromPayload(event.locationName),
-      max_attendance:
-        typeof event.max_attendance === "number"
-          ? String(event.max_attendance)
-          : stringFromPayload(event.max_attendance),
-      virtual_meeting_link:
-        stringFromPayload(event.virtual_meeting_link) ||
-        stringFromPayload(event.virtualMeetingLink) ||
-        stringFromPayload(event.meeting_url) ||
-        stringFromPayload(event.meetingUrl),
-    },
-    opportunity: {
-      opportunity_type: DISCOVER_OPPORTUNITY_TYPE_VALUES.has(opportunityType)
-        ? opportunityType
-        : opportunityType
-          ? "other"
-          : "",
-      requirements: payloadText(opportunity.requirements),
-      eligibility: stringFromPayload(opportunity.eligibility),
-      location:
-        stringFromPayload(opportunity.location) ||
-        stringFromPayload(opportunity.locationName),
-    },
+    payloads: payloadsFromItem(item),
   };
 }
 
 function payloadForType(state: FeedEntryFormState) {
-  if (state.type === "news") {
-    return {
-      category: state.news.category,
-      region: state.news.region,
-    };
-  }
+  const values = state.payloads[state.type] ?? {};
 
-  if (state.type === "research_update") {
-    return {
-      research_topic: state.research_update.research_topic,
-      genes: lines(state.research_update.genesText),
-      conditions: lines(state.research_update.conditionsText),
-      journal: state.research_update.journal,
-    };
-  }
+  return Object.fromEntries(
+    discoverFeedTypeDefinition(state.type).fields.map((field) => {
+      const value = values[field.key] ?? "";
 
-  if (state.type === "upcoming_event") {
-    return {
-      date: fromDateTimeInput(state.upcoming_event.date),
-      location: state.upcoming_event.location,
-      max_attendance: state.upcoming_event.max_attendance
-        ? Number(state.upcoming_event.max_attendance)
-        : null,
-      virtual_meeting_link: state.upcoming_event.virtual_meeting_link || null,
-    };
-  }
+      if (field.kind === "array") {
+        return [field.key, lines(value)];
+      }
 
-  return {
-    opportunity_type: state.opportunity.opportunity_type,
-    requirements: state.opportunity.requirements,
-    eligibility: state.opportunity.eligibility,
-    location: state.opportunity.location,
-  };
+      if (field.kind === "timestamp") {
+        return [field.key, fromDateTimeInput(value)];
+      }
+
+      if (field.kind === "integer") {
+        return [field.key, value ? Number(value) : null];
+      }
+
+      if (field.kind === "boolean") {
+        return [field.key, value === "true" ? true : value === "false" ? false : null];
+      }
+
+      return [field.key, value.trim()];
+    }),
+  );
 }
 
 function payloadFromState(
@@ -792,9 +779,6 @@ export function DiscoverFeedEntryWorkbench({
     : state.body.length;
   const sourceUrlError = sourceUrlErrorFor(state.source_url);
   const imageUrlError = imageUrlErrorFor(state.image_url);
-  const virtualMeetingLinkError = virtualMeetingLinkErrorFor(
-    state.upcoming_event.virtual_meeting_link,
-  );
   const editStatus = feedItem?.status ?? "draft";
   const editPublishedAt = feedItem?.publishedAt ?? null;
   const isWorking = pending || deletePending;
@@ -843,15 +827,19 @@ export function DiscoverFeedEntryWorkbench({
     });
   }
 
-  function updatePayload<T extends DiscoverFeedType>(
-    type: T,
-    patch: Partial<FeedEntryFormState[T]>,
+  function updatePayloadField(
+    type: DiscoverFeedType,
+    fieldKey: string,
+    value: string,
   ) {
     setState((current) => ({
       ...current,
-      [type]: {
-        ...current[type],
-        ...patch,
+      payloads: {
+        ...current.payloads,
+        [type]: {
+          ...current.payloads[type],
+          [fieldKey]: value,
+        },
       },
     }));
   }
@@ -970,12 +958,6 @@ export function DiscoverFeedEntryWorkbench({
       : t("Cover image URL must be a valid HTTPS URL.");
   }
 
-  function virtualMeetingLinkErrorFor(value: string) {
-    return isValidHttpsUrl(value)
-      ? null
-      : t("Virtual meeting link must be a valid HTTPS URL.");
-  }
-
   function validate(nextState: FeedEntryFormState, status: DiscoverFeedStatus) {
     if (
       (nextState.publisherOrganizationId && nextState.publisherIndividualId) ||
@@ -994,15 +976,6 @@ export function DiscoverFeedEntryWorkbench({
       return nextImageUrlError;
     }
 
-    if (nextState.type === "upcoming_event") {
-      const nextVirtualMeetingLinkError = virtualMeetingLinkErrorFor(
-        nextState.upcoming_event.virtual_meeting_link,
-      );
-      if (nextVirtualMeetingLinkError) {
-        return nextVirtualMeetingLinkError;
-      }
-    }
-
     if (status === "published" && selectedPublisher?.status !== "active") {
       return t("Only active publishers can publish feed entries.");
     }
@@ -1018,25 +991,8 @@ export function DiscoverFeedEntryWorkbench({
         return t("Body is required before publishing.");
       }
       if (nextState.type === "upcoming_event") {
-        if (!nextState.upcoming_event.date) {
+        if (!nextState.payloads.upcoming_event.date) {
           return t("Event date is required before publishing.");
-        }
-        if (!nextState.upcoming_event.location.trim()) {
-          return t("Event location is required before publishing.");
-        }
-      }
-      if (nextState.type === "opportunity") {
-        if (!nextState.opportunity.opportunity_type.trim()) {
-          return t("Opportunity type is required before publishing.");
-        }
-        if (!nextState.opportunity.requirements.trim()) {
-          return t("Opportunity requirements are required before publishing.");
-        }
-        if (!nextState.opportunity.eligibility.trim()) {
-          return t("Opportunity eligibility is required before publishing.");
-        }
-        if (!nextState.opportunity.location.trim()) {
-          return t("Opportunity location is required before publishing.");
         }
       }
     }
@@ -1179,192 +1135,161 @@ export function DiscoverFeedEntryWorkbench({
   }
 
   function renderSpecificFields() {
-    if (state.type === "news") {
-      return (
-        <div className="grid gap-4 md:grid-cols-2">
-          <FieldShell label={t("Category")} htmlFor="discover-news-category">
-            <Input
-              id="discover-news-category"
-              value={state.news.category}
-              onChange={(event) =>
-                updatePayload("news", { category: event.target.value })
-              }
-            />
-          </FieldShell>
-          <FieldShell label={t("Region")} htmlFor="discover-news-region">
-            <CountryRegionPicker
-              id="discover-news-region"
-              value={state.news.region}
-              onChange={(region) => updatePayload("news", { region })}
-              language={language}
-              t={t}
-            />
-          </FieldShell>
-        </div>
-      );
-    }
-
-    if (state.type === "research_update") {
-      return (
-        <div className="grid gap-4 md:grid-cols-2">
-          <FieldShell label={t("Research topic")} htmlFor="discover-research-topic">
-            <Input
-              id="discover-research-topic"
-              value={state.research_update.research_topic}
-              onChange={(event) =>
-                updatePayload("research_update", {
-                  research_topic: event.target.value,
-                })
-              }
-            />
-          </FieldShell>
-          <FieldShell label={t("Journal")} htmlFor="discover-research-journal">
-            <Input
-              id="discover-research-journal"
-              value={state.research_update.journal}
-              onChange={(event) =>
-                updatePayload("research_update", { journal: event.target.value })
-              }
-            />
-          </FieldShell>
-          <FieldShell label={t("Genes")} htmlFor="discover-research-genes">
-            <Textarea
-              id="discover-research-genes"
-              value={state.research_update.genesText}
-              onChange={(event) =>
-                updatePayload("research_update", { genesText: event.target.value })
-              }
-              rows={4}
-            />
-          </FieldShell>
-          <FieldShell label={t("Conditions")} htmlFor="discover-research-conditions">
-            <Textarea
-              id="discover-research-conditions"
-              value={state.research_update.conditionsText}
-              onChange={(event) =>
-                updatePayload("research_update", {
-                  conditionsText: event.target.value,
-                })
-              }
-              rows={4}
-            />
-          </FieldShell>
-        </div>
-      );
-    }
-
-    if (state.type === "upcoming_event") {
-      return (
-        <div className="grid gap-4 md:grid-cols-3">
-          <FieldShell label={t("Event date")} htmlFor="discover-event-date">
-            <Input
-              id="discover-event-date"
-              type="datetime-local"
-              value={state.upcoming_event.date}
-              onChange={(event) =>
-                updatePayload("upcoming_event", { date: event.target.value })
-              }
-            />
-          </FieldShell>
-          <FieldShell label={t("Location")} htmlFor="discover-event-location">
-            <LocationSuggestInput
-              id="discover-event-location"
-              value={state.upcoming_event.location}
-              onChange={(value) => updatePayload("upcoming_event", { location: value })}
-              t={t}
-            />
-          </FieldShell>
-          <FieldShell label={t("Max attendance")} htmlFor="discover-event-attendance">
-            <Input
-              id="discover-event-attendance"
-              type="number"
-              min={1}
-              value={state.upcoming_event.max_attendance}
-              onChange={(event) =>
-                updatePayload("upcoming_event", {
-                  max_attendance: event.target.value,
-                })
-              }
-            />
-          </FieldShell>
-          <FieldShell
-            label={t("Virtual meeting link")}
-            htmlFor="discover-event-virtual-meeting"
-            error={virtualMeetingLinkError}
-            className="md:col-span-3"
-          >
-            <Input
-              id="discover-event-virtual-meeting"
-              type="url"
-              value={state.upcoming_event.virtual_meeting_link}
-              onChange={(event) =>
-                updatePayload("upcoming_event", {
-                  virtual_meeting_link: event.target.value,
-                })
-              }
-              placeholder="https://meet.google.com/..."
-              aria-invalid={Boolean(virtualMeetingLinkError)}
-              aria-describedby={
-                virtualMeetingLinkError
-                  ? "discover-event-virtual-meeting-error"
-                  : undefined
-              }
-              className={`h-11 ${virtualMeetingLinkError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-            />
-          </FieldShell>
-        </div>
-      );
-    }
+    const definition = discoverFeedTypeDefinition(state.type);
+    const payload = state.payloads[state.type] ?? {};
 
     return (
       <div className="grid gap-4 md:grid-cols-2">
-        <FieldShell label={t("Opportunity type")} htmlFor="discover-opportunity-type">
-          <select
-            id="discover-opportunity-type"
-            value={state.opportunity.opportunity_type}
-            onChange={(event) =>
-              updatePayload("opportunity", {
-                opportunity_type: event.target.value,
-              })
-            }
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="">{t("Choose type")}</option>
-            {DISCOVER_OPPORTUNITY_TYPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {t(option.label)}
-              </option>
-            ))}
-          </select>
-        </FieldShell>
-        <FieldShell label={t("Location")} htmlFor="discover-opportunity-location">
-          <LocationSuggestInput
-            id="discover-opportunity-location"
-            value={state.opportunity.location}
-            onChange={(value) => updatePayload("opportunity", { location: value })}
-            t={t}
-          />
-        </FieldShell>
-        <FieldShell label={t("Requirements")} htmlFor="discover-opportunity-requirements">
-          <Textarea
-            id="discover-opportunity-requirements"
-            value={state.opportunity.requirements}
-            onChange={(event) =>
-              updatePayload("opportunity", { requirements: event.target.value })
-            }
-            rows={4}
-          />
-        </FieldShell>
-        <FieldShell label={t("Eligibility")} htmlFor="discover-opportunity-eligibility">
-          <Textarea
-            id="discover-opportunity-eligibility"
-            value={state.opportunity.eligibility}
-            onChange={(event) =>
-              updatePayload("opportunity", { eligibility: event.target.value })
-            }
-            rows={4}
-          />
-        </FieldShell>
+        {definition.fields.map((field) => {
+          const fieldId = `discover-${state.type}-${field.key}`.replace(/_/g, "-");
+          const value = payload[field.key] ?? "";
+          const label = `${t(field.label)}${field.required ? " *" : ""}`;
+          const wide =
+            field.kind === "array" ||
+            field.control === "textarea" ||
+            field.key.includes("summary") ||
+            field.key.includes("goal") ||
+            field.key.includes("warning");
+
+          if (field.control === "region") {
+            return (
+              <FieldShell
+                key={field.key}
+                label={label}
+                htmlFor={fieldId}
+              >
+                <CountryRegionPicker
+                  id={fieldId}
+                  value={value}
+                  onChange={(region) =>
+                    updatePayloadField(state.type, field.key, region)
+                  }
+                  language={language}
+                  t={t}
+                />
+              </FieldShell>
+            );
+          }
+
+          if (field.control === "location") {
+            return (
+              <FieldShell
+                key={field.key}
+                label={label}
+                htmlFor={fieldId}
+              >
+                <LocationSuggestInput
+                  id={fieldId}
+                  value={value}
+                  onChange={(nextValue) =>
+                    updatePayloadField(state.type, field.key, nextValue)
+                  }
+                  t={t}
+                />
+              </FieldShell>
+            );
+          }
+
+          if (field.kind === "array") {
+            return (
+              <FieldShell
+                key={field.key}
+                label={label}
+                htmlFor={fieldId}
+                className="md:col-span-2"
+              >
+                <Textarea
+                  id={fieldId}
+                  value={value}
+                  onChange={(event) =>
+                    updatePayloadField(state.type, field.key, event.target.value)
+                  }
+                  placeholder={t("One per line or comma-separated")}
+                  rows={3}
+                />
+              </FieldShell>
+            );
+          }
+
+          if (field.kind === "timestamp") {
+            return (
+              <FieldShell key={field.key} label={label} htmlFor={fieldId}>
+                <Input
+                  id={fieldId}
+                  type="datetime-local"
+                  value={value}
+                  onChange={(event) =>
+                    updatePayloadField(state.type, field.key, event.target.value)
+                  }
+                />
+              </FieldShell>
+            );
+          }
+
+          if (field.kind === "integer") {
+            return (
+              <FieldShell key={field.key} label={label} htmlFor={fieldId}>
+                <Input
+                  id={fieldId}
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={value}
+                  onChange={(event) =>
+                    updatePayloadField(state.type, field.key, event.target.value)
+                  }
+                />
+              </FieldShell>
+            );
+          }
+
+          if (field.kind === "boolean") {
+            return (
+              <FieldShell key={field.key} label={label} htmlFor={fieldId}>
+                <select
+                  id={fieldId}
+                  value={value}
+                  onChange={(event) =>
+                    updatePayloadField(state.type, field.key, event.target.value)
+                  }
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">{t("Not specified")}</option>
+                  <option value="true">{t("Yes")}</option>
+                  <option value="false">{t("No")}</option>
+                </select>
+              </FieldShell>
+            );
+          }
+
+          return (
+            <FieldShell
+              key={field.key}
+              label={label}
+              htmlFor={fieldId}
+              className={wide ? "md:col-span-2" : ""}
+            >
+              {field.control === "textarea" ? (
+                <Textarea
+                  id={fieldId}
+                  value={value}
+                  onChange={(event) =>
+                    updatePayloadField(state.type, field.key, event.target.value)
+                  }
+                  rows={3}
+                />
+              ) : (
+                <Input
+                  id={fieldId}
+                  value={value}
+                  onChange={(event) =>
+                    updatePayloadField(state.type, field.key, event.target.value)
+                  }
+                />
+              )}
+            </FieldShell>
+          );
+        })}
       </div>
     );
   }

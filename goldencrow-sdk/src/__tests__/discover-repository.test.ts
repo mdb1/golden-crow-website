@@ -448,7 +448,7 @@ describe("discover repository", () => {
     );
   });
 
-  it("creates upcoming events with the virtual meeting link the app reads", async () => {
+  it("creates upcoming events with the compact event payload", async () => {
     const { createDiscoverFeedItem } = await import("../repositories/discover.repository");
 
     const feedItem = await createDiscoverFeedItem(fullAdminContext, {
@@ -464,23 +464,16 @@ describe("discover repository", () => {
       source_button_text: "Register now",
       upcoming_event: {
         date: "2026-09-04T18:00:00.000Z",
-        location: "Online",
         max_attendance: 250,
-        virtual_meeting_link: "https://meet.example.org/rare-disease-webinar",
       },
     });
 
     const stored = mockFeedDocs.find((doc) => doc.id === feedItem.id)?.data;
     const payload = stored?.upcoming_event as Record<string, unknown>;
 
-    expect(feedItem.upcoming_event?.virtual_meeting_link).toBe(
-      "https://meet.example.org/rare-disease-webinar",
-    );
-    expect(payload.virtual_meeting_link).toBe(
-      "https://meet.example.org/rare-disease-webinar",
-    );
     expect(payload.date).toBeDefined();
-    expect(payload.location).toBe("Online");
+    expect(payload.startsAt).toBeDefined();
+    expect(payload.location).toBeNull();
     expect(payload.max_attendance).toBe(250);
     expect(payload.source_url).toBeUndefined();
     expect(payload.source_button_text).toBeUndefined();
@@ -489,6 +482,43 @@ describe("discover repository", () => {
     expect(stored?.sourceUrl).toBe("https://example.org/events/register");
     expect(stored?.source_button_text).toBe("Register now");
     expect(stored?.sourceButtonText).toBe("Register now");
+  });
+
+  it("creates feed entries for every supported Discover type", async () => {
+    const { createDiscoverFeedItem } = await import("../repositories/discover.repository");
+
+    const feedItem = await createDiscoverFeedItem(fullAdminContext, {
+      publisherOrganizationId: "org-1",
+      type: "clinical_trial",
+      status: "published",
+      publishedAt: "2026-08-05T10:00:00.000Z",
+      language: "en",
+      title: "Clinical trial recruiting for a rare condition",
+      subtitle: "Families can review eligibility on the sponsor site.",
+      body: "Plain text details for the trial.",
+      source_url: "https://example.org/trials/abc",
+      clinical_trial: {
+        trial_identifier: "NCT00000000",
+        phase: "Phase 2",
+        recruitment_status: "Recruiting",
+        conditions: ["Pompe disease", "Glycogen storage disease"],
+        countries: ["US", "AR"],
+        sponsor: "Genome Research Institute",
+      },
+    });
+
+    const stored = mockFeedDocs.find((doc) => doc.id === feedItem.id)?.data;
+    const payload = stored?.clinical_trial as Record<string, unknown>;
+
+    expect(feedItem.type).toBe("clinical_trial");
+    expect(payload.trial_identifier).toBe("NCT00000000");
+    expect(payload.conditions).toEqual([
+      "Pompe disease",
+      "Glycogen storage disease",
+    ]);
+    expect(payload.countries).toEqual(["US", "AR"]);
+    expect(stored?.news).toBeUndefined();
+    expect(stored?.opportunity).toBeUndefined();
   });
 
   it("creates feed entries for individual publishers", async () => {

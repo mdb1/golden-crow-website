@@ -651,7 +651,33 @@ export type DiscoverFeedType =
   | "news"
   | "research_update"
   | "upcoming_event"
-  | "opportunity";
+  | "opportunity"
+  | "video"
+  | "external_article"
+  | "podcast_episode"
+  | "survey"
+  | "organization_spotlight"
+  | "professional_spotlight"
+  | "community_invitation"
+  | "bioinformatics_tool"
+  | "genomic_database"
+  | "health_guidance"
+  | "educational_explainer"
+  | "gene_spotlight"
+  | "condition_spotlight"
+  | "genetic_test_guide"
+  | "report_explainer"
+  | "clinical_guideline"
+  | "clinical_trial"
+  | "patient_registry"
+  | "research_participation"
+  | "screening_program"
+  | "support_service"
+  | "course"
+  | "downloadable_resource"
+  | "lived_experience_story"
+  | "expert_qa"
+  | "advocacy_campaign";
 export type DiscoverFeedStatus =
   | "draft"
   | "published"
@@ -662,7 +688,11 @@ export interface DiscoverPublisherSnapshot {
   imageUrl: string | null;
 }
 
-export interface DiscoverFeedItemRecord {
+export type DiscoverFeedPayloadNodes = {
+  [Type in DiscoverFeedType]?: Record<string, unknown>;
+};
+
+export type DiscoverFeedItemRecord = {
   id: string;
   publisherOrganizationId: string | null;
   publisherIndividualId: string | null;
@@ -683,11 +713,7 @@ export interface DiscoverFeedItemRecord {
   createdByUserId?: string;
   updatedByUserId?: string;
   archivedAt?: string | null;
-  news?: Record<string, unknown>;
-  research_update?: Record<string, unknown>;
-  upcoming_event?: Record<string, unknown>;
-  opportunity?: Record<string, unknown>;
-}
+} & DiscoverFeedPayloadNodes;
 
 export interface DiscoverListPage<T> {
   records: T[];

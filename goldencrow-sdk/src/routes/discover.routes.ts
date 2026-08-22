@@ -22,12 +22,39 @@ import {
 } from "../repositories/discover.repository.js";
 
 const OrganizationStatusSchema = z.enum(["active", "inactive", "archived"]);
-const FeedTypeSchema = z.enum([
+const DISCOVER_FEED_TYPES = [
   "news",
   "research_update",
   "upcoming_event",
   "opportunity",
-]);
+  "video",
+  "external_article",
+  "podcast_episode",
+  "survey",
+  "organization_spotlight",
+  "professional_spotlight",
+  "community_invitation",
+  "bioinformatics_tool",
+  "genomic_database",
+  "health_guidance",
+  "educational_explainer",
+  "gene_spotlight",
+  "condition_spotlight",
+  "genetic_test_guide",
+  "report_explainer",
+  "clinical_guideline",
+  "clinical_trial",
+  "patient_registry",
+  "research_participation",
+  "screening_program",
+  "support_service",
+  "course",
+  "downloadable_resource",
+  "lived_experience_story",
+  "expert_qa",
+  "advocacy_campaign",
+] as const;
+const FeedTypeSchema = z.enum(DISCOVER_FEED_TYPES);
 const FeedStatusSchema = z.enum([
   "draft",
   "published",
@@ -94,35 +121,10 @@ const IndividualBodySchema = z.object({
   internalNotes: z.string().optional(),
 });
 
-const StringArraySchema = z.array(z.string()).optional();
-const NewsPayloadSchema = z.object({
-  category: z.string().optional(),
-  region: z.string().optional(),
-});
-
-const ResearchUpdatePayloadSchema = z.object({
-  research_topic: z.string().optional(),
-  genes: StringArraySchema,
-  conditions: StringArraySchema,
-  journal: z.string().optional(),
-});
-
-const UpcomingEventPayloadSchema = z.object({
-  date: z.string().nullable().optional(),
-  location: z.string().optional(),
-  max_attendance: z.number().nullable().optional(),
-  virtual_meeting_link: z.string().nullable().optional(),
-  virtualMeetingLink: z.string().nullable().optional(),
-  meeting_url: z.string().nullable().optional(),
-  meetingUrl: z.string().nullable().optional(),
-});
-
-const OpportunityPayloadSchema = z.object({
-  opportunity_type: z.string().optional(),
-  requirements: z.string().optional(),
-  eligibility: z.string().optional(),
-  location: z.string().optional(),
-});
+const FeedPayloadSchema = z.record(z.string(), z.unknown()).optional();
+const FeedPayloadBodySchemas = Object.fromEntries(
+  DISCOVER_FEED_TYPES.map((type) => [type, FeedPayloadSchema]),
+) as Record<(typeof DISCOVER_FEED_TYPES)[number], typeof FeedPayloadSchema>;
 
 const FeedItemBodySchema = z.object({
   publisherOrganizationId: z.string().optional(),
@@ -138,10 +140,7 @@ const FeedItemBodySchema = z.object({
   image_url: z.string().nullable().optional(),
   source_url: z.string().nullable().optional(),
   source_button_text: z.string().nullable().optional(),
-  news: NewsPayloadSchema.optional(),
-  research_update: ResearchUpdatePayloadSchema.optional(),
-  upcoming_event: UpcomingEventPayloadSchema.optional(),
-  opportunity: OpportunityPayloadSchema.optional(),
+  ...FeedPayloadBodySchemas,
 });
 
 function sendRepositoryError(reply: FastifyReply, error: unknown) {

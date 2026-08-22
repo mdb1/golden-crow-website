@@ -9,6 +9,7 @@ import type {
   DiscoverFeedItemRecord,
   DiscoverOrganizationRecord,
 } from "@/lib/discover";
+import { DISCOVER_FEED_TYPES } from "@/lib/discover";
 
 const routerPush = jest.fn();
 const routerRefresh = jest.fn();
@@ -224,6 +225,74 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(exampleLink.getAttribute("href")).toBe(
       "https://goldencrowvs.com/pocket-genes/banner.png",
     );
+  });
+
+  it("offers every Discover feed type in the type picker", () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    const typePicker = screen.getByLabelText("Type") as HTMLSelectElement;
+    expect([...typePicker.options].map((option) => option.value)).toEqual(
+      DISCOVER_FEED_TYPES,
+    );
+  });
+
+  it("stores a new clinical trial type with typed payload arrays", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publisher"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "clinical_trial" },
+    });
+    fireEvent.change(screen.getByLabelText("Trial identifier"), {
+      target: { value: "NCT00000000" },
+    });
+    fireEvent.change(screen.getByLabelText("Conditions"), {
+      target: { value: "Pompe disease\nGlycogen storage disease" },
+    });
+    fireEvent.change(screen.getByLabelText("Countries"), {
+      target: { value: "US, AR" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items", {
+        method: "POST",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.type).toBe("clinical_trial");
+    expect(body.clinical_trial).toEqual({
+      trial_identifier: "NCT00000000",
+      phase: "",
+      recruitment_status: "",
+      conditions: ["Pompe disease", "Glycogen storage disease"],
+      countries: ["US", "AR"],
+      sponsor: "",
+    });
   });
 
   it("shows the public app link after a successful publish with no unsaved changes", async () => {
