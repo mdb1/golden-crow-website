@@ -16,7 +16,8 @@ const PatientLookupQuerySchema = z
     medicalRecordNumber: z.string().trim().min(1).optional(),
   })
   .refine(
-    (value) => Boolean(value.patientId || value.email || value.medicalRecordNumber),
+    (value) =>
+      Boolean(value.patientId || value.email || value.medicalRecordNumber),
     "Provide patientId, email, or medicalRecordNumber",
   );
 
@@ -41,7 +42,10 @@ const TwoPQCaseLookupParamsSchema = z.object({
   caseCode: z
     .string()
     .trim()
-    .regex(/^[A-Za-z0-9]{6}$/, "caseCode must contain exactly 6 letters or numbers"),
+    .regex(
+      /^[A-Za-z0-9]{6}$/,
+      "caseCode must contain exactly 6 letters or numbers",
+    ),
 });
 
 function getInternalOpenApiToken(request: FastifyRequest) {
@@ -55,7 +59,9 @@ function requireInternalOpenApiToken(
   reply: FastifyReply,
 ) {
   if (!ENV.GOLDENCROW_OPENAPI_INTERNAL_TOKEN) {
-    reply.status(503).send({ error: "Internal OpenAPI token is not configured" });
+    reply
+      .status(503)
+      .send({ error: "Internal OpenAPI token is not configured" });
     return false;
   }
 
@@ -125,7 +131,7 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
   );
 
   f.post(
-    "/internal/openapi/reporting/reports/uploaded",
+    "/internal/openapi/reporting/reports/upload",
     {
       schema: {
         body: UploadedReportNotificationSchema,

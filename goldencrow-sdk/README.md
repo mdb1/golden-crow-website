@@ -61,7 +61,7 @@ All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings
 | GET | /internal/openapi/reporting/patients?email=:email | Internal bridge for public reporting patient lookup |
 | GET | /internal/openapi/reporting/patients?medicalRecordNumber=:number | Internal bridge for public reporting patient lookup |
 | GET | /internal/openapi/reporting/patients/:id | Internal bridge for public reporting patient lookup by patient ID |
-| POST | /internal/openapi/reporting/reports/uploaded | Internal bridge for public reporting upload notifications |
+| POST | /internal/openapi/reporting/reports/upload | Internal bridge for public reporting upload notifications |
 | GET | /internal/openapi/reporting/2pq/cases/:caseCode | Internal bridge for public 2PQ case lookup |
 | GET | /posts | List community posts |
 | GET | /posts/:id | Get post detail |

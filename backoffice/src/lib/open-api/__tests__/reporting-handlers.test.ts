@@ -203,6 +203,9 @@ describe("public reporting OpenAPI handlers", () => {
     expect((global.fetch as jest.Mock).mock.calls[0][0].toString()).toBe(
       "https://sdk.example.com/internal/openapi/reporting/2pq/cases/ABC001",
     );
+    expect((global.fetch as jest.Mock).mock.calls[1][0].toString()).toBe(
+      "https://sdk.example.com/internal/openapi/reporting/reports/upload",
+    );
     expect(internalUploadBody.patientId).toBe("PAT-00016");
     expect(internalUploadBody.reportId).toBe("2pq-abc001");
     expect(internalUploadBody.reportCode).toBe("ABC001");

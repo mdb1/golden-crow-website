@@ -325,7 +325,7 @@ export async function handleReportUploadNotification(request: Request) {
 
     const sdkResponse = await sdkBridgeFetch(
       request,
-      "/internal/openapi/reporting/reports/uploaded",
+      "/internal/openapi/reporting/reports/upload",
       {
         method: "POST",
         body: internalUploadNotificationPayload(caseCode, patientId),
