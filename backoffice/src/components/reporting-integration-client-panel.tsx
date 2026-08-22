@@ -1135,15 +1135,10 @@ export function ReportingIntegrationClientPanel() {
                       <p className="text-sm font-semibold">
                         {eventTitle(event.event_type)}
                       </p>
-                      <Badge
-                        variant={
-                          event.event_type === "integration_client.revoked"
-                            ? "destructive"
-                            : "secondary"
-                        }
-                      >
-                        {event.actor.email}
-                      </Badge>
+                      <Badge variant="secondary">{event.actor.email}</Badge>
+                      {event.event_type === "integration_client.revoked" ? (
+                        <Badge variant="destructive">revoked</Badge>
+                      ) : null}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {eventBody(event)}
