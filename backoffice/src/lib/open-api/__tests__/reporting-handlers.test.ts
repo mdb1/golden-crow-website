@@ -1,6 +1,6 @@
 import {
+  handleOAuthTokenExchange,
   handlePatientLookup,
-  handleReportingTokenRefresh,
   handleReportUploadNotification,
   handleTwoPQCaseLookup,
 } from "@/lib/open-api/reporting-handlers";
@@ -294,45 +294,42 @@ describe("public reporting OpenAPI handlers", () => {
     expectTokenVerificationCall(0, "/open-api/reporting/reports/upload");
   });
 
-  it("refreshes reporting access tokens without exposing issuer metadata", async () => {
-    mockSdkResponse(
-      {
-        token: "rpt_access_replacement-token",
-        tokenType: "Bearer",
-        expiresAt: "2026-08-22T12:00:00.000Z",
-        expiresInSeconds: 86400,
-        quota: {
-          limit: 60,
-          windowSeconds: 60,
-        },
-        issuedTo: {
-          uid: "admin-1",
-          email: "admin@example.com",
-        },
-      },
-      201,
-    );
+  it("exchanges client credentials for a reporting access token", async () => {
+    mockSdkResponse({
+      access_token: "rpt_access_exchange-token",
+      token_type: "Bearer",
+      expires_in: 86400,
+      scope: "reporting:read reporting:write",
+    });
 
-    const response = await handleReportingTokenRefresh(
-      authorizedRequest(
-        "https://public.example.com/open-api/auth/token/refresh",
-        {
-          method: "POST",
+    const requestBody = {
+      grant_type: "client_credentials",
+      client_id: "gci_live_client",
+      client_secret: "gcs_live_secret",
+    } as const;
+    const response = await handleOAuthTokenExchange(
+      new Request("https://public.example.com/open-api/oauth/token", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
         },
-      ),
+        body: JSON.stringify(requestBody),
+      }),
     );
     const body = await response.json();
 
-    expect(response.status).toBe(201);
-    expect(body.token).toBe("rpt_access_replacement-token");
-    expect(body.issuedTo).toBeUndefined();
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      access_token: "rpt_access_exchange-token",
+      token_type: "Bearer",
+      expires_in: 86400,
+      scope: "reporting:read reporting:write",
+    });
     expect((global.fetch as jest.Mock).mock.calls[0][0].toString()).toBe(
-      "https://sdk.example.com/internal/openapi/reporting/tokens/refresh",
+      "https://sdk.example.com/internal/openapi/oauth/token",
     );
     expect(
       JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body),
-    ).toEqual({
-      token: REPORTING_TOKEN,
-    });
+    ).toEqual(requestBody);
   });
 });

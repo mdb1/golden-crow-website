@@ -63,8 +63,8 @@ function errorResponses() {
     "401": jsonResponse("Invalid, missing, expired, or revoked access token.", {
       error: "Invalid reporting access token.",
     }),
-    "429": jsonResponse("The token exceeded its request quota.", {
-      error: "Reporting access token quota exceeded.",
+    "429": jsonResponse("The integration client exceeded its request quota.", {
+      error: "Client quota exceeded.",
     }),
     "503": jsonResponse("The API is missing required runtime configuration.", {
       error: "Internal OpenAPI token is not configured",
@@ -73,6 +73,10 @@ function errorResponses() {
 }
 
 const EXAMPLE_PATIENT_ID = "PAT-8F4K2Z9Q1M7X5C3V6B0N2R8T4Y1L9P5WA7D2";
+const EXAMPLE_CLIENT_ID = "gci_live_7zZKqYxG5bC2mR9wL4pN8tV1sH6aJ3dF";
+const EXAMPLE_CLIENT_SECRET = "gcs_live_Qn4xV9mL2pT7sA5kC8wR1yH6dE3jB0uZ";
+const EXAMPLE_ACCESS_TOKEN =
+  "rpt_access_VGhpcy1pcy1hbi1leGFtcGxlLXRva2VuLXZhbHVl";
 
 export function buildReportingOpenApiDocument(
   serverUrl: string,
@@ -86,6 +90,57 @@ export function buildReportingOpenApiDocument(
     },
     servers: [{ url: serverUrl }],
     paths: {
+      "/open-api/oauth/token": {
+        post: {
+          tags: ["Auth"],
+          summary: "Exchange client credentials for an access token.",
+          description:
+            "Returns a 24-hour bearer access token for a registered integration client. No refresh token is issued; request a new access token with the same client credentials when the current token expires.",
+          requestBody: {
+            content: {
+              "application/json": {
+                example: {
+                  grant_type: "client_credentials",
+                  client_id: EXAMPLE_CLIENT_ID,
+                  client_secret: EXAMPLE_CLIENT_SECRET,
+                },
+              },
+            },
+          },
+          responses: {
+            "200": jsonResponse("Access token issued.", {
+              access_token: EXAMPLE_ACCESS_TOKEN,
+              token_type: "Bearer",
+              expires_in: 86400,
+              scope: "reporting:read reporting:write",
+            }),
+            "400": jsonResponse("Invalid token request.", {
+              error: "Unsupported grant_type.",
+            }),
+            "401": jsonResponse("Invalid client credentials.", {
+              error: "Invalid client credentials.",
+            }),
+            "503": jsonResponse(
+              "The API is missing required runtime configuration.",
+              {
+                error: "Internal OpenAPI token is not configured",
+              },
+            ),
+          },
+          "x-codeSamples": [
+            {
+              lang: "curl",
+              source: `curl -X POST "${serverUrl}/open-api/oauth/token" \\
+  -H "Content-Type: application/json" \\
+  --data '{
+    "grant_type": "client_credentials",
+    "client_id": "${EXAMPLE_CLIENT_ID}",
+    "client_secret": "${EXAMPLE_CLIENT_SECRET}"
+  }'`,
+            },
+          ],
+        },
+      },
       "/open-api/reporting/2pq/cases/{caseCode}": {
         get: {
           tags: ["Reporting"],
@@ -159,7 +214,7 @@ export function buildReportingOpenApiDocument(
             {
               lang: "curl",
               source: `curl -X GET "${serverUrl}/open-api/reporting/2pq/cases/ABC001" \\
-  -H "Authorization: Bearer <REPORTING_ACCESS_TOKEN>"`,
+  -H "Authorization: Bearer <access_token>"`,
             },
           ],
         },
@@ -200,7 +255,7 @@ export function buildReportingOpenApiDocument(
             {
               lang: "curl",
               source: `curl -X GET "${serverUrl}/open-api/reporting/patients?patientId=${EXAMPLE_PATIENT_ID}" \\
-  -H "Authorization: Bearer <REPORTING_ACCESS_TOKEN>"`,
+  -H "Authorization: Bearer <access_token>"`,
             },
           ],
         },
@@ -241,39 +296,11 @@ export function buildReportingOpenApiDocument(
             {
               lang: "curl",
               source: `curl -X POST "${serverUrl}/open-api/reporting/reports/upload" \\
-  -H "Authorization: Bearer <REPORTING_ACCESS_TOKEN>" \\
+  -H "Authorization: Bearer <access_token>" \\
   -H "Content-Type: application/json" \\
   --data '{
     "caseCode": "ABC001"
   }'`,
-            },
-          ],
-        },
-      },
-      "/open-api/auth/token/refresh": {
-        post: {
-          tags: ["Auth"],
-          summary: "Refresh a reporting access token.",
-          description:
-            "Revokes the current reporting access token and returns a replacement token with a fresh 24-hour expiration.",
-          responses: {
-            "201": jsonResponse("Token refreshed.", {
-              token: "rpt_access_VGhpcy1pcy1hbi1leGFtcGxlLXRva2VuLXZhbHVl",
-              tokenType: "Bearer",
-              expiresAt: "2026-08-22T12:00:00.000Z",
-              expiresInSeconds: 86400,
-              quota: {
-                limit: 60,
-                windowSeconds: 60,
-              },
-            }),
-            ...errorResponses(),
-          },
-          "x-codeSamples": [
-            {
-              lang: "curl",
-              source: `curl -X POST "${serverUrl}/open-api/auth/token/refresh" \\
-  -H "Authorization: Bearer <REPORTING_ACCESS_TOKEN>"`,
             },
           ],
         },

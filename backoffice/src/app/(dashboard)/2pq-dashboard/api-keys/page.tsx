@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { KeyRound, RefreshCw, ShieldCheck } from "lucide-react";
+import { KeyRound, Repeat2, ShieldCheck } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
-import { ReportingAccessTokenPanel } from "@/components/reporting-access-token-panel";
+import { ReportingIntegrationClientPanel } from "@/components/reporting-integration-client-panel";
 import { Badge } from "@/components/ui/badge";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 
@@ -17,7 +17,7 @@ export default async function ReportingApiKeysPage() {
       <PageHero
         eyebrow="2PQ API"
         title="API Keys"
-        description="Full-admin token issuing for public reporting integrations."
+        description="Full-admin integration-client creation for public reporting integrations."
       />
 
       <section className="rounded-lg border bg-card p-5 shadow-sm">
@@ -26,17 +26,17 @@ export default async function ReportingApiKeysPage() {
             <div className="flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-muted-foreground" />
               <h2 className="text-base font-semibold">
-                Reporting access token
+                Reporting integration client
               </h2>
             </div>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              Full admins can issue an admin-specific bearer token for external
-              reporting integrations. The token expires after 24 hours, is
-              stored only as a hash, and is checked against a fixed per-minute
-              quota before any public reporting endpoint runs.
+              Full admins can create a client credential for an external
+              reporting backend. The client receives a <code>client_id</code>{" "}
+              and one-time <code>client_secret</code>, then exchanges those
+              credentials for 24-hour access tokens.
             </p>
           </div>
-          <Badge variant="secondary">24 hour bearer token</Badge>
+          <Badge variant="secondary">Standard mode</Badge>
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -45,15 +45,15 @@ export default async function ReportingApiKeysPage() {
               Header
             </p>
             <code className="mt-2 block overflow-x-auto rounded-md bg-background px-2 py-1 text-xs text-foreground">
-              Authorization: Bearer &lt;REPORTING_ACCESS_TOKEN&gt;
+              Authorization: Bearer &lt;access_token&gt;
             </code>
           </div>
           <div className="rounded-lg border bg-muted/25 p-4">
             <p className="text-xs font-medium uppercase text-muted-foreground">
-              Expiration
+              Token endpoint
             </p>
             <p className="mt-2 text-sm text-foreground">
-              Each token expires 24 hours after it is issued or refreshed.
+              <code>POST /open-api/oauth/token</code>
             </p>
           </div>
           <div className="rounded-lg border bg-muted/25 p-4">
@@ -61,12 +61,12 @@ export default async function ReportingApiKeysPage() {
               Quota
             </p>
             <p className="mt-2 text-sm text-foreground">
-              Default limit is 60 requests per minute per token.
+              Default limit is 60 requests per minute per client.
             </p>
           </div>
         </div>
 
-        <ReportingAccessTokenPanel />
+        <ReportingIntegrationClientPanel />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
@@ -79,40 +79,43 @@ export default async function ReportingApiKeysPage() {
           </div>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted-foreground">
             <li>
-              Click <code>Obtain token</code> on this page to reveal the
-              admin-specific access token.
+              Enter a name and click <code>Create client</code>.
             </li>
-            <li>Use it only as a bearer token in the Authorization header.</li>
             <li>
-              Share it with the integration owner through a secure channel. The
-              token value is shown only when it is created or refreshed.
+              Copy the <code>client_id</code> and one-time{" "}
+              <code>client_secret</code>.
+            </li>
+            <li>
+              Store the client secret in the integration backend, not in a
+              browser or user device.
             </li>
           </ol>
         </article>
 
         <article className="rounded-lg border bg-card p-5 shadow-sm">
           <div className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4 text-muted-foreground" />
+            <Repeat2 className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-base font-semibold">
-              How a full admin refreshes it
+              How the integration uses it
             </h2>
           </div>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted-foreground">
             <li>
-              Click <code>Refresh token</code> here while the current token is
-              visible, or call <code>POST /open-api/auth/token/refresh</code>.
+              Call <code>POST /open-api/oauth/token</code> with{" "}
+              <code>grant_type</code>, <code>client_id</code>, and{" "}
+              <code>client_secret</code>.
             </li>
             <li>
-              Send the current token as{" "}
-              <code>Authorization: Bearer &lt;REPORTING_ACCESS_TOKEN&gt;</code>.
+              Use the returned <code>access_token</code> as{" "}
+              <code>Authorization: Bearer &lt;access_token&gt;</code>.
             </li>
             <li>
-              The old token is revoked and a replacement token is returned with
-              a fresh 24-hour expiration.
+              Request a new access token with the same client credentials when
+              the previous one expires.
             </li>
             <li>
-              Update the integration to use the replacement token for subsequent
-              public API requests.
+              Business requests are quota-gated and audited by{" "}
+              <code>client_id</code>.
             </li>
           </ol>
         </article>

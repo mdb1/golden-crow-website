@@ -17,7 +17,7 @@ import { discoverRoutes } from "./discover.routes.js";
 import { clientBookingsRoutes } from "./client-bookings.routes.js";
 import { informedConsentRoutes } from "./informed-consents.routes.js";
 import { reportingRoutes } from "./reporting.routes.js";
-import { reportingTokenRoutes } from "./reporting-tokens.routes.js";
+import { reportingIntegrationClientRoutes } from "./reporting-tokens.routes.js";
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(healthRoutes);
@@ -25,7 +25,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(areasRoutes);
   await fastify.register(twoPQRoutes);
   await fastify.register(informedConsentRoutes);
-  await fastify.register(reportingTokenRoutes);
+  await fastify.register(reportingIntegrationClientRoutes);
   await fastify.register(reportingRoutes);
   await fastify.register(rolesRoutes);
   await fastify.register(userRoutes);

@@ -9,7 +9,7 @@ import {
   recordUploadedReportNotification,
 } from "../repositories/reporting.repository.js";
 import {
-  refreshReportingAccessToken,
+  exchangeReportingClientCredentials,
   verifyReportingAccessToken,
 } from "../repositories/reporting-tokens.repository.js";
 
@@ -59,9 +59,11 @@ const ReportingAccessTokenVerificationSchema = z
   })
   .strict();
 
-const ReportingAccessTokenRefreshSchema = z
+const OAuthTokenRequestSchema = z
   .object({
-    token: z.string().trim().min(1),
+    grant_type: z.literal("client_credentials"),
+    client_id: z.string().trim().min(1),
+    client_secret: z.string().trim().min(1),
   })
   .strict();
 
@@ -126,16 +128,16 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
   );
 
   f.post(
-    "/internal/openapi/reporting/tokens/refresh",
+    "/internal/openapi/oauth/token",
     {
       schema: {
-        body: ReportingAccessTokenRefreshSchema,
+        body: OAuthTokenRequestSchema,
       },
     },
     async (request, reply) => {
       try {
-        const result = await refreshReportingAccessToken(request.body.token);
-        return reply.status(201).send(result);
+        const result = await exchangeReportingClientCredentials(request.body);
+        return reply.send(result);
       } catch (error) {
         if (isAdminRepositoryError(error)) {
           return reply.status(error.statusCode).send({ error: error.message });

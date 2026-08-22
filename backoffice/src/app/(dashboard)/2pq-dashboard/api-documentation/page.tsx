@@ -115,6 +115,7 @@ export default async function ReportingApiDocumentationPage() {
           const requestExample = requestJsonExample(operation);
           const responseExample = firstJsonExample(operation);
           const codeSample = firstCodeSample(operation);
+          const usesAccessToken = path !== "/open-api/oauth/token";
 
           return (
             <article
@@ -151,14 +152,16 @@ export default async function ReportingApiDocumentationPage() {
               <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                 <div className="min-w-0">
                   <h3 className="text-sm font-semibold">Request</h3>
-                  <div className="mt-3 rounded-lg border bg-muted/35 p-3">
-                    <p className="text-xs font-medium uppercase text-muted-foreground">
-                      Auth header
-                    </p>
-                    <code className="mt-1 block overflow-x-auto text-xs text-foreground">
-                      Authorization: Bearer &lt;REPORTING_ACCESS_TOKEN&gt;
-                    </code>
-                  </div>
+                  {usesAccessToken ? (
+                    <div className="mt-3 rounded-lg border bg-muted/35 p-3">
+                      <p className="text-xs font-medium uppercase text-muted-foreground">
+                        Authorization header
+                      </p>
+                      <code className="mt-1 block overflow-x-auto text-xs text-foreground">
+                        Authorization: Bearer &lt;access_token&gt;
+                      </code>
+                    </div>
+                  ) : null}
 
                   {operation.parameters?.length ? (
                     <div className="mt-3 overflow-hidden rounded-lg border">

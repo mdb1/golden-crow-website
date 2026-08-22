@@ -31,6 +31,14 @@ const TwoPQCaseLookupParamsSchema = z.object({
   caseCode: CaseCodeSchema,
 });
 
+const OAuthTokenRequestSchema = z
+  .object({
+    grant_type: z.literal("client_credentials"),
+    client_id: z.string().trim().min(1),
+    client_secret: z.string().trim().min(1),
+  })
+  .strict();
+
 class SdkBridgeError extends Error {
   constructor(
     readonly statusCode: number,
@@ -77,15 +85,6 @@ function publicPatientLookupResponse(response: unknown) {
   }
 
   return isRecord(response.patient) ? response.patient : response;
-}
-
-function publicReportingTokenResponse(response: unknown) {
-  if (!isRecord(response)) {
-    return response;
-  }
-
-  const { issuedTo: _issuedTo, ...publicResponse } = response;
-  return publicResponse;
 }
 
 function internalTwoPQCaseSnapshot(response: unknown) {
@@ -407,22 +406,32 @@ export async function handleTwoPQCaseLookup(
   }
 }
 
-export async function handleReportingTokenRefresh(request: Request) {
-  const token = getBearerToken(request);
-  if (!token) {
-    return json({ error: "Missing reporting access token." }, 401);
+export async function handleOAuthTokenExchange(request: Request) {
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON body." }, 400);
+  }
+
+  const parsedBody = OAuthTokenRequestSchema.safeParse(payload);
+  if (!parsedBody.success) {
+    return json(
+      { error: parsedBody.error.issues[0]?.message ?? "Invalid request body." },
+      400,
+    );
   }
 
   try {
     const sdkResponse = await sdkBridgeFetch(
       request,
-      "/internal/openapi/reporting/tokens/refresh",
+      "/internal/openapi/oauth/token",
       {
         method: "POST",
-        body: { token },
+        body: parsedBody.data,
       },
     );
-    return json(publicReportingTokenResponse(sdkResponse), 201);
+    return json(sdkResponse);
   } catch (error) {
     if (error instanceof SdkBridgeError) {
       return bridgeErrorResponse(error);
