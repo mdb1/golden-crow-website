@@ -255,6 +255,23 @@ function secretPrefix(value: string) {
   return value.slice(0, 18);
 }
 
+function eventLogClientId(value: string) {
+  const normalized = value.trim();
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.includes("...")) {
+    return normalized;
+  }
+
+  const prefix = normalized.startsWith(CLIENT_ID_PREFIX)
+    ? CLIENT_ID_PREFIX
+    : `${normalized.slice(0, Math.min(8, normalized.length))}`;
+  const suffix = normalized.slice(-6);
+  return `${prefix}...${suffix}`;
+}
+
 function safeHashEquals(left: string, right: string) {
   const leftBuffer = Buffer.from(left, "hex");
   const rightBuffer = Buffer.from(right, "hex");
@@ -510,7 +527,7 @@ function eventFromRecord(
   return {
     id,
     event_type: eventType,
-    client_id: clientId,
+    client_id: eventLogClientId(clientId),
     client_name: clientName,
     occurred_at: occurredAt,
     actor: {
@@ -588,12 +605,11 @@ function accessEventPayload(input: {
   previousSecretPrefix?: string;
   status?: IntegrationClientStatus;
 }) {
+  const clientId =
+    "clientId" in input.client ? input.client.clientId : input.client.client_id;
   const payload = {
     eventType: input.eventType,
-    clientId:
-      "clientId" in input.client
-        ? input.client.clientId
-        : input.client.client_id,
+    clientId: eventLogClientId(clientId),
     clientName: input.client.name,
     occurredAt: input.occurredAt,
     actorUid: input.actor.uid,

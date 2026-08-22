@@ -36,6 +36,10 @@ function docsIn(collectionName: string) {
     .map(([, value]) => value);
 }
 
+function eventLogClientId(clientId: string) {
+  return `gci_live_...${clientId.slice(-6)}`;
+}
+
 function applyUpdate(ref: MockDocumentRef, update: MockDocData) {
   const key = docKey(ref);
   const current = mockDocs.get(key) ?? {};
@@ -251,11 +255,14 @@ describe("reporting integration client repository", () => {
     expect(docsIn(ACCESS_EVENTS_COLLECTION)).toHaveLength(1);
     expect(docsIn(ACCESS_EVENTS_COLLECTION)[0]).toMatchObject({
       eventType: "integration_client.created",
-      clientId: created.client_id,
+      clientId: eventLogClientId(created.client_id),
       clientName: "Reporting partner",
       actorUid: "admin-1",
       actorEmail: "admin@example.com",
     });
+    expect(JSON.stringify(docsIn(ACCESS_EVENTS_COLLECTION))).not.toContain(
+      created.client_id,
+    );
     expect(docsIn(ACCESS_EVENTS_COLLECTION)[0]).not.toHaveProperty(
       "secretPrefix",
     );
@@ -287,12 +294,50 @@ describe("reporting integration client repository", () => {
     expect(first).not.toHaveProperty("client_secret");
     expect(second).not.toHaveProperty("client_secret");
     expect(events.events).toHaveLength(2);
-    expect(events.events[0]).toMatchObject({
-      event_type: "integration_client.created",
-      actor: {
-        email: "admin@example.com",
-      },
+    expect(events.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event_type: "integration_client.created",
+          client_id: eventLogClientId(first.client_id),
+          actor: expect.objectContaining({
+            email: "admin@example.com",
+          }),
+        }),
+        expect.objectContaining({
+          event_type: "integration_client.created",
+          client_id: eventLogClientId(second.client_id),
+        }),
+      ]),
+    );
+    expect(JSON.stringify(events.events)).not.toContain(second.client_id);
+    expect(JSON.stringify(events.events)).not.toContain(first.client_id);
+  });
+
+  it("masks legacy access event client ids when listing events", async () => {
+    const { listReportingIntegrationClientAccessEvents } = await import(
+      "../repositories/reporting-tokens.repository"
+    );
+    const fullClientId = "gci_live_abcdefghijklmnopqrstuvwxyz123456";
+    mockDocs.set(`${ACCESS_EVENTS_COLLECTION}/legacy-full-client-id`, {
+      eventType: "integration_client.revoked",
+      clientId: fullClientId,
+      clientName: "Legacy partner",
+      occurredAt: "2026-08-22T12:00:00.000Z",
+      actorUid: "admin-1",
+      actorEmail: "admin@example.com",
+      status: "revoked",
     });
+
+    const events =
+      await listReportingIntegrationClientAccessEvents(fullAdminContext);
+
+    expect(events.events).toHaveLength(1);
+    expect(events.events[0]).toMatchObject({
+      client_id: "gci_live_...123456",
+      client_name: "Legacy partner",
+      status: "revoked",
+    });
+    expect(JSON.stringify(events.events)).not.toContain(fullClientId);
   });
 
   it("generates the first client secret only through the explicit secret action", async () => {
@@ -340,10 +385,13 @@ describe("reporting integration client repository", () => {
       expect.arrayContaining([
         expect.objectContaining({
           eventType: "integration_client.secret_created",
-          clientId: created.client_id,
+          clientId: eventLogClientId(created.client_id),
           secretPrefix: generated.client_secret.slice(0, 18),
         }),
       ]),
+    );
+    expect(JSON.stringify(docsIn(ACCESS_EVENTS_COLLECTION))).not.toContain(
+      created.client_id,
     );
   });
 
@@ -517,11 +565,14 @@ describe("reporting integration client repository", () => {
       expect.arrayContaining([
         expect.objectContaining({
           eventType: "integration_client.secret_rotated",
-          clientId: created.client_id,
+          clientId: eventLogClientId(created.client_id),
           previousSecretPrefix: generated.client_secret.slice(0, 18),
           secretPrefix: rotated.client_secret.slice(0, 18),
         }),
       ]),
+    );
+    expect(JSON.stringify(docsIn(ACCESS_EVENTS_COLLECTION))).not.toContain(
+      created.client_id,
     );
   });
 
@@ -577,10 +628,13 @@ describe("reporting integration client repository", () => {
       expect.arrayContaining([
         expect.objectContaining({
           eventType: "integration_client.revoked",
-          clientId: created.client_id,
+          clientId: eventLogClientId(created.client_id),
           status: "revoked",
         }),
       ]),
+    );
+    expect(JSON.stringify(docsIn(ACCESS_EVENTS_COLLECTION))).not.toContain(
+      created.client_id,
     );
   });
 });
