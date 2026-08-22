@@ -24,7 +24,8 @@ const ACCESS_TOKEN_USE = "reporting";
 const RANDOM_BYTES = 32;
 const ACCESS_TOKEN_TTL_SECONDS = 24 * 60 * 60;
 const QUOTA_WINDOW_SECONDS = 60;
-const DEFAULT_QUOTA_PER_MINUTE = 60;
+const DEFAULT_QUOTA_PER_MINUTE = 5;
+const MAX_QUOTA_PER_MINUTE = 5;
 const DEFAULT_PAGE_LIMIT = 20;
 const MAX_PAGE_LIMIT = 50;
 const REPORTING_SCOPES = ["reporting:read", "reporting:write"] as const;
@@ -35,7 +36,8 @@ type IntegrationClientAccessEventType =
   | "integration_client.created"
   | "integration_client.secret_created"
   | "integration_client.secret_rotated"
-  | "integration_client.revoked";
+  | "integration_client.revoked"
+  | "integration_client.quota_exceeded";
 
 export interface ReportingIntegrationClientCreateInput {
   name: string;
@@ -120,6 +122,7 @@ export interface ReportingIntegrationClientAccessEvent {
     window_seconds: number;
   };
   scopes?: ReportingScope[];
+  endpoint?: string;
 }
 
 export interface ReportingIntegrationClientAccessEventListResult {
@@ -176,6 +179,8 @@ type IntegrationClientRecord = {
   tokenIssueCount: number;
   quotaWindow?: string;
   quotaWindowCount?: number;
+  quotaExceededWindow?: string;
+  quotaExceededCount?: number;
 };
 
 type AccessTokenRecord = {
@@ -230,7 +235,16 @@ function defaultQuotaPerMinute() {
     return DEFAULT_QUOTA_PER_MINUTE;
   }
 
-  return Math.floor(parsed);
+  return Math.min(MAX_QUOTA_PER_MINUTE, Math.floor(parsed));
+}
+
+function normalizeStoredQuota(value: unknown) {
+  const parsed = asNumber(value);
+  if (parsed === undefined || parsed <= 0) {
+    return defaultQuotaPerMinute();
+  }
+
+  return Math.min(MAX_QUOTA_PER_MINUTE, Math.floor(parsed));
 }
 
 function normalizeQuota(value: number | undefined) {
@@ -242,7 +256,7 @@ function normalizeQuota(value: number | undefined) {
     throw new AdminRepositoryError("quotaPerMinute must be positive.", 400);
   }
 
-  return Math.floor(value);
+  return Math.min(MAX_QUOTA_PER_MINUTE, Math.floor(value));
 }
 
 function normalizePageLimit(value: number | undefined) {
@@ -296,6 +310,15 @@ function eventLogClientId(value: string) {
     : `${normalized.slice(0, Math.min(8, normalized.length))}`;
   const suffix = normalized.slice(-6);
   return `${prefix}...${suffix}`;
+}
+
+function eventLogEndpoint(value: string | undefined) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized.replace(/^\/internal\/openapi\b/, "/open-api");
 }
 
 function safeHashEquals(left: string, right: string) {
@@ -547,7 +570,7 @@ function readClientRecord(snapshot: SnapshotLike): IntegrationClientRecord {
     name,
     clientSecretHash,
     scopes: normalizeScopes(data.scopes),
-    quotaPerMinute: asNumber(data.quotaPerMinute) ?? DEFAULT_QUOTA_PER_MINUTE,
+    quotaPerMinute: normalizeStoredQuota(data.quotaPerMinute),
     status,
     createdAt,
     createdByUid: createdByUid ?? "",
@@ -564,6 +587,8 @@ function readClientRecord(snapshot: SnapshotLike): IntegrationClientRecord {
     tokenIssueCount: asNumber(data.tokenIssueCount) ?? 0,
     quotaWindow: asString(data.quotaWindow),
     quotaWindowCount: asNumber(data.quotaWindowCount),
+    quotaExceededWindow: asString(data.quotaExceededWindow),
+    quotaExceededCount: asNumber(data.quotaExceededCount) ?? 0,
   };
 }
 
@@ -697,7 +722,8 @@ function eventFromRecord(
     eventType !== "integration_client.created" &&
     eventType !== "integration_client.secret_created" &&
     eventType !== "integration_client.secret_rotated" &&
-    eventType !== "integration_client.revoked"
+    eventType !== "integration_client.revoked" &&
+    eventType !== "integration_client.quota_exceeded"
   ) {
     return null;
   }
@@ -725,6 +751,7 @@ function eventFromRecord(
       email: actorEmail,
     },
     status,
+    endpoint: eventLogEndpoint(asString(data.endpoint)),
     quota: quotaLimit
       ? {
           limit: quotaLimit,
@@ -790,6 +817,7 @@ function accessEventPayload(input: {
   actor: AdminContext;
   occurredAt: string;
   status?: IntegrationClientStatus;
+  endpoint?: string;
 }) {
   const clientId =
     "clientId" in input.client ? input.client.clientId : input.client.client_id;
@@ -801,6 +829,7 @@ function accessEventPayload(input: {
     actorUid: input.actor.uid,
     actorEmail: input.actor.email,
     status: input.status ?? input.client.status,
+    endpoint: eventLogEndpoint(input.endpoint),
     scopes: [...input.client.scopes],
     quotaPerMinute:
       "quotaPerMinute" in input.client
@@ -811,6 +840,30 @@ function accessEventPayload(input: {
 
   return Object.fromEntries(
     Object.entries(payload).filter(([, value]) => value !== undefined),
+  );
+}
+
+function quotaExceededEventPayload(input: {
+  client: IntegrationClientRecord;
+  occurredAt: string;
+  endpoint?: string;
+  quotaWindow: string;
+}) {
+  return Object.fromEntries(
+    Object.entries({
+      eventType: "integration_client.quota_exceeded",
+      clientId: eventLogClientId(input.client.clientId),
+      clientName: input.client.name,
+      occurredAt: input.occurredAt,
+      actorUid: input.client.createdByUid,
+      actorEmail: "system@goldencrow",
+      status: input.client.status,
+      endpoint: eventLogEndpoint(input.endpoint),
+      scopes: [...input.client.scopes],
+      quotaPerMinute: input.client.quotaPerMinute,
+      quotaWindowSeconds: QUOTA_WINDOW_SECONDS,
+      quotaWindow: input.quotaWindow,
+    }).filter(([, value]) => value !== undefined),
   );
 }
 
@@ -1194,7 +1247,7 @@ export async function verifyReportingAccessToken(
     windowStart.getTime() + QUOTA_WINDOW_SECONDS * 1000,
   ).toISOString();
 
-  return adminDb.runTransaction(async (transaction) => {
+  const result = await adminDb.runTransaction(async (transaction) => {
     const tokenSnapshot = (await transaction.get(tokenRef)) as SnapshotLike;
     const tokenRecord = readAccessTokenRecord(tokenSnapshot);
     assertUsableToken(tokenRecord, now);
@@ -1202,8 +1255,9 @@ export async function verifyReportingAccessToken(
       verifyJwtAccessToken(normalizedToken, tokenRecord, now);
     }
 
+    const clientDocumentRef = clientRef(tokenRecord.clientId);
     const client = readClientRecord(
-      (await transaction.get(clientRef(tokenRecord.clientId))) as SnapshotLike,
+      (await transaction.get(clientDocumentRef)) as SnapshotLike,
     );
     assertActiveClient(client);
     assertScope(client, endpoint);
@@ -1211,7 +1265,41 @@ export async function verifyReportingAccessToken(
     const currentCount =
       client.quotaWindow === windowKey ? (client.quotaWindowCount ?? 0) : 0;
     if (currentCount >= client.quotaPerMinute) {
-      throw new AdminRepositoryError("Client quota exceeded.", 429);
+      const exceededAt = now.toISOString();
+      const quotaExceededUpdate: Record<string, unknown> = {
+        quotaExceededWindow: windowKey,
+        lastQuotaExceededAt: exceededAt,
+        quotaExceededCount: FieldValue.increment(1),
+      };
+      if (endpoint) {
+        quotaExceededUpdate.lastQuotaExceededEndpoint = endpoint;
+      }
+
+      transaction.update(clientDocumentRef, quotaExceededUpdate);
+      transaction.set(auditLogRef(), {
+        clientId: client.clientId,
+        clientName: client.name,
+        endpoint: endpoint ?? null,
+        usedAt: exceededAt,
+        tokenPrefix: tokenRecord.tokenPrefix,
+        quotaWindow: windowKey,
+        result: "quota_exceeded",
+      });
+      if (client.quotaExceededWindow !== windowKey) {
+        transaction.set(
+          accessEventRef(),
+          quotaExceededEventPayload({
+            client,
+            occurredAt: exceededAt,
+            endpoint,
+            quotaWindow: windowKey,
+          }),
+        );
+      }
+
+      return {
+        ok: false as const,
+      };
     }
 
     const usageUpdate: Record<string, unknown> = {
@@ -1240,17 +1328,26 @@ export async function verifyReportingAccessToken(
     });
 
     return {
-      ok: true,
-      client_id: client.clientId,
-      token_type: "Bearer",
-      expires_at: tokenRecord.expiresAt,
-      scope: tokenRecord.scope,
-      quota: {
-        limit: client.quotaPerMinute,
-        remaining: Math.max(0, client.quotaPerMinute - currentCount - 1),
-        reset_at: resetAt,
-        window_seconds: QUOTA_WINDOW_SECONDS,
+      ok: true as const,
+      verification: {
+        ok: true as const,
+        client_id: client.clientId,
+        token_type: "Bearer" as const,
+        expires_at: tokenRecord.expiresAt,
+        scope: tokenRecord.scope,
+        quota: {
+          limit: client.quotaPerMinute,
+          remaining: Math.max(0, client.quotaPerMinute - currentCount - 1),
+          reset_at: resetAt,
+          window_seconds: QUOTA_WINDOW_SECONDS,
+        },
       },
     };
   });
+
+  if (!result.ok) {
+    throw new AdminRepositoryError("Client quota exceeded.", 429);
+  }
+
+  return result.verification;
 }

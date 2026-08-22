@@ -280,6 +280,28 @@ describe("reporting integration client repository", () => {
     process.env = originalEnv;
   });
 
+  it("defaults new integration clients to five requests per minute", async () => {
+    process.env.GOLDENCROW_OPENAPI_REPORTING_QUOTA_PER_MINUTE = "";
+
+    const { createReportingIntegrationClient } =
+      await import("../repositories/reporting-tokens.repository");
+
+    const created = await createReportingIntegrationClient(fullAdminContext, {
+      name: "Reporting partner",
+    });
+    const stored = mockDocs.get(`${CLIENTS_COLLECTION}/${created.client_id}`);
+
+    expect(created).toMatchObject({
+      quota: {
+        limit: 5,
+        window_seconds: 60,
+      },
+    });
+    expect(stored).toMatchObject({
+      quotaPerMinute: 5,
+    });
+  });
+
   it("creates a full-admin integration client without generating a secret", async () => {
     const { createReportingIntegrationClient } =
       await import("../repositories/reporting-tokens.repository");
@@ -477,6 +499,10 @@ describe("reporting integration client repository", () => {
       expect.objectContaining({
         client_id: clientId,
         has_client_secret: true,
+        quota: {
+          limit: 5,
+          window_seconds: 60,
+        },
       }),
     ]);
     expect(JSON.stringify(clients.clients)).not.toContain("gcs_live_current");
@@ -654,20 +680,54 @@ describe("reporting integration client repository", () => {
     ).rejects.toMatchObject({
       statusCode: 429,
     });
+    await expect(
+      verifyReportingAccessToken(
+        token.access_token,
+        "/open-api/reporting/patients",
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 429,
+    });
 
-    expect(docsIn(AUDIT_LOGS_COLLECTION)).toHaveLength(1);
-    expect(docsIn(AUDIT_LOGS_COLLECTION)[0]).toMatchObject({
-      clientId: created.client_id,
+    expect(docsIn(AUDIT_LOGS_COLLECTION)).toHaveLength(3);
+    expect(docsIn(AUDIT_LOGS_COLLECTION)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          clientId: created.client_id,
+          clientName: "Reporting partner",
+          endpoint: "/open-api/reporting/patients",
+          result: "accepted",
+        }),
+        expect.objectContaining({
+          clientId: created.client_id,
+          clientName: "Reporting partner",
+          endpoint: "/open-api/reporting/patients",
+          result: "quota_exceeded",
+        }),
+      ]),
+    );
+    const quotaEvents = docsIn(ACCESS_EVENTS_COLLECTION).filter(
+      (event) => event.eventType === "integration_client.quota_exceeded",
+    );
+    expect(quotaEvents).toHaveLength(1);
+    expect(quotaEvents[0]).toMatchObject({
+      eventType: "integration_client.quota_exceeded",
+      clientId: eventLogClientId(created.client_id),
       clientName: "Reporting partner",
       endpoint: "/open-api/reporting/patients",
-      result: "accepted",
+      actorUid: "admin-1",
+      actorEmail: "system@goldencrow",
+      quotaPerMinute: 1,
     });
+    expect(JSON.stringify(quotaEvents)).not.toContain(created.client_id);
     expect(
       mockDocs.get(`${CLIENTS_COLLECTION}/${created.client_id}`),
     ).toMatchObject({
       usageCount: 1,
       quotaWindowCount: 1,
       lastEndpoint: "/open-api/reporting/patients",
+      quotaExceededCount: 2,
+      lastQuotaExceededEndpoint: "/open-api/reporting/patients",
     });
   });
 

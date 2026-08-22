@@ -97,7 +97,8 @@ type ReportingIntegrationClientAccessEvent = {
     | "integration_client.created"
     | "integration_client.secret_created"
     | "integration_client.secret_rotated"
-    | "integration_client.revoked";
+    | "integration_client.revoked"
+    | "integration_client.quota_exceeded";
   client_id: string;
   client_name: string;
   occurred_at: string;
@@ -106,6 +107,7 @@ type ReportingIntegrationClientAccessEvent = {
     email: string;
   };
   status?: "active" | "revoked";
+  endpoint?: string;
 };
 
 type ClientListResponse = {
@@ -216,6 +218,10 @@ function eventTitle(
     return "Client secret renewed";
   }
 
+  if (eventType === "integration_client.quota_exceeded") {
+    return "Client quota reached";
+  }
+
   return "Integration client revoked";
 }
 
@@ -230,6 +236,12 @@ function eventBody(event: ReportingIntegrationClientAccessEvent) {
 
   if (event.event_type === "integration_client.secret_rotated") {
     return `Renewed the secret for ${event.client_name}.`;
+  }
+
+  if (event.event_type === "integration_client.quota_exceeded") {
+    return event.endpoint
+      ? `${event.client_name} hit its request quota while calling ${event.endpoint}.`
+      : `${event.client_name} hit its request quota.`;
   }
 
   return `Revoked ${event.client_name}. Token exchanges and business API requests for this client now fail.`;
@@ -1183,6 +1195,10 @@ export function ReportingIntegrationClientPanel() {
                       <Badge variant="secondary">{event.actor.email}</Badge>
                       {event.event_type === "integration_client.revoked" ? (
                         <Badge variant="destructive">revoked</Badge>
+                      ) : null}
+                      {event.event_type ===
+                      "integration_client.quota_exceeded" ? (
+                        <Badge variant="warning">quota reached</Badge>
                       ) : null}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
