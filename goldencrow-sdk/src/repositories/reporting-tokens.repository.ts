@@ -683,11 +683,29 @@ async function paginatedQuery(
   };
 }
 
+async function hasActiveClientForActor(context: AdminContext) {
+  const snapshot = (await adminDb
+    .collection(CLIENTS_COLLECTION)
+    .where("createdByUid", "==", context.uid)
+    .where("status", "==", "active")
+    .limit(1)
+    .get()) as QuerySnapshotLike;
+
+  return snapshot.docs.length > 0;
+}
+
 export async function createReportingIntegrationClient(
   context: AdminContext,
   input: ReportingIntegrationClientCreateInput,
 ): Promise<ReportingIntegrationClientCreateResult> {
   assertCanManageIntegrationClients(context);
+
+  if (await hasActiveClientForActor(context)) {
+    throw new AdminRepositoryError(
+      "Revoke the active integration client before creating a new one.",
+      409,
+    );
+  }
 
   const name = normalizeName(input.name);
   const quotaPerMinute = normalizeQuota(input.quotaPerMinute);
@@ -750,7 +768,15 @@ export async function listReportingIntegrationClients(
   const { docs, pageLimit } = await paginatedQuery(
     CLIENTS_COLLECTION,
     "createdAt",
-    input,
+    {
+      ...input,
+      whereEquals: context.isBootstrap
+        ? undefined
+        : {
+            field: "createdByUid",
+            value: context.uid,
+          },
+    },
   );
   const { items, nextCursor } = pageFromDocs(
     docs,

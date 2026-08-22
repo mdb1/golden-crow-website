@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   Ban,
   Check,
+  ChevronDown,
   Clock3,
   Copy,
   KeyRound,
@@ -278,7 +279,10 @@ export function ReportingIntegrationClientPanel() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [draftClientName, setDraftClientName] = useState("");
   const [isLoadingClients, setIsLoadingClients] = useState(true);
-  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+  const [hasLoadedEvents, setHasLoadedEvents] = useState(false);
+  const [isPreviousClientsOpen, setIsPreviousClientsOpen] = useState(false);
+  const [isEventLogOpen, setIsEventLogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -289,6 +293,11 @@ export function ReportingIntegrationClientPanel() {
     [clients],
   );
   const currentClient = activeClients[0] ?? null;
+  const previousClients = useMemo(
+    () =>
+      clients.filter((client) => client.client_id !== currentClient?.client_id),
+    [clients, currentClient],
+  );
 
   async function loadClients(
     options: { append?: boolean; cursor?: string } = {},
@@ -364,6 +373,7 @@ export function ReportingIntegrationClientPanel() {
         );
       });
       setEventCursor(list.next_cursor ?? null);
+      setHasLoadedEvents(true);
     } catch (requestError) {
       const message =
         requestError instanceof Error
@@ -377,15 +387,34 @@ export function ReportingIntegrationClientPanel() {
   }
 
   async function refreshAccessState() {
-    await Promise.all([loadClients(), loadEvents()]);
+    const tasks = [loadClients()];
+    if (isEventLogOpen) {
+      tasks.push(loadEvents());
+    }
+
+    await Promise.all(tasks);
   }
 
   useEffect(() => {
-    void refreshAccessState();
+    void loadClients();
   }, []);
+
+  function toggleEventLog() {
+    const nextOpen = !isEventLogOpen;
+    setIsEventLogOpen(nextOpen);
+    if (nextOpen && !hasLoadedEvents && !isLoadingEvents) {
+      void loadEvents();
+    }
+  }
 
   async function createClient(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    if (currentClient) {
+      setCreateDialogOpen(false);
+      toast.error("Revoke the active client before creating a new one.");
+      return;
+    }
+
     const name = draftClientName.trim();
     if (!name) {
       toast.error("Integration name is required.");
@@ -424,7 +453,9 @@ export function ReportingIntegrationClientPanel() {
       toast.success(
         "Integration client created. Generate a secret to enable it.",
       );
-      void loadEvents();
+      if (isEventLogOpen) {
+        void loadEvents();
+      }
     } catch (requestError) {
       const message =
         requestError instanceof Error
@@ -472,7 +503,9 @@ export function ReportingIntegrationClientPanel() {
       toast.success(
         isFirstSecret ? "Client secret created." : "Client secret renewed.",
       );
-      void loadEvents();
+      if (isEventLogOpen) {
+        void loadEvents();
+      }
     } catch (requestError) {
       const message =
         requestError instanceof Error
@@ -514,7 +547,9 @@ export function ReportingIntegrationClientPanel() {
         setRevealedSecret(null);
       }
       toast.success("Integration client revoked.");
-      void loadEvents();
+      if (isEventLogOpen) {
+        void loadEvents();
+      }
     } catch (requestError) {
       const message =
         requestError instanceof Error
@@ -657,52 +692,56 @@ export function ReportingIntegrationClientPanel() {
             </p>
           </div>
 
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button type="button">
-                <Plus />
-                Create client
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <form onSubmit={createClient}>
-                <DialogHeader>
-                  <DialogTitle>Create integration client</DialogTitle>
-                  <DialogDescription>
-                    Name the external backend or partner that will use this
-                    client. The secret is generated separately after creation.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="mt-4">
-                  <Label htmlFor="reporting-client-name">Client name</Label>
-                  <Input
-                    id="reporting-client-name"
-                    className="mt-2"
-                    value={draftClientName}
-                    onChange={(event) => setDraftClientName(event.target.value)}
-                    disabled={isCreating}
-                    autoFocus
-                  />
-                </div>
-                <DialogFooter className="mt-6">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setCreateDialogOpen(false)}
-                    disabled={isCreating}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={isCreating || !draftClientName.trim()}
-                  >
-                    {isCreating ? "Creating" : "Create client"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          {!isLoadingClients && !currentClient ? (
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button type="button">
+                  <Plus />
+                  Create client
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <form onSubmit={createClient}>
+                  <DialogHeader>
+                    <DialogTitle>Create integration client</DialogTitle>
+                    <DialogDescription>
+                      Name the external backend or partner that will use this
+                      client. The secret is generated separately after creation.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="mt-4">
+                    <Label htmlFor="reporting-client-name">Client name</Label>
+                    <Input
+                      id="reporting-client-name"
+                      className="mt-2"
+                      value={draftClientName}
+                      onChange={(event) =>
+                        setDraftClientName(event.target.value)
+                      }
+                      disabled={isCreating}
+                      autoFocus
+                    />
+                  </div>
+                  <DialogFooter className="mt-6">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setCreateDialogOpen(false)}
+                      disabled={isCreating}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isCreating || !draftClientName.trim()}
+                    >
+                      {isCreating ? "Creating" : "Create client"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ) : null}
         </div>
 
         {error ? (
@@ -895,207 +934,248 @@ export function ReportingIntegrationClientPanel() {
 
       <section className="border-b pb-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-base font-semibold">Integration clients</h2>
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {activeClients.length} active of {clients.length} loaded clients.
-            </p>
-          </div>
+          <button
+            type="button"
+            className="flex min-w-0 items-start gap-2 text-left"
+            onClick={() => setIsPreviousClientsOpen((open) => !open)}
+            aria-expanded={isPreviousClientsOpen}
+          >
+            <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0">
+              <span className="flex items-center gap-2">
+                <span className="text-base font-semibold">
+                  Previous clients
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${
+                    isPreviousClientsOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </span>
+              <span className="mt-1 block text-sm text-muted-foreground">
+                {previousClients.length} loaded. Current active client is shown
+                above.
+              </span>
+            </span>
+          </button>
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => void refreshAccessState()}
-            disabled={isLoadingClients || isLoadingEvents}
+            disabled={isLoadingClients || (isEventLogOpen && isLoadingEvents)}
           >
             <RotateCcw />
             Refresh
           </Button>
         </div>
 
-        <div className="mt-4 space-y-3">
-          {!isLoadingClients && !clients.length ? (
-            <p className="border-l pl-3 text-sm text-muted-foreground">
-              No integration clients have been created yet.
-            </p>
-          ) : null}
+        {isPreviousClientsOpen ? (
+          <>
+            <div className="mt-4 space-y-3">
+              {!isLoadingClients && !previousClients.length ? (
+                <p className="border-l pl-3 text-sm text-muted-foreground">
+                  No previous clients to show.
+                </p>
+              ) : null}
 
-          {clients.map((client) => {
-            const isRevoked = client.status === "revoked";
+              {previousClients.map((client) => {
+                const isRevoked = client.status === "revoked";
 
-            return (
-              <article
-                key={client.client_id}
-                className="border-t py-4 first:border-t-0"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium uppercase text-muted-foreground">
-                      Client name
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="mt-1 text-sm font-semibold">
-                        {client.name}
-                      </h3>
-                      <Badge variant={isRevoked ? "destructive" : "success"}>
-                        {client.status}
-                      </Badge>
-                      <Badge
-                        variant={client.secret_prefix ? "secondary" : "warning"}
-                      >
-                        {client.secret_prefix
-                          ? "secret generated"
-                          : "secret required"}
-                      </Badge>
+                return (
+                  <article
+                    key={client.client_id}
+                    className="border-t py-4 first:border-t-0"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium uppercase text-muted-foreground">
+                          Client name
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="mt-1 text-sm font-semibold">
+                            {client.name}
+                          </h3>
+                          <Badge
+                            variant={isRevoked ? "destructive" : "success"}
+                          >
+                            {client.status}
+                          </Badge>
+                          <Badge
+                            variant={
+                              client.secret_prefix ? "secondary" : "warning"
+                            }
+                          >
+                            {client.secret_prefix
+                              ? "secret generated"
+                              : "secret required"}
+                          </Badge>
+                        </div>
+                        <code className="mt-2 block overflow-x-auto break-all rounded-md bg-muted/60 px-2 py-1 text-xs text-foreground">
+                          {client.client_id}
+                        </code>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <SecretActionDialog client={client} compact />
+                        <RevokeDialog client={client} compact />
+                      </div>
                     </div>
-                    <code className="mt-2 block overflow-x-auto break-all rounded-md bg-muted/60 px-2 py-1 text-xs text-foreground">
-                      {client.client_id}
-                    </code>
-                  </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <SecretActionDialog client={client} compact />
-                    <RevokeDialog client={client} compact />
-                  </div>
-                </div>
+                    <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <ClientReadOnlyField
+                        label="secret"
+                        value={
+                          client.secret_prefix
+                            ? `${client.secret_prefix}...`
+                            : "Not generated"
+                        }
+                        mono
+                      />
+                      <ClientReadOnlyField
+                        label="quota"
+                        value={`${client.quota.limit} / ${client.quota.window_seconds}s`}
+                      />
+                      <ClientReadOnlyField
+                        label="last token"
+                        value={formatDate(client.last_token_issued_at)}
+                      />
+                      <ClientReadOnlyField
+                        label="last request"
+                        value={formatDate(client.last_used_at)}
+                      />
+                    </dl>
 
-                <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <ClientReadOnlyField
-                    label="secret"
-                    value={
-                      client.secret_prefix
-                        ? `${client.secret_prefix}...`
-                        : "Not generated"
-                    }
-                    mono
-                  />
-                  <ClientReadOnlyField
-                    label="quota"
-                    value={`${client.quota.limit} / ${client.quota.window_seconds}s`}
-                  />
-                  <ClientReadOnlyField
-                    label="last token"
-                    value={formatDate(client.last_token_issued_at)}
-                  />
-                  <ClientReadOnlyField
-                    label="last request"
-                    value={formatDate(client.last_used_at)}
-                  />
-                </dl>
+                    <div className="mt-3 grid gap-2 text-xs text-muted-foreground lg:grid-cols-3">
+                      <p>Created by {client.created_by.email}</p>
+                      <p>Created at {formatDate(client.created_at)}</p>
+                      {client.last_secret_rotated_at ? (
+                        <p>
+                          Secret event by{" "}
+                          {client.last_secret_rotated_by?.email} at{" "}
+                          {formatDate(client.last_secret_rotated_at)}
+                        </p>
+                      ) : null}
+                      {client.revoked_at ? (
+                        <p className="text-destructive">
+                          Revoked by {client.revoked_by?.email} at{" "}
+                          {formatDate(client.revoked_at)}
+                        </p>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
 
-                <div className="mt-3 grid gap-2 text-xs text-muted-foreground lg:grid-cols-3">
-                  <p>Created by {client.created_by.email}</p>
-                  <p>Created at {formatDate(client.created_at)}</p>
-                  {client.last_secret_rotated_at ? (
-                    <p>
-                      Secret event by {client.last_secret_rotated_by?.email} at{" "}
-                      {formatDate(client.last_secret_rotated_at)}
-                    </p>
-                  ) : null}
-                  {client.revoked_at ? (
-                    <p className="text-destructive">
-                      Revoked by {client.revoked_by?.email} at{" "}
-                      {formatDate(client.revoked_at)}
-                    </p>
-                  ) : null}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-
-        {clientCursor ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-4"
-            onClick={() =>
-              void loadClients({ append: true, cursor: clientCursor })
-            }
-            disabled={isLoadingClients}
-          >
-            Load more clients
-          </Button>
+            {clientCursor ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-4"
+                onClick={() =>
+                  void loadClients({ append: true, cursor: clientCursor })
+                }
+                disabled={isLoadingClients}
+              >
+                Load more clients
+              </Button>
+            ) : null}
+          </>
         ) : null}
       </section>
 
       <section>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Clock3 className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-base font-semibold">Event log</h2>
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              API access-management events only. Full secrets are never stored
-              or shown here.
-            </p>
-          </div>
-          <Badge variant="outline">{events.length} loaded</Badge>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          {isLoadingEvents && !events.length ? (
-            <p className="border-l pl-3 text-sm text-muted-foreground">
-              Loading API access events.
-            </p>
-          ) : null}
-
-          {!isLoadingEvents && !events.length ? (
-            <p className="border-l pl-3 text-sm text-muted-foreground">
-              No API access events have been recorded yet.
-            </p>
-          ) : null}
-
-          {events.map((event) => (
-            <article
-              key={event.id}
-              className="grid gap-3 border-t py-4 first:border-t-0 lg:grid-cols-[10rem_minmax(0,1fr)]"
-            >
-              <time className="text-xs text-muted-foreground">
-                {formatDate(event.occurred_at)}
-              </time>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold">
-                    {eventTitle(event.event_type)}
-                  </p>
-                  <Badge
-                    variant={
-                      event.event_type === "integration_client.revoked"
-                        ? "destructive"
-                        : "secondary"
-                    }
-                  >
-                    {event.actor.email}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {eventBody(event)}
-                </p>
-                <code className="mt-2 block overflow-x-auto break-all text-xs text-muted-foreground">
-                  {event.client_id}
-                </code>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {eventCursor ? (
-          <Button
+          <button
             type="button"
-            variant="outline"
-            className="mt-4"
-            onClick={() =>
-              void loadEvents({ append: true, cursor: eventCursor })
-            }
-            disabled={isLoadingEvents}
+            className="flex min-w-0 items-start gap-2 text-left"
+            onClick={toggleEventLog}
+            aria-expanded={isEventLogOpen}
           >
-            Load more events
-          </Button>
+            <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0">
+              <span className="flex items-center gap-2">
+                <span className="text-base font-semibold">Event log</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${
+                    isEventLogOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </span>
+              <span className="mt-1 block text-sm text-muted-foreground">
+                API access-management events. Expand to load the log.
+              </span>
+            </span>
+          </button>
+          <Badge variant="outline">
+            {hasLoadedEvents ? `${events.length} loaded` : "Not loaded"}
+          </Badge>
+        </div>
+
+        {isEventLogOpen ? (
+          <>
+            <div className="mt-4 space-y-3">
+              {isLoadingEvents && !events.length ? (
+                <p className="border-l pl-3 text-sm text-muted-foreground">
+                  Loading API access events.
+                </p>
+              ) : null}
+
+              {!isLoadingEvents && hasLoadedEvents && !events.length ? (
+                <p className="border-l pl-3 text-sm text-muted-foreground">
+                  No API access events have been recorded yet.
+                </p>
+              ) : null}
+
+              {events.map((event) => (
+                <article
+                  key={event.id}
+                  className="grid gap-3 border-t py-4 first:border-t-0 lg:grid-cols-[10rem_minmax(0,1fr)]"
+                >
+                  <time className="text-xs text-muted-foreground">
+                    {formatDate(event.occurred_at)}
+                  </time>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold">
+                        {eventTitle(event.event_type)}
+                      </p>
+                      <Badge
+                        variant={
+                          event.event_type === "integration_client.revoked"
+                            ? "destructive"
+                            : "secondary"
+                        }
+                      >
+                        {event.actor.email}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {eventBody(event)}
+                    </p>
+                    <code className="mt-2 block overflow-x-auto break-all text-xs text-muted-foreground">
+                      {event.client_id}
+                    </code>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {eventCursor ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-4"
+                onClick={() =>
+                  void loadEvents({ append: true, cursor: eventCursor })
+                }
+                disabled={isLoadingEvents}
+              >
+                Load more events
+              </Button>
+            ) : null}
+          </>
         ) : null}
       </section>
     </div>

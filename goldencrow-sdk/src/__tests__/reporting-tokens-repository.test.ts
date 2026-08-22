@@ -297,6 +297,14 @@ describe("reporting integration client repository", () => {
     expect(docsIn(ACCESS_EVENTS_COLLECTION)[0]).not.toHaveProperty(
       "secretPrefix",
     );
+    await expect(
+      createReportingIntegrationClient(fullAdminContext, {
+        name: "Second active partner",
+      }),
+    ).rejects.toMatchObject({
+      message: "Revoke the active integration client before creating a new one.",
+      statusCode: 409,
+    });
   });
 
   it("lists integration clients and API access events with safe metadata", async () => {
@@ -304,11 +312,13 @@ describe("reporting integration client repository", () => {
       createReportingIntegrationClient,
       listReportingIntegrationClientAccessEvents,
       listReportingIntegrationClients,
+      revokeReportingIntegrationClient,
     } = await import("../repositories/reporting-tokens.repository");
 
     const first = await createReportingIntegrationClient(fullAdminContext, {
       name: "First partner",
     });
+    await revokeReportingIntegrationClient(fullAdminContext, first.client_id);
     const second = await createReportingIntegrationClient(fullAdminContext, {
       name: "Second partner",
     });
@@ -332,7 +342,7 @@ describe("reporting integration client repository", () => {
     expect(JSON.stringify(clients)).not.toContain("clientSecretHash");
     expect(first).not.toHaveProperty("client_secret");
     expect(second).not.toHaveProperty("client_secret");
-    expect(events.events).toHaveLength(2);
+    expect(events.events).toHaveLength(3);
     expect(events.events.every((event) => event.actor.uid === "admin-1")).toBe(
       true,
     );
@@ -356,7 +366,7 @@ describe("reporting integration client repository", () => {
     expect(JSON.stringify(events.events)).not.toContain(
       otherAdminClient.client_id,
     );
-    expect(godModeEvents.events).toHaveLength(3);
+    expect(godModeEvents.events).toHaveLength(4);
     expect(godModeEvents.events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
