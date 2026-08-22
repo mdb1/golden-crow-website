@@ -45,6 +45,26 @@ function eventLogClientId(clientId: string) {
   return `gci_live_...${clientId.slice(-6)}`;
 }
 
+function decodeJwtPayload(token: string) {
+  const [, payload] = token.split(".");
+  if (!payload) {
+    throw new Error("JWT payload is missing");
+  }
+
+  return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
+    iss?: string;
+    aud?: string;
+    sub?: string;
+    client_id?: string;
+    scope?: string;
+    token_use?: string;
+    iat?: number;
+    nbf?: number;
+    exp?: number;
+    jti?: string;
+  };
+}
+
 function applyUpdate(ref: MockDocumentRef, update: MockDocData) {
   const key = docKey(ref);
   const current = mockDocs.get(key) ?? {};
@@ -482,18 +502,35 @@ describe("reporting integration client repository", () => {
       client_secret: generated.client_secret,
     });
 
+    const claims = decodeJwtPayload(token.access_token);
     expect(token).toMatchObject({
-      access_token: expect.stringMatching(/^rpt_access_/),
+      access_token: expect.stringMatching(/^eyJ/),
       token_type: "Bearer",
       expires_in: 86400,
       scope: "reporting:read reporting:write",
     });
+    expect(token.access_token.split(".")).toHaveLength(3);
+    expect(claims).toMatchObject({
+      iss: "goldencrow-openapi",
+      aud: "goldencrow-reporting-api",
+      sub: created.client_id,
+      client_id: created.client_id,
+      scope: "reporting:read reporting:write",
+      token_use: "reporting",
+      jti: expect.any(String),
+    });
+    expect(typeof claims.iat).toBe("number");
+    expect(claims.nbf).toBe(claims.iat);
+    expect(claims.exp).toBe((claims.iat ?? 0) + 86400);
     expect(docsIn(TOKENS_COLLECTION)).toHaveLength(1);
     expect(docsIn(TOKENS_COLLECTION)[0]).toMatchObject({
       clientId: created.client_id,
       clientName: "Reporting partner",
+      tokenId: claims.jti,
+      tokenPrefix: `jwt_${claims.jti?.slice(0, 12)}`,
       tokenType: "Bearer",
       scope: "reporting:read reporting:write",
+      signingKeyHash: expect.any(String),
     });
     expect(JSON.stringify(docsIn(TOKENS_COLLECTION)[0])).not.toContain(
       token.access_token,
@@ -620,7 +657,7 @@ describe("reporting integration client repository", () => {
         client_secret: rotated.client_secret,
       }),
     ).resolves.toMatchObject({
-      access_token: expect.stringMatching(/^rpt_access_/),
+      access_token: expect.stringMatching(/^eyJ/),
     });
     await expect(
       verifyReportingAccessToken(token.access_token),

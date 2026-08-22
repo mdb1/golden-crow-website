@@ -1,4 +1,9 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import { FieldValue, type Query } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
 import { AdminRepositoryError } from "./admin-errors.js";
@@ -13,6 +18,9 @@ const ACCESS_EVENTS_COLLECTION = "openapi_reporting_access_events";
 const CLIENT_ID_PREFIX = "gci_live_";
 const CLIENT_SECRET_PREFIX = "gcs_live_";
 const ACCESS_TOKEN_PREFIX = "rpt_access_";
+const ACCESS_TOKEN_ISSUER = "goldencrow-openapi";
+const ACCESS_TOKEN_AUDIENCE = "goldencrow-reporting-api";
+const ACCESS_TOKEN_USE = "reporting";
 const RANDOM_BYTES = 32;
 const ACCESS_TOKEN_TTL_SECONDS = 24 * 60 * 60;
 const QUOTA_WINDOW_SECONDS = 60;
@@ -174,12 +182,32 @@ type IntegrationClientRecord = {
 
 type AccessTokenRecord = {
   clientId: string;
+  tokenId?: string;
   tokenHash: string;
   tokenPrefix: string;
+  signingKeyHash?: string;
   createdAt: string;
   expiresAt: string;
   scope: string;
   revokedAt?: string;
+};
+
+type ReportingAccessTokenClaims = {
+  iss: string;
+  aud: string;
+  sub: string;
+  client_id: string;
+  scope: string;
+  token_use: string;
+  iat: number;
+  nbf: number;
+  exp: number;
+  jti: string;
+};
+
+type JwtHeader = {
+  alg: string;
+  typ: string;
 };
 
 type SnapshotLike = {
@@ -247,6 +275,10 @@ function generateCredential(prefix: string) {
   return `${prefix}${randomBytes(RANDOM_BYTES).toString("base64url")}`;
 }
 
+function generateTokenId() {
+  return randomBytes(16).toString("base64url");
+}
+
 function hashSecret(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -283,6 +315,144 @@ function safeHashEquals(left: string, right: string) {
 
 function accessTokenExpiresAt(now = new Date()) {
   return new Date(now.getTime() + ACCESS_TOKEN_TTL_SECONDS * 1000);
+}
+
+function unixSeconds(value: Date) {
+  return Math.floor(value.getTime() / 1000);
+}
+
+function base64UrlJson(value: unknown) {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+function signJwt(signingInput: string, signingKey: string) {
+  return createHmac("sha256", signingKey)
+    .update(signingInput)
+    .digest("base64url");
+}
+
+function createJwtAccessToken(input: {
+  client: IntegrationClientRecord;
+  signingKeyHash: string;
+  now: Date;
+  expiresAt: Date;
+}) {
+  const issuedAt = unixSeconds(input.now);
+  const claims: ReportingAccessTokenClaims = {
+    iss: ACCESS_TOKEN_ISSUER,
+    aud: ACCESS_TOKEN_AUDIENCE,
+    sub: input.client.clientId,
+    client_id: input.client.clientId,
+    scope: input.client.scopes.join(" "),
+    token_use: ACCESS_TOKEN_USE,
+    iat: issuedAt,
+    nbf: issuedAt,
+    exp: unixSeconds(input.expiresAt),
+    jti: generateTokenId(),
+  };
+  const encodedHeader = base64UrlJson({ alg: "HS256", typ: "JWT" });
+  const encodedPayload = base64UrlJson(claims);
+  const signingInput = `${encodedHeader}.${encodedPayload}`;
+  const signature = signJwt(signingInput, input.signingKeyHash);
+
+  return {
+    accessToken: `${signingInput}.${signature}`,
+    claims,
+  };
+}
+
+function accessTokenLogPrefix(claims: ReportingAccessTokenClaims) {
+  return `jwt_${claims.jti.slice(0, 12)}`;
+}
+
+function isJwtAccessToken(value: string) {
+  return value.split(".").length === 3 && value.startsWith("eyJ");
+}
+
+function parseJwtClaims(token: string): ReportingAccessTokenClaims {
+  const parts = token.split(".");
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) {
+    throw new AdminRepositoryError("Invalid access token.", 401);
+  }
+
+  try {
+    const header = JSON.parse(
+      Buffer.from(parts[0], "base64url").toString("utf8"),
+    ) as Partial<JwtHeader>;
+    const claims = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf8"),
+    ) as Partial<ReportingAccessTokenClaims>;
+
+    if (
+      header.alg !== "HS256" ||
+      header.typ !== "JWT" ||
+      claims.iss !== ACCESS_TOKEN_ISSUER ||
+      claims.aud !== ACCESS_TOKEN_AUDIENCE ||
+      claims.token_use !== ACCESS_TOKEN_USE ||
+      typeof claims.sub !== "string" ||
+      typeof claims.client_id !== "string" ||
+      typeof claims.scope !== "string" ||
+      typeof claims.iat !== "number" ||
+      typeof claims.nbf !== "number" ||
+      typeof claims.exp !== "number" ||
+      typeof claims.jti !== "string"
+    ) {
+      throw new AdminRepositoryError("Invalid access token.", 401);
+    }
+
+    return claims as ReportingAccessTokenClaims;
+  } catch (error) {
+    if (error instanceof AdminRepositoryError) {
+      throw error;
+    }
+
+    throw new AdminRepositoryError("Invalid access token.", 401);
+  }
+}
+
+function verifyJwtAccessToken(
+  token: string,
+  tokenRecord: AccessTokenRecord,
+  now: Date,
+) {
+  if (!tokenRecord.signingKeyHash) {
+    throw new AdminRepositoryError("Invalid access token.", 401);
+  }
+
+  const [encodedHeader, encodedPayload, signature] = token.split(".");
+  if (!encodedHeader || !encodedPayload || !signature) {
+    throw new AdminRepositoryError("Invalid access token.", 401);
+  }
+
+  const expectedSignature = signJwt(
+    `${encodedHeader}.${encodedPayload}`,
+    tokenRecord.signingKeyHash,
+  );
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+  if (
+    signatureBuffer.length !== expectedBuffer.length ||
+    !timingSafeEqual(signatureBuffer, expectedBuffer)
+  ) {
+    throw new AdminRepositoryError("Invalid access token.", 401);
+  }
+
+  const claims = parseJwtClaims(token);
+  const nowSeconds = unixSeconds(now);
+  if (claims.nbf > nowSeconds || claims.exp <= nowSeconds) {
+    throw new AdminRepositoryError("Access token expired.", 401);
+  }
+
+  if (
+    claims.sub !== tokenRecord.clientId ||
+    claims.client_id !== tokenRecord.clientId ||
+    claims.scope !== tokenRecord.scope ||
+    (tokenRecord.tokenId && claims.jti !== tokenRecord.tokenId)
+  ) {
+    throw new AdminRepositoryError("Invalid access token.", 401);
+  }
+
+  return claims;
 }
 
 function minuteWindowStart(now: Date) {
@@ -336,7 +506,10 @@ function normalizeAccessToken(value: string) {
     throw new AdminRepositoryError("Missing access token.", 401);
   }
 
-  if (!normalized.startsWith(ACCESS_TOKEN_PREFIX)) {
+  if (
+    !isJwtAccessToken(normalized) &&
+    !normalized.startsWith(ACCESS_TOKEN_PREFIX)
+  ) {
     throw new AdminRepositoryError("Invalid access token.", 401);
   }
 
@@ -409,8 +582,10 @@ function readAccessTokenRecord(snapshot: SnapshotLike): AccessTokenRecord {
 
   const data = snapshot.data() ?? {};
   const clientId = asString(data.clientId);
+  const tokenId = asString(data.tokenId);
   const tokenHash = asString(data.tokenHash);
   const tokenPrefix = asString(data.tokenPrefix);
+  const signingKeyHash = asString(data.signingKeyHash);
   const createdAt = asString(data.createdAt);
   const expiresAt = asString(data.expiresAt);
   const scope = asString(data.scope);
@@ -421,8 +596,10 @@ function readAccessTokenRecord(snapshot: SnapshotLike): AccessTokenRecord {
 
   return {
     clientId,
+    tokenId,
     tokenHash,
     tokenPrefix,
+    signingKeyHash,
     createdAt,
     expiresAt,
     scope: scope ?? REPORTING_SCOPES.join(" "),
@@ -943,8 +1120,6 @@ export async function exchangeReportingClientCredentials(
   const ref = clientRef(clientId);
   const now = new Date();
   const expiresAt = accessTokenExpiresAt(now);
-  const accessToken = generateCredential(ACCESS_TOKEN_PREFIX);
-  const accessTokenHash = hashSecret(accessToken);
 
   return adminDb.runTransaction(async (transaction) => {
     const snapshot = (await transaction.get(ref)) as SnapshotLike;
@@ -962,13 +1137,21 @@ export async function exchangeReportingClientCredentials(
       throw new AdminRepositoryError("Invalid client credentials.", 401);
     }
 
+    const { accessToken, claims } = createJwtAccessToken({
+      client,
+      signingKeyHash: client.clientSecretHash,
+      now,
+      expiresAt,
+    });
     transaction.set(accessTokenRef(accessToken), {
-      tokenHash: accessTokenHash,
-      tokenPrefix: secretPrefix(accessToken),
+      tokenHash: hashSecret(accessToken),
+      tokenId: claims.jti,
+      tokenPrefix: accessTokenLogPrefix(claims),
       tokenType: "Bearer",
       clientId: client.clientId,
       clientName: client.name,
       scope: client.scopes.join(" "),
+      signingKeyHash: client.clientSecretHash,
       createdAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
       usageCount: 0,
@@ -1004,6 +1187,9 @@ export async function verifyReportingAccessToken(
     const tokenSnapshot = (await transaction.get(tokenRef)) as SnapshotLike;
     const tokenRecord = readAccessTokenRecord(tokenSnapshot);
     assertUsableToken(tokenRecord, now);
+    if (isJwtAccessToken(normalizedToken)) {
+      verifyJwtAccessToken(normalizedToken, tokenRecord, now);
+    }
 
     const client = readClientRecord(
       (await transaction.get(clientRef(tokenRecord.clientId))) as SnapshotLike,

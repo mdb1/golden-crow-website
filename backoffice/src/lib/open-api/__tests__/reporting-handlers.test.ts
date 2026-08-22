@@ -5,7 +5,7 @@ import {
   handleTwoPQCaseLookup,
 } from "@/lib/open-api/reporting-handlers";
 
-const REPORTING_TOKEN = "rpt_access_test-token";
+const REPORTING_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3ODc1MTUyMDB9.signature";
 
 function authorizedRequest(url: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
@@ -243,8 +243,10 @@ describe("public reporting OpenAPI handlers", () => {
   });
 
   it("exchanges client credentials for a reporting access token", async () => {
+    const accessToken =
+      "eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3ODc1MTUyMDB9.exchange-signature";
     mockSdkResponse({
-      access_token: "rpt_access_exchange-token",
+      access_token: accessToken,
       token_type: "Bearer",
       expires_in: 86400,
       scope: "reporting:read reporting:write",
@@ -268,7 +270,7 @@ describe("public reporting OpenAPI handlers", () => {
 
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
-      access_token: "rpt_access_exchange-token",
+      access_token: accessToken,
       token_type: "Bearer",
       expires_in: 86400,
       scope: "reporting:read reporting:write",

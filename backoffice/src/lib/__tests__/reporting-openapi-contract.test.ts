@@ -28,7 +28,7 @@ describe("reporting OpenAPI contract", () => {
       client_secret: expect.stringMatching(/^gcs_live_/),
     });
     expect(responseExample).toMatchObject({
-      access_token: expect.stringMatching(/^rpt_access_/),
+      access_token: expect.stringMatching(/^eyJ/),
       token_type: "Bearer",
       expires_in: 86400,
       scope: "reporting:read reporting:write",

@@ -73,7 +73,7 @@ const EXAMPLE_PATIENT_ID = "PAT-8F4K2Z9Q1M7X5C3V6B0N2R8T4Y1L9P5WA7D2";
 const EXAMPLE_CLIENT_ID = "gci_live_7zZKqYxG5bC2mR9wL4pN8tV1sH6aJ3dF";
 const EXAMPLE_CLIENT_SECRET = "gcs_live_Qn4xV9mL2pT7sA5kC8wR1yH6dE3jB0uZ";
 const EXAMPLE_ACCESS_TOKEN =
-  "rpt_access_VGhpcy1pcy1hbi1leGFtcGxlLXRva2VuLXZhbHVl";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnb2xkZW5jcm93LW9wZW5hcGkiLCJhdWQiOiJnb2xkZW5jcm93LXJlcG9ydGluZy1hcGkiLCJzdWIiOiJnY2lfbGl2ZV83elpLcVl4RzViQzJtUjl3TDRwTjh0VjFzSDZhSjNkRiIsImNsaWVudF9pZCI6ImdjaV9saXZlXzd6WktxWXhHNWJDMm1SOXdMNHBOOHRWMXNINmFKM2RGIiwic2NvcGUiOiJyZXBvcnRpbmc6cmVhZCByZXBvcnRpbmc6d3JpdGUiLCJ0b2tlbl91c2UiOiJyZXBvcnRpbmciLCJpYXQiOjE3ODc0Mjg4MDAsIm5iZiI6MTc4NzQyODgwMCwiZXhwIjoxNzg3NTE1MjAwLCJqdGkiOiJleGFtcGxlLXRva2VuLWlkIn0.HF8dZ6PO0xrKpEJ5Npwz8YC3ab4aDUbj_AYA5D-4EMs";
 
 export function buildReportingOpenApiDocument(
   serverUrl: string,
@@ -92,7 +92,7 @@ export function buildReportingOpenApiDocument(
           tags: ["Auth"],
           summary: "Exchange client credentials for an access token.",
           description:
-            "Returns a 24-hour bearer access token for a registered integration client. No refresh token is issued; request a new access token with the same client credentials when the current token expires.",
+            "Returns a 24-hour JWT bearer access token for a registered integration client. The token includes standard iat, nbf, and exp claims so the integration can inspect expiration before making API calls. No refresh token is issued; request a new access token with the same client credentials when the current token expires.",
           requestBody: {
             content: {
               "application/json": {
