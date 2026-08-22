@@ -834,10 +834,11 @@ export function ReportingIntegrationClientPanel() {
                   onCopy={() => copyValue("id", currentClient.client_id)}
                 />
 
-                <div className="flex flex-wrap gap-2 lg:justify-end">
-                  <SecretActionDialog client={currentClient} />
-                  <RevokeDialog client={currentClient} />
-                </div>
+                {!currentClient.has_client_secret ? (
+                  <div className="flex flex-wrap gap-2 lg:justify-end">
+                    <SecretActionDialog client={currentClient} />
+                  </div>
+                ) : null}
               </div>
 
               <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -951,7 +952,9 @@ export function ReportingIntegrationClientPanel() {
       ) : null}
 
       <section className="border-b pb-6">
-        <h2 className="text-base font-semibold">Secret recovery</h2>
+        <h2 className="text-base font-semibold">
+          Danger zone - Irreversible actions
+        </h2>
         <div className="mt-3 grid gap-4 text-sm text-muted-foreground lg:grid-cols-2">
           <div>
             <h3 className="text-sm font-medium text-foreground">
@@ -965,6 +968,11 @@ export function ReportingIntegrationClientPanel() {
               already issued access tokens can keep working until their 24-hour
               expiration.
             </p>
+            {currentClient?.has_client_secret ? (
+              <div className="mt-3">
+                <SecretActionDialog client={currentClient} />
+              </div>
+            ) : null}
           </div>
           <div>
             <h3 className="text-sm font-medium text-foreground">
@@ -977,6 +985,11 @@ export function ReportingIntegrationClientPanel() {
               fail immediately. Revocation cannot be undone; create a new client
               for a replacement integration.
             </p>
+            {currentClient ? (
+              <div className="mt-3">
+                <RevokeDialog client={currentClient} />
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
