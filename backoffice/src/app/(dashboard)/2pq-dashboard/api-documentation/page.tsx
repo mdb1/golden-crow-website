@@ -1,58 +1,17 @@
 import { redirect } from "next/navigation";
-import { AlertCircle, FileCode2, LockKeyhole, Server } from "lucide-react";
+import { FileCode2, LockKeyhole, Server } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
 import { ReportingApiTokenReveal } from "@/components/reporting-api-token-reveal";
 import { Badge } from "@/components/ui/badge";
 import { getAdminContextServer } from "@/lib/admin-context-server";
+import {
+  buildReportingOpenApiDocument,
+} from "@/lib/reporting-openapi-contract";
+import type {
+  OpenApiDocument,
+  OpenApiOperation,
+} from "@/lib/reporting-openapi-contract";
 import { getReportingApiToken } from "@/lib/reporting-api-token";
-
-type OpenApiParameter = {
-  name?: string;
-  in?: string;
-  required?: boolean;
-  description?: string;
-};
-
-type OpenApiOperation = {
-  tags?: string[];
-  summary?: string;
-  description?: string;
-  parameters?: OpenApiParameter[];
-  requestBody?: {
-    content?: Record<
-      string,
-      {
-        example?: unknown;
-      }
-    >;
-  };
-  responses?: Record<
-    string,
-    {
-      description?: string;
-      content?: Record<
-        string,
-        {
-          example?: unknown;
-        }
-      >;
-    }
-  >;
-  "x-codeSamples"?: Array<{
-    lang?: string;
-    source?: string;
-  }>;
-};
-
-type OpenApiDocument = {
-  info?: {
-    title?: string;
-    version?: string;
-    description?: string;
-  };
-  servers?: Array<{ url?: string }>;
-  paths?: Record<string, Partial<Record<string, OpenApiOperation>>>;
-};
 
 const DEFAULT_OPENAPI_URL = "https://goldencrow-openapi.vercel.app";
 const METHOD_ORDER = ["get", "post", "put", "patch", "delete"] as const;
@@ -143,7 +102,8 @@ export default async function ReportingApiDocumentationPage() {
   }
 
   const baseUrl = resolveOpenApiBaseUrl();
-  const document = await fetchOpenApiDocument(baseUrl);
+  const fetchedDocument = await fetchOpenApiDocument(baseUrl);
+  const document = fetchedDocument ?? buildReportingOpenApiDocument(baseUrl);
   const operations = publicOperations(document);
   const reportingApiToken = getReportingApiToken();
 
@@ -171,7 +131,7 @@ export default async function ReportingApiDocumentationPage() {
             <div>
               <p className="font-medium text-foreground">OpenAPI source</p>
               <code className="mt-1 block overflow-x-auto rounded-md bg-muted px-2 py-1 text-xs text-foreground">
-                {baseUrl}/openapi.json
+                {fetchedDocument ? `${baseUrl}/openapi.json` : "Bundled contract"}
               </code>
             </div>
             <div>
@@ -201,20 +161,6 @@ export default async function ReportingApiDocumentationPage() {
           <ReportingApiTokenReveal token={reportingApiToken} />
         </div>
       </section>
-
-      {!document ? (
-        <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950 shadow-sm dark:border-amber-300/30 dark:bg-amber-400/10 dark:text-amber-100">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4" />
-            <h2 className="text-base font-semibold">OpenAPI spec unavailable</h2>
-          </div>
-          <p className="mt-2 text-sm">
-            The backoffice could not load <code>{baseUrl}/openapi.json</code>.
-            Check <code>GOLDENCROW_OPENAPI_URL</code> or the public OpenAPI
-            deployment.
-          </p>
-        </section>
-      ) : null}
 
       <section className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
