@@ -407,6 +407,9 @@ const SPANISH_TEXT: Record<string, string> = {
   Subtitle: "Subtítulo",
   Body: "Cuerpo",
   "Source URL": "URL de origen",
+  "Main button": "Botón principal",
+  "Main note button customization":
+    "Personalización del botón principal de la nota",
   "Main button link": "Enlace del botón principal",
   "Main button text": "Texto del botón principal",
   "Open organizer website": "Abrir sitio web del organizador",

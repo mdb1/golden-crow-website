@@ -1520,51 +1520,6 @@ export function DiscoverFeedEntryWorkbench({
                   </select>
                 </FieldShell>
 
-                <div className="grid gap-4 rounded-md border border-border bg-muted/20 p-4 md:col-span-2 md:grid-cols-[minmax(0,1fr)_minmax(16rem,0.72fr)]">
-                  <FieldShell
-                    label={t("Main button link")}
-                    htmlFor="discover-feed-source"
-                    error={sourceUrlError}
-                  >
-                    <Input
-                      id="discover-feed-source"
-                      type="url"
-                      value={state.source_url}
-                      onChange={(event) => {
-                        const sourceUrl = event.target.value;
-                        updateState({
-                          source_url: sourceUrl,
-                          source_button_text: sourceUrl.trim()
-                            ? state.source_button_text
-                            : "",
-                        });
-                      }}
-                      placeholder="https://"
-                      aria-invalid={Boolean(sourceUrlError)}
-                      aria-describedby={
-                        sourceUrlError ? "discover-feed-source-error" : undefined
-                      }
-                      className={`h-11 ${sourceUrlError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                    />
-                  </FieldShell>
-
-                  <FieldShell
-                    label={t("Main button text")}
-                    htmlFor="discover-feed-source-button-text"
-                  >
-                    <Input
-                      id="discover-feed-source-button-text"
-                      value={state.source_button_text}
-                      onChange={(event) =>
-                        updateState({ source_button_text: event.target.value })
-                      }
-                      placeholder={t("Open organizer website")}
-                      disabled={!state.source_url.trim()}
-                      className="h-11"
-                    />
-                  </FieldShell>
-                </div>
-
                 <FieldShell label={t("Title")} htmlFor="discover-feed-title" className="md:col-span-2">
                   <Input
                     id="discover-feed-title"
@@ -1681,6 +1636,58 @@ export function DiscoverFeedEntryWorkbench({
               <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
                 <span>{bodyCharacterCount.toLocaleString()} {t("characters")}</span>
                 <span>{bodyMode === "rich" ? t("HTML will be sanitized before storage.") : t("Plain body will be stored as body.")}</span>
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-4 rounded-md border border-sky-200/70 bg-sky-50/45 px-4 py-4 dark:border-sky-300/16 dark:bg-sky-400/8">
+              <SectionTitle
+                eyebrow={t("Main button")}
+                title={t("Main note button customization")}
+              />
+
+              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(16rem,0.72fr)]">
+                <FieldShell
+                  label={t("Main button link")}
+                  htmlFor="discover-feed-source"
+                  error={sourceUrlError}
+                >
+                  <Input
+                    id="discover-feed-source"
+                    type="url"
+                    value={state.source_url}
+                    onChange={(event) => {
+                      const sourceUrl = event.target.value;
+                      updateState({
+                        source_url: sourceUrl,
+                        source_button_text: sourceUrl.trim()
+                          ? state.source_button_text
+                          : "",
+                      });
+                    }}
+                    placeholder="https://"
+                    aria-invalid={Boolean(sourceUrlError)}
+                    aria-describedby={
+                      sourceUrlError ? "discover-feed-source-error" : undefined
+                    }
+                    className={`h-11 border-sky-200/80 bg-white/90 shadow-sm dark:border-sky-300/18 dark:bg-slate-950/50 ${sourceUrlError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  />
+                </FieldShell>
+
+                <FieldShell
+                  label={t("Main button text")}
+                  htmlFor="discover-feed-source-button-text"
+                >
+                  <Input
+                    id="discover-feed-source-button-text"
+                    value={state.source_button_text}
+                    onChange={(event) =>
+                      updateState({ source_button_text: event.target.value })
+                    }
+                    placeholder={t("Open organizer website")}
+                    disabled={!state.source_url.trim()}
+                    className="h-11 border-sky-200/80 bg-white/90 shadow-sm dark:border-sky-300/18 dark:bg-slate-950/50"
+                  />
+                </FieldShell>
               </div>
             </section>
 

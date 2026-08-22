@@ -166,6 +166,12 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       target: { value: "Open organizer website" },
     });
 
+    const bodyTitle = screen.getByText("Write the note");
+    const mainButtonTitle = screen.getByText("Main note button customization");
+    expect(
+      bodyTitle.compareDocumentPosition(mainButtonTitle) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(
       screen.getByPlaceholderText("Open organizer website"),
     ).toBeTruthy();

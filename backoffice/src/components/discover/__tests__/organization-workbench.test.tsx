@@ -293,20 +293,18 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
   });
 
   it("adds social network links as a nested social object", async () => {
-    const user = userEvent.setup();
     renderWorkbench();
 
     expect(screen.getByDisplayValue("https://facebook.com/publisher-one")).toBeTruthy();
     expect(screen.queryByLabelText("Social network")).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Add social link" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add social link" }));
     expect(screen.getByRole("dialog")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: /LinkedIn profile/i }));
-    await user.type(
-      screen.getByRole("textbox", { name: "LinkedIn profile" }),
-      "https://linkedin.com/in/publisher-one",
-    );
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(screen.getByRole("button", { name: /LinkedIn profile/i }));
+    fireEvent.change(screen.getByRole("textbox", { name: "LinkedIn profile" }), {
+      target: { value: "https://linkedin.com/in/publisher-one" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
@@ -420,7 +418,9 @@ describe("DiscoverOrganizationWorkbench localized description", () => {
     ) as HTMLTextAreaElement;
     expect(englishDescription.value).toBe("");
 
-    await user.type(englishDescription, "Public English description");
+    fireEvent.change(englishDescription, {
+      target: { value: "Public English description" },
+    });
     expect(
       screen.queryByText(
         "Add an English organization description to reach a broader audience.",
