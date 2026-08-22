@@ -938,6 +938,44 @@ const initialCopy = isEnglishPage
     box-shadow: 0 10px 22px rgba(23, 32, 51, 0.08);
   }
 
+  @media (min-width: 900px) {
+    .app-link-content:has(.shared-preview:not([hidden])) {
+      width: min(100%, 1120px);
+      display: grid;
+      grid-template-columns: minmax(0, 0.92fr) minmax(360px, 0.88fr);
+      column-gap: clamp(2rem, 5vw, 4.5rem);
+      align-items: center;
+      text-align: left;
+    }
+
+    .app-link-content:has(.shared-preview:not([hidden])) > :not(.shared-preview) {
+      grid-column: 1;
+      justify-self: start;
+    }
+
+    .app-link-content:has(.shared-preview:not([hidden])) .app-icon {
+      justify-self: start;
+    }
+
+    .app-link-content:has(.shared-preview:not([hidden])) h1,
+    .app-link-content:has(.shared-preview:not([hidden])) .app-description {
+      max-width: 520px;
+    }
+
+    .app-link-content:has(.shared-preview:not([hidden])) .app-link-actions,
+    .app-link-content:has(.shared-preview:not([hidden])) .app-link-status {
+      max-width: 560px;
+    }
+
+    .app-link-content:has(.shared-preview:not([hidden])) .shared-preview {
+      grid-column: 2;
+      grid-row: 1 / span 7;
+      align-self: center;
+      justify-self: stretch;
+      margin-top: 0;
+    }
+  }
+
   @media (max-width: 520px) {
     .app-link-page {
       align-items: start;
