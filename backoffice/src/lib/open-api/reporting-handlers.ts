@@ -8,14 +8,8 @@ import { resolveSdkBaseUrl } from "@/lib/sdk-url";
 const PatientLookupQuerySchema = z
   .object({
     patientId: z.string().trim().min(1).optional(),
-    email: z.string().trim().toLowerCase().email().optional(),
-    medicalRecordNumber: z.string().trim().min(1).optional(),
   })
-  .refine(
-    (value) =>
-      Boolean(value.patientId || value.email || value.medicalRecordNumber),
-    "Provide patientId, email, or medicalRecordNumber",
-  );
+  .refine((value) => Boolean(value.patientId), "Provide patientId");
 
 type PublicRecord = Record<string, unknown>;
 
@@ -185,12 +179,6 @@ function patientLookupPath(query: z.infer<typeof PatientLookupQuerySchema>) {
   if (query.patientId) {
     params.set("patientId", query.patientId);
   }
-  if (query.email) {
-    params.set("email", query.email);
-  }
-  if (query.medicalRecordNumber) {
-    params.set("medicalRecordNumber", query.medicalRecordNumber);
-  }
   return `/internal/openapi/reporting/patients?${params.toString()}`;
 }
 
@@ -265,13 +253,12 @@ export async function handlePatientLookup(request: Request) {
   }
 
   const searchParams = new URL(request.url).searchParams;
+  if (searchParams.has("email") || searchParams.has("medicalRecordNumber")) {
+    return json({ error: "Only patientId lookup is supported." }, 400);
+  }
+
   const parsedQuery = PatientLookupQuerySchema.safeParse({
     patientId: optionalQueryValue(searchParams, "patientId"),
-    email: optionalQueryValue(searchParams, "email"),
-    medicalRecordNumber: optionalQueryValue(
-      searchParams,
-      "medicalRecordNumber",
-    ),
   });
   if (!parsedQuery.success) {
     return json(

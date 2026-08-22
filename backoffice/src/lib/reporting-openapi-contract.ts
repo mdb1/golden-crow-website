@@ -88,25 +88,13 @@ export function buildReportingOpenApiDocument(
           tags: ["Reporting"],
           summary: "Look up a patient for report production.",
           description:
-            "Returns the patient ID and scoped patient data needed by an external reporting workflow. Provide one lookup field.",
+            "Returns the patient ID and scoped patient data needed by an external reporting workflow.",
           parameters: [
             {
               name: "patientId",
               in: "query",
-              required: false,
+              required: true,
               description: "GoldenCrow patient ID.",
-            },
-            {
-              name: "email",
-              in: "query",
-              required: false,
-              description: "Normalized email lookup.",
-            },
-            {
-              name: "medicalRecordNumber",
-              in: "query",
-              required: false,
-              description: "Clinical record lookup.",
             },
           ],
           responses: {
@@ -121,8 +109,8 @@ export function buildReportingOpenApiDocument(
                 status: "active",
               },
             }),
-            "400": jsonResponse("No lookup field was provided.", {
-              error: "Provide patientId, email, or medicalRecordNumber.",
+            "400": jsonResponse("patientId was not provided.", {
+              error: "Provide patientId.",
             }),
             "404": jsonResponse("Patient not found.", {
               error: "Patient not found.",

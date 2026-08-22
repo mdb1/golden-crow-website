@@ -126,6 +126,29 @@ describe("public reporting OpenAPI handlers", () => {
     );
   });
 
+  it("rejects patient lookups by email or medical record number", async () => {
+    const emailResponse = await handlePatientLookup(
+      authorizedRequest(
+        "https://public.example.com/open-api/reporting/patients?email=ada%40example.com",
+      ),
+    );
+    const emailBody = await emailResponse.json();
+
+    expect(emailResponse.status).toBe(400);
+    expect(emailBody.error).toBe("Only patientId lookup is supported.");
+
+    const medicalRecordResponse = await handlePatientLookup(
+      authorizedRequest(
+        "https://public.example.com/open-api/reporting/patients?medicalRecordNumber=MRN-1",
+      ),
+    );
+    const medicalRecordBody = await medicalRecordResponse.json();
+
+    expect(medicalRecordResponse.status).toBe(400);
+    expect(medicalRecordBody.error).toBe("Only patientId lookup is supported.");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("accepts only caseCode for upload notifications and derives the internal SDK payload", async () => {
     mockSdkResponse({
       caseSnapshot: {
