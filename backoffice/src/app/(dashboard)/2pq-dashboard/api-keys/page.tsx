@@ -56,12 +56,6 @@ export default async function ReportingApiKeysPage() {
               How to obtain an access token
             </h2>
           </div>
-          <Link
-            href="/2pq-dashboard/api-documentation"
-            className="mt-2 inline-flex text-sm font-medium text-primary hover:underline"
-          >
-            API Documentation
-          </Link>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted-foreground">
             <li>
               Call <code>POST /open-api/oauth/token</code> with{" "}
@@ -81,6 +75,12 @@ export default async function ReportingApiKeysPage() {
               <code>client_id</code>.
             </li>
           </ol>
+          <Link
+            href="/2pq-dashboard/api-documentation"
+            className="mt-4 inline-flex text-sm font-medium text-primary hover:underline"
+          >
+            See API Documentation
+          </Link>
         </article>
       </section>
     </div>
