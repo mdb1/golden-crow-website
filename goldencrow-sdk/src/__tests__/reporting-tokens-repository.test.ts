@@ -74,10 +74,21 @@ function makeDocRef(collectionName: string, id?: string): MockDocumentRef {
 function queryDocs(state: MockQueryState) {
   let docs = [...mockDocs.entries()]
     .filter(([key]) => key.startsWith(`${state.collectionName}/`))
-    .map(([key, value]) => ({
-      id: key.slice(state.collectionName.length + 1),
-      data: () => value,
-    }));
+    .map(([key, value]) => {
+      const doc = {
+        id: key.slice(state.collectionName.length + 1),
+        _value: value,
+        data(this: { _value?: MockDocData }) {
+          if (!this?._value) {
+            throw new Error("Unbound QueryDocumentSnapshot data method");
+          }
+
+          return this._value;
+        },
+      };
+
+      return doc;
+    });
 
   if (state.orderField) {
     docs = docs.sort((left, right) => {

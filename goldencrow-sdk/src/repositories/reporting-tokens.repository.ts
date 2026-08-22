@@ -734,7 +734,7 @@ export async function listReportingIntegrationClients(
       clientSummaryFromRecord(
         readClientRecord({
           exists: true,
-          data: doc.data,
+          data: () => doc.data(),
         }),
       ),
     "createdAt",
