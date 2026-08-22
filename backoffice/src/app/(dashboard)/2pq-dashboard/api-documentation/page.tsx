@@ -194,6 +194,11 @@ export default async function ReportingApiDocumentationPage() {
                           ))}
                         </tbody>
                       </table>
+                      {operation["x-parameterNote"] ? (
+                        <p className="border-t bg-muted/25 px-3 py-2 text-xs text-muted-foreground">
+                          {operation["x-parameterNote"]}
+                        </p>
+                      ) : null}
                     </div>
                   ) : null}
 

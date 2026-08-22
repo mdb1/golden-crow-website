@@ -156,6 +156,34 @@ describe("public reporting OpenAPI handlers", () => {
     );
   });
 
+  it("looks up patients by caseCode and forwards the normalized code", async () => {
+    mockSdkResponse({
+      patient: {
+        id: "PAT-00016",
+        institutionId: "INST-00001",
+        doctorId: "DOC-00001",
+        fullName: "Ada Lovelace",
+        email: "ada@example.com",
+        status: "active",
+      },
+    });
+
+    const lookupResponse = await handlePatientLookup(
+      authorizedRequest(
+        "https://public.example.com/open-api/reporting/patients?caseCode=abc001",
+      ),
+    );
+    const lookupBody = await lookupResponse.json();
+
+    expect(lookupBody.patient).toBeUndefined();
+    expect(lookupBody.id).toBe("PAT-00016");
+    expect(lookupBody.fullName).toBe("Ada Lovelace");
+    expectSdkCall(
+      0,
+      "https://sdk.example.com/internal/openapi/reporting/patients?caseCode=ABC001",
+    );
+  });
+
   it("rejects patient lookups by email or medical record number", async () => {
     const emailResponse = await handlePatientLookup(
       authorizedRequest(
@@ -165,7 +193,9 @@ describe("public reporting OpenAPI handlers", () => {
     const emailBody = await emailResponse.json();
 
     expect(emailResponse.status).toBe(400);
-    expect(emailBody.error).toBe("Only patientId lookup is supported.");
+    expect(emailBody.error).toBe(
+      "Only patientId or caseCode lookup is supported.",
+    );
 
     const medicalRecordResponse = await handlePatientLookup(
       authorizedRequest(
@@ -175,7 +205,34 @@ describe("public reporting OpenAPI handlers", () => {
     const medicalRecordBody = await medicalRecordResponse.json();
 
     expect(medicalRecordResponse.status).toBe(400);
-    expect(medicalRecordBody.error).toBe("Only patientId lookup is supported.");
+    expect(medicalRecordBody.error).toBe(
+      "Only patientId or caseCode lookup is supported.",
+    );
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects patient lookups without exactly one lookup key", async () => {
+    const missingResponse = await handlePatientLookup(
+      authorizedRequest(
+        "https://public.example.com/open-api/reporting/patients",
+      ),
+    );
+    const missingBody = await missingResponse.json();
+
+    expect(missingResponse.status).toBe(400);
+    expect(missingBody.error).toBe("Provide patientId or caseCode.");
+
+    const ambiguousResponse = await handlePatientLookup(
+      authorizedRequest(
+        "https://public.example.com/open-api/reporting/patients?patientId=PAT-00016&caseCode=ABC001",
+      ),
+    );
+    const ambiguousBody = await ambiguousResponse.json();
+
+    expect(ambiguousResponse.status).toBe(400);
+    expect(ambiguousBody.error).toBe(
+      "Use either patientId or caseCode, not both.",
+    );
     expect(global.fetch).not.toHaveBeenCalled();
   });
 

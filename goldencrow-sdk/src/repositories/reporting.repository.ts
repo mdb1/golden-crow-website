@@ -14,6 +14,7 @@ const UPLOADED_REPORTS_COLLECTION = "uploaded_reports";
 
 export interface ReportingPatientLookup {
   patientId?: string;
+  caseCode?: string;
   email?: string;
   medicalRecordNumber?: string;
 }
@@ -104,7 +105,11 @@ function normalizeIsoDateValue(value: unknown): string | undefined {
     return value.toISOString();
   }
 
-  if (typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
+  if (
+    typeof value === "object" &&
+    "toDate" in value &&
+    typeof value.toDate === "function"
+  ) {
     const candidate = value.toDate();
     return candidate instanceof Date && !Number.isNaN(candidate.getTime())
       ? candidate.toISOString()
@@ -127,7 +132,10 @@ function normalizeFirestoreDocumentId(value: string, label: string) {
   return normalized;
 }
 
-function normalizeReportCode(input: ReportUploadNotificationInput, fallback: string) {
+function normalizeReportCode(
+  input: ReportUploadNotificationInput,
+  fallback: string,
+) {
   const raw = normalizeString(input.reportCode) ?? fallback;
   return normalizeFirestoreDocumentId(raw, "Report code");
 }
@@ -266,7 +274,21 @@ async function getPatientById(patientId: string) {
     return null;
   }
 
-  return normalizePatient(snapshot.id, snapshot.data() as Record<string, unknown>);
+  return normalizePatient(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>,
+  );
+}
+
+async function getPatientIdByCaseCode(caseCode: string) {
+  const code = normalizeSixCharacterCode(caseCode);
+  const caseDocument = await resolveTwoPQCaseBySixCharacterCode(code);
+  const patientId = normalizeString(caseDocument.data.patientId);
+  if (!patientId) {
+    throw new AdminRepositoryError("2PQ case has no patientId.", 404);
+  }
+
+  return patientId;
 }
 
 async function getRawDocumentById(collectionName: string, documentId: string) {
@@ -278,7 +300,10 @@ async function getRawDocumentById(collectionName: string, documentId: string) {
   return snapshotToDocument(snapshot);
 }
 
-async function getPatientByUniqueField(field: "email" | "medicalRecordNumber", value: string) {
+async function getPatientByUniqueField(
+  field: "email" | "medicalRecordNumber",
+  value: string,
+) {
   const snapshot = await adminDb
     .collection(PATIENTS_COLLECTION)
     .where(field, "==", value)
@@ -290,11 +315,17 @@ async function getPatientByUniqueField(field: "email" | "medicalRecordNumber", v
   }
 
   if (snapshot.docs.length > 1) {
-    throw new AdminRepositoryError(`Multiple patients found for ${field}.`, 409);
+    throw new AdminRepositoryError(
+      `Multiple patients found for ${field}.`,
+      409,
+    );
   }
 
   const document = snapshot.docs[0]!;
-  return normalizePatient(document.id, document.data() as Record<string, unknown>);
+  return normalizePatient(
+    document.id,
+    document.data() as Record<string, unknown>,
+  );
 }
 
 async function getUniqueRawDocumentByField(
@@ -324,14 +355,19 @@ async function getUniqueRawDocumentByField(
   };
 }
 
-async function getRawDocumentsByIds(collectionName: string, documentIds: string[]) {
+async function getRawDocumentsByIds(
+  collectionName: string,
+  documentIds: string[],
+) {
   const uniqueDocumentIds = uniqueStringValues(documentIds);
   const documents = await Promise.all(
-    uniqueDocumentIds.map((documentId) => getRawDocumentById(collectionName, documentId)),
+    uniqueDocumentIds.map((documentId) =>
+      getRawDocumentById(collectionName, documentId),
+    ),
   );
 
-  return documents.filter(
-    (document): document is ReportingFirestoreDocument => Boolean(document),
+  return documents.filter((document): document is ReportingFirestoreDocument =>
+    Boolean(document),
   );
 }
 
@@ -433,7 +469,10 @@ async function resolveTwoPQCaseBySixCharacterCode(code: string) {
     }
   }
 
-  const caseByDocumentId = await getRawDocumentById(TWO_PQ_CASES_COLLECTION, code);
+  const caseByDocumentId = await getRawDocumentById(
+    TWO_PQ_CASES_COLLECTION,
+    code,
+  );
   if (caseByDocumentId) {
     return caseByDocumentId;
   }
@@ -445,21 +484,38 @@ export async function getReportingPatient(
   lookup: ReportingPatientLookup,
 ): Promise<ReportingPatientRecord> {
   const patientId = normalizeString(lookup.patientId);
+  const caseCode = normalizeString(lookup.caseCode);
   const email = normalizeEmail(lookup.email);
   const medicalRecordNumber = normalizeString(lookup.medicalRecordNumber);
 
-  if (!patientId && !email && !medicalRecordNumber) {
+  if (!patientId && !caseCode && !email && !medicalRecordNumber) {
     throw new AdminRepositoryError(
-      "Provide patientId, email, or medicalRecordNumber.",
+      "Provide patientId, caseCode, email, or medicalRecordNumber.",
       400,
     );
   }
 
+  if (patientId && caseCode) {
+    throw new AdminRepositoryError(
+      "Use either patientId or caseCode, not both.",
+      400,
+    );
+  }
+
+  const patientIdFromCaseCode = caseCode
+    ? await getPatientIdByCaseCode(caseCode)
+    : undefined;
   const patient =
     (patientId ? await getPatientById(patientId) : null) ??
+    (patientIdFromCaseCode
+      ? await getPatientById(patientIdFromCaseCode)
+      : null) ??
     (email ? await getPatientByUniqueField("email", email) : null) ??
     (medicalRecordNumber
-      ? await getPatientByUniqueField("medicalRecordNumber", medicalRecordNumber)
+      ? await getPatientByUniqueField(
+          "medicalRecordNumber",
+          medicalRecordNumber,
+        )
       : null);
 
   if (!patient) {
@@ -527,7 +583,9 @@ function buildTwoPQCaseSnapshotRecord(
   };
 }
 
-function buildTwoPQSamplingSnapshotRecord(document: ReportingFirestoreDocument) {
+function buildTwoPQSamplingSnapshotRecord(
+  document: ReportingFirestoreDocument,
+) {
   const data = document.data;
 
   return {
@@ -556,8 +614,7 @@ function buildTwoPQSamplingSnapshotRecord(document: ReportingFirestoreDocument) 
       runId: nullableString(data.runId),
     },
     relations: {
-      caseId:
-        nullableString(data.parent_case) ?? nullableString(data.caseId),
+      caseId: nullableString(data.parent_case) ?? nullableString(data.caseId),
     },
     notes: nullableString(data.notes),
     timestamps: buildTwoPQTimestamps(data),
@@ -611,8 +668,12 @@ export async function getReportingTwoPQCaseByCode(caseCode: string) {
   const doctorId = normalizeString(caseData.doctorId);
   const [patient, institution, doctor] = await Promise.all([
     patientId ? getPatientById(patientId) : Promise.resolve(null),
-    institutionId ? getRawDocumentById(INSTITUTIONS_COLLECTION, institutionId) : Promise.resolve(null),
-    doctorId ? getRawDocumentById(DOCTORS_COLLECTION, doctorId) : Promise.resolve(null),
+    institutionId
+      ? getRawDocumentById(INSTITUTIONS_COLLECTION, institutionId)
+      : Promise.resolve(null),
+    doctorId
+      ? getRawDocumentById(DOCTORS_COLLECTION, doctorId)
+      : Promise.resolve(null),
   ]);
   const samplingIds = samplings.map((sampling) => sampling.id);
 
@@ -706,18 +767,26 @@ export async function recordUploadedReportNotification(
     throw new AdminRepositoryError("key is required.", 400);
   }
 
-  if (input.size !== undefined && (!Number.isFinite(input.size) || input.size < 0)) {
+  if (
+    input.size !== undefined &&
+    (!Number.isFinite(input.size) || input.size < 0)
+  ) {
     throw new AdminRepositoryError("size must be a positive number.", 400);
   }
 
   const patient = await getReportingPatient({ patientId });
   const reportId = normalizeFirestoreDocumentId(
-    normalizeString(input.reportId) ?? adminDb.collection(UPLOADED_REPORTS_COLLECTION).doc().id,
+    normalizeString(input.reportId) ??
+      adminDb.collection(UPLOADED_REPORTS_COLLECTION).doc().id,
     "Report id",
   );
   const reportCode = normalizeReportCode(input, reportId);
-  const uploadedReportRef = adminDb.collection(UPLOADED_REPORTS_COLLECTION).doc(reportId);
-  const reportCodeRef = adminDb.collection(REPORT_CODES_COLLECTION).doc(reportCode);
+  const uploadedReportRef = adminDb
+    .collection(UPLOADED_REPORTS_COLLECTION)
+    .doc(reportId);
+  const reportCodeRef = adminDb
+    .collection(REPORT_CODES_COLLECTION)
+    .doc(reportCode);
 
   await adminDb.runTransaction(async (transaction: Transaction) => {
     const existingUploadedReport = await transaction.get(uploadedReportRef);
@@ -738,7 +807,9 @@ export async function recordUploadedReportNotification(
       ),
       { merge: true },
     );
-    transaction.set(reportCodeRef, reportCodePayload(patient, reportId), { merge: true });
+    transaction.set(reportCodeRef, reportCodePayload(patient, reportId), {
+      merge: true,
+    });
   });
 
   return {

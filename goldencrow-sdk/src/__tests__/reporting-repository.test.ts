@@ -236,6 +236,21 @@ describe("reporting repository", () => {
     });
   });
 
+  it("finds a patient by 2PQ case or sampling code", async () => {
+    const { getReportingPatient } =
+      await import("../repositories/reporting.repository");
+
+    const patient = await getReportingPatient({
+      caseCode: "abc001",
+    });
+
+    expect(patient).toMatchObject({
+      id: "PAT-00001",
+      fullName: "Ada Lovelace",
+      email: "ada@example.com",
+    });
+  });
+
   it("records an S3 upload notification in uploaded_reports and report_codes", async () => {
     const { recordUploadedReportNotification } =
       await import("../repositories/reporting.repository");

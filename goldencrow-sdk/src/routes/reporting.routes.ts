@@ -13,12 +13,6 @@ import {
   verifyReportingAccessToken,
 } from "../repositories/reporting-tokens.repository.js";
 
-const PatientLookupQuerySchema = z
-  .object({
-    patientId: z.string().trim().min(1),
-  })
-  .strict();
-
 const CaseCodeSchema = z
   .string()
   .trim()
@@ -27,6 +21,28 @@ const CaseCodeSchema = z
     "caseCode must contain exactly 6 letters or numbers",
   )
   .transform((value) => value.toUpperCase());
+
+const PatientLookupQuerySchema = z
+  .object({
+    patientId: z.string().trim().min(1).optional(),
+    caseCode: CaseCodeSchema.optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (!value.patientId && !value.caseCode) {
+      context.addIssue({
+        code: "custom",
+        message: "Provide patientId or caseCode.",
+      });
+    }
+
+    if (value.patientId && value.caseCode) {
+      context.addIssue({
+        code: "custom",
+        message: "Use either patientId or caseCode, not both.",
+      });
+    }
+  });
 
 const CaseCodeUploadNotificationSchema = z
   .object({

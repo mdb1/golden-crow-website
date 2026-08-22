@@ -39,10 +39,30 @@ describe("reporting OpenAPI contract", () => {
     const document = buildReportingOpenApiDocument(
       "https://public.example.com",
     );
+    const operation = document.paths?.["/open-api/reporting/patients"]?.get;
     const example =
-      document.paths?.["/open-api/reporting/patients"]?.get?.responses?.["200"]
-        ?.content?.["application/json"]?.example;
+      operation?.responses?.["200"]?.content?.["application/json"]?.example;
 
+    expect(operation?.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "caseCode",
+          in: "query",
+          required: false,
+        }),
+        expect.objectContaining({
+          name: "patientId",
+          in: "query",
+          required: false,
+        }),
+      ]),
+    );
+    expect(operation?.["x-parameterNote"]).toContain(
+      "either caseCode or patientId",
+    );
+    expect(operation?.["x-codeSamples"]?.[0]?.source).toContain(
+      "?caseCode=ABC001",
+    );
     expect(example).toMatchObject({
       id: expect.stringMatching(/^PAT-/),
       fullName: "Ada Lovelace",

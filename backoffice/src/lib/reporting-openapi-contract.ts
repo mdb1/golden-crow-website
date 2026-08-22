@@ -34,6 +34,7 @@ export type OpenApiOperation = {
     lang?: string;
     source?: string;
   }>;
+  "x-parameterNote"?: string;
 };
 
 export type OpenApiDocument = {
@@ -218,12 +219,21 @@ export function buildReportingOpenApiDocument(
             "Returns the patient ID and scoped patient data needed by an external reporting workflow.",
           parameters: [
             {
+              name: "caseCode",
+              in: "query",
+              required: false,
+              description:
+                "Exactly 6 letters or numbers, for example ABCXXX for the case or ABC001 for a sampling code.",
+            },
+            {
               name: "patientId",
               in: "query",
-              required: true,
+              required: false,
               description: "GoldenCrow patient ID.",
             },
           ],
+          "x-parameterNote":
+            "Send either caseCode or patientId. One of them is required for this lookup to work.",
           responses: {
             "200": jsonResponse("Patient found.", {
               id: EXAMPLE_PATIENT_ID,
@@ -234,8 +244,8 @@ export function buildReportingOpenApiDocument(
               medicalRecordNumber: "MRN-1",
               status: "active",
             }),
-            "400": jsonResponse("patientId was not provided.", {
-              error: "Provide patientId.",
+            "400": jsonResponse("patientId or caseCode was not provided.", {
+              error: "Provide patientId or caseCode.",
             }),
             "404": jsonResponse("Patient not found.", {
               error: "Patient not found.",
@@ -245,7 +255,12 @@ export function buildReportingOpenApiDocument(
           "x-codeSamples": [
             {
               lang: "curl",
-              source: `curl -X GET "${serverUrl}/open-api/reporting/patients?patientId=${EXAMPLE_PATIENT_ID}" \\
+              source: `# Lookup by caseCode
+curl -X GET "${serverUrl}/open-api/reporting/patients?caseCode=ABC001" \\
+  -H "Authorization: Bearer <access_token>"
+
+# Lookup by patientId
+curl -X GET "${serverUrl}/open-api/reporting/patients?patientId=${EXAMPLE_PATIENT_ID}" \\
   -H "Authorization: Bearer <access_token>"`,
             },
           ],

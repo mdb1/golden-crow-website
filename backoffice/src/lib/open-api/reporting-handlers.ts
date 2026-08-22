@@ -4,12 +4,6 @@ import { z } from "zod";
 import { buildReportingOpenApiDocument } from "@/lib/reporting-openapi-contract";
 import { resolveSdkBaseUrl } from "@/lib/sdk-url";
 
-const PatientLookupQuerySchema = z
-  .object({
-    patientId: z.string().trim().min(1).optional(),
-  })
-  .refine((value) => Boolean(value.patientId), "Provide patientId");
-
 type PublicRecord = Record<string, unknown>;
 
 const CaseCodeSchema = z
@@ -20,6 +14,27 @@ const CaseCodeSchema = z
     "caseCode must contain exactly 6 letters or numbers",
   )
   .transform((value) => value.toUpperCase());
+
+const PatientLookupQuerySchema = z
+  .object({
+    patientId: z.string().trim().min(1).optional(),
+    caseCode: CaseCodeSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (!value.patientId && !value.caseCode) {
+      context.addIssue({
+        code: "custom",
+        message: "Provide patientId or caseCode.",
+      });
+    }
+
+    if (value.patientId && value.caseCode) {
+      context.addIssue({
+        code: "custom",
+        message: "Use either patientId or caseCode, not both.",
+      });
+    }
+  });
 
 const UploadReportNotificationSchema = z
   .object({
@@ -131,6 +146,9 @@ function patientLookupPath(query: z.infer<typeof PatientLookupQuerySchema>) {
   if (query.patientId) {
     params.set("patientId", query.patientId);
   }
+  if (query.caseCode) {
+    params.set("caseCode", query.caseCode);
+  }
   return `/internal/openapi/reporting/patients?${params.toString()}`;
 }
 
@@ -200,11 +218,15 @@ export async function handlePatientLookup(request: Request) {
 
   const searchParams = new URL(request.url).searchParams;
   if (searchParams.has("email") || searchParams.has("medicalRecordNumber")) {
-    return json({ error: "Only patientId lookup is supported." }, 400);
+    return json(
+      { error: "Only patientId or caseCode lookup is supported." },
+      400,
+    );
   }
 
   const parsedQuery = PatientLookupQuerySchema.safeParse({
     patientId: optionalQueryValue(searchParams, "patientId"),
+    caseCode: optionalQueryValue(searchParams, "caseCode"),
   });
   if (!parsedQuery.success) {
     return json(
