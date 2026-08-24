@@ -105,10 +105,14 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const colorInput = screen.getByLabelText("Accent color") as HTMLInputElement;
     expect(colorInput.value).toBe("#123ABC");
     expect(colorInput.readOnly).toBe(true);
+    expect(colorInput.className).toContain("border-transparent");
+    expect(colorInput.className).toContain("bg-transparent");
+    expect(colorInput.className).toContain("shadow-none");
     expect(screen.getByRole("button", { name: /set manually/i })).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: /set manually/i }));
     expect(colorInput.readOnly).toBe(false);
+    expect(colorInput.className).not.toContain("border-transparent");
     expect(screen.getByRole("button", { name: /apply/i })).toBeTruthy();
 
     await user.clear(colorInput);

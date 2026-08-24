@@ -512,7 +512,9 @@ function DiscoverPublisherWorkbench({
                   className={
                     colorError
                       ? "border-destructive focus-visible:ring-destructive"
-                      : "read-only:bg-muted/45 read-only:text-muted-foreground"
+                      : manualColorMode
+                        ? ""
+                        : "cursor-default border-transparent bg-transparent px-0 shadow-none hover:border-transparent focus-visible:border-transparent focus-visible:ring-0 read-only:bg-transparent read-only:text-foreground dark:border-transparent dark:bg-transparent dark:read-only:bg-transparent"
                   }
                 />
                 <Button
