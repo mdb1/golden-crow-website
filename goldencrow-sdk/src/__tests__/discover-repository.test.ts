@@ -424,6 +424,29 @@ describe("discover repository", () => {
     ).rejects.toThrow("Individual publisher image URL is required.");
   });
 
+  it("accepts the expanded fixed professional category keys for individuals", async () => {
+    const { createDiscoverIndividual } = await import(
+      "../repositories/discover.repository"
+    );
+    const expandedCategories = [
+      "pro_project_managers",
+      "pro_startup_founders",
+      "pro_app_developers",
+      "pro_entrepreneurs",
+      "pro_software_engineers",
+    ].join(",");
+
+    const individual = await createDiscoverIndividual(fullAdminContext, {
+      name: "Expanded category professional",
+      imageUrl: "https://example.org/expanded-professional.png",
+      individualType: expandedCategories,
+    } as Record<string, unknown>);
+    const stored = mockIndividualDocs.find((doc) => doc.id === individual.id);
+
+    expect(individual.individualType).toBe(expandedCategories);
+    expect(stored?.data.individualType).toBe(expandedCategories);
+  });
+
   it("rejects publisher category keys outside the fixed provider lists", async () => {
     const { createDiscoverOrganization, createDiscoverIndividual } = await import(
       "../repositories/discover.repository"
