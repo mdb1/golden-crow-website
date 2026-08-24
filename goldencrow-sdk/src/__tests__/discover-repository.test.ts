@@ -101,6 +101,7 @@ const initialOrganizationDocs: MockDoc[] = [
       description_en: "Public description",
       social: {
         facebook: "https://facebook.com/publisher-one",
+        github: "https://github.com/publisher-one",
         email: "mailto:hello@example.org",
       },
       organizationType:
@@ -328,6 +329,7 @@ describe("discover repository", () => {
     );
     expect(result.organizations[0]?.social).toEqual({
       facebook: "https://facebook.com/publisher-one",
+      github: "https://github.com/publisher-one",
       email: "mailto:hello@example.org",
     });
     expect(result.organizations[0]?.description).toBe("Descripción pública");
@@ -354,6 +356,21 @@ describe("discover repository", () => {
       tiktok: "https://tiktok.com/@fundacion",
       youtube: "https://youtube.com/@fundacion",
       linkedin: "https://linkedin.com/in/fundacion",
+      github: "https://github.com/fundacion",
+      gitlab: "https://gitlab.com/fundacion",
+      stack_overflow: "https://stackoverflow.com/users/123/fundacion",
+      hugging_face: "https://huggingface.co/fundacion",
+      kaggle: "https://kaggle.com/fundacion",
+      researchgate: "https://researchgate.net/profile/fundacion",
+      orcid: "https://orcid.org/0000-0001-2345-6789",
+      google_scholar: "https://scholar.google.com/citations?user=fundacion",
+      pubmed: "https://pubmed.ncbi.nlm.nih.gov/?term=fundacion",
+      scopus: "https://scopus.com/authid/detail.uri?authorId=123",
+      web_of_science: "https://webofscience.com/wos/author/record/123",
+      biostars: "https://biostars.org/u/fundacion",
+      protocols_io: "https://protocols.io/researchers/fundacion",
+      osf: "https://osf.io/fundacion",
+      zenodo: "https://zenodo.org/communities/fundacion",
       whatsapp: "https://wa.me/5491112345678",
       telegram: "https://t.me/fundacion",
       threads: "https://threads.net/@fundacion",
