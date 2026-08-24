@@ -152,14 +152,32 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(body.color_hex).toBe("#ABCDEF");
   });
 
-  it("applies color picker changes without enabling text editing", () => {
+  it("applies color picker changes without enabling text editing", async () => {
+    const user = userEvent.setup();
     renderWorkbench();
 
-    const picker = screen.getByLabelText("Accent color picker");
+    const picker = screen.getByLabelText(
+      "Accent color picker",
+    ) as HTMLInputElement;
     const colorInput = screen.getByLabelText("Accent color") as HTMLInputElement;
+    Object.defineProperty(picker, "showPicker", {
+      configurable: true,
+      value: undefined,
+    });
+    const pickerClick = jest
+      .spyOn(picker, "click")
+      .mockImplementation(() => undefined);
 
     expect(picker.className).toContain("rounded-full");
     expect(picker.className).toContain("size-10");
+    expect(
+      screen.getByRole("button", { name: /open color picker/i }),
+    ).toBeTruthy();
+
+    await user.click(
+      screen.getByRole("button", { name: /open color picker/i }),
+    );
+    expect(pickerClick).toHaveBeenCalledTimes(1);
 
     fireEvent.change(picker, { target: { value: "#445566" } });
 

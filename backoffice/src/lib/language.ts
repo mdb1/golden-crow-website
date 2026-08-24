@@ -119,6 +119,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "country selected": "país seleccionado",
   "All categories": "Todas las opciones",
   Categories: "Categoría",
+  "Open color picker": "Abrir paleta de colores",
   "Social networks": "Redes sociales",
   "Add one optional link for each social network.":
     "Agregá un enlace opcional por cada red social.",

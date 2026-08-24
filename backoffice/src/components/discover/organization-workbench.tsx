@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Check,
+  Palette,
   PencilLine,
   RotateCcw,
   Save,
@@ -169,6 +170,7 @@ function DiscoverPublisherWorkbench({
   const [manualColorDraft, setManualColorDraft] = useState(() =>
     colorTextValue(toFormState(publisher).color_hex),
   );
+  const colorPickerRef = useRef<HTMLInputElement>(null);
   const [manualColorError, setManualColorError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
@@ -244,6 +246,23 @@ function DiscoverPublisherWorkbench({
     const nextColor = value.toUpperCase();
     updateState({ color_hex: nextColor });
     closeManualColorEditor(nextColor);
+  }
+
+  function openColorPicker() {
+    const colorPicker = colorPickerRef.current;
+    if (!colorPicker) {
+      return;
+    }
+
+    const colorPickerWithDialog = colorPicker as HTMLInputElement & {
+      showPicker?: () => void;
+    };
+    if (typeof colorPickerWithDialog.showPicker === "function") {
+      colorPickerWithDialog.showPicker();
+      return;
+    }
+
+    colorPicker.click();
   }
 
   function startManualColorEdit() {
@@ -482,6 +501,7 @@ function DiscoverPublisherWorkbench({
               <Label htmlFor="discover-org-color">{t("Accent color")}</Label>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <input
+                  ref={colorPickerRef}
                   type="color"
                   value={colorHex || "#4F46E5"}
                   onChange={(event) =>
@@ -490,6 +510,15 @@ function DiscoverPublisherWorkbench({
                   className="size-10 shrink-0 cursor-pointer overflow-hidden rounded-full border border-input bg-background p-0 [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
                   aria-label={t("Accent color picker")}
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={openColorPicker}
+                >
+                  <Palette className="h-3.5 w-3.5" />
+                  {t("Open color picker")}
+                </Button>
                 <Input
                   id="discover-org-color"
                   value={visibleColorText}
