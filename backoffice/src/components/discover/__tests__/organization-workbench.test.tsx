@@ -340,6 +340,21 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       "TikTok profile",
       "YouTube channel",
       "LinkedIn profile",
+      "GitHub profile",
+      "GitLab profile",
+      "Stack Overflow profile",
+      "Hugging Face profile",
+      "Kaggle profile",
+      "ResearchGate profile",
+      "ORCID iD",
+      "Google Scholar profile",
+      "PubMed profile",
+      "Scopus author profile",
+      "Web of Science researcher profile",
+      "BioStars profile",
+      "protocols.io profile",
+      "Open Science Framework (OSF) profile",
+      "Zenodo profile",
       "WhatsApp",
       "Telegram",
       "Threads profile",
@@ -353,7 +368,10 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       "Contact email",
       "Other link",
     ].forEach((label) => {
-      expect(screen.getByRole("button", { name: new RegExp(label, "i") })).toBeTruthy();
+      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      expect(
+        screen.getByRole("button", { name: new RegExp(escapedLabel, "i") }),
+      ).toBeTruthy();
     });
 
     [
@@ -362,6 +380,21 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       "tiktok",
       "youtube",
       "linkedin",
+      "github",
+      "gitlab",
+      "stack-overflow",
+      "hugging-face",
+      "kaggle",
+      "researchgate",
+      "orcid",
+      "google-scholar",
+      "pubmed",
+      "scopus",
+      "web-of-science",
+      "biostars",
+      "protocols-io",
+      "osf",
+      "zenodo",
       "whatsapp",
       "telegram",
       "threads",
