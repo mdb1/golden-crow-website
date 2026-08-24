@@ -105,62 +105,64 @@ export default async function ReportingApiDocumentationPage() {
         description="Endpoint reference for external integrations using the public /open-api backend."
       />
 
-      <section className="border-y py-4">
+      <section>
         <div className="flex items-center gap-2">
           <FileCode2 className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-lg font-semibold">General information</h2>
+          <h2 className="text-base font-semibold">General information</h2>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Applies to the public API endpoints unless an operation states
           otherwise.
         </p>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="min-w-0 border-l pl-3">
-            <p className="text-xs font-medium uppercase text-muted-foreground">
+        <dl className="mt-4 grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
+          <div className="min-w-0">
+            <dt className="font-medium text-foreground">
               Base URL
-            </p>
-            <code className="mt-1 block overflow-x-auto whitespace-nowrap text-sm text-foreground">
-              {baseUrl}
-            </code>
+            </dt>
+            <dd className="mt-1 min-w-0 text-muted-foreground">
+              <code className="block overflow-x-auto whitespace-nowrap text-foreground">
+                {baseUrl}
+              </code>
+            </dd>
           </div>
 
-          <div className="min-w-0 border-l pl-3">
-            <p className="text-xs font-medium uppercase text-muted-foreground">
+          <div className="min-w-0">
+            <dt className="font-medium text-foreground">
               Authentication
-            </p>
-            <code className="mt-1 block overflow-x-auto whitespace-nowrap text-sm text-foreground">
-              Authorization: Bearer &lt;access_token&gt;
-            </code>
-            <p className="mt-1 text-xs text-muted-foreground">
+            </dt>
+            <dd className="mt-1 min-w-0 text-muted-foreground">
+              <code className="block overflow-x-auto whitespace-nowrap text-foreground">
+                Authorization: Bearer &lt;access_token&gt;
+              </code>
               Obtain tokens with <code>POST /open-api/oauth/token</code>.
-            </p>
+            </dd>
           </div>
 
-          <div className="min-w-0 border-l pl-3">
-            <p className="text-xs font-medium uppercase text-muted-foreground">
+          <div className="min-w-0">
+            <dt className="font-medium text-foreground">
               Response format
-            </p>
-            <code className="mt-1 block text-sm text-foreground">
-              application/json
-            </code>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Error responses also return JSON bodies.
-            </p>
+            </dt>
+            <dd className="mt-1 text-muted-foreground">
+              <code className="text-foreground">application/json</code>
+              <span className="block">
+                Error responses also return JSON bodies.
+              </span>
+            </dd>
           </div>
 
-          <div className="min-w-0 border-l pl-3">
-            <p className="text-xs font-medium uppercase text-muted-foreground">
+          <div className="min-w-0">
+            <dt className="font-medium text-foreground">
               Rate limit
-            </p>
-            <p className="mt-1 text-sm text-foreground">
-              5 requests per minute per client.
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            </dt>
+            <dd className="mt-1 text-muted-foreground">
+              <span className="block text-foreground">
+                5 requests per minute per client.
+              </span>
               Exceeded quota returns HTTP 429.
-            </p>
+            </dd>
           </div>
-        </div>
+        </dl>
       </section>
 
       <section className="flex flex-col gap-4">
