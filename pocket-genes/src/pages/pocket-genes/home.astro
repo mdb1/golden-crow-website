@@ -161,7 +161,7 @@ const pageCopy = {
     exploreAlt: 'Pantalla Explorar de Pocket Genes con educación genómica y categorías de informes',
     discoverSimulatorAlt: 'Pantalla del simulador Discover de Pocket Genes',
     identityEyebrow: 'Cómo te ayuda',
-    identityTitle: 'Para lo que viene después de recibir un informe genético.',
+    identityTitle: 'Para lo que viene\ndespués de recibir\nun informe genético.',
     identityBody:
       'Un espacio privado donde podés guardar tu informe, entenderlo mejor, encontrar apoyo útil y preparar tus próximas preguntas.',
     downloadApp: 'Descargar la app',
@@ -343,7 +343,7 @@ const trustMailSubject = encodeURIComponent(
       <div class="pg-container pg-identity-stage">
         <div class="pg-identity-copy">
           <p class="pg-eyebrow">{copy.identityEyebrow}</p>
-          <h2>{copy.identityTitle}</h2>
+          <h2>{copy.identityTitle.split('\n').map((line) => <span>{line}</span>)}</h2>
           <p>
             {copy.identityBody}
           </p>
@@ -674,9 +674,13 @@ const trustMailSubject = encodeURIComponent(
     max-width: 620px;
     margin: 0;
     color: var(--pg-ink);
-    font-size: 3.25rem;
+    font-size: 3rem;
     line-height: 1.05;
     letter-spacing: 0;
+  }
+
+  .pg-identity-copy h2 span {
+    display: block;
   }
 
   .pg-identity-copy p:not(.pg-eyebrow) {
@@ -1473,7 +1477,7 @@ const trustMailSubject = encodeURIComponent(
     }
 
     .pg-identity-copy h2 {
-      font-size: 2.4rem;
+      font-size: 2.2rem;
     }
 
     .pg-identity-copy p:not(.pg-eyebrow) {
@@ -1555,7 +1559,7 @@ const trustMailSubject = encodeURIComponent(
     }
 
     .pg-identity-copy h2 {
-      font-size: 2.08rem;
+      font-size: 1.9rem;
     }
 
     .pg-home-visual {
