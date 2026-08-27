@@ -469,7 +469,7 @@ function templateDocument(
   return withoutUndefined({
     schemaVersion: 1,
     name,
-    category: cleanString(input.category),
+    category: normalizeCrmCategory(input.category),
     subject: cleanString(input.subject),
     body: cleanString(input.body),
     status: normalizeTemplateStatus(input.status),
@@ -542,7 +542,7 @@ function toTemplateRecord(
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     name,
-    category: cleanString(data.category),
+    category: normalizeCrmCategory(data.category),
     subject: cleanString(data.subject),
     body: cleanString(data.body),
     status: normalizeTemplateStatus(data.status),
@@ -620,7 +620,7 @@ function matchesTemplateFilters(
   },
 ) {
   const query = cleanString(filters.query).toLowerCase();
-  const category = cleanString(filters.category).toLowerCase();
+  const category = normalizeCrmCategory(filters.category);
   const status = cleanString(filters.status);
   const searchable = [
     record.id,
@@ -637,7 +637,7 @@ function matchesTemplateFilters(
   return (
     (!query || searchable.includes(query)) &&
     (!status || status === "all" || record.status === status) &&
-    (!category || record.category.toLowerCase().includes(category))
+    (!category || normalizeCrmCategory(record.category) === category)
   );
 }
 

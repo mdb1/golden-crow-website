@@ -48,11 +48,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  CrmCategorySelect,
+  formatCrmCategory,
+} from "@/components/god-mode/crm-category-select";
 import { appText, type AppLanguage } from "@/lib/language";
 import {
-  CRM_CATEGORY_OPTIONS,
   CRM_TEMPLATE_STATUS_OPTIONS,
   PARTNERSHIP_CRM_FROM_EMAIL,
+  normalizeCrmCategory,
   renderCrmTemplate,
   templateStatusLabel,
   type PartnershipCrmOrganizationRecord,
@@ -127,14 +131,15 @@ const SAMPLE_ORGANIZATION: PartnershipCrmOrganizationRecord = {
 
 function buildTemplateListPath(filters: TemplateFilters, cursor?: string) {
   const params = new URLSearchParams({ limit: "20" });
+  const category = normalizeCrmCategory(filters.category);
   if (filters.query.trim()) {
     params.set("query", filters.query.trim());
   }
   if (filters.status !== "all") {
     params.set("status", filters.status);
   }
-  if (filters.category.trim()) {
-    params.set("category", filters.category.trim());
+  if (category) {
+    params.set("category", category);
   }
   if (cursor) {
     params.set("cursor", cursor);
@@ -167,7 +172,7 @@ function templatePayload(
 ): PartnershipCrmTemplateInput {
   return {
     name: state.name.trim(),
-    category: state.category.trim(),
+    category: normalizeCrmCategory(state.category),
     subject: state.subject.trim(),
     body: state.body.trim(),
     status: state.status,
@@ -184,7 +189,8 @@ function toFormState(
 
   return {
     name: template.name,
-    category: template.category || "Laboratory / Genomics",
+    category:
+      normalizeCrmCategory(template.category) || "Laboratory / Genomics",
     subject: template.subject,
     body: template.body,
     status: template.status,
@@ -199,7 +205,7 @@ function templateRecordFromState(
     id: "preview",
     schemaVersion: 1,
     name: state.name,
-    category: state.category,
+    category: normalizeCrmCategory(state.category),
     subject: state.subject,
     body: state.body,
     status: state.status,
@@ -398,12 +404,12 @@ export function PartnershipCrmTemplateBrowser() {
             ))}
           </SelectContent>
         </Select>
-        <Input
+        <CrmCategorySelect
+          id="crm-template-category-filter"
           value={filters.category}
-          onChange={(event) =>
-            resetCursorsForFilterChange({ category: event.target.value })
-          }
-          placeholder={t("Category")}
+          onChange={(category) => resetCursorsForFilterChange({ category })}
+          language={language}
+          mode="filter"
         />
       </div>
 
@@ -487,7 +493,8 @@ export function PartnershipCrmTemplateBrowser() {
                     />
                   </TableCell>
                   <TableCell className="whitespace-normal text-sm text-muted-foreground">
-                    {template.category || t("No category")}
+                    {formatCrmCategory(template.category, language) ||
+                      t("No category")}
                   </TableCell>
                   <TableCell className="whitespace-normal text-sm text-muted-foreground">
                     {formatDateTime(template.updatedAt, language)}
@@ -763,20 +770,13 @@ export function PartnershipCrmTemplateWorkbench({
               <div className="grid gap-3 sm:grid-cols-[minmax(0,0.58fr)_minmax(0,1fr)]">
                 <div className="space-y-1.5">
                   <Label htmlFor="crm-template-category">{t("Category")}</Label>
-                  <Input
+                  <CrmCategorySelect
                     id="crm-template-category"
-                    list="crm-template-categories"
                     value={form.category}
-                    onChange={(event) =>
-                      update({ category: event.target.value })
-                    }
-                    placeholder={t("Category")}
+                    onChange={(category) => update({ category })}
+                    language={language}
+                    mode="form"
                   />
-                  <datalist id="crm-template-categories">
-                    {CRM_CATEGORY_OPTIONS.map((category) => (
-                      <option key={category} value={category} />
-                    ))}
-                  </datalist>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="crm-template-subject">{t("Subject")}</Label>

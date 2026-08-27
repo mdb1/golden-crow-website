@@ -436,7 +436,8 @@ export function bestCrmTemplateForOrganization(
   );
   const visibleTemplates =
     activeTemplates.length > 0 ? activeTemplates : templates;
-  const organizationCategory = normalizeKey(organization.category);
+  const organizationCategory = normalizeCrmCategory(organization.category);
+  const organizationCategoryKey = normalizeKey(organizationCategory);
 
   if (!visibleTemplates.length) {
     return null;
@@ -444,15 +445,17 @@ export function bestCrmTemplateForOrganization(
 
   return (
     visibleTemplates.find(
-      (template) => normalizeKey(template.category) === organizationCategory,
+      (template) =>
+        normalizeCrmCategory(template.category) === organizationCategory,
     ) ??
     visibleTemplates.find((template) => {
-      const templateCategory = normalizeKey(template.category);
+      const templateCategory = normalizeCrmCategory(template.category);
+      const templateCategoryKey = normalizeKey(templateCategory);
       return (
-        organizationCategory &&
-        templateCategory &&
-        (organizationCategory.includes(templateCategory) ||
-          templateCategory.includes(organizationCategory))
+        organizationCategoryKey &&
+        templateCategoryKey &&
+        (organizationCategoryKey.includes(templateCategoryKey) ||
+          templateCategoryKey.includes(organizationCategoryKey))
       );
     }) ??
     visibleTemplates[0]

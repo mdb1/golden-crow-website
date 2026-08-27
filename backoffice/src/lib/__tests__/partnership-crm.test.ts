@@ -1,5 +1,6 @@
 import {
   bestCrmTemplateForOrganization,
+  normalizeCrmCategory,
   parseCrmCsv,
   renderCrmTemplate,
   type PartnershipCrmOrganizationRecord,
@@ -48,6 +49,16 @@ const foundationTemplate: PartnershipCrmTemplateRecord = {
 };
 
 describe("partnership CRM helpers", () => {
+  it("normalizes CRM categories to the fixed organization category list", () => {
+    expect(normalizeCrmCategory("lab")).toBe("Laboratory / Genomics");
+    expect(normalizeCrmCategory("fundacion")).toBe("Foundation");
+    expect(normalizeCrmCategory("Plataforma de pruebas geneticas")).toBe(
+      "Genetic Testing Platform",
+    );
+    expect(normalizeCrmCategory("Unmapped category")).toBe("Other");
+    expect(normalizeCrmCategory("")).toBe("");
+  });
+
   it("parses CRM CSV rows without requiring contact email", () => {
     const parsed = parseCrmCsv(
       [
@@ -101,5 +112,17 @@ describe("partnership CRM helpers", () => {
     expect(rendered.body).toContain("Hola Marcelo");
     expect(rendered.body).toContain("Genome Lab (genomelab.example)");
     expect(rendered.body).not.toContain("{{organization_name}}");
+  });
+
+  it("matches templates to organizations through normalized category aliases", () => {
+    expect(
+      bestCrmTemplateForOrganization(
+        { ...organization, category: "lab" },
+        [
+          foundationTemplate,
+          { ...laboratoryTemplate, category: "laboratorio genomica" },
+        ],
+      )?.id,
+    ).toBe("tpl-lab");
   });
 });

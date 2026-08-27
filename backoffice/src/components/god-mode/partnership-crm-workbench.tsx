@@ -75,6 +75,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  CrmCategorySelect,
+  formatCrmCategory,
+} from "@/components/god-mode/crm-category-select";
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText, type AppLanguage } from "@/lib/language";
 import {
@@ -83,7 +87,6 @@ import {
 } from "@/lib/discover-organization-fields";
 import {
   bestCrmTemplateForOrganization,
-  CRM_CATEGORY_OPTIONS,
   CRM_STATUS_OPTIONS,
   normalizeCrmCategory,
   normalizeCrmCountry,
@@ -115,8 +118,6 @@ const CRM_ORGANIZATION_PAGE_SIZE = 50;
 const CRM_IMPORT_CHUNK_SIZE = 100;
 const CRM_IMPORT_SESSION_STORAGE_KEY =
   "golden-crow:partnership-crm-import-session:v1";
-const CRM_ALL_CATEGORIES_VALUE = "__all_categories__";
-const CRM_NO_CATEGORY_VALUE = "__no_category__";
 const CRM_ALL_COUNTRIES_VALUE = "__all_countries__";
 const CRM_NO_COUNTRY_VALUE = "__no_country__";
 
@@ -656,57 +657,11 @@ function StatusBadge({
   );
 }
 
-function formatCrmCategory(value: string, language: AppLanguage) {
-  const normalized = normalizeCrmCategory(value);
-  return normalized ? appText(language, normalized) : value.trim();
-}
-
 function formatCrmCountry(value: string, language: AppLanguage) {
   const countryCode = normalizeCrmCountry(value);
   return countryCode
     ? (formatDiscoverOrganizationCountry(countryCode, language) ?? countryCode)
     : value.trim();
-}
-
-function CrmCategorySelect({
-  id,
-  value,
-  onChange,
-  language,
-  mode,
-}: {
-  id: string;
-  value: string;
-  onChange: (value: string) => void;
-  language: AppLanguage;
-  mode: "filter" | "form";
-}) {
-  const t = (text: string) => appText(language, text);
-  const emptyValue =
-    mode === "filter" ? CRM_ALL_CATEGORIES_VALUE : CRM_NO_CATEGORY_VALUE;
-
-  return (
-    <Select
-      value={value || emptyValue}
-      onValueChange={(nextValue) =>
-        onChange(nextValue === emptyValue ? "" : nextValue)
-      }
-    >
-      <SelectTrigger id={id} className="w-full">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={emptyValue}>
-          {mode === "filter" ? t("All categories") : t("No category")}
-        </SelectItem>
-        {CRM_CATEGORY_OPTIONS.map((category) => (
-          <SelectItem key={category} value={category}>
-            {t(category)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
 }
 
 function CrmCountrySelect({
