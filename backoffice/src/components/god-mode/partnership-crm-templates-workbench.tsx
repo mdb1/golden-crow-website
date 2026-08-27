@@ -88,6 +88,8 @@ import { sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 
 const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
+const TEMPLATE_IMPORT_CTA_CLASS =
+  "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
 const ORGANIZATION_TEMPLATE_VARIABLES = [
   {
     token: "{{contact_name}}",
@@ -550,7 +552,17 @@ function TemplateImportDialog({
     validRows.length > 0
       ? Math.round((processedCount / validRows.length) * 100)
       : 0;
-  const canImport = validRows.length > 0 && !importing;
+  const canImport = validRows.length > 0 && !importing && !completed;
+
+  function resetImportState() {
+    csvTextRef.current = "";
+    setFileName("");
+    setParsed(null);
+    setImporting(false);
+    setCompleted(false);
+    setProcessedCount(0);
+    setResults([]);
+  }
 
   function parseCsv(
     text: string,
@@ -681,9 +693,88 @@ function TemplateImportDialog({
             value={audience}
             onChange={handleAudienceChange}
             language={language}
-            disabled={importing}
+            disabled={importing || completed}
           />
 
+          {completed ? (
+            <section className="overflow-hidden rounded-[1.35rem] border border-emerald-200 bg-[linear-gradient(155deg,rgba(240,253,244,0.98),rgba(236,253,245,0.92)_52%,rgba(209,250,229,0.92))] text-emerald-950 shadow-[0_22px_70px_rgba(16,185,129,0.20)] dark:border-emerald-300/20 dark:bg-[linear-gradient(155deg,rgba(6,78,59,0.86),rgba(6,95,70,0.54)_55%,rgba(16,185,129,0.18))] dark:text-emerald-50 dark:shadow-none">
+              <div className="p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex gap-4">
+                    <div className="relative mt-1 flex h-12 w-12 shrink-0 items-center justify-center">
+                      <span className="two-pq-success-ring absolute inset-0 rounded-full bg-emerald-400/35" />
+                      <span className="relative flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white shadow-[0_12px_28px_rgba(5,150,105,0.28)]">
+                        <CheckCircle2 className="h-6 w-6" />
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-800/70 dark:text-emerald-100/70">
+                        {t("Import completed")}
+                      </p>
+                      <h3 className="mt-2 font-heading text-2xl font-semibold">
+                        {t("Template import finished")}
+                      </h3>
+                      <p className="mt-2 text-sm leading-6 text-emerald-950/72 dark:text-emerald-50/72">
+                        {t(
+                          "Templates were processed one by one and the plantillas list has been refreshed.",
+                        )}
+                      </p>
+                      {fileName ? (
+                        <p className="mt-2 truncate text-xs text-emerald-950/60 dark:text-emerald-50/60">
+                          {fileName}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <Badge variant="success" className="h-7 px-3 text-sm">
+                    {previewRows.length} {t("rows")}
+                  </Badge>
+                </div>
+
+                <div className="mt-5 h-3 overflow-hidden rounded-full bg-emerald-100/85 dark:bg-emerald-950/45">
+                  <div className="h-full rounded-full bg-emerald-600" />
+                </div>
+
+                <div className="mt-5 grid gap-3 text-sm sm:grid-cols-4">
+                  <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
+                      {t("Created templates")}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {createdCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
+                      {t("Valid")}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {validRows.length}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
+                      {t("Invalid")}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {invalidCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
+                      {t("Failed rows")}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {failedCount}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {!completed ? (
+            <>
           <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(280px,0.7fr)]">
             <div className="grid gap-3">
               <div className="space-y-1.5">
@@ -893,23 +984,56 @@ function TemplateImportDialog({
               {previewRows.length} {t("parsed rows")}.
             </p>
           ) : null}
+            </>
+          ) : null}
         </div>
 
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={importing}
-          >
-            {t("Cancel")}
-          </Button>
-          <Button type="button" onClick={handleImport} disabled={!canImport}>
-            <FileUp className="h-4 w-4" />
-            {importing
-              ? t("Importing...")
-              : `${t("Import")} ${validRows.length} ${t("templates")}`}
-          </Button>
+        <DialogFooter className={completed ? "gap-3" : undefined}>
+          {completed ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={resetImportState}
+                className="h-11"
+              >
+                <FileUp className="h-4 w-4" />
+                {t("Import another CSV")}
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                onClick={() => onOpenChange(false)}
+                className={TEMPLATE_IMPORT_CTA_CLASS}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                {t("Done")}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={importing}
+              >
+                {t("Cancel")}
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                onClick={handleImport}
+                disabled={!canImport}
+                className={TEMPLATE_IMPORT_CTA_CLASS}
+              >
+                <FileUp className="h-4 w-4" />
+                {importing
+                  ? t("Importing...")
+                  : `${t("Import")} ${validRows.length} ${t("templates")}`}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

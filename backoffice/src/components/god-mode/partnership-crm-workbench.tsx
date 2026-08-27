@@ -2081,6 +2081,7 @@ function ImportDialog({
   onInteractiveNext,
   onImportAll,
   onClearSession,
+  onResetSession,
   language,
 }: {
   open: boolean;
@@ -2098,9 +2099,11 @@ function ImportDialog({
   onInteractiveNext: () => void;
   onImportAll: () => void;
   onClearSession: () => void;
+  onResetSession: () => void;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
+  const completed = session?.status === "completed";
   const currentRow =
     session && preview && session.activeRowIndex < preview.rows.length
       ? (preview.rows[session.activeRowIndex] ?? null)
@@ -2140,31 +2143,33 @@ function ImportDialog({
             value={targetKind}
             onChange={onTargetKindChange}
             language={language}
-            disabled={pending}
+            disabled={pending || completed}
           />
 
-          {session ? (
+          {session && !completed ? (
             <ImportProgressPanel session={session} language={language} />
           ) : null}
 
-          <div className="rounded-xl border border-border/80 bg-background/70 p-4">
-            <Label htmlFor="crm-csv-file">{t("CSV file")}</Label>
-            <Input
-              id="crm-csv-file"
-              type="file"
-              accept=".csv,text/csv"
-              onChange={onFileChange}
-              disabled={pending}
-              className="mt-2"
-            />
-            <p className="mt-2 text-xs text-muted-foreground">
-              {targetKind === "professionals"
-                ? "name,category,title,affiliation,website,country,email,linkedin"
-                : "name,category,website,country,contact_name,email,linkedin"}
-            </p>
-          </div>
+          {!completed ? (
+            <div className="rounded-xl border border-border/80 bg-background/70 p-4">
+              <Label htmlFor="crm-csv-file">{t("CSV file")}</Label>
+              <Input
+                id="crm-csv-file"
+                type="file"
+                accept=".csv,text/csv"
+                onChange={onFileChange}
+                disabled={pending}
+                className="mt-2"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                {targetKind === "professionals"
+                  ? "name,category,title,affiliation,website,country,email,linkedin"
+                  : "name,category,website,country,contact_name,email,linkedin"}
+              </p>
+            </div>
+          ) : null}
 
-          {parseErrors.length > 0 ? (
+          {!completed && parseErrors.length > 0 ? (
             <div className="grid gap-2">
               {parseErrors.slice(0, 4).map((error) => (
                 <ErrorBanner key={`${error.row}-${error.message}`}>
@@ -2253,62 +2258,126 @@ function ImportDialog({
             />
           ) : null}
 
-          {session?.status === "completed" ? (
-            <section className="rounded-xl border border-emerald-300/50 bg-emerald-50/80 p-4 text-emerald-950 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em]">
-                    {t("Import completed")}
-                  </p>
-                  <h3 className="mt-1 font-heading text-lg font-semibold">
-                    {session.fileName}
-                  </h3>
+          {completed && session ? (
+            <section className="overflow-hidden rounded-[1.35rem] border border-emerald-200 bg-[linear-gradient(155deg,rgba(240,253,244,0.98),rgba(236,253,245,0.92)_52%,rgba(209,250,229,0.92))] text-emerald-950 shadow-[0_22px_70px_rgba(16,185,129,0.20)] dark:border-emerald-300/20 dark:bg-[linear-gradient(155deg,rgba(6,78,59,0.86),rgba(6,95,70,0.54)_55%,rgba(16,185,129,0.18))] dark:text-emerald-50 dark:shadow-none">
+              <div className="p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex gap-4">
+                    <div className="relative mt-1 flex h-12 w-12 shrink-0 items-center justify-center">
+                      <span className="two-pq-success-ring absolute inset-0 rounded-full bg-emerald-400/35" />
+                      <span className="relative flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white shadow-[0_12px_28px_rgba(5,150,105,0.28)]">
+                        <CheckCircle2 className="h-6 w-6" />
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-800/70 dark:text-emerald-100/70">
+                        {t("Import completed")}
+                      </p>
+                      <h3 className="mt-2 font-heading text-2xl font-semibold">
+                        {t("CRM import finished")}
+                      </h3>
+                      <p className="mt-2 text-sm leading-6 text-emerald-950/72 dark:text-emerald-50/72">
+                        {t(
+                          "The imported rows were committed one by one and the CRM list has been refreshed.",
+                        )}
+                      </p>
+                      <p className="mt-2 truncate text-xs text-emerald-950/60 dark:text-emerald-50/60">
+                        {session.fileName}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant="success" className="h-7 px-3 text-sm">
+                    {session.totalRows} {t("rows")}
+                  </Badge>
                 </div>
-                <Badge variant="success">
-                  {session.totalRows} {t("rows")}
-                </Badge>
-              </div>
-              <div className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
-                <ImportReviewFact
-                  label={t("created")}
-                  value={session.importSummary.created}
-                />
-                <ImportReviewFact
-                  label={t("updated")}
-                  value={session.importSummary.updated}
-                />
-                <ImportReviewFact
-                  label={t("skipped")}
-                  value={session.importSummary.skipped}
-                />
-                <ImportReviewFact
-                  label={t("invalid")}
-                  value={session.importSummary.invalid}
-                />
+
+                <div className="mt-5 h-3 overflow-hidden rounded-full bg-emerald-100/85 dark:bg-emerald-950/45">
+                  <div className="h-full rounded-full bg-emerald-600" />
+                </div>
+
+                <div className="mt-5 grid gap-3 text-sm sm:grid-cols-4">
+                  <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
+                      {t("created")}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {session.importSummary.created}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
+                      {t("updated")}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {session.importSummary.updated}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
+                      {t("skipped")}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {session.importSummary.skipped}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
+                      {t("invalid")}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {session.importSummary.invalid}
+                    </p>
+                  </div>
+                </div>
               </div>
             </section>
           ) : null}
         </div>
 
-        <DialogFooter>
-          {session ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClearSession}
-              disabled={pending}
-            >
-              {t("Discard checkpoint")}
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={pending}
-          >
-            {t("Cancel")}
-          </Button>
+        <DialogFooter className={completed ? "gap-3" : undefined}>
+          {completed ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onResetSession}
+                className="h-11"
+              >
+                <FileUp className="h-4 w-4" />
+                {t("Import another CSV")}
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                onClick={onClose}
+                className={EMAIL_CTA_CLASS}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                {t("Done")}
+              </Button>
+            </>
+          ) : (
+            <>
+              {session ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClearSession}
+                  disabled={pending}
+                >
+                  {t("Discard checkpoint")}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={pending}
+              >
+                {t("Cancel")}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -2701,6 +2770,13 @@ export function PartnershipCrmWorkbench() {
       tone: "success",
       message: t("Import checkpoint discarded."),
     });
+  }
+
+  function resetImportSession() {
+    clearCrmImportSession(targetKind);
+    setImportSession(null);
+    setImportPreview(null);
+    setParseErrors([]);
   }
 
   async function previewCrmImportSession(
@@ -3880,6 +3956,7 @@ export function PartnershipCrmWorkbench() {
         }
         onImportAll={() => void runCrmImportSession(importSession)}
         onClearSession={discardImportCheckpoint}
+        onResetSession={resetImportSession}
         language={language}
       />
 

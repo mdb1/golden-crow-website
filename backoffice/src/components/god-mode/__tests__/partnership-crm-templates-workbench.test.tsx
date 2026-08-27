@@ -186,7 +186,16 @@ describe("PartnershipCrmTemplateBrowser", () => {
       }),
     ]);
     await waitFor(() => {
-      expect(within(dialog).getAllByText("Created").length).toBeGreaterThan(1);
+      expect(within(dialog).getByText("Template import finished")).toBeTruthy();
+    });
+    expect(
+      within(dialog).queryByRole("button", { name: "Import 2 templates" }),
+    ).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Done" })).toBeTruthy();
+
+    await user.click(within(dialog).getByRole("button", { name: "Done" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
     });
   });
 

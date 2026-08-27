@@ -546,8 +546,10 @@ describe("PartnershipCrmWorkbench import flow", () => {
     await user.click(within(dialog).getByRole("button", { name: "Add" }));
 
     await waitFor(() => {
-      expect(screen.getAllByText("Import completed").length).toBeGreaterThan(0);
+      expect(within(dialog).getByText("CRM import finished")).toBeTruthy();
     });
+    expect(within(dialog).queryByLabelText("CSV file")).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Done" })).toBeTruthy();
     expect(
       crmImportSession(),
     ).toEqual(
@@ -557,6 +559,11 @@ describe("PartnershipCrmWorkbench import flow", () => {
         importSummary: expect.objectContaining({ created: 2, skipped: 1 }),
       }),
     );
+
+    await user.click(within(dialog).getByRole("button", { name: "Done" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
   });
 
   it("imports all rows sequentially while accepting every valid row", async () => {
@@ -577,8 +584,10 @@ describe("PartnershipCrmWorkbench import flow", () => {
     await user.click(within(dialog).getByRole("button", { name: "Import all" }));
 
     await waitFor(() => {
-      expect(screen.getAllByText("Import completed").length).toBeGreaterThan(0);
+      expect(within(dialog).getByText("CRM import finished")).toBeTruthy();
     });
+    expect(within(dialog).queryByLabelText("CSV file")).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Done" })).toBeTruthy();
 
     expect(crmPreviewCalls()).toHaveLength(4);
     expect(

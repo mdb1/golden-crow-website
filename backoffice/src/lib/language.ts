@@ -920,6 +920,9 @@ const SPANISH_TEXT: Record<string, string> = {
     "El contenido crudo del CSV no se renderiza. La vista previa de abajo está limitada para proteger la UI.",
   "Showing first": "Mostrando primeras",
   "parsed rows": "filas parseadas",
+  "Template import finished": "Importación de plantillas finalizada",
+  "Templates were processed one by one and the plantillas list has been refreshed.":
+    "Las plantillas se procesaron una por una y la lista de plantillas fue actualizada.",
   "Use sample": "Usar ejemplo",
   "No import rows found.": "No se encontraron filas para importar.",
   "Created templates": "Creadas",
@@ -1193,6 +1196,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Esta fila es inválida y no se puede agregar.",
   "Add imports this row anyway. Skip leaves the existing CRM untouched.":
     "Agregar importa esta fila igual. Omitir deja el CRM existente sin cambios.",
+  "CRM import finished": "Importación del CRM finalizada",
+  "The imported rows were committed one by one and the CRM list has been refreshed.":
+    "Las filas importadas se confirmaron una por una y la lista del CRM fue actualizada.",
+  "Import another CSV": "Importar otro CSV",
   "Previewing...": "Generando vista previa...",
   "Resume preview": "Continuar vista previa",
   "Resume import": "Continuar importación",
