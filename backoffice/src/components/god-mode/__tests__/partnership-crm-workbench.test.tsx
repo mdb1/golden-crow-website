@@ -890,7 +890,16 @@ describe("PartnershipCrmWorkbench import flow", () => {
       "org_genetic_testing_laboratories",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
-      "last_contact_at: Optional. Use a complete ISO datetime with an explicit timezone, for example 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00.",
+      "last_contact_at: Optional. Use a complete ISO datetime with an explicit timezone. Accepted: 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00.",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Example CSV",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "\"org_genetic_testing_laboratories,org_genomics_laboratories\"",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Cells with multiple category or country keys must be quoted",
     );
   });
 
@@ -933,7 +942,16 @@ describe("PartnershipCrmWorkbench import flow", () => {
       "Header row: name,category,title,primary_affiliation,potential_pocket_genes_editor_fit,email_route,linkedin_route,research_basis,website,country,status,email,linkedin,last_contact_at,notes",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
-      "last_contact_at: Optional. Use a complete ISO datetime with an explicit timezone, for example 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00.",
+      "last_contact_at: Optional. Use a complete ISO datetime with an explicit timezone. Accepted: 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00.",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Example CSV",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "\"pro_reproductive_specialists,pro_fertility_specialists\"",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Rejected: 2026-08-25 and 2026-08-25T14:29:00 because they do not include timezone.",
     );
   });
 });

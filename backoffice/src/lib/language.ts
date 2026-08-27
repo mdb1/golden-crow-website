@@ -992,6 +992,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Reglas para importar plantillas del CRM desde CSV.",
   "CSV structure": "Estructura del CSV",
   "Header row": "Fila de encabezados",
+  "Example CSV": "CSV de ejemplo",
+  Example: "Ejemplo",
   "First row must contain supported column headers.":
     "La primera fila debe contener encabezados soportados.",
   "Use comma-separated CSV and quote cells that contain commas, quotes, or line breaks.":
@@ -1005,6 +1007,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Accepted statuses": "Estados aceptados",
   "Accepted categories": "Categorías aceptadas",
   "Accepted countries": "Países aceptados",
+  "Use variables in subject or body as {{variable_name}}.":
+    "Usá variables en el asunto o cuerpo como {{variable_name}}.",
+  "Unknown variables render blank.":
+    "Las variables desconocidas se renderizan en blanco.",
+  "Common import mistakes to avoid": "Errores comunes de importación a evitar",
   "Use canonical org_* keys when possible.":
     "Usá claves canónicas org_* siempre que sea posible.",
   "Use canonical pro_* keys when possible.":
@@ -1030,6 +1037,78 @@ const SPANISH_TEXT: Record<string, string> = {
     "El texto literal \\n se convierte en salto de línea en el cuerpo y las notas de la plantilla.",
   "Use active templates for the CRM send flow; archived templates are kept out of normal sending.":
     "Usá plantillas activas para el flujo de envío del CRM; las archivadas quedan fuera del envío normal.",
+  "Use the exact header row shown here when generating CSVs. Unsupported headers are ignored.":
+    "Usá exactamente la fila de encabezados que se muestra acá al generar CSVs. Los encabezados no soportados se ignoran.",
+  "If a cell contains commas, quotes, or line breaks, wrap the whole cell in double quotes.":
+    "Si una celda contiene comas, comillas o saltos de línea, encerrá toda la celda entre comillas dobles.",
+  "Escape a quote inside a cell by doubling it, for example He said \"\"hello\"\".":
+    "Escapá una comilla dentro de una celda duplicándola, por ejemplo He said \"\"hello\"\".",
+  "Template category accepts one value only. Multiple categories are not saved as a list.":
+    "La categoría de plantilla acepta un solo valor. Múltiples categorías no se guardan como lista.",
+  "Template body and notes can use literal \\n for line breaks. The importer converts literal \\n to real line breaks.":
+    "El cuerpo y las notas de la plantilla pueden usar \\n literal para saltos de línea. El importador convierte \\n literal en saltos reales.",
+  "Unknown template variables render blank, so use only variables listed in this modal.":
+    "Las variables de plantilla desconocidas se renderizan en blanco, así que usá solo las variables listadas en este modal.",
+  "Cells with multiple category or country keys must be quoted, otherwise the commas will shift later columns.":
+    "Las celdas con múltiples claves de categoría o país deben estar entre comillas; si no, las comas desplazan las columnas siguientes.",
+  "Use an explicit timezone for last_contact_at. Date-only values and datetimes without timezone are rejected.":
+    "Usá una zona horaria explícita para last_contact_at. Los valores solo-fecha y las fechas-hora sin zona horaria se rechazan.",
+  "GLOBAL, unknown countries, and unknown categories are ignored instead of being saved as custom free text.":
+    "GLOBAL, países desconocidos y categorías desconocidas se ignoran en vez de guardarse como texto libre personalizado.",
+  "Required. Trimmed before save. Maximum 180 characters. Blank names are invalid rows and must be fixed before import.":
+    "Obligatorio. Se recorta antes de guardar. Máximo 180 caracteres. Los nombres vacíos son filas inválidas y deben corregirse antes de importar.",
+  "Required. Trimmed before save. Maximum 180 characters. Blank professional names are invalid rows and must be fixed before import.":
+    "Obligatorio. Se recorta antes de guardar. Máximo 180 caracteres. Los nombres de profesionales vacíos son filas inválidas y deben corregirse antes de importar.",
+  "Optional. Use one or more canonical org_* category keys, or exact Discover organization labels. Multiple values must be comma-separated inside one quoted CSV cell. Unknown values are ignored; if every value is unknown, category is saved blank.":
+    "Opcional. Usá una o más claves canónicas org_* o etiquetas exactas de organizaciones Discover. Múltiples valores deben ir separados por comas dentro de una única celda CSV entre comillas. Los valores desconocidos se ignoran; si todos son desconocidos, la categoría se guarda vacía.",
+  "Optional. Use one or more canonical pro_* category keys, or exact professional category labels. Multiple values must be comma-separated inside one quoted CSV cell. Unknown values are ignored; if every value is unknown, category is saved blank.":
+    "Opcional. Usá una o más claves canónicas pro_* o etiquetas exactas de categorías profesionales. Múltiples valores deben ir separados por comas dentro de una única celda CSV entre comillas. Los valores desconocidos se ignoran; si todos son desconocidos, la categoría se guarda vacía.",
+  "Optional. Maximum 500 characters. Use a public organization website URL. Values without protocol are accepted and normalized with https:// when possible.":
+    "Opcional. Máximo 500 caracteres. Usá una URL pública del sitio de la organización. Los valores sin protocolo se aceptan y se normalizan con https:// cuando es posible.",
+  "Optional. Maximum 500 characters. Use a public website URL. Values without protocol are accepted and normalized with https:// when possible.":
+    "Opcional. Máximo 500 caracteres. Usá una URL pública. Los valores sin protocolo se aceptan y se normalizan con https:// cuando es posible.",
+  "Optional. Use one or more two-letter country codes from the CRM whitelist. Multiple values must be comma-separated inside one quoted CSV cell. GLOBAL and unknown countries are ignored; if every value is invalid, country is saved blank.":
+    "Opcional. Usá uno o más códigos de país de dos letras de la lista permitida del CRM. Múltiples valores deben ir separados por comas dentro de una única celda CSV entre comillas. GLOBAL y países desconocidos se ignoran; si todos los valores son inválidos, el país se guarda vacío.",
+  "Optional. Use one accepted CRM status key. Blank or unrecognized values default to new. Spanish aliases are normalized by the CSV parser before sending.":
+    "Opcional. Usá una clave de estado CRM aceptada. Los valores vacíos o no reconocidos quedan como new. Los alias en español se normalizan en el parser CSV antes de enviarse.",
+  "Optional. Maximum 140 characters. Store only the primary contact person's name, not the email or notes.":
+    "Opcional. Máximo 140 caracteres. Guardá solo el nombre de la persona de contacto principal, no el email ni notas.",
+  "Optional direct email. Maximum 180 characters. Lowercased before save. Missing email does not block import, but the row cannot send CRM email until an email is added.":
+    "Email directo opcional. Máximo 180 caracteres. Se pasa a minúsculas antes de guardar. La falta de email no bloquea la importación, pero la fila no puede enviar email de CRM hasta que se agregue uno.",
+  "Optional. Maximum 500 characters. Use the public LinkedIn URL for the primary contact or organization. Values without protocol are accepted and normalized with https:// when possible.":
+    "Opcional. Máximo 500 caracteres. Usá la URL pública de LinkedIn del contacto principal o la organización. Los valores sin protocolo se aceptan y se normalizan con https:// cuando es posible.",
+  "Optional. Maximum 500 characters. Use the public LinkedIn profile URL for this professional. Values without protocol are accepted and normalized with https:// when possible.":
+    "Opcional. Máximo 500 caracteres. Usá la URL pública del perfil de LinkedIn de este profesional. Los valores sin protocolo se aceptan y se normalizan con https:// cuando es posible.",
+  "Optional. Use a complete ISO datetime with an explicit timezone. Accepted: 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00. Rejected: 2026-08-25 and 2026-08-25T14:29:00 because they do not include timezone.":
+    "Opcional. Usá una fecha-hora ISO completa con zona horaria explícita. Aceptado: 2026-08-25T17:29:00.000Z o 2026-08-25T14:29:00-03:00. Rechazado: 2026-08-25 y 2026-08-25T14:29:00 porque no incluyen zona horaria.",
+  "Optional plain operational notes. Maximum 2000 characters. Do not paste long scraped pages or JSON blobs.":
+    "Notas operativas opcionales. Máximo 2000 caracteres. No pegues páginas scrapeadas largas ni blobs JSON.",
+  "Optional. Maximum 180 characters. Store only the professional role, title, specialty, or credential.":
+    "Opcional. Máximo 180 caracteres. Guardá solo el rol, cargo, especialidad o credencial profesional.",
+  "Optional. Maximum 180 characters. Store the main institution, company, lab, hospital, or professional affiliation as a plain name.":
+    "Opcional. Máximo 180 caracteres. Guardá la institución, empresa, laboratorio, hospital o afiliación profesional principal como nombre plano.",
+  "Optional. Maximum 2000 characters. Store why this professional could fit Pocket Genes editor work, such as clinical genetics, genetic testing, result interpretation, or patient education.":
+    "Opcional. Máximo 2000 caracteres. Guardá por qué este profesional podría encajar como editor de Pocket Genes, por ejemplo genética clínica, pruebas genéticas, interpretación de resultados o educación de pacientes.",
+  "Optional. Maximum 2000 characters. Store how the recipient email was found and what context should be verified before outreach. This is not the direct email field.":
+    "Opcional. Máximo 2000 caracteres. Guardá cómo se encontró el email destinatario y qué contexto debe verificarse antes del outreach. Este no es el campo de email directo.",
+  "Optional. Maximum 2000 characters. Store the LinkedIn route, such as the professional profile or official affiliated organization page. This is not the direct LinkedIn URL field.":
+    "Opcional. Máximo 2000 caracteres. Guardá la ruta de LinkedIn, como el perfil profesional o la página oficial de la organización afiliada. Este no es el campo de URL directa de LinkedIn.",
+  "Optional. Maximum 2000 characters. Store the source basis used to validate the lead, such as datasets, affiliation websites, LinkedIn records, or other verified references.":
+    "Opcional. Máximo 2000 caracteres. Guardá la base de fuentes usada para validar el lead, como datasets, sitios de afiliación, registros de LinkedIn u otras referencias verificadas.",
+  "Required. Trimmed before save. Maximum 180 characters. This is the internal template name shown in the template list.":
+    "Obligatorio. Se recorta antes de guardar. Máximo 180 caracteres. Es el nombre interno que se muestra en la lista de plantillas.",
+  "Required. Trimmed before save. Maximum 180 characters. Template variables such as {{organization_name}} or {{first_name}} are allowed. Unknown variables render blank.":
+    "Obligatorio. Se recorta antes de guardar. Máximo 180 caracteres. Se permiten variables como {{organization_name}} o {{first_name}}. Las variables desconocidas se renderizan en blanco.",
+  "Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Template variables are allowed and unknown variables render blank.":
+    "Obligatorio. Máximo 12000 caracteres. Usá celdas multilinea entre comillas o \\n literal para saltos de línea. Se permiten variables y las variables desconocidas se renderizan en blanco.",
+  "Optional. Use organizations or professionals. Aliases professional, individual, individuals, personas, and profesionales normalize to professionals. Blank uses the selected import audience.":
+    "Opcional. Usá organizations o professionals. Los alias professional, individual, individuals, personas y profesionales se normalizan a professionals. Si queda vacío, se usa la audiencia seleccionada en la importación.",
+  "Optional single value. Use one canonical category key for the selected audience, or an exact category label. Multiple categories are not supported for templates; if several are provided, only the first recognized category is saved. Unknown values become blank.":
+    "Valor único opcional. Usá una clave canónica de categoría para la audiencia seleccionada o una etiqueta exacta. Las plantillas no soportan múltiples categorías; si se envían varias, solo se guarda la primera reconocida. Los valores desconocidos quedan en blanco.",
+  "Optional. Use one accepted template status key. Blank or unrecognized values default to active. Active, inactive, and archived aliases are normalized.":
+    "Opcional. Usá una clave de estado de plantilla aceptada. Los valores vacíos o no reconocidos quedan como active. Se normalizan alias de active, inactive y archived.",
+  "Optional internal notes. Maximum 2000 characters. Literal \\n is converted to a line break.":
+    "Notas internas opcionales. Máximo 2000 caracteres. El texto literal \\n se convierte en salto de línea.",
   "Required, trimmed, maximum 180 characters. Blank names are invalid rows.":
     "Obligatorio, recortado, máximo 180 caracteres. Los nombres vacíos son filas inválidas.",
   "Required, trimmed, maximum 180 characters. Blank professional names are invalid rows.":

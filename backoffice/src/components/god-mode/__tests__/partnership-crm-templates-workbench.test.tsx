@@ -270,7 +270,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(
       within(dialog).getByText("org_genetic_testing_laboratories"),
     ).toBeTruthy();
-    expect(within(dialog).getByText("active")).toBeTruthy();
+    expect(within(dialog).getAllByText("active").length).toBeGreaterThan(0);
     expect(
       within(dialog).getByText(
         "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.",
@@ -288,6 +288,18 @@ describe("PartnershipCrmTemplateBrowser", () => {
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Rules for CRM template CSV imports.",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Example CSV",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Template variables",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Template category accepts one value only. Multiple categories are not saved as a list.",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Template body and notes can use literal \\n for line breaks.",
     );
   });
 });
