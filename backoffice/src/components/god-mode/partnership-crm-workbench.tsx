@@ -103,6 +103,7 @@ const ACTIVITIES_QUERY_KEY = "god-mode-partnership-crm-activities";
 const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
 const EMAIL_CTA_CLASS =
   "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
+const CRM_ORGANIZATION_PAGE_SIZE = 50;
 const CRM_IMPORT_CHUNK_SIZE = 100;
 const CRM_IMPORT_SESSION_STORAGE_KEY =
   "golden-crow:partnership-crm-import-session:v1";
@@ -436,7 +437,9 @@ function clearCrmImportSession() {
 }
 
 function buildOrganizationListPath(filters: ListFilters, cursor?: string) {
-  const params = new URLSearchParams({ limit: "20" });
+  const params = new URLSearchParams({
+    limit: String(CRM_ORGANIZATION_PAGE_SIZE),
+  });
   if (filters.query.trim()) {
     params.set("query", filters.query.trim());
   }

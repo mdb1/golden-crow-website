@@ -16,10 +16,10 @@ const adminDb = adminDbFor("mydnamap");
 const ORGANIZATIONS_COLLECTION = "partnership_crm_organizations";
 const TEMPLATES_COLLECTION = "plantillas";
 const ACTIVITIES_COLLECTION = "activities";
-const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
-const FILTERED_BATCH_LIMIT = 80;
-const MAX_FILTERED_SCAN = 240;
+const DEFAULT_PAGE_SIZE = MAX_PAGE_SIZE;
+const FILTERED_BATCH_LIMIT = MAX_PAGE_SIZE;
+const MAX_FILTERED_SCAN = MAX_PAGE_SIZE * 3;
 
 export const PARTNERSHIP_CRM_STATUSES = [
   "new",

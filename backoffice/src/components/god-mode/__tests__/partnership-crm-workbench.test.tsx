@@ -113,6 +113,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(2);
     });
 
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/partnership-crm/organizations?limit=50",
+    );
+
     const primaryContactCard =
       screen.getByText("Primary contact").parentElement;
     const mailCard = screen.getByText("Mail").parentElement;
