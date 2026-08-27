@@ -18,6 +18,7 @@ import { clientBookingsRoutes } from "./client-bookings.routes.js";
 import { informedConsentRoutes } from "./informed-consents.routes.js";
 import { reportingRoutes } from "./reporting.routes.js";
 import { reportingIntegrationClientRoutes } from "./reporting-tokens.routes.js";
+import { partnershipCrmRoutes } from "./partnership-crm.routes.js";
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(healthRoutes);
@@ -38,5 +39,6 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(fileStorageRoutes);
   await fastify.register(discoverRoutes);
   await fastify.register(clientBookingsRoutes);
+  await fastify.register(partnershipCrmRoutes);
   await fastify.register(gymRoutes, { prefix: "/gym" });
 }

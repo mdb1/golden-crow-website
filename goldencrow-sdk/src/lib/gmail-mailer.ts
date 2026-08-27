@@ -5,6 +5,15 @@ type GmailMessageInput = {
   html: string;
 };
 
+type GmailSendOptions = {
+  from?: string;
+  user?: string;
+  clientId?: string;
+  clientSecret?: string;
+  refreshToken?: string;
+  boundaryPrefix?: string;
+};
+
 type TokenResponse = {
   access_token?: string;
   error?: string;
@@ -17,6 +26,14 @@ function requiredEnv(name: string) {
     throw new Error(`${name} is not configured`);
   }
   return value;
+}
+
+function requiredConfigured(value: string | undefined, name: string) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    throw new Error(`${name} is not configured`);
+  }
+  return normalized;
 }
 
 function sanitizeHeader(value: string) {
@@ -38,10 +55,14 @@ function base64Url(value: string) {
     .replace(/=+$/g, "");
 }
 
-function buildRawMessage(input: GmailMessageInput) {
-  const boundary = `gc-consent-${Date.now().toString(36)}`;
+function buildRawMessage(
+  input: GmailMessageInput,
+  options: GmailSendOptions = {},
+) {
+  const boundaryPrefix = options.boundaryPrefix ?? "gc-mail";
+  const boundary = `${boundaryPrefix}-${Date.now().toString(36)}`;
   const headers = [
-    `From: ${sanitizeHeader(requiredEnv("MAIL_FROM"))}`,
+    `From: ${sanitizeHeader(options.from ?? requiredEnv("MAIL_FROM"))}`,
     `To: ${sanitizeHeader(input.to)}`,
     `Subject: ${encodeHeader(input.subject)}`,
     "MIME-Version: 1.0",
@@ -65,14 +86,23 @@ function buildRawMessage(input: GmailMessageInput) {
   return base64Url([...headers, "", ...body].join("\r\n"));
 }
 
-async function refreshAccessToken() {
+async function refreshAccessToken(options: GmailSendOptions = {}) {
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: requiredEnv("GMAIL_CLIENT_ID"),
-      client_secret: requiredEnv("GMAIL_CLIENT_SECRET"),
-      refresh_token: requiredEnv("GMAIL_REFRESH_TOKEN"),
+      client_id: requiredConfigured(
+        options.clientId ?? process.env.GMAIL_CLIENT_ID,
+        "GMAIL_CLIENT_ID",
+      ),
+      client_secret: requiredConfigured(
+        options.clientSecret ?? process.env.GMAIL_CLIENT_SECRET,
+        "GMAIL_CLIENT_SECRET",
+      ),
+      refresh_token: requiredConfigured(
+        options.refreshToken ?? process.env.GMAIL_REFRESH_TOKEN,
+        "GMAIL_REFRESH_TOKEN",
+      ),
       grant_type: "refresh_token",
     }),
   });
@@ -87,9 +117,14 @@ async function refreshAccessToken() {
   return payload.access_token;
 }
 
-export async function sendGmailMessage(input: GmailMessageInput) {
-  const accessToken = await refreshAccessToken();
-  const user = encodeURIComponent(requiredEnv("GMAIL_USER"));
+export async function sendGmailMessage(
+  input: GmailMessageInput,
+  options: GmailSendOptions = {},
+) {
+  const accessToken = await refreshAccessToken(options);
+  const user = encodeURIComponent(
+    requiredConfigured(options.user ?? process.env.GMAIL_USER, "GMAIL_USER"),
+  );
   const response = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/${user}/messages/send`,
     {
@@ -98,7 +133,7 @@ export async function sendGmailMessage(input: GmailMessageInput) {
         authorization: `Bearer ${accessToken}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({ raw: buildRawMessage(input) }),
+      body: JSON.stringify({ raw: buildRawMessage(input, options) }),
     },
   );
   if (!response.ok) {
