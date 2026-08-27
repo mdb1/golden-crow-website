@@ -936,6 +936,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Missing Email": "Sin email",
   "Primary contact": "Contacto principal",
   "Last Contact": "Último contacto",
+  Mail: "Mail",
   Website: "Sitio web",
   LinkedIn: "LinkedIn",
   "No owner recorded": "Sin responsable registrado",

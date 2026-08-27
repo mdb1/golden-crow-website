@@ -657,7 +657,13 @@ function OrganizationFacts({
         <p className="mt-2 font-medium text-foreground">
           {organization.contactName || "—"}
         </p>
-        <p className="mt-1 break-all text-sm text-muted-foreground">
+      </div>
+      <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <Mail className="h-3.5 w-3.5" />
+          {t("Mail")}
+        </div>
+        <p className="mt-2 break-all font-medium text-foreground">
           {organization.contactEmail || t("No email")}
         </p>
       </div>
@@ -668,9 +674,6 @@ function OrganizationFacts({
         </div>
         <p className="mt-2 font-medium text-foreground">
           {formatDate(organization.lastContactAt, language)}
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {organization.updatedByEmail || t("No owner recorded")}
         </p>
       </div>
       <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">

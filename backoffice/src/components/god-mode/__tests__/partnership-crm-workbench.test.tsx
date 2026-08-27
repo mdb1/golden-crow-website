@@ -32,9 +32,10 @@ const organization: PartnershipCrmOrganizationRecord = {
   contactName: "Ada",
   contactEmail: "ada@example.org",
   contactLinkedIn: "",
-  lastContactAt: null,
+  lastContactAt: "2026-08-01T12:00:00.000Z",
   notes: "Temporary CRM row.",
   normalizedName: "delete me genomics",
+  updatedByEmail: "owner@example.org",
 };
 
 function renderWorkbench() {
@@ -103,6 +104,35 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       "/admin/partnership-crm/organizations/org-1",
       { method: "DELETE" },
     );
+  });
+
+  it("keeps contact name, email, and last-contact metadata in separate fact cards", async () => {
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(2);
+    });
+
+    const primaryContactCard =
+      screen.getByText("Primary contact").parentElement;
+    const mailCard = screen.getByText("Mail").parentElement;
+    const lastContactCard = screen
+      .getAllByText("Last Contact")
+      .find((element) => element.tagName !== "TH")?.parentElement;
+
+    expect(primaryContactCard).toBeTruthy();
+    expect(mailCard).toBeTruthy();
+    expect(lastContactCard).toBeTruthy();
+    expect(
+      within(primaryContactCard as HTMLElement).getByText("Ada"),
+    ).toBeTruthy();
+    expect(
+      within(primaryContactCard as HTMLElement).queryByText("ada@example.org"),
+    ).toBeNull();
+    expect(
+      within(mailCard as HTMLElement).getByText("ada@example.org"),
+    ).toBeTruthy();
+    expect(screen.queryByText("owner@example.org")).toBeNull();
   });
 });
 
