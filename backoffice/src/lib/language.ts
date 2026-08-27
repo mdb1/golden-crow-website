@@ -1296,7 +1296,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "committing the row": "la confirmación de la fila",
   "Rows before this checkpoint were kept. Fix the CSV row shown in the log and resume from the saved checkpoint.":
     "Las filas anteriores a este checkpoint se conservaron. Corregí la fila del CSV que figura en el log y retomá desde el checkpoint guardado.",
-  "Open import": "Abrir importación",
+  "Continue ongoing import": "Continuar importación en proceso",
   "Discard checkpoint": "Descartar checkpoint",
   "Unable to save import checkpoint.":
     "No se pudo guardar el checkpoint de importación.",
