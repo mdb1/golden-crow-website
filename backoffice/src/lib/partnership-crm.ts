@@ -1,4 +1,8 @@
 import { normalizeDiscoverOrganizationCountryCode } from "./discover-organization-fields";
+import {
+  DISCOVER_ORGANIZATION_CATEGORY_OPTIONS,
+  type DiscoverOrganizationCategoryKey,
+} from "./discover-publisher-categories";
 
 export const PARTNERSHIP_CRM_FROM_EMAIL = "federico@goldencrowvs.com";
 
@@ -13,18 +17,9 @@ export const CRM_STATUS_OPTIONS = [
   { value: "not_a_fit", label: "CRM Not a Fit" },
 ] as const;
 
-export const CRM_CATEGORY_OPTIONS = [
-  "Laboratory / Genomics",
-  "Fertility Clinic",
-  "Foundation",
-  "Education",
-  "Umbrella Organization",
-  "Hospital",
-  "Research Center",
-  "Scientific Society",
-  "Genetic Testing Platform",
-  "Other",
-] as const;
+export const CRM_CATEGORY_OPTIONS = DISCOVER_ORGANIZATION_CATEGORY_OPTIONS;
+export const DEFAULT_CRM_CATEGORY =
+  "org_genetic_testing_laboratories" satisfies DiscoverOrganizationCategoryKey;
 
 export const CRM_TEMPLATE_STATUS_OPTIONS = [
   { value: "active", label: "Template Active" },
@@ -35,6 +30,7 @@ export const CRM_TEMPLATE_STATUS_OPTIONS = [
 export type PartnershipCrmStatus = (typeof CRM_STATUS_OPTIONS)[number]["value"];
 export type PartnershipCrmTemplateStatus =
   (typeof CRM_TEMPLATE_STATUS_OPTIONS)[number]["value"];
+export type PartnershipCrmCategory = DiscoverOrganizationCategoryKey;
 export type CrmDuplicateAction = "skip" | "update" | "import";
 
 export interface PartnershipCrmOrganizationRecord {
@@ -204,32 +200,31 @@ const STATUS_ALIASES: Record<string, PartnershipCrmStatus> = {
   no_encaja: "not_a_fit",
 };
 
-const CATEGORY_ALIASES: Record<string, (typeof CRM_CATEGORY_OPTIONS)[number]> =
-  {
-    laboratory: "Laboratory / Genomics",
-    lab: "Laboratory / Genomics",
-    genomics: "Laboratory / Genomics",
-    laboratorio_genomica: "Laboratory / Genomics",
-    laboratory_genomics: "Laboratory / Genomics",
-    fertility: "Fertility Clinic",
-    fertility_clinic: "Fertility Clinic",
-    clinica_de_fertilidad: "Fertility Clinic",
-    foundation: "Foundation",
-    fundacion: "Foundation",
-    education: "Education",
-    educacion: "Education",
-    umbrella_organization: "Umbrella Organization",
-    organizacion_paraguas: "Umbrella Organization",
-    hospital: "Hospital",
-    research_center: "Research Center",
-    centro_de_investigacion: "Research Center",
-    scientific_society: "Scientific Society",
-    sociedad_cientifica: "Scientific Society",
-    genetic_testing_platform: "Genetic Testing Platform",
-    plataforma_de_pruebas_geneticas: "Genetic Testing Platform",
-    other: "Other",
-    otro: "Other",
-  };
+const CATEGORY_ALIASES: Record<string, PartnershipCrmCategory | ""> = {
+  laboratory: "org_genetic_testing_laboratories",
+  lab: "org_genetic_testing_laboratories",
+  genomics: "org_genomics_laboratories",
+  laboratorio_genomica: "org_genomics_laboratories",
+  laboratory_genomics: "org_genomics_laboratories",
+  fertility: "org_fertility_clinics",
+  fertility_clinic: "org_fertility_clinics",
+  clinica_de_fertilidad: "org_fertility_clinics",
+  foundation: "org_rare_disease_foundations",
+  fundacion: "org_rare_disease_foundations",
+  education: "org_genetics_education_providers",
+  educacion: "org_genetics_education_providers",
+  umbrella_organization: "org_rare_disease_networks",
+  organizacion_paraguas: "org_rare_disease_networks",
+  hospital: "org_teaching_hospitals",
+  research_center: "org_genomics_research_institutes",
+  centro_de_investigacion: "org_genomics_research_institutes",
+  scientific_society: "org_scientific_societies",
+  sociedad_cientifica: "org_scientific_societies",
+  genetic_testing_platform: "org_genetic_testing_platforms",
+  plataforma_de_pruebas_geneticas: "org_genetic_testing_platforms",
+  other: "",
+  otro: "",
+};
 
 const TEMPLATE_STATUS_ALIASES: Record<string, PartnershipCrmTemplateStatus> = {
   active: "active",
@@ -295,19 +290,34 @@ function normalizeTemplateStatus(value: string): PartnershipCrmTemplateStatus {
   return TEMPLATE_STATUS_ALIASES[key] ?? "active";
 }
 
-export function normalizeCrmCategory(value: string) {
+export function normalizeCrmCategory(value: string): string {
   const raw = value.trim();
   if (!raw) {
     return "";
   }
 
   const normalized = normalizeKey(raw);
+  const option = CRM_CATEGORY_OPTIONS.find(
+    (category) =>
+      normalizeKey(category.value) === normalized ||
+      normalizeKey(category.label) === normalized,
+  );
+  if (option) {
+    return option.value;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(CATEGORY_ALIASES, normalized)) {
+    return CATEGORY_ALIASES[normalized] ?? "";
+  }
+
+  return "";
+}
+
+export function crmCategoryLabel(value: string) {
+  const normalized = normalizeCrmCategory(value);
   return (
-    CRM_CATEGORY_OPTIONS.find(
-      (category) => normalizeKey(category) === normalized,
-    ) ??
-    CATEGORY_ALIASES[normalized] ??
-    "Other"
+    CRM_CATEGORY_OPTIONS.find((category) => category.value === normalized)
+      ?.label ?? value.trim()
   );
 }
 

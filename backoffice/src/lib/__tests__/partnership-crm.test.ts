@@ -1,5 +1,6 @@
 import {
   bestCrmTemplateForOrganization,
+  CRM_CATEGORY_OPTIONS,
   normalizeCrmCategory,
   parseCrmCsv,
   parseCrmTemplateCsv,
@@ -7,6 +8,7 @@ import {
   type PartnershipCrmOrganizationRecord,
   type PartnershipCrmTemplateRecord,
 } from "@/lib/partnership-crm";
+import { DISCOVER_ORGANIZATION_CATEGORY_OPTIONS } from "@/lib/discover-publisher-categories";
 
 const organization: PartnershipCrmOrganizationRecord = {
   id: "crm-1",
@@ -50,13 +52,25 @@ const foundationTemplate: PartnershipCrmTemplateRecord = {
 };
 
 describe("partnership CRM helpers", () => {
+  it("uses the Discover organization category catalog as its CRM whitelist", () => {
+    expect(CRM_CATEGORY_OPTIONS).toBe(DISCOVER_ORGANIZATION_CATEGORY_OPTIONS);
+    expect(CRM_CATEGORY_OPTIONS).toHaveLength(60);
+  });
+
   it("normalizes CRM categories to the fixed organization category list", () => {
-    expect(normalizeCrmCategory("lab")).toBe("Laboratory / Genomics");
-    expect(normalizeCrmCategory("fundacion")).toBe("Foundation");
-    expect(normalizeCrmCategory("Plataforma de pruebas geneticas")).toBe(
-      "Genetic Testing Platform",
+    expect(normalizeCrmCategory("lab")).toBe(
+      "org_genetic_testing_laboratories",
     );
-    expect(normalizeCrmCategory("Unmapped category")).toBe("Other");
+    expect(normalizeCrmCategory("Genomics Laboratory")).toBe(
+      "org_genomics_laboratories",
+    );
+    expect(normalizeCrmCategory("fundacion")).toBe(
+      "org_rare_disease_foundations",
+    );
+    expect(normalizeCrmCategory("Plataforma de pruebas geneticas")).toBe(
+      "org_genetic_testing_platforms",
+    );
+    expect(normalizeCrmCategory("Unmapped category")).toBe("");
     expect(normalizeCrmCategory("")).toBe("");
   });
 
@@ -73,14 +87,14 @@ describe("partnership CRM helpers", () => {
     expect(parsed.rows).toEqual([
       expect.objectContaining({
         name: "Genome Lab",
-        category: "Genetic Testing Platform",
+        category: "org_genetic_testing_platforms",
         country: "AR",
         contactEmail: "marcelo@genomelab.example",
         status: "contacted",
       }),
       expect.objectContaining({
         name: "Angelman Argentina",
-        category: "Foundation",
+        category: "org_rare_disease_foundations",
         country: "AR",
         contactEmail: "",
         status: "new",
@@ -112,7 +126,7 @@ describe("partnership CRM helpers", () => {
     expect(parsed.rows).toEqual([
       expect.objectContaining({
         name: "Lab intro",
-        category: "Laboratory / Genomics",
+        category: "org_genetic_testing_laboratories",
         subject: "Pocket Genes + {{organization_name}}",
         body: "Hola {{contact_name}}\nLinea 2",
         status: "active",
@@ -120,7 +134,7 @@ describe("partnership CRM helpers", () => {
       }),
       expect.objectContaining({
         name: "Foundation intro",
-        category: "Foundation",
+        category: "org_rare_disease_foundations",
         status: "archived",
       }),
     ]);
@@ -157,7 +171,7 @@ describe("partnership CRM helpers", () => {
   it("matches templates to organizations through normalized category aliases", () => {
     expect(
       bestCrmTemplateForOrganization(
-        { ...organization, category: "lab" },
+        { ...organization, category: "Laboratory / Genomics" },
         [
           foundationTemplate,
           { ...laboratoryTemplate, category: "laboratorio genomica" },

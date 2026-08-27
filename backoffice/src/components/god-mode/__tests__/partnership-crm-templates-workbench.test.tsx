@@ -82,9 +82,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
       "/admin/partnership-crm/templates?limit=20",
     );
     expect(screen.getByText("All categories")).toBeTruthy();
-    expect(screen.getAllByText("Laboratory / Genomics").length).toBeGreaterThan(
-      0,
-    );
+    expect(screen.getByText("Genetic Testing Laboratory")).toBeTruthy();
     expect(screen.queryByPlaceholderText("Category")).toBeNull();
   });
 
@@ -167,7 +165,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(postBodies).toEqual([
       expect.objectContaining({
         name: "Lab intro",
-        category: "Laboratory / Genomics",
+        category: "org_genetic_testing_laboratories",
         subject: "Pocket Genes + {{organization_name}}",
         body: "Hola {{contact_name}}\nMensaje",
         status: "active",
@@ -175,7 +173,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
       }),
       expect.objectContaining({
         name: "Foundation intro",
-        category: "Foundation",
+        category: "org_rare_disease_foundations",
         status: "inactive",
         notes: "Second",
       }),
@@ -196,14 +194,14 @@ describe("PartnershipCrmTemplateWorkbench", () => {
   it("saves new templates with a canonical category from the picker", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockResolvedValue({
-      template: { ...template, category: "Laboratory / Genomics" },
+      template: { ...template, category: "org_genetic_testing_laboratories" },
     });
 
     renderWithProviders(<PartnershipCrmTemplateWorkbench mode="create" />);
 
-    expect(screen.getAllByText("Laboratory / Genomics").length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen.getAllByText("Genetic Testing Laboratory").length,
+    ).toBeGreaterThan(0);
     expect(screen.queryByPlaceholderText("Category")).toBeNull();
 
     await user.type(screen.getByLabelText("Template name"), "Lab outreach");
@@ -225,7 +223,9 @@ describe("PartnershipCrmTemplateWorkbench", () => {
       .mocked(sdkFetch)
       .mock.calls.find(([path]) => path === "/admin/partnership-crm/templates")!;
     expect(JSON.parse(String(init?.body))).toEqual(
-      expect.objectContaining({ category: "Laboratory / Genomics" }),
+      expect.objectContaining({
+        category: "org_genetic_testing_laboratories",
+      }),
     );
   });
 });

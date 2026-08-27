@@ -9,6 +9,10 @@ import {
   PARTNERSHIP_CRM_FROM_EMAIL,
   sendPartnershipCrmEmail,
 } from "../lib/partnership-crm-email.js";
+import {
+  DISCOVER_ORGANIZATION_CATEGORY_OPTIONS,
+  type DiscoverOrganizationCategoryKey,
+} from "../lib/discover-publisher-categories.js";
 import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 
@@ -46,18 +50,8 @@ export const PARTNERSHIP_CRM_TEMPLATE_STATUSES = [
   "inactive",
   "archived",
 ] as const;
-const PARTNERSHIP_CRM_CATEGORIES = [
-  "Laboratory / Genomics",
-  "Fertility Clinic",
-  "Foundation",
-  "Education",
-  "Umbrella Organization",
-  "Hospital",
-  "Research Center",
-  "Scientific Society",
-  "Genetic Testing Platform",
-  "Other",
-] as const;
+const PARTNERSHIP_CRM_CATEGORY_OPTIONS =
+  DISCOVER_ORGANIZATION_CATEGORY_OPTIONS;
 
 export type PartnershipCrmStatus = (typeof PARTNERSHIP_CRM_STATUSES)[number];
 export type PartnershipCrmActivityType =
@@ -277,33 +271,30 @@ function normalizeEmail(value: unknown) {
   return cleanString(value).toLowerCase();
 }
 
-const CATEGORY_ALIASES: Record<
-  string,
-  (typeof PARTNERSHIP_CRM_CATEGORIES)[number]
-> = {
-  laboratory: "Laboratory / Genomics",
-  lab: "Laboratory / Genomics",
-  genomics: "Laboratory / Genomics",
-  laboratorio_genomica: "Laboratory / Genomics",
-  laboratory_genomics: "Laboratory / Genomics",
-  fertility: "Fertility Clinic",
-  fertility_clinic: "Fertility Clinic",
-  clinica_de_fertilidad: "Fertility Clinic",
-  foundation: "Foundation",
-  fundacion: "Foundation",
-  education: "Education",
-  educacion: "Education",
-  umbrella_organization: "Umbrella Organization",
-  organizacion_paraguas: "Umbrella Organization",
-  hospital: "Hospital",
-  research_center: "Research Center",
-  centro_de_investigacion: "Research Center",
-  scientific_society: "Scientific Society",
-  sociedad_cientifica: "Scientific Society",
-  genetic_testing_platform: "Genetic Testing Platform",
-  plataforma_de_pruebas_geneticas: "Genetic Testing Platform",
-  other: "Other",
-  otro: "Other",
+const CATEGORY_ALIASES: Record<string, DiscoverOrganizationCategoryKey | ""> = {
+  laboratory: "org_genetic_testing_laboratories",
+  lab: "org_genetic_testing_laboratories",
+  genomics: "org_genomics_laboratories",
+  laboratorio_genomica: "org_genomics_laboratories",
+  laboratory_genomics: "org_genomics_laboratories",
+  fertility: "org_fertility_clinics",
+  fertility_clinic: "org_fertility_clinics",
+  clinica_de_fertilidad: "org_fertility_clinics",
+  foundation: "org_rare_disease_foundations",
+  fundacion: "org_rare_disease_foundations",
+  education: "org_genetics_education_providers",
+  educacion: "org_genetics_education_providers",
+  umbrella_organization: "org_rare_disease_networks",
+  organizacion_paraguas: "org_rare_disease_networks",
+  hospital: "org_teaching_hospitals",
+  research_center: "org_genomics_research_institutes",
+  centro_de_investigacion: "org_genomics_research_institutes",
+  scientific_society: "org_scientific_societies",
+  sociedad_cientifica: "org_scientific_societies",
+  genetic_testing_platform: "org_genetic_testing_platforms",
+  plataforma_de_pruebas_geneticas: "org_genetic_testing_platforms",
+  other: "",
+  otro: "",
 };
 
 const COUNTRY_ALIASES: Record<string, string> = {
@@ -329,20 +320,27 @@ const COUNTRY_ALIASES: Record<string, string> = {
   gbr: "GB",
 };
 
-function normalizeCrmCategory(value: unknown) {
+function normalizeCrmCategory(value: unknown): string {
   const raw = cleanString(value);
   if (!raw) {
     return "";
   }
 
   const key = normalizeKey(raw);
-  return (
-    PARTNERSHIP_CRM_CATEGORIES.find(
-      (category) => normalizeKey(category) === key,
-    ) ??
-    CATEGORY_ALIASES[key] ??
-    "Other"
+  const option = PARTNERSHIP_CRM_CATEGORY_OPTIONS.find(
+    (category) =>
+      normalizeKey(category.value) === key ||
+      normalizeKey(category.label) === key,
   );
+  if (option) {
+    return option.value;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(CATEGORY_ALIASES, key)) {
+    return CATEGORY_ALIASES[key] ?? "";
+  }
+
+  return "";
 }
 
 function normalizeCrmCountry(value: unknown) {
@@ -490,7 +488,7 @@ function toOrganizationRecord(
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     name,
-    category: cleanString(data.category),
+    category: normalizeCrmCategory(data.category),
     website,
     websiteDomain: cleanString(data.websiteDomain) || websiteDomain(website),
     country: cleanString(data.country),

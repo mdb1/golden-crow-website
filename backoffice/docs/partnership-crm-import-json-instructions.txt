@@ -26,8 +26,10 @@ can technically parse". Import builders must produce normalized category and
 country values before sending the request.
 
 Source of truth:
-- Categories come from CRM_CATEGORY_OPTIONS in backoffice/src/lib/partnership-crm.ts
-  and the mirrored SDK category list.
+- Categories come from DISCOVER_ORGANIZATION_CATEGORY_OPTIONS in
+  backoffice/src/lib/discover-publisher-categories.ts, exposed to CRM through
+  CRM_CATEGORY_OPTIONS in backoffice/src/lib/partnership-crm.ts, and mirrored in
+  goldencrow-sdk/src/lib/discover-publisher-categories.ts.
 - Countries come from DISCOVER_ORGANIZATION_COUNTRY_CODES in
   backoffice/src/lib/discover-organization-fields.ts.
 - The CRM country picker deliberately excludes GLOBAL even though Discover
@@ -47,7 +49,7 @@ Example:
     {
       "rowId": "crm-2026-08-27-0001",
       "name": "Genome Lab",
-      "category": "Genetic Testing Platform",
+      "category": "org_genetic_testing_platforms",
       "website": "https://genomelab.example",
       "country": "AR",
       "status": "new",
@@ -143,60 +145,112 @@ name
 category
 - Optional string.
 - Maximum length: 90 characters.
-- Must be one of the canonical CRM organization categories listed below.
+- Must be one of the canonical Discover organization category keys listed below.
 - This field is a single value. Do not send arrays. Do not send comma-separated
   category lists.
-- If the source category is unknown, send "Other".
-- If the category is truly unknown and should be left blank, omit category or
-  send an empty string.
-- The SDK normalizes known aliases, but import JSON should still send the
-  canonical option. Do not rely on alias cleanup for production imports.
+- If the source category is unknown, omit category or send an empty string.
+- Do not send "Other"; the Discover organization category picker does not have
+  an organization-level Other option.
+- The UI and SDK normalize known aliases and exact Discover labels, but import
+  JSON should still send the canonical key. Do not rely on alias cleanup for
+  production imports.
 
 Canonical category whitelist, all allowed values:
-- Laboratory / Genomics
-- Fertility Clinic
-- Foundation
-- Education
-- Umbrella Organization
-- Hospital
-- Research Center
-- Scientific Society
-- Genetic Testing Platform
-- Other
+- org_genetic_testing_laboratories (Genetic Testing Laboratory)
+- org_genomics_laboratories (Genomics Laboratory)
+- org_molecular_diagnostics_laboratories (Molecular Diagnostics Laboratory)
+- org_reproductive_genetics_laboratories (Reproductive Genetics Laboratory)
+- org_prenatal_genetics_laboratories (Prenatal Genetics Laboratory)
+- org_nipt_providers (NIPT Provider)
+- org_oncology_genetics_laboratories (Oncology Genetics Laboratory)
+- org_pharmacogenomics_providers (Pharmacogenomics Provider)
+- org_nutrigenomics_providers (Nutrigenomics Provider)
+- org_bioinformatics_companies (Bioinformatics Company)
+- org_variant_interpretation_companies (Variant Interpretation Company)
+- org_genetic_testing_platforms (Genetic Testing Platform)
+- org_clinical_genetics_centers (Clinical Genetics Center)
+- org_genetic_counseling_centers (Genetic Counseling Center)
+- org_fertility_clinics (Fertility Clinic)
+- org_reproductive_medicine_centers (Reproductive Medicine Center)
+- org_gamete_banks (Gamete Bank)
+- org_maternal_medicine_centers (Maternal Medicine Center)
+- org_fetal_medicine_centers (Fetal Medicine Center)
+- org_oncology_centers (Oncology Center)
+- org_neurogenetics_centers (Neurogenetics Center)
+- org_cardiogenetics_centers (Cardiogenetics Center)
+- org_pediatric_genetics_centers (Pediatric Genetics Center)
+- org_metabolic_genetics_centers (Metabolic Genetics Center)
+- org_rare_disease_centers (Rare Disease Center)
+- org_rare_disease_foundations (Rare Disease Foundation)
+- org_patient_organizations (Patient Organization)
+- org_disease_foundations (Disease Foundation)
+- org_patient_advocacy_organizations (Patient Advocacy Organization)
+- org_caregiver_organizations (Caregiver Organization)
+- org_family_support_organizations (Family Support Organization)
+- org_rare_disease_networks (Rare Disease Network)
+- org_patient_communities (Patient Community)
+- org_disability_organizations (Disability Organization)
+- org_genetics_education_providers (Genetics Education Provider)
+- org_genomics_education_providers (Genomics Education Provider)
+- org_bioinformatics_education_providers (Bioinformatics Education Provider)
+- org_medical_education_providers (Medical Education Provider)
+- org_universities (University)
+- org_teaching_hospitals (Teaching Hospital)
+- org_scientific_societies (Scientific Society)
+- org_medical_societies (Medical Society)
+- org_professional_associations (Professional Association)
+- org_genomics_research_institutes (Genomics Research Institute)
+- org_genetics_research_institutes (Genetics Research Institute)
+- org_rare_disease_research_organizations (Rare Disease Research Organization)
+- org_university_research_laboratories (University Research Laboratory)
+- org_clinical_research_organizations (Clinical Research Organization)
+- org_clinical_trial_sponsors (Clinical Trial Sponsor)
+- org_clinical_trial_networks (Clinical Trial Network)
+- org_biobanks (Biobank)
+- org_genomic_databases (Genomic Database)
+- org_precision_medicine_companies (Precision Medicine Company)
+- org_biotechnology_companies (Biotechnology Company)
+- org_gene_therapy_companies (Gene Therapy Company)
+- org_cell_therapy_companies (Cell Therapy Company)
+- org_pharmaceutical_companies (Pharmaceutical Company)
+- org_sequencing_companies (Sequencing Company)
+- org_healthcare_networks (Healthcare Network)
+- org_public_health_organizations (Public Health Organization)
 
 Known category aliases that normalize to canonical values:
-- laboratory -> Laboratory / Genomics
-- lab -> Laboratory / Genomics
-- genomics -> Laboratory / Genomics
-- laboratorio_genomica -> Laboratory / Genomics
-- laboratory_genomics -> Laboratory / Genomics
-- fertility -> Fertility Clinic
-- fertility_clinic -> Fertility Clinic
-- clinica_de_fertilidad -> Fertility Clinic
-- foundation -> Foundation
-- fundacion -> Foundation
-- education -> Education
-- educacion -> Education
-- umbrella_organization -> Umbrella Organization
-- organizacion_paraguas -> Umbrella Organization
-- hospital -> Hospital
-- research_center -> Research Center
-- centro_de_investigacion -> Research Center
-- scientific_society -> Scientific Society
-- sociedad_cientifica -> Scientific Society
-- genetic_testing_platform -> Genetic Testing Platform
-- plataforma_de_pruebas_geneticas -> Genetic Testing Platform
-- other -> Other
-- otro -> Other
+- laboratory -> org_genetic_testing_laboratories
+- lab -> org_genetic_testing_laboratories
+- genomics -> org_genomics_laboratories
+- laboratorio_genomica -> org_genomics_laboratories
+- laboratory_genomics -> org_genomics_laboratories
+- fertility -> org_fertility_clinics
+- fertility_clinic -> org_fertility_clinics
+- clinica_de_fertilidad -> org_fertility_clinics
+- foundation -> org_rare_disease_foundations
+- fundacion -> org_rare_disease_foundations
+- education -> org_genetics_education_providers
+- educacion -> org_genetics_education_providers
+- umbrella_organization -> org_rare_disease_networks
+- organizacion_paraguas -> org_rare_disease_networks
+- hospital -> org_teaching_hospitals
+- research_center -> org_genomics_research_institutes
+- centro_de_investigacion -> org_genomics_research_institutes
+- scientific_society -> org_scientific_societies
+- sociedad_cientifica -> org_scientific_societies
+- genetic_testing_platform -> org_genetic_testing_platforms
+- plataforma_de_pruebas_geneticas -> org_genetic_testing_platforms
+- other -> blank category
+- otro -> blank category
 
 Category normalization logic:
 - Leading and trailing whitespace is trimmed.
 - Diacritics are removed for matching.
 - Text is lowercased for matching.
 - Non-alphanumeric separators normalize to underscores for matching.
-- Exact canonical categories are preserved as canonical display strings.
-- Known aliases are mapped to their canonical category.
-- Unknown non-empty category values become Other.
+- Exact canonical category keys are preserved.
+- Exact Discover display labels are mapped to their canonical key.
+- Known legacy CRM aliases are mapped to their canonical Discover key.
+- Unknown non-empty category values become blank.
 - Blank category values remain blank.
 
 website
@@ -372,7 +426,7 @@ Content-Type: application/json
     {
       "rowId": "crm-2026-08-27-0001",
       "name": "Genome Lab",
-      "category": "Genetic Testing Platform",
+      "category": "org_genetic_testing_platforms",
       "website": "https://genomelab.example",
       "country": "AR",
       "status": "new",
@@ -393,7 +447,7 @@ Preview response shape:
       "rowId": "crm-2026-08-27-0001",
       "organization": {
         "name": "Genome Lab",
-        "category": "Genetic Testing Platform",
+        "category": "org_genetic_testing_platforms",
         "website": "https://genomelab.example/",
         "country": "AR",
         "status": "new",
@@ -447,7 +501,7 @@ Content-Type: application/json
     {
       "rowId": "crm-2026-08-27-0001",
       "name": "Genome Lab",
-      "category": "Genetic Testing Platform",
+      "category": "org_genetic_testing_platforms",
       "website": "https://genomelab.example",
       "country": "AR",
       "status": "contacted",
@@ -553,7 +607,7 @@ Invalid because name is blank:
     {
       "rowId": "crm-2026-08-27-0001",
       "name": "",
-      "category": "Foundation",
+      "category": "org_rare_disease_foundations",
       "country": "AR"
     }
   ]
@@ -566,7 +620,7 @@ Invalid for normalized import generation because country is free text:
     {
       "rowId": "crm-2026-08-27-0001",
       "name": "Genome Lab",
-      "category": "Genetic Testing Platform",
+      "category": "org_genetic_testing_platforms",
       "country": "Argentina"
     }
   ]
@@ -579,13 +633,14 @@ Correct version:
     {
       "rowId": "crm-2026-08-27-0001",
       "name": "Genome Lab",
-      "category": "Genetic Testing Platform",
+      "category": "org_genetic_testing_platforms",
       "country": "AR"
     }
   ]
 }
 
-Invalid because category is not canonical:
+Invalid because category is not a canonical Discover organization key or exact
+Discover organization label:
 
 {
   "organizations": [
@@ -605,7 +660,7 @@ Correct version:
     {
       "rowId": "crm-2026-08-27-0001",
       "name": "Genome Lab",
-      "category": "Laboratory / Genomics",
+      "category": "org_genomics_laboratories",
       "country": "AR"
     }
   ]
@@ -618,7 +673,7 @@ Invalid because lastContactAt is an empty string:
     {
       "rowId": "crm-2026-08-27-0001",
       "name": "Genome Lab",
-      "category": "Laboratory / Genomics",
+      "category": "org_genomics_laboratories",
       "country": "AR",
       "lastContactAt": ""
     }
@@ -632,7 +687,7 @@ Correct version:
     {
       "rowId": "crm-2026-08-27-0001",
       "name": "Genome Lab",
-      "category": "Laboratory / Genomics",
+      "category": "org_genomics_laboratories",
       "country": "AR",
       "lastContactAt": null
     }

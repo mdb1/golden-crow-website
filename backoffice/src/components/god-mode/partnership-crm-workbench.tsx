@@ -88,6 +88,7 @@ import {
 import {
   bestCrmTemplateForOrganization,
   CRM_STATUS_OPTIONS,
+  DEFAULT_CRM_CATEGORY,
   normalizeCrmCategory,
   normalizeCrmCountry,
   PARTNERSHIP_CRM_FROM_EMAIL,
@@ -182,7 +183,7 @@ type CrmImportSession = {
 
 const EMPTY_FORM_STATE: OrganizationFormState = {
   name: "",
-  category: "Laboratory / Genomics",
+  category: DEFAULT_CRM_CATEGORY,
   website: "",
   country: "",
   status: "new",
@@ -525,7 +526,7 @@ function toFormState(
   return {
     name: organization.name,
     category:
-      normalizeCrmCategory(organization.category) || "Laboratory / Genomics",
+      normalizeCrmCategory(organization.category) || DEFAULT_CRM_CATEGORY,
     website: organization.website,
     country: normalizeCrmCountry(organization.country),
     status: organization.status,

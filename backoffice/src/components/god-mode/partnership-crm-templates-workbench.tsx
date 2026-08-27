@@ -63,6 +63,7 @@ import {
 import { appText, type AppLanguage } from "@/lib/language";
 import {
   CRM_TEMPLATE_STATUS_OPTIONS,
+  DEFAULT_CRM_CATEGORY,
   PARTNERSHIP_CRM_FROM_EMAIL,
   normalizeCrmCategory,
   parseCrmTemplateCsv,
@@ -101,7 +102,7 @@ const TEMPLATE_IMPORT_SAMPLE_CSV = [
   "name,category,subject,body,status,notes",
   [
     '"Laboratorio - primer contacto"',
-    '"Laboratory / Genomics"',
+    '"org_genetic_testing_laboratories"',
     '"Pocket Genes + {{organization_name}}"',
     '"Hola {{contact_name}},\\n\\nSoy Federico de Pocket Genes. Vi el trabajo de {{organization_name}}{{website_sentence}} y queria coordinar una conversacion corta para explorar colaboracion clinica/genomica.\\n\\nTe parece si agendamos 20 minutos esta semana?"',
     '"active"',
@@ -140,7 +141,7 @@ type TemplateImportResult = {
 
 const EMPTY_TEMPLATE_FORM: TemplateFormState = {
   name: "",
-  category: "Laboratory / Genomics",
+  category: DEFAULT_CRM_CATEGORY,
   subject: "",
   body: "",
   status: "active",
@@ -151,7 +152,7 @@ const SAMPLE_ORGANIZATION: PartnershipCrmOrganizationRecord = {
   id: "preview",
   schemaVersion: 1,
   name: "Organizacion Ejemplo",
-  category: "Laboratory / Genomics",
+  category: DEFAULT_CRM_CATEGORY,
   website: "https://example.org/",
   websiteDomain: "example.org",
   country: "Argentina",
@@ -225,7 +226,7 @@ function toFormState(
   return {
     name: template.name,
     category:
-      normalizeCrmCategory(template.category) || "Laboratory / Genomics",
+      normalizeCrmCategory(template.category) || DEFAULT_CRM_CATEGORY,
     subject: template.subject,
     body: template.body,
     status: template.status,

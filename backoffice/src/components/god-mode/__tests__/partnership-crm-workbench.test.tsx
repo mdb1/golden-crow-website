@@ -117,6 +117,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       "/admin/partnership-crm/organizations?limit=50",
     );
     expect(screen.getByText("All categories")).toBeTruthy();
+    expect(screen.getAllByText("Genomics Laboratory").length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getByText("All countries")).toBeTruthy();
     expect(screen.queryByPlaceholderText("Category")).toBeNull();
     expect(screen.queryByPlaceholderText("Country")).toBeNull();

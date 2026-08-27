@@ -10,6 +10,7 @@ import {
 import { appText, type AppLanguage } from "@/lib/language";
 import {
   CRM_CATEGORY_OPTIONS,
+  crmCategoryLabel,
   normalizeCrmCategory,
 } from "@/lib/partnership-crm";
 
@@ -18,7 +19,9 @@ const CRM_NO_CATEGORY_VALUE = "__no_category__";
 
 export function formatCrmCategory(value: string, language: AppLanguage) {
   const normalized = normalizeCrmCategory(value);
-  return normalized ? appText(language, normalized) : value.trim();
+  return normalized
+    ? appText(language, crmCategoryLabel(normalized))
+    : value.trim();
 }
 
 export function CrmCategorySelect({
@@ -37,10 +40,11 @@ export function CrmCategorySelect({
   const t = (text: string) => appText(language, text);
   const emptyValue =
     mode === "filter" ? CRM_ALL_CATEGORIES_VALUE : CRM_NO_CATEGORY_VALUE;
+  const selectedValue = normalizeCrmCategory(value) || emptyValue;
 
   return (
     <Select
-      value={value || emptyValue}
+      value={selectedValue}
       onValueChange={(nextValue) =>
         onChange(nextValue === emptyValue ? "" : nextValue)
       }
@@ -53,8 +57,8 @@ export function CrmCategorySelect({
           {mode === "filter" ? t("All categories") : t("No category")}
         </SelectItem>
         {CRM_CATEGORY_OPTIONS.map((category) => (
-          <SelectItem key={category} value={category}>
-            {t(category)}
+          <SelectItem key={category.value} value={category.value}>
+            {t(category.label)}
           </SelectItem>
         ))}
       </SelectContent>
