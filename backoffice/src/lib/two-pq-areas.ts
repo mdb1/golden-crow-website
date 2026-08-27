@@ -40,6 +40,7 @@ export interface TwoPQRecord {
   children_sampling?: string[];
   three_letter_code?: string;
   stored_file_id?: string;
+  download_url?: string;
   last_updated_date?: string;
   caseLabel?: string;
   caseStatus?: string;
@@ -392,6 +393,13 @@ export const TWO_PQ_AREA_CONFIGS: TwoPQAreaConfig[] = [
             type: "select",
             options: PRIORITY_OPTIONS,
             description: "Queue priority or urgency.",
+          },
+          {
+            key: "download_url",
+            label: "Report download URL",
+            type: "text",
+            placeholder: "https://reports.example.com/ABC001.pdf",
+            description: "Download URL applied by the reporting OpenAPI callback.",
           },
         ],
       },

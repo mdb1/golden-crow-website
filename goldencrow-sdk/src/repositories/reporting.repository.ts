@@ -11,6 +11,7 @@ const TWO_PQ_CASES_COLLECTION = "2pq_case";
 const TWO_PQ_SAMPLING_COLLECTION = "2pq_sampling";
 const REPORT_CODES_COLLECTION = "report_codes";
 const UPLOADED_REPORTS_COLLECTION = "uploaded_reports";
+const TWO_PQ_REPORT_READY_STATUS = "report_ready";
 
 export interface ReportingPatientLookup {
   patientId?: string;
@@ -37,6 +38,7 @@ export interface ReportingPatientRecord {
 
 export interface ReportUploadNotificationInput {
   patientId: string;
+  twoPQCaseId?: string;
   reportId?: string;
   reportCode?: string;
   bucket: string;
@@ -569,6 +571,11 @@ function buildTwoPQCaseSnapshotRecord(
       caseStatus: nullableString(data.caseStatus),
       priority: nullableString(data.priority),
     },
+    report: {
+      download_url: nullableString(data.download_url),
+      reportCode: nullableString(data.reportCode),
+      uploadedReportId: nullableString(data.uploadedReportId),
+    },
     logistics: {
       trackingNumber: nullableString(data.trackingNumber),
       requestedAt: nullableString(data.requestedAt),
@@ -752,6 +759,23 @@ function reportCodePayload(patient: ReportingPatientRecord, reportId: string) {
   };
 }
 
+function twoPQCaseReportReadyPayload(input: {
+  downloadUrl?: string;
+  reportCode: string;
+  uploadedReportId: string;
+  updatedAt: string;
+}) {
+  return stripUndefinedFields({
+    caseStatus: TWO_PQ_REPORT_READY_STATUS,
+    download_url: normalizeString(input.downloadUrl),
+    reportCode: input.reportCode,
+    uploadedReportId: input.uploadedReportId,
+    last_updated_date: input.updatedAt,
+    updatedAt: input.updatedAt,
+    updatedByEmail: "open-api",
+  });
+}
+
 export async function recordUploadedReportNotification(
   input: ReportUploadNotificationInput,
 ): Promise<ReportUploadNotificationResult> {
@@ -787,9 +811,24 @@ export async function recordUploadedReportNotification(
   const reportCodeRef = adminDb
     .collection(REPORT_CODES_COLLECTION)
     .doc(reportCode);
+  const rawTwoPQCaseId = normalizeString(input.twoPQCaseId);
+  const twoPQCaseId = rawTwoPQCaseId
+    ? normalizeFirestoreDocumentId(rawTwoPQCaseId, "2PQ case id")
+    : undefined;
+  const twoPQCaseRef = twoPQCaseId
+    ? adminDb.collection(TWO_PQ_CASES_COLLECTION).doc(twoPQCaseId)
+    : null;
+  const now = new Date().toISOString();
 
   await adminDb.runTransaction(async (transaction: Transaction) => {
     const existingUploadedReport = await transaction.get(uploadedReportRef);
+    if (twoPQCaseRef) {
+      const twoPQCaseSnapshot = await transaction.get(twoPQCaseRef);
+      if (!twoPQCaseSnapshot.exists) {
+        throw new AdminRepositoryError("2PQ case not found.", 404);
+      }
+    }
+
     transaction.set(
       uploadedReportRef,
       uploadedReportPayload(
@@ -810,6 +849,18 @@ export async function recordUploadedReportNotification(
     transaction.set(reportCodeRef, reportCodePayload(patient, reportId), {
       merge: true,
     });
+    if (twoPQCaseRef) {
+      transaction.set(
+        twoPQCaseRef,
+        twoPQCaseReportReadyPayload({
+          downloadUrl: input.downloadUrl,
+          reportCode,
+          uploadedReportId: reportId,
+          updatedAt: now,
+        }),
+        { merge: true },
+      );
+    }
   });
 
   return {

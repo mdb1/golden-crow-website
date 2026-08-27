@@ -271,7 +271,7 @@ curl -X GET "${serverUrl}/open-api/reporting/patients?patientId=${EXAMPLE_PATIEN
           tags: ["Reporting"],
           summary: "Notify GoldenCrow that a 2PQ report file is available.",
           description:
-            "Creates or updates the uploaded report and report code records for the current 2PQ case.",
+            "Creates or updates the uploaded report and report code records, then marks the current 2PQ case as report_ready with the provided download_url.",
           requestBody: {
             content: {
               "application/json": {

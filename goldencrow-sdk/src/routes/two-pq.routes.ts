@@ -42,6 +42,7 @@ const TwoPQMutationSchema = z.object({
   parent_case: z.string().optional(),
   three_letter_code: z.string().optional(),
   stored_file_id: z.string().optional(),
+  download_url: z.string().optional(),
   caseLabel: z.string().optional(),
   caseStatus: z.string().optional(),
   caseType: z.string().optional(),

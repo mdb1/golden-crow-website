@@ -123,10 +123,12 @@ function reportKeyForCaseCode(caseCode: string) {
 function reportUploadPayloadForCaseCode(
   caseCode: string,
   patientId: string,
+  twoPQCaseId: string,
   downloadUrl: string,
 ): ReportUploadNotificationInput {
   return {
     patientId,
+    twoPQCaseId,
     reportId: `2pq-${caseCode.toLowerCase()}`,
     reportCode: caseCode,
     bucket: reportsBucketName(),
@@ -148,6 +150,7 @@ async function normalizeUploadNotificationBody(
   const caseSnapshot = await getReportingTwoPQCaseByCode(body.caseCode);
   const patientId =
     caseSnapshot.patient?.id ?? caseSnapshot.main_case.patient_id;
+  const twoPQCaseId = caseSnapshot.main_case.id;
   if (!patientId) {
     throw new Error("2PQ case does not have a patient id.");
   }
@@ -159,6 +162,7 @@ async function normalizeUploadNotificationBody(
   return reportUploadPayloadForCaseCode(
     body.caseCode,
     patientId,
+    twoPQCaseId,
     body.download_url,
   );
 }

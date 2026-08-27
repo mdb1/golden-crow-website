@@ -34,6 +34,7 @@ type TwoPQMutationInput = {
   parent_case?: string;
   three_letter_code?: string;
   stored_file_id?: string;
+  download_url?: string;
   caseLabel?: string;
   caseStatus?: string;
   caseType?: string;
@@ -89,6 +90,7 @@ const MUTABLE_FIELDS: Array<keyof TwoPQMutationInput> = [
   "patientId",
   "three_letter_code",
   "stored_file_id",
+  "download_url",
   "caseLabel",
   "caseStatus",
   "caseType",
@@ -294,6 +296,7 @@ const DEFAULT_RECORD_FIELDS: Array<keyof TwoPQRecord> = [
   "parent_case",
   "three_letter_code",
   "stored_file_id",
+  "download_url",
   "last_updated_date",
   "caseLabel",
   "caseStatus",

@@ -325,9 +325,63 @@ describe("reporting repository", () => {
     );
   });
 
+  it("marks a linked 2PQ case ready and stores the callback download URL", async () => {
+    const { recordUploadedReportNotification } =
+      await import("../repositories/reporting.repository");
+
+    mockTransactionGet
+      .mockResolvedValueOnce({
+        exists: false,
+        data: () => undefined,
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => mockTwoPQCases.get("CASE-00001"),
+      });
+
+    await recordUploadedReportNotification({
+      patientId: "PAT-00001",
+      twoPQCaseId: "CASE-00001",
+      reportId: "2pq-abc001",
+      reportCode: "ABC001",
+      bucket: "reports-bucket",
+      key: "reports/2pq/ABC001.pdf",
+      fileName: "ABC001.pdf",
+      contentType: "application/pdf",
+      uploadedAt: "2026-08-19T12:30:00.000Z",
+      providerName: "aws-s3",
+      reportType: "2pq",
+      sampleId: "ABC001",
+      downloadUrl: "https://reports.example.com/ABC001.pdf",
+    });
+
+    expect(mockTransactionSet).toHaveBeenCalledTimes(3);
+    expect(mockTransactionSet).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        id: "CASE-00001",
+        collectionName: "2pq_case",
+      }),
+      expect.objectContaining({
+        caseStatus: "report_ready",
+        download_url: "https://reports.example.com/ABC001.pdf",
+        reportCode: "ABC001",
+        uploadedReportId: "2pq-abc001",
+        last_updated_date: expect.any(String),
+        updatedAt: expect.any(String),
+        updatedByEmail: "open-api",
+      }),
+      { merge: true },
+    );
+  });
+
   it("returns a current-case 2PQ snapshot by six-character sampling code", async () => {
     const { getReportingTwoPQCaseByCode } =
       await import("../repositories/reporting.repository");
+    const currentCase = mockTwoPQCases.get("CASE-00001")!;
+    currentCase.download_url = "https://reports.example.com/ABC001.pdf";
+    currentCase.reportCode = "ABC001";
+    currentCase.uploadedReportId = "2pq-abc001";
 
     const snapshot = await getReportingTwoPQCaseByCode("abc001");
 
@@ -362,6 +416,11 @@ describe("reporting repository", () => {
             },
             relations: {
               samplingIds: ["SAMP-00001"],
+            },
+            report: {
+              download_url: "https://reports.example.com/ABC001.pdf",
+              reportCode: "ABC001",
+              uploadedReportId: "2pq-abc001",
             },
           },
         ],
