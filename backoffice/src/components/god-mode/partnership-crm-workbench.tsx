@@ -28,6 +28,7 @@ import {
   ExternalLink,
   FileUp,
   Filter,
+  ListChecks,
   Mail,
   Pencil,
   Plus,
@@ -77,6 +78,7 @@ import {
   CrmCategorySelect,
   formatCrmCategory,
 } from "@/components/god-mode/crm-category-select";
+import { CrmImportRulesDialog } from "@/components/god-mode/crm-import-rules-dialog";
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText, type AppLanguage } from "@/lib/language";
 import {
@@ -1766,6 +1768,7 @@ export function PartnershipCrmWorkbench() {
     useState<PartnershipCrmOrganizationRecord | null>(null);
   const [emailOpen, setEmailOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [importRulesOpen, setImportRulesOpen] = useState(false);
   const [importPreview, setImportPreview] =
     useState<PartnershipCrmImportPreview | null>(null);
   const [parseErrors, setParseErrors] = useState<
@@ -2453,6 +2456,15 @@ export function PartnershipCrmWorkbench() {
           </Button>
           <Button
             type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setImportRulesOpen(true)}
+          >
+            <ListChecks className="h-3.5 w-3.5" />
+            {t("Import rules")}
+          </Button>
+          <Button
+            type="button"
             size="sm"
             onClick={() => setOrganizationDialog({ mode: "create" })}
           >
@@ -2978,6 +2990,13 @@ export function PartnershipCrmWorkbench() {
         onImport={() => void runCrmImportSession(importSession)}
         onClearSession={discardImportCheckpoint}
         language={language}
+      />
+
+      <CrmImportRulesDialog
+        open={importRulesOpen}
+        onOpenChange={setImportRulesOpen}
+        language={language}
+        kind="organizations"
       />
 
       <Dialog

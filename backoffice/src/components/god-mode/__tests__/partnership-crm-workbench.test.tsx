@@ -375,4 +375,30 @@ describe("PartnershipCrmWorkbench import flow", () => {
       }),
     );
   });
+
+  it("opens CSV import rules with canonical CRM options", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: "Import rules" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Import rules",
+    });
+
+    expect(
+      within(dialog).getByText("Rules for CRM organization CSV imports."),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("Required columns")).toBeTruthy();
+    expect(within(dialog).getAllByText("name").length).toBeGreaterThan(0);
+    expect(
+      within(dialog).getByText("org_genetic_testing_laboratories"),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("AR")).toBeTruthy();
+    expect(within(dialog).getByText("new")).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "Organization imports preview and commit in 100-row chunks with a browser checkpoint.",
+      ),
+    ).toBeTruthy();
+  });
 });

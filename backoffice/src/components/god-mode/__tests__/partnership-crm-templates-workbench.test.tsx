@@ -182,6 +182,44 @@ describe("PartnershipCrmTemplateBrowser", () => {
       expect(within(dialog).getAllByText("Created").length).toBeGreaterThan(1);
     });
   });
+
+  it("opens template CSV import rules with canonical CRM options", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValue({
+      templates: [],
+      nextCursor: undefined,
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/templates?limit=20",
+      );
+    });
+
+    await user.click(screen.getByRole("button", { name: "Import rules" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Import rules",
+    });
+
+    expect(
+      within(dialog).getByText("Rules for CRM template CSV imports."),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("Required columns")).toBeTruthy();
+    expect(within(dialog).getAllByText("name").length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText("subject").length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText("body").length).toBeGreaterThan(0);
+    expect(
+      within(dialog).getByText("org_genetic_testing_laboratories"),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("active")).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.",
+      ),
+    ).toBeTruthy();
+  });
 });
 
 describe("PartnershipCrmTemplateWorkbench", () => {

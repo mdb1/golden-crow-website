@@ -18,6 +18,7 @@ import {
   FileText,
   FileUp,
   Filter,
+  ListChecks,
   Plus,
   RefreshCw,
   Search,
@@ -60,6 +61,7 @@ import {
   CrmCategorySelect,
   formatCrmCategory,
 } from "@/components/god-mode/crm-category-select";
+import { CrmImportRulesDialog } from "@/components/god-mode/crm-import-rules-dialog";
 import { appText, type AppLanguage } from "@/lib/language";
 import {
   CRM_TEMPLATE_STATUS_OPTIONS,
@@ -776,6 +778,7 @@ export function PartnershipCrmTemplateBrowser() {
   });
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [importOpen, setImportOpen] = useState(false);
+  const [importRulesOpen, setImportRulesOpen] = useState(false);
   const currentCursor = cursorStack[cursorStack.length - 1];
 
   const templatesQuery = useQuery({
@@ -836,6 +839,15 @@ export function PartnershipCrmTemplateBrowser() {
           >
             <FileUp className="h-3.5 w-3.5" />
             {t("Import CSV")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setImportRulesOpen(true)}
+          >
+            <ListChecks className="h-3.5 w-3.5" />
+            {t("Import rules")}
           </Button>
           <Button type="button" size="sm" asChild>
             <Link href="/god-mode/plantillas/new">
@@ -1028,6 +1040,12 @@ export function PartnershipCrmTemplateBrowser() {
           void templatesQuery.refetch();
         }}
         language={language}
+      />
+      <CrmImportRulesDialog
+        open={importRulesOpen}
+        onOpenChange={setImportRulesOpen}
+        language={language}
+        kind="templates"
       />
     </section>
   );

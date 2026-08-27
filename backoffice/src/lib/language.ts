@@ -958,6 +958,73 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se pudieron cargar las organizaciones del CRM.",
   "Add Organization": "Agregar organización",
   "Import CSV": "Importar CSV",
+  "Import rules": "Reglas de importación",
+  "Rules for CRM organization CSV imports.":
+    "Reglas para importar organizaciones del CRM desde CSV.",
+  "Rules for CRM template CSV imports.":
+    "Reglas para importar plantillas del CRM desde CSV.",
+  "CSV structure": "Estructura del CSV",
+  "Header row": "Fila de encabezados",
+  "First row must contain supported column headers.":
+    "La primera fila debe contener encabezados soportados.",
+  "Use comma-separated CSV and quote cells that contain commas, quotes, or line breaks.":
+    "Usá CSV separado por comas y entrecomillá celdas con comas, comillas o saltos de línea.",
+  "Escape quotes by doubling them.":
+    "Escapá las comillas duplicándolas.",
+  "Empty rows are ignored.": "Las filas vacías se ignoran.",
+  "Required columns": "Columnas obligatorias",
+  "Optional columns": "Columnas opcionales",
+  "Field rules": "Reglas por campo",
+  "Accepted statuses": "Estados aceptados",
+  "Accepted categories": "Categorías aceptadas",
+  "Accepted countries": "Países aceptados",
+  "Use canonical org_* keys when possible.":
+    "Usá claves canónicas org_* siempre que sea posible.",
+  "Use one normalized country code from the CRM country whitelist. GLOBAL is not accepted.":
+    "Usá un código de país normalizado de la lista permitida del CRM. GLOBAL no está aceptado.",
+  "Import behavior": "Comportamiento de importación",
+  "Always review preview results before final import.":
+    "Revisá siempre la vista previa antes de la importación final.",
+  "Organization imports preview and commit in 100-row chunks with a browser checkpoint.":
+    "Las organizaciones se previsualizan y confirman en bloques de 100 filas con checkpoint en el navegador.",
+  "If the import fails in the middle, completed rows are kept and the checkpoint can resume from the last saved point.":
+    "Si la importación falla en el medio, las filas completadas se conservan y el checkpoint permite continuar desde el último punto guardado.",
+  "Duplicates must be reviewed as skip, update existing, or import anyway before committing.":
+    "Los duplicados deben revisarse como omitir, actualizar existente o importar igual antes de confirmar.",
+  "Preview the parsed template rows before creating templates.":
+    "Revisá las filas parseadas antes de crear plantillas.",
+  "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.":
+    "La importación de plantillas crea filas válidas una por una; las filas inválidas se omiten y las completadas no se revierten.",
+  "Literal \\n is converted to a line break in template body and notes.":
+    "El texto literal \\n se convierte en salto de línea en el cuerpo y las notas de la plantilla.",
+  "Use active templates for the CRM send flow; archived templates are kept out of normal sending.":
+    "Usá plantillas activas para el flujo de envío del CRM; las archivadas quedan fuera del envío normal.",
+  "Required, trimmed, maximum 180 characters. Blank names are invalid rows.":
+    "Obligatorio, recortado, máximo 180 caracteres. Los nombres vacíos son filas inválidas.",
+  "Optional single value. Use one canonical org_* category key, or an exact Discover organization label. Unknown values become blank.":
+    "Valor único opcional. Usá una clave canónica org_* o una etiqueta exacta de organización Discover. Los valores desconocidos quedan en blanco.",
+  "Optional single value. Use one country from the CRM whitelist. GLOBAL is not accepted here.":
+    "Valor único opcional. Usá un país de la lista permitida del CRM. GLOBAL no está aceptado acá.",
+  "Optional. Defaults to new when blank. Spanish aliases are normalized by the CSV parser.":
+    "Opcional. Si queda vacío, usa new. El parser CSV normaliza alias en español.",
+  "Optional. Store only the primary contact person's name, not the email or notes.":
+    "Opcional. Guardá solo el nombre de la persona de contacto principal, no el email ni notas.",
+  "Optional. Missing email does not block import, but the row cannot send CRM email until an email is added.":
+    "Opcional. La falta de email no bloquea la importación, pero la fila no puede enviar email de CRM hasta que se agregue uno.",
+  "Optional. Use a full ISO datetime with timezone, or leave blank when there was no previous contact.":
+    "Opcional. Usá una fecha ISO completa con zona horaria o dejalo vacío si no hubo contacto previo.",
+  "Optional plain operational notes, maximum 2000 characters. Do not paste long scraped pages or JSON blobs.":
+    "Notas operativas opcionales, máximo 2000 caracteres. No pegues páginas scrapeadas largas ni blobs JSON.",
+  "Required, trimmed, maximum 180 characters. This is the internal template name.":
+    "Obligatorio, recortado, máximo 180 caracteres. Es el nombre interno de la plantilla.",
+  "Required, trimmed, maximum 180 characters. Variables such as {{organization_name}} are allowed.":
+    "Obligatorio, recortado, máximo 180 caracteres. Se permiten variables como {{organization_name}}.",
+  "Required, maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks.":
+    "Obligatorio, máximo 12000 caracteres. Usá celdas multilinea entre comillas o \\n literal para saltos de línea.",
+  "Optional. Defaults to active when blank. Active, inactive, and archived aliases are normalized.":
+    "Opcional. Si queda vacío, usa active. Se normalizan alias de active, inactive y archived.",
+  "Optional internal notes, maximum 2000 characters. Literal \\n is converted to a line break.":
+    "Notas internas opcionales, máximo 2000 caracteres. El texto literal \\n se convierte en salto de línea.",
   "Search organizations...": "Buscar organizaciones...",
   "All emails": "Todos los emails",
   "Has Email": "Con email",
