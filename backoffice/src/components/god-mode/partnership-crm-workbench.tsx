@@ -1505,29 +1505,6 @@ function EmailComposerDialog({
                     </Link>
                   </Button>
                 )}
-                {email.step === "compose" ? (
-                  <Button
-                    type="button"
-                    size="lg"
-                    onClick={() => update({ step: "preview" })}
-                    disabled={!canPreview}
-                    className={EMAIL_CTA_CLASS}
-                  >
-                    <Mail className="h-4 w-4" />
-                    {t("Preview email")}
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    size="lg"
-                    onClick={() => onSend(email)}
-                    disabled={pending || !canPreview}
-                    className={EMAIL_CTA_CLASS}
-                  >
-                    <Send className="h-4 w-4" />
-                    {pending ? t("Sending...") : t("Send email")}
-                  </Button>
-                )}
               </div>
             </div>
 
@@ -1568,16 +1545,33 @@ function EmailComposerDialog({
           </div>
         ) : null}
 
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={pending}
-          >
-            {t("Close")}
-          </Button>
-        </DialogFooter>
+        {email ? (
+          <DialogFooter>
+            {email.step === "compose" ? (
+              <Button
+                type="button"
+                size="lg"
+                onClick={() => update({ step: "preview" })}
+                disabled={!canPreview}
+                className={EMAIL_CTA_CLASS}
+              >
+                <Mail className="h-4 w-4" />
+                {t("Preview email")}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="lg"
+                onClick={() => onSend(email)}
+                disabled={pending || !canPreview}
+                className={EMAIL_CTA_CLASS}
+              >
+                <Send className="h-4 w-4" />
+                {pending ? t("Sending...") : t("Send email")}
+              </Button>
+            )}
+          </DialogFooter>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
