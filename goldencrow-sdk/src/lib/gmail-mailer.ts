@@ -2,7 +2,7 @@ type GmailMessageInput = {
   to: string;
   subject: string;
   text: string;
-  html: string;
+  html?: string;
 };
 
 type GmailSendOptions = {
@@ -55,17 +55,34 @@ function base64Url(value: string) {
     .replace(/=+$/g, "");
 }
 
-function buildRawMessage(
+export function buildRawGmailMessage(
   input: GmailMessageInput,
   options: GmailSendOptions = {},
 ) {
-  const boundaryPrefix = options.boundaryPrefix ?? "gc-mail";
-  const boundary = `${boundaryPrefix}-${Date.now().toString(36)}`;
   const headers = [
     `From: ${sanitizeHeader(options.from ?? requiredEnv("MAIL_FROM"))}`,
     `To: ${sanitizeHeader(input.to)}`,
     `Subject: ${encodeHeader(input.subject)}`,
     "MIME-Version: 1.0",
+  ];
+
+  if (!input.html) {
+    return base64Url(
+      [
+        ...headers,
+        'Content-Type: text/plain; charset="UTF-8"',
+        "Content-Transfer-Encoding: 8bit",
+        "",
+        input.text,
+        "",
+      ].join("\r\n"),
+    );
+  }
+
+  const boundaryPrefix = options.boundaryPrefix ?? "gc-mail";
+  const boundary = `${boundaryPrefix}-${Date.now().toString(36)}`;
+  const multipartHeaders = [
+    ...headers,
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
   ];
   const body = [
@@ -83,7 +100,7 @@ function buildRawMessage(
     "",
   ];
 
-  return base64Url([...headers, "", ...body].join("\r\n"));
+  return base64Url([...multipartHeaders, "", ...body].join("\r\n"));
 }
 
 async function refreshAccessToken(options: GmailSendOptions = {}) {
@@ -133,7 +150,7 @@ export async function sendGmailMessage(
         authorization: `Bearer ${accessToken}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({ raw: buildRawMessage(input, options) }),
+      body: JSON.stringify({ raw: buildRawGmailMessage(input, options) }),
     },
   );
   if (!response.ok) {
