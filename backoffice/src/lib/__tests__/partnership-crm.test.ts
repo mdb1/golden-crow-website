@@ -66,7 +66,14 @@ const professional: PartnershipCrmProfessionalRecord = {
   name: "Dra. Ada Genome",
   category: "pro_clinical_geneticists",
   title: "Genetista clinica",
-  affiliation: "Genome Lab",
+  primaryAffiliation: "Genome Lab",
+  potentialPocketGenesEditorFit:
+    "Clinical genetics, genetic testing, result interpretation and patient education.",
+  emailRoute:
+    "Publicly listed professional or official institutional contact address; verify recipient context before outreach.",
+  linkedInRoute: "Official LinkedIn page of the affiliated organization.",
+  researchBasis:
+    "Existing verified Pocket Genes partnership dataset, affiliation website and LinkedIn record.",
   website: "https://genomelab.example/",
   websiteDomain: "genomelab.example",
   country: "Argentina",
@@ -85,7 +92,7 @@ const professionalTemplate: PartnershipCrmTemplateRecord = {
   audience: "professionals",
   category: "pro_clinical_geneticists",
   subject: "Pocket Genes + {{professional_name}}",
-  body: "Hola {{first_name}}, vi tu trabajo como {{title}} en {{affiliation}}.",
+  body: "Hola {{first_name}}, vi tu trabajo como {{title}} en {{primary_affiliation}}. Base: {{research_basis}}",
   status: "active",
   notes: "",
   normalizedName: "professional outreach",
@@ -166,8 +173,8 @@ describe("partnership CRM helpers", () => {
   it("parses professional CRM CSV rows against the professional model", () => {
     const parsed = parseCrmCsv(
       [
-        "name,category,title,affiliation,website,country,email,linkedin,status,notes",
-        "Dra. Ada Genome,genetista,Genetista clinica,Genome Lab,genomelab.example,Argentina,ada@genomelab.example,https://linkedin.com/in/ada,Contacted,Direct intro",
+        "name,category,title,primary_affiliation,potential_pocket_genes_editor_fit,email_route,linkedin_route,research_basis,website,country,email,linkedin,status,notes",
+        "Dra. Ada Genome,genetista,Genetista clinica,Genome Lab,\"Clinical genetics, genetic testing and patient education\",Public email listing,Affiliated organization LinkedIn,Verified dataset and website,genomelab.example,Argentina,ada@genomelab.example,https://linkedin.com/in/ada,Contacted,Direct intro",
       ].join("\n"),
       "professionals",
     );
@@ -178,7 +185,12 @@ describe("partnership CRM helpers", () => {
         name: "Dra. Ada Genome",
         category: "pro_clinical_geneticists",
         title: "Genetista clinica",
-        affiliation: "Genome Lab",
+        primaryAffiliation: "Genome Lab",
+        potentialPocketGenesEditorFit:
+          "Clinical genetics, genetic testing and patient education",
+        emailRoute: "Public email listing",
+        linkedInRoute: "Affiliated organization LinkedIn",
+        researchBasis: "Verified dataset and website",
         email: "ada@genomelab.example",
         status: "contacted",
       }),
@@ -315,6 +327,7 @@ describe("partnership CRM helpers", () => {
     expect(rendered.body).toContain("Hola Dra.");
     expect(rendered.body).toContain("Genetista clinica");
     expect(rendered.body).toContain("Genome Lab");
+    expect(rendered.body).toContain("Existing verified Pocket Genes");
     expect(rendered.body).not.toContain("{{professional_name}}");
   });
 

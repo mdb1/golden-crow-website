@@ -157,7 +157,11 @@ type OrganizationFormState = {
   country: string;
   status: PartnershipCrmStatus;
   title: string;
-  affiliation: string;
+  primaryAffiliation: string;
+  potentialPocketGenesEditorFit: string;
+  emailRoute: string;
+  linkedInRoute: string;
+  researchBasis: string;
   email: string;
   linkedIn: string;
   contactName: string;
@@ -224,7 +228,11 @@ function emptyFormState(
     country: "",
     status: "new",
     title: "",
-    affiliation: "",
+    primaryAffiliation: "",
+    potentialPocketGenesEditorFit: "",
+    emailRoute: "",
+    linkedInRoute: "",
+    researchBasis: "",
     email: "",
     linkedIn: "",
     contactName: "",
@@ -661,7 +669,12 @@ function targetPayload(
     return {
       ...base,
       title: state.title.trim(),
-      affiliation: state.affiliation.trim(),
+      primaryAffiliation: state.primaryAffiliation.trim(),
+      potentialPocketGenesEditorFit:
+        state.potentialPocketGenesEditorFit.trim(),
+      emailRoute: state.emailRoute.trim(),
+      linkedInRoute: state.linkedInRoute.trim(),
+      researchBasis: state.researchBasis.trim(),
       email: state.email.trim().toLowerCase(),
       linkedIn: state.linkedIn.trim(),
     } satisfies PartnershipCrmProfessionalInput;
@@ -712,7 +725,11 @@ function toFormState(
     return {
       ...base,
       title: professional.title,
-      affiliation: professional.affiliation,
+      primaryAffiliation: professional.primaryAffiliation,
+      potentialPocketGenesEditorFit: professional.potentialPocketGenesEditorFit,
+      emailRoute: professional.emailRoute,
+      linkedInRoute: professional.linkedInRoute,
+      researchBasis: professional.researchBasis,
       email: professional.email,
       linkedIn: professional.linkedIn,
       contactName: "",
@@ -725,7 +742,11 @@ function toFormState(
   return {
     ...base,
     title: "",
-    affiliation: "",
+    primaryAffiliation: "",
+    potentialPocketGenesEditorFit: "",
+    emailRoute: "",
+    linkedInRoute: "",
+    researchBasis: "",
     email: "",
     linkedIn: "",
     contactName: targetOrganization.contactName,
@@ -980,15 +1001,6 @@ function targetLinkedIn(
     : (target as PartnershipCrmOrganizationRecord).contactLinkedIn;
 }
 
-function targetAffiliation(
-  target: PartnershipCrmTargetRecord,
-  targetKind: PartnershipCrmTargetKind,
-) {
-  return targetKind === "professionals"
-    ? (target as PartnershipCrmProfessionalRecord).affiliation
-    : target.name;
-}
-
 function targetContactName(
   target: PartnershipCrmTargetRecord,
   targetKind: PartnershipCrmTargetKind,
@@ -1039,10 +1051,10 @@ function OrganizationFacts({
           <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               <Building2 className="h-3.5 w-3.5" />
-              {t("Affiliation")}
+              {t("Primary affiliation")}
             </div>
             <p className="mt-2 font-medium text-foreground">
-              {professional.affiliation || "—"}
+              {professional.primaryAffiliation || "—"}
             </p>
           </div>
           <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
@@ -1052,6 +1064,42 @@ function OrganizationFacts({
             </div>
             <p className="mt-2 font-medium text-foreground">
               {professional.title || "—"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <UserRound className="h-3.5 w-3.5" />
+              {t("Potential Pocket Genes editor fit")}
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-foreground">
+              {professional.potentialPocketGenesEditorFit || "—"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <Mail className="h-3.5 w-3.5" />
+              {t("Email route")}
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-foreground">
+              {professional.emailRoute || "—"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <ExternalLink className="h-3.5 w-3.5" />
+              {t("LinkedIn route")}
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-foreground">
+              {professional.linkedInRoute || "—"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <ListChecks className="h-3.5 w-3.5" />
+              {t("Research basis")}
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-foreground">
+              {professional.researchBasis || "—"}
             </p>
           </div>
         </>
@@ -1266,14 +1314,14 @@ function OrganizationDialog({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="crm-prof-affiliation">
-                    {t("Affiliation")}
+                  <Label htmlFor="crm-prof-primary-affiliation">
+                    {t("Primary affiliation")}
                   </Label>
                   <Input
-                    id="crm-prof-affiliation"
-                    value={form.affiliation}
+                    id="crm-prof-primary-affiliation"
+                    value={form.primaryAffiliation}
                     onChange={(event) =>
-                      update({ affiliation: event.target.value })
+                      update({ primaryAffiliation: event.target.value })
                     }
                   />
                 </div>
@@ -1350,6 +1398,60 @@ function OrganizationDialog({
                       update({ linkedIn: event.target.value })
                     }
                     placeholder="https://linkedin.com/in/contact"
+                  />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="crm-prof-editor-fit">
+                    {t("Potential Pocket Genes editor fit")}
+                  </Label>
+                  <Textarea
+                    id="crm-prof-editor-fit"
+                    value={form.potentialPocketGenesEditorFit}
+                    onChange={(event) =>
+                      update({
+                        potentialPocketGenesEditorFit: event.target.value,
+                      })
+                    }
+                    className="min-h-24"
+                  />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="crm-prof-email-route">
+                    {t("Email route")}
+                  </Label>
+                  <Textarea
+                    id="crm-prof-email-route"
+                    value={form.emailRoute}
+                    onChange={(event) =>
+                      update({ emailRoute: event.target.value })
+                    }
+                    className="min-h-24"
+                  />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="crm-prof-linkedin-route">
+                    {t("LinkedIn route")}
+                  </Label>
+                  <Textarea
+                    id="crm-prof-linkedin-route"
+                    value={form.linkedInRoute}
+                    onChange={(event) =>
+                      update({ linkedInRoute: event.target.value })
+                    }
+                    className="min-h-24"
+                  />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="crm-prof-research-basis">
+                    {t("Research basis")}
+                  </Label>
+                  <Textarea
+                    id="crm-prof-research-basis"
+                    value={form.researchBasis}
+                    onChange={(event) =>
+                      update({ researchBasis: event.target.value })
+                    }
+                    className="min-h-24"
                   />
                 </div>
               </>
@@ -1929,7 +2031,7 @@ function ImportRowReviewCard({
       : organization?.contactEmail;
   const contact =
     targetKind === "professionals"
-      ? professional?.affiliation
+      ? professional?.primaryAffiliation
       : organization?.contactName;
   const linkedIn =
     targetKind === "professionals"
@@ -1987,7 +2089,7 @@ function ImportRowReviewCard({
             <ImportReviewFact
               label={
                 targetKind === "professionals"
-                  ? t("Affiliation")
+                  ? t("Primary affiliation")
                   : t("Primary contact")
               }
               value={contact}
@@ -2028,6 +2130,26 @@ function ImportRowReviewCard({
                 linkedIn ? <span className="break-all">{linkedIn}</span> : "—"
               }
             />
+            {targetKind === "professionals" ? (
+              <>
+                <ImportReviewFact
+                  label={t("Potential Pocket Genes editor fit")}
+                  value={professional?.potentialPocketGenesEditorFit}
+                />
+                <ImportReviewFact
+                  label={t("Email route")}
+                  value={professional?.emailRoute}
+                />
+                <ImportReviewFact
+                  label={t("LinkedIn route")}
+                  value={professional?.linkedInRoute}
+                />
+                <ImportReviewFact
+                  label={t("Research basis")}
+                  value={professional?.researchBasis}
+                />
+              </>
+            ) : null}
             <ImportReviewFact
               label={t("Last Contact")}
               value={formatDate(target?.lastContactAt, language)}
@@ -2207,7 +2329,7 @@ function ImportDialog({
               />
               <p className="mt-2 text-xs text-muted-foreground">
                 {targetKind === "professionals"
-                  ? "name,category,title,affiliation,website,country,email,linkedin"
+                  ? "name,category,title,primary_affiliation,potential_pocket_genes_editor_fit,email_route,linkedin_route,research_basis,website,country,email,linkedin"
                   : "name,category,website,country,contact_name,email,linkedin"}
               </p>
             </div>

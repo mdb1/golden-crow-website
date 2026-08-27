@@ -56,7 +56,11 @@ const PROFESSIONAL_HEADERS = [
   "name",
   "category",
   "title",
-  "affiliation",
+  "primary_affiliation",
+  "potential_pocket_genes_editor_fit",
+  "email_route",
+  "linkedin_route",
+  "research_basis",
   "website",
   "country",
   "status",
@@ -102,9 +106,29 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
           "Optional. Store only the professional role, title, specialty, or credential.",
       },
       {
-        label: "affiliation",
+        label: "primary_affiliation",
         detail:
-          "Optional. Store the institution, company, lab, hospital, or professional affiliation as a plain name.",
+          "Optional. Store the main institution, company, lab, hospital, or professional affiliation as a plain name.",
+      },
+      {
+        label: "potential_pocket_genes_editor_fit",
+        detail:
+          "Optional. Store why this professional could fit Pocket Genes editor work, such as clinical genetics, genetic testing, result interpretation, or patient education.",
+      },
+      {
+        label: "email_route",
+        detail:
+          "Optional. Store how the recipient email was found and what context should be verified before outreach.",
+      },
+      {
+        label: "linkedin_route",
+        detail:
+          "Optional. Store the LinkedIn route, such as the professional profile or official affiliated organization page.",
+      },
+      {
+        label: "research_basis",
+        detail:
+          "Optional. Store the source basis used to validate the lead, such as datasets, affiliation websites, LinkedIn records, or other verified references.",
       },
       {
         label: "country",

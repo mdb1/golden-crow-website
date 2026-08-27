@@ -118,8 +118,24 @@ const PROFESSIONAL_TEMPLATE_VARIABLES = [
     label: "First name",
   },
   {
-    token: "{{affiliation}}",
-    label: "Affiliation",
+    token: "{{primary_affiliation}}",
+    label: "Primary affiliation",
+  },
+  {
+    token: "{{potential_pocket_genes_editor_fit}}",
+    label: "Potential Pocket Genes editor fit",
+  },
+  {
+    token: "{{email_route}}",
+    label: "Email route",
+  },
+  {
+    token: "{{linkedin_route}}",
+    label: "LinkedIn route",
+  },
+  {
+    token: "{{research_basis}}",
+    label: "Research basis",
   },
   {
     token: "{{title}}",
@@ -156,7 +172,7 @@ const PROFESSIONAL_TEMPLATE_IMPORT_SAMPLE_CSV = [
     '"professionals"',
     '"pro_clinical_geneticists"',
     '"Pocket Genes + {{professional_name}}"',
-    '"Hola {{first_name}},\\n\\nSoy Federico de Pocket Genes. Vi tu trabajo como {{title}} en {{affiliation}}{{website_sentence}} y queria coordinar una conversacion corta para explorar colaboracion clinica/genomica.\\n\\nTe parece si agendamos 20 minutos esta semana?"',
+    '"Hola {{first_name}},\\n\\nSoy Federico de Pocket Genes. Vi tu trabajo como {{title}} en {{primary_affiliation}}{{website_sentence}} y queria coordinar una conversacion corta para explorar colaboracion clinica/genomica.\\n\\nTe parece si agendamos 20 minutos esta semana?"',
     '"active"',
     '"Usar con profesionales clinicos y referentes de genetica."',
   ].join(","),
@@ -232,7 +248,14 @@ const SAMPLE_PROFESSIONAL: PartnershipCrmProfessionalRecord = {
   name: "Dra. Ana Genoma",
   category: DEFAULT_CRM_PROFESSIONAL_CATEGORY,
   title: "Genetista clinica",
-  affiliation: "Hospital Genomico",
+  primaryAffiliation: "Hospital Genomico",
+  potentialPocketGenesEditorFit:
+    "Clinical genetics, genetic testing, result interpretation and patient education.",
+  emailRoute:
+    "Publicly listed professional or official institutional contact address.",
+  linkedInRoute: "Official LinkedIn page of the affiliated organization.",
+  researchBasis:
+    "Existing verified Pocket Genes partnership dataset, affiliation website and LinkedIn record.",
   website: "https://example.org/",
   websiteDomain: "example.org",
   country: "Argentina",

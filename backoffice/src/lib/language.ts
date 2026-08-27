@@ -1048,8 +1048,18 @@ const SPANISH_TEXT: Record<string, string> = {
     "Opcional. Guardá solo el nombre de la persona de contacto principal, no el email ni notas.",
   "Optional. Store only the professional role, title, specialty, or credential.":
     "Opcional. Guardá solo el rol, cargo, especialidad o credencial profesional.",
+  "Optional. Store the main institution, company, lab, hospital, or professional affiliation as a plain name.":
+    "Opcional. Guardá la institución, empresa, laboratorio, hospital o afiliación profesional principal como nombre plano.",
   "Optional. Store the institution, company, lab, hospital, or professional affiliation as a plain name.":
     "Opcional. Guardá la institución, empresa, laboratorio, hospital o afiliación profesional como nombre plano.",
+  "Optional. Store why this professional could fit Pocket Genes editor work, such as clinical genetics, genetic testing, result interpretation, or patient education.":
+    "Opcional. Guardá por qué este profesional podría encajar como editor de Pocket Genes, por ejemplo genética clínica, pruebas genéticas, interpretación de resultados o educación de pacientes.",
+  "Optional. Store how the recipient email was found and what context should be verified before outreach.":
+    "Opcional. Guardá cómo se encontró el email destinatario y qué contexto debe verificarse antes del outreach.",
+  "Optional. Store the LinkedIn route, such as the professional profile or official affiliated organization page.":
+    "Opcional. Guardá la ruta de LinkedIn, como el perfil profesional o la página oficial de la organización afiliada.",
+  "Optional. Store the source basis used to validate the lead, such as datasets, affiliation websites, LinkedIn records, or other verified references.":
+    "Opcional. Guardá la base de fuentes usada para validar el lead, como datasets, sitios de afiliación, registros de LinkedIn u otras referencias verificadas.",
   "Optional. Missing email does not block import, but the row cannot send CRM email until an email is added.":
     "Opcional. La falta de email no bloquea la importación, pero la fila no puede enviar email de CRM hasta que se agregue uno.",
   "Optional public LinkedIn profile URL. This is used for duplicate detection and quick review.":
@@ -1079,6 +1089,12 @@ const SPANISH_TEXT: Record<string, string> = {
   Professional: "Profesional",
   "Professional name": "Nombre del profesional",
   "Role / specialty": "Rol / especialidad",
+  "Primary affiliation": "Afiliación principal",
+  "Potential Pocket Genes editor fit":
+    "Fit potencial como editor de Pocket Genes",
+  "Email route": "Ruta de email",
+  "LinkedIn route": "Ruta de LinkedIn",
+  "Research basis": "Base de investigación",
   Affiliation: "Afiliación",
   "Direct mail": "Mail directo",
   "Last Contact": "Último contacto",

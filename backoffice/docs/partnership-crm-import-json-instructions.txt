@@ -95,7 +95,11 @@ Professional example:
       "name": "Dra. Ada Genome",
       "category": "pro_clinical_geneticists,pro_research_scientists",
       "title": "Genetista clinica",
-      "affiliation": "Genome Lab",
+      "primaryAffiliation": "Laboratorio Argenetics",
+      "potentialPocketGenesEditorFit": "Clinical genetics, genetic testing, result interpretation and patient education.",
+      "emailRoute": "Publicly listed professional or official institutional contact address; verify recipient context before outreach.",
+      "linkedInRoute": "Official LinkedIn page of the affiliated organization.",
+      "researchBasis": "Existing verified Pocket Genes partnership dataset, affiliation website and LinkedIn record.",
       "website": "https://ada.example",
       "country": "AR,US",
       "status": "new",
@@ -147,7 +151,11 @@ Supported professional keys:
 - name
 - category
 - title
-- affiliation
+- primaryAffiliation
+- potentialPocketGenesEditorFit
+- emailRoute
+- linkedInRoute
+- researchBasis
 - website
 - country
 - status
@@ -530,14 +538,54 @@ title
 - Optional string.
 - Maximum length: 180 characters.
 - Store the professional role, specialty, credential, or title only.
-- Do not store the institution name here; use affiliation for that.
+- Do not store the institution name here; use primaryAffiliation for that.
 
-affiliation
+primaryAffiliation
 - Professional imports only.
 - Optional string.
 - Maximum length: 180 characters.
-- Store the institution, company, lab, hospital, practice, or professional
-  affiliation as a plain name.
+- Store the primary institution, company, lab, hospital, practice, or
+  professional affiliation as a plain name.
+
+potentialPocketGenesEditorFit
+- Professional imports only.
+- Optional string.
+- Maximum length: 2000 characters.
+- Store why this professional could fit Pocket Genes editor work.
+- Examples: clinical genetics, genetic testing, result interpretation,
+  patient education, rare disease education, or genomics communication.
+- Do not mix this with outreach routing details; use emailRoute and
+  linkedInRoute for routes.
+
+emailRoute
+- Professional imports only.
+- Optional string.
+- Maximum length: 2000 characters.
+- Store how the recipient email was found and what context must be checked
+  before outreach.
+- Example: publicly listed professional address, official institutional
+  contact address, secretary route, or department contact route.
+- Do not store the actual email address here; use email for that.
+
+linkedInRoute
+- Professional imports only.
+- Optional string.
+- Maximum length: 2000 characters.
+- Store the LinkedIn route used for verification or follow-up.
+- Example: professional profile, official affiliated organization page, or
+  department page.
+- Do not store the main profile URL here if it belongs in linkedIn; this field
+  is for route/context notes.
+
+researchBasis
+- Professional imports only.
+- Optional string.
+- Maximum length: 2000 characters.
+- Store the source basis used to validate the lead.
+- Examples: verified Pocket Genes partnership dataset, affiliation website,
+  LinkedIn record, publication profile, conference listing, or official
+  directory.
+- Keep this as a concise source summary; do not paste scraped pages or JSON.
 
 email
 - Professional imports only.

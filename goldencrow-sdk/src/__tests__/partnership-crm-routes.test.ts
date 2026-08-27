@@ -8,6 +8,7 @@ import type { AdminContext } from "../types/sdk.types.js";
 const mockDeletePartnershipCrmOrganization = jest.fn();
 const mockDeletePartnershipCrmProfessional = jest.fn();
 const mockDeletePartnershipCrmTemplate = jest.fn();
+const mockCreatePartnershipCrmProfessional = jest.fn();
 
 jest.mock("../repositories/partnership-crm.repository.js", () => ({
   PARTNERSHIP_CRM_ACTIVITY_TYPES: [
@@ -32,7 +33,7 @@ jest.mock("../repositories/partnership-crm.repository.js", () => ({
   PARTNERSHIP_CRM_TEMPLATE_AUDIENCES: ["organizations", "professionals"],
   createPartnershipCrmActivity: jest.fn(),
   createPartnershipCrmOrganization: jest.fn(),
-  createPartnershipCrmProfessional: jest.fn(),
+  createPartnershipCrmProfessional: mockCreatePartnershipCrmProfessional,
   createPartnershipCrmProfessionalActivity: jest.fn(),
   createPartnershipCrmTemplate: jest.fn(),
   deletePartnershipCrmOrganization: mockDeletePartnershipCrmOrganization,
@@ -88,6 +89,10 @@ describe("partnership CRM routes", () => {
     mockDeletePartnershipCrmOrganization.mockResolvedValue(undefined);
     mockDeletePartnershipCrmProfessional.mockResolvedValue(undefined);
     mockDeletePartnershipCrmTemplate.mockResolvedValue(undefined);
+    mockCreatePartnershipCrmProfessional.mockResolvedValue({
+      id: "pro-1",
+      name: "Dra. Ada Genome",
+    });
   });
 
   it("returns a JSON success payload after deleting an organization", async () => {
@@ -144,6 +149,52 @@ describe("partnership CRM routes", () => {
     expect(mockDeletePartnershipCrmProfessional).toHaveBeenCalledWith(
       bootstrapContext,
       "pro-1",
+    );
+  });
+
+  it("accepts professional outreach research fields on create", async () => {
+    const fastify = await buildTestServer();
+
+    const payload = {
+      name: "Dra. Ada Genome",
+      category: "pro_clinical_geneticists",
+      title: "Genetista clinica",
+      primaryAffiliation: "Laboratorio Argenetics",
+      potentialPocketGenesEditorFit:
+        "Clinical genetics, genetic testing, result interpretation and patient education.",
+      emailRoute:
+        "Publicly listed professional or official institutional contact address; verify recipient context before outreach.",
+      linkedInRoute: "Official LinkedIn page of the affiliated organization.",
+      researchBasis:
+        "Existing verified Pocket Genes partnership dataset, affiliation website and LinkedIn record.",
+      website: "https://argenetics.example",
+      country: "AR",
+      status: "new",
+      email: "ada@argenetics.example",
+      linkedIn: "https://linkedin.com/company/argenetics",
+      lastContactAt: null,
+      notes: "",
+    };
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/partnership-crm/professionals",
+      payload,
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreatePartnershipCrmProfessional).toHaveBeenCalledWith(
+      bootstrapContext,
+      expect.objectContaining({
+        primaryAffiliation: "Laboratorio Argenetics",
+        potentialPocketGenesEditorFit:
+          "Clinical genetics, genetic testing, result interpretation and patient education.",
+        emailRoute:
+          "Publicly listed professional or official institutional contact address; verify recipient context before outreach.",
+        linkedInRoute: "Official LinkedIn page of the affiliated organization.",
+        researchBasis:
+          "Existing verified Pocket Genes partnership dataset, affiliation website and LinkedIn record.",
+      }),
     );
   });
 });

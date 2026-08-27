@@ -47,7 +47,14 @@ const professional: PartnershipCrmProfessionalRecord = {
   name: "Dra. Ada Genome",
   category: "pro_clinical_geneticists",
   title: "Genetista clinica",
-  affiliation: "Genome Lab",
+  primaryAffiliation: "Genome Lab",
+  potentialPocketGenesEditorFit:
+    "Clinical genetics, genetic testing, result interpretation and patient education.",
+  emailRoute:
+    "Publicly listed professional or official institutional contact address.",
+  linkedInRoute: "Official LinkedIn page of the affiliated organization.",
+  researchBasis:
+    "Existing verified Pocket Genes partnership dataset, affiliation website and LinkedIn record.",
   website: "https://ada.example",
   websiteDomain: "ada.example",
   country: "Argentina",
@@ -308,10 +315,49 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(screen.getByText("Clinical Geneticist")).toBeTruthy();
     expect(screen.getByText("Role / specialty")).toBeTruthy();
     expect(screen.getByText("Genetista clinica")).toBeTruthy();
+    expect(screen.getByText("Primary affiliation")).toBeTruthy();
+    expect(screen.getByText("Genome Lab")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Clinical genetics, genetic testing, result interpretation and patient education.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Email route")).toBeTruthy();
+    expect(screen.getByText("LinkedIn route")).toBeTruthy();
+    expect(screen.getByText("Research basis")).toBeTruthy();
     expect(screen.getAllByText("ada@genomelab.example").length).toBeGreaterThan(
       0,
     );
     expect(screen.getByRole("button", { name: "Add Professional" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Edit CRM professional",
+    });
+    const fieldValue = (label: string) =>
+      (
+        within(dialog).getByLabelText(label) as
+          | HTMLInputElement
+          | HTMLTextAreaElement
+      ).value;
+
+    expect(
+      fieldValue("Primary affiliation"),
+    ).toBe("Genome Lab");
+    expect(
+      fieldValue("Potential Pocket Genes editor fit"),
+    ).toBe(
+      "Clinical genetics, genetic testing, result interpretation and patient education.",
+    );
+    expect(fieldValue("Email route")).toBe(
+      "Publicly listed professional or official institutional contact address.",
+    );
+    expect(fieldValue("LinkedIn route")).toBe(
+      "Official LinkedIn page of the affiliated organization.",
+    );
+    expect(fieldValue("Research basis")).toBe(
+      "Existing verified Pocket Genes partnership dataset, affiliation website and LinkedIn record.",
+    );
   });
 
   it("renders the activity log as a single timeline list", async () => {
@@ -452,6 +498,10 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
       if (stringPath.startsWith("/admin/partnership-crm/templates")) {
         return { templates: [], nextCursor: undefined };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/professionals")) {
+        return { professionals: [professional], nextCursor: undefined };
       }
 
       return { organizations: [], nextCursor: undefined };
@@ -703,6 +753,46 @@ describe("PartnershipCrmWorkbench import flow", () => {
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "org_genetic_testing_laboratories",
+    );
+  });
+
+  it("shows professional CSV import rules with outreach research columns", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.click(screen.getByRole("tab", { name: /Professionals/ }));
+    await user.click(screen.getByRole("button", { name: "Import rules" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Import rules",
+    });
+
+    expect(
+      within(dialog).getByText("Rules for CRM professional CSV imports."),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getAllByText("primary_affiliation").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(dialog).getAllByText("potential_pocket_genes_editor_fit").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(dialog).getAllByText("email_route").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(dialog).getAllByText("linkedin_route").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(dialog).getAllByText("research_basis").length,
+    ).toBeGreaterThan(0);
+
+    await user.click(within(dialog).getByRole("button", { name: "Copy" }));
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: "Copied" }),
+      ).toBeTruthy();
+    });
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Header row: name,category,title,primary_affiliation,potential_pocket_genes_editor_fit,email_route,linkedin_route,research_basis,website,country,status,email,linkedin,last_contact_at,notes",
     );
   });
 });

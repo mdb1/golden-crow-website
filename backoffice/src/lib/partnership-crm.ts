@@ -75,7 +75,11 @@ export interface PartnershipCrmProfessionalRecord {
   name: string;
   category: string;
   title: string;
-  affiliation: string;
+  primaryAffiliation: string;
+  potentialPocketGenesEditorFit: string;
+  emailRoute: string;
+  linkedInRoute: string;
+  researchBasis: string;
   website: string;
   websiteDomain: string;
   country: string;
@@ -166,7 +170,11 @@ export interface PartnershipCrmProfessionalInput {
   name: string;
   category?: string;
   title?: string;
-  affiliation?: string;
+  primaryAffiliation?: string;
+  potentialPocketGenesEditorFit?: string;
+  emailRoute?: string;
+  linkedInRoute?: string;
+  researchBasis?: string;
   website?: string;
   country?: string;
   status?: PartnershipCrmStatus;
@@ -366,14 +374,44 @@ const PROFESSIONAL_HEADER_ALIASES: Record<
   name: ["name", "professional", "professional_name", "nombre", "persona"],
   category: ["category", "professional_category", "categoria", "tipo"],
   title: ["title", "role", "specialty", "profession", "titulo", "especialidad"],
-  affiliation: [
-    "affiliation",
-    "institution",
-    "organization",
-    "company",
-    "institucion",
-    "organizacion",
-    "empresa",
+  primaryAffiliation: [
+    "primary_affiliation",
+    "primaryaffiliation",
+  ],
+  potentialPocketGenesEditorFit: [
+    "potential_pocket_genes_editor_fit",
+    "potentialpocketgeneseditorfit",
+    "pocket_genes_editor_fit",
+    "pocketgeneseditorfit",
+    "editor_fit",
+    "editorfit",
+    "fit_editor",
+    "fit",
+  ],
+  emailRoute: [
+    "email_route",
+    "emailroute",
+    "route_email",
+    "email_source",
+    "emailsource",
+    "recipient_context",
+    "recipientcontext",
+  ],
+  linkedInRoute: [
+    "linkedin_route",
+    "linkedinroute",
+    "linked_in_route",
+    "linkedin_source",
+    "linkedinsource",
+  ],
+  researchBasis: [
+    "research_basis",
+    "researchbasis",
+    "basis",
+    "source_basis",
+    "sources",
+    "fuente",
+    "fundamento",
   ],
   website: ["website", "web", "url", "site", "sitio"],
   country: ["country", "pais"],
@@ -704,7 +742,12 @@ export function parseCrmCsv(
         name: row.name?.trim() ?? "",
         category: normalizeCrmCategory(row.category ?? "", "professionals"),
         title: row.title?.trim() ?? "",
-        affiliation: row.affiliation?.trim() ?? "",
+        primaryAffiliation: row.primaryAffiliation?.trim() ?? "",
+        potentialPocketGenesEditorFit:
+          row.potentialPocketGenesEditorFit?.trim() ?? "",
+        emailRoute: row.emailRoute?.trim() ?? "",
+        linkedInRoute: row.linkedInRoute?.trim() ?? "",
+        researchBasis: row.researchBasis?.trim() ?? "",
         website: row.website?.trim() ?? "",
         country: normalizeCrmCountry(row.country ?? ""),
         status: normalizeStatus(row.status ?? ""),
@@ -879,7 +922,7 @@ export function renderCrmTemplate(
         : organization.contactName || "equipo",
     organization_name:
       targetKind === "professionals"
-        ? professional.affiliation || professional.name
+        ? professional.primaryAffiliation || professional.name
         : organization.name,
     professional_name:
       targetKind === "professionals"
@@ -889,10 +932,17 @@ export function renderCrmTemplate(
       targetKind === "professionals"
         ? firstName(professional.name)
         : firstName(organization.contactName || organization.name),
-    affiliation:
+    primary_affiliation:
+      targetKind === "professionals" ? professional.primaryAffiliation : "",
+    potential_pocket_genes_editor_fit:
       targetKind === "professionals"
-        ? professional.affiliation
-        : organization.name,
+        ? professional.potentialPocketGenesEditorFit
+        : "",
+    email_route: targetKind === "professionals" ? professional.emailRoute : "",
+    linkedin_route:
+      targetKind === "professionals" ? professional.linkedInRoute : "",
+    research_basis:
+      targetKind === "professionals" ? professional.researchBasis : "",
     title: targetKind === "professionals" ? professional.title : "",
     website: targetWebsite,
     website_sentence: websiteSentence(target),

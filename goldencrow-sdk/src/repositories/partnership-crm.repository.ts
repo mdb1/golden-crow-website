@@ -95,7 +95,11 @@ export interface PartnershipCrmProfessionalInput {
   name?: string;
   category?: string;
   title?: string;
-  affiliation?: string;
+  primaryAffiliation?: string;
+  potentialPocketGenesEditorFit?: string;
+  emailRoute?: string;
+  linkedInRoute?: string;
+  researchBasis?: string;
   website?: string;
   country?: string;
   status?: PartnershipCrmStatus;
@@ -139,7 +143,11 @@ export interface PartnershipCrmProfessionalRecord {
   name: string;
   category: string;
   title: string;
-  affiliation: string;
+  primaryAffiliation: string;
+  potentialPocketGenesEditorFit: string;
+  emailRoute: string;
+  linkedInRoute: string;
+  researchBasis: string;
   website: string;
   websiteDomain: string;
   country: string;
@@ -672,7 +680,13 @@ function professionalDocument(
     name,
     category: normalizeCrmCategory(input.category, "professionals"),
     title: cleanString(input.title),
-    affiliation: cleanString(input.affiliation),
+    primaryAffiliation: cleanString(input.primaryAffiliation),
+    potentialPocketGenesEditorFit: cleanString(
+      input.potentialPocketGenesEditorFit,
+    ),
+    emailRoute: cleanString(input.emailRoute),
+    linkedInRoute: cleanString(input.linkedInRoute),
+    researchBasis: cleanString(input.researchBasis),
     website,
     websiteDomain: websiteDomain(website),
     country: normalizeCrmCountry(input.country),
@@ -749,7 +763,13 @@ function toProfessionalRecord(
     name,
     category: normalizeCrmCategory(data.category, "professionals"),
     title: cleanString(data.title),
-    affiliation: cleanString(data.affiliation),
+    primaryAffiliation: cleanString(data.primaryAffiliation),
+    potentialPocketGenesEditorFit: cleanString(
+      data.potentialPocketGenesEditorFit,
+    ),
+    emailRoute: cleanString(data.emailRoute),
+    linkedInRoute: cleanString(data.linkedInRoute),
+    researchBasis: cleanString(data.researchBasis),
     website,
     websiteDomain: cleanString(data.websiteDomain) || websiteDomain(website),
     country: normalizeCrmCountry(data.country),
@@ -904,7 +924,11 @@ function matchesProfessionalFilters(
     record.name,
     record.category,
     record.title,
-    record.affiliation,
+    record.primaryAffiliation,
+    record.potentialPocketGenesEditorFit,
+    record.emailRoute,
+    record.linkedInRoute,
+    record.researchBasis,
     record.website,
     record.websiteDomain,
     record.country,
@@ -2078,7 +2102,13 @@ export async function previewPartnershipCrmProfessionalImport(
         name,
         category: cleanString(professional.category),
         title: cleanString(professional.title),
-        affiliation: cleanString(professional.affiliation),
+        primaryAffiliation: cleanString(professional.primaryAffiliation),
+        potentialPocketGenesEditorFit: cleanString(
+          professional.potentialPocketGenesEditorFit,
+        ),
+        emailRoute: cleanString(professional.emailRoute),
+        linkedInRoute: cleanString(professional.linkedInRoute),
+        researchBasis: cleanString(professional.researchBasis),
         website: cleanString(professional.website),
         country: cleanString(professional.country),
         status: normalizeStatus(professional.status),
