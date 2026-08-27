@@ -135,6 +135,8 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await user.upload(within(dialog).getByLabelText("CSV file"), file);
 
     await waitFor(() => {
+      expect(within(dialog).queryByLabelText("CSV contents")).toBeNull();
+      expect(within(dialog).getByText("CSV parsed")).toBeTruthy();
       expect(within(dialog).getByText("Lab intro")).toBeTruthy();
       expect(within(dialog).getByText("Foundation intro")).toBeTruthy();
     });
@@ -186,6 +188,47 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(within(dialog).getAllByText("Created").length).toBeGreaterThan(1);
     });
+  });
+
+  it("does not render raw template CSV contents and caps visible preview rows", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValue({
+      templates: [],
+      nextCursor: undefined,
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await user.click(screen.getByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = [
+      "name,category,subject,body,status,notes",
+      ...Array.from({ length: 55 }, (_, index) => {
+        const row = index + 1;
+        return [
+          `"Template ${row}"`,
+          '"org_genetic_testing_laboratories"',
+          `"Subject ${row}"`,
+          `"Body ${row}"`,
+          '"active"',
+          '""',
+        ].join(",");
+      }),
+    ].join("\n");
+    const file = new File([csv], "many-plantillas.csv", { type: "text/csv" });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+
+    await waitFor(() => {
+      expect(within(dialog).queryByLabelText("CSV contents")).toBeNull();
+      expect(within(dialog).getByText("CSV parsed")).toBeTruthy();
+      expect(
+        within(dialog).getByText("Showing first 50 of 55 parsed rows."),
+      ).toBeTruthy();
+    });
+    expect(within(dialog).getByText("Template 50")).toBeTruthy();
+    expect(within(dialog).queryByText("Template 51")).toBeNull();
   });
 
   it("opens template CSV import rules with canonical CRM options", async () => {

@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -131,6 +132,9 @@ const PROFESSIONAL_TEMPLATE_VARIABLES = [
     label: "Website sentence",
   },
 ] as const;
+
+const TEMPLATE_IMPORT_PREVIEW_LIMIT = 50;
+
 const ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV = [
   "name,audience,category,subject,body,status,notes",
   [
@@ -485,7 +489,7 @@ function TemplateImportDialog({
   const t = (text: string) => appText(language, text);
   const [audience, setAudience] =
     useState<PartnershipCrmTemplateAudience>(initialAudience);
-  const [csvText, setCsvText] = useState("");
+  const csvTextRef = useRef("");
   const [fileName, setFileName] = useState("");
   const [parsed, setParsed] = useState<ParsedCrmTemplateCsv | null>(null);
   const [importing, setImporting] = useState(false);
@@ -505,7 +509,7 @@ function TemplateImportDialog({
     }
 
     setAudience(initialAudience);
-    setCsvText("");
+    csvTextRef.current = "";
     setFileName("");
     setParsed(null);
     setImporting(false);
@@ -517,6 +521,10 @@ function TemplateImportDialog({
   const previewRows = useMemo(
     () => (parsed ? templatePreviewRows(parsed) : []),
     [parsed],
+  );
+  const visiblePreviewRows = useMemo(
+    () => previewRows.slice(0, TEMPLATE_IMPORT_PREVIEW_LIMIT),
+    [previewRows],
   );
   const validRows = useMemo(
     () => previewRows.filter((row) => row.valid),
@@ -549,7 +557,7 @@ function TemplateImportDialog({
     nextFileName = "",
     nextAudience: PartnershipCrmTemplateAudience = audience,
   ) {
-    setCsvText(text);
+    csvTextRef.current = text;
     setFileName(nextFileName);
     setParsed(text.trim() ? parseCrmTemplateCsv(text, nextAudience) : null);
     setCompleted(false);
@@ -559,7 +567,7 @@ function TemplateImportDialog({
 
   function handleAudienceChange(nextAudience: PartnershipCrmTemplateAudience) {
     setAudience(nextAudience);
-    parseCsv(csvText, fileName, nextAudience);
+    parseCsv(csvTextRef.current, fileName, nextAudience);
   }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -571,14 +579,14 @@ function TemplateImportDialog({
 
     try {
       const text = await file.text();
-      setCsvText(text);
+      csvTextRef.current = text;
       setFileName(file.name);
       setParsed(parseCrmTemplateCsv(text, audience));
       setCompleted(false);
       setProcessedCount(0);
       setResults([]);
     } catch (error) {
-      setCsvText("");
+      csvTextRef.current = "";
       setFileName(file.name);
       setParsed({
         rows: [],
@@ -696,18 +704,15 @@ function TemplateImportDialog({
                 ) : null}
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="crm-template-import-text">
-                  {t("CSV contents")}
-                </Label>
-                <Textarea
-                  id="crm-template-import-text"
-                  value={csvText}
-                  onChange={(event) => parseCsv(event.target.value)}
-                  placeholder={t("Paste template CSV here...")}
-                  className="min-h-32 font-mono text-xs leading-5"
-                  disabled={importing}
-                />
+              <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-3">
+                <p className="text-sm font-medium">
+                  {parsed ? t("CSV parsed") : t("No CSV selected")}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {t(
+                    "Raw CSV contents are not rendered. The preview below is capped to protect the UI.",
+                  )}
+                </p>
               </div>
             </div>
 
@@ -725,6 +730,7 @@ function TemplateImportDialog({
                       audience === "professionals"
                         ? PROFESSIONAL_TEMPLATE_IMPORT_SAMPLE_CSV
                         : ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV,
+                      "sample-plantillas.csv",
                     )
                   }
                   disabled={importing}
@@ -786,11 +792,11 @@ function TemplateImportDialog({
             ) : (
               <Table>
                 <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("Row")}</TableHead>
-                      <TableHead>{t("Template")}</TableHead>
-                      <TableHead>{t("Applies to")}</TableHead>
-                      <TableHead>{t("Category")}</TableHead>
+                  <TableRow>
+                    <TableHead>{t("Row")}</TableHead>
+                    <TableHead>{t("Template")}</TableHead>
+                    <TableHead>{t("Applies to")}</TableHead>
+                    <TableHead>{t("Category")}</TableHead>
                     <TableHead>{t("Subject")}</TableHead>
                     <TableHead>{t("Message")}</TableHead>
                     <TableHead>{t("Status")}</TableHead>
@@ -798,7 +804,7 @@ function TemplateImportDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {previewRows.map((row) => {
+                  {visiblePreviewRows.map((row) => {
                     const result = resultByRow.get(row.rowNumber);
                     const resultLabel = result
                       ? result.action === "created"
@@ -881,6 +887,12 @@ function TemplateImportDialog({
               </Table>
             )}
           </div>
+          {previewRows.length > visiblePreviewRows.length ? (
+            <p className="text-xs text-muted-foreground">
+              {t("Showing first")} {visiblePreviewRows.length} {t("of")}{" "}
+              {previewRows.length} {t("parsed rows")}.
+            </p>
+          ) : null}
         </div>
 
         <DialogFooter>
