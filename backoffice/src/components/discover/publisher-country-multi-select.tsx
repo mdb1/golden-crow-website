@@ -28,6 +28,7 @@ type PublisherCountryMultiSelectProps = {
   onChange: (value: string) => void;
   language: AppLanguage;
   t: (text: string) => string;
+  includeGlobal?: boolean;
 };
 
 export function PublisherCountryMultiSelect({
@@ -36,16 +37,26 @@ export function PublisherCountryMultiSelect({
   onChange,
   language,
   t,
+  includeGlobal = true,
 }: PublisherCountryMultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const countryGroups = useMemo(
-    () => getDiscoverOrganizationCountryGroups(language),
-    [language],
+    () =>
+      getDiscoverOrganizationCountryGroups(language).map((group) => ({
+        ...group,
+        options: includeGlobal
+          ? group.options
+          : group.options.filter((option) => option.code !== "GLOBAL"),
+      })),
+    [includeGlobal, language],
   );
   const selectedCodes = useMemo(
-    () => parseDiscoverOrganizationCountryCodes(value),
-    [value],
+    () =>
+      parseDiscoverOrganizationCountryCodes(value).filter(
+        (code) => includeGlobal || code !== "GLOBAL",
+      ),
+    [includeGlobal, value],
   );
   const selectedSet = useMemo(() => new Set(selectedCodes), [selectedCodes]);
   const normalizedQuery = query.trim().toLowerCase();
@@ -59,7 +70,11 @@ export function PublisherCountryMultiSelect({
       ),
     }))
     .filter((group) => group.options.length > 0);
-  const displayValue = formatDiscoverOrganizationCountries(value, language);
+  const selectedValue = serializeDiscoverOrganizationCountryCodes(selectedCodes);
+  const displayValue = formatDiscoverOrganizationCountries(
+    selectedValue,
+    language,
+  );
   const selectedOptions = countryGroups.flatMap((group) =>
     group.options.filter((option) => selectedSet.has(option.code)),
   );
@@ -69,6 +84,10 @@ export function PublisherCountryMultiSelect({
   }
 
   function toggleCountry(countryCode: string) {
+    if (!includeGlobal && countryCode === "GLOBAL") {
+      return;
+    }
+
     if (selectedSet.has(countryCode)) {
       updateSelected(selectedCodes.filter((code) => code !== countryCode));
       return;

@@ -93,7 +93,7 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
       {
         label: "category",
         detail:
-          "Optional single value. Use one canonical pro_* category key, or an exact professional category label. Unknown values become blank.",
+          "Optional. Use one or more canonical pro_* category keys separated by commas, or exact professional category labels. Unknown values become blank.",
       },
       {
         label: "title",
@@ -108,7 +108,7 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
       {
         label: "country",
         detail:
-          "Optional single value. Use one country from the CRM whitelist. GLOBAL is not accepted here.",
+          "Optional. Use one or more country codes from the CRM whitelist separated by commas. GLOBAL is not accepted here.",
       },
       {
         label: "email",
@@ -143,12 +143,12 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
       {
         label: "category",
         detail:
-          "Optional single value. Use one canonical org_* category key, or an exact Discover organization label. Unknown values become blank.",
+          "Optional. Use one or more canonical org_* category keys separated by commas, or exact Discover organization labels. Unknown values become blank.",
       },
       {
         label: "country",
         detail:
-          "Optional single value. Use one country from the CRM whitelist. GLOBAL is not accepted here.",
+          "Optional. Use one or more country codes from the CRM whitelist separated by commas. GLOBAL is not accepted here.",
       },
       {
         label: "status",
@@ -389,9 +389,17 @@ export function CrmImportRulesDialog({
               {t("Accepted categories")}
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              {categoryAudience === "professionals"
-                ? t("Use canonical pro_* keys when possible.")
-                : t("Use canonical org_* keys when possible.")}
+              {kind === "templates"
+                ? t(
+                    "Use one canonical category key for the selected template audience.",
+                  )
+                : categoryAudience === "professionals"
+                  ? t(
+                      "Use canonical pro_* keys when possible. Quote the CSV cell when multiple keys are separated by commas.",
+                    )
+                  : t(
+                      "Use canonical org_* keys when possible. Quote the CSV cell when multiple keys are separated by commas.",
+                    )}
             </p>
             <div className="mt-3 max-h-72 overflow-auto rounded-xl border border-border/80 bg-muted/20 p-3">
               <OptionGrid
@@ -410,7 +418,7 @@ export function CrmImportRulesDialog({
               </h3>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t(
-                  "Use one normalized country code from the CRM country whitelist. GLOBAL is not accepted.",
+                  "Use normalized country codes from the CRM country whitelist. Quote the CSV cell when multiple codes are separated by commas. GLOBAL is not accepted.",
                 )}
               </p>
               <div className="mt-3 max-h-72 overflow-auto rounded-xl border border-border/80 bg-muted/20 p-3">

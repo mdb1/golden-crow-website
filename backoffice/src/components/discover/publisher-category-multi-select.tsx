@@ -25,6 +25,7 @@ type CategorySelectProvider = {
 };
 
 type PublisherCategoryMultiSelectProps = {
+  id?: string;
   provider: CategorySelectProvider;
   value: string;
   onChange: (value: string) => void;
@@ -42,6 +43,7 @@ type PublisherCategoryMultiSelectProps = {
 };
 
 export function PublisherCategoryMultiSelect({
+  id,
   provider,
   value,
   onChange,
@@ -80,8 +82,11 @@ export function PublisherCategoryMultiSelect({
       `${option.label} ${optionLabel(option)}`
         .toLowerCase()
         .includes(normalizedQuery),
-    );
+      );
   }, [optionLabel, provider.options, query]);
+  const selectionSummary = selectedOptions.length
+    ? selectedCountLabel(selectedOptions.length)
+    : emptyLabel;
 
   function updateSelected(nextKeys: readonly string[]) {
     onChange(provider.serialize(nextKeys));
@@ -103,9 +108,11 @@ export function PublisherCategoryMultiSelect({
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <Button
+        id={id}
         type="button"
         variant="outline"
         onClick={() => setOpen(true)}
+        aria-label={`${label}: ${selectionSummary}`}
         className="h-auto min-h-10 justify-between gap-3 px-3 py-2 text-left"
       >
         <span className="flex min-w-0 items-center gap-2">
@@ -115,9 +122,7 @@ export function PublisherCategoryMultiSelect({
               {label}
             </span>
             <span className="block truncate text-sm font-medium">
-              {selectedOptions.length
-                ? selectedCountLabel(selectedOptions.length)
-                : emptyLabel}
+              {selectionSummary}
             </span>
           </span>
         </span>

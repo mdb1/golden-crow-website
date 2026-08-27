@@ -39,11 +39,14 @@ const CrmActivityTypeSchema = z.enum(PARTNERSHIP_CRM_ACTIVITY_TYPES);
 const CrmTemplateStatusSchema = z.enum(PARTNERSHIP_CRM_TEMPLATE_STATUSES);
 const CrmTemplateAudienceSchema = z.enum(PARTNERSHIP_CRM_TEMPLATE_AUDIENCES);
 const OptionalStringSchema = z.string().trim().max(2000).optional();
+const CrmCategoryStringSchema = z.string().trim().max(2000).optional();
+const CrmCountryStringSchema = z.string().trim().max(500).optional();
+const CrmTemplateCategoryStringSchema = z.string().trim().max(90).optional();
 const OrganizationBodySchema = z.object({
   name: z.string().trim().min(1).max(180),
-  category: z.string().trim().max(90).optional(),
+  category: CrmCategoryStringSchema,
   website: z.string().trim().max(500).optional(),
-  country: z.string().trim().max(90).optional(),
+  country: CrmCountryStringSchema,
   status: CrmStatusSchema.optional(),
   contactName: z.string().trim().max(140).optional(),
   contactEmail: z.string().trim().toLowerCase().max(180).optional(),
@@ -58,11 +61,11 @@ const OrganizationImportRowSchema = OrganizationBodySchema.partial().extend({
 });
 const ProfessionalBodySchema = z.object({
   name: z.string().trim().min(1).max(180),
-  category: z.string().trim().max(90).optional(),
+  category: CrmCategoryStringSchema,
   title: z.string().trim().max(180).optional(),
   affiliation: z.string().trim().max(180).optional(),
   website: z.string().trim().max(500).optional(),
-  country: z.string().trim().max(90).optional(),
+  country: CrmCountryStringSchema,
   status: CrmStatusSchema.optional(),
   email: z.string().trim().toLowerCase().max(180).optional(),
   linkedIn: z.string().trim().max(500).optional(),
@@ -85,8 +88,8 @@ const ListOrganizationsQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(50).optional(),
   query: z.string().trim().max(180).optional(),
   status: z.string().trim().max(40).optional(),
-  category: z.string().trim().max(90).optional(),
-  country: z.string().trim().max(90).optional(),
+  category: CrmCategoryStringSchema,
+  country: CrmCountryStringSchema,
   emailState: z.enum(["has_email", "missing_email"]).optional(),
 });
 const ListActivitiesQuerySchema = z.object({
@@ -96,7 +99,7 @@ const ListActivitiesQuerySchema = z.object({
 const TemplateBodySchema = z.object({
   name: z.string().trim().min(1).max(180),
   audience: CrmTemplateAudienceSchema.optional(),
-  category: z.string().trim().max(90).optional(),
+  category: CrmTemplateCategoryStringSchema,
   subject: z.string().trim().min(1).max(180),
   body: z.string().trim().min(1).max(12000),
   status: CrmTemplateStatusSchema.optional(),
@@ -110,7 +113,7 @@ const ListTemplatesQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(50).optional(),
   query: z.string().trim().max(180).optional(),
   status: z.string().trim().max(40).optional(),
-  category: z.string().trim().max(90).optional(),
+  category: CrmTemplateCategoryStringSchema,
   audience: CrmTemplateAudienceSchema.optional(),
 });
 const ActivityBodySchema = z.object({

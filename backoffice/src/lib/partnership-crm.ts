@@ -436,6 +436,13 @@ export function normalizeCrmCategory(
   value: string,
   audience: PartnershipCrmTemplateAudience = "organizations",
 ): string {
+  return normalizeCrmCategoryKeys(value, audience).join(",");
+}
+
+function normalizeSingleCrmCategory(
+  value: string,
+  audience: PartnershipCrmTemplateAudience = "organizations",
+): string {
   const raw = value.trim();
   if (!raw) {
     return "";
@@ -466,22 +473,88 @@ export function normalizeCrmCategory(
   return "";
 }
 
+export function normalizeCrmCategoryKeys(
+  value: string,
+  audience: PartnershipCrmTemplateAudience = "organizations",
+) {
+  const seen = new Set<string>();
+  return value
+    .split(",")
+    .map((token) => normalizeSingleCrmCategory(token, audience))
+    .filter((category) => {
+      if (!category || seen.has(category)) {
+        return false;
+      }
+      seen.add(category);
+      return true;
+    });
+}
+
+export function normalizeCrmPrimaryCategory(
+  value: string,
+  audience: PartnershipCrmTemplateAudience = "organizations",
+) {
+  return normalizeCrmCategoryKeys(value, audience)[0] ?? "";
+}
+
+function categoryOptionsForAudience(
+  audience: PartnershipCrmTemplateAudience = "organizations",
+) {
+  return audience === "professionals"
+    ? CRM_PROFESSIONAL_CATEGORY_OPTIONS
+    : CRM_CATEGORY_OPTIONS;
+}
+
+export function crmCategoryLabels(
+  value: string,
+  audience: PartnershipCrmTemplateAudience = "organizations",
+) {
+  const keys = normalizeCrmCategoryKeys(value, audience);
+  const options = categoryOptionsForAudience(audience);
+
+  if (!keys.length) {
+    const fallback = value.trim();
+    return fallback ? [fallback] : [];
+  }
+
+  return keys.map(
+    (key) => options.find((category) => category.value === key)?.label ?? key,
+  );
+}
+
 export function crmCategoryLabel(
   value: string,
   audience: PartnershipCrmTemplateAudience = "organizations",
 ) {
-  const normalized = normalizeCrmCategory(value, audience);
-  const options =
-    audience === "professionals"
-      ? CRM_PROFESSIONAL_CATEGORY_OPTIONS
-      : CRM_CATEGORY_OPTIONS;
-  return (
-    options.find((category) => category.value === normalized)?.label ??
-    value.trim()
-  );
+  return crmCategoryLabels(value, audience).join(", ") || value.trim();
 }
 
 export function normalizeCrmCountry(value: string) {
+  return normalizeCrmCountryCodes(value).join(",");
+}
+
+export function normalizeCrmCountryCodes(value: string) {
+  const seen = new Set<string>();
+  return value
+    .split(",")
+    .map((token) => {
+      const countryCode = normalizeDiscoverOrganizationCountryCode(token);
+      return countryCode === "GLOBAL" ? "" : countryCode;
+    })
+    .filter((countryCode) => {
+      if (!countryCode || seen.has(countryCode)) {
+        return false;
+      }
+      seen.add(countryCode);
+      return true;
+    });
+}
+
+export function serializeCrmCountryCodes(countryCodes: readonly string[]) {
+  return normalizeCrmCountryCodes(countryCodes.join(",")).join(",");
+}
+
+export function normalizeSingleCrmCountry(value: string) {
   const countryCode = normalizeDiscoverOrganizationCountryCode(value);
   return countryCode === "GLOBAL" ? "" : countryCode;
 }
@@ -752,7 +825,7 @@ export function parseCrmTemplateCsv(
     rows.push({
       name,
       audience,
-      category: normalizeCrmCategory(row.category ?? "", audience),
+      category: normalizeCrmPrimaryCategory(row.category ?? "", audience),
       subject,
       body,
       status: normalizeTemplateStatus(row.status ?? ""),
@@ -873,29 +946,42 @@ export function bestCrmTemplateForTarget(
   );
   const visibleTemplates =
     activeTemplates.length > 0 ? activeTemplates : audienceTemplates;
-  const targetCategory = normalizeCrmCategory(target.category, targetKind);
-  const targetCategoryKey = normalizeKey(targetCategory);
-
   if (!visibleTemplates.length) {
     return null;
   }
 
+  const targetCategories = normalizeCrmCategoryKeys(target.category, targetKind);
+  const targetCategoryKeys = targetCategories.map((category) =>
+    normalizeKey(category),
+  );
+
   return (
-    visibleTemplates.find(
-      (template) =>
-        normalizeCrmCategory(template.category, targetKind) === targetCategory,
-    ) ??
     visibleTemplates.find((template) => {
-      const templateCategory = normalizeCrmCategory(
+      const templateCategories = normalizeCrmCategoryKeys(
         template.category,
         targetKind,
       );
-      const templateCategoryKey = normalizeKey(templateCategory);
-      return (
-        targetCategoryKey &&
-        templateCategoryKey &&
-        (targetCategoryKey.includes(templateCategoryKey) ||
-          templateCategoryKey.includes(targetCategoryKey))
+      return templateCategories.some((templateCategory) =>
+        targetCategories.includes(templateCategory),
+      );
+    }) ??
+    visibleTemplates.find((template) => {
+      const templateCategories = normalizeCrmCategoryKeys(
+        template.category,
+        targetKind,
+      );
+      const templateCategoryKeys = templateCategories.map((category) =>
+        normalizeKey(category),
+      );
+      return targetCategoryKeys.some(
+        (targetKey) =>
+          targetKey &&
+          templateCategoryKeys.some(
+            (templateKey) =>
+              templateKey &&
+              (targetKey.includes(templateKey) ||
+                templateKey.includes(targetKey)),
+          ),
       );
     }) ??
     visibleTemplates[0]

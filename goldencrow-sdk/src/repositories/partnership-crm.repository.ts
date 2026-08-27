@@ -449,7 +449,7 @@ const COUNTRY_ALIASES: Record<string, string> = {
   gbr: "GB",
 };
 
-function normalizeCrmCategory(
+function normalizeSingleCrmCategory(
   value: unknown,
   audience: PartnershipCrmTemplateAudience = "organizations",
 ): string {
@@ -483,7 +483,39 @@ function normalizeCrmCategory(
   return "";
 }
 
-function normalizeCrmCountry(value: unknown) {
+function normalizeCrmCategory(
+  value: unknown,
+  audience: PartnershipCrmTemplateAudience = "organizations",
+): string {
+  const seen = new Set<string>();
+  return cleanString(value)
+    .split(",")
+    .map((token) => normalizeSingleCrmCategory(token, audience))
+    .filter((category) => {
+      if (!category || seen.has(category)) {
+        return false;
+      }
+      seen.add(category);
+      return true;
+    })
+    .join(",");
+}
+
+function crmCategoryKeys(
+  value: unknown,
+  audience: PartnershipCrmTemplateAudience = "organizations",
+) {
+  return normalizeCrmCategory(value, audience).split(",").filter(Boolean);
+}
+
+function normalizeCrmPrimaryCategory(
+  value: unknown,
+  audience: PartnershipCrmTemplateAudience = "organizations",
+) {
+  return crmCategoryKeys(value, audience)[0] ?? "";
+}
+
+function normalizeSingleCrmCountry(value: unknown) {
   const raw = cleanString(value);
   if (!raw) {
     return "";
@@ -500,8 +532,37 @@ function normalizeCrmCountry(value: unknown) {
   }
 
   return (
-    COUNTRY_ALIASES[normalizeKey(raw.replace(/\s*\([^)]*\)\s*$/, ""))] ?? raw
+    COUNTRY_ALIASES[normalizeKey(raw.replace(/\s*\([^)]*\)\s*$/, ""))] ?? ""
   );
+}
+
+function crmCountryCodes(value: unknown) {
+  const seen = new Set<string>();
+  return cleanString(value)
+    .split(",")
+    .map((token) => normalizeSingleCrmCountry(token))
+    .filter((country) => {
+      if (!country || seen.has(country)) {
+        return false;
+      }
+      seen.add(country);
+      return true;
+    });
+}
+
+function normalizeCrmCountry(value: unknown) {
+  return crmCountryCodes(value).join(",");
+}
+
+function hasAnyValueOverlap(
+  filterValues: readonly string[],
+  recordValues: readonly string[],
+) {
+  if (!filterValues.length) {
+    return true;
+  }
+
+  return filterValues.some((value) => recordValues.includes(value));
 }
 
 function normalizeLimit(value: unknown) {
@@ -634,7 +695,7 @@ function templateDocument(
     schemaVersion: 1,
     name,
     audience,
-    category: normalizeCrmCategory(input.category, audience),
+    category: normalizeCrmPrimaryCategory(input.category, audience),
     subject: cleanString(input.subject),
     body: cleanString(input.body),
     status: normalizeTemplateStatus(input.status),
@@ -658,7 +719,7 @@ function toOrganizationRecord(
     category: normalizeCrmCategory(data.category),
     website,
     websiteDomain: cleanString(data.websiteDomain) || websiteDomain(website),
-    country: cleanString(data.country),
+    country: normalizeCrmCountry(data.country),
     status: normalizeStatus(data.status),
     contactName: cleanString(data.contactName),
     contactEmail: normalizeEmail(data.contactEmail),
@@ -691,7 +752,7 @@ function toProfessionalRecord(
     affiliation: cleanString(data.affiliation),
     website,
     websiteDomain: cleanString(data.websiteDomain) || websiteDomain(website),
-    country: cleanString(data.country),
+    country: normalizeCrmCountry(data.country),
     status: normalizeStatus(data.status),
     email: normalizeEmail(data.email),
     linkedIn: cleanString(data.linkedIn),
@@ -741,7 +802,7 @@ function toTemplateRecord(
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     name,
     audience,
-    category: normalizeCrmCategory(data.category, audience),
+    category: normalizeCrmPrimaryCategory(data.category, audience),
     subject: cleanString(data.subject),
     body: cleanString(data.body),
     status: normalizeTemplateStatus(data.status),
@@ -793,8 +854,8 @@ function matchesFilters(
   },
 ) {
   const query = cleanString(filters.query).toLowerCase();
-  const category = normalizeCrmCategory(filters.category);
-  const country = normalizeCrmCountry(filters.country);
+  const categoryKeys = crmCategoryKeys(filters.category);
+  const countryCodes = crmCountryCodes(filters.country);
   const status = cleanString(filters.status);
   const searchable = [
     record.id,
@@ -815,8 +876,8 @@ function matchesFilters(
   return (
     (!query || searchable.includes(query)) &&
     (!status || status === "all" || record.status === status) &&
-    (!category || normalizeCrmCategory(record.category) === category) &&
-    (!country || normalizeCrmCountry(record.country) === country) &&
+    hasAnyValueOverlap(categoryKeys, crmCategoryKeys(record.category)) &&
+    hasAnyValueOverlap(countryCodes, crmCountryCodes(record.country)) &&
     (!filters.emailState ||
       (filters.emailState === "has_email"
         ? Boolean(record.contactEmail)
@@ -835,8 +896,8 @@ function matchesProfessionalFilters(
   },
 ) {
   const query = cleanString(filters.query).toLowerCase();
-  const category = normalizeCrmCategory(filters.category, "professionals");
-  const country = normalizeCrmCountry(filters.country);
+  const categoryKeys = crmCategoryKeys(filters.category, "professionals");
+  const countryCodes = crmCountryCodes(filters.country);
   const status = cleanString(filters.status);
   const searchable = [
     record.id,
@@ -858,9 +919,11 @@ function matchesProfessionalFilters(
   return (
     (!query || searchable.includes(query)) &&
     (!status || status === "all" || record.status === status) &&
-    (!category ||
-      normalizeCrmCategory(record.category, "professionals") === category) &&
-    (!country || normalizeCrmCountry(record.country) === country) &&
+    hasAnyValueOverlap(
+      categoryKeys,
+      crmCategoryKeys(record.category, "professionals"),
+    ) &&
+    hasAnyValueOverlap(countryCodes, crmCountryCodes(record.country)) &&
     (!filters.emailState ||
       (filters.emailState === "has_email"
         ? Boolean(record.email)
@@ -880,7 +943,7 @@ function matchesTemplateFilters(
   const query = cleanString(filters.query).toLowerCase();
   const audience = normalizeTemplateAudience(filters.audience);
   const hasAudienceFilter = Boolean(cleanString(filters.audience));
-  const category = normalizeCrmCategory(filters.category, audience);
+  const categoryKeys = crmCategoryKeys(filters.category, audience);
   const status = cleanString(filters.status);
   const searchable = [
     record.id,
@@ -899,7 +962,10 @@ function matchesTemplateFilters(
     (!query || searchable.includes(query)) &&
     (!status || status === "all" || record.status === status) &&
     (!hasAudienceFilter || record.audience === audience) &&
-    (!category || normalizeCrmCategory(record.category, record.audience) === category)
+    hasAnyValueOverlap(
+      categoryKeys,
+      crmCategoryKeys(record.category, record.audience),
+    )
   );
 }
 

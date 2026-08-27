@@ -73,8 +73,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { PublisherCountryMultiSelect } from "@/components/discover/publisher-country-multi-select";
 import {
+  CrmCategoryMultiSelect,
   CrmCategorySelect,
+  crmCategoryDisplayLabels,
   formatCrmCategory,
 } from "@/components/god-mode/crm-category-select";
 import { CrmImportRulesDialog } from "@/components/god-mode/crm-import-rules-dialog";
@@ -82,7 +85,7 @@ import { CrmTargetSegmentedControl } from "@/components/god-mode/crm-target-segm
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText, type AppLanguage } from "@/lib/language";
 import {
-  formatDiscoverOrganizationCountry,
+  formatDiscoverOrganizationCountries,
   getDiscoverOrganizationCountryGroups,
 } from "@/lib/discover-organization-fields";
 import {
@@ -625,9 +628,7 @@ function toFormState(
 
   const base = {
     name: organization.name,
-    category:
-      normalizeCrmCategory(organization.category, targetKind) ||
-      defaultCategoryForTarget(targetKind),
+    category: normalizeCrmCategory(organization.category, targetKind),
     website: organization.website,
     country: normalizeCrmCountry(organization.country),
     status: organization.status,
@@ -815,10 +816,32 @@ function StatusBadge({
   );
 }
 
+function CategoryBadgeGroup({
+  value,
+  language,
+  targetKind,
+}: {
+  value: string;
+  language: AppLanguage;
+  targetKind: PartnershipCrmTargetKind;
+}) {
+  const labels = crmCategoryDisplayLabels(value, language, targetKind);
+
+  if (!labels.length) {
+    return <Badge variant="outline">{appText(language, "No category")}</Badge>;
+  }
+
+  return labels.map((label) => (
+    <Badge key={label} variant="outline">
+      {label}
+    </Badge>
+  ));
+}
+
 function formatCrmCountry(value: string, language: AppLanguage) {
-  const countryCode = normalizeCrmCountry(value);
-  return countryCode
-    ? (formatDiscoverOrganizationCountry(countryCode, language) ?? countryCode)
+  const countryCodes = normalizeCrmCountry(value);
+  return countryCodes
+    ? formatDiscoverOrganizationCountries(countryCodes, language)
     : value.trim();
 }
 
@@ -846,10 +869,11 @@ function CrmCountrySelect({
   );
   const emptyValue =
     mode === "filter" ? CRM_ALL_COUNTRIES_VALUE : CRM_NO_COUNTRY_VALUE;
+  const selectedCountry = normalizeCrmCountry(value).split(",")[0] ?? "";
 
   return (
     <Select
-      value={value || emptyValue}
+      value={selectedCountry || emptyValue}
       onValueChange={(nextValue) =>
         onChange(nextValue === emptyValue ? "" : nextValue)
       }
@@ -1151,13 +1175,12 @@ function OrganizationDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="crm-org-category">{t("Category")}</Label>
-              <CrmCategorySelect
+              <Label htmlFor="crm-org-category">{t("Categories")}</Label>
+              <CrmCategoryMultiSelect
                 id="crm-org-category"
                 value={form.category}
                 onChange={(category) => update({ category })}
                 language={language}
-                mode="form"
                 audience={targetKind}
               />
             </div>
@@ -1195,13 +1218,14 @@ function OrganizationDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="crm-org-country">{t("Country")}</Label>
-              <CrmCountrySelect
+              <Label htmlFor="crm-org-country">{t("Countries")}</Label>
+              <PublisherCountryMultiSelect
                 id="crm-org-country"
                 value={form.country}
                 onChange={(country) => update({ country })}
                 language={language}
-                mode="form"
+                t={t}
+                includeGlobal={false}
               />
             </div>
             <div className="space-y-1.5">
@@ -3142,13 +3166,11 @@ export function PartnershipCrmWorkbench() {
                         status={selectedOrganization.status}
                         language={language}
                       />
-                      <Badge variant="outline">
-                        {formatCrmCategory(
-                          selectedOrganization.category,
-                          language,
-                          targetKind,
-                        ) || t("No category")}
-                      </Badge>
+                      <CategoryBadgeGroup
+                        value={selectedOrganization.category}
+                        language={language}
+                        targetKind={targetKind}
+                      />
                     </div>
                     <h3 className="mt-2 truncate font-heading text-xl font-semibold text-foreground">
                       {selectedOrganization.name}

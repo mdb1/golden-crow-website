@@ -28,6 +28,9 @@ Every request must use Content-Type: application/json.
 The JSON contract is intentionally stricter than "any string that the endpoint
 can technically parse". Import builders must produce normalized category and
 country values before sending the request.
+Organizations and professionals may belong to multiple categories or countries.
+When they do, keep each field as one string and separate canonical keys with
+commas. Do not send arrays for category or country.
 
 Source of truth:
 - Categories come from DISCOVER_ORGANIZATION_CATEGORY_OPTIONS in
@@ -56,9 +59,9 @@ Example:
     {
       "rowId": "crm-2026-08-27-0001",
       "name": "Genome Lab",
-      "category": "org_genetic_testing_platforms",
+      "category": "org_genetic_testing_platforms,org_scientific_societies",
       "website": "https://genomelab.example",
-      "country": "AR",
+      "country": "AR,ES",
       "status": "new",
       "contactName": "Marcelo Perez",
       "contactEmail": "marcelo@genomelab.example",
@@ -90,11 +93,11 @@ Professional example:
     {
       "rowId": "crm-pro-2026-08-27-0001",
       "name": "Dra. Ada Genome",
-      "category": "pro_clinical_geneticists",
+      "category": "pro_clinical_geneticists,pro_research_scientists",
       "title": "Genetista clinica",
       "affiliation": "Genome Lab",
       "website": "https://ada.example",
-      "country": "AR",
+      "country": "AR,US",
       "status": "new",
       "email": "ada@genomelab.example",
       "linkedIn": "https://linkedin.com/in/ada-genome",
@@ -204,10 +207,11 @@ name
 
 category
 - Optional string.
-- Maximum length: 90 characters.
-- Must be one of the canonical Discover organization category keys listed below.
-- This field is a single value. Do not send arrays. Do not send comma-separated
-  category lists.
+- Maximum length: 2000 characters.
+- Must contain only canonical category keys for the import target listed below.
+- Send multiple categories as one comma-separated string, for example:
+  org_genomics_laboratories,org_scientific_societies
+- Do not send arrays.
 - If the source category is unknown, omit category or send an empty string.
 - Do not send "Other"; the Discover organization category picker does not have
   an organization-level Other option.
@@ -396,6 +400,8 @@ Known category aliases that normalize to canonical values:
 
 Category normalization logic:
 - Leading and trailing whitespace is trimmed.
+- Comma-separated tokens are normalized independently, deduplicated, and stored
+  as canonical comma-separated keys.
 - Diacritics are removed for matching.
 - Text is lowercased for matching.
 - Non-alphanumeric separators normalize to underscores for matching.
@@ -418,18 +424,18 @@ website
 
 country
 - Optional string.
-- Maximum length: 90 characters.
-- Must be one normalized country code from the country whitelist below.
+- Maximum length: 500 characters.
+- Must contain only normalized country codes from the country whitelist below.
 - Use ISO 3166 alpha-2 uppercase codes only.
-- This field is a single country. Do not send arrays. Do not send comma-separated
-  country lists.
+- Send multiple countries as one comma-separated string, for example: AR,ES,US.
+- Do not send arrays.
 - Do not send country names such as Argentina or United States in JSON imports.
   The CSV parser and UI can normalize some names, but the JSON contract is
   canonical alpha-2 only.
 - Do not send ISO alpha-3 codes such as ARG, USA, ESP, GBR in JSON imports.
   Convert them before creating the JSON.
 - Do not send GLOBAL. GLOBAL exists in Discover country coverage, but CRM
-  organizations must either have one concrete alpha-2 country code or no country.
+  organizations must either have concrete alpha-2 country codes or no country.
 - If the country is unknown, omit country or send an empty string. Do not invent
   a placeholder such as Unknown, N/A, LATAM, Global, or International.
 
@@ -456,6 +462,8 @@ Country whitelist, all allowed values:
 
 Country normalization logic for import builders:
 - Trim whitespace.
+- Split comma-separated values into individual tokens before normalization.
+- Deduplicate normalized alpha-2 codes while preserving source order.
 - If the source is already an alpha-2 code from the whitelist, uppercase it.
 - If the source is an alpha-3 code, map it to alpha-2 before writing JSON.
 - If the source is a display label like Argentina (AR), extract AR before
@@ -798,7 +806,7 @@ Invalid because name is blank:
   ]
 }
 
-Invalid for normalized import generation because country is free text:
+Invalid for normalized import generation because country contains free text:
 
 {
   "organizations": [
@@ -806,7 +814,7 @@ Invalid for normalized import generation because country is free text:
       "rowId": "crm-2026-08-27-0001",
       "name": "Genome Lab",
       "category": "org_genetic_testing_platforms",
-      "country": "Argentina"
+      "country": "AR,Argentina"
     }
   ]
 }
@@ -845,8 +853,8 @@ Correct version:
     {
       "rowId": "crm-2026-08-27-0001",
       "name": "Genome Lab",
-      "category": "org_genomics_laboratories",
-      "country": "AR"
+      "category": "org_genomics_laboratories,org_scientific_societies",
+      "country": "AR,ES"
     }
   ]
 }
@@ -888,8 +896,8 @@ Final checklist before sending import JSON
 - Large imports are chunked to 100 rows per request.
 - Every row has a stable rowId.
 - Every valid row has a non-empty name.
-- category is blank or one canonical category from the whitelist.
-- country is blank or one alpha-2 code from the whitelist.
+- category is blank or a comma-separated string of canonical categories from the whitelist.
+- country is blank or a comma-separated string of alpha-2 codes from the whitelist.
 - status is blank/omitted or one exact status enum value.
 - lastContactAt is omitted, null, or a full ISO datetime with timezone.
 - contactName contains only the person name.

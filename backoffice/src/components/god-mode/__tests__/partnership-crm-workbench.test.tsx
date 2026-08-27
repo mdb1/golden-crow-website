@@ -171,6 +171,19 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       within(mailCard as HTMLElement).getByText("ada@example.org"),
     ).toBeTruthy();
     expect(screen.queryByText("owner@example.org")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Edit CRM organization",
+    });
+    expect(
+      within(dialog).getByRole("button", {
+        name: /Organization categories/,
+      }),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", { name: /Choose countries/ }),
+    ).toBeTruthy();
   });
 
   it("hides details and clears selection until a row is manually selected", async () => {

@@ -4,6 +4,7 @@ import {
   CRM_CATEGORY_OPTIONS,
   CRM_PROFESSIONAL_CATEGORY_OPTIONS,
   normalizeCrmCategory,
+  normalizeCrmCountry,
   parseCrmCsv,
   parseCrmTemplateCsv,
   renderCrmTemplate,
@@ -116,15 +117,28 @@ describe("partnership CRM helpers", () => {
     expect(normalizeCrmCategory("Plataforma de pruebas geneticas")).toBe(
       "org_genetic_testing_platforms",
     );
+    expect(normalizeCrmCategory("lab, Scientific Society, lab")).toBe(
+      "org_genetic_testing_laboratories,org_scientific_societies",
+    );
+    expect(normalizeCrmCategory("genetista, Researcher", "professionals")).toBe(
+      "pro_clinical_geneticists,pro_research_scientists",
+    );
     expect(normalizeCrmCategory("Unmapped category")).toBe("");
     expect(normalizeCrmCategory("")).toBe("");
+  });
+
+  it("normalizes CRM countries as comma-separated concrete country codes", () => {
+    expect(normalizeCrmCountry("Argentina, Spain, AR, Global")).toBe("AR,ES");
+    expect(normalizeCrmCountry("United States (US), New Zealand")).toBe(
+      "US,NZ",
+    );
   });
 
   it("parses CRM CSV rows without requiring contact email", () => {
     const parsed = parseCrmCsv(
       [
         "name,category,website,country,contact_name,email,linkedin,status,notes",
-        "Genome Lab,Genetic Testing Platform,genomelab.example,Argentina,Marcelo,marcelo@genomelab.example,https://linkedin.com/in/marcelo,Contacted,Already replied",
+        '"Genome Lab","Genetic Testing Platform, Scientific Society",genomelab.example,"Argentina,Spain",Marcelo,marcelo@genomelab.example,https://linkedin.com/in/marcelo,Contacted,Already replied',
         "Angelman Argentina,Foundation,angelman.org.ar,Argentina,,,,New,Research contact later",
       ].join("\n"),
     );
@@ -133,8 +147,9 @@ describe("partnership CRM helpers", () => {
     expect(parsed.rows).toEqual([
       expect.objectContaining({
         name: "Genome Lab",
-        category: "org_genetic_testing_platforms",
-        country: "AR",
+        category:
+          "org_genetic_testing_platforms,org_scientific_societies",
+        country: "AR,ES",
         contactEmail: "marcelo@genomelab.example",
         status: "contacted",
       }),
@@ -256,6 +271,29 @@ describe("partnership CRM helpers", () => {
     expect(rendered.body).toContain("Hola Marcelo");
     expect(rendered.body).toContain("Genome Lab (genomelab.example)");
     expect(rendered.body).not.toContain("{{organization_name}}");
+  });
+
+  it("matches templates against any category on a multi-category target", () => {
+    expect(
+      bestCrmTemplateForOrganization(
+        {
+          ...organization,
+          category: "org_patient_organizations,org_genomics_laboratories",
+        },
+        [foundationTemplate, laboratoryTemplate],
+      )?.id,
+    ).toBe("tpl-lab");
+
+    expect(
+      bestCrmTemplateForTarget(
+        {
+          ...professional,
+          category: "pro_bioinformaticians,pro_clinical_geneticists",
+        },
+        [professionalTemplate],
+        "professionals",
+      )?.id,
+    ).toBe("tpl-pro");
   });
 
   it("renders Firebase-backed templates with professional variables", () => {

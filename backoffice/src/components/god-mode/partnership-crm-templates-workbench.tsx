@@ -69,7 +69,7 @@ import {
   DEFAULT_CRM_CATEGORY,
   DEFAULT_CRM_PROFESSIONAL_CATEGORY,
   PARTNERSHIP_CRM_FROM_EMAIL,
-  normalizeCrmCategory,
+  normalizeCrmPrimaryCategory,
   parseCrmTemplateCsv,
   renderCrmTemplate,
   templateStatusLabel,
@@ -249,7 +249,10 @@ function buildTemplateListPath(filters: TemplateFilters, cursor?: string) {
     limit: "20",
     audience: filters.audience,
   });
-  const category = normalizeCrmCategory(filters.category, filters.audience);
+  const category = normalizeCrmPrimaryCategory(
+    filters.category,
+    filters.audience,
+  );
   if (filters.query.trim()) {
     params.set("query", filters.query.trim());
   }
@@ -291,7 +294,7 @@ function templatePayload(
   return {
     name: state.name.trim(),
     audience: state.audience,
-    category: normalizeCrmCategory(state.category, state.audience),
+    category: normalizeCrmPrimaryCategory(state.category, state.audience),
     subject: state.subject.trim(),
     body: state.body.trim(),
     status: state.status,
@@ -310,7 +313,7 @@ function toFormState(
     name: template.name,
     audience: template.audience ?? "organizations",
     category:
-      normalizeCrmCategory(
+      normalizeCrmPrimaryCategory(
         template.category,
         template.audience ?? "organizations",
       ) || defaultTemplateCategory(template.audience ?? "organizations"),
@@ -329,7 +332,7 @@ function templateRecordFromState(
     schemaVersion: 1,
     name: state.name,
     audience: state.audience,
-    category: normalizeCrmCategory(state.category, state.audience),
+    category: normalizeCrmPrimaryCategory(state.category, state.audience),
     subject: state.subject,
     body: state.body,
     status: state.status,
