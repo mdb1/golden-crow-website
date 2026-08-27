@@ -17,7 +17,6 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
-  Activity,
   AlertTriangle,
   Building2,
   CheckCircle2,
@@ -2045,6 +2044,7 @@ export function PartnershipCrmWorkbench() {
   });
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailPanelOpen, setDetailPanelOpen] = useState(false);
   const [organizationDialog, setOrganizationDialog] =
     useState<OrganizationDialogState>(null);
   const [deleteTarget, setDeleteTarget] =
@@ -2082,10 +2082,11 @@ export function PartnershipCrmWorkbench() {
       ),
   });
   const emailTemplates = templatesQuery.data?.templates ?? [];
-  const selectedOrganization =
-    organizations.find((organization) => organization.id === selectedId) ??
-    organizations[0] ??
-    null;
+  const selectedOrganization = selectedId
+    ? (organizations.find((organization) => organization.id === selectedId) ??
+      null)
+    : null;
+  const showDetailPanel = Boolean(detailPanelOpen && selectedOrganization);
   const activitiesQuery = useInfiniteQuery({
     queryKey: [ACTIVITIES_QUERY_KEY, targetKind, selectedOrganization?.id],
     queryFn: ({ pageParam }) => {
@@ -2127,14 +2128,14 @@ export function PartnershipCrmWorkbench() {
   useEffect(() => {
     if (!organizations.length) {
       setSelectedId(null);
+      setDetailPanelOpen(false);
       return;
     }
 
-    if (
-      !selectedId ||
-      !organizations.some((entry) => entry.id === selectedId)
-    ) {
-      setSelectedId(organizations[0]?.id ?? null);
+    if (selectedId && !organizations.some((entry) => entry.id === selectedId)) {
+      setSelectedId(null);
+      setDetailPanelOpen(false);
+      setActivityLogOpen(false);
     }
   }, [organizations, selectedId]);
 
@@ -2185,6 +2186,7 @@ export function PartnershipCrmWorkbench() {
       }
       setOrganizationDialog(null);
       setSelectedId(target.id);
+      setDetailPanelOpen(true);
       invalidateOrganizations();
       invalidateActivities(target.id);
       setToast({
@@ -2248,6 +2250,7 @@ export function PartnershipCrmWorkbench() {
         organizations.find((organization) => organization.id !== organizationId)
           ?.id ?? null;
       setSelectedId(nextSelection);
+      setDetailPanelOpen(Boolean(nextSelection));
       void queryClient.invalidateQueries({
         queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind],
       });
@@ -2343,6 +2346,7 @@ export function PartnershipCrmWorkbench() {
       }
       setEmailOpen(false);
       setSelectedId(target.id);
+      setDetailPanelOpen(true);
       invalidateOrganizations();
       invalidateActivities(target.id);
       setToast({
@@ -2644,6 +2648,7 @@ export function PartnershipCrmWorkbench() {
     setTargetKind(nextTargetKind);
     setCursorStack([]);
     setSelectedId(null);
+    setDetailPanelOpen(false);
     setActivityLogOpen(false);
     setNoteDraft("");
     setOrganizationDialog(null);
@@ -2656,6 +2661,19 @@ export function PartnershipCrmWorkbench() {
       country: "",
       emailState: "all",
     });
+  }
+
+  function handleTargetSelect(targetId: string) {
+    setSelectedId(targetId);
+    setDetailPanelOpen(true);
+  }
+
+  function hideDetailPanel() {
+    setSelectedId(null);
+    setDetailPanelOpen(false);
+    setActivityLogOpen(false);
+    setEmailOpen(false);
+    setNoteDraft("");
   }
 
   function toggleActivityLog() {
@@ -2919,7 +2937,13 @@ export function PartnershipCrmWorkbench() {
         </Select>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.72fr)]">
+      <div
+        className={cn(
+          "grid gap-4",
+          showDetailPanel &&
+            "xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.72fr)]",
+        )}
+      >
         <div className="grid content-start gap-4">
           <div className="grid items-start gap-2 sm:grid-cols-5">
             {PIPELINE_STATUSES.map((status) => {
@@ -2992,7 +3016,8 @@ export function PartnershipCrmWorkbench() {
                 <TableBody>
                   {organizations.map((organization) => {
                     const isSelected =
-                      organization.id === selectedOrganization?.id;
+                      organization.id === selectedOrganization?.id &&
+                      showDetailPanel;
 
                     return (
                       <TableRow
@@ -3003,13 +3028,13 @@ export function PartnershipCrmWorkbench() {
                           isSelected &&
                             "bg-sky-50/80 hover:bg-sky-50 dark:bg-sky-400/10 dark:hover:bg-sky-400/12",
                         )}
-                        onClick={() => setSelectedId(organization.id)}
+                        onClick={() => handleTargetSelect(organization.id)}
                       >
                         <TableCell className="whitespace-normal">
                           <button
                             type="button"
                             className="max-w-[260px] text-left"
-                            onClick={() => setSelectedId(organization.id)}
+                            onClick={() => handleTargetSelect(organization.id)}
                           >
                             <span className="block truncate font-medium text-foreground">
                               {organization.name}
@@ -3107,10 +3132,9 @@ export function PartnershipCrmWorkbench() {
           </div>
         </div>
 
-        <aside className="grid gap-4">
-          {selectedOrganization ? (
-            <>
-              <div className="rounded-xl border border-border/80 bg-background/70 p-4">
+        {showDetailPanel && selectedOrganization ? (
+          <aside className="grid gap-4">
+            <div className="rounded-xl border border-border/80 bg-background/70 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -3161,6 +3185,16 @@ export function PartnershipCrmWorkbench() {
                       onClick={() => setDeleteTarget(selectedOrganization)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t("Hide details")}
+                      title={t("Hide details")}
+                      onClick={hideDetailPanel}
+                    >
+                      <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
@@ -3218,19 +3252,9 @@ export function PartnershipCrmWorkbench() {
                   <Mail className="h-4 w-4" />
                   {t("Send Email")}
                 </Button>
-              </div>
-            </>
-          ) : (
-            <div className="rounded-xl border border-border/80 bg-background/70 p-8 text-center">
-              <Activity className="mx-auto h-8 w-8 text-muted-foreground" />
-              <p className="mt-3 text-sm text-muted-foreground">
-                {targetKind === "professionals"
-                  ? t("Select a professional to see CRM details.")
-                  : t("Select an organization to see CRM details.")}
-              </p>
             </div>
-          )}
-        </aside>
+          </aside>
+        ) : null}
       </div>
 
       <section className="rounded-xl border border-border/80 bg-background/70 p-4">

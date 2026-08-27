@@ -1097,6 +1097,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "CRM email sent.": "Email del CRM enviado.",
   "Unable to send CRM email.": "No se pudo enviar el email del CRM.",
   "Activity log": "Registro de actividad",
+  "Hide details": "Ocultar detalles",
   "Latest organization activity.":
     "Última actividad de la organización.",
   "Expand to load the selected organization activity.":

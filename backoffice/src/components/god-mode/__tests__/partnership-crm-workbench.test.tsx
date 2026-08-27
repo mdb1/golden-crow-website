@@ -105,6 +105,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     renderWorkbench();
 
     await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+    await waitFor(() => {
       expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(2);
     });
 
@@ -128,11 +132,13 @@ describe("PartnershipCrmWorkbench delete flow", () => {
   });
 
   it("keeps contact name, email, and last-contact metadata in separate fact cards", async () => {
+    const user = userEvent.setup();
     renderWorkbench();
 
     await waitFor(() => {
-      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(2);
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
     });
+    await user.click(screen.getByText("Delete Me Genomics"));
 
     expect(sdkFetch).toHaveBeenCalledWith(
       "/admin/partnership-crm/organizations?limit=50",
@@ -167,12 +173,41 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(screen.queryByText("owner@example.org")).toBeNull();
   });
 
-  it("places the send email CTA below the selected record notes", async () => {
+  it("hides details and clears selection until a row is manually selected", async () => {
+    const user = userEvent.setup();
     renderWorkbench();
 
     await waitFor(() => {
-      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(2);
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
     });
+    expect(screen.queryByRole("button", { name: "Send Email" })).toBeNull();
+
+    await user.click(screen.getByText("Delete Me Genomics"));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Send Email" })).toBeTruthy();
+    });
+    expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(2);
+
+    await user.click(screen.getByRole("button", { name: "Hide details" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Send Email" })).toBeNull();
+    });
+    expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+
+    await user.click(screen.getByText("Delete Me Genomics"));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Send Email" })).toBeTruthy();
+    });
+  });
+
+  it("places the send email CTA below the selected record notes", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
 
     const notesHeading = screen
       .getAllByText("Notes")
@@ -208,8 +243,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(screen.getByRole("tab", { name: /Professionals/ }));
 
     await waitFor(() => {
-      expect(screen.getAllByText("Dra. Ada Genome").length).toBeGreaterThan(1);
+      expect(screen.getAllByText("Dra. Ada Genome")).toHaveLength(1);
     });
+    await user.click(screen.getByText("Dra. Ada Genome"));
 
     expect(sdkFetch).toHaveBeenCalledWith(
       "/admin/partnership-crm/professionals?limit=50",
@@ -256,8 +292,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     renderWorkbench();
 
     await waitFor(() => {
-      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(2);
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
     });
+    await user.click(screen.getByText("Delete Me Genomics"));
 
     await user.click(screen.getByRole("button", { name: /Activity log/ }));
 
