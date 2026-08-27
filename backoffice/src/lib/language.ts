@@ -961,6 +961,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Activity log": "Registro de actividad",
   "Latest organization activity.":
     "Última actividad de la organización.",
+  "Expand to load the selected organization activity.":
+    "Expandí para cargar la actividad de la organización seleccionada.",
+  "Not loaded": "Sin cargar",
+  loaded: "cargados",
+  "No organization selected": "Sin organización seleccionada",
   "Add an activity note...": "Agregar nota de actividad...",
   "Unable to add activity.": "No se pudo agregar la actividad.",
   "Failed to load activity log.":

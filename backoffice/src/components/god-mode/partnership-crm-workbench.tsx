@@ -9,12 +9,18 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   Activity,
   AlertTriangle,
   Building2,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleDot,
@@ -1203,6 +1209,7 @@ export function PartnershipCrmWorkbench() {
     Array<{ row: number; message: string }>
   >([]);
   const [noteDraft, setNoteDraft] = useState("");
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const currentCursor = cursorStack[cursorStack.length - 1];
 
@@ -1226,16 +1233,29 @@ export function PartnershipCrmWorkbench() {
     organizations.find((organization) => organization.id === selectedId) ??
     organizations[0] ??
     null;
-  const activitiesQuery = useQuery({
+  const activitiesQuery = useInfiniteQuery({
     queryKey: [ACTIVITIES_QUERY_KEY, selectedOrganization?.id],
-    queryFn: () =>
-      sdkFetch<PartnershipCrmActivitiesPage>(
+    queryFn: ({ pageParam }) => {
+      const cursor = typeof pageParam === "string" ? pageParam : "";
+      const params = new URLSearchParams({ limit: "20" });
+      if (cursor) {
+        params.set("cursor", cursor);
+      }
+
+      return sdkFetch<PartnershipCrmActivitiesPage>(
         `/admin/partnership-crm/organizations/${encodeURIComponent(
           selectedOrganization?.id ?? "",
-        )}/activities?limit=20`,
-      ),
-    enabled: Boolean(selectedOrganization?.id),
+        )}/activities?${params.toString()}`,
+      );
+    },
+    enabled: Boolean(selectedOrganization?.id && activityLogOpen),
+    initialPageParam: "",
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
+  const activityRows = useMemo(
+    () => activitiesQuery.data?.pages.flatMap((page) => page.activities) ?? [],
+    [activitiesQuery.data?.pages],
+  );
 
   useEffect(() => {
     if (!organizations.length) {
@@ -1524,10 +1544,23 @@ export function PartnershipCrmWorkbench() {
       ) as Record<PartnershipCrmStatus, number>,
     [organizations],
   );
+  const activityLogBadge = !selectedOrganization
+    ? t("No organization selected")
+    : activitiesQuery.data
+      ? `${activityRows.length} ${t("loaded")}`
+      : t("Not loaded");
 
   function resetCursorsForFilterChange(patch: Partial<ListFilters>) {
     setCursorStack([]);
     setFilters((current) => ({ ...current, ...patch }));
+  }
+
+  function toggleActivityLog() {
+    if (!selectedOrganization) {
+      return;
+    }
+
+    setActivityLogOpen((current) => !current);
   }
 
   function handleOrganizationSubmit(
@@ -1946,76 +1979,6 @@ export function PartnershipCrmWorkbench() {
                   </p>
                 </div>
               </div>
-
-              <div className="rounded-xl border border-border/80 bg-background/70 p-4">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h3 className="font-heading text-lg font-semibold text-foreground">
-                      {t("Activity log")}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {t("Latest organization activity.")}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label={t("Refresh")}
-                    title={t("Refresh")}
-                    onClick={() => activitiesQuery.refetch()}
-                    disabled={activitiesQuery.isFetching}
-                  >
-                    <RefreshCw
-                      className={cn(
-                        "h-3.5 w-3.5",
-                        activitiesQuery.isFetching && "animate-spin",
-                      )}
-                    />
-                  </Button>
-                </div>
-
-                <form onSubmit={submitNote} className="mb-4 flex gap-2">
-                  <Input
-                    value={noteDraft}
-                    onChange={(event) => setNoteDraft(event.target.value)}
-                    placeholder={t("Add an activity note...")}
-                  />
-                  <Button
-                    type="submit"
-                    variant="outline"
-                    disabled={
-                      !noteDraft.trim() || addActivityMutation.isPending
-                    }
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    {t("Add")}
-                  </Button>
-                </form>
-
-                {activitiesQuery.error ? (
-                  <ErrorBanner>{t("Failed to load activity log.")}</ErrorBanner>
-                ) : activitiesQuery.isFetching &&
-                  !activitiesQuery.data?.activities.length ? (
-                  <div className="grid gap-2">
-                    {Array.from({ length: 4 }).map((_, index) => (
-                      <Skeleton key={index} className="h-24 rounded-xl" />
-                    ))}
-                  </div>
-                ) : !activitiesQuery.data?.activities.length ? (
-                  <EmptyState>{t("No activity yet.")}</EmptyState>
-                ) : (
-                  <div className="grid gap-3">
-                    {activitiesQuery.data.activities.map((activity) => (
-                      <ActivityCell
-                        key={activity.id}
-                        activity={activity}
-                        language={language}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
             </>
           ) : (
             <div className="rounded-xl border border-border/80 bg-background/70 p-8 text-center">
@@ -2027,6 +1990,128 @@ export function PartnershipCrmWorkbench() {
           )}
         </aside>
       </div>
+
+      <section className="rounded-xl border border-border/80 bg-background/70 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            className="flex min-w-0 items-start gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={toggleActivityLog}
+            aria-expanded={activityLogOpen}
+            disabled={!selectedOrganization}
+          >
+            <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0">
+              <span className="flex items-center gap-2">
+                <span className="font-heading text-lg font-semibold text-foreground">
+                  {t("Activity log")}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 text-muted-foreground transition-transform",
+                    activityLogOpen && "rotate-180",
+                  )}
+                />
+              </span>
+              <span className="mt-1 block text-sm text-muted-foreground">
+                {selectedOrganization
+                  ? `${selectedOrganization.name} · ${t(
+                      "Expand to load the selected organization activity.",
+                    )}`
+                  : t("Select an organization to see CRM details.")}
+              </span>
+            </span>
+          </button>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">{activityLogBadge}</Badge>
+            {activityLogOpen && selectedOrganization ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label={t("Refresh")}
+                title={t("Refresh")}
+                onClick={() => activitiesQuery.refetch()}
+                disabled={activitiesQuery.isFetching}
+              >
+                <RefreshCw
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    activitiesQuery.isFetching && "animate-spin",
+                  )}
+                />
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        {activityLogOpen ? (
+          selectedOrganization ? (
+            <>
+              <form
+                onSubmit={submitNote}
+                className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
+              >
+                <Input
+                  value={noteDraft}
+                  onChange={(event) => setNoteDraft(event.target.value)}
+                  placeholder={t("Add an activity note...")}
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  disabled={!noteDraft.trim() || addActivityMutation.isPending}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("Add")}
+                </Button>
+              </form>
+
+              <div className="mt-4">
+                {activitiesQuery.error ? (
+                  <ErrorBanner>{t("Failed to load activity log.")}</ErrorBanner>
+                ) : activitiesQuery.isFetching && !activityRows.length ? (
+                  <div className="grid gap-2">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      <Skeleton key={index} className="h-24 rounded-xl" />
+                    ))}
+                  </div>
+                ) : !activityRows.length ? (
+                  <EmptyState>{t("No activity yet.")}</EmptyState>
+                ) : (
+                  <div className="grid gap-3 xl:grid-cols-2">
+                    {activityRows.map((activity) => (
+                      <ActivityCell
+                        key={activity.id}
+                        activity={activity}
+                        language={language}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {activitiesQuery.hasNextPage ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => activitiesQuery.fetchNextPage()}
+                  disabled={activitiesQuery.isFetchingNextPage}
+                >
+                  {activitiesQuery.isFetchingNextPage
+                    ? t("Loading...")
+                    : t("Load more")}
+                </Button>
+              ) : null}
+            </>
+          ) : (
+            <EmptyState>
+              {t("Select an organization to see CRM details.")}
+            </EmptyState>
+          )
+        ) : null}
+      </section>
 
       <OrganizationDialog
         state={organizationDialog}
