@@ -93,6 +93,8 @@ import { cn } from "@/lib/utils";
 const ORGANIZATIONS_QUERY_KEY = "god-mode-partnership-crm-organizations";
 const ACTIVITIES_QUERY_KEY = "god-mode-partnership-crm-activities";
 const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
+const EMAIL_CTA_CLASS =
+  "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
 
 type EmailState = {
   to: string;
@@ -878,9 +880,10 @@ function EmailComposerDialog({
                 {email.step === "compose" ? (
                   <Button
                     type="button"
-                    variant="outline"
+                    size="lg"
                     onClick={() => update({ step: "preview" })}
                     disabled={!canPreview}
+                    className={EMAIL_CTA_CLASS}
                   >
                     <Mail className="h-4 w-4" />
                     {t("Preview email")}
@@ -888,8 +891,10 @@ function EmailComposerDialog({
                 ) : (
                   <Button
                     type="button"
+                    size="lg"
                     onClick={() => onSend(email)}
                     disabled={pending || !canPreview}
+                    className={EMAIL_CTA_CLASS}
                   >
                     <Send className="h-4 w-4" />
                     {pending ? t("Sending...") : t("Send email")}
@@ -1863,12 +1868,12 @@ export function PartnershipCrmWorkbench() {
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
+                      size="lg"
                       onClick={() => setEmailOpen(true)}
                       disabled={!selectedOrganization.contactEmail}
+                      className={EMAIL_CTA_CLASS}
                     >
-                      <Mail className="h-3.5 w-3.5" />
+                      <Mail className="h-4 w-4" />
                       {t("Send Email")}
                     </Button>
                     <Button
