@@ -6,7 +6,10 @@ import userEvent from "@testing-library/user-event";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PartnershipCrmWorkbench } from "@/components/god-mode/partnership-crm-workbench";
 import { sdkFetch } from "@/lib/sdk-client";
-import type { PartnershipCrmOrganizationRecord } from "@/lib/partnership-crm";
+import type {
+  PartnershipCrmOrganizationRecord,
+  PartnershipCrmProfessionalRecord,
+} from "@/lib/partnership-crm";
 
 const routerRefresh = jest.fn();
 
@@ -36,6 +39,24 @@ const organization: PartnershipCrmOrganizationRecord = {
   notes: "Temporary CRM row.",
   normalizedName: "delete me genomics",
   updatedByEmail: "owner@example.org",
+};
+
+const professional: PartnershipCrmProfessionalRecord = {
+  id: "pro-1",
+  schemaVersion: 1,
+  name: "Dra. Ada Genome",
+  category: "pro_clinical_geneticists",
+  title: "Genetista clinica",
+  affiliation: "Genome Lab",
+  website: "https://ada.example",
+  websiteDomain: "ada.example",
+  country: "Argentina",
+  status: "new",
+  email: "ada@genomelab.example",
+  linkedIn: "https://linkedin.com/in/ada",
+  lastContactAt: "2026-08-02T12:00:00.000Z",
+  notes: "Professional CRM row.",
+  normalizedName: "dra ada genome",
 };
 
 function renderWorkbench() {
@@ -144,6 +165,42 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       within(mailCard as HTMLElement).getByText("ada@example.org"),
     ).toBeTruthy();
     expect(screen.queryByText("owner@example.org")).toBeNull();
+  });
+
+  it("switches to the professionals CRM collection and professional fields", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/professionals")) {
+        return { professionals: [professional], nextCursor: undefined };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+
+    await user.click(screen.getByRole("tab", { name: /Professionals/ }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Dra. Ada Genome").length).toBeGreaterThan(1);
+    });
+
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/partnership-crm/professionals?limit=50",
+    );
+    expect(screen.getByText("Clinical Geneticist")).toBeTruthy();
+    expect(screen.getByText("Role / specialty")).toBeTruthy();
+    expect(screen.getByText("Genetista clinica")).toBeTruthy();
+    expect(screen.getAllByText("ada@genomelab.example").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByRole("button", { name: "Add Professional" })).toBeTruthy();
   });
 
   it("renders the activity log as a single timeline list", async () => {
@@ -397,7 +454,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     expect(within(dialog).getByText("new")).toBeTruthy();
     expect(
       within(dialog).getByText(
-        "Organization imports preview and commit in 100-row chunks with a browser checkpoint.",
+        "CRM target imports preview and commit in 100-row chunks with a browser checkpoint.",
       ),
     ).toBeTruthy();
   });

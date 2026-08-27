@@ -10,7 +10,9 @@ import {
   sendPartnershipCrmEmail,
 } from "../lib/partnership-crm-email.js";
 import {
+  DISCOVER_INDIVIDUAL_CATEGORY_OPTIONS,
   DISCOVER_ORGANIZATION_CATEGORY_OPTIONS,
+  type DiscoverIndividualCategoryKey,
   type DiscoverOrganizationCategoryKey,
 } from "../lib/discover-publisher-categories.js";
 import type { AdminContext } from "../types/sdk.types.js";
@@ -18,6 +20,7 @@ import { AdminRepositoryError } from "./admin-errors.js";
 
 const adminDb = adminDbFor("mydnamap");
 const ORGANIZATIONS_COLLECTION = "partnership_crm_organizations";
+const PROFESSIONALS_COLLECTION = "partnership_crm_professionals";
 const TEMPLATES_COLLECTION = "plantillas";
 const ACTIVITIES_COLLECTION = "activities";
 const MAX_PAGE_SIZE = 50;
@@ -50,14 +53,22 @@ export const PARTNERSHIP_CRM_TEMPLATE_STATUSES = [
   "inactive",
   "archived",
 ] as const;
-const PARTNERSHIP_CRM_CATEGORY_OPTIONS =
+export const PARTNERSHIP_CRM_TEMPLATE_AUDIENCES = [
+  "organizations",
+  "professionals",
+] as const;
+const PARTNERSHIP_CRM_ORGANIZATION_CATEGORY_OPTIONS =
   DISCOVER_ORGANIZATION_CATEGORY_OPTIONS;
+const PARTNERSHIP_CRM_PROFESSIONAL_CATEGORY_OPTIONS =
+  DISCOVER_INDIVIDUAL_CATEGORY_OPTIONS;
 
 export type PartnershipCrmStatus = (typeof PARTNERSHIP_CRM_STATUSES)[number];
 export type PartnershipCrmActivityType =
   (typeof PARTNERSHIP_CRM_ACTIVITY_TYPES)[number];
 export type PartnershipCrmTemplateStatus =
   (typeof PARTNERSHIP_CRM_TEMPLATE_STATUSES)[number];
+export type PartnershipCrmTemplateAudience =
+  (typeof PARTNERSHIP_CRM_TEMPLATE_AUDIENCES)[number];
 
 export type PartnershipCrmEmailState = "has_email" | "missing_email";
 
@@ -78,6 +89,27 @@ export interface PartnershipCrmImportRowInput extends PartnershipCrmOrganization
   rowId?: string;
   duplicateAction?: "skip" | "update" | "import";
   duplicateOrganizationId?: string;
+}
+
+export interface PartnershipCrmProfessionalInput {
+  name?: string;
+  category?: string;
+  title?: string;
+  affiliation?: string;
+  website?: string;
+  country?: string;
+  status?: PartnershipCrmStatus;
+  email?: string;
+  linkedIn?: string;
+  lastContactAt?: string | null;
+  notes?: string;
+}
+
+export interface PartnershipCrmProfessionalImportRowInput
+  extends PartnershipCrmProfessionalInput {
+  rowId?: string;
+  duplicateAction?: "skip" | "update" | "import";
+  duplicateProfessionalId?: string;
 }
 
 export interface PartnershipCrmOrganizationRecord {
@@ -101,6 +133,28 @@ export interface PartnershipCrmOrganizationRecord {
   updatedByEmail?: string;
 }
 
+export interface PartnershipCrmProfessionalRecord {
+  id: string;
+  schemaVersion: number;
+  name: string;
+  category: string;
+  title: string;
+  affiliation: string;
+  website: string;
+  websiteDomain: string;
+  country: string;
+  status: PartnershipCrmStatus;
+  email: string;
+  linkedIn: string;
+  lastContactAt: string | null;
+  notes: string;
+  normalizedName: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdByEmail?: string;
+  updatedByEmail?: string;
+}
+
 export interface PartnershipCrmActivityRecord {
   id: string;
   type: PartnershipCrmActivityType;
@@ -114,6 +168,7 @@ export interface PartnershipCrmActivityRecord {
 
 export interface PartnershipCrmTemplateInput {
   name?: string;
+  audience?: PartnershipCrmTemplateAudience;
   category?: string;
   subject?: string;
   body?: string;
@@ -125,6 +180,7 @@ export interface PartnershipCrmTemplateRecord {
   id: string;
   schemaVersion: number;
   name: string;
+  audience: PartnershipCrmTemplateAudience;
   category: string;
   subject: string;
   body: string;
@@ -139,6 +195,11 @@ export interface PartnershipCrmTemplateRecord {
 
 export interface PartnershipCrmOrganizationsPage {
   organizations: PartnershipCrmOrganizationRecord[];
+  nextCursor?: string;
+}
+
+export interface PartnershipCrmProfessionalsPage {
+  professionals: PartnershipCrmProfessionalRecord[];
   nextCursor?: string;
 }
 
@@ -181,8 +242,39 @@ export interface PartnershipCrmImportPreview {
   };
 }
 
+export interface PartnershipCrmProfessionalDuplicateCandidate {
+  id: string;
+  name: string;
+  email: string;
+  linkedIn: string;
+  website: string;
+  websiteDomain: string;
+  status: PartnershipCrmStatus;
+}
+
+export interface PartnershipCrmProfessionalImportPreviewRow {
+  rowId: string;
+  professional: PartnershipCrmProfessionalInput;
+  valid: boolean;
+  errors: string[];
+  missingEmail: boolean;
+  duplicateCandidates: PartnershipCrmProfessionalDuplicateCandidate[];
+}
+
+export interface PartnershipCrmProfessionalImportPreview {
+  rows: PartnershipCrmProfessionalImportPreviewRow[];
+  summary: {
+    total: number;
+    valid: number;
+    invalid: number;
+    missingEmail: number;
+    duplicates: number;
+  };
+}
+
 const STATUS_SET = new Set<string>(PARTNERSHIP_CRM_STATUSES);
 const TEMPLATE_STATUS_SET = new Set<string>(PARTNERSHIP_CRM_TEMPLATE_STATUSES);
+const TEMPLATE_AUDIENCE_SET = new Set<string>(PARTNERSHIP_CRM_TEMPLATE_AUDIENCES);
 
 function requireGodMode(context: AdminContext) {
   if (!context.isBootstrap) {
@@ -267,11 +359,23 @@ function normalizeTemplateStatus(value: unknown): PartnershipCrmTemplateStatus {
     : "active";
 }
 
+function normalizeTemplateAudience(value: unknown): PartnershipCrmTemplateAudience {
+  const normalized = cleanString(value)
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  return TEMPLATE_AUDIENCE_SET.has(normalized)
+    ? (normalized as PartnershipCrmTemplateAudience)
+    : "organizations";
+}
+
 function normalizeEmail(value: unknown) {
   return cleanString(value).toLowerCase();
 }
 
-const CATEGORY_ALIASES: Record<string, DiscoverOrganizationCategoryKey | ""> = {
+const ORGANIZATION_CATEGORY_ALIASES: Record<
+  string,
+  DiscoverOrganizationCategoryKey | ""
+> = {
   laboratory: "org_genetic_testing_laboratories",
   lab: "org_genetic_testing_laboratories",
   genomics: "org_genomics_laboratories",
@@ -297,6 +401,31 @@ const CATEGORY_ALIASES: Record<string, DiscoverOrganizationCategoryKey | ""> = {
   otro: "",
 };
 
+const PROFESSIONAL_CATEGORY_ALIASES: Record<
+  string,
+  DiscoverIndividualCategoryKey | ""
+> = {
+  geneticist: "pro_clinical_geneticists",
+  genetista: "pro_clinical_geneticists",
+  clinical_geneticist: "pro_clinical_geneticists",
+  medical_geneticist: "pro_medical_geneticists",
+  genetic_counselor: "pro_genetic_counselors",
+  asesor_genetico: "pro_genetic_counselors",
+  bioinformatician: "pro_bioinformaticians",
+  bioinformatico: "pro_bioinformaticians",
+  researcher: "pro_research_scientists",
+  investigador: "pro_research_scientists",
+  physician: "pro_physicians",
+  doctor: "pro_physicians",
+  medico: "pro_physicians",
+  clinician: "pro_physicians",
+  patient_advocate: "pro_patient_advocates",
+  educator: "pro_educators",
+  science_communicator: "pro_science_communicators",
+  other: "pro_other",
+  otro: "pro_other",
+};
+
 const COUNTRY_ALIASES: Record<string, string> = {
   argentina: "AR",
   arg: "AR",
@@ -320,14 +449,25 @@ const COUNTRY_ALIASES: Record<string, string> = {
   gbr: "GB",
 };
 
-function normalizeCrmCategory(value: unknown): string {
+function normalizeCrmCategory(
+  value: unknown,
+  audience: PartnershipCrmTemplateAudience = "organizations",
+): string {
   const raw = cleanString(value);
   if (!raw) {
     return "";
   }
 
   const key = normalizeKey(raw);
-  const option = PARTNERSHIP_CRM_CATEGORY_OPTIONS.find(
+  const options =
+    audience === "professionals"
+      ? PARTNERSHIP_CRM_PROFESSIONAL_CATEGORY_OPTIONS
+      : PARTNERSHIP_CRM_ORGANIZATION_CATEGORY_OPTIONS;
+  const aliases =
+    audience === "professionals"
+      ? PROFESSIONAL_CATEGORY_ALIASES
+      : ORGANIZATION_CATEGORY_ALIASES;
+  const option = options.find(
     (category) =>
       normalizeKey(category.value) === key ||
       normalizeKey(category.label) === key,
@@ -336,8 +476,8 @@ function normalizeCrmCategory(value: unknown): string {
     return option.value;
   }
 
-  if (Object.prototype.hasOwnProperty.call(CATEGORY_ALIASES, key)) {
-    return CATEGORY_ALIASES[key] ?? "";
+  if (Object.prototype.hasOwnProperty.call(aliases, key)) {
+    return aliases[key] ?? "";
   }
 
   return "";
@@ -459,15 +599,42 @@ function organizationDocument(
   });
 }
 
-function templateDocument(
-  input: PartnershipCrmTemplateInput,
+function professionalDocument(
+  input: PartnershipCrmProfessionalInput,
 ): Record<string, unknown> {
   const name = cleanString(input.name);
+  const website = normalizeWebsite(input.website);
+  const normalizedName = normalizeName(name);
 
   return withoutUndefined({
     schemaVersion: 1,
     name,
-    category: normalizeCrmCategory(input.category),
+    category: normalizeCrmCategory(input.category, "professionals"),
+    title: cleanString(input.title),
+    affiliation: cleanString(input.affiliation),
+    website,
+    websiteDomain: websiteDomain(website),
+    country: normalizeCrmCountry(input.country),
+    status: normalizeStatus(input.status),
+    email: normalizeEmail(input.email),
+    linkedIn: normalizeWebsite(input.linkedIn),
+    lastContactAt: parseDateTimestamp(input.lastContactAt),
+    notes: cleanString(input.notes),
+    normalizedName,
+  });
+}
+
+function templateDocument(
+  input: PartnershipCrmTemplateInput,
+): Record<string, unknown> {
+  const name = cleanString(input.name);
+  const audience = normalizeTemplateAudience(input.audience);
+
+  return withoutUndefined({
+    schemaVersion: 1,
+    name,
+    audience,
+    category: normalizeCrmCategory(input.category, audience),
     subject: cleanString(input.subject),
     body: cleanString(input.body),
     status: normalizeTemplateStatus(input.status),
@@ -507,6 +674,38 @@ function toOrganizationRecord(
   };
 }
 
+function toProfessionalRecord(
+  id: string,
+  data: Record<string, unknown>,
+): PartnershipCrmProfessionalRecord {
+  const website = cleanString(data.website);
+  const name = cleanString(data.name);
+
+  return {
+    id,
+    schemaVersion:
+      typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
+    name,
+    category: normalizeCrmCategory(data.category, "professionals"),
+    title: cleanString(data.title),
+    affiliation: cleanString(data.affiliation),
+    website,
+    websiteDomain: cleanString(data.websiteDomain) || websiteDomain(website),
+    country: cleanString(data.country),
+    status: normalizeStatus(data.status),
+    email: normalizeEmail(data.email),
+    linkedIn: cleanString(data.linkedIn),
+    lastContactAt: timestampToIso(data.lastContactAt) ?? null,
+    notes: cleanString(data.notes),
+    normalizedName:
+      cleanString(data.normalizedName) || normalizeName(cleanString(data.name)),
+    createdAt: timestampToIso(data.createdAt),
+    updatedAt: timestampToIso(data.updatedAt),
+    createdByEmail: normalizeEmail(data.createdByEmail),
+    updatedByEmail: normalizeEmail(data.updatedByEmail),
+  };
+}
+
 function toActivityRecord(
   id: string,
   data: Record<string, unknown>,
@@ -534,13 +733,15 @@ function toTemplateRecord(
   data: Record<string, unknown>,
 ): PartnershipCrmTemplateRecord {
   const name = cleanString(data.name);
+  const audience = normalizeTemplateAudience(data.audience);
 
   return {
     id,
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     name,
-    category: normalizeCrmCategory(data.category),
+    audience,
+    category: normalizeCrmCategory(data.category, audience),
     subject: cleanString(data.subject),
     body: cleanString(data.body),
     status: normalizeTemplateStatus(data.status),
@@ -563,6 +764,20 @@ function duplicateCandidateFromRecord(
     website: record.website,
     websiteDomain: record.websiteDomain,
     contactEmail: record.contactEmail,
+    status: record.status,
+  };
+}
+
+function professionalDuplicateCandidateFromRecord(
+  record: PartnershipCrmProfessionalRecord,
+): PartnershipCrmProfessionalDuplicateCandidate {
+  return {
+    id: record.id,
+    name: record.name,
+    email: record.email,
+    linkedIn: record.linkedIn,
+    website: record.website,
+    websiteDomain: record.websiteDomain,
     status: record.status,
   };
 }
@@ -609,20 +824,68 @@ function matchesFilters(
   );
 }
 
+function matchesProfessionalFilters(
+  record: PartnershipCrmProfessionalRecord,
+  filters: {
+    query?: string;
+    status?: string;
+    category?: string;
+    country?: string;
+    emailState?: PartnershipCrmEmailState;
+  },
+) {
+  const query = cleanString(filters.query).toLowerCase();
+  const category = normalizeCrmCategory(filters.category, "professionals");
+  const country = normalizeCrmCountry(filters.country);
+  const status = cleanString(filters.status);
+  const searchable = [
+    record.id,
+    record.name,
+    record.category,
+    record.title,
+    record.affiliation,
+    record.website,
+    record.websiteDomain,
+    record.country,
+    record.status,
+    record.email,
+    record.linkedIn,
+    record.notes,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    (!query || searchable.includes(query)) &&
+    (!status || status === "all" || record.status === status) &&
+    (!category ||
+      normalizeCrmCategory(record.category, "professionals") === category) &&
+    (!country || normalizeCrmCountry(record.country) === country) &&
+    (!filters.emailState ||
+      (filters.emailState === "has_email"
+        ? Boolean(record.email)
+        : !record.email))
+  );
+}
+
 function matchesTemplateFilters(
   record: PartnershipCrmTemplateRecord,
   filters: {
     query?: string;
     status?: string;
     category?: string;
+    audience?: string;
   },
 ) {
   const query = cleanString(filters.query).toLowerCase();
-  const category = normalizeCrmCategory(filters.category);
+  const audience = normalizeTemplateAudience(filters.audience);
+  const hasAudienceFilter = Boolean(cleanString(filters.audience));
+  const category = normalizeCrmCategory(filters.category, audience);
   const status = cleanString(filters.status);
   const searchable = [
     record.id,
     record.name,
+    record.audience,
     record.category,
     record.subject,
     record.body,
@@ -635,7 +898,8 @@ function matchesTemplateFilters(
   return (
     (!query || searchable.includes(query)) &&
     (!status || status === "all" || record.status === status) &&
-    (!category || normalizeCrmCategory(record.category) === category)
+    (!hasAudienceFilter || record.audience === audience) &&
+    (!category || normalizeCrmCategory(record.category, record.audience) === category)
   );
 }
 
@@ -643,6 +907,15 @@ async function getOrganizationSnapshot(organizationId: string) {
   const snapshot = await adminDb
     .collection(ORGANIZATIONS_COLLECTION)
     .doc(organizationId)
+    .get();
+
+  return snapshot.exists ? snapshot : null;
+}
+
+async function getProfessionalSnapshot(professionalId: string) {
+  const snapshot = await adminDb
+    .collection(PROFESSIONALS_COLLECTION)
+    .doc(professionalId)
     .get();
 
   return snapshot.exists ? snapshot : null;
@@ -657,8 +930,9 @@ async function getTemplateSnapshot(templateId: string) {
   return snapshot.exists ? snapshot : null;
 }
 
-async function addActivity(
-  organizationId: string,
+async function addTargetActivity(
+  collectionName: string,
+  targetId: string,
   context: AdminContext,
   activity: {
     type: PartnershipCrmActivityType;
@@ -669,8 +943,8 @@ async function addActivity(
   },
 ) {
   const ref = adminDb
-    .collection(ORGANIZATIONS_COLLECTION)
-    .doc(organizationId)
+    .collection(collectionName)
+    .doc(targetId)
     .collection(ACTIVITIES_COLLECTION)
     .doc();
 
@@ -688,6 +962,32 @@ async function addActivity(
 
   const snapshot = await ref.get();
   return toActivityRecord(ref.id, snapshot.data() ?? {});
+}
+
+function addActivity(
+  organizationId: string,
+  context: AdminContext,
+  activity: Parameters<typeof addTargetActivity>[3],
+) {
+  return addTargetActivity(
+    ORGANIZATIONS_COLLECTION,
+    organizationId,
+    context,
+    activity,
+  );
+}
+
+function addProfessionalActivity(
+  professionalId: string,
+  context: AdminContext,
+  activity: Parameters<typeof addTargetActivity>[3],
+) {
+  return addTargetActivity(
+    PROFESSIONALS_COLLECTION,
+    professionalId,
+    context,
+    activity,
+  );
 }
 
 async function findDuplicateOrganizations(
@@ -726,6 +1026,60 @@ async function findDuplicateOrganizations(
   return [...byId.values()];
 }
 
+async function findDuplicateProfessionals(
+  input: PartnershipCrmProfessionalInput,
+) {
+  const byId = new Map<string, PartnershipCrmProfessionalDuplicateCandidate>();
+  const normalizedName = normalizeName(cleanString(input.name));
+  const email = normalizeEmail(input.email);
+  const domain = websiteDomain(input.website);
+  const linkedIn = normalizeWebsite(input.linkedIn);
+  const collection = adminDb.collection(PROFESSIONALS_COLLECTION);
+
+  function addSnapshotDocs(
+    snapshotDocs: QueryDocumentSnapshot<Record<string, unknown>>[],
+  ) {
+    snapshotDocs.forEach((doc) => {
+      const record = toProfessionalRecord(doc.id, doc.data());
+      byId.set(record.id, professionalDuplicateCandidateFromRecord(record));
+    });
+  }
+
+  if (normalizedName) {
+    const snapshot = await collection
+      .where("normalizedName", "==", normalizedName)
+      .limit(5)
+      .get();
+    addSnapshotDocs(snapshot.docs);
+  }
+
+  if (email) {
+    const snapshot = await collection
+      .where("email", "==", email)
+      .limit(5)
+      .get();
+    addSnapshotDocs(snapshot.docs);
+  }
+
+  if (domain) {
+    const snapshot = await collection
+      .where("websiteDomain", "==", domain)
+      .limit(5)
+      .get();
+    addSnapshotDocs(snapshot.docs);
+  }
+
+  if (linkedIn) {
+    const snapshot = await collection
+      .where("linkedIn", "==", linkedIn)
+      .limit(5)
+      .get();
+    addSnapshotDocs(snapshot.docs);
+  }
+
+  return [...byId.values()];
+}
+
 export async function listPartnershipCrmTemplates(
   context: AdminContext,
   options: {
@@ -734,6 +1088,7 @@ export async function listPartnershipCrmTemplates(
     query?: string;
     status?: string;
     category?: string;
+    audience?: string;
   } = {},
 ): Promise<PartnershipCrmTemplatesPage> {
   requireGodMode(context);
@@ -743,7 +1098,8 @@ export async function listPartnershipCrmTemplates(
   const hasFilters = Boolean(
     cleanString(options.query) ||
     (cleanString(options.status) && options.status !== "all") ||
-    cleanString(options.category),
+    cleanString(options.category) ||
+    cleanString(options.audience),
   );
   const baseQuery = adminDb
     .collection(TEMPLATES_COLLECTION)
@@ -1137,6 +1493,218 @@ export async function deletePartnershipCrmOrganization(
   await snapshot.ref.delete();
 }
 
+export async function listPartnershipCrmProfessionals(
+  context: AdminContext,
+  options: {
+    cursor?: string;
+    limit?: unknown;
+    query?: string;
+    status?: string;
+    category?: string;
+    country?: string;
+    emailState?: PartnershipCrmEmailState;
+  } = {},
+): Promise<PartnershipCrmProfessionalsPage> {
+  requireGodMode(context);
+
+  const limit = normalizeLimit(options.limit);
+  const cursorTimestamp = parseCursorTimestamp(options.cursor);
+  const hasFilters = Boolean(
+    cleanString(options.query) ||
+      (cleanString(options.status) && options.status !== "all") ||
+      cleanString(options.category) ||
+      cleanString(options.country) ||
+      options.emailState,
+  );
+  const baseQuery = adminDb
+    .collection(PROFESSIONALS_COLLECTION)
+    .orderBy("updatedAt", "desc");
+  let query: Query = baseQuery;
+
+  if (cursorTimestamp) {
+    query = query.startAfter(cursorTimestamp);
+  }
+
+  if (!hasFilters) {
+    const snapshot = await query.limit(limit + 1).get();
+    const visibleDocs = snapshot.docs.slice(0, limit);
+    const professionals = visibleDocs.map((doc) =>
+      toProfessionalRecord(doc.id, doc.data()),
+    );
+    const lastVisible = visibleDocs[visibleDocs.length - 1];
+    const nextCursor =
+      snapshot.docs.length > limit && lastVisible
+        ? timestampToIso(lastVisible.data().updatedAt)
+        : undefined;
+
+    return { professionals, nextCursor };
+  }
+
+  const professionals: PartnershipCrmProfessionalRecord[] = [];
+  let pageCursorTimestamp = cursorTimestamp;
+  let scannedDocs = 0;
+  let nextCursor: string | undefined;
+
+  while (professionals.length < limit && scannedDocs < MAX_FILTERED_SCAN) {
+    const batchLimit = Math.min(
+      FILTERED_BATCH_LIMIT,
+      MAX_FILTERED_SCAN - scannedDocs,
+    );
+    let batchQuery: Query = baseQuery;
+
+    if (pageCursorTimestamp) {
+      batchQuery = batchQuery.startAfter(pageCursorTimestamp);
+    }
+
+    const snapshot = await batchQuery.limit(batchLimit).get();
+    if (snapshot.empty) {
+      nextCursor = undefined;
+      break;
+    }
+
+    let lastConsumedDoc: QueryDocumentSnapshot | undefined;
+
+    for (const doc of snapshot.docs) {
+      lastConsumedDoc = doc;
+      scannedDocs += 1;
+
+      const professional = toProfessionalRecord(doc.id, doc.data());
+      if (matchesProfessionalFilters(professional, options)) {
+        professionals.push(professional);
+        if (professionals.length >= limit) {
+          break;
+        }
+      }
+
+      if (scannedDocs >= MAX_FILTERED_SCAN) {
+        break;
+      }
+    }
+
+    if (!lastConsumedDoc) {
+      nextCursor = undefined;
+      break;
+    }
+
+    nextCursor = timestampToIso(lastConsumedDoc.data().updatedAt);
+    const lastSnapshotDoc = snapshot.docs[snapshot.docs.length - 1];
+    const consumedWholeBatch =
+      lastSnapshotDoc && lastConsumedDoc.id === lastSnapshotDoc.id;
+
+    if (!consumedWholeBatch || snapshot.docs.length < batchLimit) {
+      break;
+    }
+
+    pageCursorTimestamp = parseCursorTimestamp(nextCursor);
+    if (!pageCursorTimestamp) {
+      nextCursor = undefined;
+      break;
+    }
+  }
+
+  return { professionals, nextCursor };
+}
+
+export async function getPartnershipCrmProfessional(
+  context: AdminContext,
+  professionalId: string,
+) {
+  requireGodMode(context);
+  const snapshot = await getProfessionalSnapshot(professionalId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("CRM professional not found.", 404);
+  }
+
+  return toProfessionalRecord(professionalId, snapshot.data() ?? {});
+}
+
+export async function createPartnershipCrmProfessional(
+  context: AdminContext,
+  input: PartnershipCrmProfessionalInput,
+) {
+  requireGodMode(context);
+  const document = professionalDocument(input);
+  if (!cleanString(document.name)) {
+    throw new AdminRepositoryError("Professional name is required.", 400);
+  }
+
+  const ref = adminDb.collection(PROFESSIONALS_COLLECTION).doc();
+  await ref.set(
+    withoutUndefined({
+      ...document,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      createdByEmail: context.email,
+      updatedByEmail: context.email,
+    }),
+  );
+  await addProfessionalActivity(ref.id, context, {
+    type: "created",
+    title: "Professional created",
+    body: cleanString(input.notes),
+  });
+
+  return getPartnershipCrmProfessional(context, ref.id);
+}
+
+export async function updatePartnershipCrmProfessional(
+  context: AdminContext,
+  professionalId: string,
+  input: PartnershipCrmProfessionalInput,
+) {
+  requireGodMode(context);
+  const snapshot = await getProfessionalSnapshot(professionalId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("CRM professional not found.", 404);
+  }
+
+  const previous = toProfessionalRecord(professionalId, snapshot.data() ?? {});
+  const document = professionalDocument(input);
+  if (!cleanString(document.name)) {
+    throw new AdminRepositoryError("Professional name is required.", 400);
+  }
+
+  await snapshot.ref.set(
+    withoutUndefined({
+      ...document,
+      createdAt: snapshot.data()?.createdAt,
+      createdByEmail: snapshot.data()?.createdByEmail,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    }),
+  );
+
+  const nextStatus = normalizeStatus(document.status);
+  if (previous.status !== nextStatus) {
+    await addProfessionalActivity(professionalId, context, {
+      type: "status",
+      title: `Status changed to ${nextStatus}`,
+      body: `Previous status: ${previous.status}`,
+      metadata: { previousStatus: previous.status, nextStatus },
+    });
+  } else {
+    await addProfessionalActivity(professionalId, context, {
+      type: "updated",
+      title: "Professional updated",
+    });
+  }
+
+  return getPartnershipCrmProfessional(context, professionalId);
+}
+
+export async function deletePartnershipCrmProfessional(
+  context: AdminContext,
+  professionalId: string,
+) {
+  requireGodMode(context);
+  const snapshot = await getProfessionalSnapshot(professionalId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("CRM professional not found.", 404);
+  }
+
+  await snapshot.ref.delete();
+}
+
 export async function listPartnershipCrmActivities(
   context: AdminContext,
   organizationId: string,
@@ -1196,6 +1764,71 @@ export async function createPartnershipCrmActivity(
   );
 
   return addActivity(organizationId, context, {
+    type: input.type ?? "note",
+    title,
+    body: cleanString(input.body),
+  });
+}
+
+export async function listPartnershipCrmProfessionalActivities(
+  context: AdminContext,
+  professionalId: string,
+  options: { cursor?: string; limit?: unknown } = {},
+): Promise<PartnershipCrmActivitiesPage> {
+  requireGodMode(context);
+  const professional = await getProfessionalSnapshot(professionalId);
+  if (!professional) {
+    throw new AdminRepositoryError("CRM professional not found.", 404);
+  }
+
+  const limit = normalizeLimit(options.limit);
+  let query = professional.ref
+    .collection(ACTIVITIES_COLLECTION)
+    .orderBy("occurredAt", "desc");
+  const cursorTimestamp = parseCursorTimestamp(options.cursor);
+  if (cursorTimestamp) {
+    query = query.startAfter(cursorTimestamp);
+  }
+
+  const snapshot = await query.limit(limit + 1).get();
+  const visibleDocs = snapshot.docs.slice(0, limit);
+  const activities = visibleDocs.map((doc) =>
+    toActivityRecord(doc.id, doc.data()),
+  );
+  const lastVisible = visibleDocs[visibleDocs.length - 1];
+  const nextCursor =
+    snapshot.docs.length > limit && lastVisible
+      ? timestampToIso(lastVisible.data().occurredAt)
+      : undefined;
+
+  return { activities, nextCursor };
+}
+
+export async function createPartnershipCrmProfessionalActivity(
+  context: AdminContext,
+  professionalId: string,
+  input: { title: string; body?: string; type?: PartnershipCrmActivityType },
+) {
+  requireGodMode(context);
+  const professional = await getProfessionalSnapshot(professionalId);
+  if (!professional) {
+    throw new AdminRepositoryError("CRM professional not found.", 404);
+  }
+
+  const title = cleanString(input.title);
+  if (!title) {
+    throw new AdminRepositoryError("Activity title is required.", 400);
+  }
+
+  await professional.ref.set(
+    {
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    },
+    { merge: true },
+  );
+
+  return addProfessionalActivity(professionalId, context, {
     type: input.type ?? "note",
     title,
     body: cleanString(input.body),
@@ -1358,6 +1991,163 @@ export async function importPartnershipCrmOrganizations(
   };
 }
 
+export async function previewPartnershipCrmProfessionalImport(
+  context: AdminContext,
+  rows: PartnershipCrmProfessionalImportRowInput[],
+): Promise<PartnershipCrmProfessionalImportPreview> {
+  requireGodMode(context);
+  const previews: PartnershipCrmProfessionalImportPreviewRow[] = [];
+
+  for (const [index, row] of rows.entries()) {
+    const professional = professionalDocument(row);
+    const name = cleanString(professional.name);
+    const errors = name ? [] : ["Professional name is required."];
+    const duplicateCandidates = name
+      ? await findDuplicateProfessionals(row)
+      : [];
+
+    previews.push({
+      rowId: row.rowId ?? `row-${index + 1}`,
+      professional: {
+        name,
+        category: cleanString(professional.category),
+        title: cleanString(professional.title),
+        affiliation: cleanString(professional.affiliation),
+        website: cleanString(professional.website),
+        country: cleanString(professional.country),
+        status: normalizeStatus(professional.status),
+        email: normalizeEmail(professional.email),
+        linkedIn: cleanString(professional.linkedIn),
+        lastContactAt: timestampToIso(professional.lastContactAt) ?? null,
+        notes: cleanString(professional.notes),
+      },
+      valid: errors.length === 0,
+      errors,
+      missingEmail: !normalizeEmail(professional.email),
+      duplicateCandidates,
+    });
+  }
+
+  return {
+    rows: previews,
+    summary: {
+      total: previews.length,
+      valid: previews.filter((row) => row.valid).length,
+      invalid: previews.filter((row) => !row.valid).length,
+      missingEmail: previews.filter((row) => row.missingEmail).length,
+      duplicates: previews.filter((row) => row.duplicateCandidates.length > 0)
+        .length,
+    },
+  };
+}
+
+export async function importPartnershipCrmProfessionals(
+  context: AdminContext,
+  rows: PartnershipCrmProfessionalImportRowInput[],
+) {
+  requireGodMode(context);
+  const results: Array<{
+    rowId: string;
+    action: "created" | "updated" | "skipped" | "invalid";
+    professionalId?: string;
+    reason?: string;
+  }> = [];
+
+  for (const [index, row] of rows.entries()) {
+    const rowId = row.rowId ?? `row-${index + 1}`;
+    try {
+      const document = professionalDocument(row);
+      const name = cleanString(document.name);
+
+      if (!name) {
+        results.push({
+          rowId,
+          action: "invalid",
+          reason: "Professional name is required.",
+        });
+        continue;
+      }
+
+      const duplicateCandidates = await findDuplicateProfessionals(row);
+      const duplicateId =
+        row.duplicateProfessionalId ?? duplicateCandidates[0]?.id;
+      const duplicateAction =
+        duplicateCandidates.length > 0
+          ? (row.duplicateAction ?? "skip")
+          : "import";
+
+      if (duplicateAction === "skip") {
+        results.push({
+          rowId,
+          action: "skipped",
+          professionalId: duplicateId,
+          reason: duplicateId ? "Possible duplicate skipped." : "Skipped.",
+        });
+        continue;
+      }
+
+      if (duplicateAction === "update" && duplicateId) {
+        const existing = await getProfessionalSnapshot(duplicateId);
+        if (!existing) {
+          results.push({
+            rowId,
+            action: "invalid",
+            reason: "Duplicate target was not found.",
+          });
+          continue;
+        }
+
+        await existing.ref.set(
+          withoutUndefined({
+            ...document,
+            createdAt: existing.data()?.createdAt,
+            createdByEmail: existing.data()?.createdByEmail,
+            updatedAt: FieldValue.serverTimestamp(),
+            updatedByEmail: context.email,
+          }),
+        );
+        await addProfessionalActivity(duplicateId, context, {
+          type: "import",
+          title: "CSV row updated this professional",
+          body: cleanString(row.notes),
+        });
+        results.push({ rowId, action: "updated", professionalId: duplicateId });
+        continue;
+      }
+
+      const created = await createPartnershipCrmProfessional(context, row);
+      await addProfessionalActivity(created.id, context, {
+        type: "import",
+        title: "Imported from CSV",
+        body: cleanString(row.notes),
+      });
+      results.push({ rowId, action: "created", professionalId: created.id });
+    } catch (error) {
+      if (error instanceof AdminRepositoryError) {
+        results.push({
+          rowId,
+          action: "invalid",
+          reason: error.message,
+        });
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  return {
+    results,
+    summary: {
+      total: results.length,
+      created: results.filter((result) => result.action === "created").length,
+      updated: results.filter((result) => result.action === "updated").length,
+      skipped: results.filter((result) => result.action === "skipped").length,
+      invalid: results.filter((result) => result.action === "invalid").length,
+    },
+  };
+}
+
 export async function sendPartnershipCrmOrganizationEmail(
   context: AdminContext,
   organizationId: string,
@@ -1426,4 +2216,74 @@ export async function sendPartnershipCrmOrganizationEmail(
   );
 
   return { organization: updatedOrganization, activity };
+}
+
+export async function sendPartnershipCrmProfessionalEmail(
+  context: AdminContext,
+  professionalId: string,
+  input: {
+    to: string;
+    subject: string;
+    text: string;
+    templateId?: string;
+    templateKey?: string;
+  },
+) {
+  requireGodMode(context);
+  const snapshot = await getProfessionalSnapshot(professionalId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("CRM professional not found.", 404);
+  }
+
+  const professional = toProfessionalRecord(
+    professionalId,
+    snapshot.data() ?? {},
+  );
+  const to = normalizeEmail(input.to);
+  const subject = cleanString(input.subject);
+  const text = cleanString(input.text);
+
+  if (!to) {
+    throw new AdminRepositoryError("Recipient email is required.", 400);
+  }
+  if (!subject) {
+    throw new AdminRepositoryError("Email subject is required.", 400);
+  }
+  if (!text) {
+    throw new AdminRepositoryError("Email message is required.", 400);
+  }
+
+  await sendPartnershipCrmEmail({ to, subject, text });
+
+  const nextStatus =
+    professional.status === "new" ? "contacted" : professional.status;
+  await snapshot.ref.set(
+    {
+      status: nextStatus,
+      lastContactAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    },
+    { merge: true },
+  );
+
+  const activity = await addProfessionalActivity(professionalId, context, {
+    type: "email",
+    title: `Email sent to ${to}`,
+    body: text,
+    metadata: {
+      from: PARTNERSHIP_CRM_FROM_EMAIL,
+      to,
+      subject,
+      templateId: cleanString(input.templateId),
+      previousStatus: professional.status,
+      nextStatus,
+    },
+  });
+  const updatedProfessional = await getPartnershipCrmProfessional(
+    context,
+    professionalId,
+  );
+
+  return { professional: updatedProfessional, activity };
 }

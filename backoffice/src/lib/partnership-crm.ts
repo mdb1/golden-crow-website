@@ -1,6 +1,8 @@
 import { normalizeDiscoverOrganizationCountryCode } from "./discover-organization-fields";
 import {
+  DISCOVER_INDIVIDUAL_CATEGORY_OPTIONS,
   DISCOVER_ORGANIZATION_CATEGORY_OPTIONS,
+  type DiscoverIndividualCategoryKey,
   type DiscoverOrganizationCategoryKey,
 } from "./discover-publisher-categories";
 
@@ -18,8 +20,12 @@ export const CRM_STATUS_OPTIONS = [
 ] as const;
 
 export const CRM_CATEGORY_OPTIONS = DISCOVER_ORGANIZATION_CATEGORY_OPTIONS;
+export const CRM_PROFESSIONAL_CATEGORY_OPTIONS =
+  DISCOVER_INDIVIDUAL_CATEGORY_OPTIONS;
 export const DEFAULT_CRM_CATEGORY =
   "org_genetic_testing_laboratories" satisfies DiscoverOrganizationCategoryKey;
+export const DEFAULT_CRM_PROFESSIONAL_CATEGORY =
+  "pro_clinical_geneticists" satisfies DiscoverIndividualCategoryKey;
 
 export const CRM_TEMPLATE_STATUS_OPTIONS = [
   { value: "active", label: "Template Active" },
@@ -27,10 +33,19 @@ export const CRM_TEMPLATE_STATUS_OPTIONS = [
   { value: "archived", label: "Template Archived" },
 ] as const;
 
+export const CRM_TARGET_OPTIONS = [
+  { value: "organizations", label: "Organizations" },
+  { value: "professionals", label: "Professionals" },
+] as const;
+
 export type PartnershipCrmStatus = (typeof CRM_STATUS_OPTIONS)[number]["value"];
 export type PartnershipCrmTemplateStatus =
   (typeof CRM_TEMPLATE_STATUS_OPTIONS)[number]["value"];
+export type PartnershipCrmTargetKind =
+  (typeof CRM_TARGET_OPTIONS)[number]["value"];
+export type PartnershipCrmTemplateAudience = PartnershipCrmTargetKind;
 export type PartnershipCrmCategory = DiscoverOrganizationCategoryKey;
+export type PartnershipCrmProfessionalCategory = DiscoverIndividualCategoryKey;
 export type CrmDuplicateAction = "skip" | "update" | "import";
 
 export interface PartnershipCrmOrganizationRecord {
@@ -45,6 +60,28 @@ export interface PartnershipCrmOrganizationRecord {
   contactName: string;
   contactEmail: string;
   contactLinkedIn: string;
+  lastContactAt: string | null;
+  notes: string;
+  normalizedName: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdByEmail?: string;
+  updatedByEmail?: string;
+}
+
+export interface PartnershipCrmProfessionalRecord {
+  id: string;
+  schemaVersion: number;
+  name: string;
+  category: string;
+  title: string;
+  affiliation: string;
+  website: string;
+  websiteDomain: string;
+  country: string;
+  status: PartnershipCrmStatus;
+  email: string;
+  linkedIn: string;
   lastContactAt: string | null;
   notes: string;
   normalizedName: string;
@@ -70,6 +107,11 @@ export interface PartnershipCrmOrganizationsPage {
   nextCursor?: string;
 }
 
+export interface PartnershipCrmProfessionalsPage {
+  professionals: PartnershipCrmProfessionalRecord[];
+  nextCursor?: string;
+}
+
 export interface PartnershipCrmActivitiesPage {
   activities: PartnershipCrmActivityRecord[];
   nextCursor?: string;
@@ -79,6 +121,7 @@ export interface PartnershipCrmTemplateRecord {
   id: string;
   schemaVersion: number;
   name: string;
+  audience: PartnershipCrmTemplateAudience;
   category: string;
   subject: string;
   body: string;
@@ -98,6 +141,7 @@ export interface PartnershipCrmTemplatesPage {
 
 export interface PartnershipCrmTemplateInput {
   name: string;
+  audience?: PartnershipCrmTemplateAudience;
   category?: string;
   subject: string;
   body: string;
@@ -118,6 +162,20 @@ export interface PartnershipCrmOrganizationInput {
   notes?: string;
 }
 
+export interface PartnershipCrmProfessionalInput {
+  name: string;
+  category?: string;
+  title?: string;
+  affiliation?: string;
+  website?: string;
+  country?: string;
+  status?: PartnershipCrmStatus;
+  email?: string;
+  linkedIn?: string;
+  lastContactAt?: string | null;
+  notes?: string;
+}
+
 export interface PartnershipCrmDuplicateCandidate {
   id: string;
   name: string;
@@ -127,15 +185,29 @@ export interface PartnershipCrmDuplicateCandidate {
   status: PartnershipCrmStatus;
 }
 
+export interface PartnershipCrmProfessionalDuplicateCandidate {
+  id: string;
+  name: string;
+  email: string;
+  linkedIn: string;
+  website: string;
+  websiteDomain: string;
+  status: PartnershipCrmStatus;
+}
+
 export interface PartnershipCrmImportPreviewRow {
   rowId: string;
-  organization: PartnershipCrmOrganizationInput;
+  organization?: PartnershipCrmOrganizationInput;
+  professional?: PartnershipCrmProfessionalInput;
   valid: boolean;
   errors: string[];
   missingEmail: boolean;
-  duplicateCandidates: PartnershipCrmDuplicateCandidate[];
+  duplicateCandidates: Array<
+    PartnershipCrmDuplicateCandidate | PartnershipCrmProfessionalDuplicateCandidate
+  >;
   duplicateAction?: CrmDuplicateAction;
   duplicateOrganizationId?: string;
+  duplicateProfessionalId?: string;
 }
 
 export interface PartnershipCrmImportPreview {
@@ -154,6 +226,7 @@ export interface PartnershipCrmImportResult {
     rowId: string;
     action: "created" | "updated" | "skipped" | "invalid";
     organizationId?: string;
+    professionalId?: string;
     reason?: string;
   }>;
   summary: {
@@ -171,7 +244,7 @@ export interface ParsedCrmTemplateCsv {
 }
 
 export interface ParsedCrmCsv {
-  rows: PartnershipCrmOrganizationInput[];
+  rows: Array<PartnershipCrmOrganizationInput | PartnershipCrmProfessionalInput>;
   errors: Array<{ row: number; message: string }>;
 }
 
@@ -200,7 +273,7 @@ const STATUS_ALIASES: Record<string, PartnershipCrmStatus> = {
   no_encaja: "not_a_fit",
 };
 
-const CATEGORY_ALIASES: Record<string, PartnershipCrmCategory | ""> = {
+const ORGANIZATION_CATEGORY_ALIASES: Record<string, PartnershipCrmCategory | ""> = {
   laboratory: "org_genetic_testing_laboratories",
   lab: "org_genetic_testing_laboratories",
   genomics: "org_genomics_laboratories",
@@ -224,6 +297,31 @@ const CATEGORY_ALIASES: Record<string, PartnershipCrmCategory | ""> = {
   plataforma_de_pruebas_geneticas: "org_genetic_testing_platforms",
   other: "",
   otro: "",
+};
+
+const PROFESSIONAL_CATEGORY_ALIASES: Record<
+  string,
+  PartnershipCrmProfessionalCategory | ""
+> = {
+  geneticist: "pro_clinical_geneticists",
+  genetista: "pro_clinical_geneticists",
+  clinical_geneticist: "pro_clinical_geneticists",
+  medical_geneticist: "pro_medical_geneticists",
+  genetic_counselor: "pro_genetic_counselors",
+  asesor_genetico: "pro_genetic_counselors",
+  bioinformatician: "pro_bioinformaticians",
+  bioinformatico: "pro_bioinformaticians",
+  researcher: "pro_research_scientists",
+  investigador: "pro_research_scientists",
+  physician: "pro_physicians",
+  doctor: "pro_physicians",
+  medico: "pro_physicians",
+  clinician: "pro_physicians",
+  patient_advocate: "pro_patient_advocates",
+  educator: "pro_educators",
+  science_communicator: "pro_science_communicators",
+  other: "pro_other",
+  otro: "pro_other",
 };
 
 const TEMPLATE_STATUS_ALIASES: Record<string, PartnershipCrmTemplateStatus> = {
@@ -261,9 +359,35 @@ const HEADER_ALIASES: Record<keyof PartnershipCrmOrganizationInput, string[]> =
     notes: ["notes", "note", "notas", "observaciones"],
   };
 
+const PROFESSIONAL_HEADER_ALIASES: Record<
+  keyof PartnershipCrmProfessionalInput,
+  string[]
+> = {
+  name: ["name", "professional", "professional_name", "nombre", "persona"],
+  category: ["category", "professional_category", "categoria", "tipo"],
+  title: ["title", "role", "specialty", "profession", "titulo", "especialidad"],
+  affiliation: [
+    "affiliation",
+    "institution",
+    "organization",
+    "company",
+    "institucion",
+    "organizacion",
+    "empresa",
+  ],
+  website: ["website", "web", "url", "site", "sitio"],
+  country: ["country", "pais"],
+  status: ["status", "estado"],
+  email: ["email", "mail", "correo"],
+  linkedIn: ["linkedin", "linked_in"],
+  lastContactAt: ["last_contact", "last_contact_at", "ultimo_contacto"],
+  notes: ["notes", "note", "notas", "observaciones"],
+};
+
 const TEMPLATE_HEADER_ALIASES: Record<keyof PartnershipCrmTemplateInput, string[]> =
   {
     name: ["name", "template", "template_name", "nombre", "plantilla"],
+    audience: ["audience", "target", "target_kind", "applies_to", "aplica_a"],
     category: ["category", "template_category", "categoria", "tipo"],
     subject: ["subject", "asunto"],
     body: ["body", "message", "text", "cuerpo", "mensaje", "texto"],
@@ -290,14 +414,43 @@ function normalizeTemplateStatus(value: string): PartnershipCrmTemplateStatus {
   return TEMPLATE_STATUS_ALIASES[key] ?? "active";
 }
 
-export function normalizeCrmCategory(value: string): string {
+export function normalizeCrmAudience(
+  value: string,
+): PartnershipCrmTemplateAudience {
+  const key = normalizeKey(value);
+  if (
+    key === "professional" ||
+    key === "professionals" ||
+    key === "individual" ||
+    key === "individuals" ||
+    key === "personas" ||
+    key === "profesionales"
+  ) {
+    return "professionals";
+  }
+
+  return "organizations";
+}
+
+export function normalizeCrmCategory(
+  value: string,
+  audience: PartnershipCrmTemplateAudience = "organizations",
+): string {
   const raw = value.trim();
   if (!raw) {
     return "";
   }
 
   const normalized = normalizeKey(raw);
-  const option = CRM_CATEGORY_OPTIONS.find(
+  const options =
+    audience === "professionals"
+      ? CRM_PROFESSIONAL_CATEGORY_OPTIONS
+      : CRM_CATEGORY_OPTIONS;
+  const aliases =
+    audience === "professionals"
+      ? PROFESSIONAL_CATEGORY_ALIASES
+      : ORGANIZATION_CATEGORY_ALIASES;
+  const option = options.find(
     (category) =>
       normalizeKey(category.value) === normalized ||
       normalizeKey(category.label) === normalized,
@@ -306,18 +459,25 @@ export function normalizeCrmCategory(value: string): string {
     return option.value;
   }
 
-  if (Object.prototype.hasOwnProperty.call(CATEGORY_ALIASES, normalized)) {
-    return CATEGORY_ALIASES[normalized] ?? "";
+  if (Object.prototype.hasOwnProperty.call(aliases, normalized)) {
+    return aliases[normalized] ?? "";
   }
 
   return "";
 }
 
-export function crmCategoryLabel(value: string) {
-  const normalized = normalizeCrmCategory(value);
+export function crmCategoryLabel(
+  value: string,
+  audience: PartnershipCrmTemplateAudience = "organizations",
+) {
+  const normalized = normalizeCrmCategory(value, audience);
+  const options =
+    audience === "professionals"
+      ? CRM_PROFESSIONAL_CATEGORY_OPTIONS
+      : CRM_CATEGORY_OPTIONS;
   return (
-    CRM_CATEGORY_OPTIONS.find((category) => category.value === normalized)
-      ?.label ?? value.trim()
+    options.find((category) => category.value === normalized)?.label ??
+    value.trim()
   );
 }
 
@@ -389,6 +549,15 @@ function fieldForHeader(header: string) {
   return entry?.[0] as keyof PartnershipCrmOrganizationInput | undefined;
 }
 
+function professionalFieldForHeader(header: string) {
+  const normalized = normalizeKey(header);
+  const entry = Object.entries(PROFESSIONAL_HEADER_ALIASES).find(([, aliases]) =>
+    aliases.includes(normalized),
+  );
+
+  return entry?.[0] as keyof PartnershipCrmProfessionalInput | undefined;
+}
+
 function templateFieldForHeader(header: string) {
   const normalized = normalizeKey(header);
   const entry = Object.entries(TEMPLATE_HEADER_ALIASES).find(([, aliases]) =>
@@ -402,7 +571,10 @@ function normalizeTemplateCsvText(value: string) {
   return value.trim().replace(/\\n/g, "\n");
 }
 
-export function parseCrmCsv(text: string): ParsedCrmCsv {
+export function parseCrmCsv(
+  text: string,
+  targetKind: PartnershipCrmTargetKind = "organizations",
+): ParsedCrmCsv {
   const [headerCells, ...dataRows] = parseCsvRecords(text);
 
   if (!headerCells) {
@@ -412,15 +584,27 @@ export function parseCrmCsv(text: string): ParsedCrmCsv {
     };
   }
 
-  const headers = headerCells.map(fieldForHeader);
+  const headers = headerCells.map((header) =>
+    targetKind === "professionals"
+      ? professionalFieldForHeader(header)
+      : fieldForHeader(header),
+  );
   if (!headers.includes("name")) {
     return {
       rows: [],
-      errors: [{ row: 1, message: "CSV needs a name column." }],
+      errors: [
+        {
+          row: 1,
+          message:
+            targetKind === "professionals"
+              ? "CSV needs a professional name column."
+              : "CSV needs a name column.",
+        },
+      ],
     };
   }
 
-  const rows: PartnershipCrmOrganizationInput[] = [];
+  const rows: ParsedCrmCsv["rows"] = [];
   const errors: ParsedCrmCsv["errors"] = [];
 
   dataRows.forEach((cells, index) => {
@@ -435,8 +619,28 @@ export function parseCrmCsv(text: string): ParsedCrmCsv {
     if (!row.name?.trim()) {
       errors.push({
         row: index + 2,
-        message: "Organization name is required.",
+        message:
+          targetKind === "professionals"
+            ? "Professional name is required."
+            : "Organization name is required.",
       });
+    }
+
+    if (targetKind === "professionals") {
+      rows.push({
+        name: row.name?.trim() ?? "",
+        category: normalizeCrmCategory(row.category ?? "", "professionals"),
+        title: row.title?.trim() ?? "",
+        affiliation: row.affiliation?.trim() ?? "",
+        website: row.website?.trim() ?? "",
+        country: normalizeCrmCountry(row.country ?? ""),
+        status: normalizeStatus(row.status ?? ""),
+        email: row.email?.trim().toLowerCase() ?? "",
+        linkedIn: row.linkedIn?.trim() ?? "",
+        lastContactAt: row.lastContactAt?.trim() || null,
+        notes: row.notes?.trim() ?? "",
+      });
+      return;
     }
 
     rows.push({
@@ -456,7 +660,10 @@ export function parseCrmCsv(text: string): ParsedCrmCsv {
   return { rows, errors };
 }
 
-export function parseCrmTemplateCsv(text: string): ParsedCrmTemplateCsv {
+export function parseCrmTemplateCsv(
+  text: string,
+  defaultAudience: PartnershipCrmTemplateAudience = "organizations",
+): ParsedCrmTemplateCsv {
   const [headerCells, ...dataRows] = parseCsvRecords(text);
 
   if (!headerCells) {
@@ -504,6 +711,9 @@ export function parseCrmTemplateCsv(text: string): ParsedCrmTemplateCsv {
     const subject = row.subject?.trim() ?? "";
     const body = normalizeTemplateCsvText(row.body ?? "");
     const notes = normalizeTemplateCsvText(row.notes ?? "");
+    const audience = row.audience
+      ? normalizeCrmAudience(row.audience)
+      : defaultAudience;
 
     if (!name) {
       errors.push({ row: rowNumber, message: "Template name is required." });
@@ -541,7 +751,8 @@ export function parseCrmTemplateCsv(text: string): ParsedCrmTemplateCsv {
 
     rows.push({
       name,
-      category: normalizeCrmCategory(row.category ?? ""),
+      audience,
+      category: normalizeCrmCategory(row.category ?? "", audience),
       subject,
       body,
       status: normalizeTemplateStatus(row.status ?? ""),
@@ -552,23 +763,66 @@ export function parseCrmTemplateCsv(text: string): ParsedCrmTemplateCsv {
   return { rows, errors };
 }
 
-function websiteSentence(organization: PartnershipCrmOrganizationRecord) {
-  if (!organization.websiteDomain) {
+function websiteSentence(target: { websiteDomain: string }) {
+  if (!target.websiteDomain) {
     return "";
   }
 
-  return ` (${organization.websiteDomain})`;
+  return ` (${target.websiteDomain})`;
+}
+
+function firstName(value: string) {
+  return value.trim().split(/\s+/)[0] ?? "";
+}
+
+export type PartnershipCrmTargetRecord =
+  | PartnershipCrmOrganizationRecord
+  | PartnershipCrmProfessionalRecord;
+
+export function crmTargetEmail(
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  return targetKind === "professionals"
+    ? (target as PartnershipCrmProfessionalRecord).email
+    : (target as PartnershipCrmOrganizationRecord).contactEmail;
 }
 
 export function renderCrmTemplate(
   template: PartnershipCrmTemplateRecord,
-  organization: PartnershipCrmOrganizationRecord,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind = "organizations",
 ) {
+  const organization = target as PartnershipCrmOrganizationRecord;
+  const professional = target as PartnershipCrmProfessionalRecord;
+  const targetWebsite =
+    targetKind === "professionals"
+      ? professional.website || professional.websiteDomain
+      : organization.website || organization.websiteDomain;
   const variables: Record<string, string> = {
-    contact_name: organization.contactName || "equipo",
-    organization_name: organization.name,
-    website: organization.website || organization.websiteDomain,
-    website_sentence: websiteSentence(organization),
+    contact_name:
+      targetKind === "professionals"
+        ? professional.name || "equipo"
+        : organization.contactName || "equipo",
+    organization_name:
+      targetKind === "professionals"
+        ? professional.affiliation || professional.name
+        : organization.name,
+    professional_name:
+      targetKind === "professionals"
+        ? professional.name
+        : organization.contactName || organization.name,
+    first_name:
+      targetKind === "professionals"
+        ? firstName(professional.name)
+        : firstName(organization.contactName || organization.name),
+    affiliation:
+      targetKind === "professionals"
+        ? professional.affiliation
+        : organization.name,
+    title: targetKind === "professionals" ? professional.title : "",
+    website: targetWebsite,
+    website_sentence: websiteSentence(target),
   };
   const apply = (value: string) =>
     value.replace(
@@ -601,13 +855,26 @@ export function bestCrmTemplateForOrganization(
   organization: PartnershipCrmOrganizationRecord,
   templates: PartnershipCrmTemplateRecord[],
 ) {
+  return bestCrmTemplateForTarget(organization, templates, "organizations");
+}
+
+export function bestCrmTemplateForTarget(
+  target: PartnershipCrmTargetRecord,
+  templates: PartnershipCrmTemplateRecord[],
+  targetKind: PartnershipCrmTargetKind,
+) {
   const activeTemplates = templates.filter(
-    (template) => template.status === "active",
+    (template) =>
+      template.status === "active" &&
+      (template.audience ?? "organizations") === targetKind,
+  );
+  const audienceTemplates = templates.filter(
+    (template) => (template.audience ?? "organizations") === targetKind,
   );
   const visibleTemplates =
-    activeTemplates.length > 0 ? activeTemplates : templates;
-  const organizationCategory = normalizeCrmCategory(organization.category);
-  const organizationCategoryKey = normalizeKey(organizationCategory);
+    activeTemplates.length > 0 ? activeTemplates : audienceTemplates;
+  const targetCategory = normalizeCrmCategory(target.category, targetKind);
+  const targetCategoryKey = normalizeKey(targetCategory);
 
   if (!visibleTemplates.length) {
     return null;
@@ -616,16 +883,19 @@ export function bestCrmTemplateForOrganization(
   return (
     visibleTemplates.find(
       (template) =>
-        normalizeCrmCategory(template.category) === organizationCategory,
+        normalizeCrmCategory(template.category, targetKind) === targetCategory,
     ) ??
     visibleTemplates.find((template) => {
-      const templateCategory = normalizeCrmCategory(template.category);
+      const templateCategory = normalizeCrmCategory(
+        template.category,
+        targetKind,
+      );
       const templateCategoryKey = normalizeKey(templateCategory);
       return (
-        organizationCategoryKey &&
+        targetCategoryKey &&
         templateCategoryKey &&
-        (organizationCategoryKey.includes(templateCategoryKey) ||
-          templateCategoryKey.includes(organizationCategoryKey))
+        (targetCategoryKey.includes(templateCategoryKey) ||
+          templateCategoryKey.includes(targetCategoryKey))
       );
     }) ??
     visibleTemplates[0]

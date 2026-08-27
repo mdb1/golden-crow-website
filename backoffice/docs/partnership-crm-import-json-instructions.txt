@@ -4,8 +4,8 @@ Pocket Genes CRM import JSON instructions
 Purpose
 -------
 
-This file defines the canonical JSON shape for importing organizations into the
-Pocket Genes CRM.
+This file defines the canonical JSON shape for importing organizations and
+individual professionals into the Pocket Genes CRM.
 
 The CRM import is a GOD MODE-only operation. The browser calls the Backoffice
 SDK proxy, which forwards to the SDK routes:
@@ -14,10 +14,14 @@ SDK proxy, which forwards to the SDK routes:
   POST /api/sdk/admin/partnership-crm/import-preview
 - SDK preview path:
   POST /admin/partnership-crm/import-preview
+- Professional SDK preview path:
+  POST /admin/partnership-crm/professionals/import-preview
 - Backoffice proxy import path:
   POST /api/sdk/admin/partnership-crm/import
 - SDK import path:
   POST /admin/partnership-crm/import
+- Professional SDK import path:
+  POST /admin/partnership-crm/professionals/import
 
 Every request must use Content-Type: application/json.
 
@@ -30,6 +34,8 @@ Source of truth:
   backoffice/src/lib/discover-publisher-categories.ts, exposed to CRM through
   CRM_CATEGORY_OPTIONS in backoffice/src/lib/partnership-crm.ts, and mirrored in
   goldencrow-sdk/src/lib/discover-publisher-categories.ts.
+- Professional categories come from DISCOVER_INDIVIDUAL_CATEGORY_OPTIONS in the
+  same files and are exposed to CRM through CRM_PROFESSIONAL_CATEGORY_OPTIONS.
 - Countries come from DISCOVER_ORGANIZATION_COUNTRY_CODES in
   backoffice/src/lib/discover-organization-fields.ts.
 - The CRM country picker deliberately excludes GLOBAL even though Discover
@@ -40,7 +46,8 @@ Source of truth:
 Top-level request shape
 -----------------------
 
-The body must be a JSON object with one key: organizations.
+For organization imports, the body must be a JSON object with one key:
+organizations.
 
 Example:
 
@@ -73,6 +80,40 @@ organizations:
 - For 1000+ records, never send one huge request. Split the import into chunks
   and persist progress between chunks.
 
+Professional imports use the professionals key and the professional endpoints.
+Never mix organizations and professionals in the same import request.
+
+Professional example:
+
+{
+  "professionals": [
+    {
+      "rowId": "crm-pro-2026-08-27-0001",
+      "name": "Dra. Ada Genome",
+      "category": "pro_clinical_geneticists",
+      "title": "Genetista clinica",
+      "affiliation": "Genome Lab",
+      "website": "https://ada.example",
+      "country": "AR",
+      "status": "new",
+      "email": "ada@genomelab.example",
+      "linkedIn": "https://linkedin.com/in/ada-genome",
+      "lastContactAt": null,
+      "notes": "Imported from professional partnership prospecting list."
+    }
+  ]
+}
+
+professionals:
+- Required for professional import endpoints.
+- Must be an array.
+- Must contain at least 1 item.
+- Must contain at most 500 items per HTTP request.
+- The Backoffice UI processes professional imports in chunks of 100 rows and
+  stores a separate browser checkpoint from organization imports.
+- For 1000+ records, never send one huge request. Split the import into chunks
+  and persist progress between chunks.
+
 
 Row shape
 ---------
@@ -94,6 +135,25 @@ Supported keys:
 - notes
 - duplicateAction
 - duplicateOrganizationId
+
+Each object inside professionals is one CRM professional candidate.
+
+Supported professional keys:
+
+- rowId
+- name
+- category
+- title
+- affiliation
+- website
+- country
+- status
+- email
+- linkedIn
+- lastContactAt
+- notes
+- duplicateAction
+- duplicateProfessionalId
 
 Do not include extra keys. Extra keys are not part of the supported contract and
 must be treated as unsupported by import generators.
@@ -216,6 +276,98 @@ Canonical category whitelist, all allowed values:
 - org_sequencing_companies (Sequencing Company)
 - org_healthcare_networks (Healthcare Network)
 - org_public_health_organizations (Public Health Organization)
+
+Canonical professional category whitelist, all allowed values:
+- pro_clinical_geneticists (Clinical Geneticist)
+- pro_medical_geneticists (Medical Geneticist)
+- pro_molecular_geneticists (Molecular Geneticist)
+- pro_human_geneticists (Human Geneticist)
+- pro_cytogeneticists (Cytogeneticist)
+- pro_genetic_counselors (Genetic Counselor)
+- pro_genomics_specialists (Genomics Specialist)
+- pro_bioinformaticians (Bioinformatician)
+- pro_computational_biologists (Computational Biologist)
+- pro_molecular_biologists (Molecular Biologist)
+- pro_cell_biologists (Cell Biologist)
+- pro_biotechnologists (Biotechnologist)
+- pro_biochemists (Biochemist)
+- pro_microbiologists (Microbiologist)
+- pro_biomedical_scientists (Biomedical Scientist)
+- pro_laboratory_scientists (Laboratory Scientist)
+- pro_laboratory_technicians (Laboratory Technician)
+- pro_genomic_analysts (Genomic Analyst)
+- pro_variant_scientists (Variant Scientist)
+- pro_variant_curators (Variant Curator)
+- pro_data_scientists (Data Scientist)
+- pro_biostatisticians (Biostatistician)
+- pro_research_scientists (Research Scientist)
+- pro_clinical_researchers (Clinical Researcher)
+- pro_principal_investigators (Principal Investigator)
+- pro_physicians (Physician)
+- pro_pediatricians (Pediatrician)
+- pro_neurologists (Neurologist)
+- pro_oncologists (Oncologist)
+- pro_hematologists (Hematologist)
+- pro_cardiologists (Cardiologist)
+- pro_endocrinologists (Endocrinologist)
+- pro_immunologists (Immunologist)
+- pro_pathologists (Pathologist)
+- pro_reproductive_specialists (Reproductive Specialist)
+- pro_fertility_specialists (Fertility Specialist)
+- pro_embryologists (Embryologist)
+- pro_obstetricians (Obstetrician)
+- pro_gynecologists (Gynecologist)
+- pro_maternal_medicine_specialists (Maternal Medicine Specialist)
+- pro_fetal_medicine_specialists (Fetal Medicine Specialist)
+- pro_pediatric_genetics_specialists (Pediatric Genetics Specialist)
+- pro_metabolic_disease_specialists (Metabolic Disease Specialist)
+- pro_rare_disease_specialists (Rare Disease Specialist)
+- pro_pharmacogenomics_specialists (Pharmacogenomics Specialist)
+- pro_precision_medicine_specialists (Precision Medicine Specialist)
+- pro_genetic_epidemiologists (Genetic Epidemiologist)
+- pro_public_health_specialists (Public Health Specialist)
+- pro_clinical_trial_specialists (Clinical Trial Specialist)
+- pro_research_coordinators (Research Coordinator)
+- pro_patient_advocates (Patient Advocate)
+- pro_patient_navigators (Patient Navigator)
+- pro_rare_disease_advocates (Rare Disease Advocate)
+- pro_caregivers (Caregiver)
+- pro_educators (Educator)
+- pro_professors (Professor)
+- pro_science_communicators (Science Communicator)
+- pro_medical_writers (Medical Writer)
+- pro_healthcare_executives (Healthcare Executive)
+- pro_biotechnology_entrepreneurs (Biotechnology Entrepreneur)
+- pro_entrepreneurs (Entrepreneur)
+- pro_startup_founders (Startup Founder)
+- pro_small_business_owners (Small Business Owner)
+- pro_software_engineers (Software Engineer)
+- pro_app_developers (App Developer)
+- pro_web_developers (Web Developer)
+- pro_product_managers (Product Manager)
+- pro_ux_ui_designers (UX/UI Designer)
+- pro_data_engineers (Data Engineer)
+- pro_ai_engineers (AI Engineer)
+- pro_machine_learning_engineers (Machine Learning Engineer)
+- pro_ai_researchers (AI Researcher)
+- pro_content_creators (Content Creator)
+- pro_microinfluencers (Microinfluencer)
+- pro_influencers (Influencer)
+- pro_social_media_managers (Social Media Manager)
+- pro_community_managers (Community Manager)
+- pro_marketing_specialists (Marketing Specialist)
+- pro_growth_marketers (Growth Marketer)
+- pro_brand_strategists (Brand Strategist)
+- pro_communications_managers (Communications Manager)
+- pro_journalists (Journalist)
+- pro_editors (Editor)
+- pro_podcast_hosts (Podcast Host)
+- pro_video_producers (Video Producer)
+- pro_public_speakers (Public Speaker)
+- pro_leaders (Leader)
+- pro_project_managers (Project Manager)
+- pro_consultants (Consultant)
+- pro_other (Other)
 
 Known category aliases that normalize to canonical values:
 - laboratory -> org_genetic_testing_laboratories
@@ -364,6 +516,39 @@ contactLinkedIn
 - Prefer a full LinkedIn URL.
 - If the value has no protocol, the SDK tries to normalize it as https://...
 - Do not put email, notes, or non-LinkedIn social profiles here.
+
+title
+- Professional imports only.
+- Optional string.
+- Maximum length: 180 characters.
+- Store the professional role, specialty, credential, or title only.
+- Do not store the institution name here; use affiliation for that.
+
+affiliation
+- Professional imports only.
+- Optional string.
+- Maximum length: 180 characters.
+- Store the institution, company, lab, hospital, practice, or professional
+  affiliation as a plain name.
+
+email
+- Professional imports only.
+- Optional string.
+- Maximum length: 180 characters.
+- The SDK lowercases it.
+- Missing email is allowed and does not make the row invalid.
+- A missing email will be returned in preview as missingEmail: true.
+- The CRM send-email button requires a usable direct email.
+- Prefer one email address only. Do not send multiple emails in the same string.
+
+linkedIn
+- Professional imports only.
+- Optional string.
+- Maximum length: 500 characters.
+- Prefer a full LinkedIn URL.
+- If the value has no protocol, the SDK tries to normalize it as https://...
+- The professional duplicate detector can use linkedIn, email, normalizedName,
+  and websiteDomain.
 
 lastContactAt
 - Optional.

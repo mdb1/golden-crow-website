@@ -79,6 +79,7 @@ import {
   formatCrmCategory,
 } from "@/components/god-mode/crm-category-select";
 import { CrmImportRulesDialog } from "@/components/god-mode/crm-import-rules-dialog";
+import { CrmTargetSegmentedControl } from "@/components/god-mode/crm-target-segmented-control";
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText, type AppLanguage } from "@/lib/language";
 import {
@@ -86,9 +87,11 @@ import {
   getDiscoverOrganizationCountryGroups,
 } from "@/lib/discover-organization-fields";
 import {
-  bestCrmTemplateForOrganization,
+  bestCrmTemplateForTarget,
   CRM_STATUS_OPTIONS,
   DEFAULT_CRM_CATEGORY,
+  DEFAULT_CRM_PROFESSIONAL_CATEGORY,
+  crmTargetEmail,
   normalizeCrmCategory,
   normalizeCrmCountry,
   PARTNERSHIP_CRM_FROM_EMAIL,
@@ -104,7 +107,12 @@ import {
   type PartnershipCrmOrganizationInput,
   type PartnershipCrmOrganizationRecord,
   type PartnershipCrmOrganizationsPage,
+  type PartnershipCrmProfessionalInput,
+  type PartnershipCrmProfessionalRecord,
+  type PartnershipCrmProfessionalsPage,
   type PartnershipCrmStatus,
+  type PartnershipCrmTargetKind,
+  type PartnershipCrmTargetRecord,
   type PartnershipCrmTemplateRecord,
   type PartnershipCrmTemplatesPage,
 } from "@/lib/partnership-crm";
@@ -115,12 +123,18 @@ const ACTIVITIES_QUERY_KEY = "god-mode-partnership-crm-activities";
 const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
 const EMAIL_CTA_CLASS =
   "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
-const CRM_ORGANIZATION_PAGE_SIZE = 50;
+const CRM_TARGET_PAGE_SIZE = 50;
 const CRM_IMPORT_CHUNK_SIZE = 100;
-const CRM_IMPORT_SESSION_STORAGE_KEY =
-  "golden-crow:partnership-crm-import-session:v1";
+const CRM_IMPORT_SESSION_STORAGE_KEYS = {
+  organizations: "golden-crow:partnership-crm-import-session:v1",
+  professionals: "golden-crow:partnership-crm-professional-import-session:v1",
+} as const;
 const CRM_ALL_COUNTRIES_VALUE = "__all_countries__";
 const CRM_NO_COUNTRY_VALUE = "__no_country__";
+
+type CrmTargetInput =
+  | PartnershipCrmOrganizationInput
+  | PartnershipCrmProfessionalInput;
 
 type EmailState = {
   to: string;
@@ -132,7 +146,7 @@ type EmailState = {
 
 type OrganizationDialogState =
   | { mode: "create"; organization?: undefined }
-  | { mode: "edit"; organization: PartnershipCrmOrganizationRecord }
+  | { mode: "edit"; organization: PartnershipCrmTargetRecord }
   | null;
 
 type OrganizationFormState = {
@@ -141,6 +155,10 @@ type OrganizationFormState = {
   website: string;
   country: string;
   status: PartnershipCrmStatus;
+  title: string;
+  affiliation: string;
+  email: string;
+  linkedIn: string;
   contactName: string;
   contactEmail: string;
   contactLinkedIn: string;
@@ -170,7 +188,8 @@ type CrmImportSession = {
   status: CrmImportSessionStatus;
   stage: CrmImportSessionStage;
   chunkSize: number;
-  sourceRows: PartnershipCrmOrganizationInput[];
+  targetKind: PartnershipCrmTargetKind;
+  sourceRows: CrmTargetInput[];
   previewRows: PartnershipCrmImportPreviewRow[];
   parseErrors: Array<{ row: number; message: string }>;
   totalRows: number;
@@ -181,18 +200,36 @@ type CrmImportSession = {
   lastError?: string;
 };
 
-const EMPTY_FORM_STATE: OrganizationFormState = {
-  name: "",
-  category: DEFAULT_CRM_CATEGORY,
-  website: "",
-  country: "",
-  status: "new",
-  contactName: "",
-  contactEmail: "",
-  contactLinkedIn: "",
-  lastContactAt: "",
-  notes: "",
-};
+function crmImportSessionStorageKey(targetKind: PartnershipCrmTargetKind) {
+  return CRM_IMPORT_SESSION_STORAGE_KEYS[targetKind];
+}
+
+function defaultCategoryForTarget(targetKind: PartnershipCrmTargetKind) {
+  return targetKind === "professionals"
+    ? DEFAULT_CRM_PROFESSIONAL_CATEGORY
+    : DEFAULT_CRM_CATEGORY;
+}
+
+function emptyFormState(
+  targetKind: PartnershipCrmTargetKind,
+): OrganizationFormState {
+  return {
+    name: "",
+    category: defaultCategoryForTarget(targetKind),
+    website: "",
+    country: "",
+    status: "new",
+    title: "",
+    affiliation: "",
+    email: "",
+    linkedIn: "",
+    contactName: "",
+    contactEmail: "",
+    contactLinkedIn: "",
+    lastContactAt: "",
+    notes: "",
+  };
+}
 
 const PIPELINE_STATUSES: PartnershipCrmStatus[] = [
   "new",
@@ -278,21 +315,35 @@ function withDuplicateDefaults(
       : (row.duplicateAction ?? "import"),
     duplicateOrganizationId:
       row.duplicateOrganizationId ?? row.duplicateCandidates[0]?.id,
+    duplicateProfessionalId:
+      row.duplicateProfessionalId ?? row.duplicateCandidates[0]?.id,
   };
 }
 
-function rowsForImportChunk(rows: PartnershipCrmImportPreviewRow[]) {
+function importRowTarget(
+  row: PartnershipCrmImportPreviewRow,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  return targetKind === "professionals" ? row.professional : row.organization;
+}
+
+function rowsForImportChunk(
+  rows: PartnershipCrmImportPreviewRow[],
+  targetKind: PartnershipCrmTargetKind,
+) {
   return rows
     .filter((row) => row.valid)
     .map((row) => ({
-      ...row.organization,
+      ...importRowTarget(row, targetKind),
       rowId: row.rowId,
       duplicateAction:
         row.duplicateCandidates.length > 0
           ? (row.duplicateAction ?? "skip")
-          : "skip",
+          : "import",
       duplicateOrganizationId:
         row.duplicateOrganizationId ?? row.duplicateCandidates[0]?.id,
+      duplicateProfessionalId:
+        row.duplicateProfessionalId ?? row.duplicateCandidates[0]?.id,
     }));
 }
 
@@ -329,7 +380,10 @@ function importStatusLabel(session: CrmImportSession, language: AppLanguage) {
   return session.stage === "preview" ? t("Preview paused") : t("Import paused");
 }
 
-function validImportSession(value: unknown): CrmImportSession | null {
+function validImportSession(
+  value: unknown,
+  expectedTargetKind: PartnershipCrmTargetKind,
+): CrmImportSession | null {
   if (!value || typeof value !== "object") {
     return null;
   }
@@ -369,6 +423,14 @@ function validImportSession(value: unknown): CrmImportSession | null {
   ) {
     return null;
   }
+  const targetKind =
+    candidate.targetKind === "professionals" ||
+    candidate.targetKind === "organizations"
+      ? candidate.targetKind
+      : expectedTargetKind;
+  if (targetKind !== expectedTargetKind) {
+    return null;
+  }
 
   return {
     id: candidate.id,
@@ -385,6 +447,7 @@ function validImportSession(value: unknown): CrmImportSession | null {
     status,
     stage: restoredStage,
     chunkSize: candidate.chunkSize ?? CRM_IMPORT_CHUNK_SIZE,
+    targetKind,
     sourceRows: candidate.sourceRows,
     previewRows: candidate.previewRows.map(withDuplicateDefaults),
     parseErrors: Array.isArray(candidate.parseErrors)
@@ -413,14 +476,16 @@ function validImportSession(value: unknown): CrmImportSession | null {
   };
 }
 
-function loadCrmImportSession() {
+function loadCrmImportSession(targetKind: PartnershipCrmTargetKind) {
   if (typeof window === "undefined") {
     return null;
   }
 
   try {
-    const raw = window.localStorage.getItem(CRM_IMPORT_SESSION_STORAGE_KEY);
-    return raw ? validImportSession(JSON.parse(raw)) : null;
+    const raw = window.localStorage.getItem(
+      crmImportSessionStorageKey(targetKind),
+    );
+    return raw ? validImportSession(JSON.parse(raw), targetKind) : null;
   } catch {
     return null;
   }
@@ -433,7 +498,7 @@ function persistCrmImportSession(session: CrmImportSession) {
 
   try {
     window.localStorage.setItem(
-      CRM_IMPORT_SESSION_STORAGE_KEY,
+      crmImportSessionStorageKey(session.targetKind),
       JSON.stringify(session),
     );
     return true;
@@ -442,19 +507,40 @@ function persistCrmImportSession(session: CrmImportSession) {
   }
 }
 
-function clearCrmImportSession() {
+function clearCrmImportSession(targetKind: PartnershipCrmTargetKind) {
   if (typeof window === "undefined") {
     return;
   }
 
-  window.localStorage.removeItem(CRM_IMPORT_SESSION_STORAGE_KEY);
+  window.localStorage.removeItem(crmImportSessionStorageKey(targetKind));
 }
 
-function buildOrganizationListPath(filters: ListFilters, cursor?: string) {
+function crmTargetBasePath(targetKind: PartnershipCrmTargetKind) {
+  return `/admin/partnership-crm/${targetKind}`;
+}
+
+function targetPageRows(
+  page: PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage | undefined,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  if (!page) {
+    return [];
+  }
+
+  return targetKind === "professionals"
+    ? (page as PartnershipCrmProfessionalsPage).professionals
+    : (page as PartnershipCrmOrganizationsPage).organizations;
+}
+
+function buildTargetListPath(
+  targetKind: PartnershipCrmTargetKind,
+  filters: ListFilters,
+  cursor?: string,
+) {
   const params = new URLSearchParams({
-    limit: String(CRM_ORGANIZATION_PAGE_SIZE),
+    limit: String(CRM_TARGET_PAGE_SIZE),
   });
-  const category = normalizeCrmCategory(filters.category);
+  const category = normalizeCrmCategory(filters.category, targetKind);
   const country = normalizeCrmCountry(filters.country);
   if (filters.query.trim()) {
     params.set("query", filters.query.trim());
@@ -475,31 +561,45 @@ function buildOrganizationListPath(filters: ListFilters, cursor?: string) {
     params.set("cursor", cursor);
   }
 
-  return `/admin/partnership-crm/organizations?${params.toString()}`;
+  return `${crmTargetBasePath(targetKind)}?${params.toString()}`;
 }
 
-function organizationPayload(
+function targetPayload(
   state: OrganizationFormState,
-): PartnershipCrmOrganizationInput {
+  targetKind: PartnershipCrmTargetKind,
+): CrmTargetInput {
   const parsedLastContact = state.lastContactAt
     ? new Date(state.lastContactAt)
     : null;
-
-  return {
+  const base = {
     name: state.name.trim(),
-    category: normalizeCrmCategory(state.category),
+    category: normalizeCrmCategory(state.category, targetKind),
     website: state.website.trim(),
     country: normalizeCrmCountry(state.country),
     status: state.status,
-    contactName: state.contactName.trim(),
-    contactEmail: state.contactEmail.trim().toLowerCase(),
-    contactLinkedIn: state.contactLinkedIn.trim(),
     lastContactAt:
       parsedLastContact && !Number.isNaN(parsedLastContact.getTime())
         ? parsedLastContact.toISOString()
         : null,
     notes: state.notes.trim(),
   };
+
+  if (targetKind === "professionals") {
+    return {
+      ...base,
+      title: state.title.trim(),
+      affiliation: state.affiliation.trim(),
+      email: state.email.trim().toLowerCase(),
+      linkedIn: state.linkedIn.trim(),
+    } satisfies PartnershipCrmProfessionalInput;
+  }
+
+  return {
+    ...base,
+    contactName: state.contactName.trim(),
+    contactEmail: state.contactEmail.trim().toLowerCase(),
+    contactLinkedIn: state.contactLinkedIn.trim(),
+  } satisfies PartnershipCrmOrganizationInput;
 }
 
 function localDateTimeValue(value: string | null | undefined) {
@@ -517,24 +617,49 @@ function localDateTimeValue(value: string | null | undefined) {
 }
 
 function toFormState(
-  organization?: PartnershipCrmOrganizationRecord,
+  organization: PartnershipCrmTargetRecord | undefined,
+  targetKind: PartnershipCrmTargetKind,
 ): OrganizationFormState {
   if (!organization) {
-    return EMPTY_FORM_STATE;
+    return emptyFormState(targetKind);
   }
 
-  return {
+  const base = {
     name: organization.name,
     category:
-      normalizeCrmCategory(organization.category) || DEFAULT_CRM_CATEGORY,
+      normalizeCrmCategory(organization.category, targetKind) ||
+      defaultCategoryForTarget(targetKind),
     website: organization.website,
     country: normalizeCrmCountry(organization.country),
     status: organization.status,
-    contactName: organization.contactName,
-    contactEmail: organization.contactEmail,
-    contactLinkedIn: organization.contactLinkedIn,
     lastContactAt: localDateTimeValue(organization.lastContactAt),
     notes: organization.notes,
+  };
+
+  if (targetKind === "professionals") {
+    const professional = organization as PartnershipCrmProfessionalRecord;
+    return {
+      ...base,
+      title: professional.title,
+      affiliation: professional.affiliation,
+      email: professional.email,
+      linkedIn: professional.linkedIn,
+      contactName: "",
+      contactEmail: "",
+      contactLinkedIn: "",
+    };
+  }
+
+  const targetOrganization = organization as PartnershipCrmOrganizationRecord;
+  return {
+    ...base,
+    title: "",
+    affiliation: "",
+    email: "",
+    linkedIn: "",
+    contactName: targetOrganization.contactName,
+    contactEmail: targetOrganization.contactEmail,
+    contactLinkedIn: targetOrganization.contactLinkedIn,
   };
 }
 
@@ -655,11 +780,10 @@ function pipelineStatusTone(status: PartnershipCrmStatus, selected: boolean) {
 }
 
 function metricCount(
-  organizations: PartnershipCrmOrganizationRecord[],
+  targets: PartnershipCrmTargetRecord[],
   status: PartnershipCrmStatus,
 ) {
-  return organizations.filter((organization) => organization.status === status)
-    .length;
+  return targets.filter((target) => target.status === status).length;
 }
 
 function ErrorBanner({ children }: { children: React.ReactNode }) {
@@ -753,24 +877,58 @@ function CrmCountrySelect({
   );
 }
 
+function targetLinkedIn(
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  return targetKind === "professionals"
+    ? (target as PartnershipCrmProfessionalRecord).linkedIn
+    : (target as PartnershipCrmOrganizationRecord).contactLinkedIn;
+}
+
+function targetAffiliation(
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  return targetKind === "professionals"
+    ? (target as PartnershipCrmProfessionalRecord).affiliation
+    : target.name;
+}
+
+function targetContactName(
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  return targetKind === "professionals"
+    ? target.name
+    : (target as PartnershipCrmOrganizationRecord).contactName;
+}
+
 function OrganizationFacts({
   organization,
+  targetKind,
   language,
 }: {
-  organization: PartnershipCrmOrganizationRecord;
+  organization: PartnershipCrmTargetRecord;
+  targetKind: PartnershipCrmTargetKind;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
+  const professional = organization as PartnershipCrmProfessionalRecord;
+  const directEmail = crmTargetEmail(organization, targetKind);
+  const linkedIn = targetLinkedIn(organization, targetKind);
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           <UserRound className="h-3.5 w-3.5" />
-          {t("Primary contact")}
+          {targetKind === "professionals"
+            ? t("Professional")
+            : t("Primary contact")}
         </div>
         <p className="mt-2 font-medium text-foreground">
-          {organization.contactName || "—"}
+          {targetContactName(organization, targetKind) || "—"}
         </p>
       </div>
       <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
@@ -779,9 +937,31 @@ function OrganizationFacts({
           {t("Mail")}
         </div>
         <p className="mt-2 break-all font-medium text-foreground">
-          {organization.contactEmail || t("No email")}
+          {directEmail || t("No email")}
         </p>
       </div>
+      {targetKind === "professionals" ? (
+        <>
+          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <Building2 className="h-3.5 w-3.5" />
+              {t("Affiliation")}
+            </div>
+            <p className="mt-2 font-medium text-foreground">
+              {professional.affiliation || "—"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <UserRound className="h-3.5 w-3.5" />
+              {t("Role / specialty")}
+            </div>
+            <p className="mt-2 font-medium text-foreground">
+              {professional.title || "—"}
+            </p>
+          </div>
+        </>
+      ) : null}
       <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           <Clock3 className="h-3.5 w-3.5" />
@@ -817,9 +997,9 @@ function OrganizationFacts({
           <ExternalLink className="h-3.5 w-3.5" />
           {t("LinkedIn")}
         </div>
-        {organization.contactLinkedIn ? (
+        {linkedIn ? (
           <a
-            href={organization.contactLinkedIn}
+            href={linkedIn}
             target="_blank"
             rel="noreferrer"
             className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:underline"
@@ -894,26 +1074,30 @@ function ActivityCell({
 function OrganizationDialog({
   state,
   pending,
+  targetKind,
   onClose,
   onSubmit,
   language,
 }: {
   state: OrganizationDialogState;
   pending: boolean;
+  targetKind: PartnershipCrmTargetKind;
   onClose: () => void;
   onSubmit: (
     mode: "create" | "edit",
     organizationId: string | undefined,
-    payload: PartnershipCrmOrganizationInput,
+    payload: CrmTargetInput,
   ) => void;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
-  const [form, setForm] = useState<OrganizationFormState>(EMPTY_FORM_STATE);
+  const [form, setForm] = useState<OrganizationFormState>(
+    emptyFormState(targetKind),
+  );
 
   useEffect(() => {
-    setForm(toFormState(state?.organization));
-  }, [state]);
+    setForm(toFormState(state?.organization, targetKind));
+  }, [state, targetKind]);
 
   function update(patch: Partial<OrganizationFormState>) {
     setForm((current) => ({ ...current, ...patch }));
@@ -928,9 +1112,11 @@ function OrganizationDialog({
     onSubmit(
       state?.mode ?? "create",
       state?.organization?.id,
-      organizationPayload(form),
+      targetPayload(form, targetKind),
     );
   }
+
+  const isProfessionals = targetKind === "professionals";
 
   return (
     <Dialog open={Boolean(state)} onOpenChange={(open) => !open && onClose()}>
@@ -938,18 +1124,26 @@ function OrganizationDialog({
         <DialogHeader>
           <DialogTitle>
             {state?.mode === "edit"
-              ? t("Edit CRM organization")
-              : t("Add CRM organization")}
+              ? isProfessionals
+                ? t("Edit CRM professional")
+                : t("Edit CRM organization")
+              : isProfessionals
+                ? t("Add CRM professional")
+                : t("Add CRM organization")}
           </DialogTitle>
           <DialogDescription>
-            {t("One organization, one primary contact, and the next action.")}
+            {isProfessionals
+              ? t("One professional, one direct email, and the next action.")
+              : t("One organization, one primary contact, and the next action.")}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="crm-org-name">{t("Organization name")}</Label>
+              <Label htmlFor="crm-org-name">
+                {isProfessionals ? t("Professional name") : t("Organization name")}
+              </Label>
               <Input
                 id="crm-org-name"
                 value={form.name}
@@ -965,8 +1159,33 @@ function OrganizationDialog({
                 onChange={(category) => update({ category })}
                 language={language}
                 mode="form"
+                audience={targetKind}
               />
             </div>
+            {isProfessionals ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="crm-prof-title">{t("Role / specialty")}</Label>
+                  <Input
+                    id="crm-prof-title"
+                    value={form.title}
+                    onChange={(event) => update({ title: event.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="crm-prof-affiliation">
+                    {t("Affiliation")}
+                  </Label>
+                  <Input
+                    id="crm-prof-affiliation"
+                    value={form.affiliation}
+                    onChange={(event) =>
+                      update({ affiliation: event.target.value })
+                    }
+                  />
+                </div>
+              </>
+            ) : null}
             <div className="space-y-1.5">
               <Label htmlFor="crm-org-website">{t("Website")}</Label>
               <Input
@@ -1017,38 +1236,65 @@ function OrganizationDialog({
                 }
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="crm-contact-name">{t("Contact")}</Label>
-              <Input
-                id="crm-contact-name"
-                value={form.contactName}
-                onChange={(event) =>
-                  update({ contactName: event.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="crm-contact-email">{t("Email")}</Label>
-              <Input
-                id="crm-contact-email"
-                type="email"
-                value={form.contactEmail}
-                onChange={(event) =>
-                  update({ contactEmail: event.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="crm-contact-linkedin">{t("LinkedIn")}</Label>
-              <Input
-                id="crm-contact-linkedin"
-                value={form.contactLinkedIn}
-                onChange={(event) =>
-                  update({ contactLinkedIn: event.target.value })
-                }
-                placeholder="https://linkedin.com/in/contact"
-              />
-            </div>
+            {isProfessionals ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="crm-prof-email">{t("Direct mail")}</Label>
+                  <Input
+                    id="crm-prof-email"
+                    type="email"
+                    value={form.email}
+                    onChange={(event) => update({ email: event.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="crm-prof-linkedin">{t("LinkedIn")}</Label>
+                  <Input
+                    id="crm-prof-linkedin"
+                    value={form.linkedIn}
+                    onChange={(event) =>
+                      update({ linkedIn: event.target.value })
+                    }
+                    placeholder="https://linkedin.com/in/contact"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="crm-contact-name">{t("Contact")}</Label>
+                  <Input
+                    id="crm-contact-name"
+                    value={form.contactName}
+                    onChange={(event) =>
+                      update({ contactName: event.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="crm-contact-email">{t("Email")}</Label>
+                  <Input
+                    id="crm-contact-email"
+                    type="email"
+                    value={form.contactEmail}
+                    onChange={(event) =>
+                      update({ contactEmail: event.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="crm-contact-linkedin">{t("LinkedIn")}</Label>
+                  <Input
+                    id="crm-contact-linkedin"
+                    value={form.contactLinkedIn}
+                    onChange={(event) =>
+                      update({ contactLinkedIn: event.target.value })
+                    }
+                    placeholder="https://linkedin.com/in/contact"
+                  />
+                </div>
+              </>
+            )}
             <div className="space-y-1.5 md:col-span-2">
               <Label htmlFor="crm-notes">{t("Notes")}</Label>
               <Textarea
@@ -1082,6 +1328,7 @@ function OrganizationDialog({
 
 function EmailComposerDialog({
   organization,
+  targetKind,
   open,
   pending,
   templates,
@@ -1090,7 +1337,8 @@ function EmailComposerDialog({
   onSend,
   language,
 }: {
-  organization: PartnershipCrmOrganizationRecord | null;
+  organization: PartnershipCrmTargetRecord | null;
+  targetKind: PartnershipCrmTargetKind;
   open: boolean;
   pending: boolean;
   templates: PartnershipCrmTemplateRecord[];
@@ -1108,18 +1356,22 @@ function EmailComposerDialog({
       return;
     }
 
-    const template = bestCrmTemplateForOrganization(organization, templates);
+    const template = bestCrmTemplateForTarget(
+      organization,
+      templates,
+      targetKind,
+    );
     const rendered = template
-      ? renderCrmTemplate(template, organization)
+      ? renderCrmTemplate(template, organization, targetKind)
       : { subject: "", body: "" };
     setEmail({
-      to: organization.contactEmail,
+      to: crmTargetEmail(organization, targetKind),
       templateId: template?.id ?? "",
       subject: rendered.subject,
       text: rendered.body,
       step: "compose",
     });
-  }, [open, organization, templates]);
+  }, [open, organization, targetKind, templates]);
 
   function update(patch: Partial<EmailState>) {
     setEmail((current) => (current ? { ...current, ...patch } : current));
@@ -1135,7 +1387,7 @@ function EmailComposerDialog({
       return;
     }
 
-    const rendered = renderCrmTemplate(template, organization);
+    const rendered = renderCrmTemplate(template, organization, targetKind);
     update({
       templateId,
       subject: rendered.subject,
@@ -1475,10 +1727,12 @@ function ImportCheckpointBanner({
 function ImportDialog({
   open,
   pending,
+  targetKind,
   session,
   preview,
   parseErrors,
   onClose,
+  onTargetKindChange,
   onFileChange,
   onPreviewChange,
   onImport,
@@ -1487,10 +1741,12 @@ function ImportDialog({
 }: {
   open: boolean;
   pending: boolean;
+  targetKind: PartnershipCrmTargetKind;
   session: CrmImportSession | null;
   preview: PartnershipCrmImportPreview | null;
   parseErrors: Array<{ row: number; message: string }>;
   onClose: () => void;
+  onTargetKindChange: (targetKind: PartnershipCrmTargetKind) => void;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onPreviewChange: (rows: PartnershipCrmImportPreviewRow[]) => void;
   onImport: () => void;
@@ -1548,6 +1804,13 @@ function ImportDialog({
         </DialogHeader>
 
         <div className="grid gap-4">
+          <CrmTargetSegmentedControl
+            value={targetKind}
+            onChange={onTargetKindChange}
+            language={language}
+            disabled={pending}
+          />
+
           {session ? (
             <ImportProgressPanel session={session} language={language} />
           ) : null}
@@ -1563,7 +1826,9 @@ function ImportDialog({
               className="mt-2"
             />
             <p className="mt-2 text-xs text-muted-foreground">
-              name,category,website,country,contact_name,email,linkedin
+              {targetKind === "professionals"
+                ? "name,category,title,affiliation,website,country,email,linkedin"
+                : "name,category,website,country,contact_name,email,linkedin"}
             </p>
           </div>
 
@@ -1610,14 +1875,23 @@ function ImportDialog({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t("Organization")}</TableHead>
-                      <TableHead>{t("Contact")}</TableHead>
+                      <TableHead>
+                        {targetKind === "professionals"
+                          ? t("Professional")
+                          : t("Organization")}
+                      </TableHead>
+                      <TableHead>
+                        {targetKind === "professionals"
+                          ? t("Mail")
+                          : t("Contact")}
+                      </TableHead>
                       <TableHead>{t("Status")}</TableHead>
                       <TableHead>{t("Duplicate handling")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {preview.rows.map((row) => {
+                      const target = importRowTarget(row, targetKind);
                       const duplicate = row.duplicateCandidates[0];
                       const duplicateAction =
                         row.duplicateAction ?? (duplicate ? "skip" : "import");
@@ -1626,16 +1900,17 @@ function ImportDialog({
                         <TableRow key={row.rowId}>
                           <TableCell className="whitespace-normal">
                             <div className="font-medium">
-                              {row.organization.name || "—"}
+                              {target?.name || "—"}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {formatCrmCategory(
-                                row.organization.category ?? "",
+                                target?.category ?? "",
                                 language,
+                                targetKind,
                               ) || "—"}{" "}
                               ·{" "}
                               {formatCrmCountry(
-                                row.organization.country ?? "",
+                                target?.country ?? "",
                                 language,
                               ) || "—"}
                             </div>
@@ -1646,15 +1921,27 @@ function ImportDialog({
                             ) : null}
                           </TableCell>
                           <TableCell className="whitespace-normal">
-                            <div>{row.organization.contactName || "—"}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {row.organization.contactEmail ||
-                                t("Missing email")}
-                            </div>
+                            {targetKind === "professionals" ? (
+                              <div className="break-all">
+                                {(target as PartnershipCrmProfessionalInput | undefined)
+                                  ?.email || t("Missing email")}
+                              </div>
+                            ) : (
+                              <>
+                                <div>
+                                  {(target as PartnershipCrmOrganizationInput | undefined)
+                                    ?.contactName || "—"}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {(target as PartnershipCrmOrganizationInput | undefined)
+                                    ?.contactEmail || t("Missing email")}
+                                </div>
+                              </>
+                            )}
                           </TableCell>
                           <TableCell>
                             <StatusBadge
-                              status={row.organization.status ?? "new"}
+                              status={target?.status ?? "new"}
                               language={language}
                             />
                           </TableCell>
@@ -1753,6 +2040,8 @@ export function PartnershipCrmWorkbench() {
   const t = (text: string) => appText(language, text);
   const queryClient = useQueryClient();
   const router = useRouter();
+  const [targetKind, setTargetKind] =
+    useState<PartnershipCrmTargetKind>("organizations");
   const [filters, setFilters] = useState<ListFilters>({
     query: "",
     status: "all",
@@ -1765,7 +2054,7 @@ export function PartnershipCrmWorkbench() {
   const [organizationDialog, setOrganizationDialog] =
     useState<OrganizationDialogState>(null);
   const [deleteTarget, setDeleteTarget] =
-    useState<PartnershipCrmOrganizationRecord | null>(null);
+    useState<PartnershipCrmTargetRecord | null>(null);
   const [emailOpen, setEmailOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importRulesOpen, setImportRulesOpen] = useState(false);
@@ -1784,18 +2073,18 @@ export function PartnershipCrmWorkbench() {
   const currentCursor = cursorStack[cursorStack.length - 1];
 
   const organizationQuery = useQuery({
-    queryKey: [ORGANIZATIONS_QUERY_KEY, filters, currentCursor],
+    queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind, filters, currentCursor],
     queryFn: () =>
-      sdkFetch<PartnershipCrmOrganizationsPage>(
-        buildOrganizationListPath(filters, currentCursor),
+      sdkFetch<PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage>(
+        buildTargetListPath(targetKind, filters, currentCursor),
       ),
   });
-  const organizations = organizationQuery.data?.organizations ?? [];
+  const organizations = targetPageRows(organizationQuery.data, targetKind);
   const templatesQuery = useQuery({
-    queryKey: [TEMPLATES_QUERY_KEY],
+    queryKey: [TEMPLATES_QUERY_KEY, targetKind],
     queryFn: () =>
       sdkFetch<PartnershipCrmTemplatesPage>(
-        "/admin/partnership-crm/templates?status=active&limit=50",
+        `/admin/partnership-crm/templates?status=active&limit=50&audience=${targetKind}`,
       ),
   });
   const emailTemplates = templatesQuery.data?.templates ?? [];
@@ -1804,7 +2093,7 @@ export function PartnershipCrmWorkbench() {
     organizations[0] ??
     null;
   const activitiesQuery = useInfiniteQuery({
-    queryKey: [ACTIVITIES_QUERY_KEY, selectedOrganization?.id],
+    queryKey: [ACTIVITIES_QUERY_KEY, targetKind, selectedOrganization?.id],
     queryFn: ({ pageParam }) => {
       const cursor = typeof pageParam === "string" ? pageParam : "";
       const params = new URLSearchParams({ limit: "20" });
@@ -1813,7 +2102,7 @@ export function PartnershipCrmWorkbench() {
       }
 
       return sdkFetch<PartnershipCrmActivitiesPage>(
-        `/admin/partnership-crm/organizations/${encodeURIComponent(
+        `${crmTargetBasePath(targetKind)}/${encodeURIComponent(
           selectedOrganization?.id ?? "",
         )}/activities?${params.toString()}`,
       );
@@ -1828,15 +2117,18 @@ export function PartnershipCrmWorkbench() {
   );
 
   useEffect(() => {
-    const restoredSession = loadCrmImportSession();
+    const restoredSession = loadCrmImportSession(targetKind);
     if (!restoredSession) {
+      setImportSession(null);
+      setImportPreview(null);
+      setParseErrors([]);
       return;
     }
 
     setImportSession(restoredSession);
     setImportPreview(previewFromImportSession(restoredSession));
     setParseErrors(restoredSession.parseErrors);
-  }, []);
+  }, [targetKind]);
 
   useEffect(() => {
     if (!organizations.length) {
@@ -1853,12 +2145,14 @@ export function PartnershipCrmWorkbench() {
   }, [organizations, selectedId]);
 
   function invalidateOrganizations() {
-    queryClient.invalidateQueries({ queryKey: [ORGANIZATIONS_QUERY_KEY] });
+    queryClient.invalidateQueries({
+      queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind],
+    });
   }
 
   function invalidateActivities(organizationId?: string) {
     queryClient.invalidateQueries({
-      queryKey: [ACTIVITIES_QUERY_KEY, organizationId],
+      queryKey: [ACTIVITIES_QUERY_KEY, targetKind, organizationId],
     });
   }
 
@@ -1870,16 +2164,19 @@ export function PartnershipCrmWorkbench() {
     }: {
       mode: "create" | "edit";
       organizationId?: string;
-      payload: PartnershipCrmOrganizationInput;
+      payload: CrmTargetInput;
     }) => {
       const path =
         mode === "edit" && organizationId
-          ? `/admin/partnership-crm/organizations/${encodeURIComponent(
+          ? `${crmTargetBasePath(targetKind)}/${encodeURIComponent(
               organizationId,
             )}`
-          : "/admin/partnership-crm/organizations";
+          : crmTargetBasePath(targetKind);
 
-      return sdkFetch<{ organization: PartnershipCrmOrganizationRecord }>(
+      return sdkFetch<{
+        organization?: PartnershipCrmOrganizationRecord;
+        professional?: PartnershipCrmProfessionalRecord;
+      }>(
         path,
         {
           method: mode === "edit" ? "PUT" : "POST",
@@ -1888,21 +2185,31 @@ export function PartnershipCrmWorkbench() {
       );
     },
     onSuccess: (result) => {
+      const target = result.professional ?? result.organization;
+      if (!target) {
+        return;
+      }
       setOrganizationDialog(null);
-      setSelectedId(result.organization.id);
+      setSelectedId(target.id);
       invalidateOrganizations();
-      invalidateActivities(result.organization.id);
+      invalidateActivities(target.id);
       setToast({
         id: Date.now(),
         tone: "success",
-        message: t("CRM organization saved."),
+        message:
+          targetKind === "professionals"
+            ? t("CRM professional saved.")
+            : t("CRM organization saved."),
       });
     },
     onError: (error) => {
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to save CRM organization."),
+        message:
+          targetKind === "professionals"
+            ? t("Unable to save CRM professional.")
+            : t("Unable to save CRM organization."),
         details: error instanceof Error ? error.message : undefined,
       });
     },
@@ -1910,49 +2217,68 @@ export function PartnershipCrmWorkbench() {
 
   const deleteOrganizationMutation = useMutation({
     mutationFn: (organizationId: string) =>
-      sdkFetch<{ deleted: boolean; organizationId: string }>(
-        `/admin/partnership-crm/organizations/${encodeURIComponent(
-          organizationId,
-        )}`,
+      sdkFetch<{
+        deleted: boolean;
+        organizationId?: string;
+        professionalId?: string;
+      }>(
+        `${crmTargetBasePath(targetKind)}/${encodeURIComponent(organizationId)}`,
         { method: "DELETE" },
       ),
     onSuccess: (_result, organizationId) => {
       setDeleteTarget(null);
-      queryClient.setQueriesData<PartnershipCrmOrganizationsPage>(
-        { queryKey: [ORGANIZATIONS_QUERY_KEY] },
+      queryClient.setQueriesData<
+        PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage
+      >(
+        { queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind] },
         (current) =>
-          current
-            ? {
-                ...current,
-                organizations: current.organizations.filter(
-                  (organization) => organization.id !== organizationId,
-                ),
-              }
-            : current,
+          targetKind === "professionals"
+            ? current && "professionals" in current
+              ? {
+                  ...current,
+                  professionals: current.professionals.filter(
+                    (professional) => professional.id !== organizationId,
+                  ),
+                }
+              : current
+            : current && "organizations" in current
+              ? {
+                  ...current,
+                  organizations: current.organizations.filter(
+                    (organization) => organization.id !== organizationId,
+                  ),
+                }
+              : current,
       );
       const nextSelection =
         organizations.find((organization) => organization.id !== organizationId)
           ?.id ?? null;
       setSelectedId(nextSelection);
       void queryClient.invalidateQueries({
-        queryKey: [ORGANIZATIONS_QUERY_KEY],
+        queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind],
       });
       void queryClient.invalidateQueries({
-        queryKey: [ACTIVITIES_QUERY_KEY, organizationId],
+        queryKey: [ACTIVITIES_QUERY_KEY, targetKind, organizationId],
       });
       void organizationQuery.refetch();
       router.refresh();
       setToast({
         id: Date.now(),
         tone: "success",
-        message: t("CRM organization deleted."),
+        message:
+          targetKind === "professionals"
+            ? t("CRM professional deleted.")
+            : t("CRM organization deleted."),
       });
     },
     onError: (error) => {
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to delete CRM organization."),
+        message:
+          targetKind === "professionals"
+            ? t("Unable to delete CRM professional.")
+            : t("Unable to delete CRM organization."),
         details: error instanceof Error ? error.message : undefined,
       });
     },
@@ -1967,7 +2293,7 @@ export function PartnershipCrmWorkbench() {
       title: string;
     }) =>
       sdkFetch<{ activity: PartnershipCrmActivityRecord }>(
-        `/admin/partnership-crm/organizations/${encodeURIComponent(
+        `${crmTargetBasePath(targetKind)}/${encodeURIComponent(
           organizationId,
         )}/activities`,
         {
@@ -1999,10 +2325,11 @@ export function PartnershipCrmWorkbench() {
       email: EmailState;
     }) =>
       sdkFetch<{
-        organization: PartnershipCrmOrganizationRecord;
+        organization?: PartnershipCrmOrganizationRecord;
+        professional?: PartnershipCrmProfessionalRecord;
         activity: PartnershipCrmActivityRecord;
       }>(
-        `/admin/partnership-crm/organizations/${encodeURIComponent(
+        `${crmTargetBasePath(targetKind)}/${encodeURIComponent(
           organizationId,
         )}/email`,
         {
@@ -2016,10 +2343,14 @@ export function PartnershipCrmWorkbench() {
         },
       ),
     onSuccess: (result) => {
+      const target = result.professional ?? result.organization;
+      if (!target) {
+        return;
+      }
       setEmailOpen(false);
-      setSelectedId(result.organization.id);
+      setSelectedId(target.id);
       invalidateOrganizations();
-      invalidateActivities(result.organization.id);
+      invalidateActivities(target.id);
       setToast({
         id: Date.now(),
         tone: "success",
@@ -2072,7 +2403,7 @@ export function PartnershipCrmWorkbench() {
   }
 
   function discardImportCheckpoint() {
-    clearCrmImportSession();
+    clearCrmImportSession(targetKind);
     setImportSession(null);
     setImportPreview(null);
     setParseErrors([]);
@@ -2104,12 +2435,15 @@ export function PartnershipCrmWorkbench() {
           working.sourceRows.length,
         );
         const chunk = working.sourceRows.slice(startIndex, chunkEndIndex);
+        const chunkTargetKind = working.targetKind;
         const preview = await sdkFetch<PartnershipCrmImportPreview>(
-          "/admin/partnership-crm/import-preview",
+          chunkTargetKind === "professionals"
+            ? "/admin/partnership-crm/professionals/import-preview"
+            : "/admin/partnership-crm/import-preview",
           {
             method: "POST",
             body: JSON.stringify({
-              organizations: chunk.map((row, index) => ({
+              [chunkTargetKind]: chunk.map((row, index) => ({
                 ...row,
                 rowId: `row-${startIndex + index + 1}`,
               })),
@@ -2213,14 +2547,17 @@ export function PartnershipCrmWorkbench() {
           total: invalidResults.length,
           invalid: invalidResults.length,
         };
-        const importRows = rowsForImportChunk(previewChunk);
+        const chunkTargetKind = working.targetKind;
+        const importRows = rowsForImportChunk(previewChunk, chunkTargetKind);
         const result =
           importRows.length > 0
             ? await sdkFetch<PartnershipCrmImportResult>(
-                "/admin/partnership-crm/import",
+                chunkTargetKind === "professionals"
+                  ? "/admin/partnership-crm/professionals/import"
+                  : "/admin/partnership-crm/import",
                 {
                   method: "POST",
-                  body: JSON.stringify({ organizations: importRows }),
+                  body: JSON.stringify({ [chunkTargetKind]: importRows }),
                 },
               )
             : {
@@ -2290,7 +2627,9 @@ export function PartnershipCrmWorkbench() {
     [organizations],
   );
   const activityLogBadge = !selectedOrganization
-    ? t("No organization selected")
+    ? targetKind === "professionals"
+      ? t("No professional selected")
+      : t("No organization selected")
     : activitiesQuery.data
       ? `${activityRows.length} ${t("loaded")}`
       : t("Not loaded");
@@ -2301,6 +2640,28 @@ export function PartnershipCrmWorkbench() {
   function resetCursorsForFilterChange(patch: Partial<ListFilters>) {
     setCursorStack([]);
     setFilters((current) => ({ ...current, ...patch }));
+  }
+
+  function handleTargetKindChange(nextTargetKind: PartnershipCrmTargetKind) {
+    if (nextTargetKind === targetKind || importPending) {
+      return;
+    }
+
+    setTargetKind(nextTargetKind);
+    setCursorStack([]);
+    setSelectedId(null);
+    setActivityLogOpen(false);
+    setNoteDraft("");
+    setOrganizationDialog(null);
+    setDeleteTarget(null);
+    setEmailOpen(false);
+    setFilters({
+      query: "",
+      status: "all",
+      category: "",
+      country: "",
+      emailState: "all",
+    });
   }
 
   function toggleActivityLog() {
@@ -2314,7 +2675,7 @@ export function PartnershipCrmWorkbench() {
   function handleOrganizationSubmit(
     mode: "create" | "edit",
     organizationId: string | undefined,
-    payload: PartnershipCrmOrganizationInput,
+    payload: CrmTargetInput,
   ) {
     saveOrganizationMutation.mutate({ mode, organizationId, payload });
   }
@@ -2325,10 +2686,10 @@ export function PartnershipCrmWorkbench() {
       return;
     }
 
-    clearCrmImportSession();
+    clearCrmImportSession(targetKind);
     try {
       const text = await file.text();
-      const parsed = parseCrmCsv(text);
+      const parsed = parseCrmCsv(text, targetKind);
       if (parsed.rows.length === 0) {
         setImportSession(null);
         setImportPreview(null);
@@ -2346,6 +2707,7 @@ export function PartnershipCrmWorkbench() {
         status: "previewing",
         stage: "preview",
         chunkSize: CRM_IMPORT_CHUNK_SIZE,
+        targetKind,
         sourceRows: parsed.rows,
         previewRows: [],
         parseErrors: parsed.errors,
@@ -2397,10 +2759,10 @@ export function PartnershipCrmWorkbench() {
     saveOrganizationMutation.mutate({
       mode: "edit",
       organizationId: selectedOrganization.id,
-      payload: {
-        ...selectedOrganization,
-        status,
-      },
+      payload: targetPayload(
+        { ...toFormState(selectedOrganization, targetKind), status },
+        targetKind,
+      ),
     });
   }
 
@@ -2418,6 +2780,13 @@ export function PartnershipCrmWorkbench() {
 
   return (
     <section className="glass-panel flex flex-col gap-5 px-4 py-4 md:px-5">
+      <CrmTargetSegmentedControl
+        value={targetKind}
+        onChange={handleTargetKindChange}
+        language={language}
+        disabled={importPending}
+      />
+
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <h2 className="font-heading text-xl font-semibold text-foreground">
@@ -2469,7 +2838,9 @@ export function PartnershipCrmWorkbench() {
             onClick={() => setOrganizationDialog({ mode: "create" })}
           >
             <Plus className="h-3.5 w-3.5" />
-            {t("Add Organization")}
+            {targetKind === "professionals"
+              ? t("Add Professional")
+              : t("Add Organization")}
           </Button>
         </div>
       </div>
@@ -2491,7 +2862,11 @@ export function PartnershipCrmWorkbench() {
             onChange={(event) =>
               resetCursorsForFilterChange({ query: event.target.value })
             }
-            placeholder={t("Search organizations...")}
+            placeholder={
+              targetKind === "professionals"
+                ? t("Search professionals...")
+                : t("Search organizations...")
+            }
             className="pl-8"
           />
         </div>
@@ -2522,6 +2897,7 @@ export function PartnershipCrmWorkbench() {
           onChange={(category) => resetCursorsForFilterChange({ category })}
           language={language}
           mode="filter"
+          audience={targetKind}
         />
         <CrmCountrySelect
           id="crm-country-filter"
@@ -2580,7 +2956,11 @@ export function PartnershipCrmWorkbench() {
           </div>
 
           {organizationQuery.error ? (
-            <ErrorBanner>{t("Failed to load CRM organizations.")}</ErrorBanner>
+            <ErrorBanner>
+              {targetKind === "professionals"
+                ? t("Failed to load CRM professionals.")
+                : t("Failed to load CRM organizations.")}
+            </ErrorBanner>
           ) : null}
 
           <div className="overflow-hidden rounded-xl border border-border/80 bg-background/64">
@@ -2591,14 +2971,26 @@ export function PartnershipCrmWorkbench() {
                 ))}
               </div>
             ) : organizations.length === 0 ? (
-              <EmptyState>{t("No CRM organizations found.")}</EmptyState>
+              <EmptyState>
+                {targetKind === "professionals"
+                  ? t("No CRM professionals found.")
+                  : t("No CRM organizations found.")}
+              </EmptyState>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t("Organization")}</TableHead>
+                    <TableHead>
+                      {targetKind === "professionals"
+                        ? t("Professional")
+                        : t("Organization")}
+                    </TableHead>
                     <TableHead>{t("Status")}</TableHead>
-                    <TableHead>{t("Contact")}</TableHead>
+                    <TableHead>
+                      {targetKind === "professionals"
+                        ? t("Mail")
+                        : t("Contact")}
+                    </TableHead>
                     <TableHead>{t("Last Contact")}</TableHead>
                     <TableHead>{t("Notes")}</TableHead>
                   </TableRow>
@@ -2632,6 +3024,7 @@ export function PartnershipCrmWorkbench() {
                               {formatCrmCategory(
                                 organization.category,
                                 language,
+                                targetKind,
                               ) || t("No category")}{" "}
                               ·{" "}
                               {formatCrmCountry(
@@ -2648,12 +3041,23 @@ export function PartnershipCrmWorkbench() {
                           />
                         </TableCell>
                         <TableCell className="whitespace-normal">
-                          <div className="max-w-[210px] truncate font-medium">
-                            {organization.contactName || "—"}
-                          </div>
-                          <div className="max-w-[210px] truncate text-xs text-muted-foreground">
-                            {organization.contactEmail || t("No email")}
-                          </div>
+                          {targetKind === "professionals" ? (
+                            <div className="max-w-[210px] truncate font-medium">
+                              {crmTargetEmail(organization, targetKind) ||
+                                t("No email")}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="max-w-[210px] truncate font-medium">
+                                {targetContactName(organization, targetKind) ||
+                                  "—"}
+                              </div>
+                              <div className="max-w-[210px] truncate text-xs text-muted-foreground">
+                                {crmTargetEmail(organization, targetKind) ||
+                                  t("No email")}
+                              </div>
+                            </>
+                          )}
                         </TableCell>
                         <TableCell className="whitespace-normal text-sm text-muted-foreground">
                           {formatDate(organization.lastContactAt, language)}
@@ -2724,6 +3128,7 @@ export function PartnershipCrmWorkbench() {
                         {formatCrmCategory(
                           selectedOrganization.category,
                           language,
+                          targetKind,
                         ) || t("No category")}
                       </Badge>
                     </div>
@@ -2742,7 +3147,7 @@ export function PartnershipCrmWorkbench() {
                       type="button"
                       size="lg"
                       onClick={() => setEmailOpen(true)}
-                      disabled={!selectedOrganization.contactEmail}
+                      disabled={!crmTargetEmail(selectedOrganization, targetKind)}
                       className={EMAIL_CTA_CLASS}
                     >
                       <Mail className="h-4 w-4" />
@@ -2805,6 +3210,7 @@ export function PartnershipCrmWorkbench() {
                 <div className="mt-4">
                   <OrganizationFacts
                     organization={selectedOrganization}
+                    targetKind={targetKind}
                     language={language}
                   />
                 </div>
@@ -2823,7 +3229,9 @@ export function PartnershipCrmWorkbench() {
             <div className="rounded-xl border border-border/80 bg-background/70 p-8 text-center">
               <Activity className="mx-auto h-8 w-8 text-muted-foreground" />
               <p className="mt-3 text-sm text-muted-foreground">
-                {t("Select an organization to see CRM details.")}
+                {targetKind === "professionals"
+                  ? t("Select a professional to see CRM details.")
+                  : t("Select an organization to see CRM details.")}
               </p>
             </div>
           )}
@@ -2855,9 +3263,13 @@ export function PartnershipCrmWorkbench() {
               <span className="mt-1 block text-sm text-muted-foreground">
                 {selectedOrganization
                   ? `${selectedOrganization.name} · ${t(
-                      "Expand to load the selected organization activity.",
+                      targetKind === "professionals"
+                        ? "Expand to load the selected professional activity."
+                        : "Expand to load the selected organization activity.",
                     )}`
-                  : t("Select an organization to see CRM details.")}
+                  : targetKind === "professionals"
+                    ? t("Select a professional to see CRM details.")
+                    : t("Select an organization to see CRM details.")}
               </span>
             </span>
           </button>
@@ -2946,7 +3358,9 @@ export function PartnershipCrmWorkbench() {
             </>
           ) : (
             <EmptyState>
-              {t("Select an organization to see CRM details.")}
+              {targetKind === "professionals"
+                ? t("Select a professional to see CRM details.")
+                : t("Select an organization to see CRM details.")}
             </EmptyState>
           )
         ) : null}
@@ -2955,6 +3369,7 @@ export function PartnershipCrmWorkbench() {
       <OrganizationDialog
         state={organizationDialog}
         pending={saveOrganizationMutation.isPending}
+        targetKind={targetKind}
         onClose={() => setOrganizationDialog(null)}
         onSubmit={handleOrganizationSubmit}
         language={language}
@@ -2962,6 +3377,7 @@ export function PartnershipCrmWorkbench() {
 
       <EmailComposerDialog
         organization={selectedOrganization}
+        targetKind={targetKind}
         open={emailOpen}
         pending={sendEmailMutation.isPending}
         templates={emailTemplates}
@@ -2981,10 +3397,12 @@ export function PartnershipCrmWorkbench() {
       <ImportDialog
         open={importOpen}
         pending={importPending}
+        targetKind={targetKind}
         session={importSession}
         preview={importPreview}
         parseErrors={parseErrors}
         onClose={() => setImportOpen(false)}
+        onTargetKindChange={handleTargetKindChange}
         onFileChange={handleCsvFileChange}
         onPreviewChange={handleImportPreviewChange}
         onImport={() => void runCrmImportSession(importSession)}
@@ -2996,7 +3414,7 @@ export function PartnershipCrmWorkbench() {
         open={importRulesOpen}
         onOpenChange={setImportRulesOpen}
         language={language}
-        kind="organizations"
+        kind={targetKind}
       />
 
       <Dialog
@@ -3005,16 +3423,22 @@ export function PartnershipCrmWorkbench() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("Delete CRM organization")}</DialogTitle>
+            <DialogTitle>
+              {targetKind === "professionals"
+                ? t("Delete CRM professional")
+                : t("Delete CRM organization")}
+            </DialogTitle>
             <DialogDescription>
-              {t("This removes the organization from the partnership CRM.")}
+              {targetKind === "professionals"
+                ? t("This removes the professional from the partnership CRM.")
+                : t("This removes the organization from the partnership CRM.")}
             </DialogDescription>
           </DialogHeader>
           {deleteTarget ? (
             <div className="rounded-xl border border-border/80 bg-background/70 p-3">
               <p className="font-medium text-foreground">{deleteTarget.name}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {deleteTarget.contactEmail || t("No email")}
+                {crmTargetEmail(deleteTarget, targetKind) || t("No email")}
               </p>
             </div>
           ) : null}

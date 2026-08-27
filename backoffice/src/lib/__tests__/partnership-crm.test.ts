@@ -1,14 +1,20 @@
 import {
   bestCrmTemplateForOrganization,
+  bestCrmTemplateForTarget,
   CRM_CATEGORY_OPTIONS,
+  CRM_PROFESSIONAL_CATEGORY_OPTIONS,
   normalizeCrmCategory,
   parseCrmCsv,
   parseCrmTemplateCsv,
   renderCrmTemplate,
   type PartnershipCrmOrganizationRecord,
+  type PartnershipCrmProfessionalRecord,
   type PartnershipCrmTemplateRecord,
 } from "@/lib/partnership-crm";
-import { DISCOVER_ORGANIZATION_CATEGORY_OPTIONS } from "@/lib/discover-publisher-categories";
+import {
+  DISCOVER_INDIVIDUAL_CATEGORY_OPTIONS,
+  DISCOVER_ORGANIZATION_CATEGORY_OPTIONS,
+} from "@/lib/discover-publisher-categories";
 
 const organization: PartnershipCrmOrganizationRecord = {
   id: "crm-1",
@@ -31,6 +37,7 @@ const laboratoryTemplate: PartnershipCrmTemplateRecord = {
   id: "tpl-lab",
   schemaVersion: 1,
   name: "Laboratory outreach",
+  audience: "organizations",
   category: "Laboratory / Genomics",
   subject: "Pocket Genes + {{organization_name}}",
   body: "Hola {{contact_name}}, vimos {{organization_name}}{{website_sentence}}.",
@@ -43,6 +50,7 @@ const foundationTemplate: PartnershipCrmTemplateRecord = {
   id: "tpl-foundation",
   schemaVersion: 1,
   name: "Foundation outreach",
+  audience: "organizations",
   category: "Foundation",
   subject: "Pocket Genes + {{organization_name}}",
   body: "Hola {{contact_name}}, queremos conversar con {{organization_name}}.",
@@ -51,10 +59,48 @@ const foundationTemplate: PartnershipCrmTemplateRecord = {
   normalizedName: "foundation outreach",
 };
 
+const professional: PartnershipCrmProfessionalRecord = {
+  id: "pro-1",
+  schemaVersion: 1,
+  name: "Dra. Ada Genome",
+  category: "pro_clinical_geneticists",
+  title: "Genetista clinica",
+  affiliation: "Genome Lab",
+  website: "https://genomelab.example/",
+  websiteDomain: "genomelab.example",
+  country: "Argentina",
+  status: "new",
+  email: "ada@genomelab.example",
+  linkedIn: "https://linkedin.com/in/ada",
+  lastContactAt: null,
+  notes: "",
+  normalizedName: "dra ada genome",
+};
+
+const professionalTemplate: PartnershipCrmTemplateRecord = {
+  id: "tpl-pro",
+  schemaVersion: 1,
+  name: "Professional outreach",
+  audience: "professionals",
+  category: "pro_clinical_geneticists",
+  subject: "Pocket Genes + {{professional_name}}",
+  body: "Hola {{first_name}}, vi tu trabajo como {{title}} en {{affiliation}}.",
+  status: "active",
+  notes: "",
+  normalizedName: "professional outreach",
+};
+
 describe("partnership CRM helpers", () => {
   it("uses the Discover organization category catalog as its CRM whitelist", () => {
     expect(CRM_CATEGORY_OPTIONS).toBe(DISCOVER_ORGANIZATION_CATEGORY_OPTIONS);
     expect(CRM_CATEGORY_OPTIONS).toHaveLength(60);
+  });
+
+  it("uses the Discover individual category catalog for professional CRM records", () => {
+    expect(CRM_PROFESSIONAL_CATEGORY_OPTIONS).toBe(
+      DISCOVER_INDIVIDUAL_CATEGORY_OPTIONS,
+    );
+    expect(CRM_PROFESSIONAL_CATEGORY_OPTIONS.length).toBeGreaterThan(60);
   });
 
   it("normalizes CRM categories to the fixed organization category list", () => {
@@ -102,6 +148,28 @@ describe("partnership CRM helpers", () => {
     ]);
   });
 
+  it("parses professional CRM CSV rows against the professional model", () => {
+    const parsed = parseCrmCsv(
+      [
+        "name,category,title,affiliation,website,country,email,linkedin,status,notes",
+        "Dra. Ada Genome,genetista,Genetista clinica,Genome Lab,genomelab.example,Argentina,ada@genomelab.example,https://linkedin.com/in/ada,Contacted,Direct intro",
+      ].join("\n"),
+      "professionals",
+    );
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows).toEqual([
+      expect.objectContaining({
+        name: "Dra. Ada Genome",
+        category: "pro_clinical_geneticists",
+        title: "Genetista clinica",
+        affiliation: "Genome Lab",
+        email: "ada@genomelab.example",
+        status: "contacted",
+      }),
+    ]);
+  });
+
   it("reports missing organization names but keeps the row visible for preview", () => {
     const parsed = parseCrmCsv(
       "name,category,email\n,Foundation,ada@example.org",
@@ -126,6 +194,7 @@ describe("partnership CRM helpers", () => {
     expect(parsed.rows).toEqual([
       expect.objectContaining({
         name: "Lab intro",
+        audience: "organizations",
         category: "org_genetic_testing_laboratories",
         subject: "Pocket Genes + {{organization_name}}",
         body: "Hola {{contact_name}}\nLinea 2",
@@ -134,8 +203,29 @@ describe("partnership CRM helpers", () => {
       }),
       expect.objectContaining({
         name: "Foundation intro",
+        audience: "organizations",
         category: "org_rare_disease_foundations",
         status: "archived",
+      }),
+    ]);
+  });
+
+  it("parses professional template CSV rows with audience-specific category normalization", () => {
+    const parsed = parseCrmTemplateCsv(
+      [
+        "name,audience,category,subject,body,status,notes",
+        '"Professional intro","professionals","genetista","Pocket Genes + {{professional_name}}","Hola {{first_name}}","active","Primary"',
+      ].join("\n"),
+    );
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows).toEqual([
+      expect.objectContaining({
+        name: "Professional intro",
+        audience: "professionals",
+        category: "pro_clinical_geneticists",
+        subject: "Pocket Genes + {{professional_name}}",
+        body: "Hola {{first_name}}",
       }),
     ]);
   });
@@ -166,6 +256,28 @@ describe("partnership CRM helpers", () => {
     expect(rendered.body).toContain("Hola Marcelo");
     expect(rendered.body).toContain("Genome Lab (genomelab.example)");
     expect(rendered.body).not.toContain("{{organization_name}}");
+  });
+
+  it("renders Firebase-backed templates with professional variables", () => {
+    expect(
+      bestCrmTemplateForTarget(
+        professional,
+        [laboratoryTemplate, professionalTemplate],
+        "professionals",
+      )?.id,
+    ).toBe("tpl-pro");
+
+    const rendered = renderCrmTemplate(
+      professionalTemplate,
+      professional,
+      "professionals",
+    );
+
+    expect(rendered.subject).toBe("Pocket Genes + Dra. Ada Genome");
+    expect(rendered.body).toContain("Hola Dra.");
+    expect(rendered.body).toContain("Genetista clinica");
+    expect(rendered.body).toContain("Genome Lab");
+    expect(rendered.body).not.toContain("{{professional_name}}");
   });
 
   it("matches templates to organizations through normalized category aliases", () => {

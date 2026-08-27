@@ -33,6 +33,7 @@ const template: PartnershipCrmTemplateRecord = {
   id: "tpl-1",
   schemaVersion: 1,
   name: "Lab outreach",
+  audience: "organizations",
   category: "lab",
   subject: "Pocket Genes + {{organization_name}}",
   body: "Hola {{contact_name}}",
@@ -79,7 +80,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     });
 
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/templates?limit=20",
+      "/admin/partnership-crm/templates?limit=20&audience=organizations",
     );
     expect(screen.getByText("All categories")).toBeTruthy();
     expect(screen.getByText("Genetic Testing Laboratory")).toBeTruthy();
@@ -115,7 +116,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(
-        "/admin/partnership-crm/templates?limit=20",
+        "/admin/partnership-crm/templates?limit=20&audience=organizations",
       );
     });
 
@@ -165,6 +166,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(postBodies).toEqual([
       expect.objectContaining({
         name: "Lab intro",
+        audience: "organizations",
         category: "org_genetic_testing_laboratories",
         subject: "Pocket Genes + {{organization_name}}",
         body: "Hola {{contact_name}}\nMensaje",
@@ -173,6 +175,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
       }),
       expect.objectContaining({
         name: "Foundation intro",
+        audience: "organizations",
         category: "org_rare_disease_foundations",
         status: "inactive",
         notes: "Second",
@@ -194,7 +197,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(
-        "/admin/partnership-crm/templates?limit=20",
+        "/admin/partnership-crm/templates?limit=20&audience=organizations",
       );
     });
 
@@ -263,6 +266,54 @@ describe("PartnershipCrmTemplateWorkbench", () => {
     expect(JSON.parse(String(init?.body))).toEqual(
       expect.objectContaining({
         category: "org_genetic_testing_laboratories",
+        audience: "organizations",
+      }),
+    );
+  });
+
+  it("saves professional templates with professional audience and categories", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValue({
+      template: {
+        ...template,
+        audience: "professionals",
+        category: "pro_clinical_geneticists",
+      },
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateWorkbench mode="create" />);
+
+    await user.click(screen.getByRole("tab", { name: /Professionals/ }));
+    expect(
+      screen.getAllByText("Clinical Geneticist").length,
+    ).toBeGreaterThan(0);
+
+    await user.type(
+      screen.getByLabelText("Template name"),
+      "Professional outreach",
+    );
+    await user.type(
+      screen.getByLabelText("Subject"),
+      "Pocket Genes + ",
+    );
+    await user.paste("{{professional_name}}");
+    await user.click(screen.getByLabelText("Message"));
+    await user.paste("Hola {{first_name}}");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/templates",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+
+    const [, init] = jest
+      .mocked(sdkFetch)
+      .mock.calls.find(([path]) => path === "/admin/partnership-crm/templates")!;
+    expect(JSON.parse(String(init?.body))).toEqual(
+      expect.objectContaining({
+        audience: "professionals",
       }),
     );
   });

@@ -15,11 +15,13 @@ import { getDiscoverOrganizationCountryGroups } from "@/lib/discover-organizatio
 import { appText, type AppLanguage } from "@/lib/language";
 import {
   CRM_CATEGORY_OPTIONS,
+  CRM_PROFESSIONAL_CATEGORY_OPTIONS,
   CRM_STATUS_OPTIONS,
   CRM_TEMPLATE_STATUS_OPTIONS,
+  type PartnershipCrmTemplateAudience,
 } from "@/lib/partnership-crm";
 
-type ImportRulesKind = "organizations" | "templates";
+type ImportRulesKind = "organizations" | "professionals" | "templates";
 
 type RuleLine = {
   label: string;
@@ -41,6 +43,7 @@ const ORGANIZATION_HEADERS = [
 
 const TEMPLATE_HEADERS = [
   "name",
+  "audience",
   "category",
   "subject",
   "body",
@@ -48,14 +51,30 @@ const TEMPLATE_HEADERS = [
   "notes",
 ] as const;
 
+const PROFESSIONAL_HEADERS = [
+  "name",
+  "category",
+  "title",
+  "affiliation",
+  "website",
+  "country",
+  "status",
+  "email",
+  "linkedin",
+  "last_contact_at",
+  "notes",
+] as const;
+
 function csvHeadersFor(kind: ImportRulesKind) {
+  if (kind === "professionals") {
+    return PROFESSIONAL_HEADERS;
+  }
+
   return kind === "organizations" ? ORGANIZATION_HEADERS : TEMPLATE_HEADERS;
 }
 
 function requiredHeadersFor(kind: ImportRulesKind) {
-  return kind === "organizations"
-    ? ["name"]
-    : ["name", "subject", "body"];
+  return kind === "templates" ? ["name", "subject", "body"] : ["name"];
 }
 
 function optionalHeadersFor(kind: ImportRulesKind) {
@@ -64,6 +83,56 @@ function optionalHeadersFor(kind: ImportRulesKind) {
 }
 
 function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
+  if (kind === "professionals") {
+    return [
+      {
+        label: "name",
+        detail:
+          "Required, trimmed, maximum 180 characters. Blank professional names are invalid rows.",
+      },
+      {
+        label: "category",
+        detail:
+          "Optional single value. Use one canonical pro_* category key, or an exact professional category label. Unknown values become blank.",
+      },
+      {
+        label: "title",
+        detail:
+          "Optional. Store only the professional role, title, specialty, or credential.",
+      },
+      {
+        label: "affiliation",
+        detail:
+          "Optional. Store the institution, company, lab, hospital, or professional affiliation as a plain name.",
+      },
+      {
+        label: "country",
+        detail:
+          "Optional single value. Use one country from the CRM whitelist. GLOBAL is not accepted here.",
+      },
+      {
+        label: "email",
+        detail:
+          "Optional direct email. Missing email does not block import, but the row cannot send CRM email until an email is added.",
+      },
+      {
+        label: "linkedin",
+        detail:
+          "Optional public LinkedIn profile URL. This is used for duplicate detection and quick review.",
+      },
+      {
+        label: "last_contact_at",
+        detail:
+          "Optional. Use a full ISO datetime with timezone, or leave blank when there was no previous contact.",
+      },
+      {
+        label: "notes",
+        detail:
+          "Optional plain operational notes, maximum 2000 characters. Do not paste long scraped pages or JSON blobs.",
+      },
+    ];
+  }
+
   if (kind === "organizations") {
     return [
       {
@@ -126,9 +195,14 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
         "Required, maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks.",
     },
     {
+      label: "audience",
+      detail:
+        "Optional. Use organizations or professionals. When blank, the selected import audience is used.",
+    },
+    {
       label: "category",
       detail:
-        "Optional single value. Use one canonical org_* category key, or an exact Discover organization label. Unknown values become blank.",
+        "Optional single value. Use one canonical category key for the selected audience, or an exact category label. Unknown values become blank.",
     },
     {
       label: "status",
@@ -179,11 +253,13 @@ export function CrmImportRulesDialog({
   onOpenChange,
   language,
   kind,
+  audience = "organizations",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   language: AppLanguage;
   kind: ImportRulesKind;
+  audience?: PartnershipCrmTemplateAudience;
 }) {
   const t = (text: string) => appText(language, text);
   const headers = csvHeadersFor(kind);
@@ -191,8 +267,13 @@ export function CrmImportRulesDialog({
   const optionalHeaders = optionalHeadersFor(kind);
   const lines = ruleLinesFor(kind);
   const statusOptions =
-    kind === "organizations" ? CRM_STATUS_OPTIONS : CRM_TEMPLATE_STATUS_OPTIONS;
-  const countries = kind === "organizations" ? countryOptions(language) : [];
+    kind === "templates" ? CRM_TEMPLATE_STATUS_OPTIONS : CRM_STATUS_OPTIONS;
+  const countries = kind === "templates" ? [] : countryOptions(language);
+  const categoryAudience = kind === "templates" ? audience : kind;
+  const categoryOptions =
+    categoryAudience === "professionals"
+      ? CRM_PROFESSIONAL_CATEGORY_OPTIONS
+      : CRM_CATEGORY_OPTIONS;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -202,7 +283,9 @@ export function CrmImportRulesDialog({
           <DialogDescription>
             {kind === "organizations"
               ? t("Rules for CRM organization CSV imports.")
-              : t("Rules for CRM template CSV imports.")}
+              : kind === "professionals"
+                ? t("Rules for CRM professional CSV imports.")
+                : t("Rules for CRM template CSV imports.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -306,11 +389,13 @@ export function CrmImportRulesDialog({
               {t("Accepted categories")}
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              {t("Use canonical org_* keys when possible.")}
+              {categoryAudience === "professionals"
+                ? t("Use canonical pro_* keys when possible.")
+                : t("Use canonical org_* keys when possible.")}
             </p>
             <div className="mt-3 max-h-72 overflow-auto rounded-xl border border-border/80 bg-muted/20 p-3">
               <OptionGrid
-                items={CRM_CATEGORY_OPTIONS.map((category) => ({
+                items={categoryOptions.map((category) => ({
                   value: category.value,
                   label: t(category.label),
                 }))}
@@ -318,7 +403,7 @@ export function CrmImportRulesDialog({
             </div>
           </section>
 
-          {kind === "organizations" ? (
+          {kind !== "templates" ? (
             <section className="rounded-xl border border-border/80 bg-background/70 p-4">
               <h3 className="font-heading text-sm font-semibold">
                 {t("Accepted countries")}
@@ -353,18 +438,18 @@ export function CrmImportRulesDialog({
               {t("Import behavior")}
             </h3>
             <ul className="mt-3 grid gap-2 text-xs leading-5">
-              {(kind === "organizations"
+              {(kind === "templates"
                 ? [
-                    "Always review preview results before final import.",
-                    "Organization imports preview and commit in 100-row chunks with a browser checkpoint.",
-                    "If the import fails in the middle, completed rows are kept and the checkpoint can resume from the last saved point.",
-                    "Duplicates must be reviewed as skip, update existing, or import anyway before committing.",
-                  ]
-                : [
                     "Preview the parsed template rows before creating templates.",
                     "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.",
                     "Literal \\n is converted to a line break in template body and notes.",
                     "Use active templates for the CRM send flow; archived templates are kept out of normal sending.",
+                  ]
+                : [
+                    "Always review preview results before final import.",
+                    "CRM target imports preview and commit in 100-row chunks with a browser checkpoint.",
+                    "If the import fails in the middle, completed rows are kept and the checkpoint can resume from the last saved point.",
+                    "Duplicates must be reviewed as skip, update existing, or import anyway before committing.",
                   ]
               ).map((item) => (
                 <li key={item} className="flex gap-2">

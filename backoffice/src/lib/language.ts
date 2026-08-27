@@ -904,6 +904,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "This removes the template from the CRM send flow.":
     "Esto elimina la plantilla del flujo de envío del CRM.",
   "Template variables": "Variables de plantilla",
+  "Applies to": "Aplica a",
   "Website sentence": "Frase del sitio web",
   "Template Active": "Activa",
   "Template Inactive": "Inactiva",
@@ -952,15 +953,34 @@ const SPANISH_TEXT: Record<string, string> = {
   "CRM organization deleted.": "Organización del CRM eliminada.",
   "Unable to delete CRM organization.":
     "No se pudo eliminar la organización del CRM.",
+  "One professional, one direct email, and the next action.":
+    "Un profesional, un mail directo y la próxima acción.",
+  "Add CRM professional": "Agregar profesional al CRM",
+  "Edit CRM professional": "Editar profesional del CRM",
+  "CRM professional saved.": "Profesional del CRM guardado.",
+  "Unable to save CRM professional.":
+    "No se pudo guardar el profesional del CRM.",
+  "CRM professional deleted.": "Profesional del CRM eliminado.",
+  "Unable to delete CRM professional.":
+    "No se pudo eliminar el profesional del CRM.",
   "No CRM organizations found.":
     "No se encontraron organizaciones en el CRM.",
+  "No CRM professionals found.":
+    "No se encontraron profesionales en el CRM.",
   "Failed to load CRM organizations.":
     "No se pudieron cargar las organizaciones del CRM.",
+  "Failed to load CRM professionals.":
+    "No se pudieron cargar los profesionales del CRM.",
   "Add Organization": "Agregar organización",
+  "Add Professional": "Agregar profesional",
+  Professionals: "Profesionales",
+  "CRM target": "Objetivo del CRM",
   "Import CSV": "Importar CSV",
   "Import rules": "Reglas de importación",
   "Rules for CRM organization CSV imports.":
     "Reglas para importar organizaciones del CRM desde CSV.",
+  "Rules for CRM professional CSV imports.":
+    "Reglas para importar profesionales del CRM desde CSV.",
   "Rules for CRM template CSV imports.":
     "Reglas para importar plantillas del CRM desde CSV.",
   "CSV structure": "Estructura del CSV",
@@ -980,13 +1000,15 @@ const SPANISH_TEXT: Record<string, string> = {
   "Accepted countries": "Países aceptados",
   "Use canonical org_* keys when possible.":
     "Usá claves canónicas org_* siempre que sea posible.",
+  "Use canonical pro_* keys when possible.":
+    "Usá claves canónicas pro_* siempre que sea posible.",
   "Use one normalized country code from the CRM country whitelist. GLOBAL is not accepted.":
     "Usá un código de país normalizado de la lista permitida del CRM. GLOBAL no está aceptado.",
   "Import behavior": "Comportamiento de importación",
   "Always review preview results before final import.":
     "Revisá siempre la vista previa antes de la importación final.",
-  "Organization imports preview and commit in 100-row chunks with a browser checkpoint.":
-    "Las organizaciones se previsualizan y confirman en bloques de 100 filas con checkpoint en el navegador.",
+  "CRM target imports preview and commit in 100-row chunks with a browser checkpoint.":
+    "Los objetivos del CRM se previsualizan y confirman en bloques de 100 filas con checkpoint en el navegador.",
   "If the import fails in the middle, completed rows are kept and the checkpoint can resume from the last saved point.":
     "Si la importación falla en el medio, las filas completadas se conservan y el checkpoint permite continuar desde el último punto guardado.",
   "Duplicates must be reviewed as skip, update existing, or import anyway before committing.":
@@ -1001,16 +1023,28 @@ const SPANISH_TEXT: Record<string, string> = {
     "Usá plantillas activas para el flujo de envío del CRM; las archivadas quedan fuera del envío normal.",
   "Required, trimmed, maximum 180 characters. Blank names are invalid rows.":
     "Obligatorio, recortado, máximo 180 caracteres. Los nombres vacíos son filas inválidas.",
+  "Required, trimmed, maximum 180 characters. Blank professional names are invalid rows.":
+    "Obligatorio, recortado, máximo 180 caracteres. Los nombres de profesionales vacíos son filas inválidas.",
   "Optional single value. Use one canonical org_* category key, or an exact Discover organization label. Unknown values become blank.":
     "Valor único opcional. Usá una clave canónica org_* o una etiqueta exacta de organización Discover. Los valores desconocidos quedan en blanco.",
+  "Optional single value. Use one canonical pro_* category key, or an exact professional category label. Unknown values become blank.":
+    "Valor único opcional. Usá una clave canónica pro_* o una etiqueta exacta de categoría profesional. Los valores desconocidos quedan en blanco.",
+  "Optional single value. Use one canonical category key for the selected audience, or an exact category label. Unknown values become blank.":
+    "Valor único opcional. Usá una clave canónica de categoría para la audiencia seleccionada o una etiqueta exacta. Los valores desconocidos quedan en blanco.",
   "Optional single value. Use one country from the CRM whitelist. GLOBAL is not accepted here.":
     "Valor único opcional. Usá un país de la lista permitida del CRM. GLOBAL no está aceptado acá.",
   "Optional. Defaults to new when blank. Spanish aliases are normalized by the CSV parser.":
     "Opcional. Si queda vacío, usa new. El parser CSV normaliza alias en español.",
   "Optional. Store only the primary contact person's name, not the email or notes.":
     "Opcional. Guardá solo el nombre de la persona de contacto principal, no el email ni notas.",
+  "Optional. Store only the professional role, title, specialty, or credential.":
+    "Opcional. Guardá solo el rol, cargo, especialidad o credencial profesional.",
+  "Optional. Store the institution, company, lab, hospital, or professional affiliation as a plain name.":
+    "Opcional. Guardá la institución, empresa, laboratorio, hospital o afiliación profesional como nombre plano.",
   "Optional. Missing email does not block import, but the row cannot send CRM email until an email is added.":
     "Opcional. La falta de email no bloquea la importación, pero la fila no puede enviar email de CRM hasta que se agregue uno.",
+  "Optional public LinkedIn profile URL. This is used for duplicate detection and quick review.":
+    "URL opcional del perfil público de LinkedIn. Se usa para detectar duplicados y revisar rápido.",
   "Optional. Use a full ISO datetime with timezone, or leave blank when there was no previous contact.":
     "Opcional. Usá una fecha ISO completa con zona horaria o dejalo vacío si no hubo contacto previo.",
   "Optional plain operational notes, maximum 2000 characters. Do not paste long scraped pages or JSON blobs.":
@@ -1019,6 +1053,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Obligatorio, recortado, máximo 180 caracteres. Es el nombre interno de la plantilla.",
   "Required, trimmed, maximum 180 characters. Variables such as {{organization_name}} are allowed.":
     "Obligatorio, recortado, máximo 180 caracteres. Se permiten variables como {{organization_name}}.",
+  "Optional. Use organizations or professionals. When blank, the selected import audience is used.":
+    "Opcional. Usá organizations o professionals. Si queda vacío, se usa la audiencia seleccionada en la importación.",
   "Required, maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks.":
     "Obligatorio, máximo 12000 caracteres. Usá celdas multilinea entre comillas o \\n literal para saltos de línea.",
   "Optional. Defaults to active when blank. Active, inactive, and archived aliases are normalized.":
@@ -1026,10 +1062,16 @@ const SPANISH_TEXT: Record<string, string> = {
   "Optional internal notes, maximum 2000 characters. Literal \\n is converted to a line break.":
     "Notas internas opcionales, máximo 2000 caracteres. El texto literal \\n se convierte en salto de línea.",
   "Search organizations...": "Buscar organizaciones...",
+  "Search professionals...": "Buscar profesionales...",
   "All emails": "Todos los emails",
   "Has Email": "Con email",
   "Missing Email": "Sin email",
   "Primary contact": "Contacto principal",
+  Professional: "Profesional",
+  "Professional name": "Nombre del profesional",
+  "Role / specialty": "Rol / especialidad",
+  Affiliation: "Afiliación",
+  "Direct mail": "Mail directo",
   "Last Contact": "Último contacto",
   Mail: "Mail",
   Website: "Sitio web",
@@ -1059,9 +1101,12 @@ const SPANISH_TEXT: Record<string, string> = {
     "Última actividad de la organización.",
   "Expand to load the selected organization activity.":
     "Expandí para cargar la actividad de la organización seleccionada.",
+  "Expand to load the selected professional activity.":
+    "Expandí para cargar la actividad del profesional seleccionado.",
   "Not loaded": "Sin cargar",
   loaded: "cargados",
   "No organization selected": "Sin organización seleccionada",
+  "No professional selected": "Sin profesional seleccionado",
   "Add an activity note...": "Agregar nota de actividad...",
   "Unable to add activity.": "No se pudo agregar la actividad.",
   "Failed to load activity log.":
@@ -1069,6 +1114,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "No activity yet.": "Sin actividad todavía.",
   "Select an organization to see CRM details.":
     "Seleccioná una organización para ver el detalle del CRM.",
+  "Select a professional to see CRM details.":
+    "Seleccioná un profesional para ver el detalle del CRM.",
   Activity: "Actividad",
   created: "creados",
   updated: "actualizados",
@@ -1084,6 +1131,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "CSV file": "Archivo CSV",
   "CSV file is empty.": "El CSV está vacío.",
   "CSV needs a name column.": "El CSV necesita una columna name.",
+  "CSV needs a professional name column.":
+    "El CSV necesita una columna de nombre del profesional.",
+  "Professional name is required.":
+    "El nombre del profesional es obligatorio.",
   "CSV import progress": "Progreso de importación CSV",
   "Last saved": "Último guardado",
   "Previewing CSV": "Generando vista previa del CSV",

@@ -62,10 +62,12 @@ import {
   formatCrmCategory,
 } from "@/components/god-mode/crm-category-select";
 import { CrmImportRulesDialog } from "@/components/god-mode/crm-import-rules-dialog";
+import { CrmTargetSegmentedControl } from "@/components/god-mode/crm-target-segmented-control";
 import { appText, type AppLanguage } from "@/lib/language";
 import {
   CRM_TEMPLATE_STATUS_OPTIONS,
   DEFAULT_CRM_CATEGORY,
+  DEFAULT_CRM_PROFESSIONAL_CATEGORY,
   PARTNERSHIP_CRM_FROM_EMAIL,
   normalizeCrmCategory,
   parseCrmTemplateCsv,
@@ -73,7 +75,10 @@ import {
   templateStatusLabel,
   type ParsedCrmTemplateCsv,
   type PartnershipCrmOrganizationRecord,
+  type PartnershipCrmProfessionalRecord,
+  type PartnershipCrmTargetRecord,
   type PartnershipCrmTemplateInput,
+  type PartnershipCrmTemplateAudience,
   type PartnershipCrmTemplateRecord,
   type PartnershipCrmTemplatesPage,
   type PartnershipCrmTemplateStatus,
@@ -82,7 +87,7 @@ import { sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 
 const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
-const TEMPLATE_VARIABLES = [
+const ORGANIZATION_TEMPLATE_VARIABLES = [
   {
     token: "{{contact_name}}",
     label: "Contact name",
@@ -100,10 +105,37 @@ const TEMPLATE_VARIABLES = [
     label: "Website sentence",
   },
 ] as const;
-const TEMPLATE_IMPORT_SAMPLE_CSV = [
-  "name,category,subject,body,status,notes",
+const PROFESSIONAL_TEMPLATE_VARIABLES = [
+  {
+    token: "{{professional_name}}",
+    label: "Professional name",
+  },
+  {
+    token: "{{first_name}}",
+    label: "First name",
+  },
+  {
+    token: "{{affiliation}}",
+    label: "Affiliation",
+  },
+  {
+    token: "{{title}}",
+    label: "Role / specialty",
+  },
+  {
+    token: "{{website}}",
+    label: "Website",
+  },
+  {
+    token: "{{website_sentence}}",
+    label: "Website sentence",
+  },
+] as const;
+const ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV = [
+  "name,audience,category,subject,body,status,notes",
   [
     '"Laboratorio - primer contacto"',
+    '"organizations"',
     '"org_genetic_testing_laboratories"',
     '"Pocket Genes + {{organization_name}}"',
     '"Hola {{contact_name}},\\n\\nSoy Federico de Pocket Genes. Vi el trabajo de {{organization_name}}{{website_sentence}} y queria coordinar una conversacion corta para explorar colaboracion clinica/genomica.\\n\\nTe parece si agendamos 20 minutos esta semana?"',
@@ -111,15 +143,29 @@ const TEMPLATE_IMPORT_SAMPLE_CSV = [
     '"Usar con laboratorios y centros de genomica."',
   ].join(","),
 ].join("\n");
+const PROFESSIONAL_TEMPLATE_IMPORT_SAMPLE_CSV = [
+  "name,audience,category,subject,body,status,notes",
+  [
+    '"Profesional - primer contacto"',
+    '"professionals"',
+    '"pro_clinical_geneticists"',
+    '"Pocket Genes + {{professional_name}}"',
+    '"Hola {{first_name}},\\n\\nSoy Federico de Pocket Genes. Vi tu trabajo como {{title}} en {{affiliation}}{{website_sentence}} y queria coordinar una conversacion corta para explorar colaboracion clinica/genomica.\\n\\nTe parece si agendamos 20 minutos esta semana?"',
+    '"active"',
+    '"Usar con profesionales clinicos y referentes de genetica."',
+  ].join(","),
+].join("\n");
 
 type TemplateFilters = {
   query: string;
+  audience: PartnershipCrmTemplateAudience;
   status: "all" | PartnershipCrmTemplateStatus;
   category: string;
 };
 
 type TemplateFormState = {
   name: string;
+  audience: PartnershipCrmTemplateAudience;
   category: string;
   subject: string;
   body: string;
@@ -143,12 +189,19 @@ type TemplateImportResult = {
 
 const EMPTY_TEMPLATE_FORM: TemplateFormState = {
   name: "",
+  audience: "organizations",
   category: DEFAULT_CRM_CATEGORY,
   subject: "",
   body: "",
   status: "active",
   notes: "",
 };
+
+function defaultTemplateCategory(audience: PartnershipCrmTemplateAudience) {
+  return audience === "professionals"
+    ? DEFAULT_CRM_PROFESSIONAL_CATEGORY
+    : DEFAULT_CRM_CATEGORY;
+}
 
 const SAMPLE_ORGANIZATION: PartnershipCrmOrganizationRecord = {
   id: "preview",
@@ -167,9 +220,36 @@ const SAMPLE_ORGANIZATION: PartnershipCrmOrganizationRecord = {
   normalizedName: "organizacion ejemplo",
 };
 
+const SAMPLE_PROFESSIONAL: PartnershipCrmProfessionalRecord = {
+  id: "preview-professional",
+  schemaVersion: 1,
+  name: "Dra. Ana Genoma",
+  category: DEFAULT_CRM_PROFESSIONAL_CATEGORY,
+  title: "Genetista clinica",
+  affiliation: "Hospital Genomico",
+  website: "https://example.org/",
+  websiteDomain: "example.org",
+  country: "Argentina",
+  status: "new",
+  email: "ana@example.org",
+  linkedIn: "",
+  lastContactAt: null,
+  notes: "",
+  normalizedName: "dra ana genoma",
+};
+
+function sampleTargetForAudience(
+  audience: PartnershipCrmTemplateAudience,
+): PartnershipCrmTargetRecord {
+  return audience === "professionals" ? SAMPLE_PROFESSIONAL : SAMPLE_ORGANIZATION;
+}
+
 function buildTemplateListPath(filters: TemplateFilters, cursor?: string) {
-  const params = new URLSearchParams({ limit: "20" });
-  const category = normalizeCrmCategory(filters.category);
+  const params = new URLSearchParams({
+    limit: "20",
+    audience: filters.audience,
+  });
+  const category = normalizeCrmCategory(filters.category, filters.audience);
   if (filters.query.trim()) {
     params.set("query", filters.query.trim());
   }
@@ -210,7 +290,8 @@ function templatePayload(
 ): PartnershipCrmTemplateInput {
   return {
     name: state.name.trim(),
-    category: normalizeCrmCategory(state.category),
+    audience: state.audience,
+    category: normalizeCrmCategory(state.category, state.audience),
     subject: state.subject.trim(),
     body: state.body.trim(),
     status: state.status,
@@ -227,8 +308,12 @@ function toFormState(
 
   return {
     name: template.name,
+    audience: template.audience ?? "organizations",
     category:
-      normalizeCrmCategory(template.category) || DEFAULT_CRM_CATEGORY,
+      normalizeCrmCategory(
+        template.category,
+        template.audience ?? "organizations",
+      ) || defaultTemplateCategory(template.audience ?? "organizations"),
     subject: template.subject,
     body: template.body,
     status: template.status,
@@ -243,7 +328,8 @@ function templateRecordFromState(
     id: "preview",
     schemaVersion: 1,
     name: state.name,
-    category: normalizeCrmCategory(state.category),
+    audience: state.audience,
+    category: normalizeCrmCategory(state.category, state.audience),
     subject: state.subject,
     body: state.body,
     status: state.status,
@@ -337,9 +423,11 @@ function TemplatePreview({
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
+  const sampleTarget = sampleTargetForAudience(form.audience);
   const rendered = renderCrmTemplate(
     templateRecordFromState(form),
-    SAMPLE_ORGANIZATION,
+    sampleTarget,
+    form.audience,
   );
 
   return (
@@ -364,9 +452,11 @@ function TemplatePreview({
         </p>
         <p className="truncate">
           <span className="font-semibold text-slate-900 dark:text-slate-50">
-            {t("Recipient")}:
-          </span>{" "}
-          {SAMPLE_ORGANIZATION.contactEmail}
+          {t("Recipient")}:
+        </span>{" "}
+          {form.audience === "professionals"
+            ? SAMPLE_PROFESSIONAL.email
+            : SAMPLE_ORGANIZATION.contactEmail}
         </p>
       </div>
       <div className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
@@ -378,16 +468,20 @@ function TemplatePreview({
 
 function TemplateImportDialog({
   open,
+  initialAudience,
   onOpenChange,
   onImported,
   language,
 }: {
   open: boolean;
+  initialAudience: PartnershipCrmTemplateAudience;
   onOpenChange: (open: boolean) => void;
   onImported: () => void;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
+  const [audience, setAudience] =
+    useState<PartnershipCrmTemplateAudience>(initialAudience);
   const [csvText, setCsvText] = useState("");
   const [fileName, setFileName] = useState("");
   const [parsed, setParsed] = useState<ParsedCrmTemplateCsv | null>(null);
@@ -398,9 +492,16 @@ function TemplateImportDialog({
 
   useEffect(() => {
     if (open) {
+      setAudience(initialAudience);
+    }
+  }, [initialAudience, open]);
+
+  useEffect(() => {
+    if (open) {
       return;
     }
 
+    setAudience(initialAudience);
     setCsvText("");
     setFileName("");
     setParsed(null);
@@ -408,7 +509,7 @@ function TemplateImportDialog({
     setCompleted(false);
     setProcessedCount(0);
     setResults([]);
-  }, [open]);
+  }, [initialAudience, open]);
 
   const previewRows = useMemo(
     () => (parsed ? templatePreviewRows(parsed) : []),
@@ -440,13 +541,22 @@ function TemplateImportDialog({
       : 0;
   const canImport = validRows.length > 0 && !importing;
 
-  function parseCsv(text: string, nextFileName = "") {
+  function parseCsv(
+    text: string,
+    nextFileName = "",
+    nextAudience: PartnershipCrmTemplateAudience = audience,
+  ) {
     setCsvText(text);
     setFileName(nextFileName);
-    setParsed(text.trim() ? parseCrmTemplateCsv(text) : null);
+    setParsed(text.trim() ? parseCrmTemplateCsv(text, nextAudience) : null);
     setCompleted(false);
     setProcessedCount(0);
     setResults([]);
+  }
+
+  function handleAudienceChange(nextAudience: PartnershipCrmTemplateAudience) {
+    setAudience(nextAudience);
+    parseCsv(csvText, fileName, nextAudience);
   }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -460,7 +570,7 @@ function TemplateImportDialog({
       const text = await file.text();
       setCsvText(text);
       setFileName(file.name);
-      setParsed(parseCrmTemplateCsv(text));
+      setParsed(parseCrmTemplateCsv(text, audience));
       setCompleted(false);
       setProcessedCount(0);
       setResults([]);
@@ -556,6 +666,13 @@ function TemplateImportDialog({
         </DialogHeader>
 
         <div className="grid gap-4">
+          <CrmTargetSegmentedControl
+            value={audience}
+            onChange={handleAudienceChange}
+            language={language}
+            disabled={importing}
+          />
+
           <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(280px,0.7fr)]">
             <div className="grid gap-3">
               <div className="space-y-1.5">
@@ -600,14 +717,22 @@ function TemplateImportDialog({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => parseCsv(TEMPLATE_IMPORT_SAMPLE_CSV)}
+                  onClick={() =>
+                    parseCsv(
+                      audience === "professionals"
+                        ? PROFESSIONAL_TEMPLATE_IMPORT_SAMPLE_CSV
+                        : ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV,
+                    )
+                  }
                   disabled={importing}
                 >
                   {t("Use sample")}
                 </Button>
               </div>
               <pre className="mt-3 max-h-44 overflow-auto whitespace-pre-wrap rounded-lg bg-background/80 p-3 text-xs leading-5 text-muted-foreground">
-                {TEMPLATE_IMPORT_SAMPLE_CSV}
+                {audience === "professionals"
+                  ? PROFESSIONAL_TEMPLATE_IMPORT_SAMPLE_CSV
+                  : ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV}
               </pre>
             </div>
           </div>
@@ -658,10 +783,11 @@ function TemplateImportDialog({
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("Row")}</TableHead>
-                    <TableHead>{t("Template")}</TableHead>
-                    <TableHead>{t("Category")}</TableHead>
+                    <TableRow>
+                      <TableHead>{t("Row")}</TableHead>
+                      <TableHead>{t("Template")}</TableHead>
+                      <TableHead>{t("Applies to")}</TableHead>
+                      <TableHead>{t("Category")}</TableHead>
                     <TableHead>{t("Subject")}</TableHead>
                     <TableHead>{t("Message")}</TableHead>
                     <TableHead>{t("Status")}</TableHead>
@@ -694,10 +820,18 @@ function TemplateImportDialog({
                             </p>
                           ) : null}
                         </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {row.template.audience === "professionals"
+                              ? t("Professionals")
+                              : t("Organizations")}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="min-w-44 whitespace-normal text-sm text-muted-foreground">
                           {formatCrmCategory(
                             row.template.category ?? "",
                             language,
+                            row.template.audience ?? "organizations",
                           ) || t("No category")}
                         </TableCell>
                         <TableCell className="min-w-56 whitespace-normal text-sm">
@@ -773,6 +907,7 @@ export function PartnershipCrmTemplateBrowser() {
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<TemplateFilters>({
     query: "",
+    audience: "organizations",
     status: "all",
     category: "",
   });
@@ -804,6 +939,10 @@ export function PartnershipCrmTemplateBrowser() {
   function resetCursorsForFilterChange(patch: Partial<TemplateFilters>) {
     setCursorStack([]);
     setFilters((current) => ({ ...current, ...patch }));
+  }
+
+  function handleAudienceChange(audience: PartnershipCrmTemplateAudience) {
+    resetCursorsForFilterChange({ audience, category: "" });
   }
 
   return (
@@ -858,6 +997,12 @@ export function PartnershipCrmTemplateBrowser() {
         </div>
       </div>
 
+      <CrmTargetSegmentedControl
+        value={filters.audience}
+        onChange={handleAudienceChange}
+        language={language}
+      />
+
       <div className="grid gap-3 rounded-xl border border-border/80 bg-background/60 p-3 lg:grid-cols-[minmax(220px,1fr)_180px_220px]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -897,6 +1042,7 @@ export function PartnershipCrmTemplateBrowser() {
           onChange={(category) => resetCursorsForFilterChange({ category })}
           language={language}
           mode="filter"
+          audience={filters.audience}
         />
       </div>
 
@@ -949,6 +1095,7 @@ export function PartnershipCrmTemplateBrowser() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("Template")}</TableHead>
+                <TableHead>{t("Applies to")}</TableHead>
                 <TableHead>{t("Status")}</TableHead>
                 <TableHead>{t("Category")}</TableHead>
                 <TableHead>{t("Updated")}</TableHead>
@@ -974,13 +1121,24 @@ export function PartnershipCrmTemplateBrowser() {
                     </Link>
                   </TableCell>
                   <TableCell>
+                    <Badge variant="outline">
+                      {template.audience === "professionals"
+                        ? t("Professionals")
+                        : t("Organizations")}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
                     <TemplateStatusBadge
                       status={template.status}
                       language={language}
                     />
                   </TableCell>
                   <TableCell className="whitespace-normal text-sm text-muted-foreground">
-                    {formatCrmCategory(template.category, language) ||
+                    {formatCrmCategory(
+                      template.category,
+                      language,
+                      template.audience ?? "organizations",
+                    ) ||
                       t("No category")}
                   </TableCell>
                   <TableCell className="whitespace-normal text-sm text-muted-foreground">
@@ -1034,6 +1192,7 @@ export function PartnershipCrmTemplateBrowser() {
 
       <TemplateImportDialog
         open={importOpen}
+        initialAudience={filters.audience}
         onOpenChange={setImportOpen}
         onImported={() => {
           queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
@@ -1046,6 +1205,7 @@ export function PartnershipCrmTemplateBrowser() {
         onOpenChange={setImportRulesOpen}
         language={language}
         kind="templates"
+        audience={filters.audience}
       />
     </section>
   );
@@ -1093,6 +1253,14 @@ export function PartnershipCrmTemplateWorkbench({
     setForm((current) => ({ ...current, ...patch }));
   }
 
+  function updateAudience(audience: PartnershipCrmTemplateAudience) {
+    setForm((current) => ({
+      ...current,
+      audience,
+      category: defaultTemplateCategory(audience),
+    }));
+  }
+
   function insertVariable(token: string) {
     setForm((current) => ({
       ...current,
@@ -1103,6 +1271,10 @@ export function PartnershipCrmTemplateWorkbench({
   const canSave = Boolean(
     form.name.trim() && form.subject.trim() && form.body.trim(),
   );
+  const templateVariables =
+    form.audience === "professionals"
+      ? PROFESSIONAL_TEMPLATE_VARIABLES
+      : ORGANIZATION_TEMPLATE_VARIABLES;
 
   const saveMutation = useMutation({
     mutationFn: (payload: PartnershipCrmTemplateInput) => {
@@ -1234,6 +1406,15 @@ export function PartnershipCrmTemplateWorkbench({
             className="grid gap-4"
           >
             <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3">
+              <div className="space-y-1.5">
+                <Label>{t("Applies to")}</Label>
+                <CrmTargetSegmentedControl
+                  value={form.audience}
+                  onChange={updateAudience}
+                  language={language}
+                />
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
                 <div className="space-y-1.5">
                   <Label htmlFor="crm-template-name">
@@ -1279,6 +1460,7 @@ export function PartnershipCrmTemplateWorkbench({
                     onChange={(category) => update({ category })}
                     language={language}
                     mode="form"
+                    audience={form.audience}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -1289,7 +1471,11 @@ export function PartnershipCrmTemplateWorkbench({
                     onChange={(event) =>
                       update({ subject: event.target.value })
                     }
-                    placeholder="Pocket Genes + {{organization_name}}"
+                    placeholder={
+                      form.audience === "professionals"
+                        ? "Pocket Genes + {{professional_name}}"
+                        : "Pocket Genes + {{organization_name}}"
+                    }
                   />
                 </div>
               </div>
@@ -1323,7 +1509,7 @@ export function PartnershipCrmTemplateWorkbench({
                 </h3>
               </div>
               <div className="flex flex-wrap gap-2">
-                {TEMPLATE_VARIABLES.map((variable) => (
+                {templateVariables.map((variable) => (
                   <Button
                     key={variable.token}
                     type="button"

@@ -6,6 +6,7 @@ import {
 import type { AdminContext } from "../types/sdk.types.js";
 
 const mockDeletePartnershipCrmOrganization = jest.fn();
+const mockDeletePartnershipCrmProfessional = jest.fn();
 const mockDeletePartnershipCrmTemplate = jest.fn();
 
 jest.mock("../repositories/partnership-crm.repository.js", () => ({
@@ -28,20 +29,31 @@ jest.mock("../repositories/partnership-crm.repository.js", () => ({
     "not_a_fit",
   ],
   PARTNERSHIP_CRM_TEMPLATE_STATUSES: ["active", "inactive", "archived"],
+  PARTNERSHIP_CRM_TEMPLATE_AUDIENCES: ["organizations", "professionals"],
   createPartnershipCrmActivity: jest.fn(),
   createPartnershipCrmOrganization: jest.fn(),
+  createPartnershipCrmProfessional: jest.fn(),
+  createPartnershipCrmProfessionalActivity: jest.fn(),
   createPartnershipCrmTemplate: jest.fn(),
   deletePartnershipCrmOrganization: mockDeletePartnershipCrmOrganization,
+  deletePartnershipCrmProfessional: mockDeletePartnershipCrmProfessional,
   deletePartnershipCrmTemplate: mockDeletePartnershipCrmTemplate,
   getPartnershipCrmOrganization: jest.fn(),
+  getPartnershipCrmProfessional: jest.fn(),
   getPartnershipCrmTemplate: jest.fn(),
   importPartnershipCrmOrganizations: jest.fn(),
+  importPartnershipCrmProfessionals: jest.fn(),
   listPartnershipCrmActivities: jest.fn(),
   listPartnershipCrmOrganizations: jest.fn(),
+  listPartnershipCrmProfessionalActivities: jest.fn(),
+  listPartnershipCrmProfessionals: jest.fn(),
   listPartnershipCrmTemplates: jest.fn(),
   previewPartnershipCrmImport: jest.fn(),
+  previewPartnershipCrmProfessionalImport: jest.fn(),
   sendPartnershipCrmOrganizationEmail: jest.fn(),
+  sendPartnershipCrmProfessionalEmail: jest.fn(),
   updatePartnershipCrmOrganization: jest.fn(),
+  updatePartnershipCrmProfessional: jest.fn(),
   updatePartnershipCrmTemplate: jest.fn(),
 }));
 
@@ -74,6 +86,7 @@ describe("partnership CRM routes", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDeletePartnershipCrmOrganization.mockResolvedValue(undefined);
+    mockDeletePartnershipCrmProfessional.mockResolvedValue(undefined);
     mockDeletePartnershipCrmTemplate.mockResolvedValue(undefined);
   });
 
@@ -112,6 +125,25 @@ describe("partnership CRM routes", () => {
     expect(mockDeletePartnershipCrmTemplate).toHaveBeenCalledWith(
       bootstrapContext,
       "tpl-1",
+    );
+  });
+
+  it("returns a JSON success payload after deleting a professional", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/admin/partnership-crm/professionals/pro-1",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      deleted: true,
+      professionalId: "pro-1",
+    });
+    expect(mockDeletePartnershipCrmProfessional).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pro-1",
     );
   });
 });
