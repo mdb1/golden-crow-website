@@ -678,7 +678,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
     await user.click(within(dialog).getByRole("button", { name: "Add" }));
     await waitFor(() => {
-      expect(within(dialog).getByRole("button", { name: "Next row" })).toBeTruthy();
+      expect(within(dialog).getByText("Row 2 of 3")).toBeTruthy();
     });
     expect(crmImportCalls()).toHaveLength(1);
     expect(
@@ -689,11 +689,6 @@ describe("PartnershipCrmWorkbench import flow", () => {
         duplicateAction: "import",
       }),
     ]);
-
-    await user.click(within(dialog).getByRole("button", { name: "Next row" }));
-    await waitFor(() => {
-      expect(within(dialog).getByText("Row 2 of 3")).toBeTruthy();
-    });
     expect(crmPreviewCalls()).toHaveLength(2);
 
     await user.click(within(dialog).getByRole("button", { name: "Skip row" }));
@@ -736,6 +731,186 @@ describe("PartnershipCrmWorkbench import flow", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
+  });
+
+  it("imports remaining interactive rows sequentially and can pause between rows", async () => {
+    const user = userEvent.setup();
+    let releaseFirstImport: (() => void) | undefined;
+    let markFirstImportStarted: (() => void) | undefined;
+    let importAttemptCount = 0;
+    const firstImportStarted = new Promise<void>((resolve) => {
+      markFirstImportStarted = resolve;
+    });
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath === "/admin/partnership-crm/import-preview") {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{
+            rowId: string;
+            name?: string;
+            category?: string;
+            website?: string;
+            country?: string;
+            status?: string;
+            contactName?: string;
+            contactEmail?: string;
+            contactLinkedIn?: string;
+            notes?: string;
+          }>;
+        };
+        return {
+          rows: body.organizations.map((row) => ({
+            rowId: row.rowId,
+            organization: {
+              name: row.name ?? "",
+              category: row.category ?? "",
+              website: row.website ?? "",
+              country: row.country ?? "",
+              status: "new",
+              contactName: row.contactName ?? "",
+              contactEmail: row.contactEmail ?? "",
+              contactLinkedIn: row.contactLinkedIn ?? "",
+              lastContactAt: null,
+              notes: row.notes ?? "",
+            },
+            valid: true,
+            errors: [],
+            missingEmail: false,
+            duplicateCandidates: [],
+          })),
+          summary: {
+            total: body.organizations.length,
+            valid: body.organizations.length,
+            invalid: 0,
+            missingEmail: 0,
+            duplicates: 0,
+          },
+        };
+      }
+
+      if (stringPath === "/admin/partnership-crm/import") {
+        importAttemptCount += 1;
+        if (importAttemptCount === 1) {
+          markFirstImportStarted?.();
+          await new Promise<void>((resolve) => {
+            releaseFirstImport = resolve;
+          });
+        }
+
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{ rowId: string }>;
+        };
+        return {
+          results: body.organizations.map((row, index) => ({
+            rowId: row.rowId,
+            action: "created",
+            organizationId: `imported-${importAttemptCount}-${index}`,
+          })),
+          summary: {
+            total: body.organizations.length,
+            created: body.organizations.length,
+            updated: 0,
+            skipped: 0,
+            invalid: 0,
+          },
+        };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/professionals")) {
+        return { professionals: [professional], nextCursor: undefined };
+      }
+
+      return { organizations: [], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = crmCsv(3);
+    const file = new File([csv], "automatic-crm-import.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+    await waitFor(() => {
+      expect(within(dialog).getByText("CSV loaded")).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Start interactive download",
+      }),
+    );
+    await waitFor(() => {
+      expect(within(dialog).getByText("Row 1 of 3")).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Import remaining in sequence",
+      }),
+    );
+    await firstImportStarted;
+    await waitFor(() => {
+      expect(within(dialog).getByRole("button", { name: "Pause" })).toBeTruthy();
+    });
+
+    await user.click(within(dialog).getByRole("button", { name: "Pause" }));
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", {
+          name: "Import remaining in sequence",
+        }),
+      ).toBeTruthy();
+    });
+
+    releaseFirstImport?.();
+    await waitFor(() => {
+      expect(within(dialog).getByText("Row 2 of 3")).toBeTruthy();
+    });
+    expect(crmImportCalls()).toHaveLength(1);
+    expect(
+      crmImportSession(),
+    ).toEqual(
+      expect.objectContaining({
+        mode: "interactive",
+        nextImportIndex: 1,
+        status: "ready",
+      }),
+    );
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Import remaining in sequence",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("CRM import finished")).toBeTruthy();
+    });
+    expect(crmPreviewCalls()).toHaveLength(3);
+    expect(crmImportCalls()).toHaveLength(3);
+    expect(
+      crmImportSession(),
+    ).toEqual(
+      expect.objectContaining({
+        mode: "interactive",
+        nextImportIndex: 3,
+        status: "completed",
+        importSummary: expect.objectContaining({ created: 3 }),
+      }),
+    );
   });
 
   it("shows a copyable row-level diagnostic log when interactive import fails", async () => {

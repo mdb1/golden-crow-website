@@ -1312,6 +1312,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Import all previews and commits one row at a time while accepting every valid row.":
     "Importar todo genera vista previa y confirma una fila por vez aceptando cada fila válida.",
   "Automatic import": "Importación automática",
+  "Automatic import paused.": "Importación automática pausada.",
+  "Import remaining in sequence": "Importar restantes en secuencia",
   "Importing one row at a time": "Importando una fila por vez",
   "Every accepted row is saved before the next row starts.":
     "Cada fila aceptada se guarda antes de iniciar la siguiente.",
@@ -1326,6 +1328,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Skipped during interactive review.": "Omitida durante la revisión interactiva.",
   "This row is invalid and cannot be added.":
     "Esta fila es inválida y no se puede agregar.",
+  Pause: "Pausar",
   "Add imports this row anyway. Skip leaves the existing CRM untouched.":
     "Agregar importa esta fila igual. Omitir deja el CRM existente sin cambios.",
   "CRM import finished": "Importación del CRM finalizada",

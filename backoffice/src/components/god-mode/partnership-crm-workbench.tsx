@@ -30,6 +30,7 @@ import {
   Filter,
   ListChecks,
   Mail,
+  Pause,
   Pencil,
   Plus,
   RefreshCw,
@@ -2388,18 +2389,24 @@ function ImportRowReviewCard({
   row,
   targetKind,
   pending,
+  automatic,
   onAdd,
   onSkip,
   onNext,
+  onImportRemainingInSequence,
+  onPauseAutomaticImport,
   language,
 }: {
   session: CrmImportSession;
   row: PartnershipCrmImportPreviewRow | null;
   targetKind: PartnershipCrmTargetKind;
   pending: boolean;
+  automatic: boolean;
   onAdd: () => void;
   onSkip: () => void;
   onNext: () => void;
+  onImportRemainingInSequence: () => void;
+  onPauseAutomaticImport: () => void;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
@@ -2425,6 +2432,7 @@ function ImportRowReviewCard({
       : organization?.contactLinkedIn;
   const canAdd = Boolean(row?.valid) && !processed && !pending;
   const canSkip = Boolean(row) && !processed && !pending;
+  const canImportRemaining = Boolean(row) && !processed && !pending;
   const canMoveNext =
     processed && !pending && session.nextImportIndex < session.totalRows;
 
@@ -2576,6 +2584,30 @@ function ImportRowReviewCard({
             <p className="text-sm text-muted-foreground sm:mr-auto">
               {result?.reason ? t(result.reason) : resultLabel(result, language)}
             </p>
+            {automatic ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="lg"
+                onClick={onPauseAutomaticImport}
+                className="w-full border-red-600/35 bg-red-600 px-4 font-semibold text-white hover:border-red-700/45 hover:bg-red-700 focus-visible:ring-red-500/35 dark:border-red-400/35 dark:bg-red-500 dark:text-white dark:hover:bg-red-400 sm:w-auto"
+              >
+                <Pause className="h-4 w-4" />
+                {t("Pause")}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={onImportRemainingInSequence}
+                disabled={!canMoveNext}
+                className="w-full border-blue-300 text-blue-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-800 dark:border-blue-300/35 dark:text-blue-100 dark:hover:bg-blue-500/10 sm:w-auto"
+              >
+                <ChevronRight className="h-4 w-4" />
+                {t("Import remaining in sequence")}
+              </Button>
+            )}
             <Button
               type="button"
               size="lg"
@@ -2600,6 +2632,30 @@ function ImportRowReviewCard({
               <X className="h-4 w-4" />
               {t("Skip row")}
             </Button>
+            {automatic ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="lg"
+                onClick={onPauseAutomaticImport}
+                className="w-full border-red-600/35 bg-red-600 px-4 font-semibold text-white hover:border-red-700/45 hover:bg-red-700 focus-visible:ring-red-500/35 dark:border-red-400/35 dark:bg-red-500 dark:text-white dark:hover:bg-red-400 sm:w-auto"
+              >
+                <Pause className="h-4 w-4" />
+                {t("Pause")}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={onImportRemainingInSequence}
+                disabled={!canImportRemaining}
+                className="w-full border-blue-300 text-blue-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-800 dark:border-blue-300/35 dark:text-blue-100 dark:hover:bg-blue-500/10 sm:w-auto"
+              >
+                <ChevronRight className="h-4 w-4" />
+                {t("Import remaining in sequence")}
+              </Button>
+            )}
             <Button
               type="button"
               size="lg"
@@ -2624,6 +2680,7 @@ function ImportDialog({
   session,
   preview,
   parseErrors,
+  interactiveAutoImport,
   onClose,
   onTargetKindChange,
   onFileChange,
@@ -2631,6 +2688,8 @@ function ImportDialog({
   onInteractiveAdd,
   onInteractiveSkip,
   onInteractiveNext,
+  onImportRemainingInSequence,
+  onPauseAutomaticImport,
   onImportAll,
   onClearSession,
   onResetSession,
@@ -2642,6 +2701,7 @@ function ImportDialog({
   session: CrmImportSession | null;
   preview: PartnershipCrmImportPreview | null;
   parseErrors: Array<{ row: number; message: string }>;
+  interactiveAutoImport: boolean;
   onClose: () => void;
   onTargetKindChange: (targetKind: PartnershipCrmTargetKind) => void;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -2649,6 +2709,8 @@ function ImportDialog({
   onInteractiveAdd: () => void;
   onInteractiveSkip: () => void;
   onInteractiveNext: () => void;
+  onImportRemainingInSequence: () => void;
+  onPauseAutomaticImport: () => void;
   onImportAll: () => void;
   onClearSession: () => void;
   onResetSession: () => void;
@@ -2803,9 +2865,12 @@ function ImportDialog({
               row={currentRow}
               targetKind={targetKind}
               pending={pending}
+              automatic={interactiveAutoImport}
               onAdd={onInteractiveAdd}
               onSkip={onInteractiveSkip}
               onNext={onInteractiveNext}
+              onImportRemainingInSequence={onImportRemainingInSequence}
+              onPauseAutomaticImport={onPauseAutomaticImport}
               language={language}
             />
           ) : null}
@@ -2968,9 +3033,11 @@ export function PartnershipCrmWorkbench() {
   const [importSession, setImportSession] = useState<CrmImportSession | null>(
     null,
   );
+  const [interactiveAutoImport, setInteractiveAutoImport] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [activityLogOpen, setActivityLogOpen] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const interactiveAutoImportRef = useRef(false);
   const importStorageWarningShownRef = useRef(false);
   const currentCursor = cursorStack[cursorStack.length - 1];
 
@@ -3320,6 +3387,7 @@ export function PartnershipCrmWorkbench() {
   }
 
   function discardImportCheckpoint() {
+    setInteractiveAutoImportEnabled(false);
     clearCrmImportSession(targetKind);
     setImportSession(null);
     setImportPreview(null);
@@ -3332,6 +3400,7 @@ export function PartnershipCrmWorkbench() {
   }
 
   function resetImportSession() {
+    setInteractiveAutoImportEnabled(false);
     clearCrmImportSession(targetKind);
     setImportSession(null);
     setImportPreview(null);
@@ -3419,6 +3488,7 @@ export function PartnershipCrmWorkbench() {
       }
       return working;
     } catch (error) {
+      setInteractiveAutoImportEnabled(false);
       const lastErrorDetail = buildCrmImportErrorDetail({
         error,
         session: working,
@@ -3539,6 +3609,7 @@ export function PartnershipCrmWorkbench() {
   }
 
   function completeCrmImportSession(session: CrmImportSession) {
+    setInteractiveAutoImportEnabled(false);
     const completed = saveImportSession({
       ...session,
       status: "completed",
@@ -3602,6 +3673,7 @@ export function PartnershipCrmWorkbench() {
 
       completeCrmImportSession(working);
     } catch (error) {
+      setInteractiveAutoImportEnabled(false);
       const lastErrorDetail = buildCrmImportErrorDetail({
         error,
         session: working,
@@ -3645,6 +3717,7 @@ export function PartnershipCrmWorkbench() {
       session.nextImportIndex,
       Math.max(session.totalRows - 1, 0),
     );
+    setInteractiveAutoImportEnabled(false);
     const started = saveImportSession({
       ...session,
       status: "ready",
@@ -3691,6 +3764,110 @@ export function PartnershipCrmWorkbench() {
     });
   }
 
+  function pauseInteractiveAutoImport() {
+    setInteractiveAutoImportEnabled(false);
+    setToast({
+      id: Date.now(),
+      tone: "success",
+      message: t("Automatic import paused."),
+    });
+  }
+
+  async function runInteractiveRemainingInSequence(
+    session: CrmImportSession | null,
+  ) {
+    if (
+      !session ||
+      session.status === "completed" ||
+      interactiveAutoImportRef.current
+    ) {
+      return;
+    }
+
+    setInteractiveAutoImportEnabled(true);
+
+    let working = saveImportSession({
+      ...session,
+      status: "ready",
+      stage: "import",
+      mode: "interactive",
+      activeRowIndex: Math.min(
+        session.nextImportIndex,
+        Math.max(session.totalRows - 1, 0),
+      ),
+      lastError: undefined,
+      updatedAt: new Date().toISOString(),
+    });
+    let failedImportIndex = working.activeRowIndex;
+
+    try {
+      while (
+        interactiveAutoImportRef.current &&
+        working.nextImportIndex < working.totalRows
+      ) {
+        const rowIndex = working.nextImportIndex;
+        failedImportIndex = rowIndex;
+        working = saveImportSession({
+          ...working,
+          status: "ready",
+          stage: "import",
+          mode: "interactive",
+          activeRowIndex: rowIndex,
+          updatedAt: new Date().toISOString(),
+        });
+
+        const imported = await importSinglePreviewRow(working, rowIndex, "add");
+        if (!imported) {
+          setInteractiveAutoImportEnabled(false);
+          return;
+        }
+
+        working = imported;
+      }
+
+      setInteractiveAutoImportEnabled(false);
+      if (working.nextImportIndex >= working.totalRows) {
+        completeCrmImportSession(working);
+        return;
+      }
+
+      await advanceInteractiveImportSession(working);
+    } catch (error) {
+      setInteractiveAutoImportEnabled(false);
+      const lastErrorDetail = buildCrmImportErrorDetail({
+        error,
+        session: working,
+        stage: "import",
+        rowIndex: failedImportIndex,
+        endpoint: importEndpointForTarget(working.targetKind),
+        requestPayload: importRequestPayloadForSessionRow(
+          working,
+          failedImportIndex,
+        ),
+      });
+      saveImportSession({
+        ...working,
+        status: "paused",
+        stage: "import",
+        mode: "interactive",
+        activeRowIndex: failedImportIndex,
+        lastError: errorMessage(error),
+        lastErrorDetail,
+        updatedAt: new Date().toISOString(),
+      });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("CRM import paused."),
+        details: importErrorDescription(
+          { ...working, lastError: errorMessage(error), lastErrorDetail },
+          language,
+        ),
+        durationMs: 18000,
+      });
+    }
+  }
+
   async function decideInteractiveImportRow(decision: "add" | "skip") {
     if (!importSession || importSession.status === "completed") {
       return;
@@ -3712,8 +3889,13 @@ export function PartnershipCrmWorkbench() {
       }
       if (updated.nextImportIndex >= updated.totalRows) {
         completeCrmImportSession(updated);
+        return;
+      }
+      if (decision === "add") {
+        await advanceInteractiveImportSession(updated);
       }
     } catch (error) {
+      setInteractiveAutoImportEnabled(false);
       const rowIndex = importSession.activeRowIndex;
       const lastErrorDetail = buildCrmImportErrorDetail({
         error,
@@ -3769,6 +3951,16 @@ export function PartnershipCrmWorkbench() {
     importSession?.status === "previewing" ||
     importSession?.status === "importing";
 
+  function setInteractiveAutoImportEnabled(enabled: boolean) {
+    interactiveAutoImportRef.current = enabled;
+    setInteractiveAutoImport(enabled);
+  }
+
+  function closeImportDialog() {
+    setInteractiveAutoImportEnabled(false);
+    setImportOpen(false);
+  }
+
   function resetCursorsForFilterChange(patch: Partial<ListFilters>) {
     setCursorStack([]);
     setFilters((current) => ({ ...current, ...patch }));
@@ -3779,6 +3971,7 @@ export function PartnershipCrmWorkbench() {
       return;
     }
 
+    setInteractiveAutoImportEnabled(false);
     setTargetKind(nextTargetKind);
     setCursorStack([]);
     setSelectedId(null);
@@ -3833,6 +4026,7 @@ export function PartnershipCrmWorkbench() {
     }
 
     clearCrmImportSession(targetKind);
+    setInteractiveAutoImportEnabled(false);
     try {
       const text = await file.text();
       const parsed = parseCrmCsv(text, targetKind);
@@ -4547,7 +4741,8 @@ export function PartnershipCrmWorkbench() {
         session={importSession}
         preview={importPreview}
         parseErrors={parseErrors}
-        onClose={() => setImportOpen(false)}
+        interactiveAutoImport={interactiveAutoImport}
+        onClose={closeImportDialog}
         onTargetKindChange={handleTargetKindChange}
         onFileChange={handleCsvFileChange}
         onStartInteractive={() =>
@@ -4558,6 +4753,10 @@ export function PartnershipCrmWorkbench() {
         onInteractiveNext={() =>
           void advanceInteractiveImportSession(importSession)
         }
+        onImportRemainingInSequence={() =>
+          void runInteractiveRemainingInSequence(importSession)
+        }
+        onPauseAutomaticImport={pauseInteractiveAutoImport}
         onImportAll={() => void runCrmImportSession(importSession)}
         onClearSession={discardImportCheckpoint}
         onResetSession={resetImportSession}
