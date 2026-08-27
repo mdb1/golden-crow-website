@@ -108,7 +108,7 @@ export default async function ReportingApiDocumentationPage() {
       <section>
         <div className="flex items-center gap-2">
           <FileCode2 className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-base font-semibold">General information</h2>
+          <h2 className="text-lg font-semibold">General information</h2>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Applies to the public API endpoints unless an operation states
