@@ -169,6 +169,11 @@ export interface PartnershipCrmImportResult {
   };
 }
 
+export interface ParsedCrmTemplateCsv {
+  rows: PartnershipCrmTemplateInput[];
+  errors: Array<{ row: number; message: string }>;
+}
+
 export interface ParsedCrmCsv {
   rows: PartnershipCrmOrganizationInput[];
   errors: Array<{ row: number; message: string }>;
@@ -226,6 +231,21 @@ const CATEGORY_ALIASES: Record<string, (typeof CRM_CATEGORY_OPTIONS)[number]> =
     otro: "Other",
   };
 
+const TEMPLATE_STATUS_ALIASES: Record<string, PartnershipCrmTemplateStatus> = {
+  active: "active",
+  activo: "active",
+  activa: "active",
+  enabled: "active",
+  inactive: "inactive",
+  inactivo: "inactive",
+  inactiva: "inactive",
+  disabled: "inactive",
+  archived: "archived",
+  archive: "archived",
+  archivado: "archived",
+  archivada: "archived",
+};
+
 const HEADER_ALIASES: Record<keyof PartnershipCrmOrganizationInput, string[]> =
   {
     name: [
@@ -246,6 +266,16 @@ const HEADER_ALIASES: Record<keyof PartnershipCrmOrganizationInput, string[]> =
     notes: ["notes", "note", "notas", "observaciones"],
   };
 
+const TEMPLATE_HEADER_ALIASES: Record<keyof PartnershipCrmTemplateInput, string[]> =
+  {
+    name: ["name", "template", "template_name", "nombre", "plantilla"],
+    category: ["category", "template_category", "categoria", "tipo"],
+    subject: ["subject", "asunto"],
+    body: ["body", "message", "text", "cuerpo", "mensaje", "texto"],
+    status: ["status", "estado"],
+    notes: ["notes", "note", "notas", "observaciones"],
+  };
+
 function normalizeKey(value: string) {
   return value
     .normalize("NFD")
@@ -258,6 +288,11 @@ function normalizeKey(value: string) {
 function normalizeStatus(value: string): PartnershipCrmStatus {
   const key = normalizeKey(value);
   return STATUS_ALIASES[key] ?? "new";
+}
+
+function normalizeTemplateStatus(value: string): PartnershipCrmTemplateStatus {
+  const key = normalizeKey(value);
+  return TEMPLATE_STATUS_ALIASES[key] ?? "active";
 }
 
 export function normalizeCrmCategory(value: string) {
@@ -281,14 +316,16 @@ export function normalizeCrmCountry(value: string) {
   return countryCode === "GLOBAL" ? "" : countryCode;
 }
 
-function parseCsvLine(line: string) {
-  const cells: string[] = [];
+function parseCsvRecords(text: string) {
+  const records: string[][] = [];
+  let row: string[] = [];
   let current = "";
   let inQuotes = false;
+  const source = text.replace(/^\uFEFF/, "");
 
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    const nextChar = line[index + 1];
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const nextChar = source[index + 1];
 
     if (char === '"' && inQuotes && nextChar === '"') {
       current += '"';
@@ -302,7 +339,20 @@ function parseCsvLine(line: string) {
     }
 
     if (char === "," && !inQuotes) {
-      cells.push(current.trim());
+      row.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && nextChar === "\n") {
+        index += 1;
+      }
+      row.push(current.trim());
+      if (row.some((cell) => cell.trim().length > 0)) {
+        records.push(row);
+      }
+      row = [];
       current = "";
       continue;
     }
@@ -310,8 +360,14 @@ function parseCsvLine(line: string) {
     current += char;
   }
 
-  cells.push(current.trim());
-  return cells;
+  if (current.length > 0 || row.length > 0) {
+    row.push(current.trim());
+    if (row.some((cell) => cell.trim().length > 0)) {
+      records.push(row);
+    }
+  }
+
+  return records;
 }
 
 function fieldForHeader(header: string) {
@@ -323,21 +379,30 @@ function fieldForHeader(header: string) {
   return entry?.[0] as keyof PartnershipCrmOrganizationInput | undefined;
 }
 
-export function parseCrmCsv(text: string): ParsedCrmCsv {
-  const lines = text
-    .replace(/^\uFEFF/, "")
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0);
-  const [headerLine, ...dataLines] = lines;
+function templateFieldForHeader(header: string) {
+  const normalized = normalizeKey(header);
+  const entry = Object.entries(TEMPLATE_HEADER_ALIASES).find(([, aliases]) =>
+    aliases.includes(normalized),
+  );
 
-  if (!headerLine) {
+  return entry?.[0] as keyof PartnershipCrmTemplateInput | undefined;
+}
+
+function normalizeTemplateCsvText(value: string) {
+  return value.trim().replace(/\\n/g, "\n");
+}
+
+export function parseCrmCsv(text: string): ParsedCrmCsv {
+  const [headerCells, ...dataRows] = parseCsvRecords(text);
+
+  if (!headerCells) {
     return {
       rows: [],
       errors: [{ row: 0, message: "CSV file is empty." }],
     };
   }
 
-  const headers = parseCsvLine(headerLine).map(fieldForHeader);
+  const headers = headerCells.map(fieldForHeader);
   if (!headers.includes("name")) {
     return {
       rows: [],
@@ -348,8 +413,7 @@ export function parseCrmCsv(text: string): ParsedCrmCsv {
   const rows: PartnershipCrmOrganizationInput[] = [];
   const errors: ParsedCrmCsv["errors"] = [];
 
-  dataLines.forEach((line, index) => {
-    const cells = parseCsvLine(line);
+  dataRows.forEach((cells, index) => {
     const row: Record<string, string> = {};
 
     headers.forEach((field, cellIndex) => {
@@ -376,6 +440,102 @@ export function parseCrmCsv(text: string): ParsedCrmCsv {
       contactLinkedIn: row.contactLinkedIn?.trim() ?? "",
       lastContactAt: row.lastContactAt?.trim() || null,
       notes: row.notes?.trim() ?? "",
+    });
+  });
+
+  return { rows, errors };
+}
+
+export function parseCrmTemplateCsv(text: string): ParsedCrmTemplateCsv {
+  const [headerCells, ...dataRows] = parseCsvRecords(text);
+
+  if (!headerCells) {
+    return {
+      rows: [],
+      errors: [{ row: 0, message: "CSV file is empty." }],
+    };
+  }
+
+  const headers = headerCells.map(templateFieldForHeader);
+  const requiredFields: Array<keyof PartnershipCrmTemplateInput> = [
+    "name",
+    "subject",
+    "body",
+  ];
+  const missingFields = requiredFields.filter(
+    (field) => !headers.includes(field),
+  );
+  if (missingFields.length > 0) {
+    return {
+      rows: [],
+      errors: [
+        {
+          row: 1,
+          message: "CSV needs name, subject, and body columns.",
+        },
+      ],
+    };
+  }
+
+  const rows: PartnershipCrmTemplateInput[] = [];
+  const errors: ParsedCrmTemplateCsv["errors"] = [];
+
+  dataRows.forEach((cells, index) => {
+    const row: Record<string, string> = {};
+    const rowNumber = index + 2;
+
+    headers.forEach((field, cellIndex) => {
+      if (field) {
+        row[field] = cells[cellIndex]?.trim() ?? "";
+      }
+    });
+
+    const name = row.name?.trim() ?? "";
+    const subject = row.subject?.trim() ?? "";
+    const body = normalizeTemplateCsvText(row.body ?? "");
+    const notes = normalizeTemplateCsvText(row.notes ?? "");
+
+    if (!name) {
+      errors.push({ row: rowNumber, message: "Template name is required." });
+    } else if (name.length > 180) {
+      errors.push({
+        row: rowNumber,
+        message: "Template name must be 180 characters or fewer.",
+      });
+    }
+
+    if (!subject) {
+      errors.push({ row: rowNumber, message: "Template subject is required." });
+    } else if (subject.length > 180) {
+      errors.push({
+        row: rowNumber,
+        message: "Template subject must be 180 characters or fewer.",
+      });
+    }
+
+    if (!body) {
+      errors.push({ row: rowNumber, message: "Template body is required." });
+    } else if (body.length > 12000) {
+      errors.push({
+        row: rowNumber,
+        message: "Template body must be 12000 characters or fewer.",
+      });
+    }
+
+    if (notes.length > 2000) {
+      errors.push({
+        row: rowNumber,
+        message: "Template notes must be 2000 characters or fewer.",
+      });
+    }
+
+    rows.push({
+      name,
+      category: normalizeCrmCategory(row.category ?? ""),
+      subject,
+      body,
+      status: normalizeTemplateStatus(row.status ?? ""),
+      notes,
     });
   });
 

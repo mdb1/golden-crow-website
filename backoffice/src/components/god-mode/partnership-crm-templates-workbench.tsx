@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  FileUp,
   Filter,
   Plus,
   RefreshCw,
@@ -31,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -57,8 +65,10 @@ import {
   CRM_TEMPLATE_STATUS_OPTIONS,
   PARTNERSHIP_CRM_FROM_EMAIL,
   normalizeCrmCategory,
+  parseCrmTemplateCsv,
   renderCrmTemplate,
   templateStatusLabel,
+  type ParsedCrmTemplateCsv,
   type PartnershipCrmOrganizationRecord,
   type PartnershipCrmTemplateInput,
   type PartnershipCrmTemplateRecord,
@@ -87,6 +97,17 @@ const TEMPLATE_VARIABLES = [
     label: "Website sentence",
   },
 ] as const;
+const TEMPLATE_IMPORT_SAMPLE_CSV = [
+  "name,category,subject,body,status,notes",
+  [
+    '"Laboratorio - primer contacto"',
+    '"Laboratory / Genomics"',
+    '"Pocket Genes + {{organization_name}}"',
+    '"Hola {{contact_name}},\\n\\nSoy Federico de Pocket Genes. Vi el trabajo de {{organization_name}}{{website_sentence}} y queria coordinar una conversacion corta para explorar colaboracion clinica/genomica.\\n\\nTe parece si agendamos 20 minutos esta semana?"',
+    '"active"',
+    '"Usar con laboratorios y centros de genomica."',
+  ].join(","),
+].join("\n");
 
 type TemplateFilters = {
   query: string;
@@ -101,6 +122,20 @@ type TemplateFormState = {
   body: string;
   status: PartnershipCrmTemplateStatus;
   notes: string;
+};
+
+type TemplateImportPreviewRow = {
+  rowNumber: number;
+  template: PartnershipCrmTemplateInput;
+  errors: string[];
+  valid: boolean;
+};
+
+type TemplateImportResult = {
+  rowNumber: number;
+  action: "created" | "invalid" | "failed";
+  templateId?: string;
+  error?: string;
 };
 
 const EMPTY_TEMPLATE_FORM: TemplateFormState = {
@@ -224,6 +259,43 @@ function statusBadgeVariant(status: PartnershipCrmTemplateStatus) {
   return "secondary" as const;
 }
 
+function templatePreviewRows(
+  parsed: ParsedCrmTemplateCsv,
+): TemplateImportPreviewRow[] {
+  const errorsByRow = parsed.errors.reduce((map, error) => {
+    const errors = map.get(error.row) ?? [];
+    errors.push(error.message);
+    map.set(error.row, errors);
+    return map;
+  }, new Map<number, string[]>());
+
+  return parsed.rows.map((template, index) => {
+    const rowNumber = index + 2;
+    const errors = errorsByRow.get(rowNumber) ?? [];
+
+    return {
+      rowNumber,
+      template,
+      errors,
+      valid: errors.length === 0,
+    };
+  });
+}
+
+function templateImportResultTone(result: TemplateImportResult) {
+  if (result.action === "created") {
+    return "success" as const;
+  }
+  if (result.action === "invalid") {
+    return "warning" as const;
+  }
+  return "destructive" as const;
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error.";
+}
+
 function TemplateStatusBadge({
   status,
   language,
@@ -301,15 +373,408 @@ function TemplatePreview({
   );
 }
 
+function TemplateImportDialog({
+  open,
+  onOpenChange,
+  onImported,
+  language,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onImported: () => void;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const [csvText, setCsvText] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [parsed, setParsed] = useState<ParsedCrmTemplateCsv | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [processedCount, setProcessedCount] = useState(0);
+  const [results, setResults] = useState<TemplateImportResult[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      return;
+    }
+
+    setCsvText("");
+    setFileName("");
+    setParsed(null);
+    setImporting(false);
+    setCompleted(false);
+    setProcessedCount(0);
+    setResults([]);
+  }, [open]);
+
+  const previewRows = useMemo(
+    () => (parsed ? templatePreviewRows(parsed) : []),
+    [parsed],
+  );
+  const validRows = useMemo(
+    () => previewRows.filter((row) => row.valid),
+    [previewRows],
+  );
+  const headerErrors = useMemo(
+    () => parsed?.errors.filter((error) => error.row < 2) ?? [],
+    [parsed],
+  );
+  const resultByRow = useMemo(
+    () =>
+      new Map(results.map((result) => [result.rowNumber, result] as const)),
+    [results],
+  );
+  const invalidCount = previewRows.length - validRows.length;
+  const createdCount = results.filter(
+    (result) => result.action === "created",
+  ).length;
+  const failedCount = results.filter(
+    (result) => result.action === "failed",
+  ).length;
+  const progressValue =
+    validRows.length > 0
+      ? Math.round((processedCount / validRows.length) * 100)
+      : 0;
+  const canImport = validRows.length > 0 && !importing;
+
+  function parseCsv(text: string, nextFileName = "") {
+    setCsvText(text);
+    setFileName(nextFileName);
+    setParsed(text.trim() ? parseCrmTemplateCsv(text) : null);
+    setCompleted(false);
+    setProcessedCount(0);
+    setResults([]);
+  }
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      setCsvText(text);
+      setFileName(file.name);
+      setParsed(parseCrmTemplateCsv(text));
+      setCompleted(false);
+      setProcessedCount(0);
+      setResults([]);
+    } catch (error) {
+      setCsvText("");
+      setFileName(file.name);
+      setParsed({
+        rows: [],
+        errors: [{ row: 0, message: errorMessage(error) }],
+      });
+      setCompleted(false);
+      setProcessedCount(0);
+      setResults([]);
+    } finally {
+      input.value = "";
+    }
+  }
+
+  async function handleImport() {
+    if (!canImport) {
+      return;
+    }
+
+    const skippedRows = previewRows
+      .filter((row) => !row.valid)
+      .map<TemplateImportResult>((row) => ({
+        rowNumber: row.rowNumber,
+        action: "invalid",
+        error: row.errors.join(" "),
+      }));
+    let nextResults = skippedRows;
+    let createdAny = false;
+
+    setCompleted(false);
+    setImporting(true);
+    setProcessedCount(0);
+    setResults(nextResults);
+
+    for (const [index, row] of validRows.entries()) {
+      try {
+        const response = await sdkFetch<{
+          template: PartnershipCrmTemplateRecord;
+        }>("/admin/partnership-crm/templates", {
+          method: "POST",
+          body: JSON.stringify(row.template),
+        });
+        nextResults = [
+          ...nextResults,
+          {
+            rowNumber: row.rowNumber,
+            action: "created",
+            templateId: response.template.id,
+          },
+        ];
+        createdAny = true;
+      } catch (error) {
+        nextResults = [
+          ...nextResults,
+          {
+            rowNumber: row.rowNumber,
+            action: "failed",
+            error: errorMessage(error),
+          },
+        ];
+      }
+
+      setResults(nextResults);
+      setProcessedCount(index + 1);
+    }
+
+    setImporting(false);
+    setCompleted(true);
+    if (createdAny) {
+      onImported();
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!importing) {
+          onOpenChange(nextOpen);
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>{t("Import templates from CSV")}</DialogTitle>
+          <DialogDescription>
+            {t("Review each template before creating it in plantillas.")}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4">
+          <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(280px,0.7fr)]">
+            <div className="grid gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="crm-template-import-file">
+                  {t("CSV file")}
+                </Label>
+                <Input
+                  id="crm-template-import-file"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleFileChange}
+                  disabled={importing}
+                />
+                {fileName ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t("Selected file")}: {fileName}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="crm-template-import-text">
+                  {t("CSV contents")}
+                </Label>
+                <Textarea
+                  id="crm-template-import-text"
+                  value={csvText}
+                  onChange={(event) => parseCsv(event.target.value)}
+                  placeholder={t("Paste template CSV here...")}
+                  className="min-h-32 font-mono text-xs leading-5"
+                  disabled={importing}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border/70 bg-muted/25 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-heading text-sm font-semibold">
+                  {t("Sample template CSV")}
+                </h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => parseCsv(TEMPLATE_IMPORT_SAMPLE_CSV)}
+                  disabled={importing}
+                >
+                  {t("Use sample")}
+                </Button>
+              </div>
+              <pre className="mt-3 max-h-44 overflow-auto whitespace-pre-wrap rounded-lg bg-background/80 p-3 text-xs leading-5 text-muted-foreground">
+                {TEMPLATE_IMPORT_SAMPLE_CSV}
+              </pre>
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-5">
+            {[
+              { label: "Found", value: previewRows.length },
+              { label: "Valid", value: validRows.length },
+              { label: "Invalid", value: invalidCount },
+              { label: "Created templates", value: createdCount },
+              { label: "Failed rows", value: failedCount },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="rounded-xl border border-border/80 bg-background/70 px-3 py-2"
+              >
+                <p className="text-xs text-muted-foreground">
+                  {t(item.label)}
+                </p>
+                <p className="mt-1 text-lg font-semibold">{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {parsed && (importing || completed) ? (
+            <div className="rounded-xl border border-border/80 bg-background/70 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-medium">
+                  {completed ? t("Import completed") : t("Importing CSV")}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {processedCount} / {validRows.length} {t("templates")}
+                </p>
+              </div>
+              <Progress value={progressValue} className="mt-3 h-2" />
+            </div>
+          ) : null}
+
+          {headerErrors.length > 0 ? (
+            <ErrorBanner>
+              {headerErrors.map((error) => t(error.message)).join(" ")}
+            </ErrorBanner>
+          ) : null}
+
+          <div className="max-h-[360px] overflow-auto rounded-xl border border-border/80 bg-background/64">
+            {previewRows.length === 0 ? (
+              <EmptyState>{t("No import rows found.")}</EmptyState>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("Row")}</TableHead>
+                    <TableHead>{t("Template")}</TableHead>
+                    <TableHead>{t("Category")}</TableHead>
+                    <TableHead>{t("Subject")}</TableHead>
+                    <TableHead>{t("Message")}</TableHead>
+                    <TableHead>{t("Status")}</TableHead>
+                    <TableHead>{t("Import")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {previewRows.map((row) => {
+                    const result = resultByRow.get(row.rowNumber);
+                    const resultLabel = result
+                      ? result.action === "created"
+                        ? "Created"
+                        : result.action === "invalid"
+                          ? "Invalid"
+                          : "Failed"
+                      : row.valid
+                        ? "Ready"
+                        : "Invalid";
+
+                    return (
+                      <TableRow key={row.rowNumber}>
+                        <TableCell className="font-mono text-xs">
+                          {row.rowNumber}
+                        </TableCell>
+                        <TableCell className="min-w-48 whitespace-normal">
+                          <p className="font-medium">{row.template.name}</p>
+                          {row.template.notes ? (
+                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                              {row.template.notes}
+                            </p>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="min-w-44 whitespace-normal text-sm text-muted-foreground">
+                          {formatCrmCategory(
+                            row.template.category ?? "",
+                            language,
+                          ) || t("No category")}
+                        </TableCell>
+                        <TableCell className="min-w-56 whitespace-normal text-sm">
+                          {row.template.subject || "-"}
+                        </TableCell>
+                        <TableCell className="min-w-72 whitespace-normal">
+                          <p className="max-h-16 overflow-hidden whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
+                            {row.template.body || "-"}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <TemplateStatusBadge
+                            status={row.template.status ?? "active"}
+                            language={language}
+                          />
+                        </TableCell>
+                        <TableCell className="min-w-36 whitespace-normal">
+                          <Badge
+                            variant={
+                              result
+                                ? templateImportResultTone(result)
+                                : row.valid
+                                  ? "success"
+                                  : "destructive"
+                            }
+                          >
+                            {t(resultLabel)}
+                          </Badge>
+                          {row.errors.length > 0 ? (
+                            <p className="mt-1 text-xs text-destructive">
+                              {row.errors.map((error) => t(error)).join(" ")}
+                            </p>
+                          ) : null}
+                          {result?.action === "failed" && result.error ? (
+                            <p className="mt-1 text-xs text-destructive">
+                              {result.error}
+                            </p>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={importing}
+          >
+            {t("Cancel")}
+          </Button>
+          <Button type="button" onClick={handleImport} disabled={!canImport}>
+            <FileUp className="h-4 w-4" />
+            {importing
+              ? t("Importing...")
+              : `${t("Import")} ${validRows.length} ${t("templates")}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function PartnershipCrmTemplateBrowser() {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<TemplateFilters>({
     query: "",
     status: "all",
     category: "",
   });
   const [cursorStack, setCursorStack] = useState<string[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
   const currentCursor = cursorStack[cursorStack.length - 1];
 
   const templatesQuery = useQuery({
@@ -361,6 +826,15 @@ export function PartnershipCrmTemplateBrowser() {
               )}
             />
             {t("Refresh")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+          >
+            <FileUp className="h-3.5 w-3.5" />
+            {t("Import CSV")}
           </Button>
           <Button type="button" size="sm" asChild>
             <Link href="/god-mode/plantillas/new">
@@ -544,6 +1018,16 @@ export function PartnershipCrmTemplateBrowser() {
           <ChevronRight className="h-3.5 w-3.5" />
         </Button>
       </div>
+
+      <TemplateImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => {
+          queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
+          void templatesQuery.refetch();
+        }}
+        language={language}
+      />
     </section>
   );
 }

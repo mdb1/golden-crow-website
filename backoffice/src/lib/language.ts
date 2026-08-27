@@ -908,6 +908,34 @@ const SPANISH_TEXT: Record<string, string> = {
   "Template Active": "Activa",
   "Template Inactive": "Inactiva",
   "Template Archived": "Archivada",
+  "Import templates from CSV": "Importar plantillas desde CSV",
+  "Review each template before creating it in plantillas.":
+    "Revisá cada plantilla antes de crearla en plantillas.",
+  "Sample template CSV": "CSV de ejemplo de plantilla",
+  "Selected file": "Archivo seleccionado",
+  "CSV contents": "Contenido del CSV",
+  "Paste template CSV here...": "Pegá acá el CSV de plantillas...",
+  "Use sample": "Usar ejemplo",
+  "No import rows found.": "No se encontraron filas para importar.",
+  "Created templates": "Creadas",
+  "Failed rows": "Fallidas",
+  templates: "plantillas",
+  "CSV needs name, subject, and body columns.":
+    "El CSV necesita columnas name, subject y body.",
+  "Template name is required.":
+    "El nombre de la plantilla es obligatorio.",
+  "Template subject is required.":
+    "El asunto de la plantilla es obligatorio.",
+  "Template body is required.":
+    "El mensaje de la plantilla es obligatorio.",
+  "Template name must be 180 characters or fewer.":
+    "El nombre de la plantilla debe tener 180 caracteres o menos.",
+  "Template subject must be 180 characters or fewer.":
+    "El asunto de la plantilla debe tener 180 caracteres o menos.",
+  "Template body must be 12000 characters or fewer.":
+    "El mensaje de la plantilla debe tener 12000 caracteres o menos.",
+  "Template notes must be 2000 characters or fewer.":
+    "Las notas de la plantilla deben tener 2000 caracteres o menos.",
   "No active templates": "Sin plantillas activas",
   "Loading templates...": "Cargando plantillas...",
   "Preview sample": "Muestra de vista previa",

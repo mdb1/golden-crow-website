@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
@@ -10,7 +10,10 @@ import {
   PartnershipCrmTemplateWorkbench,
 } from "@/components/god-mode/partnership-crm-templates-workbench";
 import { sdkFetch } from "@/lib/sdk-client";
-import type { PartnershipCrmTemplateRecord } from "@/lib/partnership-crm";
+import type {
+  PartnershipCrmTemplateInput,
+  PartnershipCrmTemplateRecord,
+} from "@/lib/partnership-crm";
 
 const routerPush = jest.fn();
 const routerRefresh = jest.fn();
@@ -83,6 +86,103 @@ describe("PartnershipCrmTemplateBrowser", () => {
       0,
     );
     expect(screen.queryByPlaceholderText("Category")).toBeNull();
+  });
+
+  it("previews and imports templates from CSV", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (
+        path === "/admin/partnership-crm/templates" &&
+        init?.method === "POST"
+      ) {
+        const body = JSON.parse(
+          String(init.body),
+        ) as PartnershipCrmTemplateInput;
+        return {
+          template: {
+            ...template,
+            ...body,
+            id: `created-${body.name}`,
+          },
+        };
+      }
+
+      return {
+        templates: [],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/templates?limit=20",
+      );
+    });
+
+    await user.click(screen.getByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = [
+      "name,category,subject,body,status,notes",
+      '"Lab intro","lab","Pocket Genes + {{organization_name}}","Hola {{contact_name}}\\nMensaje","active","First"',
+      '"Foundation intro","fundacion","Pocket Genes para {{organization_name}}","Hola {{contact_name}}","inactive","Second"',
+    ].join("\n");
+    const file = new File([csv], "plantillas.csv", { type: "text/csv" });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Lab intro")).toBeTruthy();
+      expect(within(dialog).getByText("Foundation intro")).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Import 2 templates",
+      }),
+    );
+
+    await waitFor(() => {
+      const postCalls = jest.mocked(sdkFetch).mock.calls.filter(
+        ([path, init]) =>
+          path === "/admin/partnership-crm/templates" &&
+          init?.method === "POST",
+      );
+      expect(postCalls).toHaveLength(2);
+    });
+
+    const postBodies = jest
+      .mocked(sdkFetch)
+      .mock.calls.filter(
+        ([path, init]) =>
+          path === "/admin/partnership-crm/templates" &&
+          init?.method === "POST",
+      )
+      .map(([, init]) =>
+        JSON.parse(String(init?.body)),
+      ) as PartnershipCrmTemplateInput[];
+
+    expect(postBodies).toEqual([
+      expect.objectContaining({
+        name: "Lab intro",
+        category: "Laboratory / Genomics",
+        subject: "Pocket Genes + {{organization_name}}",
+        body: "Hola {{contact_name}}\nMensaje",
+        status: "active",
+        notes: "First",
+      }),
+      expect.objectContaining({
+        name: "Foundation intro",
+        category: "Foundation",
+        status: "inactive",
+        notes: "Second",
+      }),
+    ]);
+    await waitFor(() => {
+      expect(within(dialog).getAllByText("Created").length).toBeGreaterThan(1);
+    });
   });
 });
 

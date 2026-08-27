@@ -2,6 +2,7 @@ import {
   bestCrmTemplateForOrganization,
   normalizeCrmCategory,
   parseCrmCsv,
+  parseCrmTemplateCsv,
   renderCrmTemplate,
   type PartnershipCrmOrganizationRecord,
   type PartnershipCrmTemplateRecord,
@@ -95,6 +96,45 @@ describe("partnership CRM helpers", () => {
     expect(parsed.rows).toHaveLength(1);
     expect(parsed.errors).toEqual([
       { row: 2, message: "Organization name is required." },
+    ]);
+  });
+
+  it("parses CRM template CSV rows with normalized category and status values", () => {
+    const parsed = parseCrmTemplateCsv(
+      [
+        "name,category,subject,body,status,notes",
+        '"Lab intro","lab","Pocket Genes + {{organization_name}}","Hola {{contact_name}}\\nLinea 2","activo","Primary"',
+        '"Foundation intro","fundacion","Pocket Genes para {{organization_name}}","Hola {{contact_name}}","archivada","Secondary"',
+      ].join("\n"),
+    );
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows).toEqual([
+      expect.objectContaining({
+        name: "Lab intro",
+        category: "Laboratory / Genomics",
+        subject: "Pocket Genes + {{organization_name}}",
+        body: "Hola {{contact_name}}\nLinea 2",
+        status: "active",
+        notes: "Primary",
+      }),
+      expect.objectContaining({
+        name: "Foundation intro",
+        category: "Foundation",
+        status: "archived",
+      }),
+    ]);
+  });
+
+  it("keeps invalid CRM template CSV rows visible for preview", () => {
+    const parsed = parseCrmTemplateCsv(
+      "name,category,subject,body\n,lab,,Hola",
+    );
+
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.errors).toEqual([
+      { row: 2, message: "Template name is required." },
+      { row: 2, message: "Template subject is required." },
     ]);
   });
 
