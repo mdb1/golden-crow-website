@@ -167,6 +167,26 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(screen.queryByText("owner@example.org")).toBeNull();
   });
 
+  it("places the send email CTA below the selected record notes", async () => {
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(2);
+    });
+
+    const notesHeading = screen
+      .getAllByText("Notes")
+      .find((element) => element.tagName !== "TH");
+    const sendButton = screen.getByRole("button", { name: "Send Email" });
+
+    expect(notesHeading).toBeTruthy();
+    expect(
+      notesHeading!.compareDocumentPosition(sendButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(sendButton.className).toContain("w-full");
+  });
+
   it("switches to the professionals CRM collection and professional fields", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path) => {

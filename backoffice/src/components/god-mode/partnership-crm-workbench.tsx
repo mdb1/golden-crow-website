@@ -3139,16 +3139,6 @@ export function PartnershipCrmWorkbench() {
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
-                      size="lg"
-                      onClick={() => setEmailOpen(true)}
-                      disabled={!crmTargetEmail(selectedOrganization, targetKind)}
-                      className={EMAIL_CTA_CLASS}
-                    >
-                      <Mail className="h-4 w-4" />
-                      {t("Send Email")}
-                    </Button>
-                    <Button
-                      type="button"
                       variant="outline"
                       size="icon-sm"
                       aria-label={t("Edit")}
@@ -3217,6 +3207,17 @@ export function PartnershipCrmWorkbench() {
                     {selectedOrganization.notes || t("No notes yet.")}
                   </p>
                 </div>
+
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={() => setEmailOpen(true)}
+                  disabled={!crmTargetEmail(selectedOrganization, targetKind)}
+                  className={cn(EMAIL_CTA_CLASS, "mt-4 w-full justify-center")}
+                >
+                  <Mail className="h-4 w-4" />
+                  {t("Send Email")}
+                </Button>
               </div>
             </>
           ) : (
