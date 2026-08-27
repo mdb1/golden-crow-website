@@ -527,5 +527,18 @@ describe("PartnershipCrmWorkbench import flow", () => {
         "CRM target imports preview and commit in 100-row chunks with a browser checkpoint.",
       ),
     ).toBeTruthy();
+
+    await user.click(within(dialog).getByRole("button", { name: "Copy" }));
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: "Copied" }),
+      ).toBeTruthy();
+    });
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Header row: name,category,website,country,status,contact_name,email,linkedin,last_contact_at,notes",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "org_genetic_testing_laboratories",
+    );
   });
 });

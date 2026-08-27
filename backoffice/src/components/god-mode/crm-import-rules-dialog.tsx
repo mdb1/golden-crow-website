@@ -1,6 +1,7 @@
 "use client";
 
-import { FileCheck2, ListChecks } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Copy, FileCheck2, ListChecks } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -217,6 +218,32 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
   ];
 }
 
+function dialogDescriptionFor(kind: ImportRulesKind) {
+  if (kind === "organizations") {
+    return "Rules for CRM organization CSV imports.";
+  }
+
+  return kind === "professionals"
+    ? "Rules for CRM professional CSV imports."
+    : "Rules for CRM template CSV imports.";
+}
+
+function importBehaviorLinesFor(kind: ImportRulesKind) {
+  return kind === "templates"
+    ? [
+        "Preview the parsed template rows before creating templates.",
+        "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.",
+        "Literal \\n is converted to a line break in template body and notes.",
+        "Use active templates for the CRM send flow; archived templates are kept out of normal sending.",
+      ]
+    : [
+        "Always review preview results before final import.",
+        "CRM target imports preview and commit in 100-row chunks with a browser checkpoint.",
+        "If the import fails in the middle, completed rows are kept and the checkpoint can resume from the last saved point.",
+        "Duplicates must be reviewed as skip, update existing, or import anyway before committing.",
+      ];
+}
+
 function countryOptions(language: AppLanguage) {
   return getDiscoverOrganizationCountryGroups(language).map((group) => ({
     ...group,
@@ -248,6 +275,87 @@ function OptionGrid({
   );
 }
 
+function buildImportRulesText({
+  language,
+  kind,
+  audience,
+  t,
+}: {
+  language: AppLanguage;
+  kind: ImportRulesKind;
+  audience: PartnershipCrmTemplateAudience;
+  t: (text: string) => string;
+}) {
+  const headers = csvHeadersFor(kind);
+  const requiredHeaders = requiredHeadersFor(kind);
+  const optionalHeaders = optionalHeadersFor(kind);
+  const lines = ruleLinesFor(kind);
+  const statusOptions =
+    kind === "templates" ? CRM_TEMPLATE_STATUS_OPTIONS : CRM_STATUS_OPTIONS;
+  const countries = kind === "templates" ? [] : countryOptions(language);
+  const categoryAudience = kind === "templates" ? audience : kind;
+  const categoryOptions =
+    categoryAudience === "professionals"
+      ? CRM_PROFESSIONAL_CATEGORY_OPTIONS
+      : CRM_CATEGORY_OPTIONS;
+  const categoryGuidance =
+    kind === "templates"
+      ? "Use one canonical category key for the selected template audience."
+      : categoryAudience === "professionals"
+        ? "Use canonical pro_* keys when possible. Quote the CSV cell when multiple keys are separated by commas."
+        : "Use canonical org_* keys when possible. Quote the CSV cell when multiple keys are separated by commas.";
+  const countryGuidance =
+    "Use normalized country codes from the CRM country whitelist. Quote the CSV cell when multiple codes are separated by commas. GLOBAL is not accepted.";
+
+  return [
+    t("Import rules"),
+    t(dialogDescriptionFor(kind)),
+    "",
+    t("CSV structure"),
+    `${t("Header row")}: ${headers.join(",")}`,
+    t("First row must contain supported column headers."),
+    t(
+      "Use comma-separated CSV and quote cells that contain commas, quotes, or line breaks.",
+    ),
+    t("Escape quotes by doubling them."),
+    t("Empty rows are ignored."),
+    "",
+    t("Required columns"),
+    requiredHeaders.join(", "),
+    "",
+    t("Optional columns"),
+    optionalHeaders.join(", "),
+    "",
+    t("Field rules"),
+    ...lines.map((line) => `${line.label}: ${t(line.detail)}`),
+    "",
+    t("Accepted statuses"),
+    ...statusOptions.map((option) => `${option.value}: ${t(option.label)}`),
+    "",
+    t("Accepted categories"),
+    t(categoryGuidance),
+    ...categoryOptions.map(
+      (category) => `${category.value}: ${t(category.label)}`,
+    ),
+    ...(kind !== "templates"
+      ? [
+          "",
+          t("Accepted countries"),
+          t(countryGuidance),
+          ...countries.flatMap((group) => [
+            t(group.label),
+            ...group.options.map(
+              (country) => `${country.code}: ${country.label}`,
+            ),
+          ]),
+        ]
+      : []),
+    "",
+    t("Import behavior"),
+    ...importBehaviorLinesFor(kind).map((line) => `- ${t(line)}`),
+  ].join("\n");
+}
+
 export function CrmImportRulesDialog({
   open,
   onOpenChange,
@@ -274,19 +382,35 @@ export function CrmImportRulesDialog({
     categoryAudience === "professionals"
       ? CRM_PROFESSIONAL_CATEGORY_OPTIONS
       : CRM_CATEGORY_OPTIONS;
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle",
+  );
+  const copyText = useMemo(
+    () => buildImportRulesText({ language, kind, audience, t }),
+    [audience, kind, language, t],
+  );
+
+  useEffect(() => {
+    if (open) {
+      setCopyStatus("idle");
+    }
+  }, [audience, kind, open]);
+
+  async function copyRules() {
+    try {
+      await navigator.clipboard.writeText(copyText);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>{t("Import rules")}</DialogTitle>
-          <DialogDescription>
-            {kind === "organizations"
-              ? t("Rules for CRM organization CSV imports.")
-              : kind === "professionals"
-                ? t("Rules for CRM professional CSV imports.")
-                : t("Rules for CRM template CSV imports.")}
-          </DialogDescription>
+          <DialogDescription>{t(dialogDescriptionFor(kind))}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4">
@@ -446,20 +570,7 @@ export function CrmImportRulesDialog({
               {t("Import behavior")}
             </h3>
             <ul className="mt-3 grid gap-2 text-xs leading-5">
-              {(kind === "templates"
-                ? [
-                    "Preview the parsed template rows before creating templates.",
-                    "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.",
-                    "Literal \\n is converted to a line break in template body and notes.",
-                    "Use active templates for the CRM send flow; archived templates are kept out of normal sending.",
-                  ]
-                : [
-                    "Always review preview results before final import.",
-                    "CRM target imports preview and commit in 100-row chunks with a browser checkpoint.",
-                    "If the import fails in the middle, completed rows are kept and the checkpoint can resume from the last saved point.",
-                    "Duplicates must be reviewed as skip, update existing, or import anyway before committing.",
-                  ]
-              ).map((item) => (
+              {importBehaviorLinesFor(kind).map((item) => (
                 <li key={item} className="flex gap-2">
                   <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
                   <span>{t(item)}</span>
@@ -470,6 +581,22 @@ export function CrmImportRulesDialog({
         </div>
 
         <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void copyRules()}
+          >
+            {copyStatus === "copied" ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+            {copyStatus === "copied"
+              ? t("Copied")
+              : copyStatus === "error"
+                ? t("Copy error")
+                : t("Copy")}
+          </Button>
           <Button
             type="button"
             variant="outline"

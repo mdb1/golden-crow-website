@@ -222,6 +222,19 @@ describe("PartnershipCrmTemplateBrowser", () => {
         "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.",
       ),
     ).toBeTruthy();
+
+    await user.click(within(dialog).getByRole("button", { name: "Copy" }));
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: "Copied" }),
+      ).toBeTruthy();
+    });
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Header row: name,audience,category,subject,body,status,notes",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Rules for CRM template CSV imports.",
+    );
   });
 });
 
