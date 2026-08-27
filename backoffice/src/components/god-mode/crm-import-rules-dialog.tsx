@@ -237,10 +237,10 @@ function importBehaviorLinesFor(kind: ImportRulesKind) {
         "Use active templates for the CRM send flow; archived templates are kept out of normal sending.",
       ]
     : [
-        "Always review preview results before final import.",
-        "CRM target imports preview and commit in 100-row chunks with a browser checkpoint.",
+        "Load a CSV first, then choose Start interactive download to review Add / Skip row by row, or Import all to accept every valid row.",
+        "CRM target imports preview and commit one row at a time with a browser checkpoint.",
         "If the import fails in the middle, completed rows are kept and the checkpoint can resume from the last saved point.",
-        "Duplicates must be reviewed as skip, update existing, or import anyway before committing.",
+        "Duplicates are surfaced on the row card. Add imports anyway; Skip leaves the existing CRM untouched.",
       ];
 }
 

@@ -1007,12 +1007,14 @@ const SPANISH_TEXT: Record<string, string> = {
   "Import behavior": "Comportamiento de importación",
   "Always review preview results before final import.":
     "Revisá siempre la vista previa antes de la importación final.",
-  "CRM target imports preview and commit in 100-row chunks with a browser checkpoint.":
-    "Los objetivos del CRM se previsualizan y confirman en bloques de 100 filas con checkpoint en el navegador.",
+  "Load a CSV first, then choose Start interactive download to review Add / Skip row by row, or Import all to accept every valid row.":
+    "Cargá un CSV y elegí Start interactive download para revisar Agregar / Omitir fila por fila, o Importar todo para aceptar cada fila válida.",
+  "CRM target imports preview and commit one row at a time with a browser checkpoint.":
+    "Los objetivos del CRM se previsualizan y confirman una fila por vez con checkpoint en el navegador.",
   "If the import fails in the middle, completed rows are kept and the checkpoint can resume from the last saved point.":
     "Si la importación falla en el medio, las filas completadas se conservan y el checkpoint permite continuar desde el último punto guardado.",
-  "Duplicates must be reviewed as skip, update existing, or import anyway before committing.":
-    "Los duplicados deben revisarse como omitir, actualizar existente o importar igual antes de confirmar.",
+  "Duplicates are surfaced on the row card. Add imports anyway; Skip leaves the existing CRM untouched.":
+    "Los duplicados aparecen en la tarjeta de la fila. Agregar importa igual; Omitir deja el CRM existente sin cambios.",
   "Preview the parsed template rows before creating templates.":
     "Revisá las filas parseadas antes de crear plantillas.",
   "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.":
@@ -1139,6 +1141,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "CSV import progress": "Progreso de importación CSV",
   "Last saved": "Último guardado",
   "Previewing CSV": "Generando vista previa del CSV",
+  "CSV loaded": "CSV cargado",
+  "Waiting for next row": "Esperando siguiente fila",
   "Ready to import": "Listo para importar",
   "Importing CSV": "Importando CSV",
   "Import completed": "Importación completada",
@@ -1159,8 +1163,32 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se pudo guardar el checkpoint de importación.",
   "Import checkpoint discarded.": "Checkpoint de importación descartado.",
   "CRM import preview ready.": "Vista previa de importación del CRM lista.",
+  "CRM CSV loaded.": "CSV del CRM cargado.",
   "CRM import paused.":
     "La importación del CRM quedó pausada. Podés continuar desde el último checkpoint confirmado.",
+  "Choose import mode": "Elegí modo de importación",
+  "Review each CSV row as a card and decide whether to add or skip it.":
+    "Revisá cada fila del CSV como una tarjeta y decidí si agregarla u omitirla.",
+  "Import all": "Importar todo",
+  "Import all previews and commits one row at a time while accepting every valid row.":
+    "Importar todo genera vista previa y confirma una fila por vez aceptando cada fila válida.",
+  "Automatic import": "Importación automática",
+  "Importing one row at a time": "Importando una fila por vez",
+  "Every accepted row is saved before the next row starts.":
+    "Cada fila aceptada se guarda antes de iniciar la siguiente.",
+  "Current row": "Fila actual",
+  of: "de",
+  "Row processed": "Fila procesada",
+  "Row imported": "Fila importada",
+  "Row updated": "Fila actualizada",
+  "Row skipped": "Fila omitida",
+  "Row invalid": "Fila inválida",
+  "Skip row": "Omitir fila",
+  "Skipped during interactive review.": "Omitida durante la revisión interactiva.",
+  "This row is invalid and cannot be added.":
+    "Esta fila es inválida y no se puede agregar.",
+  "Add imports this row anyway. Skip leaves the existing CRM untouched.":
+    "Agregar importa esta fila igual. Omitir deja el CRM existente sin cambios.",
   "Previewing...": "Generando vista previa...",
   "Resume preview": "Continuar vista previa",
   "Resume import": "Continuar importación",

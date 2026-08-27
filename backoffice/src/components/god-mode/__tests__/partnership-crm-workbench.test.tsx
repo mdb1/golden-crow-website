@@ -416,15 +416,10 @@ describe("PartnershipCrmWorkbench import flow", () => {
     });
   });
 
-  it("previews and imports a large CSV in persisted chunks", async () => {
-    const user = userEvent.setup();
-    renderWorkbench();
-
-    await user.click(screen.getByRole("button", { name: "Import CSV" }));
-    const dialog = await screen.findByRole("dialog");
-    const csv = [
+  function crmCsv(rowCount: number) {
+    return [
       "name,category,website,country,contact_name,email,linkedin,status,notes",
-      ...Array.from({ length: 205 }, (_, index) => {
+      ...Array.from({ length: rowCount }, (_, index) => {
         const rowNumber = index + 1;
         return [
           `Genome Lab ${rowNumber}`,
@@ -439,66 +434,184 @@ describe("PartnershipCrmWorkbench import flow", () => {
         ].join(",");
       }),
     ].join("\n");
+  }
 
-    const file = new File([csv], "large-crm-import.csv", { type: "text/csv" });
+  function crmImportSession() {
+    return JSON.parse(
+      window.localStorage.getItem(
+        "golden-crow:partnership-crm-import-session:v1",
+      ) ?? "{}",
+    );
+  }
+
+  function crmPreviewCalls() {
+    return jest
+      .mocked(sdkFetch)
+      .mock.calls.filter(
+        ([path]) => path === "/admin/partnership-crm/import-preview",
+      );
+  }
+
+  function crmImportCalls() {
+    return jest
+      .mocked(sdkFetch)
+      .mock.calls.filter(([path]) => path === "/admin/partnership-crm/import");
+  }
+
+  it("loads a CSV and imports selected rows from interactive cards", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = crmCsv(3);
+
+    const file = new File([csv], "interactive-crm-import.csv", {
+      type: "text/csv",
+    });
     Object.defineProperty(file, "text", { value: async () => csv });
 
     await user.upload(within(dialog).getByLabelText("CSV file"), file);
 
     await waitFor(() => {
-      expect(screen.getAllByText("Ready to import").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("CSV loaded").length).toBeGreaterThan(0);
     });
-    const previewCalls = jest
-      .mocked(sdkFetch)
-      .mock.calls.filter(
-        ([path]) => path === "/admin/partnership-crm/import-preview",
-      );
-    expect(previewCalls).toHaveLength(3);
+    expect(crmPreviewCalls()).toHaveLength(0);
     expect(
-      previewCalls.map(([, init]) => {
-        const body = JSON.parse(String(init?.body)) as {
-          organizations: unknown[];
-        };
-        return body.organizations.length;
+      crmImportSession(),
+    ).toEqual(
+      expect.objectContaining({
+        mode: "setup",
+        previewedRows: 0,
+        totalRows: 3,
+        status: "ready",
+        chunkSize: 1,
       }),
-    ).toEqual([100, 100, 5]);
-    expect(
-      JSON.parse(
-        window.localStorage.getItem(
-          "golden-crow:partnership-crm-import-session:v1",
-        ) ?? "{}",
-      ),
-    ).toEqual(expect.objectContaining({ previewedRows: 205, status: "ready" }));
+    );
 
     await user.click(
-      within(dialog).getByRole("button", { name: /Import 205 rows/ }),
+      within(dialog).getByRole("button", {
+        name: "Start interactive download",
+      }),
     );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Row 1 of 3")).toBeTruthy();
+    });
+    expect(within(dialog).getByText("Genome Lab 1")).toBeTruthy();
+    expect(crmPreviewCalls()).toHaveLength(1);
+    expect(
+      JSON.parse(String(crmPreviewCalls()[0]?.[1]?.body)).organizations,
+    ).toEqual([expect.objectContaining({ rowId: "row-1" })]);
+
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    await waitFor(() => {
+      expect(within(dialog).getByRole("button", { name: "Next row" })).toBeTruthy();
+    });
+    expect(crmImportCalls()).toHaveLength(1);
+    expect(
+      JSON.parse(String(crmImportCalls()[0]?.[1]?.body)).organizations,
+    ).toEqual([
+      expect.objectContaining({
+        rowId: "row-1",
+        duplicateAction: "import",
+      }),
+    ]);
+
+    await user.click(within(dialog).getByRole("button", { name: "Next row" }));
+    await waitFor(() => {
+      expect(within(dialog).getByText("Row 2 of 3")).toBeTruthy();
+    });
+    expect(crmPreviewCalls()).toHaveLength(2);
+
+    await user.click(within(dialog).getByRole("button", { name: "Skip row" }));
+    await waitFor(() => {
+      expect(within(dialog).getByText("Skipped during interactive review.")).toBeTruthy();
+    });
+    expect(crmImportCalls()).toHaveLength(1);
+    expect(
+      crmImportSession(),
+    ).toEqual(
+      expect.objectContaining({
+        mode: "interactive",
+        nextImportIndex: 2,
+        importSummary: expect.objectContaining({ created: 1, skipped: 1 }),
+      }),
+    );
+
+    await user.click(within(dialog).getByRole("button", { name: "Next row" }));
+    await waitFor(() => {
+      expect(within(dialog).getByText("Row 3 of 3")).toBeTruthy();
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
 
     await waitFor(() => {
       expect(screen.getAllByText("Import completed").length).toBeGreaterThan(0);
     });
-    const importCalls = jest
-      .mocked(sdkFetch)
-      .mock.calls.filter(([path]) => path === "/admin/partnership-crm/import");
-    expect(importCalls).toHaveLength(3);
     expect(
-      importCalls.map(([, init]) => {
-        const body = JSON.parse(String(init?.body)) as {
-          organizations: unknown[];
-        };
-        return body.organizations.length;
-      }),
-    ).toEqual([100, 100, 5]);
-    expect(
-      JSON.parse(
-        window.localStorage.getItem(
-          "golden-crow:partnership-crm-import-session:v1",
-        ) ?? "{}",
-      ),
+      crmImportSession(),
     ).toEqual(
       expect.objectContaining({
-        nextImportIndex: 205,
+        nextImportIndex: 3,
         status: "completed",
+        importSummary: expect.objectContaining({ created: 2, skipped: 1 }),
+      }),
+    );
+  });
+
+  it("imports all rows sequentially while accepting every valid row", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = crmCsv(4);
+    const file = new File([csv], "all-crm-import.csv", { type: "text/csv" });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+    await waitFor(() => {
+      expect(screen.getAllByText("CSV loaded").length).toBeGreaterThan(0);
+    });
+
+    await user.click(within(dialog).getByRole("button", { name: "Import all" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Import completed").length).toBeGreaterThan(0);
+    });
+
+    expect(crmPreviewCalls()).toHaveLength(4);
+    expect(
+      crmPreviewCalls().map(([, init]) => {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{ rowId: string }>;
+        };
+        return body.organizations.map((row) => row.rowId);
+      }),
+    ).toEqual([["row-1"], ["row-2"], ["row-3"], ["row-4"]]);
+    expect(crmImportCalls()).toHaveLength(4);
+    expect(
+      crmImportCalls().map(([, init]) => {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{ rowId: string; duplicateAction: string }>;
+        };
+        return body.organizations;
+      }),
+    ).toEqual([
+      [expect.objectContaining({ rowId: "row-1", duplicateAction: "import" })],
+      [expect.objectContaining({ rowId: "row-2", duplicateAction: "import" })],
+      [expect.objectContaining({ rowId: "row-3", duplicateAction: "import" })],
+      [expect.objectContaining({ rowId: "row-4", duplicateAction: "import" })],
+    ]);
+    expect(
+      crmImportSession(),
+    ).toEqual(
+      expect.objectContaining({
+        mode: "all",
+        previewedRows: 4,
+        nextImportIndex: 4,
+        status: "completed",
+        importSummary: expect.objectContaining({ created: 4 }),
       }),
     );
   });
@@ -524,7 +637,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     expect(within(dialog).getByText("new")).toBeTruthy();
     expect(
       within(dialog).getByText(
-        "CRM target imports preview and commit in 100-row chunks with a browser checkpoint.",
+        "CRM target imports preview and commit one row at a time with a browser checkpoint.",
       ),
     ).toBeTruthy();
 

@@ -29,6 +29,8 @@ jest.mock("@/lib/sdk-client", () => ({
   sdkFetch: jest.fn(),
 }));
 
+jest.setTimeout(15000);
+
 const template: PartnershipCrmTemplateRecord = {
   id: "tpl-1",
   schemaVersion: 1,

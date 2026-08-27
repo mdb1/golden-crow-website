@@ -126,7 +126,6 @@ const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
 const EMAIL_CTA_CLASS =
   "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
 const CRM_TARGET_PAGE_SIZE = 50;
-const CRM_IMPORT_CHUNK_SIZE = 100;
 const CRM_IMPORT_SESSION_STORAGE_KEYS = {
   organizations: "golden-crow:partnership-crm-import-session:v1",
   professionals: "golden-crow:partnership-crm-professional-import-session:v1",
@@ -180,6 +179,7 @@ type CrmImportSessionStatus =
   "previewing" | "ready" | "importing" | "paused" | "completed";
 
 type CrmImportSessionStage = "preview" | "import" | "complete";
+type CrmImportSessionMode = "setup" | "interactive" | "all";
 
 type CrmImportSession = {
   id: string;
@@ -189,6 +189,7 @@ type CrmImportSession = {
   updatedAt: string;
   status: CrmImportSessionStatus;
   stage: CrmImportSessionStage;
+  mode: CrmImportSessionMode;
   chunkSize: number;
   targetKind: PartnershipCrmTargetKind;
   sourceRows: CrmTargetInput[];
@@ -196,6 +197,7 @@ type CrmImportSession = {
   parseErrors: Array<{ row: number; message: string }>;
   totalRows: number;
   previewedRows: number;
+  activeRowIndex: number;
   nextImportIndex: number;
   importSummary: PartnershipCrmImportResult["summary"];
   results: PartnershipCrmImportResult["results"];
@@ -329,24 +331,65 @@ function importRowTarget(
   return targetKind === "professionals" ? row.professional : row.organization;
 }
 
-function rowsForImportChunk(
-  rows: PartnershipCrmImportPreviewRow[],
+function rowForImportDecision(
+  row: PartnershipCrmImportPreviewRow,
   targetKind: PartnershipCrmTargetKind,
+  duplicateAction: CrmDuplicateAction,
 ) {
-  return rows
-    .filter((row) => row.valid)
-    .map((row) => ({
-      ...importRowTarget(row, targetKind),
-      rowId: row.rowId,
-      duplicateAction:
-        row.duplicateCandidates.length > 0
-          ? (row.duplicateAction ?? "skip")
-          : "import",
-      duplicateOrganizationId:
-        row.duplicateOrganizationId ?? row.duplicateCandidates[0]?.id,
-      duplicateProfessionalId:
-        row.duplicateProfessionalId ?? row.duplicateCandidates[0]?.id,
-    }));
+  const target = importRowTarget(row, targetKind);
+  return {
+    ...(target ?? {}),
+    rowId: row.rowId,
+    duplicateAction,
+    duplicateOrganizationId:
+      row.duplicateOrganizationId ?? row.duplicateCandidates[0]?.id,
+    duplicateProfessionalId:
+      row.duplicateProfessionalId ?? row.duplicateCandidates[0]?.id,
+  };
+}
+
+function importResultForSkippedRow(row: PartnershipCrmImportPreviewRow) {
+  return {
+    rowId: row.rowId,
+    action: "skipped" as const,
+    reason: "Skipped during interactive review.",
+  };
+}
+
+function importResultForInvalidRow(row: PartnershipCrmImportPreviewRow) {
+  return {
+    rowId: row.rowId,
+    action: "invalid" as const,
+    reason: row.errors.join(", ") || "Invalid row.",
+  };
+}
+
+function summaryForLocalImportAction(action: "skipped" | "invalid") {
+  if (action === "skipped") {
+    return {
+      ...emptyImportSummary(),
+      total: 1,
+      skipped: 1,
+    };
+  }
+
+  return {
+    ...emptyImportSummary(),
+    total: 1,
+    invalid: 1,
+  };
+}
+
+function importEndpointForTarget(targetKind: PartnershipCrmTargetKind) {
+  return targetKind === "professionals"
+    ? "/admin/partnership-crm/professionals/import"
+    : "/admin/partnership-crm/import";
+}
+
+function importPreviewEndpointForTarget(targetKind: PartnershipCrmTargetKind) {
+  return targetKind === "professionals"
+    ? "/admin/partnership-crm/professionals/import-preview"
+    : "/admin/partnership-crm/import-preview";
 }
 
 function importProgressPercent(session: CrmImportSession) {
@@ -371,6 +414,12 @@ function importStatusLabel(session: CrmImportSession, language: AppLanguage) {
     return t("Previewing CSV");
   }
   if (session.status === "ready") {
+    if (session.mode === "setup") {
+      return t("CSV loaded");
+    }
+    if (session.mode === "interactive") {
+      return t("Waiting for next row");
+    }
     return t("Ready to import");
   }
   if (session.status === "importing") {
@@ -403,6 +452,11 @@ function validImportSession(
     "import",
     "complete",
   ];
+  const modeOptions: CrmImportSessionMode[] = [
+    "setup",
+    "interactive",
+    "all",
+  ];
   const restoredStatus = statusOptions.includes(
     candidate.status as CrmImportSessionStatus,
   )
@@ -413,6 +467,11 @@ function validImportSession(
   )
     ? (candidate.stage as CrmImportSessionStage)
     : "import";
+  const restoredMode = modeOptions.includes(
+    candidate.mode as CrmImportSessionMode,
+  )
+    ? (candidate.mode as CrmImportSessionMode)
+    : "setup";
   const status =
     restoredStatus === "previewing" || restoredStatus === "importing"
       ? "paused"
@@ -433,6 +492,22 @@ function validImportSession(
   if (targetKind !== expectedTargetKind) {
     return null;
   }
+  const totalRows =
+    typeof candidate.totalRows === "number"
+      ? candidate.totalRows
+      : candidate.sourceRows.length;
+  const previewedRows =
+    typeof candidate.previewedRows === "number"
+      ? candidate.previewedRows
+      : candidate.previewRows.length;
+  const nextImportIndex =
+    typeof candidate.nextImportIndex === "number"
+      ? candidate.nextImportIndex
+      : 0;
+  const activeRowIndex =
+    typeof candidate.activeRowIndex === "number"
+      ? candidate.activeRowIndex
+      : nextImportIndex;
 
   return {
     id: candidate.id,
@@ -448,25 +523,21 @@ function validImportSession(
         : new Date().toISOString(),
     status,
     stage: restoredStage,
-    chunkSize: candidate.chunkSize ?? CRM_IMPORT_CHUNK_SIZE,
+    mode: restoredMode,
+    chunkSize: 1,
     targetKind,
     sourceRows: candidate.sourceRows,
     previewRows: candidate.previewRows.map(withDuplicateDefaults),
     parseErrors: Array.isArray(candidate.parseErrors)
       ? candidate.parseErrors
       : [],
-    totalRows:
-      typeof candidate.totalRows === "number"
-        ? candidate.totalRows
-        : candidate.sourceRows.length,
-    previewedRows:
-      typeof candidate.previewedRows === "number"
-        ? candidate.previewedRows
-        : candidate.previewRows.length,
-    nextImportIndex:
-      typeof candidate.nextImportIndex === "number"
-        ? candidate.nextImportIndex
-        : 0,
+    totalRows,
+    previewedRows: Math.min(Math.max(0, previewedRows), totalRows),
+    activeRowIndex: Math.min(
+      Math.max(0, activeRowIndex),
+      Math.max(totalRows - 1, 0),
+    ),
+    nextImportIndex: Math.min(Math.max(0, nextImportIndex), totalRows),
     importSummary: candidate.importSummary ?? emptyImportSummary(),
     results: Array.isArray(candidate.results) ? candidate.results : [],
     lastError:
@@ -1741,6 +1812,259 @@ function ImportCheckpointBanner({
   );
 }
 
+function ImportReviewFact({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-border/80 bg-background/70 px-3 py-2">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="mt-1 min-h-6 break-words text-sm font-semibold text-foreground">
+        {value || "—"}
+      </div>
+    </div>
+  );
+}
+
+function resultLabel(
+  result:
+    | PartnershipCrmImportResult["results"][number]
+    | undefined,
+  language: AppLanguage,
+) {
+  const t = (text: string) => appText(language, text);
+  if (!result) {
+    return t("Row processed");
+  }
+  if (result.action === "created") {
+    return t("Row imported");
+  }
+  if (result.action === "updated") {
+    return t("Row updated");
+  }
+  if (result.action === "skipped") {
+    return t("Row skipped");
+  }
+  return t("Row invalid");
+}
+
+function ImportRowReviewCard({
+  session,
+  row,
+  targetKind,
+  pending,
+  onAdd,
+  onSkip,
+  onNext,
+  language,
+}: {
+  session: CrmImportSession;
+  row: PartnershipCrmImportPreviewRow | null;
+  targetKind: PartnershipCrmTargetKind;
+  pending: boolean;
+  onAdd: () => void;
+  onSkip: () => void;
+  onNext: () => void;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const rowNumber = Math.min(session.activeRowIndex + 1, session.totalRows);
+  const processed = session.activeRowIndex < session.nextImportIndex;
+  const result = row
+    ? session.results.find((entry) => entry.rowId === row.rowId)
+    : undefined;
+  const target = row ? importRowTarget(row, targetKind) : undefined;
+  const organization = target as PartnershipCrmOrganizationInput | undefined;
+  const professional = target as PartnershipCrmProfessionalInput | undefined;
+  const email =
+    targetKind === "professionals"
+      ? professional?.email
+      : organization?.contactEmail;
+  const contact =
+    targetKind === "professionals"
+      ? professional?.affiliation
+      : organization?.contactName;
+  const linkedIn =
+    targetKind === "professionals"
+      ? professional?.linkedIn
+      : organization?.contactLinkedIn;
+  const canAdd = Boolean(row?.valid) && !processed && !pending;
+  const canSkip = Boolean(row) && !processed && !pending;
+  const canMoveNext =
+    processed && !pending && session.nextImportIndex < session.totalRows;
+
+  return (
+    <section className="rounded-xl border border-border/80 bg-background/70 p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {t("Current row")}
+          </p>
+          <h3 className="mt-1 font-heading text-xl font-semibold">
+            {t("Row")} {rowNumber} {t("of")} {session.totalRows}
+          </h3>
+        </div>
+        {processed ? (
+          <Badge variant="success">{resultLabel(result, language)}</Badge>
+        ) : row?.valid ? (
+          <Badge variant="success">{t("Valid")}</Badge>
+        ) : row ? (
+          <Badge variant="destructive">{t("Invalid")}</Badge>
+        ) : (
+          <Badge variant="outline">{t("Previewing CSV")}</Badge>
+        )}
+      </div>
+
+      {!row ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Skeleton className="h-16" />
+          <Skeleton className="h-16" />
+          <Skeleton className="h-16" />
+          <Skeleton className="h-16" />
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <ImportReviewFact
+              label={
+                targetKind === "professionals"
+                  ? t("Professional")
+                  : t("Organization")
+              }
+              value={target?.name}
+            />
+            <ImportReviewFact
+              label={t("Mail")}
+              value={email ? <span className="break-all">{email}</span> : "—"}
+            />
+            <ImportReviewFact
+              label={
+                targetKind === "professionals"
+                  ? t("Affiliation")
+                  : t("Primary contact")
+              }
+              value={contact}
+            />
+            <ImportReviewFact
+              label={t("Category")}
+              value={formatCrmCategory(
+                target?.category ?? "",
+                language,
+                targetKind,
+              )}
+            />
+            <ImportReviewFact
+              label={t("Country")}
+              value={formatCrmCountry(target?.country ?? "", language)}
+            />
+            <ImportReviewFact
+              label={t("Status")}
+              value={
+                target?.status ? (
+                  <StatusBadge status={target.status} language={language} />
+                ) : null
+              }
+            />
+            <ImportReviewFact
+              label={t("Website")}
+              value={
+                target?.website ? (
+                  <span className="break-all">{target.website}</span>
+                ) : (
+                  "—"
+                )
+              }
+            />
+            <ImportReviewFact
+              label={t("LinkedIn")}
+              value={
+                linkedIn ? <span className="break-all">{linkedIn}</span> : "—"
+              }
+            />
+            <ImportReviewFact
+              label={t("Last Contact")}
+              value={formatDate(target?.lastContactAt, language)}
+            />
+            <ImportReviewFact label={t("Notes")} value={target?.notes} />
+          </div>
+
+          {row.duplicateCandidates.length > 0 ? (
+            <div className="mt-4 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-3 text-sm text-amber-950 dark:border-amber-300/25 dark:bg-amber-400/10 dark:text-amber-100">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="warning">{t("Possible duplicate")}</Badge>
+                <span className="font-medium">
+                  {row.duplicateCandidates
+                    .map((candidate) => candidate.name)
+                    .join(", ")}
+                </span>
+              </div>
+              <p className="mt-2 text-xs opacity-80">
+                {t(
+                  "Add imports this row anyway. Skip leaves the existing CRM untouched.",
+                )}
+              </p>
+            </div>
+          ) : null}
+
+          {!row.valid ? (
+            <ErrorBanner>
+              {row.errors.map((error) => t(error)).join(", ") ||
+                t("This row is invalid and cannot be added.")}
+            </ErrorBanner>
+          ) : null}
+        </>
+      )}
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+        {processed ? (
+          <>
+            <p className="text-sm text-muted-foreground sm:mr-auto">
+              {result?.reason ? t(result.reason) : resultLabel(result, language)}
+            </p>
+            <Button
+              type="button"
+              size="lg"
+              onClick={onNext}
+              disabled={!canMoveNext}
+              className={EMAIL_CTA_CLASS}
+            >
+              <ChevronRight className="h-4 w-4" />
+              {t("Next row")}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={onSkip}
+              disabled={!canSkip}
+              className="w-full sm:w-auto"
+            >
+              <X className="h-4 w-4" />
+              {t("Skip row")}
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              onClick={onAdd}
+              disabled={!canAdd}
+              className={cn(EMAIL_CTA_CLASS, "w-full sm:w-auto")}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {pending ? t("Importing...") : t("Add")}
+            </Button>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function ImportDialog({
   open,
   pending,
@@ -1751,8 +2075,11 @@ function ImportDialog({
   onClose,
   onTargetKindChange,
   onFileChange,
-  onPreviewChange,
-  onImport,
+  onStartInteractive,
+  onInteractiveAdd,
+  onInteractiveSkip,
+  onInteractiveNext,
+  onImportAll,
   onClearSession,
   language,
 }: {
@@ -1765,54 +2092,42 @@ function ImportDialog({
   onClose: () => void;
   onTargetKindChange: (targetKind: PartnershipCrmTargetKind) => void;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  onPreviewChange: (rows: PartnershipCrmImportPreviewRow[]) => void;
-  onImport: () => void;
+  onStartInteractive: () => void;
+  onInteractiveAdd: () => void;
+  onInteractiveSkip: () => void;
+  onInteractiveNext: () => void;
+  onImportAll: () => void;
   onClearSession: () => void;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
-  const duplicateControlsDisabled =
+  const currentRow =
+    session && preview && session.activeRowIndex < preview.rows.length
+      ? (preview.rows[session.activeRowIndex] ?? null)
+      : null;
+  const sessionCanRun =
+    Boolean(session) &&
+    session?.status !== "completed" &&
+    (session?.totalRows ?? 0) > 0;
+  const importAllDisabled =
     pending ||
-    session?.status === "completed" ||
-    (session?.nextImportIndex ?? 0) > 0;
-
-  function updateDuplicateAction(rowId: string, action: CrmDuplicateAction) {
-    if (!preview) {
-      return;
-    }
-
-    onPreviewChange(
-      preview.rows.map((row) =>
-        row.rowId === rowId ? { ...row, duplicateAction: action } : row,
-      ),
-    );
-  }
-
-  const validRowsCount = preview?.rows.filter((row) => row.valid).length ?? 0;
-  const actionRowsCount =
-    preview?.rows.filter((row) => row.valid && row.duplicateAction !== "skip")
-      .length ?? 0;
-  const importDisabled =
-    pending ||
-    !preview ||
-    validRowsCount === 0 ||
+    !sessionCanRun ||
     session?.status === "completed" ||
     session?.status === "previewing";
-  const importButtonLabel = pending
-    ? session?.stage === "preview"
-      ? t("Previewing...")
-      : t("Importing...")
-    : session?.status === "completed"
-      ? t("Import completed")
-      : session?.status === "paused"
-        ? session.stage === "preview"
-          ? t("Resume preview")
-          : t("Resume import")
-        : `${t("Import")} ${validRowsCount} ${t("rows")}`;
+  const showInteractiveCard =
+    session?.mode === "interactive" && session.status !== "completed";
+  const showAllRunning =
+    session?.mode === "all" &&
+    (pending || session.status === "importing" || session.status === "previewing");
+  const showModePicker =
+    Boolean(session) &&
+    session?.status !== "completed" &&
+    !showInteractiveCard &&
+    !showAllRunning;
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="sm:max-w-5xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>{t("Import CRM CSV")}</DialogTitle>
           <DialogDescription>
@@ -1859,156 +2174,119 @@ function ImportDialog({
             </div>
           ) : null}
 
-          {preview ? (
-            <div className="grid gap-4">
-              <div className="grid gap-3 sm:grid-cols-4">
-                <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-                  <p className="text-xs text-muted-foreground">{t("Found")}</p>
-                  <p className="mt-1 text-2xl font-semibold">
-                    {preview.summary.total}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-emerald-300/40 bg-emerald-50/80 px-3 py-3 text-emerald-950 dark:bg-emerald-400/10 dark:text-emerald-100">
-                  <p className="text-xs">{t("Valid")}</p>
-                  <p className="mt-1 text-2xl font-semibold">
-                    {preview.summary.valid}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-amber-300/50 bg-amber-50/80 px-3 py-3 text-amber-950 dark:bg-amber-400/10 dark:text-amber-100">
-                  <p className="text-xs">{t("Missing email")}</p>
-                  <p className="mt-1 text-2xl font-semibold">
-                    {preview.summary.missingEmail}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-violet-300/45 bg-violet-50/80 px-3 py-3 text-violet-950 dark:bg-violet-400/10 dark:text-violet-100">
-                  <p className="text-xs">{t("Possible duplicates")}</p>
-                  <p className="mt-1 text-2xl font-semibold">
-                    {preview.summary.duplicates}
-                  </p>
-                </div>
+          {showModePicker ? (
+            <section className="rounded-xl border border-border/80 bg-background/70 p-4">
+              <div className="grid gap-2">
+                <h3 className="font-heading text-lg font-semibold">
+                  {t("Choose import mode")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t(
+                    "Review each CSV row as a card and decide whether to add or skip it.",
+                  )}
+                </p>
               </div>
-
-              <div className="max-h-[44vh] overflow-auto rounded-xl border border-border/80 bg-background/70">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>
-                        {targetKind === "professionals"
-                          ? t("Professional")
-                          : t("Organization")}
-                      </TableHead>
-                      <TableHead>
-                        {targetKind === "professionals"
-                          ? t("Mail")
-                          : t("Contact")}
-                      </TableHead>
-                      <TableHead>{t("Status")}</TableHead>
-                      <TableHead>{t("Duplicate handling")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {preview.rows.map((row) => {
-                      const target = importRowTarget(row, targetKind);
-                      const duplicate = row.duplicateCandidates[0];
-                      const duplicateAction =
-                        row.duplicateAction ?? (duplicate ? "skip" : "import");
-
-                      return (
-                        <TableRow key={row.rowId}>
-                          <TableCell className="whitespace-normal">
-                            <div className="font-medium">
-                              {target?.name || "—"}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatCrmCategory(
-                                target?.category ?? "",
-                                language,
-                                targetKind,
-                              ) || "—"}{" "}
-                              ·{" "}
-                              {formatCrmCountry(
-                                target?.country ?? "",
-                                language,
-                              ) || "—"}
-                            </div>
-                            {!row.valid ? (
-                              <p className="mt-1 text-xs text-destructive">
-                                {row.errors.map((error) => t(error)).join(", ")}
-                              </p>
-                            ) : null}
-                          </TableCell>
-                          <TableCell className="whitespace-normal">
-                            {targetKind === "professionals" ? (
-                              <div className="break-all">
-                                {(target as PartnershipCrmProfessionalInput | undefined)
-                                  ?.email || t("Missing email")}
-                              </div>
-                            ) : (
-                              <>
-                                <div>
-                                  {(target as PartnershipCrmOrganizationInput | undefined)
-                                    ?.contactName || "—"}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {(target as PartnershipCrmOrganizationInput | undefined)
-                                    ?.contactEmail || t("Missing email")}
-                                </div>
-                              </>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge
-                              status={target?.status ?? "new"}
-                              language={language}
-                            />
-                          </TableCell>
-                          <TableCell className="whitespace-normal">
-                            {duplicate ? (
-                              <div className="grid gap-2">
-                                <p className="text-xs text-muted-foreground">
-                                  {t("Possible duplicate")}: {duplicate.name}
-                                </p>
-                                <Select
-                                  value={duplicateAction}
-                                  disabled={duplicateControlsDisabled}
-                                  onValueChange={(value) =>
-                                    updateDuplicateAction(
-                                      row.rowId,
-                                      value as CrmDuplicateAction,
-                                    )
-                                  }
-                                >
-                                  <SelectTrigger className="w-[180px]">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="skip">
-                                      {t("Skip")}
-                                    </SelectItem>
-                                    <SelectItem value="update">
-                                      {t("Update existing")}
-                                    </SelectItem>
-                                    <SelectItem value="import">
-                                      {t("Import anyway")}
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            ) : row.valid ? (
-                              <Badge variant="success">{t("New record")}</Badge>
-                            ) : (
-                              <Badge variant="destructive">
-                                {t("Invalid")}
-                              </Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={onStartInteractive}
+                  disabled={!sessionCanRun || pending}
+                  className={cn(EMAIL_CTA_CLASS, "h-14 w-full")}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                  Start interactive download
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={onImportAll}
+                  disabled={importAllDisabled}
+                  className={cn(EMAIL_CTA_CLASS, "h-14 w-full")}
+                >
+                  <FileUp className="h-5 w-5" />
+                  {pending ? t("Importing...") : t("Import all")}
+                </Button>
               </div>
-            </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {t(
+                  "Import all previews and commits one row at a time while accepting every valid row.",
+                )}
+              </p>
+            </section>
+          ) : null}
+
+          {showAllRunning && session ? (
+            <section className="rounded-xl border border-blue-200/80 bg-blue-50/80 p-4 text-blue-950 dark:border-blue-300/20 dark:bg-blue-500/10 dark:text-blue-50">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-700 dark:text-blue-200">
+                    {t("Automatic import")}
+                  </p>
+                  <h3 className="mt-1 font-heading text-lg font-semibold">
+                    {t("Importing one row at a time")}
+                  </h3>
+                  <p className="mt-1 text-sm text-blue-900/76 dark:text-blue-100/76">
+                    {t(
+                      "Every accepted row is saved before the next row starts.",
+                    )}
+                  </p>
+                </div>
+                <Badge variant="outline">
+                  {Math.min(session.activeRowIndex + 1, session.totalRows)} /{" "}
+                  {session.totalRows}
+                </Badge>
+              </div>
+            </section>
+          ) : null}
+
+          {showInteractiveCard && session ? (
+            <ImportRowReviewCard
+              session={session}
+              row={currentRow}
+              targetKind={targetKind}
+              pending={pending}
+              onAdd={onInteractiveAdd}
+              onSkip={onInteractiveSkip}
+              onNext={onInteractiveNext}
+              language={language}
+            />
+          ) : null}
+
+          {session?.status === "completed" ? (
+            <section className="rounded-xl border border-emerald-300/50 bg-emerald-50/80 p-4 text-emerald-950 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em]">
+                    {t("Import completed")}
+                  </p>
+                  <h3 className="mt-1 font-heading text-lg font-semibold">
+                    {session.fileName}
+                  </h3>
+                </div>
+                <Badge variant="success">
+                  {session.totalRows} {t("rows")}
+                </Badge>
+              </div>
+              <div className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
+                <ImportReviewFact
+                  label={t("created")}
+                  value={session.importSummary.created}
+                />
+                <ImportReviewFact
+                  label={t("updated")}
+                  value={session.importSummary.updated}
+                />
+                <ImportReviewFact
+                  label={t("skipped")}
+                  value={session.importSummary.skipped}
+                />
+                <ImportReviewFact
+                  label={t("invalid")}
+                  value={session.importSummary.invalid}
+                />
+              </div>
+            </section>
           ) : null}
         </div>
 
@@ -2030,21 +2308,6 @@ function ImportDialog({
             disabled={pending}
           >
             {t("Cancel")}
-          </Button>
-          <Button
-            type="button"
-            onClick={onImport}
-            disabled={importDisabled}
-            size="lg"
-            className={EMAIL_CTA_CLASS}
-          >
-            <FileUp className="h-4 w-4" />
-            {importButtonLabel}
-            {!pending && actionRowsCount !== validRowsCount ? (
-              <span className="ml-1 text-xs font-medium opacity-90">
-                ({actionRowsCount} {t("will change")})
-              </span>
-            ) : null}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2391,18 +2654,22 @@ export function PartnershipCrmWorkbench() {
   });
 
   function saveImportSession(next: CrmImportSession) {
+    const totalRows = next.totalRows || next.sourceRows.length;
+    const nextImportIndex = Math.min(
+      Math.max(0, next.nextImportIndex),
+      totalRows,
+    );
     const normalized = {
       ...next,
       previewRows: next.previewRows.map(withDuplicateDefaults),
-      totalRows: next.totalRows || next.sourceRows.length,
-      previewedRows: Math.min(
-        next.previewedRows,
-        next.totalRows || next.sourceRows.length,
+      totalRows,
+      previewedRows: Math.min(Math.max(0, next.previewedRows), totalRows),
+      activeRowIndex: Math.min(
+        Math.max(0, next.activeRowIndex),
+        Math.max(totalRows - 1, 0),
       ),
-      nextImportIndex: Math.min(
-        next.nextImportIndex,
-        next.totalRows || next.sourceRows.length,
-      ),
+      nextImportIndex,
+      chunkSize: 1,
     };
 
     setImportSession(normalized);
@@ -2436,7 +2703,28 @@ export function PartnershipCrmWorkbench() {
     });
   }
 
-  async function previewCrmImportSession(session: CrmImportSession) {
+  async function previewCrmImportSession(
+    session: CrmImportSession,
+    options: {
+      targetPreviewCount?: number;
+      showReadyToast?: boolean;
+    } = {},
+  ) {
+    const targetPreviewCount = Math.min(
+      Math.max(options.targetPreviewCount ?? session.sourceRows.length, 0),
+      session.sourceRows.length,
+    );
+
+    if (session.previewedRows >= targetPreviewCount) {
+      return saveImportSession({
+        ...session,
+        status: "ready",
+        stage: targetPreviewCount > 0 ? "import" : session.stage,
+        lastError: undefined,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
     let working = saveImportSession({
       ...session,
       status: "previewing",
@@ -2449,26 +2737,23 @@ export function PartnershipCrmWorkbench() {
     try {
       for (
         let startIndex = working.previewedRows;
-        startIndex < working.sourceRows.length;
-        startIndex += CRM_IMPORT_CHUNK_SIZE
+        startIndex < targetPreviewCount;
+        startIndex += 1
       ) {
-        const chunkEndIndex = Math.min(
-          startIndex + CRM_IMPORT_CHUNK_SIZE,
-          working.sourceRows.length,
-        );
-        const chunk = working.sourceRows.slice(startIndex, chunkEndIndex);
+        const chunkEndIndex = startIndex + 1;
+        const row = working.sourceRows[startIndex];
         const chunkTargetKind = working.targetKind;
         const preview = await sdkFetch<PartnershipCrmImportPreview>(
-          chunkTargetKind === "professionals"
-            ? "/admin/partnership-crm/professionals/import-preview"
-            : "/admin/partnership-crm/import-preview",
+          importPreviewEndpointForTarget(chunkTargetKind),
           {
             method: "POST",
             body: JSON.stringify({
-              [chunkTargetKind]: chunk.map((row, index) => ({
-                ...row,
-                rowId: `row-${startIndex + index + 1}`,
-              })),
+              [chunkTargetKind]: [
+                {
+                  ...row,
+                  rowId: `row-${startIndex + 1}`,
+                },
+              ],
             }),
           },
         );
@@ -2488,16 +2773,18 @@ export function PartnershipCrmWorkbench() {
       working = saveImportSession({
         ...working,
         status: "ready",
-        stage: "import",
-        previewedRows: working.totalRows,
+        stage: targetPreviewCount > 0 ? "import" : "preview",
+        previewedRows: targetPreviewCount,
         lastError: undefined,
         updatedAt: new Date().toISOString(),
       });
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        message: t("CRM import preview ready."),
-      });
+      if (options.showReadyToast !== false) {
+        setToast({
+          id: Date.now(),
+          tone: "success",
+          message: t("CRM import preview ready."),
+        });
+      }
       return working;
     } catch (error) {
       saveImportSession({
@@ -2518,113 +2805,261 @@ export function PartnershipCrmWorkbench() {
     }
   }
 
+  async function importSinglePreviewRow(
+    session: CrmImportSession,
+    rowIndex: number,
+    decision: "add" | "skip",
+  ) {
+    const previewed =
+      rowIndex < session.previewedRows
+        ? session
+        : await previewCrmImportSession(session, {
+            targetPreviewCount: rowIndex + 1,
+            showReadyToast: false,
+          });
+    if (!previewed) {
+      return null;
+    }
+
+    const row = previewed.previewRows[rowIndex];
+    if (!row) {
+      return previewed;
+    }
+
+    if (decision === "skip") {
+      return saveImportSession({
+        ...previewed,
+        status: "ready",
+        stage: "import",
+        activeRowIndex: rowIndex,
+        nextImportIndex: rowIndex + 1,
+        importSummary: importSummaryAdd(
+          previewed.importSummary,
+          summaryForLocalImportAction("skipped"),
+        ),
+        results: [...previewed.results, importResultForSkippedRow(row)],
+        lastError: undefined,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    if (!row.valid) {
+      return saveImportSession({
+        ...previewed,
+        status: "ready",
+        stage: "import",
+        activeRowIndex: rowIndex,
+        nextImportIndex: rowIndex + 1,
+        importSummary: importSummaryAdd(
+          previewed.importSummary,
+          summaryForLocalImportAction("invalid"),
+        ),
+        results: [...previewed.results, importResultForInvalidRow(row)],
+        lastError: undefined,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    let importing = saveImportSession({
+      ...previewed,
+      status: "importing",
+      stage: "import",
+      activeRowIndex: rowIndex,
+      lastError: undefined,
+      updatedAt: new Date().toISOString(),
+    });
+
+    const result = await sdkFetch<PartnershipCrmImportResult>(
+      importEndpointForTarget(importing.targetKind),
+      {
+        method: "POST",
+        body: JSON.stringify({
+          [importing.targetKind]: [
+            rowForImportDecision(row, importing.targetKind, "import"),
+          ],
+        }),
+      },
+    );
+
+    importing = saveImportSession({
+      ...importing,
+      status: "ready",
+      stage: "import",
+      activeRowIndex: rowIndex,
+      nextImportIndex: rowIndex + 1,
+      importSummary: importSummaryAdd(importing.importSummary, result.summary),
+      results: [...importing.results, ...result.results],
+      lastError: undefined,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return importing;
+  }
+
+  function completeCrmImportSession(session: CrmImportSession) {
+    const completed = saveImportSession({
+      ...session,
+      status: "completed",
+      stage: "complete",
+      activeRowIndex: Math.max(session.totalRows - 1, 0),
+      nextImportIndex: session.totalRows,
+      lastError: undefined,
+      updatedAt: new Date().toISOString(),
+    });
+    invalidateOrganizations();
+    setToast({
+      id: Date.now(),
+      tone: "success",
+      message: `${t("Import complete.")} ${
+        completed.importSummary.created
+      } ${t("created")}, ${completed.importSummary.updated} ${t(
+        "updated",
+      )}, ${completed.importSummary.skipped} ${t("skipped")}, ${
+        completed.importSummary.invalid
+      } ${t("invalid")}.`,
+    });
+    return completed;
+  }
+
   async function runCrmImportSession(session: CrmImportSession | null) {
     if (!session || session.status === "completed") {
       return;
     }
 
-    let working = session;
-    if (
-      working.stage === "preview" &&
-      working.previewedRows < working.totalRows
-    ) {
-      const previewed = await previewCrmImportSession(working);
-      if (!previewed) {
-        return;
-      }
-      working = previewed;
-    }
-
-    working = saveImportSession({
-      ...working,
+    let working = saveImportSession({
+      ...session,
       status: "importing",
       stage: "import",
+      mode: "all",
+      activeRowIndex: session.nextImportIndex,
       lastError: undefined,
       updatedAt: new Date().toISOString(),
     });
 
     try {
       for (
-        let startIndex = working.nextImportIndex;
-        startIndex < working.previewRows.length;
-        startIndex += CRM_IMPORT_CHUNK_SIZE
+        let rowIndex = working.nextImportIndex;
+        rowIndex < working.totalRows;
+        rowIndex += 1
       ) {
-        const chunkEndIndex = Math.min(
-          startIndex + CRM_IMPORT_CHUNK_SIZE,
-          working.previewRows.length,
-        );
-        const previewChunk = working.previewRows.slice(
-          startIndex,
-          chunkEndIndex,
-        );
-        const invalidResults = previewChunk
-          .filter((row) => !row.valid)
-          .map((row) => ({
-            rowId: row.rowId,
-            action: "invalid" as const,
-            reason: row.errors.join(", ") || "Invalid row.",
-          }));
-        const invalidSummary = {
-          ...emptyImportSummary(),
-          total: invalidResults.length,
-          invalid: invalidResults.length,
-        };
-        const chunkTargetKind = working.targetKind;
-        const importRows = rowsForImportChunk(previewChunk, chunkTargetKind);
-        const result =
-          importRows.length > 0
-            ? await sdkFetch<PartnershipCrmImportResult>(
-                chunkTargetKind === "professionals"
-                  ? "/admin/partnership-crm/professionals/import"
-                  : "/admin/partnership-crm/import",
-                {
-                  method: "POST",
-                  body: JSON.stringify({ [chunkTargetKind]: importRows }),
-                },
-              )
-            : {
-                results: [],
-                summary: emptyImportSummary(),
-              };
-
         working = saveImportSession({
           ...working,
-          nextImportIndex: chunkEndIndex,
-          importSummary: importSummaryAdd(
-            working.importSummary,
-            importSummaryAdd(result.summary, invalidSummary),
-          ),
-          results: [...working.results, ...result.results, ...invalidResults],
-          lastError: undefined,
+          status: "importing",
+          mode: "all",
+          activeRowIndex: rowIndex,
           updatedAt: new Date().toISOString(),
         });
+        const imported = await importSinglePreviewRow(working, rowIndex, "add");
+        if (!imported) {
+          return;
+        }
+        working = imported;
       }
 
-      working = saveImportSession({
-        ...working,
-        status: "completed",
-        stage: "complete",
-        nextImportIndex: working.totalRows,
-        lastError: undefined,
-        updatedAt: new Date().toISOString(),
-      });
-      invalidateOrganizations();
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        message: `${t("Import complete.")} ${
-          working.importSummary.created
-        } ${t("created")}, ${working.importSummary.updated} ${t(
-          "updated",
-        )}, ${working.importSummary.skipped} ${t("skipped")}, ${
-          working.importSummary.invalid
-        } ${t("invalid")}.`,
-      });
+      completeCrmImportSession(working);
     } catch (error) {
       saveImportSession({
         ...working,
         status: "paused",
         stage: "import",
+        lastError: errorMessage(error),
+        updatedAt: new Date().toISOString(),
+      });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("CRM import paused."),
+        details: errorMessage(error),
+        durationMs: 18000,
+      });
+    }
+  }
+
+  async function startInteractiveImportSession(
+    session: CrmImportSession | null,
+  ) {
+    if (!session || session.status === "completed") {
+      return;
+    }
+
+    const rowIndex = Math.min(
+      session.nextImportIndex,
+      Math.max(session.totalRows - 1, 0),
+    );
+    const started = saveImportSession({
+      ...session,
+      status: "ready",
+      stage: "import",
+      mode: "interactive",
+      activeRowIndex: rowIndex,
+      lastError: undefined,
+      updatedAt: new Date().toISOString(),
+    });
+
+    if (rowIndex < started.totalRows) {
+      await previewCrmImportSession(started, {
+        targetPreviewCount: rowIndex + 1,
+        showReadyToast: false,
+      });
+    }
+  }
+
+  async function advanceInteractiveImportSession(
+    session: CrmImportSession | null,
+  ) {
+    if (!session || session.status === "completed") {
+      return;
+    }
+
+    if (session.nextImportIndex >= session.totalRows) {
+      completeCrmImportSession(session);
+      return;
+    }
+
+    const advanced = saveImportSession({
+      ...session,
+      status: "ready",
+      stage: "import",
+      mode: "interactive",
+      activeRowIndex: session.nextImportIndex,
+      lastError: undefined,
+      updatedAt: new Date().toISOString(),
+    });
+
+    await previewCrmImportSession(advanced, {
+      targetPreviewCount: advanced.activeRowIndex + 1,
+      showReadyToast: false,
+    });
+  }
+
+  async function decideInteractiveImportRow(decision: "add" | "skip") {
+    if (!importSession || importSession.status === "completed") {
+      return;
+    }
+
+    try {
+      const rowIndex = importSession.activeRowIndex;
+      const updated = await importSinglePreviewRow(
+        {
+          ...importSession,
+          mode: "interactive",
+          stage: "import",
+        },
+        rowIndex,
+        decision,
+      );
+      if (!updated) {
+        return;
+      }
+      if (updated.nextImportIndex >= updated.totalRows) {
+        completeCrmImportSession(updated);
+      }
+    } catch (error) {
+      saveImportSession({
+        ...importSession,
+        status: "paused",
+        stage: "import",
+        mode: "interactive",
         lastError: errorMessage(error),
         updatedAt: new Date().toISOString(),
       });
@@ -2740,21 +3175,28 @@ export function PartnershipCrmWorkbench() {
         fileSize: file.size,
         createdAt: now,
         updatedAt: now,
-        status: "previewing",
+        status: "ready",
         stage: "preview",
-        chunkSize: CRM_IMPORT_CHUNK_SIZE,
+        mode: "setup",
+        chunkSize: 1,
         targetKind,
         sourceRows: parsed.rows,
         previewRows: [],
         parseErrors: parsed.errors,
         totalRows: parsed.rows.length,
         previewedRows: 0,
+        activeRowIndex: 0,
         nextImportIndex: 0,
         importSummary: emptyImportSummary(),
         results: [],
       };
 
-      await previewCrmImportSession(session);
+      saveImportSession(session);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("CRM CSV loaded."),
+      });
     } catch (error) {
       setImportSession(null);
       setImportPreview(null);
@@ -2768,23 +3210,6 @@ export function PartnershipCrmWorkbench() {
     } finally {
       event.target.value = "";
     }
-  }
-
-  function handleImportPreviewChange(rows: PartnershipCrmImportPreviewRow[]) {
-    const normalizedRows = rows.map(withDuplicateDefaults);
-    if (importSession) {
-      saveImportSession({
-        ...importSession,
-        previewRows: normalizedRows,
-        updatedAt: new Date().toISOString(),
-      });
-      return;
-    }
-
-    setImportPreview({
-      rows: normalizedRows,
-      summary: summarizePreviewRows(normalizedRows),
-    });
   }
 
   function updateSelectedStatus(status: PartnershipCrmStatus) {
@@ -3445,8 +3870,15 @@ export function PartnershipCrmWorkbench() {
         onClose={() => setImportOpen(false)}
         onTargetKindChange={handleTargetKindChange}
         onFileChange={handleCsvFileChange}
-        onPreviewChange={handleImportPreviewChange}
-        onImport={() => void runCrmImportSession(importSession)}
+        onStartInteractive={() =>
+          void startInteractiveImportSession(importSession)
+        }
+        onInteractiveAdd={() => void decideInteractiveImportRow("add")}
+        onInteractiveSkip={() => void decideInteractiveImportRow("skip")}
+        onInteractiveNext={() =>
+          void advanceInteractiveImportSession(importSession)
+        }
+        onImportAll={() => void runCrmImportSession(importSession)}
         onClearSession={discardImportCheckpoint}
         language={language}
       />
