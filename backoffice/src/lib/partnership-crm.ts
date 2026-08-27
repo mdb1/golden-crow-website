@@ -1,3 +1,5 @@
+import { normalizeDiscoverOrganizationCountryCode } from "./discover-organization-fields";
+
 export const PARTNERSHIP_CRM_FROM_EMAIL = "federico@goldencrowvs.com";
 
 export const CRM_STATUS_OPTIONS = [
@@ -197,6 +199,33 @@ const STATUS_ALIASES: Record<string, PartnershipCrmStatus> = {
   no_encaja: "not_a_fit",
 };
 
+const CATEGORY_ALIASES: Record<string, (typeof CRM_CATEGORY_OPTIONS)[number]> =
+  {
+    laboratory: "Laboratory / Genomics",
+    lab: "Laboratory / Genomics",
+    genomics: "Laboratory / Genomics",
+    laboratorio_genomica: "Laboratory / Genomics",
+    laboratory_genomics: "Laboratory / Genomics",
+    fertility: "Fertility Clinic",
+    fertility_clinic: "Fertility Clinic",
+    clinica_de_fertilidad: "Fertility Clinic",
+    foundation: "Foundation",
+    fundacion: "Foundation",
+    education: "Education",
+    educacion: "Education",
+    umbrella_organization: "Umbrella Organization",
+    organizacion_paraguas: "Umbrella Organization",
+    hospital: "Hospital",
+    research_center: "Research Center",
+    centro_de_investigacion: "Research Center",
+    scientific_society: "Scientific Society",
+    sociedad_cientifica: "Scientific Society",
+    genetic_testing_platform: "Genetic Testing Platform",
+    plataforma_de_pruebas_geneticas: "Genetic Testing Platform",
+    other: "Other",
+    otro: "Other",
+  };
+
 const HEADER_ALIASES: Record<keyof PartnershipCrmOrganizationInput, string[]> =
   {
     name: [
@@ -229,6 +258,27 @@ function normalizeKey(value: string) {
 function normalizeStatus(value: string): PartnershipCrmStatus {
   const key = normalizeKey(value);
   return STATUS_ALIASES[key] ?? "new";
+}
+
+export function normalizeCrmCategory(value: string) {
+  const raw = value.trim();
+  if (!raw) {
+    return "";
+  }
+
+  const normalized = normalizeKey(raw);
+  return (
+    CRM_CATEGORY_OPTIONS.find(
+      (category) => normalizeKey(category) === normalized,
+    ) ??
+    CATEGORY_ALIASES[normalized] ??
+    "Other"
+  );
+}
+
+export function normalizeCrmCountry(value: string) {
+  const countryCode = normalizeDiscoverOrganizationCountryCode(value);
+  return countryCode === "GLOBAL" ? "" : countryCode;
 }
 
 function parseCsvLine(line: string) {
@@ -317,9 +367,9 @@ export function parseCrmCsv(text: string): ParsedCrmCsv {
 
     rows.push({
       name: row.name?.trim() ?? "",
-      category: row.category?.trim() ?? "",
+      category: normalizeCrmCategory(row.category ?? ""),
       website: row.website?.trim() ?? "",
-      country: row.country?.trim() ?? "",
+      country: normalizeCrmCountry(row.country ?? ""),
       status: normalizeStatus(row.status ?? ""),
       contactName: row.contactName?.trim() ?? "",
       contactEmail: row.contactEmail?.trim().toLowerCase() ?? "",

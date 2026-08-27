@@ -59,7 +59,9 @@ import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -76,9 +78,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText, type AppLanguage } from "@/lib/language";
 import {
+  formatDiscoverOrganizationCountry,
+  getDiscoverOrganizationCountryGroups,
+} from "@/lib/discover-organization-fields";
+import {
   bestCrmTemplateForOrganization,
   CRM_CATEGORY_OPTIONS,
   CRM_STATUS_OPTIONS,
+  normalizeCrmCategory,
+  normalizeCrmCountry,
   PARTNERSHIP_CRM_FROM_EMAIL,
   parseCrmCsv,
   renderCrmTemplate,
@@ -107,6 +115,10 @@ const CRM_ORGANIZATION_PAGE_SIZE = 50;
 const CRM_IMPORT_CHUNK_SIZE = 100;
 const CRM_IMPORT_SESSION_STORAGE_KEY =
   "golden-crow:partnership-crm-import-session:v1";
+const CRM_ALL_CATEGORIES_VALUE = "__all_categories__";
+const CRM_NO_CATEGORY_VALUE = "__no_category__";
+const CRM_ALL_COUNTRIES_VALUE = "__all_countries__";
+const CRM_NO_COUNTRY_VALUE = "__no_country__";
 
 type EmailState = {
   to: string;
@@ -440,17 +452,19 @@ function buildOrganizationListPath(filters: ListFilters, cursor?: string) {
   const params = new URLSearchParams({
     limit: String(CRM_ORGANIZATION_PAGE_SIZE),
   });
+  const category = normalizeCrmCategory(filters.category);
+  const country = normalizeCrmCountry(filters.country);
   if (filters.query.trim()) {
     params.set("query", filters.query.trim());
   }
   if (filters.status !== "all") {
     params.set("status", filters.status);
   }
-  if (filters.category.trim()) {
-    params.set("category", filters.category.trim());
+  if (category) {
+    params.set("category", category);
   }
-  if (filters.country.trim()) {
-    params.set("country", filters.country.trim());
+  if (country) {
+    params.set("country", country);
   }
   if (filters.emailState !== "all") {
     params.set("emailState", filters.emailState);
@@ -471,9 +485,9 @@ function organizationPayload(
 
   return {
     name: state.name.trim(),
-    category: state.category.trim(),
+    category: normalizeCrmCategory(state.category),
     website: state.website.trim(),
-    country: state.country.trim(),
+    country: normalizeCrmCountry(state.country),
     status: state.status,
     contactName: state.contactName.trim(),
     contactEmail: state.contactEmail.trim().toLowerCase(),
@@ -509,9 +523,10 @@ function toFormState(
 
   return {
     name: organization.name,
-    category: organization.category || "Laboratory / Genomics",
+    category:
+      normalizeCrmCategory(organization.category) || "Laboratory / Genomics",
     website: organization.website,
-    country: organization.country,
+    country: normalizeCrmCountry(organization.country),
     status: organization.status,
     contactName: organization.contactName,
     contactEmail: organization.contactEmail,
@@ -638,6 +653,113 @@ function StatusBadge({
     <Badge variant={statusBadgeVariant(status)}>
       {appText(language, statusLabel(status))}
     </Badge>
+  );
+}
+
+function formatCrmCategory(value: string, language: AppLanguage) {
+  const normalized = normalizeCrmCategory(value);
+  return normalized ? appText(language, normalized) : value.trim();
+}
+
+function formatCrmCountry(value: string, language: AppLanguage) {
+  const countryCode = normalizeCrmCountry(value);
+  return countryCode
+    ? (formatDiscoverOrganizationCountry(countryCode, language) ?? countryCode)
+    : value.trim();
+}
+
+function CrmCategorySelect({
+  id,
+  value,
+  onChange,
+  language,
+  mode,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  language: AppLanguage;
+  mode: "filter" | "form";
+}) {
+  const t = (text: string) => appText(language, text);
+  const emptyValue =
+    mode === "filter" ? CRM_ALL_CATEGORIES_VALUE : CRM_NO_CATEGORY_VALUE;
+
+  return (
+    <Select
+      value={value || emptyValue}
+      onValueChange={(nextValue) =>
+        onChange(nextValue === emptyValue ? "" : nextValue)
+      }
+    >
+      <SelectTrigger id={id} className="w-full">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={emptyValue}>
+          {mode === "filter" ? t("All categories") : t("No category")}
+        </SelectItem>
+        {CRM_CATEGORY_OPTIONS.map((category) => (
+          <SelectItem key={category} value={category}>
+            {t(category)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function CrmCountrySelect({
+  id,
+  value,
+  onChange,
+  language,
+  mode,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  language: AppLanguage;
+  mode: "filter" | "form";
+}) {
+  const t = (text: string) => appText(language, text);
+  const countryGroups = useMemo(
+    () =>
+      getDiscoverOrganizationCountryGroups(language).map((group) => ({
+        ...group,
+        options: group.options.filter((option) => option.code !== "GLOBAL"),
+      })),
+    [language],
+  );
+  const emptyValue =
+    mode === "filter" ? CRM_ALL_COUNTRIES_VALUE : CRM_NO_COUNTRY_VALUE;
+
+  return (
+    <Select
+      value={value || emptyValue}
+      onValueChange={(nextValue) =>
+        onChange(nextValue === emptyValue ? "" : nextValue)
+      }
+    >
+      <SelectTrigger id={id} className="w-full">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={emptyValue}>
+          {mode === "filter" ? t("All countries") : t("No country")}
+        </SelectItem>
+        {countryGroups.map((group) => (
+          <SelectGroup key={group.key}>
+            <SelectLabel>{t(group.label)}</SelectLabel>
+            {group.options.map((option) => (
+              <SelectItem key={option.code} value={option.code}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -853,12 +975,6 @@ function OrganizationDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid gap-4">
-          <datalist id="crm-category-options">
-            {CRM_CATEGORY_OPTIONS.map((category) => (
-              <option key={category} value={category} />
-            ))}
-          </datalist>
-
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="crm-org-name">{t("Organization name")}</Label>
@@ -871,11 +987,12 @@ function OrganizationDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="crm-org-category">{t("Category")}</Label>
-              <Input
+              <CrmCategorySelect
                 id="crm-org-category"
-                list="crm-category-options"
                 value={form.category}
-                onChange={(event) => update({ category: event.target.value })}
+                onChange={(category) => update({ category })}
+                language={language}
+                mode="form"
               />
             </div>
             <div className="space-y-1.5">
@@ -889,10 +1006,12 @@ function OrganizationDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="crm-org-country">{t("Country")}</Label>
-              <Input
+              <CrmCountrySelect
                 id="crm-org-country"
                 value={form.country}
-                onChange={(event) => update({ country: event.target.value })}
+                onChange={(country) => update({ country })}
+                language={language}
+                mode="form"
               />
             </div>
             <div className="space-y-1.5">
@@ -1538,8 +1657,15 @@ function ImportDialog({
                               {row.organization.name || "—"}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {row.organization.category || "—"} ·{" "}
-                              {row.organization.country || "—"}
+                              {formatCrmCategory(
+                                row.organization.category ?? "",
+                                language,
+                              ) || "—"}{" "}
+                              ·{" "}
+                              {formatCrmCountry(
+                                row.organization.country ?? "",
+                                language,
+                              ) || "—"}
                             </div>
                             {!row.valid ? (
                               <p className="mt-1 text-xs text-destructive">
@@ -2408,19 +2534,19 @@ export function PartnershipCrmWorkbench() {
             ))}
           </SelectContent>
         </Select>
-        <Input
+        <CrmCategorySelect
+          id="crm-category-filter"
           value={filters.category}
-          onChange={(event) =>
-            resetCursorsForFilterChange({ category: event.target.value })
-          }
-          placeholder={t("Category")}
+          onChange={(category) => resetCursorsForFilterChange({ category })}
+          language={language}
+          mode="filter"
         />
-        <Input
+        <CrmCountrySelect
+          id="crm-country-filter"
           value={filters.country}
-          onChange={(event) =>
-            resetCursorsForFilterChange({ country: event.target.value })
-          }
-          placeholder={t("Country")}
+          onChange={(country) => resetCursorsForFilterChange({ country })}
+          language={language}
+          mode="filter"
         />
         <Select
           value={filters.emailState}
@@ -2516,8 +2642,15 @@ export function PartnershipCrmWorkbench() {
                               {organization.name}
                             </span>
                             <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                              {organization.category || t("No category")} ·{" "}
-                              {organization.country || t("No country")}
+                              {formatCrmCategory(
+                                organization.category,
+                                language,
+                              ) || t("No category")}{" "}
+                              ·{" "}
+                              {formatCrmCountry(
+                                organization.country,
+                                language,
+                              ) || t("No country")}
                             </span>
                           </button>
                         </TableCell>
@@ -2601,14 +2734,20 @@ export function PartnershipCrmWorkbench() {
                         language={language}
                       />
                       <Badge variant="outline">
-                        {selectedOrganization.category || t("No category")}
+                        {formatCrmCategory(
+                          selectedOrganization.category,
+                          language,
+                        ) || t("No category")}
                       </Badge>
                     </div>
                     <h3 className="mt-2 truncate font-heading text-xl font-semibold text-foreground">
                       {selectedOrganization.name}
                     </h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {selectedOrganization.country || t("No country")}
+                      {formatCrmCountry(
+                        selectedOrganization.country,
+                        language,
+                      ) || t("No country")}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">

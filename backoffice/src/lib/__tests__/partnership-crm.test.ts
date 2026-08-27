@@ -61,11 +61,15 @@ describe("partnership CRM helpers", () => {
     expect(parsed.rows).toEqual([
       expect.objectContaining({
         name: "Genome Lab",
+        category: "Genetic Testing Platform",
+        country: "AR",
         contactEmail: "marcelo@genomelab.example",
         status: "contacted",
       }),
       expect.objectContaining({
         name: "Angelman Argentina",
+        category: "Foundation",
+        country: "AR",
         contactEmail: "",
         status: "new",
       }),

@@ -46,6 +46,18 @@ export const PARTNERSHIP_CRM_TEMPLATE_STATUSES = [
   "inactive",
   "archived",
 ] as const;
+const PARTNERSHIP_CRM_CATEGORIES = [
+  "Laboratory / Genomics",
+  "Fertility Clinic",
+  "Foundation",
+  "Education",
+  "Umbrella Organization",
+  "Hospital",
+  "Research Center",
+  "Scientific Society",
+  "Genetic Testing Platform",
+  "Other",
+] as const;
 
 export type PartnershipCrmStatus = (typeof PARTNERSHIP_CRM_STATUSES)[number];
 export type PartnershipCrmActivityType =
@@ -198,6 +210,15 @@ function normalizeName(value: string) {
     .replace(/\s+/g, " ");
 }
 
+function normalizeKey(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 function normalizeWebsite(value: unknown) {
   const raw = cleanString(value);
   if (!raw) {
@@ -254,6 +275,95 @@ function normalizeTemplateStatus(value: unknown): PartnershipCrmTemplateStatus {
 
 function normalizeEmail(value: unknown) {
   return cleanString(value).toLowerCase();
+}
+
+const CATEGORY_ALIASES: Record<
+  string,
+  (typeof PARTNERSHIP_CRM_CATEGORIES)[number]
+> = {
+  laboratory: "Laboratory / Genomics",
+  lab: "Laboratory / Genomics",
+  genomics: "Laboratory / Genomics",
+  laboratorio_genomica: "Laboratory / Genomics",
+  laboratory_genomics: "Laboratory / Genomics",
+  fertility: "Fertility Clinic",
+  fertility_clinic: "Fertility Clinic",
+  clinica_de_fertilidad: "Fertility Clinic",
+  foundation: "Foundation",
+  fundacion: "Foundation",
+  education: "Education",
+  educacion: "Education",
+  umbrella_organization: "Umbrella Organization",
+  organizacion_paraguas: "Umbrella Organization",
+  hospital: "Hospital",
+  research_center: "Research Center",
+  centro_de_investigacion: "Research Center",
+  scientific_society: "Scientific Society",
+  sociedad_cientifica: "Scientific Society",
+  genetic_testing_platform: "Genetic Testing Platform",
+  plataforma_de_pruebas_geneticas: "Genetic Testing Platform",
+  other: "Other",
+  otro: "Other",
+};
+
+const COUNTRY_ALIASES: Record<string, string> = {
+  argentina: "AR",
+  arg: "AR",
+  united_states: "US",
+  united_states_of_america: "US",
+  estados_unidos: "US",
+  estados_unidos_de_america: "US",
+  usa: "US",
+  eeuu: "US",
+  australia: "AU",
+  aus: "AU",
+  new_zealand: "NZ",
+  nueva_zelanda: "NZ",
+  nzl: "NZ",
+  spain: "ES",
+  espana: "ES",
+  esp: "ES",
+  united_kingdom: "GB",
+  reino_unido: "GB",
+  uk: "GB",
+  gbr: "GB",
+};
+
+function normalizeCrmCategory(value: unknown) {
+  const raw = cleanString(value);
+  if (!raw) {
+    return "";
+  }
+
+  const key = normalizeKey(raw);
+  return (
+    PARTNERSHIP_CRM_CATEGORIES.find(
+      (category) => normalizeKey(category) === key,
+    ) ??
+    CATEGORY_ALIASES[key] ??
+    "Other"
+  );
+}
+
+function normalizeCrmCountry(value: unknown) {
+  const raw = cleanString(value);
+  if (!raw) {
+    return "";
+  }
+
+  const parenthesizedCode = raw.match(/\(([a-z]{2})\)\s*$/i)?.[1];
+  if (parenthesizedCode) {
+    return parenthesizedCode.toUpperCase();
+  }
+
+  const compactCode = raw.replace(/[\s._-]+/g, "").toUpperCase();
+  if (/^[A-Z]{2}$/.test(compactCode)) {
+    return compactCode;
+  }
+
+  return (
+    COUNTRY_ALIASES[normalizeKey(raw.replace(/\s*\([^)]*\)\s*$/, ""))] ?? raw
+  );
 }
 
 function normalizeLimit(value: unknown) {
@@ -337,10 +447,10 @@ function organizationDocument(
   return withoutUndefined({
     schemaVersion: 1,
     name,
-    category: cleanString(input.category),
+    category: normalizeCrmCategory(input.category),
     website,
     websiteDomain: websiteDomain(website),
-    country: cleanString(input.country),
+    country: normalizeCrmCountry(input.country),
     status: normalizeStatus(input.status),
     contactName: cleanString(input.contactName),
     contactEmail: normalizeEmail(input.contactEmail),
@@ -470,8 +580,8 @@ function matchesFilters(
   },
 ) {
   const query = cleanString(filters.query).toLowerCase();
-  const category = cleanString(filters.category).toLowerCase();
-  const country = cleanString(filters.country).toLowerCase();
+  const category = normalizeCrmCategory(filters.category);
+  const country = normalizeCrmCountry(filters.country);
   const status = cleanString(filters.status);
   const searchable = [
     record.id,
@@ -492,8 +602,8 @@ function matchesFilters(
   return (
     (!query || searchable.includes(query)) &&
     (!status || status === "all" || record.status === status) &&
-    (!category || record.category.toLowerCase().includes(category)) &&
-    (!country || record.country.toLowerCase().includes(country)) &&
+    (!category || normalizeCrmCategory(record.category) === category) &&
+    (!country || normalizeCrmCountry(record.country) === country) &&
     (!filters.emailState ||
       (filters.emailState === "has_email"
         ? Boolean(record.contactEmail)

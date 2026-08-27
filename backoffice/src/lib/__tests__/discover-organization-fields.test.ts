@@ -5,6 +5,7 @@ import {
   formatDiscoverRegionCodes,
   getDiscoverOrganizationCountryGroups,
   getDiscoverRegionCountryGroups,
+  normalizeDiscoverOrganizationCountryCode,
   parseDiscoverOrganizationCountryCodes,
   parseDiscoverRegionCodes,
   serializeDiscoverOrganizationCountryCodes,
@@ -31,6 +32,17 @@ describe("discover organization fields", () => {
   it("formats country codes with readable names", () => {
     expect(formatDiscoverOrganizationCountry("us", "en")).toBe(
       "United States (US)",
+    );
+  });
+
+  it("normalizes country names, labels, and alpha-3 values to alpha-2 codes", () => {
+    expect(normalizeDiscoverOrganizationCountryCode("Argentina")).toBe("AR");
+    expect(normalizeDiscoverOrganizationCountryCode("ARG")).toBe("AR");
+    expect(normalizeDiscoverOrganizationCountryCode("United States (US)")).toBe(
+      "US",
+    );
+    expect(normalizeDiscoverOrganizationCountryCode("Estados Unidos")).toBe(
+      "US",
     );
   });
 

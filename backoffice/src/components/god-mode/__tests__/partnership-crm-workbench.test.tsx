@@ -116,6 +116,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(sdkFetch).toHaveBeenCalledWith(
       "/admin/partnership-crm/organizations?limit=50",
     );
+    expect(screen.getByText("All categories")).toBeTruthy();
+    expect(screen.getByText("All countries")).toBeTruthy();
+    expect(screen.queryByPlaceholderText("Category")).toBeNull();
+    expect(screen.queryByPlaceholderText("Country")).toBeNull();
 
     const primaryContactCard =
       screen.getByText("Primary contact").parentElement;

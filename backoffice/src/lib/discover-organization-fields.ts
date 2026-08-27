@@ -372,6 +372,75 @@ function countryOption(
   };
 }
 
+function normalizeCountrySearchValue(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+const COUNTRY_NAME_ALIASES: Record<string, string> = {
+  argentina: "AR",
+  estados_unidos: "US",
+  estados_unidos_de_america: "US",
+  eeuu: "US",
+  eua: "US",
+  usa: "US",
+  united_states: "US",
+  united_states_of_america: "US",
+  reino_unido: "GB",
+  uk: "GB",
+  united_kingdom: "GB",
+};
+
+export function normalizeDiscoverOrganizationCountryCode(value: string) {
+  const raw = value.trim();
+  if (!raw) {
+    return "";
+  }
+
+  const parenthesizedCode = raw.match(/\(([a-z]{2,3}|global)\)\s*$/i)?.[1];
+  if (parenthesizedCode) {
+    return normalizeDiscoverOrganizationCountryCode(parenthesizedCode);
+  }
+
+  const compactCode = raw.replace(/[\s._-]+/g, "").toUpperCase();
+  if (compactCode === GLOBAL_COUNTRY_CODE) {
+    return GLOBAL_COUNTRY_CODE;
+  }
+  if (isAlpha2CountryCode(compactCode)) {
+    return compactCode;
+  }
+
+  const alpha2Code = COUNTRY_ALPHA3_TO_ALPHA2.get(compactCode);
+  if (alpha2Code && isAlpha2CountryCode(alpha2Code)) {
+    return alpha2Code;
+  }
+
+  const normalizedName = normalizeCountrySearchValue(
+    raw.replace(/\s*\([^)]*\)\s*$/, ""),
+  );
+  const alias = COUNTRY_NAME_ALIASES[normalizedName];
+  if (alias) {
+    return alias;
+  }
+
+  const countryCode = DISCOVER_ORGANIZATION_COUNTRY_CODES.find((code) => {
+    const englishName = normalizeCountrySearchValue(
+      countryNameForCode(code, "en"),
+    );
+    const spanishName = normalizeCountrySearchValue(
+      countryNameForCode(code, "es"),
+    );
+    return englishName === normalizedName || spanishName === normalizedName;
+  });
+
+  return countryCode ?? "";
+}
+
 export function formatDiscoverOrganizationCountry(
   countryCode: string,
   language: AppLanguage,

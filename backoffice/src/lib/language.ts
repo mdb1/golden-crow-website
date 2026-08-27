@@ -1594,6 +1594,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Country: "País",
   "Recommended countries": "Países recomendados",
   "All other countries": "Otros países",
+  "All countries": "Todos los países",
   "Select country": "Seleccionar país",
   "No country": "Sin país",
   "Institution identifier": "Identificador dentro de la institución",
