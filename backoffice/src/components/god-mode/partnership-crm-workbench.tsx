@@ -24,6 +24,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Copy,
   ExternalLink,
   FileUp,
   Filter,
@@ -185,6 +186,25 @@ type CrmImportSessionStatus =
 type CrmImportSessionStage = "preview" | "import" | "complete";
 type CrmImportSessionMode = "setup" | "interactive" | "all";
 
+type CrmImportErrorDetail = {
+  message: string;
+  stage: CrmImportSessionStage;
+  mode: CrmImportSessionMode;
+  targetKind: PartnershipCrmTargetKind;
+  rowIndex: number | null;
+  rowNumber: number | null;
+  rowId?: string;
+  endpoint?: string;
+  method?: string;
+  status?: number;
+  occurredAt: string;
+  requestPayload?: unknown;
+  sourceRow?: CrmTargetInput | null;
+  previewRow?: PartnershipCrmImportPreviewRow | null;
+  parseErrors?: Array<{ row: number; message: string }>;
+  responseDetails?: string;
+};
+
 type CrmImportSession = {
   id: string;
   fileName: string;
@@ -206,6 +226,7 @@ type CrmImportSession = {
   importSummary: PartnershipCrmImportResult["summary"];
   results: PartnershipCrmImportResult["results"];
   lastError?: string;
+  lastErrorDetail?: CrmImportErrorDetail;
 };
 
 function crmImportSessionStorageKey(targetKind: PartnershipCrmTargetKind) {
@@ -276,6 +297,258 @@ function createImportSessionId() {
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown import error.";
+}
+
+function errorStringProperty(error: unknown, key: string) {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+  const value = (error as Record<string, unknown>)[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function errorNumberProperty(error: unknown, key: string) {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+  const value = (error as Record<string, unknown>)[key];
+  return typeof value === "number" ? value : undefined;
+}
+
+function safeImportLogValue(value: unknown) {
+  if (value === undefined) {
+    return "<not available>";
+  }
+
+  if (typeof value === "string") {
+    return value.trim() || "<blank>";
+  }
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function importRequestPayloadForRow(
+  row: PartnershipCrmImportPreviewRow,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  return {
+    [targetKind]: [rowForImportDecision(row, targetKind, "import")],
+  };
+}
+
+function importRequestPayloadForSessionRow(
+  session: CrmImportSession,
+  rowIndex: number,
+) {
+  const row = session.previewRows[rowIndex];
+  return row ? importRequestPayloadForRow(row, session.targetKind) : undefined;
+}
+
+function previewRequestPayloadForRow(
+  session: CrmImportSession,
+  rowIndex: number,
+) {
+  return {
+    [session.targetKind]: [
+      {
+        ...session.sourceRows[rowIndex],
+        rowId: `row-${rowIndex + 1}`,
+      },
+    ],
+  };
+}
+
+function buildCrmImportErrorDetail({
+  error,
+  session,
+  stage,
+  rowIndex,
+  endpoint,
+  requestPayload,
+}: {
+  error: unknown;
+  session: CrmImportSession;
+  stage: CrmImportSessionStage;
+  rowIndex: number | null;
+  endpoint?: string;
+  requestPayload?: unknown;
+}): CrmImportErrorDetail {
+  const previewRow =
+    typeof rowIndex === "number" ? session.previewRows[rowIndex] : undefined;
+  const sourceRow =
+    typeof rowIndex === "number" ? session.sourceRows[rowIndex] : undefined;
+  const rowNumber = typeof rowIndex === "number" ? rowIndex + 1 : null;
+
+  return {
+    message: errorMessage(error),
+    stage,
+    mode: session.mode,
+    targetKind: session.targetKind,
+    rowIndex,
+    rowNumber,
+    rowId:
+      previewRow?.rowId ??
+      (rowNumber ? `row-${rowNumber}` : undefined),
+    endpoint: errorStringProperty(error, "path") ?? endpoint,
+    method: errorStringProperty(error, "method") ?? "POST",
+    status: errorNumberProperty(error, "status"),
+    occurredAt: new Date().toISOString(),
+    requestPayload,
+    sourceRow: sourceRow ?? null,
+    previewRow: previewRow ?? null,
+    parseErrors: session.parseErrors,
+    responseDetails: errorStringProperty(error, "details"),
+  };
+}
+
+function restoreCrmImportErrorDetail(
+  value: unknown,
+): CrmImportErrorDetail | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const candidate = value as Partial<CrmImportErrorDetail>;
+  if (typeof candidate.message !== "string" || !candidate.message.trim()) {
+    return undefined;
+  }
+
+  return {
+    message: candidate.message,
+    stage:
+      candidate.stage === "preview" ||
+      candidate.stage === "import" ||
+      candidate.stage === "complete"
+        ? candidate.stage
+        : "import",
+    mode:
+      candidate.mode === "setup" ||
+      candidate.mode === "interactive" ||
+      candidate.mode === "all"
+        ? candidate.mode
+        : "setup",
+    targetKind:
+      candidate.targetKind === "professionals" ||
+      candidate.targetKind === "organizations"
+        ? candidate.targetKind
+        : "organizations",
+    rowIndex:
+      typeof candidate.rowIndex === "number" ? candidate.rowIndex : null,
+    rowNumber:
+      typeof candidate.rowNumber === "number" ? candidate.rowNumber : null,
+    rowId:
+      typeof candidate.rowId === "string" ? candidate.rowId : undefined,
+    endpoint:
+      typeof candidate.endpoint === "string" ? candidate.endpoint : undefined,
+    method: typeof candidate.method === "string" ? candidate.method : undefined,
+    status: typeof candidate.status === "number" ? candidate.status : undefined,
+    occurredAt:
+      typeof candidate.occurredAt === "string"
+        ? candidate.occurredAt
+        : new Date().toISOString(),
+    requestPayload: candidate.requestPayload,
+    sourceRow: (candidate.sourceRow as CrmTargetInput | null) ?? null,
+    previewRow:
+      (candidate.previewRow as PartnershipCrmImportPreviewRow | null) ?? null,
+    parseErrors: Array.isArray(candidate.parseErrors)
+      ? candidate.parseErrors
+      : [],
+    responseDetails:
+      typeof candidate.responseDetails === "string"
+        ? candidate.responseDetails
+        : undefined,
+  };
+}
+
+function importErrorRowLabel(
+  session: CrmImportSession,
+  language: AppLanguage,
+) {
+  const t = (text: string) => appText(language, text);
+  const rowNumber =
+    session.lastErrorDetail?.rowNumber ??
+    (session.activeRowIndex >= 0 ? session.activeRowIndex + 1 : null);
+
+  return rowNumber
+    ? `${t("Row")} ${rowNumber} ${t("of")} ${session.totalRows}`
+    : t("Unknown row");
+}
+
+function importErrorDescription(
+  session: CrmImportSession,
+  language: AppLanguage,
+) {
+  const t = (text: string) => appText(language, text);
+  const message = session.lastErrorDetail?.message ?? session.lastError;
+  const stage = session.lastErrorDetail?.stage ?? session.stage;
+  const stageText =
+    stage === "preview" ? t("previewing the row") : t("committing the row");
+
+  return `${importErrorRowLabel(session, language)} ${t(
+    "failed while",
+  )} ${stageText}. ${t("Backend response")}: ${message || t(
+    "Unknown import error.",
+  )}. ${t(
+    "Rows before this checkpoint were kept. Fix the CSV row shown in the log and resume from the saved checkpoint.",
+  )}`;
+}
+
+function buildCrmImportErrorLog(
+  session: CrmImportSession,
+  language: AppLanguage,
+) {
+  const t = (text: string) => appText(language, text);
+  const detail = session.lastErrorDetail;
+  const rowLabel = importErrorRowLabel(session, language);
+
+  return [
+    t("Import error log"),
+    "",
+    `${t("File")}: ${session.fileName}`,
+    `${t("CRM target")}: ${t(session.targetKind)}`,
+    `${t("Failure point")}: ${rowLabel}`,
+    `${t("Stage")}: ${t(detail?.stage ?? session.stage)}`,
+    `${t("Mode")}: ${t(detail?.mode ?? session.mode)}`,
+    `${t("Endpoint")}: ${detail?.method ?? "POST"} ${
+      detail?.endpoint ?? "<not available>"
+    }`,
+    `${t("HTTP status")}: ${detail?.status ?? "<not available>"}`,
+    `${t("Rows previewed")}: ${session.previewedRows} / ${session.totalRows}`,
+    `${t("Rows already committed")}: ${session.nextImportIndex} / ${
+      session.totalRows
+    }`,
+    `${t("Error message")}: ${detail?.message ?? session.lastError ?? "<not available>"}`,
+    `${t("Occurred at")}: ${
+      detail?.occurredAt
+        ? formatDateTime(detail.occurredAt, language)
+        : "<not available>"
+    }`,
+    "",
+    t("What to fix"),
+    importErrorDescription(session, language),
+    "",
+    t("Parsed CSV row"),
+    safeImportLogValue(detail?.sourceRow),
+    "",
+    t("Preview row"),
+    safeImportLogValue(detail?.previewRow),
+    "",
+    t("Request payload"),
+    safeImportLogValue(detail?.requestPayload),
+    "",
+    t("Backend response details"),
+    safeImportLogValue(detail?.responseDetails),
+    "",
+    t("CSV parse errors"),
+    safeImportLogValue(detail?.parseErrors ?? session.parseErrors),
+    "",
+    t("Import results so far"),
+    safeImportLogValue(session.results),
+  ].join("\n");
 }
 
 function summarizePreviewRows(
@@ -516,6 +789,12 @@ function validImportSession(
     typeof candidate.activeRowIndex === "number"
       ? candidate.activeRowIndex
       : nextImportIndex;
+  const lastError =
+    typeof candidate.lastError === "string"
+      ? candidate.lastError
+      : restoredStatus === "previewing" || restoredStatus === "importing"
+        ? "The previous import stopped before finishing."
+        : undefined;
 
   return {
     id: candidate.id,
@@ -548,12 +827,10 @@ function validImportSession(
     nextImportIndex: Math.min(Math.max(0, nextImportIndex), totalRows),
     importSummary: candidate.importSummary ?? emptyImportSummary(),
     results: Array.isArray(candidate.results) ? candidate.results : [],
-    lastError:
-      typeof candidate.lastError === "string"
-        ? candidate.lastError
-        : restoredStatus === "previewing" || restoredStatus === "importing"
-          ? "The previous import stopped before finishing."
-          : undefined,
+    lastError,
+    lastErrorDetail: lastError
+      ? restoreCrmImportErrorDetail(candidate.lastErrorDetail)
+      : undefined,
   };
 }
 
@@ -1895,11 +2172,120 @@ function ImportProgressPanel({
       </div>
 
       {session.lastError ? (
-        <p className="mt-3 rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-300/25 dark:bg-amber-400/10 dark:text-amber-100">
-          {t("Last error")}: {session.lastError}
-        </p>
+        <ImportErrorDiagnostics session={session} language={language} />
       ) : null}
     </section>
+  );
+}
+
+function ImportErrorDiagnostics({
+  session,
+  language,
+}: {
+  session: CrmImportSession;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const [showLog, setShowLog] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle",
+  );
+  const detail = session.lastErrorDetail;
+  const logText = useMemo(
+    () => buildCrmImportErrorLog(session, language),
+    [language, session],
+  );
+
+  async function copyLog() {
+    try {
+      await navigator.clipboard.writeText(logText);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-amber-300/70 bg-amber-50 p-4 text-amber-950 shadow-sm dark:border-amber-300/25 dark:bg-amber-400/10 dark:text-amber-100">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 gap-3">
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-200 text-amber-950 dark:bg-amber-300/20 dark:text-amber-100">
+            <AlertTriangle className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-800/76 dark:text-amber-100/76">
+              {t("Import failed")}
+            </p>
+            <h4 className="mt-1 font-heading text-base font-semibold">
+              {importErrorRowLabel(session, language)}
+            </h4>
+            <p className="mt-2 text-sm leading-6">
+              {importErrorDescription(session, language)}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowLog((current) => !current)}
+            aria-expanded={showLog}
+            className="border-amber-300/80 bg-white/80 text-amber-950 hover:bg-amber-100 dark:border-amber-300/30 dark:bg-slate-950/30 dark:text-amber-100 dark:hover:bg-amber-300/10"
+          >
+            <ListChecks className="h-3.5 w-3.5" />
+            {showLog ? t("Hide log") : t("Show log")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={copyLog}
+            className="border-amber-300/80 bg-white/80 text-amber-950 hover:bg-amber-100 dark:border-amber-300/30 dark:bg-slate-950/30 dark:text-amber-100 dark:hover:bg-amber-300/10"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            {copyStatus === "copied"
+              ? t("Copied")
+              : copyStatus === "error"
+                ? t("Copy error")
+                : t("Copy log")}
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
+        <div className="rounded-lg border border-amber-200/80 bg-white/72 px-3 py-2 dark:border-amber-300/20 dark:bg-slate-950/24">
+          <p className="text-xs text-amber-900/70 dark:text-amber-100/70">
+            {t("Failure point")}
+          </p>
+          <p className="mt-1 break-words font-semibold">
+            {detail?.method ?? "POST"} {detail?.endpoint ?? "—"}
+          </p>
+        </div>
+        <div className="rounded-lg border border-amber-200/80 bg-white/72 px-3 py-2 dark:border-amber-300/20 dark:bg-slate-950/24">
+          <p className="text-xs text-amber-900/70 dark:text-amber-100/70">
+            {t("HTTP status")}
+          </p>
+          <p className="mt-1 font-semibold">
+            {detail?.status ?? session.lastError}
+          </p>
+        </div>
+        <div className="rounded-lg border border-amber-200/80 bg-white/72 px-3 py-2 dark:border-amber-300/20 dark:bg-slate-950/24">
+          <p className="text-xs text-amber-900/70 dark:text-amber-100/70">
+            {t("Rows already committed")}
+          </p>
+          <p className="mt-1 font-semibold">
+            {session.nextImportIndex} / {session.totalRows}
+          </p>
+        </div>
+      </div>
+
+      {showLog ? (
+        <pre className="mt-4 max-h-96 overflow-auto rounded-lg border border-amber-200/80 bg-white/85 p-3 text-xs leading-5 text-amber-950 dark:border-amber-300/20 dark:bg-slate-950/45 dark:text-amber-50">
+          {logText}
+        </pre>
+      ) : null}
+    </div>
   );
 }
 
@@ -2888,7 +3274,7 @@ export function PartnershipCrmWorkbench() {
     },
   });
 
-  function saveImportSession(next: CrmImportSession) {
+  function saveImportSession(next: CrmImportSession): CrmImportSession {
     const totalRows = next.totalRows || next.sourceRows.length;
     const nextImportIndex = Math.min(
       Math.max(0, next.nextImportIndex),
@@ -2905,6 +3291,7 @@ export function PartnershipCrmWorkbench() {
       ),
       nextImportIndex,
       chunkSize: 1,
+      lastErrorDetail: next.lastError ? next.lastErrorDetail : undefined,
     };
 
     setImportSession(normalized);
@@ -2976,6 +3363,10 @@ export function PartnershipCrmWorkbench() {
       updatedAt: new Date().toISOString(),
     });
 
+    let failedPreviewIndex = working.previewedRows;
+    let failedPreviewPayload: unknown;
+    const previewEndpoint = importPreviewEndpointForTarget(working.targetKind);
+
     try {
       for (
         let startIndex = working.previewedRows;
@@ -2983,20 +3374,13 @@ export function PartnershipCrmWorkbench() {
         startIndex += 1
       ) {
         const chunkEndIndex = startIndex + 1;
-        const row = working.sourceRows[startIndex];
-        const chunkTargetKind = working.targetKind;
+        failedPreviewIndex = startIndex;
+        failedPreviewPayload = previewRequestPayloadForRow(working, startIndex);
         const preview = await sdkFetch<PartnershipCrmImportPreview>(
-          importPreviewEndpointForTarget(chunkTargetKind),
+          previewEndpoint,
           {
             method: "POST",
-            body: JSON.stringify({
-              [chunkTargetKind]: [
-                {
-                  ...row,
-                  rowId: `row-${startIndex + 1}`,
-                },
-              ],
-            }),
+            body: JSON.stringify(failedPreviewPayload),
           },
         );
 
@@ -3029,18 +3413,30 @@ export function PartnershipCrmWorkbench() {
       }
       return working;
     } catch (error) {
+      const lastErrorDetail = buildCrmImportErrorDetail({
+        error,
+        session: working,
+        stage: "preview",
+        rowIndex: failedPreviewIndex,
+        endpoint: previewEndpoint,
+        requestPayload: failedPreviewPayload,
+      });
       saveImportSession({
         ...working,
         status: "paused",
         stage: "preview",
         lastError: errorMessage(error),
+        lastErrorDetail,
         updatedAt: new Date().toISOString(),
       });
       setToast({
         id: Date.now(),
         tone: "error",
         message: t("CRM import paused."),
-        details: errorMessage(error),
+        details: importErrorDescription(
+          { ...working, lastError: errorMessage(error), lastErrorDetail },
+          language,
+        ),
         durationMs: 18000,
       });
       return null;
@@ -3111,15 +3507,13 @@ export function PartnershipCrmWorkbench() {
       updatedAt: new Date().toISOString(),
     });
 
+    const importEndpoint = importEndpointForTarget(importing.targetKind);
+    const requestPayload = importRequestPayloadForRow(row, importing.targetKind);
     const result = await sdkFetch<PartnershipCrmImportResult>(
-      importEndpointForTarget(importing.targetKind),
+      importEndpoint,
       {
         method: "POST",
-        body: JSON.stringify({
-          [importing.targetKind]: [
-            rowForImportDecision(row, importing.targetKind, "import"),
-          ],
-        }),
+        body: JSON.stringify(requestPayload),
       },
     );
 
@@ -3177,6 +3571,7 @@ export function PartnershipCrmWorkbench() {
       lastError: undefined,
       updatedAt: new Date().toISOString(),
     });
+    let failedImportIndex = working.activeRowIndex;
 
     try {
       for (
@@ -3184,6 +3579,7 @@ export function PartnershipCrmWorkbench() {
         rowIndex < working.totalRows;
         rowIndex += 1
       ) {
+        failedImportIndex = rowIndex;
         working = saveImportSession({
           ...working,
           status: "importing",
@@ -3200,18 +3596,33 @@ export function PartnershipCrmWorkbench() {
 
       completeCrmImportSession(working);
     } catch (error) {
+      const lastErrorDetail = buildCrmImportErrorDetail({
+        error,
+        session: working,
+        stage: "import",
+        rowIndex: failedImportIndex,
+        endpoint: importEndpointForTarget(working.targetKind),
+        requestPayload: importRequestPayloadForSessionRow(
+          working,
+          failedImportIndex,
+        ),
+      });
       saveImportSession({
         ...working,
         status: "paused",
         stage: "import",
         lastError: errorMessage(error),
+        lastErrorDetail,
         updatedAt: new Date().toISOString(),
       });
       setToast({
         id: Date.now(),
         tone: "error",
         message: t("CRM import paused."),
-        details: errorMessage(error),
+        details: importErrorDescription(
+          { ...working, lastError: errorMessage(error), lastErrorDetail },
+          language,
+        ),
         durationMs: 18000,
       });
     }
@@ -3297,19 +3708,35 @@ export function PartnershipCrmWorkbench() {
         completeCrmImportSession(updated);
       }
     } catch (error) {
+      const rowIndex = importSession.activeRowIndex;
+      const lastErrorDetail = buildCrmImportErrorDetail({
+        error,
+        session: importSession,
+        stage: "import",
+        rowIndex,
+        endpoint: importEndpointForTarget(importSession.targetKind),
+        requestPayload: importRequestPayloadForSessionRow(
+          importSession,
+          rowIndex,
+        ),
+      });
       saveImportSession({
         ...importSession,
         status: "paused",
         stage: "import",
         mode: "interactive",
         lastError: errorMessage(error),
+        lastErrorDetail,
         updatedAt: new Date().toISOString(),
       });
       setToast({
         id: Date.now(),
         tone: "error",
         message: t("CRM import paused."),
-        details: errorMessage(error),
+        details: importErrorDescription(
+          { ...importSession, lastError: errorMessage(error), lastErrorDetail },
+          language,
+        ),
         durationMs: 18000,
       });
     }

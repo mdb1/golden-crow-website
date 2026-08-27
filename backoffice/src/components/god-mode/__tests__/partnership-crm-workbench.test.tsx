@@ -658,6 +658,141 @@ describe("PartnershipCrmWorkbench import flow", () => {
     });
   });
 
+  it("shows a copyable row-level diagnostic log when interactive import fails", async () => {
+    const user = userEvent.setup();
+    const requestError = Object.assign(new Error("Bad Request"), {
+      status: 400,
+      method: "POST",
+      path: "/admin/partnership-crm/import",
+      details: [
+        "Request: POST /admin/partnership-crm/import",
+        "Status: 400 Bad Request",
+        'Response JSON:\n{"error":"Invalid category key","field":"category"}',
+      ].join("\n\n"),
+    });
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath === "/admin/partnership-crm/import-preview") {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{
+            rowId: string;
+            name?: string;
+            category?: string;
+            website?: string;
+            country?: string;
+            status?: string;
+            contactName?: string;
+            contactEmail?: string;
+            contactLinkedIn?: string;
+            notes?: string;
+          }>;
+        };
+        return {
+          rows: body.organizations.map((row) => ({
+            rowId: row.rowId,
+            organization: {
+              name: row.name ?? "",
+              category: row.category ?? "",
+              website: row.website ?? "",
+              country: row.country ?? "",
+              status: "new",
+              contactName: row.contactName ?? "",
+              contactEmail: row.contactEmail ?? "",
+              contactLinkedIn: row.contactLinkedIn ?? "",
+              lastContactAt: null,
+              notes: row.notes ?? "",
+            },
+            valid: true,
+            errors: [],
+            missingEmail: false,
+            duplicateCandidates: [],
+          })),
+          summary: {
+            total: body.organizations.length,
+            valid: body.organizations.length,
+            invalid: 0,
+            missingEmail: 0,
+            duplicates: 0,
+          },
+        };
+      }
+
+      if (stringPath === "/admin/partnership-crm/import") {
+        throw requestError;
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      return { organizations: [], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = crmCsv(1);
+    const file = new File([csv], "broken-crm-import.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+    await waitFor(() => {
+      expect(within(dialog).getByText("CSV loaded")).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Start interactive download",
+      }),
+    );
+    await waitFor(() => {
+      expect(within(dialog).getByText("Row 1 of 1")).toBeTruthy();
+    });
+
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Import failed")).toBeTruthy();
+    });
+    expect(
+      within(dialog).getByText(/Row 1 of 1 failed while committing the row/),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("Rows already committed")).toBeTruthy();
+    expect(within(dialog).getAllByText("0 / 1").length).toBeGreaterThan(0);
+
+    await user.click(within(dialog).getByRole("button", { name: "Show log" }));
+
+    const logBlock = dialog.querySelector("pre");
+    expect(logBlock?.textContent).toContain("Parsed CSV row");
+    expect(logBlock?.textContent).toContain("Genome Lab 1");
+    expect(logBlock?.textContent).toContain("Invalid category key");
+    expect(logBlock?.textContent).toContain("Request payload");
+
+    await user.click(within(dialog).getByRole("button", { name: "Copy log" }));
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: "Copied" }),
+      ).toBeTruthy();
+    });
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Import error log",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Genome Lab 1",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Invalid category key",
+    );
+  });
+
   it("imports all rows sequentially while accepting every valid row", async () => {
     const user = userEvent.setup();
     renderWorkbench();
