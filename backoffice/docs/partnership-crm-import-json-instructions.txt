@@ -1,0 +1,660 @@
+Pocket Genes CRM import JSON instructions
+=========================================
+
+Purpose
+-------
+
+This file defines the canonical JSON shape for importing organizations into the
+Pocket Genes CRM.
+
+The CRM import is a GOD MODE-only operation. The browser calls the Backoffice
+SDK proxy, which forwards to the SDK routes:
+
+- Backoffice proxy preview path:
+  POST /api/sdk/admin/partnership-crm/import-preview
+- SDK preview path:
+  POST /admin/partnership-crm/import-preview
+- Backoffice proxy import path:
+  POST /api/sdk/admin/partnership-crm/import
+- SDK import path:
+  POST /admin/partnership-crm/import
+
+Every request must use Content-Type: application/json.
+
+The JSON contract is intentionally stricter than "any string that the endpoint
+can technically parse". Import builders must produce normalized category and
+country values before sending the request.
+
+Source of truth:
+- Categories come from CRM_CATEGORY_OPTIONS in backoffice/src/lib/partnership-crm.ts
+  and the mirrored SDK category list.
+- Countries come from DISCOVER_ORGANIZATION_COUNTRY_CODES in
+  backoffice/src/lib/discover-organization-fields.ts.
+- The CRM country picker deliberately excludes GLOBAL even though Discover
+  country coverage includes it.
+- Import generators must enforce these whitelists before sending JSON.
+
+
+Top-level request shape
+-----------------------
+
+The body must be a JSON object with one key: organizations.
+
+Example:
+
+{
+  "organizations": [
+    {
+      "rowId": "crm-2026-08-27-0001",
+      "name": "Genome Lab",
+      "category": "Genetic Testing Platform",
+      "website": "https://genomelab.example",
+      "country": "AR",
+      "status": "new",
+      "contactName": "Marcelo Perez",
+      "contactEmail": "marcelo@genomelab.example",
+      "contactLinkedIn": "https://linkedin.com/in/marcelo-perez",
+      "lastContactAt": null,
+      "notes": "Imported from partnership prospecting list."
+    }
+  ]
+}
+
+organizations:
+- Required.
+- Must be an array.
+- Must contain at least 1 item.
+- Must contain at most 500 items per HTTP request.
+- The Backoffice UI processes imports in chunks of 100 rows. Use the same chunk
+  size for large imports because it gives better progress reporting and safer
+  resume behavior.
+- For 1000+ records, never send one huge request. Split the import into chunks
+  and persist progress between chunks.
+
+
+Row shape
+---------
+
+Each object inside organizations is one CRM organization candidate.
+
+Supported keys:
+
+- rowId
+- name
+- category
+- website
+- country
+- status
+- contactName
+- contactEmail
+- contactLinkedIn
+- lastContactAt
+- notes
+- duplicateAction
+- duplicateOrganizationId
+
+Do not include extra keys. Extra keys are not part of the supported contract and
+must be treated as unsupported by import generators.
+
+Do not send null for string fields. Omit the field or send an empty string if the
+field has no value. The only field where null is explicitly valid is
+lastContactAt.
+
+System-managed fields that must not be sent:
+- id
+- schemaVersion
+- websiteDomain
+- normalizedName
+- createdAt
+- updatedAt
+- createdByEmail
+- updatedByEmail
+- activities
+- activityLog
+- emailHistory
+
+
+Field details
+-------------
+
+rowId
+- Optional string.
+- Maximum length: 80 characters.
+- Strongly recommended for every row.
+- Must be stable across preview, import, retry, and resume.
+- Use a deterministic value that does not change when the import is restarted.
+- Recommended pattern:
+  crm-YYYY-MM-DD-0001
+- The API uses rowId to return row-level preview and import results.
+- If omitted, the SDK assigns row-1, row-2, row-3, etc. That is acceptable only
+  for small one-off manual tests. It is weak for resumed imports because row
+  numbers can drift if the source list changes.
+
+name
+- Required for a valid import row.
+- Type: string.
+- Minimum length after trimming: 1 character.
+- Maximum length: 180 characters.
+- The preview endpoint keeps rows with missing names visible, but marks them
+  invalid with: Organization name is required.
+- The import endpoint skips invalid rows and returns action: invalid.
+- The SDK derives normalizedName from name. Do not send normalizedName.
+
+category
+- Optional string.
+- Maximum length: 90 characters.
+- Must be one of the canonical CRM organization categories listed below.
+- This field is a single value. Do not send arrays. Do not send comma-separated
+  category lists.
+- If the source category is unknown, send "Other".
+- If the category is truly unknown and should be left blank, omit category or
+  send an empty string.
+- The SDK normalizes known aliases, but import JSON should still send the
+  canonical option. Do not rely on alias cleanup for production imports.
+
+Canonical category whitelist, all allowed values:
+- Laboratory / Genomics
+- Fertility Clinic
+- Foundation
+- Education
+- Umbrella Organization
+- Hospital
+- Research Center
+- Scientific Society
+- Genetic Testing Platform
+- Other
+
+Known category aliases that normalize to canonical values:
+- laboratory -> Laboratory / Genomics
+- lab -> Laboratory / Genomics
+- genomics -> Laboratory / Genomics
+- laboratorio_genomica -> Laboratory / Genomics
+- laboratory_genomics -> Laboratory / Genomics
+- fertility -> Fertility Clinic
+- fertility_clinic -> Fertility Clinic
+- clinica_de_fertilidad -> Fertility Clinic
+- foundation -> Foundation
+- fundacion -> Foundation
+- education -> Education
+- educacion -> Education
+- umbrella_organization -> Umbrella Organization
+- organizacion_paraguas -> Umbrella Organization
+- hospital -> Hospital
+- research_center -> Research Center
+- centro_de_investigacion -> Research Center
+- scientific_society -> Scientific Society
+- sociedad_cientifica -> Scientific Society
+- genetic_testing_platform -> Genetic Testing Platform
+- plataforma_de_pruebas_geneticas -> Genetic Testing Platform
+- other -> Other
+- otro -> Other
+
+Category normalization logic:
+- Leading and trailing whitespace is trimmed.
+- Diacritics are removed for matching.
+- Text is lowercased for matching.
+- Non-alphanumeric separators normalize to underscores for matching.
+- Exact canonical categories are preserved as canonical display strings.
+- Known aliases are mapped to their canonical category.
+- Unknown non-empty category values become Other.
+- Blank category values remain blank.
+
+website
+- Optional string.
+- Maximum length: 500 characters.
+- Send the public organization website when available.
+- Prefer a fully qualified URL, for example:
+  https://genomelab.example
+- If the value has no protocol, the SDK tries to normalize it as https://...
+- The SDK derives websiteDomain from website. Do not send websiteDomain.
+- The duplicate detector can use website/websiteDomain, so website is important
+  when available.
+
+country
+- Optional string.
+- Maximum length: 90 characters.
+- Must be one normalized country code from the country whitelist below.
+- Use ISO 3166 alpha-2 uppercase codes only.
+- This field is a single country. Do not send arrays. Do not send comma-separated
+  country lists.
+- Do not send country names such as Argentina or United States in JSON imports.
+  The CSV parser and UI can normalize some names, but the JSON contract is
+  canonical alpha-2 only.
+- Do not send ISO alpha-3 codes such as ARG, USA, ESP, GBR in JSON imports.
+  Convert them before creating the JSON.
+- Do not send GLOBAL. GLOBAL exists in Discover country coverage, but CRM
+  organizations must either have one concrete alpha-2 country code or no country.
+- If the country is unknown, omit country or send an empty string. Do not invent
+  a placeholder such as Unknown, N/A, LATAM, Global, or International.
+
+Recommended CRM country values:
+- AR
+- US
+- AU
+- NZ
+
+Country whitelist, all allowed values:
+- AD, AE, AF, AG, AI, AL, AM, AO, AQ, AR, AS, AT, AU, AW, AX, AZ, BA, BB, BD, BE
+- BF, BG, BH, BI, BJ, BL, BM, BN, BO, BQ, BR, BS, BT, BV, BW, BY, BZ, CA, CC, CD
+- CF, CG, CH, CI, CK, CL, CM, CN, CO, CR, CU, CV, CW, CX, CY, CZ, DE, DJ, DK, DM
+- DO, DZ, EC, EE, EG, EH, ER, ES, ET, FI, FJ, FK, FM, FO, FR, GA, GB, GD, GE, GF
+- GG, GH, GI, GL, GM, GN, GP, GQ, GR, GS, GT, GU, GW, GY, HK, HM, HN, HR, HT, HU
+- ID, IE, IL, IM, IN, IO, IQ, IR, IS, IT, JE, JM, JO, JP, KE, KG, KH, KI, KM, KN
+- KP, KR, KW, KY, KZ, LA, LB, LC, LI, LK, LR, LS, LT, LU, LV, LY, MA, MC, MD, ME
+- MF, MG, MH, MK, ML, MM, MN, MO, MP, MQ, MR, MS, MT, MU, MV, MW, MX, MY, MZ, NA
+- NC, NE, NF, NG, NI, NL, NO, NP, NR, NU, NZ, OM, PA, PE, PF, PG, PH, PK, PL, PM
+- PN, PR, PS, PT, PW, PY, QA, RE, RO, RS, RU, RW, SA, SB, SC, SD, SE, SG, SH, SI
+- SJ, SK, SL, SM, SN, SO, SR, SS, ST, SV, SX, SY, SZ, TC, TD, TF, TG, TH, TJ, TK
+- TL, TM, TN, TO, TR, TT, TV, TW, TZ, UA, UG, UM, US, UY, UZ, VA, VC, VE, VG, VI
+- VN, VU, WF, WS, YE, YT, ZA, ZM, ZW
+
+Country normalization logic for import builders:
+- Trim whitespace.
+- If the source is already an alpha-2 code from the whitelist, uppercase it.
+- If the source is an alpha-3 code, map it to alpha-2 before writing JSON.
+- If the source is a display label like Argentina (AR), extract AR before
+  writing JSON.
+- If the source is an English or Spanish country name, map it to alpha-2 before
+  writing JSON.
+- If mapping fails, leave country blank and flag the source row for review.
+- Never write unmapped country text into the JSON.
+
+status
+- Optional string.
+- Must be one exact value from the CRM status whitelist below.
+- If omitted, the SDK defaults to new.
+- JSON imports must use exact lowercase enum values. Do not send Spanish labels,
+  display labels, title case, or spaces.
+
+Status whitelist, all allowed values:
+- new
+- contacted
+- replied
+- meeting
+- partner
+- no_response
+- not_interested
+- not_a_fit
+
+Status meanings:
+- new: New prospect. No meaningful outreach yet.
+- contacted: Outreach has been sent or direct contact was made.
+- replied: The organization or contact replied.
+- meeting: A meeting is scheduled or in progress.
+- partner: The organization became an active partner.
+- no_response: Outreach happened but no response has been received.
+- not_interested: The organization replied but is not interested.
+- not_a_fit: The organization should not be pursued.
+
+contactName
+- Optional string.
+- Maximum length: 140 characters.
+- Store only the primary contact person's name.
+- Do not include the email here.
+- Do not include notes, status text, or relationship context here.
+- If there is no named person, omit contactName or send an empty string.
+
+contactEmail
+- Optional string.
+- Maximum length: 180 characters.
+- The SDK lowercases it.
+- Missing email is allowed and does not make the row invalid.
+- A missing email will be returned in preview as missingEmail: true.
+- The CRM send-email button requires a usable email. Rows without contactEmail
+  can be imported, but they cannot be emailed until the email is added later.
+- Prefer one email address only. Do not send multiple emails in the same string.
+
+contactLinkedIn
+- Optional string.
+- Maximum length: 500 characters.
+- Prefer a full LinkedIn URL.
+- If the value has no protocol, the SDK tries to normalize it as https://...
+- Do not put email, notes, or non-LinkedIn social profiles here.
+
+lastContactAt
+- Optional.
+- Valid values:
+  - null
+  - an ISO 8601 datetime string accepted by Zod datetime validation
+- Recommended format:
+  2026-08-27T15:30:00.000Z
+- Do not send an empty string. Empty string fails route validation.
+- Do not send date-only strings such as 2026-08-27. Use a full datetime with
+  timezone.
+- If there was no previous contact, send null or omit the field.
+
+notes
+- Optional string.
+- Maximum length: 2000 characters.
+- Use plain operational notes for the CRM user.
+- Do not store large biographies, scraped pages, HTML, markdown tables, or JSON
+  blobs inside notes.
+- Notes are also used as activity body text for import activity rows.
+
+duplicateAction
+- Optional string.
+- Only used by the final import endpoint, after preview.
+- Must be one exact value:
+  - skip
+  - update
+  - import
+- skip means do not create or update this row.
+- update means update an existing duplicate organization.
+- import means create a new organization even if a possible duplicate exists.
+- If preview finds duplicates and duplicateAction is omitted, the SDK defaults
+  to skip.
+- If preview finds no duplicates, the SDK treats the row as import regardless of
+  duplicateAction.
+
+duplicateOrganizationId
+- Optional string.
+- Maximum length: 160 characters.
+- Only used when duplicateAction is update.
+- Should be one of the duplicate candidate IDs returned by the preview response.
+- If duplicateAction is update and duplicateOrganizationId is omitted, the SDK
+  uses the first duplicate candidate when available.
+- Production import builders should always send the chosen duplicateOrganizationId
+  when updating, so the update target is explicit.
+
+
+Preview flow
+------------
+
+Always preview before importing.
+
+Preview request:
+
+POST /api/sdk/admin/partnership-crm/import-preview
+Content-Type: application/json
+
+{
+  "organizations": [
+    {
+      "rowId": "crm-2026-08-27-0001",
+      "name": "Genome Lab",
+      "category": "Genetic Testing Platform",
+      "website": "https://genomelab.example",
+      "country": "AR",
+      "status": "new",
+      "contactName": "Marcelo Perez",
+      "contactEmail": "marcelo@genomelab.example",
+      "contactLinkedIn": "https://linkedin.com/in/marcelo-perez",
+      "lastContactAt": null,
+      "notes": "Imported from partnership prospecting list."
+    }
+  ]
+}
+
+Preview response shape:
+
+{
+  "rows": [
+    {
+      "rowId": "crm-2026-08-27-0001",
+      "organization": {
+        "name": "Genome Lab",
+        "category": "Genetic Testing Platform",
+        "website": "https://genomelab.example/",
+        "country": "AR",
+        "status": "new",
+        "contactName": "Marcelo Perez",
+        "contactEmail": "marcelo@genomelab.example",
+        "contactLinkedIn": "https://linkedin.com/in/marcelo-perez",
+        "lastContactAt": null,
+        "notes": "Imported from partnership prospecting list."
+      },
+      "valid": true,
+      "errors": [],
+      "missingEmail": false,
+      "duplicateCandidates": []
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "valid": 1,
+    "invalid": 0,
+    "missingEmail": 0,
+    "duplicates": 0
+  }
+}
+
+Preview duplicate behavior:
+- duplicateCandidates may contain possible matches.
+- Candidates include:
+  - id
+  - name
+  - website
+  - websiteDomain
+  - contactEmail
+  - status
+- Review each duplicate before final import.
+- Choose skip, update, or import for each duplicate row before sending the final
+  import request.
+
+
+Final import flow
+-----------------
+
+Use the preview result to build the final import request.
+
+Final import request with a duplicate update:
+
+POST /api/sdk/admin/partnership-crm/import
+Content-Type: application/json
+
+{
+  "organizations": [
+    {
+      "rowId": "crm-2026-08-27-0001",
+      "name": "Genome Lab",
+      "category": "Genetic Testing Platform",
+      "website": "https://genomelab.example",
+      "country": "AR",
+      "status": "contacted",
+      "contactName": "Marcelo Perez",
+      "contactEmail": "marcelo@genomelab.example",
+      "contactLinkedIn": "https://linkedin.com/in/marcelo-perez",
+      "lastContactAt": "2026-08-27T15:30:00.000Z",
+      "notes": "Confirmed outreach target.",
+      "duplicateAction": "update",
+      "duplicateOrganizationId": "existing-crm-organization-id"
+    }
+  ]
+}
+
+Final import response shape:
+
+{
+  "results": [
+    {
+      "rowId": "crm-2026-08-27-0001",
+      "action": "updated",
+      "organizationId": "existing-crm-organization-id"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "created": 0,
+    "updated": 1,
+    "skipped": 0,
+    "invalid": 0
+  }
+}
+
+Possible result actions:
+- created: a new CRM organization was created.
+- updated: an existing CRM organization was overwritten with the import row.
+- skipped: the row was deliberately skipped, usually because it was a duplicate.
+- invalid: the row failed validation and was not imported.
+
+
+Large import and resume rules
+-----------------------------
+
+For large imports:
+- Split source rows into chunks of 100.
+- Preview chunk 1, persist preview progress, then preview chunk 2, etc.
+- After all preview chunks are ready, import chunk 1, persist import progress,
+  then import chunk 2, etc.
+- Persist rowId, source rows, preview rows, next import index, result rows,
+  summary counts, status, updatedAt, and lastError outside the request.
+- If the import pauses or fails in the middle, do not revert completed rows.
+- Resume from the next chunk or row index that does not have a completed result.
+- If a network failure happens during a request, re-check by rowId or by the
+  returned organization IDs before retrying that chunk, because some rows in the
+  failed request may already have committed.
+
+Recommended local progress shape:
+
+{
+  "importId": "crm-2026-08-27",
+  "status": "previewing | ready | importing | paused | completed",
+  "stage": "preview | import | complete",
+  "sourceRows": [],
+  "previewRows": [],
+  "previewedRows": 0,
+  "nextImportIndex": 0,
+  "results": [],
+  "importSummary": {
+    "total": 0,
+    "created": 0,
+    "updated": 0,
+    "skipped": 0,
+    "invalid": 0
+  },
+  "totalRows": 0,
+  "lastError": null,
+  "createdAt": "2026-08-27T15:00:00.000Z",
+  "updatedAt": "2026-08-27T15:00:00.000Z"
+}
+
+
+Common invalid JSON examples
+----------------------------
+
+Invalid because organizations is missing:
+
+{
+  "name": "Genome Lab"
+}
+
+Invalid because the request is too large:
+
+{
+  "organizations": [
+    "...501 organization objects..."
+  ]
+}
+
+Invalid because name is blank:
+
+{
+  "organizations": [
+    {
+      "rowId": "crm-2026-08-27-0001",
+      "name": "",
+      "category": "Foundation",
+      "country": "AR"
+    }
+  ]
+}
+
+Invalid for normalized import generation because country is free text:
+
+{
+  "organizations": [
+    {
+      "rowId": "crm-2026-08-27-0001",
+      "name": "Genome Lab",
+      "category": "Genetic Testing Platform",
+      "country": "Argentina"
+    }
+  ]
+}
+
+Correct version:
+
+{
+  "organizations": [
+    {
+      "rowId": "crm-2026-08-27-0001",
+      "name": "Genome Lab",
+      "category": "Genetic Testing Platform",
+      "country": "AR"
+    }
+  ]
+}
+
+Invalid because category is not canonical:
+
+{
+  "organizations": [
+    {
+      "rowId": "crm-2026-08-27-0001",
+      "name": "Genome Lab",
+      "category": "Genomics lab",
+      "country": "AR"
+    }
+  ]
+}
+
+Correct version:
+
+{
+  "organizations": [
+    {
+      "rowId": "crm-2026-08-27-0001",
+      "name": "Genome Lab",
+      "category": "Laboratory / Genomics",
+      "country": "AR"
+    }
+  ]
+}
+
+Invalid because lastContactAt is an empty string:
+
+{
+  "organizations": [
+    {
+      "rowId": "crm-2026-08-27-0001",
+      "name": "Genome Lab",
+      "category": "Laboratory / Genomics",
+      "country": "AR",
+      "lastContactAt": ""
+    }
+  ]
+}
+
+Correct version:
+
+{
+  "organizations": [
+    {
+      "rowId": "crm-2026-08-27-0001",
+      "name": "Genome Lab",
+      "category": "Laboratory / Genomics",
+      "country": "AR",
+      "lastContactAt": null
+    }
+  ]
+}
+
+
+Final checklist before sending import JSON
+------------------------------------------
+
+- The JSON parses successfully with no comments and no trailing commas.
+- organizations exists and has 1 to 500 rows.
+- Large imports are chunked to 100 rows per request.
+- Every row has a stable rowId.
+- Every valid row has a non-empty name.
+- category is blank or one canonical category from the whitelist.
+- country is blank or one alpha-2 code from the whitelist.
+- status is blank/omitted or one exact status enum value.
+- lastContactAt is omitted, null, or a full ISO datetime with timezone.
+- contactName contains only the person name.
+- contactEmail contains one lower-caseable email address, or is blank.
+- duplicateAction is absent until the final import decision.
+- duplicateOrganizationId is present when duplicateAction is update.
+- Preview has been reviewed before final import.
+- Import progress is persisted between chunks.
