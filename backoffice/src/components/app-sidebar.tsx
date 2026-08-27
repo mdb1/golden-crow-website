@@ -17,7 +17,7 @@ import { BACKOFFICE_VERSION } from "@/lib/app-version";
 import { appText } from "@/lib/language";
 import { getProjectNav, getProjectSections } from "@/lib/moderation-config";
 import { cn } from "@/lib/utils";
-import { CalendarDays, ChevronDown, Handshake } from "lucide-react";
+import { CalendarDays, ChevronDown, Handshake, ScrollText } from "lucide-react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -39,10 +39,7 @@ export function AppSidebar({
   const { language } = useAppLanguage();
   const canShowDiscoverSection = canSeeDiscoverSection(adminContext);
   const navRole = adminContext.isBootstrap ? "full_admin" : adminContext.role;
-  const baseVisibleSections = getProjectSections(
-    adminContext.project,
-    navRole,
-  );
+  const baseVisibleSections = getProjectSections(adminContext.project, navRole);
   const baseVisibleNav = getProjectNav(adminContext.project, navRole);
   const visibleSections = canShowDiscoverSection
     ? baseVisibleSections
@@ -102,6 +99,21 @@ export function AppSidebar({
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname.startsWith("/god-mode/plantillas")}
+                    tooltip={appText(language, "Plantillas")}
+                    className={cn(
+                      "border border-amber-400/45 bg-amber-100/80 text-amber-950 hover:border-amber-500/70 hover:bg-amber-200/80 hover:text-amber-950 data-active:border-amber-600 data-active:bg-amber-300 data-active:text-amber-950 dark:border-amber-300/25 dark:bg-amber-400/12 dark:text-amber-100 dark:hover:bg-amber-400/20 dark:data-active:bg-amber-400/24",
+                    )}
+                  >
+                    <Link href="/god-mode/plantillas">
+                      <ScrollText className="h-4 w-4" />
+                      <span>{appText(language, "Plantillas")}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild

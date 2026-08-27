@@ -883,6 +883,35 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to reveal the temporary password.":
     "No se pudo revelar la contraseña temporal.",
   "See all bookings": "Ver todas las reuniones",
+  Plantillas: "Plantillas",
+  Plantilla: "Plantilla",
+  "Alta de plantilla": "Alta de plantilla",
+  "CRUD system email templates for the CRM.":
+    "CRUD de plantillas de email del sistema para el CRM.",
+  "Create a CRM email template for the send modal.":
+    "Crear una plantilla de email del CRM para el modal de envío.",
+  "Edit a CRM email template used by the send modal.":
+    "Editar una plantilla de email del CRM usada por el modal de envío.",
+  "Search templates...": "Buscar plantillas...",
+  "No templates found.": "No se encontraron plantillas.",
+  "Failed to load templates.": "No se pudieron cargar las plantillas.",
+  "Failed to load template.": "No se pudo cargar la plantilla.",
+  "Template name": "Nombre de plantilla",
+  "Template saved.": "Plantilla guardada.",
+  "Unable to save template.": "No se pudo guardar la plantilla.",
+  "Delete template": "Eliminar plantilla",
+  "Unable to delete template.": "No se pudo eliminar la plantilla.",
+  "This removes the template from the CRM send flow.":
+    "Esto elimina la plantilla del flujo de envío del CRM.",
+  "Template variables": "Variables de plantilla",
+  "Website sentence": "Frase del sitio web",
+  "Template Active": "Activa",
+  "Template Inactive": "Inactiva",
+  "Template Archived": "Archivada",
+  "No active templates": "Sin plantillas activas",
+  "Loading templates...": "Cargando plantillas...",
+  "Preview sample": "Muestra de vista previa",
+  "Volver a plantillas": "Volver a plantillas",
   "Pocket Genes partnership outreach CRM.":
     "CRM de alianzas y outreach de Pocket Genes.",
   "One organization, one primary contact, and the next action.":

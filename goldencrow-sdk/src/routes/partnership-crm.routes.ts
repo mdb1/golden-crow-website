@@ -5,20 +5,27 @@ import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   PARTNERSHIP_CRM_ACTIVITY_TYPES,
   PARTNERSHIP_CRM_STATUSES,
+  PARTNERSHIP_CRM_TEMPLATE_STATUSES,
   createPartnershipCrmActivity,
   createPartnershipCrmOrganization,
+  createPartnershipCrmTemplate,
   deletePartnershipCrmOrganization,
+  deletePartnershipCrmTemplate,
   getPartnershipCrmOrganization,
+  getPartnershipCrmTemplate,
   importPartnershipCrmOrganizations,
   listPartnershipCrmActivities,
   listPartnershipCrmOrganizations,
+  listPartnershipCrmTemplates,
   previewPartnershipCrmImport,
   sendPartnershipCrmOrganizationEmail,
   updatePartnershipCrmOrganization,
+  updatePartnershipCrmTemplate,
 } from "../repositories/partnership-crm.repository.js";
 
 const CrmStatusSchema = z.enum(PARTNERSHIP_CRM_STATUSES);
 const CrmActivityTypeSchema = z.enum(PARTNERSHIP_CRM_ACTIVITY_TYPES);
+const CrmTemplateStatusSchema = z.enum(PARTNERSHIP_CRM_TEMPLATE_STATUSES);
 const OptionalStringSchema = z.string().trim().max(2000).optional();
 const OrganizationBodySchema = z.object({
   name: z.string().trim().min(1).max(180),
@@ -53,6 +60,24 @@ const ListActivitiesQuerySchema = z.object({
   cursor: z.string().trim().datetime().optional(),
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
+const TemplateBodySchema = z.object({
+  name: z.string().trim().min(1).max(180),
+  category: z.string().trim().max(90).optional(),
+  subject: z.string().trim().min(1).max(180),
+  body: z.string().trim().min(1).max(12000),
+  status: CrmTemplateStatusSchema.optional(),
+  notes: OptionalStringSchema,
+});
+const TemplateParamsSchema = z.object({
+  templateId: z.string().trim().min(1),
+});
+const ListTemplatesQuerySchema = z.object({
+  cursor: z.string().trim().datetime().optional(),
+  limit: z.coerce.number().int().positive().max(50).optional(),
+  query: z.string().trim().max(180).optional(),
+  status: z.string().trim().max(40).optional(),
+  category: z.string().trim().max(90).optional(),
+});
 const ActivityBodySchema = z.object({
   title: z.string().trim().min(1).max(180),
   body: z.string().trim().max(4000).optional(),
@@ -65,6 +90,7 @@ const EmailBodySchema = z.object({
   to: z.string().trim().toLowerCase().email().max(180),
   subject: z.string().trim().min(1).max(180),
   text: z.string().trim().min(1).max(12000),
+  templateId: z.string().trim().max(160).optional(),
   templateKey: z.string().trim().max(80).optional(),
 });
 
@@ -83,13 +109,104 @@ export async function partnershipCrmRoutes(
 
   f.addHook("onRequest", async (request, reply) => {
     if (!request.adminContext) {
-      return reply.status(401).send({ error: "No authenticated admin context" });
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
     }
 
     if (!request.adminContext.isBootstrap) {
       return reply.status(403).send({ error: "GOD MODE access required" });
     }
   });
+
+  f.get(
+    "/admin/partnership-crm/templates",
+    { schema: { querystring: ListTemplatesQuerySchema } },
+    async (request, reply) => {
+      try {
+        const result = await listPartnershipCrmTemplates(
+          request.adminContext!,
+          request.query,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/admin/partnership-crm/templates",
+    { schema: { body: TemplateBodySchema } },
+    async (request, reply) => {
+      try {
+        const template = await createPartnershipCrmTemplate(
+          request.adminContext!,
+          request.body,
+        );
+        return reply.status(201).send({ template });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/partnership-crm/templates/:templateId",
+    { schema: { params: TemplateParamsSchema } },
+    async (request, reply) => {
+      try {
+        const template = await getPartnershipCrmTemplate(
+          request.adminContext!,
+          request.params.templateId,
+        );
+        return reply.send({ template });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.put(
+    "/admin/partnership-crm/templates/:templateId",
+    {
+      schema: {
+        params: TemplateParamsSchema,
+        body: TemplateBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const template = await updatePartnershipCrmTemplate(
+          request.adminContext!,
+          request.params.templateId,
+          request.body,
+        );
+        return reply.send({ template });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.delete(
+    "/admin/partnership-crm/templates/:templateId",
+    { schema: { params: TemplateParamsSchema } },
+    async (request, reply) => {
+      try {
+        await deletePartnershipCrmTemplate(
+          request.adminContext!,
+          request.params.templateId,
+        );
+        return reply.send({
+          deleted: true,
+          templateId: request.params.templateId,
+        });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
 
   f.get(
     "/admin/partnership-crm/organizations",

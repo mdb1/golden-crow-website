@@ -7,6 +7,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -67,16 +68,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText, type AppLanguage } from "@/lib/language";
 import {
+  bestCrmTemplateForOrganization,
   CRM_CATEGORY_OPTIONS,
-  CRM_EMAIL_TEMPLATES,
   CRM_STATUS_OPTIONS,
   PARTNERSHIP_CRM_FROM_EMAIL,
   parseCrmCsv,
   renderCrmTemplate,
   statusLabel,
-  templateForCategory,
   type CrmDuplicateAction,
-  type CrmEmailTemplateKey,
   type PartnershipCrmActivitiesPage,
   type PartnershipCrmActivityRecord,
   type PartnershipCrmImportPreview,
@@ -86,15 +85,18 @@ import {
   type PartnershipCrmOrganizationRecord,
   type PartnershipCrmOrganizationsPage,
   type PartnershipCrmStatus,
+  type PartnershipCrmTemplateRecord,
+  type PartnershipCrmTemplatesPage,
 } from "@/lib/partnership-crm";
 import { cn } from "@/lib/utils";
 
 const ORGANIZATIONS_QUERY_KEY = "god-mode-partnership-crm-organizations";
 const ACTIVITIES_QUERY_KEY = "god-mode-partnership-crm-activities";
+const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
 
 type EmailState = {
   to: string;
-  templateKey: CrmEmailTemplateKey;
+  templateId: string;
   subject: string;
   text: string;
   step: "compose" | "preview";
@@ -448,7 +450,9 @@ function ActivityCell({
       ? activity.metadata.subject
       : undefined;
   const to =
-    typeof activity.metadata?.to === "string" ? activity.metadata.to : undefined;
+    typeof activity.metadata?.to === "string"
+      ? activity.metadata.to
+      : undefined;
 
   return (
     <article
@@ -469,7 +473,10 @@ function ActivityCell({
             <Badge variant="outline">{t(activity.type)}</Badge>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {formatDateTime(activity.occurredAt ?? activity.createdAt, language)}
+            {formatDateTime(
+              activity.occurredAt ?? activity.createdAt,
+              language,
+            )}
             {activity.createdByEmail ? ` · ${activity.createdByEmail}` : ""}
           </p>
           {subject || to ? (
@@ -537,7 +544,11 @@ function OrganizationDialog({
       return;
     }
 
-    onSubmit(state?.mode ?? "create", state?.organization?.id, organizationPayload(form));
+    onSubmit(
+      state?.mode ?? "create",
+      state?.organization?.id,
+      organizationPayload(form),
+    );
   }
 
   return (
@@ -633,7 +644,9 @@ function OrganizationDialog({
               <Input
                 id="crm-contact-name"
                 value={form.contactName}
-                onChange={(event) => update({ contactName: event.target.value })}
+                onChange={(event) =>
+                  update({ contactName: event.target.value })
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -693,6 +706,8 @@ function EmailComposerDialog({
   organization,
   open,
   pending,
+  templates,
+  templatesLoading,
   onClose,
   onSend,
   language,
@@ -700,6 +715,8 @@ function EmailComposerDialog({
   organization: PartnershipCrmOrganizationRecord | null;
   open: boolean;
   pending: boolean;
+  templates: PartnershipCrmTemplateRecord[];
+  templatesLoading: boolean;
   onClose: () => void;
   onSend: (state: EmailState) => void;
   language: AppLanguage;
@@ -713,36 +730,46 @@ function EmailComposerDialog({
       return;
     }
 
-    const templateKey = templateForCategory(organization.category);
-    const rendered = renderCrmTemplate(templateKey, organization);
+    const template = bestCrmTemplateForOrganization(organization, templates);
+    const rendered = template
+      ? renderCrmTemplate(template, organization)
+      : { subject: "", body: "" };
     setEmail({
       to: organization.contactEmail,
-      templateKey,
+      templateId: template?.id ?? "",
       subject: rendered.subject,
       text: rendered.body,
       step: "compose",
     });
-  }, [open, organization]);
+  }, [open, organization, templates]);
 
   function update(patch: Partial<EmailState>) {
     setEmail((current) => (current ? { ...current, ...patch } : current));
   }
 
-  function applyTemplate(templateKey: CrmEmailTemplateKey) {
+  function applyTemplate(templateId: string) {
     if (!organization) {
       return;
     }
 
-    const rendered = renderCrmTemplate(templateKey, organization);
+    const template = templates.find((entry) => entry.id === templateId);
+    if (!template) {
+      return;
+    }
+
+    const rendered = renderCrmTemplate(template, organization);
     update({
-      templateKey,
+      templateId,
       subject: rendered.subject,
       text: rendered.body,
       step: "compose",
     });
   }
 
-  const canPreview = Boolean(email?.to.trim() && email.subject.trim() && email.text.trim());
+  const canPreview = Boolean(
+    email?.to.trim() && email.subject.trim() && email.text.trim(),
+  );
+  const hasTemplates = templates.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
@@ -779,18 +806,28 @@ function EmailComposerDialog({
                   <div className="space-y-1.5">
                     <Label>{t("Template")}</Label>
                     <Select
-                      value={email.templateKey}
-                      onValueChange={(value) =>
-                        applyTemplate(value as CrmEmailTemplateKey)
-                      }
+                      value={email.templateId || "no-template"}
+                      onValueChange={(value) => {
+                        if (value !== "no-template") {
+                          applyTemplate(value);
+                        }
+                      }}
+                      disabled={templatesLoading || !hasTemplates}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {CRM_EMAIL_TEMPLATES.map((template) => (
-                          <SelectItem key={template.key} value={template.key}>
-                            {t(template.label)}
+                        {!hasTemplates ? (
+                          <SelectItem value="no-template">
+                            {templatesLoading
+                              ? t("Loading templates...")
+                              : t("No active templates")}
+                          </SelectItem>
+                        ) : null}
+                        {templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -824,9 +861,20 @@ function EmailComposerDialog({
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">
-                  {t("Sending updates last contact and records email activity.")}
-                </p>
+                {hasTemplates ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t(
+                      "Sending updates last contact and records email activity.",
+                    )}
+                  </p>
+                ) : (
+                  <Button type="button" variant="outline" size="sm" asChild>
+                    <Link href="/god-mode/plantillas/new">
+                      <Plus className="h-3.5 w-3.5" />
+                      {t("Alta de plantilla")}
+                    </Link>
+                  </Button>
+                )}
                 {email.step === "compose" ? (
                   <Button
                     type="button"
@@ -888,7 +936,12 @@ function EmailComposerDialog({
         ) : null}
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={pending}
+          >
             {t("Close")}
           </Button>
         </DialogFooter>
@@ -920,10 +973,7 @@ function ImportDialog({
 }) {
   const t = (text: string) => appText(language, text);
 
-  function updateDuplicateAction(
-    rowId: string,
-    action: CrmDuplicateAction,
-  ) {
+  function updateDuplicateAction(rowId: string, action: CrmDuplicateAction) {
     if (!preview) {
       return;
     }
@@ -1017,8 +1067,7 @@ function ImportDialog({
                     {preview.rows.map((row) => {
                       const duplicate = row.duplicateCandidates[0];
                       const duplicateAction =
-                        row.duplicateAction ??
-                        (duplicate ? "skip" : "import");
+                        row.duplicateAction ?? (duplicate ? "skip" : "import");
 
                       return (
                         <TableRow key={row.rowId}>
@@ -1039,7 +1088,8 @@ function ImportDialog({
                           <TableCell className="whitespace-normal">
                             <div>{row.organization.contactName || "—"}</div>
                             <div className="text-xs text-muted-foreground">
-                              {row.organization.contactEmail || t("Missing email")}
+                              {row.organization.contactEmail ||
+                                t("Missing email")}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -1067,7 +1117,9 @@ function ImportDialog({
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="skip">{t("Skip")}</SelectItem>
+                                    <SelectItem value="skip">
+                                      {t("Skip")}
+                                    </SelectItem>
                                     <SelectItem value="update">
                                       {t("Update existing")}
                                     </SelectItem>
@@ -1080,7 +1132,9 @@ function ImportDialog({
                             ) : row.valid ? (
                               <Badge variant="success">{t("New record")}</Badge>
                             ) : (
-                              <Badge variant="destructive">{t("Invalid")}</Badge>
+                              <Badge variant="destructive">
+                                {t("Invalid")}
+                              </Badge>
                             )}
                           </TableCell>
                         </TableRow>
@@ -1094,7 +1148,12 @@ function ImportDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={pending}
+          >
             {t("Cancel")}
           </Button>
           <Button
@@ -1150,6 +1209,14 @@ export function PartnershipCrmWorkbench() {
       ),
   });
   const organizations = organizationQuery.data?.organizations ?? [];
+  const templatesQuery = useQuery({
+    queryKey: [TEMPLATES_QUERY_KEY],
+    queryFn: () =>
+      sdkFetch<PartnershipCrmTemplatesPage>(
+        "/admin/partnership-crm/templates?status=active&limit=50",
+      ),
+  });
+  const emailTemplates = templatesQuery.data?.templates ?? [];
   const selectedOrganization =
     organizations.find((organization) => organization.id === selectedId) ??
     organizations[0] ??
@@ -1171,7 +1238,10 @@ export function PartnershipCrmWorkbench() {
       return;
     }
 
-    if (!selectedId || !organizations.some((entry) => entry.id === selectedId)) {
+    if (
+      !selectedId ||
+      !organizations.some((entry) => entry.id === selectedId)
+    ) {
       setSelectedId(organizations[0]?.id ?? null);
     }
   }, [organizations, selectedId]);
@@ -1203,10 +1273,13 @@ export function PartnershipCrmWorkbench() {
             )}`
           : "/admin/partnership-crm/organizations";
 
-      return sdkFetch<{ organization: PartnershipCrmOrganizationRecord }>(path, {
-        method: mode === "edit" ? "PUT" : "POST",
-        body: JSON.stringify(payload),
-      });
+      return sdkFetch<{ organization: PartnershipCrmOrganizationRecord }>(
+        path,
+        {
+          method: mode === "edit" ? "PUT" : "POST",
+          body: JSON.stringify(payload),
+        },
+      );
     },
     onSuccess: (result) => {
       setOrganizationDialog(null);
@@ -1332,7 +1405,7 @@ export function PartnershipCrmWorkbench() {
             to: email.to,
             subject: email.subject,
             text: email.text,
-            templateKey: email.templateKey,
+            templateId: email.templateId,
           }),
         },
       ),
@@ -1407,8 +1480,7 @@ export function PartnershipCrmWorkbench() {
                   ? (row.duplicateAction ?? "skip")
                   : "import",
               duplicateOrganizationId:
-                row.duplicateOrganizationId ??
-                row.duplicateCandidates[0]?.id,
+                row.duplicateOrganizationId ?? row.duplicateCandidates[0]?.id,
             })),
         }),
       }),
@@ -1517,18 +1589,27 @@ export function PartnershipCrmWorkbench() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => organizationQuery.refetch()}
-            disabled={organizationQuery.isFetching}
+            onClick={() => {
+              void organizationQuery.refetch();
+              void templatesQuery.refetch();
+            }}
+            disabled={organizationQuery.isFetching || templatesQuery.isFetching}
           >
             <RefreshCw
               className={cn(
                 "h-3.5 w-3.5",
-                organizationQuery.isFetching && "animate-spin",
+                (organizationQuery.isFetching || templatesQuery.isFetching) &&
+                  "animate-spin",
               )}
             />
             {t("Refresh")}
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+          >
             <FileUp className="h-3.5 w-3.5" />
             {t("Import CSV")}
           </Button>
@@ -1616,9 +1697,7 @@ export function PartnershipCrmWorkbench() {
               <button
                 key={status}
                 type="button"
-                onClick={() =>
-                  resetCursorsForFilterChange({ status })
-                }
+                onClick={() => resetCursorsForFilterChange({ status })}
                 className={cn(
                   "rounded-xl border px-3 py-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/40",
                   filters.status === status
@@ -1662,7 +1741,8 @@ export function PartnershipCrmWorkbench() {
                 </TableHeader>
                 <TableBody>
                   {organizations.map((organization) => {
-                    const isSelected = organization.id === selectedOrganization?.id;
+                    const isSelected =
+                      organization.id === selectedOrganization?.id;
 
                     return (
                       <TableRow
@@ -1691,7 +1771,10 @@ export function PartnershipCrmWorkbench() {
                           </button>
                         </TableCell>
                         <TableCell>
-                          <StatusBadge status={organization.status} language={language} />
+                          <StatusBadge
+                            status={organization.status}
+                            language={language}
+                          />
                         </TableCell>
                         <TableCell className="whitespace-normal">
                           <div className="max-w-[210px] truncate font-medium">
@@ -1723,7 +1806,9 @@ export function PartnershipCrmWorkbench() {
               variant="outline"
               size="sm"
               onClick={() => setCursorStack((current) => current.slice(0, -1))}
-              disabled={cursorStack.length === 0 || organizationQuery.isFetching}
+              disabled={
+                cursorStack.length === 0 || organizationQuery.isFetching
+              }
             >
               <ChevronLeft className="h-3.5 w-3.5" />
               {t("Previous")}
@@ -1742,7 +1827,10 @@ export function PartnershipCrmWorkbench() {
                   organizationQuery.data!.nextCursor!,
                 ])
               }
-              disabled={!organizationQuery.data?.nextCursor || organizationQuery.isFetching}
+              disabled={
+                !organizationQuery.data?.nextCursor ||
+                organizationQuery.isFetching
+              }
             >
               {t("Load more")}
               <ChevronRight className="h-3.5 w-3.5" />
@@ -1816,22 +1904,24 @@ export function PartnershipCrmWorkbench() {
                     {t("Pipeline")}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {[...PIPELINE_STATUSES, ...OUTCOME_STATUSES].map((status) => (
-                      <Button
-                        key={status}
-                        type="button"
-                        variant={
-                          selectedOrganization.status === status
-                            ? "secondary"
-                            : "outline"
-                        }
-                        size="xs"
-                        onClick={() => updateSelectedStatus(status)}
-                        disabled={saveOrganizationMutation.isPending}
-                      >
-                        {t(statusLabel(status))}
-                      </Button>
-                    ))}
+                    {[...PIPELINE_STATUSES, ...OUTCOME_STATUSES].map(
+                      (status) => (
+                        <Button
+                          key={status}
+                          type="button"
+                          variant={
+                            selectedOrganization.status === status
+                              ? "secondary"
+                              : "outline"
+                          }
+                          size="xs"
+                          onClick={() => updateSelectedStatus(status)}
+                          disabled={saveOrganizationMutation.isPending}
+                        >
+                          {t(statusLabel(status))}
+                        </Button>
+                      ),
+                    )}
                   </div>
                 </div>
 
@@ -1889,7 +1979,9 @@ export function PartnershipCrmWorkbench() {
                   <Button
                     type="submit"
                     variant="outline"
-                    disabled={!noteDraft.trim() || addActivityMutation.isPending}
+                    disabled={
+                      !noteDraft.trim() || addActivityMutation.isPending
+                    }
                   >
                     <Plus className="h-3.5 w-3.5" />
                     {t("Add")}
@@ -1943,6 +2035,8 @@ export function PartnershipCrmWorkbench() {
         organization={selectedOrganization}
         open={emailOpen}
         pending={sendEmailMutation.isPending}
+        templates={emailTemplates}
+        templatesLoading={templatesQuery.isFetching}
         onClose={() => setEmailOpen(false)}
         onSend={(email) => {
           if (selectedOrganization) {
@@ -2019,7 +2113,8 @@ export function PartnershipCrmWorkbench() {
               type="button"
               variant="destructive"
               onClick={() =>
-                deleteTarget && deleteOrganizationMutation.mutate(deleteTarget.id)
+                deleteTarget &&
+                deleteOrganizationMutation.mutate(deleteTarget.id)
               }
               disabled={deleteOrganizationMutation.isPending}
             >

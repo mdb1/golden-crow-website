@@ -14,6 +14,7 @@ import { AdminRepositoryError } from "./admin-errors.js";
 
 const adminDb = adminDbFor("mydnamap");
 const ORGANIZATIONS_COLLECTION = "partnership_crm_organizations";
+const TEMPLATES_COLLECTION = "plantillas";
 const ACTIVITIES_COLLECTION = "activities";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
@@ -40,9 +41,17 @@ export const PARTNERSHIP_CRM_ACTIVITY_TYPES = [
   "import",
 ] as const;
 
+export const PARTNERSHIP_CRM_TEMPLATE_STATUSES = [
+  "active",
+  "inactive",
+  "archived",
+] as const;
+
 export type PartnershipCrmStatus = (typeof PARTNERSHIP_CRM_STATUSES)[number];
 export type PartnershipCrmActivityType =
   (typeof PARTNERSHIP_CRM_ACTIVITY_TYPES)[number];
+export type PartnershipCrmTemplateStatus =
+  (typeof PARTNERSHIP_CRM_TEMPLATE_STATUSES)[number];
 
 export type PartnershipCrmEmailState = "has_email" | "missing_email";
 
@@ -59,8 +68,7 @@ export interface PartnershipCrmOrganizationInput {
   notes?: string;
 }
 
-export interface PartnershipCrmImportRowInput
-  extends PartnershipCrmOrganizationInput {
+export interface PartnershipCrmImportRowInput extends PartnershipCrmOrganizationInput {
   rowId?: string;
   duplicateAction?: "skip" | "update" | "import";
   duplicateOrganizationId?: string;
@@ -98,6 +106,31 @@ export interface PartnershipCrmActivityRecord {
   metadata?: Record<string, unknown>;
 }
 
+export interface PartnershipCrmTemplateInput {
+  name?: string;
+  category?: string;
+  subject?: string;
+  body?: string;
+  status?: PartnershipCrmTemplateStatus;
+  notes?: string;
+}
+
+export interface PartnershipCrmTemplateRecord {
+  id: string;
+  schemaVersion: number;
+  name: string;
+  category: string;
+  subject: string;
+  body: string;
+  status: PartnershipCrmTemplateStatus;
+  notes: string;
+  normalizedName: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdByEmail?: string;
+  updatedByEmail?: string;
+}
+
 export interface PartnershipCrmOrganizationsPage {
   organizations: PartnershipCrmOrganizationRecord[];
   nextCursor?: string;
@@ -105,6 +138,11 @@ export interface PartnershipCrmOrganizationsPage {
 
 export interface PartnershipCrmActivitiesPage {
   activities: PartnershipCrmActivityRecord[];
+  nextCursor?: string;
+}
+
+export interface PartnershipCrmTemplatesPage {
+  templates: PartnershipCrmTemplateRecord[];
   nextCursor?: string;
 }
 
@@ -138,6 +176,7 @@ export interface PartnershipCrmImportPreview {
 }
 
 const STATUS_SET = new Set<string>(PARTNERSHIP_CRM_STATUSES);
+const TEMPLATE_STATUS_SET = new Set<string>(PARTNERSHIP_CRM_TEMPLATE_STATUSES);
 
 function requireGodMode(context: AdminContext) {
   if (!context.isBootstrap) {
@@ -184,20 +223,33 @@ function websiteDomain(value: unknown) {
   try {
     return new URL(website).hostname.toLowerCase().replace(/^www\./, "");
   } catch {
-    return website
-      .toLowerCase()
-      .replace(/^https?:\/\//, "")
-      .replace(/^www\./, "")
-      .split("/")[0]
-      ?.trim() ?? "";
+    return (
+      website
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .split("/")[0]
+        ?.trim() ?? ""
+    );
   }
 }
 
 function normalizeStatus(value: unknown): PartnershipCrmStatus {
-  const normalized = cleanString(value).toLowerCase().replace(/[\s-]+/g, "_");
+  const normalized = cleanString(value)
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   return STATUS_SET.has(normalized)
     ? (normalized as PartnershipCrmStatus)
     : "new";
+}
+
+function normalizeTemplateStatus(value: unknown): PartnershipCrmTemplateStatus {
+  const normalized = cleanString(value)
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  return TEMPLATE_STATUS_SET.has(normalized)
+    ? (normalized as PartnershipCrmTemplateStatus)
+    : "active";
 }
 
 function normalizeEmail(value: unknown) {
@@ -299,6 +351,23 @@ function organizationDocument(
   });
 }
 
+function templateDocument(
+  input: PartnershipCrmTemplateInput,
+): Record<string, unknown> {
+  const name = cleanString(input.name);
+
+  return withoutUndefined({
+    schemaVersion: 1,
+    name,
+    category: cleanString(input.category),
+    subject: cleanString(input.subject),
+    body: cleanString(input.body),
+    status: normalizeTemplateStatus(input.status),
+    notes: cleanString(input.notes),
+    normalizedName: normalizeName(name),
+  });
+}
+
 function toOrganizationRecord(
   id: string,
   data: Record<string, unknown>,
@@ -349,6 +418,31 @@ function toActivityRecord(
     createdAt: timestampToIso(data.createdAt),
     createdByEmail: normalizeEmail(data.createdByEmail),
     metadata: recordData(data.metadata),
+  };
+}
+
+function toTemplateRecord(
+  id: string,
+  data: Record<string, unknown>,
+): PartnershipCrmTemplateRecord {
+  const name = cleanString(data.name);
+
+  return {
+    id,
+    schemaVersion:
+      typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
+    name,
+    category: cleanString(data.category),
+    subject: cleanString(data.subject),
+    body: cleanString(data.body),
+    status: normalizeTemplateStatus(data.status),
+    notes: cleanString(data.notes),
+    normalizedName:
+      cleanString(data.normalizedName) || normalizeName(cleanString(data.name)),
+    createdAt: timestampToIso(data.createdAt),
+    updatedAt: timestampToIso(data.updatedAt),
+    createdByEmail: normalizeEmail(data.createdByEmail),
+    updatedByEmail: normalizeEmail(data.updatedByEmail),
   };
 }
 
@@ -407,10 +501,49 @@ function matchesFilters(
   );
 }
 
+function matchesTemplateFilters(
+  record: PartnershipCrmTemplateRecord,
+  filters: {
+    query?: string;
+    status?: string;
+    category?: string;
+  },
+) {
+  const query = cleanString(filters.query).toLowerCase();
+  const category = cleanString(filters.category).toLowerCase();
+  const status = cleanString(filters.status);
+  const searchable = [
+    record.id,
+    record.name,
+    record.category,
+    record.subject,
+    record.body,
+    record.status,
+    record.notes,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    (!query || searchable.includes(query)) &&
+    (!status || status === "all" || record.status === status) &&
+    (!category || record.category.toLowerCase().includes(category))
+  );
+}
+
 async function getOrganizationSnapshot(organizationId: string) {
   const snapshot = await adminDb
     .collection(ORGANIZATIONS_COLLECTION)
     .doc(organizationId)
+    .get();
+
+  return snapshot.exists ? snapshot : null;
+}
+
+async function getTemplateSnapshot(templateId: string) {
+  const snapshot = await adminDb
+    .collection(TEMPLATES_COLLECTION)
+    .doc(templateId)
     .get();
 
   return snapshot.exists ? snapshot : null;
@@ -485,6 +618,205 @@ async function findDuplicateOrganizations(
   return [...byId.values()];
 }
 
+export async function listPartnershipCrmTemplates(
+  context: AdminContext,
+  options: {
+    cursor?: string;
+    limit?: unknown;
+    query?: string;
+    status?: string;
+    category?: string;
+  } = {},
+): Promise<PartnershipCrmTemplatesPage> {
+  requireGodMode(context);
+
+  const limit = normalizeLimit(options.limit);
+  const cursorTimestamp = parseCursorTimestamp(options.cursor);
+  const hasFilters = Boolean(
+    cleanString(options.query) ||
+    (cleanString(options.status) && options.status !== "all") ||
+    cleanString(options.category),
+  );
+  const baseQuery = adminDb
+    .collection(TEMPLATES_COLLECTION)
+    .orderBy("updatedAt", "desc");
+  let query: Query = baseQuery;
+
+  if (cursorTimestamp) {
+    query = query.startAfter(cursorTimestamp);
+  }
+
+  if (!hasFilters) {
+    const snapshot = await query.limit(limit + 1).get();
+    const visibleDocs = snapshot.docs.slice(0, limit);
+    const templates = visibleDocs.map((doc) =>
+      toTemplateRecord(doc.id, doc.data()),
+    );
+    const lastVisible = visibleDocs[visibleDocs.length - 1];
+    const nextCursor =
+      snapshot.docs.length > limit && lastVisible
+        ? timestampToIso(lastVisible.data().updatedAt)
+        : undefined;
+
+    return { templates, nextCursor };
+  }
+
+  const templates: PartnershipCrmTemplateRecord[] = [];
+  let pageCursorTimestamp = cursorTimestamp;
+  let scannedDocs = 0;
+  let nextCursor: string | undefined;
+
+  while (templates.length < limit && scannedDocs < MAX_FILTERED_SCAN) {
+    const batchLimit = Math.min(
+      FILTERED_BATCH_LIMIT,
+      MAX_FILTERED_SCAN - scannedDocs,
+    );
+    let batchQuery: Query = baseQuery;
+
+    if (pageCursorTimestamp) {
+      batchQuery = batchQuery.startAfter(pageCursorTimestamp);
+    }
+
+    const snapshot = await batchQuery.limit(batchLimit).get();
+    if (snapshot.empty) {
+      nextCursor = undefined;
+      break;
+    }
+
+    let lastConsumedDoc: QueryDocumentSnapshot | undefined;
+
+    for (const doc of snapshot.docs) {
+      lastConsumedDoc = doc;
+      scannedDocs += 1;
+
+      const template = toTemplateRecord(doc.id, doc.data());
+      if (matchesTemplateFilters(template, options)) {
+        templates.push(template);
+        if (templates.length >= limit) {
+          break;
+        }
+      }
+
+      if (scannedDocs >= MAX_FILTERED_SCAN) {
+        break;
+      }
+    }
+
+    if (!lastConsumedDoc) {
+      nextCursor = undefined;
+      break;
+    }
+
+    nextCursor = timestampToIso(lastConsumedDoc.data().updatedAt);
+    const lastSnapshotDoc = snapshot.docs[snapshot.docs.length - 1];
+    const consumedWholeBatch =
+      lastSnapshotDoc && lastConsumedDoc.id === lastSnapshotDoc.id;
+
+    if (!consumedWholeBatch || snapshot.docs.length < batchLimit) {
+      break;
+    }
+
+    pageCursorTimestamp = parseCursorTimestamp(nextCursor);
+    if (!pageCursorTimestamp) {
+      nextCursor = undefined;
+      break;
+    }
+  }
+
+  return { templates, nextCursor };
+}
+
+export async function getPartnershipCrmTemplate(
+  context: AdminContext,
+  templateId: string,
+) {
+  requireGodMode(context);
+  const snapshot = await getTemplateSnapshot(templateId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("CRM template not found.", 404);
+  }
+
+  return toTemplateRecord(templateId, snapshot.data() ?? {});
+}
+
+export async function createPartnershipCrmTemplate(
+  context: AdminContext,
+  input: PartnershipCrmTemplateInput,
+) {
+  requireGodMode(context);
+  const document = templateDocument(input);
+  if (!cleanString(document.name)) {
+    throw new AdminRepositoryError("Template name is required.", 400);
+  }
+  if (!cleanString(document.subject)) {
+    throw new AdminRepositoryError("Template subject is required.", 400);
+  }
+  if (!cleanString(document.body)) {
+    throw new AdminRepositoryError("Template body is required.", 400);
+  }
+
+  const ref = adminDb.collection(TEMPLATES_COLLECTION).doc();
+  await ref.set(
+    withoutUndefined({
+      ...document,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      createdByEmail: context.email,
+      updatedByEmail: context.email,
+    }),
+  );
+
+  return getPartnershipCrmTemplate(context, ref.id);
+}
+
+export async function updatePartnershipCrmTemplate(
+  context: AdminContext,
+  templateId: string,
+  input: PartnershipCrmTemplateInput,
+) {
+  requireGodMode(context);
+  const snapshot = await getTemplateSnapshot(templateId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("CRM template not found.", 404);
+  }
+
+  const document = templateDocument(input);
+  if (!cleanString(document.name)) {
+    throw new AdminRepositoryError("Template name is required.", 400);
+  }
+  if (!cleanString(document.subject)) {
+    throw new AdminRepositoryError("Template subject is required.", 400);
+  }
+  if (!cleanString(document.body)) {
+    throw new AdminRepositoryError("Template body is required.", 400);
+  }
+
+  await snapshot.ref.set(
+    withoutUndefined({
+      ...document,
+      createdAt: snapshot.data()?.createdAt,
+      createdByEmail: snapshot.data()?.createdByEmail,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    }),
+  );
+
+  return getPartnershipCrmTemplate(context, templateId);
+}
+
+export async function deletePartnershipCrmTemplate(
+  context: AdminContext,
+  templateId: string,
+) {
+  requireGodMode(context);
+  const snapshot = await getTemplateSnapshot(templateId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("CRM template not found.", 404);
+  }
+
+  await snapshot.ref.delete();
+}
+
 export async function listPartnershipCrmOrganizations(
   context: AdminContext,
   options: {
@@ -503,10 +835,10 @@ export async function listPartnershipCrmOrganizations(
   const cursorTimestamp = parseCursorTimestamp(options.cursor);
   const hasFilters = Boolean(
     cleanString(options.query) ||
-      (cleanString(options.status) && options.status !== "all") ||
-      cleanString(options.category) ||
-      cleanString(options.country) ||
-      options.emailState,
+    (cleanString(options.status) && options.status !== "all") ||
+    cleanString(options.category) ||
+    cleanString(options.country) ||
+    options.emailState,
   );
   const baseQuery = adminDb
     .collection(ORGANIZATIONS_COLLECTION)
@@ -773,7 +1105,9 @@ export async function previewPartnershipCrmImport(
     const organization = organizationDocument(row);
     const name = cleanString(organization.name);
     const errors = name ? [] : ["Organization name is required."];
-    const duplicateCandidates = name ? await findDuplicateOrganizations(row) : [];
+    const duplicateCandidates = name
+      ? await findDuplicateOrganizations(row)
+      : [];
 
     previews.push({
       rowId: row.rowId ?? `row-${index + 1}`,
@@ -910,6 +1244,7 @@ export async function sendPartnershipCrmOrganizationEmail(
     to: string;
     subject: string;
     text: string;
+    templateId?: string;
     templateKey?: string;
   },
 ) {
@@ -959,7 +1294,7 @@ export async function sendPartnershipCrmOrganizationEmail(
       from: PARTNERSHIP_CRM_FROM_EMAIL,
       to,
       subject,
-      templateKey: cleanString(input.templateKey),
+      templateId: cleanString(input.templateId),
       previousStatus: organization.status,
       nextStatus,
     },

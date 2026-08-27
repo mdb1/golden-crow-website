@@ -1670,6 +1670,9 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
   if (pathname === "/god-mode/crm") {
     return { eyebrow: "GOD MODE", title: "CRM", description: "Pocket Genes partnership outreach CRM." };
   }
+  if (pathname.startsWith("/god-mode/plantillas")) {
+    return { eyebrow: "GOD MODE", title: "Plantillas", description: "CRUD system email templates for the CRM." };
+  }
   if (pathname === "/gym/achievements") {
     return { eyebrow: "Pocket Gyms", title: "Achievements", description: "Create and edit achievement definitions that coaches use to reinforce progress." };
   }

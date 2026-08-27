@@ -1,25 +1,50 @@
 import {
+  bestCrmTemplateForOrganization,
   parseCrmCsv,
   renderCrmTemplate,
-  templateForCategory,
   type PartnershipCrmOrganizationRecord,
+  type PartnershipCrmTemplateRecord,
 } from "@/lib/partnership-crm";
 
 const organization: PartnershipCrmOrganizationRecord = {
   id: "crm-1",
   schemaVersion: 1,
-  name: "MedicGen",
+  name: "Genome Lab",
   category: "Laboratory / Genomics",
-  website: "https://medicgen.com/",
-  websiteDomain: "medicgen.com",
+  website: "https://genomelab.example/",
+  websiteDomain: "genomelab.example",
   country: "Argentina",
   status: "new",
-  contactName: "Marcelo Herran",
-  contactEmail: "marcelo@medicgen.com",
+  contactName: "Marcelo",
+  contactEmail: "marcelo@genomelab.example",
   contactLinkedIn: "https://linkedin.com/in/marcelo",
   lastContactAt: null,
-  notes: "LinkedIn referral from Cesar.",
-  normalizedName: "medicgen",
+  notes: "LinkedIn referral.",
+  normalizedName: "genome lab",
+};
+
+const laboratoryTemplate: PartnershipCrmTemplateRecord = {
+  id: "tpl-lab",
+  schemaVersion: 1,
+  name: "Laboratory outreach",
+  category: "Laboratory / Genomics",
+  subject: "Pocket Genes + {{organization_name}}",
+  body: "Hola {{contact_name}}, vimos {{organization_name}}{{website_sentence}}.",
+  status: "active",
+  notes: "",
+  normalizedName: "laboratory outreach",
+};
+
+const foundationTemplate: PartnershipCrmTemplateRecord = {
+  id: "tpl-foundation",
+  schemaVersion: 1,
+  name: "Foundation outreach",
+  category: "Foundation",
+  subject: "Pocket Genes + {{organization_name}}",
+  body: "Hola {{contact_name}}, queremos conversar con {{organization_name}}.",
+  status: "active",
+  notes: "",
+  normalizedName: "foundation outreach",
 };
 
 describe("partnership CRM helpers", () => {
@@ -27,7 +52,7 @@ describe("partnership CRM helpers", () => {
     const parsed = parseCrmCsv(
       [
         "name,category,website,country,contact_name,email,linkedin,status,notes",
-        "MedicGen,Genetic Testing Platform,medicgen.com,Argentina,Marcelo,marcelo@medicgen.com,https://linkedin.com/in/marcelo,Contacted,Already replied",
+        "Genome Lab,Genetic Testing Platform,genomelab.example,Argentina,Marcelo,marcelo@genomelab.example,https://linkedin.com/in/marcelo,Contacted,Already replied",
         "Angelman Argentina,Foundation,angelman.org.ar,Argentina,,,,New,Research contact later",
       ].join("\n"),
     );
@@ -35,8 +60,8 @@ describe("partnership CRM helpers", () => {
     expect(parsed.errors).toEqual([]);
     expect(parsed.rows).toEqual([
       expect.objectContaining({
-        name: "MedicGen",
-        contactEmail: "marcelo@medicgen.com",
+        name: "Genome Lab",
+        contactEmail: "marcelo@genomelab.example",
         status: "contacted",
       }),
       expect.objectContaining({
@@ -48,7 +73,9 @@ describe("partnership CRM helpers", () => {
   });
 
   it("reports missing organization names but keeps the row visible for preview", () => {
-    const parsed = parseCrmCsv("name,category,email\n,Foundation,ada@example.org");
+    const parsed = parseCrmCsv(
+      "name,category,email\n,Foundation,ada@example.org",
+    );
 
     expect(parsed.rows).toHaveLength(1);
     expect(parsed.errors).toEqual([
@@ -56,16 +83,19 @@ describe("partnership CRM helpers", () => {
     ]);
   });
 
-  it("renders category-aware templates with organization variables", () => {
-    expect(templateForCategory("Genetic Testing Platform")).toBe(
-      "laboratory_genomics",
-    );
+  it("renders Firebase-backed templates with organization variables", () => {
+    expect(
+      bestCrmTemplateForOrganization(organization, [
+        foundationTemplate,
+        laboratoryTemplate,
+      ])?.id,
+    ).toBe("tpl-lab");
 
-    const rendered = renderCrmTemplate("laboratory_genomics", organization);
+    const rendered = renderCrmTemplate(laboratoryTemplate, organization);
 
-    expect(rendered.subject).toBe("Pocket Genes + MedicGen");
+    expect(rendered.subject).toBe("Pocket Genes + Genome Lab");
     expect(rendered.body).toContain("Hola Marcelo");
-    expect(rendered.body).toContain("MedicGen (medicgen.com)");
+    expect(rendered.body).toContain("Genome Lab (genomelab.example)");
     expect(rendered.body).not.toContain("{{organization_name}}");
   });
 });

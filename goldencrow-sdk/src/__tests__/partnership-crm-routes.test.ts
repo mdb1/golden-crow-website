@@ -6,6 +6,7 @@ import {
 import type { AdminContext } from "../types/sdk.types.js";
 
 const mockDeletePartnershipCrmOrganization = jest.fn();
+const mockDeletePartnershipCrmTemplate = jest.fn();
 
 jest.mock("../repositories/partnership-crm.repository.js", () => ({
   PARTNERSHIP_CRM_ACTIVITY_TYPES: [
@@ -26,16 +27,22 @@ jest.mock("../repositories/partnership-crm.repository.js", () => ({
     "not_interested",
     "not_a_fit",
   ],
+  PARTNERSHIP_CRM_TEMPLATE_STATUSES: ["active", "inactive", "archived"],
   createPartnershipCrmActivity: jest.fn(),
   createPartnershipCrmOrganization: jest.fn(),
+  createPartnershipCrmTemplate: jest.fn(),
   deletePartnershipCrmOrganization: mockDeletePartnershipCrmOrganization,
+  deletePartnershipCrmTemplate: mockDeletePartnershipCrmTemplate,
   getPartnershipCrmOrganization: jest.fn(),
+  getPartnershipCrmTemplate: jest.fn(),
   importPartnershipCrmOrganizations: jest.fn(),
   listPartnershipCrmActivities: jest.fn(),
   listPartnershipCrmOrganizations: jest.fn(),
+  listPartnershipCrmTemplates: jest.fn(),
   previewPartnershipCrmImport: jest.fn(),
   sendPartnershipCrmOrganizationEmail: jest.fn(),
   updatePartnershipCrmOrganization: jest.fn(),
+  updatePartnershipCrmTemplate: jest.fn(),
 }));
 
 const bootstrapContext: AdminContext = {
@@ -48,10 +55,11 @@ const bootstrapContext: AdminContext = {
   projectAccess: ["mydnamap"],
 };
 
-async function buildTestServer(context: AdminContext | null = bootstrapContext) {
-  const { partnershipCrmRoutes } = await import(
-    "../routes/partnership-crm.routes.js"
-  );
+async function buildTestServer(
+  context: AdminContext | null = bootstrapContext,
+) {
+  const { partnershipCrmRoutes } =
+    await import("../routes/partnership-crm.routes.js");
   const fastify = Fastify();
   fastify.setValidatorCompiler(validatorCompiler);
   fastify.setSerializerCompiler(serializerCompiler);
@@ -66,6 +74,7 @@ describe("partnership CRM routes", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDeletePartnershipCrmOrganization.mockResolvedValue(undefined);
+    mockDeletePartnershipCrmTemplate.mockResolvedValue(undefined);
   });
 
   it("returns a JSON success payload after deleting an organization", async () => {
@@ -84,6 +93,25 @@ describe("partnership CRM routes", () => {
     expect(mockDeletePartnershipCrmOrganization).toHaveBeenCalledWith(
       bootstrapContext,
       "org-1",
+    );
+  });
+
+  it("returns a JSON success payload after deleting a template", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/admin/partnership-crm/templates/tpl-1",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      deleted: true,
+      templateId: "tpl-1",
+    });
+    expect(mockDeletePartnershipCrmTemplate).toHaveBeenCalledWith(
+      bootstrapContext,
+      "tpl-1",
     );
   });
 });
