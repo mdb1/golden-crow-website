@@ -587,6 +587,72 @@ function statusBadgeVariant(status: PartnershipCrmStatus) {
   return "outline" as const;
 }
 
+type PipelineStatusTone = {
+  card: string;
+  activeCard: string;
+  label: string;
+  count: string;
+};
+
+const PIPELINE_STATUS_TONES: Partial<
+  Record<PartnershipCrmStatus, PipelineStatusTone>
+> = {
+  new: {
+    card: "border-sky-200/80 bg-sky-50/75 hover:border-sky-300/80 hover:bg-sky-100/70 dark:border-sky-300/20 dark:bg-sky-400/10 dark:hover:bg-sky-400/15",
+    activeCard:
+      "border-sky-300 bg-sky-100/90 shadow-sm dark:border-sky-300/45 dark:bg-sky-400/20",
+    label: "text-sky-700 dark:text-sky-200/90",
+    count: "text-sky-950 dark:text-sky-50",
+  },
+  contacted: {
+    card: "border-orange-200/80 bg-orange-50/75 hover:border-orange-300/80 hover:bg-orange-100/70 dark:border-orange-300/20 dark:bg-orange-400/10 dark:hover:bg-orange-400/15",
+    activeCard:
+      "border-orange-300 bg-orange-100/90 shadow-sm dark:border-orange-300/45 dark:bg-orange-400/20",
+    label: "text-orange-700 dark:text-orange-200/90",
+    count: "text-orange-950 dark:text-orange-50",
+  },
+  replied: {
+    card: "border-emerald-200/80 bg-emerald-50/75 hover:border-emerald-300/80 hover:bg-emerald-100/70 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:hover:bg-emerald-400/15",
+    activeCard:
+      "border-emerald-300 bg-emerald-100/90 shadow-sm dark:border-emerald-300/45 dark:bg-emerald-400/20",
+    label: "text-emerald-700 dark:text-emerald-200/90",
+    count: "text-emerald-950 dark:text-emerald-50",
+  },
+  meeting: {
+    card: "border-violet-200/80 bg-violet-50/75 hover:border-violet-300/80 hover:bg-violet-100/70 dark:border-violet-300/20 dark:bg-violet-400/10 dark:hover:bg-violet-400/15",
+    activeCard:
+      "border-violet-300 bg-violet-100/90 shadow-sm dark:border-violet-300/45 dark:bg-violet-400/20",
+    label: "text-violet-700 dark:text-violet-200/90",
+    count: "text-violet-950 dark:text-violet-50",
+  },
+  partner: {
+    card: "border-teal-200/80 bg-teal-50/75 hover:border-teal-300/80 hover:bg-teal-100/70 dark:border-teal-300/20 dark:bg-teal-400/10 dark:hover:bg-teal-400/15",
+    activeCard:
+      "border-teal-300 bg-teal-100/90 shadow-sm dark:border-teal-300/45 dark:bg-teal-400/20",
+    label: "text-teal-700 dark:text-teal-200/90",
+    count: "text-teal-950 dark:text-teal-50",
+  },
+};
+
+function pipelineStatusTone(status: PartnershipCrmStatus, selected: boolean) {
+  const tone = PIPELINE_STATUS_TONES[status];
+  if (!tone) {
+    return {
+      card: selected
+        ? "border-foreground/35 bg-muted shadow-sm"
+        : "border-border/80 bg-background/60 hover:border-foreground/30 hover:bg-muted/40",
+      label: "text-muted-foreground",
+      count: "text-foreground",
+    };
+  }
+
+  return {
+    card: cn(tone.card, selected && tone.activeCard),
+    label: tone.label,
+    count: tone.count,
+  };
+}
+
 function activityIcon(type: PartnershipCrmActivityRecord["type"]) {
   if (type === "email") {
     return Mail;
@@ -2525,26 +2591,31 @@ export function PartnershipCrmWorkbench() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.72fr)]">
         <div className="grid content-start gap-4">
           <div className="grid items-start gap-2 sm:grid-cols-5">
-            {PIPELINE_STATUSES.map((status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() => resetCursorsForFilterChange({ status })}
-                className={cn(
-                  "h-16 self-start rounded-xl border px-3 py-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/40",
-                  filters.status === status
-                    ? "border-foreground/35 bg-muted"
-                    : "border-border/80 bg-background/60",
-                )}
-              >
-                <p className="text-xs text-muted-foreground">
-                  {t(statusLabel(status))}
-                </p>
-                <p className="mt-1 text-lg font-semibold">
-                  {pageStatusCounts[status]}
-                </p>
-              </button>
-            ))}
+            {PIPELINE_STATUSES.map((status) => {
+              const tone = pipelineStatusTone(
+                status,
+                filters.status === status,
+              );
+
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => resetCursorsForFilterChange({ status })}
+                  className={cn(
+                    "h-16 self-start rounded-xl border px-3 py-2 text-left transition-colors",
+                    tone.card,
+                  )}
+                >
+                  <p className={cn("text-xs font-medium", tone.label)}>
+                    {t(statusLabel(status))}
+                  </p>
+                  <p className={cn("mt-1 text-lg font-semibold", tone.count)}>
+                    {pageStatusCounts[status]}
+                  </p>
+                </button>
+              );
+            })}
           </div>
 
           {organizationQuery.error ? (
