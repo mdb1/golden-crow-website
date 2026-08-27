@@ -1157,72 +1157,85 @@ export async function importPartnershipCrmOrganizations(
 
   for (const [index, row] of rows.entries()) {
     const rowId = row.rowId ?? `row-${index + 1}`;
-    const document = organizationDocument(row);
-    const name = cleanString(document.name);
+    try {
+      const document = organizationDocument(row);
+      const name = cleanString(document.name);
 
-    if (!name) {
-      results.push({
-        rowId,
-        action: "invalid",
-        reason: "Organization name is required.",
-      });
-      continue;
-    }
-
-    const duplicateCandidates = await findDuplicateOrganizations(row);
-    const duplicateId =
-      row.duplicateOrganizationId ?? duplicateCandidates[0]?.id;
-    const duplicateAction =
-      duplicateCandidates.length > 0
-        ? (row.duplicateAction ?? "skip")
-        : "import";
-
-    if (duplicateAction === "skip") {
-      results.push({
-        rowId,
-        action: "skipped",
-        organizationId: duplicateId,
-        reason: duplicateId ? "Possible duplicate skipped." : "Skipped.",
-      });
-      continue;
-    }
-
-    if (duplicateAction === "update" && duplicateId) {
-      const existing = await getOrganizationSnapshot(duplicateId);
-      if (!existing) {
+      if (!name) {
         results.push({
           rowId,
           action: "invalid",
-          reason: "Duplicate target was not found.",
+          reason: "Organization name is required.",
         });
         continue;
       }
 
-      await existing.ref.set(
-        withoutUndefined({
-          ...document,
-          createdAt: existing.data()?.createdAt,
-          createdByEmail: existing.data()?.createdByEmail,
-          updatedAt: FieldValue.serverTimestamp(),
-          updatedByEmail: context.email,
-        }),
-      );
-      await addActivity(duplicateId, context, {
+      const duplicateCandidates = await findDuplicateOrganizations(row);
+      const duplicateId =
+        row.duplicateOrganizationId ?? duplicateCandidates[0]?.id;
+      const duplicateAction =
+        duplicateCandidates.length > 0
+          ? (row.duplicateAction ?? "skip")
+          : "import";
+
+      if (duplicateAction === "skip") {
+        results.push({
+          rowId,
+          action: "skipped",
+          organizationId: duplicateId,
+          reason: duplicateId ? "Possible duplicate skipped." : "Skipped.",
+        });
+        continue;
+      }
+
+      if (duplicateAction === "update" && duplicateId) {
+        const existing = await getOrganizationSnapshot(duplicateId);
+        if (!existing) {
+          results.push({
+            rowId,
+            action: "invalid",
+            reason: "Duplicate target was not found.",
+          });
+          continue;
+        }
+
+        await existing.ref.set(
+          withoutUndefined({
+            ...document,
+            createdAt: existing.data()?.createdAt,
+            createdByEmail: existing.data()?.createdByEmail,
+            updatedAt: FieldValue.serverTimestamp(),
+            updatedByEmail: context.email,
+          }),
+        );
+        await addActivity(duplicateId, context, {
+          type: "import",
+          title: "CSV row updated this organization",
+          body: cleanString(row.notes),
+        });
+        results.push({ rowId, action: "updated", organizationId: duplicateId });
+        continue;
+      }
+
+      const created = await createPartnershipCrmOrganization(context, row);
+      await addActivity(created.id, context, {
         type: "import",
-        title: "CSV row updated this organization",
+        title: "Imported from CSV",
         body: cleanString(row.notes),
       });
-      results.push({ rowId, action: "updated", organizationId: duplicateId });
-      continue;
-    }
+      results.push({ rowId, action: "created", organizationId: created.id });
+    } catch (error) {
+      if (error instanceof AdminRepositoryError) {
+        results.push({
+          rowId,
+          action: "invalid",
+          reason: error.message,
+        });
+        continue;
+      }
 
-    const created = await createPartnershipCrmOrganization(context, row);
-    await addActivity(created.id, context, {
-      type: "import",
-      title: "Imported from CSV",
-      body: cleanString(row.notes),
-    });
-    results.push({ rowId, action: "created", organizationId: created.id });
+      throw error;
+    }
   }
 
   return {

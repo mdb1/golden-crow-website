@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -54,6 +55,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -101,6 +103,9 @@ const ACTIVITIES_QUERY_KEY = "god-mode-partnership-crm-activities";
 const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
 const EMAIL_CTA_CLASS =
   "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
+const CRM_IMPORT_CHUNK_SIZE = 100;
+const CRM_IMPORT_SESSION_STORAGE_KEY =
+  "golden-crow:partnership-crm-import-session:v1";
 
 type EmailState = {
   to: string;
@@ -136,6 +141,31 @@ type ListFilters = {
   emailState: "all" | "has_email" | "missing_email";
 };
 
+type CrmImportSessionStatus =
+  "previewing" | "ready" | "importing" | "paused" | "completed";
+
+type CrmImportSessionStage = "preview" | "import" | "complete";
+
+type CrmImportSession = {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  createdAt: string;
+  updatedAt: string;
+  status: CrmImportSessionStatus;
+  stage: CrmImportSessionStage;
+  chunkSize: number;
+  sourceRows: PartnershipCrmOrganizationInput[];
+  previewRows: PartnershipCrmImportPreviewRow[];
+  parseErrors: Array<{ row: number; message: string }>;
+  totalRows: number;
+  previewedRows: number;
+  nextImportIndex: number;
+  importSummary: PartnershipCrmImportResult["summary"];
+  results: PartnershipCrmImportResult["results"];
+  lastError?: string;
+};
+
 const EMPTY_FORM_STATE: OrganizationFormState = {
   name: "",
   category: "Laboratory / Genomics",
@@ -161,6 +191,249 @@ const OUTCOME_STATUSES: PartnershipCrmStatus[] = [
   "not_interested",
   "not_a_fit",
 ];
+
+function emptyImportSummary(): PartnershipCrmImportResult["summary"] {
+  return {
+    total: 0,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    invalid: 0,
+  };
+}
+
+function createImportSessionId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `crm-import-${Date.now()}`;
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown import error.";
+}
+
+function summarizePreviewRows(
+  rows: PartnershipCrmImportPreviewRow[],
+  total = rows.length,
+): PartnershipCrmImportPreview["summary"] {
+  return {
+    total,
+    valid: rows.filter((row) => row.valid).length,
+    invalid: rows.filter((row) => !row.valid).length,
+    missingEmail: rows.filter((row) => row.missingEmail).length,
+    duplicates: rows.filter((row) => row.duplicateCandidates.length > 0).length,
+  };
+}
+
+function previewFromImportSession(
+  session: CrmImportSession | null,
+): PartnershipCrmImportPreview | null {
+  if (!session || session.previewRows.length === 0) {
+    return null;
+  }
+
+  return {
+    rows: session.previewRows,
+    summary: summarizePreviewRows(session.previewRows, session.totalRows),
+  };
+}
+
+function importSummaryAdd(
+  left: PartnershipCrmImportResult["summary"],
+  right: PartnershipCrmImportResult["summary"],
+): PartnershipCrmImportResult["summary"] {
+  return {
+    total: left.total + right.total,
+    created: left.created + right.created,
+    updated: left.updated + right.updated,
+    skipped: left.skipped + right.skipped,
+    invalid: left.invalid + right.invalid,
+  };
+}
+
+function withDuplicateDefaults(
+  row: PartnershipCrmImportPreviewRow,
+): PartnershipCrmImportPreviewRow {
+  return {
+    ...row,
+    duplicateAction: row.duplicateCandidates.length
+      ? (row.duplicateAction ?? "skip")
+      : (row.duplicateAction ?? "import"),
+    duplicateOrganizationId:
+      row.duplicateOrganizationId ?? row.duplicateCandidates[0]?.id,
+  };
+}
+
+function rowsForImportChunk(rows: PartnershipCrmImportPreviewRow[]) {
+  return rows
+    .filter((row) => row.valid)
+    .map((row) => ({
+      ...row.organization,
+      rowId: row.rowId,
+      duplicateAction:
+        row.duplicateCandidates.length > 0
+          ? (row.duplicateAction ?? "skip")
+          : "skip",
+      duplicateOrganizationId:
+        row.duplicateOrganizationId ?? row.duplicateCandidates[0]?.id,
+    }));
+}
+
+function importProgressPercent(session: CrmImportSession) {
+  if (session.totalRows <= 0) {
+    return 0;
+  }
+
+  const completedRows =
+    session.stage === "preview"
+      ? session.previewedRows
+      : session.nextImportIndex;
+
+  return Math.min(
+    100,
+    Math.max(0, Math.round((completedRows / session.totalRows) * 100)),
+  );
+}
+
+function importStatusLabel(session: CrmImportSession, language: AppLanguage) {
+  const t = (text: string) => appText(language, text);
+  if (session.status === "previewing") {
+    return t("Previewing CSV");
+  }
+  if (session.status === "ready") {
+    return t("Ready to import");
+  }
+  if (session.status === "importing") {
+    return t("Importing CSV");
+  }
+  if (session.status === "completed") {
+    return t("Import completed");
+  }
+  return session.stage === "preview" ? t("Preview paused") : t("Import paused");
+}
+
+function validImportSession(value: unknown): CrmImportSession | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<CrmImportSession>;
+  const statusOptions: CrmImportSessionStatus[] = [
+    "previewing",
+    "ready",
+    "importing",
+    "paused",
+    "completed",
+  ];
+  const stageOptions: CrmImportSessionStage[] = [
+    "preview",
+    "import",
+    "complete",
+  ];
+  const restoredStatus = statusOptions.includes(
+    candidate.status as CrmImportSessionStatus,
+  )
+    ? (candidate.status as CrmImportSessionStatus)
+    : "paused";
+  const restoredStage = stageOptions.includes(
+    candidate.stage as CrmImportSessionStage,
+  )
+    ? (candidate.stage as CrmImportSessionStage)
+    : "import";
+  const status =
+    restoredStatus === "previewing" || restoredStatus === "importing"
+      ? "paused"
+      : restoredStatus;
+  if (
+    typeof candidate.id !== "string" ||
+    typeof candidate.fileName !== "string" ||
+    !Array.isArray(candidate.sourceRows) ||
+    !Array.isArray(candidate.previewRows)
+  ) {
+    return null;
+  }
+
+  return {
+    id: candidate.id,
+    fileName: candidate.fileName,
+    fileSize: typeof candidate.fileSize === "number" ? candidate.fileSize : 0,
+    createdAt:
+      typeof candidate.createdAt === "string"
+        ? candidate.createdAt
+        : new Date().toISOString(),
+    updatedAt:
+      typeof candidate.updatedAt === "string"
+        ? candidate.updatedAt
+        : new Date().toISOString(),
+    status,
+    stage: restoredStage,
+    chunkSize: candidate.chunkSize ?? CRM_IMPORT_CHUNK_SIZE,
+    sourceRows: candidate.sourceRows,
+    previewRows: candidate.previewRows.map(withDuplicateDefaults),
+    parseErrors: Array.isArray(candidate.parseErrors)
+      ? candidate.parseErrors
+      : [],
+    totalRows:
+      typeof candidate.totalRows === "number"
+        ? candidate.totalRows
+        : candidate.sourceRows.length,
+    previewedRows:
+      typeof candidate.previewedRows === "number"
+        ? candidate.previewedRows
+        : candidate.previewRows.length,
+    nextImportIndex:
+      typeof candidate.nextImportIndex === "number"
+        ? candidate.nextImportIndex
+        : 0,
+    importSummary: candidate.importSummary ?? emptyImportSummary(),
+    results: Array.isArray(candidate.results) ? candidate.results : [],
+    lastError:
+      typeof candidate.lastError === "string"
+        ? candidate.lastError
+        : restoredStatus === "previewing" || restoredStatus === "importing"
+          ? "The previous import stopped before finishing."
+          : undefined,
+  };
+}
+
+function loadCrmImportSession() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(CRM_IMPORT_SESSION_STORAGE_KEY);
+    return raw ? validImportSession(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistCrmImportSession(session: CrmImportSession) {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  try {
+    window.localStorage.setItem(
+      CRM_IMPORT_SESSION_STORAGE_KEY,
+      JSON.stringify(session),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearCrmImportSession() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(CRM_IMPORT_SESSION_STORAGE_KEY);
+}
 
 function buildOrganizationListPath(filters: ListFilters, cursor?: string) {
   const params = new URLSearchParams({ limit: "20" });
@@ -961,28 +1234,177 @@ function EmailComposerDialog({
   );
 }
 
+function ImportProgressPanel({
+  session,
+  language,
+}: {
+  session: CrmImportSession;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const percent = importProgressPercent(session);
+  const previewedRows = Math.min(session.previewedRows, session.totalRows);
+  const committedRows = Math.min(session.nextImportIndex, session.totalRows);
+
+  return (
+    <section className="rounded-xl border border-blue-200/80 bg-blue-50/80 p-4 text-blue-950 dark:border-blue-300/20 dark:bg-blue-500/10 dark:text-blue-50">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-700 dark:text-blue-200">
+            {t("CSV import progress")}
+          </p>
+          <h3 className="mt-1 truncate font-heading text-lg font-semibold">
+            {session.fileName}
+          </h3>
+          <p className="mt-1 text-sm text-blue-900/76 dark:text-blue-100/76">
+            {t("Last saved")}: {formatDateTime(session.updatedAt, language)}
+          </p>
+        </div>
+        <Badge variant="outline">{importStatusLabel(session, language)}</Badge>
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+          <span className="font-medium">
+            {session.stage === "preview"
+              ? t("Preview checkpoint")
+              : t("Import checkpoint")}
+          </span>
+          <span className="font-semibold">{percent}%</span>
+        </div>
+        <Progress
+          value={percent}
+          className="h-2 bg-blue-100 dark:bg-blue-950/70 [&_[data-slot=progress-indicator]]:bg-blue-600 dark:[&_[data-slot=progress-indicator]]:bg-blue-400"
+        />
+      </div>
+
+      <div className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
+        <div className="rounded-lg border border-blue-200/80 bg-white/80 px-3 py-2 dark:border-blue-300/20 dark:bg-slate-950/35">
+          <p className="text-xs text-blue-900/70 dark:text-blue-100/70">
+            {t("Rows previewed")}
+          </p>
+          <p className="mt-1 font-semibold">
+            {previewedRows} / {session.totalRows}
+          </p>
+        </div>
+        <div className="rounded-lg border border-blue-200/80 bg-white/80 px-3 py-2 dark:border-blue-300/20 dark:bg-slate-950/35">
+          <p className="text-xs text-blue-900/70 dark:text-blue-100/70">
+            {t("Rows committed")}
+          </p>
+          <p className="mt-1 font-semibold">
+            {committedRows} / {session.totalRows}
+          </p>
+        </div>
+        <div className="rounded-lg border border-blue-200/80 bg-white/80 px-3 py-2 dark:border-blue-300/20 dark:bg-slate-950/35">
+          <p className="text-xs text-blue-900/70 dark:text-blue-100/70">
+            {t("Batch size")}
+          </p>
+          <p className="mt-1 font-semibold">{session.chunkSize}</p>
+        </div>
+        <div className="rounded-lg border border-blue-200/80 bg-white/80 px-3 py-2 dark:border-blue-300/20 dark:bg-slate-950/35">
+          <p className="text-xs text-blue-900/70 dark:text-blue-100/70">
+            {t("Created / updated")}
+          </p>
+          <p className="mt-1 font-semibold">
+            {session.importSummary.created} / {session.importSummary.updated}
+          </p>
+        </div>
+      </div>
+
+      {session.lastError ? (
+        <p className="mt-3 rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-300/25 dark:bg-amber-400/10 dark:text-amber-100">
+          {t("Last error")}: {session.lastError}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function ImportCheckpointBanner({
+  session,
+  language,
+  onOpen,
+  onClear,
+}: {
+  session: CrmImportSession;
+  language: AppLanguage;
+  onOpen: () => void;
+  onClear: () => void;
+}) {
+  const t = (text: string) => appText(language, text);
+  const percent = importProgressPercent(session);
+  const checkpointRows =
+    session.stage === "preview"
+      ? session.previewedRows
+      : session.nextImportIndex;
+  const checkpointLabel =
+    session.stage === "preview" ? t("rows previewed") : t("rows committed");
+
+  return (
+    <section className="rounded-xl border border-blue-200/80 bg-blue-50/76 px-4 py-3 text-blue-950 dark:border-blue-300/20 dark:bg-blue-500/10 dark:text-blue-50">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-heading text-base font-semibold">
+              {t("Import checkpoint")}
+            </p>
+            <Badge variant="outline">
+              {importStatusLabel(session, language)}
+            </Badge>
+          </div>
+          <p className="mt-1 truncate text-sm text-blue-900/76 dark:text-blue-100/76">
+            {session.fileName} · {checkpointRows} / {session.totalRows}{" "}
+            {checkpointLabel}
+          </p>
+          <Progress
+            value={percent}
+            className="mt-3 h-2 bg-blue-100 dark:bg-blue-950/70 [&_[data-slot=progress-indicator]]:bg-blue-600 dark:[&_[data-slot=progress-indicator]]:bg-blue-400"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" onClick={onOpen}>
+            <FileUp className="h-3.5 w-3.5" />
+            {t("Open import")}
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={onClear}>
+            {t("Discard checkpoint")}
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ImportDialog({
   open,
   pending,
+  session,
   preview,
   parseErrors,
   onClose,
   onFileChange,
   onPreviewChange,
   onImport,
+  onClearSession,
   language,
 }: {
   open: boolean;
   pending: boolean;
+  session: CrmImportSession | null;
   preview: PartnershipCrmImportPreview | null;
   parseErrors: Array<{ row: number; message: string }>;
   onClose: () => void;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onPreviewChange: (rows: PartnershipCrmImportPreviewRow[]) => void;
   onImport: () => void;
+  onClearSession: () => void;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
+  const duplicateControlsDisabled =
+    pending ||
+    session?.status === "completed" ||
+    (session?.nextImportIndex ?? 0) > 0;
 
   function updateDuplicateAction(rowId: string, action: CrmDuplicateAction) {
     if (!preview) {
@@ -996,9 +1418,27 @@ function ImportDialog({
     );
   }
 
-  const importableCount =
+  const validRowsCount = preview?.rows.filter((row) => row.valid).length ?? 0;
+  const actionRowsCount =
     preview?.rows.filter((row) => row.valid && row.duplicateAction !== "skip")
       .length ?? 0;
+  const importDisabled =
+    pending ||
+    !preview ||
+    validRowsCount === 0 ||
+    session?.status === "completed" ||
+    session?.status === "previewing";
+  const importButtonLabel = pending
+    ? session?.stage === "preview"
+      ? t("Previewing...")
+      : t("Importing...")
+    : session?.status === "completed"
+      ? t("Import completed")
+      : session?.status === "paused"
+        ? session.stage === "preview"
+          ? t("Resume preview")
+          : t("Resume import")
+        : `${t("Import")} ${validRowsCount} ${t("rows")}`;
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
@@ -1011,6 +1451,10 @@ function ImportDialog({
         </DialogHeader>
 
         <div className="grid gap-4">
+          {session ? (
+            <ImportProgressPanel session={session} language={language} />
+          ) : null}
+
           <div className="rounded-xl border border-border/80 bg-background/70 p-4">
             <Label htmlFor="crm-csv-file">{t("CSV file")}</Label>
             <Input
@@ -1018,6 +1462,7 @@ function ImportDialog({
               type="file"
               accept=".csv,text/csv"
               onChange={onFileChange}
+              disabled={pending}
               className="mt-2"
             />
             <p className="mt-2 text-xs text-muted-foreground">
@@ -1117,6 +1562,7 @@ function ImportDialog({
                                 </p>
                                 <Select
                                   value={duplicateAction}
+                                  disabled={duplicateControlsDisabled}
                                   onValueChange={(value) =>
                                     updateDuplicateAction(
                                       row.rowId,
@@ -1159,6 +1605,16 @@ function ImportDialog({
         </div>
 
         <DialogFooter>
+          {session ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClearSession}
+              disabled={pending}
+            >
+              {t("Discard checkpoint")}
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="outline"
@@ -1170,12 +1626,17 @@ function ImportDialog({
           <Button
             type="button"
             onClick={onImport}
-            disabled={pending || !preview || importableCount === 0}
+            disabled={importDisabled}
+            size="lg"
+            className={EMAIL_CTA_CLASS}
           >
             <FileUp className="h-4 w-4" />
-            {pending
-              ? t("Importing...")
-              : `${t("Import")} ${importableCount} ${t("organizations")}`}
+            {importButtonLabel}
+            {!pending && actionRowsCount !== validRowsCount ? (
+              <span className="ml-1 text-xs font-medium opacity-90">
+                ({actionRowsCount} {t("will change")})
+              </span>
+            ) : null}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1208,9 +1669,13 @@ export function PartnershipCrmWorkbench() {
   const [parseErrors, setParseErrors] = useState<
     Array<{ row: number; message: string }>
   >([]);
+  const [importSession, setImportSession] = useState<CrmImportSession | null>(
+    null,
+  );
   const [noteDraft, setNoteDraft] = useState("");
   const [activityLogOpen, setActivityLogOpen] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const importStorageWarningShownRef = useRef(false);
   const currentCursor = cursorStack[cursorStack.length - 1];
 
   const organizationQuery = useQuery({
@@ -1256,6 +1721,17 @@ export function PartnershipCrmWorkbench() {
     () => activitiesQuery.data?.pages.flatMap((page) => page.activities) ?? [],
     [activitiesQuery.data?.pages],
   );
+
+  useEffect(() => {
+    const restoredSession = loadCrmImportSession();
+    if (!restoredSession) {
+      return;
+    }
+
+    setImportSession(restoredSession);
+    setImportPreview(previewFromImportSession(restoredSession));
+    setParseErrors(restoredSession.parseErrors);
+  }, []);
 
   useEffect(() => {
     if (!organizations.length) {
@@ -1456,83 +1932,247 @@ export function PartnershipCrmWorkbench() {
     },
   });
 
-  const previewImportMutation = useMutation({
-    mutationFn: (rows: PartnershipCrmOrganizationInput[]) =>
-      sdkFetch<PartnershipCrmImportPreview>(
-        "/admin/partnership-crm/import-preview",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            organizations: rows.map((row, index) => ({
-              ...row,
-              rowId: `row-${index + 1}`,
-            })),
-          }),
-        },
+  function saveImportSession(next: CrmImportSession) {
+    const normalized = {
+      ...next,
+      previewRows: next.previewRows.map(withDuplicateDefaults),
+      totalRows: next.totalRows || next.sourceRows.length,
+      previewedRows: Math.min(
+        next.previewedRows,
+        next.totalRows || next.sourceRows.length,
       ),
-    onSuccess: (preview) => {
-      setImportPreview({
-        ...preview,
-        rows: preview.rows.map((row) => ({
-          ...row,
-          duplicateAction: row.duplicateCandidates.length ? "skip" : "import",
-          duplicateOrganizationId: row.duplicateCandidates[0]?.id,
-        })),
-      });
-    },
-    onError: (error) => {
+      nextImportIndex: Math.min(
+        next.nextImportIndex,
+        next.totalRows || next.sourceRows.length,
+      ),
+    };
+
+    setImportSession(normalized);
+    setImportPreview(previewFromImportSession(normalized));
+    setParseErrors(normalized.parseErrors);
+
+    if (
+      !persistCrmImportSession(normalized) &&
+      !importStorageWarningShownRef.current
+    ) {
+      importStorageWarningShownRef.current = true;
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to preview CRM import."),
-        details: error instanceof Error ? error.message : undefined,
+        message: t("Unable to save import checkpoint."),
       });
-    },
-  });
+    }
 
-  const importMutation = useMutation({
-    mutationFn: (preview: PartnershipCrmImportPreview) =>
-      sdkFetch<PartnershipCrmImportResult>("/admin/partnership-crm/import", {
-        method: "POST",
-        body: JSON.stringify({
-          organizations: preview.rows
-            .filter((row) => row.valid)
-            .map((row) => ({
-              ...row.organization,
-              rowId: row.rowId,
-              duplicateAction:
-                row.duplicateCandidates.length > 0
-                  ? (row.duplicateAction ?? "skip")
-                  : "import",
-              duplicateOrganizationId:
-                row.duplicateOrganizationId ?? row.duplicateCandidates[0]?.id,
-            })),
-        }),
-      }),
-    onSuccess: (result) => {
-      setImportOpen(false);
-      setImportPreview(null);
-      setParseErrors([]);
+    return normalized;
+  }
+
+  function discardImportCheckpoint() {
+    clearCrmImportSession();
+    setImportSession(null);
+    setImportPreview(null);
+    setParseErrors([]);
+    setToast({
+      id: Date.now(),
+      tone: "success",
+      message: t("Import checkpoint discarded."),
+    });
+  }
+
+  async function previewCrmImportSession(session: CrmImportSession) {
+    let working = saveImportSession({
+      ...session,
+      status: "previewing",
+      stage: "preview",
+      previewRows: session.previewRows.slice(0, session.previewedRows),
+      lastError: undefined,
+      updatedAt: new Date().toISOString(),
+    });
+
+    try {
+      for (
+        let startIndex = working.previewedRows;
+        startIndex < working.sourceRows.length;
+        startIndex += CRM_IMPORT_CHUNK_SIZE
+      ) {
+        const chunkEndIndex = Math.min(
+          startIndex + CRM_IMPORT_CHUNK_SIZE,
+          working.sourceRows.length,
+        );
+        const chunk = working.sourceRows.slice(startIndex, chunkEndIndex);
+        const preview = await sdkFetch<PartnershipCrmImportPreview>(
+          "/admin/partnership-crm/import-preview",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              organizations: chunk.map((row, index) => ({
+                ...row,
+                rowId: `row-${startIndex + index + 1}`,
+              })),
+            }),
+          },
+        );
+
+        working = saveImportSession({
+          ...working,
+          previewRows: [
+            ...working.previewRows,
+            ...preview.rows.map(withDuplicateDefaults),
+          ],
+          previewedRows: chunkEndIndex,
+          lastError: undefined,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      working = saveImportSession({
+        ...working,
+        status: "ready",
+        stage: "import",
+        previewedRows: working.totalRows,
+        lastError: undefined,
+        updatedAt: new Date().toISOString(),
+      });
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("CRM import preview ready."),
+      });
+      return working;
+    } catch (error) {
+      saveImportSession({
+        ...working,
+        status: "paused",
+        stage: "preview",
+        lastError: errorMessage(error),
+        updatedAt: new Date().toISOString(),
+      });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("CRM import paused."),
+        details: errorMessage(error),
+        durationMs: 18000,
+      });
+      return null;
+    }
+  }
+
+  async function runCrmImportSession(session: CrmImportSession | null) {
+    if (!session || session.status === "completed") {
+      return;
+    }
+
+    let working = session;
+    if (
+      working.stage === "preview" &&
+      working.previewedRows < working.totalRows
+    ) {
+      const previewed = await previewCrmImportSession(working);
+      if (!previewed) {
+        return;
+      }
+      working = previewed;
+    }
+
+    working = saveImportSession({
+      ...working,
+      status: "importing",
+      stage: "import",
+      lastError: undefined,
+      updatedAt: new Date().toISOString(),
+    });
+
+    try {
+      for (
+        let startIndex = working.nextImportIndex;
+        startIndex < working.previewRows.length;
+        startIndex += CRM_IMPORT_CHUNK_SIZE
+      ) {
+        const chunkEndIndex = Math.min(
+          startIndex + CRM_IMPORT_CHUNK_SIZE,
+          working.previewRows.length,
+        );
+        const previewChunk = working.previewRows.slice(
+          startIndex,
+          chunkEndIndex,
+        );
+        const invalidResults = previewChunk
+          .filter((row) => !row.valid)
+          .map((row) => ({
+            rowId: row.rowId,
+            action: "invalid" as const,
+            reason: row.errors.join(", ") || "Invalid row.",
+          }));
+        const invalidSummary = {
+          ...emptyImportSummary(),
+          total: invalidResults.length,
+          invalid: invalidResults.length,
+        };
+        const importRows = rowsForImportChunk(previewChunk);
+        const result =
+          importRows.length > 0
+            ? await sdkFetch<PartnershipCrmImportResult>(
+                "/admin/partnership-crm/import",
+                {
+                  method: "POST",
+                  body: JSON.stringify({ organizations: importRows }),
+                },
+              )
+            : {
+                results: [],
+                summary: emptyImportSummary(),
+              };
+
+        working = saveImportSession({
+          ...working,
+          nextImportIndex: chunkEndIndex,
+          importSummary: importSummaryAdd(
+            working.importSummary,
+            importSummaryAdd(result.summary, invalidSummary),
+          ),
+          results: [...working.results, ...result.results, ...invalidResults],
+          lastError: undefined,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      working = saveImportSession({
+        ...working,
+        status: "completed",
+        stage: "complete",
+        nextImportIndex: working.totalRows,
+        lastError: undefined,
+        updatedAt: new Date().toISOString(),
+      });
       invalidateOrganizations();
       setToast({
         id: Date.now(),
         tone: "success",
-        message: `${t("Import complete.")} ${result.summary.created} ${t(
-          "created",
-        )}, ${result.summary.updated} ${t("updated")}, ${
-          result.summary.skipped
-        } ${t("skipped")}.`,
+        message: `${t("Import complete.")} ${
+          working.importSummary.created
+        } ${t("created")}, ${working.importSummary.updated} ${t(
+          "updated",
+        )}, ${working.importSummary.skipped} ${t("skipped")}, ${
+          working.importSummary.invalid
+        } ${t("invalid")}.`,
       });
-    },
-    onError: (error) => {
+    } catch (error) {
+      saveImportSession({
+        ...working,
+        status: "paused",
+        stage: "import",
+        lastError: errorMessage(error),
+        updatedAt: new Date().toISOString(),
+      });
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to import CRM organizations."),
-        details: error instanceof Error ? error.message : undefined,
+        message: t("CRM import paused."),
+        details: errorMessage(error),
+        durationMs: 18000,
       });
-    },
-  });
+    }
+  }
 
   const pageStatusCounts = useMemo(
     () =>
@@ -1549,6 +2189,9 @@ export function PartnershipCrmWorkbench() {
     : activitiesQuery.data
       ? `${activityRows.length} ${t("loaded")}`
       : t("Not loaded");
+  const importPending =
+    importSession?.status === "previewing" ||
+    importSession?.status === "importing";
 
   function resetCursorsForFilterChange(patch: Partial<ListFilters>) {
     setCursorStack([]);
@@ -1577,13 +2220,68 @@ export function PartnershipCrmWorkbench() {
       return;
     }
 
-    const text = await file.text();
-    const parsed = parseCrmCsv(text);
-    setParseErrors(parsed.errors);
-    setImportPreview(null);
-    if (parsed.rows.length > 0) {
-      previewImportMutation.mutate(parsed.rows);
+    clearCrmImportSession();
+    try {
+      const text = await file.text();
+      const parsed = parseCrmCsv(text);
+      if (parsed.rows.length === 0) {
+        setImportSession(null);
+        setImportPreview(null);
+        setParseErrors(parsed.errors);
+        return;
+      }
+
+      const now = new Date().toISOString();
+      const session: CrmImportSession = {
+        id: createImportSessionId(),
+        fileName: file.name,
+        fileSize: file.size,
+        createdAt: now,
+        updatedAt: now,
+        status: "previewing",
+        stage: "preview",
+        chunkSize: CRM_IMPORT_CHUNK_SIZE,
+        sourceRows: parsed.rows,
+        previewRows: [],
+        parseErrors: parsed.errors,
+        totalRows: parsed.rows.length,
+        previewedRows: 0,
+        nextImportIndex: 0,
+        importSummary: emptyImportSummary(),
+        results: [],
+      };
+
+      await previewCrmImportSession(session);
+    } catch (error) {
+      setImportSession(null);
+      setImportPreview(null);
+      setParseErrors([]);
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to preview CRM import."),
+        details: errorMessage(error),
+      });
+    } finally {
+      event.target.value = "";
     }
+  }
+
+  function handleImportPreviewChange(rows: PartnershipCrmImportPreviewRow[]) {
+    const normalizedRows = rows.map(withDuplicateDefaults);
+    if (importSession) {
+      saveImportSession({
+        ...importSession,
+        previewRows: normalizedRows,
+        updatedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
+    setImportPreview({
+      rows: normalizedRows,
+      summary: summarizePreviewRows(normalizedRows),
+    });
   }
 
   function updateSelectedStatus(status: PartnershipCrmStatus) {
@@ -1661,6 +2359,15 @@ export function PartnershipCrmWorkbench() {
           </Button>
         </div>
       </div>
+
+      {importSession && importSession.status !== "completed" ? (
+        <ImportCheckpointBanner
+          session={importSession}
+          language={language}
+          onOpen={() => setImportOpen(true)}
+          onClear={discardImportCheckpoint}
+        />
+      ) : null}
 
       <div className="grid gap-3 rounded-xl border border-border/80 bg-background/60 p-3 lg:grid-cols-[minmax(220px,1fr)_180px_180px_160px_160px]">
         <div className="relative">
@@ -2141,32 +2848,15 @@ export function PartnershipCrmWorkbench() {
 
       <ImportDialog
         open={importOpen}
-        pending={previewImportMutation.isPending || importMutation.isPending}
+        pending={importPending}
+        session={importSession}
         preview={importPreview}
         parseErrors={parseErrors}
-        onClose={() => {
-          setImportOpen(false);
-          setImportPreview(null);
-          setParseErrors([]);
-        }}
+        onClose={() => setImportOpen(false)}
         onFileChange={handleCsvFileChange}
-        onPreviewChange={(rows) =>
-          setImportPreview((current) =>
-            current
-              ? {
-                  ...current,
-                  rows,
-                  summary: {
-                    ...current.summary,
-                    duplicates: rows.filter(
-                      (row) => row.duplicateCandidates.length > 0,
-                    ).length,
-                  },
-                }
-              : current,
-          )
-        }
-        onImport={() => importPreview && importMutation.mutate(importPreview)}
+        onPreviewChange={handleImportPreviewChange}
+        onImport={() => void runCrmImportSession(importSession)}
+        onClearSession={discardImportCheckpoint}
         language={language}
       />
 
