@@ -145,6 +145,63 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     ).toBeTruthy();
     expect(screen.queryByText("owner@example.org")).toBeNull();
   });
+
+  it("renders the activity log as a single timeline list", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return {
+          activities: [
+            {
+              id: "activity-1",
+              type: "email",
+              title: "CRM email sent",
+              body: "Hola Ada",
+              occurredAt: "2026-08-03T12:00:00.000Z",
+              createdByEmail: "federico@goldencrowvs.com",
+              metadata: {
+                subject: "Pocket Genes + Delete Me Genomics",
+                to: "ada@example.org",
+              },
+            },
+          ],
+          nextCursor: undefined,
+        };
+      }
+
+      return {
+        organizations: [organization],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(2);
+    });
+
+    await user.click(screen.getByRole("button", { name: /Activity log/ }));
+
+    await waitFor(() => {
+      expect(screen.getByText("CRM email sent")).toBeTruthy();
+    });
+
+    const section = screen.getByText("Activity log").closest("section");
+    const activityRow = section?.querySelector("article");
+    const descendants = Array.from(
+      section?.querySelectorAll("div,article") ?? [],
+    );
+
+    expect(activityRow?.className).toContain("lg:flex-row");
+    expect(activityRow?.className).not.toContain("rounded-xl");
+    expect(
+      descendants.some((element) =>
+        String(element.className).includes("xl:grid-cols-2"),
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("PartnershipCrmWorkbench import flow", () => {

@@ -24,13 +24,11 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleDot,
   Clock3,
   ExternalLink,
   FileUp,
   Filter,
   Mail,
-  NotebookPen,
   Pencil,
   Plus,
   RefreshCw,
@@ -654,38 +652,6 @@ function pipelineStatusTone(status: PartnershipCrmStatus, selected: boolean) {
   };
 }
 
-function activityIcon(type: PartnershipCrmActivityRecord["type"]) {
-  if (type === "email") {
-    return Mail;
-  }
-  if (type === "status") {
-    return CircleDot;
-  }
-  if (type === "import") {
-    return FileUp;
-  }
-  if (type === "created") {
-    return Building2;
-  }
-  if (type === "updated") {
-    return Pencil;
-  }
-  return NotebookPen;
-}
-
-function activityTone(type: PartnershipCrmActivityRecord["type"]) {
-  if (type === "email") {
-    return "border-sky-200/80 bg-sky-50/80 text-sky-950 dark:border-sky-300/20 dark:bg-sky-400/10 dark:text-sky-100";
-  }
-  if (type === "status") {
-    return "border-amber-200/80 bg-amber-50/80 text-amber-950 dark:border-amber-300/20 dark:bg-amber-400/10 dark:text-amber-100";
-  }
-  if (type === "import") {
-    return "border-violet-200/80 bg-violet-50/80 text-violet-950 dark:border-violet-300/20 dark:bg-violet-400/10 dark:text-violet-100";
-  }
-  return "border-border/80 bg-background/70 text-foreground";
-}
-
 function metricCount(
   organizations: PartnershipCrmOrganizationRecord[],
   status: PartnershipCrmStatus,
@@ -875,7 +841,6 @@ function ActivityCell({
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
-  const Icon = activityIcon(activity.type);
   const subject =
     typeof activity.metadata?.subject === "string"
       ? activity.metadata.subject
@@ -886,56 +851,39 @@ function ActivityCell({
       : undefined;
 
   return (
-    <article
-      className={cn(
-        "rounded-xl border px-3 py-3 shadow-[0_10px_22px_rgba(15,23,42,0.05)]",
-        activityTone(activity.type),
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/76 text-current shadow-sm dark:bg-white/10">
-          <Icon className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className="min-w-0 flex-1 truncate font-medium text-foreground">
-              {activity.title || t("Activity")}
-            </h4>
-            <Badge variant="outline">{t(activity.type)}</Badge>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {formatDateTime(
-              activity.occurredAt ?? activity.createdAt,
-              language,
-            )}
-            {activity.createdByEmail ? ` · ${activity.createdByEmail}` : ""}
+    <article className="flex flex-col gap-3 border-t border-border/80 py-4 first:border-t-0 lg:flex-row">
+      <time className="shrink-0 text-xs text-muted-foreground lg:w-40">
+        {formatDateTime(activity.occurredAt ?? activity.createdAt, language)}
+      </time>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold">
+            {activity.title || t("Activity")}
           </p>
-          {subject || to ? (
-            <div className="mt-2 grid gap-1 rounded-lg border border-border/70 bg-background/70 px-2 py-2 text-xs text-muted-foreground">
-              {subject ? (
-                <p className="truncate">
-                  <span className="font-semibold text-foreground">
-                    {t("Subject")}:
-                  </span>{" "}
-                  {subject}
-                </p>
-              ) : null}
-              {to ? (
-                <p className="truncate">
-                  <span className="font-semibold text-foreground">
-                    {t("Recipient")}:
-                  </span>{" "}
-                  {to}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          {activity.body ? (
-            <p className="mt-2 line-clamp-5 whitespace-pre-wrap text-sm leading-5 text-foreground/88">
-              {activity.body}
-            </p>
+          <Badge variant="secondary">{t(activity.type)}</Badge>
+          {activity.createdByEmail ? (
+            <Badge variant="outline">{activity.createdByEmail}</Badge>
           ) : null}
         </div>
+        {subject ? (
+          <p className="mt-1 truncate text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">{t("Subject")}:</span>{" "}
+            {subject}
+          </p>
+        ) : null}
+        {to ? (
+          <p className="mt-1 truncate text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {t("Recipient")}:
+            </span>{" "}
+            {to}
+          </p>
+        ) : null}
+        {activity.body ? (
+          <p className="mt-2 line-clamp-5 whitespace-pre-wrap text-sm leading-5 text-foreground/88">
+            {activity.body}
+          </p>
+        ) : null}
       </div>
     </article>
   );
@@ -2950,15 +2898,15 @@ export function PartnershipCrmWorkbench() {
                 {activitiesQuery.error ? (
                   <ErrorBanner>{t("Failed to load activity log.")}</ErrorBanner>
                 ) : activitiesQuery.isFetching && !activityRows.length ? (
-                  <div className="grid gap-2">
+                  <div className="space-y-3">
                     {Array.from({ length: 4 }).map((_, index) => (
-                      <Skeleton key={index} className="h-24 rounded-xl" />
+                      <Skeleton key={index} className="h-20 rounded-xl" />
                     ))}
                   </div>
                 ) : !activityRows.length ? (
                   <EmptyState>{t("No activity yet.")}</EmptyState>
                 ) : (
-                  <div className="grid gap-3 xl:grid-cols-2">
+                  <div className="space-y-3">
                     {activityRows.map((activity) => (
                       <ActivityCell
                         key={activity.id}
