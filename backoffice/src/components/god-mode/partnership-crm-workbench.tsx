@@ -1494,6 +1494,7 @@ function EmailComposerDialog({
     email?.to.trim() && email.subject.trim() && email.text.trim(),
   );
   const hasTemplates = templates.length > 0;
+  const isPreviewStep = email?.step === "preview";
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
@@ -1506,137 +1507,113 @@ function EmailComposerDialog({
         </DialogHeader>
 
         {organization && email ? (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.68fr)]">
-            <div className="grid gap-4">
-              <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label>{t("From")}</Label>
-                    <Input value={PARTNERSHIP_CRM_FROM_EMAIL} readOnly />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="crm-email-to">{t("Recipient")}</Label>
-                    <Input
-                      id="crm-email-to"
-                      type="email"
-                      value={email.to}
-                      onChange={(event) =>
-                        update({ to: event.target.value, step: "compose" })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-[minmax(0,0.62fr)_minmax(0,1fr)]">
-                  <div className="space-y-1.5">
-                    <Label>{t("Template")}</Label>
-                    <Select
-                      value={email.templateId || "no-template"}
-                      onValueChange={(value) => {
-                        if (value !== "no-template") {
-                          applyTemplate(value);
+          isPreviewStep ? (
+            <EmailPreviewPanel
+              email={email}
+              language={language}
+              locked
+              className="w-full"
+            />
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.68fr)]">
+              <div className="grid gap-4">
+                <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>{t("From")}</Label>
+                      <Input value={PARTNERSHIP_CRM_FROM_EMAIL} readOnly />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="crm-email-to">{t("Recipient")}</Label>
+                      <Input
+                        id="crm-email-to"
+                        type="email"
+                        value={email.to}
+                        onChange={(event) =>
+                          update({ to: event.target.value, step: "compose" })
                         }
-                      }}
-                      disabled={templatesLoading || !hasTemplates}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {!hasTemplates ? (
-                          <SelectItem value="no-template">
-                            {templatesLoading
-                              ? t("Loading templates...")
-                              : t("No active templates")}
-                          </SelectItem>
-                        ) : null}
-                        {templates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,0.62fr)_minmax(0,1fr)]">
+                    <div className="space-y-1.5">
+                      <Label>{t("Template")}</Label>
+                      <Select
+                        value={email.templateId || "no-template"}
+                        onValueChange={(value) => {
+                          if (value !== "no-template") {
+                            applyTemplate(value);
+                          }
+                        }}
+                        disabled={templatesLoading || !hasTemplates}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {!hasTemplates ? (
+                            <SelectItem value="no-template">
+                              {templatesLoading
+                                ? t("Loading templates...")
+                                : t("No active templates")}
+                            </SelectItem>
+                          ) : null}
+                          {templates.map((template) => (
+                            <SelectItem key={template.id} value={template.id}>
+                              {template.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="crm-email-subject">{t("Subject")}</Label>
+                      <Input
+                        id="crm-email-subject"
+                        value={email.subject}
+                        onChange={(event) =>
+                          update({
+                            subject: event.target.value,
+                            step: "compose",
+                          })
+                        }
+                      />
+                    </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="crm-email-subject">{t("Subject")}</Label>
-                    <Input
-                      id="crm-email-subject"
-                      value={email.subject}
+                    <Label htmlFor="crm-email-message">{t("Message")}</Label>
+                    <Textarea
+                      id="crm-email-message"
+                      value={email.text}
                       onChange={(event) =>
-                        update({
-                          subject: event.target.value,
-                          step: "compose",
-                        })
+                        update({ text: event.target.value, step: "compose" })
                       }
+                      className="min-h-80 font-mono text-sm leading-6"
                     />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="crm-email-message">{t("Message")}</Label>
-                  <Textarea
-                    id="crm-email-message"
-                    value={email.text}
-                    onChange={(event) =>
-                      update({ text: event.target.value, step: "compose" })
-                    }
-                    className="min-h-80 font-mono text-sm leading-6"
-                  />
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  {hasTemplates ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t(
+                        "Sending updates last contact and records email activity.",
+                      )}
+                    </p>
+                  ) : (
+                    <Button type="button" variant="outline" size="sm" asChild>
+                      <Link href="/god-mode/plantillas/new">
+                        <Plus className="h-3.5 w-3.5" />
+                        {t("Alta de plantilla")}
+                      </Link>
+                    </Button>
+                  )}
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                {hasTemplates ? (
-                  <p className="text-xs text-muted-foreground">
-                    {t(
-                      "Sending updates last contact and records email activity.",
-                    )}
-                  </p>
-                ) : (
-                  <Button type="button" variant="outline" size="sm" asChild>
-                    <Link href="/god-mode/plantillas/new">
-                      <Plus className="h-3.5 w-3.5" />
-                      {t("Alta de plantilla")}
-                    </Link>
-                  </Button>
-                )}
-              </div>
+              <EmailPreviewPanel email={email} language={language} />
             </div>
-
-            <aside className="rounded-xl border border-border/80 bg-white p-4 text-slate-950 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:bg-slate-950 dark:text-slate-50">
-              <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    {t("Preview")}
-                  </p>
-                  <h3 className="mt-1 truncate font-heading text-lg font-semibold">
-                    {email.subject || t("No subject")}
-                  </h3>
-                </div>
-                {email.step === "preview" ? (
-                  <Badge variant="success">{t("Ready")}</Badge>
-                ) : (
-                  <Badge variant="outline">{t("Draft")}</Badge>
-                )}
-              </div>
-              <div className="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-300">
-                <p className="truncate">
-                  <span className="font-semibold text-slate-900 dark:text-slate-50">
-                    {t("From")}:
-                  </span>{" "}
-                  {PARTNERSHIP_CRM_FROM_EMAIL}
-                </p>
-                <p className="truncate">
-                  <span className="font-semibold text-slate-900 dark:text-slate-50">
-                    {t("Recipient")}:
-                  </span>{" "}
-                  {email.to || "—"}
-                </p>
-              </div>
-              <div className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
-                {email.text || t("No message yet.")}
-              </div>
-            </aside>
-          </div>
+          )
         ) : null}
 
         {email ? (
@@ -1668,6 +1645,73 @@ function EmailComposerDialog({
         ) : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function EmailPreviewPanel({
+  email,
+  language,
+  locked = false,
+  className,
+}: {
+  email: EmailState;
+  language: AppLanguage;
+  locked?: boolean;
+  className?: string;
+}) {
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <aside
+      className={cn(
+        "rounded-xl border border-border/80 bg-white p-4 text-slate-950 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:bg-slate-950 dark:text-slate-50",
+        locked && "p-5",
+        className,
+      )}
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            {t("Preview")}
+          </p>
+          <h3
+            className={cn(
+              "mt-1 truncate font-heading font-semibold",
+              locked ? "text-xl" : "text-lg",
+            )}
+          >
+            {email.subject || t("No subject")}
+          </h3>
+        </div>
+        {locked ? (
+          <Badge variant="success">{t("Ready to send")}</Badge>
+        ) : (
+          <Badge variant="outline">{t("Draft")}</Badge>
+        )}
+      </div>
+      <div className="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-300">
+        <p className="truncate">
+          <span className="font-semibold text-slate-900 dark:text-slate-50">
+            {t("From")}:
+          </span>{" "}
+          {PARTNERSHIP_CRM_FROM_EMAIL}
+        </p>
+        <p className="truncate">
+          <span className="font-semibold text-slate-900 dark:text-slate-50">
+            {t("Recipient")}:
+          </span>{" "}
+          {email.to || "—"}
+        </p>
+      </div>
+      <div
+        className={cn(
+          "mt-4 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:bg-slate-900 dark:text-slate-100",
+          locked && "max-h-[58vh] min-h-96 overflow-y-auto text-base leading-7",
+        )}
+      >
+        {email.text || t("No message yet.")}
+      </div>
+    </aside>
   );
 }
 

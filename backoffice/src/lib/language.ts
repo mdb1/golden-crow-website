@@ -1101,6 +1101,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Sending updates last contact and records email activity.":
     "El envío actualiza el último contacto y registra la actividad de email.",
   "Preview email": "Vista previa del email",
+  "Ready to send": "Listo para enviar",
   "No subject": "Sin asunto",
   "No message yet.": "Sin mensaje todavía.",
   "CRM email sent.": "Email del CRM enviado.",

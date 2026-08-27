@@ -235,6 +235,48 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(sendButton.className).toContain("w-full");
   });
 
+  it("shows the email preview as a locked full-width review step", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+    await user.type(within(dialog).getByLabelText("Subject"), "CRM follow-up");
+    await user.type(
+      within(dialog).getByLabelText("Message"),
+      "Hola Ada,\n\nQueria escribirte directamente sobre Pocket Genes.",
+    );
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Preview email" }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Ready to send")).toBeTruthy();
+    });
+    expect(within(dialog).queryByLabelText("Subject")).toBeNull();
+    expect(within(dialog).queryByLabelText("Message")).toBeNull();
+    expect(within(dialog).queryByText("Template")).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", { name: "Preview email" }),
+    ).toBeNull();
+
+    const previewPanel = within(dialog)
+      .getByText("Ready to send")
+      .closest("aside");
+    expect(previewPanel?.className).toContain("w-full");
+    expect(
+      within(dialog).getByRole("button", { name: "Send email" }).className,
+    ).toContain("bg-blue-600");
+  });
+
   it("switches to the professionals CRM collection and professional fields", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
