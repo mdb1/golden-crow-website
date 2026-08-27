@@ -636,6 +636,9 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
     await user.click(screen.getByRole("button", { name: "Import CSV" }));
     const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("tablist", { name: "CRM target" }),
+    ).toBeTruthy();
     const csv = crmCsv(3);
 
     const file = new File([csv], "interactive-crm-import.csv", {
@@ -648,6 +651,10 @@ describe("PartnershipCrmWorkbench import flow", () => {
     await waitFor(() => {
       expect(screen.getAllByText("CSV loaded").length).toBeGreaterThan(0);
     });
+    expect(within(dialog).queryByLabelText("CSV file")).toBeNull();
+    expect(
+      within(dialog).queryByRole("tablist", { name: "CRM target" }),
+    ).toBeNull();
     expect(crmPreviewCalls()).toHaveLength(0);
     expect(
       crmImportSession(),
@@ -731,6 +738,40 @@ describe("PartnershipCrmWorkbench import flow", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
+  });
+
+  it("requires discarding the checkpoint before choosing a new CRM target or CSV file", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = crmCsv(2);
+    const file = new File([csv], "locked-crm-import.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+    await waitFor(() => {
+      expect(within(dialog).getByText("CSV loaded")).toBeTruthy();
+    });
+
+    expect(within(dialog).queryByLabelText("CSV file")).toBeNull();
+    expect(
+      within(dialog).queryByRole("tablist", { name: "CRM target" }),
+    ).toBeNull();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Discard checkpoint" }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText("CSV file")).toBeTruthy();
+    });
+    expect(
+      within(dialog).getByRole("tablist", { name: "CRM target" }),
+    ).toBeTruthy();
   });
 
   it("imports remaining interactive rows sequentially and can pause between rows", async () => {

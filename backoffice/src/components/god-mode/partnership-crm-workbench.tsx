@@ -2121,7 +2121,10 @@ function ImportProgressPanel({
             {t("Last saved")}: {formatDateTime(session.updatedAt, language)}
           </p>
         </div>
-        <Badge variant="outline">{importStatusLabel(session, language)}</Badge>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline">{t(session.targetKind)}</Badge>
+          <Badge variant="outline">{importStatusLabel(session, language)}</Badge>
+        </div>
       </div>
 
       <div className="mt-4">
@@ -2741,6 +2744,7 @@ function ImportDialog({
     session?.status !== "completed" &&
     !showInteractiveCard &&
     !showAllRunning;
+  const showSetupControls = !session;
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
@@ -2753,18 +2757,19 @@ function ImportDialog({
         </DialogHeader>
 
         <div className="grid gap-4">
-          <CrmTargetSegmentedControl
-            value={targetKind}
-            onChange={onTargetKindChange}
-            language={language}
-            disabled={pending || completed}
-          />
+          {showSetupControls ? (
+            <CrmTargetSegmentedControl
+              value={targetKind}
+              onChange={onTargetKindChange}
+              language={language}
+            />
+          ) : null}
 
           {session && !completed ? (
             <ImportProgressPanel session={session} language={language} />
           ) : null}
 
-          {!completed ? (
+          {showSetupControls ? (
             <div className="rounded-xl border border-border/80 bg-background/70 p-4">
               <Label htmlFor="crm-csv-file">{t("CSV file")}</Label>
               <Input
