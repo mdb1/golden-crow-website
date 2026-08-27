@@ -7,6 +7,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
@@ -1116,6 +1117,7 @@ export function PartnershipCrmWorkbench() {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [filters, setFilters] = useState<ListFilters>({
     query: "",
     status: "all",
@@ -1229,16 +1231,38 @@ export function PartnershipCrmWorkbench() {
 
   const deleteOrganizationMutation = useMutation({
     mutationFn: (organizationId: string) =>
-      sdkFetch<void>(
+      sdkFetch<{ deleted: boolean; organizationId: string }>(
         `/admin/partnership-crm/organizations/${encodeURIComponent(
           organizationId,
         )}`,
         { method: "DELETE" },
       ),
-    onSuccess: () => {
+    onSuccess: (_result, organizationId) => {
       setDeleteTarget(null);
-      setSelectedId(null);
-      invalidateOrganizations();
+      queryClient.setQueriesData<PartnershipCrmOrganizationsPage>(
+        { queryKey: [ORGANIZATIONS_QUERY_KEY] },
+        (current) =>
+          current
+            ? {
+                ...current,
+                organizations: current.organizations.filter(
+                  (organization) => organization.id !== organizationId,
+                ),
+              }
+            : current,
+      );
+      const nextSelection =
+        organizations.find((organization) => organization.id !== organizationId)
+          ?.id ?? null;
+      setSelectedId(nextSelection);
+      void queryClient.invalidateQueries({
+        queryKey: [ORGANIZATIONS_QUERY_KEY],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [ACTIVITIES_QUERY_KEY, organizationId],
+      });
+      void organizationQuery.refetch();
+      router.refresh();
       setToast({
         id: Date.now(),
         tone: "success",

@@ -170,7 +170,10 @@ export async function partnershipCrmRoutes(
           request.adminContext!,
           request.params.organizationId,
         );
-        return reply.status(204).send();
+        return reply.send({
+          deleted: true,
+          organizationId: request.params.organizationId,
+        });
       } catch (error) {
         return sendRepositoryError(reply, error);
       }
