@@ -2436,15 +2436,15 @@ export function PartnershipCrmWorkbench() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.72fr)]">
-        <div className="grid gap-4">
-          <div className="grid gap-2 sm:grid-cols-5">
+        <div className="grid content-start gap-4">
+          <div className="grid items-start gap-2 sm:grid-cols-5">
             {PIPELINE_STATUSES.map((status) => (
               <button
                 key={status}
                 type="button"
                 onClick={() => resetCursorsForFilterChange({ status })}
                 className={cn(
-                  "rounded-xl border px-3 py-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/40",
+                  "h-16 self-start rounded-xl border px-3 py-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/40",
                   filters.status === status
                     ? "border-foreground/35 bg-muted"
                     : "border-border/80 bg-background/60",
