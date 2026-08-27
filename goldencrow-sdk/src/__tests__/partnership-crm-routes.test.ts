@@ -9,6 +9,7 @@ const mockDeletePartnershipCrmOrganization = jest.fn();
 const mockDeletePartnershipCrmProfessional = jest.fn();
 const mockDeletePartnershipCrmTemplate = jest.fn();
 const mockCreatePartnershipCrmProfessional = jest.fn();
+const mockPreviewPartnershipCrmProfessionalImport = jest.fn();
 
 jest.mock("../repositories/partnership-crm.repository.js", () => ({
   PARTNERSHIP_CRM_ACTIVITY_TYPES: [
@@ -50,7 +51,8 @@ jest.mock("../repositories/partnership-crm.repository.js", () => ({
   listPartnershipCrmProfessionals: jest.fn(),
   listPartnershipCrmTemplates: jest.fn(),
   previewPartnershipCrmImport: jest.fn(),
-  previewPartnershipCrmProfessionalImport: jest.fn(),
+  previewPartnershipCrmProfessionalImport:
+    mockPreviewPartnershipCrmProfessionalImport,
   sendPartnershipCrmOrganizationEmail: jest.fn(),
   sendPartnershipCrmProfessionalEmail: jest.fn(),
   updatePartnershipCrmOrganization: jest.fn(),
@@ -89,6 +91,16 @@ describe("partnership CRM routes", () => {
     mockDeletePartnershipCrmOrganization.mockResolvedValue(undefined);
     mockDeletePartnershipCrmProfessional.mockResolvedValue(undefined);
     mockDeletePartnershipCrmTemplate.mockResolvedValue(undefined);
+    mockPreviewPartnershipCrmProfessionalImport.mockResolvedValue({
+      rows: [],
+      summary: {
+        total: 0,
+        valid: 0,
+        invalid: 0,
+        missingEmail: 0,
+        duplicates: 0,
+      },
+    });
     mockCreatePartnershipCrmProfessional.mockResolvedValue({
       id: "pro-1",
       name: "Dra. Ada Genome",
@@ -195,6 +207,38 @@ describe("partnership CRM routes", () => {
         researchBasis:
           "Existing verified Pocket Genes partnership dataset, affiliation website and LinkedIn record.",
       }),
+    );
+  });
+
+  it("accepts timezone-offset datetimes on professional import preview", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/partnership-crm/professionals/import-preview",
+      payload: {
+        professionals: [
+          {
+            rowId: "row-1",
+            name: "Cesar Sanchez Sarmiento",
+            category:
+              "pro_reproductive_specialists,pro_fertility_specialists",
+            country: "AR",
+            status: "replied",
+            lastContactAt: "2026-08-25T14:29:00-03:00",
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockPreviewPartnershipCrmProfessionalImport).toHaveBeenCalledWith(
+      bootstrapContext,
+      expect.arrayContaining([
+        expect.objectContaining({
+          lastContactAt: "2026-08-25T14:29:00-03:00",
+        }),
+      ]),
     );
   });
 });

@@ -1066,6 +1066,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "URL opcional del perfil público de LinkedIn. Se usa para detectar duplicados y revisar rápido.",
   "Optional. Use a full ISO datetime with timezone, or leave blank when there was no previous contact.":
     "Opcional. Usá una fecha ISO completa con zona horaria o dejalo vacío si no hubo contacto previo.",
+  "Optional. Use a complete ISO datetime with an explicit timezone, for example 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00. Do not use a date-only value or a datetime without timezone.":
+    "Opcional. Usá una fecha ISO completa con zona horaria explícita, por ejemplo 2026-08-25T17:29:00.000Z o 2026-08-25T14:29:00-03:00. No uses solo fecha ni fecha-hora sin zona horaria.",
   "Optional plain operational notes, maximum 2000 characters. Do not paste long scraped pages or JSON blobs.":
     "Notas operativas opcionales, máximo 2000 caracteres. No pegues páginas scrapeadas largas ni blobs JSON.",
   "Required, trimmed, maximum 180 characters. This is the internal template name.":

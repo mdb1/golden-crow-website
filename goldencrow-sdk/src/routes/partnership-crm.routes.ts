@@ -42,6 +42,12 @@ const OptionalStringSchema = z.string().trim().max(2000).optional();
 const CrmCategoryStringSchema = z.string().trim().max(2000).optional();
 const CrmCountryStringSchema = z.string().trim().max(500).optional();
 const CrmTemplateCategoryStringSchema = z.string().trim().max(90).optional();
+const CrmDateTimeSchema = z
+  .string()
+  .trim()
+  .datetime({ offset: true })
+  .nullable()
+  .optional();
 const OrganizationBodySchema = z.object({
   name: z.string().trim().min(1).max(180),
   category: CrmCategoryStringSchema,
@@ -51,7 +57,7 @@ const OrganizationBodySchema = z.object({
   contactName: z.string().trim().max(140).optional(),
   contactEmail: z.string().trim().toLowerCase().max(180).optional(),
   contactLinkedIn: z.string().trim().max(500).optional(),
-  lastContactAt: z.string().trim().datetime().nullable().optional(),
+  lastContactAt: CrmDateTimeSchema,
   notes: OptionalStringSchema,
 });
 const OrganizationImportRowSchema = OrganizationBodySchema.partial().extend({
@@ -73,7 +79,7 @@ const ProfessionalBodySchema = z.object({
   status: CrmStatusSchema.optional(),
   email: z.string().trim().toLowerCase().max(180).optional(),
   linkedIn: z.string().trim().max(500).optional(),
-  lastContactAt: z.string().trim().datetime().nullable().optional(),
+  lastContactAt: CrmDateTimeSchema,
   notes: OptionalStringSchema,
 });
 const ProfessionalImportRowSchema = ProfessionalBodySchema.partial().extend({

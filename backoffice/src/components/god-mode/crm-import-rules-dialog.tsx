@@ -148,7 +148,7 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
       {
         label: "last_contact_at",
         detail:
-          "Optional. Use a full ISO datetime with timezone, or leave blank when there was no previous contact.",
+          "Optional. Use a complete ISO datetime with an explicit timezone, for example 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00. Do not use a date-only value or a datetime without timezone.",
       },
       {
         label: "notes",
@@ -193,7 +193,7 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
       {
         label: "last_contact_at",
         detail:
-          "Optional. Use a full ISO datetime with timezone, or leave blank when there was no previous contact.",
+          "Optional. Use a complete ISO datetime with an explicit timezone, for example 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00. Do not use a date-only value or a datetime without timezone.",
       },
       {
         label: "notes",

@@ -889,6 +889,9 @@ describe("PartnershipCrmWorkbench import flow", () => {
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "org_genetic_testing_laboratories",
     );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "last_contact_at: Optional. Use a complete ISO datetime with an explicit timezone, for example 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00.",
+    );
   });
 
   it("shows professional CSV import rules with outreach research columns", async () => {
@@ -928,6 +931,9 @@ describe("PartnershipCrmWorkbench import flow", () => {
     });
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Header row: name,category,title,primary_affiliation,potential_pocket_genes_editor_fit,email_route,linkedin_route,research_basis,website,country,status,email,linkedin,last_contact_at,notes",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "last_contact_at: Optional. Use a complete ISO datetime with an explicit timezone, for example 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00.",
     );
   });
 });
