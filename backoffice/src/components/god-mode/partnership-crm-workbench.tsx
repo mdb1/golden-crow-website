@@ -2982,6 +2982,12 @@ export function PartnershipCrmWorkbench() {
       ),
   });
   const organizations = targetPageRows(organizationQuery.data, targetKind);
+  const currentListPage = cursorStack.length + 1;
+  const hasNextListPage = Boolean(organizationQuery.data?.nextCursor);
+  const knownListPages = currentListPage + (hasNextListPage ? 1 : 0);
+  const listPageLabel = `${t("Page")} ${currentListPage} ${t(
+    "of",
+  )} ${knownListPages}${hasNextListPage ? "+" : ""}`;
   const templatesQuery = useQuery({
     queryKey: [TEMPLATES_QUERY_KEY, targetKind],
     queryFn: () =>
@@ -4212,41 +4218,46 @@ export function PartnershipCrmWorkbench() {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setCursorStack((current) => current.slice(0, -1))}
-              disabled={
-                cursorStack.length === 0 || organizationQuery.isFetching
-              }
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              {t("Previous")}
-            </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <span className="text-xs text-muted-foreground">
               {organizations.length} {t("visible")}
             </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                organizationQuery.data?.nextCursor &&
-                setCursorStack((current) => [
-                  ...current,
-                  organizationQuery.data!.nextCursor!,
-                ])
-              }
-              disabled={
-                !organizationQuery.data?.nextCursor ||
-                organizationQuery.isFetching
-              }
-            >
-              {t("Load more")}
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
+            <span className="text-xs text-muted-foreground/60">·</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              {listPageLabel}
+            </span>
+            <div className="ml-2 flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setCursorStack((current) => current.slice(0, -1))
+                }
+                disabled={
+                  cursorStack.length === 0 || organizationQuery.isFetching
+                }
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                {t("Previous")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  organizationQuery.data?.nextCursor &&
+                  setCursorStack((current) => [
+                    ...current,
+                    organizationQuery.data!.nextCursor!,
+                  ])
+                }
+                disabled={!hasNextListPage || organizationQuery.isFetching}
+              >
+                {t("Next page")}
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
 

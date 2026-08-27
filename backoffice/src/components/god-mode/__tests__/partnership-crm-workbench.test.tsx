@@ -419,6 +419,86 @@ describe("PartnershipCrmWorkbench delete flow", () => {
   });
 });
 
+describe("PartnershipCrmWorkbench list pager", () => {
+  beforeEach(() => {
+    routerRefresh.mockClear();
+    jest.mocked(sdkFetch).mockReset();
+    window.localStorage.clear();
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      if (stringPath === "/admin/partnership-crm/organizations?limit=50") {
+        return {
+          organizations: [
+            { ...organization, id: "org-page-1", name: "Genome Page 1" },
+          ],
+          nextCursor: "cursor-2",
+        };
+      }
+
+      if (
+        stringPath ===
+        "/admin/partnership-crm/organizations?limit=50&cursor=cursor-2"
+      ) {
+        return {
+          organizations: [
+            { ...organization, id: "org-page-2", name: "Genome Page 2" },
+          ],
+          nextCursor: undefined,
+        };
+      }
+
+      return { organizations: [], nextCursor: undefined };
+    });
+  });
+
+  it("shows visible count, page count, and previous/next controls as a right-aligned pager", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getByText("Genome Page 1")).toBeTruthy();
+    });
+
+    const pager = screen.getByText("1 visible").parentElement;
+    expect(pager?.className).toContain("justify-end");
+    expect(screen.getByText("Page 1 of 2+")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Previous" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+
+    const nextButton = screen.getByRole("button", { name: "Next page" });
+    expect(nextButton).toHaveProperty("disabled", false);
+
+    await user.click(nextButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("Genome Page 2")).toBeTruthy();
+    });
+    expect(screen.getByText("Page 2 of 2")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Previous" })).toHaveProperty(
+      "disabled",
+      false,
+    );
+    expect(screen.getByRole("button", { name: "Next page" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/partnership-crm/organizations?limit=50&cursor=cursor-2",
+    );
+  });
+});
+
 describe("PartnershipCrmWorkbench import flow", () => {
   beforeEach(() => {
     routerRefresh.mockClear();

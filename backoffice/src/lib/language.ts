@@ -1413,6 +1413,8 @@ const SPANISH_TEXT: Record<string, string> = {
   Company: "Empresa",
   Source: "Origen",
   visible: "visibles",
+  Page: "Página",
+  "Next page": "Siguiente página",
   "Access account": "Acceder",
   "Access requirement": "Requisito de acceso",
   Overview: "Resumen",
