@@ -1,0 +1,1987 @@
+---
+import PocketGenesPublicLayout from '../layouts/PocketGenesPublicLayout.astro';
+import ClientBookingWidget from './ClientBookingWidget.astro';
+
+const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
+const locale = isEnglish ? 'en' : 'es';
+const localizePath = (path: string) => (isEnglish ? `/en${path === '/' ? '/' : path}` : path);
+
+const pageCopy = {
+  en: {
+    title: 'Pocket Genes Solutions for genetics and health',
+    description:
+      'Independent digital solutions for genetic reports, consent, logistics, education, community, APIs, CRM, and backoffice operations.',
+    heroEyebrow: 'Do not build every part from scratch.',
+    heroTitle: 'Solutions for genetics and health',
+    heroBody:
+      'From reports and consents to logistics, education, and community. We build digital solutions for everyday genetics workflows used by laboratories, clinics, and health companies.',
+    heroKey:
+      'Use one solution inside Pocket Genes, ask us to build it for your platform, or add our team to yours.',
+    heroPrimary: 'Tell us what you need',
+    heroSecondary: 'Explore solutions',
+    heroVisualLabel: 'Pocket Genes solution capabilities',
+    heroScreenshots: [
+      {
+        src: '/pocket-genes/screenshots/sample-01.webp',
+        alt: 'Pocket Genes genomic report categories on a mobile screen',
+      },
+      {
+        src: '/pocket-genes/screenshots/discover-simulator.png',
+        alt: 'Pocket Genes Discover publishing simulator on a mobile screen',
+      },
+      {
+        src: '/pocket-genes/screenshots/sample_rare_friends.PNG',
+        alt: 'RareFriends community profile inside Pocket Genes',
+      },
+    ],
+    hubEyebrow: 'One platform, many independent solutions',
+    hubTitle: 'Pocket Genes contains many parts. You can choose only the one you need.',
+    hubBody:
+      'Pocket Genes brings many of these capabilities into one experience, but each one solves a concrete problem and can be integrated, adapted, or built independently.',
+    hubCenterTitle: 'Pocket Genes',
+    hubCenterBody: 'App + Backoffice',
+    hubNodes: [
+      'Reports',
+      'Consents',
+      'Education',
+      'Discover',
+      'Community',
+      'Organizations',
+      'Professionals',
+      'Notifications',
+      'APIs',
+      'Administration',
+    ],
+    catalogEyebrow: 'Capability catalog',
+    catalogTitle: 'Which part do you need to solve?',
+    catalogBody:
+      'The whole product is Pocket Genes. The individual pieces are digital solutions for specific genetics operations.',
+    catalogItems: [
+      {
+        number: '01',
+        title: 'Reports',
+        summary: 'Turn a result into a digital experience.',
+        features: [
+          'Interactive reports',
+          'PDF reports',
+          'Mobile and web visualization',
+          'Filters and panels',
+          'Secure downloads',
+          'QR access',
+          'Six-digit access codes',
+          'Report history',
+          'Provider branding',
+          'Patient notifications',
+        ],
+        example: 'A lab generates a report, the user receives a code, opens it in app or web, and returns to it when needed.',
+      },
+      {
+        number: '02',
+        title: 'Consents and documentation',
+        summary: 'Replace scattered emails, loose files, and manual follow-up.',
+        features: [
+          'Informed consent requests',
+          'Signed-document upload',
+          'Digital forms',
+          'Pending-document tracking',
+          'Approval or rejection',
+          'Automatic reminders',
+          'Patient and case association',
+          'Secure access',
+        ],
+        example: 'A company can buy only this workflow when documentation is the operational bottleneck.',
+      },
+      {
+        number: '03',
+        title: 'Samples and logistics',
+        summary: 'Track each sample from request to laboratory reception.',
+        features: [
+          'Collection requests',
+          'Pickup scheduling',
+          'Driver assignment',
+          'Maps and routes',
+          'Vehicle tracking',
+          'Collection confirmation',
+          'Sample identification',
+          'Chain of custody',
+          'Laboratory reception',
+          'Status notifications',
+        ],
+        example: 'Request, assignment, pickup, transport, lab, and received status in one traceable flow.',
+      },
+      {
+        number: '04',
+        title: 'Processing and integrations',
+        summary: 'Connect systems without adding manual work.',
+        features: [
+          'API credentials',
+          'Provider and laboratory integrations',
+          'Machine-to-machine communication',
+          'Data submission',
+          'Processing requests',
+          'Cloud workflows',
+          'Job status',
+          'Results',
+          'Webhooks',
+          'Automatic report creation and delivery',
+        ],
+        example: 'External system, API, processing, result, and report delivery as a connected pipeline.',
+      },
+      {
+        number: '05',
+        title: 'Education',
+        summary: 'Make complex information easier to understand.',
+        features: [
+          'Lessons',
+          'Educational cards',
+          'Genetic concepts',
+          'Trivia',
+          'Quizzes',
+          'Progress',
+          'Contextual resources',
+          'Report-associated explanations',
+        ],
+        example: 'A post-report experience can become an independent learning product for a specific audience.',
+      },
+      {
+        number: '06',
+        title: 'Discover and content',
+        summary: 'Publish once and reach the users who need it.',
+        features: [
+          'Backoffice content creation',
+          'News',
+          'Articles',
+          'Events',
+          'Videos',
+          'Podcasts',
+          'Surveys',
+          'Research',
+          'Resources',
+          'Opportunities',
+          'Target audiences',
+          'CTA configuration',
+          'Scheduled publication',
+          'Push notifications',
+        ],
+        example: 'Backoffice, publish, app or web, notification, and user action.',
+      },
+      {
+        number: '07',
+        title: 'Community',
+        summary: 'Create a space where people can connect safely.',
+        features: [
+          'Profiles',
+          'Posts',
+          'Comments',
+          'Groups and circles',
+          'Genes',
+          'Conditions',
+          'Organizations',
+          'Attachments',
+          'Moderation',
+          'Notifications',
+          'Following',
+        ],
+        example: 'People, caregivers, groups, and events become part of the product instead of living elsewhere.',
+      },
+      {
+        number: '08',
+        title: 'Professional and organization network',
+        summary: 'Make sure the journey does not end with the result.',
+        features: [
+          'Professional profiles',
+          'Foundation profiles',
+          'Laboratories',
+          'Patient organizations',
+          'Genetic services',
+          'Resources',
+          'Events',
+          'Recommendations',
+          'Condition and gene relationships',
+          'Follow-up options',
+        ],
+        example: 'Result, understanding, help, and next step as a practical support path.',
+      },
+      {
+        number: '09',
+        title: 'Operations and CRM',
+        summary: 'Track the process instead of managing disconnected spreadsheets.',
+        features: [
+          'Patients',
+          'Cases',
+          'Laboratories',
+          'Providers',
+          'Professionals',
+          'Samples',
+          'Contacts',
+          'Documents',
+          'Statuses',
+          'Tasks',
+          'Communications',
+          'Notes',
+          'CSV imports',
+          'Email templates',
+          'Operational dashboards',
+        ],
+        example: 'Lightweight operational visibility for genetics workflows without turning it into a generic enterprise CRM.',
+      },
+      {
+        number: '10',
+        title: 'Communication and engagement',
+        summary: 'Keep the relationship active after each interaction.',
+        features: [
+          'Push notifications',
+          'Email',
+          'Announcements',
+          'Patient reminders',
+          'Content campaigns',
+          'Follow-up',
+          'Engagement metrics',
+          'Communication history',
+        ],
+        example: 'Reports, Discover, education, and operations can all share a consistent communication layer.',
+      },
+      {
+        number: '11',
+        title: 'Marketing and digital presence',
+        summary: 'Organize how your organization communicates outward.',
+        features: [
+          'Social publications',
+          'Instagram and LinkedIn tracking',
+          'Campaigns',
+          'Ads',
+          'Content calendar',
+          'Assets',
+          'Publication status',
+          'Basic performance tracking',
+        ],
+        example: 'An adjacent operational service for teams that need structure around scientific communication.',
+      },
+      {
+        number: '12',
+        title: 'Backoffice and administration',
+        summary: 'Control the operation from one place.',
+        features: [
+          'Users',
+          'Roles',
+          'Permissions',
+          'Organizations',
+          'Content',
+          'Reports',
+          'Cases',
+          'Configurations',
+          'Audit and activity',
+          'Integrations',
+          'Dashboards',
+        ],
+        example: 'The backoffice is the operational half behind almost every capability.',
+      },
+    ],
+    journeyEyebrow: 'Everything can connect',
+    journeyTitle: 'From the sample to the next step.',
+    journeyBody:
+      'Solve one point in the journey or connect several pieces to build a complete experience.',
+    journeySteps: [
+      'Patient',
+      'Consent',
+      'Sample',
+      'Collection',
+      'Logistics',
+      'Processing',
+      'Report',
+      'Delivery',
+      'Education',
+      'Professionals and foundations',
+      'Community',
+      'Follow-up',
+    ],
+    proofEyebrow: 'We have already built much of this',
+    proofTitle: 'Pocket Genes is the proof.',
+    proofBody:
+      'Pocket Genes is our platform for the genetics ecosystem. It combines a mobile experience and an operational backoffice that can already be used, adapted, or expanded.',
+    proofColumns: [
+      {
+        title: 'App',
+        items: [
+          'Reports',
+          'Education',
+          'Discover',
+          'Community',
+          'Professionals and organizations',
+          'Resources',
+          'Notifications',
+        ],
+      },
+      {
+        title: 'Backoffice',
+        items: [
+          'Reports',
+          'Organizations',
+          'Content publishing',
+          'Users',
+          'Administration',
+          'Configuration',
+        ],
+      },
+    ],
+    screenshotsLabel: 'Pocket Genes app screenshots',
+    screenshots: [
+      {
+        src: '/pocket-genes/screenshots/sample-02.webp',
+        alt: 'Pocket Genes genetic insights screen',
+        caption: 'Genetic insights',
+      },
+      {
+        src: '/pocket-genes/screenshots/sample-05.webp',
+        alt: 'Pocket Genes ancestry and report visualization screen',
+        caption: 'Reports and panels',
+      },
+      {
+        src: '/pocket-genes/screenshots/sample-10.webp',
+        alt: 'Pocket Genes learning screen',
+        caption: 'Education',
+      },
+      {
+        src: '/pocket-genes/screenshots/discover-simulator.png',
+        alt: 'Pocket Genes Discover publication simulator',
+        caption: 'Discover',
+      },
+    ],
+    modelsEyebrow: 'Choose how to work with us',
+    modelsTitle: 'One need. Three ways to solve it.',
+    models: [
+      {
+        number: '01',
+        title: 'Use it in Pocket Genes',
+        body:
+          'If the solution already belongs in the Pocket Genes ecosystem, integrate it without developing your own platform.',
+        points: ['Faster launch', 'Lower investment', 'Existing app and backoffice', 'Service model'],
+        cta: 'Integrate Pocket Genes',
+        href: '/pocket-genes/website/integration',
+      },
+      {
+        number: '02',
+        title: 'We build it for you',
+        body:
+          'Need it inside your own product or process? Golden Crow VS defines the objective, scope, experience, integrations, deliverables, and timeline with your team.',
+        points: ['Your brand', 'Your product', 'Defined scope', 'Deliverables and timeline'],
+        cta: 'Define a project',
+        href: '#solutions-call',
+      },
+      {
+        number: '03',
+        title: 'We build it with you',
+        body:
+          'Add a small Golden Crow VS team that works continuously with yours.',
+        points: ['Dedicated team', 'Your priorities', 'Daily work', 'Continuous roadmap'],
+        cta: 'Add a team',
+        href: '#solutions-call',
+      },
+    ],
+    exampleEyebrow: 'One problem, three options',
+    exampleTitle: 'For example: improve sample collection.',
+    exampleBody:
+      'The same model applies to reports, consents, education, APIs, Discover, community, CRM, and the rest of the solutions.',
+    exampleFlow: ['Request', 'Assignment', 'Map', 'Tracking', 'Pickup', 'Chain of custody', 'Laboratory'],
+    exampleOptions: [
+      {
+        title: 'Pocket Genes',
+        body: 'We integrate the circuit as part of the platform.',
+      },
+      {
+        title: 'Your own product',
+        body: 'Golden Crow VS develops the system for your organization.',
+      },
+      {
+        title: 'Your team + ours',
+        body: 'Our developers work with your team to build it inside your infrastructure.',
+      },
+    ],
+    audienceEyebrow: 'Built around the genetics ecosystem',
+    audienceTitle: 'For teams where biology, operations, and software meet.',
+    audiences: [
+      'Genetic laboratories',
+      'Genetic testing companies',
+      'Fertility clinics',
+      'Assisted reproduction centers',
+      'Hospitals and clinics',
+      'Bioinformatics and diagnostics',
+      'Rare disease foundations and organizations',
+      'Health professional networks',
+      'Sample logistics companies',
+    ],
+    whyEyebrow: 'Why Golden Crow VS',
+    whyTitle: 'Technology, product, and genetics.',
+    whyBody:
+      'Pocket Genes is built by Golden Crow VS. Our team combines digital product development with a biotechnology-informed view of real genetics operations.',
+    proofPoints: ['10+ years building digital products', '20+ shipped projects', 'Engineering, design, product, and biotechnology experience'],
+    bookingEyebrow: 'You do not need to start with everything',
+    bookingTitle: 'Start with the problem costing you the most time.',
+    bookingQuestion:
+      'Which part of your operation still depends too much on emails, spreadsheets, PDFs, or manual processes?',
+    bookingBody:
+      'In a 30-minute call we can walk through your process, identify fragmented work, and evaluate which solution makes sense.',
+    bookingContext: 'pocket-genes-solutions',
+    bookingEventTitle: 'Solutions Call',
+  },
+  es: {
+    title: 'Pocket Genes - Soluciones para genética y salud',
+    description:
+      'Soluciones digitales independientes para informes genéticos, consentimientos, logística, educación, comunidad, APIs, CRM y backoffice.',
+    heroEyebrow: 'No construyas cada parte desde cero.',
+    heroTitle: 'Soluciones para genética y salud',
+    heroBody:
+      'Desde informes y consentimientos hasta logística, educación y comunidad. Desarrollamos soluciones digitales para procesos que laboratorios, clínicas y empresas de genética necesitan todos los días.',
+    heroKey:
+      'Usá una solución dentro de Pocket Genes, pedinos que la construyamos para tu plataforma o sumá nuestro equipo al tuyo.',
+    heroPrimary: 'Contanos qué necesitás',
+    heroSecondary: 'Explorar soluciones',
+    heroVisualLabel: 'Capacidades de soluciones Pocket Genes',
+    heroScreenshots: [
+      {
+        src: '/pocket-genes/screenshots/sample-01.webp',
+        alt: 'Pantalla de categorías de informes genómicos en Pocket Genes',
+      },
+      {
+        src: '/pocket-genes/screenshots/discover-simulator.png',
+        alt: 'Pantalla del simulador Discover de Pocket Genes',
+      },
+      {
+        src: '/pocket-genes/screenshots/sample_rare_friends.PNG',
+        alt: 'Perfil de la comunidad RareFriends dentro de Pocket Genes',
+      },
+    ],
+    hubEyebrow: 'Una plataforma, muchas soluciones independientes',
+    hubTitle: 'Pocket Genes contiene muchas partes. Podés elegir solo la que necesitás.',
+    hubBody:
+      'Pocket Genes reúne muchas de estas capacidades en una sola experiencia, pero cada una responde a un problema concreto y puede integrarse, adaptarse o desarrollarse de forma independiente.',
+    hubCenterTitle: 'Pocket Genes',
+    hubCenterBody: 'App + Backoffice',
+    hubNodes: [
+      'Informes',
+      'Consentimientos',
+      'Educación',
+      'Discover',
+      'Comunidad',
+      'Organizaciones',
+      'Profesionales',
+      'Notificaciones',
+      'APIs',
+      'Administración',
+    ],
+    catalogEyebrow: 'Catálogo de capacidades',
+    catalogTitle: '¿Qué parte necesitás resolver?',
+    catalogBody:
+      'El todo es Pocket Genes. Las piezas individuales son soluciones digitales para problemas concretos de la operación genética.',
+    catalogItems: [
+      {
+        number: '01',
+        title: 'Informes',
+        summary: 'De un resultado a una experiencia digital.',
+        features: [
+          'Informes interactivos',
+          'Informes PDF',
+          'Visualización mobile y web',
+          'Filtros y paneles',
+          'Descargas seguras',
+          'Acceso por QR',
+          'Códigos de seis dígitos',
+          'Historial de informes',
+          'Marca del proveedor',
+          'Notificaciones al paciente',
+        ],
+        example: 'El laboratorio genera un informe, el usuario recibe un código, accede desde app o web y vuelve a consultarlo cuando lo necesita.',
+      },
+      {
+        number: '02',
+        title: 'Consentimientos y documentación',
+        summary: 'Menos emails, archivos sueltos y seguimiento manual.',
+        features: [
+          'Solicitud de consentimiento informado',
+          'Carga de documentos firmados',
+          'Formularios digitales',
+          'Seguimiento de pendientes',
+          'Aprobación o rechazo',
+          'Recordatorios automáticos',
+          'Asociación con paciente o caso',
+          'Acceso seguro',
+        ],
+        example: 'Una compañía puede comprar solo este flujo cuando la documentación es el cuello de botella operativo.',
+      },
+      {
+        number: '03',
+        title: 'Muestras y logística',
+        summary: 'Seguimiento desde la solicitud hasta el laboratorio.',
+        features: [
+          'Solicitud de recolección',
+          'Agenda de retiro',
+          'Asignación de chofer',
+          'Mapas y rutas',
+          'Tracking de vehículo',
+          'Confirmación de retiro',
+          'Identificación de muestra',
+          'Cadena de custodia',
+          'Recepción en laboratorio',
+          'Notificaciones de estado',
+        ],
+        example: 'Solicitud, asignación, retiro, transporte, laboratorio y recepción en un flujo trazable.',
+      },
+      {
+        number: '04',
+        title: 'Procesamiento e integraciones',
+        summary: 'Conectá sistemas sin sumar trabajo manual.',
+        features: [
+          'Credenciales de API',
+          'Integraciones con proveedores y laboratorios',
+          'Comunicación machine-to-machine',
+          'Envío de datos',
+          'Pedidos de procesamiento',
+          'Flujos cloud',
+          'Estado de jobs',
+          'Resultados',
+          'Webhooks',
+          'Creación y entrega automática de informes',
+        ],
+        example: 'Sistema externo, API, procesamiento, resultado y entrega de informe como pipeline conectado.',
+      },
+      {
+        number: '05',
+        title: 'Educación',
+        summary: 'Convertí información compleja en una experiencia que se pueda entender.',
+        features: [
+          'Lecciones',
+          'Tarjetas educativas',
+          'Conceptos genéticos',
+          'Trivia',
+          'Quizzes',
+          'Progreso',
+          'Recursos contextuales',
+          'Explicaciones asociadas al informe',
+        ],
+        example: 'La experiencia posterior al informe puede convertirse en un producto educativo independiente para una audiencia específica.',
+      },
+      {
+        number: '06',
+        title: 'Discover y contenidos',
+        summary: 'Publicá una vez. Llegá directamente a tus usuarios.',
+        features: [
+          'Creación de contenido en backoffice',
+          'Noticias',
+          'Artículos',
+          'Eventos',
+          'Videos',
+          'Podcasts',
+          'Encuestas',
+          'Investigación',
+          'Recursos',
+          'Oportunidades',
+          'Audiencias objetivo',
+          'Configuración de CTA',
+          'Publicación programada',
+          'Push notifications',
+        ],
+        example: 'Backoffice, publicación, app o web, notificación y acción del usuario.',
+      },
+      {
+        number: '07',
+        title: 'Comunidad',
+        summary: 'Creá un espacio propio para conectar personas.',
+        features: [
+          'Perfiles',
+          'Posts',
+          'Comentarios',
+          'Grupos y círculos',
+          'Genes',
+          'Condiciones',
+          'Organizaciones',
+          'Adjuntos',
+          'Moderación',
+          'Notificaciones',
+          'Seguimiento',
+        ],
+        example: 'Personas, cuidadores, grupos y eventos pasan a ser parte del producto en vez de vivir afuera.',
+      },
+      {
+        number: '08',
+        title: 'Red de profesionales y organizaciones',
+        summary: 'Que el recorrido no termine con el resultado.',
+        features: [
+          'Perfiles profesionales',
+          'Perfiles de fundaciones',
+          'Laboratorios',
+          'Organizaciones de pacientes',
+          'Servicios genéticos',
+          'Recursos',
+          'Eventos',
+          'Recomendaciones',
+          'Relaciones por condición y gen',
+          'Opciones de seguimiento',
+        ],
+        example: 'Resultado, entender, encontrar ayuda y próximo paso como recorrido de apoyo práctico.',
+      },
+      {
+        number: '09',
+        title: 'Operaciones y CRM',
+        summary: 'Seguí el proceso, no una colección de planillas.',
+        features: [
+          'Pacientes',
+          'Casos',
+          'Laboratorios',
+          'Proveedores',
+          'Profesionales',
+          'Muestras',
+          'Contactos',
+          'Documentos',
+          'Estados',
+          'Tareas',
+          'Comunicaciones',
+          'Notas',
+          'Importación CSV',
+          'Plantillas de email',
+          'Dashboards operativos',
+        ],
+        example: 'Visibilidad operativa liviana para flujos genéticos sin convertirlo en un CRM corporativo genérico.',
+      },
+      {
+        number: '10',
+        title: 'Comunicación y engagement',
+        summary: 'Mantené la relación después de cada interacción.',
+        features: [
+          'Push notifications',
+          'Email',
+          'Anuncios',
+          'Recordatorios a pacientes',
+          'Campañas de contenido',
+          'Seguimiento',
+          'Métricas de engagement',
+          'Historial de comunicación',
+        ],
+        example: 'Informes, Discover, educación y operaciones pueden compartir una misma capa de comunicación.',
+      },
+      {
+        number: '11',
+        title: 'Marketing y presencia digital',
+        summary: 'Ordená cómo tu organización comunica hacia afuera.',
+        features: [
+          'Publicaciones sociales',
+          'Seguimiento de Instagram y LinkedIn',
+          'Campañas',
+          'Ads',
+          'Calendario de contenidos',
+          'Assets',
+          'Estado de publicación',
+          'Seguimiento básico de performance',
+        ],
+        example: 'Un servicio operativo adyacente para equipos que necesitan ordenar la comunicación científica.',
+      },
+      {
+        number: '12',
+        title: 'Backoffice y administración',
+        summary: 'Controlá la operación desde un solo lugar.',
+        features: [
+          'Usuarios',
+          'Roles',
+          'Permisos',
+          'Organizaciones',
+          'Contenido',
+          'Informes',
+          'Casos',
+          'Configuraciones',
+          'Auditoría y actividad',
+          'Integraciones',
+          'Dashboards',
+        ],
+        example: 'El backoffice es la mitad operativa detrás de casi todas las capacidades.',
+      },
+    ],
+    journeyEyebrow: 'Todo puede conectarse',
+    journeyTitle: 'De la muestra al próximo paso.',
+    journeyBody:
+      'Podés resolver un solo punto del recorrido o conectar varias piezas para construir una experiencia completa.',
+    journeySteps: [
+      'Paciente',
+      'Consentimiento',
+      'Muestra',
+      'Recolección',
+      'Logística',
+      'Procesamiento',
+      'Informe',
+      'Entrega',
+      'Educación',
+      'Profesionales y fundaciones',
+      'Comunidad',
+      'Seguimiento',
+    ],
+    proofEyebrow: 'Ya construimos mucho de esto',
+    proofTitle: 'Pocket Genes es la prueba.',
+    proofBody:
+      'Pocket Genes es nuestra plataforma para el ecosistema genético. Combina una experiencia mobile y un backoffice operativo que ya podés utilizar, adaptar o expandir.',
+    proofColumns: [
+      {
+        title: 'App',
+        items: [
+          'Informes',
+          'Educación',
+          'Discover',
+          'Comunidad',
+          'Profesionales y organizaciones',
+          'Recursos',
+          'Notificaciones',
+        ],
+      },
+      {
+        title: 'Backoffice',
+        items: [
+          'Informes',
+          'Organizaciones',
+          'Publicación de contenido',
+          'Usuarios',
+          'Administración',
+          'Configuración',
+        ],
+      },
+    ],
+    screenshotsLabel: 'Capturas de la app Pocket Genes',
+    screenshots: [
+      {
+        src: '/pocket-genes/screenshots/sample-02.webp',
+        alt: 'Pantalla de insights genéticos de Pocket Genes',
+        caption: 'Insights genéticos',
+      },
+      {
+        src: '/pocket-genes/screenshots/sample-05.webp',
+        alt: 'Pantalla de ancestría y visualización de informes en Pocket Genes',
+        caption: 'Informes y paneles',
+      },
+      {
+        src: '/pocket-genes/screenshots/sample-10.webp',
+        alt: 'Pantalla educativa de Pocket Genes',
+        caption: 'Educación',
+      },
+      {
+        src: '/pocket-genes/screenshots/discover-simulator.png',
+        alt: 'Simulador de publicación Discover de Pocket Genes',
+        caption: 'Discover',
+      },
+    ],
+    modelsEyebrow: 'Elegí cómo trabajar con nosotros',
+    modelsTitle: 'Una necesidad. Tres formas de resolverla.',
+    models: [
+      {
+        number: '01',
+        title: 'Usala en Pocket Genes',
+        body:
+          'Si la solución ya forma parte del ecosistema Pocket Genes, integrala sin desarrollar una plataforma propia.',
+        points: ['Más rápido', 'Menor inversión', 'App y backoffice existentes', 'Pago como servicio'],
+        cta: 'Integrar Pocket Genes',
+        href: '/pocket-genes/website/integration',
+      },
+      {
+        number: '02',
+        title: 'La construimos para vos',
+        body:
+          '¿La necesitás dentro de tu propio producto o proceso? Golden Crow VS define con tu equipo el objetivo, alcance, experiencia, integraciones, entregables y tiempos.',
+        points: ['Tu marca', 'Tu producto', 'Alcance definido', 'Entregables y timeline'],
+        cta: 'Definir un proyecto',
+        href: '#solutions-call',
+      },
+      {
+        number: '03',
+        title: 'La construimos con vos',
+        body:
+          'Sumá un pequeño equipo de Golden Crow VS que trabaje junto al tuyo de forma continua.',
+        points: ['Equipo dedicado', 'Tus prioridades', 'Trabajo diario', 'Roadmap continuo'],
+        cta: 'Sumar un equipo',
+        href: '#solutions-call',
+      },
+    ],
+    exampleEyebrow: 'Un problema, tres opciones',
+    exampleTitle: 'Por ejemplo: mejorar la recolección de muestras.',
+    exampleBody:
+      'Lo mismo aplica a informes, consentimientos, educación, APIs, Discover, comunidad, CRM y el resto de nuestras soluciones.',
+    exampleFlow: ['Solicitud', 'Asignación', 'Mapa', 'Tracking', 'Retiro', 'Cadena de custodia', 'Laboratorio'],
+    exampleOptions: [
+      {
+        title: 'Pocket Genes',
+        body: 'Integramos el circuito como parte de la plataforma.',
+      },
+      {
+        title: 'Producto propio',
+        body: 'Golden Crow VS desarrolla el sistema para tu organización.',
+      },
+      {
+        title: 'Tu equipo + el nuestro',
+        body: 'Nuestros desarrolladores trabajan con tu equipo para construirlo dentro de tu infraestructura.',
+      },
+    ],
+    audienceEyebrow: 'Construido alrededor del ecosistema genético',
+    audienceTitle: 'Para equipos donde biología, operación y software se cruzan.',
+    audiences: [
+      'Laboratorios genéticos',
+      'Empresas de estudios genéticos',
+      'Clínicas de fertilidad',
+      'Centros de reproducción asistida',
+      'Hospitales y clínicas',
+      'Bioinformática y diagnóstico',
+      'Fundaciones y organizaciones EPOF',
+      'Profesionales y redes de salud',
+      'Empresas de logística de muestras',
+    ],
+    whyEyebrow: 'Por qué Golden Crow VS',
+    whyTitle: 'Tecnología, producto y genética.',
+    whyBody:
+      'Pocket Genes está construido por Golden Crow VS. Nuestro equipo combina experiencia en desarrollo de productos digitales con una mirada biotecnológica para trabajar sobre problemas reales del ecosistema genético.',
+    proofPoints: ['10+ años construyendo productos digitales', '20+ proyectos lanzados', 'Experiencia en ingeniería, diseño, producto y biotecnología'],
+    bookingEyebrow: 'No hace falta empezar con todo',
+    bookingTitle: 'Empecemos por el problema que más tiempo te está haciendo perder.',
+    bookingQuestion:
+      '¿Qué parte de tu operación todavía depende demasiado de emails, planillas, PDFs o procesos manuales?',
+    bookingBody:
+      'En una llamada de 30 minutos podemos recorrer tu proceso, identificar dónde hay trabajo manual o fragmentado y evaluar qué solución tiene sentido.',
+    bookingContext: 'pocket-genes-solutions',
+    bookingEventTitle: 'Llamada de Soluciones',
+  },
+} as const;
+
+const copy = pageCopy[locale];
+---
+
+<PocketGenesPublicLayout
+  title={copy.title}
+  description={copy.description}
+  canonicalPath="/pocket-genes/solutions"
+>
+  <main id="main" class="pg-page pg-solutions">
+    <section class="pg-solutions-hero">
+      <div class="pg-container pg-solutions-hero-grid">
+        <div class="pg-solutions-hero-copy">
+          <p class="pg-eyebrow">{copy.heroEyebrow}</p>
+          <h1>{copy.heroTitle}</h1>
+          <p class="pg-solutions-lead">{copy.heroBody}</p>
+          <p class="pg-solutions-key">{copy.heroKey}</p>
+          <div class="pg-button-row">
+            <a class="pg-button pg-button-primary" href="#solutions-call">{copy.heroPrimary}</a>
+            <a class="pg-button pg-button-secondary" href="#solution-catalog">{copy.heroSecondary}</a>
+          </div>
+        </div>
+
+        <figure class="pg-solutions-hero-visual" aria-label={copy.heroVisualLabel}>
+          <div class="pg-solution-phone-row">
+            {copy.heroScreenshots.map((screenshot, index) => (
+              <img
+                class:list={['pg-solution-phone', `phone-${index + 1}`]}
+                src={screenshot.src}
+                alt={screenshot.alt}
+                fetchpriority={index === 0 ? 'high' : 'auto'}
+              />
+            ))}
+          </div>
+          <figcaption>{copy.hubCenterTitle}</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="pg-section pg-solutions-hub" aria-labelledby="solutions-hub-title">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">{copy.hubEyebrow}</p>
+          <h2 id="solutions-hub-title">{copy.hubTitle}</h2>
+          <p>{copy.hubBody}</p>
+        </div>
+
+        <div class="pg-solution-map" aria-label={copy.hubEyebrow}>
+          <article class="pg-solution-map-center">
+            <img src="/pocket-genes/icon_simple.png" alt="" width="48" height="48" />
+            <h3>{copy.hubCenterTitle}</h3>
+            <p>{copy.hubCenterBody}</p>
+          </article>
+          {copy.hubNodes.map((node, index) => (
+            <span class="pg-solution-node" style={`--node-index: ${index};`}>{node}</span>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section id="solution-catalog" class="pg-section pg-solutions-catalog" aria-labelledby="solutions-catalog-title">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">{copy.catalogEyebrow}</p>
+          <h2 id="solutions-catalog-title">{copy.catalogTitle}</h2>
+          <p>{copy.catalogBody}</p>
+        </div>
+
+        <div class="pg-catalog-grid">
+          {copy.catalogItems.map((item) => (
+            <article class="pg-catalog-card">
+              <div class="pg-catalog-card-head">
+                <span>{item.number}</span>
+                <h3>{item.title}</h3>
+              </div>
+              <p class="pg-catalog-summary">{item.summary}</p>
+              <ul class="pg-feature-list">
+                {item.features.map((feature) => <li>{feature}</li>)}
+              </ul>
+              <p class="pg-catalog-example">{item.example}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section-tight pg-solutions-journey" aria-labelledby="solutions-journey-title">
+      <div class="pg-container pg-journey-layout">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">{copy.journeyEyebrow}</p>
+          <h2 id="solutions-journey-title">{copy.journeyTitle}</h2>
+          <p>{copy.journeyBody}</p>
+        </div>
+
+        <ol class="pg-journey-track">
+          {copy.journeySteps.map((step, index) => (
+            <li style={`--journey-index: ${index};`}>
+              <span>{String(index + 1).padStart(2, '0')}</span>
+              {step}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+
+    <section class="pg-section pg-solutions-proof" aria-labelledby="solutions-proof-title">
+      <div class="pg-container pg-proof-layout">
+        <div class="pg-proof-copy">
+          <p class="pg-eyebrow">{copy.proofEyebrow}</p>
+          <h2 id="solutions-proof-title">{copy.proofTitle}</h2>
+          <p>{copy.proofBody}</p>
+          <div class="pg-proof-columns">
+            {copy.proofColumns.map((column) => (
+              <article>
+                <h3>{column.title}</h3>
+                <ul>
+                  {column.items.map((item) => <li>{item}</li>)}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div class="pg-proof-screens" aria-label={copy.screenshotsLabel}>
+          {copy.screenshots.map((screenshot) => (
+            <figure>
+              <img src={screenshot.src} alt={screenshot.alt} loading="lazy" />
+              <figcaption>{screenshot.caption}</figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section pg-solutions-models" aria-labelledby="solutions-models-title">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">{copy.modelsEyebrow}</p>
+          <h2 id="solutions-models-title">{copy.modelsTitle}</h2>
+        </div>
+
+        <div class="pg-model-grid">
+          {copy.models.map((model) => (
+            <article class="pg-model-card">
+              <span class="pg-model-number">{model.number}</span>
+              <h3>{model.title}</h3>
+              <p>{model.body}</p>
+              <ul>
+                {model.points.map((point) => <li>{point}</li>)}
+              </ul>
+              <a class="pg-button pg-button-secondary" href={model.href.startsWith('#') ? model.href : localizePath(model.href)}>
+                {model.cta}
+              </a>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section-tight pg-solutions-example" aria-labelledby="solutions-example-title">
+      <div class="pg-container">
+        <div class="pg-example-panel">
+          <div class="pg-section-heading">
+            <p class="pg-eyebrow">{copy.exampleEyebrow}</p>
+            <h2 id="solutions-example-title">{copy.exampleTitle}</h2>
+            <p>{copy.exampleBody}</p>
+          </div>
+
+          <ol class="pg-example-flow">
+            {copy.exampleFlow.map((step, index) => (
+              <li style={`--flow-index: ${index};`}>
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                {step}
+              </li>
+            ))}
+          </ol>
+
+          <div class="pg-example-options">
+            {copy.exampleOptions.map((option) => (
+              <article>
+                <h3>{option.title}</h3>
+                <p>{option.body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section pg-solutions-audience" aria-labelledby="solutions-audience-title">
+      <div class="pg-container pg-audience-layout">
+        <div>
+          <p class="pg-eyebrow">{copy.audienceEyebrow}</p>
+          <h2 id="solutions-audience-title">{copy.audienceTitle}</h2>
+        </div>
+        <div class="pg-audience-grid">
+          {copy.audiences.map((audience) => <span>{audience}</span>)}
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section-tight pg-solutions-why" aria-labelledby="solutions-why-title">
+      <div class="pg-container pg-why-layout">
+        <div>
+          <p class="pg-eyebrow">{copy.whyEyebrow}</p>
+          <h2 id="solutions-why-title">{copy.whyTitle}</h2>
+          <p>{copy.whyBody}</p>
+        </div>
+        <ul class="pg-proof-point-list">
+          {copy.proofPoints.map((point) => <li>{point}</li>)}
+        </ul>
+      </div>
+    </section>
+
+    <section id="solutions-call" class="pg-section pg-solutions-booking" aria-labelledby="solutions-booking-title">
+      <div class="pg-container pg-solutions-booking-grid">
+        <div class="pg-booking-copy">
+          <p class="pg-eyebrow">{copy.bookingEyebrow}</p>
+          <h2 id="solutions-booking-title">{copy.bookingTitle}</h2>
+          <p class="pg-booking-question">{copy.bookingQuestion}</p>
+          <p>{copy.bookingBody}</p>
+        </div>
+        <div class="pg-solutions-calendar-wrapper">
+          <ClientBookingWidget
+            context={copy.bookingContext}
+            eventTitle={copy.bookingEventTitle}
+          />
+        </div>
+      </div>
+    </section>
+  </main>
+</PocketGenesPublicLayout>
+
+<style>
+  .pg-solutions {
+    --solution-navy: #172033;
+    --solution-teal: #14958f;
+    --solution-rose: #e45080;
+    --solution-blue: #2176ae;
+    --solution-green: #3c9b68;
+    --solution-amber: #d99232;
+    --solution-ink-soft: #46556f;
+    --solution-border: #dce4ec;
+    --solution-surface: #ffffff;
+    overflow-x: hidden;
+  }
+
+  .pg-solutions .pg-section-heading {
+    max-width: 860px;
+  }
+
+  .pg-solutions .pg-section-heading h2 {
+    font-size: 3rem;
+  }
+
+  .pg-solutions-hero {
+    position: relative;
+    isolation: isolate;
+    min-height: 720px;
+    display: flex;
+    align-items: center;
+    padding: 124px 0 76px;
+    background:
+      linear-gradient(90deg, rgba(251, 252, 253, 0.98) 0%, rgba(251, 252, 253, 0.94) 44%, rgba(251, 252, 253, 0.74) 100%),
+      url("/mobile2.webp");
+    background-position: center right;
+    background-size: cover;
+  }
+
+  .pg-solutions-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(115deg, rgba(20, 149, 143, 0.1) 0 16%, transparent 16% 46%, rgba(228, 80, 128, 0.08) 46% 64%, transparent 64%),
+      repeating-linear-gradient(90deg, rgba(23, 32, 51, 0.04) 0 1px, transparent 1px 96px);
+  }
+
+  .pg-solutions-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.94fr) minmax(380px, 1.06fr);
+    gap: 52px;
+    align-items: center;
+  }
+
+  .pg-solutions-hero-copy h1 {
+    max-width: 760px;
+    margin: 0;
+    color: var(--solution-navy);
+    font-size: 4.8rem;
+    font-weight: 920;
+    line-height: 0.98;
+    letter-spacing: 0;
+  }
+
+  .pg-solutions-lead {
+    max-width: 720px;
+    margin: 22px 0 0;
+    color: var(--solution-ink-soft);
+    font-size: 1.18rem;
+    line-height: 1.68;
+  }
+
+  .pg-solutions-key {
+    max-width: 680px;
+    margin: 18px 0 0;
+    border-left: 4px solid var(--solution-teal);
+    color: var(--solution-navy);
+    font-size: 1.08rem;
+    font-weight: 820;
+    line-height: 1.55;
+    padding-left: 16px;
+  }
+
+  .pg-solutions-hero-copy .pg-button-row {
+    margin-top: 30px;
+  }
+
+  .pg-solutions-hero-visual {
+    position: relative;
+    min-height: 560px;
+    margin: 0;
+  }
+
+  .pg-solution-phone-row {
+    position: relative;
+    min-height: 520px;
+  }
+
+  .pg-solution-phone {
+    position: absolute;
+    display: block;
+    width: 246px;
+    aspect-ratio: 560 / 1218;
+    object-fit: cover;
+    border: 8px solid #101522;
+    border-radius: 28px;
+    background: #101522;
+    box-shadow: 0 22px 58px rgba(23, 32, 51, 0.18);
+  }
+
+  .pg-solution-phone.phone-1 {
+    top: 42px;
+    left: 26px;
+    transform: rotate(-4deg);
+  }
+
+  .pg-solution-phone.phone-2 {
+    top: 0;
+    left: 206px;
+    z-index: 2;
+  }
+
+  .pg-solution-phone.phone-3 {
+    top: 88px;
+    right: 8px;
+    transform: rotate(4deg);
+  }
+
+  .pg-solutions-hero-visual figcaption {
+    position: absolute;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    border: 1px solid rgba(20, 149, 143, 0.22);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 14px 34px rgba(23, 32, 51, 0.12);
+    color: var(--solution-navy);
+    font-weight: 900;
+    padding: 10px 14px;
+    white-space: nowrap;
+  }
+
+  .pg-solutions-hub {
+    background:
+      linear-gradient(180deg, #ffffff, #f5fbfa);
+  }
+
+  .pg-solution-map {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 34px;
+    border: 1px solid var(--solution-border);
+    border-radius: 8px;
+    background:
+      linear-gradient(135deg, rgba(232, 250, 247, 0.8), rgba(255, 240, 245, 0.55), rgba(236, 245, 255, 0.8)),
+      repeating-linear-gradient(135deg, rgba(23, 32, 51, 0.05) 0 1px, transparent 1px 28px);
+    padding: 24px;
+  }
+
+  .pg-solution-map::before {
+    content: "";
+    position: absolute;
+    inset: 50% 7%;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(20, 149, 143, 0.12), rgba(228, 80, 128, 0.34), rgba(33, 118, 174, 0.34), rgba(60, 155, 104, 0.18));
+  }
+
+  .pg-solution-map-center,
+  .pg-solution-node {
+    position: relative;
+    z-index: 1;
+    min-height: 112px;
+    border: 1px solid rgba(197, 210, 223, 0.86);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 12px 28px rgba(23, 32, 51, 0.08);
+  }
+
+  .pg-solution-map-center {
+    grid-column: 2 / span 3;
+    display: grid;
+    place-items: center;
+    gap: 6px;
+    min-height: 168px;
+    border-color: rgba(228, 80, 128, 0.28);
+    background: #ffffff;
+    color: var(--solution-navy);
+    padding: 24px;
+    text-align: center;
+  }
+
+  .pg-solution-map-center img {
+    border-radius: 10px;
+    box-shadow: 0 10px 22px rgba(228, 80, 128, 0.22);
+  }
+
+  .pg-solution-map-center h3 {
+    margin: 0;
+    font-size: 1.8rem;
+    line-height: 1.1;
+  }
+
+  .pg-solution-map-center p {
+    margin: 0;
+    color: var(--solution-ink-soft);
+    font-weight: 760;
+  }
+
+  .pg-solution-node {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--solution-navy);
+    font-weight: 860;
+    line-height: 1.25;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .pg-solution-node:nth-of-type(3n + 1) {
+    border-color: rgba(20, 149, 143, 0.24);
+  }
+
+  .pg-solution-node:nth-of-type(3n + 2) {
+    border-color: rgba(33, 118, 174, 0.24);
+  }
+
+  .pg-solution-node:nth-of-type(3n + 3) {
+    border-color: rgba(228, 80, 128, 0.22);
+  }
+
+  .pg-solutions-catalog {
+    background: #fbfcfd;
+  }
+
+  .pg-catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .pg-catalog-card {
+    display: flex;
+    min-height: 100%;
+    flex-direction: column;
+    border: 1px solid var(--solution-border);
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(23, 32, 51, 0.05);
+    padding: 22px;
+  }
+
+  .pg-catalog-card-head {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .pg-catalog-card-head span,
+  .pg-model-number,
+  .pg-journey-track span,
+  .pg-example-flow span {
+    flex: 0 0 auto;
+    min-width: 40px;
+    border-radius: 8px;
+    background: #eef8f5;
+    color: #0e6f6b;
+    font-size: 0.78rem;
+    font-weight: 950;
+    line-height: 1;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .pg-catalog-card h3 {
+    margin: 0;
+    color: var(--solution-navy);
+    font-size: 1.26rem;
+    line-height: 1.18;
+  }
+
+  .pg-catalog-summary {
+    margin: 16px 0 0;
+    color: var(--solution-navy);
+    font-weight: 820;
+    line-height: 1.45;
+  }
+
+  .pg-feature-list,
+  .pg-proof-columns ul,
+  .pg-model-card ul,
+  .pg-proof-point-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .pg-feature-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .pg-feature-list li {
+    border: 1px solid #e5edf4;
+    border-radius: 8px;
+    background: #f8fbfd;
+    color: var(--solution-ink-soft);
+    font-size: 0.86rem;
+    font-weight: 720;
+    line-height: 1.25;
+    padding: 7px 9px;
+  }
+
+  .pg-catalog-example {
+    margin: auto 0 0;
+    border-top: 1px solid #edf2f6;
+    color: var(--solution-ink-soft);
+    font-size: 0.94rem;
+    line-height: 1.55;
+    padding-top: 16px;
+  }
+
+  .pg-solutions-journey {
+    background: #ffffff;
+  }
+
+  .pg-journey-layout {
+    display: grid;
+    gap: 24px;
+  }
+
+  .pg-journey-track {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pg-journey-track li {
+    position: relative;
+    display: grid;
+    min-height: 98px;
+    align-content: center;
+    gap: 10px;
+    border: 1px solid var(--solution-border);
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 8px 18px rgba(23, 32, 51, 0.06);
+    color: var(--solution-navy);
+    font-weight: 850;
+    line-height: 1.25;
+    padding: 14px;
+  }
+
+  .pg-journey-track li::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -10px;
+    z-index: 2;
+    width: 10px;
+    height: 2px;
+    background: var(--solution-blue);
+    transform: translateY(-50%);
+  }
+
+  .pg-journey-track li:nth-child(6n)::after,
+  .pg-journey-track li:last-child::after {
+    display: none;
+  }
+
+  .pg-solutions-proof {
+    background:
+      linear-gradient(135deg, rgba(232, 250, 247, 0.88), rgba(255, 255, 255, 0.9) 45%, rgba(255, 246, 221, 0.8));
+  }
+
+  .pg-proof-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(480px, 1.1fr);
+    gap: 42px;
+    align-items: center;
+  }
+
+  .pg-proof-copy h2,
+  .pg-audience-layout h2,
+  .pg-why-layout h2,
+  .pg-booking-copy h2 {
+    margin: 0;
+    color: var(--solution-navy);
+    font-size: 3rem;
+    line-height: 1.08;
+    letter-spacing: 0;
+  }
+
+  .pg-proof-copy > p:not(.pg-eyebrow),
+  .pg-why-layout p,
+  .pg-booking-copy p {
+    margin: 18px 0 0;
+    color: var(--solution-ink-soft);
+    font-size: 1.06rem;
+    line-height: 1.68;
+  }
+
+  .pg-proof-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 28px;
+  }
+
+  .pg-proof-columns article {
+    border: 1px solid rgba(197, 210, 223, 0.86);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 20px;
+  }
+
+  .pg-proof-columns h3 {
+    margin: 0 0 12px;
+    color: var(--solution-navy);
+    font-size: 1.12rem;
+  }
+
+  .pg-proof-columns li,
+  .pg-model-card li,
+  .pg-proof-point-list li {
+    position: relative;
+    color: var(--solution-ink-soft);
+    line-height: 1.45;
+    padding-left: 18px;
+  }
+
+  .pg-proof-columns li + li,
+  .pg-model-card li + li,
+  .pg-proof-point-list li + li {
+    margin-top: 8px;
+  }
+
+  .pg-proof-columns li::before,
+  .pg-model-card li::before,
+  .pg-proof-point-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.64em;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--solution-teal);
+  }
+
+  .pg-proof-screens {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    align-items: end;
+  }
+
+  .pg-proof-screens figure {
+    margin: 0;
+  }
+
+  .pg-proof-screens img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 560 / 1218;
+    object-fit: cover;
+    border: 6px solid #101522;
+    border-radius: 24px;
+    background: #101522;
+    box-shadow: 0 16px 42px rgba(23, 32, 51, 0.15);
+  }
+
+  .pg-proof-screens figure:nth-child(even) {
+    transform: translateY(24px);
+  }
+
+  .pg-proof-screens figcaption {
+    margin-top: 10px;
+    color: var(--solution-ink-soft);
+    font-size: 0.85rem;
+    font-weight: 780;
+    text-align: center;
+  }
+
+  .pg-solutions-models {
+    background: #fbfcfd;
+  }
+
+  .pg-model-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .pg-model-card {
+    display: flex;
+    min-height: 100%;
+    flex-direction: column;
+    border: 1px solid var(--solution-border);
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(23, 32, 51, 0.05);
+    padding: 24px;
+  }
+
+  .pg-model-card h3 {
+    margin: 18px 0 0;
+    color: var(--solution-navy);
+    font-size: 1.5rem;
+    line-height: 1.16;
+  }
+
+  .pg-model-card p {
+    margin: 14px 0 0;
+    color: var(--solution-ink-soft);
+    line-height: 1.62;
+  }
+
+  .pg-model-card ul {
+    display: grid;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .pg-model-card .pg-button {
+    width: 100%;
+    margin-top: auto;
+  }
+
+  .pg-model-card ul + .pg-button {
+    margin-top: 22px;
+  }
+
+  .pg-solutions-example {
+    background: #ffffff;
+  }
+
+  .pg-example-panel {
+    border: 1px solid var(--solution-border);
+    border-radius: 8px;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(236, 245, 255, 0.92)),
+      repeating-linear-gradient(90deg, rgba(33, 118, 174, 0.04) 0 1px, transparent 1px 56px);
+    padding: 34px;
+  }
+
+  .pg-example-flow {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pg-example-flow li {
+    min-height: 96px;
+    display: grid;
+    align-content: center;
+    gap: 10px;
+    border: 1px solid rgba(33, 118, 174, 0.2);
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--solution-navy);
+    font-size: 0.92rem;
+    font-weight: 850;
+    line-height: 1.25;
+    padding: 12px;
+  }
+
+  .pg-example-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 20px;
+  }
+
+  .pg-example-options article {
+    border: 1px solid rgba(197, 210, 223, 0.86);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 20px;
+  }
+
+  .pg-example-options h3 {
+    margin: 0;
+    color: var(--solution-navy);
+    font-size: 1.14rem;
+  }
+
+  .pg-example-options p {
+    margin: 8px 0 0;
+    color: var(--solution-ink-soft);
+    line-height: 1.58;
+  }
+
+  .pg-solutions-audience {
+    background:
+      linear-gradient(135deg, #f5fbfa, #ffffff 48%, #fff7df);
+  }
+
+  .pg-audience-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 0.82fr) minmax(440px, 1.18fr);
+    gap: 44px;
+    align-items: start;
+  }
+
+  .pg-audience-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .pg-audience-grid span {
+    border: 1px solid rgba(197, 210, 223, 0.9);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.88);
+    color: var(--solution-navy);
+    font-weight: 820;
+    line-height: 1.2;
+    padding: 12px 14px;
+  }
+
+  .pg-solutions-why {
+    background: #ffffff;
+  }
+
+  .pg-why-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(360px, 0.7fr);
+    gap: 44px;
+    align-items: center;
+  }
+
+  .pg-proof-point-list {
+    display: grid;
+    gap: 12px;
+    border: 1px solid var(--solution-border);
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 14px 34px rgba(23, 32, 51, 0.08);
+    padding: 24px;
+  }
+
+  .pg-proof-point-list li {
+    color: var(--solution-navy);
+    font-weight: 830;
+  }
+
+  .pg-solutions-booking {
+    background:
+      linear-gradient(135deg, rgba(23, 32, 51, 0.98), rgba(22, 86, 103, 0.96) 54%, rgba(14, 111, 107, 0.96));
+    color: #ffffff;
+  }
+
+  .pg-solutions-booking .pg-eyebrow {
+    color: #8ee9dd;
+  }
+
+  .pg-solutions-booking-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.82fr) minmax(520px, 1.18fr);
+    gap: 36px;
+    align-items: start;
+  }
+
+  .pg-booking-copy {
+    position: sticky;
+    top: 112px;
+  }
+
+  .pg-booking-copy h2 {
+    color: #ffffff;
+  }
+
+  .pg-booking-copy p {
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .pg-booking-copy .pg-booking-question {
+    border-left: 4px solid #8ee9dd;
+    color: #ffffff;
+    font-weight: 860;
+    padding-left: 16px;
+  }
+
+  .pg-solutions-calendar-wrapper {
+    min-height: 620px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 16px;
+  }
+
+  @media (max-width: 1100px) {
+    .pg-solutions-hero-grid,
+    .pg-proof-layout,
+    .pg-audience-layout,
+    .pg-why-layout,
+    .pg-solutions-booking-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-solutions-hero-visual {
+      min-height: 500px;
+    }
+
+    .pg-solution-phone-row {
+      width: min(640px, 100%);
+      min-height: 470px;
+      margin: 0 auto;
+    }
+
+    .pg-solution-phone {
+      width: 220px;
+    }
+
+    .pg-solution-phone.phone-1 {
+      left: 0;
+    }
+
+    .pg-solution-phone.phone-2 {
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .pg-solution-phone.phone-3 {
+      right: 0;
+    }
+
+    .pg-catalog-grid,
+    .pg-model-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pg-journey-track {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .pg-journey-track li:nth-child(6n)::after {
+      display: block;
+    }
+
+    .pg-journey-track li:nth-child(4n)::after,
+    .pg-journey-track li:last-child::after {
+      display: none;
+    }
+
+    .pg-example-flow {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .pg-proof-screens {
+      width: min(720px, 100%);
+    }
+
+    .pg-booking-copy {
+      position: static;
+    }
+  }
+
+  @media (max-width: 820px) {
+    .pg-solutions .pg-section-heading h2,
+    .pg-proof-copy h2,
+    .pg-audience-layout h2,
+    .pg-why-layout h2,
+    .pg-booking-copy h2 {
+      font-size: 2.35rem;
+    }
+
+    .pg-solutions-hero {
+      min-height: auto;
+      padding: 116px 0 60px;
+    }
+
+    .pg-solutions-hero-copy h1 {
+      font-size: 3.4rem;
+    }
+
+    .pg-solutions-hero-visual {
+      min-height: auto;
+    }
+
+    .pg-solution-phone-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      min-height: auto;
+    }
+
+    .pg-solution-phone {
+      position: static;
+      width: 100%;
+      transform: none !important;
+      border-width: 5px;
+      border-radius: 18px;
+    }
+
+    .pg-solutions-hero-visual figcaption {
+      position: static;
+      display: table;
+      margin: 14px auto 0;
+      transform: none;
+    }
+
+    .pg-solution-map {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      padding: 16px;
+    }
+
+    .pg-solution-map::before {
+      display: none;
+    }
+
+    .pg-solution-map-center {
+      grid-column: 1 / -1;
+      min-height: 150px;
+    }
+
+    .pg-catalog-grid,
+    .pg-model-grid,
+    .pg-proof-columns,
+    .pg-example-options {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-journey-track,
+    .pg-example-flow {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pg-journey-track li:nth-child(4n)::after {
+      display: block;
+    }
+
+    .pg-journey-track li:nth-child(2n)::after,
+    .pg-journey-track li:last-child::after {
+      display: none;
+    }
+
+    .pg-proof-screens {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pg-proof-screens figure:nth-child(even) {
+      transform: none;
+    }
+
+    .pg-solutions-calendar-wrapper {
+      padding: 10px;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .pg-solutions .pg-section-heading h2,
+    .pg-proof-copy h2,
+    .pg-audience-layout h2,
+    .pg-why-layout h2,
+    .pg-booking-copy h2 {
+      font-size: 2rem;
+    }
+
+    .pg-solutions-hero-copy h1 {
+      font-size: 2.72rem;
+    }
+
+    .pg-solutions-lead {
+      font-size: 1.04rem;
+    }
+
+    .pg-solution-phone-row {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pg-solution-phone.phone-3 {
+      display: none;
+    }
+
+    .pg-solution-map,
+    .pg-journey-track,
+    .pg-example-flow {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-journey-track li::after {
+      display: none !important;
+    }
+
+    .pg-catalog-card,
+    .pg-model-card,
+    .pg-example-panel,
+    .pg-proof-point-list {
+      padding: 18px;
+    }
+
+    .pg-solutions-calendar-wrapper {
+      min-height: 600px;
+      margin-inline: -4px;
+    }
+  }
+</style>
