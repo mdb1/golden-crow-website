@@ -6,6 +6,343 @@ const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith(
 const locale = isEnglish ? 'en' : 'es';
 const localizePath = (path: string) => (isEnglish ? `/en${path === '/' ? '/' : path}` : path);
 
+type JigsawSide = 'top' | 'right' | 'bottom' | 'left';
+type JigsawJoint = 'tab' | 'socket';
+type JigsawTone = 'rose' | 'teal' | 'blue' | 'green' | 'amber';
+
+type JigsawBlueprint = {
+  key: string;
+  kind: 'center' | 'node';
+  nodeIndex?: number;
+  col: number;
+  row: number;
+  cols: number;
+  rows: number;
+  tone: JigsawTone;
+};
+
+type JigsawConnector = {
+  side: JigsawSide;
+  shape: JigsawJoint;
+  center: number;
+  radius: number;
+  depth: number;
+};
+
+type JigsawPiece = JigsawBlueprint & {
+  title: string;
+  subtitle?: string;
+  path: string;
+  fill: string;
+  stroke: string;
+  labelStyle: string;
+};
+
+const jigsawGrid = {
+  columns: 12,
+  rows: 5,
+  cell: 100,
+} as const;
+
+const jigsawTones: Record<JigsawTone, { fill: string; stroke: string; glow: string }> = {
+  rose: {
+    fill: '#fff8fb',
+    stroke: 'rgba(228, 80, 128, 0.42)',
+    glow: 'rgba(228, 80, 128, 0.16)',
+  },
+  teal: {
+    fill: '#f5fffd',
+    stroke: 'rgba(20, 149, 143, 0.36)',
+    glow: 'rgba(20, 149, 143, 0.14)',
+  },
+  blue: {
+    fill: '#f6fbff',
+    stroke: 'rgba(33, 118, 174, 0.34)',
+    glow: 'rgba(33, 118, 174, 0.14)',
+  },
+  green: {
+    fill: '#f7fff9',
+    stroke: 'rgba(60, 155, 104, 0.34)',
+    glow: 'rgba(60, 155, 104, 0.14)',
+  },
+  amber: {
+    fill: '#fffaf1',
+    stroke: 'rgba(217, 146, 50, 0.34)',
+    glow: 'rgba(217, 146, 50, 0.14)',
+  },
+};
+
+const jigsawBlueprints: readonly JigsawBlueprint[] = [
+  { key: 'center', kind: 'center', col: 4, row: 1, cols: 6, rows: 2, tone: 'rose' },
+  { key: 'reports', kind: 'node', nodeIndex: 0, col: 10, row: 1, cols: 3, rows: 2, tone: 'blue' },
+  { key: 'consents', kind: 'node', nodeIndex: 1, col: 1, row: 1, cols: 3, rows: 2, tone: 'teal' },
+  { key: 'education', kind: 'node', nodeIndex: 2, col: 1, row: 3, cols: 2, rows: 2, tone: 'green' },
+  { key: 'discover', kind: 'node', nodeIndex: 3, col: 3, row: 3, cols: 3, rows: 2, tone: 'rose' },
+  { key: 'community', kind: 'node', nodeIndex: 4, col: 6, row: 3, cols: 2, rows: 2, tone: 'blue' },
+  { key: 'organizations', kind: 'node', nodeIndex: 5, col: 8, row: 3, cols: 3, rows: 2, tone: 'amber' },
+  { key: 'professionals', kind: 'node', nodeIndex: 6, col: 11, row: 3, cols: 2, rows: 2, tone: 'teal' },
+  { key: 'notifications', kind: 'node', nodeIndex: 7, col: 1, row: 5, cols: 4, rows: 1, tone: 'blue' },
+  { key: 'apis', kind: 'node', nodeIndex: 8, col: 5, row: 5, cols: 4, rows: 1, tone: 'rose' },
+  { key: 'administration', kind: 'node', nodeIndex: 9, col: 9, row: 5, cols: 4, rows: 1, tone: 'green' },
+] as const;
+
+const jigsawWidth = jigsawGrid.columns * jigsawGrid.cell;
+const jigsawHeight = jigsawGrid.rows * jigsawGrid.cell;
+
+const numberFormat = new Intl.NumberFormat('en-US', {
+  maximumFractionDigits: 2,
+  useGrouping: false,
+});
+
+const formatPathNumber = (value: number) => numberFormat.format(value);
+
+const getJigsawBox = (piece: JigsawBlueprint) => ({
+  left: (piece.col - 1) * jigsawGrid.cell,
+  top: (piece.row - 1) * jigsawGrid.cell,
+  right: (piece.col - 1 + piece.cols) * jigsawGrid.cell,
+  bottom: (piece.row - 1 + piece.rows) * jigsawGrid.cell,
+});
+
+const getOverlap = (startA: number, endA: number, startB: number, endB: number) => {
+  const start = Math.max(startA, startB);
+  const end = Math.min(endA, endB);
+  return end > start ? { start, end } : null;
+};
+
+const validateJigsawPlan = () => {
+  const occupied = new Map<string, string>();
+
+  for (const piece of jigsawBlueprints) {
+    if (
+      piece.col < 1 ||
+      piece.row < 1 ||
+      piece.col + piece.cols - 1 > jigsawGrid.columns ||
+      piece.row + piece.rows - 1 > jigsawGrid.rows
+    ) {
+      throw new Error(`Jigsaw piece "${piece.key}" is outside the ${jigsawGrid.columns}x${jigsawGrid.rows} grid.`);
+    }
+
+    for (let row = piece.row; row < piece.row + piece.rows; row += 1) {
+      for (let col = piece.col; col < piece.col + piece.cols; col += 1) {
+        const cellKey = `${col}:${row}`;
+        const existingPiece = occupied.get(cellKey);
+
+        if (existingPiece) {
+          throw new Error(`Jigsaw pieces "${existingPiece}" and "${piece.key}" both occupy cell ${cellKey}.`);
+        }
+
+        occupied.set(cellKey, piece.key);
+      }
+    }
+  }
+
+  const expectedCells = jigsawGrid.columns * jigsawGrid.rows;
+
+  if (occupied.size !== expectedCells) {
+    throw new Error(`Jigsaw plan covers ${occupied.size} cells, but ${expectedCells} cells are required.`);
+  }
+};
+
+const shouldFirstPieceTab = (first: JigsawBlueprint, second: JigsawBlueprint) => {
+  const checksum =
+    first.col * 11 +
+    first.row * 13 +
+    first.cols * 17 +
+    first.rows * 19 +
+    second.col * 23 +
+    second.row * 29 +
+    second.cols * 31 +
+    second.rows * 37;
+
+  return checksum % 2 === 0;
+};
+
+const addJigsawConnector = (
+  connectorMap: Map<string, JigsawConnector[]>,
+  piece: JigsawBlueprint,
+  side: JigsawSide,
+  shape: JigsawJoint,
+  axisStart: number,
+  axisEnd: number,
+) => {
+  const span = axisEnd - axisStart;
+  const radius = Math.min(26, Math.max(18, span * 0.22));
+  const center = Math.min(axisEnd - radius * 1.3, Math.max(axisStart + radius * 1.3, axisStart + span / 2));
+
+  connectorMap.get(piece.key)?.push({
+    side,
+    shape,
+    center,
+    radius,
+    depth: radius * 1.12,
+  });
+};
+
+const createJigsawConnectors = () => {
+  const connectorMap = new Map(jigsawBlueprints.map((piece) => [piece.key, [] as JigsawConnector[]]));
+
+  for (let firstIndex = 0; firstIndex < jigsawBlueprints.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < jigsawBlueprints.length; secondIndex += 1) {
+      const first = jigsawBlueprints[firstIndex];
+      const second = jigsawBlueprints[secondIndex];
+      const firstBox = getJigsawBox(first);
+      const secondBox = getJigsawBox(second);
+      const firstGetsTab = shouldFirstPieceTab(first, second);
+      const firstShape: JigsawJoint = firstGetsTab ? 'tab' : 'socket';
+      const secondShape: JigsawJoint = firstGetsTab ? 'socket' : 'tab';
+
+      if (firstBox.right === secondBox.left) {
+        const overlap = getOverlap(firstBox.top, firstBox.bottom, secondBox.top, secondBox.bottom);
+
+        if (overlap) {
+          addJigsawConnector(connectorMap, first, 'right', firstShape, overlap.start, overlap.end);
+          addJigsawConnector(connectorMap, second, 'left', secondShape, overlap.start, overlap.end);
+        }
+      }
+
+      if (secondBox.right === firstBox.left) {
+        const overlap = getOverlap(firstBox.top, firstBox.bottom, secondBox.top, secondBox.bottom);
+
+        if (overlap) {
+          addJigsawConnector(connectorMap, first, 'left', firstShape, overlap.start, overlap.end);
+          addJigsawConnector(connectorMap, second, 'right', secondShape, overlap.start, overlap.end);
+        }
+      }
+
+      if (firstBox.bottom === secondBox.top) {
+        const overlap = getOverlap(firstBox.left, firstBox.right, secondBox.left, secondBox.right);
+
+        if (overlap) {
+          addJigsawConnector(connectorMap, first, 'bottom', firstShape, overlap.start, overlap.end);
+          addJigsawConnector(connectorMap, second, 'top', secondShape, overlap.start, overlap.end);
+        }
+      }
+
+      if (secondBox.bottom === firstBox.top) {
+        const overlap = getOverlap(firstBox.left, firstBox.right, secondBox.left, secondBox.right);
+
+        if (overlap) {
+          addJigsawConnector(connectorMap, first, 'top', firstShape, overlap.start, overlap.end);
+          addJigsawConnector(connectorMap, second, 'bottom', secondShape, overlap.start, overlap.end);
+        }
+      }
+    }
+  }
+
+  return connectorMap;
+};
+
+const connectorPath = (side: JigsawSide, connector: JigsawConnector, fixedAxis: number) => {
+  const { center, radius, depth, shape } = connector;
+
+  if (side === 'top') {
+    const peak = fixedAxis + (shape === 'tab' ? -depth : depth);
+
+    return [
+      `L ${formatPathNumber(center - radius)} ${formatPathNumber(fixedAxis)}`,
+      `C ${formatPathNumber(center - radius * 0.62)} ${formatPathNumber(fixedAxis)} ${formatPathNumber(center - radius * 0.95)} ${formatPathNumber(peak)} ${formatPathNumber(center)} ${formatPathNumber(peak)}`,
+      `C ${formatPathNumber(center + radius * 0.95)} ${formatPathNumber(peak)} ${formatPathNumber(center + radius * 0.62)} ${formatPathNumber(fixedAxis)} ${formatPathNumber(center + radius)} ${formatPathNumber(fixedAxis)}`,
+    ];
+  }
+
+  if (side === 'right') {
+    const peak = fixedAxis + (shape === 'tab' ? depth : -depth);
+
+    return [
+      `L ${formatPathNumber(fixedAxis)} ${formatPathNumber(center - radius)}`,
+      `C ${formatPathNumber(fixedAxis)} ${formatPathNumber(center - radius * 0.62)} ${formatPathNumber(peak)} ${formatPathNumber(center - radius * 0.95)} ${formatPathNumber(peak)} ${formatPathNumber(center)}`,
+      `C ${formatPathNumber(peak)} ${formatPathNumber(center + radius * 0.95)} ${formatPathNumber(fixedAxis)} ${formatPathNumber(center + radius * 0.62)} ${formatPathNumber(fixedAxis)} ${formatPathNumber(center + radius)}`,
+    ];
+  }
+
+  if (side === 'bottom') {
+    const peak = fixedAxis + (shape === 'tab' ? depth : -depth);
+
+    return [
+      `L ${formatPathNumber(center + radius)} ${formatPathNumber(fixedAxis)}`,
+      `C ${formatPathNumber(center + radius * 0.62)} ${formatPathNumber(fixedAxis)} ${formatPathNumber(center + radius * 0.95)} ${formatPathNumber(peak)} ${formatPathNumber(center)} ${formatPathNumber(peak)}`,
+      `C ${formatPathNumber(center - radius * 0.95)} ${formatPathNumber(peak)} ${formatPathNumber(center - radius * 0.62)} ${formatPathNumber(fixedAxis)} ${formatPathNumber(center - radius)} ${formatPathNumber(fixedAxis)}`,
+    ];
+  }
+
+  const peak = fixedAxis + (shape === 'tab' ? -depth : depth);
+
+  return [
+    `L ${formatPathNumber(fixedAxis)} ${formatPathNumber(center + radius)}`,
+    `C ${formatPathNumber(fixedAxis)} ${formatPathNumber(center + radius * 0.62)} ${formatPathNumber(peak)} ${formatPathNumber(center + radius * 0.95)} ${formatPathNumber(peak)} ${formatPathNumber(center)}`,
+    `C ${formatPathNumber(peak)} ${formatPathNumber(center - radius * 0.95)} ${formatPathNumber(fixedAxis)} ${formatPathNumber(center - radius * 0.62)} ${formatPathNumber(fixedAxis)} ${formatPathNumber(center - radius)}`,
+  ];
+};
+
+const buildJigsawPath = (piece: JigsawBlueprint, connectors: readonly JigsawConnector[]) => {
+  const box = getJigsawBox(piece);
+  const topConnectors = connectors.filter((connector) => connector.side === 'top').sort((a, b) => a.center - b.center);
+  const rightConnectors = connectors.filter((connector) => connector.side === 'right').sort((a, b) => a.center - b.center);
+  const bottomConnectors = connectors.filter((connector) => connector.side === 'bottom').sort((a, b) => b.center - a.center);
+  const leftConnectors = connectors.filter((connector) => connector.side === 'left').sort((a, b) => b.center - a.center);
+  const commands = [`M ${formatPathNumber(box.left)} ${formatPathNumber(box.top)}`];
+
+  for (const connector of topConnectors) {
+    commands.push(...connectorPath('top', connector, box.top));
+  }
+
+  commands.push(`L ${formatPathNumber(box.right)} ${formatPathNumber(box.top)}`);
+
+  for (const connector of rightConnectors) {
+    commands.push(...connectorPath('right', connector, box.right));
+  }
+
+  commands.push(`L ${formatPathNumber(box.right)} ${formatPathNumber(box.bottom)}`);
+
+  for (const connector of bottomConnectors) {
+    commands.push(...connectorPath('bottom', connector, box.bottom));
+  }
+
+  commands.push(`L ${formatPathNumber(box.left)} ${formatPathNumber(box.bottom)}`);
+
+  for (const connector of leftConnectors) {
+    commands.push(...connectorPath('left', connector, box.left));
+  }
+
+  commands.push('Z');
+
+  return commands.join(' ');
+};
+
+const createJigsawPieces = (nodes: readonly string[], centerTitle: string, centerBody: string): JigsawPiece[] => {
+  validateJigsawPlan();
+  const connectorMap = createJigsawConnectors();
+
+  return jigsawBlueprints.map((blueprint) => {
+    const title = blueprint.kind === 'center' ? centerTitle : nodes[blueprint.nodeIndex ?? -1];
+
+    if (!title) {
+      throw new Error(`Missing label for jigsaw piece "${blueprint.key}".`);
+    }
+
+    const box = getJigsawBox(blueprint);
+    const tone = jigsawTones[blueprint.tone];
+
+    return {
+      ...blueprint,
+      title,
+      subtitle: blueprint.kind === 'center' ? centerBody : undefined,
+      path: buildJigsawPath(blueprint, connectorMap.get(blueprint.key) ?? []),
+      fill: tone.fill,
+      stroke: tone.stroke,
+      labelStyle: [
+        `--label-left: ${(box.left / jigsawWidth) * 100}%`,
+        `--label-top: ${(box.top / jigsawHeight) * 100}%`,
+        `--label-width: ${((box.right - box.left) / jigsawWidth) * 100}%`,
+        `--label-height: ${((box.bottom - box.top) / jigsawHeight) * 100}%`,
+        `--piece-fill: ${tone.fill}`,
+        `--piece-stroke: ${tone.stroke}`,
+        `--piece-glow: ${tone.glow}`,
+      ].join(';'),
+    };
+  });
+};
+
 const pageCopy = {
   en: {
     title: 'Pocket Genes Solutions for genetics and health',
@@ -812,6 +1149,7 @@ const pageCopy = {
 } as const;
 
 const copy = pageCopy[locale];
+const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy.hubCenterBody);
 ---
 
 <PocketGenesPublicLayout
@@ -858,14 +1196,44 @@ const copy = pageCopy[locale];
         </div>
 
         <div class="pg-solution-map" aria-label={copy.hubEyebrow}>
-          <article class="pg-solution-map-center">
-            <img src="/pocket-genes/icon_simple.png" alt="" width="48" height="48" />
-            <h3>{copy.hubCenterTitle}</h3>
-            <p>{copy.hubCenterBody}</p>
-          </article>
-          {copy.hubNodes.map((node, index) => (
-            <span class="pg-solution-node" style={`--node-index: ${index};`}>{node}</span>
-          ))}
+          <div class="pg-jigsaw-board" style={`--jigsaw-aspect: ${jigsawGrid.columns} / ${jigsawGrid.rows};`}>
+            <svg
+              class="pg-jigsaw-svg"
+              viewBox={`0 0 ${jigsawWidth} ${jigsawHeight}`}
+              preserveAspectRatio="none"
+              aria-hidden="true"
+              focusable="false"
+            >
+              {jigsawPieces.map((piece) => (
+                <path
+                  class:list={['pg-jigsaw-piece-path', piece.kind === 'center' && 'is-center']}
+                  d={piece.path}
+                  fill={piece.fill}
+                  stroke={piece.stroke}
+                />
+              ))}
+            </svg>
+
+            <div class="pg-jigsaw-label-layer">
+              {jigsawPieces.map((piece) => (
+                <article
+                  class:list={['pg-jigsaw-label', piece.kind === 'center' && 'is-center']}
+                  style={piece.labelStyle}
+                  data-piece={piece.key}
+                >
+                  {piece.kind === 'center' ? (
+                    <>
+                      <img src="/pocket-genes/icon_simple.png" alt="" width="48" height="48" />
+                      <h3>{piece.title}</h3>
+                      <p>{piece.subtitle}</p>
+                    </>
+                  ) : (
+                    <strong>{piece.title}</strong>
+                  )}
+                </article>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -1192,89 +1560,112 @@ const copy = pageCopy[locale];
 
   .pg-solution-map {
     position: relative;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 14px;
     margin-top: 34px;
     border: 1px solid var(--solution-border);
     border-radius: 8px;
     background:
       linear-gradient(135deg, rgba(232, 250, 247, 0.8), rgba(255, 240, 245, 0.55), rgba(236, 245, 255, 0.8)),
       repeating-linear-gradient(135deg, rgba(23, 32, 51, 0.05) 0 1px, transparent 1px 28px);
-    padding: 24px;
+    overflow: hidden;
+    padding: clamp(20px, 2.35vw, 34px);
   }
 
   .pg-solution-map::before {
     content: "";
     position: absolute;
-    inset: 50% 7%;
-    height: 2px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, rgba(20, 149, 143, 0.12), rgba(228, 80, 128, 0.34), rgba(33, 118, 174, 0.34), rgba(60, 155, 104, 0.18));
+    inset: 0;
+    background:
+      linear-gradient(90deg, rgba(20, 149, 143, 0.08), transparent 34%, rgba(228, 80, 128, 0.07) 66%, transparent),
+      repeating-linear-gradient(90deg, rgba(23, 32, 51, 0.035) 0 1px, transparent 1px 92px);
+    opacity: 0.72;
+    pointer-events: none;
   }
 
-  .pg-solution-map-center,
-  .pg-solution-node {
+  .pg-jigsaw-board {
     position: relative;
     z-index: 1;
-    min-height: 112px;
-    border: 1px solid rgba(197, 210, 223, 0.86);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 12px 28px rgba(23, 32, 51, 0.08);
+    aspect-ratio: var(--jigsaw-aspect);
+    min-height: 430px;
   }
 
-  .pg-solution-map-center {
-    grid-column: 2 / span 3;
-    display: grid;
-    place-items: center;
-    gap: 6px;
-    min-height: 168px;
-    border-color: rgba(228, 80, 128, 0.28);
-    background: #ffffff;
+  .pg-jigsaw-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 18px 34px rgba(23, 32, 51, 0.08));
+    overflow: visible;
+  }
+
+  .pg-jigsaw-piece-path {
+    stroke-linejoin: round;
+    stroke-width: 1.45;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .pg-jigsaw-piece-path.is-center {
+    stroke-width: 1.7;
+  }
+
+  .pg-jigsaw-label-layer {
+    position: absolute;
+    inset: 0;
+  }
+
+  .pg-jigsaw-label {
+    position: absolute;
+    left: var(--label-left);
+    top: var(--label-top);
+    z-index: 2;
+    display: flex;
+    width: var(--label-width);
+    height: var(--label-height);
+    align-items: center;
+    justify-content: center;
     color: var(--solution-navy);
-    padding: 24px;
+    line-height: 1.12;
+    padding: clamp(12px, 1.2vw, 20px);
+    pointer-events: none;
     text-align: center;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
   }
 
-  .pg-solution-map-center img {
+  .pg-jigsaw-label strong,
+  .pg-jigsaw-label h3,
+  .pg-jigsaw-label p,
+  .pg-jigsaw-label img {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pg-jigsaw-label strong {
+    display: block;
+    max-width: min(82%, 220px);
+    font-size: clamp(0.94rem, 1.03vw, 1.2rem);
+    font-weight: 900;
+  }
+
+  .pg-jigsaw-label.is-center {
+    flex-direction: column;
+    gap: 8px;
+    padding: clamp(18px, 1.8vw, 28px);
+  }
+
+  .pg-jigsaw-label.is-center img {
     border-radius: 10px;
     box-shadow: 0 10px 22px rgba(228, 80, 128, 0.22);
   }
 
-  .pg-solution-map-center h3 {
+  .pg-jigsaw-label.is-center h3 {
     margin: 0;
-    font-size: 1.8rem;
-    line-height: 1.1;
+    font-size: clamp(1.6rem, 2.15vw, 2.3rem);
+    line-height: 1.04;
   }
 
-  .pg-solution-map-center p {
+  .pg-jigsaw-label.is-center p {
     margin: 0;
     color: var(--solution-ink-soft);
     font-weight: 760;
-  }
-
-  .pg-solution-node {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--solution-navy);
-    font-weight: 860;
-    line-height: 1.25;
-    padding: 16px;
-    text-align: center;
-  }
-
-  .pg-solution-node:nth-of-type(3n + 1) {
-    border-color: rgba(20, 149, 143, 0.24);
-  }
-
-  .pg-solution-node:nth-of-type(3n + 2) {
-    border-color: rgba(33, 118, 174, 0.24);
-  }
-
-  .pg-solution-node:nth-of-type(3n + 3) {
-    border-color: rgba(228, 80, 128, 0.22);
   }
 
   .pg-solutions-catalog {
@@ -1858,7 +2249,6 @@ const copy = pageCopy[locale];
     }
 
     .pg-solution-map {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
       padding: 16px;
     }
 
@@ -1866,9 +2256,67 @@ const copy = pageCopy[locale];
       display: none;
     }
 
-    .pg-solution-map-center {
+    .pg-jigsaw-board {
+      aspect-ratio: auto;
+      min-height: auto;
+    }
+
+    .pg-jigsaw-svg {
+      display: none;
+    }
+
+    .pg-jigsaw-label-layer {
+      position: static;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      overflow: hidden;
+      border: 1px solid rgba(197, 210, 223, 0.72);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.74);
+    }
+
+    .pg-jigsaw-label {
+      position: relative;
+      left: auto;
+      top: auto;
+      width: auto;
+      height: auto;
+      min-height: 116px;
+      border: 1px solid var(--piece-stroke);
+      background: var(--piece-fill);
+      box-shadow: 0 10px 22px var(--piece-glow);
+      padding: 16px;
+    }
+
+    .pg-jigsaw-label.is-center {
       grid-column: 1 / -1;
       min-height: 150px;
+    }
+
+    .pg-jigsaw-label::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -15px;
+      width: 30px;
+      aspect-ratio: 1;
+      border: 1px solid var(--piece-stroke);
+      border-radius: 999px;
+      background: var(--piece-fill);
+      transform: translateY(-50%);
+    }
+
+    .pg-jigsaw-label:nth-child(2n)::after {
+      right: auto;
+      left: -15px;
+    }
+
+    .pg-jigsaw-label.is-center::after {
+      top: auto;
+      right: 50%;
+      bottom: -15px;
+      left: auto;
+      transform: translateX(50%);
     }
 
     .pg-catalog-grid,
@@ -1930,10 +2378,31 @@ const copy = pageCopy[locale];
       display: none;
     }
 
-    .pg-solution-map,
     .pg-journey-track,
     .pg-example-flow {
       grid-template-columns: 1fr;
+    }
+
+    .pg-jigsaw-label-layer {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-jigsaw-label.is-center {
+      grid-column: auto;
+    }
+
+    .pg-jigsaw-label::after,
+    .pg-jigsaw-label:nth-child(2n)::after,
+    .pg-jigsaw-label.is-center::after {
+      top: auto;
+      right: 50%;
+      bottom: -15px;
+      left: auto;
+      transform: translateX(50%);
+    }
+
+    .pg-jigsaw-label:last-child::after {
+      display: none;
     }
 
     .pg-journey-track li::after {
