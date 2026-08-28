@@ -1388,17 +1388,23 @@ const proofMetrics = createProofMetrics(copy.proofStats);
           </div>
         </div>
 
-        <div class="pg-proof-screens" aria-label={copy.screenshotsLabel}>
-          {copy.screenshots.map((screenshot) => (
-            <figure>
-              <img
-                src={screenshot.src}
-                alt={screenshot.alt}
-                width="560"
-                height="1218"
-                loading="lazy"
-                decoding="async"
-              />
+        <div class="pg-proof-screens" aria-label={copy.screenshotsLabel} data-reactive-card-zone>
+          {copy.screenshots.map((screenshot, index) => (
+            <figure
+              style={`--screen-index: ${index};`}
+              tabindex="0"
+              data-reactive-card
+            >
+              <span class="pg-proof-screen-phone">
+                <img
+                  src={screenshot.src}
+                  alt={screenshot.alt}
+                  width="560"
+                  height="1218"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </span>
               <figcaption>{screenshot.caption}</figcaption>
             </figure>
           ))}
@@ -2191,6 +2197,13 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     .pg-audience-card,
     .pg-audience-card::before,
     .pg-audience-card::after,
+    .pg-proof-screens figure,
+    .pg-proof-screens figure::before,
+    .pg-proof-screen-phone,
+    .pg-proof-screen-phone::before,
+    .pg-proof-screen-phone::after,
+    .pg-proof-screens img,
+    .pg-proof-screens figcaption,
     .pg-proof-point-card,
     .pg-proof-point-card::before,
     .pg-proof-point-card::after {
@@ -2212,6 +2225,18 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     .pg-audience-card:hover,
     .pg-audience-card:focus-visible,
     .pg-audience-card.is-active,
+    .pg-proof-screens figure:hover,
+    .pg-proof-screens figure:focus-visible,
+    .pg-proof-screens figure.is-active,
+    .pg-proof-screens figure:hover .pg-proof-screen-phone,
+    .pg-proof-screens figure:focus-visible .pg-proof-screen-phone,
+    .pg-proof-screens figure.is-active .pg-proof-screen-phone,
+    .pg-proof-screens figure:hover img,
+    .pg-proof-screens figure:focus-visible img,
+    .pg-proof-screens figure.is-active img,
+    .pg-proof-screens figure:hover figcaption,
+    .pg-proof-screens figure:focus-visible figcaption,
+    .pg-proof-screens figure.is-active figcaption,
     .pg-proof-point-card:hover,
     .pg-proof-point-card:focus-visible,
     .pg-proof-point-card.is-active {
@@ -2219,7 +2244,10 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     }
 
     .pg-jigsaw-piece-shine.is-active,
-    .pg-jigsaw-piece-shine.is-selected {
+    .pg-jigsaw-piece-shine.is-selected,
+    .pg-proof-screens figure:hover .pg-proof-screen-phone::before,
+    .pg-proof-screens figure:focus-visible .pg-proof-screen-phone::before,
+    .pg-proof-screens figure.is-active .pg-proof-screen-phone::before {
       opacity: 0 !important;
       transform: none !important;
     }
@@ -2229,6 +2257,9 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     .pg-audience-card:hover::after,
     .pg-audience-card:focus-visible::after,
     .pg-audience-card.is-active::after,
+    .pg-proof-screens figure:hover .pg-proof-screen-phone::after,
+    .pg-proof-screens figure:focus-visible .pg-proof-screen-phone::after,
+    .pg-proof-screens figure.is-active .pg-proof-screen-phone::after,
     .pg-proof-point-card:hover::after,
     .pg-proof-point-card:focus-visible::after,
     .pg-proof-point-card.is-active::after {
@@ -2583,33 +2614,198 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
     align-items: end;
+    perspective: 900px;
   }
 
   .pg-proof-screens figure {
+    --screen-rest-y: 0px;
+    position: relative;
+    display: grid;
+    gap: 10px;
     margin: 0;
+    outline: none;
+    transform:
+      perspective(900px)
+      rotateX(0)
+      rotateY(0)
+      translateY(var(--screen-rest-y));
+    transform-origin: center bottom;
+    transition:
+      opacity 0.24s ease,
+      filter 0.24s ease,
+      transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: pgProofScreenIn 0.56s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--screen-index) * 70ms);
+  }
+
+  .pg-proof-screens figure::before {
+    content: "";
+    position: absolute;
+    right: 12%;
+    bottom: 34px;
+    left: 12%;
+    height: 14px;
+    border-radius: 999px;
+    background: rgba(23, 32, 51, 0.24);
+    filter: blur(14px);
+    opacity: 0.42;
+    transform: scaleX(0.92);
+    transform-origin: center;
+    transition: opacity 0.3s ease, transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .pg-proof-screen-phone {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 560 / 1218;
+    border: 6px solid #101522;
+    border-radius: 24px;
+    background: #101522;
+    box-shadow: 0 16px 42px rgba(23, 32, 51, 0.15);
+    isolation: isolate;
+    overflow: hidden;
+    transition:
+      border-color 0.28s ease,
+      box-shadow 0.34s ease,
+      transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .pg-proof-screen-phone::before,
+  .pg-proof-screen-phone::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .pg-proof-screen-phone::before {
+    z-index: 1;
+    background:
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 32%), rgba(255, 255, 255, 0.32), transparent 28%),
+      linear-gradient(180deg, rgba(20, 149, 143, 0.12), transparent 32%, rgba(228, 80, 128, 0.1));
+    mix-blend-mode: screen;
+    transition: opacity 0.24s ease;
+  }
+
+  .pg-proof-screen-phone::after {
+    z-index: 2;
+    width: 48%;
+    background: linear-gradient(100deg, transparent 0 18%, rgba(255, 255, 255, 0.82) 48%, transparent 78% 100%);
+    transform: translateX(-135%) skewX(-13deg);
+    transition: opacity 0.18s ease, transform 0.68s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .pg-proof-screens img {
     display: block;
     width: 100%;
-    aspect-ratio: 560 / 1218;
+    height: 100%;
     object-fit: cover;
-    border: 6px solid #101522;
-    border-radius: 24px;
-    background: #101522;
-    box-shadow: 0 16px 42px rgba(23, 32, 51, 0.15);
+    border-radius: 17px;
+    transform: scale(1);
+    transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .pg-proof-screens figure:nth-child(even) {
-    transform: translateY(24px);
+    --screen-rest-y: 24px;
+  }
+
+  .pg-proof-screens figure:hover,
+  .pg-proof-screens figure:focus-visible,
+  .pg-proof-screens figure.is-active {
+    transform:
+      perspective(900px)
+      rotateX(var(--card-tilt-y, 0deg))
+      rotateY(var(--card-tilt-x, 0deg))
+      translateY(calc(var(--screen-rest-y) - 28px));
+  }
+
+  .pg-proof-screens figure:hover::before,
+  .pg-proof-screens figure:focus-visible::before,
+  .pg-proof-screens figure.is-active::before {
+    opacity: 0.28;
+    transform: scaleX(0.72);
+  }
+
+  .pg-proof-screens figure:hover .pg-proof-screen-phone,
+  .pg-proof-screens figure:focus-visible .pg-proof-screen-phone,
+  .pg-proof-screens figure.is-active .pg-proof-screen-phone {
+    border-color: #172033;
+    box-shadow:
+      0 30px 64px rgba(23, 32, 51, 0.25),
+      0 0 0 1px rgba(255, 255, 255, 0.62),
+      0 0 32px rgba(20, 149, 143, 0.16);
+    transform: translateY(-4px) scale(1.018);
+  }
+
+  .pg-proof-screens figure:hover .pg-proof-screen-phone::before,
+  .pg-proof-screens figure:focus-visible .pg-proof-screen-phone::before,
+  .pg-proof-screens figure.is-active .pg-proof-screen-phone::before {
+    opacity: 1;
+  }
+
+  .pg-proof-screens figure:hover .pg-proof-screen-phone::after,
+  .pg-proof-screens figure:focus-visible .pg-proof-screen-phone::after,
+  .pg-proof-screens figure.is-active .pg-proof-screen-phone::after {
+    opacity: 1;
+    transform: translateX(220%) skewX(-13deg);
+  }
+
+  .pg-proof-screens figure:hover img,
+  .pg-proof-screens figure:focus-visible img,
+  .pg-proof-screens figure.is-active img {
+    transform: scale(1.028);
+  }
+
+  .pg-proof-screens figure:focus-visible {
+    outline: 3px solid rgba(20, 149, 143, 0.3);
+    outline-offset: 6px;
+    border-radius: 28px;
+  }
+
+  .pg-proof-screens.is-reacting figure:not(.is-active) {
+    opacity: 0.54;
+    filter: saturate(0.72);
   }
 
   .pg-proof-screens figcaption {
-    margin-top: 10px;
+    margin: 0;
     color: var(--solution-ink-soft);
     font-size: 0.85rem;
     font-weight: 780;
     text-align: center;
+    transform: translateY(0);
+    transition: color 0.24s ease, transform 0.3s ease;
+  }
+
+  .pg-proof-screens figure:hover figcaption,
+  .pg-proof-screens figure:focus-visible figcaption,
+  .pg-proof-screens figure.is-active figcaption {
+    color: var(--solution-navy);
+    transform: translateY(-3px);
+  }
+
+  @keyframes pgProofScreenIn {
+    from {
+      opacity: 0;
+      transform:
+        perspective(900px)
+        rotateX(0)
+        rotateY(0)
+        translateY(calc(var(--screen-rest-y) + 18px))
+        scale(0.975);
+    }
+
+    to {
+      opacity: 1;
+      transform:
+        perspective(900px)
+        rotateX(0)
+        rotateY(0)
+        translateY(var(--screen-rest-y))
+        scale(1);
+    }
   }
 
   .pg-solutions-models {
@@ -3345,7 +3541,7 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     }
 
     .pg-proof-screens figure:nth-child(even) {
-      transform: none;
+      --screen-rest-y: 0px;
     }
 
     .pg-proof-point-list::before {
