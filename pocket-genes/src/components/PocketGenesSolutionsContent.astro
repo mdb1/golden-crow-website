@@ -1294,9 +1294,11 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
 const journeyPanels = createJourneyPanels(copy.journeySteps, copy.journeyBranches);
 const journeyNodes = createJourneyNodes(copy.journeySteps);
 const journeyNodeColumns = [
-  { className: 'is-column-one', nodes: journeyNodes.slice(0, 5) },
-  { className: 'is-column-two', nodes: journeyNodes.slice(5, 7), hasCore: true, coreIndex: 1 },
-  { className: 'is-column-three', nodes: journeyNodes.slice(7, 12) },
+  { className: 'is-column-one', nodes: journeyNodes.slice(0, 2) },
+  { className: 'is-column-two', nodes: journeyNodes.slice(2, 5) },
+  { className: 'is-column-three', nodes: journeyNodes.slice(5, 7), hasCore: true, coreIndex: 1 },
+  { className: 'is-column-four', nodes: journeyNodes.slice(7, 10) },
+  { className: 'is-column-five', nodes: journeyNodes.slice(10, 12) },
 ];
 const journeyHubKeys = journeyNodes.map((item) => item.key).join(' ');
 const audienceTiles = createAudienceTiles(copy.audiences);
@@ -3575,30 +3577,63 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     position: relative;
     display: flex;
     width: 100%;
-    max-width: 800px;
+    max-width: 880px;
     min-height: clamp(560px, 62vh, 760px);
     align-items: center;
     justify-content: center;
+    gap: clamp(0.25rem, 0.85vw, 0.9rem);
     margin: 0 auto;
     isolation: isolate;
     overflow: visible;
   }
 
   .pg-journey-node-column {
+    --journey-node-size: clamp(72px, 5.35vw, 96px);
+    --journey-node-font-size: clamp(0.58rem, 0.86vw, 0.82rem);
+    --journey-node-margin: clamp(0.18rem, 0.45vw, 0.42rem);
+    --journey-node-ring-gap: clamp(0.28rem, 0.62vw, 0.58rem);
+    --journey-node-ring-width: clamp(1px, 0.18vw, 2px);
+
     display: flex;
+    flex: 0 1 clamp(76px, 7.2vw, 116px);
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: clamp(0.55rem, 1.1vw, 1.15rem);
+    justify-content: space-evenly;
+    min-height: clamp(430px, 52vh, 650px);
+    gap: clamp(0.55rem, 1vw, 1.05rem);
   }
 
   .pg-journey-node-column.is-column-one,
-  .pg-journey-node-column.is-column-three {
-    transform: translateY(0.35rem);
+  .pg-journey-node-column.is-column-five {
+    --journey-node-size: clamp(54px, 4.1vw, 70px);
+    --journey-node-font-size: clamp(0.48rem, 0.68vw, 0.64rem);
+    --journey-node-margin: clamp(0.08rem, 0.22vw, 0.18rem);
+    --journey-node-ring-gap: clamp(0.16rem, 0.34vw, 0.3rem);
+    --journey-node-ring-width: 1px;
+
+    flex-basis: clamp(58px, 5vw, 82px);
+    min-height: clamp(350px, 45vh, 520px);
+    transform: translateY(1.15rem);
   }
 
-  .pg-journey-node-column.is-column-two {
-    gap: clamp(0.65rem, 1.2vw, 1.25rem);
+  .pg-journey-node-column.is-column-two,
+  .pg-journey-node-column.is-column-four {
+    --journey-node-size: clamp(66px, 4.9vw, 86px);
+    --journey-node-font-size: clamp(0.54rem, 0.78vw, 0.74rem);
+    --journey-node-ring-gap: clamp(0.22rem, 0.46vw, 0.44rem);
+
+    flex-basis: clamp(70px, 6.2vw, 100px);
+    min-height: clamp(455px, 54vh, 660px);
+    transform: translateY(-0.45rem);
+  }
+
+  .pg-journey-node-column.is-column-three {
+    --journey-node-size: clamp(76px, 5.6vw, 98px);
+    --journey-node-font-size: clamp(0.58rem, 0.86vw, 0.82rem);
+
+    flex-basis: clamp(170px, 15vw, 238px);
+    min-height: clamp(520px, 60vh, 720px);
+    gap: clamp(0.75rem, 1.25vw, 1.35rem);
   }
 
   .pg-journey-node,
@@ -3625,11 +3660,11 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   }
 
   .pg-journey-node {
-    --ring-gap: clamp(0.34rem, 0.78vw, 0.72rem);
-    --ring-width: clamp(1px, 0.2vw, 3px);
-    width: clamp(72px, 5.9vw, 98px);
-    height: clamp(72px, 5.9vw, 98px);
-    margin: clamp(0.24rem, 0.72vw, 0.64rem);
+    --ring-gap: var(--journey-node-ring-gap);
+    --ring-width: var(--journey-node-ring-width);
+    width: var(--journey-node-size);
+    height: var(--journey-node-size);
+    margin: var(--journey-node-margin);
     padding: clamp(0.4rem, 0.86vw, 0.76rem);
     box-shadow:
       inset 0 1px 14px rgba(255, 255, 255, 0.44),
@@ -3674,7 +3709,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     position: relative;
     z-index: 1;
     margin: 0;
-    font-size: clamp(0.62rem, 0.92vw, 0.88rem);
+    font-size: var(--journey-node-font-size);
     font-weight: 760;
     line-height: 1.08;
     text-align: center;
@@ -3844,6 +3879,18 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     --node-gradient: linear-gradient(145deg, #8ee8ff 0%, #4f7cff 52%, #5b35dd 100%);
     --ring-gradient: repeating-conic-gradient(from -10deg, rgba(110, 203, 255, 0.92) 0 7deg, transparent 7deg 15deg);
     --glow-color: rgba(80, 128, 255, 0.3);
+  }
+
+  .pg-journey-node.is-first,
+  .pg-journey-node.is-twelfth {
+    --journey-node-size: clamp(50px, 3.75vw, 64px);
+    --journey-node-font-size: clamp(0.44rem, 0.62vw, 0.58rem);
+  }
+
+  .pg-journey-node.is-second,
+  .pg-journey-node.is-eleventh {
+    --journey-node-size: clamp(58px, 4.25vw, 74px);
+    --journey-node-font-size: clamp(0.48rem, 0.68vw, 0.64rem);
   }
 
   @keyframes pgJourneyIconPulse {
