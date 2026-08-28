@@ -363,11 +363,11 @@ const pageCopy = {
         alt: 'Pocket Genes genomic report categories on a mobile screen',
       },
       {
-        src: '/pocket-genes/screenshots/discover-simulator.png',
+        src: '/pocket-genes/screenshots/discover-simulator-light.webp',
         alt: 'Pocket Genes Discover publishing simulator on a mobile screen',
       },
       {
-        src: '/pocket-genes/screenshots/sample_rare_friends.PNG',
+        src: '/pocket-genes/screenshots/sample-rare-friends-light.webp',
         alt: 'RareFriends community profile inside Pocket Genes',
       },
     ],
@@ -526,7 +526,7 @@ const pageCopy = {
         caption: 'Education',
       },
       {
-        src: '/pocket-genes/screenshots/discover-simulator.png',
+        src: '/pocket-genes/screenshots/discover-simulator-light.webp',
         alt: 'Pocket Genes Discover publication simulator',
         caption: 'Discover',
       },
@@ -625,11 +625,11 @@ const pageCopy = {
         alt: 'Pantalla de categorías de informes genómicos en Pocket Genes',
       },
       {
-        src: '/pocket-genes/screenshots/discover-simulator.png',
+        src: '/pocket-genes/screenshots/discover-simulator-light.webp',
         alt: 'Pantalla del simulador Discover de Pocket Genes',
       },
       {
-        src: '/pocket-genes/screenshots/sample_rare_friends.PNG',
+        src: '/pocket-genes/screenshots/sample-rare-friends-light.webp',
         alt: 'Perfil de la comunidad RareFriends dentro de Pocket Genes',
       },
     ],
@@ -788,7 +788,7 @@ const pageCopy = {
         caption: 'Educación',
       },
       {
-        src: '/pocket-genes/screenshots/discover-simulator.png',
+        src: '/pocket-genes/screenshots/discover-simulator-light.webp',
         alt: 'Simulador de publicación Discover de Pocket Genes',
         caption: 'Discover',
       },
@@ -900,7 +900,10 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
                 class:list={['pg-solution-phone', `phone-${index + 1}`]}
                 src={screenshot.src}
                 alt={screenshot.alt}
-                fetchpriority={index === 0 ? 'high' : 'auto'}
+                width="560"
+                height="1218"
+                fetchpriority={index === 0 ? 'high' : 'low'}
+                decoding="async"
               />
             ))}
           </div>
@@ -1025,7 +1028,14 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
         <div class="pg-proof-screens" aria-label={copy.screenshotsLabel}>
           {copy.screenshots.map((screenshot) => (
             <figure>
-              <img src={screenshot.src} alt={screenshot.alt} loading="lazy" />
+              <img
+                src={screenshot.src}
+                alt={screenshot.alt}
+                width="560"
+                height="1218"
+                loading="lazy"
+                decoding="async"
+              />
               <figcaption>{screenshot.caption}</figcaption>
             </figure>
           ))}
