@@ -52,7 +52,7 @@ type JigsawConnector = {
 
 type JigsawConnectorOffsetSetting = {
   axis: JigsawConnectorOffsetAxis;
-  offset: -20 | 0 | 20;
+  offset: -10 | 0 | 10;
 };
 
 type JigsawPiece = JigsawBlueprint & {
@@ -286,28 +286,28 @@ const jigsawBlueprints: readonly JigsawBlueprint[] = [
 
 // Mirror pocket-genes/src/data/solutions-jigsaw-connector-offsets.txt.
 const jigsawConnectorOffsets: Record<string, JigsawConnectorOffsetSetting> = {
-  'backoffice|consents': { axis: 'y', offset: 20 },
+  'backoffice|consents': { axis: 'y', offset: 10 },
   'backoffice|discover': { axis: 'x', offset: 0 },
-  'backoffice|education': { axis: 'x', offset: -20 },
-  'backoffice|processing': { axis: 'x', offset: 20 },
-  'backoffice|reports': { axis: 'y', offset: -20 },
-  'communication|community': { axis: 'x', offset: -20 },
-  'communication|discover': { axis: 'x', offset: 20 },
-  'communication|operations': { axis: 'y', offset: -20 },
-  'community|discover': { axis: 'y', offset: 20 },
-  'community|reports': { axis: 'x', offset: 20 },
-  'consents|processing': { axis: 'x', offset: 20 },
-  'consents|samples': { axis: 'x', offset: -20 },
-  'discover|education': { axis: 'y', offset: -20 },
-  'discover|operations': { axis: 'x', offset: -20 },
-  'discover|reports': { axis: 'x', offset: -20 },
+  'backoffice|education': { axis: 'x', offset: -10 },
+  'backoffice|processing': { axis: 'x', offset: 10 },
+  'backoffice|reports': { axis: 'y', offset: -10 },
+  'communication|community': { axis: 'x', offset: -10 },
+  'communication|discover': { axis: 'x', offset: 10 },
+  'communication|operations': { axis: 'y', offset: -10 },
+  'community|discover': { axis: 'y', offset: 10 },
+  'community|reports': { axis: 'x', offset: 10 },
+  'consents|processing': { axis: 'x', offset: 10 },
+  'consents|samples': { axis: 'x', offset: -10 },
+  'discover|education': { axis: 'y', offset: -10 },
+  'discover|operations': { axis: 'x', offset: -10 },
+  'discover|reports': { axis: 'x', offset: -10 },
   'education|operations': { axis: 'x', offset: 0 },
-  'education|processing': { axis: 'y', offset: 20 },
+  'education|processing': { axis: 'y', offset: 10 },
   'network|operations': { axis: 'y', offset: 0 },
-  'network|processing': { axis: 'x', offset: -20 },
-  'network|samples': { axis: 'x', offset: 20 },
-  'operations|processing': { axis: 'x', offset: 20 },
-  'processing|samples': { axis: 'y', offset: -20 },
+  'network|processing': { axis: 'x', offset: -10 },
+  'network|samples': { axis: 'x', offset: 10 },
+  'operations|processing': { axis: 'x', offset: 10 },
+  'processing|samples': { axis: 'y', offset: -10 },
 };
 
 const audienceBlueprints: readonly AudienceBlueprint[] = [

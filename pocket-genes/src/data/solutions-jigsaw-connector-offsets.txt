@@ -7,28 +7,28 @@ Rules:
 - edge_key uses the two adjacent piece keys sorted alphabetically.
 - axis x moves a top/bottom dent horizontally.
 - axis y moves a left/right dent vertically.
-- offset_px values stay intentionally small: -20, 0, or 20.
+- offset_px values stay intentionally small: -10, 0, or 10.
 
 edge_key | axis | offset_px
-backoffice|consents | y | 20
+backoffice|consents | y | 10
 backoffice|discover | x | 0
-backoffice|education | x | -20
-backoffice|processing | x | 20
-backoffice|reports | y | -20
-communication|community | x | -20
-communication|discover | x | 20
-communication|operations | y | -20
-community|discover | y | 20
-community|reports | x | 20
-consents|processing | x | 20
-consents|samples | x | -20
-discover|education | y | -20
-discover|operations | x | -20
-discover|reports | x | -20
+backoffice|education | x | -10
+backoffice|processing | x | 10
+backoffice|reports | y | -10
+communication|community | x | -10
+communication|discover | x | 10
+communication|operations | y | -10
+community|discover | y | 10
+community|reports | x | 10
+consents|processing | x | 10
+consents|samples | x | -10
+discover|education | y | -10
+discover|operations | x | -10
+discover|reports | x | -10
 education|operations | x | 0
-education|processing | y | 20
+education|processing | y | 10
 network|operations | y | 0
-network|processing | x | -20
-network|samples | x | 20
-operations|processing | x | 20
-processing|samples | y | -20
+network|processing | x | -10
+network|samples | x | 10
+operations|processing | x | 10
+processing|samples | y | -10
