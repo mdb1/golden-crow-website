@@ -4,8 +4,15 @@ import { formatBrandText } from '../utils/brandFormatting';
 
 const t = useTranslations(Astro.currentLocale);
 
-const baseScreenshots = Array.from({ length: 11 }, (_, index) => ({
-  src: `/pocket-genes/screenshots/sample-${String(index + 1).padStart(2, '0')}.webp`,
+const screenshotSources = [
+  '/pocket-genes/promotional/screens/screen-01-reports.webp',
+  '/pocket-genes/promotional/screens/screen-02-discover.webp',
+  '/pocket-genes/promotional/screens/screen-03-consents.webp',
+  '/pocket-genes/promotional/screens/screen-04-capabilities.webp',
+] as const;
+
+const baseScreenshots = screenshotSources.map((src, index) => ({
+  src,
   caption: t.appScreenshots.captions[index],
 }));
 

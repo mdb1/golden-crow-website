@@ -1,9 +1,9 @@
 ---
-const {src, alt} = Astro.props
+const { src, alt, width, height } = Astro.props
 ---
 
-<div class="image">            
-    <img class="image-card" src={src} alt={alt} loading="lazy" />
+<div class="image">
+    <img class="image-card" src={src} alt={alt} loading="lazy" width={width} height={height} />
 </div>
 
 <style>
