@@ -1,4 +1,5 @@
 const RAREFRIENDS_PATTERN = /RareFriends(?:™)?/g;
+const POCKEAMIGOS_PATTERN = /PockeAmigos(?:™)?/g;
 const GOLDEN_CROW_VENTURE_STUDIO_PATTERN = /Golden Crow Venture Studio/g;
 
 export function escapeHtml(value: string | number | null | undefined): string {
@@ -13,6 +14,7 @@ export function escapeHtml(value: string | number | null | undefined): string {
 export function formatBrandHtml(value: string | number | null | undefined): string {
   return String(value ?? '')
     .replace(RAREFRIENDS_PATTERN, (match) => `<em class="pg-brand-name">${match}</em>`)
+    .replace(POCKEAMIGOS_PATTERN, '<em class="pg-brand-name">PockeAmigos™</em>')
     .replace(GOLDEN_CROW_VENTURE_STUDIO_PATTERN, (match) => `<em class="pg-brand-name">${match}</em>`);
 }
 

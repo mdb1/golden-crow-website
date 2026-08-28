@@ -1970,8 +1970,8 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Propósito y alcance',
         paragraphs: [
-          'Esta Política de Privacidad explica cómo Pocket Genes procesa información personal en la aplicación móvil, las páginas públicas, el Centro de confianza, los flujos de cuenta, las integraciones de acceso a informes, las funciones de descubrimiento, las funciones de organizaciones de confianza y PockeAmigos de Pocket Genes.',
-          'Pocket Genes usa datos limitados de cuenta, contacto, inicio de sesión, integraciones, decisiones de plataforma, soporte, comunidad y datos técnicos según las funciones que cada persona usa. No publicamos una afirmación absoluta de que Pocket Genes nunca trata datos sensibles, porque la participación en PockeAmigos, los campos usados para encontrar coincidencias, las referencias de acceso a informes y el contexto voluntario pueden revelar información de salud o genética.',
+          'Esta Política de Privacidad explica cómo Pocket Genes procesa información personal en la aplicación móvil, las páginas públicas, el Centro de confianza, los flujos de cuenta, las integraciones de acceso a informes, las funciones de descubrimiento, las funciones de organizaciones de confianza y PockeAmigos™ de Pocket Genes.',
+          'Pocket Genes usa datos limitados de cuenta, contacto, inicio de sesión, integraciones, decisiones de plataforma, soporte, comunidad y datos técnicos según las funciones que cada persona usa. No publicamos una afirmación absoluta de que Pocket Genes nunca trata datos sensibles, porque la participación en PockeAmigos™, los campos usados para encontrar coincidencias, las referencias de acceso a informes y el contexto voluntario pueden revelar información de salud o genética.',
           'Los informes genéticos permanecen asociados al proveedor participante que los creó o entregó. Pocket Genes ayuda a usuarios autorizados a llegar a la experiencia móvil conectada con ese proveedor. Cualquier URL, token, referencia o identificador de informe tratado por Pocket Genes se maneja como información confidencial de acceso aunque no sea el informe en sí.',
         ],
       },
@@ -1981,7 +1981,7 @@ export const trustDocumentsEs: TrustDocument[] = [
           'Personas que crean o usan una cuenta de Pocket Genes.',
           'Personas invitadas a un flujo de Pocket Genes por un integrador, proveedor, clínica, laboratorio, organización o programa de apoyo.',
           'Madres, padres, tutores, cuidadores o representantes que gestionan una cuenta o flujo para otra persona cuando corresponde.',
-          'Personas que participan en PockeAmigos, siguen organizaciones, publican, comentan, envían mensajes o usan funciones para encontrar coincidencias.',
+          'Personas que participan en PockeAmigos™, siguen organizaciones, publican, comentan, envían mensajes o usan funciones para encontrar coincidencias.',
           'Organizaciones de confianza, integradores y proveedores de informes que aportan datos de contacto, publican contenido u operan flujos conectados con Pocket Genes.',
         ],
       },
@@ -2005,7 +2005,7 @@ export const trustDocumentsEs: TrustDocument[] = [
           { heading: 'Información de cuenta', body: 'Nombre, apellido, email, teléfono opcional, identificador de cuenta, preferencias de perfil, idioma y otros datos usados para crear, mantener, proteger o asistir una cuenta de Pocket Genes.' },
           { heading: 'Información de integración', body: 'Información limitada provista por una organización participante o generada por Pocket Genes para conectar a la persona prevista con un acceso a informe, invitación de servicio, flujo de consentimiento informado o flujo de organización.' },
           { heading: 'Registro de decisión de plataforma', body: 'Registro que identifica una acción de plataforma, como aceptación de Términos, aviso de Política de Privacidad, activación de acceso a informe, preferencia de comunicación opcional o estado de carga de consentimiento informado.' },
-          { heading: 'Información comunitaria', body: 'Campos de perfil, publicaciones, comentarios, seguimientos, grupos, mensajes, intereses, etiquetas, rol, país, idioma, etapa del recorrido y otra información que el usuario agrega voluntariamente a PockeAmigos o funciones comunitarias.' },
+          { heading: 'Información comunitaria', body: 'Campos de perfil, publicaciones, comentarios, seguimientos, grupos, mensajes, intereses, etiquetas, rol, país, idioma, etapa del recorrido y otra información que el usuario agrega voluntariamente a PockeAmigos™ o funciones comunitarias.' },
           { heading: 'Información técnica', body: 'Datos de dispositivo, navegador, app, autenticación, registros, diagnóstico, seguridad y operación necesarios para operar y proteger el servicio.' },
           { heading: 'Proveedor de informes', body: 'Laboratorio, clínica, hospital, empresa de estudios genéticos, organización de EPOF u otra entidad participante que crea, entrega, controla o conserva responsabilidad sobre un informe o recurso de informe.' },
           { heading: 'Organización de confianza', body: 'Organización revisada por Pocket Genes para una presencia curada. No implica aval total de cada servicio, afirmación, evento o recurso.' },
@@ -2048,7 +2048,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Términos, privacidad y preferencias opcionales',
         paragraphs: [
           'La Política de Privacidad explica cómo Pocket Genes trata los datos personales necesarios para operar la plataforma. Los Términos de Servicio establecen las condiciones de uso de Pocket Genes.',
-          'Las preferencias relacionadas con PockeAmigos, la visibilidad del perfil, las notificaciones, newsletters y otras comunicaciones opcionales se gestionan por separado.',
+          'Las preferencias relacionadas con PockeAmigos™, la visibilidad del perfil, las notificaciones, newsletters y otras comunicaciones opcionales se gestionan por separado.',
           'Estas opciones son configuraciones de plataforma, no aprobaciones de estudio ni decisiones clínicas.',
         ],
       },
@@ -2063,7 +2063,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Privacidad comunitaria',
         paragraphs: [
-          'La participación en PockeAmigos es voluntaria y separada del acceso privado a informes. Crear cuenta, ver un informe, seguir una organización o unirse a PockeAmigos no publica automáticamente un informe privado.',
+          'La participación en PockeAmigos™ es voluntaria y separada del acceso privado a informes. Crear cuenta, ver un informe, seguir una organización o unirse a PockeAmigos™ no publica automáticamente un informe privado.',
           'La información comunitaria que una persona agrega puede revelar contexto de salud o genética. Las coincidencias pueden usar campos voluntarios de gen, condición, síntoma, país, idioma, rol, interés o etapa cuando esas funciones están activas. La visibilidad depende de la función, configuración, reglas del grupo y moderación.',
         ],
       },
@@ -2090,7 +2090,7 @@ export const trustDocumentsEs: TrustDocument[] = [
           'Las cuentas gestionadas por cuidadores deben respetar autoridad y privacidad de la persona cuya información se administra.',
           'Las comunicaciones de servicio se limitan a cuenta, soporte, invitación, acceso a informe, seguridad, accesibilidad, incidentes y operación.',
           'Newsletters, eventos, novedades de organizaciones o marketing opcional deben tener un camino claro de aceptación o baja.',
-          'Las coincidencias o recomendaciones en PockeAmigos deben apoyarse en campos aportados o permitidos por el usuario y no presentarse como diagnóstico, tratamiento, priorización clínica ni aval.',
+          'Las coincidencias o recomendaciones en PockeAmigos™ deben apoyarse en campos aportados o permitidos por el usuario y no presentarse como diagnóstico, tratamiento, priorización clínica ni aval.',
           'Los cambios de esta política se publican en el Centro de confianza. Los cambios materiales deben comunicarse por un aviso de producto o cuenta cuando corresponda.',
         ],
       },
@@ -2145,8 +2145,8 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Propósito y alcance',
         paragraphs: [
-          `Estos Términos de Servicio rigen el acceso y uso de Pocket Genes, un producto operado por ${POCKET_GENES_OPERATOR.legalName} en ${POCKET_GENES_OPERATOR.country}. Al crear una cuenta, aceptar los Términos en un flujo, usar Pocket Genes, participar en PockeAmigos o usar una experiencia de acceso a informes, el usuario acepta estos Términos en lo aplicable.`,
-          'Una invitación de un proveedor, integrador u organización inicia un flujo de servicio. Recibir una invitación no significa por sí solo que la persona invitada aceptó todos los términos de Pocket Genes, se unió a PockeAmigos, autorizó comunicaciones opcionales o aceptó publicar información.',
+          `Estos Términos de Servicio rigen el acceso y uso de Pocket Genes, un producto operado por ${POCKET_GENES_OPERATOR.legalName} en ${POCKET_GENES_OPERATOR.country}. Al crear una cuenta, aceptar los Términos en un flujo, usar Pocket Genes, participar en PockeAmigos™ o usar una experiencia de acceso a informes, el usuario acepta estos Términos en lo aplicable.`,
+          'Una invitación de un proveedor, integrador u organización inicia un flujo de servicio. Recibir una invitación no significa por sí solo que la persona invitada aceptó todos los términos de Pocket Genes, se unió a PockeAmigos™, autorizó comunicaciones opcionales o aceptó publicar información.',
         ],
       },
       {
@@ -2155,7 +2155,7 @@ export const trustDocumentsEs: TrustDocument[] = [
           'Titulares de cuentas y visitantes de páginas públicas de Pocket Genes.',
           'Personas invitadas por proveedor, laboratorio, clínica, organización, programa de apoyo, cuidador o representante autorizado.',
           'Madres, padres, tutores, cuidadores o representantes que usan Pocket Genes para otra persona cuando está permitido.',
-          'Miembros de PockeAmigos, personas que publican, comentan, envían mensajes o siguen contenido.',
+          'Miembros de PockeAmigos™, personas que publican, comentan, envían mensajes o siguen contenido.',
           'Organizaciones de confianza, integradores, editores y profesionales que usan funciones comunitarias u organizacionales.',
         ],
       },
@@ -2165,7 +2165,7 @@ export const trustDocumentsEs: TrustDocument[] = [
           { heading: 'Pocket Genes', body: 'Producto móvil, páginas públicas, Centro de confianza, cuentas, acceso a informes, educación, descubrimiento, organizaciones y comunidad controlados por Pocket Genes.' },
           { heading: 'Usuario', body: 'Persona que accede o usa Pocket Genes directamente o mediante un cuidador, tutor, representante u organización autorizada.' },
           { heading: 'Informe de proveedor', body: 'Informe genético, hallazgo, archivo, recurso o experiencia de acceso creada, entregada o controlada por un proveedor independiente.' },
-          { heading: 'PockeAmigos', body: 'Capa comunitaria opcional conectada a Pocket Genes.' },
+          { heading: 'PockeAmigos™', body: 'Capa comunitaria opcional conectada a Pocket Genes.' },
           { heading: 'Organización de confianza', body: 'Organización revisada para una presencia curada en Pocket Genes, sujeta a estándares y moderación.' },
           { heading: 'Contenido de usuario', body: 'Campos de perfil, publicaciones, comentarios, mensajes, reportes, comentarios enviados, envíos de organizaciones u otro contenido provisto por usuarios u organizaciones.' },
         ],
@@ -2180,7 +2180,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Descripción del servicio',
         paragraphs: [
-          'Pocket Genes puede brindar acceso móvil a informes conectados con proveedores, educación sobre conceptos genéticos, glosario y lecciones, descubrimiento de organizaciones, recursos y eventos, contenido de organizaciones de confianza, PockeAmigos, flujos de acceso y consentimiento informado, soporte y comunicaciones opcionales.',
+          'Pocket Genes puede brindar acceso móvil a informes conectados con proveedores, educación sobre conceptos genéticos, glosario y lecciones, descubrimiento de organizaciones, recursos y eventos, contenido de organizaciones de confianza, PockeAmigos™, flujos de acceso y consentimiento informado, soporte y comunicaciones opcionales.',
           'Las funciones pueden variar por región, versión de app, estado de cuenta, disponibilidad del proveedor, participación de organizaciones, configuración de integración y elecciones del usuario. Pocket Genes puede cambiar, pausar, discontinuar o limitar funciones por razones de producto, seguridad, cumplimiento, abuso, proveedor u operación.',
         ],
       },
@@ -2196,7 +2196,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Responsabilidades de integradores',
         paragraphs: [
           'Un integrador que aporta nombres, emails, teléfonos, referencias de proveedor, códigos de informe o invitaciones debe estar autorizado, brindar información precisa, explicar fuente y propósito cuando corresponda y no usar Pocket Genes para contactar personas sin base válida.',
-          'El acceso del integrador a un flujo no le da visibilidad irrestricta de actividad posterior de cuenta, PockeAmigos, seguimientos, mensajes, publicaciones o acceso privado a informes salvo que el producto y los avisos aplicables lo permitan expresamente.',
+          'El acceso del integrador a un flujo no le da visibilidad irrestricta de actividad posterior de cuenta, PockeAmigos™, seguimientos, mensajes, publicaciones o acceso privado a informes salvo que el producto y los avisos aplicables lo permitan expresamente.',
         ],
       },
       {
@@ -2228,7 +2228,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Comunidad y organizaciones de confianza',
         paragraphs: [
-          'PockeAmigos se rige por estos Términos, los Términos de Comunidad y la Política de Seguridad Comunitaria. Los usuarios eligen qué compartir y son responsables de su contenido e interacciones.',
+          'PockeAmigos™ se rige por estos Términos, los Términos de Comunidad y la Política de Seguridad Comunitaria. Los usuarios eligen qué compartir y son responsables de su contenido e interacciones.',
           'La designación como organización de confianza significa que Pocket Genes evaluó su identidad, relevancia, adecuación del contenido y expectativas de seguridad. No implica avalar cada afirmación, servicio, producto, evento, publicación, proveedor, profesional o recurso externo.',
         ],
       },
@@ -2295,7 +2295,7 @@ export const trustDocumentsEs: TrustDocument[] = [
     title: 'Términos de Comunidad',
     category: 'Comunidad',
     summary:
-      'Reúne las reglas de PockeAmigos, explica qué información puede verse y cómo participar de forma respetuosa y segura.',
+      'Reúne las reglas de PockeAmigos™, explica qué información puede verse y cómo participar de forma respetuosa y segura.',
     owner: 'Operaciones comunitarias',
     status: 'Publicado',
     ...baseDocumentMetaEs,
@@ -2303,14 +2303,14 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Propósito y alcance',
         paragraphs: [
-          'Estos Términos de Comunidad rigen PockeAmigos de Pocket Genes y toda función que permita crear perfiles, unirse a grupos, seguir organizaciones, publicar, comentar, enviar mensajes, reportar contenido o usar campos para encontrar coincidencias.',
-          'PockeAmigos busca permitir conexión cuidadosa, educación, descubrimiento y próximos pasos prácticos sin convertir informes genéticos privados en contenido público.',
+          'Estos Términos de Comunidad rigen PockeAmigos™ de Pocket Genes y toda función que permita crear perfiles, unirse a grupos, seguir organizaciones, publicar, comentar, enviar mensajes, reportar contenido o usar campos para encontrar coincidencias.',
+          'PockeAmigos™ busca permitir conexión cuidadosa, educación, descubrimiento y próximos pasos prácticos sin convertir informes genéticos privados en contenido público.',
         ],
       },
       {
         heading: 'A quién se aplica',
         bullets: [
-          'Personas que crean o ven perfiles de PockeAmigos.',
+          'Personas que crean o ven perfiles de PockeAmigos™.',
           'Personas que publican, comentan, envían mensajes, siguen, bloquean, reportan, se unen a grupos o usan funciones para encontrar coincidencias.',
           'Cuidadores y representantes que participan por otra persona cuando está permitido.',
           'Profesionales y organizaciones que participan en comunidad o funciones de organizaciones de confianza.',
@@ -2319,9 +2319,9 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Definiciones',
         subsections: [
-          { heading: 'Perfil comunitario', body: 'Identidad y campos opcionales que un miembro decide mostrar en PockeAmigos.' },
+          { heading: 'Perfil comunitario', body: 'Identidad y campos opcionales que un miembro decide mostrar en PockeAmigos™.' },
           { heading: 'Campos para encontrar coincidencias', body: 'Campos opcionales de gen, condición, síntoma, rol, país, idioma, etapa, interés o grupo usados para encontrar personas o recursos relevantes.' },
-          { heading: 'Acceso privado a informes', body: 'Funcionalidad de acceso a informes separada de PockeAmigos salvo que el usuario comparta información intencionalmente.' },
+          { heading: 'Acceso privado a informes', body: 'Funcionalidad de acceso a informes separada de PockeAmigos™ salvo que el usuario comparta información intencionalmente.' },
           { heading: 'Participación pseudónima', body: 'Uso de nickname o perfil limitado en lugar de identidad pública completa cuando la función lo permite.' },
           { heading: 'Contenido de organización', body: 'Publicaciones, eventos, recursos, novedades educativas o material de perfil publicado por una organización o cuenta profesional.' },
         ],
@@ -2347,7 +2347,7 @@ export const trustDocumentsEs: TrustDocument[] = [
       {
         heading: 'Opciones y controles del usuario',
         bullets: [
-          'Los usuarios pueden decidir participar en PockeAmigos por separado del acceso a informes.',
+          'Los usuarios pueden decidir participar en PockeAmigos™ por separado del acceso a informes.',
           'Deben poder gestionar campos de perfil, etiquetas, grupos, seguimientos, bloqueos, reportes y eliminación de contenido cuando la función lo soporte.',
           'Nadie debe presionar para compartir variantes exactas, informes completos, contacto, ubicación, historia familiar o identidad.',
           'Salir de un grupo, bloquear, eliminar contenido o cerrar cuenta puede no retirar todos los registros de moderación, legales, backup o seguridad.',
@@ -2384,7 +2384,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         ],
       },
       {
-        heading: 'Salir de PockeAmigos',
+        heading: 'Salir de PockeAmigos™',
         paragraphs: [
           'Una persona puede dejar de participar en la comunidad por separado del acceso privado a informes. Salir puede ocultar o eliminar el perfil, terminar coincidencias, dejar de seguir cuentas o grupos, desactivar mensajes e iniciar eliminación o desidentificación de registros comunitarios.',
           `Algunas publicaciones, comentarios, reportes, registros de moderación o metadatos de mensajes pueden permanecer temporalmente o por más tiempo por seguridad, ley, disputas o backups, aun cuando la persona destilde o desactive su presencia en Pocket Genes. Si quiere el borrado total de sus registros comunitarios, puede escribir a ${POCKET_GENES_EMAILS.trust} y pedirlo; Pocket Genes limpiará esos registros de los sistemas activos y completará la limpieza restante cuando venzan límites aplicables de backups o legales.`,
@@ -2438,7 +2438,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Propósito y alcance',
         paragraphs: [
           'Las comunidades de EPOF y genética requieren cuidado especial porque puede haber personas recién diagnosticadas, sin diagnóstico, cuidando a un niño, sin saber interpretar un informe o buscando próximos pasos urgentes. Esta política explica reportes, moderación, bloqueos, exposición de información privada, conducta de organizaciones y apelaciones.',
-          'Aplica a PockeAmigos, perfiles, publicaciones, comentarios, mensajes, grupos, contenido de organizaciones, actividad de organizaciones de confianza, reportes e interacciones de soporte controladas por Pocket Genes.',
+          'Aplica a PockeAmigos™, perfiles, publicaciones, comentarios, mensajes, grupos, contenido de organizaciones, actividad de organizaciones de confianza, reportes e interacciones de soporte controladas por Pocket Genes.',
         ],
       },
       {
@@ -2726,7 +2726,7 @@ export const trustDocumentsEs: TrustDocument[] = [
           { heading: 'Proveedor', body: 'Organización que crea, entrega o controla el informe genético o el recurso asociado.' },
           { heading: 'Integrador', body: 'Proveedor, clínica, laboratorio, organización o programa que conecta a una persona con una experiencia de Pocket Genes.' },
           { heading: 'Referencia de acceso', body: 'URL, código, token, identificador, referencia de proveedor o valor similar que permite vincular a un usuario autorizado con un informe.' },
-          { heading: 'Participación en la comunidad', body: 'Acciones opcionales en PockeAmigos, como crear un perfil, encontrar coincidencias, seguir grupos, publicar, comentar o enviar mensajes.' },
+          { heading: 'Participación en la comunidad', body: 'Acciones opcionales en PockeAmigos™, como crear un perfil, encontrar coincidencias, seguir grupos, publicar, comentar o enviar mensajes.' },
         ],
       },
       {
@@ -2844,7 +2844,7 @@ export const trustDocumentsEs: TrustDocument[] = [
               control: 'El usuario gestiona intereses, seguimientos y comunicaciones opcionales.',
             },
             {
-              title: 'PockeAmigos y comunidad',
+              title: 'PockeAmigos™ y comunidad',
               actor: 'Usuario y funciones comunitarias',
               information: 'Perfil opcional, etiquetas, publicaciones, comentarios, seguimientos, grupos, mensajes, reportes y bloqueos.',
               action: 'El usuario puede participar de manera opcional con perfil, publicaciones, grupos y controles propios.',
@@ -2863,7 +2863,7 @@ export const trustDocumentsEs: TrustDocument[] = [
           'Los médicos y pacientes autorizados pueden conservar archivos de reporte descargados fuera de Pocket Genes.',
           'Pocket Genes responde por las funciones de cuenta, acceso, integración, educación, descubrimiento y comunidad que opera.',
           'Acceder a un informe no lo hace público.',
-          'Unirse a PockeAmigos no expone un informe ante otros usuarios.',
+          'Unirse a PockeAmigos™ no expone un informe ante otros usuarios.',
           'Usar funciones educativas o comunitarias es opcional y no forma parte de una decisión de estudio.',
           'Las organizaciones de confianza no reciben acceso irrestricto a cuentas.',
           'Un integrador no recibe automáticamente la actividad comunitaria posterior del usuario.',
@@ -3050,7 +3050,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         bullets: [
           'Usuarios, invitados, cuidadores y representantes de Pocket Genes.',
           'Personas cuyos datos de contacto fueron aportados por un integrador.',
-          'Participantes de PockeAmigos.',
+          'Participantes de PockeAmigos™.',
           'Organizaciones de confianza, proveedores e integradores conectados a un flujo.',
         ],
       },
@@ -3073,7 +3073,7 @@ export const trustDocumentsEs: TrustDocument[] = [
             ['Datos de cuenta', 'Creación de cuenta o aceptación de invitación.', 'Eliminación de cuenta más proceso activo y rotación de backups.', 'Solicitud verificada, eliminación admin autorizada o cierre de cuenta.', 'Requisito legal, fraude, seguridad, pago o disputa.'],
             ['Registro de decisión de plataforma', 'Preferencia de plataforma, activación de acceso a informe, preferencia de comunicación opcional o estado de carga de consentimiento informado.', 'Cuando termina necesidad probatoria, de proveedor o legal.', 'Fin de requerimiento probatorio, solicitud aplicable o retiro de flujo.', 'Reclamo legal, cumplimiento o disputa.'],
             ['Referencia o enlace de informe', 'Creación de enlace, código, token, referencia o estado de acceso.', 'Vencimiento, revocación, fin de relación con proveedor, eliminación de cuenta o limpieza.', 'Solicitud, revocación de proveedor, eliminación de cuenta o limpieza de integración.', 'Soporte, incidente de seguridad, retención legal, disputa con proveedor.'],
-            ['Perfil comunitario', 'Creación de perfil o alta en PockeAmigos.', 'Eliminación de perfil, salida de PockeAmigos, eliminación de cuenta o moderación.', 'Solicitud, cierre de cuenta o acción de moderación.', 'Registro de moderación, evidencia de seguridad, retención legal.'],
+            ['Perfil comunitario', 'Creación de perfil o alta en PockeAmigos™.', 'Eliminación de perfil, salida de PockeAmigos™, eliminación de cuenta o moderación.', 'Solicitud, cierre de cuenta o acción de moderación.', 'Registro de moderación, evidencia de seguridad, retención legal.'],
             ['Publicaciones y comentarios', 'Publicación.', 'Eliminación por usuario, cascada de cuenta, retiro por moderación o retiro de función.', 'Acción del usuario, cierre de cuenta o moderación.', 'Investigación, preservación legal, evidencia de abuso.'],
             ['Mensajes', 'Envío o recepción.', 'Eliminación, cierre de cuenta, retención de función o limpieza por moderación cuando mensajes estén habilitados.', 'Eliminación de usuario/cuenta, reporte o moderación.', 'Investigación de abuso, seguridad o retención legal.'],
             ['Soporte y reservas', 'Ticket, email, formulario o reserva.', 'Cierre, archivo manual, solicitud de eliminación o limpieza operativa.', 'Solicitud, cierre de soporte o archivo.', 'Disputa legal, facturación, abuso o seguridad.'],
@@ -3208,7 +3208,7 @@ export const trustDocumentsEs: TrustDocument[] = [
         heading: 'Reportar una vulnerabilidad de seguridad',
         paragraphs: [
           `Las vulnerabilidades pueden reportarse a ${POCKET_GENES_EMAILS.security}. El archivo security.txt público también dirige a este canal.`,
-          'El alcance incluye páginas públicas de Pocket Genes, Centro de confianza, APIs de cuenta y acceso a informes, superficies móviles, PockeAmigos y flujos de publicación de organizaciones controlados por Pocket Genes.',
+          'El alcance incluye páginas públicas de Pocket Genes, Centro de confianza, APIs de cuenta y acceso a informes, superficies móviles, PockeAmigos™ y flujos de publicación de organizaciones controlados por Pocket Genes.',
         ],
       },
       {
@@ -3538,7 +3538,7 @@ export const trustDocumentsEs: TrustDocument[] = [
           'Organizar caminos de acceso, referencias, contexto educativo y recursos relacionados.',
           'Brindar educación general sobre terminología y conceptos genéticos.',
           'Ayudar a descubrir organizaciones, eventos, recursos y actualizaciones educativas.',
-          'Soportar participación opcional en PockeAmigos.',
+          'Soportar participación opcional en PockeAmigos™.',
           'Ayudar a preparar preguntas para profesionales calificados.',
         ],
       },
