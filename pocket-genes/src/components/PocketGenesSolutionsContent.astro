@@ -23,6 +23,13 @@ type CatalogKey =
   | 'communication'
   | 'backoffice';
 
+type CatalogItemCopy = {
+  key: CatalogKey;
+  title: string;
+  summary: string;
+  example: string;
+};
+
 type JigsawBlueprint = {
   key: string;
   targetKey: CatalogKey;
@@ -170,6 +177,56 @@ const jigsawTones: Record<JigsawTone, { fill: string; stroke: string; glow: stri
     text: '#a97a35',
     chip: 'rgba(217, 146, 50, 0.12)',
   },
+};
+
+const catalogIcons: Record<CatalogKey, string> = {
+  reports:
+    '<path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h5"></path><path d="M8 17v-4"></path><path d="M12 17v-7"></path><path d="M16 17v-2"></path>',
+  consents:
+    '<path d="M9 11l2 2 4-5"></path><path d="M20 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6"></path><path d="M8 4h8"></path><path d="M9 2h6a1 1 0 0 1 1 1v3H8V3a1 1 0 0 1 1-1z"></path>',
+  samples:
+    '<path d="M10 2h4"></path><path d="M11 2v5l-5 9a4 4 0 0 0 3.5 6h5a4 4 0 0 0 3.5-6l-5-9V2"></path><path d="M8.5 15h7"></path>',
+  processing:
+    '<path d="M4 12h5"></path><path d="M15 12h5"></path><circle cx="12" cy="12" r="3"></circle><path d="M12 5V3"></path><path d="M12 21v-2"></path><path d="M5 5l2.5 2.5"></path><path d="M16.5 16.5 19 19"></path>',
+  education:
+    '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H7a3 3 0 0 0-3 3z"></path><path d="M4 5.5V22"></path><path d="M8 7h8"></path><path d="M8 11h6"></path>',
+  discover:
+    '<circle cx="12" cy="12" r="9"></circle><path d="m15.5 8.5-2.2 5-4.8 2 2.2-5z"></path>',
+  community:
+    '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+  network:
+    '<circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="18" cy="18" r="3"></circle><path d="m8.7 10.7 6.6-3.4"></path><path d="m8.7 13.3 6.6 3.4"></path>',
+  operations:
+    '<path d="M4 6h10"></path><path d="M18 6h2"></path><circle cx="16" cy="6" r="2"></circle><path d="M4 12h4"></path><path d="M12 12h8"></path><circle cx="10" cy="12" r="2"></circle><path d="M4 18h12"></path><circle cx="18" cy="18" r="2"></circle>',
+  communication:
+    '<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path><path d="M8 8h8"></path><path d="M8 12h5"></path>',
+  backoffice:
+    '<rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18"></path><path d="M9 20V9"></path><path d="M13 13h4"></path><path d="M13 16h2"></path>',
+};
+
+const catalogIconTones: Record<CatalogKey, JigsawTone> = {
+  reports: 'blue',
+  consents: 'teal',
+  samples: 'green',
+  processing: 'rose',
+  education: 'blue',
+  discover: 'amber',
+  community: 'teal',
+  network: 'blue',
+  operations: 'rose',
+  communication: 'green',
+  backoffice: 'rose',
+};
+
+const getCatalogIconStyle = (key: CatalogKey) => {
+  const tone = jigsawTones[catalogIconTones[key]];
+
+  return [
+    `--catalog-icon-color: ${tone.text}`,
+    `--catalog-icon-bg: ${tone.chip}`,
+    `--catalog-icon-border: ${tone.stroke}`,
+    `--catalog-icon-glow: ${tone.glow}`,
+  ].join(';');
 };
 
 const jigsawBlueprints: readonly JigsawBlueprint[] = [
@@ -733,77 +790,66 @@ const pageCopy = {
     catalogItems: [
       {
         key: 'reports',
-        number: '01',
         title: 'Reports',
         summary: 'Turn a result into a digital experience.',
         example: 'A lab generates a report, the user receives a code, opens it in app or web, and returns to it when needed.',
       },
       {
         key: 'consents',
-        number: '02',
         title: 'Consents and documentation',
         summary: 'Replace scattered emails, loose files, and manual follow-up.',
         example: 'A company can buy only this workflow when documentation is the operational bottleneck.',
       },
       {
         key: 'samples',
-        number: '03',
         title: 'Samples and logistics',
         summary: 'Track each sample from request to laboratory reception.',
         example: 'Request, assignment, pickup, transport, lab, and received status in one traceable flow.',
       },
       {
         key: 'processing',
-        number: '04',
         title: 'Processing and integrations',
         summary: 'Connect systems without adding manual work.',
         example: 'External system, API, processing, result, and report delivery as a connected pipeline.',
       },
       {
         key: 'education',
-        number: '05',
         title: 'Education',
         summary: 'Make complex information easier to understand.',
         example: 'A post-report experience can become an independent learning product for a specific audience.',
       },
       {
         key: 'discover',
-        number: '06',
         title: 'Discover and content',
         summary: 'Publish once and reach the users who need it.',
         example: 'Backoffice, publish, app or web, notification, and user action.',
       },
       {
         key: 'community',
-        number: '07',
         title: 'Community',
         summary: 'Create a space where people can connect safely.',
         example: 'People, caregivers, groups, and events become part of the product instead of living elsewhere.',
       },
       {
         key: 'network',
-        number: '08',
         title: 'Professional and organization network',
         summary: 'Make sure the journey does not end with the result.',
         example: 'Result, understanding, help, and next step as a practical support path.',
       },
       {
         key: 'operations',
-        number: '09',
         title: 'Operations and CRM',
         summary: 'Track the process instead of managing disconnected spreadsheets.',
         example: 'Lightweight operational visibility for genetics workflows without turning it into a generic enterprise CRM.',
       },
       {
         key: 'communication',
-        number: '10',
         title: 'Communication and engagement',
         summary: 'Keep the relationship active after each interaction.',
         example: 'Reports, Discover, education, and operations can all share a consistent communication layer.',
       },
       {
         key: 'backoffice',
-        number: '11',
         title: 'Backoffice and administration',
         summary: 'Control the operation from one place.',
         example: 'The backoffice is the operational half behind almost every capability.',
@@ -1075,77 +1121,66 @@ const pageCopy = {
     catalogItems: [
       {
         key: 'reports',
-        number: '01',
         title: 'Informes interactivos',
         summary: 'De un resultado a una experiencia digital.',
         example: 'El laboratorio genera un informe, el usuario recibe un código, accede desde app o web y vuelve a consultarlo cuando lo necesita.',
       },
       {
         key: 'consents',
-        number: '02',
         title: 'Consentimientos y documentación',
         summary: 'Menos emails, archivos sueltos y seguimiento manual.',
         example: 'Una compañía puede comprar solo este flujo cuando la documentación es el cuello de botella operativo.',
       },
       {
         key: 'samples',
-        number: '03',
         title: 'Muestras y logística',
         summary: 'Seguimiento desde la solicitud hasta el laboratorio.',
         example: 'Solicitud, asignación, retiro, transporte, laboratorio y recepción en un flujo trazable.',
       },
       {
         key: 'processing',
-        number: '04',
         title: 'Integración via API',
         summary: 'Conectá sistemas sin sumar trabajo manual.',
         example: 'Sistema externo, API, procesamiento, resultado y entrega de informe como pipeline conectado.',
       },
       {
         key: 'education',
-        number: '05',
         title: 'Contenidos educativos',
         summary: 'Convertí información compleja en una experiencia que se pueda entender.',
         example: 'La experiencia posterior al informe puede convertirse en un producto educativo independiente para una audiencia específica.',
       },
       {
         key: 'discover',
-        number: '06',
         title: 'Discover y contenidos',
         summary: 'Publicá una vez. Llegá directamente a tus usuarios.',
         example: 'Backoffice, publicación, app o web, notificación y acción del usuario.',
       },
       {
         key: 'community',
-        number: '07',
         title: 'Comunidad',
         summary: 'Creá un espacio propio para conectar personas.',
         example: 'Personas, cuidadores, grupos y eventos pasan a ser parte del producto en vez de vivir afuera.',
       },
       {
         key: 'network',
-        number: '08',
         title: 'Red de profesionales y organizaciones',
         summary: 'Que el recorrido no termine con el resultado.',
         example: 'Resultado, entender, encontrar ayuda y próximo paso como recorrido de apoyo práctico.',
       },
       {
         key: 'operations',
-        number: '09',
         title: 'Operaciones y CRM',
         summary: 'Seguí el proceso, no una colección de planillas.',
         example: 'Visibilidad operativa liviana para flujos genéticos sin convertirlo en un CRM corporativo genérico.',
       },
       {
         key: 'communication',
-        number: '10',
         title: 'Notas y eventos',
         summary: 'Mantené la relación después de cada interacción.',
         example: 'Informes, Discover, educación y operaciones pueden compartir una misma capa de comunicación.',
       },
       {
         key: 'backoffice',
-        number: '11',
         title: 'Backoffice y administración',
         summary: 'Controlá la operación desde un solo lugar.',
         example: 'El backoffice es la mitad operativa detrás de casi todas las capacidades.',
@@ -1369,6 +1404,7 @@ const pageCopy = {
 
 const copy = pageCopy[locale];
 const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy.hubCenterBody);
+const catalogItems = copy.catalogItems as readonly CatalogItemCopy[];
 const journeyPanels = createJourneyPanels(copy.journeySteps, copy.journeyBranches);
 const journeyNodes = createJourneyNodes(copy.journeySteps);
 // Clockwise orbit around the hub: 11 12 01 02 03 / 10 .. 04 / 09 08 07 06 05.
@@ -1556,11 +1592,13 @@ const audienceTiles = createAudienceTiles(copy.audiences);
           <p>{copy.catalogBody}</p>
         </div>
 
-        <ol class="pg-catalog-list">
-          {copy.catalogItems.map((item) => (
+        <ul class="pg-catalog-list">
+          {catalogItems.map((item) => (
             <li id={`solution-${item.key}`} data-catalog-target={item.key}>
               <article class="pg-catalog-row">
-                <span class="pg-catalog-number">{item.number}</span>
+                <span class="pg-catalog-icon" style={getCatalogIconStyle(item.key)} aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false" set:html={catalogIcons[item.key]} />
+                </span>
                 <div class="pg-catalog-copy">
                   <h3>{item.title}</h3>
                   <p class="pg-catalog-summary">{item.summary}</p>
@@ -1569,7 +1607,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
               </article>
             </li>
           ))}
-        </ol>
+        </ul>
       </div>
     </section>
 
@@ -2405,17 +2443,30 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     animation: pgCatalogSweep 1.15s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .pg-catalog-number {
+  .pg-catalog-icon {
     flex: 0 0 auto;
-    min-width: 40px;
-    border-radius: 8px;
-    background: #eef8f5;
-    color: #0e6f6b;
-    font-size: 0.78rem;
-    font-weight: 950;
-    line-height: 1;
-    padding: 10px;
-    text-align: center;
+    display: inline-flex;
+    width: 46px;
+    height: 46px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--catalog-icon-border);
+    border-radius: 12px;
+    background: var(--catalog-icon-bg);
+    color: var(--catalog-icon-color);
+    box-shadow: inset 0 1px 10px rgba(255, 255, 255, 0.68), 0 8px 18px var(--catalog-icon-glow);
+  }
+
+  .pg-catalog-icon svg {
+    display: block;
+    width: 23px;
+    height: 23px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+    vector-effect: non-scaling-stroke;
   }
 
   .pg-catalog-copy {
