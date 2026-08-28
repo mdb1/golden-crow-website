@@ -166,73 +166,43 @@ const jigsawTones: Record<JigsawTone, { fill: string; stroke: string; glow: stri
   },
 };
 
-const audienceTones: Record<
+const audienceHoverTones: Record<
   JigsawTone,
   {
-    fill: string;
     fillStrong: string;
-    stroke: string;
     strokeStrong: string;
-    glow: string;
     glowStrong: string;
-    text: string;
-    chip: string;
     wash: string;
   }
 > = {
   rose: {
-    fill: '#fff0f6',
     fillStrong: '#ffdce9',
-    stroke: 'rgba(228, 80, 128, 0.58)',
     strokeStrong: 'rgba(228, 80, 128, 0.84)',
-    glow: 'rgba(228, 80, 128, 0.22)',
     glowStrong: 'rgba(228, 80, 128, 0.38)',
-    text: '#ad3f69',
-    chip: 'rgba(228, 80, 128, 0.2)',
     wash: 'rgba(228, 80, 128, 0.16)',
   },
   teal: {
-    fill: '#e9fbf8',
     fillStrong: '#d3f5ee',
-    stroke: 'rgba(20, 149, 143, 0.56)',
     strokeStrong: 'rgba(20, 149, 143, 0.82)',
-    glow: 'rgba(20, 149, 143, 0.22)',
     glowStrong: 'rgba(20, 149, 143, 0.36)',
-    text: '#16736f',
-    chip: 'rgba(20, 149, 143, 0.18)',
     wash: 'rgba(20, 149, 143, 0.15)',
   },
   blue: {
-    fill: '#edf7ff',
     fillStrong: '#d8ecff',
-    stroke: 'rgba(33, 118, 174, 0.55)',
     strokeStrong: 'rgba(33, 118, 174, 0.8)',
-    glow: 'rgba(33, 118, 174, 0.22)',
     glowStrong: 'rgba(33, 118, 174, 0.36)',
-    text: '#2d719f',
-    chip: 'rgba(33, 118, 174, 0.18)',
     wash: 'rgba(33, 118, 174, 0.15)',
   },
   green: {
-    fill: '#effbf3',
     fillStrong: '#dbf3e4',
-    stroke: 'rgba(60, 155, 104, 0.55)',
     strokeStrong: 'rgba(60, 155, 104, 0.8)',
-    glow: 'rgba(60, 155, 104, 0.22)',
     glowStrong: 'rgba(60, 155, 104, 0.35)',
-    text: '#34805a',
-    chip: 'rgba(60, 155, 104, 0.18)',
     wash: 'rgba(60, 155, 104, 0.15)',
   },
   amber: {
-    fill: '#fff3dd',
     fillStrong: '#fee4b6',
-    stroke: 'rgba(217, 146, 50, 0.56)',
     strokeStrong: 'rgba(217, 146, 50, 0.82)',
-    glow: 'rgba(217, 146, 50, 0.24)',
     glowStrong: 'rgba(217, 146, 50, 0.38)',
-    text: '#96651f',
-    chip: 'rgba(217, 146, 50, 0.2)',
     wash: 'rgba(217, 146, 50, 0.16)',
   },
 };
@@ -711,7 +681,8 @@ const createAudienceTiles = (labels: readonly string[]): AudienceTile[] => {
   }
 
   return audienceBlueprints.map((blueprint, index) => {
-    const tone = audienceTones[blueprint.tone];
+    const tone = jigsawTones[blueprint.tone];
+    const hoverTone = audienceHoverTones[blueprint.tone];
 
     return {
       ...blueprint,
@@ -724,14 +695,14 @@ const createAudienceTiles = (labels: readonly string[]): AudienceTile[] => {
         `--aud-rows: ${blueprint.rows}`,
         `--aud-index: ${index}`,
         `--aud-fill: ${tone.fill}`,
-        `--aud-fill-strong: ${tone.fillStrong}`,
+        `--aud-fill-hover: ${hoverTone.fillStrong}`,
         `--aud-stroke: ${tone.stroke}`,
-        `--aud-stroke-strong: ${tone.strokeStrong}`,
+        `--aud-stroke-hover: ${hoverTone.strokeStrong}`,
         `--aud-glow: ${tone.glow}`,
-        `--aud-glow-strong: ${tone.glowStrong}`,
+        `--aud-glow-hover: ${hoverTone.glowStrong}`,
         `--aud-text: ${tone.text}`,
         `--aud-chip: ${tone.chip}`,
-        `--aud-wash: ${tone.wash}`,
+        `--aud-wash-hover: ${hoverTone.wash}`,
       ].join(';'),
     };
   });
@@ -4916,14 +4887,10 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     border: 1px solid var(--aud-stroke);
     border-radius: 8px;
     background:
-      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 42%), rgba(255, 255, 255, 0.88), transparent 36%),
-      linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, var(--aud-fill) 48%, var(--aud-fill-strong) 100%);
-    box-shadow:
-      0 12px 28px var(--aud-glow),
-      inset 0 1px 0 rgba(255, 255, 255, 0.74),
-      inset 0 -18px 34px var(--aud-wash);
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 42%), rgba(255, 255, 255, 0.96), transparent 34%),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.96), var(--aud-fill));
+    box-shadow: 0 10px 24px var(--aud-glow);
     color: var(--aud-text);
-    filter: saturate(1.08);
     isolation: isolate;
     overflow: hidden;
     font-weight: 820;
@@ -4952,9 +4919,8 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-audience-card::before {
     z-index: -1;
     background:
-      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 42%), rgba(255, 255, 255, 0.52), transparent 40%),
-      linear-gradient(135deg, var(--aud-fill-strong), transparent 52%, var(--aud-wash));
-    opacity: 0.24;
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 42%), rgba(255, 255, 255, 0.46), transparent 38%),
+      linear-gradient(135deg, rgba(20, 149, 143, 0.055), transparent 54%, rgba(228, 80, 128, 0.04));
     transition: opacity 0.22s ease;
   }
 
@@ -4963,10 +4929,10 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     top: -12%;
     right: auto;
     bottom: -12%;
-    left: -54%;
-    width: 94%;
+    left: -42%;
+    width: 74%;
     background: var(--solution-shine-band);
-    filter: blur(3px);
+    filter: blur(2px);
     mask-image: var(--solution-shine-mask);
     -webkit-mask-image: var(--solution-shine-mask);
     mix-blend-mode: screen;
@@ -4978,13 +4944,16 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-audience-card:focus-visible,
   .pg-audience-card.is-active {
     z-index: 3;
-    border-color: var(--aud-stroke-strong);
+    border-color: var(--aud-stroke-hover);
+    background:
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 42%), rgba(255, 255, 255, 0.9), transparent 36%),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, var(--aud-fill) 46%, var(--aud-fill-hover) 100%);
     box-shadow:
       0 24px 46px rgba(23, 32, 51, 0.16),
-      0 16px 38px var(--aud-glow-strong),
-      0 0 0 1px var(--aud-stroke-strong),
+      0 16px 38px var(--aud-glow-hover),
+      0 0 0 1px var(--aud-stroke-hover),
       inset 0 1px 0 rgba(255, 255, 255, 0.86),
-      inset 0 -22px 42px var(--aud-wash);
+      inset 0 -22px 42px var(--aud-wash-hover);
     filter: saturate(1.22) contrast(1.03);
     transform:
       perspective(760px)
@@ -4997,6 +4966,9 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-audience-card:hover::before,
   .pg-audience-card:focus-visible::before,
   .pg-audience-card.is-active::before {
+    background:
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 42%), rgba(255, 255, 255, 0.52), transparent 40%),
+      linear-gradient(135deg, var(--aud-fill-hover), transparent 52%, var(--aud-wash-hover));
     opacity: 0.76;
   }
 
@@ -5028,7 +5000,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     width: fit-content;
     border: 1px solid var(--aud-stroke);
     border-radius: 999px;
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.72), var(--aud-chip));
+    background: var(--aud-chip);
     color: var(--aud-text);
     font-size: 0.72rem;
     font-weight: 950;
@@ -5043,8 +5015,9 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-audience-card:hover .pg-audience-card-number,
   .pg-audience-card:focus-visible .pg-audience-card-number,
   .pg-audience-card.is-active .pg-audience-card-number {
-    border-color: var(--aud-stroke-strong);
-    box-shadow: 0 8px 16px var(--aud-glow);
+    border-color: var(--aud-stroke-hover);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.72), var(--aud-chip));
+    box-shadow: 0 8px 16px var(--aud-glow-hover);
     transform: translateY(-1px);
   }
 
