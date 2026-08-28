@@ -9,9 +9,22 @@ const localizePath = (path: string) => (isEnglish ? `/en${path === '/' ? '/' : p
 type JigsawSide = 'top' | 'right' | 'bottom' | 'left';
 type JigsawJoint = 'tab' | 'socket';
 type JigsawTone = 'rose' | 'teal' | 'blue' | 'green' | 'amber';
+type CatalogKey =
+  | 'reports'
+  | 'consents'
+  | 'samples'
+  | 'processing'
+  | 'education'
+  | 'discover'
+  | 'community'
+  | 'network'
+  | 'operations'
+  | 'communication'
+  | 'backoffice';
 
 type JigsawBlueprint = {
   key: string;
+  targetKey: CatalogKey;
   kind: 'center' | 'node';
   nodeIndex?: number;
   col: number;
@@ -32,9 +45,11 @@ type JigsawConnector = {
 type JigsawPiece = JigsawBlueprint & {
   title: string;
   subtitle?: string;
+  href: string;
   path: string;
   fill: string;
   stroke: string;
+  pathStyle: string;
   labelStyle: string;
 };
 
@@ -73,17 +88,17 @@ const jigsawTones: Record<JigsawTone, { fill: string; stroke: string; glow: stri
 };
 
 const jigsawBlueprints: readonly JigsawBlueprint[] = [
-  { key: 'center', kind: 'center', col: 4, row: 1, cols: 6, rows: 2, tone: 'rose' },
-  { key: 'reports', kind: 'node', nodeIndex: 0, col: 10, row: 1, cols: 3, rows: 2, tone: 'blue' },
-  { key: 'consents', kind: 'node', nodeIndex: 1, col: 1, row: 1, cols: 3, rows: 2, tone: 'teal' },
-  { key: 'education', kind: 'node', nodeIndex: 2, col: 1, row: 3, cols: 2, rows: 2, tone: 'green' },
-  { key: 'discover', kind: 'node', nodeIndex: 3, col: 3, row: 3, cols: 3, rows: 2, tone: 'rose' },
-  { key: 'community', kind: 'node', nodeIndex: 4, col: 6, row: 3, cols: 2, rows: 2, tone: 'blue' },
-  { key: 'organizations', kind: 'node', nodeIndex: 5, col: 8, row: 3, cols: 3, rows: 2, tone: 'amber' },
-  { key: 'professionals', kind: 'node', nodeIndex: 6, col: 11, row: 3, cols: 2, rows: 2, tone: 'teal' },
-  { key: 'notifications', kind: 'node', nodeIndex: 7, col: 1, row: 5, cols: 4, rows: 1, tone: 'blue' },
-  { key: 'apis', kind: 'node', nodeIndex: 8, col: 5, row: 5, cols: 4, rows: 1, tone: 'rose' },
-  { key: 'administration', kind: 'node', nodeIndex: 9, col: 9, row: 5, cols: 4, rows: 1, tone: 'green' },
+  { key: 'backoffice', targetKey: 'backoffice', kind: 'center', col: 4, row: 1, cols: 6, rows: 2, tone: 'rose' },
+  { key: 'reports', targetKey: 'reports', kind: 'node', nodeIndex: 0, col: 10, row: 1, cols: 3, rows: 2, tone: 'blue' },
+  { key: 'consents', targetKey: 'consents', kind: 'node', nodeIndex: 1, col: 1, row: 1, cols: 3, rows: 2, tone: 'teal' },
+  { key: 'samples', targetKey: 'samples', kind: 'node', nodeIndex: 2, col: 1, row: 3, cols: 2, rows: 2, tone: 'green' },
+  { key: 'processing', targetKey: 'processing', kind: 'node', nodeIndex: 3, col: 3, row: 3, cols: 3, rows: 2, tone: 'rose' },
+  { key: 'education', targetKey: 'education', kind: 'node', nodeIndex: 4, col: 6, row: 3, cols: 2, rows: 2, tone: 'blue' },
+  { key: 'discover', targetKey: 'discover', kind: 'node', nodeIndex: 5, col: 8, row: 3, cols: 3, rows: 2, tone: 'amber' },
+  { key: 'community', targetKey: 'community', kind: 'node', nodeIndex: 6, col: 11, row: 3, cols: 2, rows: 2, tone: 'teal' },
+  { key: 'network', targetKey: 'network', kind: 'node', nodeIndex: 7, col: 1, row: 5, cols: 4, rows: 1, tone: 'blue' },
+  { key: 'operations', targetKey: 'operations', kind: 'node', nodeIndex: 8, col: 5, row: 5, cols: 4, rows: 1, tone: 'rose' },
+  { key: 'communication', targetKey: 'communication', kind: 'node', nodeIndex: 9, col: 9, row: 5, cols: 4, rows: 1, tone: 'green' },
 ] as const;
 
 const jigsawWidth = jigsawGrid.columns * jigsawGrid.cell;
@@ -313,7 +328,7 @@ const createJigsawPieces = (nodes: readonly string[], centerTitle: string, cente
   validateJigsawPlan();
   const connectorMap = createJigsawConnectors();
 
-  return jigsawBlueprints.map((blueprint) => {
+  return jigsawBlueprints.map((blueprint, index) => {
     const title = blueprint.kind === 'center' ? centerTitle : nodes[blueprint.nodeIndex ?? -1];
 
     if (!title) {
@@ -327,9 +342,16 @@ const createJigsawPieces = (nodes: readonly string[], centerTitle: string, cente
       ...blueprint,
       title,
       subtitle: blueprint.kind === 'center' ? centerBody : undefined,
+      href: `#solution-${blueprint.targetKey}`,
       path: buildJigsawPath(blueprint, connectorMap.get(blueprint.key) ?? []),
       fill: tone.fill,
       stroke: tone.stroke,
+      pathStyle: [
+        `--piece-fill: ${tone.fill}`,
+        `--piece-stroke: ${tone.stroke}`,
+        `--piece-glow: ${tone.glow}`,
+        `--piece-delay: ${index * 48}ms`,
+      ].join(';'),
       labelStyle: [
         `--label-left: ${(box.left / jigsawWidth) * 100}%`,
         `--label-top: ${(box.top / jigsawHeight) * 100}%`,
@@ -338,6 +360,7 @@ const createJigsawPieces = (nodes: readonly string[], centerTitle: string, cente
         `--piece-fill: ${tone.fill}`,
         `--piece-stroke: ${tone.stroke}`,
         `--piece-glow: ${tone.glow}`,
+        `--piece-delay: ${index * 48}ms`,
       ].join(';'),
     };
   });
@@ -380,14 +403,14 @@ const pageCopy = {
     hubNodes: [
       'Reports',
       'Consents',
+      'Samples',
+      'Integrations',
       'Education',
       'Discover',
       'Community',
-      'Organizations',
-      'Professionals',
-      'Notifications',
-      'APIs',
-      'Administration',
+      'Network',
+      'Operations',
+      'Communication',
     ],
     catalogEyebrow: 'Solutions catalog',
     catalogTitle: 'Which part do you need to solve?',
@@ -395,66 +418,77 @@ const pageCopy = {
       'Each individual piece is a digital solution for a concrete genetics operations problem.',
     catalogItems: [
       {
+        key: 'reports',
         number: '01',
         title: 'Reports',
         summary: 'Turn a result into a digital experience.',
         example: 'A lab generates a report, the user receives a code, opens it in app or web, and returns to it when needed.',
       },
       {
+        key: 'consents',
         number: '02',
         title: 'Consents and documentation',
         summary: 'Replace scattered emails, loose files, and manual follow-up.',
         example: 'A company can buy only this workflow when documentation is the operational bottleneck.',
       },
       {
+        key: 'samples',
         number: '03',
         title: 'Samples and logistics',
         summary: 'Track each sample from request to laboratory reception.',
         example: 'Request, assignment, pickup, transport, lab, and received status in one traceable flow.',
       },
       {
+        key: 'processing',
         number: '04',
         title: 'Processing and integrations',
         summary: 'Connect systems without adding manual work.',
         example: 'External system, API, processing, result, and report delivery as a connected pipeline.',
       },
       {
+        key: 'education',
         number: '05',
         title: 'Education',
         summary: 'Make complex information easier to understand.',
         example: 'A post-report experience can become an independent learning product for a specific audience.',
       },
       {
+        key: 'discover',
         number: '06',
         title: 'Discover and content',
         summary: 'Publish once and reach the users who need it.',
         example: 'Backoffice, publish, app or web, notification, and user action.',
       },
       {
+        key: 'community',
         number: '07',
         title: 'Community',
         summary: 'Create a space where people can connect safely.',
         example: 'People, caregivers, groups, and events become part of the product instead of living elsewhere.',
       },
       {
+        key: 'network',
         number: '08',
         title: 'Professional and organization network',
         summary: 'Make sure the journey does not end with the result.',
         example: 'Result, understanding, help, and next step as a practical support path.',
       },
       {
+        key: 'operations',
         number: '09',
         title: 'Operations and CRM',
         summary: 'Track the process instead of managing disconnected spreadsheets.',
         example: 'Lightweight operational visibility for genetics workflows without turning it into a generic enterprise CRM.',
       },
       {
+        key: 'communication',
         number: '10',
         title: 'Communication and engagement',
         summary: 'Keep the relationship active after each interaction.',
         example: 'Reports, Discover, education, and operations can all share a consistent communication layer.',
       },
       {
+        key: 'backoffice',
         number: '11',
         title: 'Backoffice and administration',
         summary: 'Control the operation from one place.',
@@ -642,14 +676,14 @@ const pageCopy = {
     hubNodes: [
       'Informes',
       'Consentimientos',
+      'Muestras',
+      'Integraciones',
       'Educación',
       'Discover',
       'Comunidad',
-      'Organizaciones',
-      'Profesionales',
-      'Notificaciones',
-      'APIs',
-      'Administración',
+      'Red profesional',
+      'Operaciones',
+      'Comunicación',
     ],
     catalogEyebrow: 'Catálogo de soluciones',
     catalogTitle: '¿Qué parte necesitás resolver?',
@@ -657,66 +691,77 @@ const pageCopy = {
       'Cada pieza individual es una solución digital para problemas concretos de la operación genética.',
     catalogItems: [
       {
+        key: 'reports',
         number: '01',
         title: 'Informes',
         summary: 'De un resultado a una experiencia digital.',
         example: 'El laboratorio genera un informe, el usuario recibe un código, accede desde app o web y vuelve a consultarlo cuando lo necesita.',
       },
       {
+        key: 'consents',
         number: '02',
         title: 'Consentimientos y documentación',
         summary: 'Menos emails, archivos sueltos y seguimiento manual.',
         example: 'Una compañía puede comprar solo este flujo cuando la documentación es el cuello de botella operativo.',
       },
       {
+        key: 'samples',
         number: '03',
         title: 'Muestras y logística',
         summary: 'Seguimiento desde la solicitud hasta el laboratorio.',
         example: 'Solicitud, asignación, retiro, transporte, laboratorio y recepción en un flujo trazable.',
       },
       {
+        key: 'processing',
         number: '04',
         title: 'Procesamiento e integraciones',
         summary: 'Conectá sistemas sin sumar trabajo manual.',
         example: 'Sistema externo, API, procesamiento, resultado y entrega de informe como pipeline conectado.',
       },
       {
+        key: 'education',
         number: '05',
         title: 'Educación',
         summary: 'Convertí información compleja en una experiencia que se pueda entender.',
         example: 'La experiencia posterior al informe puede convertirse en un producto educativo independiente para una audiencia específica.',
       },
       {
+        key: 'discover',
         number: '06',
         title: 'Discover y contenidos',
         summary: 'Publicá una vez. Llegá directamente a tus usuarios.',
         example: 'Backoffice, publicación, app o web, notificación y acción del usuario.',
       },
       {
+        key: 'community',
         number: '07',
         title: 'Comunidad',
         summary: 'Creá un espacio propio para conectar personas.',
         example: 'Personas, cuidadores, grupos y eventos pasan a ser parte del producto en vez de vivir afuera.',
       },
       {
+        key: 'network',
         number: '08',
         title: 'Red de profesionales y organizaciones',
         summary: 'Que el recorrido no termine con el resultado.',
         example: 'Resultado, entender, encontrar ayuda y próximo paso como recorrido de apoyo práctico.',
       },
       {
+        key: 'operations',
         number: '09',
         title: 'Operaciones y CRM',
         summary: 'Seguí el proceso, no una colección de planillas.',
         example: 'Visibilidad operativa liviana para flujos genéticos sin convertirlo en un CRM corporativo genérico.',
       },
       {
+        key: 'communication',
         number: '10',
         title: 'Comunicación y engagement',
         summary: 'Mantené la relación después de cada interacción.',
         example: 'Informes, Discover, educación y operaciones pueden compartir una misma capa de comunicación.',
       },
       {
+        key: 'backoffice',
         number: '11',
         title: 'Backoffice y administración',
         summary: 'Controlá la operación desde un solo lugar.',
@@ -920,7 +965,7 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
           <p>{copy.hubBody}</p>
         </div>
 
-        <div class="pg-solution-map" aria-label={copy.hubEyebrow}>
+        <div class="pg-solution-map" aria-label={copy.hubEyebrow} data-solution-jigsaw>
           <div class="pg-jigsaw-board" style={`--jigsaw-aspect: ${jigsawGrid.columns} / ${jigsawGrid.rows};`}>
             <svg
               class="pg-jigsaw-svg"
@@ -932,6 +977,9 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
               {jigsawPieces.map((piece) => (
                 <path
                   class:list={['pg-jigsaw-piece-path', piece.kind === 'center' && 'is-center']}
+                  data-jigsaw-piece={piece.key}
+                  data-jigsaw-target={piece.targetKey}
+                  style={piece.pathStyle}
                   d={piece.path}
                   fill={piece.fill}
                   stroke={piece.stroke}
@@ -941,10 +989,12 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
 
             <div class="pg-jigsaw-label-layer">
               {jigsawPieces.map((piece) => (
-                <article
+                <a
                   class:list={['pg-jigsaw-label', piece.kind === 'center' && 'is-center']}
+                  href={piece.href}
                   style={piece.labelStyle}
-                  data-piece={piece.key}
+                  data-jigsaw-trigger={piece.key}
+                  data-jigsaw-target={piece.targetKey}
                 >
                   {piece.kind === 'center' ? (
                     <>
@@ -955,7 +1005,7 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
                   ) : (
                     <strong>{piece.title}</strong>
                   )}
-                </article>
+                </a>
               ))}
             </div>
           </div>
@@ -973,7 +1023,7 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
 
         <ol class="pg-catalog-list">
           {copy.catalogItems.map((item) => (
-            <li>
+            <li id={`solution-${item.key}`} data-catalog-target={item.key}>
               <article class="pg-catalog-row">
                 <span class="pg-catalog-number">{item.number}</span>
                 <div class="pg-catalog-copy">
@@ -1140,6 +1190,145 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
   </main>
 </PocketGenesPublicLayout>
 
+<script>
+  const initSolutionJigsaw = (root) => {
+    if (root.dataset.jigsawReady === 'true') return;
+
+    root.dataset.jigsawReady = 'true';
+
+    const triggers = Array.from(root.querySelectorAll('[data-jigsaw-trigger]'));
+    const paths = Array.from(root.querySelectorAll('[data-jigsaw-piece]'));
+    const rows = Array.from(document.querySelectorAll('[data-catalog-target]'));
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let hoverPiece = '';
+    let selectedPiece = '';
+    let pulseTimer = 0;
+
+    const targetForPiece = (pieceKey) => {
+      const trigger = triggers.find((item) => item.getAttribute('data-jigsaw-trigger') === pieceKey);
+      return trigger?.getAttribute('data-jigsaw-target') || '';
+    };
+
+    const renderActiveState = () => {
+      const activePiece = hoverPiece || selectedPiece;
+      const activeTarget = activePiece ? targetForPiece(activePiece) : '';
+
+      root.classList.toggle('is-interacting', Boolean(activePiece));
+
+      if (activePiece) {
+        root.dataset.activePiece = activePiece;
+      } else {
+        root.removeAttribute('data-active-piece');
+      }
+
+      for (const path of paths) {
+        const pieceKey = path.getAttribute('data-jigsaw-piece');
+        const isActive = pieceKey === activePiece;
+        path.classList.toggle('is-active', isActive);
+        path.classList.toggle('is-selected', pieceKey === selectedPiece);
+        path.classList.toggle('is-muted', Boolean(activePiece) && !isActive);
+      }
+
+      for (const trigger of triggers) {
+        const pieceKey = trigger.getAttribute('data-jigsaw-trigger');
+        const isActive = pieceKey === activePiece;
+        trigger.classList.toggle('is-active', isActive);
+        trigger.classList.toggle('is-selected', pieceKey === selectedPiece);
+        trigger.classList.toggle('is-muted', Boolean(activePiece) && !isActive);
+        trigger.setAttribute('aria-current', pieceKey === selectedPiece ? 'true' : 'false');
+      }
+
+      for (const row of rows) {
+        const rowTarget = row.getAttribute('data-catalog-target');
+        row.classList.toggle('is-active', Boolean(activeTarget) && rowTarget === activeTarget);
+      }
+    };
+
+    const scrollToCatalogTarget = (targetKey, href) => {
+      const target = rows.find((row) => row.getAttribute('data-catalog-target') === targetKey);
+
+      if (!target) return;
+
+      target.classList.remove('is-pulsing');
+      window.clearTimeout(pulseTimer);
+      target.scrollIntoView({ block: 'center', behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+      window.history.replaceState(null, '', href);
+
+      window.requestAnimationFrame(() => {
+        target.classList.add('is-pulsing');
+        pulseTimer = window.setTimeout(() => target.classList.remove('is-pulsing'), 1100);
+      });
+    };
+
+    const selectFromHash = () => {
+      const targetKey = window.location.hash.replace('#solution-', '');
+
+      if (!targetKey) return;
+
+      const trigger = triggers.find((item) => item.getAttribute('data-jigsaw-target') === targetKey);
+
+      if (!trigger) return;
+
+      selectedPiece = trigger.getAttribute('data-jigsaw-trigger') || '';
+      renderActiveState();
+    };
+
+    for (const trigger of triggers) {
+      const pieceKey = trigger.getAttribute('data-jigsaw-trigger') || '';
+      const targetKey = trigger.getAttribute('data-jigsaw-target') || '';
+      const href = trigger.getAttribute('href') || `#solution-${targetKey}`;
+
+      trigger.addEventListener('mouseenter', () => {
+        hoverPiece = pieceKey;
+        renderActiveState();
+      });
+
+      trigger.addEventListener('focus', () => {
+        hoverPiece = pieceKey;
+        renderActiveState();
+      });
+
+      trigger.addEventListener('mouseleave', () => {
+        hoverPiece = '';
+        renderActiveState();
+      });
+
+      trigger.addEventListener('blur', () => {
+        hoverPiece = '';
+        renderActiveState();
+      });
+
+      trigger.addEventListener('click', (event) => {
+        event.preventDefault();
+        selectedPiece = pieceKey;
+        hoverPiece = '';
+        renderActiveState();
+        scrollToCatalogTarget(targetKey, href);
+      });
+    }
+
+    root.addEventListener('mousemove', (event) => {
+      const box = root.getBoundingClientRect();
+      const x = ((event.clientX - box.left) / box.width) * 100;
+      const y = ((event.clientY - box.top) / box.height) * 100;
+
+      root.style.setProperty('--cursor-x', `${Math.min(100, Math.max(0, x))}%`);
+      root.style.setProperty('--cursor-y', `${Math.min(100, Math.max(0, y))}%`);
+    });
+
+    root.addEventListener('mouseleave', () => {
+      root.style.setProperty('--cursor-x', '50%');
+      root.style.setProperty('--cursor-y', '50%');
+    });
+
+    window.addEventListener('hashchange', selectFromHash);
+    selectFromHash();
+    renderActiveState();
+  };
+
+  document.querySelectorAll('[data-solution-jigsaw]').forEach(initSolutionJigsaw);
+</script>
+
 <style>
   .pg-solutions {
     --solution-navy: #172033;
@@ -1288,6 +1477,8 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
   }
 
   .pg-solution-map {
+    --cursor-x: 50%;
+    --cursor-y: 50%;
     position: relative;
     margin-top: 34px;
     border: 1px solid var(--solution-border);
@@ -1310,6 +1501,24 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
     pointer-events: none;
   }
 
+  .pg-solution-map::after {
+    content: "";
+    position: absolute;
+    inset: -24%;
+    z-index: 0;
+    background:
+      radial-gradient(circle at var(--cursor-x) var(--cursor-y), rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.28) 12%, transparent 34%),
+      linear-gradient(105deg, transparent 0 38%, rgba(255, 255, 255, 0.34) 46%, transparent 58% 100%);
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(0, 0, 0);
+    transition: opacity 0.24s ease;
+  }
+
+  .pg-solution-map.is-interacting::after {
+    opacity: 0.72;
+  }
+
   .pg-jigsaw-board {
     position: relative;
     z-index: 1;
@@ -1329,11 +1538,35 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
   .pg-jigsaw-piece-path {
     stroke-linejoin: round;
     stroke-width: 1.45;
+    transform-box: fill-box;
+    transform-origin: center;
+    transition:
+      opacity 0.22s ease,
+      filter 0.26s ease,
+      stroke-width 0.22s ease,
+      transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
     vector-effect: non-scaling-stroke;
+    animation: pgJigsawAssemble 0.62s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--piece-delay);
   }
 
   .pg-jigsaw-piece-path.is-center {
     stroke-width: 1.7;
+  }
+
+  .pg-jigsaw-piece-path.is-muted {
+    opacity: 0.48;
+    filter: saturate(0.82);
+  }
+
+  .pg-jigsaw-piece-path.is-active,
+  .pg-jigsaw-piece-path.is-selected {
+    opacity: 1;
+    stroke-width: 2.35;
+    transform: translateY(-7px) scale(1.014);
+    filter:
+      drop-shadow(0 18px 22px var(--piece-glow))
+      drop-shadow(0 5px 10px rgba(23, 32, 51, 0.14));
   }
 
   .pg-jigsaw-label-layer {
@@ -1352,11 +1585,57 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
     align-items: center;
     justify-content: center;
     color: var(--solution-navy);
+    cursor: pointer;
+    isolation: isolate;
     line-height: 1.12;
     padding: clamp(12px, 1.2vw, 20px);
-    pointer-events: none;
+    text-decoration: none;
     text-align: center;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
+    transition:
+      opacity 0.22s ease,
+      transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: pgJigsawLabelIn 0.54s ease both;
+    animation-delay: calc(var(--piece-delay) + 120ms);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .pg-jigsaw-label::before {
+    content: "";
+    position: absolute;
+    inset: 10%;
+    z-index: 0;
+    border-radius: 12px;
+    background:
+      linear-gradient(115deg, transparent 0 34%, rgba(255, 255, 255, 0.82) 48%, transparent 62% 100%);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-55%) skewX(-16deg);
+    transition: opacity 0.18s ease, transform 0.44s ease;
+  }
+
+  .pg-jigsaw-label:hover,
+  .pg-jigsaw-label:focus-visible,
+  .pg-jigsaw-label.is-active,
+  .pg-jigsaw-label.is-selected {
+    transform: translateY(-7px);
+  }
+
+  .pg-jigsaw-label:hover::before,
+  .pg-jigsaw-label:focus-visible::before,
+  .pg-jigsaw-label.is-active::before,
+  .pg-jigsaw-label.is-selected::before {
+    opacity: 1;
+    transform: translateX(56%) skewX(-16deg);
+  }
+
+  .pg-jigsaw-label:focus-visible {
+    outline: 3px solid rgba(20, 149, 143, 0.34);
+    outline-offset: 4px;
+  }
+
+  .pg-jigsaw-label.is-muted {
+    opacity: 0.64;
   }
 
   .pg-jigsaw-label strong,
@@ -1409,7 +1688,12 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
     list-style: none;
   }
 
+  .pg-catalog-list > li {
+    scroll-margin-top: 112px;
+  }
+
   .pg-catalog-row {
+    position: relative;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     gap: clamp(16px, 2vw, 24px);
@@ -1418,14 +1702,37 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
     border-radius: 8px;
     background: #ffffff;
     box-shadow: 0 1px 2px rgba(23, 32, 51, 0.05);
+    overflow: hidden;
     padding: clamp(18px, 2vw, 24px);
     transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .pg-catalog-row::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, transparent 0 18%, rgba(20, 149, 143, 0.12) 42%, rgba(228, 80, 128, 0.1) 56%, transparent 80% 100%);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-110%);
   }
 
   .pg-catalog-row:hover {
     border-color: rgba(20, 149, 143, 0.28);
     box-shadow: 0 10px 24px rgba(23, 32, 51, 0.08);
     transform: translateY(-2px);
+  }
+
+  .pg-catalog-list > li.is-active .pg-catalog-row,
+  .pg-catalog-list > li:target .pg-catalog-row {
+    border-color: rgba(20, 149, 143, 0.38);
+    box-shadow: 0 14px 30px rgba(23, 32, 51, 0.1);
+    transform: translateY(-2px);
+  }
+
+  .pg-catalog-list > li.is-pulsing .pg-catalog-row::before {
+    animation: pgCatalogSweep 0.94s ease;
   }
 
   .pg-catalog-number,
@@ -1480,6 +1787,69 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
     font-size: 0.94rem;
     line-height: 1.55;
     padding-left: 14px;
+  }
+
+  @keyframes pgJigsawAssemble {
+    from {
+      opacity: 0;
+      transform: translateY(18px) scale(0.965);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes pgJigsawLabelIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pgCatalogSweep {
+    0% {
+      opacity: 0;
+      transform: translateX(-110%);
+    }
+
+    24% {
+      opacity: 1;
+    }
+
+    100% {
+      opacity: 0;
+      transform: translateX(110%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pg-jigsaw-piece-path,
+    .pg-jigsaw-label,
+    .pg-jigsaw-label::before,
+    .pg-catalog-row,
+    .pg-catalog-row::before {
+      animation: none !important;
+      transition: none !important;
+    }
+
+    .pg-jigsaw-label:hover,
+    .pg-jigsaw-label:focus-visible,
+    .pg-jigsaw-label.is-active,
+    .pg-jigsaw-label.is-selected,
+    .pg-jigsaw-piece-path.is-active,
+    .pg-jigsaw-piece-path.is-selected,
+    .pg-catalog-row:hover,
+    .pg-catalog-list > li.is-active .pg-catalog-row,
+    .pg-catalog-list > li:target .pg-catalog-row {
+      transform: none;
+    }
   }
 
   .pg-solutions-journey {
