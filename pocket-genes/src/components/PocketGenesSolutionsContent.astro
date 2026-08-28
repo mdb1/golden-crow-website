@@ -64,11 +64,28 @@ type JourneyStepCopy = {
   detail: string;
 };
 
-type JourneyDirection = 'right' | 'left' | 'down' | 'end';
+type JourneyBranchKey = 'entry' | 'movement' | 'result' | 'support';
 
-type JourneyStep = JourneyStepCopy & {
+type JourneyBranchCopy = {
+  title: string;
+  detail: string;
+};
+
+type JourneyBranchPlan = {
+  key: JourneyBranchKey;
+  startIndex: number;
+  tone: JigsawTone;
+};
+
+type JourneyLeaf = JourneyStepCopy & {
   number: string;
-  direction: JourneyDirection;
+  style: string;
+};
+
+type JourneyBranch = JourneyBranchCopy & {
+  key: JourneyBranchKey;
+  range: string;
+  steps: JourneyLeaf[];
   style: string;
 };
 
@@ -105,10 +122,6 @@ const jigsawGrid = {
 const audienceGrid = {
   columns: 6,
   rows: 4,
-} as const;
-
-const journeyGrid = {
-  columns: 4,
 } as const;
 
 const jigsawTones: Record<JigsawTone, { fill: string; stroke: string; glow: string }> = {
@@ -166,6 +179,13 @@ const audienceBlueprints: readonly AudienceBlueprint[] = [
 ] as const;
 
 const proofToneSequence: readonly JigsawTone[] = ['teal', 'blue', 'rose'];
+
+const journeyBranchPlans: readonly JourneyBranchPlan[] = [
+  { key: 'entry', startIndex: 0, tone: 'teal' },
+  { key: 'movement', startIndex: 3, tone: 'blue' },
+  { key: 'result', startIndex: 6, tone: 'rose' },
+  { key: 'support', startIndex: 9, tone: 'green' },
+] as const;
 
 const jigsawWidth = jigsawGrid.columns * jigsawGrid.cell;
 const jigsawHeight = jigsawGrid.rows * jigsawGrid.cell;
@@ -515,28 +535,48 @@ const createProofMetrics = (stats: readonly ProofStatCopy[]): ProofMetric[] =>
     };
   });
 
-const createJourneyRoadmap = (steps: readonly JourneyStepCopy[]): JourneyStep[] =>
-  steps.map((step, index) => {
-    const zeroBasedRow = Math.floor(index / journeyGrid.columns);
-    const positionInRow = index % journeyGrid.columns;
-    const isReverseRow = zeroBasedRow % 2 === 1;
-    const row = zeroBasedRow + 1;
-    const column = isReverseRow ? journeyGrid.columns - positionInRow : positionInRow + 1;
-    const isLast = index === steps.length - 1;
-    const isRowTurn = !isLast && positionInRow === journeyGrid.columns - 1;
-    const direction: JourneyDirection = isLast ? 'end' : isRowTurn ? 'down' : isReverseRow ? 'left' : 'right';
+const createJourneyBranches = (
+  steps: readonly JourneyStepCopy[],
+  branches: readonly JourneyBranchCopy[],
+): JourneyBranch[] => {
+  const branchSize = 3;
+  const expectedSteps = journeyBranchPlans.length * branchSize;
+
+  if (steps.length !== expectedSteps) {
+    throw new Error(`Expected ${expectedSteps} journey steps, received ${steps.length}.`);
+  }
+
+  if (branches.length !== journeyBranchPlans.length) {
+    throw new Error(`Expected ${journeyBranchPlans.length} journey branches, received ${branches.length}.`);
+  }
+
+  return journeyBranchPlans.map((plan, branchIndex) => {
+    const tone = jigsawTones[plan.tone];
+    const branchSteps = steps.slice(plan.startIndex, plan.startIndex + branchSize);
+    const firstStep = plan.startIndex + 1;
+    const lastStep = plan.startIndex + branchSteps.length;
 
     return {
-      ...step,
-      number: String(index + 1).padStart(2, '0'),
-      direction,
+      ...branches[branchIndex],
+      key: plan.key,
+      range: `${String(firstStep).padStart(2, '0')}-${String(lastStep).padStart(2, '0')}`,
+      steps: branchSteps.map((step, leafIndex) => ({
+        ...step,
+        number: String(plan.startIndex + leafIndex + 1).padStart(2, '0'),
+        style: [
+          `--leaf-index: ${leafIndex}`,
+          `--leaf-size: ${34 - leafIndex * 4}px`,
+        ].join(';'),
+      })),
       style: [
-        `--journey-index: ${index}`,
-        `--journey-row: ${row}`,
-        `--journey-col: ${column}`,
+        `--branch-index: ${branchIndex}`,
+        `--branch-fill: ${tone.fill}`,
+        `--branch-stroke: ${tone.stroke}`,
+        `--branch-glow: ${tone.glow}`,
       ].join(';'),
     };
   });
+};
 
 const pageCopy = {
   en: {
@@ -671,6 +711,27 @@ const pageCopy = {
     journeyTitle: 'Each stage can stand alone or connect with the rest.',
     journeyBody:
       'We design the full workflow: consents, samples, providers, reports, dashboards, and follow-up without scattered spreadsheets.',
+    journeyCoreKicker: 'Connected flow',
+    journeyCoreTitle: 'One case, many paths.',
+    journeyCoreBody: 'Start with one branch and expand only where the process needs it.',
+    journeyBranches: [
+      {
+        title: 'Case setup',
+        detail: 'Identity, consent, and sample ownership before anything moves.',
+      },
+      {
+        title: 'Sample movement',
+        detail: 'Field work, custody, and systems stay aligned across teams.',
+      },
+      {
+        title: 'Report access',
+        detail: 'Results become useful access, context, and next-step guidance.',
+      },
+      {
+        title: 'Ongoing support',
+        detail: 'Professionals, community, and follow-up keep the path active.',
+      },
+    ],
     journeySteps: [
       {
         phase: 'Start',
@@ -991,6 +1052,27 @@ const pageCopy = {
     journeyTitle: 'Cada etapa puede funcionar sola o encajar con las demás.',
     journeyBody:
       'Diseñamos el recorrido completo: consentimientos, muestras, proveedores, informes, dashboards y seguimiento sin planillas sueltas.',
+    journeyCoreKicker: 'Flujo conectado',
+    journeyCoreTitle: 'Un caso, varios recorridos.',
+    journeyCoreBody: 'Empezá por una rama y ampliá solo donde el proceso lo necesita.',
+    journeyBranches: [
+      {
+        title: 'Entrada del caso',
+        detail: 'Identidad, consentimiento y muestra antes de mover el proceso.',
+      },
+      {
+        title: 'Movimiento de muestra',
+        detail: 'Terreno, custodia y sistemas alineados entre equipos.',
+      },
+      {
+        title: 'Acceso al informe',
+        detail: 'El resultado se vuelve acceso, contexto y próximo paso.',
+      },
+      {
+        title: 'Apoyo continuo',
+        detail: 'Profesionales, comunidad y seguimiento sostienen el recorrido.',
+      },
+    ],
     journeySteps: [
       {
         phase: 'Inicio',
@@ -1183,7 +1265,7 @@ const pageCopy = {
 
 const copy = pageCopy[locale];
 const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy.hubCenterBody);
-const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
+const journeyBranches = createJourneyBranches(copy.journeySteps, copy.journeyBranches);
 const audienceTiles = createAudienceTiles(copy.audiences);
 const proofMetrics = createProofMetrics(copy.proofStats);
 ---
@@ -1349,23 +1431,50 @@ const proofMetrics = createProofMetrics(copy.proofStats);
           <p>{copy.journeyBody}</p>
         </div>
 
-        <ol class="pg-journey-roadmap" style={`--journey-columns: ${journeyGrid.columns};`}>
-          {journeyRoadmap.map((step) => (
-            <li
-              class:list={['pg-journey-step', `is-${step.direction}`]}
-              style={step.style}
+        <div class="pg-journey-stage" data-reactive-card-zone>
+          <span class="pg-journey-connector is-entry" aria-hidden="true"></span>
+          <span class="pg-journey-connector is-movement" aria-hidden="true"></span>
+          <span class="pg-journey-connector is-result" aria-hidden="true"></span>
+          <span class="pg-journey-connector is-support" aria-hidden="true"></span>
+
+          <div class="pg-journey-core" tabindex="0" data-reactive-card>
+            <span class="pg-journey-core-ring is-outer" aria-hidden="true"></span>
+            <span class="pg-journey-core-ring is-middle" aria-hidden="true"></span>
+            <span class="pg-journey-core-ring is-inner" aria-hidden="true"></span>
+            <span class="pg-journey-core-kicker">{copy.journeyCoreKicker}</span>
+            <strong>{copy.journeyCoreTitle}</strong>
+            <span>{copy.journeyCoreBody}</span>
+          </div>
+
+          {journeyBranches.map((branch) => (
+            <article
+              class:list={['pg-journey-branch-card', `is-${branch.key}`]}
+              style={branch.style}
+              tabindex="0"
+              data-reactive-card
             >
-              <article class="pg-journey-card">
-                <span class="pg-journey-marker" aria-hidden="true">{step.number}</span>
-                <div class="pg-journey-card-copy">
-                  <span class="pg-journey-phase">{step.phase}</span>
-                  <h3>{step.title}</h3>
-                  <p>{step.detail}</p>
+              <div class="pg-journey-branch-head">
+                <span class="pg-journey-branch-range">{branch.range}</span>
+                <div>
+                  <h3>{branch.title}</h3>
+                  <p>{branch.detail}</p>
                 </div>
-              </article>
-            </li>
+              </div>
+              <ol class="pg-journey-leaves">
+                {branch.steps.map((step) => (
+                  <li style={step.style}>
+                    <span class="pg-journey-leaf-marker" aria-hidden="true">{step.number}</span>
+                    <div>
+                      <span class="pg-journey-phase">{step.phase}</span>
+                      <strong>{step.title}</strong>
+                      <p>{step.detail}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </article>
           ))}
-        </ol>
+        </div>
       </div>
     </section>
 
@@ -2177,6 +2286,15 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     .pg-journey-step,
     .pg-journey-card,
     .pg-journey-card::before,
+    .pg-journey-stage::after,
+    .pg-journey-connector,
+    .pg-journey-core,
+    .pg-journey-core::before,
+    .pg-journey-core-ring,
+    .pg-journey-branch-card,
+    .pg-journey-branch-card::before,
+    .pg-journey-branch-card::after,
+    .pg-journey-leaf-marker,
     .pg-audience-ecosystem::after,
     .pg-audience-card,
     .pg-audience-card::before,
@@ -2206,6 +2324,15 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     .pg-catalog-list > li:target .pg-catalog-row,
     .pg-journey-card:hover,
     .pg-journey-card:focus-within,
+    .pg-journey-core:hover,
+    .pg-journey-core:focus-visible,
+    .pg-journey-core.is-active,
+    .pg-journey-branch-card:hover,
+    .pg-journey-branch-card:focus-visible,
+    .pg-journey-branch-card.is-active,
+    .pg-journey-branch-card:hover .pg-journey-leaf-marker,
+    .pg-journey-branch-card:focus-visible .pg-journey-leaf-marker,
+    .pg-journey-branch-card.is-active .pg-journey-leaf-marker,
     .pg-audience-card:hover,
     .pg-audience-card:focus-visible,
     .pg-audience-card.is-active,
@@ -2238,6 +2365,9 @@ const proofMetrics = createProofMetrics(copy.proofStats);
 
     .pg-journey-card:hover::before,
     .pg-journey-card:focus-within::before,
+    .pg-journey-branch-card:hover::after,
+    .pg-journey-branch-card:focus-visible::after,
+    .pg-journey-branch-card.is-active::after,
     .pg-audience-card:hover::after,
     .pg-audience-card:focus-visible::after,
     .pg-audience-card.is-active::after,
@@ -2513,6 +2643,538 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     to {
       opacity: 1;
       transform: translateY(0) scale(1);
+    }
+  }
+
+  .pg-journey-layout {
+    grid-template-columns: minmax(320px, 0.56fr) minmax(620px, 1.44fr);
+    gap: clamp(32px, 5vw, 68px);
+    align-items: center;
+  }
+
+  .pg-journey-intro {
+    align-content: center;
+    grid-template-columns: 1fr;
+  }
+
+  .pg-journey-intro .pg-eyebrow {
+    grid-column: auto;
+    color: var(--solution-teal);
+  }
+
+  .pg-journey-intro h2 {
+    max-width: 520px;
+  }
+
+  .pg-journey-intro > p:not(.pg-eyebrow) {
+    max-width: 520px;
+    margin: 18px 0 0;
+    font-size: 1.06rem;
+    line-height: 1.68;
+  }
+
+  .pg-journey-stage {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) minmax(220px, 0.86fr);
+    grid-template-areas:
+      "entry movement core"
+      "result support core";
+    gap: 16px;
+    min-height: 650px;
+    border: 1px solid rgba(197, 210, 223, 0.9);
+    border-radius: 8px;
+    background:
+      radial-gradient(circle at 82% 48%, rgba(20, 149, 143, 0.16), transparent 31%),
+      linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(236, 245, 255, 0.76)),
+      repeating-linear-gradient(135deg, rgba(20, 149, 143, 0.038) 0 1px, transparent 1px 24px);
+    box-shadow: 0 20px 54px rgba(23, 32, 51, 0.08);
+    overflow: hidden;
+    padding: clamp(18px, 2.2vw, 28px);
+    perspective: 900px;
+  }
+
+  .pg-journey-stage::before,
+  .pg-journey-stage::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .pg-journey-stage::before {
+    inset: clamp(18px, 2.2vw, 28px);
+    border-radius: 8px;
+    background:
+      linear-gradient(90deg, transparent 0 64%, rgba(20, 149, 143, 0.12) 64% 66%, transparent 66%),
+      linear-gradient(180deg, transparent 0 49%, rgba(33, 118, 174, 0.12) 49% 51%, transparent 51%);
+    opacity: 0.5;
+  }
+
+  .pg-journey-stage::after {
+    top: 12%;
+    right: 8%;
+    width: 42%;
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(20, 149, 143, 0.1), transparent 64%);
+    animation: pgJourneyAmbientPulse 5.8s ease-in-out infinite;
+  }
+
+  .pg-journey-connector {
+    position: absolute;
+    z-index: 1;
+    right: 25%;
+    width: 29%;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(20, 149, 143, 0.42), rgba(33, 118, 174, 0.26), rgba(228, 80, 128, 0.16));
+    box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.62), 0 0 18px rgba(20, 149, 143, 0.12);
+    opacity: 0.58;
+    pointer-events: none;
+    transform-origin: right center;
+  }
+
+  .pg-journey-connector.is-entry {
+    top: 26%;
+    transform: rotate(-17deg);
+  }
+
+  .pg-journey-connector.is-movement {
+    top: 34%;
+    width: 15%;
+    transform: rotate(-7deg);
+  }
+
+  .pg-journey-connector.is-result {
+    top: 68%;
+    transform: rotate(16deg);
+  }
+
+  .pg-journey-connector.is-support {
+    top: 61%;
+    width: 15%;
+    transform: rotate(7deg);
+  }
+
+  .pg-journey-core {
+    position: relative;
+    z-index: 3;
+    grid-area: core;
+    align-self: center;
+    justify-self: center;
+    display: grid;
+    place-items: center;
+    width: min(100%, 250px);
+    aspect-ratio: 1;
+    border: 0;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at var(--card-x, 34%) var(--card-y, 24%), rgba(255, 255, 255, 0.96) 0 6%, rgba(142, 233, 221, 0.9) 7%, rgba(20, 149, 143, 0.96) 42%, #2176ae 100%);
+    box-shadow:
+      inset 0 1px 20px rgba(255, 255, 255, 0.42),
+      inset 0 -28px 44px rgba(23, 32, 51, 0.18),
+      0 30px 76px rgba(20, 149, 143, 0.26);
+    color: #ffffff;
+    cursor: pointer;
+    isolation: isolate;
+    text-align: center;
+    padding: clamp(24px, 3vw, 34px);
+    transform: perspective(900px) rotateX(0) rotateY(0) scale(1);
+    transition:
+      filter 0.28s ease,
+      box-shadow 0.28s ease,
+      transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .pg-journey-core::before,
+  .pg-journey-core::after {
+    content: "";
+    position: absolute;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .pg-journey-core::before {
+    inset: -18px;
+    z-index: -2;
+    background: conic-gradient(from 120deg, rgba(142, 233, 221, 0.18), rgba(33, 118, 174, 0.38), rgba(228, 80, 128, 0.16), rgba(142, 233, 221, 0.18));
+    filter: blur(16px);
+    opacity: 0.88;
+    animation: pgJourneyHaloDrift 8s linear infinite;
+  }
+
+  .pg-journey-core::after {
+    inset: 13%;
+    background:
+      radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.42), transparent 32%),
+      radial-gradient(circle at 72% 76%, rgba(255, 255, 255, 0.18), transparent 24%);
+    mix-blend-mode: screen;
+  }
+
+  .pg-journey-core-ring {
+    position: absolute;
+    inset: var(--ring-inset);
+    z-index: -1;
+    border-radius: inherit;
+    border: var(--ring-width) solid rgba(20, 149, 143, var(--ring-opacity));
+    box-shadow: 0 0 22px rgba(20, 149, 143, 0.12);
+    animation: pgJourneyRingBreath var(--ring-speed) ease-in-out infinite;
+  }
+
+  .pg-journey-core-ring.is-outer {
+    --ring-inset: -52px;
+    --ring-width: 1px;
+    --ring-opacity: 0.16;
+    --ring-speed: 6.4s;
+  }
+
+  .pg-journey-core-ring.is-middle {
+    --ring-inset: -32px;
+    --ring-width: 2px;
+    --ring-opacity: 0.2;
+    --ring-speed: 5.2s;
+  }
+
+  .pg-journey-core-ring.is-inner {
+    --ring-inset: -14px;
+    --ring-width: 1px;
+    --ring-opacity: 0.28;
+    --ring-speed: 4.4s;
+  }
+
+  .pg-journey-core-kicker,
+  .pg-journey-core strong,
+  .pg-journey-core > span:last-child {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pg-journey-core-kicker {
+    align-self: end;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .pg-journey-core strong {
+    max-width: 190px;
+    color: #ffffff;
+    font-size: clamp(1.34rem, 2vw, 1.74rem);
+    font-weight: 940;
+    line-height: 1.08;
+    text-shadow: 0 2px 16px rgba(23, 32, 51, 0.24);
+  }
+
+  .pg-journey-core > span:last-child {
+    max-width: 190px;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 0.86rem;
+    font-weight: 720;
+    line-height: 1.38;
+  }
+
+  .pg-journey-core:hover,
+  .pg-journey-core:focus-visible,
+  .pg-journey-core.is-active {
+    filter: saturate(1.12) brightness(1.04);
+    box-shadow:
+      inset 0 1px 24px rgba(255, 255, 255, 0.46),
+      inset 0 -28px 44px rgba(23, 32, 51, 0.16),
+      0 38px 92px rgba(20, 149, 143, 0.34);
+    transform:
+      perspective(900px)
+      rotateX(var(--card-tilt-y, 0deg))
+      rotateY(var(--card-tilt-x, 0deg))
+      scale(1.045);
+  }
+
+  .pg-journey-core:focus-visible {
+    outline: 3px solid rgba(20, 149, 143, 0.32);
+    outline-offset: 36px;
+  }
+
+  .pg-journey-branch-card {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    align-content: start;
+    gap: 16px;
+    min-width: 0;
+    min-height: 292px;
+    grid-area: var(--branch-area);
+    border: 1px solid var(--branch-stroke);
+    border-radius: 8px;
+    background:
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 32%), rgba(255, 255, 255, 0.96), transparent 32%),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.96), var(--branch-fill));
+    box-shadow: 0 12px 28px var(--branch-glow);
+    color: var(--solution-navy);
+    cursor: pointer;
+    isolation: isolate;
+    overflow: hidden;
+    padding: clamp(18px, 1.8vw, 22px);
+    transform: perspective(900px) rotateX(0) rotateY(0) translateY(0);
+    transition:
+      opacity 0.24s ease,
+      border-color 0.24s ease,
+      box-shadow 0.24s ease,
+      filter 0.24s ease,
+      transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: pgJourneyBranchIn 0.56s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--branch-index) * 88ms);
+  }
+
+  .pg-journey-branch-card.is-entry {
+    --branch-area: entry;
+  }
+
+  .pg-journey-branch-card.is-movement {
+    --branch-area: movement;
+  }
+
+  .pg-journey-branch-card.is-result {
+    --branch-area: result;
+  }
+
+  .pg-journey-branch-card.is-support {
+    --branch-area: support;
+  }
+
+  .pg-journey-branch-card::before,
+  .pg-journey-branch-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .pg-journey-branch-card::before {
+    z-index: -1;
+    background:
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 32%), rgba(255, 255, 255, 0.9), transparent 28%),
+      linear-gradient(135deg, rgba(20, 149, 143, 0.1), transparent 48%, rgba(228, 80, 128, 0.08));
+    transition: opacity 0.24s ease;
+  }
+
+  .pg-journey-branch-card::after {
+    z-index: 0;
+    background: linear-gradient(110deg, transparent 0 30%, rgba(255, 255, 255, 0.88) 45%, transparent 62% 100%);
+    transform: translateX(-120%) skewX(-12deg);
+    transition: opacity 0.2s ease, transform 0.58s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .pg-journey-branch-card:hover,
+  .pg-journey-branch-card:focus-visible,
+  .pg-journey-branch-card.is-active {
+    border-color: rgba(20, 149, 143, 0.42);
+    box-shadow: 0 22px 42px rgba(23, 32, 51, 0.14), 0 0 0 1px rgba(20, 149, 143, 0.08);
+    transform:
+      perspective(900px)
+      rotateX(var(--card-tilt-y, 0deg))
+      rotateY(var(--card-tilt-x, 0deg))
+      translateY(-8px);
+  }
+
+  .pg-journey-branch-card:hover::before,
+  .pg-journey-branch-card:focus-visible::before,
+  .pg-journey-branch-card.is-active::before {
+    opacity: 1;
+  }
+
+  .pg-journey-branch-card:hover::after,
+  .pg-journey-branch-card:focus-visible::after,
+  .pg-journey-branch-card.is-active::after {
+    opacity: 1;
+    transform: translateX(120%) skewX(-12deg);
+  }
+
+  .pg-journey-stage.is-reacting .pg-journey-branch-card:not(.is-active) {
+    opacity: 0.55;
+    filter: saturate(0.74);
+  }
+
+  .pg-journey-stage.is-reacting .pg-journey-core:not(.is-active) {
+    opacity: 0.82;
+    filter: saturate(0.9);
+  }
+
+  .pg-journey-branch-card:focus-visible {
+    outline: 3px solid rgba(20, 149, 143, 0.3);
+    outline-offset: 5px;
+  }
+
+  .pg-journey-branch-head,
+  .pg-journey-leaves {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pg-journey-branch-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+
+  .pg-journey-branch-range {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    border: 1px solid rgba(20, 149, 143, 0.32);
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.92), transparent 34%),
+      linear-gradient(145deg, #e8fbf8 0%, #ccefeb 100%);
+    box-shadow: 0 12px 28px rgba(20, 149, 143, 0.12);
+    color: var(--solution-teal);
+    font-size: 0.78rem;
+    font-weight: 950;
+    line-height: 1;
+  }
+
+  .pg-journey-branch-range::after {
+    content: "";
+    position: absolute;
+    right: 5px;
+    bottom: 6px;
+    width: 10px;
+    height: 10px;
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    background: var(--solution-rose);
+  }
+
+  .pg-journey-branch-head h3 {
+    margin: 0;
+    color: var(--solution-navy);
+    font-size: clamp(1.12rem, 1.7vw, 1.34rem);
+    line-height: 1.12;
+  }
+
+  .pg-journey-branch-head p {
+    margin: 7px 0 0;
+    color: var(--solution-ink-soft);
+    font-size: 0.94rem;
+    line-height: 1.48;
+  }
+
+  .pg-journey-leaves {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pg-journey-leaves li {
+    display: grid;
+    grid-template-columns: var(--leaf-size) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+  }
+
+  .pg-journey-leaf-marker {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: var(--leaf-size);
+    aspect-ratio: 1;
+    border: 1px solid var(--branch-stroke);
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 8px 18px var(--branch-glow);
+    color: var(--solution-teal);
+    font-size: 0.68rem;
+    font-weight: 920;
+    transition: transform 0.26s ease, box-shadow 0.26s ease;
+  }
+
+  .pg-journey-leaf-marker::after {
+    content: "";
+    position: absolute;
+    right: -4px;
+    bottom: -2px;
+    width: max(6px, calc(var(--leaf-size) * 0.24));
+    aspect-ratio: 1;
+    border: 2px solid #ffffff;
+    border-radius: inherit;
+    background: var(--solution-amber);
+  }
+
+  .pg-journey-branch-card:hover .pg-journey-leaf-marker,
+  .pg-journey-branch-card:focus-visible .pg-journey-leaf-marker,
+  .pg-journey-branch-card.is-active .pg-journey-leaf-marker {
+    box-shadow: 0 10px 22px var(--branch-glow);
+    transform: translateY(calc(var(--leaf-index) * -2px)) scale(1.04);
+  }
+
+  .pg-journey-leaves .pg-journey-phase {
+    margin-bottom: 3px;
+    font-size: 0.7rem;
+    letter-spacing: 0.07em;
+  }
+
+  .pg-journey-leaves strong {
+    display: block;
+    color: var(--solution-navy);
+    font-size: 0.98rem;
+    font-weight: 900;
+    line-height: 1.16;
+  }
+
+  .pg-journey-leaves p {
+    margin: 4px 0 0;
+    color: var(--solution-ink-soft);
+    font-size: 0.86rem;
+    line-height: 1.42;
+  }
+
+  @keyframes pgJourneyBranchIn {
+    from {
+      opacity: 0;
+      transform: translateY(16px) scale(0.975);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes pgJourneyRingBreath {
+    0%,
+    100% {
+      opacity: 0.46;
+      transform: scale(0.96);
+    }
+
+    50% {
+      opacity: 1;
+      transform: scale(1.04);
+    }
+  }
+
+  @keyframes pgJourneyHaloDrift {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+
+  @keyframes pgJourneyAmbientPulse {
+    0%,
+    100% {
+      opacity: 0.62;
+      transform: scale(0.96);
+    }
+
+    50% {
+      opacity: 1;
+      transform: scale(1.04);
     }
   }
 
@@ -3331,6 +3993,24 @@ const proofMetrics = createProofMetrics(copy.proofStats);
       width: min(720px, 100%);
     }
 
+    .pg-journey-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-journey-intro h2,
+    .pg-journey-intro > p:not(.pg-eyebrow) {
+      max-width: 760px;
+    }
+
+    .pg-journey-stage {
+      grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) minmax(190px, 0.72fr);
+      min-height: 620px;
+    }
+
+    .pg-journey-core {
+      width: min(100%, 220px);
+    }
+
     .pg-audience-copy,
     .pg-booking-copy {
       position: static;
@@ -3491,6 +4171,34 @@ const proofMetrics = createProofMetrics(copy.proofStats);
       inset: 18px;
     }
 
+    .pg-journey-stage {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "core"
+        "entry"
+        "movement"
+        "result"
+        "support";
+      min-height: auto;
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .pg-journey-stage::before,
+    .pg-journey-stage::after,
+    .pg-journey-connector {
+      display: none;
+    }
+
+    .pg-journey-core {
+      width: min(260px, 74vw);
+      margin: 18px auto 28px;
+    }
+
+    .pg-journey-branch-card {
+      min-height: auto;
+    }
+
     .pg-journey-step {
       grid-column: auto !important;
       grid-row: auto !important;
@@ -3561,6 +4269,33 @@ const proofMetrics = createProofMetrics(copy.proofStats);
 
     .pg-journey-roadmap::before {
       inset: 14px;
+    }
+
+    .pg-journey-stage {
+      padding: 14px;
+    }
+
+    .pg-journey-core {
+      width: min(230px, 76vw);
+      margin-block: 12px 22px;
+    }
+
+    .pg-journey-core-ring.is-outer {
+      --ring-inset: -34px;
+    }
+
+    .pg-journey-core-ring.is-middle {
+      --ring-inset: -22px;
+    }
+
+    .pg-journey-branch-head,
+    .pg-journey-leaves li {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-journey-branch-range,
+    .pg-journey-leaf-marker {
+      justify-self: start;
     }
 
     .pg-jigsaw-label-layer {
