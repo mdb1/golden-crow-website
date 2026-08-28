@@ -93,6 +93,10 @@ type JourneyNode = JourneyStepCopy & {
   label: string;
 };
 
+type JourneyOrbitNode = JourneyNode & {
+  visualClassName: string;
+};
+
 type AudienceBlueprint = {
   col: number;
   row: number;
@@ -1293,13 +1297,49 @@ const copy = pageCopy[locale];
 const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy.hubCenterBody);
 const journeyPanels = createJourneyPanels(copy.journeySteps, copy.journeyBranches);
 const journeyNodes = createJourneyNodes(copy.journeySteps);
-const journeyNodeColumns = [
-  { className: 'is-column-one', nodes: journeyNodes.slice(0, 2) },
-  { className: 'is-column-two', nodes: journeyNodes.slice(2, 5) },
-  { className: 'is-column-three', nodes: journeyNodes.slice(5, 7), hasCore: true, coreIndex: 1 },
-  { className: 'is-column-four', nodes: journeyNodes.slice(7, 10) },
-  { className: 'is-column-five', nodes: journeyNodes.slice(10, 12) },
-];
+// Clockwise orbit around the hub: 11 12 01 02 03 / 10 .. 04 / 09 08 07 06 05.
+const journeyOrbitColumns = [
+  { className: 'is-column-one', nodeIndexes: [10, 8], slotClassNames: ['is-first', 'is-second'] },
+  { className: 'is-column-two', nodeIndexes: [11, 9, 7], slotClassNames: ['is-third', 'is-fourth', 'is-fifth'] },
+  {
+    className: 'is-column-three',
+    nodeIndexes: [0, 6],
+    slotClassNames: ['is-sixth', 'is-seventh'],
+    hasCore: true,
+    coreIndex: 1,
+  },
+  { className: 'is-column-four', nodeIndexes: [1, 3, 5], slotClassNames: ['is-eighth', 'is-ninth', 'is-tenth'] },
+  { className: 'is-column-five', nodeIndexes: [2, 4], slotClassNames: ['is-eleventh', 'is-twelfth'] },
+] as const;
+
+const usedJourneyOrbitIndexes = new Set<number>();
+const journeyNodeColumns = journeyOrbitColumns.map(({ nodeIndexes, slotClassNames, ...column }) => ({
+  ...column,
+  nodes: nodeIndexes.map((nodeIndex, slotIndex): JourneyOrbitNode => {
+    const node = journeyNodes[nodeIndex];
+    const visualClassName = slotClassNames[slotIndex];
+
+    if (!node || !visualClassName) {
+      throw new Error(`Invalid journey orbit slot ${column.className}:${slotIndex}.`);
+    }
+
+    if (usedJourneyOrbitIndexes.has(nodeIndex)) {
+      throw new Error(`Journey step ${nodeIndex + 1} is assigned to multiple orbit slots.`);
+    }
+
+    usedJourneyOrbitIndexes.add(nodeIndex);
+
+    return {
+      ...node,
+      visualClassName,
+    };
+  }),
+}));
+
+if (usedJourneyOrbitIndexes.size !== journeyNodes.length) {
+  throw new Error(`Expected ${journeyNodes.length} journey orbit slots, received ${usedJourneyOrbitIndexes.size}.`);
+}
+
 const journeyHubKeys = journeyNodes.map((item) => item.key).join(' ');
 const audienceTiles = createAudienceTiles(copy.audiences);
 ---
@@ -1513,7 +1553,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
                       </div>
                     )}
                     <div
-                      class:list={['pg-journey-node', node.className]}
+                      class:list={['pg-journey-node', node.visualClassName]}
                       data-journey-node
                       data-journey-keys={node.keys}
                       tabindex="0"
