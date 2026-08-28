@@ -1502,11 +1502,9 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     <section id="solutions-journey" class="pg-solutions-journey" aria-labelledby="solutions-journey-title" data-solution-journey>
       <div class="pg-journey-content-wrapper">
         <div class="pg-journey-panels-container">
-          <div class="pg-journey-section-header">
-            <h2 id="solutions-journey-title" class="pg-journey-section-title">
-              <span class="pg-journey-title-highlight">{copy.journeyEyebrow}</span>
-              <span class="pg-journey-title-main">{copy.journeyTitle}</span>
-            </h2>
+          <div class="pg-journey-section-header pg-section-heading">
+            <p class="pg-eyebrow">{copy.journeyEyebrow}</p>
+            <h2 id="solutions-journey-title" class="pg-journey-section-title">{copy.journeyTitle}</h2>
             <p class="pg-journey-subtitle">{copy.journeyBody}</p>
           </div>
 
@@ -3396,37 +3394,23 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   }
 
   .pg-journey-section-header {
-    margin-bottom: clamp(2rem, 3.5vw, 3rem);
+    margin-bottom: 32px;
   }
 
   .pg-journey-section-title {
-    margin: 0 0 1.5rem;
+    margin: 0;
     color: var(--solution-navy);
-    font-size: clamp(2rem, 3.5vw, 3rem);
-    font-weight: 800;
+    font-size: 3rem;
+    font-weight: 700;
     letter-spacing: 0;
-    line-height: 1.2;
-  }
-
-  .pg-journey-title-highlight {
-    display: block;
-    color: var(--solution-ink-soft);
-    font-size: 0.7em;
-    font-weight: 600;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-
-  .pg-journey-title-main {
-    display: block;
-    color: var(--solution-navy);
+    line-height: 1.08;
   }
 
   .pg-journey-subtitle {
     max-width: 90%;
-    margin: 0;
+    margin: 16px 0 0;
     color: var(--solution-ink-soft);
-    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    font-size: 1.08rem;
     line-height: 1.6;
   }
 
@@ -4046,10 +4030,6 @@ const audienceTiles = createAudienceTiles(copy.audiences);
 
     .pg-journey-content-wrapper {
       gap: 2rem;
-    }
-
-    .pg-journey-section-title {
-      font-size: clamp(2rem, 10vw, 2.65rem);
     }
 
     .pg-journey-panel-card {
