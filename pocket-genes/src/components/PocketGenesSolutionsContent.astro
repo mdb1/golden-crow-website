@@ -1741,8 +1741,8 @@ const audienceTiles = createAudienceTiles(copy.audiences);
               >
                 <span class="pg-journey-roll-number" data-journey-roll-number>{slot.number}</span>
                 <div class="pg-journey-roll-copy">
-                  <span class="pg-journey-roll-phase" data-journey-roll-phase>{slot.phase}</span>
-                  <h3 data-journey-roll-title>{slot.title}</h3>
+                  <span class="pg-journey-roll-phase" data-journey-roll-phase>{slot.title}</span>
+                  <h3 data-journey-roll-title>{slot.phase}</h3>
                   <p data-journey-roll-detail>{slot.detail}</p>
                 </div>
                 <span class="pg-journey-roll-wash" aria-hidden="true"></span>
@@ -2154,8 +2154,8 @@ const audienceTiles = createAudienceTiles(copy.audiences);
         }
 
         setText(card, '[data-journey-roll-number]', step.number);
-        setText(card, '[data-journey-roll-phase]', step.phase);
-        setText(card, '[data-journey-roll-title]', step.title);
+        setText(card, '[data-journey-roll-phase]', step.title);
+        setText(card, '[data-journey-roll-title]', step.phase);
         setText(card, '[data-journey-roll-detail]', step.detail);
       }
     };
