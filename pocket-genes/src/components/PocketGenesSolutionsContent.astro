@@ -4473,6 +4473,9 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   }
 
   .pg-proof-screens {
+    --proof-screen-hover-rise: clamp(48px, 5vw, 68px);
+    --proof-phone-hover-rise: clamp(10px, 1.2vw, 16px);
+
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
@@ -4488,10 +4491,11 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     outline: none;
     transform: translateY(var(--screen-rest-y));
     transform-origin: center bottom;
+    will-change: transform;
     transition:
       opacity 0.24s ease,
       filter 0.24s ease,
-      transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+      transform 0.44s cubic-bezier(0.18, 1, 0.32, 1);
     animation: pgProofScreenIn 0.56s cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-delay: calc(var(--screen-index) * 70ms);
   }
@@ -4509,7 +4513,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     opacity: 0.42;
     transform: translateY(0);
     transform-origin: center;
-    transition: opacity 0.3s ease, transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 0.32s ease, transform 0.44s cubic-bezier(0.18, 1, 0.32, 1);
   }
 
   .pg-proof-screen-phone {
@@ -4525,8 +4529,8 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     overflow: hidden;
     transition:
       border-color 0.28s ease,
-      box-shadow 0.34s ease,
-      transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow 0.36s ease,
+      transform 0.44s cubic-bezier(0.18, 1, 0.32, 1);
   }
 
   .pg-proof-screen-phone::before,
@@ -4578,14 +4582,14 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-proof-screens figure:hover,
   .pg-proof-screens figure:focus-visible,
   .pg-proof-screens figure.is-active {
-    transform: translateY(calc(var(--screen-rest-y) - 34px));
+    transform: translateY(calc(var(--screen-rest-y) - var(--proof-screen-hover-rise)));
   }
 
   .pg-proof-screens figure:hover::before,
   .pg-proof-screens figure:focus-visible::before,
   .pg-proof-screens figure.is-active::before {
-    opacity: 0.28;
-    transform: translateY(7px);
+    opacity: 0.22;
+    transform: translateY(16px);
   }
 
   .pg-proof-screens figure:hover .pg-proof-screen-phone,
@@ -4593,10 +4597,10 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-proof-screens figure.is-active .pg-proof-screen-phone {
     border-color: #172033;
     box-shadow:
-      0 30px 64px rgba(23, 32, 51, 0.25),
+      0 42px 76px rgba(23, 32, 51, 0.28),
       0 0 0 1px rgba(255, 255, 255, 0.62),
-      0 0 32px rgba(20, 149, 143, 0.16);
-    transform: translateY(-6px);
+      0 0 42px rgba(20, 149, 143, 0.18);
+    transform: translateY(calc(-1 * var(--proof-phone-hover-rise)));
   }
 
   .pg-proof-screens figure:hover .pg-proof-screen-phone::before,
@@ -4637,7 +4641,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-proof-screens figure:focus-visible figcaption,
   .pg-proof-screens figure.is-active figcaption {
     color: var(--solution-navy);
-    transform: translateY(-3px);
+    transform: translateY(-8px);
   }
 
   @keyframes pgProofScreenIn {
