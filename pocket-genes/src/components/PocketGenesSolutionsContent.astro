@@ -72,10 +72,39 @@ type JourneyStep = JourneyStepCopy & {
   style: string;
 };
 
+type AudienceBlueprint = {
+  col: number;
+  row: number;
+  cols: number;
+  rows: number;
+  tone: JigsawTone;
+};
+
+type AudienceTile = AudienceBlueprint & {
+  label: string;
+  number: string;
+  style: string;
+};
+
+type ProofStatCopy = {
+  value: string;
+  label: string;
+  detail: string;
+};
+
+type ProofMetric = ProofStatCopy & {
+  style: string;
+};
+
 const jigsawGrid = {
   columns: 12,
   rows: 5,
   cell: 100,
+} as const;
+
+const audienceGrid = {
+  columns: 6,
+  rows: 4,
 } as const;
 
 const journeyGrid = {
@@ -123,6 +152,20 @@ const jigsawBlueprints: readonly JigsawBlueprint[] = [
   { key: 'operations', targetKey: 'operations', kind: 'node', nodeIndex: 8, col: 5, row: 5, cols: 4, rows: 1, tone: 'rose' },
   { key: 'communication', targetKey: 'communication', kind: 'node', nodeIndex: 9, col: 9, row: 5, cols: 4, rows: 1, tone: 'green' },
 ] as const;
+
+const audienceBlueprints: readonly AudienceBlueprint[] = [
+  { col: 1, row: 1, cols: 2, rows: 2, tone: 'teal' },
+  { col: 3, row: 1, cols: 2, rows: 1, tone: 'blue' },
+  { col: 5, row: 1, cols: 2, rows: 2, tone: 'rose' },
+  { col: 3, row: 2, cols: 2, rows: 1, tone: 'amber' },
+  { col: 1, row: 3, cols: 2, rows: 1, tone: 'green' },
+  { col: 3, row: 3, cols: 2, rows: 2, tone: 'blue' },
+  { col: 5, row: 3, cols: 2, rows: 1, tone: 'rose' },
+  { col: 1, row: 4, cols: 2, rows: 1, tone: 'amber' },
+  { col: 5, row: 4, cols: 2, rows: 1, tone: 'teal' },
+] as const;
+
+const proofToneSequence: readonly JigsawTone[] = ['teal', 'blue', 'rose'];
 
 const jigsawWidth = jigsawGrid.columns * jigsawGrid.cell;
 const jigsawHeight = jigsawGrid.rows * jigsawGrid.cell;
@@ -179,6 +222,40 @@ const validateJigsawPlan = () => {
 
   if (occupied.size !== expectedCells) {
     throw new Error(`Jigsaw plan covers ${occupied.size} cells, but ${expectedCells} cells are required.`);
+  }
+};
+
+const validateAudiencePlan = () => {
+  const occupied = new Map<string, number>();
+
+  for (const [index, tile] of audienceBlueprints.entries()) {
+    if (
+      tile.col < 1 ||
+      tile.row < 1 ||
+      tile.col + tile.cols - 1 > audienceGrid.columns ||
+      tile.row + tile.rows - 1 > audienceGrid.rows
+    ) {
+      throw new Error(`Audience tile ${index + 1} is outside the ${audienceGrid.columns}x${audienceGrid.rows} grid.`);
+    }
+
+    for (let row = tile.row; row < tile.row + tile.rows; row += 1) {
+      for (let col = tile.col; col < tile.col + tile.cols; col += 1) {
+        const cellKey = `${col}:${row}`;
+        const existingTile = occupied.get(cellKey);
+
+        if (existingTile) {
+          throw new Error(`Audience tiles ${existingTile} and ${index + 1} both occupy cell ${cellKey}.`);
+        }
+
+        occupied.set(cellKey, index + 1);
+      }
+    }
+  }
+
+  const expectedCells = audienceGrid.columns * audienceGrid.rows;
+
+  if (occupied.size !== expectedCells) {
+    throw new Error(`Audience plan covers ${occupied.size} cells, but ${expectedCells} cells are required.`);
   }
 };
 
@@ -394,6 +471,49 @@ const createJigsawPieces = (nodes: readonly string[], centerTitle: string, cente
     };
   });
 };
+
+const createAudienceTiles = (labels: readonly string[]): AudienceTile[] => {
+  validateAudiencePlan();
+
+  if (labels.length !== audienceBlueprints.length) {
+    throw new Error(`Expected ${audienceBlueprints.length} audience labels, received ${labels.length}.`);
+  }
+
+  return audienceBlueprints.map((blueprint, index) => {
+    const tone = jigsawTones[blueprint.tone];
+
+    return {
+      ...blueprint,
+      label: labels[index],
+      number: String(index + 1).padStart(2, '0'),
+      style: [
+        `--aud-col: ${blueprint.col}`,
+        `--aud-row: ${blueprint.row}`,
+        `--aud-cols: ${blueprint.cols}`,
+        `--aud-rows: ${blueprint.rows}`,
+        `--aud-index: ${index}`,
+        `--aud-fill: ${tone.fill}`,
+        `--aud-stroke: ${tone.stroke}`,
+        `--aud-glow: ${tone.glow}`,
+      ].join(';'),
+    };
+  });
+};
+
+const createProofMetrics = (stats: readonly ProofStatCopy[]): ProofMetric[] =>
+  stats.map((stat, index) => {
+    const tone = jigsawTones[proofToneSequence[index % proofToneSequence.length]];
+
+    return {
+      ...stat,
+      style: [
+        `--proof-index: ${index}`,
+        `--proof-fill: ${tone.fill}`,
+        `--proof-stroke: ${tone.stroke}`,
+        `--proof-glow: ${tone.glow}`,
+      ].join(';'),
+    };
+  });
 
 const createJourneyRoadmap = (steps: readonly JourneyStepCopy[]): JourneyStep[] =>
   steps.map((step, index) => {
@@ -713,7 +833,23 @@ const pageCopy = {
     whyTitle: 'Technology, product, and genetics.',
     whyBody:
       'Our team combines digital product development with a biotechnology-informed view of real genetics operations.',
-    proofPoints: ['10+ years building digital products', '20+ shipped projects', 'Engineering, design, product, and biotechnology experience'],
+    proofStats: [
+      {
+        value: '10+',
+        label: 'years building digital products',
+        detail: 'Product thinking, UX, and engineering focused on real operations.',
+      },
+      {
+        value: '20+',
+        label: 'shipped projects',
+        detail: 'Apps, backoffices, integrations, and service workflows.',
+      },
+      {
+        value: 'Team',
+        label: 'engineering, design, product, and biotechnology',
+        detail: 'A compact group for work where software and genetics meet.',
+      },
+    ],
     bookingEyebrow: 'You do not need to start with everything',
     bookingTitle: 'Start with the problem costing you the most time.',
     bookingQuestion:
@@ -1017,7 +1153,23 @@ const pageCopy = {
     whyTitle: 'Tecnología, producto y genética.',
     whyBody:
       'Nuestro equipo combina experiencia en desarrollo de productos digitales con una mirada biotecnológica para trabajar sobre problemas reales del ecosistema genético.',
-    proofPoints: ['10+ años construyendo productos digitales', '20+ proyectos lanzados', 'Experiencia en ingeniería, diseño, producto y biotecnología'],
+    proofStats: [
+      {
+        value: '10+',
+        label: 'años construyendo productos digitales',
+        detail: 'Producto, UX e ingeniería con foco en operación real.',
+      },
+      {
+        value: '20+',
+        label: 'proyectos lanzados',
+        detail: 'Apps, backoffices, integraciones y flujos de servicio.',
+      },
+      {
+        value: 'Equipo',
+        label: 'ingeniería, diseño, producto y biotecnología',
+        detail: 'Un equipo chico para problemas donde software y genética se cruzan.',
+      },
+    ],
     bookingEyebrow: 'No hace falta empezar con todo',
     bookingTitle: 'Empecemos por el problema que más tiempo te está haciendo perder.',
     bookingQuestion:
@@ -1032,6 +1184,8 @@ const pageCopy = {
 const copy = pageCopy[locale];
 const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy.hubCenterBody);
 const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
+const audienceTiles = createAudienceTiles(copy.audiences);
+const proofMetrics = createProofMetrics(copy.proofStats);
 ---
 
 <PocketGenesPublicLayout
@@ -1279,25 +1433,51 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
 
     <section class="pg-section pg-solutions-audience" aria-labelledby="solutions-audience-title">
       <div class="pg-container pg-audience-layout">
-        <div>
+        <div class="pg-audience-copy">
           <p class="pg-eyebrow">{copy.audienceEyebrow}</p>
           <h2 id="solutions-audience-title">{copy.audienceTitle}</h2>
         </div>
-        <div class="pg-audience-grid">
-          {copy.audiences.map((audience) => <span>{audience}</span>)}
+        <div
+          class="pg-audience-ecosystem"
+          style={`--audience-columns: ${audienceGrid.columns}; --audience-rows: ${audienceGrid.rows};`}
+          aria-label={copy.audienceEyebrow}
+          data-reactive-card-zone
+        >
+          {audienceTiles.map((tile) => (
+            <article
+              class:list={['pg-audience-card', tile.rows > 1 && 'is-tall']}
+              style={tile.style}
+              tabindex="0"
+              data-reactive-card
+            >
+              <span class="pg-audience-card-number">{tile.number}</span>
+              <strong>{tile.label}</strong>
+            </article>
+          ))}
         </div>
       </div>
     </section>
 
     <section class="pg-section-tight pg-solutions-why" aria-labelledby="solutions-why-title">
       <div class="pg-container pg-why-layout">
-        <div>
+        <div class="pg-why-copy">
           <p class="pg-eyebrow">{copy.whyEyebrow}</p>
           <h2 id="solutions-why-title">{copy.whyTitle}</h2>
           <p>{copy.whyBody}</p>
         </div>
-        <ul class="pg-proof-point-list">
-          {copy.proofPoints.map((point) => <li>{point}</li>)}
+        <ul class="pg-proof-point-list" data-reactive-card-zone>
+          {proofMetrics.map((point) => (
+            <li
+              class="pg-proof-point-card"
+              style={point.style}
+              tabindex="0"
+              data-reactive-card
+            >
+              <span class="pg-proof-point-value">{point.value}</span>
+              <span class="pg-proof-point-label">{point.label}</span>
+              <span class="pg-proof-point-detail">{point.detail}</span>
+            </li>
+          ))}
         </ul>
       </div>
     </section>
@@ -1452,6 +1632,61 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
   };
 
   document.querySelectorAll('[data-solution-jigsaw]').forEach(initSolutionJigsaw);
+
+  const initReactiveCards = (zone) => {
+    if (zone.dataset.reactiveCardsReady === 'true') return;
+
+    zone.dataset.reactiveCardsReady = 'true';
+
+    const cards = Array.from(zone.querySelectorAll('[data-reactive-card]'));
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const clearCard = (card) => {
+      card.classList.remove('is-active');
+      card.style.removeProperty('--card-x');
+      card.style.removeProperty('--card-y');
+      card.style.removeProperty('--card-tilt-x');
+      card.style.removeProperty('--card-tilt-y');
+    };
+
+    const setActiveCard = (activeCard) => {
+      zone.classList.toggle('is-reacting', Boolean(activeCard));
+
+      for (const card of cards) {
+        card.classList.toggle('is-active', card === activeCard);
+      }
+    };
+
+    for (const card of cards) {
+      card.addEventListener('pointermove', (event) => {
+        const rect = card.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * 100;
+        const y = ((event.clientY - rect.top) / rect.height) * 100;
+        const tiltX = prefersReducedMotion ? 0 : (x - 50) * 0.08;
+        const tiltY = prefersReducedMotion ? 0 : (50 - y) * 0.08;
+
+        card.style.setProperty('--card-x', `${x}%`);
+        card.style.setProperty('--card-y', `${y}%`);
+        card.style.setProperty('--card-tilt-x', `${tiltX}deg`);
+        card.style.setProperty('--card-tilt-y', `${tiltY}deg`);
+      });
+
+      card.addEventListener('pointerenter', () => setActiveCard(card));
+      card.addEventListener('focus', () => setActiveCard(card));
+
+      card.addEventListener('pointerleave', () => {
+        clearCard(card);
+        setActiveCard(null);
+      });
+
+      card.addEventListener('blur', () => {
+        clearCard(card);
+        setActiveCard(null);
+      });
+    }
+  };
+
+  document.querySelectorAll('[data-reactive-card-zone]').forEach(initReactiveCards);
 </script>
 
 <style>
@@ -1951,7 +2186,14 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
     .pg-catalog-row::before,
     .pg-journey-step,
     .pg-journey-card,
-    .pg-journey-card::before {
+    .pg-journey-card::before,
+    .pg-audience-ecosystem::after,
+    .pg-audience-card,
+    .pg-audience-card::before,
+    .pg-audience-card::after,
+    .pg-proof-point-card,
+    .pg-proof-point-card::before,
+    .pg-proof-point-card::after {
       animation: none !important;
       transition: none !important;
     }
@@ -1966,7 +2208,13 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
     .pg-catalog-list > li.is-active .pg-catalog-row,
     .pg-catalog-list > li:target .pg-catalog-row,
     .pg-journey-card:hover,
-    .pg-journey-card:focus-within {
+    .pg-journey-card:focus-within,
+    .pg-audience-card:hover,
+    .pg-audience-card:focus-visible,
+    .pg-audience-card.is-active,
+    .pg-proof-point-card:hover,
+    .pg-proof-point-card:focus-visible,
+    .pg-proof-point-card.is-active {
       transform: none !important;
     }
 
@@ -1977,7 +2225,13 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
     }
 
     .pg-journey-card:hover::before,
-    .pg-journey-card:focus-within::before {
+    .pg-journey-card:focus-within::before,
+    .pg-audience-card:hover::after,
+    .pg-audience-card:focus-visible::after,
+    .pg-audience-card.is-active::after,
+    .pg-proof-point-card:hover::after,
+    .pg-proof-point-card:focus-visible::after,
+    .pg-proof-point-card.is-active::after {
       opacity: 0 !important;
       transform: translateX(-120%) skewX(-12deg) !important;
     }
@@ -2300,8 +2554,7 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
   }
 
   .pg-proof-columns li,
-  .pg-model-card li,
-  .pg-proof-point-list li {
+  .pg-model-card li {
     position: relative;
     color: var(--solution-ink-soft);
     line-height: 1.45;
@@ -2309,14 +2562,12 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
   }
 
   .pg-proof-columns li + li,
-  .pg-model-card li + li,
-  .pg-proof-point-list li + li {
+  .pg-model-card li + li {
     margin-top: 8px;
   }
 
   .pg-proof-columns li::before,
-  .pg-model-card li::before,
-  .pg-proof-point-list li::before {
+  .pg-model-card li::before {
     content: "";
     position: absolute;
     left: 0;
@@ -2412,35 +2663,261 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
   }
 
   .pg-solutions-audience {
+    position: relative;
+    isolation: isolate;
     background:
+      radial-gradient(circle at 16% 18%, rgba(20, 149, 143, 0.15), transparent 28%),
+      radial-gradient(circle at 88% 80%, rgba(217, 146, 50, 0.18), transparent 30%),
       linear-gradient(135deg, #f5fbfa, #ffffff 48%, #fff7df);
+    overflow: hidden;
+  }
+
+  .pg-solutions-audience::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(90deg, rgba(23, 32, 51, 0.035) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(23, 32, 51, 0.035) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
   }
 
   .pg-audience-layout {
     display: grid;
     grid-template-columns: minmax(0, 0.82fr) minmax(440px, 1.18fr);
     gap: 44px;
-    align-items: start;
+    align-items: center;
   }
 
-  .pg-audience-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+  .pg-audience-copy {
+    position: sticky;
+    top: 110px;
   }
 
-  .pg-audience-grid span {
+  .pg-audience-ecosystem {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--audience-columns), minmax(0, 1fr));
+    grid-template-rows: repeat(var(--audience-rows), minmax(86px, 1fr));
+    gap: 12px;
+    min-height: 440px;
     border: 1px solid rgba(197, 210, 223, 0.9);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.88);
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(236, 245, 255, 0.68)),
+      repeating-linear-gradient(135deg, rgba(20, 149, 143, 0.045) 0 1px, transparent 1px 22px);
+    box-shadow: 0 22px 54px rgba(23, 32, 51, 0.08);
+    overflow: hidden;
+    padding: 16px;
+  }
+
+  .pg-audience-ecosystem::before,
+  .pg-audience-ecosystem::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .pg-audience-ecosystem::before {
+    inset: 16px;
+    border-radius: 8px;
+    background:
+      linear-gradient(90deg, rgba(20, 149, 143, 0.22), transparent 18% 82%, rgba(228, 80, 128, 0.18)),
+      linear-gradient(180deg, transparent 48%, rgba(33, 118, 174, 0.18) 49%, rgba(33, 118, 174, 0.18) 51%, transparent 52%);
+    opacity: 0.44;
+  }
+
+  .pg-audience-ecosystem::after {
+    top: 14px;
+    bottom: 14px;
+    width: 28%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.72), transparent);
+    opacity: 0.62;
+    transform: translateX(-145%) skewX(-12deg);
+    animation: pgAudienceSystemSweep 7s ease-in-out infinite;
+  }
+
+  .pg-audience-card {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    grid-column: var(--aud-col) / span var(--aud-cols);
+    grid-row: var(--aud-row) / span var(--aud-rows);
+    min-width: 0;
+    min-height: 86px;
+    flex-direction: column;
+    justify-content: space-between;
+    border: 1px solid var(--aud-stroke);
+    border-radius: 8px;
+    background:
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 42%), rgba(255, 255, 255, 0.96), transparent 34%),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.96), var(--aud-fill));
+    box-shadow: 0 10px 24px var(--aud-glow);
     color: var(--solution-navy);
+    isolation: isolate;
+    overflow: hidden;
     font-weight: 820;
     line-height: 1.2;
-    padding: 12px 14px;
+    padding: clamp(13px, 1.4vw, 18px);
+    transform: perspective(760px) rotateX(0) rotateY(0) translateY(0);
+    transition:
+      opacity 0.22s ease,
+      border-color 0.24s ease,
+      box-shadow 0.24s ease,
+      filter 0.24s ease,
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: pgAudienceCardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--aud-index) * 54ms);
+  }
+
+  .pg-audience-card::before,
+  .pg-audience-card::after,
+  .pg-proof-point-card::before,
+  .pg-proof-point-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .pg-audience-card::before,
+  .pg-proof-point-card::before {
+    z-index: -1;
+    background:
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 42%), rgba(255, 255, 255, 0.9), transparent 28%),
+      linear-gradient(135deg, rgba(20, 149, 143, 0.1), transparent 48%, rgba(228, 80, 128, 0.08));
+    transition: opacity 0.22s ease;
+  }
+
+  .pg-audience-card::after,
+  .pg-proof-point-card::after {
+    z-index: 0;
+    background: linear-gradient(110deg, transparent 0 32%, rgba(255, 255, 255, 0.88) 46%, transparent 62% 100%);
+    transform: translateX(-122%) skewX(-13deg);
+    transition: opacity 0.18s ease, transform 0.52s ease;
+  }
+
+  .pg-audience-card:hover,
+  .pg-audience-card:focus-visible,
+  .pg-audience-card.is-active {
+    border-color: rgba(20, 149, 143, 0.42);
+    box-shadow: 0 18px 36px rgba(23, 32, 51, 0.12), 0 0 0 1px rgba(20, 149, 143, 0.08);
+    transform:
+      perspective(760px)
+      rotateX(var(--card-tilt-y, 0deg))
+      rotateY(var(--card-tilt-x, 0deg))
+      translateY(-6px);
+  }
+
+  .pg-audience-card:hover::before,
+  .pg-audience-card:focus-visible::before,
+  .pg-audience-card.is-active::before,
+  .pg-proof-point-card:hover::before,
+  .pg-proof-point-card:focus-visible::before,
+  .pg-proof-point-card.is-active::before {
+    opacity: 1;
+  }
+
+  .pg-audience-card:hover::after,
+  .pg-audience-card:focus-visible::after,
+  .pg-audience-card.is-active::after,
+  .pg-proof-point-card:hover::after,
+  .pg-proof-point-card:focus-visible::after,
+  .pg-proof-point-card.is-active::after {
+    opacity: 1;
+    transform: translateX(122%) skewX(-13deg);
+  }
+
+  .pg-audience-card:focus-visible,
+  .pg-proof-point-card:focus-visible {
+    outline: 3px solid rgba(20, 149, 143, 0.28);
+    outline-offset: 4px;
+  }
+
+  .pg-audience-ecosystem.is-reacting .pg-audience-card:not(.is-active),
+  .pg-proof-point-list.is-reacting .pg-proof-point-card:not(.is-active) {
+    opacity: 0.56;
+    filter: saturate(0.72);
+  }
+
+  .pg-audience-card-number,
+  .pg-audience-card strong,
+  .pg-proof-point-value,
+  .pg-proof-point-label,
+  .pg-proof-point-detail {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pg-audience-card-number {
+    display: inline-flex;
+    width: fit-content;
+    border: 1px solid rgba(20, 149, 143, 0.24);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--solution-teal);
+    font-size: 0.72rem;
+    font-weight: 950;
+    line-height: 1;
+    padding: 7px 9px;
+  }
+
+  .pg-audience-card strong {
+    display: block;
+    max-width: 96%;
+    font-size: clamp(0.94rem, 1.04vw, 1.14rem);
+    line-height: 1.18;
+  }
+
+  .pg-audience-card.is-tall strong {
+    font-size: clamp(1.04rem, 1.22vw, 1.28rem);
+  }
+
+  @keyframes pgAudienceCardIn {
+    from {
+      opacity: 0;
+      transform: translateY(14px) scale(0.975);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes pgAudienceSystemSweep {
+    0%,
+    38% {
+      transform: translateX(-145%) skewX(-12deg);
+    }
+
+    62%,
+    100% {
+      transform: translateX(420%) skewX(-12deg);
+    }
   }
 
   .pg-solutions-why {
-    background: #ffffff;
+    position: relative;
+    isolation: isolate;
+    background:
+      linear-gradient(180deg, #ffffff, #f8fbfd 54%, #ffffff);
+    overflow: hidden;
+  }
+
+  .pg-solutions-why::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(circle at 78% 18%, rgba(20, 149, 143, 0.12), transparent 30%),
+      linear-gradient(90deg, rgba(23, 32, 51, 0.04) 1px, transparent 1px);
+    background-size: auto, 86px 100%;
+    mask-image: linear-gradient(180deg, transparent, #000 16%, #000 84%, transparent);
   }
 
   .pg-why-layout {
@@ -2450,19 +2927,139 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
     align-items: center;
   }
 
-  .pg-proof-point-list {
-    display: grid;
-    gap: 12px;
-    border: 1px solid var(--solution-border);
-    border-radius: 8px;
-    background: #ffffff;
-    box-shadow: 0 14px 34px rgba(23, 32, 51, 0.08);
-    padding: 24px;
+  .pg-why-copy {
+    position: relative;
+    border-block: 1px solid rgba(197, 210, 223, 0.74);
+    padding-block: clamp(20px, 3vw, 32px);
   }
 
-  .pg-proof-point-list li {
+  .pg-why-copy::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: min(360px, 72%);
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--solution-teal), var(--solution-blue), var(--solution-rose));
+  }
+
+  .pg-proof-point-list {
+    position: relative;
+    display: grid;
+    gap: 14px;
+    border: 1px solid var(--solution-border);
+    border-radius: 8px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(246, 251, 253, 0.92)),
+      repeating-linear-gradient(135deg, rgba(20, 149, 143, 0.04) 0 1px, transparent 1px 24px);
+    box-shadow: 0 14px 34px rgba(23, 32, 51, 0.08);
+    overflow: hidden;
+    padding: clamp(16px, 2vw, 24px);
+  }
+
+  .pg-proof-point-list::before {
+    content: "";
+    position: absolute;
+    top: 38px;
+    bottom: 38px;
+    left: clamp(34px, 4vw, 52px);
+    width: 3px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(20, 149, 143, 0.42), rgba(33, 118, 174, 0.34), rgba(228, 80, 128, 0.32));
+    opacity: 0.72;
+  }
+
+  .pg-proof-point-card {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(78px, 0.34fr) minmax(0, 1fr);
+    grid-template-areas:
+      "value label"
+      "value detail";
+    gap: 7px clamp(14px, 2vw, 20px);
+    align-items: center;
+    min-height: 124px;
+    border: 1px solid var(--proof-stroke);
+    border-radius: 8px;
+    background:
+      radial-gradient(circle at var(--card-x, 54%) var(--card-y, 38%), rgba(255, 255, 255, 0.95), transparent 34%),
+      linear-gradient(145deg, #ffffff, var(--proof-fill));
     color: var(--solution-navy);
-    font-weight: 830;
+    box-shadow: 0 10px 24px var(--proof-glow);
+    isolation: isolate;
+    overflow: hidden;
+    padding: 18px;
+    transform: perspective(760px) rotateX(0) rotateY(0) translateY(0);
+    transition:
+      opacity 0.22s ease,
+      border-color 0.24s ease,
+      box-shadow 0.24s ease,
+      filter 0.24s ease,
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: pgProofCardIn 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--proof-index) * 74ms);
+  }
+
+  .pg-proof-point-card:hover,
+  .pg-proof-point-card:focus-visible,
+  .pg-proof-point-card.is-active {
+    border-color: rgba(20, 149, 143, 0.38);
+    box-shadow: 0 18px 38px rgba(23, 32, 51, 0.12), 0 0 0 1px rgba(20, 149, 143, 0.08);
+    transform:
+      perspective(760px)
+      rotateX(var(--card-tilt-y, 0deg))
+      rotateY(var(--card-tilt-x, 0deg))
+      translateY(-5px);
+  }
+
+  .pg-proof-point-value {
+    grid-area: value;
+    display: grid;
+    place-items: center;
+    width: clamp(64px, 7vw, 88px);
+    aspect-ratio: 1;
+    border: 1px solid rgba(20, 149, 143, 0.28);
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.92), transparent 34%),
+      linear-gradient(145deg, #e8fbf8, #d9eef7);
+    box-shadow: 0 12px 26px rgba(20, 149, 143, 0.12);
+    color: var(--solution-teal);
+    font-size: clamp(1.08rem, 2vw, 1.75rem);
+    font-weight: 950;
+    line-height: 1;
+    text-align: center;
+  }
+
+  .pg-proof-point-label {
+    grid-area: label;
+    align-self: end;
+    color: var(--solution-navy);
+    font-size: clamp(1.02rem, 1.45vw, 1.26rem);
+    font-weight: 900;
+    line-height: 1.16;
+  }
+
+  .pg-proof-point-detail {
+    grid-area: detail;
+    align-self: start;
+    color: var(--solution-ink-soft);
+    font-size: 0.94rem;
+    line-height: 1.48;
+  }
+
+  @keyframes pgProofCardIn {
+    from {
+      opacity: 0;
+      transform: translateX(18px) scale(0.98);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
   }
 
   .pg-solutions-booking {
@@ -2554,6 +3151,7 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
       width: min(720px, 100%);
     }
 
+    .pg-audience-copy,
     .pg-booking-copy {
       position: static;
     }
@@ -2674,6 +3272,27 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
       transform: translateX(50%);
     }
 
+    .pg-audience-ecosystem {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: none;
+      min-height: auto;
+      padding: 14px;
+    }
+
+    .pg-audience-ecosystem::before {
+      display: none;
+    }
+
+    .pg-audience-card {
+      grid-column: auto !important;
+      grid-row: auto !important;
+      min-height: 124px;
+    }
+
+    .pg-audience-card.is-tall {
+      min-height: 144px;
+    }
+
     .pg-catalog-copy,
     .pg-model-grid,
     .pg-proof-columns {
@@ -2727,6 +3346,10 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
 
     .pg-proof-screens figure:nth-child(even) {
       transform: none;
+    }
+
+    .pg-proof-point-list::before {
+      display: none;
     }
 
     .pg-solutions-calendar-wrapper {
@@ -2789,6 +3412,17 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
       display: none;
     }
 
+    .pg-audience-ecosystem {
+      grid-template-columns: 1fr;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .pg-audience-card,
+    .pg-audience-card.is-tall {
+      min-height: 108px;
+    }
+
     .pg-catalog-row {
       grid-template-columns: 1fr;
     }
@@ -2829,6 +3463,20 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
     .pg-model-card,
     .pg-proof-point-list {
       padding: 18px;
+    }
+
+    .pg-proof-point-card {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "value"
+        "label"
+        "detail";
+      min-height: auto;
+      padding: 16px;
+    }
+
+    .pg-proof-point-value {
+      width: 64px;
     }
 
     .pg-solutions-calendar-wrapper {
