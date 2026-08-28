@@ -77,12 +77,25 @@ type JourneyStepCopy = {
   detail: string;
 };
 
+type JourneyRollTone = {
+  gradient: string;
+  cardSoft: string;
+  cardStrong: string;
+  strokeSoft: string;
+  stroke: string;
+  glow: string;
+  wash: string;
+  text: string;
+  numberText: string;
+};
+
 type JourneyNode = JourneyStepCopy & {
   index: number;
   number: string;
   key: string;
   keys: string;
   className: string;
+  rollStyle: string;
   label: string;
 };
 
@@ -323,6 +336,92 @@ const journeyNodeClassNames = [
   'is-eleventh',
   'is-twelfth',
 ] as const;
+
+const journeyRollTones: Record<string, JourneyRollTone> = {
+  'is-first': {
+    gradient: 'linear-gradient(145deg, #ffe984 0%, #f6c44b 48%, #e0981e 100%)',
+    cardSoft: '#fffaf0',
+    cardStrong: '#fff0bd',
+    strokeSoft: 'rgba(235, 171, 42, 0.28)',
+    stroke: 'rgba(235, 171, 42, 0.54)',
+    glow: 'rgba(235, 171, 42, 0.23)',
+    wash: 'rgba(235, 171, 42, 0.14)',
+    text: '#a46f10',
+    numberText: '#3c2700',
+  },
+  'is-second': {
+    gradient: 'linear-gradient(145deg, #ffacd9 0%, #d56fab 50%, #9f4d96 100%)',
+    cardSoft: '#fff4fb',
+    cardStrong: '#f9d9ec',
+    strokeSoft: 'rgba(211, 101, 166, 0.28)',
+    stroke: 'rgba(211, 101, 166, 0.55)',
+    glow: 'rgba(211, 101, 166, 0.24)',
+    wash: 'rgba(211, 101, 166, 0.15)',
+    text: '#a54b86',
+    numberText: '#ffffff',
+  },
+  'is-third': {
+    gradient: 'linear-gradient(145deg, #ff9f88 0%, #ff6474 46%, #da3464 100%)',
+    cardSoft: '#fff3f0',
+    cardStrong: '#ffd5cf',
+    strokeSoft: 'rgba(239, 82, 100, 0.28)',
+    stroke: 'rgba(239, 82, 100, 0.55)',
+    glow: 'rgba(239, 82, 100, 0.24)',
+    wash: 'rgba(239, 82, 100, 0.15)',
+    text: '#ba4655',
+    numberText: '#ffffff',
+  },
+  'is-fourth': {
+    gradient: 'linear-gradient(145deg, #c2b7ff 0%, #8d72ff 48%, #6844d7 100%)',
+    cardSoft: '#f6f3ff',
+    cardStrong: '#dfd8ff',
+    strokeSoft: 'rgba(129, 103, 238, 0.28)',
+    stroke: 'rgba(129, 103, 238, 0.55)',
+    glow: 'rgba(129, 103, 238, 0.24)',
+    wash: 'rgba(129, 103, 238, 0.15)',
+    text: '#6750c7',
+    numberText: '#ffffff',
+  },
+  'is-fifth': {
+    gradient: 'linear-gradient(145deg, #d2ff9c 0%, #8ee17a 47%, #39bb7b 100%)',
+    cardSoft: '#f4fff0',
+    cardStrong: '#ddf8cf',
+    strokeSoft: 'rgba(82, 183, 105, 0.28)',
+    stroke: 'rgba(82, 183, 105, 0.55)',
+    glow: 'rgba(82, 183, 105, 0.22)',
+    wash: 'rgba(82, 183, 105, 0.14)',
+    text: '#438f54',
+    numberText: '#0d361f',
+  },
+  'is-sixth': {
+    gradient: 'linear-gradient(145deg, #ffd58f 0%, #ffab55 46%, #ff773c 100%)',
+    cardSoft: '#fff6eb',
+    cardStrong: '#ffe0bf',
+    strokeSoft: 'rgba(255, 145, 65, 0.28)',
+    stroke: 'rgba(255, 145, 65, 0.55)',
+    glow: 'rgba(255, 145, 65, 0.23)',
+    wash: 'rgba(255, 145, 65, 0.15)',
+    text: '#b66d24',
+    numberText: '#4a2100',
+  },
+  'is-seventh': {
+    gradient: 'linear-gradient(145deg, #8ee8ff 0%, #4f7cff 52%, #5b35dd 100%)',
+    cardSoft: '#f0f8ff',
+    cardStrong: '#d9e7ff',
+    strokeSoft: 'rgba(80, 128, 255, 0.28)',
+    stroke: 'rgba(80, 128, 255, 0.55)',
+    glow: 'rgba(80, 128, 255, 0.24)',
+    wash: 'rgba(80, 128, 255, 0.15)',
+    text: '#4d6fd4',
+    numberText: '#ffffff',
+  },
+};
+
+journeyRollTones['is-eighth'] = journeyRollTones['is-second'];
+journeyRollTones['is-ninth'] = journeyRollTones['is-third'];
+journeyRollTones['is-tenth'] = journeyRollTones['is-fourth'];
+journeyRollTones['is-eleventh'] = journeyRollTones['is-fifth'];
+journeyRollTones['is-twelfth'] = journeyRollTones['is-sixth'];
 
 const journeyRollOffsets: readonly JourneyRollOffset[] = [-1, 0, 1];
 
@@ -708,10 +807,27 @@ const createAudienceTiles = (labels: readonly string[]): AudienceTile[] => {
   });
 };
 
+const getJourneyRollStyle = (className: string) => {
+  const tone = journeyRollTones[className] ?? journeyRollTones['is-seventh'];
+
+  return [
+    `--roll-accent-gradient: ${tone.gradient}`,
+    `--roll-card-soft: ${tone.cardSoft}`,
+    `--roll-card-strong: ${tone.cardStrong}`,
+    `--roll-stroke-soft: ${tone.strokeSoft}`,
+    `--roll-stroke: ${tone.stroke}`,
+    `--roll-glow: ${tone.glow}`,
+    `--roll-wash-color: ${tone.wash}`,
+    `--roll-accent-text: ${tone.text}`,
+    `--roll-number-text: ${tone.numberText}`,
+  ].join(';');
+};
+
 const createJourneyNodes = (steps: readonly JourneyStepCopy[]): JourneyNode[] =>
   steps.map((step, index) => {
     const number = String(index + 1).padStart(2, '0');
     const key = `journey-step-${index + 1}`;
+    const className = journeyNodeClassNames[index] ?? 'is-seventh';
 
     return {
       ...step,
@@ -719,7 +835,8 @@ const createJourneyNodes = (steps: readonly JourneyStepCopy[]): JourneyNode[] =>
       number,
       key,
       keys: key,
-      className: journeyNodeClassNames[index] ?? 'is-first',
+      className,
+      rollStyle: getJourneyRollStyle(className),
       label: `${number}\n${step.phase}`,
     };
   });
@@ -1365,11 +1482,13 @@ const catalogItems = copy.catalogItems as readonly CatalogItemCopy[];
 const journeyNodes = createJourneyNodes(copy.journeySteps);
 const journeyRollSlots = createJourneyRollSlots(journeyNodes);
 const journeyStepDataJson = JSON.stringify(
-  journeyNodes.map(({ index, number, key, keys, phase, title, detail, label }) => ({
+  journeyNodes.map(({ index, number, key, keys, className, rollStyle, phase, title, detail, label }) => ({
     index,
     number,
     key,
     keys,
+    className,
+    rollStyle,
     phase,
     title,
     detail,
@@ -1603,6 +1722,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
                 data-journey-roll-offset={slot.offset}
                 data-journey-step-index={slot.index}
                 data-journey-keys={slot.keys}
+                style={slot.rollStyle}
                 aria-current={slot.isCurrent ? 'step' : undefined}
                 aria-label={`${slot.number}. ${slot.phase}: ${slot.title}`}
                 role="listitem"
@@ -1977,6 +2097,14 @@ const audienceTiles = createAudienceTiles(copy.audiences);
       if (target) target.textContent = value;
     };
 
+    const applyRollStyle = (element, value) => {
+      if (value) {
+        element.setAttribute('style', value);
+      } else {
+        element.removeAttribute('style');
+      }
+    };
+
     const updateRoll = (stepIndex = 0) => {
       if (!journeySteps.length || !rollCards.length) return;
 
@@ -1993,6 +2121,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
         card.setAttribute('data-journey-step-index', String(step.index));
         card.setAttribute('data-journey-keys', step.keys);
         card.setAttribute('aria-label', `${step.number}. ${step.phase}: ${step.title}`);
+        applyRollStyle(card, step.rollStyle);
 
         if (isCurrent) {
           card.setAttribute('aria-current', 'step');
@@ -3646,6 +3775,15 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     --roll-y: 0px;
     --roll-opacity: 0.64;
     --roll-scale: 0.962;
+    --roll-accent-gradient: linear-gradient(145deg, #8ee9dd 0%, #14958f 58%, #2176ae 100%);
+    --roll-card-soft: #f0fbfa;
+    --roll-card-strong: #dff4f0;
+    --roll-stroke-soft: rgba(20, 149, 143, 0.24);
+    --roll-stroke: rgba(20, 149, 143, 0.42);
+    --roll-glow: rgba(20, 149, 143, 0.18);
+    --roll-wash-color: rgba(20, 149, 143, 0.12);
+    --roll-accent-text: var(--solution-teal);
+    --roll-number-text: #ffffff;
     position: relative;
     z-index: 1;
     display: grid;
@@ -3653,12 +3791,13 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: clamp(0.92rem, 1.4vw, 1.18rem);
-    border: 1px solid rgba(197, 210, 223, 0.84);
+    border: 1px solid var(--roll-stroke-soft);
     border-radius: 8px;
     background:
-      radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.9), transparent 32%),
+      radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.9), transparent 31%),
+      radial-gradient(circle at 92% 84%, var(--roll-wash-color), transparent 34%),
       linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(242, 247, 251, 0.9));
-    box-shadow: 0 8px 22px rgba(23, 32, 51, 0.07);
+    box-shadow: 0 8px 22px rgba(23, 32, 51, 0.07), 0 0 0 1px rgba(255, 255, 255, 0.58) inset;
     opacity: var(--roll-opacity);
     overflow: hidden;
     padding: clamp(1rem, 1.6vw, 1.32rem);
@@ -3692,8 +3831,8 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-journey-roll-card::before {
     z-index: -1;
     background:
-      radial-gradient(circle at 12% 22%, rgba(20, 149, 143, 0.12), transparent 34%),
-      radial-gradient(circle at 92% 78%, rgba(228, 80, 128, 0.1), transparent 36%);
+      radial-gradient(circle at 12% 22%, var(--roll-wash-color), transparent 34%),
+      radial-gradient(circle at 92% 78%, var(--roll-card-soft), transparent 36%);
     opacity: 0;
     transition: opacity 0.3s ease;
   }
@@ -3718,13 +3857,15 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     --roll-y: 0px;
     --roll-opacity: 1;
     --roll-scale: 1;
-    border-color: rgba(20, 149, 143, 0.42);
+    border-color: var(--roll-stroke);
     background:
       radial-gradient(circle at 14% 18%, rgba(255, 255, 255, 0.96), transparent 32%),
-      linear-gradient(145deg, #ffffff 0%, #effbf9 48%, #f7f0ff 100%);
+      radial-gradient(circle at 96% 76%, var(--roll-wash-color), transparent 34%),
+      linear-gradient(145deg, #ffffff 0%, var(--roll-card-soft) 48%, var(--roll-card-strong) 100%);
     box-shadow:
       0 20px 46px rgba(23, 32, 51, 0.13),
-      0 0 0 1px rgba(20, 149, 143, 0.08),
+      0 12px 34px var(--roll-glow),
+      0 0 0 1px var(--roll-stroke-soft),
       inset 0 1px 0 rgba(255, 255, 255, 0.82);
     filter: saturate(1.08);
   }
@@ -3757,13 +3898,13 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     width: clamp(44px, 4.4vw, 56px);
     height: clamp(44px, 4.4vw, 56px);
     place-items: center;
-    border: 1px solid rgba(20, 149, 143, 0.28);
+    border: 1px solid var(--roll-stroke-soft);
     border-radius: 999px;
     background:
       radial-gradient(circle at 32% 22%, rgba(255, 255, 255, 0.96), transparent 36%),
-      linear-gradient(145deg, #e8fbf8 0%, #d4f2ed 100%);
-    box-shadow: 0 10px 24px rgba(20, 149, 143, 0.12);
-    color: var(--solution-teal);
+      linear-gradient(145deg, #ffffff 0%, var(--roll-card-soft) 100%);
+    box-shadow: 0 10px 24px var(--roll-glow);
+    color: var(--roll-accent-text);
     font-size: clamp(0.78rem, 0.9vw, 0.92rem);
     font-weight: 950;
     line-height: 1;
@@ -3775,9 +3916,10 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   }
 
   .pg-journey-roll-card.is-current .pg-journey-roll-number {
-    background: linear-gradient(145deg, #8ee9dd 0%, #14958f 58%, #2176ae 100%);
-    box-shadow: 0 16px 34px rgba(20, 149, 143, 0.24);
-    color: #ffffff;
+    border-color: var(--roll-stroke);
+    background: var(--roll-accent-gradient);
+    box-shadow: 0 16px 34px var(--roll-glow);
+    color: var(--roll-number-text);
     transform: translateY(-2px);
   }
 
@@ -3797,7 +3939,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   }
 
   .pg-journey-roll-card.is-current .pg-journey-roll-phase {
-    color: var(--solution-teal);
+    color: var(--roll-accent-text);
   }
 
   .pg-journey-roll-card h3 {
@@ -3821,7 +3963,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
 
   .pg-journey-roll-wash {
     z-index: 0;
-    background: linear-gradient(135deg, rgba(20, 149, 143, 0.1), transparent 52%, rgba(228, 80, 128, 0.08));
+    background: linear-gradient(135deg, var(--roll-wash-color), transparent 52%, var(--roll-card-soft));
     opacity: 0;
     transition: opacity 0.3s ease;
   }
