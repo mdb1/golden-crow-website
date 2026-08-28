@@ -685,23 +685,6 @@ const pageCopy = {
         href: '#solutions-call',
       },
     ],
-    exampleBody:
-      'The same model applies to reports, consents, education, APIs, Discover, community, CRM, and the rest of the solutions.',
-    exampleFlow: ['Request', 'Assignment', 'Map', 'Tracking', 'Pickup', 'Chain of custody', 'Laboratory'],
-    exampleOptions: [
-      {
-        title: 'Pocket Genes',
-        body: 'We integrate the circuit as part of the platform.',
-      },
-      {
-        title: 'Your own product',
-        body: 'Golden Crow VS develops the system for your organization.',
-      },
-      {
-        title: 'Your team + ours',
-        body: 'Our developers work with your team to build it inside your infrastructure.',
-      },
-    ],
     audienceEyebrow: 'Built around the genetics ecosystem',
     audienceTitle: 'For teams managing genetics workflows.',
     audiences: [
@@ -1006,23 +989,6 @@ const pageCopy = {
         href: '#solutions-call',
       },
     ],
-    exampleBody:
-      'Lo mismo aplica a informes, consentimientos, educación, APIs, Discover, comunidad, CRM y el resto de nuestras soluciones.',
-    exampleFlow: ['Solicitud', 'Asignación', 'Mapa', 'Tracking', 'Retiro', 'Cadena de custodia', 'Laboratorio'],
-    exampleOptions: [
-      {
-        title: 'Pocket Genes',
-        body: 'Integramos el circuito como parte de la plataforma.',
-      },
-      {
-        title: 'Producto propio',
-        body: 'Golden Crow VS desarrolla el sistema para tu organización.',
-      },
-      {
-        title: 'Tu equipo + el nuestro',
-        body: 'Nuestros desarrolladores trabajan con tu equipo para construirlo dentro de tu infraestructura.',
-      },
-    ],
     audienceEyebrow: 'Construido alrededor del ecosistema genético',
     audienceTitle: 'Para equipos que gestionan procesos genéticos.',
     audiences: [
@@ -1261,34 +1227,6 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
               </a>
             </article>
           ))}
-        </div>
-      </div>
-    </section>
-
-    <section class="pg-section-tight pg-solutions-example">
-      <div class="pg-container">
-        <div class="pg-example-panel">
-          <div class="pg-section-heading">
-            <p>{copy.exampleBody}</p>
-          </div>
-
-          <ol class="pg-example-flow">
-            {copy.exampleFlow.map((step, index) => (
-              <li style={`--flow-index: ${index};`}>
-                <span>{String(index + 1).padStart(2, '0')}</span>
-                {step}
-              </li>
-            ))}
-          </ol>
-
-          <div class="pg-example-options">
-            {copy.exampleOptions.map((option) => (
-              <article>
-                <h3>{option.title}</h3>
-                <p>{option.body}</p>
-              </article>
-            ))}
-          </div>
         </div>
       </div>
     </section>
@@ -1883,8 +1821,7 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
   }
 
   .pg-catalog-number,
-  .pg-model-number,
-  .pg-example-flow span {
+  .pg-model-number {
     flex: 0 0 auto;
     min-width: 40px;
     border-radius: 8px;
@@ -2389,69 +2326,6 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
     margin-top: 22px;
   }
 
-  .pg-solutions-example {
-    background: #ffffff;
-  }
-
-  .pg-example-panel {
-    border: 1px solid var(--solution-border);
-    border-radius: 8px;
-    background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(236, 245, 255, 0.92)),
-      repeating-linear-gradient(90deg, rgba(33, 118, 174, 0.04) 0 1px, transparent 1px 56px);
-    padding: 34px;
-  }
-
-  .pg-example-flow {
-    display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 10px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .pg-example-flow li {
-    min-height: 96px;
-    display: grid;
-    align-content: center;
-    gap: 10px;
-    border: 1px solid rgba(33, 118, 174, 0.2);
-    border-radius: 8px;
-    background: #ffffff;
-    color: var(--solution-navy);
-    font-size: 0.92rem;
-    font-weight: 850;
-    line-height: 1.25;
-    padding: 12px;
-  }
-
-  .pg-example-options {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-    margin-top: 20px;
-  }
-
-  .pg-example-options article {
-    border: 1px solid rgba(197, 210, 223, 0.86);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.92);
-    padding: 20px;
-  }
-
-  .pg-example-options h3 {
-    margin: 0;
-    color: var(--solution-navy);
-    font-size: 1.14rem;
-  }
-
-  .pg-example-options p {
-    margin: 8px 0 0;
-    color: var(--solution-ink-soft);
-    line-height: 1.58;
-  }
-
   .pg-solutions-audience {
     background:
       linear-gradient(135deg, #f5fbfa, #ffffff 48%, #fff7df);
@@ -2591,10 +2465,6 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .pg-example-flow {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
     .pg-proof-screens {
       width: min(720px, 100%);
     }
@@ -2721,13 +2591,8 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
 
     .pg-catalog-copy,
     .pg-model-grid,
-    .pg-proof-columns,
-    .pg-example-options {
+    .pg-proof-columns {
       grid-template-columns: 1fr;
-    }
-
-    .pg-example-flow {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .pg-journey-roadmap {
@@ -2800,10 +2665,6 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
       display: none;
     }
 
-    .pg-example-flow {
-      grid-template-columns: 1fr;
-    }
-
     .pg-journey-roadmap {
       padding: 14px;
     }
@@ -2869,7 +2730,6 @@ const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
 
     .pg-catalog-row,
     .pg-model-card,
-    .pg-example-panel,
     .pg-proof-point-list {
       padding: 18px;
     }
