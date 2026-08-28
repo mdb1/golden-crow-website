@@ -124,31 +124,41 @@ const audienceGrid = {
   rows: 4,
 } as const;
 
-const jigsawTones: Record<JigsawTone, { fill: string; stroke: string; glow: string }> = {
+const jigsawTones: Record<JigsawTone, { fill: string; stroke: string; glow: string; text: string; chip: string }> = {
   rose: {
     fill: '#fff8fb',
     stroke: 'rgba(228, 80, 128, 0.42)',
     glow: 'rgba(228, 80, 128, 0.16)',
+    text: '#b65c83',
+    chip: 'rgba(228, 80, 128, 0.1)',
   },
   teal: {
     fill: '#f5fffd',
     stroke: 'rgba(20, 149, 143, 0.36)',
     glow: 'rgba(20, 149, 143, 0.14)',
+    text: '#23837e',
+    chip: 'rgba(20, 149, 143, 0.1)',
   },
   blue: {
     fill: '#f6fbff',
     stroke: 'rgba(33, 118, 174, 0.34)',
     glow: 'rgba(33, 118, 174, 0.14)',
+    text: '#477da5',
+    chip: 'rgba(33, 118, 174, 0.1)',
   },
   green: {
     fill: '#f7fff9',
     stroke: 'rgba(60, 155, 104, 0.34)',
     glow: 'rgba(60, 155, 104, 0.14)',
+    text: '#4a8f68',
+    chip: 'rgba(60, 155, 104, 0.1)',
   },
   amber: {
     fill: '#fffaf1',
     stroke: 'rgba(217, 146, 50, 0.34)',
     glow: 'rgba(217, 146, 50, 0.14)',
+    text: '#a97a35',
+    chip: 'rgba(217, 146, 50, 0.12)',
   },
 };
 
@@ -529,6 +539,8 @@ const createAudienceTiles = (labels: readonly string[]): AudienceTile[] => {
         `--aud-fill: ${tone.fill}`,
         `--aud-stroke: ${tone.stroke}`,
         `--aud-glow: ${tone.glow}`,
+        `--aud-text: ${tone.text}`,
+        `--aud-chip: ${tone.chip}`,
       ].join(';'),
     };
   });
@@ -4539,7 +4551,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
       radial-gradient(circle at var(--card-x, 50%) var(--card-y, 42%), rgba(255, 255, 255, 0.96), transparent 34%),
       linear-gradient(145deg, rgba(255, 255, 255, 0.96), var(--aud-fill));
     box-shadow: 0 10px 24px var(--aud-glow);
-    color: var(--solution-navy);
+    color: var(--aud-text);
     isolation: isolate;
     overflow: hidden;
     font-weight: 820;
@@ -4592,8 +4604,8 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-audience-card:hover,
   .pg-audience-card:focus-visible,
   .pg-audience-card.is-active {
-    border-color: rgba(20, 149, 143, 0.42);
-    box-shadow: 0 18px 36px rgba(23, 32, 51, 0.12), 0 0 0 1px rgba(20, 149, 143, 0.08);
+    border-color: var(--aud-stroke);
+    box-shadow: 0 18px 36px rgba(23, 32, 51, 0.1), 0 0 0 1px var(--aud-glow);
     transform:
       perspective(760px)
       rotateX(var(--card-tilt-y, 0deg))
@@ -4633,10 +4645,10 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-audience-card-number {
     display: inline-flex;
     width: fit-content;
-    border: 1px solid rgba(20, 149, 143, 0.24);
+    border: 1px solid var(--aud-stroke);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.78);
-    color: var(--solution-teal);
+    background: var(--aud-chip);
+    color: var(--aud-text);
     font-size: 0.72rem;
     font-weight: 950;
     line-height: 1;
@@ -4646,6 +4658,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-audience-card strong {
     display: block;
     max-width: 96%;
+    color: var(--aud-text);
     font-size: clamp(0.94rem, 1.04vw, 1.14rem);
     line-height: 1.18;
   }
