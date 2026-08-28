@@ -100,24 +100,27 @@ const heroStats = [
 
 <style>
   .hero {
+    --hero-side-gutter: max(16px, calc((100vw - 1120px) / 2));
+
     position: relative;
     min-height: calc(100vh - clamp(60px, 10vw, 80px));
     min-height: calc(100svh - clamp(60px, 10vw, 80px));
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 520px) minmax(360px, 520px);
+    gap: clamp(2rem, 4vw, 4rem);
     align-items: center;
-    justify-content: space-between;
-    padding: clamp(1.25rem, 3vh, 2rem) 5% clamp(4rem, 7vh, 5rem);
+    justify-content: center;
+    padding: clamp(1.25rem, 3vh, 2rem) var(--hero-side-gutter) clamp(4rem, 7vh, 5rem);
     background: var(--bg-primary);
     overflow: hidden;
   }
 
   /* Hero Content */
   .hero-content {
-    flex: 1;
-    max-width: 50%;
+    min-width: 0;
+    max-width: 100%;
     position: relative;
     z-index: 2;
-    padding-right: 2rem;
   }
 
   .hero-title {
@@ -254,9 +257,11 @@ const heroStats = [
 
   /* Hero Images */
   .hero-images {
-    flex: 1;
+    width: 100%;
+    min-width: 0;
     position: relative;
-    height: 600px;
+    height: min(56vw, 600px);
+    min-height: 520px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -328,9 +333,9 @@ const heroStats = [
   /* Responsive Design */
   @media (max-width: 1024px) {
     .hero {
-      flex-direction: column;
+      grid-template-columns: minmax(0, 720px);
       text-align: center;
-      padding: 2rem 5%;
+      padding: 2rem max(1rem, 5vw);
       gap: 3rem;
     }
 
@@ -351,6 +356,7 @@ const heroStats = [
 
     .hero-images {
       height: 400px;
+      min-height: 400px;
     }
 
     .hero-images img {
@@ -390,6 +396,7 @@ const heroStats = [
 
     .hero-images {
       height: 300px;
+      min-height: 300px;
     }
 
     .hero-images img {
@@ -443,6 +450,7 @@ const heroStats = [
 
     .hero-images {
       height: 250px;
+      min-height: 250px;
     }
 
     .hero-images img {
