@@ -827,7 +827,7 @@ const createJourneyNodes = (steps: readonly JourneyStepCopy[]): JourneyNode[] =>
   steps.map((step, index) => {
     const number = String(index + 1).padStart(2, '0');
     const key = `journey-step-${index + 1}`;
-    const className = journeyNodeClassNames[index] ?? 'is-seventh';
+    const className = journeyVisualClassByIndex.get(index) ?? journeyNodeClassNames[index] ?? 'is-seventh';
 
     return {
       ...step,
@@ -854,6 +854,33 @@ const createJourneyRollSlots = (nodes: readonly JourneyNode[], activeIndex = 0):
     isCurrent: offset === 0,
   }));
 };
+
+// Clockwise orbit around the hub: 11 12 01 02 03 / 10 .. 04 / 09 08 07 06 05.
+const journeyOrbitColumns = [
+  { className: 'is-column-one', nodeIndexes: [10, 8], slotClassNames: ['is-first', 'is-second'] },
+  { className: 'is-column-two', nodeIndexes: [11, 9, 7], slotClassNames: ['is-third', 'is-fourth', 'is-fifth'] },
+  {
+    className: 'is-column-three',
+    nodeIndexes: [0, 6],
+    slotClassNames: ['is-sixth', 'is-seventh'],
+    hasCore: true,
+    coreIndex: 1,
+  },
+  { className: 'is-column-four', nodeIndexes: [1, 3, 5], slotClassNames: ['is-eighth', 'is-ninth', 'is-tenth'] },
+  { className: 'is-column-five', nodeIndexes: [2, 4], slotClassNames: ['is-eleventh', 'is-twelfth'] },
+] as const;
+
+const journeyVisualClassByIndex = new Map<number, string>();
+
+for (const { nodeIndexes, slotClassNames } of journeyOrbitColumns) {
+  for (const [slotIndex, nodeIndex] of nodeIndexes.entries()) {
+    const visualClassName = slotClassNames[slotIndex];
+
+    if (visualClassName) {
+      journeyVisualClassByIndex.set(nodeIndex, visualClassName);
+    }
+  }
+}
 
 const pageCopy = {
   en: {
@@ -1495,21 +1522,6 @@ const journeyStepDataJson = JSON.stringify(
     label,
   })),
 ).replace(/</g, '\\u003c');
-// Clockwise orbit around the hub: 11 12 01 02 03 / 10 .. 04 / 09 08 07 06 05.
-const journeyOrbitColumns = [
-  { className: 'is-column-one', nodeIndexes: [10, 8], slotClassNames: ['is-first', 'is-second'] },
-  { className: 'is-column-two', nodeIndexes: [11, 9, 7], slotClassNames: ['is-third', 'is-fourth', 'is-fifth'] },
-  {
-    className: 'is-column-three',
-    nodeIndexes: [0, 6],
-    slotClassNames: ['is-sixth', 'is-seventh'],
-    hasCore: true,
-    coreIndex: 1,
-  },
-  { className: 'is-column-four', nodeIndexes: [1, 3, 5], slotClassNames: ['is-eighth', 'is-ninth', 'is-tenth'] },
-  { className: 'is-column-five', nodeIndexes: [2, 4], slotClassNames: ['is-eleventh', 'is-twelfth'] },
-] as const;
-
 const usedJourneyOrbitIndexes = new Set<number>();
 const journeyNodeColumns = journeyOrbitColumns.map(({ nodeIndexes, slotClassNames, ...column }) => ({
   ...column,
