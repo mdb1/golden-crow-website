@@ -77,28 +77,8 @@ type JourneyStepCopy = {
   detail: string;
 };
 
-type JourneyBranchCopy = {
-  title: string;
-  detail: string;
-};
-
-type JourneyPanelColor = 'primary' | 'secondary' | 'success' | 'accent' | 'warning';
-
-type JourneyPanelPlan = {
-  key: string;
-  startIndex: number;
-  endIndex: number;
-  color: JourneyPanelColor;
-};
-
-type JourneyPanel = JourneyBranchCopy & {
-  key: string;
-  range: string;
-  keys: string;
-  color: JourneyPanelColor;
-};
-
 type JourneyNode = JourneyStepCopy & {
+  index: number;
   number: string;
   key: string;
   keys: string;
@@ -108,6 +88,13 @@ type JourneyNode = JourneyStepCopy & {
 
 type JourneyOrbitNode = JourneyNode & {
   visualClassName: string;
+};
+
+type JourneyRollOffset = -1 | 0 | 1;
+
+type JourneyRollSlot = JourneyNode & {
+  offset: JourneyRollOffset;
+  isCurrent: boolean;
 };
 
 type AudienceBlueprint = {
@@ -352,14 +339,6 @@ const audienceBlueprints: readonly AudienceBlueprint[] = [
   { col: 5, row: 4, cols: 2, rows: 1, tone: 'teal' },
 ] as const;
 
-const journeyPanelPlans: readonly JourneyPanelPlan[] = [
-  { key: 'entry', startIndex: 0, endIndex: 3, color: 'primary' },
-  { key: 'sample', startIndex: 3, endIndex: 5, color: 'secondary' },
-  { key: 'processing', startIndex: 5, endIndex: 7, color: 'success' },
-  { key: 'access', startIndex: 7, endIndex: 9, color: 'accent' },
-  { key: 'support', startIndex: 9, endIndex: 12, color: 'warning' },
-] as const;
-
 const journeyNodeClassNames = [
   'is-first',
   'is-second',
@@ -374,6 +353,8 @@ const journeyNodeClassNames = [
   'is-eleventh',
   'is-twelfth',
 ] as const;
+
+const journeyRollOffsets: readonly JourneyRollOffset[] = [-1, 0, 1];
 
 const jigsawWidth = jigsawGrid.columns * jigsawGrid.cell;
 const jigsawHeight = jigsawGrid.rows * jigsawGrid.cell;
@@ -756,61 +737,35 @@ const createAudienceTiles = (labels: readonly string[]): AudienceTile[] => {
   });
 };
 
-const getJourneyPanelKeyForStep = (stepIndex: number) => {
-  const panel = journeyPanelPlans.find((plan) => stepIndex >= plan.startIndex && stepIndex < plan.endIndex);
-
-  if (!panel) {
-    throw new Error(`No journey panel found for step index ${stepIndex}.`);
-  }
-
-  return panel.key;
-};
-
-const createJourneyPanels = (
-  steps: readonly JourneyStepCopy[],
-  branches: readonly JourneyBranchCopy[],
-): JourneyPanel[] => {
-  const expectedSteps = journeyPanelPlans[journeyPanelPlans.length - 1]?.endIndex ?? 0;
-
-  if (steps.length !== expectedSteps) {
-    throw new Error(`Expected ${expectedSteps} journey steps, received ${steps.length}.`);
-  }
-
-  if (branches.length !== journeyPanelPlans.length) {
-    throw new Error(`Expected ${journeyPanelPlans.length} journey branches, received ${branches.length}.`);
-  }
-
-  return journeyPanelPlans.map((plan, branchIndex) => {
-    const firstStep = plan.startIndex + 1;
-    const lastStep = plan.endIndex;
-    const nodeKeys = steps
-      .slice(plan.startIndex, plan.endIndex)
-      .map((_, stepIndex) => `journey-step-${plan.startIndex + stepIndex + 1}`);
-
-    return {
-      ...branches[branchIndex],
-      key: plan.key,
-      range: `${String(firstStep).padStart(2, '0')}-${String(lastStep).padStart(2, '0')}`,
-      keys: [`journey-panel-${plan.key}`, ...nodeKeys].join(' '),
-      color: plan.color,
-    };
-  });
-};
-
 const createJourneyNodes = (steps: readonly JourneyStepCopy[]): JourneyNode[] =>
   steps.map((step, index) => {
     const number = String(index + 1).padStart(2, '0');
-    const panelKey = getJourneyPanelKeyForStep(index);
+    const key = `journey-step-${index + 1}`;
 
     return {
       ...step,
+      index,
       number,
-      key: `journey-step-${index + 1}`,
-      keys: `journey-step-${index + 1} journey-panel-${panelKey}`,
+      key,
+      keys: key,
       className: journeyNodeClassNames[index] ?? 'is-first',
       label: `${number}\n${step.phase}`,
     };
   });
+
+const wrapJourneyIndex = (index: number, total: number) => ((index % total) + total) % total;
+
+const createJourneyRollSlots = (nodes: readonly JourneyNode[], activeIndex = 0): JourneyRollSlot[] => {
+  if (!nodes.length) {
+    throw new Error('Expected at least one journey node for the rolling list.');
+  }
+
+  return journeyRollOffsets.map((offset) => ({
+    ...nodes[wrapJourneyIndex(activeIndex + offset, nodes.length)],
+    offset,
+    isCurrent: offset === 0,
+  }));
+};
 
 const pageCopy = {
   en: {
@@ -937,28 +892,6 @@ const pageCopy = {
     journeyCoreKicker: 'Connected flow',
     journeyCoreTitle: 'Connected\nflow',
     journeyCoreBody: 'One operation, several paths.',
-    journeyBranches: [
-      {
-        title: 'Case setup',
-        detail: 'Identity, permissions, and sample ready to move.',
-      },
-      {
-        title: 'Sample movement',
-        detail: 'Collection, custody, and reception stay visible.',
-      },
-      {
-        title: 'Lab and systems',
-        detail: 'Processing, APIs, and statuses in one place.',
-      },
-      {
-        title: 'Report access',
-        detail: 'Delivery, context, and education near the result.',
-      },
-      {
-        title: 'Ongoing support',
-        detail: 'Professionals, community, and follow-up when useful.',
-      },
-    ],
     journeySteps: [
       {
         phase: 'Start',
@@ -1268,28 +1201,6 @@ const pageCopy = {
     journeyCoreKicker: 'Ecosistema',
     journeyCoreTitle: 'Ecosistema',
     journeyCoreBody: 'Una operación, varios recorridos.',
-    journeyBranches: [
-      {
-        title: 'Entrada del caso',
-        detail: 'Identidad, permisos y muestra listos para avanzar.',
-      },
-      {
-        title: 'Movimiento de muestra',
-        detail: 'Recolección, custodia y recepción visibles.',
-      },
-      {
-        title: 'Laboratorio y sistemas',
-        detail: 'Procesamiento, APIs y estados en un mismo lugar.',
-      },
-      {
-        title: 'Acceso al informe',
-        detail: 'Entrega, contexto y educación cerca del resultado.',
-      },
-      {
-        title: 'Apoyo continuo',
-        detail: 'Profesionales, comunidad y seguimiento cuando suman.',
-      },
-    ],
     journeySteps: [
       {
         phase: 'Inicio',
@@ -1480,8 +1391,20 @@ const pageCopy = {
 const copy = pageCopy[locale];
 const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy.hubCenterBody);
 const catalogItems = copy.catalogItems as readonly CatalogItemCopy[];
-const journeyPanels = createJourneyPanels(copy.journeySteps, copy.journeyBranches);
 const journeyNodes = createJourneyNodes(copy.journeySteps);
+const journeyRollSlots = createJourneyRollSlots(journeyNodes);
+const journeyStepDataJson = JSON.stringify(
+  journeyNodes.map(({ index, number, key, keys, phase, title, detail, label }) => ({
+    index,
+    number,
+    key,
+    keys,
+    phase,
+    title,
+    detail,
+    label,
+  })),
+).replace(/</g, '\\u003c');
 // Clockwise orbit around the hub: 11 12 01 02 03 / 10 .. 04 / 09 08 07 06 05.
 const journeyOrbitColumns = [
   { className: 'is-column-one', nodeIndexes: [10, 8], slotClassNames: ['is-first', 'is-second'] },
@@ -1688,30 +1611,38 @@ const audienceTiles = createAudienceTiles(copy.audiences);
 
     <section id="solutions-journey" class="pg-solutions-journey" aria-labelledby="solutions-journey-title" data-solution-journey>
       <div class="pg-journey-content-wrapper">
-        <div class="pg-journey-panels-container">
+        <div class="pg-journey-roll-container">
           <div class="pg-journey-section-header pg-section-heading">
             <p class="pg-eyebrow">{copy.journeyEyebrow}</p>
             <h2 id="solutions-journey-title" class="pg-journey-section-title">{copy.journeyTitle}</h2>
             <p class="pg-journey-subtitle">{copy.journeyBody}</p>
           </div>
 
-          <div class="pg-journey-panels-grid">
-            {journeyPanels.map((panel) => (
+          <div class="pg-journey-roll" data-journey-roll aria-live="polite" role="list">
+            <script type="application/json" data-journey-step-data set:html={journeyStepDataJson}></script>
+            {journeyRollSlots.map((slot) => (
               <article
-                class:list={['pg-journey-panel-card', `is-${panel.color}`]}
-                data-journey-card
-                data-journey-keys={panel.keys}
-                tabindex="0"
+                class:list={[
+                  'pg-journey-roll-card',
+                  slot.offset === -1 && 'is-previous',
+                  slot.offset === 0 && 'is-current',
+                  slot.offset === 1 && 'is-next',
+                ]}
+                data-journey-roll-card
+                data-journey-roll-offset={slot.offset}
+                data-journey-step-index={slot.index}
+                data-journey-keys={slot.keys}
+                aria-current={slot.isCurrent ? 'step' : undefined}
+                aria-label={`${slot.number}. ${slot.phase}: ${slot.title}`}
+                role="listitem"
               >
-                <div class="pg-journey-icon-wrapper">
-                  <span class="pg-journey-gradient-icon" aria-hidden="true"></span>
+                <span class="pg-journey-roll-number" data-journey-roll-number>{slot.number}</span>
+                <div class="pg-journey-roll-copy">
+                  <span class="pg-journey-roll-phase" data-journey-roll-phase>{slot.phase}</span>
+                  <h3 data-journey-roll-title>{slot.title}</h3>
+                  <p data-journey-roll-detail>{slot.detail}</p>
                 </div>
-                <div class="pg-journey-card-content">
-                  <span class="pg-journey-card-range">{panel.range}</span>
-                  <h3>{panel.title}</h3>
-                  <p>{panel.detail}</p>
-                </div>
-                <span class="pg-journey-card-wash" aria-hidden="true"></span>
+                <span class="pg-journey-roll-wash" aria-hidden="true"></span>
               </article>
             ))}
           </div>
@@ -1729,6 +1660,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
                         data-journey-hub
                         data-journey-keys={journeyHubKeys}
                         tabindex="0"
+                        role="button"
                         aria-label={`${copy.journeyCoreKicker}: ${copy.journeyCoreBody}`}
                       >
                         <span class="pg-journey-orbit-core-ring is-outer" aria-hidden="true"></span>
@@ -1741,7 +1673,9 @@ const audienceTiles = createAudienceTiles(copy.audiences);
                       class:list={['pg-journey-node', node.visualClassName]}
                       data-journey-node
                       data-journey-keys={node.keys}
+                      data-journey-step-index={node.index}
                       tabindex="0"
+                      role="button"
                       aria-label={`${node.number}. ${node.phase}: ${node.title}`}
                     >
                       <p>{node.label}</p>
@@ -2027,29 +1961,110 @@ const audienceTiles = createAudienceTiles(copy.audiences);
 
     root.dataset.solutionJourneyReady = 'true';
 
-    const cards = Array.from(root.querySelectorAll('[data-journey-card]'));
     const nodes = Array.from(root.querySelectorAll('[data-journey-node]'));
     const hubs = Array.from(root.querySelectorAll('[data-journey-hub]'));
-    const interactiveElements = [...cards, ...nodes, ...hubs];
+    const rollCards = Array.from(root.querySelectorAll('[data-journey-roll-card]'));
+    const stepDataSource = root.querySelector('[data-journey-step-data]');
+    const interactiveElements = [...nodes, ...hubs];
 
-    const readKeys = (element) =>
-      (element.getAttribute('data-journey-keys') || '')
+    let journeySteps = [];
+
+    try {
+      journeySteps = JSON.parse(stepDataSource?.textContent || '[]');
+    } catch {
+      journeySteps = [];
+    }
+
+    const readKeyString = (value) =>
+      (value || '')
         .split(/\s+/)
         .filter(Boolean);
+
+    const readKeys = (element) => readKeyString(element.getAttribute('data-journey-keys'));
 
     const hasSharedKey = (element, activeKeys) => {
       const keys = readKeys(element);
       return keys.some((key) => activeKeys.includes(key));
     };
 
+    const normalizeStepIndex = (index) => {
+      const total = journeySteps.length;
+      if (!total) return 0;
+      return ((index % total) + total) % total;
+    };
+
+    const readStepIndex = (element) => {
+      const value = element.getAttribute('data-journey-step-index');
+      if (value === null) return null;
+
+      const stepIndex = Number(value);
+      return Number.isFinite(stepIndex) ? normalizeStepIndex(stepIndex) : null;
+    };
+
+    const setText = (element, selector, value) => {
+      const target = element.querySelector(selector);
+      if (target) target.textContent = value;
+    };
+
+    const updateRoll = (stepIndex = 0) => {
+      if (!journeySteps.length || !rollCards.length) return;
+
+      const activeIndex = normalizeStepIndex(stepIndex);
+      root.setAttribute('data-journey-roll-index', String(activeIndex));
+
+      for (const card of rollCards) {
+        const offset = Number(card.getAttribute('data-journey-roll-offset') || 0);
+        const step = journeySteps[normalizeStepIndex(activeIndex + offset)];
+        const isCurrent = offset === 0;
+
+        if (!step) continue;
+
+        card.setAttribute('data-journey-step-index', String(step.index));
+        card.setAttribute('data-journey-keys', step.keys);
+        card.setAttribute('aria-label', `${step.number}. ${step.phase}: ${step.title}`);
+
+        if (isCurrent) {
+          card.setAttribute('aria-current', 'step');
+        } else {
+          card.removeAttribute('aria-current');
+        }
+
+        card.classList.toggle('is-current', isCurrent);
+        card.classList.toggle('is-previous', offset === -1);
+        card.classList.toggle('is-next', offset === 1);
+
+        if (isCurrent) {
+          card.classList.remove('is-rolling-in');
+          void card.offsetWidth;
+          card.classList.add('is-rolling-in');
+        } else {
+          card.classList.remove('is-rolling-in');
+        }
+
+        setText(card, '[data-journey-roll-number]', step.number);
+        setText(card, '[data-journey-roll-phase]', step.phase);
+        setText(card, '[data-journey-roll-title]', step.title);
+        setText(card, '[data-journey-roll-detail]', step.detail);
+      }
+    };
+
     const setActive = (source) => {
-      const activeKeys = readKeys(source);
+      const sourceStepIndex = readStepIndex(source);
+
+      if (sourceStepIndex !== null) {
+        updateRoll(sourceStepIndex);
+      }
+
+      const activeKeys =
+        sourceStepIndex !== null
+          ? readKeyString(journeySteps[sourceStepIndex]?.keys || '')
+          : readKeys(source);
 
       if (!activeKeys.length) return;
 
       root.setAttribute('data-active-journey', activeKeys.join(' '));
 
-      for (const element of [...cards, ...nodes]) {
+      for (const element of nodes) {
         const isActive = hasSharedKey(element, activeKeys);
         element.classList.toggle('is-linked-active', isActive);
         element.classList.toggle('is-linked-dimmed', !isActive);
@@ -2073,7 +2088,16 @@ const audienceTiles = createAudienceTiles(copy.audiences);
       element.addEventListener('pointerleave', clearActive);
       element.addEventListener('focusin', () => setActive(element));
       element.addEventListener('focusout', clearActive);
+      element.addEventListener('click', () => setActive(element));
+      element.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+
+        event.preventDefault();
+        setActive(element);
+      });
     }
+
+    updateRoll(0);
   };
 
   document.querySelectorAll('[data-solution-journey]').forEach(initSolutionJourney);
@@ -2656,6 +2680,11 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     .pg-journey-branch-card::before,
     .pg-journey-branch-card::after,
     .pg-journey-leaf-marker,
+    .pg-journey-roll-card,
+    .pg-journey-roll-card::before,
+    .pg-journey-roll-card::after,
+    .pg-journey-roll-number,
+    .pg-journey-roll-wash,
     .pg-audience-ecosystem::after,
     .pg-audience-card,
     .pg-audience-card::before,
@@ -2696,6 +2725,11 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     .pg-journey-branch-card:hover .pg-journey-leaf-marker,
     .pg-journey-branch-card:focus-visible .pg-journey-leaf-marker,
     .pg-journey-branch-card.is-active .pg-journey-leaf-marker,
+    .pg-journey-roll-card,
+    .pg-journey-roll-card.is-current,
+    .pg-journey-roll-card.is-previous,
+    .pg-journey-roll-card.is-next,
+    .pg-journey-roll-card.is-current .pg-journey-roll-number,
     .pg-audience-card:hover,
     .pg-audience-card:focus-visible,
     .pg-audience-card.is-active,
@@ -2735,6 +2769,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     .pg-journey-branch-card:hover::after,
     .pg-journey-branch-card:focus-visible::after,
     .pg-journey-branch-card.is-active::after,
+    .pg-journey-roll-card.is-current::after,
     .pg-audience-card:hover::after,
     .pg-audience-card:focus-visible::after,
     .pg-audience-card.is-active::after,
@@ -3588,7 +3623,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     gap: clamp(3rem, 4.5vw, 5rem);
   }
 
-  .pg-journey-panels-container {
+  .pg-journey-roll-container {
     flex: 1;
     max-width: 50%;
   }
@@ -3614,177 +3649,213 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     line-height: 1.6;
   }
 
-  .pg-journey-panels-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+  .pg-journey-roll {
+    position: relative;
+    display: grid;
+    max-width: 640px;
+    gap: clamp(0.72rem, 1.1vw, 0.95rem);
+    isolation: isolate;
   }
 
-  .pg-journey-panel-card {
-    --journey-gradient: linear-gradient(145deg, #ffe984 0%, #f6c44b 48%, #e0981e 100%);
-    --journey-soft: rgba(235, 171, 42, 0.1);
-    --journey-wash: linear-gradient(135deg, rgba(235, 171, 42, 0.11), rgba(235, 171, 42, 0.03));
-    --journey-border-color: rgba(235, 171, 42, 0.42);
-    --journey-glow-color: rgba(235, 171, 42, 0.28);
+  .pg-journey-roll::before {
+    content: "";
+    position: absolute;
+    top: 22px;
+    bottom: 22px;
+    left: clamp(30px, 4vw, 42px);
+    z-index: 0;
+    width: 2px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(235, 171, 42, 0), rgba(20, 149, 143, 0.3), rgba(228, 80, 128, 0));
+    opacity: 0.58;
+  }
+
+  .pg-journey-roll-card {
+    --roll-x: -8px;
+    --roll-y: 0px;
+    --roll-opacity: 0.64;
+    --roll-scale: 0.962;
     position: relative;
-    display: flex;
+    z-index: 1;
+    display: grid;
+    min-height: clamp(96px, 9vw, 118px);
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 1.2rem;
-    margin: 0;
-    border: 1px solid var(--solution-border);
-    border-radius: 1.5rem;
-    background: var(--solution-surface);
-    box-shadow: 0 1px 3px rgba(23, 32, 51, 0.08), 0 1px 2px rgba(23, 32, 51, 0.06);
-    cursor: pointer;
+    gap: clamp(0.92rem, 1.4vw, 1.18rem);
+    border: 1px solid rgba(197, 210, 223, 0.84);
+    border-radius: 8px;
+    background:
+      radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.9), transparent 32%),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(242, 247, 251, 0.9));
+    box-shadow: 0 8px 22px rgba(23, 32, 51, 0.07);
+    opacity: var(--roll-opacity);
     overflow: hidden;
-    padding: clamp(1.05rem, 1.65vw, 1.4rem);
+    padding: clamp(1rem, 1.6vw, 1.32rem);
+    transform: translateX(var(--roll-x)) translateY(var(--roll-y)) scale(var(--roll-scale));
+    transform-origin: center;
     transition:
-      border-color 0.3s ease,
-      box-shadow 0.3s ease,
-      opacity 0.3s ease,
-      transform 0.3s ease;
+      border-color 0.32s ease,
+      box-shadow 0.34s ease,
+      opacity 0.26s ease,
+      filter 0.28s ease,
+      transform 0.42s cubic-bezier(0.18, 1, 0.32, 1);
   }
 
-  .pg-journey-panel-card.is-secondary {
-    --journey-gradient: linear-gradient(145deg, #ff9f88 0%, #ff6474 46%, #da3464 100%);
-    --journey-soft: rgba(239, 82, 100, 0.1);
-    --journey-wash: linear-gradient(135deg, rgba(239, 82, 100, 0.11), rgba(239, 82, 100, 0.03));
-    --journey-border-color: rgba(239, 82, 100, 0.4);
-    --journey-glow-color: rgba(239, 82, 100, 0.28);
+  .pg-journey-roll-card.is-previous {
+    --roll-y: 10px;
   }
 
-  .pg-journey-panel-card.is-success {
-    --journey-gradient: linear-gradient(145deg, #ffacd9 0%, #d56fab 50%, #9f4d96 100%);
-    --journey-soft: rgba(211, 101, 166, 0.1);
-    --journey-wash: linear-gradient(135deg, rgba(211, 101, 166, 0.11), rgba(211, 101, 166, 0.03));
-    --journey-border-color: rgba(211, 101, 166, 0.4);
-    --journey-glow-color: rgba(211, 101, 166, 0.28);
+  .pg-journey-roll-card.is-next {
+    --roll-y: -10px;
   }
 
-  .pg-journey-panel-card.is-accent {
-    --journey-gradient: linear-gradient(145deg, #c2b7ff 0%, #8d72ff 48%, #6844d7 100%);
-    --journey-soft: rgba(129, 103, 238, 0.1);
-    --journey-wash: linear-gradient(135deg, rgba(129, 103, 238, 0.12), rgba(129, 103, 238, 0.03));
-    --journey-border-color: rgba(129, 103, 238, 0.42);
-    --journey-glow-color: rgba(129, 103, 238, 0.3);
-  }
-
-  .pg-journey-panel-card.is-warning {
-    --journey-gradient: linear-gradient(145deg, #d2ff9c 0%, #8ee17a 30%, #39bb7b 50%, #ffab55 70%, #ff773c 100%);
-    --journey-soft: rgba(82, 183, 105, 0.1);
-    --journey-wash: linear-gradient(135deg, rgba(82, 183, 105, 0.1), rgba(255, 145, 65, 0.1));
-    --journey-border-color: rgba(117, 190, 90, 0.4);
-    --journey-glow-color: rgba(255, 145, 65, 0.26);
-  }
-
-  .pg-journey-panel-card:hover,
-  .pg-journey-panel-card.is-linked-active {
-    border-color: var(--journey-border-color);
-    box-shadow: 0 10px 25px -5px rgba(23, 32, 51, 0.08);
-    transform: translateY(-8px) translateX(8px);
-  }
-
-  .pg-journey-panel-card:focus-visible {
-    outline: 3px solid rgba(175, 130, 50, 0.28);
-    outline-offset: 4px;
-  }
-
-  .pg-journey-panel-card.is-linked-dimmed {
-    opacity: 0.54;
-    transform: scale(0.985);
-  }
-
-  .pg-journey-icon-wrapper {
-    position: relative;
-    display: flex;
-    flex: 0 0 auto;
-    width: 60px;
-    height: 60px;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: var(--journey-soft);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-  }
-
-  .pg-journey-panel-card:hover .pg-journey-icon-wrapper,
-  .pg-journey-panel-card.is-linked-active .pg-journey-icon-wrapper {
-    box-shadow: 0 8px 25px var(--journey-glow-color);
-    transform: scale(1.1) rotate(5deg);
-  }
-
-  .pg-journey-gradient-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: var(--journey-gradient);
-    box-shadow: 0 4px 15px rgba(23, 32, 51, 0.16);
-    transition: transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease;
-    animation: pgJourneyIconPulse 3s ease-in-out infinite;
-  }
-
-  .pg-journey-panel-card:hover .pg-journey-gradient-icon,
-  .pg-journey-panel-card.is-linked-active .pg-journey-gradient-icon {
-    box-shadow: 0 8px 22px var(--journey-glow-color);
-    filter: brightness(1.1);
-    transform: scale(1.2);
-  }
-
-  .pg-journey-card-content {
-    position: relative;
-    z-index: 2;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .pg-journey-card-range {
-    display: inline-flex;
-    margin-bottom: 0.45rem;
-    color: var(--journey-border-color);
-    font-size: 0.76rem;
-    font-weight: 900;
-    letter-spacing: 0.08em;
-    line-height: 1;
-  }
-
-  .pg-journey-panel-card h3 {
-    margin: 0 0 0.4rem;
-    color: var(--solution-navy);
-    font-size: clamp(1.08rem, 1.9vw, 1.42rem);
-    font-weight: 760;
-    line-height: 1.25;
-    transition: color 0.3s ease;
-  }
-
-  .pg-journey-panel-card p {
-    margin: 0;
-    color: var(--solution-ink-soft);
-    font-size: clamp(0.92rem, 1.25vw, 1rem);
-    line-height: 1.5;
-    transition: color 0.3s ease;
-  }
-
-  .pg-journey-panel-card:hover h3,
-  .pg-journey-panel-card.is-linked-active h3 {
-    color: var(--solution-teal);
-  }
-
-  .pg-journey-panel-card:hover p,
-  .pg-journey-panel-card.is-linked-active p {
-    color: var(--solution-navy);
-  }
-
-  .pg-journey-card-wash {
+  .pg-journey-roll-card::before,
+  .pg-journey-roll-card::after,
+  .pg-journey-roll-wash {
+    content: "";
     position: absolute;
     inset: 0;
-    background: var(--journey-wash);
-    opacity: 0;
     pointer-events: none;
+  }
+
+  .pg-journey-roll-card::before {
+    z-index: -1;
+    background:
+      radial-gradient(circle at 12% 22%, rgba(20, 149, 143, 0.12), transparent 34%),
+      radial-gradient(circle at 92% 78%, rgba(228, 80, 128, 0.1), transparent 36%);
+    opacity: 0;
     transition: opacity 0.3s ease;
   }
 
-  .pg-journey-panel-card:hover .pg-journey-card-wash,
-  .pg-journey-panel-card.is-linked-active .pg-journey-card-wash {
+  .pg-journey-roll-card::after {
+    z-index: 0;
+    top: -14%;
+    right: auto;
+    bottom: -14%;
+    left: -56%;
+    width: 92%;
+    background: var(--solution-shine-band);
+    filter: blur(3px);
+    mask-image: var(--solution-shine-mask);
+    -webkit-mask-image: var(--solution-shine-mask);
+    opacity: 0;
+    transform: translateX(-120%) skewX(-10deg);
+  }
+
+  .pg-journey-roll-card.is-current {
+    --roll-x: 12px;
+    --roll-y: 0px;
+    --roll-opacity: 1;
+    --roll-scale: 1;
+    border-color: rgba(20, 149, 143, 0.42);
+    background:
+      radial-gradient(circle at 14% 18%, rgba(255, 255, 255, 0.96), transparent 32%),
+      linear-gradient(145deg, #ffffff 0%, #effbf9 48%, #f7f0ff 100%);
+    box-shadow:
+      0 20px 46px rgba(23, 32, 51, 0.13),
+      0 0 0 1px rgba(20, 149, 143, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.82);
+    filter: saturate(1.08);
+  }
+
+  .pg-journey-roll-card.is-current::before {
+    opacity: 1;
+  }
+
+  .pg-journey-roll-card.is-current.is-rolling-in::after {
+    animation: pgJourneyRollSweep 0.86s cubic-bezier(0.18, 1, 0.32, 1);
+  }
+
+  .pg-journey-roll-card.is-rolling-in {
+    animation: pgJourneyRollSelected 0.48s cubic-bezier(0.18, 1, 0.32, 1);
+  }
+
+  .pg-journey-roll-card.is-previous,
+  .pg-journey-roll-card.is-next {
+    filter: saturate(0.82);
+  }
+
+  .pg-journey-roll-number,
+  .pg-journey-roll-copy {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pg-journey-roll-number {
+    display: grid;
+    width: clamp(44px, 4.4vw, 56px);
+    height: clamp(44px, 4.4vw, 56px);
+    place-items: center;
+    border: 1px solid rgba(20, 149, 143, 0.28);
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 32% 22%, rgba(255, 255, 255, 0.96), transparent 36%),
+      linear-gradient(145deg, #e8fbf8 0%, #d4f2ed 100%);
+    box-shadow: 0 10px 24px rgba(20, 149, 143, 0.12);
+    color: var(--solution-teal);
+    font-size: clamp(0.78rem, 0.9vw, 0.92rem);
+    font-weight: 950;
+    line-height: 1;
+    transition:
+      background 0.3s ease,
+      box-shadow 0.3s ease,
+      color 0.3s ease,
+      transform 0.32s cubic-bezier(0.18, 1, 0.32, 1);
+  }
+
+  .pg-journey-roll-card.is-current .pg-journey-roll-number {
+    background: linear-gradient(145deg, #8ee9dd 0%, #14958f 58%, #2176ae 100%);
+    box-shadow: 0 16px 34px rgba(20, 149, 143, 0.24);
+    color: #ffffff;
+    transform: translateY(-2px);
+  }
+
+  .pg-journey-roll-copy {
+    min-width: 0;
+  }
+
+  .pg-journey-roll-phase {
+    display: inline-flex;
+    margin-bottom: 0.35rem;
+    color: rgba(70, 85, 111, 0.72);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .pg-journey-roll-card.is-current .pg-journey-roll-phase {
+    color: var(--solution-teal);
+  }
+
+  .pg-journey-roll-card h3 {
+    margin: 0 0 0.3rem;
+    color: var(--solution-navy);
+    font-size: clamp(1.06rem, 1.7vw, 1.34rem);
+    font-weight: 790;
+    line-height: 1.16;
+  }
+
+  .pg-journey-roll-card p {
+    margin: 0;
+    color: var(--solution-ink-soft);
+    font-size: clamp(0.9rem, 1.16vw, 0.98rem);
+    line-height: 1.42;
+  }
+
+  .pg-journey-roll-card.is-current p {
+    color: #263348;
+  }
+
+  .pg-journey-roll-wash {
+    z-index: 0;
+    background: linear-gradient(135deg, rgba(20, 149, 143, 0.1), transparent 52%, rgba(228, 80, 128, 0.08));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .pg-journey-roll-card.is-current .pg-journey-roll-wash {
     opacity: 1;
   }
 
@@ -4117,6 +4188,32 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     --journey-node-font-size: clamp(0.48rem, 0.68vw, 0.64rem);
   }
 
+  @keyframes pgJourneyRollSelected {
+    0% {
+      transform: translateX(2px) translateY(10px) scale(0.97);
+    }
+
+    100% {
+      transform: translateX(var(--roll-x)) translateY(var(--roll-y)) scale(var(--roll-scale));
+    }
+  }
+
+  @keyframes pgJourneyRollSweep {
+    0% {
+      opacity: 0;
+      transform: translateX(-120%) skewX(-10deg);
+    }
+
+    38% {
+      opacity: 0.42;
+    }
+
+    100% {
+      opacity: 0;
+      transform: translateX(232%) skewX(-10deg);
+    }
+  }
+
   @keyframes pgJourneyIconPulse {
     0%,
     100% {
@@ -4141,7 +4238,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
       text-align: center;
     }
 
-    .pg-journey-panels-container {
+    .pg-journey-roll-container {
       max-width: 100%;
     }
 
@@ -4154,7 +4251,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
       margin-inline: auto;
     }
 
-    .pg-journey-panels-grid {
+    .pg-journey-roll {
       max-width: 680px;
       margin: 0 auto;
     }
@@ -4177,24 +4274,14 @@ const audienceTiles = createAudienceTiles(copy.audiences);
       margin-bottom: 2rem;
     }
 
-    .pg-journey-panels-grid {
+    .pg-journey-roll {
       gap: 1rem;
     }
 
-    .pg-journey-panel-card {
-      gap: 1rem;
-      padding: 1.35rem;
+    .pg-journey-roll-card {
+      min-height: 112px;
+      padding: 1.2rem;
       text-align: left;
-    }
-
-    .pg-journey-icon-wrapper {
-      width: 52px;
-      height: 52px;
-    }
-
-    .pg-journey-gradient-icon {
-      width: 34px;
-      height: 34px;
     }
 
     .pg-journey-orbit {
@@ -4232,10 +4319,23 @@ const audienceTiles = createAudienceTiles(copy.audiences);
       gap: 2rem;
     }
 
-    .pg-journey-panel-card {
-      align-items: flex-start;
-      border-radius: 1.1rem;
-      padding: 1.2rem;
+    .pg-journey-roll {
+      gap: 0.75rem;
+    }
+
+    .pg-journey-roll::before {
+      left: 25px;
+    }
+
+    .pg-journey-roll-card {
+      min-height: 128px;
+      grid-template-columns: auto minmax(0, 1fr);
+      padding: 1rem;
+    }
+
+    .pg-journey-roll-number {
+      width: 44px;
+      height: 44px;
     }
 
     .pg-journey-orbit {
@@ -4274,10 +4374,11 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .pg-journey-panel-card,
-    .pg-journey-icon-wrapper,
-    .pg-journey-gradient-icon,
-    .pg-journey-card-wash,
+    .pg-journey-roll-card,
+    .pg-journey-roll-card::before,
+    .pg-journey-roll-card::after,
+    .pg-journey-roll-number,
+    .pg-journey-roll-wash,
     .pg-journey-node,
     .pg-journey-node::before,
     .pg-journey-orbit-core,
@@ -4287,13 +4388,11 @@ const audienceTiles = createAudienceTiles(copy.audiences);
       transition: none !important;
     }
 
-    .pg-journey-panel-card:hover,
-    .pg-journey-panel-card.is-linked-active,
-    .pg-journey-panel-card.is-linked-dimmed,
-    .pg-journey-panel-card:hover .pg-journey-icon-wrapper,
-    .pg-journey-panel-card.is-linked-active .pg-journey-icon-wrapper,
-    .pg-journey-panel-card:hover .pg-journey-gradient-icon,
-    .pg-journey-panel-card.is-linked-active .pg-journey-gradient-icon,
+    .pg-journey-roll-card,
+    .pg-journey-roll-card.is-current,
+    .pg-journey-roll-card.is-previous,
+    .pg-journey-roll-card.is-next,
+    .pg-journey-roll-card.is-current .pg-journey-roll-number,
     .pg-journey-node:hover,
     .pg-journey-node.is-linked-active,
     .pg-journey-node.is-linked-dimmed,
