@@ -460,10 +460,10 @@ const createJigsawPieces = (nodes: readonly string[], centerTitle: string, cente
       href: `#solution-${blueprint.targetKey}`,
       path: buildJigsawPath(blueprint, connectorMap.get(blueprint.key) ?? []),
       maskId: `pg-solutions-jigsaw-mask-${blueprint.key}`,
-      shineX: box.left - (box.right - box.left) * 0.42,
-      shineY: box.top - (box.bottom - box.top) * 0.18,
-      shineWidth: (box.right - box.left) * 1.84,
-      shineHeight: (box.bottom - box.top) * 1.36,
+      shineX: box.left - (box.right - box.left) * 0.78,
+      shineY: box.top - (box.bottom - box.top) * 0.3,
+      shineWidth: (box.right - box.left) * 2.56,
+      shineHeight: (box.bottom - box.top) * 1.6,
       fill: tone.fill,
       stroke: tone.stroke,
       pathStyle: [
@@ -1305,9 +1305,11 @@ const audienceTiles = createAudienceTiles(copy.audiences);
               <defs>
                 <linearGradient id={jigsawShineGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
                   <stop offset="0%" stop-color="#ffffff" stop-opacity="0" />
-                  <stop offset="39%" stop-color="#ffffff" stop-opacity="0" />
-                  <stop offset="50%" stop-color="#ffffff" stop-opacity="0.9" />
-                  <stop offset="61%" stop-color="#ffffff" stop-opacity="0.2" />
+                  <stop offset="18%" stop-color="#ffffff" stop-opacity="0" />
+                  <stop offset="36%" stop-color="#ffffff" stop-opacity="0.12" />
+                  <stop offset="50%" stop-color="#ffffff" stop-opacity="0.42" />
+                  <stop offset="64%" stop-color="#ffffff" stop-opacity="0.16" />
+                  <stop offset="82%" stop-color="#ffffff" stop-opacity="0" />
                   <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
                 </linearGradient>
 
@@ -1791,6 +1793,17 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     --solution-ink-soft: #46556f;
     --solution-border: #dce4ec;
     --solution-surface: #ffffff;
+    --solution-shine-band: linear-gradient(
+      105deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0) 20%,
+      rgba(255, 255, 255, 0.16) 36%,
+      rgba(255, 255, 255, 0.42) 50%,
+      rgba(255, 255, 255, 0.14) 64%,
+      rgba(255, 255, 255, 0) 80%,
+      transparent 100%
+    );
+    --solution-shine-mask: linear-gradient(90deg, transparent 0%, #000 20%, #000 80%, transparent 100%);
     overflow-x: hidden;
   }
 
@@ -1991,6 +2004,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
 
   .pg-jigsaw-piece-shine {
     opacity: 0;
+    filter: blur(0.6px);
     transform-box: fill-box;
     transform-origin: center;
     mix-blend-mode: screen;
@@ -1999,7 +2013,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
 
   .pg-jigsaw-piece-shine.is-active,
   .pg-jigsaw-piece-shine.is-selected {
-    animation: pgJigsawMaskedShine 0.76s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: pgJigsawMaskedShine 1.08s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .pg-jigsaw-label-layer {
@@ -2121,12 +2135,18 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-catalog-row::before {
     content: "";
     position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(90deg, transparent 0 18%, rgba(20, 149, 143, 0.12) 42%, rgba(228, 80, 128, 0.1) 56%, transparent 80% 100%);
+    top: -12%;
+    bottom: -12%;
+    left: -42%;
+    width: 74%;
+    background: var(--solution-shine-band);
+    filter: blur(2px);
+    mask-image: var(--solution-shine-mask);
+    -webkit-mask-image: var(--solution-shine-mask);
+    mix-blend-mode: screen;
     opacity: 0;
     pointer-events: none;
-    transform: translateX(-110%);
+    transform: translateX(-120%) skewX(-10deg);
   }
 
   .pg-catalog-row:hover {
@@ -2143,7 +2163,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   }
 
   .pg-catalog-list > li.is-pulsing .pg-catalog-row::before {
-    animation: pgCatalogSweep 0.94s ease;
+    animation: pgCatalogSweep 1.15s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .pg-catalog-number,
@@ -2225,32 +2245,32 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   @keyframes pgJigsawMaskedShine {
     0% {
       opacity: 0;
-      transform: translateY(-7px) scale(1.014) translateX(-82%) skewX(-18deg);
+      transform: translateY(-7px) translateX(-58%) skewX(-10deg);
     }
 
-    22% {
-      opacity: 0.72;
+    42% {
+      opacity: 0.38;
     }
 
     100% {
       opacity: 0;
-      transform: translateY(-7px) scale(1.014) translateX(82%) skewX(-18deg);
+      transform: translateY(-7px) translateX(58%) skewX(-10deg);
     }
   }
 
   @keyframes pgCatalogSweep {
     0% {
       opacity: 0;
-      transform: translateX(-110%);
+      transform: translateX(-125%) skewX(-10deg);
     }
 
-    24% {
-      opacity: 1;
+    42% {
+      opacity: 0.36;
     }
 
     100% {
       opacity: 0;
-      transform: translateX(110%);
+      transform: translateX(245%) skewX(-10deg);
     }
   }
 
@@ -2362,7 +2382,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     .pg-proof-screens figure.is-active .pg-proof-screen-phone::after,
     .pg-proof-point-card:hover::after {
       opacity: 0 !important;
-      transform: translateX(-120%) skewX(-12deg) !important;
+      transform: translateX(-125%) skewX(-10deg) !important;
     }
   }
 
@@ -2533,13 +2553,20 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-journey-card::before {
     content: "";
     position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(110deg, transparent 0 30%, rgba(255, 255, 255, 0.86) 45%, transparent 60% 100%);
+    top: -10%;
+    right: auto;
+    bottom: -10%;
+    left: -44%;
+    width: 72%;
+    background: var(--solution-shine-band);
+    filter: blur(2px);
+    mask-image: var(--solution-shine-mask);
+    -webkit-mask-image: var(--solution-shine-mask);
+    mix-blend-mode: screen;
     opacity: 0;
     pointer-events: none;
-    transform: translateX(-120%) skewX(-12deg);
-    transition: opacity 0.2s ease, transform 0.5s ease;
+    transform: translateX(-125%) skewX(-10deg);
+    transition: opacity 0.28s ease, transform 0.82s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .pg-journey-card:hover,
@@ -2551,8 +2578,8 @@ const audienceTiles = createAudienceTiles(copy.audiences);
 
   .pg-journey-card:hover::before,
   .pg-journey-card:focus-within::before {
-    opacity: 1;
-    transform: translateX(110%) skewX(-12deg);
+    opacity: 0.42;
+    transform: translateX(245%) skewX(-10deg);
   }
 
   .pg-journey-marker {
@@ -2781,17 +2808,17 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-journey-core::before {
     inset: -18px;
     z-index: -2;
-    background: conic-gradient(from 120deg, rgba(142, 233, 221, 0.18), rgba(33, 118, 174, 0.38), rgba(228, 80, 128, 0.16), rgba(142, 233, 221, 0.18));
-    filter: blur(16px);
-    opacity: 0.88;
-    animation: pgJourneyHaloDrift 8s linear infinite;
+    background: conic-gradient(from 120deg, rgba(142, 233, 221, 0.1), rgba(33, 118, 174, 0.22), rgba(228, 80, 128, 0.08), rgba(142, 233, 221, 0.1));
+    filter: blur(20px);
+    opacity: 0.52;
+    animation: pgJourneyHaloDrift 12s linear infinite;
   }
 
   .pg-journey-core::after {
     inset: 13%;
     background:
-      radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.42), transparent 32%),
-      radial-gradient(circle at 72% 76%, rgba(255, 255, 255, 0.18), transparent 24%);
+      radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.24), transparent 38%),
+      radial-gradient(circle at 72% 76%, rgba(255, 255, 255, 0.12), transparent 30%);
     mix-blend-mode: screen;
   }
 
@@ -2938,16 +2965,25 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-journey-branch-card::before {
     z-index: -1;
     background:
-      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 32%), rgba(255, 255, 255, 0.9), transparent 28%),
-      linear-gradient(135deg, rgba(20, 149, 143, 0.1), transparent 48%, rgba(228, 80, 128, 0.08));
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 32%), rgba(255, 255, 255, 0.42), transparent 36%),
+      linear-gradient(135deg, rgba(20, 149, 143, 0.055), transparent 54%, rgba(228, 80, 128, 0.04));
     transition: opacity 0.24s ease;
   }
 
   .pg-journey-branch-card::after {
     z-index: 0;
-    background: linear-gradient(110deg, transparent 0 30%, rgba(255, 255, 255, 0.88) 45%, transparent 62% 100%);
-    transform: translateX(-120%) skewX(-12deg);
-    transition: opacity 0.2s ease, transform 0.58s cubic-bezier(0.22, 1, 0.36, 1);
+    top: -12%;
+    right: auto;
+    bottom: -12%;
+    left: -42%;
+    width: 74%;
+    background: var(--solution-shine-band);
+    filter: blur(2px);
+    mask-image: var(--solution-shine-mask);
+    -webkit-mask-image: var(--solution-shine-mask);
+    mix-blend-mode: screen;
+    transform: translateX(-125%) skewX(-10deg);
+    transition: opacity 0.24s ease, transform 0.88s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .pg-journey-branch-card:hover,
@@ -2965,14 +3001,14 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-journey-branch-card:hover::before,
   .pg-journey-branch-card:focus-visible::before,
   .pg-journey-branch-card.is-active::before {
-    opacity: 1;
+    opacity: 0.58;
   }
 
   .pg-journey-branch-card:hover::after,
   .pg-journey-branch-card:focus-visible::after,
   .pg-journey-branch-card.is-active::after {
-    opacity: 1;
-    transform: translateX(120%) skewX(-12deg);
+    opacity: 0.4;
+    transform: translateX(245%) skewX(-10deg);
   }
 
   .pg-journey-stage.is-reacting .pg-journey-branch-card:not(.is-active) {
@@ -3133,12 +3169,12 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   @keyframes pgJourneyRingBreath {
     0%,
     100% {
-      opacity: 0.46;
+      opacity: 0.28;
       transform: scale(0.96);
     }
 
     50% {
-      opacity: 1;
+      opacity: 0.52;
       transform: scale(1.04);
     }
   }
@@ -3152,12 +3188,12 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   @keyframes pgJourneyAmbientPulse {
     0%,
     100% {
-      opacity: 0.62;
+      opacity: 0.26;
       transform: scale(0.96);
     }
 
     50% {
-      opacity: 1;
+      opacity: 0.44;
       transform: scale(1.04);
     }
   }
@@ -3239,16 +3275,25 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-proof-columns article::before {
     z-index: -1;
     background:
-      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 38%), rgba(255, 255, 255, 0.92), transparent 30%),
-      linear-gradient(135deg, rgba(20, 149, 143, 0.1), transparent 54%, rgba(228, 80, 128, 0.07));
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 38%), rgba(255, 255, 255, 0.46), transparent 38%),
+      linear-gradient(135deg, rgba(20, 149, 143, 0.055), transparent 58%, rgba(228, 80, 128, 0.04));
     transition: opacity 0.22s ease;
   }
 
   .pg-proof-columns article::after {
     z-index: 0;
-    background: linear-gradient(110deg, transparent 0 30%, rgba(255, 255, 255, 0.82) 45%, transparent 62% 100%);
-    transform: translateX(-120%) skewX(-12deg);
-    transition: opacity 0.18s ease, transform 0.58s cubic-bezier(0.22, 1, 0.36, 1);
+    top: -12%;
+    right: auto;
+    bottom: -12%;
+    left: -42%;
+    width: 74%;
+    background: var(--solution-shine-band);
+    filter: blur(2px);
+    mask-image: var(--solution-shine-mask);
+    -webkit-mask-image: var(--solution-shine-mask);
+    mix-blend-mode: screen;
+    transform: translateX(-125%) skewX(-10deg);
+    transition: opacity 0.24s ease, transform 0.88s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .pg-proof-columns article:hover,
@@ -3262,14 +3307,14 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-proof-columns article:hover::before,
   .pg-proof-columns article:focus-visible::before,
   .pg-proof-columns article.is-active::before {
-    opacity: 1;
+    opacity: 0.56;
   }
 
   .pg-proof-columns article:hover::after,
   .pg-proof-columns article:focus-visible::after,
   .pg-proof-columns article.is-active::after {
-    opacity: 1;
-    transform: translateX(120%) skewX(-12deg);
+    opacity: 0.4;
+    transform: translateX(245%) skewX(-10deg);
   }
 
   .pg-proof-columns article:focus-visible {
@@ -3389,18 +3434,26 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-proof-screen-phone::before {
     z-index: 1;
     background:
-      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 32%), rgba(255, 255, 255, 0.32), transparent 28%),
-      linear-gradient(180deg, rgba(20, 149, 143, 0.12), transparent 32%, rgba(228, 80, 128, 0.1));
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 32%), rgba(255, 255, 255, 0.18), transparent 36%),
+      linear-gradient(180deg, rgba(20, 149, 143, 0.055), transparent 38%, rgba(228, 80, 128, 0.045));
     mix-blend-mode: screen;
     transition: opacity 0.24s ease;
   }
 
   .pg-proof-screen-phone::after {
     z-index: 2;
-    width: 48%;
-    background: linear-gradient(100deg, transparent 0 18%, rgba(255, 255, 255, 0.82) 48%, transparent 78% 100%);
-    transform: translateX(-135%) skewX(-13deg);
-    transition: opacity 0.18s ease, transform 0.68s cubic-bezier(0.22, 1, 0.36, 1);
+    top: -12%;
+    right: auto;
+    bottom: -12%;
+    left: -48%;
+    width: 82%;
+    background: var(--solution-shine-band);
+    filter: blur(2px);
+    mask-image: var(--solution-shine-mask);
+    -webkit-mask-image: var(--solution-shine-mask);
+    mix-blend-mode: screen;
+    transform: translateX(-125%) skewX(-10deg);
+    transition: opacity 0.24s ease, transform 1s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .pg-proof-screens img {
@@ -3442,14 +3495,14 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-proof-screens figure:hover .pg-proof-screen-phone::before,
   .pg-proof-screens figure:focus-visible .pg-proof-screen-phone::before,
   .pg-proof-screens figure.is-active .pg-proof-screen-phone::before {
-    opacity: 1;
+    opacity: 0.46;
   }
 
   .pg-proof-screens figure:hover .pg-proof-screen-phone::after,
   .pg-proof-screens figure:focus-visible .pg-proof-screen-phone::after,
   .pg-proof-screens figure.is-active .pg-proof-screen-phone::after {
-    opacity: 1;
-    transform: translateX(220%) skewX(-13deg);
+    opacity: 0.38;
+    transform: translateX(260%) skewX(-10deg);
   }
 
   .pg-proof-screens figure:focus-visible {
@@ -3623,12 +3676,17 @@ const audienceTiles = createAudienceTiles(copy.audiences);
 
   .pg-audience-ecosystem::after {
     top: 14px;
+    right: auto;
     bottom: 14px;
-    width: 28%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.72), transparent);
-    opacity: 0.62;
-    transform: translateX(-145%) skewX(-12deg);
-    animation: pgAudienceSystemSweep 7s ease-in-out infinite;
+    left: -46%;
+    width: 58%;
+    background: var(--solution-shine-band);
+    filter: blur(5px);
+    mask-image: var(--solution-shine-mask);
+    -webkit-mask-image: var(--solution-shine-mask);
+    opacity: 0.32;
+    transform: translateX(-135%) skewX(-10deg);
+    animation: pgAudienceSystemSweep 10s ease-in-out infinite;
   }
 
   .pg-audience-card {
@@ -3676,16 +3734,25 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-audience-card::before {
     z-index: -1;
     background:
-      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 42%), rgba(255, 255, 255, 0.9), transparent 28%),
-      linear-gradient(135deg, rgba(20, 149, 143, 0.1), transparent 48%, rgba(228, 80, 128, 0.08));
+      radial-gradient(circle at var(--card-x, 50%) var(--card-y, 42%), rgba(255, 255, 255, 0.46), transparent 38%),
+      linear-gradient(135deg, rgba(20, 149, 143, 0.055), transparent 54%, rgba(228, 80, 128, 0.04));
     transition: opacity 0.22s ease;
   }
 
   .pg-audience-card::after {
     z-index: 0;
-    background: linear-gradient(110deg, transparent 0 32%, rgba(255, 255, 255, 0.88) 46%, transparent 62% 100%);
-    transform: translateX(-122%) skewX(-13deg);
-    transition: opacity 0.18s ease, transform 0.52s ease;
+    top: -12%;
+    right: auto;
+    bottom: -12%;
+    left: -42%;
+    width: 74%;
+    background: var(--solution-shine-band);
+    filter: blur(2px);
+    mask-image: var(--solution-shine-mask);
+    -webkit-mask-image: var(--solution-shine-mask);
+    mix-blend-mode: screen;
+    transform: translateX(-125%) skewX(-10deg);
+    transition: opacity 0.24s ease, transform 0.86s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .pg-audience-card:hover,
@@ -3703,14 +3770,14 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-audience-card:hover::before,
   .pg-audience-card:focus-visible::before,
   .pg-audience-card.is-active::before {
-    opacity: 1;
+    opacity: 0.56;
   }
 
   .pg-audience-card:hover::after,
   .pg-audience-card:focus-visible::after,
   .pg-audience-card.is-active::after {
-    opacity: 1;
-    transform: translateX(122%) skewX(-13deg);
+    opacity: 0.4;
+    transform: translateX(245%) skewX(-10deg);
   }
 
   .pg-audience-card:focus-visible {
@@ -3767,13 +3834,19 @@ const audienceTiles = createAudienceTiles(copy.audiences);
 
   @keyframes pgAudienceSystemSweep {
     0%,
-    38% {
-      transform: translateX(-145%) skewX(-12deg);
+    30% {
+      opacity: 0;
+      transform: translateX(-135%) skewX(-10deg);
     }
 
-    62%,
+    48% {
+      opacity: 0.32;
+    }
+
+    76%,
     100% {
-      transform: translateX(420%) skewX(-12deg);
+      opacity: 0;
+      transform: translateX(285%) skewX(-10deg);
     }
   }
 
@@ -3858,14 +3931,21 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-proof-point-card::after {
     content: "";
     position: absolute;
-    inset: 0;
+    top: -12%;
+    right: auto;
+    bottom: -12%;
+    left: -42%;
     z-index: 0;
-    width: 38%;
-    background: linear-gradient(110deg, transparent 0 20%, rgba(255, 255, 255, 0.72) 50%, transparent 80% 100%);
+    width: 74%;
+    background: var(--solution-shine-band);
+    filter: blur(2px);
+    mask-image: var(--solution-shine-mask);
+    -webkit-mask-image: var(--solution-shine-mask);
+    mix-blend-mode: screen;
     opacity: 0;
     pointer-events: none;
-    transform: translateX(-135%) skewX(-12deg);
-    transition: opacity 0.18s ease, transform 0.58s ease;
+    transform: translateX(-125%) skewX(-10deg);
+    transition: opacity 0.24s ease, transform 0.86s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .pg-proof-point-card:hover {
@@ -3875,8 +3955,8 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   }
 
   .pg-proof-point-card:hover::after {
-    opacity: 1;
-    transform: translateX(280%) skewX(-12deg);
+    opacity: 0.38;
+    transform: translateX(245%) skewX(-10deg);
   }
 
   .pg-proof-point-value {
