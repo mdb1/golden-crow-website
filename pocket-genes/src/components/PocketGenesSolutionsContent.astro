@@ -9,6 +9,7 @@ const localizePath = (path: string) => (isEnglish ? `/en${path === '/' ? '/' : p
 type JigsawSide = 'top' | 'right' | 'bottom' | 'left';
 type JigsawJoint = 'tab' | 'socket';
 type JigsawTone = 'rose' | 'teal' | 'blue' | 'green' | 'amber';
+type JigsawConnectorOffsetAxis = 'x' | 'y';
 type CatalogKey =
   | 'reports'
   | 'consents'
@@ -40,6 +41,11 @@ type JigsawConnector = {
   center: number;
   radius: number;
   depth: number;
+};
+
+type JigsawConnectorOffsetSetting = {
+  axis: JigsawConnectorOffsetAxis;
+  offset: -20 | 0 | 20;
 };
 
 type JigsawPiece = JigsawBlueprint & {
@@ -179,6 +185,32 @@ const jigsawBlueprints: readonly JigsawBlueprint[] = [
   { key: 'operations', targetKey: 'operations', kind: 'node', nodeIndex: 8, col: 5, row: 5, cols: 4, rows: 1, tone: 'rose' },
   { key: 'communication', targetKey: 'communication', kind: 'node', nodeIndex: 9, col: 9, row: 5, cols: 4, rows: 1, tone: 'green' },
 ] as const;
+
+// Mirror pocket-genes/src/data/solutions-jigsaw-connector-offsets.txt.
+const jigsawConnectorOffsets: Record<string, JigsawConnectorOffsetSetting> = {
+  'backoffice|consents': { axis: 'y', offset: 20 },
+  'backoffice|discover': { axis: 'x', offset: 0 },
+  'backoffice|education': { axis: 'x', offset: -20 },
+  'backoffice|processing': { axis: 'x', offset: 20 },
+  'backoffice|reports': { axis: 'y', offset: -20 },
+  'communication|community': { axis: 'x', offset: -20 },
+  'communication|discover': { axis: 'x', offset: 20 },
+  'communication|operations': { axis: 'y', offset: -20 },
+  'community|discover': { axis: 'y', offset: 20 },
+  'community|reports': { axis: 'x', offset: 20 },
+  'consents|processing': { axis: 'x', offset: 20 },
+  'consents|samples': { axis: 'x', offset: -20 },
+  'discover|education': { axis: 'y', offset: -20 },
+  'discover|operations': { axis: 'x', offset: -20 },
+  'discover|reports': { axis: 'x', offset: -20 },
+  'education|operations': { axis: 'x', offset: 0 },
+  'education|processing': { axis: 'y', offset: 20 },
+  'network|operations': { axis: 'y', offset: 0 },
+  'network|processing': { axis: 'x', offset: -20 },
+  'network|samples': { axis: 'x', offset: 20 },
+  'operations|processing': { axis: 'x', offset: 20 },
+  'processing|samples': { axis: 'y', offset: -20 },
+};
 
 const audienceBlueprints: readonly AudienceBlueprint[] = [
   { col: 1, row: 1, cols: 2, rows: 2, tone: 'teal' },
@@ -321,6 +353,31 @@ const shouldFirstPieceTab = (first: JigsawBlueprint, second: JigsawBlueprint) =>
   return checksum % 2 === 0;
 };
 
+const getJigsawConnectorOffsetKey = (first: JigsawBlueprint, second: JigsawBlueprint) =>
+  [first.key, second.key].sort().join('|');
+
+const getJigsawConnectorOffset = (
+  first: JigsawBlueprint,
+  second: JigsawBlueprint,
+  axis: JigsawConnectorOffsetAxis,
+  usedOffsetKeys: Set<string>,
+) => {
+  const offsetKey = getJigsawConnectorOffsetKey(first, second);
+  const setting = jigsawConnectorOffsets[offsetKey];
+
+  if (!setting) {
+    throw new Error(`Missing jigsaw connector offset for "${offsetKey}".`);
+  }
+
+  if (setting.axis !== axis) {
+    throw new Error(`Jigsaw connector offset "${offsetKey}" is configured for ${setting.axis}, expected ${axis}.`);
+  }
+
+  usedOffsetKeys.add(offsetKey);
+
+  return setting.offset;
+};
+
 const addJigsawConnector = (
   connectorMap: Map<string, JigsawConnector[]>,
   piece: JigsawBlueprint,
@@ -328,10 +385,12 @@ const addJigsawConnector = (
   shape: JigsawJoint,
   axisStart: number,
   axisEnd: number,
+  centerOffset: number,
 ) => {
   const span = axisEnd - axisStart;
   const radius = Math.min(26, Math.max(18, span * 0.22));
-  const center = Math.min(axisEnd - radius * 1.3, Math.max(axisStart + radius * 1.3, axisStart + span / 2));
+  const rawCenter = axisStart + span / 2 + centerOffset;
+  const center = Math.min(axisEnd - radius * 1.3, Math.max(axisStart + radius * 1.3, rawCenter));
 
   connectorMap.get(piece.key)?.push({
     side,
@@ -344,6 +403,7 @@ const addJigsawConnector = (
 
 const createJigsawConnectors = () => {
   const connectorMap = new Map(jigsawBlueprints.map((piece) => [piece.key, [] as JigsawConnector[]]));
+  const usedOffsetKeys = new Set<string>();
 
   for (let firstIndex = 0; firstIndex < jigsawBlueprints.length; firstIndex += 1) {
     for (let secondIndex = firstIndex + 1; secondIndex < jigsawBlueprints.length; secondIndex += 1) {
@@ -359,8 +419,10 @@ const createJigsawConnectors = () => {
         const overlap = getOverlap(firstBox.top, firstBox.bottom, secondBox.top, secondBox.bottom);
 
         if (overlap) {
-          addJigsawConnector(connectorMap, first, 'right', firstShape, overlap.start, overlap.end);
-          addJigsawConnector(connectorMap, second, 'left', secondShape, overlap.start, overlap.end);
+          const offset = getJigsawConnectorOffset(first, second, 'y', usedOffsetKeys);
+
+          addJigsawConnector(connectorMap, first, 'right', firstShape, overlap.start, overlap.end, offset);
+          addJigsawConnector(connectorMap, second, 'left', secondShape, overlap.start, overlap.end, offset);
         }
       }
 
@@ -368,8 +430,10 @@ const createJigsawConnectors = () => {
         const overlap = getOverlap(firstBox.top, firstBox.bottom, secondBox.top, secondBox.bottom);
 
         if (overlap) {
-          addJigsawConnector(connectorMap, first, 'left', firstShape, overlap.start, overlap.end);
-          addJigsawConnector(connectorMap, second, 'right', secondShape, overlap.start, overlap.end);
+          const offset = getJigsawConnectorOffset(first, second, 'y', usedOffsetKeys);
+
+          addJigsawConnector(connectorMap, first, 'left', firstShape, overlap.start, overlap.end, offset);
+          addJigsawConnector(connectorMap, second, 'right', secondShape, overlap.start, overlap.end, offset);
         }
       }
 
@@ -377,8 +441,10 @@ const createJigsawConnectors = () => {
         const overlap = getOverlap(firstBox.left, firstBox.right, secondBox.left, secondBox.right);
 
         if (overlap) {
-          addJigsawConnector(connectorMap, first, 'bottom', firstShape, overlap.start, overlap.end);
-          addJigsawConnector(connectorMap, second, 'top', secondShape, overlap.start, overlap.end);
+          const offset = getJigsawConnectorOffset(first, second, 'x', usedOffsetKeys);
+
+          addJigsawConnector(connectorMap, first, 'bottom', firstShape, overlap.start, overlap.end, offset);
+          addJigsawConnector(connectorMap, second, 'top', secondShape, overlap.start, overlap.end, offset);
         }
       }
 
@@ -386,11 +452,19 @@ const createJigsawConnectors = () => {
         const overlap = getOverlap(firstBox.left, firstBox.right, secondBox.left, secondBox.right);
 
         if (overlap) {
-          addJigsawConnector(connectorMap, first, 'top', firstShape, overlap.start, overlap.end);
-          addJigsawConnector(connectorMap, second, 'bottom', secondShape, overlap.start, overlap.end);
+          const offset = getJigsawConnectorOffset(first, second, 'x', usedOffsetKeys);
+
+          addJigsawConnector(connectorMap, first, 'top', firstShape, overlap.start, overlap.end, offset);
+          addJigsawConnector(connectorMap, second, 'bottom', secondShape, overlap.start, overlap.end, offset);
         }
       }
     }
+  }
+
+  const unusedOffsetKeys = Object.keys(jigsawConnectorOffsets).filter((key) => !usedOffsetKeys.has(key));
+
+  if (unusedOffsetKeys.length) {
+    throw new Error(`Unused jigsaw connector offsets: ${unusedOffsetKeys.join(', ')}.`);
   }
 
   return connectorMap;
