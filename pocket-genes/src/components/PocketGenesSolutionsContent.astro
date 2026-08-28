@@ -53,10 +53,28 @@ type JigsawPiece = JigsawBlueprint & {
   labelStyle: string;
 };
 
+type JourneyStepCopy = {
+  phase: string;
+  title: string;
+  detail: string;
+};
+
+type JourneyDirection = 'right' | 'left' | 'down' | 'end';
+
+type JourneyStep = JourneyStepCopy & {
+  number: string;
+  direction: JourneyDirection;
+  style: string;
+};
+
 const jigsawGrid = {
   columns: 12,
   rows: 5,
   cell: 100,
+} as const;
+
+const journeyGrid = {
+  columns: 4,
 } as const;
 
 const jigsawTones: Record<JigsawTone, { fill: string; stroke: string; glow: string }> = {
@@ -366,6 +384,29 @@ const createJigsawPieces = (nodes: readonly string[], centerTitle: string, cente
   });
 };
 
+const createJourneyRoadmap = (steps: readonly JourneyStepCopy[]): JourneyStep[] =>
+  steps.map((step, index) => {
+    const zeroBasedRow = Math.floor(index / journeyGrid.columns);
+    const positionInRow = index % journeyGrid.columns;
+    const isReverseRow = zeroBasedRow % 2 === 1;
+    const row = zeroBasedRow + 1;
+    const column = isReverseRow ? journeyGrid.columns - positionInRow : positionInRow + 1;
+    const isLast = index === steps.length - 1;
+    const isRowTurn = !isLast && positionInRow === journeyGrid.columns - 1;
+    const direction: JourneyDirection = isLast ? 'end' : isRowTurn ? 'down' : isReverseRow ? 'left' : 'right';
+
+    return {
+      ...step,
+      number: String(index + 1).padStart(2, '0'),
+      direction,
+      style: [
+        `--journey-index: ${index}`,
+        `--journey-row: ${row}`,
+        `--journey-col: ${column}`,
+      ].join(';'),
+    };
+  });
+
 const pageCopy = {
   en: {
     title: 'Pocket Genes Solutions for genetics and health',
@@ -500,18 +541,66 @@ const pageCopy = {
     journeyBody:
       'Solve one point in the journey or connect several pieces to build a complete experience.',
     journeySteps: [
-      'Patient',
-      'Consent',
-      'Sample',
-      'Collection',
-      'Logistics',
-      'Processing',
-      'Report',
-      'Delivery',
-      'Education',
-      'Professionals and foundations',
-      'Community',
-      'Follow-up',
+      {
+        phase: 'Start',
+        title: 'Patient',
+        detail: 'The person, family, or provider enters with enough context to begin.',
+      },
+      {
+        phase: 'Authorization',
+        title: 'Consent',
+        detail: 'Consent and documents are captured before the workflow moves forward.',
+      },
+      {
+        phase: 'Identity',
+        title: 'Sample',
+        detail: 'The sample, owner, order, and current status stay attached.',
+      },
+      {
+        phase: 'Field work',
+        title: 'Collection',
+        detail: 'Pickup, collection, or kit delivery can be assigned and confirmed.',
+      },
+      {
+        phase: 'Custody',
+        title: 'Logistics',
+        detail: 'Transport, handoff, and reception steps stay visible across teams.',
+      },
+      {
+        phase: 'Systems',
+        title: 'Processing',
+        detail: 'Lab tools, APIs, or internal systems update the operational state.',
+      },
+      {
+        phase: 'Result',
+        title: 'Report',
+        detail: 'The result becomes a structured digital experience, not just a file.',
+      },
+      {
+        phase: 'Access',
+        title: 'Delivery',
+        detail: 'The right user or provider receives secure app or web access.',
+      },
+      {
+        phase: 'Context',
+        title: 'Education',
+        detail: 'Concepts, terms, and better questions appear next to the result.',
+      },
+      {
+        phase: 'Support',
+        title: 'Professionals and foundations',
+        detail: 'Relevant specialists, organizations, and resources can surface.',
+      },
+      {
+        phase: 'Community',
+        title: 'Community',
+        detail: 'Optional peer connection stays separate from private reports.',
+      },
+      {
+        phase: 'Continuity',
+        title: 'Follow-up',
+        detail: 'Notifications, operations, and support keep the journey moving.',
+      },
     ],
     proofEyebrow: 'We have already built much of this',
     proofTitle: 'Pocket Genes already uses this approach.',
@@ -773,18 +862,66 @@ const pageCopy = {
     journeyBody:
       'Podés resolver un solo punto del recorrido o conectar varias piezas para construir una experiencia completa.',
     journeySteps: [
-      'Paciente',
-      'Consentimiento',
-      'Muestra',
-      'Recolección',
-      'Logística',
-      'Procesamiento',
-      'Informe',
-      'Entrega',
-      'Educación',
-      'Profesionales y fundaciones',
-      'Comunidad',
-      'Seguimiento',
+      {
+        phase: 'Inicio',
+        title: 'Paciente',
+        detail: 'La persona, familia o proveedor entra con el contexto necesario.',
+      },
+      {
+        phase: 'Autorización',
+        title: 'Consentimiento',
+        detail: 'El consentimiento y los documentos se resuelven antes de avanzar.',
+      },
+      {
+        phase: 'Identidad',
+        title: 'Muestra',
+        detail: 'La muestra, titular, orden y estado quedan vinculados al caso.',
+      },
+      {
+        phase: 'Terreno',
+        title: 'Recolección',
+        detail: 'El retiro, toma o envío del kit se asigna y confirma.',
+      },
+      {
+        phase: 'Custodia',
+        title: 'Logística',
+        detail: 'El transporte, traspaso y recepción quedan visibles para el equipo.',
+      },
+      {
+        phase: 'Sistemas',
+        title: 'Procesamiento',
+        detail: 'Laboratorio, APIs o sistemas internos actualizan el estado operativo.',
+      },
+      {
+        phase: 'Resultado',
+        title: 'Informe',
+        detail: 'El resultado pasa a ser una experiencia digital, no solo un archivo.',
+      },
+      {
+        phase: 'Acceso',
+        title: 'Entrega',
+        detail: 'El usuario o proveedor correcto recibe acceso seguro en app o web.',
+      },
+      {
+        phase: 'Contexto',
+        title: 'Educación',
+        detail: 'Conceptos, términos y mejores preguntas aparecen junto al resultado.',
+      },
+      {
+        phase: 'Apoyo',
+        title: 'Profesionales y fundaciones',
+        detail: 'Especialistas, organizaciones y recursos relevantes pueden aparecer.',
+      },
+      {
+        phase: 'Comunidad',
+        title: 'Comunidad',
+        detail: 'La conexión opcional entre pares queda separada de informes privados.',
+      },
+      {
+        phase: 'Continuidad',
+        title: 'Seguimiento',
+        detail: 'Notificaciones, operación y soporte mantienen el recorrido activo.',
+      },
     ],
     proofEyebrow: 'Ya construimos mucho de esto',
     proofTitle: 'Pocket Genes ya aplica este enfoque.',
@@ -917,6 +1054,7 @@ const pageCopy = {
 
 const copy = pageCopy[locale];
 const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy.hubCenterBody);
+const journeyRoadmap = createJourneyRoadmap(copy.journeySteps);
 ---
 
 <PocketGenesPublicLayout
@@ -1046,11 +1184,20 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
           <p>{copy.journeyBody}</p>
         </div>
 
-        <ol class="pg-journey-track">
-          {copy.journeySteps.map((step, index) => (
-            <li style={`--journey-index: ${index};`}>
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              {step}
+        <ol class="pg-journey-roadmap" style={`--journey-columns: ${journeyGrid.columns};`}>
+          {journeyRoadmap.map((step) => (
+            <li
+              class:list={['pg-journey-step', `is-${step.direction}`]}
+              style={step.style}
+            >
+              <article class="pg-journey-card">
+                <span class="pg-journey-marker" aria-hidden="true">{step.number}</span>
+                <div>
+                  <span class="pg-journey-phase">{step.phase}</span>
+                  <h3>{step.title}</h3>
+                  <p>{step.detail}</p>
+                </div>
+              </article>
             </li>
           ))}
         </ol>
@@ -1737,7 +1884,6 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
 
   .pg-catalog-number,
   .pg-model-number,
-  .pg-journey-track span,
   .pg-example-flow span {
     flex: 0 0 auto;
     min-width: 40px;
@@ -1834,7 +1980,10 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
     .pg-jigsaw-label,
     .pg-jigsaw-label::before,
     .pg-catalog-row,
-    .pg-catalog-row::before {
+    .pg-catalog-row::before,
+    .pg-journey-step,
+    .pg-journey-card,
+    .pg-journey-card::before {
       animation: none !important;
       transition: none !important;
     }
@@ -1847,60 +1996,233 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
     .pg-jigsaw-piece-path.is-selected,
     .pg-catalog-row:hover,
     .pg-catalog-list > li.is-active .pg-catalog-row,
-    .pg-catalog-list > li:target .pg-catalog-row {
-      transform: none;
+    .pg-catalog-list > li:target .pg-catalog-row,
+    .pg-journey-card:hover,
+    .pg-journey-card:focus-within {
+      transform: none !important;
+    }
+
+    .pg-journey-card:hover::before,
+    .pg-journey-card:focus-within::before {
+      opacity: 0 !important;
+      transform: translateX(-120%) skewX(-12deg) !important;
     }
   }
 
   .pg-solutions-journey {
-    background: #ffffff;
+    position: relative;
+    isolation: isolate;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(20, 149, 143, 0.14), transparent 30%),
+      radial-gradient(circle at 88% 72%, rgba(228, 80, 128, 0.12), transparent 32%),
+      linear-gradient(180deg, #ffffff, #f7fbfd 52%, #ffffff);
+    overflow: hidden;
+  }
+
+  .pg-solutions-journey::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(90deg, rgba(23, 32, 51, 0.035) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(23, 32, 51, 0.035) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
   }
 
   .pg-journey-layout {
     display: grid;
-    gap: 24px;
+    gap: 30px;
   }
 
-  .pg-journey-track {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 10px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .pg-journey-track li {
+  .pg-journey-roadmap {
     position: relative;
     display: grid;
-    min-height: 98px;
-    align-content: center;
-    gap: 10px;
-    border: 1px solid var(--solution-border);
+    grid-template-columns: repeat(var(--journey-columns), minmax(0, 1fr));
+    gap: 18px 20px;
+    margin: 0;
+    border: 1px solid rgba(197, 210, 223, 0.9);
     border-radius: 8px;
-    background: #ffffff;
-    box-shadow: 0 8px 18px rgba(23, 32, 51, 0.06);
-    color: var(--solution-navy);
-    font-weight: 850;
-    line-height: 1.25;
-    padding: 14px;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(236, 245, 255, 0.72)),
+      repeating-linear-gradient(135deg, rgba(20, 149, 143, 0.04) 0 1px, transparent 1px 24px);
+    list-style: none;
+    padding: clamp(18px, 2.4vw, 30px);
+    box-shadow: 0 20px 54px rgba(23, 32, 51, 0.08);
   }
 
-  .pg-journey-track li::after {
+  .pg-journey-roadmap::before {
     content: "";
     position: absolute;
-    top: 50%;
-    right: -10px;
-    z-index: 2;
-    width: 10px;
-    height: 2px;
-    background: var(--solution-blue);
-    transform: translateY(-50%);
+    inset: clamp(18px, 2.4vw, 30px);
+    border-radius: 8px;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(20, 149, 143, 0.18), transparent 18%),
+      radial-gradient(circle at 87% 82%, rgba(217, 146, 50, 0.14), transparent 22%);
+    opacity: 0.72;
+    pointer-events: none;
   }
 
-  .pg-journey-track li:nth-child(6n)::after,
-  .pg-journey-track li:last-child::after {
+  .pg-journey-step {
+    position: relative;
+    z-index: 1;
+    grid-column: var(--journey-col);
+    grid-row: var(--journey-row);
+    min-width: 0;
+    animation: pgJourneyStepIn 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--journey-index) * 54ms);
+  }
+
+  .pg-journey-step::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(20, 149, 143, 0.42), rgba(33, 118, 174, 0.36), rgba(228, 80, 128, 0.3));
+    box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.72);
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  .pg-journey-step.is-right::before {
+    top: 41px;
+    left: calc(50% + 34px);
+    right: calc(-50% - 14px);
+    height: 3px;
+  }
+
+  .pg-journey-step.is-left::before {
+    top: 41px;
+    right: calc(50% + 34px);
+    left: calc(-50% - 14px);
+    height: 3px;
+  }
+
+  .pg-journey-step.is-down::before {
+    top: 41px;
+    left: 31px;
+    width: 3px;
+    height: calc(100% + 22px);
+    background: linear-gradient(180deg, rgba(20, 149, 143, 0.42), rgba(33, 118, 174, 0.36), rgba(228, 80, 128, 0.3));
+  }
+
+  .pg-journey-step.is-end::before {
     display: none;
+  }
+
+  .pg-journey-card {
+    position: relative;
+    display: grid;
+    min-height: 168px;
+    grid-template-columns: 62px minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+    border: 1px solid rgba(197, 210, 223, 0.92);
+    border-radius: 8px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(248, 252, 255, 0.9)),
+      #ffffff;
+    box-shadow: 0 10px 26px rgba(23, 32, 51, 0.07);
+    color: var(--solution-navy);
+    overflow: hidden;
+    padding: 18px;
+    transition:
+      border-color 0.24s ease,
+      box-shadow 0.24s ease,
+      transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .pg-journey-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(110deg, transparent 0 30%, rgba(255, 255, 255, 0.86) 45%, transparent 60% 100%);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-120%) skewX(-12deg);
+    transition: opacity 0.2s ease, transform 0.5s ease;
+  }
+
+  .pg-journey-card:hover,
+  .pg-journey-card:focus-within {
+    border-color: rgba(20, 149, 143, 0.34);
+    box-shadow: 0 18px 36px rgba(23, 32, 51, 0.12);
+    transform: translateY(-5px);
+  }
+
+  .pg-journey-card:hover::before,
+  .pg-journey-card:focus-within::before {
+    opacity: 1;
+    transform: translateX(110%) skewX(-12deg);
+  }
+
+  .pg-journey-marker {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border: 1px solid rgba(20, 149, 143, 0.32);
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.92), transparent 34%),
+      linear-gradient(145deg, #e8fbf8 0%, #ccefeb 100%);
+    box-shadow: 0 12px 28px rgba(20, 149, 143, 0.12);
+    color: var(--solution-teal);
+    font-size: 0.84rem;
+    font-weight: 950;
+    line-height: 1;
+  }
+
+  .pg-journey-marker::after {
+    content: "";
+    position: absolute;
+    right: 5px;
+    bottom: 6px;
+    width: 10px;
+    height: 10px;
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    background: var(--solution-rose);
+  }
+
+  .pg-journey-phase {
+    display: inline-flex;
+    margin-bottom: 8px;
+    color: var(--solution-teal);
+    font-size: 0.76rem;
+    font-weight: 920;
+    letter-spacing: 0.08em;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .pg-journey-card h3 {
+    margin: 0;
+    color: var(--solution-navy);
+    font-size: 1.16rem;
+    line-height: 1.2;
+  }
+
+  .pg-journey-card p {
+    margin: 8px 0 0;
+    color: var(--solution-ink-soft);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  @keyframes pgJourneyStepIn {
+    from {
+      opacity: 0;
+      transform: translateY(14px) scale(0.98);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
 
   .pg-solutions-proof {
@@ -2269,19 +2591,6 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .pg-journey-track {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .pg-journey-track li:nth-child(6n)::after {
-      display: block;
-    }
-
-    .pg-journey-track li:nth-child(4n)::after,
-    .pg-journey-track li:last-child::after {
-      display: none;
-    }
-
     .pg-example-flow {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
@@ -2417,17 +2726,39 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
       grid-template-columns: 1fr;
     }
 
-    .pg-journey-track,
     .pg-example-flow {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .pg-journey-track li:nth-child(4n)::after {
-      display: block;
+    .pg-journey-roadmap {
+      grid-template-columns: 1fr;
+      gap: 14px;
+      padding: 18px;
     }
 
-    .pg-journey-track li:nth-child(2n)::after,
-    .pg-journey-track li:last-child::after {
+    .pg-journey-roadmap::before {
+      inset: 18px;
+    }
+
+    .pg-journey-step {
+      grid-column: auto !important;
+      grid-row: auto !important;
+    }
+
+    .pg-journey-step::before,
+    .pg-journey-step.is-right::before,
+    .pg-journey-step.is-left::before,
+    .pg-journey-step.is-down::before {
+      top: 56px;
+      bottom: -14px;
+      left: 28px;
+      width: 3px;
+      height: auto;
+      right: auto;
+      background: linear-gradient(180deg, rgba(20, 149, 143, 0.42), rgba(33, 118, 174, 0.36), rgba(228, 80, 128, 0.3));
+    }
+
+    .pg-journey-step.is-end::before {
       display: none;
     }
 
@@ -2469,9 +2800,16 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
       display: none;
     }
 
-    .pg-journey-track,
     .pg-example-flow {
       grid-template-columns: 1fr;
+    }
+
+    .pg-journey-roadmap {
+      padding: 14px;
+    }
+
+    .pg-journey-roadmap::before {
+      inset: 14px;
     }
 
     .pg-jigsaw-label-layer {
@@ -2500,8 +2838,33 @@ const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy
       grid-template-columns: 1fr;
     }
 
-    .pg-journey-track li::after {
-      display: none !important;
+    .pg-journey-card {
+      grid-template-columns: 50px minmax(0, 1fr);
+      min-height: auto;
+      gap: 13px;
+      padding: 16px;
+    }
+
+    .pg-journey-marker {
+      width: 46px;
+      height: 46px;
+      font-size: 0.78rem;
+    }
+
+    .pg-journey-step::before,
+    .pg-journey-step.is-right::before,
+    .pg-journey-step.is-left::before,
+    .pg-journey-step.is-down::before {
+      top: 46px;
+      left: 23px;
+    }
+
+    .pg-journey-card h3 {
+      font-size: 1.05rem;
+    }
+
+    .pg-journey-card p {
+      font-size: 0.9rem;
     }
 
     .pg-catalog-row,
