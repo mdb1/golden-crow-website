@@ -4663,13 +4663,15 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-audience-card:hover,
   .pg-audience-card:focus-visible,
   .pg-audience-card.is-active {
+    z-index: 3;
     border-color: var(--aud-stroke);
     box-shadow: 0 18px 36px rgba(23, 32, 51, 0.1), 0 0 0 1px var(--aud-glow);
     transform:
       perspective(760px)
       rotateX(var(--card-tilt-y, 0deg))
       rotateY(var(--card-tilt-x, 0deg))
-      translateY(-6px);
+      translateY(-6px)
+      scale(1.035);
   }
 
   .pg-audience-card:hover::before,
