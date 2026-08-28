@@ -878,7 +878,6 @@ const pageCopy = {
     modelsTitle: 'One need. Three ways to solve it.',
     models: [
       {
-        number: '01',
         title: 'Integrate Pocket Genes',
         body:
           'If it already exists in Pocket Genes, integrate it without building or maintaining your own platform.',
@@ -887,7 +886,6 @@ const pageCopy = {
         href: '/pocket-genes/website/integration',
       },
       {
-        number: '02',
         title: 'We develop your own app',
         body:
           'If you need a custom path, we define goals, scope, experience, integrations, and timing with your team.',
@@ -896,7 +894,6 @@ const pageCopy = {
         href: '#solutions-call',
       },
       {
-        number: '03',
         title: 'Staff augmentation',
         body:
           'We add a Golden Crow VS team to your operation for daily work, clear priorities, and ongoing roadmap.',
@@ -1223,7 +1220,6 @@ const pageCopy = {
     modelsTitle: 'Una necesidad. Tres formas de resolverla.',
     models: [
       {
-        number: '01',
         title: 'Integrá Pocket Genes',
         body:
           'Si ya existe en Pocket Genes, integrala sin desarrollar ni sostener una plataforma propia.',
@@ -1232,7 +1228,6 @@ const pageCopy = {
         href: '/pocket-genes/website/integration',
       },
       {
-        number: '02',
         title: 'Tené tu propia app',
         body:
           'Si necesitás algo propio, definimos con tu equipo objetivo, alcance, experiencia, integraciones y tiempos.',
@@ -1241,7 +1236,6 @@ const pageCopy = {
         href: '#solutions-call',
       },
       {
-        number: '03',
         title: 'Staff augmentation',
         body:
           'Sumamos un equipo de Golden Crow VS a tu operación para trabajo diario, prioridades claras y roadmap continuo.',
@@ -1590,7 +1584,6 @@ const audienceTiles = createAudienceTiles(copy.audiences);
         <div class="pg-model-grid">
           {copy.models.map((model) => (
             <article class="pg-model-card">
-              <span class="pg-model-number">{model.number}</span>
               <h3>{model.title}</h3>
               <p>{model.body}</p>
               <ul>
@@ -2298,8 +2291,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     animation: pgCatalogSweep 1.15s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .pg-catalog-number,
-  .pg-model-number {
+  .pg-catalog-number {
     flex: 0 0 auto;
     min-width: 40px;
     border-radius: 8px;
@@ -4425,7 +4417,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   }
 
   .pg-model-card h3 {
-    margin: 18px 0 0;
+    margin: 0;
     color: var(--solution-navy);
     font-size: 1.5rem;
     line-height: 1.16;
