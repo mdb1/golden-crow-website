@@ -109,10 +109,6 @@ type ProofStatCopy = {
   detail: string;
 };
 
-type ProofMetric = ProofStatCopy & {
-  style: string;
-};
-
 const jigsawGrid = {
   columns: 12,
   rows: 5,
@@ -177,8 +173,6 @@ const audienceBlueprints: readonly AudienceBlueprint[] = [
   { col: 1, row: 4, cols: 2, rows: 1, tone: 'amber' },
   { col: 5, row: 4, cols: 2, rows: 1, tone: 'teal' },
 ] as const;
-
-const proofToneSequence: readonly JigsawTone[] = ['teal', 'blue', 'rose'];
 
 const journeyBranchPlans: readonly JourneyBranchPlan[] = [
   { key: 'entry', startIndex: 0, tone: 'teal' },
@@ -519,21 +513,6 @@ const createAudienceTiles = (labels: readonly string[]): AudienceTile[] => {
     };
   });
 };
-
-const createProofMetrics = (stats: readonly ProofStatCopy[]): ProofMetric[] =>
-  stats.map((stat, index) => {
-    const tone = jigsawTones[proofToneSequence[index % proofToneSequence.length]];
-
-    return {
-      ...stat,
-      style: [
-        `--proof-index: ${index}`,
-        `--proof-fill: ${tone.fill}`,
-        `--proof-stroke: ${tone.stroke}`,
-        `--proof-glow: ${tone.glow}`,
-      ].join(';'),
-    };
-  });
 
 const createJourneyBranches = (
   steps: readonly JourneyStepCopy[],
@@ -1267,7 +1246,6 @@ const copy = pageCopy[locale];
 const jigsawPieces = createJigsawPieces(copy.hubNodes, copy.hubCenterTitle, copy.hubCenterBody);
 const journeyBranches = createJourneyBranches(copy.journeySteps, copy.journeyBranches);
 const audienceTiles = createAudienceTiles(copy.audiences);
-const proofMetrics = createProofMetrics(copy.proofStats);
 ---
 
 <PocketGenesPublicLayout
@@ -1583,14 +1561,9 @@ const proofMetrics = createProofMetrics(copy.proofStats);
           <h2 id="solutions-why-title">{copy.whyTitle}</h2>
           <p>{copy.whyBody}</p>
         </div>
-        <ul class="pg-proof-point-list" data-reactive-card-zone>
-          {proofMetrics.map((point) => (
-            <li
-              class="pg-proof-point-card"
-              style={point.style}
-              tabindex="0"
-              data-reactive-card
-            >
+        <ul class="pg-proof-point-list">
+          {copy.proofStats.map((point) => (
+            <li class="pg-proof-point-card">
               <span class="pg-proof-point-value">{point.value}</span>
               <span class="pg-proof-point-label">{point.label}</span>
               <span class="pg-proof-point-detail">{point.detail}</span>
@@ -2314,7 +2287,6 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     .pg-proof-screens img,
     .pg-proof-screens figcaption,
     .pg-proof-point-card,
-    .pg-proof-point-card::before,
     .pg-proof-point-card::after {
       animation: none !important;
       transition: none !important;
@@ -2358,9 +2330,7 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     .pg-proof-screens figure:hover figcaption,
     .pg-proof-screens figure:focus-visible figcaption,
     .pg-proof-screens figure.is-active figcaption,
-    .pg-proof-point-card:hover,
-    .pg-proof-point-card:focus-visible,
-    .pg-proof-point-card.is-active {
+    .pg-proof-point-card:hover {
       transform: none !important;
     }
 
@@ -2390,9 +2360,7 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     .pg-proof-screens figure:hover .pg-proof-screen-phone::after,
     .pg-proof-screens figure:focus-visible .pg-proof-screen-phone::after,
     .pg-proof-screens figure.is-active .pg-proof-screen-phone::after,
-    .pg-proof-point-card:hover::after,
-    .pg-proof-point-card:focus-visible::after,
-    .pg-proof-point-card.is-active::after {
+    .pg-proof-point-card:hover::after {
       opacity: 0 !important;
       transform: translateX(-120%) skewX(-12deg) !important;
     }
@@ -3693,9 +3661,7 @@ const proofMetrics = createProofMetrics(copy.proofStats);
   }
 
   .pg-audience-card::before,
-  .pg-audience-card::after,
-  .pg-proof-point-card::before,
-  .pg-proof-point-card::after {
+  .pg-audience-card::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -3703,8 +3669,7 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     opacity: 0;
   }
 
-  .pg-audience-card::before,
-  .pg-proof-point-card::before {
+  .pg-audience-card::before {
     z-index: -1;
     background:
       radial-gradient(circle at var(--card-x, 50%) var(--card-y, 42%), rgba(255, 255, 255, 0.9), transparent 28%),
@@ -3712,8 +3677,7 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     transition: opacity 0.22s ease;
   }
 
-  .pg-audience-card::after,
-  .pg-proof-point-card::after {
+  .pg-audience-card::after {
     z-index: 0;
     background: linear-gradient(110deg, transparent 0 32%, rgba(255, 255, 255, 0.88) 46%, transparent 62% 100%);
     transform: translateX(-122%) skewX(-13deg);
@@ -3734,40 +3698,29 @@ const proofMetrics = createProofMetrics(copy.proofStats);
 
   .pg-audience-card:hover::before,
   .pg-audience-card:focus-visible::before,
-  .pg-audience-card.is-active::before,
-  .pg-proof-point-card:hover::before,
-  .pg-proof-point-card:focus-visible::before,
-  .pg-proof-point-card.is-active::before {
+  .pg-audience-card.is-active::before {
     opacity: 1;
   }
 
   .pg-audience-card:hover::after,
   .pg-audience-card:focus-visible::after,
-  .pg-audience-card.is-active::after,
-  .pg-proof-point-card:hover::after,
-  .pg-proof-point-card:focus-visible::after,
-  .pg-proof-point-card.is-active::after {
+  .pg-audience-card.is-active::after {
     opacity: 1;
     transform: translateX(122%) skewX(-13deg);
   }
 
-  .pg-audience-card:focus-visible,
-  .pg-proof-point-card:focus-visible {
+  .pg-audience-card:focus-visible {
     outline: 3px solid rgba(20, 149, 143, 0.28);
     outline-offset: 4px;
   }
 
-  .pg-audience-ecosystem.is-reacting .pg-audience-card:not(.is-active),
-  .pg-proof-point-list.is-reacting .pg-proof-point-card:not(.is-active) {
+  .pg-audience-ecosystem.is-reacting .pg-audience-card:not(.is-active) {
     opacity: 0.56;
     filter: saturate(0.72);
   }
 
   .pg-audience-card-number,
-  .pg-audience-card strong,
-  .pg-proof-point-value,
-  .pg-proof-point-label,
-  .pg-proof-point-detail {
+  .pg-audience-card strong {
     position: relative;
     z-index: 1;
   }
@@ -3865,121 +3818,93 @@ const proofMetrics = createProofMetrics(copy.proofStats);
   }
 
   .pg-proof-point-list {
-    position: relative;
     display: grid;
-    gap: 14px;
+    gap: 12px;
     border: 1px solid var(--solution-border);
     border-radius: 8px;
-    background:
-      linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(246, 251, 253, 0.92)),
-      repeating-linear-gradient(135deg, rgba(20, 149, 143, 0.04) 0 1px, transparent 1px 24px);
-    box-shadow: 0 14px 34px rgba(23, 32, 51, 0.08);
+    background: #ffffff;
+    box-shadow: 0 12px 28px rgba(23, 32, 51, 0.06);
     overflow: hidden;
-    padding: clamp(16px, 2vw, 24px);
-  }
-
-  .pg-proof-point-list::before {
-    content: "";
-    position: absolute;
-    top: 38px;
-    bottom: 38px;
-    left: clamp(34px, 4vw, 52px);
-    width: 3px;
-    border-radius: 999px;
-    background: linear-gradient(180deg, rgba(20, 149, 143, 0.42), rgba(33, 118, 174, 0.34), rgba(228, 80, 128, 0.32));
-    opacity: 0.72;
+    padding: 18px;
   }
 
   .pg-proof-point-card {
     position: relative;
-    z-index: 1;
     display: grid;
-    grid-template-columns: minmax(78px, 0.34fr) minmax(0, 1fr);
+    grid-template-columns: minmax(76px, max-content) minmax(0, 1fr);
     grid-template-areas:
       "value label"
       "value detail";
-    gap: 7px clamp(14px, 2vw, 20px);
+    gap: 4px 18px;
     align-items: center;
-    min-height: 124px;
-    border: 1px solid var(--proof-stroke);
+    min-height: 96px;
+    border: 1px solid rgba(197, 210, 223, 0.72);
     border-radius: 8px;
-    background:
-      radial-gradient(circle at var(--card-x, 54%) var(--card-y, 38%), rgba(255, 255, 255, 0.95), transparent 34%),
-      linear-gradient(145deg, #ffffff, var(--proof-fill));
+    background: #ffffff;
     color: var(--solution-navy);
-    box-shadow: 0 10px 24px var(--proof-glow);
     isolation: isolate;
     overflow: hidden;
-    padding: 18px;
-    transform: perspective(760px) rotateX(0) rotateY(0) translateY(0);
+    padding: 16px 18px;
     transition:
-      opacity 0.22s ease,
       border-color 0.24s ease,
-      box-shadow 0.24s ease,
-      filter 0.24s ease,
-      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-    animation: pgProofCardIn 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
-    animation-delay: calc(var(--proof-index) * 74ms);
+      background 0.24s ease,
+      box-shadow 0.24s ease;
   }
 
-  .pg-proof-point-card:hover,
-  .pg-proof-point-card:focus-visible,
-  .pg-proof-point-card.is-active {
-    border-color: rgba(20, 149, 143, 0.38);
-    box-shadow: 0 18px 38px rgba(23, 32, 51, 0.12), 0 0 0 1px rgba(20, 149, 143, 0.08);
-    transform:
-      perspective(760px)
-      rotateX(var(--card-tilt-y, 0deg))
-      rotateY(var(--card-tilt-x, 0deg))
-      translateY(-5px);
+  .pg-proof-point-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    width: 38%;
+    background: linear-gradient(110deg, transparent 0 20%, rgba(255, 255, 255, 0.72) 50%, transparent 80% 100%);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-135%) skewX(-12deg);
+    transition: opacity 0.18s ease, transform 0.58s ease;
+  }
+
+  .pg-proof-point-card:hover {
+    border-color: rgba(20, 149, 143, 0.28);
+    background: #fbfefe;
+    box-shadow: 0 10px 22px rgba(23, 32, 51, 0.06);
+  }
+
+  .pg-proof-point-card:hover::after {
+    opacity: 1;
+    transform: translateX(280%) skewX(-12deg);
   }
 
   .pg-proof-point-value {
     grid-area: value;
-    display: grid;
-    place-items: center;
-    width: clamp(64px, 7vw, 88px);
-    aspect-ratio: 1;
-    border: 1px solid rgba(20, 149, 143, 0.28);
-    border-radius: 999px;
-    background:
-      radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.92), transparent 34%),
-      linear-gradient(145deg, #e8fbf8, #d9eef7);
-    box-shadow: 0 12px 26px rgba(20, 149, 143, 0.12);
+    position: relative;
+    z-index: 1;
     color: var(--solution-teal);
-    font-size: clamp(1.08rem, 2vw, 1.75rem);
-    font-weight: 950;
+    font-size: clamp(1.18rem, 1.8vw, 1.55rem);
+    font-weight: 900;
     line-height: 1;
-    text-align: center;
+    text-align: left;
   }
 
   .pg-proof-point-label {
     grid-area: label;
+    position: relative;
+    z-index: 1;
     align-self: end;
     color: var(--solution-navy);
-    font-size: clamp(1.02rem, 1.45vw, 1.26rem);
-    font-weight: 900;
-    line-height: 1.16;
+    font-size: 1.02rem;
+    font-weight: 840;
+    line-height: 1.2;
   }
 
   .pg-proof-point-detail {
     grid-area: detail;
+    position: relative;
+    z-index: 1;
     align-self: start;
     color: var(--solution-ink-soft);
     font-size: 0.94rem;
     line-height: 1.48;
-  }
-
-  @keyframes pgProofCardIn {
-    from {
-      opacity: 0;
-      transform: translateX(18px) scale(0.98);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateX(0) scale(1);
-    }
   }
 
   .pg-solutions-booking {
@@ -4462,7 +4387,7 @@ const proofMetrics = createProofMetrics(copy.proofStats);
     }
 
     .pg-proof-point-value {
-      width: 64px;
+      width: auto;
     }
 
     .pg-solutions-calendar-wrapper {
