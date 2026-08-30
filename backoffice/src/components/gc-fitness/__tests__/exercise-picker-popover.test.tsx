@@ -542,3 +542,91 @@ describe("ExercisePickerPopover legacy retirement filter", () => {
     expect(screen.getByText("Legacy Wger Curl")).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// #1032 — the "Create «…»" row at the foot of the results.
+//
+// The panel used to appear only when the search returned ZERO rows, and
+// `searchExercises` is a fuzzy ranker: a 3-token query lands as a match at
+// 2/3 tokens, so typing a name that is genuinely NOT in the library still
+// returns neighbours and the panel stayed hidden. The coach's workaround was
+// typing garbage to force zero matches and then retyping the real name inside
+// the panel — which is what the ticket screenshots show.
+// ---------------------------------------------------------------------------
+
+function searchFor(term: string) {
+  // The mocked `t` resolves picker.searchPlaceholder from the EN catalog.
+  const input = screen.getByPlaceholderText("Search exercises…");
+  fireEvent.change(input, { target: { value: term } });
+}
+
+describe("ExercisePickerPopover quick-create affordance (#1032)", () => {
+  const bench = makeRow({
+    id: "bench",
+    name: { en: "Bench Press", es: "Press de banca" },
+  });
+
+  function renderWithBench() {
+    mockUseExercisesQuery.mockReturnValue({
+      data: [bench],
+      isLoading: false,
+      error: null,
+      hasSnapshot: true,
+    });
+    render(<ExercisePickerPopover value="" onChange={() => {}} />);
+    openPicker();
+  }
+
+  it("offers to create the typed term even when the ranker returned matches", () => {
+    renderWithBench();
+
+    // 2 of 3 tokens land on "Bench Press", which clears the 60% threshold —
+    // so this query has matches and would NEVER have shown the old panel.
+    searchFor("Bench Press Machine");
+
+    expect(screen.getByTestId("exercise-picker-row-bench")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("exercise-picker-create-new"),
+    ).toHaveTextContent("Create «Bench Press Machine»");
+  });
+
+  it("opens the panel with the typed term already in the Name field", () => {
+    renderWithBench();
+    searchFor("Bench Press Machine");
+
+    fireEvent.click(screen.getByTestId("exercise-picker-create-new"));
+
+    // The whole complaint: they already typed the name once. Re-typing it
+    // inside the panel is the step this removes.
+    expect(screen.getByPlaceholderText("Name")).toHaveValue(
+      "Bench Press Machine",
+    );
+    // And the row that opened it is gone, so the affordance and the panel it
+    // opened never stack.
+    expect(
+      screen.queryByTestId("exercise-picker-create-new"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not stack the row on top of the zero-match panel", () => {
+    renderWithBench();
+
+    // No token lands → zero matches → the panel opens on its own, as before.
+    searchFor("zzzz");
+
+    expect(screen.getByPlaceholderText("Name")).toHaveValue("zzzz");
+    expect(
+      screen.queryByTestId("exercise-picker-create-new"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the row out of an empty search", () => {
+    renderWithBench();
+
+    // Nothing typed — "Create «»" would be nonsense, and the coach is still
+    // browsing.
+    expect(
+      screen.queryByTestId("exercise-picker-create-new"),
+    ).not.toBeInTheDocument();
+  });
+});

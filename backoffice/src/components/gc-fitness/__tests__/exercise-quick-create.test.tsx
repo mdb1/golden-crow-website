@@ -26,6 +26,12 @@
 //   • `thumbnailURL` IS null WHEN BLANK, never "". An empty string is a real
 //     value on Firestore and the media resolvers treat a present-but-empty URL
 //     differently from an absent one.
+//   • THE DEMO VIDEO GOES IN `youtubeURL`, NOT THE THUMBNAIL (#1032). Before
+//     the panel had its own field, a coach who wanted to attach a video had
+//     nowhere to put it but "GIF / preview URL" — and that field feeds the
+//     image resolvers. It is also normalized: a link copied without its
+//     scheme would otherwise be rejected by `z.string().url()` server-side and
+//     come back as a raw ZodError blob in the panel's error line.
 //   • `ownerId: null` ON THE WIRE IS FINE — but only because `createExercise`
 //     overwrites it with the session uid server-side. Worth knowing: the
 //     visibility predicate is `source === "trainer" && ownerId != null`, so a
@@ -62,6 +68,7 @@ function seed(overrides: Partial<QuickCreateSeed> = {}): QuickCreateSeed {
     muscleGroup: "back",
     equipment: "barbell",
     gifUrl: "https://storage.example/row.gif",
+    youtubeUrl: "https://youtu.be/source-demo",
     ...overrides,
   };
 }
@@ -89,6 +96,10 @@ function nameField() {
 
 function createButton() {
   return screen.getByRole("button", { name: /^create exercise$/i });
+}
+
+function youtubeField() {
+  return screen.getByPlaceholderText("YouTube video URL (optional)");
 }
 
 async function createdPayload(): Promise<Record<string, unknown>> {
@@ -146,6 +157,64 @@ describe("QuickCreateExercise — the payload", () => {
     expect(payload.thumbnailURL).toBeNull();
   });
 
+  it("sends null, not '', for a blank video link", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.type(nameField(), "Landmine Press");
+    await user.click(createButton());
+
+    const payload = await createdPayload();
+    // Same reason as thumbnailURL: "" is a present value on Firestore, and
+    // "has a demo video" is read as "the field is non-null".
+    expect(payload.youtubeURL).toBeNull();
+  });
+
+  it("writes the video to youtubeURL, leaving the thumbnail alone (#1032)", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.type(nameField(), "Landmine Press");
+    await user.type(youtubeField(), "https://youtu.be/_R389Jk0tI");
+    await user.click(createButton());
+
+    const payload = await createdPayload();
+    expect(payload.youtubeURL).toBe("https://youtu.be/_R389Jk0tI");
+    // The bug in the ticket: with no video field, the link landed here and
+    // the media resolvers tried to render a YouTube page as an image.
+    expect(payload.thumbnailURL).toBeNull();
+  });
+
+  it("adds the missing scheme to a pasted link instead of failing server-side", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.type(nameField(), "Landmine Press");
+    await user.type(youtubeField(), "  youtu.be/_R389Jk0tI  ");
+    await user.click(createButton());
+
+    const payload = await createdPayload();
+    // `exerciseSchema.youtubeURL` is a `z.string().url()`: the scheme-less
+    // form is a hard reject, and the coach would see the ZodError JSON.
+    expect(payload.youtubeURL).toBe("https://youtu.be/_R389Jk0tI");
+  });
+
+  it("blocks Create on a video link that is not a URL at all", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.type(nameField(), "Landmine Press");
+    await user.type(youtubeField(), "el video que te mande por whatsapp");
+
+    // Blocking here is the point: the Server Action would reject this too,
+    // but as an unreadable ZodError with no hint of which field is at fault.
+    expect(createButton()).toBeDisabled();
+    expect(
+      screen.getByText(/Paste the full YouTube link/i),
+    ).toBeInTheDocument();
+    expect(mockCreateExercise).not.toHaveBeenCalled();
+  });
+
   it("carries the media URL through when one is seeded", async () => {
     const user = userEvent.setup();
     renderPanel({ seed: seed() });
@@ -156,6 +225,7 @@ describe("QuickCreateExercise — the payload", () => {
 
     const payload = await createdPayload();
     expect(payload.thumbnailURL).toBe("https://storage.example/row.gif");
+    expect(payload.youtubeURL).toBe("https://youtu.be/source-demo");
     expect(payload.equipment).toEqual(["barbell"]);
     expect(payload.primaryMuscleGroup).toBe("back");
   });
@@ -289,6 +359,20 @@ describe("QuickCreateExercise — 'Create similar'", () => {
 
     await user.type(nameField(), " (Pendlay)");
 
+    expect(createButton()).toBeEnabled();
+  });
+
+  it("counts a swapped demo video as a real difference (#1032)", async () => {
+    const user = userEvent.setup();
+    renderPanel({ seed: seed() });
+
+    expect(createButton()).toBeDisabled();
+
+    await user.clear(youtubeField());
+    await user.type(youtubeField(), "https://youtu.be/a-better-demo");
+
+    // If `seedEquals` ignored the video, "same exercise, better demo" would
+    // read as a byte-identical clone and the CTA would never enable.
     expect(createButton()).toBeEnabled();
   });
 

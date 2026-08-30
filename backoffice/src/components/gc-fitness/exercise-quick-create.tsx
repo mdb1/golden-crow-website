@@ -12,6 +12,12 @@
 // Duplicate guard: when a seed is active, the Create button stays disabled
 // until at least one field diverges from the source so trainers don't
 // accidentally create an identical clone.
+//
+// #1032 — the panel also writes `youtubeURL`. Before that it only had ONE
+// media field ("GIF / preview URL"), so a coach who wanted to attach a demo
+// video either pasted the YouTube link into the THUMBNAIL field (which the
+// media resolvers then try to render as an image) or had to leave the
+// workout builder, open the library, edit the exercise, and come back.
 
 import { useEffect, useState } from "react";
 import { useLocale } from "next-intl";
@@ -45,6 +51,8 @@ export interface QuickCreateSeed {
   muscleGroup: string;
   equipment: string;
   gifUrl: string;
+  /** #1032 — carried through "Create similar" so the variation keeps the demo. */
+  youtubeUrl: string;
 }
 
 interface QuickCreateExerciseProps {
@@ -72,13 +80,54 @@ function formatLabel(s: string): string {
 const DEFAULT_MUSCLE = "chest";
 const DEFAULT_EQUIPMENT = "bodyweight";
 
+/**
+ * #1032 — the YouTube link the coach pastes, coerced into something
+ * `exerciseSchema.youtubeURL` (a `z.string().url()`) will accept.
+ *
+ * Copying a link out of the YouTube app or the browser's address bar very
+ * often drops the scheme (`youtu.be/_R389Jk0tI`), and `z.string().url()`
+ * rejects that. The rejection would surface in the panel's red line as the
+ * JSON blob of a ZodError — unreadable, and un-actionable, since nothing on
+ * screen says a scheme is what's missing. So prepend `https://` here and
+ * validate BEFORE the Server Action ever runs.
+ *
+ * Returns "" for blank input (the caller turns that into a `null` on the
+ * wire — an empty string is a real value on Firestore).
+ */
+export function normalizeYoutubeUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  // Any scheme at all (http, https, or a typo like `htttp`) is left alone so
+  // isValidYoutubeUrl below can reject it instead of us silently building
+  // `https://htttp://…`.
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+}
+
+/** Mirrors what `z.string().url()` accepts, narrowed to http(s). */
+export function isValidYoutubeUrl(normalized: string): boolean {
+  try {
+    const url = new URL(normalized);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.hostname.includes(".")
+    );
+  } catch {
+    return false;
+  }
+}
+
 function seedEquals(a: QuickCreateSeed, b: QuickCreateSeed): boolean {
   return (
     a.name.trim() === b.name.trim() &&
     a.description.trim() === b.description.trim() &&
     a.muscleGroup === b.muscleGroup &&
     a.equipment === b.equipment &&
-    a.gifUrl.trim() === b.gifUrl.trim()
+    a.gifUrl.trim() === b.gifUrl.trim() &&
+    // #1032 — without this, swapping ONLY the demo video on a "Create
+    // similar" reads as an identical clone and the CTA stays disabled.
+    a.youtubeUrl.trim() === b.youtubeUrl.trim()
   );
 }
 
@@ -95,6 +144,7 @@ export function QuickCreateExercise({
   const [muscleGroup, setMuscleGroup] = useState<string>(DEFAULT_MUSCLE);
   const [equipment, setEquipment] = useState<string>(DEFAULT_EQUIPMENT);
   const [gifUrl, setGifUrl] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nameDirty, setNameDirty] = useState(false);
@@ -109,6 +159,7 @@ export function QuickCreateExercise({
     setMuscleGroup(seed.muscleGroup);
     setEquipment(seed.equipment);
     setGifUrl(seed.gifUrl);
+    setYoutubeUrl(seed.youtubeUrl);
     setError(null);
     // The name was set deliberately from a seed — don't let the
     // search-prefill effect overwrite it on the next keystroke.
@@ -124,12 +175,20 @@ export function QuickCreateExercise({
     if (trimmed) setName(trimmed);
   }, [searchTerm, nameDirty, seed]);
 
+  // Declared ABOVE onCreate on purpose: onCreate reads it, and keeping the
+  // derivation in one place stops the wire value and the validity check from
+  // drifting apart.
+  const normalizedYoutube = normalizeYoutubeUrl(youtubeUrl);
+  const youtubeInvalid =
+    normalizedYoutube.length > 0 && !isValidYoutubeUrl(normalizedYoutube);
+
   function reset() {
     setName("");
     setDescription("");
     setMuscleGroup(DEFAULT_MUSCLE);
     setEquipment(DEFAULT_EQUIPMENT);
     setGifUrl("");
+    setYoutubeUrl("");
     setError(null);
     setNameDirty(false);
   }
@@ -173,6 +232,10 @@ export function QuickCreateExercise({
         primaryMuscleGroup: muscleGroup,
         equipment: [equipment],
         thumbnailURL: gifUrl.trim() || null,
+        // #1032 — null, never "", for the same reason as thumbnailURL: an
+        // empty string is a present value on Firestore and the clients treat
+        // "has a video" as "the field is non-null".
+        youtubeURL: normalizedYoutube || null,
         source: "trainer",
         ownerId: null,
       });
@@ -197,11 +260,13 @@ export function QuickCreateExercise({
     muscleGroup,
     equipment,
     gifUrl,
+    youtubeUrl,
   };
   const isDuplicate = !!seed && seedEquals(seed, currentValues);
   // Description is optional — only the name gates Create.
   const requiredMissing = name.trim().length === 0;
-  const disabled = creating || requiredMissing || isDuplicate;
+  const disabled =
+    creating || requiredMissing || isDuplicate || youtubeInvalid;
   // Keep the locale read so future copy can branch per-locale without
   // adding another import; not used today but cheap.
   void locale;
@@ -302,7 +367,25 @@ export function QuickCreateExercise({
             onChange={(event) => setGifUrl(event.target.value)}
           />
         </div>
+        <div className="sm:col-span-2">
+          <Label htmlFor="quick-create-youtube" className="sr-only">
+            YouTube video URL (optional)
+          </Label>
+          <Input
+            id="quick-create-youtube"
+            value={youtubeUrl}
+            placeholder="YouTube video URL (optional)"
+            onChange={(event) => setYoutubeUrl(event.target.value)}
+            aria-invalid={youtubeInvalid || undefined}
+          />
+        </div>
       </div>
+      {youtubeInvalid ? (
+        <p className="mt-2 text-xs text-destructive">
+          Paste the full YouTube link — https://youtu.be/… or
+          https://www.youtube.com/watch?v=…
+        </p>
+      ) : null}
       {error ? (
         <p className="mt-2 text-xs text-destructive">{error}</p>
       ) : null}

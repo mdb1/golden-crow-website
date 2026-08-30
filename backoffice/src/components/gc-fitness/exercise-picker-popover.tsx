@@ -56,7 +56,7 @@
 // a redundant duplicate line).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronsUpDown, Copy, X } from "lucide-react";
+import { ChevronsUpDown, Copy, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -220,6 +220,10 @@ export function ExercisePickerPopover({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [seed, setSeed] = useState<QuickCreateSeed | null>(null);
+  // #1032 — the coach asked for the quick-create panel explicitly, from the
+  // "Create «…»" row at the foot of the results. See `showQuickCreate` below
+  // for why zero-matches alone was never enough of a trigger.
+  const [forceQuickCreate, setForceQuickCreate] = useState(false);
   // Keep the results list pinned to the TOP whenever the query changes. cmdk
   // preserves its highlighted item and scrolls it into view; since our ranked
   // search re-orders the list on every keystroke, that item could be mid-list,
@@ -291,6 +295,18 @@ export function ExercisePickerPopover({
     return visible.length === 0;
   }, [search, visible]);
 
+  // #1032 — `noMatches` is the WRONG gate on its own, and that is the whole
+  // bug in the ticket. `searchExercises` ranks fuzzily: "Cargada de potencia
+  // colgada" still returns "Step up c/elevacion de rodilla" and "Puente de
+  // gluteo explosivo", so `visible.length` is 2, so the panel never appeared
+  // for the one search that most obviously needs it — a name that is not in
+  // the library. The coach's workaround was typing garbage ("jhk") to force
+  // zero matches and then retyping the real name inside the panel.
+  //
+  // So the panel now ALSO opens on demand, from a row at the foot of the
+  // results list. Same mechanism the multi-add dialog has had.
+  const showQuickCreate = noMatches || seed !== null || forceQuickCreate;
+
   const selected = useMemo(
     () => (data ?? []).find((r) => r.id === value) ?? null,
     [data, value],
@@ -301,6 +317,7 @@ export function ExercisePickerPopover({
     setOpen(false);
     setSearch("");
     setSeed(null);
+    setForceQuickCreate(false);
   }
 
   function handleOpenChange(next: boolean) {
@@ -308,6 +325,7 @@ export function ExercisePickerPopover({
     if (!next) {
       setSearch("");
       setSeed(null);
+      setForceQuickCreate(false);
     }
   }
 
@@ -318,6 +336,7 @@ export function ExercisePickerPopover({
       muscleGroup: row.muscleGroups[0] ?? "chest",
       equipment: row.equipment[0] ?? "bodyweight",
       gifUrl: previewSrc(row) ?? "",
+      youtubeUrl: row.youtubeURL ?? "",
     };
   }
 
@@ -542,12 +561,28 @@ export function ExercisePickerPopover({
                       {t("overflowMore", { count: overflow })}
                     </CommandItem>
                   )}
+                  {search.trim() !== "" && !showQuickCreate && (
+                    // #1032 — always the LAST row while there is a needle, so
+                    // "the exercise I want isn't here" is one click away even
+                    // when the fuzzy ranker returned unrelated matches. It is
+                    // hidden once the panel is already open (`showQuickCreate`)
+                    // so the two never stack.
+                    <CommandItem
+                      value="__quick-create__"
+                      onSelect={() => setForceQuickCreate(true)}
+                      className="gap-2 text-xs text-muted-foreground"
+                      data-testid="exercise-picker-create-new"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      {t("createNew", { term: search.trim() })}
+                    </CommandItem>
+                  )}
                 </CommandGroup>
               </>
             )}
           </CommandList>
         </Command>
-        {noMatches || seed !== null ? (
+        {showQuickCreate ? (
           <div className="border-t p-2">
             <QuickCreateExercise
               searchTerm={search}
