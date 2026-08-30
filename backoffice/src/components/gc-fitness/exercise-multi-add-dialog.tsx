@@ -73,6 +73,7 @@ function seedFromExerciseRow(row: ExerciseRow): QuickCreateSeed {
     muscleGroup: row.muscleGroups[0] ?? "chest",
     equipment: row.equipment[0] ?? "bodyweight",
     gifUrl: previewSrc(row) ?? "",
+    youtubeUrl: row.youtubeURL ?? "",
   };
 }
 
@@ -319,7 +320,7 @@ export function ExerciseMultiAddDialog({
             onClick={() => setForceQuickCreate(true)}
           >
             <Plus className="h-3.5 w-3.5" />
-            {t("multiAddCreateNew", { term: search.trim() })}
+            {t("createNew", { term: search.trim() })}
           </Button>
         ) : null}
         {showQuickCreate ? (
