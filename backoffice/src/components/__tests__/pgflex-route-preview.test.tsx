@@ -15,35 +15,11 @@ describe("PGFlexRoutePreview", () => {
   function resetGoogleMapsLoader() {
     delete (window as Window & { __pgflexGoogleMapsPromise?: Promise<void> })
       .__pgflexGoogleMapsPromise;
+    delete (window as Window & { google?: unknown }).google;
     document.getElementById(scriptId)?.remove();
   }
 
-  beforeEach(() => {
-    delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    delete process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY;
-    resetGoogleMapsLoader();
-  });
-
-  afterEach(() => {
-    resetGoogleMapsLoader();
-  });
-
-  afterAll(() => {
-    if (originalGoogleMapsApiKey === undefined) {
-      delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    } else {
-      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = originalGoogleMapsApiKey;
-    }
-
-    if (originalPGFlexGoogleMapsApiKey === undefined) {
-      delete process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY;
-    } else {
-      process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY =
-        originalPGFlexGoogleMapsApiKey;
-    }
-  });
-
-  it("loads Google Maps only after Preview route is clicked", async () => {
+  function renderControlledPreview() {
     const onOriginChange = jest.fn();
     const onDestinationChange = jest.fn();
 
@@ -73,6 +49,74 @@ describe("PGFlexRoutePreview", () => {
       </AppLanguageProvider>,
     );
 
+    return { onDestinationChange, onOriginChange };
+  }
+
+  function enterRouteAddresses() {
+    fireEvent.change(screen.getByLabelText("Origin"), {
+      target: { value: "Av. Corrientes 123, Buenos Aires" },
+    });
+    fireEvent.change(screen.getByLabelText("Destination"), {
+      target: { value: "Hospital Italiano, Buenos Aires" },
+    });
+  }
+
+  function installRejectingGoogleMapsMock(status = "REQUEST_DENIED") {
+    const renderer = {
+      setDirections: jest.fn(),
+      setMap: jest.fn(),
+    };
+
+    (window as any).google = {
+      maps: {
+        DirectionsRenderer: jest.fn(() => renderer),
+        DirectionsService: jest.fn(() => ({
+          route: jest.fn(),
+        })),
+        Geocoder: jest.fn(() => ({
+          geocode: jest.fn(
+            (
+              _request: unknown,
+              callback: (results: unknown[] | null, status: string) => void,
+            ) => callback(null, status),
+          ),
+        })),
+        Map: jest.fn(() => ({})),
+        TrafficModel: { BEST_GUESS: "BEST_GUESS" },
+        TravelMode: { DRIVING: "DRIVING" },
+        UnitSystem: { METRIC: "METRIC" },
+      },
+    };
+  }
+
+  beforeEach(() => {
+    delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    delete process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY;
+    resetGoogleMapsLoader();
+  });
+
+  afterEach(() => {
+    resetGoogleMapsLoader();
+  });
+
+  afterAll(() => {
+    if (originalGoogleMapsApiKey === undefined) {
+      delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    } else {
+      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = originalGoogleMapsApiKey;
+    }
+
+    if (originalPGFlexGoogleMapsApiKey === undefined) {
+      delete process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY;
+    } else {
+      process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY =
+        originalPGFlexGoogleMapsApiKey;
+    }
+  });
+
+  it("loads Google Maps only after Preview route is clicked", async () => {
+    const { onDestinationChange, onOriginChange } = renderControlledPreview();
+
     expect(document.getElementById(scriptId)).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Preview route" }),
@@ -81,17 +125,8 @@ describe("PGFlexRoutePreview", () => {
       screen.queryByText("Google Maps preview is not configured."),
     ).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Origin"), {
-      target: { value: "Av. Corrientes 123, Buenos Aires" },
-    });
+    enterRouteAddresses();
     expect(document.getElementById(scriptId)).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Preview route" }),
-    ).not.toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Destination"), {
-      target: { value: "Hospital Italiano, Buenos Aires" },
-    });
 
     expect(onOriginChange).toHaveBeenCalledWith(
       "Av. Corrientes 123, Buenos Aires",
@@ -106,5 +141,37 @@ describe("PGFlexRoutePreview", () => {
     await waitFor(() => {
       expect(document.getElementById(scriptId)).toBeInTheDocument();
     });
+    expect(screen.getByLabelText("Origin")).toBeDisabled();
+    expect(screen.getByLabelText("Destination")).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Preview route" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Change route" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Change route" }));
+
+    expect(screen.getByLabelText("Origin")).not.toBeDisabled();
+    expect(screen.getByLabelText("Destination")).not.toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Preview route" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows an explicit route calculation alert when Google rejects the route", async () => {
+    installRejectingGoogleMapsMock("REQUEST_DENIED");
+    renderControlledPreview();
+    enterRouteAddresses();
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview route" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Google rejected this route request. Verify API key restrictions, billing, and that Maps JavaScript, Geocoding, and Directions APIs are enabled.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Change route" }),
+    ).toBeInTheDocument();
   });
 });

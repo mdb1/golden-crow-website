@@ -119,6 +119,18 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to load Google Maps.": "No se pudo cargar Google Maps.",
   "Unable to calculate a route for these addresses.":
     "No se pudo calcular un recorrido para estas direcciones.",
+  "Google rejected this route request. Verify API key restrictions, billing, and that Maps JavaScript, Geocoding, and Directions APIs are enabled.":
+    "Google rechazó la solicitud del recorrido. Revisá las restricciones de la API key, billing y que estén activas Maps JavaScript, Geocoding y Directions.",
+  "Google could not find a drivable route for these addresses. Use full street, city, province, and country, then try again.":
+    "Google no encontró un recorrido manejable para estas direcciones. Usá calle, ciudad, provincia y país completos, y volvé a intentar.",
+  "Google Maps quota rejected this route request. Check project quota and billing before trying again.":
+    "La cuota de Google Maps rechazó la solicitud. Revisá la cuota del proyecto y billing antes de volver a intentar.",
+  "Google Maps did not answer in time. Use Change route and try again, or verify the Google APIs and billing configuration.":
+    "Google Maps no respondió a tiempo. Usá Change route y volvé a intentar, o revisá las APIs de Google y la configuración de billing.",
+  "Google Maps failed to load. Verify the browser API key, allowed domains, billing, and that Maps JavaScript API is enabled.":
+    "Google Maps no pudo cargar. Revisá la API key del browser, los dominios permitidos, billing y que Maps JavaScript API esté activa.",
+  "Google Maps could not calculate this route. Check both addresses and try again with Preview route.":
+    "Google Maps no pudo calcular este recorrido. Revisá ambas direcciones y volvé a intentar con Preview route.",
   "Add origin and destination addresses to preview the route.":
     "Agregá origen y destino para previsualizar el recorrido.",
   "Time of pick up": "Hora de retiro",

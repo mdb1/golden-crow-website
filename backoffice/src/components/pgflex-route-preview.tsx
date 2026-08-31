@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 const GOOGLE_MAPS_SCRIPT_ID = "pgflex-google-maps-js-api";
 const PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY =
   "AIzaSyDX5QOmZrG7GekSIMoqFT3oymQP20w2az0";
+const ROUTE_REQUEST_TIMEOUT_MS = 15000;
 
 type MapsLoadStatus = "idle" | "loading" | "ready" | "error";
 type RouteStatus = "idle" | "loading" | "ready" | "error";
@@ -27,6 +28,9 @@ type RouteEstimate = {
   distance: string;
   duration: string;
   usesTraffic: boolean;
+};
+type LockedRoute = {
+  key: string;
 };
 type GoogleMapsWindow = Window &
   typeof globalThis & {
@@ -36,6 +40,54 @@ type GoogleMapsWindow = Window &
 
 function getGoogleMapsWindow() {
   return window as GoogleMapsWindow;
+}
+
+function makeAbortError() {
+  const error = new Error("Route preview cancelled");
+  error.name = "AbortError";
+  return error;
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  signal: AbortSignal,
+  timeoutMessage: string,
+) {
+  return new Promise<T>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(makeAbortError());
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      signal.removeEventListener("abort", abortHandler);
+    };
+    const abortHandler = () => {
+      cleanup();
+      reject(makeAbortError());
+    };
+
+    signal.addEventListener("abort", abortHandler, { once: true });
+    promise.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
+  });
 }
 
 function normalizeGoogleMapsApiKey(value: string | undefined) {
@@ -78,7 +130,11 @@ function loadGoogleMaps(apiKey: string) {
       existingScript.addEventListener("load", () => resolve(), { once: true });
       existingScript.addEventListener(
         "error",
-        () => reject(new Error("Google Maps failed to load")),
+        () => {
+          delete mapsWindow.__pgflexGoogleMapsPromise;
+          existingScript.remove();
+          reject(new Error("Google Maps failed to load"));
+        },
         { once: true },
       );
       return;
@@ -112,6 +168,17 @@ function loadGoogleMaps(apiKey: string) {
   });
 
   return mapsWindow.__pgflexGoogleMapsPromise;
+}
+
+function resetGoogleMapsLoaderIfPending() {
+  const mapsWindow = getGoogleMapsWindow();
+
+  if (mapsWindow.google?.maps) {
+    return;
+  }
+
+  delete mapsWindow.__pgflexGoogleMapsPromise;
+  document.getElementById(GOOGLE_MAPS_SCRIPT_ID)?.remove();
 }
 
 function geocodeAddress(geocoder: any, address: string) {
@@ -191,6 +258,47 @@ function routeKeyFor(origin: string, destination: string) {
   return `${originAddress}\n${destinationAddress}`;
 }
 
+function routeFailureMessage(
+  error: unknown,
+  translate: (text: string) => string,
+) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (/REQUEST_DENIED/i.test(message)) {
+    return translate(
+      "Google rejected this route request. Verify API key restrictions, billing, and that Maps JavaScript, Geocoding, and Directions APIs are enabled.",
+    );
+  }
+
+  if (/ZERO_RESULTS|NOT_FOUND/i.test(message)) {
+    return translate(
+      "Google could not find a drivable route for these addresses. Use full street, city, province, and country, then try again.",
+    );
+  }
+
+  if (/OVER_QUERY_LIMIT|RESOURCE_EXHAUSTED/i.test(message)) {
+    return translate(
+      "Google Maps quota rejected this route request. Check project quota and billing before trying again.",
+    );
+  }
+
+  if (/timed out|timeout/i.test(message)) {
+    return translate(
+      "Google Maps did not answer in time. Use Change route and try again, or verify the Google APIs and billing configuration.",
+    );
+  }
+
+  if (/failed to load|namespace|unavailable/i.test(message)) {
+    return translate(
+      "Google Maps failed to load. Verify the browser API key, allowed domains, billing, and that Maps JavaScript API is enabled.",
+    );
+  }
+
+  return translate(
+    "Google Maps could not calculate this route. Check both addresses and try again with Preview route.",
+  );
+}
+
 export function PGFlexRoutePreview({
   origin,
   destination,
@@ -213,35 +321,54 @@ export function PGFlexRoutePreview({
   const directionsServiceRef = useRef<any>(null);
   const directionsRendererRef = useRef<any>(null);
   const routeRequestIdRef = useRef(0);
+  const activeRouteAbortControllerRef = useRef<AbortController | null>(null);
   const lastPreviewedRouteKeyRef = useRef<string | null>(null);
   const [mapsStatus, setMapsStatus] = useState<MapsLoadStatus>("idle");
   const [routeStatus, setRouteStatus] = useState<RouteStatus>("idle");
   const [routeEstimate, setRouteEstimate] = useState<RouteEstimate | null>(null);
+  const [lockedRoute, setLockedRoute] = useState<LockedRoute | null>(null);
+  const [routeErrorMessage, setRouteErrorMessage] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
-    routeRequestIdRef.current += 1;
     const currentRouteKey = routeKeyFor(origin, destination);
 
     if (!currentRouteKey) {
+      routeRequestIdRef.current += 1;
+      activeRouteAbortControllerRef.current?.abort();
+      activeRouteAbortControllerRef.current = null;
       clearRenderedRoute(directionsRendererRef.current, mapRef.current);
+      setLockedRoute(null);
       lastPreviewedRouteKeyRef.current = null;
       setRouteEstimate(null);
+      setRouteErrorMessage(null);
       setRouteStatus("idle");
       return;
     }
 
-    if (
-      lastPreviewedRouteKeyRef.current &&
-      lastPreviewedRouteKeyRef.current !== currentRouteKey
-    ) {
+    if (lockedRoute && lockedRoute.key !== currentRouteKey) {
+      routeRequestIdRef.current += 1;
+      activeRouteAbortControllerRef.current?.abort();
+      activeRouteAbortControllerRef.current = null;
       clearRenderedRoute(directionsRendererRef.current, mapRef.current);
+      setLockedRoute(null);
       lastPreviewedRouteKeyRef.current = null;
       setRouteEstimate(null);
+      setRouteErrorMessage(null);
       setRouteStatus("idle");
     }
-  }, [destination, origin]);
+  }, [destination, lockedRoute, origin]);
 
-  async function ensureMapReady() {
+  useEffect(
+    () => () => {
+      activeRouteAbortControllerRef.current?.abort();
+      activeRouteAbortControllerRef.current = null;
+    },
+    [],
+  );
+
+  async function ensureMapReady(signal: AbortSignal) {
     if (
       mapRef.current &&
       geocoderRef.current &&
@@ -253,7 +380,12 @@ export function PGFlexRoutePreview({
     }
 
     setMapsStatus("loading");
-    await loadGoogleMaps(apiKey);
+    await withTimeout(
+      loadGoogleMaps(apiKey),
+      ROUTE_REQUEST_TIMEOUT_MS,
+      signal,
+      "Google Maps load timed out",
+    );
     const maps = getGoogleMapsWindow().google?.maps;
 
     if (!maps || !mapContainerRef.current) {
@@ -298,6 +430,20 @@ export function PGFlexRoutePreview({
     setMapsStatus("ready");
   }
 
+  function handleChangeRoute() {
+    activeRouteAbortControllerRef.current?.abort();
+    activeRouteAbortControllerRef.current = null;
+    routeRequestIdRef.current += 1;
+    resetGoogleMapsLoaderIfPending();
+    clearRenderedRoute(directionsRendererRef.current, mapRef.current);
+    lastPreviewedRouteKeyRef.current = null;
+    setLockedRoute(null);
+    setRouteEstimate(null);
+    setRouteErrorMessage(null);
+    setMapsStatus(mapRef.current ? "ready" : "idle");
+    setRouteStatus("idle");
+  }
+
   async function handlePreviewRoute() {
     const originAddress = origin.trim();
     const destinationAddress = destination.trim();
@@ -307,13 +453,20 @@ export function PGFlexRoutePreview({
       return;
     }
 
+    activeRouteAbortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    activeRouteAbortControllerRef.current = abortController;
     const routeRequestId = routeRequestIdRef.current + 1;
     routeRequestIdRef.current = routeRequestId;
+    setLockedRoute({
+      key: currentRouteKey,
+    });
     setRouteEstimate(null);
+    setRouteErrorMessage(null);
     setRouteStatus("loading");
 
     try {
-      await ensureMapReady();
+      await ensureMapReady(abortController.signal);
 
       if (routeRequestIdRef.current !== routeRequestId) {
         return;
@@ -328,16 +481,26 @@ export function PGFlexRoutePreview({
         throw new Error("Google Maps route services are unavailable");
       }
 
-      const [originLocation, destinationLocation] = await Promise.all([
-        geocodeAddress(geocoder, originAddress),
-        geocodeAddress(geocoder, destinationAddress),
-      ]);
-      const result = await requestRoute({
-        directionsService,
-        maps,
-        origin: originLocation,
-        destination: destinationLocation,
-      });
+      const [originLocation, destinationLocation] = await withTimeout(
+        Promise.all([
+          geocodeAddress(geocoder, originAddress),
+          geocodeAddress(geocoder, destinationAddress),
+        ]),
+        ROUTE_REQUEST_TIMEOUT_MS,
+        abortController.signal,
+        "Google Maps geocoding timed out",
+      );
+      const result = await withTimeout(
+        requestRoute({
+          directionsService,
+          maps,
+          origin: originLocation,
+          destination: destinationLocation,
+        }),
+        ROUTE_REQUEST_TIMEOUT_MS,
+        abortController.signal,
+        "Google Maps directions timed out",
+      );
 
       if (routeRequestIdRef.current !== routeRequestId) {
         return;
@@ -359,19 +522,29 @@ export function PGFlexRoutePreview({
         usesTraffic: Boolean(leg?.duration_in_traffic),
       });
       setRouteStatus("ready");
-    } catch {
-      if (routeRequestIdRef.current !== routeRequestId) {
+    } catch (error) {
+      if (
+        isAbortError(error) ||
+        routeRequestIdRef.current !== routeRequestId
+      ) {
         return;
       }
 
+      resetGoogleMapsLoaderIfPending();
       clearRenderedRoute(directionsRendererRef.current, mapRef.current);
       setRouteEstimate(null);
+      setRouteErrorMessage(routeFailureMessage(error, t));
       setMapsStatus(mapRef.current ? "ready" : "error");
-      setRouteStatus(mapRef.current ? "error" : "idle");
+      setRouteStatus("error");
+    } finally {
+      if (routeRequestIdRef.current === routeRequestId) {
+        activeRouteAbortControllerRef.current = null;
+      }
     }
   }
 
   const hasBothAddresses = Boolean(origin.trim() && destination.trim());
+  const isRouteLocked = Boolean(lockedRoute);
   const isPreviewLoading =
     mapsStatus === "loading" || routeStatus === "loading";
   const showMapOverlay =
@@ -390,7 +563,7 @@ export function PGFlexRoutePreview({
             id="pgflex-origin"
             value={origin}
             onChange={(event) => onOriginChange(event.target.value)}
-            disabled={disabled}
+            disabled={disabled || isRouteLocked}
             autoComplete="street-address"
           />
         </div>
@@ -401,7 +574,7 @@ export function PGFlexRoutePreview({
             id="pgflex-destination"
             value={destination}
             onChange={(event) => onDestinationChange(event.target.value)}
-            disabled={disabled}
+            disabled={disabled || isRouteLocked}
             autoComplete="street-address"
           />
         </div>
@@ -424,7 +597,19 @@ export function PGFlexRoutePreview({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {hasBothAddresses ? (
+            {isRouteLocked ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleChangeRoute}
+                disabled={disabled}
+              >
+                <RouteIcon className="h-3.5 w-3.5" />
+                Change route
+              </Button>
+            ) : hasBothAddresses ? (
               <Button
                 type="button"
                 variant="secondary"
@@ -484,19 +669,28 @@ export function PGFlexRoutePreview({
                     </p>
                   </>
                 ) : mapsStatus === "error" ? (
-                  <>
+                  <div role="alert" className="flex flex-col items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-destructive" />
                     <p className="text-sm font-medium text-foreground">
                       {t("Unable to load Google Maps.")}
                     </p>
-                  </>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {routeErrorMessage ??
+                        t(
+                          "Google Maps failed to load. Verify the browser API key, allowed domains, billing, and that Maps JavaScript API is enabled.",
+                        )}
+                    </p>
+                  </div>
                 ) : routeStatus === "error" ? (
-                  <>
+                  <div role="alert" className="flex flex-col items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-destructive" />
                     <p className="text-sm font-medium text-foreground">
                       {t("Unable to calculate a route for these addresses.")}
                     </p>
-                  </>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {routeErrorMessage}
+                    </p>
+                  </div>
                 ) : (
                   <>
                     <Navigation className="h-5 w-5 text-muted-foreground" />
