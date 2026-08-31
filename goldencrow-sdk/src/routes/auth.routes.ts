@@ -30,24 +30,33 @@ import {
 
 const LoginBodySchema = z.object({
   idToken: z.string().min(1, "idToken is required"),
-  surface: z.enum(["backoffice", "patient-portal"]).default("backoffice"),
+  surface: z
+    .enum(["backoffice", "patient-portal", "pgflex"])
+    .default("backoffice"),
 });
 
 const EmailSignupEligibilitySchema = z.object({
   email: z.string().email(),
-  surface: z.enum(["backoffice", "patient-portal"]).default("backoffice"),
+  surface: z
+    .enum(["backoffice", "patient-portal", "pgflex"])
+    .default("backoffice"),
 });
 
 const EmailSignupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6).max(128),
-  surface: z.enum(["backoffice", "patient-portal"]).default("backoffice"),
+  surface: z
+    .enum(["backoffice", "patient-portal", "pgflex"])
+    .default("backoffice"),
 });
 
 const CompleteProfileSchema = z.object({
   fullName: z.string().trim().min(1).max(100),
   iconName: z.string().trim().min(1).max(100),
-  iconColorHex: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/),
+  iconColorHex: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/),
   ownerProfession: z.string().max(120).optional(),
   ownerCompany: z.string().max(120).optional(),
   ownerContactNumber: z.string().max(30).optional(),
@@ -82,7 +91,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         request.body.surface,
       );
       return reply.send(eligibility);
-    }
+    },
   );
 
   f.post(
@@ -103,7 +112,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
         throw error;
       }
-    }
+    },
   );
 
   f.post(
@@ -129,18 +138,30 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         const canAccessRequestedSurface =
           surface === "patient-portal"
             ? adminContext?.canAccessPatientPortal
-            : adminContext?.canAccessBackoffice;
+            : surface === "pgflex"
+              ? adminContext?.canAccessPGFlex
+              : adminContext?.canAccessBackoffice;
         if (!adminContext || !canAccessRequestedSurface) {
           const requiredSurface = adminContext?.canAccessBackoffice
             ? "backoffice"
             : adminContext?.canAccessPatientPortal
               ? "patient-portal"
-              : undefined;
+              : adminContext?.canAccessPGFlex
+                ? "pgflex"
+                : undefined;
+          const requiredLogin =
+            requiredSurface === "patient-portal"
+              ? "patient portal"
+              : requiredSurface === "pgflex"
+                ? "PGFlex"
+                : "backoffice";
           return reply.status(403).send({
             error: requiredSurface
-              ? `This account must sign in through the ${requiredSurface === "backoffice" ? "backoffice" : "patient portal"} login.`
+              ? `This account must sign in through the ${requiredLogin} login.`
               : "Account not authorized",
-            code: requiredSurface ? "WRONG_AUTH_SURFACE" : "ACCOUNT_NOT_AUTHORIZED",
+            code: requiredSurface
+              ? "WRONG_AUTH_SURFACE"
+              : "ACCOUNT_NOT_AUTHORIZED",
             requiredSurface,
           });
         }
@@ -161,7 +182,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       } catch {
         return reply.status(401).send({ error: "Invalid ID token" });
       }
-    }
+    },
   );
 
   f.post("/auth/logout", async (_request, reply) => {
@@ -171,7 +192,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
   f.get("/auth/context", async (request, reply) => {
     if (!request.adminContext) {
-      return reply.status(401).send({ error: "No authenticated admin context" });
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
     }
 
     return reply.send({
@@ -182,7 +205,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
   f.get("/auth/my-account", async (request, reply) => {
     if (!request.adminContext || !request.user?.uid) {
-      return reply.status(401).send({ error: "No authenticated admin context" });
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
     }
 
     try {
@@ -206,13 +231,15 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext || !request.user?.uid) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const account = await updateMyAccountRoleProfileForContext(
           request.adminContext,
-          request.body
+          request.body,
         );
         return reply.send({ account });
       } catch (error) {
@@ -222,7 +249,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
         throw error;
       }
-    }
+    },
   );
 
   f.put(
@@ -234,13 +261,15 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext || !request.user?.uid) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const result = await changeMyAccountEmailForContext(
           request.adminContext,
-          request.body.email
+          request.body.email,
         );
         return reply.send(result);
       } catch (error) {
@@ -250,12 +279,14 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
         throw error;
       }
-    }
+    },
   );
 
   f.get("/auth/profile-setup", async (request, reply) => {
     if (!request.adminContext || !request.user?.uid) {
-      return reply.status(401).send({ error: "No authenticated admin context" });
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
     }
 
     try {
@@ -279,14 +310,16 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext || !request.user?.uid) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const state = await completeProfileSetup(
           request.user.uid,
           request.adminContext.role,
-          request.body
+          request.body,
         );
         return reply.send({ state });
       } catch (error) {
@@ -296,13 +329,15 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
         throw error;
       }
-    }
+    },
   );
 
   f.put("/auth/profile-setup/patient", async (request, reply) => {
     const context = request.adminContext;
     if (!context || !request.user?.uid) {
-      return reply.status(401).send({ error: "No authenticated admin context" });
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
     }
 
     if (
@@ -311,7 +346,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       context.canAccessBackoffice ||
       !context.patientId
     ) {
-      return reply.status(403).send({ error: "Patient portal access is required." });
+      return reply
+        .status(403)
+        .send({ error: "Patient portal access is required." });
     }
 
     try {

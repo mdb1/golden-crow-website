@@ -15,6 +15,7 @@ function context(
     isBootstrap: false,
     canAccessBackoffice: true,
     canAccessPatientPortal: false,
+    canAccessPGFlex: false,
     project: "mydnamap",
     projectAccess: ["mydnamap"],
     ...values,

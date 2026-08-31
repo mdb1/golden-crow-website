@@ -7,11 +7,15 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { AmbientBackdrop } from "@/components/ambient-backdrop";
 import { AppLanguageProvider } from "@/components/app-language-provider";
+import { PGFlexPortalHeader } from "@/components/pgflex-portal-header";
+import { PGFlexPortalSidebar } from "@/components/pgflex-portal-sidebar";
+import { PGFlexRouteGuard } from "@/components/pgflex-route-guard";
 import { PublisherRouteGuard } from "@/components/publisher-route-guard";
 import { Providers } from "./providers";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { LANGUAGE_COOKIE_NAME, resolveAppLanguage } from "@/lib/language";
 import { PATIENT_PORTAL_ENTRY_ROUTE } from "@/lib/patient-portal-routes";
+import { PGFLEX_LOGIN_ROUTE } from "@/lib/pgflex-routes";
 
 export default async function DashboardLayout({
   children,
@@ -35,16 +39,49 @@ export default async function DashboardLayout({
   } catch {
     redirect("/access-denied");
   }
+
+  if (session.user?.accessSurface === "pgflex") {
+    if (
+      !adminContext.canAccessPGFlex ||
+      adminContext.canAccessBackoffice ||
+      adminContext.canAccessPatientPortal
+    ) {
+      redirect(PGFLEX_LOGIN_ROUTE);
+    }
+
+    return (
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <SidebarProvider defaultOpen={false}>
+          <div className="flex min-h-screen w-full overflow-x-hidden bg-white">
+            <PGFlexPortalSidebar />
+            <SidebarInset className="min-h-screen min-w-0 bg-white">
+              <div className="flex min-h-screen min-w-0 flex-1 flex-col bg-white">
+                <PGFlexPortalHeader />
+                <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white p-4 lg:p-6">
+                  <Providers adminContext={adminContext}>
+                    <PGFlexRouteGuard>{children}</PGFlexRouteGuard>
+                  </Providers>
+                </main>
+              </div>
+            </SidebarInset>
+          </div>
+        </SidebarProvider>
+      </AppLanguageProvider>
+    );
+  }
+
   if (!adminContext.canAccessBackoffice) {
     redirect(
       adminContext.canAccessPatientPortal
         ? PATIENT_PORTAL_ENTRY_ROUTE
-        : "/access-denied",
+        : adminContext.canAccessPGFlex
+          ? PGFLEX_LOGIN_ROUTE
+          : "/access-denied",
     );
   }
   const cookieStore = await cookies();
   const initialLanguage = resolveAppLanguage(
-    cookieStore.get(LANGUAGE_COOKIE_NAME)?.value
+    cookieStore.get(LANGUAGE_COOKIE_NAME)?.value,
   );
 
   return (

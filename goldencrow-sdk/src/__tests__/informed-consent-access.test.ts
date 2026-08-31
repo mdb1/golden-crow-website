@@ -16,6 +16,7 @@ function context(
     isBootstrap: false,
     canAccessBackoffice: values.role !== "patient",
     canAccessPatientPortal: values.role === "patient",
+    canAccessPGFlex: values.role === "transport_dispatcher",
     projectAccess: ["mydnamap"],
     ...values,
   };
@@ -31,7 +32,10 @@ describe("informed consent access", () => {
   it("blocks organization publishers from patient consent records", () => {
     expect(
       canAccessInformedConsentPatient(
-        context({ role: "organization_publisher", organizationId: "ORG-00001" }),
+        context({
+          role: "organization_publisher",
+          organizationId: "ORG-00001",
+        }),
         patient,
       ),
     ).toBe(false);
@@ -40,7 +44,10 @@ describe("informed consent access", () => {
   it("limits institution roles to their institution", () => {
     expect(
       canAccessInformedConsentPatient(
-        context({ role: "institution_laboratory_staff", institutionId: "INS-00001" }),
+        context({
+          role: "institution_laboratory_staff",
+          institutionId: "INS-00001",
+        }),
         patient,
       ),
     ).toBe(true);

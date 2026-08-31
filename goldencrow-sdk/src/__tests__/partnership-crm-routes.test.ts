@@ -67,6 +67,7 @@ const bootstrapContext: AdminContext = {
   isBootstrap: true,
   canAccessBackoffice: true,
   canAccessPatientPortal: false,
+  canAccessPGFlex: false,
   projectAccess: ["mydnamap"],
 };
 
@@ -221,8 +222,7 @@ describe("partnership CRM routes", () => {
           {
             rowId: "row-1",
             name: "Cesar Sanchez Sarmiento",
-            category:
-              "pro_reproductive_specialists,pro_fertility_specialists",
+            category: "pro_reproductive_specialists,pro_fertility_specialists",
             country: "AR",
             status: "replied",
             lastContactAt: "2026-08-25T14:29:00-03:00",

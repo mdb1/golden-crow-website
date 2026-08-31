@@ -23,6 +23,7 @@ const context: AdminContextRecord = {
   isBootstrap: true,
   canAccessBackoffice: true,
   canAccessPatientPortal: false,
+  canAccessPGFlex: false,
   project: "mydnamap",
   projectAccess: ["mydnamap"],
 };

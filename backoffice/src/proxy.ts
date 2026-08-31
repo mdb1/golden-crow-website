@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { withAuth } from "next-auth/middleware";
+import { withAuth, type NextRequestWithAuth } from "next-auth/middleware";
 import { authMiddleware } from "next-firebase-auth-edge";
 
 // Next.js 16 `proxy.ts` file convention (renamed from src/middleware.ts in 02-03).
@@ -35,19 +35,40 @@ const PATIENT_PORTAL_PUBLIC_PATHS = new Set([
   "/patient-portal/complete-profile",
 ]);
 
+const PGFLEX_PUBLIC_PATHS = new Set([
+  "/pgflex/login",
+  "/pgflex/complete-profile",
+]);
+
 // NextAuth handler — reused for non-gc-fitness paths. Lazy-cached so we
 // don't pay the construction cost when only gc-fitness paths are hit.
-const nextAuthHandler = withAuth({
-  pages: {
-    signIn: "/login",
-    error: "/access-denied",
+const nextAuthHandler = withAuth(
+  (request: NextRequestWithAuth) => {
+    if (request.nextauth.token?.accessSurface === "pgflex") {
+      return NextResponse.redirect(new URL("/pgflex/logistics", request.url));
+    }
+
+    return NextResponse.next();
   },
-});
+  {
+    pages: {
+      signIn: "/login",
+      error: "/access-denied",
+    },
+  },
+);
 
 const patientPortalAuthHandler = withAuth({
   pages: {
     signIn: "/patient-portal/login",
     error: "/patient-portal/login",
+  },
+});
+
+const pgflexAuthHandler = withAuth({
+  pages: {
+    signIn: "/pgflex/login",
+    error: "/pgflex/login",
   },
 });
 
@@ -61,6 +82,19 @@ export default async function proxy(request: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (patientPortalAuthHandler as any)(request);
+  }
+
+  if (pathname.startsWith("/pgflex")) {
+    if (pathname === "/pgflex/login.") {
+      return NextResponse.redirect(new URL("/pgflex/login", request.url));
+    }
+
+    if (PGFLEX_PUBLIC_PATHS.has(pathname)) {
+      return NextResponse.next();
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (pgflexAuthHandler as any)(request);
   }
 
   if (pathname === "/open-api" || pathname.startsWith("/open-api/")) {
@@ -134,7 +168,8 @@ export default async function proxy(request: NextRequest) {
       const missing: string[] = [];
       if (!cookieSignatureKey) missing.push("GC_FITNESS_COOKIE_SIGNATURE_KEY");
       if (!apiKey) missing.push("NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY");
-      if (!projectId) missing.push("NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID");
+      if (!projectId)
+        missing.push("NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID");
       if (!clientEmail) missing.push("GC_FITNESS_FIREBASE_ADMIN_CLIENT_EMAIL");
       if (!privateKeyB64) missing.push("GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY");
       // eslint-disable-next-line no-console
@@ -197,8 +232,9 @@ export const config = {
     // self-hosted via next.config rewrites (#378) — otherwise this middleware
     // would route them through the NextAuth branch and redirect the handler to
     // /login, breaking the proxied sign-in flow.
-    "/((?!login|access-denied|botfarm|api/auth|api/sdk|open-api|_next/static|_next/image|favicon.ico|gc-fitness|api/gc-fitness|patient-portal|__).*)",
+    "/((?!login|access-denied|botfarm|api/auth|api/sdk|open-api|_next/static|_next/image|favicon.ico|gc-fitness|api/gc-fitness|patient-portal|pgflex|__).*)",
     "/patient-portal/:path*",
+    "/pgflex/:path*",
     "/gc-fitness/:path*",
     "/api/gc-fitness/login",
     "/api/gc-fitness/logout",

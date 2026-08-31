@@ -41,6 +41,7 @@ export interface AdminContextRecord {
   isBootstrap: boolean;
   canAccessBackoffice: boolean;
   canAccessPatientPortal: boolean;
+  canAccessPGFlex: boolean;
   project: ProjectKey;
   projectAccess: ProjectKey[];
 }
@@ -158,7 +159,7 @@ function cleanAddressPart(value: unknown) {
 }
 
 export function getInstitutionAddress(
-  institution?: Partial<InstitutionRecord> | null
+  institution?: Partial<InstitutionRecord> | null,
 ) {
   if (!institution) {
     return "";

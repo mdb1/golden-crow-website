@@ -2,9 +2,12 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import PatientPortalHomePage from "@/app/patient-portal/(portal)/home/page";
+import PGFlexHomePage from "@/app/(dashboard)/pgflex/home/page";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PatientPortalHeader } from "@/components/patient-portal-header";
 import { PatientPortalSidebar } from "@/components/patient-portal-sidebar";
+import { PGFlexPortalHeader } from "@/components/pgflex-portal-header";
+import { PGFlexPortalSidebar } from "@/components/pgflex-portal-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { LANGUAGE_STORAGE_KEY } from "@/lib/language";
 
@@ -65,5 +68,37 @@ describe("patient portal Spanish shell", () => {
 
     expect(screen.getAllByText("Mis datos").length).toBeGreaterThan(0);
     expect(screen.queryByText("Mi cuenta")).toBeNull();
+  });
+});
+
+describe("PGFlex portal Spanish shell", () => {
+  beforeEach(() => {
+    pathname = "/pgflex/home";
+    window.localStorage.clear();
+  });
+
+  it("uses the patient-style shell with only Home, PGFlex, and account", async () => {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, "en");
+
+    render(
+      <AppLanguageProvider initialLanguage="en" forcedLanguage="es">
+        <SidebarProvider>
+          <PGFlexPortalSidebar />
+          <PGFlexPortalHeader />
+          <PGFlexHomePage />
+        </SidebarProvider>
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByText("Portal PGFlex")).toBeTruthy();
+    expect(screen.getAllByText("Inicio").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("PGFlex").length).toBeGreaterThan(0);
+    expect(screen.getByText("Mi cuenta")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeTruthy();
+    expect(screen.getByText("Estás en el portal PGFlex")).toBeTruthy();
+    expect(screen.queryByText("Roles & Permissions")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Language" })).toBeNull();
+    await waitFor(() => expect(document.documentElement.lang).toBe("es"));
+    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("en");
   });
 });

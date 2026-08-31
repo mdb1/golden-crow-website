@@ -12,11 +12,7 @@ export type ModerationCollectionKey =
   | "user_progress";
 export type ModerationSubcollectionKey = "comments" | "events";
 export type AdminUserSex =
-  | "male"
-  | "female"
-  | "other"
-  | "prefer_not_to_say"
-  | string;
+  "male" | "female" | "other" | "prefer_not_to_say" | string;
 export type AdminRole =
   | "full_admin"
   | "organization_publisher"
@@ -115,6 +111,7 @@ export interface AdminContext {
   isBootstrap: boolean;
   canAccessBackoffice: boolean;
   canAccessPatientPortal: boolean;
+  canAccessPGFlex: boolean;
   projectAccess: ProjectKey[];
 }
 
@@ -310,12 +307,7 @@ export interface PatientDetailRecord {
 }
 
 export type TwoPQAreaKey =
-  | "cases"
-  | "sampling"
-  | "shipments"
-  | "sequencing"
-  | "reports"
-  | "clients";
+  "cases" | "sampling" | "shipments" | "sequencing" | "reports" | "clients";
 
 export type TwoPQCollectionKey =
   | "2pq_case"
@@ -487,10 +479,7 @@ export interface TwoPQFormDraftRecord {
 }
 
 export type PGFlexLogisticsStatus =
-  | "awaiting_pick_up"
-  | "in_transit"
-  | "arrived"
-  | "lost";
+  "awaiting_pick_up" | "in_transit" | "arrived" | "lost";
 
 export interface PGFlexLogisticsRecord {
   id: string;
@@ -726,10 +715,7 @@ export type DiscoverFeedType =
   | "lived_experience_story"
   | "expert_qa"
   | "advocacy_campaign";
-export type DiscoverFeedStatus =
-  | "draft"
-  | "published"
-  | "archived";
+export type DiscoverFeedStatus = "draft" | "published" | "archived";
 
 export interface DiscoverPublisherSnapshot {
   name: string;
@@ -783,7 +769,10 @@ export interface LessonEntry {
 }
 export interface LessonChapterEntry {
   chapterTitle: string;
-  lessons: Pick<LessonEntry, "lessonIdentifier" | "lessonTitle" | "imageURL" | "lessonColor">[];
+  lessons: Pick<
+    LessonEntry,
+    "lessonIdentifier" | "lessonTitle" | "imageURL" | "lessonColor"
+  >[];
 }
 export interface LessonSubjectEntry {
   subjectIdentifier: string;

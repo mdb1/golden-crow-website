@@ -94,7 +94,8 @@ class QueryStub {
   orderBy(field: { __fieldPath?: string } | string, direction?: string) {
     this.operations.push({
       type: "orderBy",
-      field: typeof field === "string" ? field : (field.__fieldPath ?? "__name__"),
+      field:
+        typeof field === "string" ? field : (field.__fieldPath ?? "__name__"),
       direction,
     });
     return this;
@@ -156,13 +157,14 @@ jest.mock("../config/firebase.js", () => ({
       queryStubs.push(query);
       return query;
     }),
-    runTransaction: jest.fn(async (callback: (transaction: unknown) => unknown) =>
-      callback({
-        get: jest.fn(async () => ({
-          data: () => ({ current: 3 }),
-        })),
-        set: transactionSetMock,
-      }),
+    runTransaction: jest.fn(
+      async (callback: (transaction: unknown) => unknown) =>
+        callback({
+          get: jest.fn(async () => ({
+            data: () => ({ current: 3 }),
+          })),
+          set: transactionSetMock,
+        }),
     ),
   })),
 }));
@@ -177,6 +179,7 @@ const baseContext = {
   isBootstrap: false,
   canAccessBackoffice: true,
   canAccessPatientPortal: false,
+  canAccessPGFlex: false,
   projectAccess: ["mydnamap" as const],
 };
 
@@ -192,9 +195,8 @@ describe("informed consent repository scoping", () => {
   });
 
   it("returns global, institution, and doctor lists within their exact scope", async () => {
-    const { listInformedConsentsForContext } = await import(
-      "../repositories/informed-consents.repository"
-    );
+    const { listInformedConsentsForContext } =
+      await import("../repositories/informed-consents.repository");
 
     const fullAdmin = await listInformedConsentsForContext({
       ...baseContext,
@@ -221,15 +223,12 @@ describe("informed consent repository scoping", () => {
       "CONS-00002",
       "CONS-00001",
     ]);
-    expect(doctor.records.map((record) => record.id)).toEqual([
-      "CONS-00001",
-    ]);
+    expect(doctor.records.map((record) => record.id)).toEqual(["CONS-00001"]);
   });
 
   it("falls back to a bounded scoped query when the ordered index is missing", async () => {
-    const { listInformedConsentsForContext } = await import(
-      "../repositories/informed-consents.repository"
-    );
+    const { listInformedConsentsForContext } =
+      await import("../repositories/informed-consents.repository");
 
     await listInformedConsentsForContext({
       ...baseContext,
@@ -253,9 +252,8 @@ describe("informed consent repository scoping", () => {
   });
 
   it("limits the doctor upload selector to that doctor's patients", async () => {
-    const { listInformedConsentPatientsForContext } = await import(
-      "../repositories/informed-consents.repository"
-    );
+    const { listInformedConsentPatientsForContext } =
+      await import("../repositories/informed-consents.repository");
 
     const result = await listInformedConsentPatientsForContext({
       ...baseContext,
@@ -264,9 +262,7 @@ describe("informed consent repository scoping", () => {
       doctorId: "DOC-00001",
     });
 
-    expect(result.patients.map((patient) => patient.id)).toEqual([
-      "PAT-00001",
-    ]);
+    expect(result.patients.map((patient) => patient.id)).toEqual(["PAT-00001"]);
   });
 
   it("rejects organization publishers from informed consent surfaces", async () => {
@@ -287,8 +283,12 @@ describe("informed consent repository scoping", () => {
       statusCode: 403,
     };
 
-    await expect(listInformedConsentsForContext(blockedContext)).rejects.toMatchObject(expectedError);
-    await expect(listInformedConsentPatientsForContext(blockedContext)).rejects.toMatchObject(expectedError);
+    await expect(
+      listInformedConsentsForContext(blockedContext),
+    ).rejects.toMatchObject(expectedError);
+    await expect(
+      listInformedConsentPatientsForContext(blockedContext),
+    ).rejects.toMatchObject(expectedError);
     await expect(
       createInformedConsentForContext(blockedContext, {
         patientId: "PAT-00001",
@@ -311,9 +311,8 @@ describe("informed consent repository scoping", () => {
   });
 
   it("stores uploaded consent bytes in Firestore", async () => {
-    const { createInformedConsentForContext } = await import(
-      "../repositories/informed-consents.repository"
-    );
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
 
     const record = await createInformedConsentForContext(
       {
@@ -345,9 +344,8 @@ describe("informed consent repository scoping", () => {
   });
 
   it("sends a consent request email to a scoped patient", async () => {
-    const { sendInformedConsentEmailForContext } = await import(
-      "../repositories/informed-consents.repository"
-    );
+    const { sendInformedConsentEmailForContext } =
+      await import("../repositories/informed-consents.repository");
 
     const result = await sendInformedConsentEmailForContext(
       {
@@ -372,8 +370,7 @@ describe("informed consent repository scoping", () => {
       }),
     );
     const message = sendGmailMessageMock.mock.calls[0]?.[0] as
-      | { html: string; text: string }
-      | undefined;
+      { html: string; text: string } | undefined;
     expect(message?.html).toContain("Esta es tu clave de seguridad.");
     expect(message?.html).toContain("ABCDEFGH");
     expect(message?.html).not.toContain("Usuario:");

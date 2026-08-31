@@ -48,6 +48,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "API documentation": "Documentación API",
   "API Keys": "Claves API",
   PGFlex: "PGFlex",
+  "PGFlex portal": "Portal PGFlex",
+  "You are in the PGFlex portal": "Estás en el portal PGFlex",
+  "PGFlex access": "Acceso PGFlex",
   Logistics: "Logística",
   "PGFlex logistics": "Logística PGFlex",
   "Create dispatch": "Crear envío",
@@ -235,12 +238,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Individual publisher color must be a 6-digit hex value.":
     "El color del editor debe ser un valor hexadecimal de 6 dígitos.",
   "Individual publisher created.": "Editor creado.",
-  "Individual publisher changes saved.":
-    "Cambios del editor guardados.",
+  "Individual publisher changes saved.": "Cambios del editor guardados.",
   "Individual publisher archived.": "Editor archivado.",
   "Individual publisher reactivated.": "Editor reactivado.",
-  "Unable to save the individual publisher.":
-    "No se pudo guardar el editor.",
+  "Unable to save the individual publisher.": "No se pudo guardar el editor.",
   "Unable to load more individual publishers.":
     "No se pudieron cargar más editores.",
   "Unable to refresh individual publishers.":
@@ -256,7 +257,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Back to organizations": "Volver a organizaciones",
   "Organization type": "Tipo de organización",
   "Organization name": "Nombre de organización",
-  "Organization name is required.": "El nombre de la organización es obligatorio.",
+  "Organization name is required.":
+    "El nombre de la organización es obligatorio.",
   "Organization color must be a 6-digit hex value.":
     "El color de la organización debe ser un valor hexadecimal de 6 dígitos.",
   "Organization created.": "Organización creada.",
@@ -311,8 +313,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Genetic Testing Laboratory": "Laboratorio de pruebas genéticas",
   "Genomics Laboratory": "Laboratorio de genómica",
   "Molecular Diagnostics Laboratory": "Laboratorio de diagnóstico molecular",
-  "Reproductive Genetics Laboratory":
-    "Laboratorio de genética reproductiva",
+  "Reproductive Genetics Laboratory": "Laboratorio de genética reproductiva",
   "Prenatal Genetics Laboratory": "Laboratorio de genética prenatal",
   "NIPT Provider": "Proveedor de NIPT",
   "Oncology Genetics Laboratory": "Laboratorio de genética oncológica",
@@ -412,10 +413,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Maternal Medicine Specialist": "Especialista en medicina materna",
   "Fetal Medicine Specialist": "Especialista en medicina fetal",
   "Pediatric Genetics Specialist": "Especialista en genética pediátrica",
-  "Metabolic Disease Specialist":
-    "Especialista en enfermedades metabólicas",
-  "Rare Disease Specialist":
-    "Especialista en enfermedades poco frecuentes",
+  "Metabolic Disease Specialist": "Especialista en enfermedades metabólicas",
+  "Rare Disease Specialist": "Especialista en enfermedades poco frecuentes",
   "Pharmacogenomics Specialist": "Especialista en farmacogenómica",
   "Precision Medicine Specialist": "Especialista en medicina de precisión",
   "Genetic Epidemiologist": "Epidemiólogo genético",
@@ -424,8 +423,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Research Coordinator": "Coordinador de investigación",
   "Patient Advocate": "Referente de pacientes",
   "Patient Navigator": "Navegador de pacientes",
-  "Rare Disease Advocate":
-    "Referente de enfermedades poco frecuentes",
+  "Rare Disease Advocate": "Referente de enfermedades poco frecuentes",
   Caregiver: "Cuidador",
   Professor: "Profesor",
   "Science Communicator": "Comunicador científico",
@@ -487,8 +485,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "All publishers": "Todos los publicadores",
   "All statuses": "Todos los estados",
   Reactivate: "Reactivar",
-  "Unable to load more publishers.":
-    "No se pudieron cargar más publicadores.",
+  "Unable to load more publishers.": "No se pudieron cargar más publicadores.",
   "No Discover feed entries match the loaded rows.":
     "Ninguna entrada de Discover coincide con las filas cargadas.",
   "Search title, publisher, body, or URL":
@@ -532,8 +529,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se pudieron cargar más entradas del feed.",
   "Unable to refresh feed entries.":
     "No se pudieron actualizar las entradas del feed.",
-  "Unable to save the feed entry.":
-    "No se pudo guardar la entrada del feed.",
+  "Unable to save the feed entry.": "No se pudo guardar la entrada del feed.",
   "Generic information": "Información general",
   "Feed setup": "Configuración del feed",
   Complete: "Completo",
@@ -686,8 +682,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Target region": "Región objetivo",
   Deadline: "Fecha límite",
   "Campaign goal": "Objetivo de campaña",
-  "One per line or comma-separated":
-    "Una por línea o separadas por coma",
+  "One per line or comma-separated": "Una por línea o separadas por coma",
   "Not specified": "Sin especificar",
   Fellowship: "Beca de investigación",
   Grant: "Subsidio",
@@ -885,8 +880,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se pudo leer el archivo seleccionado.",
   "Consent uploaded.": "Consentimiento subido.",
   "Unable to upload consent.": "No se pudo subir el consentimiento.",
-  "Unable to load more consents.":
-    "No se pudieron cargar más consentimientos.",
+  "Unable to load more consents.": "No se pudieron cargar más consentimientos.",
   "No consent files have been uploaded.":
     "No se subieron archivos de consentimiento.",
   "Open file": "Abrir archivo",
@@ -997,12 +991,9 @@ const SPANISH_TEXT: Record<string, string> = {
   templates: "plantillas",
   "CSV needs name, subject, and body columns.":
     "El CSV necesita columnas name, subject y body.",
-  "Template name is required.":
-    "El nombre de la plantilla es obligatorio.",
-  "Template subject is required.":
-    "El asunto de la plantilla es obligatorio.",
-  "Template body is required.":
-    "El mensaje de la plantilla es obligatorio.",
+  "Template name is required.": "El nombre de la plantilla es obligatorio.",
+  "Template subject is required.": "El asunto de la plantilla es obligatorio.",
+  "Template body is required.": "El mensaje de la plantilla es obligatorio.",
   "Template name must be 180 characters or fewer.":
     "El nombre de la plantilla debe tener 180 caracteres o menos.",
   "Template subject must be 180 characters or fewer.":
@@ -1037,10 +1028,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "CRM professional deleted.": "Profesional del CRM eliminado.",
   "Unable to delete CRM professional.":
     "No se pudo eliminar el profesional del CRM.",
-  "No CRM organizations found.":
-    "No se encontraron organizaciones en el CRM.",
-  "No CRM professionals found.":
-    "No se encontraron profesionales en el CRM.",
+  "No CRM organizations found.": "No se encontraron organizaciones en el CRM.",
+  "No CRM professionals found.": "No se encontraron profesionales en el CRM.",
   "Failed to load CRM organizations.":
     "No se pudieron cargar las organizaciones del CRM.",
   "Failed to load CRM professionals.":
@@ -1065,8 +1054,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "La primera fila debe contener encabezados soportados.",
   "Use comma-separated CSV and quote cells that contain commas, quotes, or line breaks.":
     "Usá CSV separado por comas y entrecomillá celdas con comas, comillas o saltos de línea.",
-  "Escape quotes by doubling them.":
-    "Escapá las comillas duplicándolas.",
+  "Escape quotes by doubling them.": "Escapá las comillas duplicándolas.",
   "Empty rows are ignored.": "Las filas vacías se ignoran.",
   "Required columns": "Columnas obligatorias",
   "Optional columns": "Columnas opcionales",
@@ -1108,8 +1096,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Usá exactamente la fila de encabezados que se muestra acá al generar CSVs. Los encabezados no soportados se ignoran.",
   "If a cell contains commas, quotes, or line breaks, wrap the whole cell in double quotes.":
     "Si una celda contiene comas, comillas o saltos de línea, encerrá toda la celda entre comillas dobles.",
-  "Escape a quote inside a cell by doubling it, for example He said \"\"hello\"\".":
-    "Escapá una comilla dentro de una celda duplicándola, por ejemplo He said \"\"hello\"\".",
+  'Escape a quote inside a cell by doubling it, for example He said ""hello"".':
+    'Escapá una comilla dentro de una celda duplicándola, por ejemplo He said ""hello"".',
   "Template category accepts one value only. Multiple categories are not saved as a list.":
     "La categoría de plantilla acepta un solo valor. Múltiples categorías no se guardan como lista.",
   "Template body and notes can use literal \\n for line breaks. The importer converts literal \\n to real line breaks.":
@@ -1272,8 +1260,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to send CRM email.": "No se pudo enviar el email del CRM.",
   "Activity log": "Registro de actividad",
   "Hide details": "Ocultar detalles",
-  "Latest organization activity.":
-    "Última actividad de la organización.",
+  "Latest organization activity.": "Última actividad de la organización.",
   "Expand to load the selected organization activity.":
     "Expandí para cargar la actividad de la organización seleccionada.",
   "Expand to load the selected professional activity.":
@@ -1284,8 +1271,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No professional selected": "Sin profesional seleccionado",
   "Add an activity note...": "Agregar nota de actividad...",
   "Unable to add activity.": "No se pudo agregar la actividad.",
-  "Failed to load activity log.":
-    "No se pudo cargar el registro de actividad.",
+  "Failed to load activity log.": "No se pudo cargar el registro de actividad.",
   "No activity yet.": "Sin actividad todavía.",
   "Select an organization to see CRM details.":
     "Seleccioná una organización para ver el detalle del CRM.",
@@ -1308,8 +1294,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "CSV needs a name column.": "El CSV necesita una columna name.",
   "CSV needs a professional name column.":
     "El CSV necesita una columna de nombre del profesional.",
-  "Professional name is required.":
-    "El nombre del profesional es obligatorio.",
+  "Professional name is required.": "El nombre del profesional es obligatorio.",
   "CSV import progress": "Progreso de importación CSV",
   "Last saved": "Último guardado",
   "Previewing CSV": "Generando vista previa del CSV",
@@ -1392,7 +1377,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Row skipped": "Fila omitida",
   "Row invalid": "Fila inválida",
   "Skip row": "Omitir fila",
-  "Skipped during interactive review.": "Omitida durante la revisión interactiva.",
+  "Skipped during interactive review.":
+    "Omitida durante la revisión interactiva.",
   "This row is invalid and cannot be added.":
     "Esta fila es inválida y no se puede agregar.",
   Pause: "Pausar",
@@ -3051,8 +3037,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Los roles de editor requieren seleccionar un editor.",
   "Select individual publisher": "Seleccionar editor",
   "No individual publisher": "Sin editor",
-  "Discover individual publisher scope":
-    "Alcance del editor de Discover",
+  "Discover individual publisher scope": "Alcance del editor de Discover",
   "Open individual publisher": "Abrir editor",
   "Individual publisher id": "ID de editor",
   "These CRUD chips apply only to role assignment records, not to every 2PQ operational screen.":

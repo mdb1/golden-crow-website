@@ -32,6 +32,7 @@ const account: MyAccountRecord = {
     isBootstrap: false,
     canAccessBackoffice: false,
     canAccessPatientPortal: true,
+    canAccessPGFlex: false,
     project: "mydnamap",
     projectAccess: ["mydnamap"],
   },

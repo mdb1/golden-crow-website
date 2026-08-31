@@ -6,6 +6,14 @@ const SDK_URL =
   process.env.NEXT_PUBLIC_SDK_URL ??
   "http://localhost:3000";
 
+type AccessSurface = "backoffice" | "patient-portal" | "pgflex";
+
+function normalizeAccessSurface(value: unknown): AccessSurface {
+  return value === "patient-portal" || value === "pgflex"
+    ? value
+    : "backoffice";
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -20,16 +28,14 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.idToken) return null;
+        const accessSurface = normalizeAccessSurface(credentials.accessSurface);
         try {
           const res = await fetch(`${SDK_URL}/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               idToken: credentials.idToken,
-              surface:
-                credentials.accessSurface === "patient-portal"
-                  ? "patient-portal"
-                  : "backoffice",
+              surface: accessSurface,
             }),
           });
           if (!res.ok) return null;
@@ -39,10 +45,7 @@ export const authOptions: NextAuthOptions = {
             email: credentials.email ?? null,
             image: credentials.image ?? null,
             project: credentials.project ?? "mydnamap",
-            accessSurface:
-              credentials.accessSurface === "patient-portal"
-                ? "patient-portal"
-                : "backoffice",
+            accessSurface,
           };
         } catch {
           return null;
@@ -59,10 +62,9 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.project = (user as { project?: string }).project ?? "mydnamap";
-        token.accessSurface =
-          (user as { accessSurface?: string }).accessSurface === "patient-portal"
-            ? "patient-portal"
-            : "backoffice";
+        token.accessSurface = normalizeAccessSurface(
+          (user as { accessSurface?: string }).accessSurface,
+        );
       }
       return token;
     },
@@ -71,10 +73,9 @@ export const authOptions: NextAuthOptions = {
         session.user.project = token.project as string;
       }
       if (session.user) {
-        session.user.accessSurface =
-          token.accessSurface === "patient-portal"
-            ? "patient-portal"
-            : "backoffice";
+        session.user.accessSurface = normalizeAccessSurface(
+          token.accessSurface,
+        );
       }
       return session;
     },

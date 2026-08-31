@@ -1,6 +1,9 @@
 import type { UserInfo, UserRecord } from "firebase-admin/auth";
 import { adminAuthFor } from "../config/firebase.js";
-import { AdminRepositoryError, isAdminRepositoryError } from "./admin-errors.js";
+import {
+  AdminRepositoryError,
+  isAdminRepositoryError,
+} from "./admin-errors.js";
 import {
   getProfileSetupState,
   isProfileSetupError,
@@ -15,6 +18,7 @@ import {
 import {
   canAccessBackoffice,
   canAccessPatientPortal,
+  canAccessPGFlex,
 } from "../lib/access-surfaces.js";
 import type {
   AdminContext,
@@ -57,7 +61,7 @@ function mapFirebaseAuthError(error: unknown): AdminRepositoryError | null {
   if (code === "auth/email-already-exists") {
     return new AdminRepositoryError(
       "A Firebase Auth user already exists for the requested email.",
-      409
+      409,
     );
   }
 
@@ -104,7 +108,9 @@ function toAuthRecord(user: UserRecord): MyAccountAuthRecord {
   };
 }
 
-async function getProfileSummary(uid: string): Promise<MyAccountProfileSummary | null> {
+async function getProfileSummary(
+  uid: string,
+): Promise<MyAccountProfileSummary | null> {
   try {
     const state = await getProfileSetupState(uid);
     return {
@@ -123,7 +129,10 @@ async function getProfileSummary(uid: string): Promise<MyAccountProfileSummary |
   }
 }
 
-function contextFromRole(context: AdminContext, role: RoleManagementRecord): AdminContext {
+function contextFromRole(
+  context: AdminContext,
+  role: RoleManagementRecord,
+): AdminContext {
   return {
     ...context,
     email: role.email,
@@ -135,15 +144,13 @@ function contextFromRole(context: AdminContext, role: RoleManagementRecord): Adm
     patientId: role.patientId,
     isBootstrap: Boolean(role.bootstrap),
     canAccessBackoffice: canAccessBackoffice(role, context.isBootstrap),
-    canAccessPatientPortal: canAccessPatientPortal(
-      role,
-      context.isBootstrap,
-    ),
+    canAccessPatientPortal: canAccessPatientPortal(role, context.isBootstrap),
+    canAccessPGFlex: canAccessPGFlex(role, context.isBootstrap),
   };
 }
 
 export async function getMyAccountForContext(
-  context: AdminContext
+  context: AdminContext,
 ): Promise<MyAccountRecord> {
   const [authUser, role, profile] = await Promise.all([
     adminAuth.getUser(context.uid),
@@ -162,7 +169,7 @@ export async function getMyAccountForContext(
 
 export async function updateMyAccountRoleProfileForContext(
   context: AdminContext,
-  payload: Pick<UserRoleRecord, "displayName" | "contactPhone" | "notes">
+  payload: Pick<UserRoleRecord, "displayName" | "contactPhone" | "notes">,
 ): Promise<MyAccountRecord> {
   const role = await updateOwnRoleProfileForContext(context, payload);
   return getMyAccountForContext(contextFromRole(context, role));
@@ -170,7 +177,7 @@ export async function updateMyAccountRoleProfileForContext(
 
 export async function changeMyAccountEmailForContext(
   context: AdminContext,
-  nextEmail: string
+  nextEmail: string,
 ): Promise<ChangeMyAccountEmailResult> {
   const currentEmail = normalizeRoleEmail(context.email);
   const normalizedNextEmail = normalizeRoleEmail(nextEmail);
@@ -182,14 +189,16 @@ export async function changeMyAccountEmailForContext(
   if (context.isBootstrap) {
     throw new AdminRepositoryError(
       "Bootstrap allowlist account emails are managed by environment configuration and cannot be changed here.",
-      403
+      403,
     );
   }
 
-  const currentAuthUser = await adminAuth.getUser(context.uid).catch((error) => {
-    const mapped = mapFirebaseAuthError(error);
-    throw mapped ?? error;
-  });
+  const currentAuthUser = await adminAuth
+    .getUser(context.uid)
+    .catch((error) => {
+      const mapped = mapFirebaseAuthError(error);
+      throw mapped ?? error;
+    });
   const previousFirebaseEmail = currentAuthUser.email ?? currentEmail;
 
   if (normalizedNextEmail === currentEmail) {
@@ -207,7 +216,7 @@ export async function changeMyAccountEmailForContext(
   if (existingAuthUser && existingAuthUser.uid !== context.uid) {
     throw new AdminRepositoryError(
       "A Firebase Auth user already exists for the requested email.",
-      409
+      409,
     );
   }
 
@@ -220,7 +229,10 @@ export async function changeMyAccountEmailForContext(
     });
     authEmailChanged = true;
 
-    const movedRole = await moveOwnRoleEmailForContext(context, normalizedNextEmail);
+    const movedRole = await moveOwnRoleEmailForContext(
+      context,
+      normalizedNextEmail,
+    );
     const nextContext = contextFromRole(context, movedRole);
     return {
       account: await getMyAccountForContext(nextContext),

@@ -9,7 +9,9 @@ import { AdminRepositoryError } from "./admin-errors.js";
 import {
   canAccessBackoffice,
   canAccessPatientPortal,
+  canAccessPGFlex,
   canRoleAccessBackoffice,
+  resolveRequiredAuthSurface,
 } from "../lib/access-surfaces.js";
 import type {
   AdminContext,
@@ -89,6 +91,7 @@ export interface BackofficeEmailAccess {
   viaRoleAssignment: boolean;
   canAccessBackoffice: boolean;
   canAccessPatientPortal: boolean;
+  canAccessPGFlex: boolean;
   projectAccess: ProjectKey[];
 }
 
@@ -108,6 +111,7 @@ export async function getBackofficeEmailAccess(
     roleRecord,
     viaAllowlist,
   );
+  const hasPGFlexAccess = canAccessPGFlex(roleRecord, viaAllowlist);
 
   return {
     email: normalizedEmail,
@@ -116,10 +120,11 @@ export async function getBackofficeEmailAccess(
     viaRoleAssignment,
     canAccessBackoffice: hasBackofficeAccess,
     canAccessPatientPortal: hasPatientPortalAccess,
+    canAccessPGFlex: hasPGFlexAccess,
     projectAccess: normalizedEmail
       ? resolveBackofficeProjectAccess(normalizedEmail, {
           includeMydnamap:
-            hasBackofficeAccess || hasPatientPortalAccess,
+            hasBackofficeAccess || hasPatientPortalAccess || hasPGFlexAccess,
         })
       : [],
   };
@@ -405,30 +410,35 @@ function toRoleManagementRecord(
 async function hydrateRoleManagementRecord(
   record: UserRoleRecord,
 ): Promise<RoleManagementRecord> {
-  const [organizationSnap, individualSnap, institutionSnap, doctorSnap, patientSnap] =
-    await Promise.all([
-      record.organizationId
-        ? adminDb
-            .collection(FEED_ORGANIZATIONS_COLLECTION)
-            .doc(record.organizationId)
-            .get()
-        : Promise.resolve(null),
-      record.individualId
-        ? adminDb
-            .collection(FEED_INDIVIDUALS_COLLECTION)
-            .doc(record.individualId)
-            .get()
-        : Promise.resolve(null),
-      record.institutionId
-        ? adminDb.collection("institutions").doc(record.institutionId).get()
-        : Promise.resolve(null),
-      record.doctorId
-        ? adminDb.collection("doctors").doc(record.doctorId).get()
-        : Promise.resolve(null),
-      record.patientId
-        ? adminDb.collection("patients").doc(record.patientId).get()
-        : Promise.resolve(null),
-    ]);
+  const [
+    organizationSnap,
+    individualSnap,
+    institutionSnap,
+    doctorSnap,
+    patientSnap,
+  ] = await Promise.all([
+    record.organizationId
+      ? adminDb
+          .collection(FEED_ORGANIZATIONS_COLLECTION)
+          .doc(record.organizationId)
+          .get()
+      : Promise.resolve(null),
+    record.individualId
+      ? adminDb
+          .collection(FEED_INDIVIDUALS_COLLECTION)
+          .doc(record.individualId)
+          .get()
+      : Promise.resolve(null),
+    record.institutionId
+      ? adminDb.collection("institutions").doc(record.institutionId).get()
+      : Promise.resolve(null),
+    record.doctorId
+      ? adminDb.collection("doctors").doc(record.doctorId).get()
+      : Promise.resolve(null),
+    record.patientId
+      ? adminDb.collection("patients").doc(record.patientId).get()
+      : Promise.resolve(null),
+  ]);
 
   return toRoleManagementRecord(record, {
     organizationName:
@@ -492,6 +502,7 @@ export async function resolveAdminContext(input: {
       isBootstrap: access.viaAllowlist,
       canAccessBackoffice: true,
       canAccessPatientPortal: false,
+      canAccessPGFlex: false,
       projectAccess: access.projectAccess,
     };
   }
@@ -504,6 +515,7 @@ export async function resolveAdminContext(input: {
       isBootstrap: true,
       canAccessBackoffice: true,
       canAccessPatientPortal: false,
+      canAccessPGFlex: false,
       projectAccess: access.projectAccess,
     };
   }
@@ -521,11 +533,18 @@ export async function resolveAdminContext(input: {
       isBootstrap: false,
       canAccessBackoffice: false,
       canAccessPatientPortal: access.canAccessPatientPortal,
+      canAccessPGFlex: access.canAccessPGFlex,
       projectAccess: access.projectAccess,
     };
   }
 
   return null;
+}
+
+export function resolveRequiredAuthSurfaceForEmailAccess(
+  access: BackofficeEmailAccess,
+) {
+  return resolveRequiredAuthSurface(access.roleRecord, access.viaAllowlist);
 }
 
 export function getAdminCapabilities(context: AdminContext): string[] {
@@ -626,7 +645,8 @@ export function canManageLegacyModeration(context: AdminContext) {
 export function canAccessDiscover(context: AdminContext) {
   return (
     context.role === "full_admin" ||
-    (context.role === "organization_publisher" && Boolean(context.organizationId)) ||
+    (context.role === "organization_publisher" &&
+      Boolean(context.organizationId)) ||
     (context.role === "individual_publisher" && Boolean(context.individualId))
   );
 }
@@ -966,40 +986,42 @@ export async function listUserRolesForContext(
     }
   });
 
-  const [organizationSnaps, individualSnaps, institutionSnaps, doctorSnaps, patientSnaps] =
-    await Promise.all([
-      Promise.all(
-        [...organizationIds].map((organizationId) =>
-          adminDb
-            .collection(FEED_ORGANIZATIONS_COLLECTION)
-            .doc(organizationId)
-            .get(),
-        ),
+  const [
+    organizationSnaps,
+    individualSnaps,
+    institutionSnaps,
+    doctorSnaps,
+    patientSnaps,
+  ] = await Promise.all([
+    Promise.all(
+      [...organizationIds].map((organizationId) =>
+        adminDb
+          .collection(FEED_ORGANIZATIONS_COLLECTION)
+          .doc(organizationId)
+          .get(),
       ),
-      Promise.all(
-        [...individualIds].map((individualId) =>
-          adminDb
-            .collection(FEED_INDIVIDUALS_COLLECTION)
-            .doc(individualId)
-            .get(),
-        ),
+    ),
+    Promise.all(
+      [...individualIds].map((individualId) =>
+        adminDb.collection(FEED_INDIVIDUALS_COLLECTION).doc(individualId).get(),
       ),
-      Promise.all(
-        [...institutionIds].map((institutionId) =>
-          adminDb.collection("institutions").doc(institutionId).get(),
-        ),
+    ),
+    Promise.all(
+      [...institutionIds].map((institutionId) =>
+        adminDb.collection("institutions").doc(institutionId).get(),
       ),
-      Promise.all(
-        [...doctorIds].map((doctorId) =>
-          adminDb.collection("doctors").doc(doctorId).get(),
-        ),
+    ),
+    Promise.all(
+      [...doctorIds].map((doctorId) =>
+        adminDb.collection("doctors").doc(doctorId).get(),
       ),
-      Promise.all(
-        [...patientIds].map((patientId) =>
-          adminDb.collection("patients").doc(patientId).get(),
-        ),
+    ),
+    Promise.all(
+      [...patientIds].map((patientId) =>
+        adminDb.collection("patients").doc(patientId).get(),
       ),
-    ]);
+    ),
+  ]);
 
   const organizationNames = new Map(
     organizationSnaps

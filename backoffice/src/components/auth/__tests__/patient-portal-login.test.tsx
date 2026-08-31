@@ -98,8 +98,12 @@ describe("patient portal login", () => {
 
     render(<LoginExperience surface="patient-portal" />);
 
-    expect(screen.getByRole("heading", { name: "Portal de pacientes" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Continuar con Google" })).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Portal de pacientes" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Continuar con Google" }),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Continuar" })).toBeTruthy();
     await waitFor(() => expect(document.documentElement.lang).toBe("es"));
   });
@@ -124,8 +128,12 @@ describe("patient portal login", () => {
     expect(
       screen.queryByRole("button", { name: "Continuar con Google" }),
     ).toBeNull();
-    expect(screen.queryByRole("button", { name: "Iniciar con email" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Acceder al portal" })).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Iniciar con email" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Acceder al portal" }),
+    ).toBeTruthy();
     expect(screen.queryByLabelText("Email")).toBeNull();
   });
 
@@ -135,21 +143,60 @@ describe("patient portal login", () => {
       <LoginExperience
         surface="patient-portal"
         initialEmail="Patient@Example.com "
-      />
+      />,
     );
 
     expect(screen.queryByLabelText("Email")).toBeNull();
     expect(screen.getByText("patient@example.com")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Continuar con Google" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Iniciar con email" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Acceder al portal" })).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Continuar con Google" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Iniciar con email" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Acceder al portal" }),
+    ).toBeTruthy();
     expect(screen.getByLabelText("Clave de seguridad")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Cambiar email" }));
 
     const email = screen.getByLabelText("Email") as HTMLInputElement;
     expect(email.value).toBe("patient@example.com");
-    expect(screen.getByRole("button", { name: "Continuar con Google" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Continuar con Google" }),
+    ).toBeTruthy();
+  });
+});
+
+describe("PGFlex login", () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    fetchMock.mockReset();
+    Object.defineProperty(globalThis, "fetch", {
+      configurable: true,
+      writable: true,
+      value: fetchMock,
+    });
+    window.localStorage.clear();
+  });
+
+  it("uses the minimal Spanish portal login without the patient security-key step", async () => {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, "en");
+
+    render(<LoginExperience surface="pgflex" />);
+
+    expect(screen.getByRole("heading", { name: "PGFlex" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Continuar con Google" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeTruthy();
+    expect(screen.queryByLabelText("Clave de seguridad")).toBeNull();
+    expect(
+      screen.queryByRole("group", { name: "Idioma del login" }),
+    ).toBeNull();
+    await waitFor(() => expect(document.documentElement.lang).toBe("es"));
+    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("en");
   });
 });
 
@@ -198,9 +245,7 @@ describe("backoffice login", () => {
       screen.getByLabelText("Email"),
       "federico0812+publisher@gmail.com",
     );
-    await user.click(
-      await screen.findByRole("button", { name: "Continuar" }),
-    );
+    await user.click(await screen.findByRole("button", { name: "Continuar" }));
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Acceso aprobado");
@@ -214,5 +259,55 @@ describe("backoffice login", () => {
         /federico0812\+publisher@gmail\.com fue aprobado mediante la asignacion de rol/i,
       ),
     ).toBeNull();
+  });
+
+  it("warns transport dispatchers to use the PGFlex login", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { forEach: jest.fn() },
+      clone() {
+        return this;
+      },
+      json: async () => ({
+        email: "driver@example.com",
+        eligible: false,
+        viaAllowlist: false,
+        viaRoleAssignment: true,
+        canAccessBackoffice: false,
+        canAccessPatientPortal: false,
+        canAccessPGFlex: true,
+        requiredSurface: "pgflex",
+        role: "transport_dispatcher",
+        accountExists: true,
+        accountHasPassword: true,
+        projectAccess: ["mydnamap"],
+      }),
+      text: async () =>
+        JSON.stringify({
+          email: "driver@example.com",
+          eligible: false,
+          requiredSurface: "pgflex",
+          accountExists: true,
+        }),
+    } as unknown as Response);
+
+    render(<LoginExperience surface="backoffice" />);
+
+    await user.type(screen.getByLabelText("Email"), "driver@example.com");
+    await user.click(await screen.findByRole("button", { name: "Continuar" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Usá el login de PGFlex");
+    expect(alert.textContent).toContain(
+      "Esta cuenta tiene acceso a PGFlex y no puede iniciar sesión desde el login del backoffice.",
+    );
+    expect(
+      screen
+        .getByRole("link", { name: "Abrir login de PGFlex" })
+        .getAttribute("href"),
+    ).toBe("/pgflex/login");
   });
 });

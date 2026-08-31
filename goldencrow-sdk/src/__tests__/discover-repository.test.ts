@@ -36,7 +36,8 @@ class QueryStub {
   orderBy(field: { __fieldPath?: string } | string, direction?: string) {
     this.operations.push({
       type: "orderBy",
-      field: typeof field === "string" ? field : (field.__fieldPath ?? "__name__"),
+      field:
+        typeof field === "string" ? field : (field.__fieldPath ?? "__name__"),
       direction,
     });
     return this;
@@ -190,7 +191,10 @@ function documentRefFor(collectionName: string, id: string): MockDocumentRef {
   };
 }
 
-function documentSnapshotFor(doc: MockDoc, exists: boolean): MockDocumentSnapshot {
+function documentSnapshotFor(
+  doc: MockDoc,
+  exists: boolean,
+): MockDocumentSnapshot {
   return {
     exists,
     id: doc.id,
@@ -253,7 +257,11 @@ jest.mock("../config/firebase.js", () => ({
 describe("discover repository", () => {
   beforeEach(() => {
     jest.resetModules();
-    mockFeedDocs.splice(0, mockFeedDocs.length, ...initialFeedDocs.map(cloneDoc));
+    mockFeedDocs.splice(
+      0,
+      mockFeedDocs.length,
+      ...initialFeedDocs.map(cloneDoc),
+    );
     mockOrganizationDocs.splice(
       0,
       mockOrganizationDocs.length,
@@ -276,11 +284,13 @@ describe("discover repository", () => {
     isBootstrap: false,
     canAccessBackoffice: true,
     canAccessPatientPortal: false,
+    canAccessPGFlex: false,
     projectAccess: ["mydnamap" as const],
   };
 
   it("falls back when the publisher-scoped updatedAt query needs a missing index", async () => {
-    const { listDiscoverFeedItems } = await import("../repositories/discover.repository");
+    const { listDiscoverFeedItems } =
+      await import("../repositories/discover.repository");
     const result = await listDiscoverFeedItems({
       email: "publisher@example.com",
       uid: "uid-1",
@@ -289,6 +299,7 @@ describe("discover repository", () => {
       isBootstrap: false,
       canAccessBackoffice: true,
       canAccessPatientPortal: false,
+      canAccessPGFlex: false,
       projectAccess: ["mydnamap"],
     });
 
@@ -318,7 +329,8 @@ describe("discover repository", () => {
   });
 
   it("returns Discover organization accent colors and localized descriptions", async () => {
-    const { listDiscoverOrganizations } = await import("../repositories/discover.repository");
+    const { listDiscoverOrganizations } =
+      await import("../repositories/discover.repository");
 
     const result = await listDiscoverOrganizations(fullAdminContext);
 
@@ -337,19 +349,25 @@ describe("discover repository", () => {
   });
 
   it("returns Discover individual publishers", async () => {
-    const { listDiscoverIndividuals } = await import("../repositories/discover.repository");
+    const { listDiscoverIndividuals } =
+      await import("../repositories/discover.repository");
 
     const result = await listDiscoverIndividuals(fullAdminContext);
 
     expect(result.individuals).toHaveLength(1);
     expect(result.individuals[0]?.color_hex).toBe("#14B8A6");
-    expect(result.individuals[0]?.individualType).toBe("pro_research_scientists");
+    expect(result.individuals[0]?.individualType).toBe(
+      "pro_research_scientists",
+    );
     expect(result.individuals[0]?.description).toBe("Descripción individual");
-    expect(result.individuals[0]?.description_en).toBe("Individual description");
+    expect(result.individuals[0]?.description_en).toBe(
+      "Individual description",
+    );
   });
 
   it("generates organization slugs from names instead of manual input", async () => {
-    const { createDiscoverOrganization } = await import("../repositories/discover.repository");
+    const { createDiscoverOrganization } =
+      await import("../repositories/discover.repository");
     const social = {
       twitter: "https://x.com/fundacion",
       instagram: "https://instagram.com/fundacion",
@@ -401,7 +419,9 @@ describe("discover repository", () => {
         "org_patient_advocacy_organizations,org_genetics_research_institutes",
       slug: "manual-slug",
     } as Record<string, unknown>);
-    const stored = mockOrganizationDocs.find((doc) => doc.id === organization.id);
+    const stored = mockOrganizationDocs.find(
+      (doc) => doc.id === organization.id,
+    );
 
     expect(organization.slug).toBe("fundacion-medica-nandu");
     expect(organization.description).toBe("Descripción en español");
@@ -424,9 +444,8 @@ describe("discover repository", () => {
   });
 
   it("requires image URLs when creating publishers", async () => {
-    const { createDiscoverOrganization, createDiscoverIndividual } = await import(
-      "../repositories/discover.repository"
-    );
+    const { createDiscoverOrganization, createDiscoverIndividual } =
+      await import("../repositories/discover.repository");
 
     await expect(
       createDiscoverOrganization(fullAdminContext, {
@@ -442,9 +461,8 @@ describe("discover repository", () => {
   });
 
   it("accepts the expanded fixed professional category keys for individuals", async () => {
-    const { createDiscoverIndividual } = await import(
-      "../repositories/discover.repository"
-    );
+    const { createDiscoverIndividual } =
+      await import("../repositories/discover.repository");
     const expandedCategories = [
       "pro_project_managers",
       "pro_startup_founders",
@@ -465,9 +483,8 @@ describe("discover repository", () => {
   });
 
   it("rejects publisher category keys outside the fixed provider lists", async () => {
-    const { createDiscoverOrganization, createDiscoverIndividual } = await import(
-      "../repositories/discover.repository"
-    );
+    const { createDiscoverOrganization, createDiscoverIndividual } =
+      await import("../repositories/discover.repository");
 
     await expect(
       createDiscoverOrganization(fullAdminContext, {
@@ -475,7 +492,9 @@ describe("discover repository", () => {
         imageUrl: "https://example.org/invalid-organization.png",
         organizationType: "org_patient_advocacy_organizations,pro_physicians",
       } as Record<string, unknown>),
-    ).rejects.toThrow("Organization category contains invalid keys: pro_physicians");
+    ).rejects.toThrow(
+      "Organization category contains invalid keys: pro_physicians",
+    );
 
     await expect(
       createDiscoverIndividual(fullAdminContext, {
@@ -489,7 +508,8 @@ describe("discover repository", () => {
   });
 
   it("creates upcoming events with the compact event payload", async () => {
-    const { createDiscoverFeedItem } = await import("../repositories/discover.repository");
+    const { createDiscoverFeedItem } =
+      await import("../repositories/discover.repository");
 
     const feedItem = await createDiscoverFeedItem(fullAdminContext, {
       publisherOrganizationId: "org-1",
@@ -525,7 +545,8 @@ describe("discover repository", () => {
   });
 
   it("creates feed entries for every supported Discover type", async () => {
-    const { createDiscoverFeedItem } = await import("../repositories/discover.repository");
+    const { createDiscoverFeedItem } =
+      await import("../repositories/discover.repository");
 
     const feedItem = await createDiscoverFeedItem(fullAdminContext, {
       publisherOrganizationId: "org-1",
@@ -562,7 +583,8 @@ describe("discover repository", () => {
   });
 
   it("creates feed entries for individual publishers", async () => {
-    const { createDiscoverFeedItem } = await import("../repositories/discover.repository");
+    const { createDiscoverFeedItem } =
+      await import("../repositories/discover.repository");
 
     const feedItem = await createDiscoverFeedItem(fullAdminContext, {
       publisherIndividualId: "person-1",

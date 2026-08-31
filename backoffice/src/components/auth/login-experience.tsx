@@ -58,10 +58,14 @@ import {
   normalizePatientPortalCallbackUrl,
   PATIENT_PORTAL_ENTRY_ROUTE,
 } from "@/lib/patient-portal-routes";
+import {
+  normalizePGFlexCallbackUrl,
+  PGFLEX_ENTRY_ROUTE,
+} from "@/lib/pgflex-routes";
 import type { AdminRole } from "@/lib/admin-areas";
 
 type ProjectKey = "mydnamap" | "pocket-gyms";
-export type LoginSurface = "backoffice" | "patient-portal";
+export type LoginSurface = "backoffice" | "patient-portal" | "pgflex";
 type Phase = "auth" | "select" | "signup-email" | "signup-password";
 type LoadingState =
   | "google"
@@ -127,6 +131,7 @@ type SignupEligibility = {
   viaRoleAssignment: boolean;
   canAccessBackoffice: boolean;
   canAccessPatientPortal: boolean;
+  canAccessPGFlex: boolean;
   requiredSurface?: LoginSurface;
   role?: AdminRole;
   accountExists: boolean;
@@ -168,7 +173,8 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
     "Omitido porque no existe una cuenta de Firebase Auth coincidente.",
   "Not attempted because there is no matching account.":
     "No se intento porque no existe una cuenta coincidente.",
-  "Password sign-in is not enabled": "El inicio con password no esta habilitado",
+  "Password sign-in is not enabled":
+    "El inicio con password no esta habilitado",
   "Firebase Auth does not list the password provider for this account.":
     "Firebase Auth no lista el proveedor password para esta cuenta.",
   "Not attempted because password reset only applies to password accounts.":
@@ -232,7 +238,8 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
     "El servicio de autenticacion respondio, pero no creo una sesion valida del backoffice.",
   "Try again. If it repeats, capture the time and ask the team to inspect SDK logs.":
     "Intenta de nuevo. Si se repite, registra la hora y pedi al equipo que revise los logs del SDK.",
-  "Account setup could not continue": "La configuracion de cuenta no pudo continuar",
+  "Account setup could not continue":
+    "La configuracion de cuenta no pudo continuar",
   "Your credentials may be valid, but the backoffice could not load the profile or project context needed after sign-in.":
     "Tus credenciales pueden ser validas, pero el backoffice no pudo cargar el perfil o contexto de proyecto necesario.",
   "Authentication error log": "Log de error de autenticacion",
@@ -275,6 +282,37 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "Finish new-user setup": "Finalizar configuracion de nuevo usuario",
   "Welcome back": "Bienvenido de nuevo",
   "Patient portal": "Portal de pacientes",
+  PGFlex: "PGFlex",
+  "Use the patient portal login": "Usá el login del portal de pacientes",
+  "Use the backoffice login": "Usá el login del backoffice",
+  "Use the PGFlex login": "Usá el login de PGFlex",
+  "Open patient portal login": "Abrir login del portal de pacientes",
+  "Open backoffice login": "Abrir login del backoffice",
+  "Open PGFlex login": "Abrir login de PGFlex",
+  "This account has patient portal access and cannot sign in through the backoffice login.":
+    "Esta cuenta tiene acceso al portal de pacientes y no puede iniciar sesión desde el login del backoffice.",
+  "This account has patient portal access and cannot sign in through the PGFlex login.":
+    "Esta cuenta tiene acceso al portal de pacientes y no puede iniciar sesión desde el login de PGFlex.",
+  "This account has backoffice access and cannot sign in through the patient portal login.":
+    "Esta cuenta tiene acceso al backoffice y no puede iniciar sesión desde el portal de pacientes.",
+  "This account has backoffice access and cannot sign in through the PGFlex login.":
+    "Esta cuenta tiene acceso al backoffice y no puede iniciar sesión desde el login de PGFlex.",
+  "This account has PGFlex access and cannot sign in through the backoffice login.":
+    "Esta cuenta tiene acceso a PGFlex y no puede iniciar sesión desde el login del backoffice.",
+  "This account has PGFlex access and cannot sign in through the patient portal login.":
+    "Esta cuenta tiene acceso a PGFlex y no puede iniciar sesión desde el portal de pacientes.",
+  "This account is not approved for PGFlex access":
+    "Esta cuenta no está aprobada para acceder a PGFlex",
+  "Authentication worked, but this account does not have an active transport dispatcher role.":
+    "La autenticación funcionó, pero esta cuenta no tiene un rol transportista activo.",
+  "Ask a full admin to assign an active transport dispatcher role.":
+    "Pedí a un administrador total que asigne un rol transportista activo.",
+  "This account exists, but it is not approved for PGFlex access.":
+    "Esta cuenta existe, pero no está aprobada para acceder a PGFlex.",
+  "No PGFlex account or approved transport assignment was found for this email.":
+    "No se encontró una cuenta PGFlex ni una asignación transportista aprobada para este email.",
+  "This email does not have PGFlex access yet.":
+    "Este email todavía no tiene acceso a PGFlex.",
   "Your account can manage more than one legacy product. Pick where to continue.":
     "Tu cuenta puede gestionar mas de un producto legacy. Elegi donde continuar.",
   "This path is for invited new users who do not have an email password yet.":
@@ -334,7 +372,8 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "Try again. If it repeats, clear this site's cookies and sign in again.":
     "Intenta de nuevo. Si se repite, borra las cookies de este sitio e inicia sesion otra vez.",
   "Email check could not run": "No se pudo verificar el email",
-  "Try again before entering a password.": "Intenta de nuevo antes de ingresar un password.",
+  "Try again before entering a password.":
+    "Intenta de nuevo antes de ingresar un password.",
   "This account exists, but it is not approved for backoffice access.":
     "Esta cuenta existe, pero no esta aprobada para acceder al backoffice.",
   "No backoffice account or approved invitation was found for this email.":
@@ -369,11 +408,13 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
     "El flujo de nuevo usuario solo crea cuentas para emails ya aprobados por el equipo.",
   "After approval, return here and run this check again.":
     "Despues de la aprobacion, volve aca y ejecuta esta verificacion de nuevo.",
-  "An account already exists for this email": "Ya existe una cuenta para este email",
+  "An account already exists for this email":
+    "Ya existe una cuenta para este email",
   "Use the email sign-in form instead. This new-user flow only creates the first password for invited accounts.":
     "Usa el formulario de inicio con email. Este flujo solo crea el primer password para cuentas invitadas.",
   "Access check failed": "Fallo la verificacion de acceso",
-  "Unable to create the email account.": "No se pudo crear la cuenta con email.",
+  "Unable to create the email account.":
+    "No se pudo crear la cuenta con email.",
   "Account was not created": "La cuenta no fue creada",
   "Confirm the email is still approved and use a password with at least 6 characters.":
     "Confirma que el email siga aprobado y usa un password de al menos 6 caracteres.",
@@ -383,7 +424,8 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "The account is valid, but the selected project session could not be saved.":
     "La cuenta es valida, pero no se pudo guardar la sesion del proyecto seleccionado.",
   "Project handoff failed": "Fallo el traspaso de proyecto",
-  "Try selecting the project again.": "Intenta seleccionar el proyecto de nuevo.",
+  "Try selecting the project again.":
+    "Intenta seleccionar el proyecto de nuevo.",
 };
 
 const PATIENT_PORTAL_SPANISH_TEXT: Record<string, string> = {
@@ -406,12 +448,14 @@ function loginText(language: AppLanguage, text: string) {
   if (match) {
     return `No existe una cuenta de Firebase Auth para ${match[1]}.`;
   }
-  match = text.match(/^(.+) exists, but it does not have an email\/password provider\.$/);
+  match = text.match(
+    /^(.+) exists, but it does not have an email\/password provider\.$/,
+  );
   if (match) {
     return `${match[1]} existe, pero no tiene proveedor email/password.`;
   }
   match = text.match(
-    /^(.+) exists and has password sign-in, but Firebase rejected the reset email request\.$/
+    /^(.+) exists and has password sign-in, but Firebase rejected the reset email request\.$/,
   );
   if (match) {
     return `${match[1]} existe y tiene inicio con password, pero Firebase rechazo el email de recuperacion.`;
@@ -436,7 +480,7 @@ function readStoredLoginLanguage(initialLanguage: AppLanguage) {
     return resolveAppLanguage(
       window.localStorage.getItem(LANGUAGE_STORAGE_KEY) ??
         document.documentElement.dataset.language ??
-        initialLanguage
+        initialLanguage,
     );
   } catch {
     return initialLanguage;
@@ -450,8 +494,60 @@ function normalizeAuthEmail(value: string) {
 function patientPortalCallbackUrl() {
   if (typeof window === "undefined") return undefined;
 
-  const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
+  const callbackUrl = new URLSearchParams(window.location.search).get(
+    "callbackUrl",
+  );
   return normalizePatientPortalCallbackUrl(callbackUrl);
+}
+
+function pgflexCallbackUrl() {
+  if (typeof window === "undefined") return undefined;
+
+  const callbackUrl = new URLSearchParams(window.location.search).get(
+    "callbackUrl",
+  );
+  return normalizePGFlexCallbackUrl(callbackUrl);
+}
+
+function isLoginSurface(value: unknown): value is LoginSurface {
+  return (
+    value === "backoffice" || value === "patient-portal" || value === "pgflex"
+  );
+}
+
+function surfaceAccessName(surface: LoginSurface) {
+  if (surface === "patient-portal") return "patient portal";
+  if (surface === "pgflex") return "PGFlex";
+  return "backoffice";
+}
+
+function surfaceLoginName(surface: LoginSurface) {
+  if (surface === "patient-portal") return "patient portal login";
+  if (surface === "pgflex") return "PGFlex login";
+  return "backoffice login";
+}
+
+function surfaceLoginHref(surface: LoginSurface) {
+  if (surface === "patient-portal") return "/patient-portal/login";
+  if (surface === "pgflex") return "/pgflex/login";
+  return "/login";
+}
+
+function wrongSurfaceNotice(
+  requiredSurface: LoginSurface,
+  currentSurface: LoginSurface,
+  log?: AuthLog,
+): AuthNotice {
+  return {
+    tone: "error",
+    title: `Use the ${surfaceLoginName(requiredSurface)}`,
+    message: `This account has ${surfaceAccessName(requiredSurface)} access and cannot sign in through the ${surfaceLoginName(currentSurface)}.`,
+    action: {
+      href: surfaceLoginHref(requiredSurface),
+      label: `Open ${surfaceLoginName(requiredSurface)}`,
+    },
+    log,
+  };
 }
 
 function passwordResetSuccessResult(email: string): PasswordResetResult {
@@ -504,7 +600,9 @@ function passwordResetAccountMissingResult(email: string): PasswordResetResult {
   };
 }
 
-function passwordResetPasswordProviderMissingResult(email: string): PasswordResetResult {
+function passwordResetPasswordProviderMissingResult(
+  email: string,
+): PasswordResetResult {
   return {
     tone: "error",
     title: "Password sign-in is not enabled",
@@ -518,12 +616,14 @@ function passwordResetPasswordProviderMissingResult(email: string): PasswordRese
       {
         label: "Email/password provider exists",
         passed: false,
-        detail: "Firebase Auth does not list the password provider for this account.",
+        detail:
+          "Firebase Auth does not list the password provider for this account.",
       },
       {
         label: "Firebase reset email sent",
         passed: false,
-        detail: "Not attempted because password reset only applies to password accounts.",
+        detail:
+          "Not attempted because password reset only applies to password accounts.",
       },
     ],
   };
@@ -557,7 +657,7 @@ function passwordResetSendFailedResult(email: string): PasswordResetResult {
 function getLegacyProjectAccess(value: unknown): ProjectKey[] {
   if (!Array.isArray(value)) return [];
   return value.filter((project): project is ProjectKey =>
-    LEGACY_PROJECT_KEYS.has(project as ProjectKey)
+    LEGACY_PROJECT_KEYS.has(project as ProjectKey),
   );
 }
 
@@ -589,7 +689,8 @@ function isCredentialMismatch(error: unknown): boolean {
   );
 }
 
-const SENSITIVE_AUTH_LOG_KEY = /authorization|cookie|credential|idtoken|password|secret|session|token/i;
+const SENSITIVE_AUTH_LOG_KEY =
+  /authorization|cookie|credential|idtoken|password|secret|session|token/i;
 
 function redactForAuthLog(value: unknown, depth = 0): unknown {
   if (
@@ -619,8 +720,8 @@ function redactForAuthLog(value: unknown, depth = 0): unknown {
     if (value.stack) errorData.stack = value.stack;
     const properties = Object.fromEntries(
       Object.entries(value).filter(
-        ([key]) => !["code", "message", "name", "stack"].includes(key)
-      )
+        ([key]) => !["code", "message", "name", "stack"].includes(key),
+      ),
     );
     if (Object.keys(properties).length > 0) {
       errorData.properties = redactForAuthLog(properties, depth + 1);
@@ -643,7 +744,7 @@ function redactForAuthLog(value: unknown, depth = 0): unknown {
         SENSITIVE_AUTH_LOG_KEY.test(key)
           ? "[redacted]"
           : redactForAuthLog(nested, depth + 1),
-      ])
+      ]),
     );
   }
 
@@ -692,7 +793,9 @@ function authErrorLog({
     event,
     message,
     error: redactForAuthLog(error),
-    ...(context ? { context: redactForAuthLog(context) as Record<string, unknown> } : {}),
+    ...(context
+      ? { context: redactForAuthLog(context) as Record<string, unknown> }
+      : {}),
   };
 }
 
@@ -729,7 +832,9 @@ function authResponseLog({
       headers: getResponseHeadersForLog(response),
       body: redactForAuthLog(body),
     },
-    ...(context ? { context: redactForAuthLog(context) as Record<string, unknown> } : {}),
+    ...(context
+      ? { context: redactForAuthLog(context) as Record<string, unknown> }
+      : {}),
   };
 }
 
@@ -750,7 +855,9 @@ function authEventLog({
     source,
     event,
     message,
-    ...(context ? { context: redactForAuthLog(context) as Record<string, unknown> } : {}),
+    ...(context
+      ? { context: redactForAuthLog(context) as Record<string, unknown> }
+      : {}),
   };
 }
 
@@ -769,11 +876,15 @@ function googleNotice(error: unknown): AuthNotice {
   const log = authErrorLog({
     source: "firebase-web-sdk",
     event: "google-sign-in",
-    message: "Google sign-in failed before the legacy SDK session could be created.",
+    message:
+      "Google sign-in failed before the legacy SDK session could be created.",
     error,
   });
 
-  if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+  if (
+    code === "auth/popup-closed-by-user" ||
+    code === "auth/cancelled-popup-request"
+  ) {
     return {
       tone: "info",
       title: "Sign-in window closed",
@@ -787,8 +898,7 @@ function googleNotice(error: unknown): AuthNotice {
     return {
       tone: "error",
       title: "Browser blocked the sign-in window",
-      message:
-        "Allow pop-ups for this site, then try Google sign-in again.",
+      message: "Allow pop-ups for this site, then try Google sign-in again.",
       details: ["You can also use the email and password option below."],
       log,
     };
@@ -809,14 +919,16 @@ function googleNotice(error: unknown): AuthNotice {
     title: "Google sign-in did not finish",
     message:
       "The browser authenticated with Google but the backoffice could not complete the session.",
-    details: ["Try again, or use email sign-in if your account has a password."],
+    details: [
+      "Try again, or use email sign-in if your account has a password.",
+    ],
     log,
   };
 }
 
 async function googleOnlyPasswordNotice(
   error: unknown,
-  attemptedEmail: string
+  attemptedEmail: string,
 ): Promise<AuthNotice | null> {
   if (!isCredentialMismatch(error)) return null;
 
@@ -832,7 +944,7 @@ async function googleOnlyPasswordNotice(
     const data = (await readJson(response)) as Partial<SignupEligibility>;
     const signInMethods = Array.isArray(data.signInProviders)
       ? data.signInProviders.filter(
-          (provider): provider is string => typeof provider === "string"
+          (provider): provider is string => typeof provider === "string",
         )
       : [];
 
@@ -867,7 +979,10 @@ async function googleOnlyPasswordNotice(
   }
 
   try {
-    const signInMethods = await fetchSignInMethodsForEmail(auth, normalizedEmail);
+    const signInMethods = await fetchSignInMethodsForEmail(
+      auth,
+      normalizedEmail,
+    );
     const hasGoogle = signInMethods.includes(GOOGLE_SIGN_IN_METHOD);
     const hasPassword = signInMethods.includes(PASSWORD_SIGN_IN_METHOD);
 
@@ -900,13 +1015,14 @@ async function googleOnlyPasswordNotice(
 
 function emailNotice(
   error: unknown,
-  context?: Record<string, unknown>
+  context?: Record<string, unknown>,
 ): AuthNotice {
   const code = getErrorCode(error);
   const log = authErrorLog({
     source: "firebase-web-sdk",
     event: "email-sign-in",
-    message: "Email sign-in failed before the legacy SDK session could be created.",
+    message:
+      "Email sign-in failed before the legacy SDK session could be created.",
     error,
     context,
   });
@@ -915,7 +1031,8 @@ function emailNotice(
     return {
       tone: "error",
       title: "Email format needs a fix",
-      message: "Enter the full email address, for example team@pocketgenes.app.",
+      message:
+        "Enter the full email address, for example team@pocketgenes.app.",
       log,
     };
   }
@@ -974,44 +1091,33 @@ function sdkLoginNotice(
   responseData?: Record<string, unknown>,
 ): AuthNotice {
   if (status === 403) {
-    const requiredSurface =
-      responseData?.requiredSurface === "patient-portal" ||
-      responseData?.requiredSurface === "backoffice"
-        ? responseData.requiredSurface
-        : undefined;
+    const requiredSurface = isLoginSurface(responseData?.requiredSurface)
+      ? responseData.requiredSurface
+      : undefined;
     if (responseData?.code === "WRONG_AUTH_SURFACE" && requiredSurface) {
-      const needsPatientPortal = requiredSurface === "patient-portal";
-      return {
-        tone: "error",
-        title: needsPatientPortal
-          ? "Use the patient portal login"
-          : "Use the backoffice login",
-        message: needsPatientPortal
-          ? "This account has patient portal access and cannot sign in through the backoffice login."
-          : "This account has backoffice access and cannot sign in through the patient portal login.",
-        action: {
-          href: needsPatientPortal ? "/patient-portal/login" : "/login",
-          label: needsPatientPortal
-            ? "Open patient portal login"
-            : "Open backoffice login",
-        },
-        log,
-      };
+      return wrongSurfaceNotice(requiredSurface, surface, log);
     }
 
     const patientPortal = surface === "patient-portal";
+    const pgflexPortal = surface === "pgflex";
     return {
       tone: "error",
       title: patientPortal
         ? "This account is not approved for patient portal access"
-        : "This account is not approved for backoffice access",
+        : pgflexPortal
+          ? "This account is not approved for PGFlex access"
+          : "This account is not approved for backoffice access",
       message: patientPortal
         ? "Authentication worked, but this patient has not been granted active patient portal access."
-        : "Authentication worked, but the SDK did not find an active allowlist entry or admin role assignment for this email.",
+        : pgflexPortal
+          ? "Authentication worked, but this account does not have an active transport dispatcher role."
+          : "Authentication worked, but the SDK did not find an active allowlist entry or admin role assignment for this email.",
       details: [
         patientPortal
           ? "Ask the care team to grant access from the patient detail screen."
-          : "Ask a full admin to add the email to the team allowlist or assign an active admin role.",
+          : pgflexPortal
+            ? "Ask a full admin to assign an active transport dispatcher role."
+            : "Ask a full admin to add the email to the team allowlist or assign an active admin role.",
         "If access was granted moments ago, sign out of Google and try again.",
       ],
       log,
@@ -1034,7 +1140,9 @@ function sdkLoginNotice(
     message:
       message ||
       "The authentication service responded, but it did not create a valid backoffice session.",
-    details: ["Try again. If it repeats, capture the time and ask the team to inspect SDK logs."],
+    details: [
+      "Try again. If it repeats, capture the time and ask the team to inspect SDK logs.",
+    ],
     log,
   };
 }
@@ -1086,12 +1194,14 @@ function AuthLogDialog({
           <DialogTitle>{t("Authentication error log")}</DialogTitle>
           <DialogDescription className="text-slate-600">
             {t(
-              "Full client-side diagnostic captured for this failed sign-in attempt. Token, cookie, session, and password-like fields are redacted."
+              "Full client-side diagnostic captured for this failed sign-in attempt. Token, cookie, session, and password-like fields are redacted.",
             )}
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[55vh] overflow-auto rounded-xl border border-slate-900/10 bg-slate-950 p-3">
-          <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-cyan-50/82">{formattedLog}</pre>
+          <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-cyan-50/82">
+            {formattedLog}
+          </pre>
         </div>
         <DialogFooter className="border-slate-900/10 bg-white/45">
           <DialogClose asChild>
@@ -1133,7 +1243,9 @@ function PasswordResetChecklist({
             >
               {t(check.label)}
             </p>
-            <p className="mt-0.5 text-xs leading-5 text-slate-600">{t(check.detail)}</p>
+            <p className="mt-0.5 text-xs leading-5 text-slate-600">
+              {t(check.detail)}
+            </p>
           </div>
         </div>
       ))}
@@ -1186,7 +1298,7 @@ function PasswordResetDialog({
             {result.tone === "success" ? (
               <p className="text-sm leading-6 text-slate-600">
                 {t(
-                  "Open that email and follow the link to choose a new password, then return here to sign in."
+                  "Open that email and follow the link to choose a new password, then return here to sign in.",
                 )}
               </p>
             ) : null}
@@ -1218,7 +1330,7 @@ function PasswordResetDialog({
             </DialogHeader>
             <p className="text-sm leading-6 text-slate-600">
               {t(
-                "Confirm the email address is correct before sending. The current sign-in attempt will stay on this screen."
+                "Confirm the email address is correct before sending. The current sign-in attempt will stay on this screen.",
               )}
             </p>
             <DialogFooter className="border-slate-900/10 bg-white/45">
@@ -1264,8 +1376,7 @@ function Notice({
   const toneClasses = {
     error:
       "border-red-200 bg-red-50/82 text-red-950 shadow-[0_18px_44px_rgba(120,20,38,0.14)]",
-    info:
-      "border-cyan-200 bg-cyan-50/82 text-cyan-950 shadow-[0_18px_44px_rgba(20,82,120,0.12)]",
+    info: "border-cyan-200 bg-cyan-50/82 text-cyan-950 shadow-[0_18px_44px_rgba(20,82,120,0.12)]",
     success:
       "border-emerald-200 bg-emerald-50/82 text-emerald-950 shadow-[0_18px_44px_rgba(18,105,75,0.12)]",
   } satisfies Record<NoticeTone, string>;
@@ -1317,7 +1428,10 @@ function Notice({
             <ul className="mt-2 space-y-1 text-slate-600">
               {notice.details.map((detail) => (
                 <li key={detail} className="flex gap-2">
-                  <span aria-hidden className="mt-[0.55rem] size-1 rounded-full bg-current/70" />
+                  <span
+                    aria-hidden
+                    className="mt-[0.55rem] size-1 rounded-full bg-current/70"
+                  />
                   <span>{t(detail)}</span>
                 </li>
               ))}
@@ -1364,7 +1478,10 @@ function FieldShell({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <Label htmlFor={id} className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <Label
+          htmlFor={id}
+          className="flex items-center gap-2 text-sm font-semibold text-slate-800"
+        >
           <span className="text-slate-500">{icon}</span>
           {label}
         </Label>
@@ -1436,7 +1553,9 @@ function PasswordInput({
 
 function VersionPill({ surface }: { surface: LoginSurface }) {
   if (surface === "patient-portal") {
-    return <span className="text-xs text-slate-400">v{BACKOFFICE_VERSION}</span>;
+    return (
+      <span className="text-xs text-slate-400">v{BACKOFFICE_VERSION}</span>
+    );
   }
 
   return (
@@ -1514,7 +1633,9 @@ function ProjectOption({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold">{title}</span>
-        <span className="mt-1 block text-sm leading-5 text-slate-600">{body}</span>
+        <span className="mt-1 block text-sm leading-5 text-slate-600">
+          {body}
+        </span>
       </span>
       <ChevronRight className="mt-1 size-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-700" />
     </button>
@@ -1529,18 +1650,20 @@ export function LoginExperience({
   initialEmail?: string;
 }) {
   const isPatientPortal = surface === "patient-portal";
-  const normalizedInitialEmail = isPatientPortal
+  const isPGFlexPortal = surface === "pgflex";
+  const isExclusivePortal = isPatientPortal || isPGFlexPortal;
+  const normalizedInitialEmail = isExclusivePortal
     ? normalizeAuthEmail(initialEmail ?? "")
     : "";
   const [loginLanguage, setLoginLanguage] = useState<AppLanguage>(
-    isPatientPortal ? "es" : "en"
+    isExclusivePortal ? "es" : "en",
   );
   const [loading, setLoading] = useState<LoadingState>(null);
   const [notice, setNotice] = useState<AuthNotice | null>(null);
   const [email, setEmail] = useState(normalizedInitialEmail);
   const [password, setPassword] = useState("");
   const [emailPasswordReady, setEmailPasswordReady] = useState(
-    Boolean(normalizedInitialEmail)
+    Boolean(normalizedInitialEmail),
   );
   const [showPassword, setShowPassword] = useState(false);
   const [passwordResetEmail, setPasswordResetEmail] = useState("");
@@ -1564,7 +1687,7 @@ export function LoginExperience({
   } | null>(null);
 
   useEffect(() => {
-    if (isPatientPortal) {
+    if (isExclusivePortal) {
       setLoginLanguage("es");
       document.documentElement.lang = "es";
       document.documentElement.dataset.language = "es";
@@ -1574,7 +1697,7 @@ export function LoginExperience({
     const storedLanguage = readStoredLoginLanguage("en");
     setLoginLanguage(storedLanguage);
     applyLoginLanguage(storedLanguage);
-  }, [isPatientPortal]);
+  }, [isExclusivePortal]);
 
   function handleLoginLanguageChange(nextLanguage: AppLanguage) {
     setLoginLanguage(nextLanguage);
@@ -1582,7 +1705,7 @@ export function LoginExperience({
   }
 
   const t = (text: string) =>
-    isPatientPortal && loginLanguage === "es"
+    isExclusivePortal && loginLanguage === "es"
       ? (PATIENT_PORTAL_SPANISH_TEXT[text] ?? loginText(loginLanguage, text))
       : loginText(loginLanguage, text);
 
@@ -1621,11 +1744,13 @@ export function LoginExperience({
             path: "/api/sdk/auth/login",
             response: loginRes,
             body: data,
-            ...(signOutError ? { context: { firebaseSignOutError: signOutError } } : {}),
+            ...(signOutError
+              ? { context: { firebaseSignOutError: signOutError } }
+              : {}),
           }),
           surface,
           data,
-        )
+        ),
       );
       return;
     }
@@ -1650,7 +1775,7 @@ export function LoginExperience({
     if (!contextRes.ok) {
       const message = serverMessage(
         contextData,
-        "The SDK session was created, but project access could not be loaded."
+        "The SDK session was created, but project access could not be loaded.",
       );
       throw setupNotice(
         message,
@@ -1662,14 +1787,14 @@ export function LoginExperience({
           path: "/api/sdk/auth/context",
           response: contextRes,
           body: contextData,
-        })
+        }),
       );
     }
 
     if (!profileSetupRes.ok) {
       const message = serverMessage(
         profileSetupData,
-        "The SDK session was created, but profile setup status could not be loaded."
+        "The SDK session was created, but profile setup status could not be loaded.",
       );
       throw setupNotice(
         message,
@@ -1681,20 +1806,24 @@ export function LoginExperience({
           path: "/api/sdk/auth/profile-setup",
           response: profileSetupRes,
           body: profileSetupData,
-        })
+        }),
       );
     }
 
     const projectAccess = getLegacyProjectAccess(
-      contextData.context?.projectAccess
+      contextData.context?.projectAccess,
     );
     const redirectTo = profileSetupData.state?.needsCompletion
       ? isPatientPortal
         ? "/patient-portal/complete-profile"
-        : "/complete-profile"
+        : isPGFlexPortal
+          ? "/pgflex/complete-profile"
+          : "/complete-profile"
       : isPatientPortal
         ? (patientPortalCallbackUrl() ?? PATIENT_PORTAL_ENTRY_ROUTE)
-        : "/2pq-dashboard";
+        : isPGFlexPortal
+          ? (pgflexCallbackUrl() ?? PGFLEX_ENTRY_ROUTE)
+          : "/2pq-dashboard";
 
     if (redirectTo.endsWith("/complete-profile")) {
       const fallbackProject = projectAccess.includes("mydnamap")
@@ -1704,7 +1833,7 @@ export function LoginExperience({
       return;
     }
 
-    if (isPatientPortal) {
+    if (isExclusivePortal) {
       const patientProject = projectAccess.includes("mydnamap")
         ? "mydnamap"
         : (projectAccess[0] ?? "mydnamap");
@@ -1725,7 +1854,7 @@ export function LoginExperience({
   async function finalizeLogin(
     options: { idToken: string; name: string; email: string; image: string },
     project: ProjectKey,
-    redirectTo: string
+    redirectTo: string,
   ) {
     const signInResult = await signIn("credentials", {
       idToken: options.idToken,
@@ -1748,7 +1877,9 @@ export function LoginExperience({
       tone: "error",
       title: "Backoffice session handoff failed",
       message,
-      details: ["Try again. If it repeats, clear this site's cookies and sign in again."],
+      details: [
+        "Try again. If it repeats, clear this site's cookies and sign in again.",
+      ],
       log: authEventLog({
         source: "next-auth",
         event: "credentials-session-handoff",
@@ -1764,7 +1895,10 @@ export function LoginExperience({
 
     try {
       await firebaseSignOut(auth).catch((err) => {
-        console.warn("Firebase sign-out before Google account selection failed:", err);
+        console.warn(
+          "Firebase sign-out before Google account selection failed:",
+          err,
+        );
       });
       const provider = buildLegacyGoogleProvider(email);
       const result = await signInWithPopup(auth, provider);
@@ -1813,7 +1947,7 @@ export function LoginExperience({
       if (!response.ok) {
         const message = serverMessage(
           data,
-          "The backoffice could not check this email right now."
+          "The backoffice could not check this email right now.",
         );
         setNotice({
           tone: "error",
@@ -1835,38 +1969,33 @@ export function LoginExperience({
       }
 
       if (!data.eligible) {
-        if (data.requiredSurface && data.requiredSurface !== surface) {
-          const needsPatientPortal = data.requiredSurface === "patient-portal";
-          const message = needsPatientPortal
-            ? "This account has patient portal access and must use the patient portal login."
-            : "This account has backoffice access and must use the backoffice login.";
-          setNotice({
-            tone: "error",
-            title: needsPatientPortal
-              ? "Use the patient portal login"
-              : "Use the backoffice login",
-            message,
-            action: {
-              href: needsPatientPortal ? "/patient-portal/login" : "/login",
-              label: needsPatientPortal
-                ? "Open patient portal login"
-                : "Open backoffice login",
-            },
-          });
+        if (
+          isLoginSurface(data.requiredSurface) &&
+          data.requiredSurface !== surface
+        ) {
+          setNotice(wrongSurfaceNotice(data.requiredSurface, surface));
           return;
         }
 
-        const message = data.accountExists
-          ? "This account exists, but it is not approved for backoffice access."
-          : "No backoffice account or approved invitation was found for this email.";
+        const message = isPGFlexPortal
+          ? data.accountExists
+            ? "This account exists, but it is not approved for PGFlex access."
+            : "No PGFlex account or approved transport assignment was found for this email."
+          : data.accountExists
+            ? "This account exists, but it is not approved for backoffice access."
+            : "No backoffice account or approved invitation was found for this email.";
         setNotice({
           tone: "error",
           title: data.accountExists
-            ? "This account is not approved for backoffice access"
+            ? isPGFlexPortal
+              ? "This account is not approved for PGFlex access"
+              : "This account is not approved for backoffice access"
             : "This email is not approved yet",
           message,
           details: [
-            "Ask a full admin to add the email to the allowlist or assign an active admin role first.",
+            isPGFlexPortal
+              ? "Ask a full admin to assign an active transport dispatcher role."
+              : "Ask a full admin to add the email to the allowlist or assign an active admin role first.",
           ],
           log: authEventLog({
             source: "legacy-sdk",
@@ -1888,7 +2017,7 @@ export function LoginExperience({
         setSignupPassword("");
         setShowSignupPassword(false);
         setPhase("signup-password");
-        if (!isPatientPortal) {
+        if (!isExclusivePortal) {
           setNotice({
             tone: "success",
             title: "Access approved",
@@ -1909,7 +2038,7 @@ export function LoginExperience({
 
       const signInProviders = Array.isArray(data.signInProviders)
         ? data.signInProviders.filter(
-            (provider): provider is string => typeof provider === "string"
+            (provider): provider is string => typeof provider === "string",
           )
         : [];
       const hasGoogle =
@@ -1973,7 +2102,11 @@ export function LoginExperience({
     setEmail(loginEmail);
 
     try {
-      const result = await signInWithEmailAndPassword(auth, loginEmail, password);
+      const result = await signInWithEmailAndPassword(
+        auth,
+        loginEmail,
+        password,
+      );
       await handleAuthSuccess({
         idToken: await result.user.getIdToken(),
         name: result.user.displayName ?? "",
@@ -1993,7 +2126,7 @@ export function LoginExperience({
         };
         setNotice(
           (await googleOnlyPasswordNotice(err, loginEmail)) ??
-            emailNotice(err, logContext)
+            emailNotice(err, logContext),
         );
       }
     } finally {
@@ -2053,7 +2186,7 @@ export function LoginExperience({
       if (!response.ok) {
         const message = serverMessage(
           data,
-          "The backoffice could not verify whether this email exists."
+          "The backoffice could not verify whether this email exists.",
         );
         setPasswordResetDialogOpen(false);
         setNotice({
@@ -2081,7 +2214,7 @@ export function LoginExperience({
 
       if (data.accountHasPassword !== true) {
         setPasswordResetResult(
-          passwordResetPasswordProviderMissingResult(resetEmail)
+          passwordResetPasswordProviderMissingResult(resetEmail),
         );
         return;
       }
@@ -2132,12 +2265,17 @@ export function LoginExperience({
       };
 
       if (!response.ok) {
-        const message = serverMessage(data, "Unable to validate this email right now.");
+        const message = serverMessage(
+          data,
+          "Unable to validate this email right now.",
+        );
         throw {
           tone: "error",
           title: "Access check could not run",
           message,
-          details: ["No account was created. Try again before choosing a password."],
+          details: [
+            "No account was created. Try again before choosing a password.",
+          ],
           log: authResponseLog({
             source: "legacy-sdk",
             event: "check-email-signup-eligibility",
@@ -2151,29 +2289,18 @@ export function LoginExperience({
       }
 
       if (!data.eligible || !data.email) {
-        if (data.requiredSurface && data.requiredSurface !== surface) {
-          const needsPatientPortal = data.requiredSurface === "patient-portal";
-          setNotice({
-            tone: "error",
-            title: needsPatientPortal
-              ? "Use the patient portal login"
-              : "Use the backoffice login",
-            message: needsPatientPortal
-              ? "This account has patient portal access and must use the patient portal login."
-              : "This account has backoffice access and must use the backoffice login.",
-            action: {
-              href: needsPatientPortal ? "/patient-portal/login" : "/login",
-              label: needsPatientPortal
-                ? "Open patient portal login"
-                : "Open backoffice login",
-            },
-          });
+        if (
+          isLoginSurface(data.requiredSurface) &&
+          data.requiredSurface !== surface
+        ) {
+          setNotice(wrongSurfaceNotice(data.requiredSurface, surface));
           return;
         }
 
-        const message =
-          isPatientPortal
-            ? "The new-user flow only creates accounts for patients whose portal access was already approved."
+        const message = isPatientPortal
+          ? "The new-user flow only creates accounts for patients whose portal access was already approved."
+          : isPGFlexPortal
+            ? "This email does not have PGFlex access yet."
             : "The new-user flow only creates accounts for emails already approved by the team.";
         setNotice({
           tone: "error",
@@ -2182,7 +2309,9 @@ export function LoginExperience({
           details: [
             isPatientPortal
               ? "Ask the care team to grant patient portal access from the patient detail screen first."
-              : "Ask a full admin to add the email to the allowlist or assign an active admin role first.",
+              : isPGFlexPortal
+                ? "Ask a full admin to assign an active transport dispatcher role."
+                : "Ask a full admin to add the email to the allowlist or assign an active admin role first.",
             "After approval, return here and run this check again.",
           ],
           log: authEventLog({
@@ -2210,7 +2339,7 @@ export function LoginExperience({
       setSignupPassword("");
       setShowSignupPassword(false);
       setPhase("signup-password");
-      if (!isPatientPortal) {
+      if (!isExclusivePortal) {
         setNotice({
           tone: "success",
           title: "Access approved",
@@ -2267,7 +2396,10 @@ export function LoginExperience({
       const createData = await readJson(createRes);
 
       if (!createRes.ok) {
-        const message = serverMessage(createData, "Unable to create the email account.");
+        const message = serverMessage(
+          createData,
+          "Unable to create the email account.",
+        );
         setNotice({
           tone: "error",
           title: "Account was not created",
@@ -2291,7 +2423,7 @@ export function LoginExperience({
       const result = await signInWithEmailAndPassword(
         auth,
         signupEligibility.email,
-        signupPassword
+        signupPassword,
       );
       await handleAuthSuccess({
         idToken: await result.user.getIdToken(),
@@ -2312,7 +2444,9 @@ export function LoginExperience({
           tone: "error",
           title: "Account setup stopped",
           message,
-          details: ["No dashboard access was changed. You can retry from the access check step."],
+          details: [
+            "No dashboard access was changed. You can retry from the access check step.",
+          ],
           log: authErrorLog({
             source: "legacy-sdk",
             event: "create-email-account",
@@ -2381,39 +2515,53 @@ export function LoginExperience({
     ? phase === "auth" || phase === "select"
       ? t("Patient portal")
       : t("Create account")
-    : phase === "select"
-      ? t("Choose your workspace")
-      : phase === "signup-email"
-        ? t("Create an email account")
-        : phase === "signup-password"
-          ? t("Finish new-user setup")
-          : t("Welcome back");
+    : isPGFlexPortal
+      ? phase === "auth" || phase === "select"
+        ? t("PGFlex")
+        : t("Create account")
+      : phase === "select"
+        ? t("Choose your workspace")
+        : phase === "signup-email"
+          ? t("Create an email account")
+          : phase === "signup-password"
+            ? t("Finish new-user setup")
+            : t("Welcome back");
 
   const panelDescription =
     phase === "select"
-      ? t("Your account can manage more than one legacy product. Pick where to continue.")
+      ? t(
+          "Your account can manage more than one legacy product. Pick where to continue.",
+        )
       : phase === "signup-email"
-        ? t("This path is for invited new users who do not have an email password yet.")
+        ? t(
+            "This path is for invited new users who do not have an email password yet.",
+          )
         : phase === "signup-password"
           ? t("Access is approved. Set the first password for this account.")
-          : t("Sign in to the Golden Crow legacy backoffice for PocketGenes and Pocket Gyms.");
+          : t(
+              "Sign in to the Golden Crow legacy backoffice for PocketGenes and Pocket Gyms.",
+            );
   const patientPortalSecurityKeyStep =
     isPatientPortal && phase === "auth" && emailPasswordReady;
 
   return (
     <main
       className={
-        isPatientPortal
+        isExclusivePortal
           ? "fixed inset-0 min-h-screen w-full overflow-x-hidden overflow-y-auto bg-white text-slate-950"
           : "auth-liquid-canvas fixed inset-0 isolate min-h-screen w-full overflow-x-hidden overflow-y-auto text-slate-950"
       }
     >
-      {!isPatientPortal ? <div className="auth-liquid-flow" aria-hidden /> : null}
-      {!isPatientPortal ? <div className="auth-liquid-sheen" aria-hidden /> : null}
+      {!isExclusivePortal ? (
+        <div className="auth-liquid-flow" aria-hidden />
+      ) : null}
+      {!isExclusivePortal ? (
+        <div className="auth-liquid-sheen" aria-hidden />
+      ) : null}
 
       <div
         className={
-          isPatientPortal
+          isExclusivePortal
             ? "relative flex min-h-screen w-full items-center justify-center px-5 py-10"
             : "auth-login-scroll-shell relative z-10 flex w-full items-center justify-center px-4 sm:px-6 lg:px-8"
         }
@@ -2422,137 +2570,147 @@ export function LoginExperience({
           className={
             patientPortalSecurityKeyStep
               ? "relative mx-auto w-full max-w-md"
-              : isPatientPortal
+              : isExclusivePortal
                 ? "relative mx-auto w-full max-w-sm"
                 : "auth-login-stage relative mx-auto grid w-full max-w-[1240px] gap-5 rounded-[2rem] p-4 sm:p-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(390px,0.78fr)] lg:p-6"
           }
         >
-          {!isPatientPortal ? (
-          <aside className="auth-brand-panel flex min-h-[520px] flex-col gap-6 rounded-[1.65rem] p-5 sm:p-7 lg:min-h-[610px] lg:p-8">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-semibold text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
-              <CheckCircle2 className="size-4 text-amber-500" />
-              <span className="italic">{t("Golden Crow VS")}</span>
-            </div>
-
-            <div className="max-w-[680px] space-y-5">
-              <h1 className="font-heading text-4xl font-semibold leading-[1.08] text-slate-950">
-                {t("Manage everything from one unified workspace.")}
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-slate-700">
-                {t(
-                  "The dashboard gives you tools to work with users, roles, reports, files, forms, institutions, doctors, and patients with the right context always visible."
-                )}
-              </p>
-            </div>
-
-            <div className="auth-path-card rounded-2xl p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xl font-semibold text-slate-950">
-                  {t("New invited user?")}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10 w-full justify-center rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950 sm:w-auto"
-                  disabled={loading !== null}
-                  onClick={beginEmailSignup}
-                >
-                  <UserPlus className="size-4" />
-                  {t("Create email account")}
-                </Button>
+          {!isExclusivePortal ? (
+            <aside className="auth-brand-panel flex min-h-[520px] flex-col gap-6 rounded-[1.65rem] p-5 sm:p-7 lg:min-h-[610px] lg:p-8">
+              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-semibold text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
+                <CheckCircle2 className="size-4 text-amber-500" />
+                <span className="italic">{t("Golden Crow VS")}</span>
               </div>
-              <p className="mt-3 max-w-3xl text-sm leading-5 text-slate-700">
-                {t(
-                  "Create email account is not open registration. It confirms approval first, then creates the first email/password account for that invited user."
-                )}
-              </p>
-            </div>
-          </aside>
+
+              <div className="max-w-[680px] space-y-5">
+                <h1 className="font-heading text-4xl font-semibold leading-[1.08] text-slate-950">
+                  {t("Manage everything from one unified workspace.")}
+                </h1>
+                <p className="max-w-2xl text-base leading-7 text-slate-700">
+                  {t(
+                    "The dashboard gives you tools to work with users, roles, reports, files, forms, institutions, doctors, and patients with the right context always visible.",
+                  )}
+                </p>
+              </div>
+
+              <div className="auth-path-card rounded-2xl p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xl font-semibold text-slate-950">
+                    {t("New invited user?")}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 w-full justify-center rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950 sm:w-auto"
+                    disabled={loading !== null}
+                    onClick={beginEmailSignup}
+                  >
+                    <UserPlus className="size-4" />
+                    {t("Create email account")}
+                  </Button>
+                </div>
+                <p className="mt-3 max-w-3xl text-sm leading-5 text-slate-700">
+                  {t(
+                    "Create email account is not open registration. It confirms approval first, then creates the first email/password account for that invited user.",
+                  )}
+                </p>
+              </div>
+            </aside>
           ) : null}
 
           <section
             className={
-              isPatientPortal
+              isExclusivePortal
                 ? "relative flex w-full flex-col gap-6"
                 : "auth-login-panel relative flex w-full flex-col gap-6 rounded-[1.6rem] p-5 sm:p-6 lg:p-7"
             }
           >
-          <div className="flex items-start justify-between gap-4">
-            <div className={isPatientPortal ? "min-w-0" : "min-w-0 space-y-2"}>
-              {isPatientPortal ? (
-                <h1 className="font-heading text-3xl font-semibold tracking-normal text-slate-950">
-                  {panelTitle}
-                </h1>
-              ) : (
-                <>
-                  <p className="section-eyebrow text-slate-500">{t("Secure backoffice")}</p>
-                  <h2 className="font-heading text-3xl font-semibold tracking-normal text-slate-950">
+            <div className="flex items-start justify-between gap-4">
+              <div
+                className={isExclusivePortal ? "min-w-0" : "min-w-0 space-y-2"}
+              >
+                {isExclusivePortal ? (
+                  <h1 className="font-heading text-3xl font-semibold tracking-normal text-slate-950">
                     {panelTitle}
-                  </h2>
-                  <p className="text-sm leading-6 text-slate-600">{panelDescription}</p>
-                </>
-              )}
+                  </h1>
+                ) : (
+                  <>
+                    <p className="section-eyebrow text-slate-500">
+                      {t("Secure backoffice")}
+                    </p>
+                    <h2 className="font-heading text-3xl font-semibold tracking-normal text-slate-950">
+                      {panelTitle}
+                    </h2>
+                    <p className="text-sm leading-6 text-slate-600">
+                      {panelDescription}
+                    </p>
+                  </>
+                )}
+              </div>
+              {!isExclusivePortal ? (
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <VersionPill surface={surface} />
+                  <LoginLanguageControl
+                    language={loginLanguage}
+                    onChange={handleLoginLanguageChange}
+                    t={t}
+                  />
+                </div>
+              ) : null}
             </div>
-            {!isPatientPortal ? (
-              <div className="flex shrink-0 flex-col items-end gap-2">
-                <VersionPill surface={surface} />
-                <LoginLanguageControl
-                  language={loginLanguage}
-                  onChange={handleLoginLanguageChange}
-                  t={t}
+
+            {notice ? (
+              <Notice
+                notice={notice}
+                onDismiss={() => setNotice(null)}
+                t={t}
+                compact={isExclusivePortal}
+              />
+            ) : null}
+
+            {phase === "select" && pendingAuth ? (
+              <div className="space-y-4">
+                <ProjectOption
+                  project="mydnamap"
+                  title="PocketGenes"
+                  body={t(
+                    "Genomics reports, learning content, community moderation, and account records.",
+                  )}
+                  icon={<Dna className="size-5 text-rose-600" />}
+                  disabled={loading !== null}
+                  onSelect={handleProjectSelect}
                 />
+                <ProjectOption
+                  project="pocket-gyms"
+                  title="Pocket Gyms"
+                  body={t(
+                    "Members, training plans, booking surfaces, clinical notes, and achievements.",
+                  )}
+                  icon={<Dumbbell className="size-5 text-indigo-600" />}
+                  disabled={loading !== null}
+                  onSelect={handleProjectSelect}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-10 w-full justify-center text-slate-600 hover:bg-white/60 hover:text-slate-950"
+                  onClick={resetToAuth}
+                  disabled={loading !== null}
+                >
+                  <ArrowLeft className="size-4" />
+                  {t("Use a different account")}
+                </Button>
               </div>
             ) : null}
-          </div>
 
-          {notice ? (
-            <Notice
-              notice={notice}
-              onDismiss={() => setNotice(null)}
-              t={t}
-              compact={isPatientPortal}
-            />
-          ) : null}
-
-          {phase === "select" && pendingAuth ? (
-            <div className="space-y-4">
-              <ProjectOption
-                project="mydnamap"
-                title="PocketGenes"
-                body={t("Genomics reports, learning content, community moderation, and account records.")}
-                icon={<Dna className="size-5 text-rose-600" />}
-                disabled={loading !== null}
-                onSelect={handleProjectSelect}
-              />
-              <ProjectOption
-                project="pocket-gyms"
-                title="Pocket Gyms"
-                body={t("Members, training plans, booking surfaces, clinical notes, and achievements.")}
-                icon={<Dumbbell className="size-5 text-indigo-600" />}
-                disabled={loading !== null}
-                onSelect={handleProjectSelect}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-10 w-full justify-center text-slate-600 hover:bg-white/60 hover:text-slate-950"
-                onClick={resetToAuth}
-                disabled={loading !== null}
+            {phase === "auth" ? (
+              <div
+                className={
+                  patientPortalSecurityKeyStep
+                    ? "mx-auto w-full max-w-md space-y-6 text-center"
+                    : "space-y-5"
+                }
               >
-                <ArrowLeft className="size-4" />
-                {t("Use a different account")}
-              </Button>
-            </div>
-          ) : null}
-
-          {phase === "auth" ? (
-            <div
-              className={
-                patientPortalSecurityKeyStep
-                  ? "mx-auto w-full max-w-md space-y-6 text-center"
-                  : "space-y-5"
-              }
-            >
                 {!patientPortalSecurityKeyStep ? (
                   <>
                     <Button
@@ -2579,8 +2737,12 @@ export function LoginExperience({
                 ) : null}
 
                 <form
-                  className={patientPortalSecurityKeyStep ? "space-y-6" : "space-y-4"}
-                  onSubmit={emailPasswordReady ? handleEmailSignIn : handleEmailContinue}
+                  className={
+                    patientPortalSecurityKeyStep ? "space-y-6" : "space-y-4"
+                  }
+                  onSubmit={
+                    emailPasswordReady ? handleEmailSignIn : handleEmailContinue
+                  }
                 >
                   {patientPortalSecurityKeyStep ? (
                     <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-5 py-6 shadow-sm">
@@ -2633,7 +2795,7 @@ export function LoginExperience({
                             {t("Your security key was sent to you by email.")}
                           </span>{" "}
                           {t(
-                            "If you did not receive it, ask your doctor to send it again."
+                            "If you did not receive it, ask your doctor to send it again.",
                           )}
                         </p>
                       </div>
@@ -2646,11 +2808,13 @@ export function LoginExperience({
                         helper={
                           isPatientPortal
                             ? undefined
-                            : emailPasswordReady
-                              ? t(
-                                  "Email checked. Use Change email to choose a different account."
-                                )
-                              : t("Use the email that has backoffice access.")
+                            : isExclusivePortal
+                              ? undefined
+                              : emailPasswordReady
+                                ? t(
+                                    "Email checked. Use Change email to choose a different account.",
+                                  )
+                                : t("Use the email that has backoffice access.")
                         }
                         icon={<Mail className="size-4" />}
                       >
@@ -2667,12 +2831,12 @@ export function LoginExperience({
                             setNotice(null);
                           }}
                           placeholder={
-                            isPatientPortal
+                            isExclusivePortal
                               ? "name@example.com"
                               : "team@pocketgenes.app"
                           }
                           aria-describedby={
-                            isPatientPortal ? undefined : "login-email-helper"
+                            isExclusivePortal ? undefined : "login-email-helper"
                           }
                           readOnly={emailPasswordReady}
                           required
@@ -2700,10 +2864,10 @@ export function LoginExperience({
                             id="login-password"
                             label={t("Password")}
                             helper={
-                              isPatientPortal
+                              isExclusivePortal
                                 ? undefined
                                 : t(
-                                    "Enter the password for this approved email account."
+                                    "Enter the password for this approved email account.",
                                   )
                             }
                             icon={<LockKeyhole className="size-4" />}
@@ -2712,12 +2876,16 @@ export function LoginExperience({
                               id="login-password"
                               autoComplete="current-password"
                               value={password}
-                              onChange={(event) => setPassword(event.target.value)}
+                              onChange={(event) =>
+                                setPassword(event.target.value)
+                              }
                               placeholder={t("Password")}
                               describedBy={
                                 isPatientPortal
                                   ? "patient-temporary-password-notice"
-                                  : "login-password-helper"
+                                  : isExclusivePortal
+                                    ? undefined
+                                    : "login-password-helper"
                               }
                               visible={showPassword}
                               onToggleVisibility={() =>
@@ -2736,10 +2904,12 @@ export function LoginExperience({
                               <Mail className="mt-0.5 size-4 shrink-0 text-blue-600" />
                               <p>
                                 <span className="font-semibold">
-                                  {t("Your security key was sent to you by email.")}
+                                  {t(
+                                    "Your security key was sent to you by email.",
+                                  )}
                                 </span>{" "}
                                 {t(
-                                  "If you did not receive it, ask your doctor to send it again."
+                                  "If you did not receive it, ask your doctor to send it again.",
                                 )}
                               </p>
                             </div>
@@ -2800,139 +2970,166 @@ export function LoginExperience({
                       ) : (
                         <ChevronRight className="size-4" />
                       )}
-                      {loading === "email-check" ? t("Checking email...") : t("Continue")}
+                      {loading === "email-check"
+                        ? t("Checking email...")
+                        : t("Continue")}
                     </Button>
                   )}
                 </form>
-            </div>
-          ) : null}
+              </div>
+            ) : null}
 
-          {phase === "signup-email" ? (
-            <div className="space-y-5">
-              {!isPatientPortal ? (
-                <div className="auth-login-glass rounded-2xl p-4 text-sm leading-6 text-slate-700">
-                  {t(
-                    "This is a new-user setup flow, not open registration. We check the email against the backend allowlist and active role assignments before creating anything."
-                  )}
-                </div>
-              ) : null}
-
-              <form className="space-y-4" onSubmit={handleSignupEligibility}>
-                <FieldShell
-                  id="signup-email"
-                  label={t("Invited email")}
-                  helper={
-                    isPatientPortal
-                      ? undefined
-                      : t("Enter the exact email a full admin approved for backoffice access.")
-                  }
-                  icon={<Mail className="size-4" />}
-                >
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    autoComplete="email"
-                    value={signupEmail}
-                    onChange={(event) => setSignupEmail(event.target.value)}
-                    placeholder={isPatientPortal ? "name@example.com" : "admin@institution.com"}
-                    aria-describedby={isPatientPortal ? undefined : "signup-email-helper"}
-                    required
-                    className="h-11 rounded-xl border-slate-900/10 bg-white/78 px-4 text-slate-950 shadow-inner shadow-white/30 placeholder:text-slate-400"
-                  />
-                </FieldShell>
-
-                <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={resetToAuth}
-                    className="h-11 rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950"
-                  >
-                    <ArrowLeft className="size-4" />
-                    {t("Back")}
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={loading !== null}
-                    className="h-11 justify-center rounded-xl"
-                  >
-                    {loading === "signup-email" ? <LoadingIcon /> : <ChevronRight className="size-4" />}
-                    {loading === "signup-email"
-                      ? t("Checking access...")
-                      : isPatientPortal
-                        ? t("Continue")
-                        : t("Check access first")}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          ) : null}
-
-          {phase === "signup-password" && signupEligibility ? (
-            <div className="space-y-5">
-              <form className="space-y-4" onSubmit={handleEmailAccountCreation}>
-                <FieldShell
-                  id="signup-password"
-                  label={t("New password")}
-                  helper={
-                    isPatientPortal
-                      ? undefined
-                      : t("Use at least 6 characters. You will be signed in after the account is created.")
-                  }
-                  icon={<KeyRound className="size-4" />}
-                >
-                  <PasswordInput
-                    id="signup-password"
-                    autoComplete="new-password"
-                    value={signupPassword}
-                    onChange={(event) => setSignupPassword(event.target.value)}
-                    placeholder={t("Choose a password")}
-                    minLength={6}
-                    describedBy={isPatientPortal ? undefined : "signup-password-helper"}
-                    visible={showSignupPassword}
-                    onToggleVisibility={() =>
-                      setShowSignupPassword((current) => !current)
-                    }
-                    showLabel={t("Show password")}
-                    hideLabel={t("Hide password")}
-                  />
-                </FieldShell>
-
-                <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setPhase("signup-email");
-                      setNotice(null);
-                      setShowSignupPassword(false);
-                    }}
-                    className="h-11 rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950"
-                  >
-                    <ArrowLeft className="size-4" />
-                    {t("Back")}
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={loading !== null || signupPassword.trim().length < 6}
-                    className="h-11 justify-center rounded-xl"
-                  >
-                    {loading === "signup-password" ? (
-                      <LoadingIcon />
-                    ) : (
-                      <UserPlus className="size-4" />
+            {phase === "signup-email" ? (
+              <div className="space-y-5">
+                {!isExclusivePortal ? (
+                  <div className="auth-login-glass rounded-2xl p-4 text-sm leading-6 text-slate-700">
+                    {t(
+                      "This is a new-user setup flow, not open registration. We check the email against the backend allowlist and active role assignments before creating anything.",
                     )}
-                    {loading === "signup-password" ? t("Creating account...") : t("Create account")}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          ) : null}
-          {isPatientPortal ? (
-            <div className="pt-2 text-center">
-              <VersionPill surface={surface} />
-            </div>
-          ) : null}
+                  </div>
+                ) : null}
+
+                <form className="space-y-4" onSubmit={handleSignupEligibility}>
+                  <FieldShell
+                    id="signup-email"
+                    label={t("Invited email")}
+                    helper={
+                      isExclusivePortal
+                        ? undefined
+                        : t(
+                            "Enter the exact email a full admin approved for backoffice access.",
+                          )
+                    }
+                    icon={<Mail className="size-4" />}
+                  >
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      autoComplete="email"
+                      value={signupEmail}
+                      onChange={(event) => setSignupEmail(event.target.value)}
+                      placeholder={
+                        isExclusivePortal
+                          ? "name@example.com"
+                          : "admin@institution.com"
+                      }
+                      aria-describedby={
+                        isExclusivePortal ? undefined : "signup-email-helper"
+                      }
+                      required
+                      className="h-11 rounded-xl border-slate-900/10 bg-white/78 px-4 text-slate-950 shadow-inner shadow-white/30 placeholder:text-slate-400"
+                    />
+                  </FieldShell>
+
+                  <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={resetToAuth}
+                      className="h-11 rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950"
+                    >
+                      <ArrowLeft className="size-4" />
+                      {t("Back")}
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={loading !== null}
+                      className="h-11 justify-center rounded-xl"
+                    >
+                      {loading === "signup-email" ? (
+                        <LoadingIcon />
+                      ) : (
+                        <ChevronRight className="size-4" />
+                      )}
+                      {loading === "signup-email"
+                        ? t("Checking access...")
+                        : isExclusivePortal
+                          ? t("Continue")
+                          : t("Check access first")}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            ) : null}
+
+            {phase === "signup-password" && signupEligibility ? (
+              <div className="space-y-5">
+                <form
+                  className="space-y-4"
+                  onSubmit={handleEmailAccountCreation}
+                >
+                  <FieldShell
+                    id="signup-password"
+                    label={t("New password")}
+                    helper={
+                      isExclusivePortal
+                        ? undefined
+                        : t(
+                            "Use at least 6 characters. You will be signed in after the account is created.",
+                          )
+                    }
+                    icon={<KeyRound className="size-4" />}
+                  >
+                    <PasswordInput
+                      id="signup-password"
+                      autoComplete="new-password"
+                      value={signupPassword}
+                      onChange={(event) =>
+                        setSignupPassword(event.target.value)
+                      }
+                      placeholder={t("Choose a password")}
+                      minLength={6}
+                      describedBy={
+                        isExclusivePortal ? undefined : "signup-password-helper"
+                      }
+                      visible={showSignupPassword}
+                      onToggleVisibility={() =>
+                        setShowSignupPassword((current) => !current)
+                      }
+                      showLabel={t("Show password")}
+                      hideLabel={t("Hide password")}
+                    />
+                  </FieldShell>
+
+                  <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setPhase("signup-email");
+                        setNotice(null);
+                        setShowSignupPassword(false);
+                      }}
+                      className="h-11 rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950"
+                    >
+                      <ArrowLeft className="size-4" />
+                      {t("Back")}
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={
+                        loading !== null || signupPassword.trim().length < 6
+                      }
+                      className="h-11 justify-center rounded-xl"
+                    >
+                      {loading === "signup-password" ? (
+                        <LoadingIcon />
+                      ) : (
+                        <UserPlus className="size-4" />
+                      )}
+                      {loading === "signup-password"
+                        ? t("Creating account...")
+                        : t("Create account")}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            ) : null}
+            {isExclusivePortal ? (
+              <div className="pt-2 text-center">
+                <VersionPill surface={surface} />
+              </div>
+            ) : null}
           </section>
         </section>
       </div>

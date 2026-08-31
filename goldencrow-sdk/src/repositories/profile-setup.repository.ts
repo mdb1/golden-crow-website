@@ -10,6 +10,7 @@ import type { UserRecord } from "firebase-admin/auth";
 import {
   getBackofficeEmailAccess,
   normalizeRoleEmail,
+  resolveRequiredAuthSurfaceForEmailAccess,
 } from "./roles.repository.js";
 import type { AdminRole, ProjectKey } from "../types/sdk.types.js";
 import type { AuthSurface } from "../lib/access-surfaces.js";
@@ -31,6 +32,7 @@ export interface EmailSignupEligibility {
   viaRoleAssignment: boolean;
   canAccessBackoffice: boolean;
   canAccessPatientPortal: boolean;
+  canAccessPGFlex: boolean;
   requiredSurface?: AuthSurface;
   role?: AdminRole;
   accountExists: boolean;
@@ -81,7 +83,7 @@ export interface CompleteProfileSetupInput {
 class ProfileSetupError extends Error {
   constructor(
     message: string,
-    public readonly statusCode: number
+    public readonly statusCode: number,
   ) {
     super(message);
     this.name = "ProfileSetupError";
@@ -126,7 +128,9 @@ function getStringArray(value: unknown) {
 }
 
 function getNumber(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function getStatsRecord(data: RecordData) {
@@ -140,7 +144,7 @@ function getStatsRecord(data: RecordData) {
     total_replies: readValue("stats.total_replies", "total_replies"),
     aminoacids_collected: readValue(
       "stats.aminoacids_collected",
-      "aminoacids_collected"
+      "aminoacids_collected",
     ),
     lessons_learned: readValue("stats.lessons_learned", "lessons_learned"),
   };
@@ -205,7 +209,10 @@ function validateCompleteProfileInput(input: CompleteProfileSetupInput) {
   }
 
   if (fullName.length > 100) {
-    throw new ProfileSetupError("Full name must be 100 characters or fewer.", 400);
+    throw new ProfileSetupError(
+      "Full name must be 100 characters or fewer.",
+      400,
+    );
   }
 
   if (!input.iconName.trim()) {
@@ -216,7 +223,10 @@ function validateCompleteProfileInput(input: CompleteProfileSetupInput) {
     throw new ProfileSetupError("Choose a valid icon color.", 400);
   }
 
-  if (input.ownerContactNumber?.trim() && !PHONE_PATTERN.test(input.ownerContactNumber.trim())) {
+  if (
+    input.ownerContactNumber?.trim() &&
+    !PHONE_PATTERN.test(input.ownerContactNumber.trim())
+  ) {
     throw new ProfileSetupError("Use a valid contact number.", 400);
   }
 
@@ -252,7 +262,7 @@ async function usernameIsReservedByAnotherUser(username: string, uid: string) {
   ]);
 
   return [communitySnapshot, publicSnapshot].some((snapshot) =>
-    snapshot.docs.some((doc) => doc.id !== uid)
+    snapshot.docs.some((doc) => doc.id !== uid),
   );
 }
 
@@ -303,7 +313,8 @@ export async function getEmailSignupEligibility(
     ...new Set(
       authUser?.providerData
         .map((provider) => provider.providerId)
-        .filter((providerId): providerId is string => Boolean(providerId)) ?? []
+        .filter((providerId): providerId is string => Boolean(providerId)) ??
+        [],
     ),
   ].sort();
 
@@ -312,19 +323,20 @@ export async function getEmailSignupEligibility(
     eligible:
       surface === "patient-portal"
         ? access.canAccessPatientPortal
-        : access.canAccessBackoffice,
+        : surface === "pgflex"
+          ? access.canAccessPGFlex
+          : access.canAccessBackoffice,
     viaAllowlist: access.viaAllowlist,
     viaRoleAssignment:
       surface === "patient-portal"
         ? access.canAccessPatientPortal
-        : access.viaRoleAssignment,
+        : surface === "pgflex"
+          ? access.canAccessPGFlex
+          : access.viaRoleAssignment,
     canAccessBackoffice: access.canAccessBackoffice,
     canAccessPatientPortal: access.canAccessPatientPortal,
-    requiredSurface: access.canAccessBackoffice
-      ? "backoffice"
-      : access.canAccessPatientPortal
-        ? "patient-portal"
-        : undefined,
+    canAccessPGFlex: access.canAccessPGFlex,
+    requiredSurface: resolveRequiredAuthSurfaceForEmailAccess(access),
     role: access.roleRecord?.role,
     accountExists: Boolean(authUser),
     accountHasGoogle: signInProviders.includes(GOOGLE_PROVIDER_ID),
@@ -347,15 +359,17 @@ export async function createEligibleEmailAccount(input: {
     throw new ProfileSetupError(
       input.surface === "patient-portal"
         ? "This email does not have patient portal access yet."
-        : "This email does not have backoffice access yet.",
-      403
+        : input.surface === "pgflex"
+          ? "This email does not have PGFlex access yet."
+          : "This email does not have backoffice access yet.",
+      403,
     );
   }
 
   if (eligibility.accountExists) {
     throw new ProfileSetupError(
       "An account already exists for this email. Sign in with email instead.",
-      409
+      409,
     );
   }
 
@@ -377,14 +391,17 @@ export async function createEligibleEmailAccount(input: {
     if (code === "auth/email-already-exists") {
       throw new ProfileSetupError(
         "An account already exists for this email. Sign in with email instead.",
-        409
+        409,
       );
     }
 
-    if (code === "auth/invalid-password" || code === "auth/password-does-not-meet-requirements") {
+    if (
+      code === "auth/invalid-password" ||
+      code === "auth/password-does-not-meet-requirements"
+    ) {
       throw new ProfileSetupError(
         "Password does not meet Firebase requirements.",
-        400
+        400,
       );
     }
 
@@ -398,16 +415,21 @@ export async function createEligibleEmailAccount(input: {
 }
 
 export async function getProfileSetupState(
-  uid: string
+  uid: string,
 ): Promise<ProfileSetupState> {
-  const [authUser, profileSnap, publicProfileSnap, communityUserSnap, reportOwnerSnap] =
-    await Promise.all([
-      adminAuth.getUser(uid).catch(() => null),
-      adminDb.collection("profiles").doc(uid).get(),
-      adminDb.collection("public_profiles").doc(uid).get(),
-      adminDb.collection("community_users").doc(uid).get(),
-      adminDb.collection("report_owners").doc(uid).get(),
-    ]);
+  const [
+    authUser,
+    profileSnap,
+    publicProfileSnap,
+    communityUserSnap,
+    reportOwnerSnap,
+  ] = await Promise.all([
+    adminAuth.getUser(uid).catch(() => null),
+    adminDb.collection("profiles").doc(uid).get(),
+    adminDb.collection("public_profiles").doc(uid).get(),
+    adminDb.collection("community_users").doc(uid).get(),
+    adminDb.collection("report_owners").doc(uid).get(),
+  ]);
 
   if (!authUser) {
     throw new ProfileSetupError("Authenticated user not found.", 404);
@@ -418,7 +440,8 @@ export async function getProfileSetupState(
   const communityUserData = getRecord(communityUserSnap.data());
   const reportOwnerData = getRecord(reportOwnerSnap.data());
 
-  const onboardingCompleted = getBoolean(profileData.onboardingCompleted) ?? false;
+  const onboardingCompleted =
+    getBoolean(profileData.onboardingCompleted) ?? false;
   const fullName =
     pickFirstString(publicProfileData, ["fullName", "full_name"]) ||
     pickFirstString(reportOwnerData, ["owner_name", "ownerName"]) ||
@@ -497,9 +520,16 @@ export async function completePatientProfileSetup(
   }
 
   const patientData = getRecord(patientSnap.data());
-  const fullName = pickFirstString(patientData, ["fullName", "full_name", "name"]);
+  const fullName = pickFirstString(patientData, [
+    "fullName",
+    "full_name",
+    "name",
+  ]);
   if (!fullName) {
-    throw new ProfileSetupError("The linked patient does not have a full name.", 400);
+    throw new ProfileSetupError(
+      "The linked patient does not have a full name.",
+      400,
+    );
   }
 
   return completeProfileSetup(
@@ -512,18 +542,23 @@ export async function completePatientProfileSetup(
 export async function completeProfileSetup(
   uid: string,
   role: AdminRole,
-  input: CompleteProfileSetupInput
+  input: CompleteProfileSetupInput,
 ): Promise<ProfileSetupState> {
   validateCompleteProfileInput(input);
 
-  const [authUser, profileSnap, publicProfileSnap, communityUserSnap, reportOwnerSnap] =
-    await Promise.all([
-      adminAuth.getUser(uid).catch(() => null),
-      adminDb.collection("profiles").doc(uid).get(),
-      adminDb.collection("public_profiles").doc(uid).get(),
-      adminDb.collection("community_users").doc(uid).get(),
-      adminDb.collection("report_owners").doc(uid).get(),
-    ]);
+  const [
+    authUser,
+    profileSnap,
+    publicProfileSnap,
+    communityUserSnap,
+    reportOwnerSnap,
+  ] = await Promise.all([
+    adminAuth.getUser(uid).catch(() => null),
+    adminDb.collection("profiles").doc(uid).get(),
+    adminDb.collection("public_profiles").doc(uid).get(),
+    adminDb.collection("community_users").doc(uid).get(),
+    adminDb.collection("report_owners").doc(uid).get(),
+  ]);
 
   if (!authUser || !authUser.email) {
     throw new ProfileSetupError("Authenticated user not found.", 404);
@@ -564,7 +599,7 @@ export async function completeProfileSetup(
       createdAt: pickFirstString(profileData, ["createdAt"]) || now,
       updatedAt: now,
     },
-    { merge: true }
+    { merge: true },
   );
 
   batch.set(
@@ -572,8 +607,10 @@ export async function completeProfileSetup(
     {
       username,
       email: authUser.email,
-      is_activity_public: getBoolean(communityUserData.is_activity_public) ?? false,
-      is_clinician: getBoolean(communityUserData.is_clinician) ?? role !== "patient",
+      is_activity_public:
+        getBoolean(communityUserData.is_activity_public) ?? false,
+      is_clinician:
+        getBoolean(communityUserData.is_clinician) ?? role !== "patient",
       iconName,
       iconColorHex,
       owned_reports: getStringArray(communityUserData.owned_reports),
@@ -581,7 +618,7 @@ export async function completeProfileSetup(
       createdAt: pickFirstString(communityUserData, ["createdAt"]) || now,
       updatedAt: now,
     },
-    { merge: true }
+    { merge: true },
   );
 
   batch.set(
@@ -601,16 +638,14 @@ export async function completeProfileSetup(
       date_created: pickFirstString(publicProfileData, ["date_created"]) || now,
       date_modified: now,
     },
-    { merge: true }
+    { merge: true },
   );
 
   batch.set(
     adminDb.collection("report_owners").doc(uid),
     {
-      accepted_terms:
-        getBoolean(reportOwnerData.accepted_terms) ?? false,
-      accepted_terms_at:
-        reportOwnerData.accepted_terms_at ?? null,
+      accepted_terms: getBoolean(reportOwnerData.accepted_terms) ?? false,
+      accepted_terms_at: reportOwnerData.accepted_terms_at ?? null,
       owner_name: fullName,
       owner_contact_email: authUser.email,
       owner_profession: ownerProfession || null,
@@ -620,7 +655,7 @@ export async function completeProfileSetup(
       createdAt: pickFirstString(reportOwnerData, ["createdAt"]) || now,
       updatedAt: now,
     },
-    { merge: true }
+    { merge: true },
   );
 
   await batch.commit();
@@ -629,6 +664,8 @@ export async function completeProfileSetup(
   return getProfileSetupState(uid);
 }
 
-export function isProfileSetupError(error: unknown): error is ProfileSetupError {
+export function isProfileSetupError(
+  error: unknown,
+): error is ProfileSetupError {
   return error instanceof ProfileSetupError;
 }

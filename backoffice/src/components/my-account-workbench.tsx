@@ -238,7 +238,9 @@ function SectionShell({
   className?: string;
 }) {
   return (
-    <section className={cn("glass-panel flex flex-col gap-4 px-5 py-4", className)}>
+    <section
+      className={cn("glass-panel flex flex-col gap-4 px-5 py-4", className)}
+    >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -347,7 +349,11 @@ function StatusItem({
             : "bg-destructive/10 text-destructive",
         )}
       >
-        {ok ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+        {ok ? (
+          <CheckCircle2 className="h-4 w-4" />
+        ) : (
+          <XCircle className="h-4 w-4" />
+        )}
       </div>
       <div className="min-w-0">
         <p
@@ -467,15 +473,21 @@ export function MyAccountWorkbench({
   const displayName = primaryAccountName(account);
   const currentScope = scopeText(account);
   const providerNames =
-    account.auth.providerData.map((provider) => providerLabel(provider.providerId)).join(", ") ||
-    undefined;
+    account.auth.providerData
+      .map((provider) => providerLabel(provider.providerId))
+      .join(", ") || undefined;
   const roleCapabilityLines = ROLE_CAPABILITY_LINES[account.context.role] ?? [];
   const isPatientPortalView =
     !showDiagnostics &&
     account.context.canAccessPatientPortal &&
-    !account.context.canAccessBackoffice;
+    !account.context.canAccessBackoffice &&
+    !account.context.canAccessPGFlex;
+  const isPortalAccountView =
+    !showDiagnostics &&
+    !account.context.canAccessBackoffice &&
+    (account.context.canAccessPatientPortal || account.context.canAccessPGFlex);
   const t = (text: string) =>
-    isPatientPortalView ? appText("es", text) : text;
+    isPortalAccountView ? appText("es", text) : text;
 
   function validateEmailCandidate(showSuccess = true) {
     if (!canChangeEmail) {
@@ -657,7 +669,7 @@ export function MyAccountWorkbench({
       setToast({
         id: Date.now(),
         tone: "success",
-        message: isPatientPortalView
+        message: isPortalAccountView
           ? `Firebase envió un email de verificación a ${account.auth.email}.`
           : `Firebase sent a verification email to ${account.auth.email}.`,
         durationMs: 6500,
@@ -678,14 +690,15 @@ export function MyAccountWorkbench({
 
   const hasActiveSurfaceAccess =
     account.context.canAccessBackoffice ||
-    account.context.canAccessPatientPortal;
+    account.context.canAccessPatientPortal ||
+    account.context.canAccessPGFlex;
 
   return (
     <div className="flex flex-col gap-5">
       <ActionToast
         toast={toast}
         onDismiss={() => setToast(null)}
-        language={isPatientPortalView ? "es" : "en"}
+        language={isPortalAccountView ? "es" : "en"}
       />
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
@@ -779,7 +792,9 @@ export function MyAccountWorkbench({
                 variant="outline"
                 size="sm"
                 onClick={() => setRoleState(sourceRoleState)}
-                disabled={!roleChanged || pendingRoleSave || !canEditRoleProfile}
+                disabled={
+                  !roleChanged || pendingRoleSave || !canEditRoleProfile
+                }
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 {t("Reset")}
@@ -803,7 +818,8 @@ export function MyAccountWorkbench({
         >
           {!canEditRoleProfile ? (
             <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2.5 text-sm text-amber-800 dark:text-amber-100">
-              Bootstrap allowlist assignments are managed by environment configuration.
+              Bootstrap allowlist assignments are managed by environment
+              configuration.
             </div>
           ) : null}
 
@@ -813,9 +829,7 @@ export function MyAccountWorkbench({
               label={t("Display name")}
               helper={t("Optional name shown on this role assignment.")}
               error={
-                roleErrors.displayName
-                  ? t(roleErrors.displayName)
-                  : undefined
+                roleErrors.displayName ? t(roleErrors.displayName) : undefined
               }
               count={`${rolePayload(roleState).displayName.length}/${DISPLAY_NAME_MAX_LENGTH}`}
             >
@@ -838,9 +852,7 @@ export function MyAccountWorkbench({
               label={t("Contact phone")}
               helper={t("Optional phone number for operational contact.")}
               error={
-                roleErrors.contactPhone
-                  ? t(roleErrors.contactPhone)
-                  : undefined
+                roleErrors.contactPhone ? t(roleErrors.contactPhone) : undefined
               }
               count={`${rolePayload(roleState).contactPhone.length}/${CONTACT_PHONE_MAX_LENGTH}`}
             >
@@ -985,193 +997,268 @@ export function MyAccountWorkbench({
             icon={<ShieldCheck className="h-4 w-4" />}
             title="Access & Permissions"
           >
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <ReadOnlyField
-            label="Role email"
-            value={account.role?.email ?? account.context.email}
-            mono
-          />
-          <ReadOnlyField
-            label="Role"
-            value={
-              account.role
-                ? ADMIN_ROLE_LABELS[account.role.role]
-                : ADMIN_ROLE_LABELS[account.context.role]
-            }
-          />
-          <ReadOnlyField
-            label="Role status"
-            value={account.role?.isActive ?? hasActiveSurfaceAccess}
-          />
-          <ReadOnlyField label="Scope" value={currentScope} />
-          <ReadOnlyField label="Organization id" value={account.role?.organizationId} mono />
-          <ReadOnlyField label="Individual publisher id" value={account.role?.individualId} mono />
-          <ReadOnlyField label="Institution id" value={account.role?.institutionId} mono />
-          <ReadOnlyField label="Doctor id" value={account.role?.doctorId} mono />
-          <ReadOnlyField label="Patient id" value={account.role?.patientId} mono />
-          <ReadOnlyField label="Created by" value={account.role?.createdByEmail} mono />
-          <ReadOnlyField label="Role created" value={formatDate(account.role?.createdAt)} />
-          <ReadOnlyField label="Role updated" value={formatDate(account.role?.updatedAt)} />
-          <ReadOnlyField
-            label="Bootstrap"
-            value={account.role?.bootstrap ?? account.context.isBootstrap}
-          />
-          <ReadOnlyField
-            label="Patient portal access"
-            value={account.context.canAccessPatientPortal}
-          />
-          <ReadOnlyField
-            label="Project access"
-            value={
-              account.context.projectAccess.length
-                ? account.context.projectAccess.join(", ")
-                : undefined
-            }
-            wide
-          />
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-          <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={getRoleBadgeVariant(account.context.role)}>
-                {ADMIN_ROLE_LABELS[account.context.role]}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                {ADMIN_ROLE_DESCRIPTIONS[account.context.role]}
-              </span>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <ReadOnlyField
+                label="Role email"
+                value={account.role?.email ?? account.context.email}
+                mono
+              />
+              <ReadOnlyField
+                label="Role"
+                value={
+                  account.role
+                    ? ADMIN_ROLE_LABELS[account.role.role]
+                    : ADMIN_ROLE_LABELS[account.context.role]
+                }
+              />
+              <ReadOnlyField
+                label="Role status"
+                value={account.role?.isActive ?? hasActiveSurfaceAccess}
+              />
+              <ReadOnlyField label="Scope" value={currentScope} />
+              <ReadOnlyField
+                label="Organization id"
+                value={account.role?.organizationId}
+                mono
+              />
+              <ReadOnlyField
+                label="Individual publisher id"
+                value={account.role?.individualId}
+                mono
+              />
+              <ReadOnlyField
+                label="Institution id"
+                value={account.role?.institutionId}
+                mono
+              />
+              <ReadOnlyField
+                label="Doctor id"
+                value={account.role?.doctorId}
+                mono
+              />
+              <ReadOnlyField
+                label="Patient id"
+                value={account.role?.patientId}
+                mono
+              />
+              <ReadOnlyField
+                label="Created by"
+                value={account.role?.createdByEmail}
+                mono
+              />
+              <ReadOnlyField
+                label="Role created"
+                value={formatDate(account.role?.createdAt)}
+              />
+              <ReadOnlyField
+                label="Role updated"
+                value={formatDate(account.role?.updatedAt)}
+              />
+              <ReadOnlyField
+                label="Bootstrap"
+                value={account.role?.bootstrap ?? account.context.isBootstrap}
+              />
+              <ReadOnlyField
+                label="Patient portal access"
+                value={account.context.canAccessPatientPortal}
+              />
+              <ReadOnlyField
+                label="PGFlex access"
+                value={account.context.canAccessPGFlex}
+              />
+              <ReadOnlyField
+                label="Project access"
+                value={
+                  account.context.projectAccess.length
+                    ? account.context.projectAccess.join(", ")
+                    : undefined
+                }
+                wide
+              />
             </div>
-            <div className="mt-3 grid gap-2">
-              {roleCapabilityLines.map((line) => (
-                <div
-                  key={line}
-                  className="rounded-lg border border-border/70 bg-background/70 px-3 py-2 text-sm text-foreground"
-                >
-                  {line}
+
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+              <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={getRoleBadgeVariant(account.context.role)}>
+                    {ADMIN_ROLE_LABELS[account.context.role]}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {ADMIN_ROLE_DESCRIPTIONS[account.context.role]}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="mt-3 grid gap-2">
+                  {roleCapabilityLines.map((line) => (
+                    <div
+                      key={line}
+                      className="rounded-lg border border-border/70 bg-background/70 px-3 py-2 text-sm text-foreground"
+                    >
+                      {line}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-          <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-3">
-            <p className="text-sm font-medium text-foreground">Capability keys</p>
-            <div className="mt-3 grid gap-2 md:grid-cols-2">
-              {account.capabilities.length > 0 ? (
-                account.capabilities.map((capability) => (
-                  <div
-                    key={capability}
-                    className="rounded-lg border border-border/70 bg-background/70 px-3 py-2 font-mono text-xs text-muted-foreground"
-                  >
-                    {capability}
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No capability keys returned.
+              <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-3">
+                <p className="text-sm font-medium text-foreground">
+                  Capability keys
                 </p>
-              )}
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  {account.capabilities.length > 0 ? (
+                    account.capabilities.map((capability) => (
+                      <div
+                        key={capability}
+                        className="rounded-lg border border-border/70 bg-background/70 px-3 py-2 font-mono text-xs text-muted-foreground"
+                      >
+                        {capability}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No capability keys returned.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
           </SectionShell>
 
           <SectionShell
             icon={<Fingerprint className="h-4 w-4" />}
             title="Firebase Identity"
           >
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <ReadOnlyField label="Firebase uid" value={account.auth.uid} mono />
-          <ReadOnlyField label="Firebase email" value={account.auth.email} mono />
-          <ReadOnlyField label="Auth display name" value={account.auth.displayName} />
-          <ReadOnlyField label="Auth phone" value={account.auth.phoneNumber} />
-          <ReadOnlyField label="Photo URL" value={account.auth.photoURL} mono wide />
-          <ReadOnlyField label="Tenant id" value={account.auth.tenantId} mono />
-          <ReadOnlyField
-            label="Created"
-            value={formatDate(account.auth.metadata.creationTime)}
-          />
-          <ReadOnlyField
-            label="Last sign-in"
-            value={formatDate(account.auth.metadata.lastSignInTime)}
-          />
-          <ReadOnlyField
-            label="Last refresh"
-            value={formatDate(account.auth.metadata.lastRefreshTime)}
-          />
-          <ReadOnlyField
-            label="Tokens valid after"
-            value={formatDate(account.auth.tokensValidAfterTime)}
-          />
-          <ReadOnlyField label="Profile full name" value={account.profile?.fullName} />
-          <ReadOnlyField
-            label="Onboarding complete"
-            value={account.profile?.onboardingCompleted}
-          />
-          <ReadOnlyField
-            label="Onboarding needs completion"
-            value={account.profile?.needsCompletion}
-          />
-          <ReadOnlyField label="Sign-in providers" value={providerNames} />
-        </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <ReadOnlyField
+                label="Firebase uid"
+                value={account.auth.uid}
+                mono
+              />
+              <ReadOnlyField
+                label="Firebase email"
+                value={account.auth.email}
+                mono
+              />
+              <ReadOnlyField
+                label="Auth display name"
+                value={account.auth.displayName}
+              />
+              <ReadOnlyField
+                label="Auth phone"
+                value={account.auth.phoneNumber}
+              />
+              <ReadOnlyField
+                label="Photo URL"
+                value={account.auth.photoURL}
+                mono
+                wide
+              />
+              <ReadOnlyField
+                label="Tenant id"
+                value={account.auth.tenantId}
+                mono
+              />
+              <ReadOnlyField
+                label="Created"
+                value={formatDate(account.auth.metadata.creationTime)}
+              />
+              <ReadOnlyField
+                label="Last sign-in"
+                value={formatDate(account.auth.metadata.lastSignInTime)}
+              />
+              <ReadOnlyField
+                label="Last refresh"
+                value={formatDate(account.auth.metadata.lastRefreshTime)}
+              />
+              <ReadOnlyField
+                label="Tokens valid after"
+                value={formatDate(account.auth.tokensValidAfterTime)}
+              />
+              <ReadOnlyField
+                label="Profile full name"
+                value={account.profile?.fullName}
+              />
+              <ReadOnlyField
+                label="Onboarding complete"
+                value={account.profile?.onboardingCompleted}
+              />
+              <ReadOnlyField
+                label="Onboarding needs completion"
+                value={account.profile?.needsCompletion}
+              />
+              <ReadOnlyField label="Sign-in providers" value={providerNames} />
+            </div>
           </SectionShell>
 
           <div className="grid gap-5 xl:grid-cols-2">
-            <SectionShell icon={<KeyRound className="h-4 w-4" />} title="Sign-In Providers">
-          <div className="grid gap-3">
-            {account.auth.providerData.length > 0 ? (
-              account.auth.providerData.map((provider) => (
-                <ProviderDetail
-                  key={`${provider.providerId}:${provider.uid}`}
-                  provider={provider}
-                />
-              ))
-            ) : (
-              <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-2.5 text-sm text-muted-foreground">
-                No provider records.
+            <SectionShell
+              icon={<KeyRound className="h-4 w-4" />}
+              title="Sign-In Providers"
+            >
+              <div className="grid gap-3">
+                {account.auth.providerData.length > 0 ? (
+                  account.auth.providerData.map((provider) => (
+                    <ProviderDetail
+                      key={`${provider.providerId}:${provider.uid}`}
+                      provider={provider}
+                    />
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-2.5 text-sm text-muted-foreground">
+                    No provider records.
+                  </div>
+                )}
               </div>
-            )}
-          </div>
             </SectionShell>
 
-            <SectionShell icon={<FileCheck2 className="h-4 w-4" />} title="Profile Documents">
-          <div className="grid gap-3">
-            <StatusItem
-              ok={Boolean(account.profile?.docs.profile)}
-              label="profiles/{uid}"
-              value={account.profile?.docs.profile ? "Document exists" : "Document not found"}
-            />
-            <StatusItem
-              ok={Boolean(account.profile?.docs.publicProfile)}
-              label="public_profiles/{uid}"
-              value={
-                account.profile?.docs.publicProfile
-                  ? "Document exists"
-                  : "Document not found"
-              }
-            />
-            <StatusItem
-              ok={Boolean(account.profile?.docs.communityUser)}
-              label="community_users/{uid}"
-              value={
-                account.profile?.docs.communityUser
-                  ? "Document exists"
-                  : "Document not found"
-              }
-            />
-            <StatusItem
-              ok={Boolean(account.profile?.docs.reportOwner)}
-              label="report_owners/{uid}"
-              value={
-                account.profile?.docs.reportOwner
-                  ? "Document exists"
-                  : "Document not found"
-              }
-            />
-          </div>
+            <SectionShell
+              icon={<FileCheck2 className="h-4 w-4" />}
+              title="Profile Documents"
+            >
+              <div className="grid gap-3">
+                <StatusItem
+                  ok={Boolean(account.profile?.docs.profile)}
+                  label="profiles/{uid}"
+                  value={
+                    account.profile?.docs.profile
+                      ? "Document exists"
+                      : "Document not found"
+                  }
+                />
+                <StatusItem
+                  ok={Boolean(account.profile?.docs.publicProfile)}
+                  label="public_profiles/{uid}"
+                  value={
+                    account.profile?.docs.publicProfile
+                      ? "Document exists"
+                      : "Document not found"
+                  }
+                />
+                <StatusItem
+                  ok={Boolean(account.profile?.docs.communityUser)}
+                  label="community_users/{uid}"
+                  value={
+                    account.profile?.docs.communityUser
+                      ? "Document exists"
+                      : "Document not found"
+                  }
+                />
+                <StatusItem
+                  ok={Boolean(account.profile?.docs.reportOwner)}
+                  label="report_owners/{uid}"
+                  value={
+                    account.profile?.docs.reportOwner
+                      ? "Document exists"
+                      : "Document not found"
+                  }
+                />
+              </div>
             </SectionShell>
           </div>
 
-          <SectionShell icon={<Braces className="h-4 w-4" />} title="Custom Claims">
+          <SectionShell
+            icon={<Braces className="h-4 w-4" />}
+            title="Custom Claims"
+          >
             <pre className="max-h-72 overflow-auto rounded-lg border border-border/80 bg-muted/50 px-4 py-3 font-mono text-xs text-muted-foreground">
               {customClaims}
             </pre>

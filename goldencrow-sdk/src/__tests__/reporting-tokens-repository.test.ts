@@ -241,6 +241,7 @@ const fullAdminContext = {
   isBootstrap: false,
   canAccessBackoffice: true,
   canAccessPatientPortal: false,
+  canAccessPGFlex: false,
   projectAccess: ["mydnamap" as const],
 };
 

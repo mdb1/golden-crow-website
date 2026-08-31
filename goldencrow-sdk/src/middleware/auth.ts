@@ -20,6 +20,15 @@ const PATIENT_PORTAL_SDK_PATHS = new Set([
   "/auth/profile-setup/patient",
 ]);
 
+const PGFLEX_SDK_PATHS = new Set([
+  "/auth/context",
+  "/auth/my-account",
+  "/auth/my-account/role",
+  "/auth/my-account/email",
+  "/auth/profile-setup",
+  "/pgflex/logistics",
+]);
+
 export function isPatientPortalSdkPath(path: string) {
   return (
     PATIENT_PORTAL_SDK_PATHS.has(path) ||
@@ -28,9 +37,13 @@ export function isPatientPortalSdkPath(path: string) {
   );
 }
 
+export function isPGFlexSdkPath(path: string) {
+  return PGFLEX_SDK_PATHS.has(path) || path.startsWith("/pgflex/logistics/");
+}
+
 export async function authMiddleware(
   request: FastifyRequest,
-  reply: FastifyReply
+  reply: FastifyReply,
 ): Promise<void> {
   const sessionCookie = request.cookies["session"] ?? "";
 
@@ -42,7 +55,7 @@ export async function authMiddleware(
     // true = check revocation (REQUIRED — without this, revoked tokens remain valid)
     const decodedClaims = await adminAuth.verifySessionCookie(
       sessionCookie,
-      true
+      true,
     );
 
     const adminContext = await resolveAdminContext({
@@ -53,7 +66,8 @@ export async function authMiddleware(
     if (
       !adminContext ||
       (!adminContext.canAccessBackoffice &&
-        !adminContext.canAccessPatientPortal)
+        !adminContext.canAccessPatientPortal &&
+        !adminContext.canAccessPGFlex)
     ) {
       return reply.status(403).send({ error: "Account not authorized" });
     }
@@ -69,6 +83,17 @@ export async function authMiddleware(
       });
     }
 
+    if (
+      adminContext.canAccessPGFlex &&
+      !adminContext.canAccessBackoffice &&
+      !adminContext.canAccessPatientPortal &&
+      !isPGFlexSdkPath(requestPath)
+    ) {
+      return reply.status(403).send({
+        error: "This PGFlex session cannot access backoffice APIs",
+      });
+    }
+
     // Attach decoded claims to request for downstream route handlers
     request.user = decodedClaims;
     request.adminContext = adminContext;
@@ -77,7 +102,9 @@ export async function authMiddleware(
     if (request.url.startsWith("/gym/") || request.url === "/gym") {
       const hasGymAccess = adminContext.projectAccess.includes("pocket-gyms");
       if (!hasGymAccess) {
-        return reply.status(403).send({ error: "No access to pocket-gyms project" });
+        return reply
+          .status(403)
+          .send({ error: "No access to pocket-gyms project" });
       }
     }
   } catch {

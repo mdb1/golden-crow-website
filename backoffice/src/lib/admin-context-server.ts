@@ -1,5 +1,9 @@
 import { sdkFetchServer } from "@/lib/sdk-server";
-import type { AdminRole, AdminContextRecord, ProjectKey } from "@/lib/admin-areas";
+import type {
+  AdminRole,
+  AdminContextRecord,
+  ProjectKey,
+} from "@/lib/admin-areas";
 import { redirect } from "next/navigation";
 
 interface SdkContextResponse {
@@ -15,12 +19,15 @@ interface SdkContextResponse {
     isBootstrap: boolean;
     canAccessBackoffice: boolean;
     canAccessPatientPortal: boolean;
+    canAccessPGFlex?: boolean;
     projectAccess: string[];
   };
   capabilities: string[];
 }
 
-export async function getAdminContextServer(activeProject?: string): Promise<AdminContextRecord> {
+export async function getAdminContextServer(
+  activeProject?: string,
+): Promise<AdminContextRecord> {
   const response = await sdkFetchServer<SdkContextResponse>("/auth/context");
   const ctx = response.context;
   return {
@@ -35,14 +42,19 @@ export async function getAdminContextServer(activeProject?: string): Promise<Adm
     isBootstrap: ctx.isBootstrap,
     canAccessBackoffice: ctx.canAccessBackoffice,
     canAccessPatientPortal: ctx.canAccessPatientPortal,
+    canAccessPGFlex: ctx.canAccessPGFlex ?? false,
     project:
       (activeProject as ProjectKey) ??
-      ((ctx.projectAccess?.[0] as ProjectKey | undefined) ?? "mydnamap"),
+      (ctx.projectAccess?.[0] as ProjectKey | undefined) ??
+      "mydnamap",
     projectAccess: (ctx.projectAccess ?? []) as ProjectKey[],
   };
 }
 
-export async function requireAdminRole(allowedRoles: AdminRole[], activeProject?: string) {
+export async function requireAdminRole(
+  allowedRoles: AdminRole[],
+  activeProject?: string,
+) {
   const context = await getAdminContextServer(activeProject);
 
   if (!allowedRoles.includes(context.role)) {
@@ -55,7 +67,7 @@ export async function requireAdminRole(allowedRoles: AdminRole[], activeProject?
 export async function requireAdminRoleRedirect(
   allowedRoles: AdminRole[],
   fallbackHref = "/",
-  activeProject?: string
+  activeProject?: string,
 ) {
   const context = await getAdminContextServer(activeProject);
 
