@@ -44,11 +44,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Assigned dispatcher": "Transportista asignado",
   "Loading transport dispatchers...": "Cargando transportistas...",
   "Select transport dispatcher": "Seleccionar transportista",
-  "A notification email will be sent to this transport dispatcher when the dispatch is saved.":
-    "Se enviará un email automático al transportista seleccionado cuando se guarde el envío.",
   "Time requested": "Hora solicitada",
-  "Generated when the dispatch is created":
-    "Se genera cuando se crea el envío",
   "Standalone PGFlex logistics roles without institution, doctor, or patient scope.":
     "Roles logísticos independientes de PGFlex, sin alcance de institución, médico ni paciente.",
   "Standalone PGFlex dispatcher accounts":

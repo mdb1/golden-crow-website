@@ -26,6 +26,7 @@ const PGFLEX_SDK_PATHS = new Set([
   "/auth/my-account/role",
   "/auth/my-account/email",
   "/auth/profile-setup",
+  "/auth/profile-setup/pgflex",
   "/pgflex/logistics",
 ]);
 

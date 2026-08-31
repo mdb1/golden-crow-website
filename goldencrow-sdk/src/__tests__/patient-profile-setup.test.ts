@@ -2,6 +2,7 @@ import {
   buildPatientProfileSetupInput,
   buildPatientUsername,
   buildProfileSetupUsername,
+  buildTransportDispatcherProfileSetupInput,
 } from "../repositories/profile-setup.repository.js";
 
 jest.mock("../config/firebase.js", () => ({
@@ -47,6 +48,22 @@ describe("patient profile setup", () => {
       buildPatientProfileSetupInput("Paciente Ejemplo"),
     ).toEqual({
       fullName: "Paciente Ejemplo",
+      iconName: "person.crop.circle.fill",
+      iconColorHex: "#5A4FCF",
+      ownerProfession: "",
+      ownerCompany: "",
+      ownerContactNumber: "",
+      ownerBio: "",
+      gender: "",
+      condition: "",
+    });
+  });
+
+  it("uses the transport dispatcher display name and leaves every professional field empty", () => {
+    expect(
+      buildTransportDispatcherProfileSetupInput("Transportista Ejemplo"),
+    ).toEqual({
+      fullName: "Transportista Ejemplo",
       iconName: "person.crop.circle.fill",
       iconColorHex: "#5A4FCF",
       ownerProfession: "",

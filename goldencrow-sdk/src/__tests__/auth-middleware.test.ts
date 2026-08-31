@@ -18,6 +18,7 @@ describe("auth middleware", () => {
     expect(isPGFlexSdkPath("/pgflex/logistics/dispatch-1")).toBe(true);
     expect(isPGFlexSdkPath("/auth/my-account")).toBe(true);
     expect(isPGFlexSdkPath("/auth/profile-setup")).toBe(true);
+    expect(isPGFlexSdkPath("/auth/profile-setup/pgflex")).toBe(true);
     expect(isPGFlexSdkPath("/roles")).toBe(false);
   });
 });

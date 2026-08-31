@@ -1,8 +1,8 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { CompleteProfileFlow } from "@/components/auth/complete-profile-flow";
+import { TransportDispatcherProfileCompletion } from "@/components/auth/transport-dispatcher-profile-completion";
 import { authOptions } from "@/lib/auth";
-import { PGFLEX_ENTRY_ROUTE, PGFLEX_LOGIN_ROUTE } from "@/lib/pgflex-routes";
+import { PGFLEX_LOGIN_ROUTE } from "@/lib/pgflex-routes";
 
 export const dynamic = "force-dynamic";
 
@@ -16,5 +16,5 @@ export default async function PGFlexCompleteProfilePage() {
     redirect("/2pq-dashboard");
   }
 
-  return <CompleteProfileFlow homeHref={PGFLEX_ENTRY_ROUTE} />;
+  return <TransportDispatcherProfileCompletion />;
 }

@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   LoaderCircle,
-  Mail,
   RotateCcw,
   Save,
   Trash2,
@@ -90,6 +89,7 @@ function toFormState(item?: PGFlexLogisticsListItem | null): LogisticsFormState 
 function toPayload(
   state: LogisticsFormState,
   selectedDispatcher?: PGFlexTransportDispatcherOption,
+  options: { includeStatus?: boolean } = {},
 ): PGFlexLogisticsInput {
   const dispatcherFirebaseId =
     selectedDispatcher?.firebaseUid ?? state.dispatcherFirebaseId.trim();
@@ -104,7 +104,7 @@ function toPayload(
     dispatcherEmail: dispatcherEmail || undefined,
     origin: state.origin.trim(),
     destination: state.destination.trim(),
-    status: state.status,
+    ...(options.includeStatus === false ? {} : { status: state.status }),
   };
 }
 
@@ -193,7 +193,9 @@ export function PGFlexLogisticsForm({
       return;
     }
 
-    const payload = toPayload(state, selectedDispatcher);
+    const payload = toPayload(state, selectedDispatcher, {
+      includeStatus: mode !== "create",
+    });
     const validationError = isFullAdmin ? validatePayload(payload) : null;
     if (validationError) {
       setToast({
@@ -399,12 +401,6 @@ export function PGFlexLogisticsForm({
                 ))}
               </SelectContent>
             </Select>
-            {mode === "create" && selectedDispatcher ? (
-              <p className="flex items-start gap-2 text-xs leading-5 text-amber-700 dark:text-amber-200">
-                <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                {t("A notification email will be sent to this transport dispatcher when the dispatch is saved.")}
-              </p>
-            ) : null}
           </div>
 
           <PGFlexRoutePreview
@@ -419,46 +415,48 @@ export function PGFlexLogisticsForm({
             }
           />
 
-          <div className="space-y-2">
-            <Label htmlFor="pgflex-time-requested">{t("Time requested")}</Label>
-            <Input
-              id="pgflex-time-requested"
-              value={
-                mode === "create"
-                  ? t("Generated when the dispatch is created")
-                  : (formatDateTime(item?.timeRequested ?? item?.pickupTime) ??
+          {mode === "edit" ? (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="pgflex-time-requested">{t("Time requested")}</Label>
+                <Input
+                  id="pgflex-time-requested"
+                  value={
+                    formatDateTime(item?.timeRequested ?? item?.pickupTime) ??
                     item?.timeRequested ??
                     item?.pickupTime ??
-                    t("No timestamp"))
-              }
-              disabled
-            />
-          </div>
+                    t("No timestamp")
+                  }
+                  disabled
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="pgflex-status">{t("Status")}</Label>
-            <Select
-              value={state.status}
-              onValueChange={(status) =>
-                setState((current) => ({
-                  ...current,
-                  status: status as PGFlexLogisticsStatus,
-                }))
-              }
-              disabled={!canUpdate || pending !== null}
-            >
-              <SelectTrigger id="pgflex-status">
-                <SelectValue placeholder={t("Select status")} />
-              </SelectTrigger>
-              <SelectContent>
-                {PGFLEX_LOGISTICS_STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {t(option.label)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="pgflex-status">{t("Status")}</Label>
+                <Select
+                  value={state.status}
+                  onValueChange={(status) =>
+                    setState((current) => ({
+                      ...current,
+                      status: status as PGFlexLogisticsStatus,
+                    }))
+                  }
+                  disabled={!canUpdate || pending !== null}
+                >
+                  <SelectTrigger id="pgflex-status">
+                    <SelectValue placeholder={t("Select status")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PGFLEX_LOGISTICS_STATUS_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {t(option.label)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          ) : null}
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="pgflex-description">{t("Description")}</Label>

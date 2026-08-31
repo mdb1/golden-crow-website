@@ -22,6 +22,7 @@ import {
 import {
   completeProfileSetup,
   completePatientProfileSetup,
+  completeTransportDispatcherProfileSetup,
   createEligibleEmailAccount,
   getEmailSignupEligibility,
   getProfileSetupState,
@@ -355,6 +356,40 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       const state = await completePatientProfileSetup(
         request.user.uid,
         context.patientId,
+      );
+      return reply.send({ state });
+    } catch (error) {
+      if (isProfileSetupError(error)) {
+        return reply.status(error.statusCode).send({ error: error.message });
+      }
+
+      throw error;
+    }
+  });
+
+  f.put("/auth/profile-setup/pgflex", async (request, reply) => {
+    const context = request.adminContext;
+    if (!context || !request.user?.uid) {
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
+    }
+
+    if (
+      context.role !== "transport_dispatcher" ||
+      !context.canAccessPGFlex ||
+      context.canAccessBackoffice ||
+      context.canAccessPatientPortal
+    ) {
+      return reply
+        .status(403)
+        .send({ error: "PGFlex dispatcher access is required." });
+    }
+
+    try {
+      const state = await completeTransportDispatcherProfileSetup(
+        request.user.uid,
+        context.email,
       );
       return reply.send({ state });
     } catch (error) {

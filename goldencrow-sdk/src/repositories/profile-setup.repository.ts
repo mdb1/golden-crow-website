@@ -9,6 +9,8 @@ const adminAuth = adminAuthFor("mydnamap");
 import type { UserRecord } from "firebase-admin/auth";
 import {
   getBackofficeEmailAccess,
+  getRoleCollectionName,
+  getUserRoleByEmail,
   normalizeRoleEmail,
   resolveRequiredAuthSurfaceForEmailAccess,
 } from "./roles.repository.js";
@@ -191,6 +193,22 @@ export function buildPatientProfileSetupInput(
 ): CompleteProfileSetupInput {
   return {
     fullName,
+    iconName: DEFAULT_ICON_NAME,
+    iconColorHex: DEFAULT_ICON_COLOR,
+    ownerProfession: "",
+    ownerCompany: "",
+    ownerContactNumber: "",
+    ownerBio: "",
+    gender: "",
+    condition: "",
+  };
+}
+
+export function buildTransportDispatcherProfileSetupInput(
+  displayName: string,
+): CompleteProfileSetupInput {
+  return {
+    fullName: displayName,
     iconName: DEFAULT_ICON_NAME,
     iconColorHex: DEFAULT_ICON_COLOR,
     ownerProfession: "",
@@ -536,6 +554,58 @@ export async function completePatientProfileSetup(
     uid,
     "patient",
     buildPatientProfileSetupInput(fullName),
+  );
+}
+
+export async function completeTransportDispatcherProfileSetup(
+  uid: string,
+  email: string,
+): Promise<ProfileSetupState> {
+  const currentState = await getProfileSetupState(uid);
+  if (!currentState.needsCompletion) {
+    return currentState;
+  }
+
+  const normalizedEmail = normalizeRoleEmail(currentState.email || email);
+  const roleRecord = await getUserRoleByEmail(normalizedEmail);
+  if (
+    !roleRecord ||
+    roleRecord.role !== "transport_dispatcher" ||
+    roleRecord.isActive === false
+  ) {
+    throw new ProfileSetupError("PGFlex dispatcher access is required.", 403);
+  }
+
+  if (roleRecord.firebaseUid && roleRecord.firebaseUid !== uid) {
+    throw new ProfileSetupError(
+      "PGFlex dispatcher identity does not match this account.",
+      403,
+    );
+  }
+
+  const displayName =
+    roleRecord.displayName || currentState.displayName || normalizedEmail;
+  if (!displayName.trim()) {
+    throw new ProfileSetupError(
+      "Transport dispatcher roles require a display name.",
+      400,
+    );
+  }
+
+  if (!roleRecord.firebaseUid) {
+    await adminDb.collection(getRoleCollectionName()).doc(normalizedEmail).set(
+      {
+        firebaseUid: uid,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true },
+    );
+  }
+
+  return completeProfileSetup(
+    uid,
+    "transport_dispatcher",
+    buildTransportDispatcherProfileSetupInput(displayName),
   );
 }
 
