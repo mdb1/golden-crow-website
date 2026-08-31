@@ -203,8 +203,12 @@ function toUserRoleRecord(
     createdAt: normalizeDateString(data.createdAt),
     updatedAt: normalizeDateString(data.updatedAt),
     createdByEmail: normalizeOptionalString(data.createdByEmail),
-    pgflexInviteEmailSentAt: normalizeOptionalString(data.pgflexInviteEmailSentAt),
-    pgflexInviteEmailFailedAt: normalizeOptionalString(data.pgflexInviteEmailFailedAt),
+    pgflexInviteEmailSentAt: normalizeOptionalString(
+      data.pgflexInviteEmailSentAt,
+    ),
+    pgflexInviteEmailFailedAt: normalizeOptionalString(
+      data.pgflexInviteEmailFailedAt,
+    ),
     pgflexInviteEmailLastError: normalizeOptionalString(
       data.pgflexInviteEmailLastError,
     ),
@@ -239,6 +243,108 @@ export async function getUserRoleByEmail(
     normalizedEmail,
     snapshot.data() as Record<string, unknown>,
   );
+}
+
+function getFirebaseAuthErrorCode(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+
+async function resolveFirebaseUidForRoleUser(
+  normalizedEmail: string,
+  record: UserRoleRecord,
+) {
+  if (record.firebaseUid) {
+    return record.firebaseUid;
+  }
+
+  try {
+    const user = await adminAuthFor("mydnamap").getUserByEmail(normalizedEmail);
+    return user.uid;
+  } catch (error) {
+    if (getFirebaseAuthErrorCode(error) === "auth/user-not-found") {
+      return undefined;
+    }
+
+    throw error;
+  }
+}
+
+export async function deleteRoleUserForContext(
+  context: AdminContext,
+  email: string,
+) {
+  if (context.role !== "full_admin" || !context.isBootstrap) {
+    throw new AdminRepositoryError(
+      "God mode is required to delete role users.",
+      403,
+    );
+  }
+
+  const normalizedEmail = normalizeRoleEmail(email);
+  if (!normalizedEmail) {
+    throw new AdminRepositoryError("Role email is required.", 400);
+  }
+
+  if (normalizeRoleEmail(context.email) === normalizedEmail) {
+    throw new AdminRepositoryError(
+      "You cannot delete your own role user.",
+      400,
+    );
+  }
+
+  if (TEAM_ALLOWLIST.has(normalizedEmail)) {
+    throw new AdminRepositoryError(
+      "Bootstrap role users cannot be deleted.",
+      403,
+    );
+  }
+
+  const roleRef = adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .doc(normalizedEmail);
+  const snapshot = await roleRef.get();
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError("Role record not found.", 404);
+  }
+
+  const record = toUserRoleRecord(
+    normalizedEmail,
+    snapshot.data() as Record<string, unknown>,
+  );
+  if (record.createdAt === BOOTSTRAP_TIMESTAMP) {
+    throw new AdminRepositoryError(
+      "Bootstrap role users cannot be deleted.",
+      403,
+    );
+  }
+
+  const authUid = await resolveFirebaseUidForRoleUser(normalizedEmail, record);
+  let authDeleted = false;
+  if (authUid) {
+    try {
+      await adminAuthFor("mydnamap").deleteUser(authUid);
+      authDeleted = true;
+    } catch (error) {
+      if (getFirebaseAuthErrorCode(error) !== "auth/user-not-found") {
+        throw error;
+      }
+    }
+  }
+
+  await roleRef.delete();
+
+  return {
+    deleted: true,
+    email: normalizedEmail,
+    roleDeleted: true,
+    authDeleted,
+    authUid,
+  };
 }
 
 function getLinkedCollectionIds(payload: {
@@ -1354,7 +1460,9 @@ async function sendTransportDispatcherInviteForRole(
       temporaryPassword,
     },
   );
-  const roleRef = adminDb.collection(USER_ROLES_COLLECTION).doc(normalizedEmail);
+  const roleRef = adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .doc(normalizedEmail);
 
   try {
     await sendPGFlexDispatcherInviteEmail(

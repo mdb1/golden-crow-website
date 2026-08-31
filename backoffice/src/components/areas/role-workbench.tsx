@@ -3,12 +3,30 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, RotateCcw, Save } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  RotateCcw,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { OptionSelectField } from "@/components/constrained-fields";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +77,7 @@ function toRoleFormState(
     institutionId?: string;
     doctorId?: string;
     role?: RoleManagementRecord["role"];
-  }
+  },
 ): RoleFormState {
   return {
     email: record?.email ?? defaults?.email ?? "",
@@ -128,7 +146,7 @@ export function RoleWorkbench({
       initialInstitutionId,
       initialEmail,
       mode,
-    ]
+    ],
   );
   const roleOptions =
     mode === "create"
@@ -136,21 +154,24 @@ export function RoleWorkbench({
       : getAssignableRoleOptions(adminContext.role);
   const initialRole =
     mode === "create"
-      ? fixedRole ?? roleOptions[0]?.value ?? "patient"
-      : roleRecord?.role ?? "patient";
+      ? (fixedRole ?? roleOptions[0]?.value ?? "patient")
+      : (roleRecord?.role ?? "patient");
   const [state, setState] = useState<RoleFormState>(() => ({
     ...toRoleFormState(roleRecord, defaults),
     role: initialRole,
   }));
-  const [pending, setPending] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"save" | "delete" | null>(
+    null,
+  );
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const pending = pendingAction !== null;
 
   const sourceState = useMemo(
     () => ({
       ...toRoleFormState(roleRecord, defaults),
       role: initialRole,
     }),
-    [defaults, initialRole, roleRecord]
+    [defaults, initialRole, roleRecord],
   );
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
   const fixedRoleIsAssignable = fixedRole
@@ -168,13 +189,20 @@ export function RoleWorkbench({
       : !isEditable && roleRecord
         ? getRoleEditRestrictionMessage(adminContext, roleRecord)
         : null;
+  const canDeleteRoleUser =
+    mode === "edit" && roleRecord
+      ? adminContext.role === "full_admin" &&
+        adminContext.isBootstrap &&
+        !roleRecord.bootstrap &&
+        roleRecord.email.toLowerCase() !== adminContext.email.toLowerCase()
+      : false;
   const institutionOptions = institutions.map((institution) => ({
     value: institution.id,
     label: `${institution.name} (${institution.id})`,
   }));
   const doctorOptions = doctors
     .filter((doctor) =>
-      state.institutionId ? doctor.institutionId === state.institutionId : true
+      state.institutionId ? doctor.institutionId === state.institutionId : true,
     )
     .map((doctor) => ({
       value: doctor.id,
@@ -182,7 +210,10 @@ export function RoleWorkbench({
     }));
   const patientOptions = patients
     .filter((patient) => {
-      if (state.institutionId && patient.institutionId !== state.institutionId) {
+      if (
+        state.institutionId &&
+        patient.institutionId !== state.institutionId
+      ) {
         return false;
       }
       if (state.doctorId && patient.doctorId !== state.doctorId) {
@@ -204,16 +235,18 @@ export function RoleWorkbench({
   }));
 
   const selectedOrganization = organizations.find(
-    (organization) => organization.id === state.organizationId
+    (organization) => organization.id === state.organizationId,
   );
   const selectedIndividual = individuals.find(
-    (individual) => individual.id === state.individualId
+    (individual) => individual.id === state.individualId,
   );
   const selectedInstitution = institutions.find(
-    (institution) => institution.id === state.institutionId
+    (institution) => institution.id === state.institutionId,
   );
   const selectedDoctor = doctors.find((doctor) => doctor.id === state.doctorId);
-  const selectedPatient = patients.find((patient) => patient.id === state.patientId);
+  const selectedPatient = patients.find(
+    (patient) => patient.id === state.patientId,
+  );
 
   function applyRoleDefaults(nextRole: RoleManagementRecord["role"]) {
     setState((current) => {
@@ -264,8 +297,9 @@ export function RoleWorkbench({
       }
 
       const institutionId =
-        isInstitutionManagerRole(adminContext.role) || adminContext.role === "institution_doctor"
-          ? adminContext.institutionId ?? current.institutionId
+        isInstitutionManagerRole(adminContext.role) ||
+        adminContext.role === "institution_doctor"
+          ? (adminContext.institutionId ?? current.institutionId)
           : current.institutionId;
 
       if (isInstitutionManagerRole(nextRole)) {
@@ -289,7 +323,7 @@ export function RoleWorkbench({
           institutionId,
           doctorId:
             adminContext.role === "institution_doctor"
-              ? adminContext.doctorId ?? current.doctorId
+              ? (adminContext.doctorId ?? current.doctorId)
               : current.doctorId,
           patientId: "",
         };
@@ -303,7 +337,7 @@ export function RoleWorkbench({
         institutionId,
         doctorId:
           adminContext.role === "institution_doctor"
-            ? adminContext.doctorId ?? current.doctorId
+            ? (adminContext.doctorId ?? current.doctorId)
             : current.doctorId,
       };
     });
@@ -331,14 +365,13 @@ export function RoleWorkbench({
       return;
     }
 
-    if (
-      state.role === "individual_publisher" &&
-      !state.individualId.trim()
-    ) {
+    if (state.role === "individual_publisher" && !state.individualId.trim()) {
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Individual publisher roles require an individual publisher."),
+        message: t(
+          "Individual publisher roles require an individual publisher.",
+        ),
       });
       return;
     }
@@ -367,7 +400,10 @@ export function RoleWorkbench({
       return;
     }
 
-    if (state.role === "patient" && (!state.doctorId.trim() || !state.patientId.trim())) {
+    if (
+      state.role === "patient" &&
+      (!state.doctorId.trim() || !state.patientId.trim())
+    ) {
       setToast({
         id: Date.now(),
         tone: "error",
@@ -385,7 +421,7 @@ export function RoleWorkbench({
       return;
     }
 
-    setPending(true);
+    setPendingAction("save");
 
     try {
       await sdkFetch<{ role: RoleManagementRecord }>(
@@ -417,13 +453,16 @@ export function RoleWorkbench({
             displayName: state.displayName,
             notes: state.notes,
           }),
-        }
+        },
       );
 
       setToast({
         id: Date.now(),
         tone: "success",
-        message: mode === "create" ? t("Role assignment created.") : t("Role assignment saved."),
+        message:
+          mode === "create"
+            ? t("Role assignment created.")
+            : t("Role assignment saved."),
       });
       router.push(`/roles/${encodeURIComponent(state.email)}`);
       router.refresh();
@@ -437,7 +476,35 @@ export function RoleWorkbench({
             : t("Unable to save the role assignment."),
       });
     } finally {
-      setPending(false);
+      setPendingAction(null);
+    }
+  }
+
+  async function handleDeleteRoleUser() {
+    if (!roleRecord || !canDeleteRoleUser || pending) {
+      return;
+    }
+
+    setPendingAction("delete");
+
+    try {
+      await sdkFetch(`/roles/${encodeURIComponent(roleRecord.email)}`, {
+        method: "DELETE",
+      });
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("Role user deleted."),
+      });
+      router.push("/roles");
+      router.refresh();
+    } catch {
+      setPendingAction(null);
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to delete the role user."),
+      });
     }
   }
 
@@ -463,7 +530,9 @@ export function RoleWorkbench({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="font-heading text-xl font-semibold text-foreground">
-              {mode === "create" ? t("Create role assignment") : t("Role workbench")}
+              {mode === "create"
+                ? t("Create role assignment")
+                : t("Role workbench")}
             </h2>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -483,7 +552,7 @@ export function RoleWorkbench({
               disabled={pending || !changed || !isEditable}
             >
               <Save className="h-3.5 w-3.5" />
-              {pending
+              {pendingAction === "save"
                 ? mode === "create"
                   ? t("Creating...")
                   : t("Saving...")
@@ -507,7 +576,10 @@ export function RoleWorkbench({
               id="role-email"
               value={state.email}
               onChange={(event) =>
-                setState((current) => ({ ...current, email: event.target.value }))
+                setState((current) => ({
+                  ...current,
+                  email: event.target.value,
+                }))
               }
               disabled={mode === "edit" || !isEditable}
             />
@@ -522,7 +594,9 @@ export function RoleWorkbench({
                   label: t(option.label),
                 }))}
               value={state.role}
-              onChange={(role) => applyRoleDefaults(role as RoleManagementRecord["role"])}
+              onChange={(role) =>
+                applyRoleDefaults(role as RoleManagementRecord["role"])
+              }
               placeholder={t("Select role")}
               disabled={!isEditable || Boolean(fixedRole)}
             />
@@ -536,7 +610,10 @@ export function RoleWorkbench({
               ]}
               value={state.isActive ? "active" : "inactive"}
               onChange={(value) =>
-                setState((current) => ({ ...current, isActive: value !== "inactive" }))
+                setState((current) => ({
+                  ...current,
+                  isActive: value !== "inactive",
+                }))
               }
               placeholder={t("Select role state")}
               disabled={!isEditable}
@@ -548,7 +625,10 @@ export function RoleWorkbench({
               id="role-display-name"
               value={state.displayName}
               onChange={(event) =>
-                setState((current) => ({ ...current, displayName: event.target.value }))
+                setState((current) => ({
+                  ...current,
+                  displayName: event.target.value,
+                }))
               }
               disabled={!isEditable}
             />
@@ -578,7 +658,9 @@ export function RoleWorkbench({
 
           {state.role === "individual_publisher" ? (
             <div className="space-y-2">
-              <Label htmlFor="role-individual">{t("Individual publisher")}</Label>
+              <Label htmlFor="role-individual">
+                {t("Individual publisher")}
+              </Label>
               <OptionSelectField
                 options={individualOptions}
                 value={state.individualId}
@@ -638,8 +720,10 @@ export function RoleWorkbench({
                   setState((current) => ({
                     ...current,
                     doctorId,
-                    institutionId: doctor?.institutionId ?? current.institutionId,
-                    patientId: current.role === "patient" ? "" : current.patientId,
+                    institutionId:
+                      doctor?.institutionId ?? current.institutionId,
+                    patientId:
+                      current.role === "patient" ? "" : current.patientId,
                     email:
                       current.role === "institution_doctor" && doctor?.authEmail
                         ? doctor.authEmail
@@ -648,7 +732,9 @@ export function RoleWorkbench({
                 }}
                 placeholder={t("Select doctor")}
                 emptyLabel={t("No doctor")}
-                disabled={!isEditable || adminContext.role === "institution_doctor"}
+                disabled={
+                  !isEditable || adminContext.role === "institution_doctor"
+                }
               />
             </div>
           ) : null}
@@ -660,11 +746,14 @@ export function RoleWorkbench({
                 options={patientOptions}
                 value={state.patientId}
                 onChange={(patientId) => {
-                  const patient = patients.find((entry) => entry.id === patientId);
+                  const patient = patients.find(
+                    (entry) => entry.id === patientId,
+                  );
                   setState((current) => ({
                     ...current,
                     patientId,
-                    institutionId: patient?.institutionId ?? current.institutionId,
+                    institutionId:
+                      patient?.institutionId ?? current.institutionId,
                     doctorId: patient?.doctorId ?? current.doctorId,
                     email: patient?.email ?? current.email,
                   }));
@@ -682,7 +771,10 @@ export function RoleWorkbench({
               id="role-notes"
               value={state.notes}
               onChange={(event) =>
-                setState((current) => ({ ...current, notes: event.target.value }))
+                setState((current) => ({
+                  ...current,
+                  notes: event.target.value,
+                }))
               }
               disabled={!isEditable}
             />
@@ -735,7 +827,9 @@ export function RoleWorkbench({
               </p>
               {state.organizationId ? (
                 <Button variant="link" size="sm" className="px-0" asChild>
-                  <Link href={`/discover/organizations/${state.organizationId}`}>
+                  <Link
+                    href={`/discover/organizations/${state.organizationId}`}
+                  >
                     {t("Open organization")}
                   </Link>
                 </Button>
@@ -773,7 +867,9 @@ export function RoleWorkbench({
             <>
               <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
                 <p className="font-medium text-foreground">
-                  {selectedInstitution?.name ?? roleRecord?.institutionName ?? t("No institution")}
+                  {selectedInstitution?.name ??
+                    roleRecord?.institutionName ??
+                    t("No institution")}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {compactList([
@@ -793,7 +889,9 @@ export function RoleWorkbench({
 
               <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
                 <p className="font-medium text-foreground">
-                  {selectedDoctor?.fullName ?? roleRecord?.doctorName ?? t("No doctor")}
+                  {selectedDoctor?.fullName ??
+                    roleRecord?.doctorName ??
+                    t("No doctor")}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {compactList([
@@ -803,14 +901,18 @@ export function RoleWorkbench({
                 </p>
                 {state.doctorId ? (
                   <Button variant="link" size="sm" className="px-0" asChild>
-                    <Link href={`/areas/doctors/${state.doctorId}`}>{t("Open doctor")}</Link>
+                    <Link href={`/areas/doctors/${state.doctorId}`}>
+                      {t("Open doctor")}
+                    </Link>
                   </Button>
                 ) : null}
               </div>
 
               <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
                 <p className="font-medium text-foreground">
-                  {selectedPatient?.fullName ?? roleRecord?.patientName ?? t("No patient")}
+                  {selectedPatient?.fullName ??
+                    roleRecord?.patientName ??
+                    t("No patient")}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {compactList([
@@ -820,7 +922,9 @@ export function RoleWorkbench({
                 </p>
                 {state.patientId ? (
                   <Button variant="link" size="sm" className="px-0" asChild>
-                    <Link href={`/areas/patients/${state.patientId}`}>{t("Open patient")}</Link>
+                    <Link href={`/areas/patients/${state.patientId}`}>
+                      {t("Open patient")}
+                    </Link>
                   </Button>
                 ) : null}
               </div>
@@ -834,12 +938,64 @@ export function RoleWorkbench({
                 {t("Standalone PGFlex logistics role")}
               </p>
               <Button variant="link" size="sm" className="px-0" asChild>
-                <Link href="/pgflex/logistics">{t("Open PGFlex logistics")}</Link>
+                <Link href="/pgflex/logistics">
+                  {t("Open PGFlex logistics")}
+                </Link>
               </Button>
             </div>
           ) : null}
         </div>
       </section>
+
+      {canDeleteRoleUser ? (
+        <section className="glass-panel flex flex-col gap-4 border-destructive/25 px-5 py-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h3 className="font-heading text-lg font-semibold text-foreground">
+                {t("Danger zone")}
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t(
+                  "This deletes the role assignment and the Firebase Auth user if one exists. This cannot be undone.",
+                )}
+              </p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" disabled={pending}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t("Delete user")}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogMedia className="bg-destructive/12 text-destructive">
+                    <AlertTriangle className="h-5 w-5" />
+                  </AlertDialogMedia>
+                  <AlertDialogTitle>{t("Delete role user?")}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t(
+                      "This deletes the role assignment and the Firebase Auth user if one exists. This cannot be undone.",
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    disabled={pendingAction === "delete"}
+                    onClick={() => void handleDeleteRoleUser()}
+                  >
+                    {pendingAction === "delete"
+                      ? t("Deleting...")
+                      : t("Delete user")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

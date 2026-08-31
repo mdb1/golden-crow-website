@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
+  deleteRoleUserForContext,
   getUserRoleForContext,
   listTransportDispatchersForContext,
   listUserRolesForContext,
@@ -26,7 +27,9 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
 
   f.get("/roles", async (request, reply) => {
     if (!request.adminContext) {
-      return reply.status(401).send({ error: "No authenticated admin context" });
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
     }
 
     const roles = await listUserRolesForContext(request.adminContext);
@@ -35,7 +38,9 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
 
   f.get("/roles/transport-dispatchers/options", async (request, reply) => {
     if (!request.adminContext) {
-      return reply.status(401).send({ error: "No authenticated admin context" });
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
     }
 
     try {
@@ -63,16 +68,21 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
-      const role = await getUserRoleForContext(request.adminContext, request.params.emailKey);
+      const role = await getUserRoleForContext(
+        request.adminContext,
+        request.params.emailKey,
+      );
       if (!role) {
         return reply.status(404).send({ error: "Role record not found" });
       }
 
       return reply.send({ role });
-    }
+    },
   );
 
   f.put(
@@ -97,14 +107,16 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const role = await upsertUserRoleForContext(
           request.adminContext,
           request.params.emailKey,
-          request.body
+          request.body,
         );
 
         return reply.send({ role });
@@ -115,6 +127,39 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
 
         throw error;
       }
-    }
+    },
+  );
+
+  f.delete(
+    "/roles/:emailKey",
+    {
+      schema: {
+        params: z.object({
+          emailKey: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await deleteRoleUserForContext(
+          request.adminContext,
+          request.params.emailKey,
+        );
+
+        return reply.send(result);
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    },
   );
 }

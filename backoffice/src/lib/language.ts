@@ -66,6 +66,12 @@ const SPANISH_TEXT: Record<string, string> = {
     "Los transportistas no pueden crear asignaciones de rol.",
   "Transport dispatchers cannot create or modify role assignments.":
     "Los transportistas no pueden crear ni modificar asignaciones de rol.",
+  "Delete user": "Eliminar usuario",
+  "Delete role user?": "¿Eliminar este usuario?",
+  "Role user deleted.": "Usuario eliminado.",
+  "Unable to delete the role user.": "No se pudo eliminar el usuario.",
+  "This deletes the role assignment and the Firebase Auth user if one exists. This cannot be undone.":
+    "Esto elimina la asignación de rol y el usuario de Firebase Auth si existe. No se puede deshacer.",
   "Email-based access tree for full admins, transport dispatchers, institution admins, institution operators, institution laboratory staff, doctors, and patients.":
     "Árbol de acceso por email para administradores totales, transportistas, administradores de institución, operarios de institución, personal de laboratorio, médicos y pacientes.",
   "Institution operator": "Operario de institución",
