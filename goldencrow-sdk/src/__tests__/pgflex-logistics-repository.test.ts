@@ -8,15 +8,10 @@ type MockDocumentRef = {
   set: jest.Mock;
   delete: jest.Mock;
 };
-type PendingBatchWrite = {
-  ref: MockDocumentRef;
-  data: MockDocData;
-};
 
 const mockDocs = new Map<string, MockDocData>();
+const legacyCollectionName = ["pgflex", "logistics"].join("_");
 let mockAutoId = 0;
-const mockBatchSet = jest.fn();
-const mockBatchCommit = jest.fn();
 const mockCollection = jest.fn((collectionName: string) => ({
   doc: (id?: string) => makeDocRef(collectionName, id),
   where: jest.fn(() => {
@@ -26,22 +21,6 @@ const mockCollection = jest.fn((collectionName: string) => ({
     throw new Error(`Unexpected orderBy() on ${collectionName}`);
   }),
 }));
-const mockBatch = jest.fn(() => {
-  const pendingWrites: PendingBatchWrite[] = [];
-
-  return {
-    set: mockBatchSet.mockImplementation(
-      (ref: MockDocumentRef, data: MockDocData) => {
-        pendingWrites.push({ ref, data });
-      },
-    ),
-    commit: mockBatchCommit.mockImplementation(async () => {
-      for (const write of pendingWrites) {
-        mockDocs.set(docKey(write.ref), { ...write.data });
-      }
-    }),
-  };
-});
 const mockSendPGFlexLogisticsAssignmentEmail = jest.fn();
 const mockGetUserRoleByEmail = jest.fn();
 
@@ -90,7 +69,6 @@ jest.mock("firebase-admin/firestore", () => ({
 jest.mock("../config/firebase.js", () => ({
   adminAuthFor: jest.fn(() => ({})),
   adminDbFor: jest.fn(() => ({
-    batch: mockBatch,
     collection: mockCollection,
   })),
 }));
@@ -121,9 +99,6 @@ describe("PGFlex logistics repository", () => {
     jest.spyOn(Math, "random").mockReturnValue(0.123456789);
     mockDocs.clear();
     mockAutoId = 0;
-    mockBatch.mockClear();
-    mockBatchSet.mockReset();
-    mockBatchCommit.mockReset();
     mockCollection.mockClear();
     mockGetUserRoleByEmail.mockReset();
     mockSendPGFlexLogisticsAssignmentEmail.mockReset();
@@ -134,7 +109,7 @@ describe("PGFlex logistics repository", () => {
     jest.restoreAllMocks();
   });
 
-  it("writes a pgflex_events document when a logistics item is created", async () => {
+  it("stores a created logistics item only in pgflex_events", async () => {
     const { createPGFlexLogisticsItemForContext } = await import(
       "../repositories/pgflex-logistics.repository"
     );
@@ -147,13 +122,14 @@ describe("PGFlex logistics repository", () => {
       status: "in_transit",
     });
 
-    const logisticsDocs = docsIn("pgflex_logistics");
     const eventDocs = docsIn("pgflex_events");
+    const legacyDocs = docsIn(legacyCollectionName);
 
-    expect(logisticsDocs).toHaveLength(1);
     expect(eventDocs).toHaveLength(1);
+    expect(legacyDocs).toHaveLength(0);
+    expect(mockCollection).not.toHaveBeenCalledWith(legacyCollectionName);
     expect(created).toMatchObject({
-      id: logisticsDocs[0]!.id,
+      id: eventDocs[0]!.id,
       identifier: "ENV-001",
       description: "Retiro inicial",
       origin: "Laboratorio Central",
@@ -161,7 +137,7 @@ describe("PGFlex logistics repository", () => {
       status: "in_transit",
       timeRequested: "2026-08-31T15:45:00.000Z",
     });
-    expect(logisticsDocs[0]!.data).toMatchObject({
+    expect(eventDocs[0]!.data).toMatchObject({
       identifier: "ENV-001",
       description: "Retiro inicial",
       dispatcherId: null,
@@ -173,26 +149,8 @@ describe("PGFlex logistics repository", () => {
       timeRequested: "2026-08-31T15:45:00.000Z",
       createdByEmail: "admin@example.com",
     });
-    expect(eventDocs[0]!.data).toMatchObject({
-      eventType: "logistics_item.created",
-      logisticsItemId: logisticsDocs[0]!.id,
-      identifier: "ENV-001",
-      description: "Retiro inicial",
-      dispatcherId: null,
-      dispatcherFirebaseId: null,
-      dispatcherEmail: null,
-      origin: "Laboratorio Central",
-      destination: "Clinica Norte",
-      status: "in_transit",
-      timeRequested: "2026-08-31T15:45:00.000Z",
-      occurredAt: "2026-08-31T15:45:00.000Z",
-      createdAt: "2026-08-31T15:45:00.000Z",
-      actorUid: "admin-1",
-      actorEmail: "admin@example.com",
-    });
-    expect(mockBatch).toHaveBeenCalledTimes(1);
-    expect(mockBatchSet).toHaveBeenCalledTimes(2);
-    expect(mockBatchCommit).toHaveBeenCalledTimes(1);
+    expect(eventDocs[0]!.data).not.toHaveProperty("eventType");
+    expect(eventDocs[0]!.data).not.toHaveProperty("logisticsItemId");
     expect(mockSendPGFlexLogisticsAssignmentEmail).not.toHaveBeenCalled();
   });
 });

@@ -21,7 +21,6 @@ import {
 
 const adminDb = adminDbFor("mydnamap");
 const USER_ROLES_COLLECTION = "user_roles";
-const PGFLEX_LOGISTICS_COLLECTION = "pgflex_logistics";
 const PGFLEX_EVENTS_COLLECTION = "pgflex_events";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
@@ -149,31 +148,6 @@ function buildRecordId() {
   const timestamp = Date.now().toString(36);
   const suffix = Math.random().toString(36).slice(2, 8);
   return `pgflex_${timestamp}_${suffix}`;
-}
-
-function buildCreatedEventDocument(
-  logisticsItemId: string,
-  document: PGFlexLogisticsDocument,
-  context: AdminContext,
-) {
-  return {
-    eventType: "logistics_item.created",
-    logisticsItemId,
-    identifier: document.identifier,
-    description: document.description,
-    dispatcherId: document.dispatcherId,
-    dispatcherFirebaseId: document.dispatcherFirebaseId,
-    dispatcherEmail: document.dispatcherEmail,
-    origin: document.origin,
-    destination: document.destination,
-    timeRequested: document.timeRequested,
-    pickupTime: document.pickupTime,
-    status: document.status,
-    occurredAt: document.createdAt,
-    createdAt: document.createdAt,
-    actorUid: optionalString(context.uid) ?? null,
-    actorEmail: normalizeRoleEmail(context.email),
-  };
 }
 
 function canAccessPGFlexLogistics(context: AdminContext) {
@@ -493,7 +467,7 @@ async function sendDispatcherNotificationForItem(
   }
 
   const logisticsRef = adminDb
-    .collection(PGFLEX_LOGISTICS_COLLECTION)
+    .collection(PGFLEX_EVENTS_COLLECTION)
     .doc(record.id);
 
   try {
@@ -621,7 +595,7 @@ function resolvePageSize(limit: unknown) {
 }
 
 function orderedQueryForContext(context: AdminContext): Query<DocumentData> {
-  let query: Query<DocumentData> = adminDb.collection(PGFLEX_LOGISTICS_COLLECTION);
+  let query: Query<DocumentData> = adminDb.collection(PGFLEX_EVENTS_COLLECTION);
 
   if (context.role === "transport_dispatcher") {
     query = query.where("dispatcherId", "==", context.uid);
@@ -631,7 +605,7 @@ function orderedQueryForContext(context: AdminContext): Query<DocumentData> {
 }
 
 function fallbackQueryForContext(context: AdminContext): Query<DocumentData> {
-  let query: Query<DocumentData> = adminDb.collection(PGFLEX_LOGISTICS_COLLECTION);
+  let query: Query<DocumentData> = adminDb.collection(PGFLEX_EVENTS_COLLECTION);
 
   if (context.role === "transport_dispatcher") {
     query = query.where("dispatcherId", "==", context.uid);
@@ -661,7 +635,7 @@ async function getPageWithIndexFallback(
     let fallback = fallbackQuery;
     if (cursor) {
       const cursorSnapshot = await adminDb
-        .collection(PGFLEX_LOGISTICS_COLLECTION)
+        .collection(PGFLEX_EVENTS_COLLECTION)
         .doc(cursor)
         .get();
       if (cursorSnapshot.exists) {
@@ -704,7 +678,7 @@ export async function getPGFlexLogisticsItemForContext(
 ): Promise<PGFlexLogisticsListItem> {
   assertPGFlexAccess(context);
   const snapshot = await adminDb
-    .collection(PGFLEX_LOGISTICS_COLLECTION)
+    .collection(PGFLEX_EVENTS_COLLECTION)
     .doc(itemId)
     .get();
 
@@ -731,15 +705,7 @@ export async function createPGFlexLogisticsItemForContext(
     updatedAt: now,
   });
   const recordId = buildRecordId();
-  const logisticsRef = adminDb
-    .collection(PGFLEX_LOGISTICS_COLLECTION)
-    .doc(recordId);
-  const eventRef = adminDb.collection(PGFLEX_EVENTS_COLLECTION).doc();
-  const batch = adminDb.batch();
-
-  batch.set(logisticsRef, document);
-  batch.set(eventRef, buildCreatedEventDocument(recordId, document, context));
-  await batch.commit();
+  await adminDb.collection(PGFLEX_EVENTS_COLLECTION).doc(recordId).set(document);
 
   const record = toPGFlexLogisticsRecord(recordId, document);
   const emailMetadata = await sendDispatcherNotificationForItem(
@@ -785,7 +751,7 @@ export async function replacePGFlexLogisticsItemForContext(
       : document;
 
   await adminDb
-    .collection(PGFLEX_LOGISTICS_COLLECTION)
+    .collection(PGFLEX_EVENTS_COLLECTION)
     .doc(itemId)
     .set(persistedDocument, { merge: false });
 
@@ -813,7 +779,7 @@ export async function updatePGFlexLogisticsItemForContext(
   );
 
   await adminDb
-    .collection(PGFLEX_LOGISTICS_COLLECTION)
+    .collection(PGFLEX_EVENTS_COLLECTION)
     .doc(itemId)
     .set(patch, { merge: true });
 
@@ -832,7 +798,7 @@ export async function deletePGFlexLogisticsItemForContext(
   assertCanDeletePGFlexLogistics(context);
   await getPGFlexLogisticsItemForContext(context, itemId);
   await adminDb
-    .collection(PGFLEX_LOGISTICS_COLLECTION)
+    .collection(PGFLEX_EVENTS_COLLECTION)
     .doc(itemId)
     .delete();
 
