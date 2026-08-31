@@ -22,6 +22,7 @@ import {
 const adminDb = adminDbFor("mydnamap");
 const USER_ROLES_COLLECTION = "user_roles";
 const PGFLEX_LOGISTICS_COLLECTION = "pgflex_logistics";
+const PGFLEX_EVENTS_COLLECTION = "pgflex_events";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 
@@ -52,6 +53,23 @@ type TransportDispatcherAssignment = {
   email: string;
   displayName?: string;
 } | null;
+
+type PGFlexLogisticsDocument = {
+  identifier: string;
+  description: string | null;
+  dispatcherId: string | null;
+  dispatcherFirebaseId: string | null;
+  dispatcherEmail: string | null;
+  origin: string;
+  destination: string;
+  timeRequested: string;
+  pickupTime: string | null;
+  status: PGFlexLogisticsStatus;
+  createdAt: string;
+  updatedAt: string;
+  createdByEmail: string;
+  updatedByEmail: string;
+};
 
 function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -131,6 +149,31 @@ function buildRecordId() {
   const timestamp = Date.now().toString(36);
   const suffix = Math.random().toString(36).slice(2, 8);
   return `pgflex_${timestamp}_${suffix}`;
+}
+
+function buildCreatedEventDocument(
+  logisticsItemId: string,
+  document: PGFlexLogisticsDocument,
+  context: AdminContext,
+) {
+  return {
+    eventType: "logistics_item.created",
+    logisticsItemId,
+    identifier: document.identifier,
+    description: document.description,
+    dispatcherId: document.dispatcherId,
+    dispatcherFirebaseId: document.dispatcherFirebaseId,
+    dispatcherEmail: document.dispatcherEmail,
+    origin: document.origin,
+    destination: document.destination,
+    timeRequested: document.timeRequested,
+    pickupTime: document.pickupTime,
+    status: document.status,
+    occurredAt: document.createdAt,
+    createdAt: document.createdAt,
+    actorUid: optionalString(context.uid) ?? null,
+    actorEmail: normalizeRoleEmail(context.email),
+  };
 }
 
 function canAccessPGFlexLogistics(context: AdminContext) {
@@ -485,7 +528,10 @@ async function fullDocumentFromInput(
   context: AdminContext,
   timestamps: { createdAt: string; updatedAt: string },
   options: { timeRequested?: string } = {},
-) {
+): Promise<{
+  document: PGFlexLogisticsDocument;
+  assignment: TransportDispatcherAssignment;
+}> {
   const assignment = await resolveTransportDispatcherAssignment(payload);
 
   return {
@@ -685,11 +731,15 @@ export async function createPGFlexLogisticsItemForContext(
     updatedAt: now,
   });
   const recordId = buildRecordId();
-
-  await adminDb
+  const logisticsRef = adminDb
     .collection(PGFLEX_LOGISTICS_COLLECTION)
-    .doc(recordId)
-    .set(document);
+    .doc(recordId);
+  const eventRef = adminDb.collection(PGFLEX_EVENTS_COLLECTION).doc();
+  const batch = adminDb.batch();
+
+  batch.set(logisticsRef, document);
+  batch.set(eventRef, buildCreatedEventDocument(recordId, document, context));
+  await batch.commit();
 
   const record = toPGFlexLogisticsRecord(recordId, document);
   const emailMetadata = await sendDispatcherNotificationForItem(
