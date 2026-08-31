@@ -1,4 +1,4 @@
-import { adminDbFor } from "../config/firebase.js";
+import { adminAuthFor, adminDbFor } from "../config/firebase.js";
 
 // Pitfall 16 — Bind once to the MyDNAMap project at module load. Every
 // downstream `adminDb.collection(...)` call below uses the named-app
@@ -11,6 +11,7 @@ import {
 } from "./areas.repository.js";
 import { shouldAutomaticallyGrantPatientPortalAccess } from "../lib/patient-portal-credentials.js";
 import { sendInformedConsentEmail } from "../lib/informed-consent-email.js";
+import { sendPGFlexLogisticsAssignmentEmail } from "../lib/pgflex-dispatcher-email.js";
 import {
   canCreatePatient,
   canViewDoctor,
@@ -39,9 +40,13 @@ const CASES_COLLECTION = "2pq_case";
 const INSTITUTIONS_COLLECTION = "institutions";
 const DOCTORS_COLLECTION = "doctors";
 const PATIENTS_COLLECTION = "patients";
+const USER_ROLES_COLLECTION = "user_roles";
+const PGFLEX_EVENTS_COLLECTION = "pgflex_events";
 const SEQUENCES_COLLECTION = "admin_sequences";
 const BIOPSY_EMPTY_FIELD_FALLBACK_VALUE = "Not set";
 const DEFAULT_OBSERVATIONS_VALUE = "Sin observaciones";
+const WITHDRAWAL_PGFLEX_DESTINATION = "charcas y honduras";
+const PGFLEX_IDENTIFIER_MAX_LENGTH = 160;
 
 function isInstitutionManagerRole(role: AdminContext["role"]) {
   return (
@@ -231,13 +236,40 @@ type ListTwoPQFormsPage = {
   hasMore: boolean;
 };
 
+type PGFlexDispatcherAssignment = {
+  email: string;
+  firebaseUid: string;
+  displayName: string;
+};
+
+type WithdrawalPGFlexEventDocument = {
+  identifier: string;
+  description: string;
+  linked_codes: string | null;
+  dispatcherId: string | null;
+  dispatcherFirebaseId: string | null;
+  dispatcherEmail: string | null;
+  origin: string;
+  destination: string;
+  timeRequested: string;
+  pickupTime: null;
+  status: "awaiting_pick_up";
+  source: "2pq_withdrawal_request";
+  sourceFormId: string;
+  linkedCaseIds: string[];
+  createdAt: string;
+  updatedAt: string;
+  createdByEmail: string;
+  updatedByEmail: string;
+};
+
 function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function toPlainRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : {};
 }
 
@@ -259,6 +291,10 @@ function normalizeRequiredString(value: unknown, label: string) {
   return normalized;
 }
 
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function normalizeObservationsValue(value: unknown) {
   return normalizeOptionalString(value) ?? DEFAULT_OBSERVATIONS_VALUE;
 }
@@ -277,7 +313,9 @@ function normalizeDateBoundary(value: unknown, boundary: "start" | "end") {
   }
 
   const date = /^\d{4}-\d{2}-\d{2}$/.test(normalized)
-    ? new Date(`${normalized}T${boundary === "start" ? "00:00:00.000" : "23:59:59.999"}Z`)
+    ? new Date(
+        `${normalized}T${boundary === "start" ? "00:00:00.000" : "23:59:59.999"}Z`,
+      )
     : new Date(normalized);
   if (Number.isNaN(date.getTime())) {
     return undefined;
@@ -291,57 +329,62 @@ function formSearchHaystack(form: TwoPQFormRecord) {
   const caseInformation = form.caseInformation ?? {};
   const samplingInformation = form.samplingInformation ?? [];
   const withdrawalCases = form.withdrawalCases ?? [];
-  return normalizeSearchText(
-    [
-      form.id,
-      form.institutionId,
-      form.doctorId,
-      form.institutionName,
-      form.patientName,
-      form.patientEmail,
-      form.requestedTestName,
-      form.selectedPatientId,
-      form.selectedInstitutionId,
-      form.selectedCaseId,
-      form.selectedRequestingDoctorId,
-      form.linkedStudyRequestFormId,
-      form.authorEmail,
-      form.createdByEmail,
-      ...(form.linkedCaseIds ?? []),
-      ...(form.linkedSamplingIds ?? []),
-      caseInformation.id,
-      caseInformation.three_letter_code,
-      caseInformation.caseLabel,
-      caseInformation.caseType,
-      caseInformation.caseStatus,
-      caseInformation.patientId,
-      caseInformation.doctorId,
-      caseInformation.institutionId,
-      ...samplingInformation.flatMap((samplingRecord) => [
-        samplingRecord.id,
-        samplingRecord.sampleId,
-        samplingRecord.internalCode,
-        samplingRecord.notes,
-      ]),
-      ...withdrawalCases.flatMap((caseRecord) => [
-        caseRecord.id,
-        caseRecord.three_letter_code,
-        caseRecord.caseLabel,
-        caseRecord.caseStatus,
-        caseRecord.patientName,
-      ]),
-      patientInformation.fullName,
-      patientInformation.firstName,
-      patientInformation.lastName,
-      patientInformation.email,
-      patientInformation.medicalRecordNumber,
-    ]
-      .filter(Boolean)
-      .join(" ")
-  ) ?? "";
+  return (
+    normalizeSearchText(
+      [
+        form.id,
+        form.institutionId,
+        form.doctorId,
+        form.institutionName,
+        form.patientName,
+        form.patientEmail,
+        form.requestedTestName,
+        form.selectedPatientId,
+        form.selectedInstitutionId,
+        form.selectedCaseId,
+        form.selectedRequestingDoctorId,
+        form.linkedStudyRequestFormId,
+        form.authorEmail,
+        form.createdByEmail,
+        ...(form.linkedCaseIds ?? []),
+        ...(form.linkedSamplingIds ?? []),
+        caseInformation.id,
+        caseInformation.three_letter_code,
+        caseInformation.caseLabel,
+        caseInformation.caseType,
+        caseInformation.caseStatus,
+        caseInformation.patientId,
+        caseInformation.doctorId,
+        caseInformation.institutionId,
+        ...samplingInformation.flatMap((samplingRecord) => [
+          samplingRecord.id,
+          samplingRecord.sampleId,
+          samplingRecord.internalCode,
+          samplingRecord.notes,
+        ]),
+        ...withdrawalCases.flatMap((caseRecord) => [
+          caseRecord.id,
+          caseRecord.three_letter_code,
+          caseRecord.caseLabel,
+          caseRecord.caseStatus,
+          caseRecord.patientName,
+        ]),
+        patientInformation.fullName,
+        patientInformation.firstName,
+        patientInformation.lastName,
+        patientInformation.email,
+        patientInformation.medicalRecordNumber,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    ) ?? ""
+  );
 }
 
-function formMatchesSearch(form: TwoPQFormRecord, normalizedSearch: string | undefined) {
+function formMatchesSearch(
+  form: TwoPQFormRecord,
+  normalizedSearch: string | undefined,
+) {
   if (!normalizedSearch) {
     return true;
   }
@@ -359,7 +402,7 @@ function formMatchesListFilters(
   options: ListTwoPQFormsOptions,
   normalizedSearch: string | undefined,
   createdFrom: string | undefined,
-  createdTo: string | undefined
+  createdTo: string | undefined,
 ) {
   if (!canViewTwoPQForm(context, form)) {
     return false;
@@ -382,7 +425,10 @@ function formMatchesListFilters(
 function normalizeThreeLetterCode(value: unknown, label: string) {
   const normalized = normalizeRequiredString(value, label).toUpperCase();
   if (!/^[A-Z]{3}$/.test(normalized)) {
-    throw new AdminRepositoryError(`${label} must be exactly three letters (A-Z).`, 400);
+    throw new AdminRepositoryError(
+      `${label} must be exactly three letters (A-Z).`,
+      400,
+    );
   }
   return normalized;
 }
@@ -390,7 +436,10 @@ function normalizeThreeLetterCode(value: unknown, label: string) {
 function normalizeEmail(value: unknown, label: string) {
   const normalized = normalizeRoleEmail(normalizeRequiredString(value, label));
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-    throw new AdminRepositoryError(`${label} must be a valid email address.`, 400);
+    throw new AdminRepositoryError(
+      `${label} must be a valid email address.`,
+      400,
+    );
   }
   return normalized;
 }
@@ -402,7 +451,10 @@ function normalizeOptionalEmail(value: unknown) {
   }
   const email = normalizeRoleEmail(normalized);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new AdminRepositoryError("Contact email must be a valid email address.", 400);
+    throw new AdminRepositoryError(
+      "Contact email must be a valid email address.",
+      400,
+    );
   }
   return email;
 }
@@ -455,10 +507,7 @@ function isBiopsyEmptyFieldFallbackValue(value: unknown) {
   );
 }
 
-function normalizeSamplingCellsVisualizedAnswer(
-  value: unknown,
-  label: string
-) {
+function normalizeSamplingCellsVisualizedAnswer(value: unknown, label: string) {
   // Product rule: biopsy form operators may explicitly continue with blank
   // required biopsy cells by storing the literal "Not set". That sentinel is
   // valid for cellsVisualized even though every other nonempty value must
@@ -472,7 +521,7 @@ function normalizeSamplingCellsVisualizedAnswer(
 
 function normalizeOptionalSamplingCellsVisualizedAnswer(
   value: unknown,
-  label: string
+  label: string,
 ) {
   if (typeof value !== "boolean" && !normalizeOptionalString(value)) {
     return undefined;
@@ -491,7 +540,7 @@ function normalizeFullName(input: PatientInformationInput) {
   return normalizeRequiredString(
     normalizeOptionalString(input.fullName) ??
       joinNameParts(input.firstName, input.lastName),
-    "Patient full name"
+    "Patient full name",
   );
 }
 
@@ -509,10 +558,7 @@ function normalizeGameteSource(value: unknown, label: string) {
 }
 
 function normalizePreviousMiscarriages(value: unknown) {
-  const normalized = normalizeRequiredString(
-    value,
-    "Numero abortos previos"
-  );
+  const normalized = normalizeRequiredString(value, "Numero abortos previos");
   const allowedValues = new Set(["0", "1", "2", "3_or_more", "recurrent"]);
   if (allowedValues.has(normalized)) {
     return normalized;
@@ -520,7 +566,7 @@ function normalizePreviousMiscarriages(value: unknown) {
 
   throw new AdminRepositoryError(
     "Numero abortos previos must be 0, 1, 2, 3_or_more, or recurrent.",
-    400
+    400,
   );
 }
 
@@ -530,7 +576,7 @@ function normalizeStatus(value: unknown): "active" | "inactive" {
 
 function compactRecord<T extends Record<string, unknown>>(record: T): T {
   return Object.fromEntries(
-    Object.entries(record).map(([key, value]) => [key, value ?? null])
+    Object.entries(record).map(([key, value]) => [key, value ?? null]),
   ) as T;
 }
 
@@ -548,7 +594,10 @@ function normalizeInstitutionAddress(data: Record<string, unknown>) {
   return legacyAddress.length > 0 ? legacyAddress.join(", ") : undefined;
 }
 
-function toInstitutionRecord(id: string, data: Record<string, unknown>): InstitutionRecord {
+function toInstitutionRecord(
+  id: string,
+  data: Record<string, unknown>,
+): InstitutionRecord {
   const now = new Date().toISOString();
 
   return {
@@ -568,13 +617,18 @@ function toInstitutionRecord(id: string, data: Record<string, unknown>): Institu
   };
 }
 
-function toDoctorRecord(id: string, data: Record<string, unknown>): DoctorRecord {
+function toDoctorRecord(
+  id: string,
+  data: Record<string, unknown>,
+): DoctorRecord {
   const now = new Date().toISOString();
 
   return {
     id,
     institutionId: normalizeOptionalString(data.institutionId) ?? "",
-    authEmail: normalizeRoleEmail(normalizeOptionalString(data.authEmail) ?? ""),
+    authEmail: normalizeRoleEmail(
+      normalizeOptionalString(data.authEmail) ?? "",
+    ),
     authUid: normalizeOptionalString(data.authUid),
     fullName: normalizeOptionalString(data.fullName) ?? id,
     specialty: normalizeOptionalString(data.specialty),
@@ -587,7 +641,10 @@ function toDoctorRecord(id: string, data: Record<string, unknown>): DoctorRecord
   };
 }
 
-function toPatientRecord(id: string, data: Record<string, unknown>): PatientRecord {
+function toPatientRecord(
+  id: string,
+  data: Record<string, unknown>,
+): PatientRecord {
   const now = new Date().toISOString();
 
   return {
@@ -606,18 +663,23 @@ function toPatientRecord(id: string, data: Record<string, unknown>): PatientReco
   };
 }
 
-function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQFormRecord {
+function toTwoPQFormRecord(
+  id: string,
+  data: Record<string, unknown>,
+): TwoPQFormRecord {
   const formType =
     data.formType === "sample" || data.formType === "withdrawal_request"
       ? data.formType
       : "study_request";
   const patientInformationRecord = toPlainRecord(data.patientInformation);
-  const institutionInformationSource = toPlainRecord(data.institutionInformation);
+  const institutionInformationSource = toPlainRecord(
+    data.institutionInformation,
+  );
   const institutionInformationRecord = { ...institutionInformationSource };
   delete institutionInformationRecord.addressLine1;
   delete institutionInformationRecord.addressLine2;
   const institutionAddress = normalizeInstitutionAddress(
-    institutionInformationSource
+    institutionInformationSource,
   );
   if (institutionAddress) {
     institutionInformationRecord.address = institutionAddress;
@@ -626,7 +688,7 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
   const withdrawalCases = Array.isArray(data.withdrawalCases)
     ? data.withdrawalCases.filter(
         (entry): entry is Record<string, unknown> =>
-          Boolean(entry) && typeof entry === "object"
+          Boolean(entry) && typeof entry === "object",
       )
     : undefined;
   const institutionId =
@@ -661,51 +723,57 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
     patientEmail: normalizeOptionalString(data.patientEmail),
     institutionName: normalizeOptionalString(data.institutionName),
     requestedTestName: normalizeOptionalString(data.requestedTestName),
-    linkedStudyRequestFormId: normalizeOptionalString(data.linkedStudyRequestFormId),
+    linkedStudyRequestFormId: normalizeOptionalString(
+      data.linkedStudyRequestFormId,
+    ),
     linkedCaseIds: normalizeStringArray(data.linkedCaseIds),
     selectedCaseId: normalizeOptionalString(data.selectedCaseId),
-    selectedRequestingDoctorId: normalizeOptionalString(data.selectedRequestingDoctorId),
+    selectedRequestingDoctorId: normalizeOptionalString(
+      data.selectedRequestingDoctorId,
+    ),
     linkedCaseId: normalizeOptionalString(data.linkedCaseId),
     linkedSamplingIds: Array.isArray(data.linkedSamplingIds)
       ? data.linkedSamplingIds
           .map((entry) => normalizeOptionalString(entry))
           .filter((entry): entry is string => Boolean(entry))
       : undefined,
-    patientInformation: patientInformationRecord as TwoPQFormRecord["patientInformation"],
+    patientInformation:
+      patientInformationRecord as TwoPQFormRecord["patientInformation"],
     medicalInformation:
       data.medicalInformation && typeof data.medicalInformation === "object"
-        ? data.medicalInformation as TwoPQFormRecord["medicalInformation"]
+        ? (data.medicalInformation as TwoPQFormRecord["medicalInformation"])
         : undefined,
     previousGeneticTests:
       data.previousGeneticTests && typeof data.previousGeneticTests === "object"
-        ? data.previousGeneticTests as TwoPQFormRecord["previousGeneticTests"]
+        ? (data.previousGeneticTests as TwoPQFormRecord["previousGeneticTests"])
         : undefined,
     requestedTest:
       requestedTest && typeof requestedTest === "object"
-        ? requestedTest as TwoPQFormRecord["requestedTest"]
+        ? (requestedTest as TwoPQFormRecord["requestedTest"])
         : {},
     institutionInformation:
       Object.keys(institutionInformationRecord).length > 0
-        ? institutionInformationRecord as TwoPQFormRecord["institutionInformation"]
+        ? (institutionInformationRecord as TwoPQFormRecord["institutionInformation"])
         : undefined,
     sampleInformation:
       data.sampleInformation && typeof data.sampleInformation === "object"
-        ? data.sampleInformation as TwoPQFormRecord["sampleInformation"]
+        ? (data.sampleInformation as TwoPQFormRecord["sampleInformation"])
         : undefined,
     caseInformation:
       Object.keys(caseInformationRecord).length > 0
-        ? caseInformationRecord as TwoPQFormRecord["caseInformation"]
+        ? (caseInformationRecord as TwoPQFormRecord["caseInformation"])
         : undefined,
-    samplingInformation:
-      Array.isArray(data.samplingInformation)
-        ? data.samplingInformation.filter(
-            (entry): entry is Record<string, unknown> =>
-              Boolean(entry) && typeof entry === "object"
-          ) as TwoPQFormRecord["samplingInformation"]
-        : undefined,
+    samplingInformation: Array.isArray(data.samplingInformation)
+      ? (data.samplingInformation.filter(
+          (entry): entry is Record<string, unknown> =>
+            Boolean(entry) && typeof entry === "object",
+        ) as TwoPQFormRecord["samplingInformation"])
+      : undefined,
     withdrawalCases: withdrawalCases as TwoPQFormRecord["withdrawalCases"],
-    createdAt: normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
-    updatedAt: normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
+    createdAt:
+      normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
+    updatedAt:
+      normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
     authorEmail,
     authorUid,
     archivedAt: normalizeOptionalString(data.archivedAt),
@@ -720,7 +788,7 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
 
 function toTwoPQFormDraftRecord(
   id: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
 ): TwoPQFormDraftRecord {
   const formType =
     data.formType === "sample" || data.formType === "withdrawal_request"
@@ -733,14 +801,17 @@ function toTwoPQFormDraftRecord(
     collectionKey: FORM_DRAFTS_COLLECTION,
     currentStep:
       typeof data.currentStep === "string"
-        ? data.currentStep as TwoPQFormDraftStepKey
+        ? (data.currentStep as TwoPQFormDraftStepKey)
         : "patientInformation",
     stepIndex: Number.isInteger(data.stepIndex) ? Number(data.stepIndex) : 0,
-    state: state && typeof state === "object" && !Array.isArray(state)
-      ? state as Record<string, unknown>
-      : {},
-    createdAt: normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
-    updatedAt: normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
+    state:
+      state && typeof state === "object" && !Array.isArray(state)
+        ? (state as Record<string, unknown>)
+        : {},
+    createdAt:
+      normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
+    updatedAt:
+      normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
     authorEmail: normalizeOptionalString(data.authorEmail),
     authorUid: normalizeOptionalString(data.authorUid),
     createdByEmail: normalizeOptionalString(data.createdByEmail),
@@ -752,13 +823,19 @@ function toTwoPQFormDraftRecord(
 
 async function getNextFormId() {
   return adminDb.runTransaction(async (transaction) => {
-    const reference = adminDb.collection(SEQUENCES_COLLECTION).doc(FORMS_COLLECTION);
+    const reference = adminDb
+      .collection(SEQUENCES_COLLECTION)
+      .doc(FORMS_COLLECTION);
     const snapshot = await transaction.get(reference);
     const current = Number(snapshot.data()?.current ?? 0);
     const next = current + 1;
     const now = new Date().toISOString();
 
-    transaction.set(reference, { current: next, updatedAt: now }, { merge: true });
+    transaction.set(
+      reference,
+      { current: next, updatedAt: now },
+      { merge: true },
+    );
 
     return `FORM-${String(next).padStart(5, "0")}`;
   });
@@ -774,49 +851,75 @@ async function getInstitutionById(institutionId: string) {
     return null;
   }
 
-  return toInstitutionRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
+  return toInstitutionRecord(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>,
+  );
 }
 
 async function getDoctorById(doctorId: string) {
-  const snapshot = await adminDb.collection(DOCTORS_COLLECTION).doc(doctorId).get();
+  const snapshot = await adminDb
+    .collection(DOCTORS_COLLECTION)
+    .doc(doctorId)
+    .get();
   if (!snapshot.exists) {
     return null;
   }
 
-  return toDoctorRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
+  return toDoctorRecord(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>,
+  );
 }
 
 async function getPatientById(patientId: string) {
-  const snapshot = await adminDb.collection(PATIENTS_COLLECTION).doc(patientId).get();
+  const snapshot = await adminDb
+    .collection(PATIENTS_COLLECTION)
+    .doc(patientId)
+    .get();
   if (!snapshot.exists) {
     return null;
   }
 
-  return toPatientRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
+  return toPatientRecord(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>,
+  );
 }
 
-async function validateDoctorInstitutionLink(institutionId: string, doctorId: string) {
-  const snapshot = await adminDb.collection(DOCTORS_COLLECTION).doc(doctorId).get();
+async function validateDoctorInstitutionLink(
+  institutionId: string,
+  doctorId: string,
+) {
+  const snapshot = await adminDb
+    .collection(DOCTORS_COLLECTION)
+    .doc(doctorId)
+    .get();
   if (!snapshot.exists) {
     throw new AdminRepositoryError("Doctor not found.", 404);
   }
 
-  const doctorInstitutionId = normalizeOptionalString(snapshot.data()?.institutionId);
+  const doctorInstitutionId = normalizeOptionalString(
+    snapshot.data()?.institutionId,
+  );
   if (doctorInstitutionId !== institutionId) {
     throw new AdminRepositoryError(
       "The selected doctor must belong to the selected institution.",
-      400
+      400,
     );
   }
 }
 
 function normalizePatientInformation(input: PatientInformationInput) {
-  const institutionId = normalizeRequiredString(input.institutionId, "Patient institution");
+  const institutionId = normalizeRequiredString(
+    input.institutionId,
+    "Patient institution",
+  );
   const doctorId = normalizeRequiredString(input.doctorId, "Patient doctor");
   const sex = normalizeOptionalString(input.sex);
   const partnerFullName = normalizeOptionalString(input.partnerFullName);
   const partnerMedicalRecordNumber = normalizeOptionalString(
-    input.partnerMedicalRecordNumber
+    input.partnerMedicalRecordNumber,
   );
   const partnerBirthDate = normalizeIsoDateString(input.partnerBirthDate);
   const partnerNotes = normalizeOptionalString(input.partnerNotes);
@@ -846,13 +949,13 @@ function normalizePatientInformation(input: PatientInformationInput) {
 }
 
 function buildPatientAdditionalInformation(
-  patientInformation: ReturnType<typeof normalizePatientInformation>
+  patientInformation: ReturnType<typeof normalizePatientInformation>,
 ) {
   const hasPartnerInformation = Boolean(
     patientInformation.partnerFullName ||
-      patientInformation.partnerMedicalRecordNumber ||
-      patientInformation.partnerBirthDate ||
-      patientInformation.partnerNotes
+    patientInformation.partnerMedicalRecordNumber ||
+    patientInformation.partnerBirthDate ||
+    patientInformation.partnerNotes,
   );
 
   if (!hasPartnerInformation) {
@@ -886,21 +989,21 @@ function normalizeInstitutionInformation(input: InstitutionInformationInput) {
 
 function normalizeMedicalInformation(
   input: MedicalInformationInput = {},
-  formType: TwoPQFormType = "study_request"
+  formType: TwoPQFormType = "study_request",
 ) {
   if (formType === "study_request") {
     return compactRecord({
       spermGameteSource: normalizeGameteSource(
         input.spermGameteSource,
-        "Esperma"
+        "Esperma",
       ),
       oocyteGameteSource: normalizeGameteSource(
         input.oocyteGameteSource,
-        "Ovocitos"
+        "Ovocitos",
       ),
       maleFactor: normalizeBooleanAnswer(input.maleFactor, "Factor masculino"),
       previousMiscarriagesCount: normalizePreviousMiscarriages(
-        input.previousMiscarriagesCount
+        input.previousMiscarriagesCount,
       ),
       otherBackground: normalizeObservationsValue(input.otherBackground),
     });
@@ -909,7 +1012,7 @@ function normalizeMedicalInformation(
   return compactRecord({
     clinicalIndication: normalizeRequiredString(
       input.clinicalIndication,
-      "Clinical indication"
+      "Clinical indication",
     ),
     suspectedDiagnosis: normalizeOptionalString(input.suspectedDiagnosis),
     symptoms: normalizeOptionalString(input.symptoms),
@@ -921,20 +1024,20 @@ function normalizeMedicalInformation(
 
 function normalizePreviousGeneticTests(
   input: PreviousGeneticTestsInput = {},
-  formType: TwoPQFormType = "study_request"
+  formType: TwoPQFormType = "study_request",
 ) {
   if (formType === "study_request") {
     const hasKaryotypeInformation = normalizeBooleanAnswer(
       input.karyotype,
-      "Tiene informacion de cariotipo"
+      "Tiene informacion de cariotipo",
     );
     const karyotypeFileContent = normalizeOptionalString(
-      input.karyotypeFileContent
+      input.karyotypeFileContent,
     );
     if (hasKaryotypeInformation && !karyotypeFileContent) {
       throw new AdminRepositoryError(
         "Karyotype file is required when karyotype information is SI.",
-        400
+        400,
       );
     }
 
@@ -954,7 +1057,7 @@ function normalizePreviousGeneticTests(
   return compactRecord({
     hasPreviousTests: normalizeRequiredString(
       input.hasPreviousTests,
-      "Previous genetic tests answer"
+      "Previous genetic tests answer",
     ),
     testDescription: normalizeOptionalString(input.testDescription),
     labName: normalizeOptionalString(input.labName),
@@ -967,14 +1070,14 @@ function normalizePreviousGeneticTests(
 function normalizeConditionalBooleanAnswer(
   value: unknown,
   selected: boolean,
-  label: string
+  label: string,
 ) {
   return selected ? normalizeBooleanAnswer(value, label) : undefined;
 }
 
 function normalizeRequestedTest(
   input: RequestedTestInput,
-  formType: TwoPQFormType = "sample"
+  formType: TwoPQFormType = "sample",
 ) {
   const hasThreeWayRequestedTest =
     typeof input.pgtAFast !== "undefined" ||
@@ -985,11 +1088,14 @@ function normalizeRequestedTest(
     const pgtAFast = normalizeBooleanAnswer(input.pgtAFast, "PGT-A FAST");
     const pgtAStandard = normalizeBooleanAnswer(
       input.pgtAStandard,
-      "PGT-A STANDARD"
+      "PGT-A STANDARD",
     );
     const pgtSr = normalizeBooleanAnswer(input.pgtSr, "PGT-SR");
     if (!pgtAFast && !pgtAStandard && !pgtSr) {
-      throw new AdminRepositoryError("At least one requested test must be SI.", 400);
+      throw new AdminRepositoryError(
+        "At least one requested test must be SI.",
+        400,
+      );
     }
     if ([pgtAFast, pgtAStandard, pgtSr].filter(Boolean).length > 1) {
       throw new AdminRepositoryError("Only one requested test can be SI.", 400);
@@ -1000,34 +1106,34 @@ function normalizeRequestedTest(
       pgtAFastReportsMosaicism: normalizeConditionalBooleanAnswer(
         input.pgtAFastReportsMosaicism,
         pgtAFast,
-        "PGT-A FAST informa mosaicismos"
+        "PGT-A FAST informa mosaicismos",
       ),
       pgtAFastReportsSex: normalizeConditionalBooleanAnswer(
         input.pgtAFastReportsSex,
         pgtAFast,
-        "PGT-A FAST informa sexo"
+        "PGT-A FAST informa sexo",
       ),
       pgtAStandard,
       pgtAStandardReportsMosaicism: normalizeConditionalBooleanAnswer(
         input.pgtAStandardReportsMosaicism,
         pgtAStandard,
-        "PGT-A STANDARD informa mosaicismos"
+        "PGT-A STANDARD informa mosaicismos",
       ),
       pgtAStandardReportsSex: normalizeConditionalBooleanAnswer(
         input.pgtAStandardReportsSex,
         pgtAStandard,
-        "PGT-A STANDARD informa sexo"
+        "PGT-A STANDARD informa sexo",
       ),
       pgtSr,
       pgtSrReportsMosaicism: normalizeConditionalBooleanAnswer(
         input.pgtSrReportsMosaicism,
         pgtSr,
-        "PGT-SR informa mosaicismos"
+        "PGT-SR informa mosaicismos",
       ),
       pgtSrReportsSex: normalizeConditionalBooleanAnswer(
         input.pgtSrReportsSex,
         pgtSr,
-        "PGT-SR informa sexo"
+        "PGT-SR informa sexo",
       ),
     });
   }
@@ -1038,7 +1144,10 @@ function normalizeRequestedTest(
     const pgtA = normalizeBooleanAnswer(input.pgtA, "PGT-A");
     const pgtSr = normalizeBooleanAnswer(input.pgtSr, "PGT-SR");
     if (!pgtA && !pgtSr) {
-      throw new AdminRepositoryError("At least one requested test must be SI.", 400);
+      throw new AdminRepositoryError(
+        "At least one requested test must be SI.",
+        400,
+      );
     }
 
     return compactRecord({
@@ -1058,7 +1167,7 @@ function normalizeRequestedTest(
 
 function getRequestedTestName(
   requestedTest: Record<string, unknown>,
-  formType: TwoPQFormType
+  formType: TwoPQFormType,
 ) {
   if (
     formType === "study_request" ||
@@ -1092,9 +1201,12 @@ function getRequestedTestName(
 
 function normalizeSampleInformation(
   input: SampleInformationInput = {},
-  requestingDoctor?: DoctorRecord | null
+  requestingDoctor?: DoctorRecord | null,
 ) {
-  const sampleType = normalizeRequiredString(input.sampleType, "TIPO DE MUESTRA");
+  const sampleType = normalizeRequiredString(
+    input.sampleType,
+    "TIPO DE MUESTRA",
+  );
   const allowedSampleTypes = new Set([
     "biopsia de trofoectodermo",
     "rebiopsia de trofoectodermo",
@@ -1121,13 +1233,16 @@ function normalizeSampleInformation(
     biopsyCount: normalizeOptionalString(input.biopsyCount),
     processedByFirstName: normalizeRequiredString(
       input.processedByFirstName,
-      "PROCESADO POR nombre"
+      "PROCESADO POR nombre",
     ),
     processedByLastName: normalizeRequiredString(
       input.processedByLastName,
-      "PROCESADO POR apellido"
+      "PROCESADO POR apellido",
     ),
-    processDate: normalizeRequiredIsoDateString(input.processDate, "FECHA PROCESO"),
+    processDate: normalizeRequiredIsoDateString(
+      input.processDate,
+      "FECHA PROCESO",
+    ),
     boxCode: normalizeThreeLetterCode(input.boxCode, "CODIGO CAJA"),
   });
 }
@@ -1147,17 +1262,18 @@ function normalizeCaseInformation(input: CaseInformationInput = {}) {
 
 function normalizeSamplingInformation(
   input: SamplingInformationInput = {},
-  fallbackCaseLabel: string
+  fallbackCaseLabel: string,
 ) {
   const processingStatus = normalizeRequiredString(
     input.processingStatus,
-    "2PQ processing status"
+    "2PQ processing status",
   );
   const isDiscarded = processingStatus === "discarded";
-  const optionalCellsVisualized = normalizeOptionalSamplingCellsVisualizedAnswer(
-    input.cellsVisualized,
-    "Celulas visualizadas"
-  );
+  const optionalCellsVisualized =
+    normalizeOptionalSamplingCellsVisualizedAnswer(
+      input.cellsVisualized,
+      "Celulas visualizadas",
+    );
 
   return {
     caseLabel: fallbackCaseLabel,
@@ -1181,7 +1297,7 @@ function normalizeSamplingInformation(
       ? optionalCellsVisualized
       : normalizeSamplingCellsVisualizedAnswer(
           input.cellsVisualized,
-          "Celulas visualizadas"
+          "Celulas visualizadas",
         ),
     collectionDate: undefined,
     receptionDate: undefined,
@@ -1193,13 +1309,18 @@ function normalizeSamplingInformation(
 
 function normalizeSamplingInformationList(
   input: SamplingInformationInput[] | undefined,
-  fallbackCaseLabel: string
+  fallbackCaseLabel: string,
 ) {
   if (!Array.isArray(input) || input.length === 0) {
-    throw new AdminRepositoryError("At least one 2PQ sampling record is required.", 400);
+    throw new AdminRepositoryError(
+      "At least one 2PQ sampling record is required.",
+      400,
+    );
   }
 
-  return input.map((entry) => normalizeSamplingInformation(entry, fallbackCaseLabel));
+  return input.map((entry) =>
+    normalizeSamplingInformation(entry, fallbackCaseLabel),
+  );
 }
 
 function caseRecordToFormInformation(record: {
@@ -1278,7 +1399,10 @@ function normalizeWithdrawalCaseIds(value: unknown) {
     throw new AdminRepositoryError("At least one 2PQ case is required.", 400);
   }
   if (uniqueIds.length > 50) {
-    throw new AdminRepositoryError("Withdrawal request can link at most 50 cases.", 400);
+    throw new AdminRepositoryError(
+      "Withdrawal request can link at most 50 cases.",
+      400,
+    );
   }
 
   return uniqueIds;
@@ -1286,7 +1410,7 @@ function normalizeWithdrawalCaseIds(value: unknown) {
 
 function canWriteWithdrawalCase(
   context: AdminContext,
-  record: Pick<TwoPQFormRecord, "institutionId" | "doctorId">
+  record: Pick<TwoPQFormRecord, "institutionId" | "doctorId">,
 ) {
   if (context.role === "full_admin") {
     return true;
@@ -1303,7 +1427,7 @@ function canWriteWithdrawalCase(
 
 function caseDocumentToWithdrawalInformation(
   id: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
 ) {
   const caseStatus = normalizeOptionalString(data.caseStatus);
   return compactRecord({
@@ -1322,15 +1446,277 @@ function caseDocumentToWithdrawalInformation(
   });
 }
 
+async function toPGFlexDispatcherAssignment(doc: {
+  id: string;
+  data: () => Record<string, unknown>;
+}): Promise<PGFlexDispatcherAssignment | null> {
+  const data = doc.data();
+
+  if (data.role !== "transport_dispatcher" || data.isActive !== true) {
+    return null;
+  }
+
+  const email = normalizeRoleEmail(
+    normalizeOptionalString(data.email) ?? doc.id,
+  );
+  let firebaseUid = normalizeOptionalString(data.firebaseUid);
+  let authDisplayName: string | undefined;
+
+  if (!firebaseUid) {
+    try {
+      const user = await adminAuthFor("mydnamap").getUserByEmail(email);
+      firebaseUid = user.uid;
+      authDisplayName = normalizeOptionalString(user.displayName);
+    } catch {
+      return null;
+    }
+  } else if (!normalizeOptionalString(data.displayName)) {
+    try {
+      const user = await adminAuthFor("mydnamap").getUser(firebaseUid);
+      authDisplayName = normalizeOptionalString(user.displayName);
+    } catch {
+      authDisplayName = undefined;
+    }
+  }
+
+  return {
+    email,
+    firebaseUid,
+    displayName:
+      normalizeOptionalString(data.displayName) ??
+      authDisplayName ??
+      "Transportista sin nombre",
+  };
+}
+
+async function getFirstPGFlexDispatcherAssignment() {
+  const snapshot = await adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .where("role", "==", "transport_dispatcher")
+    .where("isActive", "==", true)
+    .limit(100)
+    .get();
+  const dispatchers = (
+    await Promise.all(snapshot.docs.map(toPGFlexDispatcherAssignment))
+  )
+    .filter((dispatcher): dispatcher is PGFlexDispatcherAssignment =>
+      Boolean(dispatcher),
+    )
+    .sort((left, right) =>
+      left.displayName.localeCompare(right.displayName, "es"),
+    );
+
+  return dispatchers[0] ?? null;
+}
+
+function buildWithdrawalPGFlexEventId(formId: string) {
+  return `pgflex_withdrawal_${formId.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
+}
+
+function truncatePGFlexIdentifier(value: string) {
+  if (value.length <= PGFLEX_IDENTIFIER_MAX_LENGTH) {
+    return value;
+  }
+
+  return value.slice(0, PGFLEX_IDENTIFIER_MAX_LENGTH - 3).trimEnd() + "...";
+}
+
+function buildWithdrawalPGFlexOrigin(
+  institutionInformation: ReturnType<typeof normalizeInstitutionInformation>,
+  selectedInstitution: InstitutionRecord | null,
+  institutionId: string,
+) {
+  const parts = [
+    normalizeOptionalString(institutionInformation.address) ??
+      selectedInstitution?.address,
+    normalizeOptionalString(institutionInformation.city) ??
+      selectedInstitution?.city,
+    normalizeOptionalString(institutionInformation.state) ??
+      selectedInstitution?.state,
+    normalizeOptionalString(institutionInformation.country) ??
+      selectedInstitution?.country,
+  ].filter((part): part is string => Boolean(part));
+
+  if (parts.length > 0) {
+    return parts.join(", ");
+  }
+
+  return (
+    normalizeOptionalString(institutionInformation.name) ??
+    selectedInstitution?.name ??
+    institutionId
+  );
+}
+
+function linkedCodesForWithdrawalCases(
+  withdrawalCases: Array<Record<string, unknown>>,
+) {
+  return [
+    ...new Set(
+      withdrawalCases
+        .map((caseRecord) =>
+          normalizeOptionalString(caseRecord.three_letter_code)?.toUpperCase(),
+        )
+        .filter(
+          (code): code is string =>
+            typeof code === "string" && /^[A-Z]{3}$/.test(code),
+        ),
+    ),
+  ];
+}
+
+function buildWithdrawalPGFlexDescription({
+  formId,
+  linkedCaseIds,
+  linkedCodes,
+  withdrawalCases,
+  authorEmail,
+}: {
+  formId: string;
+  linkedCaseIds: string[];
+  linkedCodes: string[];
+  withdrawalCases: Array<Record<string, unknown>>;
+  authorEmail: string;
+}) {
+  const caseLabels = withdrawalCases
+    .map(
+      (caseRecord) =>
+        normalizeOptionalString(caseRecord.caseLabel) ??
+        normalizeOptionalString(caseRecord.id),
+    )
+    .filter((label): label is string => Boolean(label));
+  const details = [
+    `Formulario de solicitud de retiro: ${formId}`,
+    caseLabels.length > 0
+      ? `Casos: ${caseLabels.join(", ")}`
+      : `Casos: ${linkedCaseIds.join(", ")}`,
+    linkedCodes.length > 0 ? `Codigos: ${linkedCodes.join(",")}` : undefined,
+    `Solicitado por: ${authorEmail}`,
+  ].filter((part): part is string => Boolean(part));
+
+  return `${details.join(". ")}.`;
+}
+
+function buildWithdrawalPGFlexEventDocument({
+  formId,
+  institutionInformation,
+  selectedInstitution,
+  institutionId,
+  linkedCaseIds,
+  withdrawalCases,
+  dispatcher,
+  authorEmail,
+  now,
+}: {
+  formId: string;
+  institutionInformation: ReturnType<typeof normalizeInstitutionInformation>;
+  selectedInstitution: InstitutionRecord | null;
+  institutionId: string;
+  linkedCaseIds: string[];
+  withdrawalCases: Array<Record<string, unknown>>;
+  dispatcher: PGFlexDispatcherAssignment | null;
+  authorEmail: string;
+  now: string;
+}): WithdrawalPGFlexEventDocument {
+  const institutionName =
+    normalizeOptionalString(institutionInformation.name) ??
+    selectedInstitution?.name ??
+    institutionId;
+  const linkedCodes = linkedCodesForWithdrawalCases(withdrawalCases);
+
+  return {
+    identifier: truncatePGFlexIdentifier(`${institutionName} - ${now}`),
+    description: buildWithdrawalPGFlexDescription({
+      formId,
+      linkedCaseIds,
+      linkedCodes,
+      withdrawalCases,
+      authorEmail,
+    }),
+    linked_codes: linkedCodes.length > 0 ? linkedCodes.join(",") : null,
+    dispatcherId: dispatcher?.firebaseUid ?? null,
+    dispatcherFirebaseId: dispatcher?.firebaseUid ?? null,
+    dispatcherEmail: dispatcher?.email ?? null,
+    origin: buildWithdrawalPGFlexOrigin(
+      institutionInformation,
+      selectedInstitution,
+      institutionId,
+    ),
+    destination: WITHDRAWAL_PGFLEX_DESTINATION,
+    timeRequested: now,
+    pickupTime: null,
+    status: "awaiting_pick_up",
+    source: "2pq_withdrawal_request",
+    sourceFormId: formId,
+    linkedCaseIds,
+    createdAt: now,
+    updatedAt: now,
+    createdByEmail: authorEmail,
+    updatedByEmail: authorEmail,
+  };
+}
+
+async function sendWithdrawalPGFlexAssignmentEmail(
+  eventId: string,
+  eventDocument: WithdrawalPGFlexEventDocument,
+  dispatcher: PGFlexDispatcherAssignment | null,
+) {
+  if (!dispatcher) {
+    return;
+  }
+
+  const eventRef = adminDb.collection(PGFLEX_EVENTS_COLLECTION).doc(eventId);
+
+  try {
+    await sendPGFlexLogisticsAssignmentEmail(
+      {
+        email: dispatcher.email,
+        displayName: dispatcher.displayName,
+      },
+      {
+        id: eventId,
+        identifier: eventDocument.identifier,
+        origin: eventDocument.origin,
+        destination: eventDocument.destination,
+        timeRequested: eventDocument.timeRequested,
+      },
+    );
+    await eventRef.set(
+      {
+        dispatcherNotificationEmailSentAt: new Date().toISOString(),
+        dispatcherNotificationEmailFailedAt: null,
+        dispatcherNotificationEmailLastError: null,
+      },
+      { merge: true },
+    );
+  } catch (error) {
+    await eventRef.set(
+      {
+        dispatcherNotificationEmailSentAt: null,
+        dispatcherNotificationEmailFailedAt: new Date().toISOString(),
+        dispatcherNotificationEmailLastError: errorMessage(error),
+      },
+      { merge: true },
+    );
+    console.error(
+      "Failed to send automatic PGFlex withdrawal assignment email",
+      error,
+    );
+  }
+}
+
 function canViewTwoPQForm(
   context: AdminContext,
-  form: Pick<TwoPQFormRecord, "institutionId">
+  form: Pick<TwoPQFormRecord, "institutionId">,
 ) {
   if (context.role === "full_admin") {
     return true;
   }
 
-  if (isInstitutionManagerRole(context.role) || context.role === "institution_doctor") {
+  if (
+    isInstitutionManagerRole(context.role) ||
+    context.role === "institution_doctor"
+  ) {
     return context.institutionId === form.institutionId;
   }
 
@@ -1339,7 +1725,7 @@ function canViewTwoPQForm(
 
 export async function listTwoPQFormsForContext(
   context: AdminContext,
-  options: ListTwoPQFormsOptions = {}
+  options: ListTwoPQFormsOptions = {},
 ): Promise<ListTwoPQFormsPage> {
   const safeLimit = Math.min(Math.max(options.limit ?? 20, 1), 50);
   const fetchWindow = Math.min(Math.max(safeLimit * 3, 30), 100);
@@ -1348,7 +1734,9 @@ export async function listTwoPQFormsForContext(
   const createdFrom = normalizeDateBoundary(options.createdFrom, "start");
   const createdTo = normalizeDateBoundary(options.createdTo, "end");
 
-  async function readPage(useIndexedFilters: boolean): Promise<ListTwoPQFormsPage> {
+  async function readPage(
+    useIndexedFilters: boolean,
+  ): Promise<ListTwoPQFormsPage> {
     const accepted: Array<{ form: TwoPQFormRecord; cursor: string }> = [];
     let cursorSnapshot: FirebaseFirestore.DocumentSnapshot | null = null;
     let lastScannedCursor: string | null = null;
@@ -1378,7 +1766,11 @@ export async function listTwoPQFormsForContext(
         query = query.where("createdAt", "<=", createdTo);
       }
       if (useIndexedFilters && context.role !== "full_admin") {
-        query = query.where("institutionId", "==", context.institutionId ?? "__none__");
+        query = query.where(
+          "institutionId",
+          "==",
+          context.institutionId ?? "__none__",
+        );
       }
       if (useIndexedFilters && options.formType) {
         query = query.where("formType", "==", options.formType);
@@ -1397,7 +1789,7 @@ export async function listTwoPQFormsForContext(
       for (const doc of snapshot.docs) {
         const form = toTwoPQFormRecord(
           doc.id,
-          doc.data() as Record<string, unknown>
+          doc.data() as Record<string, unknown>,
         );
         if (
           formMatchesListFilters(
@@ -1406,7 +1798,7 @@ export async function listTwoPQFormsForContext(
             options,
             normalizedSearch,
             createdFrom,
-            createdTo
+            createdTo,
           )
         ) {
           accepted.push({ form, cursor: doc.id });
@@ -1423,7 +1815,8 @@ export async function listTwoPQFormsForContext(
       if (accepted.length >= safeLimit) {
         hasMore =
           snapshot.size === fetchWindow ||
-          snapshot.docs[snapshot.docs.length - 1]?.id !== accepted[accepted.length - 1]?.cursor;
+          snapshot.docs[snapshot.docs.length - 1]?.id !==
+            accepted[accepted.length - 1]?.cursor;
         break;
       }
       if (snapshot.size < fetchWindow) {
@@ -1435,11 +1828,12 @@ export async function listTwoPQFormsForContext(
     }
 
     const forms = accepted.map((entry) => entry.form);
-    const nextCursor = forms.length > 0
-      ? accepted[accepted.length - 1]?.cursor ?? null
-      : hasMore
-        ? lastScannedCursor
-        : null;
+    const nextCursor =
+      forms.length > 0
+        ? (accepted[accepted.length - 1]?.cursor ?? null)
+        : hasMore
+          ? lastScannedCursor
+          : null;
 
     return {
       forms,
@@ -1462,17 +1856,20 @@ export async function listTwoPQFormsForContext(
 
 export async function getTwoPQFormForContext(
   context: AdminContext,
-  formId: string
+  formId: string,
 ): Promise<TwoPQFormRecord> {
   const normalizedFormId = normalizeRequiredString(formId, "Form id");
-  const snapshot = await adminDb.collection(FORMS_COLLECTION).doc(normalizedFormId).get();
+  const snapshot = await adminDb
+    .collection(FORMS_COLLECTION)
+    .doc(normalizedFormId)
+    .get();
   if (!snapshot.exists) {
     throw new AdminRepositoryError("Form not found.", 404);
   }
 
   const form = toTwoPQFormRecord(
     snapshot.id,
-    snapshot.data() as Record<string, unknown>
+    snapshot.data() as Record<string, unknown>,
   );
   if (!canViewTwoPQForm(context, form)) {
     throw new AdminRepositoryError("You cannot view this form.", 403);
@@ -1482,9 +1879,12 @@ export async function getTwoPQFormForContext(
 }
 
 export async function getTwoPQFormDraftForContext(
-  context: AdminContext
+  context: AdminContext,
 ): Promise<TwoPQFormDraftRecord | null> {
-  const authorUid = normalizeRequiredString(context.uid, "Form draft owner uid");
+  const authorUid = normalizeRequiredString(
+    context.uid,
+    "Form draft owner uid",
+  );
   const snapshot = await adminDb
     .collection(FORM_DRAFTS_COLLECTION)
     .doc(authorUid)
@@ -1496,16 +1896,19 @@ export async function getTwoPQFormDraftForContext(
 
   return toTwoPQFormDraftRecord(
     snapshot.id,
-    snapshot.data() as Record<string, unknown>
+    snapshot.data() as Record<string, unknown>,
   );
 }
 
 export async function upsertTwoPQFormDraftForContext(
   context: AdminContext,
-  payload: TwoPQFormDraftInput
+  payload: TwoPQFormDraftInput,
 ): Promise<TwoPQFormDraftRecord> {
   const authorEmail = normalizeEmail(context.email, "Form draft author email");
-  const authorUid = normalizeRequiredString(context.uid, "Form draft author uid");
+  const authorUid = normalizeRequiredString(
+    context.uid,
+    "Form draft author uid",
+  );
   const now = new Date().toISOString();
   const reference = adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid);
   const snapshot = await reference.get();
@@ -1518,9 +1921,9 @@ export async function upsertTwoPQFormDraftForContext(
     collectionKey: FORM_DRAFTS_COLLECTION,
     currentStep: payload.currentStep,
     stepIndex,
-    state: payload.state && typeof payload.state === "object" ? payload.state : {},
-    createdAt:
-      normalizeOptionalString(snapshot.data()?.createdAt) ?? now,
+    state:
+      payload.state && typeof payload.state === "object" ? payload.state : {},
+    createdAt: normalizeOptionalString(snapshot.data()?.createdAt) ?? now,
     updatedAt: now,
     authorEmail,
     authorUid,
@@ -1538,16 +1941,19 @@ export async function upsertTwoPQFormDraftForContext(
 }
 
 export async function deleteTwoPQFormDraftForContext(
-  context: AdminContext
+  context: AdminContext,
 ): Promise<{ deleted: true; draftId: string }> {
-  const authorUid = normalizeRequiredString(context.uid, "Form draft owner uid");
+  const authorUid = normalizeRequiredString(
+    context.uid,
+    "Form draft owner uid",
+  );
   await adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid).delete();
   return { deleted: true, draftId: authorUid };
 }
 
 export async function archiveTwoPQFormForContext(
   context: AdminContext,
-  formId: string
+  formId: string,
 ): Promise<TwoPQFormRecord> {
   const normalizedFormId = normalizeRequiredString(formId, "Form id");
   const reference = adminDb.collection(FORMS_COLLECTION).doc(normalizedFormId);
@@ -1558,7 +1964,7 @@ export async function archiveTwoPQFormForContext(
 
   const form = toTwoPQFormRecord(
     snapshot.id,
-    snapshot.data() as Record<string, unknown>
+    snapshot.data() as Record<string, unknown>,
   );
   if (!canViewTwoPQForm(context, form)) {
     throw new AdminRepositoryError("You cannot archive this form.", 403);
@@ -1584,7 +1990,7 @@ export async function archiveTwoPQFormForContext(
 
 export async function deleteTwoPQFormForContext(
   context: AdminContext,
-  formId: string
+  formId: string,
 ): Promise<{ deleted: true; formId: string }> {
   if (context.role !== "full_admin") {
     throw new AdminRepositoryError("Only full admins can delete forms.", 403);
@@ -1603,7 +2009,7 @@ export async function deleteTwoPQFormForContext(
 
 export async function createTwoPQFormForContext(
   context: AdminContext,
-  payload: TwoPQFormInput
+  payload: TwoPQFormInput,
 ): Promise<TwoPQFormRecord> {
   const authorEmail = normalizeEmail(context.email, "Form author email");
   const authorUid = normalizeRequiredString(context.uid, "Form author uid");
@@ -1612,27 +2018,27 @@ export async function createTwoPQFormForContext(
     const linkedCaseIds = normalizeWithdrawalCaseIds(payload.linkedCaseIds);
     const caseSnapshots = await Promise.all(
       linkedCaseIds.map((caseId) =>
-        adminDb.collection(CASES_COLLECTION).doc(caseId).get()
-      )
+        adminDb.collection(CASES_COLLECTION).doc(caseId).get(),
+      ),
     );
     const now = new Date().toISOString();
     const withdrawalCases = caseSnapshots.map((snapshot, index) => {
       if (!snapshot.exists) {
         throw new AdminRepositoryError(
           `2PQ case ${linkedCaseIds[index]} was not found.`,
-          404
+          404,
         );
       }
 
       const data = snapshot.data() as Record<string, unknown>;
       const caseInformation = caseDocumentToWithdrawalInformation(
         snapshot.id,
-        data
+        data,
       );
       if (!caseInformation.institutionId || !caseInformation.doctorId) {
         throw new AdminRepositoryError(
           `2PQ case ${snapshot.id} is missing institution or doctor scope.`,
-          400
+          400,
         );
       }
       if (
@@ -1643,19 +2049,19 @@ export async function createTwoPQFormForContext(
       ) {
         throw new AdminRepositoryError(
           `You cannot update 2PQ case ${snapshot.id}.`,
-          403
+          403,
         );
       }
 
       return caseInformation;
     });
     const institutionIds = new Set(
-      withdrawalCases.map((caseRecord) => String(caseRecord.institutionId))
+      withdrawalCases.map((caseRecord) => String(caseRecord.institutionId)),
     );
     if (institutionIds.size !== 1) {
       throw new AdminRepositoryError(
         "All selected 2PQ cases must belong to the same institution.",
-        400
+        400,
       );
     }
 
@@ -1678,9 +2084,11 @@ export async function createTwoPQFormForContext(
         state: selectedInstitution?.state,
         country: selectedInstitution?.country,
         notes: selectedInstitution?.notes,
-      }
+      },
     );
     const formId = await getNextFormId();
+    const pgflexEventId = buildWithdrawalPGFlexEventId(formId);
+    const pgflexDispatcher = await getFirstPGFlexDispatcherAssignment();
     const document = {
       id: formId,
       formType: payload.formType,
@@ -1715,9 +2123,24 @@ export async function createTwoPQFormForContext(
       updatedByEmail: authorEmail,
       updatedByUid: authorUid,
     };
+    const pgflexEventDocument = buildWithdrawalPGFlexEventDocument({
+      formId,
+      institutionInformation,
+      selectedInstitution,
+      institutionId,
+      linkedCaseIds,
+      withdrawalCases,
+      dispatcher: pgflexDispatcher,
+      authorEmail,
+      now,
+    });
 
     const batch = adminDb.batch();
     batch.set(adminDb.collection(FORMS_COLLECTION).doc(formId), document);
+    batch.set(
+      adminDb.collection(PGFLEX_EVENTS_COLLECTION).doc(pgflexEventId),
+      pgflexEventDocument,
+    );
     linkedCaseIds.forEach((caseId) => {
       batch.set(
         adminDb.collection(CASES_COLLECTION).doc(caseId),
@@ -1729,29 +2152,42 @@ export async function createTwoPQFormForContext(
           updatedAt: now,
           updatedByEmail: authorEmail,
         },
-        { merge: true }
+        { merge: true },
       );
     });
     batch.delete(adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid));
     await batch.commit();
+    await sendWithdrawalPGFlexAssignmentEmail(
+      pgflexEventId,
+      pgflexEventDocument,
+      pgflexDispatcher,
+    );
 
     return toTwoPQFormRecord(formId, document);
   }
 
   const patientInformation = normalizePatientInformation(
-    payload.patientInformation ?? {}
+    payload.patientInformation ?? {},
   );
   const institutionId =
-    isInstitutionManagerRole(context.role) || context.role === "institution_doctor"
-      ? context.institutionId ?? patientInformation.institutionId
+    isInstitutionManagerRole(context.role) ||
+    context.role === "institution_doctor"
+      ? (context.institutionId ?? patientInformation.institutionId)
       : patientInformation.institutionId;
   const doctorId =
     context.role === "institution_doctor"
-      ? context.doctorId ?? patientInformation.doctorId
+      ? (context.doctorId ?? patientInformation.doctorId)
       : patientInformation.doctorId;
 
-  if (!institutionId || !doctorId || !canCreatePatient(context, institutionId, doctorId)) {
-    throw new AdminRepositoryError("You cannot create forms in this scope.", 403);
+  if (
+    !institutionId ||
+    !doctorId ||
+    !canCreatePatient(context, institutionId, doctorId)
+  ) {
+    throw new AdminRepositoryError(
+      "You cannot create forms in this scope.",
+      403,
+    );
   }
 
   await validateDoctorInstitutionLink(institutionId, doctorId);
@@ -1760,7 +2196,7 @@ export async function createTwoPQFormForContext(
     payload.formType === "sample"
       ? normalizeRequiredString(
           payload.linkedStudyRequestFormId,
-          "Linked study request form"
+          "Linked study request form",
         )
       : normalizeOptionalString(payload.linkedStudyRequestFormId);
   let linkedStudyRequestForm: TwoPQFormRecord | null = null;
@@ -1774,16 +2210,16 @@ export async function createTwoPQFormForContext(
   if (payload.formType === "sample") {
     const requiredLinkedStudyRequestFormId = normalizeRequiredString(
       linkedStudyRequestFormId,
-      "Linked study request form"
+      "Linked study request form",
     );
     linkedStudyRequestForm = await getTwoPQFormForContext(
       context,
-      requiredLinkedStudyRequestFormId
+      requiredLinkedStudyRequestFormId,
     );
     if (linkedStudyRequestForm.formType !== "study_request") {
       throw new AdminRepositoryError(
         "Linked form must be a study request form.",
-        400
+        400,
       );
     }
     if (
@@ -1792,32 +2228,35 @@ export async function createTwoPQFormForContext(
     ) {
       throw new AdminRepositoryError(
         "Linked study request form must belong to the same institution and doctor.",
-        400
+        400,
       );
     }
 
     const linkedPatientId =
       linkedStudyRequestForm.selectedPatientId ??
-      normalizeOptionalString(linkedStudyRequestForm.patientInformation.patientId);
+      normalizeOptionalString(
+        linkedStudyRequestForm.patientInformation.patientId,
+      );
     if (!linkedPatientId) {
       throw new AdminRepositoryError(
         "Linked study request form must be linked to a patient.",
-        400
+        400,
       );
     }
     if (selectedPatientId && selectedPatientId !== linkedPatientId) {
       throw new AdminRepositoryError(
         "Sample patient must match the linked study request patient.",
-        400
+        400,
       );
     }
     selectedPatientId = linkedPatientId;
   }
 
   let selectedPatient: PatientRecord | null = null;
-  let automaticConsentEmail:
-    | { patient: PatientRecord; temporaryPassword: string }
-    | null = null;
+  let automaticConsentEmail: {
+    patient: PatientRecord;
+    temporaryPassword: string;
+  } | null = null;
   if (selectedPatientId) {
     selectedPatient = await getPatientById(selectedPatientId);
     if (!selectedPatient) {
@@ -1832,7 +2271,7 @@ export async function createTwoPQFormForContext(
     ) {
       throw new AdminRepositoryError(
         "Selected patient must belong to the selected institution and doctor.",
-        400
+        400,
       );
     }
   }
@@ -1851,7 +2290,7 @@ export async function createTwoPQFormForContext(
     if (selectedInstitution.id !== institutionId) {
       throw new AdminRepositoryError(
         "Selected institution must match the form institution scope.",
-        400
+        400,
       );
     }
   }
@@ -1900,8 +2339,7 @@ export async function createTwoPQFormForContext(
 
   let selectedRequestingDoctorId: string | undefined;
   let normalizedSampleInformation:
-    | ReturnType<typeof normalizeSampleInformation>
-    | undefined;
+    ReturnType<typeof normalizeSampleInformation> | undefined;
 
   if (payload.formType === "sample") {
     selectedRequestingDoctorId =
@@ -1910,27 +2348,33 @@ export async function createTwoPQFormForContext(
 
     requestingDoctor = await getDoctorById(selectedRequestingDoctorId);
     if (!requestingDoctor) {
-      throw new AdminRepositoryError("Selected requesting doctor not found.", 404);
+      throw new AdminRepositoryError(
+        "Selected requesting doctor not found.",
+        404,
+      );
     }
     if (!canViewDoctor(context, requestingDoctor)) {
-      throw new AdminRepositoryError("You cannot use this requesting doctor.", 403);
+      throw new AdminRepositoryError(
+        "You cannot use this requesting doctor.",
+        403,
+      );
     }
     if (requestingDoctor.institutionId !== institutionId) {
       throw new AdminRepositoryError(
         "Selected requesting doctor must belong to the selected institution.",
-        400
+        400,
       );
     }
 
     normalizedSampleInformation = normalizeSampleInformation(
       payload.sampleInformation,
-      requestingDoctor
+      requestingDoctor,
     );
   }
 
   const requestedTest = normalizeRequestedTest(
     payload.requestedTest ?? {},
-    payload.formType
+    payload.formType,
   );
   let selectedCaseId = normalizeOptionalString(payload.selectedCaseId);
   let linkedCaseId: string | undefined;
@@ -1953,7 +2397,7 @@ export async function createTwoPQFormForContext(
       const caseDetail = await getTwoPQDetailForContext(
         context,
         "cases",
-        selectedCaseId
+        selectedCaseId,
       );
       const caseRecord = caseDetail.record;
       if (
@@ -1962,7 +2406,7 @@ export async function createTwoPQFormForContext(
       ) {
         throw new AdminRepositoryError(
           "Selected 2PQ case must belong to the selected institution and doctor.",
-          400
+          400,
         );
       }
       if (
@@ -1972,35 +2416,39 @@ export async function createTwoPQFormForContext(
       ) {
         throw new AdminRepositoryError(
           "Selected 2PQ case must belong to the selected patient.",
-          400
+          400,
         );
       }
 
       linkedCaseId = caseRecord.id;
-      patientIdForLinkedRecords = patientIdForLinkedRecords ?? caseRecord.patientId;
-      linkedCaseLabel = normalizeRequiredString(caseRecord.caseLabel, "Linked case label");
+      patientIdForLinkedRecords =
+        patientIdForLinkedRecords ?? caseRecord.patientId;
+      linkedCaseLabel = normalizeRequiredString(
+        caseRecord.caseLabel,
+        "Linked case label",
+      );
       const linkedCaseBoxCode = normalizeOptionalString(
-        caseRecord.three_letter_code
+        caseRecord.three_letter_code,
       )?.toUpperCase();
       if (linkedCaseBoxCode !== sampleBoxCode) {
         throw new AdminRepositoryError(
           "Selected 2PQ case must match CODIGO CAJA.",
-          400
+          400,
         );
       }
       caseInformation = caseRecordToFormInformation(caseRecord);
       normalizedSamplingInformation = normalizeSamplingInformationList(
         payload.samplingInformation,
-        linkedCaseLabel
+        linkedCaseLabel,
       );
     } else {
       const normalizedCaseInformation = normalizeCaseInformation(
-        payload.caseInformation
+        payload.caseInformation,
       );
       linkedCaseLabel = normalizedCaseInformation.caseLabel;
       normalizedSamplingInformation = normalizeSamplingInformationList(
         payload.samplingInformation,
-        linkedCaseLabel
+        linkedCaseLabel,
       );
       const createdCase = await createTwoPQRecordForContext(context, "cases", {
         ...normalizedCaseInformation,
@@ -2025,14 +2473,14 @@ export async function createTwoPQFormForContext(
           doctorId,
           patientId: patientIdForLinkedRecords,
           parent_case: linkedCaseId,
-        }
+        },
       );
       createdSamplingRecords.push(createdSampling);
     }
 
     linkedSamplingIds = createdSamplingRecords.map((record) => record.id);
     samplingInformation = createdSamplingRecords.map((record) =>
-      samplingRecordToFormInformation(record)
+      samplingRecordToFormInformation(record),
     );
   }
 
@@ -2078,11 +2526,11 @@ export async function createTwoPQFormForContext(
           ...baseDocument,
           medicalInformation: normalizeMedicalInformation(
             payload.medicalInformation,
-            payload.formType
+            payload.formType,
           ),
           previousGeneticTests: normalizePreviousGeneticTests(
             payload.previousGeneticTests,
-            payload.formType
+            payload.formType,
           ),
           institutionInformation: normalizeInstitutionInformation(
             payload.institutionInformation ?? {
@@ -2096,7 +2544,7 @@ export async function createTwoPQFormForContext(
               state: selectedInstitution?.state,
               country: selectedInstitution?.country,
               notes: selectedInstitution?.notes,
-            }
+            },
           ),
         }
       : {
