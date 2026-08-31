@@ -17,6 +17,8 @@ import { appText } from "@/lib/language";
 import { cn } from "@/lib/utils";
 
 const GOOGLE_MAPS_SCRIPT_ID = "pgflex-google-maps-js-api";
+const PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY =
+  "AIzaSyDX5QOmZrG7GekSIMoqFT3oymQP20w2az0";
 const ROUTE_DEBOUNCE_MS = 700;
 
 type MapsLoadStatus = "idle" | "loading" | "ready" | "error";
@@ -34,6 +36,26 @@ type GoogleMapsWindow = Window &
 
 function getGoogleMapsWindow() {
   return window as GoogleMapsWindow;
+}
+
+function normalizeGoogleMapsApiKey(value: string | undefined) {
+  const normalized = value?.trim().replace(/^["']|["']$/g, "");
+
+  if (!normalized || normalized === "undefined" || normalized === "null") {
+    return undefined;
+  }
+
+  return normalized;
+}
+
+function resolveGoogleMapsApiKey() {
+  return (
+    normalizeGoogleMapsApiKey(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) ??
+    normalizeGoogleMapsApiKey(
+      process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY,
+    ) ??
+    PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY
+  );
 }
 
 function loadGoogleMaps(apiKey: string) {
@@ -162,7 +184,7 @@ export function PGFlexRoutePreview({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+  const apiKey = resolveGoogleMapsApiKey();
   const originInputRef = useRef<HTMLInputElement | null>(null);
   const destinationInputRef = useRef<HTMLInputElement | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);

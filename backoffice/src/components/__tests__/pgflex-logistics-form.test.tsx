@@ -51,10 +51,21 @@ function renderCreateForm() {
 
 describe("PGFlexLogisticsForm", () => {
   const originalGoogleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const originalPGFlexGoogleMapsApiKey =
+    process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY;
+  const googleMapsScriptId = "pgflex-google-maps-js-api";
+
+  function resetGoogleMapsLoader() {
+    delete (window as Window & { __pgflexGoogleMapsPromise?: Promise<void> })
+      .__pgflexGoogleMapsPromise;
+    document.getElementById(googleMapsScriptId)?.remove();
+  }
 
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    delete process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY;
+    resetGoogleMapsLoader();
     (sdkFetch as jest.Mock).mockImplementation((path: string) => {
       if (path === "/roles/transport-dispatchers/options") {
         return Promise.resolve({ dispatchers: [] });
@@ -68,13 +79,23 @@ describe("PGFlexLogisticsForm", () => {
     });
   });
 
+  afterEach(() => {
+    resetGoogleMapsLoader();
+  });
+
   afterAll(() => {
     if (originalGoogleMapsApiKey === undefined) {
       delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-      return;
+    } else {
+      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = originalGoogleMapsApiKey;
     }
 
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = originalGoogleMapsApiKey;
+    if (originalPGFlexGoogleMapsApiKey === undefined) {
+      delete process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY;
+    } else {
+      process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY =
+        originalPGFlexGoogleMapsApiKey;
+    }
   });
 
   it("keeps generated create-only PGFlex fields and email copy out of the new dispatch form", async () => {
