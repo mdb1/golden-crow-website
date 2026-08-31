@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowRight, PackageCheck, PlusCircle, RefreshCcw, Search } from "lucide-react";
+import { ArrowRight, PlusCircle, RefreshCcw, Search } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
@@ -110,12 +110,17 @@ export function PGFlexLogisticsBrowser({
     <section className="flex flex-col gap-4">
       <div className="glass-panel flex flex-col gap-4 px-5 py-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <PackageCheck className="h-4 w-4" />
-            </div>
-            <h2 className="font-heading text-xl font-semibold text-foreground">
-              {t("PGFlex logistics")}
+          <div className="flex items-center">
+            <h2
+              className="flex min-h-10 items-center"
+              aria-label={t("PGFlex logistics")}
+            >
+              <img
+                src="/pgflex_icon.png"
+                alt=""
+                aria-hidden="true"
+                className="h-9 max-w-44 object-contain object-left"
+              />
             </h2>
           </div>
           <div className="flex flex-wrap gap-2">
