@@ -44,6 +44,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Assigned dispatcher": "Transportista asignado",
   "Loading transport dispatchers...": "Cargando transportistas...",
   "Select transport dispatcher": "Seleccionar transportista",
+  Envios: "Envios",
   "Time requested": "Hora solicitada",
   "Standalone PGFlex logistics roles without institution, doctor, or patient scope.":
     "Roles logísticos independientes de PGFlex, sin alcance de institución, médico ni paciente.",

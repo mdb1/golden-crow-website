@@ -30,25 +30,16 @@ function canSeeDiscoverSection(adminContext: AdminContextRecord) {
   );
 }
 
-function PGFlexLogisticsMenuLabel({ label }: { label: string }) {
+function PGFlexSectionLabel({ label }: { label: string }) {
   return (
-    <>
+    <span className="flex min-w-0 items-center gap-2">
       <img
         src="/pgflex_icon.png"
-        alt=""
-        aria-hidden="true"
-        className="h-4 w-4 shrink-0 rounded-[3px] bg-white object-cover object-left"
+        alt={label}
+        className="h-5 max-w-28 object-contain object-left"
       />
-      <span className="flex min-w-0 flex-1 items-center">
-        <img
-          src="/pgflex_icon.png"
-          alt=""
-          aria-hidden="true"
-          className="h-4 max-w-24 object-contain object-left"
-        />
-        <span className="sr-only">{label}</span>
-      </span>
-    </>
+      <span className="sr-only">{label}</span>
+    </span>
   );
 }
 
@@ -181,7 +172,11 @@ export function AppSidebar({
           return (
             <SidebarGroup key={section.key}>
               <SidebarGroupLabel>
-                {appText(language, section.label)}
+                {section.key === "pgflex" ? (
+                  <PGFlexSectionLabel label={appText(language, section.label)} />
+                ) : (
+                  appText(language, section.label)
+                )}
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
@@ -200,16 +195,8 @@ export function AppSidebar({
                           tooltip={appText(language, item.label)}
                         >
                           <Link href={item.href}>
-                            {item.href === "/pgflex/logistics" ? (
-                              <PGFlexLogisticsMenuLabel
-                                label={appText(language, item.label)}
-                              />
-                            ) : (
-                              <>
-                                <item.icon className="h-4 w-4" />
-                                <span>{appText(language, item.label)}</span>
-                              </>
-                            )}
+                            <item.icon className="h-4 w-4" />
+                            <span>{appText(language, item.label)}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
