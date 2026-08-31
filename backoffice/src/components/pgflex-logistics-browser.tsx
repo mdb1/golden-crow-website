@@ -9,23 +9,30 @@ import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
 import {
   PGFLEX_LOGISTICS_PAGE_SIZE,
+  PGFLEX_LOGISTICS_SCOPE_OPTIONS,
   canCreatePGFlexLogistics,
   getPGFlexRouteSummary,
   getPGFlexStatusBadgeVariant,
   getPGFlexStatusLabel,
+  type PGFlexLogisticsListScope,
   type PGFlexLogisticsListItem,
   type PGFlexLogisticsPage,
 } from "@/lib/pgflex-logistics";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
 import { cn } from "@/lib/utils";
 
-function buildLogisticsPath(cursor?: string | null) {
+function buildLogisticsPath(
+  scope: PGFlexLogisticsListScope,
+  cursor?: string | null,
+) {
   const params = new URLSearchParams({
     limit: String(PGFLEX_LOGISTICS_PAGE_SIZE),
+    scope,
   });
 
   if (cursor) {
@@ -44,6 +51,9 @@ export function PGFlexLogisticsBrowser({
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const [query, setQuery] = useState("");
+  const [scope, setScope] = useState<PGFlexLogisticsListScope>(
+    initialPage.scope ?? "active",
+  );
   const [items, setItems] = useState<PGFlexLogisticsListItem[]>(
     initialPage.items,
   );
@@ -79,7 +89,10 @@ export function PGFlexLogisticsBrowser({
     );
   }, [items, query]);
 
-  async function loadPage(mode: "refresh" | "more") {
+  async function loadPage(
+    mode: "refresh" | "more",
+    requestedScope: PGFlexLogisticsListScope = scope,
+  ) {
     if (pending) {
       return;
     }
@@ -89,7 +102,10 @@ export function PGFlexLogisticsBrowser({
 
     try {
       const page = await sdkFetch<PGFlexLogisticsPage>(
-        buildLogisticsPath(mode === "more" ? nextCursor : null),
+        buildLogisticsPath(
+          requestedScope,
+          mode === "more" && requestedScope === scope ? nextCursor : null,
+        ),
       );
       setItems((current) =>
         mode === "more" ? [...current, ...page.items] : page.items,
@@ -104,6 +120,20 @@ export function PGFlexLogisticsBrowser({
     } finally {
       setPending(null);
     }
+  }
+
+  function handleScopeChange(value: string) {
+    const nextScope = value as PGFlexLogisticsListScope;
+
+    if (pending || nextScope === scope) {
+      return;
+    }
+
+    setScope(nextScope);
+    setQuery("");
+    setItems([]);
+    setNextCursor(null);
+    void loadPage("refresh", nextScope);
   }
 
   return (
@@ -147,7 +177,25 @@ export function PGFlexLogisticsBrowser({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <Tabs value={scope} onValueChange={handleScopeChange}>
+            <TabsList
+              aria-label={t("Dispatch status group")}
+              className="grid h-11 w-full grid-cols-2 sm:w-80"
+            >
+              {PGFLEX_LOGISTICS_SCOPE_OPTIONS.map((option) => (
+                <TabsTrigger
+                  key={option.value}
+                  value={option.value}
+                  className="h-9"
+                  disabled={pending !== null}
+                >
+                  {t(option.label)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+
           <label className="relative block w-full max-w-lg">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -157,7 +205,7 @@ export function PGFlexLogisticsBrowser({
               className="pl-9"
             />
           </label>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground xl:text-right">
             {t("Showing")} {filteredItems.length} {t("loaded dispatches")}
           </p>
         </div>

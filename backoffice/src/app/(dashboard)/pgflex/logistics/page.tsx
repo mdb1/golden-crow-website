@@ -21,7 +21,7 @@ export default async function PGFlexLogisticsPage() {
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
   const initialPage = await sdkFetchServer<PGFlexLogisticsPagePayload>(
-    `/pgflex/logistics?limit=${PGFLEX_LOGISTICS_PAGE_SIZE}`,
+    `/pgflex/logistics?limit=${PGFLEX_LOGISTICS_PAGE_SIZE}&scope=active`,
   );
 
   return (

@@ -485,6 +485,8 @@ export interface TwoPQFormDraftRecord {
 export type PGFlexLogisticsStatus =
   "awaiting_pick_up" | "in_transit" | "arrived" | "lost";
 
+export type PGFlexLogisticsListScope = "active" | "finished";
+
 export interface PGFlexLogisticsRecord {
   id: string;
   identifier: string;
@@ -514,6 +516,7 @@ export interface PGFlexLogisticsListItem extends PGFlexLogisticsRecord {
 export interface PGFlexLogisticsPage {
   items: PGFlexLogisticsListItem[];
   nextCursor: string | null;
+  scope: PGFlexLogisticsListScope;
 }
 
 export interface PGFlexTransportDispatcherOption {

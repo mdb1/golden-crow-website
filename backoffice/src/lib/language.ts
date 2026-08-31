@@ -89,6 +89,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Search dispatches by identifier, route, dispatcher, or status...":
     "Buscar envíos por identificador, recorrido, transportista o estado...",
   "loaded dispatches": "envíos cargados",
+  "Dispatch status group": "Grupo de estado de envío",
   Dispatch: "Envío",
   Route: "Recorrido",
   Pickup: "Retiro",
@@ -1613,6 +1614,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Culture media": "Medio de cultivo",
   Other: "Otro",
   Active: "Activo",
+  Finished: "Finalizado",
   Inactive: "Inactivo",
   Intake: "Ingreso",
   Entered: "Ingresado",

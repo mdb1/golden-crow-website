@@ -6,6 +6,8 @@ export type PGFlexLogisticsStatus =
   | "arrived"
   | "lost";
 
+export type PGFlexLogisticsListScope = "active" | "finished";
+
 export interface PGFlexLogisticsRecord {
   id: string;
   identifier: string;
@@ -35,6 +37,7 @@ export interface PGFlexLogisticsListItem extends PGFlexLogisticsRecord {
 export interface PGFlexLogisticsPage {
   items: PGFlexLogisticsListItem[];
   nextCursor: string | null;
+  scope: PGFlexLogisticsListScope;
 }
 
 export interface PGFlexLogisticsInput {
@@ -56,6 +59,14 @@ export interface PGFlexTransportDispatcherOption {
 }
 
 export const PGFLEX_LOGISTICS_PAGE_SIZE = 20;
+
+export const PGFLEX_LOGISTICS_SCOPE_OPTIONS: Array<{
+  value: PGFlexLogisticsListScope;
+  label: string;
+}> = [
+  { value: "active", label: "Active" },
+  { value: "finished", label: "Finished" },
+];
 
 export const PGFLEX_LOGISTICS_STATUS_OPTIONS: Array<{
   value: PGFlexLogisticsStatus;

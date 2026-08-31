@@ -6,6 +6,7 @@ import {
 import { adminDbFor } from "../config/firebase.js";
 import type {
   AdminContext,
+  PGFlexLogisticsListScope,
   PGFlexLogisticsListItem,
   PGFlexLogisticsPage,
   PGFlexLogisticsRecord,
@@ -32,7 +33,23 @@ export const PGFLEX_LOGISTICS_STATUSES = [
   "lost",
 ] as const satisfies readonly PGFlexLogisticsStatus[];
 
+export const PGFLEX_LOGISTICS_LIST_SCOPES = [
+  "active",
+  "finished",
+] as const satisfies readonly PGFlexLogisticsListScope[];
+
+const PGFLEX_ACTIVE_LOGISTICS_STATUSES: readonly PGFlexLogisticsStatus[] = [
+  "awaiting_pick_up",
+  "in_transit",
+];
+
+const PGFLEX_FINISHED_LOGISTICS_STATUSES: readonly PGFlexLogisticsStatus[] = [
+  "arrived",
+  "lost",
+];
+
 const STATUS_SET = new Set<string>(PGFLEX_LOGISTICS_STATUSES);
+const LIST_SCOPE_SET = new Set<string>(PGFLEX_LOGISTICS_LIST_SCOPES);
 
 export interface PGFlexLogisticsInput {
   identifier?: string;
@@ -70,6 +87,11 @@ type PGFlexLogisticsDocument = {
   updatedByEmail: string;
 };
 
+type PGFlexLogisticsPageCursor = {
+  timeRequested: string;
+  id: string;
+};
+
 function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -102,6 +124,21 @@ function normalizeStatus(value: unknown): PGFlexLogisticsStatus {
   }
 
   throw new AdminRepositoryError("Select a valid PGFlex logistics status.", 400);
+}
+
+function normalizeListScope(value: unknown): PGFlexLogisticsListScope {
+  const normalized = cleanString(value);
+  return LIST_SCOPE_SET.has(normalized)
+    ? (normalized as PGFlexLogisticsListScope)
+    : "active";
+}
+
+function statusesForScope(
+  scope: PGFlexLogisticsListScope,
+): readonly PGFlexLogisticsStatus[] {
+  return scope === "finished"
+    ? PGFLEX_FINISHED_LOGISTICS_STATUSES
+    : PGFLEX_ACTIVE_LOGISTICS_STATUSES;
 }
 
 function normalizePickupTime(value: unknown) {
@@ -594,18 +631,61 @@ function resolvePageSize(limit: unknown) {
   return Math.max(1, Math.min(Math.trunc(parsed), MAX_PAGE_SIZE));
 }
 
-function orderedQueryForContext(context: AdminContext): Query<DocumentData> {
-  let query: Query<DocumentData> = adminDb.collection(PGFLEX_EVENTS_COLLECTION);
-
-  if (context.role === "transport_dispatcher") {
-    query = query.where("dispatcherId", "==", context.uid);
-  }
-
-  return query.orderBy(FieldPath.documentId(), "desc");
+function encodePageCursor(record: PGFlexLogisticsRecord) {
+  return Buffer.from(
+    JSON.stringify({
+      timeRequested: record.timeRequested,
+      id: record.id,
+    } satisfies PGFlexLogisticsPageCursor),
+  ).toString("base64url");
 }
 
-function fallbackQueryForContext(context: AdminContext): Query<DocumentData> {
-  let query: Query<DocumentData> = adminDb.collection(PGFLEX_EVENTS_COLLECTION);
+async function resolvePageCursor(
+  cursor?: string,
+): Promise<PGFlexLogisticsPageCursor | null> {
+  const normalized = optionalString(cursor);
+
+  if (!normalized) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(normalized, "base64url").toString("utf8"),
+    ) as Partial<PGFlexLogisticsPageCursor>;
+    const timeRequested = optionalString(parsed.timeRequested);
+    const id = optionalString(parsed.id);
+
+    if (timeRequested && id) {
+      return { timeRequested, id };
+    }
+  } catch {
+    // Treat unknown cursors as plain document ids for older in-flight clients.
+  }
+
+  const snapshot = await adminDb
+    .collection(PGFLEX_EVENTS_COLLECTION)
+    .doc(normalized)
+    .get();
+
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  const record = toPGFlexLogisticsRecord(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>,
+  );
+  return { timeRequested: record.timeRequested, id: record.id };
+}
+
+function baseQueryForContext(
+  context: AdminContext,
+  scope: PGFlexLogisticsListScope,
+): Query<DocumentData> {
+  let query: Query<DocumentData> = adminDb
+    .collection(PGFLEX_EVENTS_COLLECTION)
+    .where("status", "in", statusesForScope(scope));
 
   if (context.role === "transport_dispatcher") {
     query = query.where("dispatcherId", "==", context.uid);
@@ -614,15 +694,51 @@ function fallbackQueryForContext(context: AdminContext): Query<DocumentData> {
   return query;
 }
 
+function orderedQueryForContext(
+  context: AdminContext,
+  scope: PGFlexLogisticsListScope,
+): Query<DocumentData> {
+  return baseQueryForContext(context, scope)
+    .orderBy("timeRequested", "desc")
+    .orderBy(FieldPath.documentId(), "desc");
+}
+
+function fallbackQueryForContext(
+  context: AdminContext,
+  scope: PGFlexLogisticsListScope,
+): Query<DocumentData> {
+  return baseQueryForContext(context, scope);
+}
+
+function docTimeRequested(doc: { id: string; data: () => DocumentData }) {
+  return optionalString(doc.data().timeRequested) ?? "";
+}
+
+function compareDocsNewestFirst(
+  left: { id: string; data: () => DocumentData },
+  right: { id: string; data: () => DocumentData },
+) {
+  const byTimeRequested = docTimeRequested(right).localeCompare(
+    docTimeRequested(left),
+  );
+
+  if (byTimeRequested !== 0) {
+    return byTimeRequested;
+  }
+
+  return right.id.localeCompare(left.id);
+}
+
 async function getPageWithIndexFallback(
   orderedQuery: Query<DocumentData>,
   fallbackQuery: Query<DocumentData>,
   pageSize: number,
   cursor?: string,
 ) {
+  const pageCursor = await resolvePageCursor(cursor);
   let query = orderedQuery;
-  if (cursor) {
-    query = query.startAfter(cursor);
+  if (pageCursor) {
+    query = query.startAfter(pageCursor.timeRequested, pageCursor.id);
   }
 
   try {
@@ -632,43 +748,49 @@ async function getPageWithIndexFallback(
       throw error;
     }
 
-    let fallback = fallbackQuery;
-    if (cursor) {
-      const cursorSnapshot = await adminDb
-        .collection(PGFLEX_EVENTS_COLLECTION)
-        .doc(cursor)
-        .get();
-      if (cursorSnapshot.exists) {
-        fallback = fallback.startAfter(cursorSnapshot);
-      }
-    }
+    const snapshot = await fallbackQuery.limit(pageSize + 1).get();
+    const sortedDocs = [...snapshot.docs].sort(compareDocsNewestFirst);
+    const startIndex = pageCursor
+      ? sortedDocs.findIndex(
+          (doc) =>
+            doc.id === pageCursor.id &&
+            docTimeRequested(doc) === pageCursor.timeRequested,
+        ) + 1
+      : 0;
 
-    return fallback.limit(pageSize + 1).get();
+    return {
+      docs: sortedDocs.slice(
+        Math.max(0, startIndex),
+        Math.max(0, startIndex) + pageSize + 1,
+      ),
+    };
   }
 }
 
 export async function listPGFlexLogisticsForContext(
   context: AdminContext,
-  options: { cursor?: string; limit?: unknown } = {},
+  options: { cursor?: string; limit?: unknown; scope?: unknown } = {},
 ): Promise<PGFlexLogisticsPage> {
   assertPGFlexAccess(context);
   const pageSize = resolvePageSize(options.limit);
+  const scope = normalizeListScope(options.scope);
   const snapshot = await getPageWithIndexFallback(
-    orderedQueryForContext(context),
-    fallbackQueryForContext(context),
+    orderedQueryForContext(context, scope),
+    fallbackQueryForContext(context, scope),
     pageSize,
     options.cursor,
   );
   const docs = snapshot.docs.slice(0, pageSize);
-  const nextDoc = snapshot.docs.length > pageSize ? docs.at(-1) : undefined;
+  const records = docs.map((doc) =>
+    toPGFlexLogisticsRecord(doc.id, doc.data() as Record<string, unknown>),
+  );
+  const hasNextPage = snapshot.docs.length > pageSize;
+  const nextRecord = hasNextPage ? records.at(-1) : undefined;
 
   return {
-    items: docs
-      .map((doc) =>
-        toPGFlexLogisticsRecord(doc.id, doc.data() as Record<string, unknown>),
-      )
-      .map((record) => withCapabilities(context, record)),
-    nextCursor: nextDoc?.id ?? null,
+    items: records.map((record) => withCapabilities(context, record)),
+    nextCursor: nextRecord ? encodePageCursor(nextRecord) : null,
+    scope,
   };
 }
 

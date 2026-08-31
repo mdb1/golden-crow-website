@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
+  PGFLEX_LOGISTICS_LIST_SCOPES,
   PGFLEX_LOGISTICS_STATUSES,
   createPGFlexLogisticsItemForContext,
   deletePGFlexLogisticsItemForContext,
@@ -12,6 +13,7 @@ import {
   updatePGFlexLogisticsItemForContext,
 } from "../repositories/pgflex-logistics.repository.js";
 
+const PGFlexLogisticsListScopeSchema = z.enum(PGFLEX_LOGISTICS_LIST_SCOPES);
 const PGFlexLogisticsStatusSchema = z.enum(PGFLEX_LOGISTICS_STATUSES);
 const OptionalStringSchema = z.string().trim().max(2000).optional();
 const PGFlexLogisticsBodySchema = z.object({
@@ -36,6 +38,7 @@ const PGFlexLogisticsParamsSchema = z.object({
 const PGFlexLogisticsListQuerySchema = z.object({
   cursor: z.string().trim().min(1).optional(),
   limit: z.coerce.number().int().positive().max(50).optional(),
+  scope: PGFlexLogisticsListScopeSchema.optional(),
 });
 
 function sendRepositoryError(reply: FastifyReply, error: unknown) {
