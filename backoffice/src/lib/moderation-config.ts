@@ -1040,6 +1040,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
     icon: PackageCheck,
     visibleRoles: PGFLEX_NAV_ROLES,
   },
+  {
+    section: "pgflex",
+    label: "Transport dispatchers",
+    href: "/areas/transport-dispatchers",
+    description: "Standalone PGFlex dispatcher accounts",
+    icon: UserRoundCog,
+    visibleRoles: FULL_ADMIN_ROLES,
+  },
 ];
 
 export const GYM_SECTIONS: SectionDescriptor[] = [
@@ -1486,6 +1494,15 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
       title: "Administrative operators",
       description:
         "Institution-linked administrative operator records without patient assignments.",
+    };
+  }
+
+  if (pathname === "/areas/transport-dispatchers") {
+    return {
+      eyebrow: "PGFlex",
+      title: "Transport dispatchers",
+      description:
+        "Standalone PGFlex dispatcher accounts for logistics assignments.",
     };
   }
 

@@ -11,14 +11,20 @@ export interface PGFlexLogisticsRecord {
   identifier: string;
   description?: string;
   dispatcherId?: string;
+  dispatcherFirebaseId?: string;
+  dispatcherEmail?: string;
   origin: string;
   destination: string;
-  pickupTime: string;
+  timeRequested: string;
+  pickupTime?: string;
   status: PGFlexLogisticsStatus;
   createdAt: string;
   updatedAt: string;
   createdByEmail?: string;
   updatedByEmail?: string;
+  dispatcherNotificationEmailSentAt?: string;
+  dispatcherNotificationEmailFailedAt?: string;
+  dispatcherNotificationEmailLastError?: string;
 }
 
 export interface PGFlexLogisticsListItem extends PGFlexLogisticsRecord {
@@ -35,10 +41,18 @@ export interface PGFlexLogisticsInput {
   identifier: string;
   description?: string;
   dispatcherId?: string;
+  dispatcherFirebaseId?: string;
+  dispatcherEmail?: string;
   origin: string;
   destination: string;
-  pickupTime: string;
+  pickupTime?: string;
   status?: PGFlexLogisticsStatus;
+}
+
+export interface PGFlexTransportDispatcherOption {
+  email: string;
+  firebaseUid: string;
+  displayName: string;
 }
 
 export const PGFLEX_LOGISTICS_PAGE_SIZE = 20;

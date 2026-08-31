@@ -67,6 +67,7 @@ export interface AdminUserVerificationSummary {
 export interface UserRoleRecord {
   email: string;
   role: AdminRole;
+  firebaseUid?: string;
   organizationId?: string;
   individualId?: string;
   institutionId?: string;
@@ -80,6 +81,9 @@ export interface UserRoleRecord {
   createdAt: string;
   updatedAt: string;
   createdByEmail?: string;
+  pgflexInviteEmailSentAt?: string;
+  pgflexInviteEmailFailedAt?: string;
+  pgflexInviteEmailLastError?: string;
 }
 
 /**
@@ -486,14 +490,20 @@ export interface PGFlexLogisticsRecord {
   identifier: string;
   description?: string;
   dispatcherId?: string;
+  dispatcherFirebaseId?: string;
+  dispatcherEmail?: string;
   origin: string;
   destination: string;
-  pickupTime: string;
+  timeRequested: string;
+  pickupTime?: string;
   status: PGFlexLogisticsStatus;
   createdAt: string;
   updatedAt: string;
   createdByEmail?: string;
   updatedByEmail?: string;
+  dispatcherNotificationEmailSentAt?: string;
+  dispatcherNotificationEmailFailedAt?: string;
+  dispatcherNotificationEmailLastError?: string;
 }
 
 export interface PGFlexLogisticsListItem extends PGFlexLogisticsRecord {
@@ -504,6 +514,12 @@ export interface PGFlexLogisticsListItem extends PGFlexLogisticsRecord {
 export interface PGFlexLogisticsPage {
   items: PGFlexLogisticsListItem[];
   nextCursor: string | null;
+}
+
+export interface PGFlexTransportDispatcherOption {
+  email: string;
+  firebaseUid: string;
+  displayName: string;
 }
 
 // CommunityPost — mirrors Firestore posts collection

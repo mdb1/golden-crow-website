@@ -36,9 +36,14 @@ type ScopeCardKey =
   | "patients"
   | "administrativeOperators"
   | "laboratoryStaff"
+  | "transportDispatchers"
   | "roles";
 
 function canSeeScopeCard(role: AdminContextRecord["role"], key: ScopeCardKey) {
+  if (key === "transportDispatchers") {
+    return role === "full_admin";
+  }
+
   if (role === "institution_doctor") {
     return key === "patients" || key === "roles";
   }
@@ -64,6 +69,7 @@ export function TwoPQDashboardHome({
     patients: number;
     administrativeOperators: number;
     laboratoryStaff: number;
+    transportDispatchers: number;
     roles: number;
   };
   formDraft?: TwoPQFormDraftRecord | null;
@@ -119,6 +125,11 @@ export function TwoPQDashboardHome({
     canCreateRoleUi(adminContext) &&
     assignableRoleOptions.some(
       (option) => option.value === "institution_laboratory_staff",
+    );
+  const canCreateTransportDispatcher =
+    canCreateRoleUi(adminContext) &&
+    assignableRoleOptions.some(
+      (option) => option.value === "transport_dispatcher",
     );
   const scopeCards = [
     {
@@ -179,6 +190,18 @@ export function TwoPQDashboardHome({
       canCreate: canCreateLaboratoryStaff,
       disabledTitle:
         "The current role cannot create laboratory staff on this screen.",
+    },
+    {
+      key: "transportDispatchers",
+      label: "Transport dispatchers",
+      value: metrics.transportDispatchers,
+      createLabel: t("+ New Transport Dispatcher"),
+      createHref: "/roles/new?role=transport_dispatcher",
+      browseLabel: "Open Transport Dispatchers",
+      browseHref: "/areas/transport-dispatchers",
+      canCreate: canCreateTransportDispatcher,
+      disabledTitle:
+        "The current role cannot create transport dispatchers on this screen.",
     },
     {
       key: "roles",

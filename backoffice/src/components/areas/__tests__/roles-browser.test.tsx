@@ -60,6 +60,16 @@ const roles: RoleManagementRecord[] = [
     createdAt: "2026-08-12T12:00:00.000Z",
     updatedAt: "2026-08-12T12:00:00.000Z",
   },
+  {
+    email: "driver@example.com",
+    role: "transport_dispatcher",
+    firebaseUid: "driver-uid",
+    isActive: true,
+    canAccessPatientPortal: false,
+    displayName: "Transportista Ejemplo",
+    createdAt: "2026-08-12T12:00:00.000Z",
+    updatedAt: "2026-08-12T12:00:00.000Z",
+  },
 ];
 
 function renderRolesBrowser() {
@@ -88,6 +98,7 @@ describe("RolesBrowser access surfaces", () => {
     expect(
       screen.queryByText("patient-invitation-pending@example.com"),
     ).toBeNull();
+    expect(screen.queryByText("driver@example.com")).toBeNull();
   });
 
   it("shows only patient roles in the patient portal segment", async () => {
@@ -103,5 +114,18 @@ describe("RolesBrowser access surfaces", () => {
     ).toBeTruthy();
     expect(screen.getByText("Portal access")).toBeTruthy();
     expect(screen.getByText("No portal access")).toBeTruthy();
+  });
+
+  it("shows only transport dispatcher roles in the PGFlex dispatchers segment", async () => {
+    const user = userEvent.setup();
+    renderRolesBrowser();
+
+    await user.click(screen.getByRole("tab", { name: /PGFlex Dispatchers/ }));
+
+    expect(screen.queryByText("operator@example.com")).toBeNull();
+    expect(screen.queryByText("patient-enabled@example.com")).toBeNull();
+    expect(screen.getByText("driver@example.com")).toBeTruthy();
+    expect(screen.getByText("PGFlex access")).toBeTruthy();
+    expect(screen.getByText("driver-uid")).toBeTruthy();
   });
 });

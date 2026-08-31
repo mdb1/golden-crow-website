@@ -122,6 +122,7 @@ export interface PatientListItem extends PatientRecord {
 export interface RoleManagementRecord {
   email: string;
   role: AdminRole;
+  firebaseUid?: string;
   organizationId?: string;
   individualId?: string;
   institutionId?: string;
@@ -135,6 +136,9 @@ export interface RoleManagementRecord {
   createdAt: string;
   updatedAt: string;
   createdByEmail?: string;
+  pgflexInviteEmailSentAt?: string;
+  pgflexInviteEmailFailedAt?: string;
+  pgflexInviteEmailLastError?: string;
   organizationName?: string;
   individualName?: string;
   institutionName?: string;
@@ -278,7 +282,7 @@ export const ADMIN_ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
   individual_publisher:
     "Individual-scoped Discover publishing access for one feed_individuals publisher and its feed entries.",
   transport_dispatcher:
-    "Standalone logistics role for PGFlex dispatches assigned to the operator email.",
+    "Standalone logistics role for PGFlex dispatches assigned to the Firebase account.",
   institution_admin:
     "Institution-scoped control over one institution, its doctors, its patients, and local role assignments.",
   institution_operator:

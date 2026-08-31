@@ -338,7 +338,7 @@ export const ROLE_CAPABILITY_LINES: Record<AdminRole, string[]> = {
   ],
   transport_dispatcher: [
     "Can access PGFlex logistics.",
-    "Can see only logistics items assigned to their role email.",
+    "Can see only logistics items assigned to their Firebase account.",
     "Can update the status of assigned logistics items.",
     "Cannot create dispatches, delete dispatches, or access institution-scoped 2PQ areas.",
   ],

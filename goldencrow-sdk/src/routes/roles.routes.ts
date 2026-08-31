@@ -4,6 +4,7 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   getUserRoleForContext,
+  listTransportDispatchersForContext,
   listUserRolesForContext,
   upsertUserRoleForContext,
 } from "../repositories/roles.repository.js";
@@ -30,6 +31,25 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
 
     const roles = await listUserRolesForContext(request.adminContext);
     return reply.send({ roles });
+  });
+
+  f.get("/roles/transport-dispatchers/options", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply.status(401).send({ error: "No authenticated admin context" });
+    }
+
+    try {
+      const dispatchers = await listTransportDispatchersForContext(
+        request.adminContext,
+      );
+      return reply.send({ dispatchers });
+    } catch (error) {
+      if (isAdminRepositoryError(error)) {
+        return reply.status(error.statusCode).send({ error: error.message });
+      }
+
+      throw error;
+    }
   });
 
   f.get(

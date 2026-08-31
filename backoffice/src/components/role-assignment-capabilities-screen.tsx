@@ -270,7 +270,7 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       tone: "allow",
       title: "Can work assigned PGFlex logistics",
       description:
-        "Transport dispatchers can enter the PGFlex logistics hub and inspect dispatches assigned to their role email.",
+        "Transport dispatchers can enter the PGFlex logistics hub and inspect dispatches assigned to their Firebase account.",
     },
     {
       tone: "allow",

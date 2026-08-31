@@ -10,11 +10,17 @@ import type {
   PGFlexLogisticsPage,
   PGFlexLogisticsRecord,
   PGFlexLogisticsStatus,
+  UserRoleRecord,
 } from "../types/sdk.types.js";
+import { sendPGFlexLogisticsAssignmentEmail } from "../lib/pgflex-dispatcher-email.js";
 import { AdminRepositoryError } from "./admin-errors.js";
-import { normalizeRoleEmail } from "./roles.repository.js";
+import {
+  getUserRoleByEmail,
+  normalizeRoleEmail,
+} from "./roles.repository.js";
 
 const adminDb = adminDbFor("mydnamap");
+const USER_ROLES_COLLECTION = "user_roles";
 const PGFLEX_LOGISTICS_COLLECTION = "pgflex_logistics";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
@@ -32,12 +38,20 @@ export interface PGFlexLogisticsInput {
   identifier?: string;
   description?: string;
   dispatcherId?: string;
+  dispatcherFirebaseId?: string;
+  dispatcherEmail?: string;
   dispatched_id?: string;
   origin?: string;
   destination?: string;
   pickupTime?: string;
   status?: PGFlexLogisticsStatus;
 }
+
+type TransportDispatcherAssignment = {
+  firebaseUid: string;
+  email: string;
+  displayName?: string;
+} | null;
 
 function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -49,7 +63,16 @@ function optionalString(value: unknown) {
 }
 
 function normalizeDispatcherId(value: unknown) {
-  return normalizeRoleEmail(cleanString(value));
+  return optionalString(value);
+}
+
+function normalizeDispatcherEmail(value: unknown) {
+  const normalized = cleanString(value);
+  return normalized ? normalizeRoleEmail(normalized) : undefined;
+}
+
+function looksLikeEmail(value: string) {
+  return value.includes("@");
 }
 
 function normalizeStatus(value: unknown): PGFlexLogisticsStatus {
@@ -116,11 +139,24 @@ function canAccessPGFlexLogistics(context: AdminContext) {
 
 function isAssignedDispatcher(
   context: AdminContext,
-  record: Pick<PGFlexLogisticsRecord, "dispatcherId">,
+  record: Pick<
+    PGFlexLogisticsRecord,
+    "dispatcherId" | "dispatcherFirebaseId" | "dispatcherEmail"
+  >,
 ) {
+  const contextUid = cleanString(context.uid);
+  const contextEmail = normalizeRoleEmail(context.email);
+  const dispatcherUid = cleanString(
+    record.dispatcherFirebaseId ?? record.dispatcherId,
+  );
+  const dispatcherEmail = normalizeDispatcherEmail(
+    record.dispatcherEmail ?? record.dispatcherId,
+  );
+
   return (
     context.role === "transport_dispatcher" &&
-    normalizeDispatcherId(record.dispatcherId) === normalizeRoleEmail(context.email)
+    ((contextUid && dispatcherUid === contextUid) ||
+      dispatcherEmail === contextEmail)
   );
 }
 
@@ -199,20 +235,48 @@ function toPGFlexLogisticsRecord(
   const status = STATUS_SET.has(cleanString(data.status))
     ? (cleanString(data.status) as PGFlexLogisticsStatus)
     : "awaiting_pick_up";
+  const rawDispatcherId = normalizeDispatcherId(data.dispatcherId);
+  const dispatcherFirebaseId =
+    normalizeDispatcherId(data.dispatcherFirebaseId) ??
+    (rawDispatcherId && !looksLikeEmail(rawDispatcherId)
+      ? rawDispatcherId
+      : undefined);
+  const dispatcherEmail =
+    normalizeDispatcherEmail(data.dispatcherEmail) ??
+    (rawDispatcherId && looksLikeEmail(rawDispatcherId)
+      ? normalizeDispatcherEmail(rawDispatcherId)
+      : undefined);
+  const legacyPickupTime = optionalString(data.pickupTime);
 
   return {
     id,
     identifier: optionalString(data.identifier) ?? id,
     description: optionalString(data.description),
-    dispatcherId: normalizeDispatcherId(data.dispatcherId) || undefined,
+    dispatcherId: rawDispatcherId ?? dispatcherFirebaseId ?? dispatcherEmail,
+    dispatcherFirebaseId,
+    dispatcherEmail,
     origin: optionalString(data.origin) ?? "",
     destination: optionalString(data.destination) ?? "",
-    pickupTime: optionalString(data.pickupTime) ?? "",
+    timeRequested:
+      optionalString(data.timeRequested) ??
+      legacyPickupTime ??
+      optionalString(data.createdAt) ??
+      now,
+    pickupTime: legacyPickupTime,
     status,
     createdAt: optionalString(data.createdAt) ?? now,
     updatedAt: optionalString(data.updatedAt) ?? now,
-    createdByEmail: normalizeDispatcherId(data.createdByEmail) || undefined,
-    updatedByEmail: normalizeDispatcherId(data.updatedByEmail) || undefined,
+    createdByEmail: normalizeDispatcherEmail(data.createdByEmail),
+    updatedByEmail: normalizeDispatcherEmail(data.updatedByEmail),
+    dispatcherNotificationEmailSentAt: optionalString(
+      data.dispatcherNotificationEmailSentAt,
+    ),
+    dispatcherNotificationEmailFailedAt: optionalString(
+      data.dispatcherNotificationEmailFailedAt,
+    ),
+    dispatcherNotificationEmailLastError: optionalString(
+      data.dispatcherNotificationEmailLastError,
+    ),
   };
 }
 
@@ -229,38 +293,230 @@ function withCapabilities(
   };
 }
 
-function fullDocumentFromInput(
-  payload: PGFlexLogisticsInput,
-  context: AdminContext,
-  timestamps: { createdAt: string; updatedAt: string },
-) {
+function extractDispatcherFields(payload: PGFlexLogisticsInput) {
+  const rawDispatcherId = cleanString(payload.dispatcherId ?? payload.dispatched_id);
+  const dispatcherFirebaseId =
+    normalizeDispatcherId(payload.dispatcherFirebaseId) ??
+    (rawDispatcherId && !looksLikeEmail(rawDispatcherId)
+      ? rawDispatcherId
+      : undefined);
+  const dispatcherEmail =
+    normalizeDispatcherEmail(payload.dispatcherEmail) ??
+    (rawDispatcherId && looksLikeEmail(rawDispatcherId)
+      ? normalizeDispatcherEmail(rawDispatcherId)
+      : undefined);
+
+  return { dispatcherFirebaseId, dispatcherEmail };
+}
+
+async function getTransportDispatcherByFirebaseUid(firebaseUid: string) {
+  const snapshot = await adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .where("firebaseUid", "==", firebaseUid)
+    .limit(1)
+    .get();
+  const doc = snapshot.docs.find((candidate) => {
+    const data = candidate.data() as Record<string, unknown>;
+    return data.role === "transport_dispatcher" && data.isActive !== false;
+  });
+
+  if (!doc) {
+    return null;
+  }
+
+  return toRoleAssignmentRecord(doc.id, doc.data() as Record<string, unknown>);
+}
+
+function toRoleAssignmentRecord(
+  email: string,
+  data: Record<string, unknown>,
+): Pick<
+  UserRoleRecord,
+  "email" | "role" | "isActive" | "firebaseUid" | "displayName"
+> {
   return {
-    identifier: requireRequiredString(payload.identifier, "Identifier"),
-    description: optionalString(payload.description) ?? null,
-    dispatcherId:
-      normalizeDispatcherId(payload.dispatcherId ?? payload.dispatched_id) ||
-      null,
-    origin: requireRequiredString(payload.origin, "Origin"),
-    destination: requireRequiredString(payload.destination, "Destination"),
-    pickupTime: requireRequiredString(
-      normalizePickupTime(payload.pickupTime),
-      "Time of pick up",
-    ),
-    status: payload.status
-      ? normalizeStatus(payload.status)
-      : "awaiting_pick_up",
-    createdAt: timestamps.createdAt,
-    updatedAt: timestamps.updatedAt,
-    createdByEmail: normalizeRoleEmail(context.email),
-    updatedByEmail: normalizeRoleEmail(context.email),
+    email: normalizeRoleEmail(email),
+    role:
+      data.role === "transport_dispatcher"
+        ? "transport_dispatcher"
+        : "patient",
+    isActive: data.isActive !== false,
+    firebaseUid: optionalString(data.firebaseUid),
+    displayName: optionalString(data.displayName),
   };
 }
 
-function patchDocumentFromInput(
+async function resolveTransportDispatcherAssignment(
+  payload: PGFlexLogisticsInput,
+): Promise<TransportDispatcherAssignment> {
+  const { dispatcherFirebaseId, dispatcherEmail } =
+    extractDispatcherFields(payload);
+
+  if (!dispatcherFirebaseId && !dispatcherEmail) {
+    return null;
+  }
+
+  const roleRecord =
+    (dispatcherEmail ? await getUserRoleByEmail(dispatcherEmail) : null) ??
+    (dispatcherFirebaseId
+      ? await getTransportDispatcherByFirebaseUid(dispatcherFirebaseId)
+      : null);
+
+  if (
+    !roleRecord ||
+    roleRecord.role !== "transport_dispatcher" ||
+    roleRecord.isActive === false
+  ) {
+    throw new AdminRepositoryError(
+      "Select an active transport dispatcher.",
+      400,
+    );
+  }
+
+  if (
+    dispatcherFirebaseId &&
+    roleRecord.firebaseUid &&
+    roleRecord.firebaseUid !== dispatcherFirebaseId
+  ) {
+    throw new AdminRepositoryError(
+      "Selected transport dispatcher identity does not match the role record.",
+      400,
+    );
+  }
+
+  const firebaseUid = roleRecord.firebaseUid ?? dispatcherFirebaseId;
+  if (!firebaseUid) {
+    throw new AdminRepositoryError(
+      "Select a transport dispatcher with a Firebase ID.",
+      400,
+    );
+  }
+
+  if (!roleRecord.firebaseUid) {
+    await adminDb.collection(USER_ROLES_COLLECTION).doc(roleRecord.email).set(
+      {
+        firebaseUid,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true },
+    );
+  }
+
+  return {
+    firebaseUid,
+    email: roleRecord.email,
+    displayName: roleRecord.displayName,
+  };
+}
+
+function assignmentChanged(
+  existing: Pick<
+    PGFlexLogisticsRecord,
+    "dispatcherId" | "dispatcherFirebaseId" | "dispatcherEmail"
+  >,
+  assignment: TransportDispatcherAssignment,
+) {
+  if (!assignment) {
+    return false;
+  }
+
+  const existingUid =
+    normalizeDispatcherId(existing.dispatcherFirebaseId) ??
+    (existing.dispatcherId && !looksLikeEmail(existing.dispatcherId)
+      ? existing.dispatcherId
+      : undefined);
+  const existingEmail =
+    normalizeDispatcherEmail(existing.dispatcherEmail) ??
+    (existing.dispatcherId && looksLikeEmail(existing.dispatcherId)
+      ? normalizeDispatcherEmail(existing.dispatcherId)
+      : undefined);
+
+  return (
+    existingUid !== assignment.firebaseUid ||
+    existingEmail !== assignment.email
+  );
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function sendDispatcherNotificationForItem(
+  record: PGFlexLogisticsRecord,
+  assignment: TransportDispatcherAssignment,
+) {
+  if (!assignment) {
+    return {};
+  }
+
+  const logisticsRef = adminDb
+    .collection(PGFLEX_LOGISTICS_COLLECTION)
+    .doc(record.id);
+
+  try {
+    await sendPGFlexLogisticsAssignmentEmail(
+      {
+        email: assignment.email,
+        displayName: assignment.displayName,
+      },
+      record,
+    );
+    const metadata = {
+      dispatcherNotificationEmailSentAt: new Date().toISOString(),
+      dispatcherNotificationEmailFailedAt: null,
+      dispatcherNotificationEmailLastError: null,
+    };
+    await logisticsRef.set(metadata, { merge: true });
+    return metadata;
+  } catch (error) {
+    const metadata = {
+      dispatcherNotificationEmailSentAt: null,
+      dispatcherNotificationEmailFailedAt: new Date().toISOString(),
+      dispatcherNotificationEmailLastError: errorMessage(error),
+    };
+    await logisticsRef.set(metadata, { merge: true });
+    console.error("Failed to send PGFlex logistics assignment email", error);
+    return metadata;
+  }
+}
+
+async function fullDocumentFromInput(
+  payload: PGFlexLogisticsInput,
+  context: AdminContext,
+  timestamps: { createdAt: string; updatedAt: string },
+  options: { timeRequested?: string } = {},
+) {
+  const assignment = await resolveTransportDispatcherAssignment(payload);
+
+  return {
+    document: {
+      identifier: requireRequiredString(payload.identifier, "Identifier"),
+      description: optionalString(payload.description) ?? null,
+      dispatcherId: assignment?.firebaseUid ?? null,
+      dispatcherFirebaseId: assignment?.firebaseUid ?? null,
+      dispatcherEmail: assignment?.email ?? null,
+      origin: requireRequiredString(payload.origin, "Origin"),
+      destination: requireRequiredString(payload.destination, "Destination"),
+      timeRequested: options.timeRequested ?? timestamps.createdAt,
+      pickupTime: optionalString(normalizePickupTime(payload.pickupTime)) ?? null,
+      status: payload.status
+        ? normalizeStatus(payload.status)
+        : "awaiting_pick_up",
+      createdAt: timestamps.createdAt,
+      updatedAt: timestamps.updatedAt,
+      createdByEmail: normalizeRoleEmail(context.email),
+      updatedByEmail: normalizeRoleEmail(context.email),
+    },
+    assignment,
+  };
+}
+
+async function patchDocumentFromInput(
   payload: PGFlexLogisticsInput,
   context: AdminContext,
 ) {
   const document: Partial<Record<keyof PGFlexLogisticsRecord, unknown>> = {};
+  let assignment: TransportDispatcherAssignment | undefined;
 
   if ("identifier" in payload) {
     document.identifier = requireRequiredString(payload.identifier, "Identifier");
@@ -270,10 +526,16 @@ function patchDocumentFromInput(
     document.description = optionalString(payload.description) ?? null;
   }
 
-  if ("dispatcherId" in payload || "dispatched_id" in payload) {
-    document.dispatcherId =
-      normalizeDispatcherId(payload.dispatcherId ?? payload.dispatched_id) ||
-      null;
+  if (
+    "dispatcherId" in payload ||
+    "dispatcherFirebaseId" in payload ||
+    "dispatcherEmail" in payload ||
+    "dispatched_id" in payload
+  ) {
+    assignment = await resolveTransportDispatcherAssignment(payload);
+    document.dispatcherId = assignment?.firebaseUid ?? null;
+    document.dispatcherFirebaseId = assignment?.firebaseUid ?? null;
+    document.dispatcherEmail = assignment?.email ?? null;
   }
 
   if ("origin" in payload) {
@@ -282,13 +544,6 @@ function patchDocumentFromInput(
 
   if ("destination" in payload) {
     document.destination = requireRequiredString(payload.destination, "Destination");
-  }
-
-  if ("pickupTime" in payload) {
-    document.pickupTime = requireRequiredString(
-      normalizePickupTime(payload.pickupTime),
-      "Time of pick up",
-    );
   }
 
   if ("status" in payload) {
@@ -301,7 +556,7 @@ function patchDocumentFromInput(
 
   document.updatedAt = new Date().toISOString();
   document.updatedByEmail = normalizeRoleEmail(context.email);
-  return document;
+  return { document, assignment };
 }
 
 function resolvePageSize(limit: unknown) {
@@ -323,7 +578,7 @@ function orderedQueryForContext(context: AdminContext): Query<DocumentData> {
   let query: Query<DocumentData> = adminDb.collection(PGFLEX_LOGISTICS_COLLECTION);
 
   if (context.role === "transport_dispatcher") {
-    query = query.where("dispatcherId", "==", normalizeRoleEmail(context.email));
+    query = query.where("dispatcherId", "==", context.uid);
   }
 
   return query.orderBy(FieldPath.documentId(), "desc");
@@ -333,7 +588,7 @@ function fallbackQueryForContext(context: AdminContext): Query<DocumentData> {
   let query: Query<DocumentData> = adminDb.collection(PGFLEX_LOGISTICS_COLLECTION);
 
   if (context.role === "transport_dispatcher") {
-    query = query.where("dispatcherId", "==", normalizeRoleEmail(context.email));
+    query = query.where("dispatcherId", "==", context.uid);
   }
 
   return query;
@@ -425,7 +680,7 @@ export async function createPGFlexLogisticsItemForContext(
 ): Promise<PGFlexLogisticsListItem> {
   assertCanCreatePGFlexLogistics(context);
   const now = new Date().toISOString();
-  const document = fullDocumentFromInput(payload, context, {
+  const { document, assignment } = await fullDocumentFromInput(payload, context, {
     createdAt: now,
     updatedAt: now,
   });
@@ -436,7 +691,15 @@ export async function createPGFlexLogisticsItemForContext(
     .doc(recordId)
     .set(document);
 
-  return withCapabilities(context, toPGFlexLogisticsRecord(recordId, document));
+  const record = toPGFlexLogisticsRecord(recordId, document);
+  const emailMetadata = await sendDispatcherNotificationForItem(
+    record,
+    assignment,
+  );
+  return withCapabilities(
+    context,
+    toPGFlexLogisticsRecord(recordId, { ...document, ...emailMetadata }),
+  );
 }
 
 export async function replacePGFlexLogisticsItemForContext(
@@ -446,17 +709,44 @@ export async function replacePGFlexLogisticsItemForContext(
 ): Promise<PGFlexLogisticsListItem> {
   assertCanCreatePGFlexLogistics(context);
   const existing = await getPGFlexLogisticsItemForContext(context, itemId);
-  const document = fullDocumentFromInput(payload, context, {
-    createdAt: existing.createdAt,
-    updatedAt: new Date().toISOString(),
-  });
+  const { document, assignment } = await fullDocumentFromInput(
+    payload,
+    context,
+    {
+      createdAt: existing.createdAt,
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      timeRequested: existing.timeRequested,
+    },
+  );
+  const shouldNotifyDispatcher = assignmentChanged(existing, assignment);
+  const persistedDocument =
+    !shouldNotifyDispatcher && assignment
+      ? {
+          ...document,
+          dispatcherNotificationEmailSentAt:
+            existing.dispatcherNotificationEmailSentAt ?? null,
+          dispatcherNotificationEmailFailedAt:
+            existing.dispatcherNotificationEmailFailedAt ?? null,
+          dispatcherNotificationEmailLastError:
+            existing.dispatcherNotificationEmailLastError ?? null,
+        }
+      : document;
 
   await adminDb
     .collection(PGFLEX_LOGISTICS_COLLECTION)
     .doc(itemId)
-    .set(document, { merge: false });
+    .set(persistedDocument, { merge: false });
 
-  return withCapabilities(context, toPGFlexLogisticsRecord(itemId, document));
+  const record = toPGFlexLogisticsRecord(itemId, persistedDocument);
+  const emailMetadata = shouldNotifyDispatcher
+    ? await sendDispatcherNotificationForItem(record, assignment)
+    : {};
+  return withCapabilities(
+    context,
+    toPGFlexLogisticsRecord(itemId, { ...persistedDocument, ...emailMetadata }),
+  );
 }
 
 export async function updatePGFlexLogisticsItemForContext(
@@ -467,12 +757,20 @@ export async function updatePGFlexLogisticsItemForContext(
   assertDispatcherPatchIsStatusOnly(context, payload);
   const existing = await getPGFlexLogisticsItemForContext(context, itemId);
   assertCanUpdatePGFlexLogistics(context, existing);
-  const patch = patchDocumentFromInput(payload, context);
+  const { document: patch, assignment } = await patchDocumentFromInput(
+    payload,
+    context,
+  );
 
   await adminDb
     .collection(PGFLEX_LOGISTICS_COLLECTION)
     .doc(itemId)
     .set(patch, { merge: true });
+
+  if (assignmentChanged(existing, assignment ?? null)) {
+    const updated = await getPGFlexLogisticsItemForContext(context, itemId);
+    await sendDispatcherNotificationForItem(updated, assignment ?? null);
+  }
 
   return getPGFlexLogisticsItemForContext(context, itemId);
 }

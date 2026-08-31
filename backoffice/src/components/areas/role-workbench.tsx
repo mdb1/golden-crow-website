@@ -376,6 +376,15 @@ export function RoleWorkbench({
       return;
     }
 
+    if (state.role === "transport_dispatcher" && !state.displayName.trim()) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Transport dispatcher roles require a display name."),
+      });
+      return;
+    }
+
     setPending(true);
 
     try {

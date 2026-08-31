@@ -1,4 +1,4 @@
-import { adminDbFor } from "../config/firebase.js";
+import { adminAuthFor, adminDbFor } from "../config/firebase.js";
 
 // Pitfall 16 — Bind once to the MyDNAMap project at module load. Every
 // downstream `adminDb.collection(...)` call below uses the named-app
@@ -18,10 +18,16 @@ import type {
   AdminRole,
   DoctorRecord,
   PatientRecord,
+  PGFlexTransportDispatcherOption,
   ProjectKey,
   RoleManagementRecord,
   UserRoleRecord,
 } from "../types/sdk.types.js";
+import {
+  generatePatientTemporaryPassword,
+  provisionPatientFirebaseAccount,
+} from "../lib/patient-portal-credentials.js";
+import { sendPGFlexDispatcherInviteEmail } from "../lib/pgflex-dispatcher-email.js";
 
 const USER_ROLES_COLLECTION = "user_roles";
 const FEED_ORGANIZATIONS_COLLECTION = "feed_organizations";
@@ -180,6 +186,7 @@ function toUserRoleRecord(
   return {
     email,
     role: resolvedRole,
+    firebaseUid: normalizeOptionalString(data.firebaseUid),
     organizationId: normalizeOptionalString(data.organizationId),
     individualId: normalizeOptionalString(data.individualId),
     institutionId: normalizeOptionalString(data.institutionId),
@@ -196,6 +203,11 @@ function toUserRoleRecord(
     createdAt: normalizeDateString(data.createdAt),
     updatedAt: normalizeDateString(data.updatedAt),
     createdByEmail: normalizeOptionalString(data.createdByEmail),
+    pgflexInviteEmailSentAt: normalizeOptionalString(data.pgflexInviteEmailSentAt),
+    pgflexInviteEmailFailedAt: normalizeOptionalString(data.pgflexInviteEmailFailedAt),
+    pgflexInviteEmailLastError: normalizeOptionalString(
+      data.pgflexInviteEmailLastError,
+    ),
   };
 }
 
@@ -1119,6 +1131,73 @@ export async function getUserRoleForContext(
   return hydrateRoleManagementRecord(record);
 }
 
+export async function listTransportDispatchersForContext(
+  context: AdminContext,
+): Promise<PGFlexTransportDispatcherOption[]> {
+  if (context.role !== "full_admin") {
+    throw new AdminRepositoryError(
+      "Only full admins can list transport dispatchers.",
+      403,
+    );
+  }
+
+  const snapshot = await adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .where("role", "==", "transport_dispatcher")
+    .where("isActive", "==", true)
+    .limit(100)
+    .get();
+
+  const dispatchers = await Promise.all(
+    snapshot.docs.map(async (doc) => {
+      const record = toUserRoleRecord(
+        doc.id,
+        doc.data() as Record<string, unknown>,
+      );
+      let firebaseUid = record.firebaseUid;
+      let authDisplayName: string | undefined;
+
+      if (firebaseUid && !record.displayName) {
+        try {
+          const user = await adminAuthFor("mydnamap").getUser(firebaseUid);
+          authDisplayName = normalizeOptionalString(user.displayName);
+        } catch {
+          authDisplayName = undefined;
+        }
+      }
+
+      if (!firebaseUid) {
+        try {
+          const user = await adminAuthFor("mydnamap").getUserByEmail(
+            record.email,
+          );
+          firebaseUid = user.uid;
+          authDisplayName = normalizeOptionalString(user.displayName);
+        } catch {
+          return null;
+        }
+      }
+
+      return {
+        email: record.email,
+        firebaseUid,
+        displayName:
+          normalizeOptionalString(record.displayName) ??
+          authDisplayName ??
+          "Transportista sin nombre",
+      };
+    }),
+  );
+
+  return dispatchers
+    .filter((dispatcher): dispatcher is PGFlexTransportDispatcherOption =>
+      Boolean(dispatcher),
+    )
+    .sort((left, right) =>
+      left.displayName.localeCompare(right.displayName, "es"),
+    );
+}
+
 export async function getOwnRoleForContext(
   context: AdminContext,
 ): Promise<RoleManagementRecord | null> {
@@ -1243,6 +1322,66 @@ export async function moveOwnRoleEmailForContext(
   );
 }
 
+function shouldSendTransportDispatcherInvite(
+  existing: UserRoleRecord | null,
+  payload: Pick<UserRoleRecord, "role" | "isActive">,
+) {
+  return (
+    payload.role === "transport_dispatcher" &&
+    payload.isActive &&
+    (!existing ||
+      existing.role !== "transport_dispatcher" ||
+      existing.isActive === false)
+  );
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function sendTransportDispatcherInviteForRole(
+  normalizedEmail: string,
+  document: Record<string, unknown>,
+) {
+  const temporaryPassword = generatePatientTemporaryPassword();
+  const displayName =
+    normalizeOptionalString(document.displayName) ?? normalizedEmail;
+  const { user } = await provisionPatientFirebaseAccount(
+    adminAuthFor("mydnamap"),
+    {
+      email: normalizedEmail,
+      displayName,
+      temporaryPassword,
+    },
+  );
+  const roleRef = adminDb.collection(USER_ROLES_COLLECTION).doc(normalizedEmail);
+
+  try {
+    await sendPGFlexDispatcherInviteEmail(
+      { email: normalizedEmail, displayName },
+      temporaryPassword,
+    );
+    const emailMetadata = {
+      firebaseUid: user.uid,
+      pgflexInviteEmailSentAt: new Date().toISOString(),
+      pgflexInviteEmailFailedAt: null,
+      pgflexInviteEmailLastError: null,
+    };
+    await roleRef.set(emailMetadata, { merge: true });
+    return emailMetadata;
+  } catch (error) {
+    const emailMetadata = {
+      firebaseUid: user.uid,
+      pgflexInviteEmailSentAt: null,
+      pgflexInviteEmailFailedAt: new Date().toISOString(),
+      pgflexInviteEmailLastError: errorMessage(error),
+    };
+    await roleRef.set(emailMetadata, { merge: true });
+    console.error("Failed to send PGFlex dispatcher invite email", error);
+    return emailMetadata;
+  }
+}
+
 export async function upsertUserRoleForContext(
   context: AdminContext,
   email: string,
@@ -1285,9 +1424,13 @@ export async function upsertUserRoleForContext(
   }
 
   const now = new Date().toISOString();
-  const document = {
+  const document: Record<string, unknown> = {
     email: normalizedEmail,
     role: payload.role,
+    firebaseUid:
+      payload.role === "transport_dispatcher"
+        ? (existing?.firebaseUid ?? null)
+        : null,
     organizationId:
       payload.role === "organization_publisher"
         ? (payload.organizationId ?? null)
@@ -1327,6 +1470,14 @@ export async function upsertUserRoleForContext(
     .set(document, {
       merge: true,
     });
+
+  if (shouldSendTransportDispatcherInvite(existing, payload)) {
+    const inviteMetadata = await sendTransportDispatcherInviteForRole(
+      normalizedEmail,
+      document,
+    );
+    Object.assign(document, inviteMetadata);
+  }
 
   return toUserRoleRecord(normalizedEmail, document);
 }

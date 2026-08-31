@@ -3,7 +3,16 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, LoaderCircle, RotateCcw, Save, Trash2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  LoaderCircle,
+  Mail,
+  RotateCcw,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -40,65 +49,60 @@ import {
   type PGFlexLogisticsInput,
   type PGFlexLogisticsListItem,
   type PGFlexLogisticsStatus,
+  type PGFlexTransportDispatcherOption,
 } from "@/lib/pgflex-logistics";
+import { formatDateTime } from "@/lib/moderation-utils";
 import { sdkFetch } from "@/lib/sdk-client";
+
+const UNASSIGNED_DISPATCHER_VALUE = "__unassigned__";
 
 type LogisticsFormState = {
   identifier: string;
   description: string;
   dispatcherId: string;
+  dispatcherFirebaseId: string;
+  dispatcherEmail: string;
   origin: string;
   destination: string;
-  pickupTime: string;
   status: PGFlexLogisticsStatus;
 };
 
-function toDateTimeLocalValue(value: string | undefined) {
-  if (!value) {
-    return "";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value.slice(0, 16);
-  }
-
-  const localDate = new Date(
-    parsed.getTime() - parsed.getTimezoneOffset() * 60_000,
-  );
-  return localDate.toISOString().slice(0, 16);
-}
-
-function toIsoDateTime(value: string) {
-  const trimmedValue = value.trim();
-  if (!trimmedValue) {
-    return "";
-  }
-
-  const parsed = new Date(trimmedValue);
-  return Number.isNaN(parsed.getTime()) ? trimmedValue : parsed.toISOString();
-}
-
 function toFormState(item?: PGFlexLogisticsListItem | null): LogisticsFormState {
+  const dispatcherId = item?.dispatcherId ?? "";
+  const dispatcherFirebaseId =
+    item?.dispatcherFirebaseId ?? (dispatcherId.includes("@") ? "" : dispatcherId);
+  const dispatcherEmail =
+    item?.dispatcherEmail ?? (dispatcherId.includes("@") ? dispatcherId : "");
+
   return {
     identifier: item?.identifier ?? "",
     description: item?.description ?? "",
-    dispatcherId: item?.dispatcherId ?? "",
+    dispatcherId,
+    dispatcherFirebaseId,
+    dispatcherEmail,
     origin: item?.origin ?? "",
     destination: item?.destination ?? "",
-    pickupTime: toDateTimeLocalValue(item?.pickupTime),
     status: item?.status ?? "awaiting_pick_up",
   };
 }
 
-function toPayload(state: LogisticsFormState): PGFlexLogisticsInput {
+function toPayload(
+  state: LogisticsFormState,
+  selectedDispatcher?: PGFlexTransportDispatcherOption,
+): PGFlexLogisticsInput {
+  const dispatcherFirebaseId =
+    selectedDispatcher?.firebaseUid ?? state.dispatcherFirebaseId.trim();
+  const dispatcherEmail =
+    selectedDispatcher?.email ?? state.dispatcherEmail.trim();
+
   return {
     identifier: state.identifier.trim(),
     description: state.description.trim() || undefined,
-    dispatcherId: state.dispatcherId.trim() || undefined,
+    dispatcherId: dispatcherFirebaseId || undefined,
+    dispatcherFirebaseId: dispatcherFirebaseId || undefined,
+    dispatcherEmail: dispatcherEmail || undefined,
     origin: state.origin.trim(),
     destination: state.destination.trim(),
-    pickupTime: toIsoDateTime(state.pickupTime),
     status: state.status,
   };
 }
@@ -121,6 +125,28 @@ export function PGFlexLogisticsForm({
   const [state, setState] = useState<LogisticsFormState>(sourceState);
   const [pending, setPending] = useState<"save" | "delete" | null>(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const {
+    data: dispatcherOptionsPayload,
+    isFetching: isFetchingDispatcherOptions,
+  } = useQuery({
+    queryKey: ["pgflex", "transport-dispatcher-options"],
+    queryFn: () =>
+      sdkFetch<{ dispatchers: PGFlexTransportDispatcherOption[] }>(
+        "/roles/transport-dispatchers/options",
+      ),
+    enabled: isFullAdmin,
+    staleTime: 60_000,
+  });
+  const dispatcherOptions = dispatcherOptionsPayload?.dispatchers ?? [];
+  const selectedDispatcher = dispatcherOptions.find(
+    (dispatcher) =>
+      dispatcher.firebaseUid === state.dispatcherFirebaseId ||
+      dispatcher.email === state.dispatcherEmail,
+  );
+  const dispatcherSelectValue =
+    selectedDispatcher?.firebaseUid ||
+    state.dispatcherFirebaseId ||
+    UNASSIGNED_DISPATCHER_VALUE;
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
 
   function validatePayload(payload: PGFlexLogisticsInput) {
@@ -136,11 +162,29 @@ export function PGFlexLogisticsForm({
       return "Destination is required.";
     }
 
-    if (!payload.pickupTime) {
-      return "Time of pick up is required.";
+    return null;
+  }
+
+  function handleDispatcherChange(value: string) {
+    if (value === UNASSIGNED_DISPATCHER_VALUE) {
+      setState((current) => ({
+        ...current,
+        dispatcherId: "",
+        dispatcherFirebaseId: "",
+        dispatcherEmail: "",
+      }));
+      return;
     }
 
-    return null;
+    const dispatcher = dispatcherOptions.find(
+      (option) => option.firebaseUid === value,
+    );
+    setState((current) => ({
+      ...current,
+      dispatcherId: dispatcher?.firebaseUid ?? value,
+      dispatcherFirebaseId: dispatcher?.firebaseUid ?? value,
+      dispatcherEmail: dispatcher?.email ?? current.dispatcherEmail,
+    }));
   }
 
   async function handleSave() {
@@ -148,7 +192,7 @@ export function PGFlexLogisticsForm({
       return;
     }
 
-    const payload = toPayload(state);
+    const payload = toPayload(state, selectedDispatcher);
     const validationError = isFullAdmin ? validatePayload(payload) : null;
     if (validationError) {
       setToast({
@@ -320,19 +364,46 @@ export function PGFlexLogisticsForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="pgflex-dispatcher">{t("Dispatcher ID")}</Label>
-            <Input
-              id="pgflex-dispatcher"
-              value={state.dispatcherId}
-              onChange={(event) =>
-                setState((current) => ({
-                  ...current,
-                  dispatcherId: event.target.value,
-                }))
-              }
-              placeholder={t("Transport dispatcher email")}
+            <Label htmlFor="pgflex-dispatcher">{t("Transport dispatcher")}</Label>
+            <Select
+              value={dispatcherSelectValue}
+              onValueChange={handleDispatcherChange}
               disabled={!canEditAllFields || pending !== null}
-            />
+            >
+              <SelectTrigger id="pgflex-dispatcher" className="w-full">
+                <SelectValue
+                  placeholder={
+                    isFetchingDispatcherOptions
+                      ? t("Loading transport dispatchers...")
+                      : t("Select transport dispatcher")
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={UNASSIGNED_DISPATCHER_VALUE}>
+                  {t("Unassigned")}
+                </SelectItem>
+                {state.dispatcherFirebaseId && !selectedDispatcher ? (
+                  <SelectItem value={state.dispatcherFirebaseId}>
+                    {t("Assigned dispatcher")}
+                  </SelectItem>
+                ) : null}
+                {dispatcherOptions.map((dispatcher) => (
+                  <SelectItem
+                    key={dispatcher.firebaseUid}
+                    value={dispatcher.firebaseUid}
+                  >
+                    {dispatcher.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {mode === "create" && selectedDispatcher ? (
+              <p className="flex items-start gap-2 text-xs leading-5 text-amber-700 dark:text-amber-200">
+                <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {t("A notification email will be sent to this transport dispatcher when the dispatch is saved.")}
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -363,18 +434,18 @@ export function PGFlexLogisticsForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="pgflex-pickup">{t("Time of pick up")}</Label>
+            <Label htmlFor="pgflex-time-requested">{t("Time requested")}</Label>
             <Input
-              id="pgflex-pickup"
-              type="datetime-local"
-              value={state.pickupTime}
-              onChange={(event) =>
-                setState((current) => ({
-                  ...current,
-                  pickupTime: event.target.value,
-                }))
+              id="pgflex-time-requested"
+              value={
+                mode === "create"
+                  ? t("Generated when the dispatch is created")
+                  : (formatDateTime(item?.timeRequested ?? item?.pickupTime) ??
+                    item?.timeRequested ??
+                    item?.pickupTime ??
+                    t("No timestamp"))
               }
-              disabled={!canEditAllFields || pending !== null}
+              disabled
             />
           </div>
 

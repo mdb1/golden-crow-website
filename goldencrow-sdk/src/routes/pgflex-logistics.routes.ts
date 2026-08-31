@@ -18,10 +18,12 @@ const PGFlexLogisticsBodySchema = z.object({
   identifier: z.string().trim().min(1).max(160),
   description: OptionalStringSchema,
   dispatcherId: z.string().trim().max(180).optional(),
+  dispatcherFirebaseId: z.string().trim().max(180).optional(),
+  dispatcherEmail: z.string().trim().email().max(180).optional(),
   dispatched_id: z.string().trim().max(180).optional(),
   origin: z.string().trim().min(1).max(240),
   destination: z.string().trim().min(1).max(240),
-  pickupTime: z.string().trim().min(1).max(120),
+  pickupTime: z.string().trim().max(120).optional(),
   status: PGFlexLogisticsStatusSchema.optional(),
 });
 const PGFlexLogisticsPatchBodySchema = PGFlexLogisticsBodySchema.partial().refine(

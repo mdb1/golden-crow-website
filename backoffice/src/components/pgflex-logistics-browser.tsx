@@ -66,6 +66,8 @@ export function PGFlexLogisticsBrowser({
         item.identifier,
         item.description,
         item.dispatcherId,
+        item.dispatcherFirebaseId,
+        item.dispatcherEmail,
         item.origin,
         item.destination,
         getPGFlexStatusLabel(item.status),
@@ -166,7 +168,7 @@ export function PGFlexLogisticsBrowser({
         <div className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)_180px_180px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
           <span>{t("Dispatch")}</span>
           <span>{t("Route")}</span>
-          <span>{t("Pickup")}</span>
+          <span>{t("Requested")}</span>
           <span>{t("Status")}</span>
           <span className="text-right">{t("Action")}</span>
         </div>
@@ -191,7 +193,7 @@ export function PGFlexLogisticsBrowser({
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {compactList([item.description, item.dispatcherId]) ||
+                  {compactList([item.description, item.dispatcherEmail]) ||
                     t("Standalone dispatch")}
                 </p>
               </div>
@@ -201,15 +203,22 @@ export function PGFlexLogisticsBrowser({
               </p>
 
               <p className="text-sm text-muted-foreground">
-                {formatDateTime(item.pickupTime) ?? item.pickupTime}
+                {formatDateTime(item.timeRequested) ??
+                  item.timeRequested ??
+                  formatDateTime(item.pickupTime) ??
+                  item.pickupTime}
               </p>
 
               <div className="flex flex-wrap gap-2">
                 <Badge variant={getPGFlexStatusBadgeVariant(item.status)}>
                   {t(getPGFlexStatusLabel(item.status))}
                 </Badge>
-                {item.dispatcherId ? (
-                  <Badge variant="secondary">{item.dispatcherId}</Badge>
+                {item.dispatcherEmail ? (
+                  <Badge variant="secondary">{item.dispatcherEmail}</Badge>
+                ) : item.dispatcherFirebaseId || item.dispatcherId ? (
+                  <Badge variant="secondary">
+                    {item.dispatcherFirebaseId ?? item.dispatcherId}
+                  </Badge>
                 ) : (
                   <Badge variant="outline">{t("Unassigned")}</Badge>
                 )}

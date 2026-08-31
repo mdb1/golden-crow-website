@@ -21,7 +21,7 @@ import { appText } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
 
-type RoleAccessSurface = "backoffice" | "patient-portal";
+type RoleAccessSurface = "backoffice" | "patient-portal" | "pgflex";
 
 export function RolesBrowser({
   initialRoles,
@@ -45,8 +45,13 @@ export function RolesBrowser({
   );
   const rolesBySurface = useMemo(
     () => ({
-      backoffice: roles.filter((record) => record.role !== "patient"),
+      backoffice: roles.filter(
+        (record) =>
+          record.role !== "patient" &&
+          record.role !== "transport_dispatcher",
+      ),
       "patient-portal": roles.filter((record) => record.role === "patient"),
+      pgflex: roles.filter((record) => record.role === "transport_dispatcher"),
     }),
     [roles],
   );
@@ -68,6 +73,7 @@ export function RolesBrowser({
         record.institutionName,
         record.doctorName,
         record.patientName,
+        record.firebaseUid,
         ADMIN_ROLE_LABELS[record.role],
       ]
         .filter(Boolean)
@@ -111,7 +117,7 @@ export function RolesBrowser({
       >
         <TabsList
           aria-label={t("Access surface")}
-          className="grid h-11 w-full max-w-md grid-cols-2"
+          className="grid h-11 w-full max-w-2xl grid-cols-3"
         >
           <TabsTrigger value="backoffice" className="h-9 gap-2">
             {t("Backoffice access")}
@@ -123,6 +129,12 @@ export function RolesBrowser({
             {t("Patient portal")}
             <Badge variant="secondary" className="min-w-6 justify-center px-1.5">
               {rolesBySurface["patient-portal"].length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="pgflex" className="h-9 gap-2">
+            {t("PGFlex Dispatchers")}
+            <Badge variant="secondary" className="min-w-6 justify-center px-1.5">
+              {rolesBySurface.pgflex.length}
             </Badge>
           </TabsTrigger>
         </TabsList>
@@ -192,6 +204,9 @@ export function RolesBrowser({
                         : t("No portal access")}
                     </Badge>
                   ) : null}
+                  {record.role === "transport_dispatcher" ? (
+                    <Badge variant="brand">{t("PGFlex access")}</Badge>
+                  ) : null}
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {compactList([
@@ -206,7 +221,16 @@ export function RolesBrowser({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {record.organizationId ? (
+                {record.role === "transport_dispatcher" ? (
+                  <>
+                    <Badge variant="brand">PGFlex</Badge>
+                    {record.firebaseUid ? (
+                      <Badge variant="outline">{record.firebaseUid}</Badge>
+                    ) : (
+                      <Badge variant="warning">{t("No Firebase ID")}</Badge>
+                    )}
+                  </>
+                ) : record.organizationId ? (
                   <Badge variant="secondary">{record.organizationId}</Badge>
                 ) : record.individualId ? (
                   <Badge variant="secondary">{record.individualId}</Badge>

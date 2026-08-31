@@ -18,7 +18,10 @@ import { appText } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
 
-type StaffRole = "institution_operator" | "institution_laboratory_staff";
+type StaffRole =
+  | "institution_operator"
+  | "institution_laboratory_staff"
+  | "transport_dispatcher";
 
 export function InstitutionStaffRoleBrowser({
   initialRoles,
@@ -36,6 +39,7 @@ export function InstitutionStaffRoleBrowser({
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const [query, setQuery] = useState("");
+  const isTransportDispatcherRole = role === "transport_dispatcher";
   const { data, isFetching, isLoading, refetch, error } = useQuery({
     queryKey: ["areas", "roles", role],
     queryFn: () => sdkFetch<{ roles: RoleManagementRecord[] }>("/roles"),
@@ -56,8 +60,10 @@ export function InstitutionStaffRoleBrowser({
       [
         record.email,
         record.displayName,
+        record.firebaseUid,
         record.institutionName,
         record.institutionId,
+        record.notes,
         ADMIN_ROLE_LABELS[record.role],
       ]
         .filter(Boolean)
@@ -123,7 +129,7 @@ export function InstitutionStaffRoleBrowser({
       <div className="glass-panel overflow-hidden">
         <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_180px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
           <span>{t("User email")}</span>
-          <span>{t("Institution")}</span>
+          <span>{isTransportDispatcherRole ? t("Scope") : t("Institution")}</span>
           <span>{t("Updated")}</span>
           <span className="text-right">{t("Action")}</span>
         </div>
@@ -150,19 +156,30 @@ export function InstitutionStaffRoleBrowser({
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {compactList([record.displayName, record.notes]) ||
-                    t("Institution staff role")}
+                    (isTransportDispatcherRole
+                      ? t("Standalone PGFlex logistics role")
+                      : t("Institution staff role"))}
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {record.institutionName ? (
+                {isTransportDispatcherRole ? (
+                  <>
+                    <Badge variant="brand">PGFlex</Badge>
+                    {record.firebaseUid ? (
+                      <Badge variant="outline">{record.firebaseUid}</Badge>
+                    ) : (
+                      <Badge variant="warning">{t("No Firebase ID")}</Badge>
+                    )}
+                  </>
+                ) : record.institutionName ? (
                   <Badge variant="brand">{record.institutionName}</Badge>
                 ) : null}
-                {record.institutionId ? (
+                {!isTransportDispatcherRole && record.institutionId ? (
                   <Badge variant="outline">{record.institutionId}</Badge>
-                ) : (
+                ) : !isTransportDispatcherRole ? (
                   <Badge variant="warning">{t("No institution")}</Badge>
-                )}
+                ) : null}
               </div>
 
               <div className="text-sm text-muted-foreground">

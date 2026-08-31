@@ -30,6 +30,41 @@ const SPANISH_TEXT: Record<string, string> = {
   "Institution admin": "Administrador de institución",
   "Individual publisher": "Editor",
   "Transport dispatcher": "Transportista",
+  "Transport dispatchers": "Transportistas",
+  "PGFlex Dispatchers": "PGFlex Transportistas",
+  "Open Transport Dispatchers": "Abrir transportistas",
+  "+ New Transport Dispatcher": "+ Nuevo transportista",
+  "Create transport dispatcher": "Crear transportista",
+  "No transport dispatchers match the current filter.":
+    "No hay transportistas que coincidan con el filtro actual.",
+  "Search transport dispatchers by email, name, or notes...":
+    "Buscar transportistas por email, nombre o notas...",
+  "transport dispatchers": "transportistas",
+  "No Firebase ID": "Sin Firebase ID",
+  "Assigned dispatcher": "Transportista asignado",
+  "Loading transport dispatchers...": "Cargando transportistas...",
+  "Select transport dispatcher": "Seleccionar transportista",
+  "A notification email will be sent to this transport dispatcher when the dispatch is saved.":
+    "Se enviará un email automático al transportista seleccionado cuando se guarde el envío.",
+  "Time requested": "Hora solicitada",
+  "Generated when the dispatch is created":
+    "Se genera cuando se crea el envío",
+  "Standalone PGFlex logistics roles without institution, doctor, or patient scope.":
+    "Roles logísticos independientes de PGFlex, sin alcance de institución, médico ni paciente.",
+  "Standalone PGFlex dispatcher accounts":
+    "Cuentas independientes de transportistas PGFlex",
+  "Standalone PGFlex dispatcher accounts for logistics assignments.":
+    "Cuentas independientes de transportistas PGFlex para asignaciones logísticas.",
+  "The current role cannot create transport dispatchers on this screen.":
+    "El rol actual no puede crear transportistas en esta pantalla.",
+  "Standalone logistics role for PGFlex dispatches assigned to the Firebase account.":
+    "Rol logístico independiente para envíos PGFlex asignados a la cuenta Firebase.",
+  "Transport dispatchers can enter the PGFlex logistics hub and inspect dispatches assigned to their Firebase account.":
+    "Los transportistas pueden entrar al hub logístico PGFlex y revisar envíos asignados a su cuenta Firebase.",
+  "Can see only logistics items assigned to their Firebase account.":
+    "Puede ver solo envíos logísticos asignados a su cuenta Firebase.",
+  "Transport dispatcher roles require a display name.":
+    "Los roles de transportista requieren un nombre visible.",
   "Transport dispatchers cannot create role assignments.":
     "Los transportistas no pueden crear asignaciones de rol.",
   "Transport dispatchers cannot create or modify role assignments.":
