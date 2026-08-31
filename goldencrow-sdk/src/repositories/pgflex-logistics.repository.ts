@@ -15,10 +15,7 @@ import type {
 } from "../types/sdk.types.js";
 import { sendPGFlexLogisticsAssignmentEmail } from "../lib/pgflex-dispatcher-email.js";
 import { AdminRepositoryError } from "./admin-errors.js";
-import {
-  getUserRoleByEmail,
-  normalizeRoleEmail,
-} from "./roles.repository.js";
+import { getUserRoleByEmail, normalizeRoleEmail } from "./roles.repository.js";
 
 const adminDb = adminDbFor("mydnamap");
 const USER_ROLES_COLLECTION = "user_roles";
@@ -54,6 +51,7 @@ const LIST_SCOPE_SET = new Set<string>(PGFLEX_LOGISTICS_LIST_SCOPES);
 export interface PGFlexLogisticsInput {
   identifier?: string;
   description?: string;
+  linked_codes?: string;
   dispatcherId?: string;
   dispatcherFirebaseId?: string;
   dispatcherEmail?: string;
@@ -73,6 +71,7 @@ type TransportDispatcherAssignment = {
 type PGFlexLogisticsDocument = {
   identifier: string;
   description: string | null;
+  linked_codes: string | null;
   dispatcherId: string | null;
   dispatcherFirebaseId: string | null;
   dispatcherEmail: string | null;
@@ -123,7 +122,10 @@ function normalizeStatus(value: unknown): PGFlexLogisticsStatus {
     return normalized as PGFlexLogisticsStatus;
   }
 
-  throw new AdminRepositoryError("Select a valid PGFlex logistics status.", 400);
+  throw new AdminRepositoryError(
+    "Select a valid PGFlex logistics status.",
+    400,
+  );
 }
 
 function normalizeListScope(value: unknown): PGFlexLogisticsListScope {
@@ -151,6 +153,32 @@ function normalizePickupTime(value: unknown) {
   return Number.isNaN(timestamp)
     ? normalized
     : new Date(timestamp).toISOString();
+}
+
+function normalizeLinkedCodes(value: unknown) {
+  const normalized = cleanString(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  const codes = normalized
+    .split(",")
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean);
+
+  if (codes.length === 0) {
+    return null;
+  }
+
+  if (!codes.every((code) => /^[A-Z]{3}$/.test(code))) {
+    throw new AdminRepositoryError(
+      "Linked codes must contain only comma-separated 3-letter codes.",
+      400,
+    );
+  }
+
+  return [...new Set(codes)].join(",");
 }
 
 function isMissingFirestoreIndexError(error: unknown) {
@@ -188,7 +216,9 @@ function buildRecordId() {
 }
 
 function canAccessPGFlexLogistics(context: AdminContext) {
-  return context.role === "full_admin" || context.role === "transport_dispatcher";
+  return (
+    context.role === "full_admin" || context.role === "transport_dispatcher"
+  );
 }
 
 function isAssignedDispatcher(
@@ -239,7 +269,10 @@ function assertCanViewPGFlexLogistics(
     return;
   }
 
-  throw new AdminRepositoryError("This PGFlex logistics item is not assigned to you.", 403);
+  throw new AdminRepositoryError(
+    "This PGFlex logistics item is not assigned to you.",
+    403,
+  );
 }
 
 function assertCanUpdatePGFlexLogistics(
@@ -251,7 +284,10 @@ function assertCanUpdatePGFlexLogistics(
     return;
   }
 
-  throw new AdminRepositoryError("This PGFlex logistics item cannot be updated.", 403);
+  throw new AdminRepositoryError(
+    "This PGFlex logistics item cannot be updated.",
+    403,
+  );
 }
 
 function assertCanDeletePGFlexLogistics(context: AdminContext) {
@@ -306,6 +342,7 @@ function toPGFlexLogisticsRecord(
     id,
     identifier: optionalString(data.identifier) ?? id,
     description: optionalString(data.description),
+    linked_codes: optionalString(data.linked_codes),
     dispatcherId: rawDispatcherId ?? dispatcherFirebaseId ?? dispatcherEmail,
     dispatcherFirebaseId,
     dispatcherEmail,
@@ -348,7 +385,9 @@ function withCapabilities(
 }
 
 function extractDispatcherFields(payload: PGFlexLogisticsInput) {
-  const rawDispatcherId = cleanString(payload.dispatcherId ?? payload.dispatched_id);
+  const rawDispatcherId = cleanString(
+    payload.dispatcherId ?? payload.dispatched_id,
+  );
   const dispatcherFirebaseId =
     normalizeDispatcherId(payload.dispatcherFirebaseId) ??
     (rawDispatcherId && !looksLikeEmail(rawDispatcherId)
@@ -391,9 +430,7 @@ function toRoleAssignmentRecord(
   return {
     email: normalizeRoleEmail(email),
     role:
-      data.role === "transport_dispatcher"
-        ? "transport_dispatcher"
-        : "patient",
+      data.role === "transport_dispatcher" ? "transport_dispatcher" : "patient",
     isActive: data.isActive !== false,
     firebaseUid: optionalString(data.firebaseUid),
     displayName: optionalString(data.displayName),
@@ -486,8 +523,7 @@ function assignmentChanged(
       : undefined);
 
   return (
-    existingUid !== assignment.firebaseUid ||
-    existingEmail !== assignment.email
+    existingUid !== assignment.firebaseUid || existingEmail !== assignment.email
   );
 }
 
@@ -549,13 +585,15 @@ async function fullDocumentFromInput(
     document: {
       identifier: requireRequiredString(payload.identifier, "Identifier"),
       description: optionalString(payload.description) ?? null,
+      linked_codes: normalizeLinkedCodes(payload.linked_codes),
       dispatcherId: assignment?.firebaseUid ?? null,
       dispatcherFirebaseId: assignment?.firebaseUid ?? null,
       dispatcherEmail: assignment?.email ?? null,
       origin: requireRequiredString(payload.origin, "Origin"),
       destination: requireRequiredString(payload.destination, "Destination"),
       timeRequested: options.timeRequested ?? timestamps.createdAt,
-      pickupTime: optionalString(normalizePickupTime(payload.pickupTime)) ?? null,
+      pickupTime:
+        optionalString(normalizePickupTime(payload.pickupTime)) ?? null,
       status: payload.status
         ? normalizeStatus(payload.status)
         : "awaiting_pick_up",
@@ -576,11 +614,18 @@ async function patchDocumentFromInput(
   let assignment: TransportDispatcherAssignment | undefined;
 
   if ("identifier" in payload) {
-    document.identifier = requireRequiredString(payload.identifier, "Identifier");
+    document.identifier = requireRequiredString(
+      payload.identifier,
+      "Identifier",
+    );
   }
 
   if ("description" in payload) {
     document.description = optionalString(payload.description) ?? null;
+  }
+
+  if ("linked_codes" in payload) {
+    document.linked_codes = normalizeLinkedCodes(payload.linked_codes);
   }
 
   if (
@@ -600,7 +645,10 @@ async function patchDocumentFromInput(
   }
 
   if ("destination" in payload) {
-    document.destination = requireRequiredString(payload.destination, "Destination");
+    document.destination = requireRequiredString(
+      payload.destination,
+      "Destination",
+    );
   }
 
   if ("status" in payload) {
@@ -608,7 +656,10 @@ async function patchDocumentFromInput(
   }
 
   if (Object.keys(document).length === 0) {
-    throw new AdminRepositoryError("No PGFlex logistics fields were provided.", 400);
+    throw new AdminRepositoryError(
+      "No PGFlex logistics fields were provided.",
+      400,
+    );
   }
 
   document.updatedAt = new Date().toISOString();
@@ -822,12 +873,19 @@ export async function createPGFlexLogisticsItemForContext(
 ): Promise<PGFlexLogisticsListItem> {
   assertCanCreatePGFlexLogistics(context);
   const now = new Date().toISOString();
-  const { document, assignment } = await fullDocumentFromInput(payload, context, {
-    createdAt: now,
-    updatedAt: now,
-  });
+  const { document, assignment } = await fullDocumentFromInput(
+    payload,
+    context,
+    {
+      createdAt: now,
+      updatedAt: now,
+    },
+  );
   const recordId = buildRecordId();
-  await adminDb.collection(PGFLEX_EVENTS_COLLECTION).doc(recordId).set(document);
+  await adminDb
+    .collection(PGFLEX_EVENTS_COLLECTION)
+    .doc(recordId)
+    .set(document);
 
   const record = toPGFlexLogisticsRecord(recordId, document);
   const emailMetadata = await sendDispatcherNotificationForItem(
@@ -919,10 +977,7 @@ export async function deletePGFlexLogisticsItemForContext(
 ) {
   assertCanDeletePGFlexLogistics(context);
   await getPGFlexLogisticsItemForContext(context, itemId);
-  await adminDb
-    .collection(PGFLEX_EVENTS_COLLECTION)
-    .doc(itemId)
-    .delete();
+  await adminDb.collection(PGFLEX_EVENTS_COLLECTION).doc(itemId).delete();
 
   return { deleted: true, itemId };
 }

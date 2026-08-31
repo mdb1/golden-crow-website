@@ -19,6 +19,7 @@ const OptionalStringSchema = z.string().trim().max(2000).optional();
 const PGFlexLogisticsBodySchema = z.object({
   identifier: z.string().trim().min(1).max(160),
   description: OptionalStringSchema,
+  linked_codes: z.string().trim().max(600).optional(),
   dispatcherId: z.string().trim().max(180).optional(),
   dispatcherFirebaseId: z.string().trim().max(180).optional(),
   dispatcherEmail: z.string().trim().email().max(180).optional(),
@@ -28,10 +29,11 @@ const PGFlexLogisticsBodySchema = z.object({
   pickupTime: z.string().trim().max(120).optional(),
   status: PGFlexLogisticsStatusSchema.optional(),
 });
-const PGFlexLogisticsPatchBodySchema = PGFlexLogisticsBodySchema.partial().refine(
-  (payload) => Object.keys(payload).length > 0,
-  "At least one PGFlex logistics field is required.",
-);
+const PGFlexLogisticsPatchBodySchema =
+  PGFlexLogisticsBodySchema.partial().refine(
+    (payload) => Object.keys(payload).length > 0,
+    "At least one PGFlex logistics field is required.",
+  );
 const PGFlexLogisticsParamsSchema = z.object({
   itemId: z.string().trim().min(1),
 });
@@ -65,7 +67,9 @@ export async function pgflexLogisticsRoutes(
       request.adminContext.role !== "full_admin" &&
       request.adminContext.role !== "transport_dispatcher"
     ) {
-      return reply.status(403).send({ error: "PGFlex logistics access required" });
+      return reply
+        .status(403)
+        .send({ error: "PGFlex logistics access required" });
     }
   });
 

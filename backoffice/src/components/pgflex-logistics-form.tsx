@@ -8,9 +8,11 @@ import {
   AlertTriangle,
   ArrowLeft,
   LoaderCircle,
+  PlusCircle,
   RotateCcw,
   Save,
   Trash2,
+  X,
 } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
@@ -59,6 +61,7 @@ const UNASSIGNED_DISPATCHER_VALUE = "__unassigned__";
 type LogisticsFormState = {
   identifier: string;
   description: string;
+  linkedCodes: string[];
   dispatcherId: string;
   dispatcherFirebaseId: string;
   dispatcherEmail: string;
@@ -67,16 +70,36 @@ type LogisticsFormState = {
   status: PGFlexLogisticsStatus;
 };
 
-function toFormState(item?: PGFlexLogisticsListItem | null): LogisticsFormState {
+function linkedCodesFromCsv(value?: string | null) {
+  return [
+    ...new Set(
+      (value ?? "")
+        .split(",")
+        .map((code) => code.trim().toUpperCase())
+        .filter((code) => /^[A-Z]{3}$/.test(code)),
+    ),
+  ];
+}
+
+function normalizeLinkedCode(value: string) {
+  const normalized = value.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(normalized) ? normalized : null;
+}
+
+function toFormState(
+  item?: PGFlexLogisticsListItem | null,
+): LogisticsFormState {
   const dispatcherId = item?.dispatcherId ?? "";
   const dispatcherFirebaseId =
-    item?.dispatcherFirebaseId ?? (dispatcherId.includes("@") ? "" : dispatcherId);
+    item?.dispatcherFirebaseId ??
+    (dispatcherId.includes("@") ? "" : dispatcherId);
   const dispatcherEmail =
     item?.dispatcherEmail ?? (dispatcherId.includes("@") ? dispatcherId : "");
 
   return {
     identifier: item?.identifier ?? "",
     description: item?.description ?? "",
+    linkedCodes: linkedCodesFromCsv(item?.linked_codes),
     dispatcherId,
     dispatcherFirebaseId,
     dispatcherEmail,
@@ -99,6 +122,8 @@ function toPayload(
   return {
     identifier: state.identifier.trim(),
     description: state.description.trim() || undefined,
+    linked_codes:
+      state.linkedCodes.length > 0 ? state.linkedCodes.join(",") : undefined,
     dispatcherId: dispatcherFirebaseId || undefined,
     dispatcherFirebaseId: dispatcherFirebaseId || undefined,
     dispatcherEmail: dispatcherEmail || undefined,
@@ -185,6 +210,42 @@ export function PGFlexLogisticsForm({
       dispatcherId: dispatcher?.firebaseUid ?? value,
       dispatcherFirebaseId: dispatcher?.firebaseUid ?? value,
       dispatcherEmail: dispatcher?.email ?? current.dispatcherEmail,
+    }));
+  }
+
+  function handleAddLinkedCode() {
+    const input = window.prompt(t("Enter a 3-letter code"));
+
+    if (input === null) {
+      return;
+    }
+
+    const code = normalizeLinkedCode(input);
+
+    if (!code) {
+      window.alert(t("Use exactly 3 letters, no numbers."));
+      return;
+    }
+
+    setState((current) => {
+      if (current.linkedCodes.includes(code)) {
+        window.alert(t("Code already added."));
+        return current;
+      }
+
+      return {
+        ...current,
+        linkedCodes: [...current.linkedCodes, code],
+      };
+    });
+  }
+
+  function handleRemoveLinkedCode(code: string) {
+    setState((current) => ({
+      ...current,
+      linkedCodes: current.linkedCodes.filter(
+        (currentCode) => currentCode !== code,
+      ),
     }));
   }
 
@@ -346,7 +407,9 @@ export function PGFlexLogisticsForm({
 
         {!isFullAdmin && mode === "edit" ? (
           <div className="rounded-2xl border border-violet-300/35 bg-violet-500/10 px-4 py-3 text-sm text-muted-foreground">
-            {t("Transport dispatchers can update only the status of assigned logistics items.")}
+            {t(
+              "Transport dispatchers can update only the status of assigned logistics items.",
+            )}
           </div>
         ) : null}
 
@@ -367,7 +430,9 @@ export function PGFlexLogisticsForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="pgflex-dispatcher">{t("Transport dispatcher")}</Label>
+            <Label htmlFor="pgflex-dispatcher">
+              {t("Transport dispatcher")}
+            </Label>
             <Select
               value={dispatcherSelectValue}
               onValueChange={handleDispatcherChange}
@@ -403,6 +468,49 @@ export function PGFlexLogisticsForm({
             </Select>
           </div>
 
+          <div className="space-y-2 md:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label>{t("Linked codes")}</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddLinkedCode}
+                disabled={!canEditAllFields || pending !== null}
+              >
+                <PlusCircle className="h-3.5 w-3.5" />
+                {t("Add more")}
+              </Button>
+            </div>
+            {state.linkedCodes.length > 0 ? (
+              <div className="flex flex-wrap gap-2 rounded-2xl border border-border/70 bg-muted/20 px-3 py-3">
+                {state.linkedCodes.map((code) => (
+                  <span
+                    key={code}
+                    className="inline-flex h-8 items-center gap-2 rounded-full border border-violet-200/80 bg-violet-500/10 px-3 font-mono text-sm font-semibold text-violet-700 dark:border-violet-300/25 dark:text-violet-100"
+                  >
+                    {code}
+                    {canEditAllFields ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLinkedCode(code)}
+                        disabled={pending !== null}
+                        aria-label={`${t("Remove code")} ${code}`}
+                        className="rounded-full text-violet-500 transition hover:text-violet-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:opacity-50 dark:text-violet-200 dark:hover:text-white"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border/80 bg-muted/15 px-3 py-3 text-sm text-muted-foreground">
+                {t("No linked codes added.")}
+              </div>
+            )}
+          </div>
+
           <PGFlexRoutePreview
             origin={state.origin}
             destination={state.destination}
@@ -418,7 +526,9 @@ export function PGFlexLogisticsForm({
           {mode === "edit" ? (
             <>
               <div className="space-y-2">
-                <Label htmlFor="pgflex-time-requested">{t("Time requested")}</Label>
+                <Label htmlFor="pgflex-time-requested">
+                  {t("Time requested")}
+                </Label>
                 <Input
                   id="pgflex-time-requested"
                   value={

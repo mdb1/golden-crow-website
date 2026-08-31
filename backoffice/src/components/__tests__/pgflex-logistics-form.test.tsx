@@ -102,6 +102,7 @@ describe("PGFlexLogisticsForm", () => {
     const user = userEvent.setup();
     renderCreateForm();
 
+    expect(screen.getByText("Linked codes")).toBeInTheDocument();
     expect(screen.queryByLabelText("Time requested")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Status")).not.toBeInTheDocument();
     expect(
@@ -126,5 +127,57 @@ describe("PGFlexLogisticsForm", () => {
       }),
     );
     expect(push).toHaveBeenCalledWith("/pgflex/logistics/dispatch-1");
+  });
+
+  it("adds optional linked codes and sends them as a comma-separated field", async () => {
+    const promptSpy = jest.spyOn(window, "prompt").mockReturnValue("abc");
+    const alertSpy = jest
+      .spyOn(window, "alert")
+      .mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    renderCreateForm();
+
+    await user.click(screen.getByRole("button", { name: "Add more" }));
+
+    expect(promptSpy).toHaveBeenCalledWith("Enter a 3-letter code");
+    expect(screen.getByText("ABC")).toBeInTheDocument();
+    expect(alertSpy).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText("Identifier"), "PGF-002");
+    await user.type(screen.getByLabelText("Origin"), "Av. Santa Fe 1000");
+    await user.type(screen.getByLabelText("Destination"), "Laboratorio Sur");
+    await user.click(screen.getByRole("button", { name: "Create dispatch" }));
+
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith("/pgflex/logistics", {
+        method: "POST",
+        body: JSON.stringify({
+          identifier: "PGF-002",
+          linked_codes: "ABC",
+          origin: "Av. Santa Fe 1000",
+          destination: "Laboratorio Sur",
+        }),
+      }),
+    );
+
+    promptSpy.mockRestore();
+    alertSpy.mockRestore();
+  });
+
+  it("rejects linked codes that are not exactly three letters", async () => {
+    const promptSpy = jest.spyOn(window, "prompt").mockReturnValue("AB1");
+    const alertSpy = jest
+      .spyOn(window, "alert")
+      .mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    renderCreateForm();
+
+    await user.click(screen.getByRole("button", { name: "Add more" }));
+
+    expect(alertSpy).toHaveBeenCalledWith("Use exactly 3 letters, no numbers.");
+    expect(screen.queryByText("AB1")).not.toBeInTheDocument();
+
+    promptSpy.mockRestore();
+    alertSpy.mockRestore();
   });
 });

@@ -1,10 +1,7 @@
 import type { AdminContextRecord } from "@/lib/admin-areas";
 
 export type PGFlexLogisticsStatus =
-  | "awaiting_pick_up"
-  | "in_transit"
-  | "arrived"
-  | "lost";
+  "awaiting_pick_up" | "in_transit" | "arrived" | "lost";
 
 export type PGFlexLogisticsListScope = "active" | "finished";
 
@@ -12,6 +9,7 @@ export interface PGFlexLogisticsRecord {
   id: string;
   identifier: string;
   description?: string;
+  linked_codes?: string;
   dispatcherId?: string;
   dispatcherFirebaseId?: string;
   dispatcherEmail?: string;
@@ -43,6 +41,7 @@ export interface PGFlexLogisticsPage {
 export interface PGFlexLogisticsInput {
   identifier: string;
   description?: string;
+  linked_codes?: string;
   dispatcherId?: string;
   dispatcherFirebaseId?: string;
   dispatcherEmail?: string;

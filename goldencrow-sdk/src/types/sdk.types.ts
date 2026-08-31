@@ -491,6 +491,7 @@ export interface PGFlexLogisticsRecord {
   id: string;
   identifier: string;
   description?: string;
+  linked_codes?: string;
   dispatcherId?: string;
   dispatcherFirebaseId?: string;
   dispatcherEmail?: string;

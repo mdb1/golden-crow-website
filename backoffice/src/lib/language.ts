@@ -103,6 +103,14 @@ const SPANISH_TEXT: Record<string, string> = {
   "No route": "Sin recorrido",
   Unassigned: "Sin asignar",
   Identifier: "Identificador",
+  "Linked codes": "Códigos vinculados",
+  "No linked codes added.": "No hay códigos vinculados.",
+  "Add more": "Agregar más",
+  "Enter a 3-letter code": "Ingresá un código de 3 letras",
+  "Use exactly 3 letters, no numbers.":
+    "Usá exactamente 3 letras, sin números.",
+  "Remove code": "Quitar código",
+  "Code already added.": "El código ya fue agregado.",
   "Dispatcher ID": "ID de transportista",
   "Transport dispatcher email": "Email del transportista",
   Origin: "Origen",
@@ -2904,8 +2912,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Fecha opcional de recepción copiada en cada registro generado.",
   "Optional sequencing run pointer.":
     "Referencia opcional a corrida de secuenciación.",
-  "Optional external tracking reference.":
-    "Referencia externa opcional.",
+  "Optional external tracking reference.": "Referencia externa opcional.",
   "Operational timing": "Tiempos operativos",
   "Original intake date.": "Fecha original de ingreso.",
   "Other 2PQ areas": "Otras áreas 2PQ",

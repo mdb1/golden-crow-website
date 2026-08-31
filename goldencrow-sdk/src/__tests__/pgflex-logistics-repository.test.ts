@@ -85,7 +85,10 @@ function fieldPathName(fieldPath: unknown) {
   return String(fieldPath);
 }
 
-function valueForField(doc: { id: string; data: MockDocData }, fieldPath: string) {
+function valueForField(
+  doc: { id: string; data: MockDocData },
+  fieldPath: string,
+) {
   return fieldPath === "__name__" ? doc.id : doc.data[fieldPath];
 }
 
@@ -129,7 +132,9 @@ function applyQueryOperations(
   }
 
   const orderOperations = operations.filter(
-    (operation): operation is Extract<MockQueryOperation, { type: "orderBy" }> =>
+    (
+      operation,
+    ): operation is Extract<MockQueryOperation, { type: "orderBy" }> =>
       operation.type === "orderBy",
   );
 
@@ -152,7 +157,9 @@ function applyQueryOperations(
   }
 
   const startAfter = operations.find(
-    (operation): operation is Extract<MockQueryOperation, { type: "startAfter" }> =>
+    (
+      operation,
+    ): operation is Extract<MockQueryOperation, { type: "startAfter" }> =>
       operation.type === "startAfter",
   );
 
@@ -191,25 +198,29 @@ function makeQuery(
 ): MockQuery {
   return {
     doc: (id?: string) => makeDocRef(collectionName, id),
-    where: jest.fn((fieldPath: unknown, operator: string, value: unknown): MockQuery => {
-      const operation: MockQueryOperation = {
-        type: "where",
-        fieldPath: fieldPathName(fieldPath),
-        operator,
-        value,
-      };
-      mockQueryOperations.push(operation);
-      return makeQuery(collectionName, [...operations, operation]);
-    }),
-    orderBy: jest.fn((fieldPath: unknown, direction: "asc" | "desc"): MockQuery => {
-      const operation: MockQueryOperation = {
-        type: "orderBy",
-        fieldPath: fieldPathName(fieldPath),
-        direction,
-      };
-      mockQueryOperations.push(operation);
-      return makeQuery(collectionName, [...operations, operation]);
-    }),
+    where: jest.fn(
+      (fieldPath: unknown, operator: string, value: unknown): MockQuery => {
+        const operation: MockQueryOperation = {
+          type: "where",
+          fieldPath: fieldPathName(fieldPath),
+          operator,
+          value,
+        };
+        mockQueryOperations.push(operation);
+        return makeQuery(collectionName, [...operations, operation]);
+      },
+    ),
+    orderBy: jest.fn(
+      (fieldPath: unknown, direction: "asc" | "desc"): MockQuery => {
+        const operation: MockQueryOperation = {
+          type: "orderBy",
+          fieldPath: fieldPathName(fieldPath),
+          direction,
+        };
+        mockQueryOperations.push(operation);
+        return makeQuery(collectionName, [...operations, operation]);
+      },
+    ),
     startAfter: jest.fn((...values: unknown[]): MockQuery => {
       const operation: MockQueryOperation = { type: "startAfter", values };
       mockQueryOperations.push(operation);
@@ -277,17 +288,20 @@ describe("PGFlex logistics repository", () => {
   });
 
   it("stores a created logistics item only in pgflex_events", async () => {
-    const { createPGFlexLogisticsItemForContext } = await import(
-      "../repositories/pgflex-logistics.repository"
-    );
+    const { createPGFlexLogisticsItemForContext } =
+      await import("../repositories/pgflex-logistics.repository");
 
-    const created = await createPGFlexLogisticsItemForContext(fullAdminContext, {
-      identifier: "  ENV-001  ",
-      description: "  Retiro inicial  ",
-      origin: "Laboratorio Central",
-      destination: "Clinica Norte",
-      status: "in_transit",
-    });
+    const created = await createPGFlexLogisticsItemForContext(
+      fullAdminContext,
+      {
+        identifier: "  ENV-001  ",
+        description: "  Retiro inicial  ",
+        linked_codes: " abc, DEF,abc ",
+        origin: "Laboratorio Central",
+        destination: "Clinica Norte",
+        status: "in_transit",
+      },
+    );
 
     const eventDocs = docsIn("pgflex_events");
     const legacyDocs = docsIn(legacyCollectionName);
@@ -299,6 +313,7 @@ describe("PGFlex logistics repository", () => {
       id: eventDocs[0]!.id,
       identifier: "ENV-001",
       description: "Retiro inicial",
+      linked_codes: "ABC,DEF",
       origin: "Laboratorio Central",
       destination: "Clinica Norte",
       status: "in_transit",
@@ -307,6 +322,7 @@ describe("PGFlex logistics repository", () => {
     expect(eventDocs[0]!.data).toMatchObject({
       identifier: "ENV-001",
       description: "Retiro inicial",
+      linked_codes: "ABC,DEF",
       dispatcherId: null,
       dispatcherFirebaseId: null,
       dispatcherEmail: null,
@@ -321,10 +337,28 @@ describe("PGFlex logistics repository", () => {
     expect(mockSendPGFlexLogisticsAssignmentEmail).not.toHaveBeenCalled();
   });
 
+  it("rejects malformed linked codes before storing the logistics item", async () => {
+    const { createPGFlexLogisticsItemForContext } =
+      await import("../repositories/pgflex-logistics.repository");
+
+    await expect(
+      createPGFlexLogisticsItemForContext(fullAdminContext, {
+        identifier: "ENV-002",
+        linked_codes: "ABC,AB1",
+        origin: "Laboratorio Central",
+        destination: "Clinica Norte",
+      }),
+    ).rejects.toMatchObject({
+      message: "Linked codes must contain only comma-separated 3-letter codes.",
+      statusCode: 400,
+    });
+
+    expect(docsIn("pgflex_events")).toHaveLength(0);
+  });
+
   it("lists scoped logistics items by requested time newest first", async () => {
-    const { listPGFlexLogisticsForContext } = await import(
-      "../repositories/pgflex-logistics.repository"
-    );
+    const { listPGFlexLogisticsForContext } =
+      await import("../repositories/pgflex-logistics.repository");
 
     mockDocs.set("pgflex_events/older-active", {
       identifier: "ACTIVE-OLD",
