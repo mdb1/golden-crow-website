@@ -94,7 +94,6 @@ const DOCTOR_VISIBLE_TWO_PQ_AREAS = new Set(["cases", "sampling"]);
 const OPERATOR_MISSION_HREFS = new Set([
   "/2pq-dashboard",
   "/2pq-dashboard/forms",
-  "/2pq-dashboard/shipments",
   "/2pq-dashboard/consents",
   "/2pq-dashboard/contact",
 ]);
@@ -103,7 +102,6 @@ const LABORATORY_STAFF_MISSION_HREFS = new Set([
   "/2pq-dashboard/forms",
   "/2pq-dashboard/cases",
   "/2pq-dashboard/sampling",
-  "/2pq-dashboard/shipments",
   "/2pq-dashboard/consents",
   "/2pq-dashboard/contact",
 ]);
@@ -1254,7 +1252,7 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
     return {
       eyebrow: "2PQ",
       title: "2PQ Dashboard",
-      description: "Workflow map and role-aware CRUD shell for cases, samples, shipments, sequencing, reports, and clients.",
+      description: "Workflow map and role-aware CRUD shell for cases, samples, sequencing, reports, and clients.",
     };
   }
 

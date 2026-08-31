@@ -4,7 +4,6 @@ import {
   ClipboardList,
   Dna,
   FileCode2,
-  Truck,
   Users,
 } from "lucide-react";
 import type { DoctorListItem, InstitutionRecord, PatientListItem } from "@/lib/admin-areas";
@@ -14,7 +13,6 @@ import type { RoleAccessSpec, TwoPQTone } from "@/lib/two-pq-dashboard";
 export type TwoPQAreaKey =
   | "cases"
   | "sampling"
-  | "shipments"
   | "sequencing"
   | "reports"
   | "clients";
@@ -22,7 +20,6 @@ export type TwoPQAreaKey =
 export type TwoPQCollectionKey =
   | "2pq_case"
   | "2pq_sampling"
-  | "2pq_shipment"
   | "2pq_sequencing"
   | "2pq_report"
   | "2pq_client";
@@ -283,13 +280,6 @@ const PROCESSING_OPTIONS: TwoPQOption[] = [
   { value: "ready_for_sequencing", label: "Ready for sequencing" },
 ];
 
-const DELIVERY_OPTIONS: TwoPQOption[] = [
-  { value: "pending", label: "Pending" },
-  { value: "in_transit", label: "In transit" },
-  { value: "delivered", label: "Delivered" },
-  { value: "exception", label: "Exception" },
-];
-
 const ANALYSIS_OPTIONS: TwoPQOption[] = [
   { value: "scheduled", label: "Scheduled" },
   { value: "queued", label: "Queued" },
@@ -404,15 +394,15 @@ export const TWO_PQ_AREA_CONFIGS: TwoPQAreaConfig[] = [
         ],
       },
       {
-        title: "Linked logistics",
-        description: "Tracking and scheduling fields used by downstream shipment and report steps.",
+        title: "Operational timing",
+        description: "Scheduling fields used by downstream processing and report steps.",
         fields: [
           {
             key: "trackingNumber",
             label: "Tracking number",
             type: "text",
             placeholder: "1Z123456789",
-            description: "External logistics tracking number.",
+            description: "Optional external tracking reference.",
           },
           {
             key: "requestedAt",
@@ -553,147 +543,6 @@ export const TWO_PQ_AREA_CONFIGS: TwoPQAreaConfig[] = [
             type: "textarea",
             placeholder: "Reception issues, missing tubes, or extraction notes...",
             description: "Sampling notes.",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    key: "shipments",
-    label: "2PQ Shipments",
-    navLabel: "2PQ Shipments",
-    route: "/2pq-dashboard/shipments",
-    collectionKey: "2pq_shipment",
-    icon: Truck,
-    tone: "amber",
-    description:
-      "Shipment and logistics records stored in Firebase under `2pq_shipment`.",
-    summary:
-      "Use shipments for carrier data, dispatch/delivery dates, and operational contact details.",
-    helperTitle: "Shipment records now support full CRUD.",
-    helperBody:
-      "The list and detail screens write real Firestore data and keep logistics linked to institutions, doctors, and patients.",
-    searchPlaceholder: "Search shipments by case, shipment, tracking, carrier, delivery state, or contact...",
-    createLabel: "New shipment",
-    roleAccess: ASSIGNED_SCOPE_ACCESS,
-    fieldGroups: [
-      {
-        title: "Ownership",
-        description: "Scope links for shipment coordination.",
-        fields: [
-          {
-            key: "institutionId",
-            label: "Institution",
-            type: "select",
-            required: true,
-            optionSource: "institutions",
-            description: "Institution root.",
-          },
-          {
-            key: "doctorId",
-            label: "Doctor",
-            type: "select",
-            required: true,
-            optionSource: "doctors",
-            description: "Owning doctor lane.",
-          },
-          {
-            key: "patientId",
-            label: "Patient",
-            type: "select",
-            optionSource: "patients",
-            description: "Optional patient reference.",
-          },
-        ],
-      },
-      {
-        title: "Shipment state",
-        description: "Logistics and carrier data.",
-        fields: [
-          {
-            key: "caseLabel",
-            label: "Case label",
-            type: "text",
-            required: true,
-            placeholder: "CMS-2026-001",
-            description: "Linked case identifier.",
-          },
-          {
-            key: "shipmentId",
-            label: "Shipment ID",
-            type: "text",
-            required: true,
-            placeholder: "SHIP-00003",
-            description: "Internal shipment identifier.",
-          },
-          {
-            key: "trackingNumber",
-            label: "Tracking number",
-            type: "text",
-            required: true,
-            placeholder: "1Z123456789",
-            description: "External logistics tracking number.",
-          },
-          {
-            key: "carrier",
-            label: "Carrier",
-            type: "text",
-            placeholder: "UPS",
-            description: "Shipping provider.",
-          },
-          {
-            key: "dispatchDate",
-            label: "Dispatch date",
-            type: "date",
-            description: "When the shipment left origin.",
-          },
-          {
-            key: "deliveryDate",
-            label: "Delivery date",
-            type: "date",
-            description: "When the shipment arrived.",
-          },
-          {
-            key: "deliveryStatus",
-            label: "Delivery status",
-            type: "select",
-            required: true,
-            options: DELIVERY_OPTIONS,
-            description: "Current delivery state.",
-          },
-        ],
-      },
-      {
-        title: "Coordination",
-        description: "Operational contact information.",
-        fields: [
-          {
-            key: "contactName",
-            label: "Contact name",
-            type: "text",
-            placeholder: "Logistics desk",
-            description: "Primary contact.",
-          },
-          {
-            key: "contactEmail",
-            label: "Contact email",
-            type: "email",
-            placeholder: "logistics@example.com",
-            description: "Contact email.",
-          },
-          {
-            key: "contactPhone",
-            label: "Contact phone",
-            type: "text",
-            placeholder: "+1 555 0100",
-            description: "Contact phone.",
-          },
-          {
-            key: "notes",
-            label: "Notes",
-            type: "textarea",
-            placeholder: "Delivery exceptions, customs notes, or courier issues...",
-            description: "Shipment notes.",
           },
         ],
       },
@@ -1146,10 +995,6 @@ export function getTwoPQRecordTitle(area: TwoPQAreaConfig, record: TwoPQDisplayR
 
   if (area.key === "sequencing") {
     return record.runId ?? record.caseLabel ?? record.id;
-  }
-
-  if (area.key === "shipments") {
-    return record.shipmentId ?? record.caseLabel ?? record.id;
   }
 
   if (area.key === "sampling") {

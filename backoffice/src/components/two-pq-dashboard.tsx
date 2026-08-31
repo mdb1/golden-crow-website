@@ -500,7 +500,7 @@ export function TwoPQDashboard({
       <PageHero
         eyebrow="2PQ"
         title="2PQ Dashboard"
-        description="A PDF-inspired workflow shell for cases, samples, shipments, sequencing runs, reports, and clients, mapped directly onto the current institution-doctor-patient permission model."
+        description="A PDF-inspired workflow shell for cases, samples, sequencing runs, reports, and clients, mapped directly onto the current institution-doctor-patient permission model."
         actions={
           <>
             <Button size="sm" asChild>
@@ -632,7 +632,6 @@ export function TwoPQDashboard({
                 { label: "Dashboard", href: "#area-dashboard", tone: "blue" },
                 { label: "Cases", href: "#area-cases", tone: "blue" },
                 { label: "Samples", href: "#area-samples", tone: "mint" },
-                { label: "Shipments", href: "#area-shipments", tone: "amber" },
               ]}
             />
 
@@ -689,22 +688,22 @@ export function TwoPQDashboard({
                 Case ID
               </Link>
               <Link
-                href="#area-shipments"
+                href="#area-cases"
                 className={cn(
                   "absolute left-1/2 top-[10%] -translate-x-1/2 rounded-[1.25rem] border px-4 py-3 text-sm font-medium shadow-[0_18px_40px_-30px_rgba(0,0,0,0.85)]",
                   toneClasses.blue.node
                 )}
               >
-                Kit Logistics
+                Case Intake
               </Link>
               <Link
-                href="#area-shipments"
+                href="#area-samples"
                 className={cn(
                   "absolute right-[8%] top-[20%] rounded-[1.25rem] border px-4 py-3 text-sm font-medium shadow-[0_18px_40px_-30px_rgba(0,0,0,0.85)]",
                   toneClasses.mint.node
                 )}
               >
-                Sample Shipment
+                Sample Reception
               </Link>
               <Link
                 href="#area-samples"
@@ -747,8 +746,8 @@ export function TwoPQDashboard({
                 <h3 className="font-heading text-3xl font-semibold text-foreground">Case ID</h3>
                 <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
                   <p>Case | Status</p>
-                  <p>Shipment | Sample ID</p>
-                  <p>Tracking | Reports</p>
+                  <p>Sample ID | Run ID</p>
+                  <p>Status | Reports</p>
                 </div>
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   <Badge variant={roleBadgeVariants[adminContext.role]}>
@@ -771,18 +770,7 @@ export function TwoPQDashboard({
                 </div>
               </div>
 
-              <div className="absolute bottom-3 left-3 right-3 grid gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-border/70 bg-background/75 px-3 py-3">
-                  <p className="font-medium text-foreground">Shipments</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className={cn("rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.16em]", toneClasses.blue.chip)}>
-                      Shipment ID
-                    </span>
-                    <span className={cn("rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.16em]", toneClasses.blue.chip)}>
-                      Tracking
-                    </span>
-                  </div>
-                </div>
+              <div className="absolute bottom-3 left-3 right-3 grid gap-3 md:grid-cols-2">
                 <div className="rounded-2xl border border-border/70 bg-background/75 px-3 py-3">
                   <p className="font-medium text-foreground">Samples</p>
                   <div className="mt-3 flex flex-wrap gap-2">

@@ -11,7 +11,6 @@ import {
   ShieldUser,
   Sparkles,
   Stethoscope,
-  Truck,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -130,7 +129,6 @@ export interface TwoPQWorkflowAreaSpec {
     | "dashboard"
     | "cases"
     | "samples"
-    | "shipments"
     | "sequencing_runs"
     | "reports"
     | "clients";
@@ -230,7 +228,7 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
             label: "primaryArea",
             source: "2PQ",
             detail:
-              "The workflow area the operator should enter first: cases, samples, shipments, reports, or clients.",
+              "The workflow area the operator should enter first: cases, samples, sequencing, reports, or clients.",
           },
           {
             label: "linkedRoute",
@@ -374,8 +372,7 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
       },
       {
         title: "Clinical routing",
-        description:
-          "Patient-facing and logistics-facing identifiers carried across the workflow.",
+        description: "Patient-facing identifiers carried across the workflow.",
         fields: [
           {
             label: "patientId",
@@ -390,16 +387,9 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
               "Primary sample pointer used for accession, reception, and processing handoff.",
           },
           {
-            label: "shipmentId",
-            source: "Shipments",
-            detail:
-              "Shipment pointer that links intake to dispatch and receipt checkpoints.",
-          },
-          {
-            label: "trackingNumber",
-            source: "Shipments",
-            detail:
-              "Carrier-facing identifier surfaced again in reports and client communication.",
+            label: "requestedAt",
+            source: "2PQ",
+            detail: "Timestamp for intake and service-level timing.",
           },
         ],
       },
@@ -499,7 +489,7 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
             label: "sampleId",
             source: "2PQ",
             detail:
-              "Unique sample identifier exposed again in cases, shipments, and sequencing runs.",
+              "Unique sample identifier exposed again in cases and sequencing runs.",
           },
           {
             label: "caseId",
@@ -603,148 +593,6 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
         scope: "no_access",
         capabilities: [],
         note: "Patients do not handle sample administration in the backoffice.",
-      },
-    ],
-  },
-  {
-    key: "shipments",
-    label: "Shipments",
-    shortLabel: "Shipments",
-    description:
-      "Logistics lane for outbound and inbound sample movement, tracking numbers, carrier coordination, and exception handling.",
-    summary:
-      "This area mirrors the PDF’s shipment stages while staying attached to institution, doctor, patient, and report context.",
-    icon: Truck,
-    tone: "amber",
-    chips: ["Logistics", "Tracking", "Chain of custody"],
-    quickLinks: [
-      {
-        label: "Institutions",
-        href: "/areas/institutions",
-        visibleRoles: AREA_ADMIN_ROLES,
-      },
-      {
-        label: "Patients",
-        href: "/areas/patients",
-        visibleRoles: AREA_ADMIN_ROLES,
-      },
-      { label: "Reports", href: "/reports", visibleRoles: FULL_ADMIN_ROLES },
-      {
-        label: "Uploaded reports",
-        href: "/collections/uploaded_reports",
-        visibleRoles: FULL_ADMIN_ROLES,
-      },
-    ],
-    fieldGroups: [
-      {
-        title: "Dispatch record",
-        description:
-          "The transport identifiers needed to move work across sites.",
-        fields: [
-          {
-            label: "shipmentId",
-            source: "2PQ",
-            detail:
-              "Internal logistics identifier for the shipment envelope or batch.",
-          },
-          {
-            label: "trackingNumber",
-            source: "2PQ",
-            detail:
-              "Carrier tracking number reused in case and client communication.",
-          },
-          {
-            label: "carrier",
-            source: "2PQ",
-            detail: "Courier or shipping provider responsible for the move.",
-          },
-          {
-            label: "dispatchDate",
-            source: "2PQ",
-            detail: "Date the shipment left the origin site.",
-          },
-        ],
-      },
-      {
-        title: "Chain of custody",
-        description: "Fields that document what is in motion and who owns it.",
-        fields: [
-          {
-            label: "sampleIds",
-            source: "Samples",
-            detail: "List of samples contained in the shipment batch.",
-          },
-          {
-            label: "originInstitutionId",
-            source: "Institutions",
-            detail: "Institution that dispatched the shipment.",
-          },
-          {
-            label: "destinationLab",
-            source: "2PQ",
-            detail: "Receiving destination for sequencing or processing.",
-          },
-          {
-            label: "doctorId",
-            source: "Doctors",
-            detail: "Owning doctor lane used to keep responsibility visible.",
-          },
-        ],
-      },
-      {
-        title: "Coordination fields",
-        description:
-          "Contact and exception data for real-world logistics work.",
-        fields: [
-          {
-            label: "contactName",
-            source: "2PQ",
-            detail:
-              "Primary shipment contact for delivery or exception resolution.",
-          },
-          {
-            label: "contactEmail",
-            source: "2PQ",
-            detail:
-              "Operational email used for carrier or laboratory communication.",
-          },
-          {
-            label: "contactPhone",
-            source: "2PQ",
-            detail: "Phone number for time-sensitive logistics follow-up.",
-          },
-          {
-            label: "deliveryStatus",
-            source: "2PQ",
-            detail: "Pending, in transit, delivered, delayed, or exception.",
-          },
-        ],
-      },
-    ],
-    roleAccess: [
-      {
-        role: "full_admin",
-        scope: "global",
-        capabilities: ["create", "read", "update", "delete"],
-        note: "Full admins can manage all shipment and tracking state globally.",
-      },
-      {
-        role: "institution_admin",
-        scope: "institution",
-        capabilities: ["create", "read", "update"],
-        note: "Institution admins can coordinate shipment activity for their institution, but destructive cleanup should stay deliberate.",
-      },
-      {
-        role: "institution_doctor",
-        scope: "assigned",
-        capabilities: ["read", "update"],
-        note: "Doctors can follow and annotate logistics for their own patient lane.",
-      },
-      {
-        role: "patient",
-        scope: "no_access",
-        capabilities: [],
-        note: "Patients do not administer shipments in the backoffice.",
       },
     ],
   },

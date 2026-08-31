@@ -405,12 +405,6 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
         "Institution laboratory staff can create and update 2PQ report records inside their institution.",
     },
     {
-      tone: "allow",
-      title: "Can coordinate shipments",
-      description:
-        "Institution laboratory staff can update shipment workflow information inside their institution when the shipment is requested through the corresponding form.",
-    },
-    {
       tone: "limit",
       title: "Cannot manage local role assignments",
       description:

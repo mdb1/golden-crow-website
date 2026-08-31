@@ -96,7 +96,6 @@ const FORM_REQUESTED_DIRECT_CREATE_AREAS = new Set<TwoPQAreaKey>([
   "cases",
   "sampling",
   "sequencing",
-  "shipments",
 ]);
 
 type FormState = Record<TwoPQMutableFieldKey, string>;

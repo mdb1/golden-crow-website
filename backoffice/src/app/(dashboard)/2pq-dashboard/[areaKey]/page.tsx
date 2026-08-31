@@ -17,7 +17,6 @@ const FORM_REQUESTED_CREATE_AREAS = new Set([
   "cases",
   "sampling",
   "sequencing",
-  "shipments",
 ]);
 
 export default async function TwoPQAreaPage({

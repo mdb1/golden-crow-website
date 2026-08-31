@@ -80,7 +80,7 @@ export function TwoPQDashboardHome({
     adminContext.role === "institution_operator";
   const isLaboratoryStaffDashboard =
     adminContext.role === "institution_laboratory_staff";
-  const shouldShowOnlyShipments =
+  const hideSecondaryAreasForScopedWorkflowRoles =
     isDoctorDashboard ||
     isInstitutionOperatorDashboard ||
     isLaboratoryStaffDashboard;
@@ -102,7 +102,7 @@ export function TwoPQDashboardHome({
   const secondaryAreas = translatedAreas.filter(
     (area) =>
       !linkedEntityKeys.has(area.key) &&
-      (!shouldShowOnlyShipments || area.key === "shipments"),
+      !hideSecondaryAreasForScopedWorkflowRoles,
   );
   const linkedEntityGridClassName =
     linkedEntityAreas.length <= 2
@@ -451,45 +451,47 @@ export function TwoPQDashboardHome({
         </section>
       ) : null}
 
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="font-heading text-2xl font-semibold text-foreground">
-            {t("Secondary workflow surfaces")}
-          </h2>
-        </div>
+      {secondaryAreas.length > 0 ? (
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-heading text-2xl font-semibold text-foreground">
+              {t("Secondary workflow surfaces")}
+            </h2>
+          </div>
 
-        <div className={secondaryGridClassName}>
-          {secondaryAreas.map((area) => (
-            <article
-              key={area.key}
-              className="glass-panel flex flex-col gap-4 px-5 py-5"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <area.icon className="h-5 w-5" />
-              </div>
+          <div className={secondaryGridClassName}>
+            {secondaryAreas.map((area) => (
+              <article
+                key={area.key}
+                className="glass-panel flex flex-col gap-4 px-5 py-5"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <area.icon className="h-5 w-5" />
+                </div>
 
-              <div>
-                <h2 className="font-heading text-2xl font-semibold text-foreground">
-                  {area.label}
-                </h2>
-              </div>
+                <div>
+                  <h2 className="font-heading text-2xl font-semibold text-foreground">
+                    {area.label}
+                  </h2>
+                </div>
 
-              <div>
-                <Badge variant="outline">{area.collectionKey}</Badge>
-              </div>
+                <div>
+                  <Badge variant="outline">{area.collectionKey}</Badge>
+                </div>
 
-              <div className="mt-auto flex justify-end">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={area.route}>
-                    {t("Open area")}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </Button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+                <div className="mt-auto flex justify-end">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={area.route}>
+                      {t("Open area")}
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <TwoPQContactSection />
       </div>
