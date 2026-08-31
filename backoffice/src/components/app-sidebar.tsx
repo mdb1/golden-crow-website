@@ -30,6 +30,28 @@ function canSeeDiscoverSection(adminContext: AdminContextRecord) {
   );
 }
 
+function PGFlexLogisticsMenuLabel({ label }: { label: string }) {
+  return (
+    <>
+      <img
+        src="/pgflex_icon.png"
+        alt=""
+        aria-hidden="true"
+        className="h-4 w-4 shrink-0 rounded-[3px] bg-white object-cover object-left"
+      />
+      <span className="flex min-w-0 flex-1 items-center">
+        <img
+          src="/pgflex_icon.png"
+          alt=""
+          aria-hidden="true"
+          className="h-4 max-w-24 object-contain object-left"
+        />
+        <span className="sr-only">{label}</span>
+      </span>
+    </>
+  );
+}
+
 export function AppSidebar({
   adminContext,
 }: {
@@ -178,8 +200,16 @@ export function AppSidebar({
                           tooltip={appText(language, item.label)}
                         >
                           <Link href={item.href}>
-                            <item.icon className="h-4 w-4" />
-                            <span>{appText(language, item.label)}</span>
+                            {item.href === "/pgflex/logistics" ? (
+                              <PGFlexLogisticsMenuLabel
+                                label={appText(language, item.label)}
+                              />
+                            ) : (
+                              <>
+                                <item.icon className="h-4 w-4" />
+                                <span>{appText(language, item.label)}</span>
+                              </>
+                            )}
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
