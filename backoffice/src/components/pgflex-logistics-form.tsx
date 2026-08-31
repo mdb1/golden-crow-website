@@ -17,6 +17,7 @@ import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { PGFlexRoutePreview } from "@/components/pgflex-route-preview";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -406,32 +407,17 @@ export function PGFlexLogisticsForm({
             ) : null}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="pgflex-origin">{t("Origin")}</Label>
-            <Input
-              id="pgflex-origin"
-              value={state.origin}
-              onChange={(event) =>
-                setState((current) => ({ ...current, origin: event.target.value }))
-              }
-              disabled={!canEditAllFields || pending !== null}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="pgflex-destination">{t("Destination")}</Label>
-            <Input
-              id="pgflex-destination"
-              value={state.destination}
-              onChange={(event) =>
-                setState((current) => ({
-                  ...current,
-                  destination: event.target.value,
-                }))
-              }
-              disabled={!canEditAllFields || pending !== null}
-            />
-          </div>
+          <PGFlexRoutePreview
+            origin={state.origin}
+            destination={state.destination}
+            disabled={!canEditAllFields || pending !== null}
+            onOriginChange={(origin) =>
+              setState((current) => ({ ...current, origin }))
+            }
+            onDestinationChange={(destination) =>
+              setState((current) => ({ ...current, destination }))
+            }
+          />
 
           <div className="space-y-2">
             <Label htmlFor="pgflex-time-requested">{t("Time requested")}</Label>

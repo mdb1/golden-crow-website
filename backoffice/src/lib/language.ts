@@ -109,6 +109,20 @@ const SPANISH_TEXT: Record<string, string> = {
   "Transport dispatcher email": "Email del transportista",
   Origin: "Origen",
   Destination: "Destino",
+  "Route preview": "Vista del recorrido",
+  "Best driving route with approximate time.":
+    "Mejor recorrido en auto con tiempo aproximado.",
+  "Traffic aware": "Considera tráfico",
+  "Google Maps preview is not configured.":
+    "La vista de Google Maps no está configurada.",
+  "Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable route previews.":
+    "Configurá NEXT_PUBLIC_GOOGLE_MAPS_API_KEY para activar las vistas de recorrido.",
+  "Finding route...": "Calculando recorrido...",
+  "Unable to load Google Maps.": "No se pudo cargar Google Maps.",
+  "Unable to calculate a route for these addresses.":
+    "No se pudo calcular un recorrido para estas direcciones.",
+  "Add origin and destination addresses to preview the route.":
+    "Agregá origen y destino para previsualizar el recorrido.",
   "Time of pick up": "Hora de retiro",
   Arrived: "Llegó",
   Lost: "Perdido",
