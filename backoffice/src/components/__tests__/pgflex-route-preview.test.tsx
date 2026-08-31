@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import "@testing-library/jest-dom";
+import { useState } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PGFlexRoutePreview } from "@/components/pgflex-route-preview";
@@ -42,24 +43,40 @@ describe("PGFlexRoutePreview", () => {
     }
   });
 
-  it("uses the PGFlex Google Maps fallback key when the env key is missing", async () => {
+  it("loads Google Maps only after Preview route is clicked", async () => {
     const onOriginChange = jest.fn();
     const onDestinationChange = jest.fn();
 
+    function ControlledPreview() {
+      const [origin, setOrigin] = useState("");
+      const [destination, setDestination] = useState("");
+
+      return (
+        <PGFlexRoutePreview
+          origin={origin}
+          destination={destination}
+          onOriginChange={(nextOrigin) => {
+            onOriginChange(nextOrigin);
+            setOrigin(nextOrigin);
+          }}
+          onDestinationChange={(nextDestination) => {
+            onDestinationChange(nextDestination);
+            setDestination(nextDestination);
+          }}
+        />
+      );
+    }
+
     render(
       <AppLanguageProvider forcedLanguage="en">
-        <PGFlexRoutePreview
-          origin=""
-          destination=""
-          onOriginChange={onOriginChange}
-          onDestinationChange={onDestinationChange}
-        />
+        <ControlledPreview />
       </AppLanguageProvider>,
     );
 
-    await waitFor(() => {
-      expect(document.getElementById(scriptId)).toBeInTheDocument();
-    });
+    expect(document.getElementById(scriptId)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Preview route" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText("Google Maps preview is not configured."),
     ).not.toBeInTheDocument();
@@ -67,6 +84,11 @@ describe("PGFlexRoutePreview", () => {
     fireEvent.change(screen.getByLabelText("Origin"), {
       target: { value: "Av. Corrientes 123, Buenos Aires" },
     });
+    expect(document.getElementById(scriptId)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Preview route" }),
+    ).not.toBeInTheDocument();
+
     fireEvent.change(screen.getByLabelText("Destination"), {
       target: { value: "Hospital Italiano, Buenos Aires" },
     });
@@ -77,5 +99,12 @@ describe("PGFlexRoutePreview", () => {
     expect(onDestinationChange).toHaveBeenCalledWith(
       "Hospital Italiano, Buenos Aires",
     );
+
+    expect(document.getElementById(scriptId)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Preview route" }));
+
+    await waitFor(() => {
+      expect(document.getElementById(scriptId)).toBeInTheDocument();
+    });
   });
 });
