@@ -103,6 +103,13 @@ describe("PGFlexLogisticsForm", () => {
     renderCreateForm();
 
     expect(screen.getByText("Linked codes")).toBeInTheDocument();
+    const createButton = screen.getByRole("button", {
+      name: "Create dispatch",
+    });
+    expect(
+      screen.getAllByRole("button", { name: "Create dispatch" }),
+    ).toHaveLength(1);
+    expect(createButton).toHaveClass("h-16", "w-full");
     expect(screen.queryByLabelText("Time requested")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Status")).not.toBeInTheDocument();
     expect(
@@ -114,7 +121,7 @@ describe("PGFlexLogisticsForm", () => {
     await user.type(screen.getByLabelText("Identifier"), "PGF-001");
     await user.type(screen.getByLabelText("Origin"), "Av. Corrientes 123");
     await user.type(screen.getByLabelText("Destination"), "Hospital Italiano");
-    await user.click(screen.getByRole("button", { name: "Create dispatch" }));
+    await user.click(createButton);
 
     await waitFor(() =>
       expect(sdkFetch).toHaveBeenCalledWith("/pgflex/logistics", {

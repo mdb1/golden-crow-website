@@ -344,7 +344,13 @@ export function PGFlexLogisticsForm({
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div
+      className={
+        mode === "create"
+          ? "flex flex-col gap-5 pb-40 md:pb-44"
+          : "flex flex-col gap-5"
+      }
+    >
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -386,22 +392,20 @@ export function PGFlexLogisticsForm({
               <RotateCcw className="h-3.5 w-3.5" />
               {t("Reset")}
             </Button>
-            <Button
-              size="sm"
-              onClick={() => void handleSave()}
-              disabled={!changed || !canUpdate || pending !== null}
-            >
-              {pending === "save" ? (
-                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              {pending === "save"
-                ? t("Saving...")
-                : mode === "create"
-                  ? t("Create dispatch")
-                  : t("Save")}
-            </Button>
+            {mode === "edit" ? (
+              <Button
+                size="sm"
+                onClick={() => void handleSave()}
+                disabled={!changed || !canUpdate || pending !== null}
+              >
+                {pending === "save" ? (
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                {pending === "save" ? t("Saving...") : t("Save")}
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -584,6 +588,27 @@ export function PGFlexLogisticsForm({
           </div>
         </div>
       </section>
+
+      {mode === "create" ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:px-0">
+          <div className="pointer-events-auto mx-auto md:ml-[calc(var(--sidebar-width)+1rem)] md:mr-6 lg:mr-8">
+            <div className="rounded-[1.7rem] border border-white/12 bg-background/72 p-4 shadow-[0_-10px_38px_rgba(7,16,24,0.12),0_20px_48px_rgba(7,16,24,0.18)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/54">
+              <Button
+                onClick={() => void handleSave()}
+                disabled={!changed || !canUpdate || pending !== null}
+                className="h-16 w-full rounded-[1.35rem] border border-sky-200/12 bg-[linear-gradient(180deg,rgba(56,189,248,0.98),rgba(37,99,235,0.96))] text-base font-semibold text-white shadow-[0_18px_52px_rgba(37,99,235,0.34)] disabled:opacity-100 sm:text-lg"
+              >
+                {pending === "save" ? (
+                  <LoaderCircle className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Save className="h-5 w-5" />
+                )}
+                {pending === "save" ? t("Saving...") : t("Create dispatch")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {mode === "edit" && item && isFullAdmin ? (
         <section className="glass-panel flex flex-col gap-4 px-5 py-4">
