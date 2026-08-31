@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 
 const ROLE_TABS: AdminRole[] = [
   "full_admin",
+  "transport_dispatcher",
   "institution_admin",
   "institution_operator",
   "institution_laboratory_staff",
@@ -45,6 +46,10 @@ function getVisibleRoleTabs(currentRole: AdminRole): AdminRole[] {
     return ["institution_doctor"];
   }
 
+  if (currentRole === "transport_dispatcher") {
+    return ["transport_dispatcher"];
+  }
+
   return ROLE_TABS;
 }
 
@@ -55,6 +60,7 @@ const roleBadgeVariants: Record<
   full_admin: "destructive",
   organization_publisher: "secondary",
   individual_publisher: "secondary",
+  transport_dispatcher: "violet",
   institution_admin: "brand",
   institution_operator: "secondary",
   institution_laboratory_staff: "secondary",
@@ -257,6 +263,32 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       title: "Cannot access institution workflows",
       description:
         "2PQ, institution areas, community moderation, reports, learning, and global account moderation remain outside this role.",
+    },
+  ],
+  transport_dispatcher: [
+    {
+      tone: "allow",
+      title: "Can work assigned PGFlex logistics",
+      description:
+        "Transport dispatchers can enter the PGFlex logistics hub and inspect dispatches assigned to their role email.",
+    },
+    {
+      tone: "allow",
+      title: "Can update assigned status",
+      description:
+        "They can move assigned dispatches through awaiting pick up, in transit, arrived, or lost without touching unrelated records.",
+    },
+    {
+      tone: "limit",
+      title: "Cannot create or delete dispatches",
+      description:
+        "Dispatch creation, dispatcher assignment, and deletion stay reserved for full admins.",
+    },
+    {
+      tone: "limit",
+      title: "Cannot access institution workflows",
+      description:
+        "2PQ, institution areas, Discover publishing, reports, community moderation, learning, and role management remain outside this role.",
     },
   ],
   institution_admin: [

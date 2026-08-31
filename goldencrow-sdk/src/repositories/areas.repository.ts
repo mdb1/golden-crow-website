@@ -384,6 +384,9 @@ async function loadScopedRoleRecords(context: AdminContext) {
         email: doc.id,
         role:
           data.role === "full_admin" ||
+          data.role === "organization_publisher" ||
+          data.role === "individual_publisher" ||
+          data.role === "transport_dispatcher" ||
           data.role === "institution_admin" ||
           data.role === "institution_operator" ||
           data.role === "institution_laboratory_staff" ||
@@ -775,6 +778,9 @@ export async function getInstitutionDetailForContext(
       email: doc.id,
       role:
         data.role === "full_admin" ||
+        data.role === "organization_publisher" ||
+        data.role === "individual_publisher" ||
+        data.role === "transport_dispatcher" ||
         data.role === "institution_admin" ||
         data.role === "institution_operator" ||
         data.role === "institution_laboratory_staff" ||
@@ -1117,6 +1123,9 @@ export async function getDoctorDetailForContext(
           email: roleDocument.id,
           role:
             data.role === "full_admin" ||
+            data.role === "organization_publisher" ||
+            data.role === "individual_publisher" ||
+            data.role === "transport_dispatcher" ||
             data.role === "institution_admin" ||
             data.role === "institution_operator" ||
             data.role === "institution_laboratory_staff" ||

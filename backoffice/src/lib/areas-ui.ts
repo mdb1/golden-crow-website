@@ -19,6 +19,10 @@ export function getRoleBadgeVariant(role: AdminRole) {
     return "secondary" as const;
   }
 
+  if (role === "transport_dispatcher") {
+    return "violet" as const;
+  }
+
   if (isInstitutionManagerRole(role)) {
     return "brand" as const;
   }
@@ -264,6 +268,10 @@ export function getRoleCreateRestrictionMessage(context: AdminContextRecord) {
     return "Individual publishers cannot create role assignments.";
   }
 
+  if (context.role === "transport_dispatcher") {
+    return "Transport dispatchers cannot create role assignments.";
+  }
+
   return "The current scope cannot create role assignments.";
 }
 
@@ -327,6 +335,12 @@ export const ROLE_CAPABILITY_LINES: Record<AdminRole, string[]> = {
     "Can access only Discover individual publishers and feed entries for one linked individual publisher.",
     "Can create, edit, duplicate, and delete feed entries only for that individual publisher.",
     "Cannot access 2PQ, institution areas, reports, community moderation, learning, or role management.",
+  ],
+  transport_dispatcher: [
+    "Can access PGFlex logistics.",
+    "Can see only logistics items assigned to their role email.",
+    "Can update the status of assigned logistics items.",
+    "Cannot create dispatches, delete dispatches, or access institution-scoped 2PQ areas.",
   ],
   institution_admin: [
     "Can see and edit only one institution.",

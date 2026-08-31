@@ -16,6 +16,7 @@ import {
   Mail,
   MessagesSquare,
   Newspaper,
+  PackageCheck,
   ShieldUser,
   Sparkles,
   Stethoscope,
@@ -86,7 +87,9 @@ const ACCESS_NAV_ROLES: AdminRole[] = [
   "institution_doctor",
   "organization_publisher",
   "individual_publisher",
+  "transport_dispatcher",
 ];
+const PGFLEX_NAV_ROLES: AdminRole[] = ["full_admin", "transport_dispatcher"];
 const DOCTOR_VISIBLE_TWO_PQ_AREAS = new Set(["cases", "sampling"]);
 const OPERATOR_MISSION_HREFS = new Set([
   "/2pq-dashboard",
@@ -159,6 +162,12 @@ export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
     description:
       "Institution-scoped operations for institutions, doctors, administrative operators, laboratory staff, and patients.",
     visibleRoles: AREA_ROLES,
+  },
+  {
+    key: "pgflex",
+    label: "PGFlex",
+    description: "Standalone logistics dispatches and transport status.",
+    visibleRoles: PGFLEX_NAV_ROLES,
   },
   {
     key: "access",
@@ -1023,6 +1032,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
     icon: UserRoundCog,
     visibleRoles: ACCESS_NAV_ROLES,
   },
+  {
+    section: "pgflex",
+    label: "Logistics",
+    href: "/pgflex/logistics",
+    description: "Standalone PGFlex logistics dispatches",
+    icon: PackageCheck,
+    visibleRoles: PGFLEX_NAV_ROLES,
+  },
 ];
 
 export const GYM_SECTIONS: SectionDescriptor[] = [
@@ -1309,6 +1326,30 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
         description: `Scoped CRUD workbench for live ${area.collectionKey} records.`,
       };
     }
+  }
+
+  if (pathname === "/pgflex" || pathname === "/pgflex/logistics") {
+    return {
+      eyebrow: "PGFlex",
+      title: "Logistics",
+      description: "Standalone logistics dispatches and transport status.",
+    };
+  }
+
+  if (pathname === "/pgflex/logistics/new") {
+    return {
+      eyebrow: "PGFlex",
+      title: "New logistics item",
+      description: "Create a standalone dispatch record.",
+    };
+  }
+
+  if (pathname.startsWith("/pgflex/logistics/")) {
+    return {
+      eyebrow: "PGFlex",
+      title: "Logistics detail",
+      description: "Dispatch status, route, pickup time, and dispatcher assignment.",
+    };
   }
 
   if (pathname === "/") {

@@ -12,6 +12,7 @@ export type AdminSectionKey =
   | "discover"
   | "areas"
   | "access"
+  | "pgflex"
   | "gym-overview"
   | "gym-members"
   | "gym-scheduling"

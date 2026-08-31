@@ -2,6 +2,7 @@ export type AdminRole =
   | "full_admin"
   | "organization_publisher"
   | "individual_publisher"
+  | "transport_dispatcher"
   | "institution_admin"
   | "institution_operator"
   | "institution_laboratory_staff"
@@ -260,6 +261,7 @@ export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
   full_admin: "Full admin",
   organization_publisher: "Organization publisher",
   individual_publisher: "Individual publisher",
+  transport_dispatcher: "Transport dispatcher",
   institution_admin: "Institution admin",
   institution_operator: "Institution operator",
   institution_laboratory_staff: "Institution laboratory staff",
@@ -274,6 +276,8 @@ export const ADMIN_ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
     "Organization-scoped Discover publishing access for one feed_organizations publisher and its feed entries.",
   individual_publisher:
     "Individual-scoped Discover publishing access for one feed_individuals publisher and its feed entries.",
+  transport_dispatcher:
+    "Standalone logistics role for PGFlex dispatches assigned to the operator email.",
   institution_admin:
     "Institution-scoped control over one institution, its doctors, its patients, and local role assignments.",
   institution_operator:
@@ -290,6 +294,7 @@ export const ROLE_OPTIONS: Array<{ value: AdminRole; label: string }> = [
   { value: "full_admin", label: "Full admin" },
   { value: "organization_publisher", label: "Organization publisher" },
   { value: "individual_publisher", label: "Individual publisher" },
+  { value: "transport_dispatcher", label: "Transport dispatcher" },
   { value: "institution_admin", label: "Institution admin" },
   { value: "institution_operator", label: "Institution operator" },
   {
@@ -356,6 +361,10 @@ export function getAssignableRoleOptionsForContext(
   }
 
   return options;
+}
+
+export function isStandaloneRole(role: AdminRole) {
+  return role === "full_admin" || role === "transport_dispatcher";
 }
 
 export function getVisibleRoleRecordsForContext(

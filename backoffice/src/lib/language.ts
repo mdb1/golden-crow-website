@@ -29,6 +29,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Full admin": "Administrador total",
   "Institution admin": "Administrador de institución",
   "Individual publisher": "Editor",
+  "Transport dispatcher": "Transportista",
+  "Transport dispatchers cannot create role assignments.":
+    "Los transportistas no pueden crear asignaciones de rol.",
+  "Transport dispatchers cannot create or modify role assignments.":
+    "Los transportistas no pueden crear ni modificar asignaciones de rol.",
+  "Email-based access tree for full admins, transport dispatchers, institution admins, institution operators, institution laboratory staff, doctors, and patients.":
+    "Árbol de acceso por email para administradores totales, transportistas, administradores de institución, operarios de institución, personal de laboratorio, médicos y pacientes.",
   "Institution operator": "Operario de institución",
   "Institution laboratory staff": "Personal de laboratorio de institución",
   "Institution doctor": "Médico de institución",
@@ -40,6 +47,66 @@ const SPANISH_TEXT: Record<string, string> = {
   Appearance: "Apariencia",
   "API documentation": "Documentación API",
   "API Keys": "Claves API",
+  PGFlex: "PGFlex",
+  Logistics: "Logística",
+  "PGFlex logistics": "Logística PGFlex",
+  "Create dispatch": "Crear envío",
+  "Search dispatches by identifier, route, dispatcher, or status...":
+    "Buscar envíos por identificador, recorrido, transportista o estado...",
+  "loaded dispatches": "envíos cargados",
+  Dispatch: "Envío",
+  Route: "Recorrido",
+  Pickup: "Retiro",
+  "No PGFlex logistics items match the current filter.":
+    "No hay envíos PGFlex que coincidan con el filtro actual.",
+  "Unable to load more PGFlex logistics items.":
+    "No se pudieron cargar más envíos PGFlex.",
+  "Unable to refresh PGFlex logistics items.":
+    "No se pudieron actualizar los envíos PGFlex.",
+  "Standalone dispatch": "Envío independiente",
+  "No route": "Sin recorrido",
+  Unassigned: "Sin asignar",
+  Identifier: "Identificador",
+  "Dispatcher ID": "ID de transportista",
+  "Transport dispatcher email": "Email del transportista",
+  Origin: "Origen",
+  Destination: "Destino",
+  "Time of pick up": "Hora de retiro",
+  Arrived: "Llegó",
+  Lost: "Perdido",
+  "Back to logistics": "Volver a logística",
+  "Logistics workbench": "Mesa de trabajo logística",
+  "Transport dispatchers can update only the status of assigned logistics items.":
+    "Los transportistas solo pueden actualizar el estado de los envíos asignados.",
+  "Identifier is required.": "El identificador es requerido.",
+  "Origin is required.": "El origen es requerido.",
+  "Destination is required.": "El destino es requerido.",
+  "Time of pick up is required.": "La hora de retiro es requerida.",
+  "PGFlex logistics item saved.": "Envío PGFlex guardado.",
+  "PGFlex logistics status updated.": "Estado del envío PGFlex actualizado.",
+  "Unable to create PGFlex logistics item.":
+    "No se pudo crear el envío PGFlex.",
+  "Unable to save PGFlex logistics item.":
+    "No se pudo guardar el envío PGFlex.",
+  "Unable to delete PGFlex logistics item.":
+    "No se pudo eliminar el envío PGFlex.",
+  "Danger zone": "Zona de riesgo",
+  "Delete dispatch": "Eliminar envío",
+  "Delete dispatch?": "¿Eliminar envío?",
+  "This removes the standalone PGFlex logistics item.":
+    "Esto elimina el envío PGFlex independiente.",
+  "Standalone PGFlex logistics role": "Rol logístico PGFlex independiente",
+  "Open PGFlex logistics": "Abrir logística PGFlex",
+  "Standalone logistics dispatches and transport status.":
+    "Envíos logísticos independientes y estado de transporte.",
+  "Standalone PGFlex logistics dispatches":
+    "Envíos logísticos independientes de PGFlex",
+  "New logistics item": "Nuevo envío logístico",
+  "Create a standalone dispatch record.":
+    "Crear un registro de envío independiente.",
+  "Logistics detail": "Detalle logístico",
+  "Dispatch status, route, pickup time, and dispatcher assignment.":
+    "Estado del envío, recorrido, hora de retiro y asignación de transportista.",
   "Public OpenAPI reference and integration examples":
     "Referencia OpenAPI pública y ejemplos de integración",
   "Public reporting bearer token setup and rotation notes":

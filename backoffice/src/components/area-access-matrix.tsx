@@ -18,6 +18,7 @@ const roleBadgeVariants: Record<AdminRole, ComponentProps<typeof Badge>["variant
   full_admin: "destructive",
   organization_publisher: "secondary",
   individual_publisher: "secondary",
+  transport_dispatcher: "violet",
   institution_admin: "brand",
   institution_operator: "secondary",
   institution_laboratory_staff: "secondary",

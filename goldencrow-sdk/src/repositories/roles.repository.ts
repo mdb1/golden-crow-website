@@ -31,6 +31,7 @@ const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
     "full_admin",
     "organization_publisher",
     "individual_publisher",
+    "transport_dispatcher",
     "institution_admin",
     "institution_operator",
     "institution_laboratory_staff",
@@ -54,6 +55,7 @@ const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
   institution_doctor: ["patient"],
   organization_publisher: [],
   individual_publisher: [],
+  transport_dispatcher: [],
   patient: [],
 };
 
@@ -152,6 +154,7 @@ function isAdminRole(value: string): value is AdminRole {
     value === "full_admin" ||
     value === "organization_publisher" ||
     value === "individual_publisher" ||
+    value === "transport_dispatcher" ||
     value === "institution_admin" ||
     value === "institution_operator" ||
     value === "institution_laboratory_staff" ||
@@ -241,7 +244,8 @@ function getLinkedCollectionIds(payload: {
     institutionId:
       payload.role === "full_admin" ||
       payload.role === "organization_publisher" ||
-      payload.role === "individual_publisher"
+      payload.role === "individual_publisher" ||
+      payload.role === "transport_dispatcher"
         ? undefined
         : payload.institutionId,
     doctorId:
@@ -269,6 +273,10 @@ async function validateLinkedRoleEntities(
   const normalizedEmail = normalizeRoleEmail(email);
 
   if (payload.role === "full_admin") {
+    return null;
+  }
+
+  if (payload.role === "transport_dispatcher") {
     return null;
   }
 
@@ -560,6 +568,14 @@ export function getAdminCapabilities(context: AdminContext): string[] {
       "discover:feed-items:read:own-individual",
       "discover:feed-items:write:own-individual",
       "discover:feed-items:delete:own-individual",
+    ];
+  }
+
+  if (context.role === "transport_dispatcher") {
+    return [
+      ...base,
+      "pgflex:logistics:read:assigned",
+      "pgflex:logistics:update-status:assigned",
     ];
   }
 
@@ -856,6 +872,12 @@ export function validateRoleScope(
     return payload.individualId
       ? null
       : "Individual publisher roles require an individual id.";
+  }
+
+  if (payload.role === "transport_dispatcher") {
+    return context.role === "full_admin"
+      ? null
+      : "Only full admins can manage transport dispatcher roles.";
   }
 
   if (!payload.institutionId) {
@@ -1255,7 +1277,8 @@ export async function upsertUserRoleForContext(
     institutionId:
       payload.role === "full_admin" ||
       payload.role === "organization_publisher" ||
-      payload.role === "individual_publisher"
+      payload.role === "individual_publisher" ||
+      payload.role === "transport_dispatcher"
         ? null
         : (payload.institutionId ?? null),
     doctorId:

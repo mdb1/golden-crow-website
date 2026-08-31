@@ -9,6 +9,7 @@ function isAdminRole(value: string | undefined): value is AdminRole {
     value === "full_admin" ||
     value === "organization_publisher" ||
     value === "individual_publisher" ||
+    value === "transport_dispatcher" ||
     value === "institution_admin" ||
     value === "institution_operator" ||
     value === "institution_laboratory_staff" ||

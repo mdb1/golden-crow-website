@@ -19,6 +19,7 @@ import {
   getAssignableRoleOptions,
   getAssignableRoleOptionsForContext,
   isInstitutionManagerRole,
+  isStandaloneRole,
   type DoctorListItem,
   type InstitutionRecord,
   type PatientListItem,
@@ -228,6 +229,18 @@ export function RoleWorkbench({
         };
       }
 
+      if (nextRole === "transport_dispatcher") {
+        return {
+          ...current,
+          role: nextRole,
+          organizationId: "",
+          individualId: "",
+          institutionId: "",
+          doctorId: "",
+          patientId: "",
+        };
+      }
+
       if (nextRole === "organization_publisher") {
         return {
           ...current,
@@ -334,6 +347,7 @@ export function RoleWorkbench({
       state.role !== "full_admin" &&
       state.role !== "organization_publisher" &&
       state.role !== "individual_publisher" &&
+      state.role !== "transport_dispatcher" &&
       !state.institutionId.trim()
     ) {
       setToast({
@@ -380,7 +394,7 @@ export function RoleWorkbench({
                 ? state.individualId
                 : undefined,
             institutionId:
-              state.role === "full_admin" ||
+              isStandaloneRole(state.role) ||
               state.role === "organization_publisher" ||
               state.role === "individual_publisher"
                 ? undefined
@@ -578,7 +592,8 @@ export function RoleWorkbench({
 
           {state.role !== "full_admin" &&
           state.role !== "organization_publisher" &&
-          state.role !== "individual_publisher" ? (
+          state.role !== "individual_publisher" &&
+          state.role !== "transport_dispatcher" ? (
             <div className="space-y-2">
               <Label htmlFor="role-institution">{t("Institution")}</Label>
               <OptionSelectField
@@ -744,7 +759,8 @@ export function RoleWorkbench({
           ) : null}
 
           {state.role !== "organization_publisher" &&
-          state.role !== "individual_publisher" ? (
+          state.role !== "individual_publisher" &&
+          state.role !== "transport_dispatcher" ? (
             <>
               <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
                 <p className="font-medium text-foreground">
@@ -800,6 +816,18 @@ export function RoleWorkbench({
                 ) : null}
               </div>
             </>
+          ) : state.role === "transport_dispatcher" ? (
+            <div className="rounded-2xl border border-violet-300/45 bg-violet-500/10 px-4 py-3">
+              <p className="font-medium text-foreground">
+                {state.email || t("Transport dispatcher")}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("Standalone PGFlex logistics role")}
+              </p>
+              <Button variant="link" size="sm" className="px-0" asChild>
+                <Link href="/pgflex/logistics">{t("Open PGFlex logistics")}</Link>
+              </Button>
+            </div>
           ) : null}
         </div>
       </section>

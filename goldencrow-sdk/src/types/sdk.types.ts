@@ -21,6 +21,7 @@ export type AdminRole =
   | "full_admin"
   | "organization_publisher"
   | "individual_publisher"
+  | "transport_dispatcher"
   | "institution_admin"
   | "institution_operator"
   | "institution_laboratory_staff"
@@ -483,6 +484,37 @@ export interface TwoPQFormDraftRecord {
   createdByUid?: string;
   updatedByEmail?: string;
   updatedByUid?: string;
+}
+
+export type PGFlexLogisticsStatus =
+  | "awaiting_pick_up"
+  | "in_transit"
+  | "arrived"
+  | "lost";
+
+export interface PGFlexLogisticsRecord {
+  id: string;
+  identifier: string;
+  description?: string;
+  dispatcherId?: string;
+  origin: string;
+  destination: string;
+  pickupTime: string;
+  status: PGFlexLogisticsStatus;
+  createdAt: string;
+  updatedAt: string;
+  createdByEmail?: string;
+  updatedByEmail?: string;
+}
+
+export interface PGFlexLogisticsListItem extends PGFlexLogisticsRecord {
+  canUpdate: boolean;
+  canDelete: boolean;
+}
+
+export interface PGFlexLogisticsPage {
+  items: PGFlexLogisticsListItem[];
+  nextCursor: string | null;
 }
 
 // CommunityPost — mirrors Firestore posts collection

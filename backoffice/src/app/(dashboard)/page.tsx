@@ -10,5 +10,9 @@ export default async function DashboardIndexPage() {
     redirect("/discover/feed-entries");
   }
 
+  if (adminContext.role === "transport_dispatcher") {
+    redirect("/pgflex/logistics");
+  }
+
   redirect("/2pq-dashboard");
 }

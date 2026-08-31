@@ -1282,7 +1282,7 @@ export const BACKOFFICE_AREAS: BackofficeAreaSpec[] = [
     key: "roles",
     label: "Roles & Permissions",
     description:
-      "Email-based access tree for full admins, institution admins, institution operators, institution laboratory staff, doctors, and patients.",
+      "Email-based access tree for full admins, transport dispatchers, institution admins, institution operators, institution laboratory staff, doctors, and patients.",
     href: "/roles",
     icon: KeyRound,
     tone: "slate",
@@ -1415,6 +1415,12 @@ const BASE_ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
         scope: "global",
         capabilities: ["create", "read", "update"],
         note: "Full admins can create or change any non-bootstrap role record.",
+      },
+      {
+        role: "transport_dispatcher",
+        scope: "no_access",
+        capabilities: [],
+        note: "Transport dispatchers cannot create or modify role assignments.",
       },
       {
         role: "institution_admin",

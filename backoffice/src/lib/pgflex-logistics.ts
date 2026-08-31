@@ -1,0 +1,91 @@
+import type { AdminContextRecord } from "@/lib/admin-areas";
+
+export type PGFlexLogisticsStatus =
+  | "awaiting_pick_up"
+  | "in_transit"
+  | "arrived"
+  | "lost";
+
+export interface PGFlexLogisticsRecord {
+  id: string;
+  identifier: string;
+  description?: string;
+  dispatcherId?: string;
+  origin: string;
+  destination: string;
+  pickupTime: string;
+  status: PGFlexLogisticsStatus;
+  createdAt: string;
+  updatedAt: string;
+  createdByEmail?: string;
+  updatedByEmail?: string;
+}
+
+export interface PGFlexLogisticsListItem extends PGFlexLogisticsRecord {
+  canUpdate: boolean;
+  canDelete: boolean;
+}
+
+export interface PGFlexLogisticsPage {
+  items: PGFlexLogisticsListItem[];
+  nextCursor: string | null;
+}
+
+export interface PGFlexLogisticsInput {
+  identifier: string;
+  description?: string;
+  dispatcherId?: string;
+  origin: string;
+  destination: string;
+  pickupTime: string;
+  status?: PGFlexLogisticsStatus;
+}
+
+export const PGFLEX_LOGISTICS_PAGE_SIZE = 20;
+
+export const PGFLEX_LOGISTICS_STATUS_OPTIONS: Array<{
+  value: PGFlexLogisticsStatus;
+  label: string;
+}> = [
+  { value: "awaiting_pick_up", label: "Awaiting pick up" },
+  { value: "in_transit", label: "In transit" },
+  { value: "arrived", label: "Arrived" },
+  { value: "lost", label: "Lost" },
+];
+
+export function canAccessPGFlexLogistics(context: AdminContextRecord) {
+  return (
+    context.role === "full_admin" || context.role === "transport_dispatcher"
+  );
+}
+
+export function canCreatePGFlexLogistics(context: AdminContextRecord) {
+  return context.role === "full_admin";
+}
+
+export function getPGFlexStatusLabel(status: PGFlexLogisticsStatus) {
+  return (
+    PGFLEX_LOGISTICS_STATUS_OPTIONS.find((option) => option.value === status)
+      ?.label ?? "Awaiting pick up"
+  );
+}
+
+export function getPGFlexStatusBadgeVariant(status: PGFlexLogisticsStatus) {
+  if (status === "arrived") {
+    return "success" as const;
+  }
+
+  if (status === "lost") {
+    return "destructive" as const;
+  }
+
+  if (status === "in_transit") {
+    return "brand" as const;
+  }
+
+  return "warning" as const;
+}
+
+export function getPGFlexRouteSummary(record: PGFlexLogisticsRecord) {
+  return [record.origin, record.destination].filter(Boolean).join(" -> ");
+}
