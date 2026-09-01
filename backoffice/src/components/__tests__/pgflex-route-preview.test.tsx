@@ -335,6 +335,12 @@ describe("PGFlexRoutePreview", () => {
     );
     expect(staticMapSrc).toContain("maps.googleapis.com/maps/api/staticmap");
     expect(staticMapSrc).toContain(
+      "visible=37.312000,-128.016250|37.312000,-118.636750|44.440000,-128.016250|44.440000,-118.636750",
+    );
+    expect(staticMapSrc).not.toContain(
+      "visible=38.500000,-120.200000|43.252000,-126.453000",
+    );
+    expect(staticMapSrc).toContain(
       "path=color:0x6d28d9ff|weight:5|enc:_p~iF~ps|U_ulLnnqC_mqNvxq`@",
     );
     expect(staticMapSrc).toContain("markers=size:mid|color:blue|label:A|");

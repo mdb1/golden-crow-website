@@ -41,6 +41,8 @@ const MAPS_STATIC_ENDPOINT = "https://maps.googleapis.com/maps/api/staticmap";
 const MAPS_STATIC_IMAGE_SIZE = "640x360";
 const MAPS_STATIC_IMAGE_SCALE = "2";
 const MINIMUM_ORIGIN_COMMA_COUNT = 2;
+const ROUTE_PREVIEW_VIEWPORT_SCALE = 1.5;
+const ROUTE_PREVIEW_MIN_BOUNDS_SPAN_DEGREES = 0.002;
 const ROUTES_API_IMPLEMENTATION = {
   product: "Routes API",
   transport: "browser fetch",
@@ -54,6 +56,7 @@ const ROUTES_API_IMPLEMENTATION = {
     endpoint: MAPS_STATIC_ENDPOINT,
     size: MAPS_STATIC_IMAGE_SIZE,
     scale: MAPS_STATIC_IMAGE_SCALE,
+    viewportScale: ROUTE_PREVIEW_VIEWPORT_SCALE,
   },
 };
 
@@ -821,6 +824,44 @@ function staticMapPathValue({
   return `color:${color}|weight:${weight}|${routeLocation}`;
 }
 
+function clampStaticMapLatitude(lat: number) {
+  return Math.max(-85, Math.min(85, lat));
+}
+
+function clampStaticMapLongitude(lng: number) {
+  return Math.max(-180, Math.min(180, lng));
+}
+
+function staticMapVisibleViewport(path: RoutePoint[]) {
+  const minLat = Math.min(...path.map((point) => point.lat));
+  const maxLat = Math.max(...path.map((point) => point.lat));
+  const minLng = Math.min(...path.map((point) => point.lng));
+  const maxLng = Math.max(...path.map((point) => point.lng));
+  const centerLat = (minLat + maxLat) / 2;
+  const centerLng = (minLng + maxLng) / 2;
+  const latSpan = Math.max(
+    maxLat - minLat,
+    ROUTE_PREVIEW_MIN_BOUNDS_SPAN_DEGREES,
+  );
+  const lngSpan = Math.max(
+    maxLng - minLng,
+    ROUTE_PREVIEW_MIN_BOUNDS_SPAN_DEGREES,
+  );
+  const expandedHalfLat = (latSpan * ROUTE_PREVIEW_VIEWPORT_SCALE) / 2;
+  const expandedHalfLng = (lngSpan * ROUTE_PREVIEW_VIEWPORT_SCALE) / 2;
+  const south = clampStaticMapLatitude(centerLat - expandedHalfLat);
+  const north = clampStaticMapLatitude(centerLat + expandedHalfLat);
+  const west = clampStaticMapLongitude(centerLng - expandedHalfLng);
+  const east = clampStaticMapLongitude(centerLng + expandedHalfLng);
+
+  return [
+    { lat: south, lng: west },
+    { lat: south, lng: east },
+    { lat: north, lng: west },
+    { lat: north, lng: east },
+  ];
+}
+
 function buildStaticMapUrl({
   apiKey,
   encodedPolyline,
@@ -846,7 +887,10 @@ function buildStaticMapUrl({
     region: "AR",
   });
 
-  params.append("visible", `${origin}|${destination}`);
+  params.append(
+    "visible",
+    staticMapVisibleViewport(path).map(staticMapCoordinate).join("|"),
+  );
   params.append("style", "feature:poi.business|element:labels|visibility:off");
   params.append("style", "feature:transit|visibility:off");
   params.append(
@@ -949,7 +993,7 @@ function routeSketchGeometry(path: RoutePoint[]): RouteSketchGeometry {
   const scale = Math.min(
     availableWidth / rawWidth,
     availableHeight / rawHeight,
-  );
+  ) / ROUTE_PREVIEW_VIEWPORT_SCALE;
   const fittedWidth = rawWidth * scale;
   const fittedHeight = rawHeight * scale;
   const offsetX =
