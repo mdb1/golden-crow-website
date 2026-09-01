@@ -1517,6 +1517,8 @@ export function PGFlexRoutePreview({
   const isRouteLocked = Boolean(lockedRoute);
   const isPreviewLoading =
     mapsStatus === "loading" || routeStatus === "loading";
+  const hasRoutePreviewError =
+    mapsStatus === "error" || routeStatus === "error";
   const showMapOverlay =
     mapsStatus === "loading" ||
     mapsStatus === "error" ||
@@ -1574,7 +1576,7 @@ export function PGFlexRoutePreview({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {isRouteLocked ? (
+            {isRouteLocked && !hasRoutePreviewError ? (
               <Button
                 type="button"
                 variant="outline"
@@ -1666,7 +1668,18 @@ export function PGFlexRoutePreview({
                           "The browser could not reach Routes API. Check network access, CORS, allowed referrers and the deployed browser key.",
                         )}
                     </p>
-                    {routeErrorLog ? (
+                    <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={handleChangeRoute}
+                        disabled={disabled}
+                      >
+                        <RouteIcon className="h-3.5 w-3.5" />
+                        {t("Change route")}
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"
@@ -1675,7 +1688,7 @@ export function PGFlexRoutePreview({
                       >
                         {t("Show log")}
                       </Button>
-                    ) : null}
+                    </div>
                   </div>
                 ) : routeStatus === "error" ? (
                   <div
@@ -1689,7 +1702,18 @@ export function PGFlexRoutePreview({
                     <p className="text-xs leading-5 text-muted-foreground">
                       {routeErrorMessage}
                     </p>
-                    {routeErrorLog ? (
+                    <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={handleChangeRoute}
+                        disabled={disabled}
+                      >
+                        <RouteIcon className="h-3.5 w-3.5" />
+                        {t("Change route")}
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"
@@ -1698,7 +1722,7 @@ export function PGFlexRoutePreview({
                       >
                         {t("Show log")}
                       </Button>
-                    ) : null}
+                    </div>
                   </div>
                 ) : (
                   <>

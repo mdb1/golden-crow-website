@@ -324,10 +324,16 @@ describe("PGFlexRoutePreview", () => {
     expect(alert).toHaveTextContent(
       "This API key is blocked from using Routes API. Add Routes API to the key API restrictions or remove API restrictions for testing.",
     );
-    expect(
-      screen.getByRole("button", { name: "Change route" }),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show log" }));
+    const changeRouteButtons = screen.getAllByRole("button", {
+      name: "Change route",
+    });
+    expect(changeRouteButtons).toHaveLength(1);
+    expect(changeRouteButtons[0]).toHaveAttribute("data-variant", "default");
+    const showLogButton = within(alert).getByRole("button", {
+      name: "Show log",
+    });
+    expect(showLogButton).toHaveAttribute("data-variant", "outline");
+    fireEvent.click(showLogButton);
 
     const dialog = await screen.findByRole("dialog", {
       name: "Google Maps route log",
