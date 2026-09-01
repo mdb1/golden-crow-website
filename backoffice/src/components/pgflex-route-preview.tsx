@@ -764,125 +764,386 @@ function routeUsesTrafficFromResult(result: any) {
   return true;
 }
 
-function sketchPolylinePoints(path: RoutePoint[]) {
+type RouteSketchPoint = {
+  x: number;
+  y: number;
+};
+
+type RouteSketchGeometry = {
+  points: RouteSketchPoint[];
+  origin: RouteSketchPoint;
+  destination: RouteSketchPoint;
+};
+
+const ROUTE_SKETCH_WIDTH = 1000;
+const ROUTE_SKETCH_HEIGHT = 430;
+const ROUTE_SKETCH_PADDING = {
+  top: 56,
+  right: 82,
+  bottom: 128,
+  left: 82,
+};
+
+function clampMercatorLat(lat: number) {
+  return Math.max(-85.05112878, Math.min(85.05112878, lat));
+}
+
+function mercatorProject(point: RoutePoint): RouteSketchPoint {
+  const lat = (clampMercatorLat(point.lat) * Math.PI) / 180;
+  const sinLat = Math.sin(lat);
+
+  return {
+    x: (point.lng + 180) / 360,
+    y: 0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI),
+  };
+}
+
+function fallbackRouteSketchGeometry(): RouteSketchGeometry {
+  const points = [
+    { x: 118, y: 256 },
+    { x: 268, y: 214 },
+    { x: 434, y: 234 },
+    { x: 594, y: 166 },
+    { x: 782, y: 178 },
+    { x: 882, y: 122 },
+  ];
+
+  return {
+    points,
+    origin: points[0]!,
+    destination: points[points.length - 1]!,
+  };
+}
+
+function routeSketchGeometry(path: RoutePoint[]): RouteSketchGeometry {
   if (path.length < 2) {
-    return "56,214 320,116 584,214";
+    return fallbackRouteSketchGeometry();
   }
 
-  const minLat = Math.min(...path.map((point) => point.lat));
-  const maxLat = Math.max(...path.map((point) => point.lat));
-  const minLng = Math.min(...path.map((point) => point.lng));
-  const maxLng = Math.max(...path.map((point) => point.lng));
-  const latRange = maxLat - minLat || 0.01;
-  const lngRange = maxLng - minLng || 0.01;
-  const padding = 44;
-  const width = 640;
-  const height = 300;
+  const rawPoints = path.map(mercatorProject);
+  const minX = Math.min(...rawPoints.map((point) => point.x));
+  const maxX = Math.max(...rawPoints.map((point) => point.x));
+  const minY = Math.min(...rawPoints.map((point) => point.y));
+  const maxY = Math.max(...rawPoints.map((point) => point.y));
+  const rawWidth = Math.max(maxX - minX, 0.000001);
+  const rawHeight = Math.max(maxY - minY, 0.000001);
+  const availableWidth =
+    ROUTE_SKETCH_WIDTH - ROUTE_SKETCH_PADDING.left - ROUTE_SKETCH_PADDING.right;
+  const availableHeight =
+    ROUTE_SKETCH_HEIGHT -
+    ROUTE_SKETCH_PADDING.top -
+    ROUTE_SKETCH_PADDING.bottom;
+  const scale = Math.min(
+    availableWidth / rawWidth,
+    availableHeight / rawHeight,
+  );
+  const fittedWidth = rawWidth * scale;
+  const fittedHeight = rawHeight * scale;
+  const offsetX =
+    ROUTE_SKETCH_PADDING.left + Math.max(0, availableWidth - fittedWidth) / 2;
+  const offsetY =
+    ROUTE_SKETCH_PADDING.top + Math.max(0, availableHeight - fittedHeight) / 2;
+  const points = rawPoints.map((point) => ({
+    x: offsetX + (point.x - minX) * scale,
+    y: offsetY + (point.y - minY) * scale,
+  }));
 
-  return path
-    .map((point) => {
-      const x =
-        padding + ((point.lng - minLng) / lngRange) * (width - padding * 2);
-      const y =
-        padding +
-        (1 - (point.lat - minLat) / latRange) * (height - padding * 2);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
+  return {
+    points,
+    origin: points[0]!,
+    destination: points[points.length - 1]!,
+  };
+}
+
+function pointsAttribute(points: RouteSketchPoint[]) {
+  return points
+    .map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`)
     .join(" ");
+}
+
+function offsetRoutePoints(points: RouteSketchPoint[], offset: number) {
+  if (points.length < 2) {
+    return points;
+  }
+
+  return points.map((point, index) => {
+    const previous = points[Math.max(0, index - 1)]!;
+    const next = points[Math.min(points.length - 1, index + 1)]!;
+    const dx = next.x - previous.x;
+    const dy = next.y - previous.y;
+    const length = Math.hypot(dx, dy) || 1;
+
+    return {
+      x: point.x + (-dy / length) * offset,
+      y: point.y + (dx / length) * offset,
+    };
+  });
+}
+
+function RouteEndpointMarker({
+  label,
+  point,
+  tone,
+}: {
+  label: "A" | "B";
+  point: RouteSketchPoint;
+  tone: "origin" | "destination";
+}) {
+  return (
+    <g
+      data-testid={`pgflex-route-marker-${label.toLowerCase()}`}
+      transform={`translate(${point.x.toFixed(1)} ${point.y.toFixed(1)})`}
+    >
+      <circle
+        r="25"
+        fill={tone === "origin" ? "#2563eb" : "#16a34a"}
+        opacity="0.16"
+      />
+      <circle
+        r="18"
+        fill={tone === "origin" ? "#2563eb" : "#16a34a"}
+        stroke="rgba(255,255,255,0.92)"
+        strokeWidth="4"
+      />
+      <text
+        y="5"
+        textAnchor="middle"
+        fill="white"
+        fontSize="16"
+        fontWeight="800"
+      >
+        {label}
+      </text>
+    </g>
+  );
+}
+
+function RouteAddressCard({
+  label,
+  tone,
+  value,
+}: {
+  label: string;
+  tone: "origin" | "destination";
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/80 bg-white/90 px-3.5 py-3 shadow-[0_16px_42px_rgba(15,23,42,0.14)] backdrop-blur-md dark:border-slate-700/70 dark:bg-slate-950/82">
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm",
+            tone === "origin" ? "bg-blue-600" : "bg-emerald-600",
+          )}
+        >
+          {tone === "origin" ? "A" : "B"}
+        </span>
+        <div className="min-w-0">
+          <p
+            className={cn(
+              "text-[0.62rem] font-semibold uppercase tracking-[0.18em]",
+              tone === "origin"
+                ? "text-blue-700/80 dark:text-blue-200/80"
+                : "text-emerald-700/80 dark:text-emerald-200/80",
+            )}
+          >
+            {label}
+          </p>
+          <p className="mt-0.5 break-words text-sm font-semibold leading-snug text-slate-800 dark:text-slate-100">
+            {value}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RouteAddressDock({
+  destination,
+  origin,
+  t,
+}: {
+  destination: string;
+  origin: string;
+  t: (text: string) => string;
+}) {
+  return (
+    <div
+      data-testid="pgflex-route-address-dock"
+      className="pointer-events-none absolute inset-x-3 bottom-3 z-10 grid gap-2 md:grid-cols-[minmax(0,1fr)_2.75rem_minmax(0,1fr)] md:items-center"
+    >
+      <RouteAddressCard
+        label={t("Origin")}
+        tone="origin"
+        value={origin || t("Origin")}
+      />
+      <div className="hidden h-11 w-11 items-center justify-center rounded-full border border-white/80 bg-white/86 text-slate-500 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-md md:flex dark:border-slate-700/70 dark:bg-slate-950/80 dark:text-slate-300">
+        <RouteIcon className="h-4 w-4" />
+      </div>
+      <RouteAddressCard
+        label={t("Destination")}
+        tone="destination"
+        value={destination || t("Destination")}
+      />
+    </div>
+  );
 }
 
 function RouteSketch({
   destination,
   origin,
   routeEstimate,
+  t,
 }: {
   destination: string;
   origin: string;
   routeEstimate: RouteEstimate | null;
+  t: (text: string) => string;
 }) {
-  const points = sketchPolylinePoints(routeEstimate?.path ?? []);
+  const geometry = routeSketchGeometry(routeEstimate?.path ?? []);
+  const routePoints = pointsAttribute(geometry.points);
+  const routeShadowPoints = routePoints;
+  const arterialNorth = pointsAttribute(
+    offsetRoutePoints(geometry.points, -58),
+  );
+  const arterialSouth = pointsAttribute(offsetRoutePoints(geometry.points, 72));
+  const arterialFar = pointsAttribute(offsetRoutePoints(geometry.points, 128));
 
   return (
-    <svg
-      aria-hidden="true"
-      className="h-full w-full"
-      viewBox="0 0 640 300"
-      role="presentation"
-    >
-      <defs>
-        <linearGradient id="pgflex-route-line" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#38bdf8" />
-          <stop offset="52%" stopColor="#7c3aed" />
-          <stop offset="100%" stopColor="#22c55e" />
-        </linearGradient>
-      </defs>
-      <rect width="640" height="300" fill="rgba(248,250,252,0.72)" />
-      <path
-        d="M 52 58 C 156 18 236 88 320 54 S 484 38 588 86"
-        fill="none"
-        stroke="rgba(148,163,184,0.22)"
-        strokeWidth="20"
-        strokeLinecap="round"
-      />
-      <path
-        d="M 40 230 C 144 188 242 246 332 206 S 502 162 600 210"
-        fill="none"
-        stroke="rgba(14,165,233,0.14)"
-        strokeWidth="24"
-        strokeLinecap="round"
-      />
-      <polyline
-        points={points}
-        fill="none"
-        stroke="rgba(15,23,42,0.14)"
-        strokeWidth="13"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <polyline
-        points={points}
-        fill="none"
-        stroke="url(#pgflex-route-line)"
-        strokeWidth="7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="56" cy="214" r="15" fill="#2563eb" />
-      <circle cx="584" cy="214" r="15" fill="#16a34a" />
-      <text
-        x="56"
-        y="219"
-        textAnchor="middle"
-        fill="white"
-        fontSize="13"
-        fontWeight="700"
+    <div className="relative h-full w-full overflow-hidden bg-slate-100 dark:bg-slate-950">
+      <svg
+        aria-hidden="true"
+        className="h-full w-full"
+        viewBox={`0 0 ${ROUTE_SKETCH_WIDTH} ${ROUTE_SKETCH_HEIGHT}`}
+        role="presentation"
       >
-        A
-      </text>
-      <text
-        x="584"
-        y="219"
-        textAnchor="middle"
-        fill="white"
-        fontSize="13"
-        fontWeight="700"
-      >
-        B
-      </text>
-      <text x="42" y="278" fill="#334155" fontSize="13" fontWeight="700">
-        {origin || "Origen"}
-      </text>
-      <text
-        x="598"
-        y="278"
-        fill="#334155"
-        fontSize="13"
-        fontWeight="700"
-        textAnchor="end"
-      >
-        {destination || "Destino"}
-      </text>
-    </svg>
+        <defs>
+          <linearGradient id="pgflex-map-sky" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="#f8fafc" />
+            <stop offset="50%" stopColor="#eef2ff" />
+            <stop offset="100%" stopColor="#ecfeff" />
+          </linearGradient>
+          <linearGradient id="pgflex-route-line" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="#2563eb" />
+            <stop offset="48%" stopColor="#7c3aed" />
+            <stop offset="100%" stopColor="#10b981" />
+          </linearGradient>
+          <filter
+            id="pgflex-route-glow"
+            x="-20%"
+            y="-20%"
+            width="140%"
+            height="140%"
+          >
+            <feGaussianBlur stdDeviation="7" result="blur" />
+            <feColorMatrix
+              in="blur"
+              result="glow"
+              values="0 0 0 0 0.38 0 0 0 0 0.24 0 0 0 0 0.92 0 0 0 0.28 0"
+            />
+            <feMerge>
+              <feMergeNode in="glow" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <pattern
+            id="pgflex-map-grid"
+            width="58"
+            height="58"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(-8)"
+          >
+            <path
+              d="M 58 0 L 0 0 0 58"
+              fill="none"
+              stroke="rgba(100,116,139,0.08)"
+              strokeWidth="1"
+            />
+          </pattern>
+        </defs>
+        <rect
+          width={ROUTE_SKETCH_WIDTH}
+          height={ROUTE_SKETCH_HEIGHT}
+          fill="url(#pgflex-map-sky)"
+        />
+        <rect
+          width={ROUTE_SKETCH_WIDTH}
+          height={ROUTE_SKETCH_HEIGHT}
+          fill="url(#pgflex-map-grid)"
+        />
+        <path
+          d="M -40 92 C 160 42 252 140 412 96 S 728 72 1040 132"
+          fill="none"
+          stroke="rgba(148,163,184,0.24)"
+          strokeLinecap="round"
+          strokeWidth="22"
+        />
+        <path
+          d="M -56 304 C 126 258 238 344 388 294 S 710 228 1058 284"
+          fill="none"
+          stroke="rgba(14,165,233,0.13)"
+          strokeLinecap="round"
+          strokeWidth="30"
+        />
+        <polyline
+          points={arterialNorth}
+          fill="none"
+          stroke="rgba(148,163,184,0.18)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="16"
+        />
+        <polyline
+          points={arterialSouth}
+          fill="none"
+          stroke="rgba(14,165,233,0.12)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="18"
+        />
+        <polyline
+          points={arterialFar}
+          fill="none"
+          stroke="rgba(16,185,129,0.1)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="14"
+        />
+        <polyline
+          points={routeShadowPoints}
+          fill="none"
+          stroke="rgba(15,23,42,0.16)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="18"
+        />
+        <polyline
+          points={routePoints}
+          fill="none"
+          filter="url(#pgflex-route-glow)"
+          stroke="url(#pgflex-route-line)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="9"
+        />
+        <polyline
+          points={routePoints}
+          fill="none"
+          stroke="rgba(255,255,255,0.65)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="3"
+        />
+        <RouteEndpointMarker label="A" point={geometry.origin} tone="origin" />
+        <RouteEndpointMarker
+          label="B"
+          point={geometry.destination}
+          tone="destination"
+        />
+      </svg>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(124,58,237,0.13),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0)_40%,rgba(248,250,252,0.52))] dark:bg-[radial-gradient(circle_at_18%_18%,rgba(124,58,237,0.22),transparent_32%),linear-gradient(180deg,rgba(15,23,42,0.1),rgba(15,23,42,0)_42%,rgba(15,23,42,0.58))]" />
+      <RouteAddressDock destination={destination} origin={origin} t={t} />
+    </div>
   );
 }
 
@@ -1365,7 +1626,7 @@ export function PGFlexRoutePreview({
           </div>
         </div>
 
-        <div className="relative h-72 overflow-hidden bg-[radial-gradient(circle_at_20%_20%,rgba(124,58,237,0.18),transparent_28%),linear-gradient(135deg,rgba(148,163,184,0.18),rgba(255,255,255,0.08))]">
+        <div className="relative h-[23rem] overflow-hidden bg-slate-100 sm:h-[24rem] dark:bg-slate-950">
           <div
             className={cn(
               "h-full w-full transition-opacity duration-300",
@@ -1376,6 +1637,7 @@ export function PGFlexRoutePreview({
               destination={destination}
               origin={origin}
               routeEstimate={routeEstimate}
+              t={t}
             />
           </div>
 

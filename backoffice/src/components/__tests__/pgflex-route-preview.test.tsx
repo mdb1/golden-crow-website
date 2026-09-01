@@ -283,6 +283,24 @@ describe("PGFlexRoutePreview", () => {
     expect(screen.getByText("6.4 km")).toBeInTheDocument();
     expect(screen.getByText("21 min")).toBeInTheDocument();
     expect(
+      within(screen.getByTestId("pgflex-route-address-dock")).getByText(
+        "Av. Corrientes 123, Buenos Aires",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("pgflex-route-address-dock")).getByText(
+        "Hospital Italiano, Buenos Aires",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("pgflex-route-marker-a")).not.toHaveAttribute(
+      "transform",
+      "translate(56 214)",
+    );
+    expect(screen.getByTestId("pgflex-route-marker-b")).not.toHaveAttribute(
+      "transform",
+      "translate(584 214)",
+    );
+    expect(
       document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]'),
     ).not.toBeInTheDocument();
   });
