@@ -72,4 +72,22 @@ describe("AppSidebar PGFlex section", () => {
     ).toHaveAttribute("href", "/areas/transport-dispatchers");
     expect(screen.queryByRole("link", { name: /^PGFlex$/ })).toBeNull();
   });
+
+  it("shows PGFlex directly after the 2PQ section for full admins", () => {
+    renderSidebar();
+
+    const twoPQDashboard = screen.getByRole("link", { name: /Dashboard 2PQ/ });
+    const pgflexLogo = screen.getByRole("img", { name: "PGFlex" });
+    const accounts = document.querySelector('a[href="/users"]');
+
+    expect(accounts).toBeTruthy();
+    expect(
+      twoPQDashboard.compareDocumentPosition(pgflexLogo) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      pgflexLogo.compareDocumentPosition(accounts as Element) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });

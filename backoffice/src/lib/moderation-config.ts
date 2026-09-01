@@ -125,6 +125,12 @@ export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
     visibleRoles: ACCESS_NAV_ROLES,
   },
   {
+    key: "pgflex",
+    label: "PGFlex",
+    description: "Standalone logistics dispatches and transport status.",
+    visibleRoles: PGFLEX_NAV_ROLES,
+  },
+  {
     key: "accounts",
     label: "Accounts",
     description: "Firebase Auth users and private profile state.",
@@ -160,12 +166,6 @@ export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
     description:
       "Institution-scoped operations for institutions, doctors, administrative operators, laboratory staff, and patients.",
     visibleRoles: AREA_ROLES,
-  },
-  {
-    key: "pgflex",
-    label: "PGFlex",
-    description: "Standalone logistics dispatches and transport status.",
-    visibleRoles: PGFLEX_NAV_ROLES,
   },
   {
     key: "access",
