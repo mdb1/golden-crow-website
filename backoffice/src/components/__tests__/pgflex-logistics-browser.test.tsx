@@ -35,7 +35,7 @@ function logisticsItem(
     shipmentType: "2pq",
     origin: "Clinica Norte",
     destination:
-      "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
+      "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
     timeRequested: "2026-08-31T10:00:00.000Z",
     status: "awaiting_pick_up",
     createdAt: "2026-08-31T10:00:00.000Z",
@@ -116,7 +116,7 @@ describe("PGFlexLogisticsBrowser", () => {
     );
     expect(dispatchLink).toHaveTextContent("Desde: Clinica Norte");
     expect(dispatchLink).toHaveTextContent(
-      /Hasta: Humboldt 2433\s+\(10 'C'\), Ciudad Autónoma de Buenos Aires, Argentina/,
+      /Hasta: Humboldt 2433 \(10 'C'\), Palermo, Ciudad Autónoma de Buenos Aires, Argentina/,
     );
     expect(dispatchLink).toHaveTextContent("Esperando retiro");
     expect(dispatchLink).toHaveTextContent("31-08-2026-10:00AM");

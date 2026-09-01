@@ -23,7 +23,7 @@ const USER_ROLES_COLLECTION = "user_roles";
 const PGFLEX_EVENTS_COLLECTION = "pgflex_events";
 const TWO_PQ_CASES_COLLECTION = "2pq_case";
 const PGFLEX_2PQ_DESTINATION =
-  "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina";
+  "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina";
 const TWO_PQ_CASE_IN_TRANSIT_STATUS = "in_transit";
 const TWO_PQ_CASE_SAMPLES_RECEIVED_STATUS = "samples_received";
 const DEFAULT_PAGE_SIZE = 20;
