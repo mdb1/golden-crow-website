@@ -1839,6 +1839,11 @@ export function PGFlexRoutePreview({
     routeStatus === "idle" ||
     routeStatus === "loading" ||
     routeStatus === "error";
+  const showCenterPreviewButton =
+    !isPreviewLoading &&
+    !hasRoutePreviewError &&
+    !routeValidationMessage &&
+    hasBothAddresses;
 
   return (
     <div className="space-y-4 md:col-span-2">
@@ -2015,7 +2020,15 @@ export function PGFlexRoutePreview({
 
           {showMapOverlay ? (
             <div className="absolute inset-0 flex items-center justify-center px-4">
-              <div className="flex max-w-sm flex-col items-center gap-2 rounded-2xl border border-border/70 bg-background/88 px-4 py-4 text-center shadow-sm backdrop-blur">
+              <div
+                data-testid="pgflex-route-overlay-card"
+                className={cn(
+                  "flex max-w-sm flex-col items-center gap-2 rounded-2xl text-center",
+                  showCenterPreviewButton
+                    ? "border-0 bg-transparent p-0 shadow-none backdrop-blur-0"
+                    : "border border-border/70 bg-background/88 px-4 py-4 shadow-sm backdrop-blur",
+                )}
+              >
                 {mapsStatus === "loading" || routeStatus === "loading" ? (
                   <>
                     <LoaderCircle className="h-5 w-5 animate-spin text-violet-600 dark:text-violet-200" />
@@ -2095,7 +2108,7 @@ export function PGFlexRoutePreview({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-2">
+                  <div className="flex w-full flex-col items-center gap-2">
                     {routeValidationMessage ? (
                       <div
                         role="alert"
@@ -2113,9 +2126,9 @@ export function PGFlexRoutePreview({
                       <Button
                         type="button"
                         variant="default"
-                        size="sm"
+                        size="lg"
                         data-testid="pgflex-route-center-preview"
-                        className="gap-1.5 shadow-[0_14px_34px_rgba(37,99,235,0.28)]"
+                        className="h-12 w-full min-w-[13rem] rounded-2xl gap-1.5 px-5 shadow-[0_14px_34px_rgba(37,99,235,0.28)]"
                         onClick={handlePreviewRoute}
                         disabled={disabled || isPreviewLoading}
                       >

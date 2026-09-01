@@ -253,8 +253,15 @@ describe("PGFlexRoutePreview", () => {
       ),
     ).not.toBeInTheDocument();
     const previewButton = screen.getByTestId("pgflex-route-center-preview");
+    expect(screen.getByTestId("pgflex-route-overlay-card")).toHaveClass(
+      "border-0",
+      "bg-transparent",
+      "p-0",
+      "shadow-none",
+    );
     expect(previewButton).toHaveTextContent("Preview route");
     expect(previewButton).toHaveAttribute("data-variant", "default");
+    expect(previewButton).toHaveClass("h-12", "w-full", "rounded-2xl");
     fireEvent.click(previewButton);
 
     await waitFor(() => {
