@@ -116,6 +116,8 @@ import {
   type PartnershipCrmProfessionalInput,
   type PartnershipCrmProfessionalRecord,
   type PartnershipCrmProfessionalsPage,
+  type PartnershipCrmSentEmailLogRecord,
+  type PartnershipCrmSentEmailLogsPage,
   type PartnershipCrmStatus,
   type PartnershipCrmTargetKind,
   type PartnershipCrmTargetRecord,
@@ -127,6 +129,7 @@ import { cn } from "@/lib/utils";
 const ORGANIZATIONS_QUERY_KEY = "god-mode-partnership-crm-organizations";
 const ACTIVITIES_QUERY_KEY = "god-mode-partnership-crm-activities";
 const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
+const SENT_EMAIL_LOG_QUERY_KEY = "god-mode-partnership-crm-sent-email-log";
 const EMAIL_CTA_CLASS =
   "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
 const CRM_TARGET_PAGE_SIZE = 50;
@@ -2163,6 +2166,134 @@ function EmailPreviewPanel({
   );
 }
 
+function AllSentEmailsDialog({
+  open,
+  onOpenChange,
+  emails,
+  loading,
+  error,
+  hasNextPage,
+  loadingNextPage,
+  onLoadMore,
+  language,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  emails: PartnershipCrmSentEmailLogRecord[];
+  loading: boolean;
+  error: unknown;
+  hasNextPage: boolean;
+  loadingNextPage: boolean;
+  onLoadMore: () => void;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>{t("All emails sent")}</DialogTitle>
+          <DialogDescription>
+            {t("Every email recorded from the CRM send flow.")}
+          </DialogDescription>
+        </DialogHeader>
+
+        {error ? (
+          <ErrorBanner>{t("Failed to load sent emails.")}</ErrorBanner>
+        ) : null}
+
+        {loading && emails.length === 0 ? (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Skeleton key={index} className="h-28 rounded-xl" />
+            ))}
+          </div>
+        ) : emails.length === 0 ? (
+          <EmptyState>{t("No CRM emails sent yet.")}</EmptyState>
+        ) : (
+          <div className="space-y-3">
+            {emails.map((email) => (
+              <article
+                key={email.id}
+                className="rounded-xl border border-border/80 bg-background/70 p-4"
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {formatDateTime(
+                        email.sentAt ?? email.createdAt,
+                        language,
+                      )}
+                    </p>
+                    <h3 className="mt-1 truncate font-heading text-base font-semibold text-foreground">
+                      {email.subject || t("No subject")}
+                    </h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">
+                      {email.targetKind === "professionals"
+                        ? t("Professionals")
+                        : t("Organizations")}
+                    </Badge>
+                    {email.templateName ? (
+                      <Badge variant="secondary">{email.templateName}</Badge>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                  <p className="truncate">
+                    <span className="font-semibold text-foreground">
+                      {t("Target")}:
+                    </span>{" "}
+                    {email.targetName || "—"}
+                  </p>
+                  <p className="truncate">
+                    <span className="font-semibold text-foreground">
+                      {t("Recipient")}:
+                    </span>{" "}
+                    {email.to || "—"}
+                  </p>
+                  <p className="truncate">
+                    <span className="font-semibold text-foreground">
+                      {t("From")}:
+                    </span>{" "}
+                    {email.from || PARTNERSHIP_CRM_FROM_EMAIL}
+                  </p>
+                  <p className="truncate">
+                    <span className="font-semibold text-foreground">
+                      {t("Sent by")}:
+                    </span>{" "}
+                    {email.createdByEmail || "—"}
+                  </p>
+                </div>
+
+                <div className="mt-3 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/35 p-3 text-sm leading-6 text-foreground/88">
+                  {email.body || t("No message yet.")}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        {hasNextPage ? (
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onLoadMore}
+              disabled={loadingNextPage}
+            >
+              {loadingNextPage ? t("Loading...") : t("Load more")}
+            </Button>
+          </DialogFooter>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ImportProgressPanel({
   session,
   language,
@@ -3113,6 +3244,7 @@ export function PartnershipCrmWorkbench() {
     useState<PartnershipCrmTargetRecord | null>(null);
   const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [sentEmailLogOpen, setSentEmailLogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importRulesOpen, setImportRulesOpen] = useState(false);
   const [importPreview, setImportPreview] =
@@ -3204,6 +3336,27 @@ export function PartnershipCrmWorkbench() {
   const activityRows = useMemo(
     () => activitiesQuery.data?.pages.flatMap((page) => page.activities) ?? [],
     [activitiesQuery.data?.pages],
+  );
+  const sentEmailLogQuery = useInfiniteQuery({
+    queryKey: [SENT_EMAIL_LOG_QUERY_KEY],
+    queryFn: ({ pageParam }) => {
+      const cursor = typeof pageParam === "string" ? pageParam : "";
+      const params = new URLSearchParams({ limit: "20" });
+      if (cursor) {
+        params.set("cursor", cursor);
+      }
+
+      return sdkFetch<PartnershipCrmSentEmailLogsPage>(
+        `/admin/partnership-crm/sent-email-log?${params.toString()}`,
+      );
+    },
+    enabled: sentEmailLogOpen,
+    initialPageParam: "",
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+  });
+  const sentEmailRows = useMemo(
+    () => sentEmailLogQuery.data?.pages.flatMap((page) => page.emails) ?? [],
+    [sentEmailLogQuery.data?.pages],
   );
 
   useEffect(() => {
@@ -3325,6 +3478,7 @@ export function PartnershipCrmWorkbench() {
       setDetailPanelOpen(true);
       invalidateOrganizations();
       invalidateActivities(target.id);
+      queryClient.invalidateQueries({ queryKey: [SENT_EMAIL_LOG_QUERY_KEY] });
       setToast({
         id: Date.now(),
         tone: "success",
@@ -3515,6 +3669,7 @@ export function PartnershipCrmWorkbench() {
         organization?: PartnershipCrmOrganizationRecord;
         professional?: PartnershipCrmProfessionalRecord;
         activity: PartnershipCrmActivityRecord;
+        sentEmailLog: PartnershipCrmSentEmailLogRecord;
       }>(
         `${crmTargetBasePath(targetKind)}/${encodeURIComponent(
           organizationId,
@@ -4408,6 +4563,15 @@ export function PartnershipCrmWorkbench() {
           </Button>
           <Button
             type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setSentEmailLogOpen(true)}
+          >
+            <Mail className="h-3.5 w-3.5" />
+            {t("All emails sent")}
+          </Button>
+          <Button
+            type="button"
             size="sm"
             onClick={() => setOrganizationDialog({ mode: "create" })}
           >
@@ -5074,6 +5238,20 @@ export function PartnershipCrmWorkbench() {
               email,
             });
           }
+        }}
+        language={language}
+      />
+
+      <AllSentEmailsDialog
+        open={sentEmailLogOpen}
+        onOpenChange={setSentEmailLogOpen}
+        emails={sentEmailRows}
+        loading={sentEmailLogQuery.isFetching}
+        error={sentEmailLogQuery.error}
+        hasNextPage={Boolean(sentEmailLogQuery.hasNextPage)}
+        loadingNextPage={sentEmailLogQuery.isFetchingNextPage}
+        onLoadMore={() => {
+          void sentEmailLogQuery.fetchNextPage();
         }}
         language={language}
       />

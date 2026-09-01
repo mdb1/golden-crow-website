@@ -1429,6 +1429,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "No message yet.": "Sin mensaje todavía.",
   "CRM email sent.": "Email del CRM enviado.",
   "Unable to send CRM email.": "No se pudo enviar el email del CRM.",
+  "All emails sent": "Todos los emails enviados",
+  "Every email recorded from the CRM send flow.":
+    "Todos los emails registrados desde el flujo de envío del CRM.",
+  "Failed to load sent emails.": "No se pudieron cargar los emails enviados.",
+  "No CRM emails sent yet.": "Todavía no hay emails enviados desde el CRM.",
+  Target: "Objetivo",
+  "Sent by": "Enviado por",
   "Activity log": "Registro de actividad",
   "Hide details": "Ocultar detalles",
   "Latest organization activity.": "Última actividad de la organización.",

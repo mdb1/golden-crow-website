@@ -9,6 +9,7 @@ const mockDeletePartnershipCrmOrganization = jest.fn();
 const mockDeletePartnershipCrmProfessional = jest.fn();
 const mockDeletePartnershipCrmTemplate = jest.fn();
 const mockCreatePartnershipCrmProfessional = jest.fn();
+const mockListPartnershipCrmSentEmailLog = jest.fn();
 const mockPreviewPartnershipCrmProfessionalImport = jest.fn();
 
 jest.mock("../repositories/partnership-crm.repository.js", () => ({
@@ -49,6 +50,7 @@ jest.mock("../repositories/partnership-crm.repository.js", () => ({
   listPartnershipCrmOrganizations: jest.fn(),
   listPartnershipCrmProfessionalActivities: jest.fn(),
   listPartnershipCrmProfessionals: jest.fn(),
+  listPartnershipCrmSentEmailLog: mockListPartnershipCrmSentEmailLog,
   listPartnershipCrmTemplates: jest.fn(),
   previewPartnershipCrmImport: jest.fn(),
   previewPartnershipCrmProfessionalImport:
@@ -92,6 +94,10 @@ describe("partnership CRM routes", () => {
     mockDeletePartnershipCrmOrganization.mockResolvedValue(undefined);
     mockDeletePartnershipCrmProfessional.mockResolvedValue(undefined);
     mockDeletePartnershipCrmTemplate.mockResolvedValue(undefined);
+    mockListPartnershipCrmSentEmailLog.mockResolvedValue({
+      emails: [],
+      nextCursor: undefined,
+    });
     mockPreviewPartnershipCrmProfessionalImport.mockResolvedValue({
       rows: [],
       summary: {
@@ -162,6 +168,47 @@ describe("partnership CRM routes", () => {
     expect(mockDeletePartnershipCrmProfessional).toHaveBeenCalledWith(
       bootstrapContext,
       "pro-1",
+    );
+  });
+
+  it("returns paginated sent CRM email logs", async () => {
+    const fastify = await buildTestServer();
+    mockListPartnershipCrmSentEmailLog.mockResolvedValue({
+      emails: [
+        {
+          id: "email-1",
+          targetKind: "organizations",
+          targetId: "org-1",
+          targetName: "Genome Lab",
+          from: "federico@goldencrowvs.com",
+          to: "ada@genomelab.example",
+          subject: "Pocket Genes + Genome Lab",
+          body: "Hola Ada",
+          sentAt: "2026-09-01T12:00:00.000Z",
+          templateName: "Lab outreach",
+        },
+      ],
+      nextCursor: "2026-09-01T12:00:00.000Z",
+    });
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/partnership-crm/sent-email-log?limit=20",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      emails: [
+        expect.objectContaining({
+          subject: "Pocket Genes + Genome Lab",
+          templateName: "Lab outreach",
+        }),
+      ],
+      nextCursor: "2026-09-01T12:00:00.000Z",
+    });
+    expect(mockListPartnershipCrmSentEmailLog).toHaveBeenCalledWith(
+      bootstrapContext,
+      { limit: 20 },
     );
   });
 

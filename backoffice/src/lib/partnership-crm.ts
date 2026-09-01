@@ -146,6 +146,27 @@ export interface PartnershipCrmTemplatesPage {
   nextCursor?: string;
 }
 
+export interface PartnershipCrmSentEmailLogRecord {
+  id: string;
+  targetKind: PartnershipCrmTargetKind;
+  targetId: string;
+  targetName: string;
+  from: string;
+  to: string;
+  subject: string;
+  body: string;
+  sentAt?: string;
+  createdAt?: string;
+  createdByEmail?: string;
+  templateId?: string;
+  templateName?: string;
+}
+
+export interface PartnershipCrmSentEmailLogsPage {
+  emails: PartnershipCrmSentEmailLogRecord[];
+  nextCursor?: string;
+}
+
 export interface PartnershipCrmTemplateInput {
   name: string;
   audience?: PartnershipCrmTemplateAudience;

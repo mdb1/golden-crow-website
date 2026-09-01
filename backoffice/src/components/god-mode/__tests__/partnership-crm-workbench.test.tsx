@@ -102,6 +102,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         return { activities: [] };
       }
 
+      if (String(path).startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+
       return {
         organizations: deleted ? [] : [organization],
         nextCursor: undefined,
@@ -357,6 +361,68 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(sendButton.className).toContain("w-full");
+  });
+
+  it("opens a global modal with sent CRM emails and plantilla metadata", async () => {
+    const user = userEvent.setup();
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return {
+          emails: [
+            {
+              id: "email-1",
+              targetKind: "organizations",
+              targetId: "org-1",
+              targetName: "Genome Lab",
+              from: "federico@goldencrowvs.com",
+              to: "ada@genomelab.example",
+              subject: "Pocket Genes + Genome Lab",
+              body: "Hola Ada,\n\nTe escribo sobre Pocket Genes.",
+              sentAt: "2026-09-01T12:00:00.000Z",
+              createdByEmail: "owner@example.org",
+              templateId: "tpl-1",
+              templateName: "Lab outreach",
+            },
+          ],
+          nextCursor: undefined,
+        };
+      }
+
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: "All emails sent" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "All emails sent",
+    });
+    await waitFor(() => {
+      expect(
+        within(dialog).getByText("Pocket Genes + Genome Lab"),
+      ).toBeTruthy();
+    });
+
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/partnership-crm/sent-email-log?limit=20",
+    );
+    expect(within(dialog).getByText("Lab outreach")).toBeTruthy();
+    expect(within(dialog).getByText("Genome Lab")).toBeTruthy();
+    expect(within(dialog).getByText("ada@genomelab.example")).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Te escribo sobre Pocket Genes/),
+    ).toBeTruthy();
   });
 
   it("shows the email preview as a locked full-width review step", async () => {

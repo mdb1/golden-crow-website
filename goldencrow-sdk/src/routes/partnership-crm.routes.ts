@@ -24,6 +24,7 @@ import {
   listPartnershipCrmOrganizations,
   listPartnershipCrmProfessionalActivities,
   listPartnershipCrmProfessionals,
+  listPartnershipCrmSentEmailLog,
   listPartnershipCrmTemplates,
   previewPartnershipCrmImport,
   previewPartnershipCrmProfessionalImport,
@@ -179,6 +180,22 @@ export async function partnershipCrmRoutes(
     async (request, reply) => {
       try {
         const result = await listPartnershipCrmTemplates(
+          request.adminContext!,
+          request.query,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/partnership-crm/sent-email-log",
+    { schema: { querystring: ListActivitiesQuerySchema } },
+    async (request, reply) => {
+      try {
+        const result = await listPartnershipCrmSentEmailLog(
           request.adminContext!,
           request.query,
         );

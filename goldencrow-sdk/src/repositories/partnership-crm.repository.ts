@@ -22,6 +22,7 @@ const adminDb = adminDbFor("mydnamap");
 const ORGANIZATIONS_COLLECTION = "partnership_crm_organizations";
 const PROFESSIONALS_COLLECTION = "partnership_crm_professionals";
 const TEMPLATES_COLLECTION = "plantillas";
+const SENT_EMAIL_LOG_COLLECTION = "crm_sent_email_log";
 const ACTIVITIES_COLLECTION = "activities";
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_PAGE_SIZE = MAX_PAGE_SIZE;
@@ -69,6 +70,7 @@ export type PartnershipCrmTemplateStatus =
   (typeof PARTNERSHIP_CRM_TEMPLATE_STATUSES)[number];
 export type PartnershipCrmTemplateAudience =
   (typeof PARTNERSHIP_CRM_TEMPLATE_AUDIENCES)[number];
+export type PartnershipCrmTargetKind = PartnershipCrmTemplateAudience;
 
 export type PartnershipCrmEmailState = "has_email" | "missing_email";
 
@@ -223,6 +225,27 @@ export interface PartnershipCrmActivitiesPage {
 
 export interface PartnershipCrmTemplatesPage {
   templates: PartnershipCrmTemplateRecord[];
+  nextCursor?: string;
+}
+
+export interface PartnershipCrmSentEmailLogRecord {
+  id: string;
+  targetKind: PartnershipCrmTargetKind;
+  targetId: string;
+  targetName: string;
+  from: string;
+  to: string;
+  subject: string;
+  body: string;
+  sentAt?: string;
+  createdAt?: string;
+  createdByEmail?: string;
+  templateId?: string;
+  templateName?: string;
+}
+
+export interface PartnershipCrmSentEmailLogsPage {
+  emails: PartnershipCrmSentEmailLogRecord[];
   nextCursor?: string;
 }
 
@@ -875,6 +898,30 @@ function toTemplateRecord(
   };
 }
 
+function toSentEmailLogRecord(
+  id: string,
+  data: Record<string, unknown>,
+): PartnershipCrmSentEmailLogRecord {
+  const targetKind = cleanString(data.targetKind);
+
+  return {
+    id,
+    targetKind:
+      targetKind === "professionals" ? "professionals" : "organizations",
+    targetId: cleanString(data.targetId),
+    targetName: cleanString(data.targetName),
+    from: normalizeEmail(data.from) || PARTNERSHIP_CRM_FROM_EMAIL,
+    to: normalizeEmail(data.to),
+    subject: cleanString(data.subject),
+    body: cleanString(data.body),
+    sentAt: timestampToIso(data.sentAt),
+    createdAt: timestampToIso(data.createdAt),
+    createdByEmail: normalizeEmail(data.createdByEmail),
+    templateId: cleanString(data.templateId),
+    templateName: cleanString(data.templateName),
+  };
+}
+
 function duplicateCandidateFromRecord(
   record: PartnershipCrmOrganizationRecord,
 ): PartnershipCrmDuplicateCandidate {
@@ -1072,6 +1119,51 @@ async function getTemplateSnapshot(templateId: string) {
     .get();
 
   return snapshot.exists ? snapshot : null;
+}
+
+async function templateNameForId(templateId: string) {
+  if (!templateId) {
+    return "";
+  }
+
+  const snapshot = await getTemplateSnapshot(templateId);
+  return snapshot ? cleanString(snapshot.data()?.name) : "";
+}
+
+async function addSentEmailLog(
+  context: AdminContext,
+  input: {
+    targetKind: PartnershipCrmTargetKind;
+    targetId: string;
+    targetName: string;
+    to: string;
+    subject: string;
+    body: string;
+    templateId?: string;
+    templateName?: string;
+  },
+) {
+  const ref = adminDb.collection(SENT_EMAIL_LOG_COLLECTION).doc();
+
+  await ref.set(
+    withoutUndefined({
+      targetKind: input.targetKind,
+      targetId: input.targetId,
+      targetName: input.targetName,
+      from: PARTNERSHIP_CRM_FROM_EMAIL,
+      to: input.to,
+      subject: input.subject,
+      body: input.body,
+      sentAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      createdByEmail: context.email,
+      templateId: input.templateId || undefined,
+      templateName: input.templateName || undefined,
+    }),
+  );
+
+  const snapshot = await ref.get();
+  return toSentEmailLogRecord(ref.id, snapshot.data() ?? {});
 }
 
 async function addTargetActivity(
@@ -1979,6 +2071,35 @@ export async function createPartnershipCrmProfessionalActivity(
   });
 }
 
+export async function listPartnershipCrmSentEmailLog(
+  context: AdminContext,
+  options: { cursor?: string; limit?: unknown } = {},
+): Promise<PartnershipCrmSentEmailLogsPage> {
+  requireGodMode(context);
+
+  const limit = normalizeLimit(options.limit);
+  let query = adminDb
+    .collection(SENT_EMAIL_LOG_COLLECTION)
+    .orderBy("sentAt", "desc");
+  const cursorTimestamp = parseCursorTimestamp(options.cursor);
+  if (cursorTimestamp) {
+    query = query.startAfter(cursorTimestamp);
+  }
+
+  const snapshot = await query.limit(limit + 1).get();
+  const visibleDocs = snapshot.docs.slice(0, limit);
+  const emails = visibleDocs.map((doc) =>
+    toSentEmailLogRecord(doc.id, doc.data()),
+  );
+  const lastVisible = visibleDocs[visibleDocs.length - 1];
+  const nextCursor =
+    snapshot.docs.length > limit && lastVisible
+      ? timestampToIso(lastVisible.data().sentAt)
+      : undefined;
+
+  return { emails, nextCursor };
+}
+
 export async function previewPartnershipCrmImport(
   context: AdminContext,
   rows: PartnershipCrmImportRowInput[],
@@ -2335,6 +2456,9 @@ export async function sendPartnershipCrmOrganizationEmail(
     throw new AdminRepositoryError("Email message is required.", 400);
   }
 
+  const templateId = cleanString(input.templateId);
+  const templateName = await templateNameForId(templateId);
+
   await sendPartnershipCrmEmail({ to, subject, text });
 
   const nextStatus =
@@ -2357,17 +2481,28 @@ export async function sendPartnershipCrmOrganizationEmail(
       from: PARTNERSHIP_CRM_FROM_EMAIL,
       to,
       subject,
-      templateId: cleanString(input.templateId),
+      templateId,
+      templateName,
       previousStatus: organization.status,
       nextStatus,
     },
+  });
+  const sentEmailLog = await addSentEmailLog(context, {
+    targetKind: "organizations",
+    targetId: organizationId,
+    targetName: organization.name,
+    to,
+    subject,
+    body: text,
+    templateId,
+    templateName,
   });
   const updatedOrganization = await getPartnershipCrmOrganization(
     context,
     organizationId,
   );
 
-  return { organization: updatedOrganization, activity };
+  return { organization: updatedOrganization, activity, sentEmailLog };
 }
 
 export async function sendPartnershipCrmProfessionalEmail(
@@ -2405,6 +2540,9 @@ export async function sendPartnershipCrmProfessionalEmail(
     throw new AdminRepositoryError("Email message is required.", 400);
   }
 
+  const templateId = cleanString(input.templateId);
+  const templateName = await templateNameForId(templateId);
+
   await sendPartnershipCrmEmail({ to, subject, text });
 
   const nextStatus =
@@ -2427,15 +2565,26 @@ export async function sendPartnershipCrmProfessionalEmail(
       from: PARTNERSHIP_CRM_FROM_EMAIL,
       to,
       subject,
-      templateId: cleanString(input.templateId),
+      templateId,
+      templateName,
       previousStatus: professional.status,
       nextStatus,
     },
+  });
+  const sentEmailLog = await addSentEmailLog(context, {
+    targetKind: "professionals",
+    targetId: professionalId,
+    targetName: professional.name,
+    to,
+    subject,
+    body: text,
+    templateId,
+    templateName,
   });
   const updatedProfessional = await getPartnershipCrmProfessional(
     context,
     professionalId,
   );
 
-  return { professional: updatedProfessional, activity };
+  return { professional: updatedProfessional, activity, sentEmailLog };
 }
