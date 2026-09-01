@@ -26,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { BACKOFFICE_VERSION } from "@/lib/app-version";
 import { appText } from "@/lib/language";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,12 @@ const PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY =
   "AIzaSyDX5QOmZrG7GekSIMoqFT3oymQP20w2az0";
 const ROUTE_REQUEST_TIMEOUT_MS = 15000;
 const MAP_AUTH_ERROR_CHECK_DELAY_MS = 250;
+const ROUTES_API_IMPLEMENTATION = {
+  product: "Routes API",
+  libraryLoader: "google.maps.importLibrary('routes')",
+  method: "google.maps.routes.Route.computeRoutes",
+  trafficAware: true,
+};
 
 type MapsLoadStatus = "idle" | "loading" | "ready" | "error";
 type RouteStatus = "idle" | "loading" | "ready" | "error";
@@ -412,8 +419,10 @@ function routeErrorLogForFailure({
 
   return stringifyErrorLog({
     logType: "pgflex_route_preview_error",
+    backofficeVersion: BACKOFFICE_VERSION,
     capturedAt: failedAt,
     component: "PGFlexRoutePreview",
+    implementation: ROUTES_API_IMPLEMENTATION,
     requestId,
     phase,
     elapsedMs,

@@ -12,6 +12,7 @@ import {
 } from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PGFlexRoutePreview } from "@/components/pgflex-route-preview";
+import { BACKOFFICE_VERSION } from "@/lib/app-version";
 
 describe("PGFlexRoutePreview", () => {
   const originalGoogleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -359,6 +360,16 @@ describe("PGFlexRoutePreview", () => {
     expect(logField).toHaveClass("[field-sizing:fixed]");
     expect(logField.value).toContain('"phase": "Route.computeRoutes"');
     expect(logField.value).toContain(
+      `"backofficeVersion": "${BACKOFFICE_VERSION}"`,
+    );
+    expect(logField.value).toContain('"product": "Routes API"');
+    expect(logField.value).toContain(
+      '"libraryLoader": "google.maps.importLibrary(\'routes\')"',
+    );
+    expect(logField.value).toContain(
+      '"method": "google.maps.routes.Route.computeRoutes"',
+    );
+    expect(logField.value).toContain(
       '"call": "google.maps.routes.Route.computeRoutes"',
     );
     expect(logField.value).toContain('"status": "REQUEST_DENIED"');
@@ -376,6 +387,8 @@ describe("PGFlexRoutePreview", () => {
     expect(logField.value).toContain('"endpoint": "routes.computeRoutes"');
     expect(logField.value).toContain("maps.googleapis.com/maps/api/js");
     expect(logField.value).toContain('"apiKeyRedacted": true');
+    expect(logField.value).not.toContain(["Directions", "Service"].join(""));
+    expect(logField.value).not.toContain(["maps/api", "directions"].join("/"));
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Copy log" }));
     await waitFor(() => {
