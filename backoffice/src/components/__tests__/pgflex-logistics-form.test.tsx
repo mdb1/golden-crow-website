@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import "@testing-library/jest-dom";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ComponentProps } from "react";
@@ -231,7 +231,7 @@ describe("PGFlexLogisticsForm", () => {
   });
 
   it("adds optional linked codes and sends them as a comma-separated field", async () => {
-    const promptSpy = jest.spyOn(window, "prompt").mockReturnValue("abc");
+    const promptSpy = jest.spyOn(window, "prompt");
     const alertSpy = jest
       .spyOn(window, "alert")
       .mockImplementation(() => undefined);
@@ -240,9 +240,17 @@ describe("PGFlexLogisticsForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Add more" }));
 
-    expect(promptSpy).toHaveBeenCalledWith("Enter a 3-letter code");
-    expect(screen.getByText("ABC")).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", {
+      name: "Add three letter code",
+    });
+    await user.type(within(dialog).getByLabelText("Three-letter code"), "abc");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add three letter code" }),
+    );
+
+    expect(promptSpy).not.toHaveBeenCalled();
     expect(alertSpy).not.toHaveBeenCalled();
+    expect(screen.getByText("ABC")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Identifier"), "PGF-002");
     await user.type(screen.getByLabelText("Origin"), "Av. Santa Fe 1000");
@@ -267,7 +275,7 @@ describe("PGFlexLogisticsForm", () => {
   });
 
   it("rejects linked codes that are not exactly three letters", async () => {
-    const promptSpy = jest.spyOn(window, "prompt").mockReturnValue("AB1");
+    const promptSpy = jest.spyOn(window, "prompt");
     const alertSpy = jest
       .spyOn(window, "alert")
       .mockImplementation(() => undefined);
@@ -275,9 +283,57 @@ describe("PGFlexLogisticsForm", () => {
     renderCreateForm();
 
     await user.click(screen.getByRole("button", { name: "Add more" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Add three letter code",
+    });
+    await user.type(within(dialog).getByLabelText("Three-letter code"), "AB1");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add three letter code" }),
+    );
 
-    expect(alertSpy).toHaveBeenCalledWith("Use exactly 3 letters, no numbers.");
+    expect(promptSpy).not.toHaveBeenCalled();
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Use exactly 3 letters, no numbers.",
+    );
     expect(screen.queryByText("AB1")).not.toBeInTheDocument();
+
+    promptSpy.mockRestore();
+    alertSpy.mockRestore();
+  });
+
+  it("rejects duplicate linked codes inline without native alerts", async () => {
+    const promptSpy = jest.spyOn(window, "prompt");
+    const alertSpy = jest
+      .spyOn(window, "alert")
+      .mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    renderCreateForm();
+
+    await user.click(screen.getByRole("button", { name: "Add more" }));
+    let dialog = await screen.findByRole("dialog", {
+      name: "Add three letter code",
+    });
+    await user.type(within(dialog).getByLabelText("Three-letter code"), "abc");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add three letter code" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Add more" }));
+    dialog = await screen.findByRole("dialog", {
+      name: "Add three letter code",
+    });
+    await user.type(within(dialog).getByLabelText("Three-letter code"), "abc");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add three letter code" }),
+    );
+
+    expect(promptSpy).not.toHaveBeenCalled();
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Code already added.",
+    );
+    expect(screen.getAllByText("ABC")).toHaveLength(1);
 
     promptSpy.mockRestore();
     alertSpy.mockRestore();

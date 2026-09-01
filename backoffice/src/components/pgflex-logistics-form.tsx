@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -40,6 +40,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -302,6 +310,9 @@ export function PGFlexLogisticsForm({
   const [createdItem, setCreatedItem] =
     useState<PGFlexLogisticsListItem | null>(null);
   const [isDangerZoneOpen, setIsDangerZoneOpen] = useState(false);
+  const [linkedCodeDialogOpen, setLinkedCodeDialogOpen] = useState(false);
+  const [linkedCodeDraft, setLinkedCodeDraft] = useState("");
+  const [linkedCodeError, setLinkedCodeError] = useState<string | null>(null);
   const {
     data: dispatcherOptionsPayload,
     isFetching: isFetchingDispatcherOptions,
@@ -383,31 +394,43 @@ export function PGFlexLogisticsForm({
     }));
   }
 
-  function handleAddLinkedCode() {
-    const input = window.prompt(t("Enter a 3-letter code"));
+  function resetLinkedCodeDialog() {
+    setLinkedCodeDraft("");
+    setLinkedCodeError(null);
+  }
 
-    if (input === null) {
-      return;
+  function handleLinkedCodeDialogOpenChange(open: boolean) {
+    setLinkedCodeDialogOpen(open);
+
+    if (!open) {
+      resetLinkedCodeDialog();
     }
+  }
 
-    const code = normalizeLinkedCode(input);
+  function handleOpenLinkedCodeDialog() {
+    resetLinkedCodeDialog();
+    setLinkedCodeDialogOpen(true);
+  }
+
+  function handleConfirmLinkedCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const code = normalizeLinkedCode(linkedCodeDraft);
 
     if (!code) {
-      window.alert(t("Use exactly 3 letters, no numbers."));
+      setLinkedCodeError(t("Use exactly 3 letters, no numbers."));
       return;
     }
 
-    setState((current) => {
-      if (current.linkedCodes.includes(code)) {
-        window.alert(t("Code already added."));
-        return current;
-      }
+    if (state.linkedCodes.includes(code)) {
+      setLinkedCodeError(t("Code already added."));
+      return;
+    }
 
-      return {
-        ...current,
-        linkedCodes: [...current.linkedCodes, code],
-      };
-    });
+    setState((current) => ({
+      ...current,
+      linkedCodes: [...current.linkedCodes, code],
+    }));
+    handleLinkedCodeDialogOpenChange(false);
   }
 
   function handleRemoveLinkedCode(code: string) {
@@ -679,6 +702,65 @@ export function PGFlexLogisticsForm({
       }
     >
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+      <Dialog
+        open={linkedCodeDialogOpen}
+        onOpenChange={handleLinkedCodeDialogOpenChange}
+      >
+        <DialogContent className="rounded-[1.35rem] border-violet-100/80 bg-[linear-gradient(160deg,rgba(255,255,255,0.98),rgba(245,243,255,0.96))] shadow-[0_24px_90px_rgba(15,23,42,0.18)] sm:max-w-md dark:border-violet-300/18 dark:bg-slate-950">
+          <form onSubmit={handleConfirmLinkedCode} className="contents">
+            <DialogHeader>
+              <DialogTitle>{t("Add three letter code")}</DialogTitle>
+              <DialogDescription>
+                {t("Enter a 3-letter code")}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              <Label htmlFor="pgflex-linked-code-input">
+                {t("Three-letter code")}
+              </Label>
+              <Input
+                id="pgflex-linked-code-input"
+                value={linkedCodeDraft}
+                onChange={(event) => {
+                  setLinkedCodeDraft(event.target.value.toUpperCase());
+                  if (linkedCodeError) {
+                    setLinkedCodeError(null);
+                  }
+                }}
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                placeholder="ABC"
+                className="font-mono uppercase tracking-[0.18em]"
+              />
+              {linkedCodeError ? (
+                <p role="alert" className="text-xs text-destructive">
+                  {linkedCodeError}
+                </p>
+              ) : (
+                <p className="text-xs leading-5 text-muted-foreground">
+                  {t("Use exactly 3 letters, no numbers.")}
+                </p>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleLinkedCodeDialogOpenChange(false)}
+              >
+                {t("Cancel")}
+              </Button>
+              <Button type="submit">
+                <PlusCircle className="h-3.5 w-3.5" />
+                {t("Add three letter code")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       {mode === "create" && createdItem ? (
         <div className="pointer-events-none fixed inset-0 z-[85] flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-background/42 backdrop-blur-[4px]" />
@@ -886,7 +968,7 @@ export function PGFlexLogisticsForm({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={handleAddLinkedCode}
+                  onClick={handleOpenLinkedCodeDialog}
                   disabled={!canEditAllFields || pending !== null}
                 >
                   <PlusCircle className="h-3.5 w-3.5" />
