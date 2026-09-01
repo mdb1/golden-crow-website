@@ -190,6 +190,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Complete origin address": "Completá el origen",
   "Add at least locality and province to the origin before previewing the route.":
     "Indicá al menos localidad y provincia en el origen antes de visualizar el recorrido.",
+  "Address and neighborhood/locality must each have at least 3 characters.":
+    "Dirección y barrio/localidad deben tener al menos 3 caracteres cada uno.",
   "Time of pick up": "Hora de retiro",
   Arrived: "Llegó",
   Lost: "Perdido",

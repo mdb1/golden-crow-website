@@ -29,6 +29,7 @@ import {
   PGFlexRoutePreview,
   composePGFlexRouteOrigin,
   splitPGFlexRouteOrigin,
+  validatePGFlexRouteOriginParts,
   type PGFlexRouteOriginParts,
 } from "@/components/pgflex-route-preview";
 import {
@@ -405,9 +406,21 @@ export function PGFlexLogisticsForm({
     (isFullAdmin || isTransportDispatcher),
   );
 
-  function validatePayload(payload: PGFlexLogisticsInput) {
+  function validatePayload(
+    payload: PGFlexLogisticsInput,
+    originPartsForValidation?: PGFlexRouteOriginParts,
+  ) {
     if (!payload.identifier) {
       return "Identifier is required.";
+    }
+
+    if (originPartsForValidation) {
+      const originPartsValidationMessage =
+        validatePGFlexRouteOriginParts(originPartsForValidation);
+
+      if (originPartsValidationMessage) {
+        return originPartsValidationMessage;
+      }
     }
 
     if (!payload.origin) {
@@ -528,7 +541,9 @@ export function PGFlexLogisticsForm({
     const payload = toPayload(state, selectedDispatcher, {
       includeStatus: mode !== "create",
     });
-    const validationError = isFullAdmin ? validatePayload(payload) : null;
+    const validationError = isFullAdmin
+      ? validatePayload(payload, canEditAllFields ? originParts : undefined)
+      : null;
     if (validationError) {
       setToast({
         id: Date.now(),

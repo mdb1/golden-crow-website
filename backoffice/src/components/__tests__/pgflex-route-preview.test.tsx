@@ -348,6 +348,28 @@ describe("PGFlexRoutePreview", () => {
     );
   });
 
+  it("requires at least three characters in split origin fields before requesting a route", () => {
+    const fetchMock = installSuccessfulRoutesRestMock();
+    renderControlledSplitOriginPreview();
+
+    fireEvent.change(screen.getByLabelText("Address"), {
+      target: { value: "Av" },
+    });
+    fireEvent.change(screen.getByLabelText("Neighborhood / Locality"), {
+      target: { value: "Vi" },
+    });
+    fireEvent.change(screen.getByLabelText("Destination"), {
+      target: { value: "Humboldt 2433, CABA" },
+    });
+
+    fireEvent.click(screen.getByTestId("pgflex-route-center-preview"));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Address and neighborhood/locality must each have at least 3 characters.",
+    );
+  });
+
   it("joins split origin fields before requesting a route", async () => {
     const fetchMock = installSuccessfulRoutesRestMock();
     renderControlledSplitOriginPreview();

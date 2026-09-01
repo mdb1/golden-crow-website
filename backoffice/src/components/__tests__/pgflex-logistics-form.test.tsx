@@ -244,6 +244,26 @@ describe("PGFlexLogisticsForm", () => {
     );
   });
 
+  it("requires at least three characters in the editable origin fields before saving", async () => {
+    const user = userEvent.setup();
+    renderCreateForm();
+
+    await user.type(screen.getByLabelText("Identifier"), "PGF-SHORT");
+    await user.type(screen.getByLabelText("Address"), "Av");
+    await user.type(screen.getByLabelText("Neighborhood / Locality"), "Al");
+    await user.click(screen.getByRole("button", { name: "Create dispatch" }));
+
+    expect(sdkFetch).not.toHaveBeenCalledWith(
+      "/pgflex/logistics",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(
+      await screen.findByText(
+        "Address and neighborhood/locality must each have at least 3 characters.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("splits an existing edit origin into address blocks and saves without internal commas", async () => {
     const user = userEvent.setup();
     renderForm({

@@ -103,6 +103,9 @@ export const PGFLEX_ROUTE_ORIGIN_COUNTRY = "Argentina";
 const PGFLEX_ROUTE_ORIGIN_SEPARATOR = ", ";
 const PGFLEX_ROUTE_CAPITAL_FEDERAL_SEARCH_VALUE =
   "Ciudad Autónoma de Buenos Aires";
+const PGFLEX_ROUTE_ORIGIN_TEXT_PART_MIN_LENGTH = 3;
+const PGFLEX_ROUTE_ORIGIN_TEXT_PARTS_MIN_LENGTH_MESSAGE =
+  "Address and neighborhood/locality must each have at least 3 characters.";
 
 const PGFLEX_ROUTE_ORIGIN_PROVINCE_OPTIONS: Array<{
   value: PGFlexRouteOriginProvinceDistrict;
@@ -117,6 +120,22 @@ const PGFLEX_ROUTE_ORIGIN_PROVINCE_OPTIONS: Array<{
 
 export function sanitizePGFlexRouteOriginTextPart(value: string) {
   return value.replace(/,+/g, " ").replace(/\s{2,}/g, " ");
+}
+
+export function validatePGFlexRouteOriginParts(
+  parts: PGFlexRouteOriginParts,
+) {
+  const address = sanitizePGFlexRouteOriginTextPart(parts.address).trim();
+  const locality = sanitizePGFlexRouteOriginTextPart(parts.locality).trim();
+
+  if (
+    address.length < PGFLEX_ROUTE_ORIGIN_TEXT_PART_MIN_LENGTH ||
+    locality.length < PGFLEX_ROUTE_ORIGIN_TEXT_PART_MIN_LENGTH
+  ) {
+    return PGFLEX_ROUTE_ORIGIN_TEXT_PARTS_MIN_LENGTH_MESSAGE;
+  }
+
+  return null;
 }
 
 function provinceDistrictFromOriginPart(
@@ -1707,6 +1726,24 @@ export function PGFlexRoutePreview({
       return;
     }
 
+    const originPartsValidationMessage = originParts
+      ? validatePGFlexRouteOriginParts(originParts)
+      : null;
+    if (originPartsValidationMessage) {
+      activeRouteAbortControllerRef.current?.abort();
+      activeRouteAbortControllerRef.current = null;
+      routeRequestIdRef.current += 1;
+      setLockedRoute(null);
+      setRouteEstimate(null);
+      setRouteErrorMessage(null);
+      setRouteErrorLog(null);
+      setRouteErrorLogOpen(false);
+      setRouteValidationMessage(t(originPartsValidationMessage));
+      setMapsStatus("idle");
+      setRouteStatus("idle");
+      return;
+    }
+
     if (!hasEnoughOriginAddressContext(originAddress)) {
       activeRouteAbortControllerRef.current?.abort();
       activeRouteAbortControllerRef.current = null;
@@ -1878,6 +1915,7 @@ export function PGFlexRoutePreview({
                     handleOriginPartsChange({ address: event.target.value })
                   }
                   disabled={routeFieldDisabled}
+                  minLength={PGFLEX_ROUTE_ORIGIN_TEXT_PART_MIN_LENGTH}
                   autoComplete="street-address"
                 />
               </div>
@@ -1892,6 +1930,7 @@ export function PGFlexRoutePreview({
                     handleOriginPartsChange({ locality: event.target.value })
                   }
                   disabled={routeFieldDisabled}
+                  minLength={PGFLEX_ROUTE_ORIGIN_TEXT_PART_MIN_LENGTH}
                   autoComplete="address-level2"
                 />
               </div>
