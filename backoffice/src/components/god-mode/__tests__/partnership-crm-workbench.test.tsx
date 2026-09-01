@@ -138,6 +138,89 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
   });
 
+  it("deletes multiple selected organizations from the list", async () => {
+    const user = userEvent.setup();
+    const batchOrganizations: PartnershipCrmOrganizationRecord[] = [
+      organization,
+      {
+        ...organization,
+        id: "org-2",
+        name: "Batch Delete Genetics",
+        contactEmail: "batch@example.org",
+        normalizedName: "batch delete genetics",
+      },
+      {
+        ...organization,
+        id: "org-3",
+        name: "Keep Me Genetics",
+        contactEmail: "keep@example.org",
+        normalizedName: "keep me genetics",
+      },
+    ];
+    const deletedIds = new Set<string>();
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (init?.method === "DELETE") {
+        const deletedId = decodeURIComponent(stringPath.split("/").pop() ?? "");
+        deletedIds.add(deletedId);
+        return { deleted: true, organizationId: deletedId };
+      }
+
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      return {
+        organizations: batchOrganizations.filter(
+          (entry) => !deletedIds.has(entry.id),
+        ),
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getByText("Batch Delete Genetics")).toBeTruthy();
+    });
+
+    await user.click(screen.getByLabelText("Select Delete Me Genomics"));
+    await user.click(screen.getByLabelText("Select Batch Delete Genetics"));
+
+    expect(screen.queryByRole("button", { name: "Send Email" })).toBeNull();
+    expect(screen.getByText("2 organizations selected")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Delete selected" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Delete selected CRM organizations",
+    });
+    expect(within(dialog).getByText("Delete Me Genomics")).toBeTruthy();
+    expect(within(dialog).getByText("Batch Delete Genetics")).toBeTruthy();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Delete selected" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("Delete Me Genomics")).toBeNull();
+      expect(screen.queryByText("Batch Delete Genetics")).toBeNull();
+      expect(screen.getByText("Keep Me Genetics")).toBeTruthy();
+    });
+    expect(routerRefresh).toHaveBeenCalledTimes(1);
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/partnership-crm/organizations/org-1",
+      { method: "DELETE" },
+    );
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/partnership-crm/organizations/org-2",
+      { method: "DELETE" },
+    );
+  });
+
   it("keeps contact name, email, and last-contact metadata in separate fact cards", async () => {
     const user = userEvent.setup();
     renderWorkbench();

@@ -1160,6 +1160,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "CRM organization deleted.": "Organización del CRM eliminada.",
   "Unable to delete CRM organization.":
     "No se pudo eliminar la organización del CRM.",
+  "CRM organizations deleted.": "organizaciones del CRM eliminadas.",
+  "Unable to delete selected CRM organizations.":
+    "No se pudieron eliminar las organizaciones seleccionadas del CRM.",
   "One professional, one direct email, and the next action.":
     "Un profesional, un mail directo y la próxima acción.",
   "Add CRM professional": "Agregar profesional al CRM",
@@ -1170,6 +1173,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "CRM professional deleted.": "Profesional del CRM eliminado.",
   "Unable to delete CRM professional.":
     "No se pudo eliminar el profesional del CRM.",
+  "CRM professionals deleted.": "profesionales del CRM eliminados.",
+  "Unable to delete selected CRM professionals.":
+    "No se pudieron eliminar los profesionales seleccionados del CRM.",
   "No CRM organizations found.": "No se encontraron organizaciones en el CRM.",
   "No CRM professionals found.": "No se encontraron profesionales en el CRM.",
   "Failed to load CRM organizations.":
@@ -1178,6 +1184,23 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se pudieron cargar los profesionales del CRM.",
   "Add Organization": "Agregar organización",
   "Add Professional": "Agregar profesional",
+  "organization selected": "organización seleccionada",
+  "organizations selected": "organizaciones seleccionadas",
+  "professional selected": "profesional seleccionado",
+  "professionals selected": "profesionales seleccionados",
+  "Delete selected": "Eliminar seleccionados",
+  "Select all visible CRM organizations":
+    "Seleccionar todas las organizaciones visibles del CRM",
+  "Select all visible CRM professionals":
+    "Seleccionar todos los profesionales visibles del CRM",
+  "Delete selected CRM organizations":
+    "Eliminar organizaciones seleccionadas del CRM",
+  "Delete selected CRM professionals":
+    "Eliminar profesionales seleccionados del CRM",
+  "This removes every selected organization from the partnership CRM.":
+    "Esto elimina todas las organizaciones seleccionadas del CRM de alianzas.",
+  "This removes every selected professional from the partnership CRM.":
+    "Esto elimina todos los profesionales seleccionados del CRM de alianzas.",
   Professionals: "Profesionales",
   "CRM target": "Objetivo del CRM",
   "Import CSV": "Importar CSV",

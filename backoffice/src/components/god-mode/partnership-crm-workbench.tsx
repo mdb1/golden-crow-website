@@ -45,6 +45,7 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -3022,11 +3023,15 @@ export function PartnershipCrmWorkbench() {
   });
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedTargetIds, setSelectedTargetIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [detailPanelOpen, setDetailPanelOpen] = useState(false);
   const [organizationDialog, setOrganizationDialog] =
     useState<OrganizationDialogState>(null);
   const [deleteTarget, setDeleteTarget] =
     useState<PartnershipCrmTargetRecord | null>(null);
+  const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importRulesOpen, setImportRulesOpen] = useState(false);
@@ -3072,6 +3077,24 @@ export function PartnershipCrmWorkbench() {
     ? (organizations.find((organization) => organization.id === selectedId) ??
       null)
     : null;
+  const selectedTargets = useMemo(
+    () =>
+      organizations.filter((organization) =>
+        selectedTargetIds.has(organization.id),
+      ),
+    [organizations, selectedTargetIds],
+  );
+  const selectedTargetIdList = useMemo(
+    () => Array.from(selectedTargetIds),
+    [selectedTargetIds],
+  );
+  const selectedVisibleTargetCount = selectedTargets.length;
+  const allVisibleTargetsSelected =
+    organizations.length > 0 &&
+    selectedVisibleTargetCount === organizations.length;
+  const someVisibleTargetsSelected =
+    selectedVisibleTargetCount > 0 &&
+    selectedVisibleTargetCount < organizations.length;
   const showDetailPanel = Boolean(detailPanelOpen && selectedOrganization);
   const activitiesQuery = useInfiniteQuery({
     queryKey: [ACTIVITIES_QUERY_KEY, targetKind, selectedOrganization?.id],
@@ -3115,6 +3138,9 @@ export function PartnershipCrmWorkbench() {
     if (!organizations.length) {
       setSelectedId(null);
       setDetailPanelOpen(false);
+      setSelectedTargetIds((current) =>
+        current.size === 0 ? current : new Set(),
+      );
       return;
     }
 
@@ -3124,6 +3150,21 @@ export function PartnershipCrmWorkbench() {
       setActivityLogOpen(false);
     }
   }, [organizations, selectedId]);
+
+  useEffect(() => {
+    if (selectedTargetIds.size === 0) {
+      return;
+    }
+
+    const visibleIds = new Set(organizations.map((entry) => entry.id));
+    setSelectedTargetIds((current) => {
+      const next = new Set(
+        Array.from(current).filter((targetId) => visibleIds.has(targetId)),
+      );
+
+      return next.size === current.size ? current : next;
+    });
+  }, [organizations, selectedTargetIds.size]);
 
   function invalidateOrganizations() {
     queryClient.invalidateQueries({
@@ -3135,6 +3176,34 @@ export function PartnershipCrmWorkbench() {
     queryClient.invalidateQueries({
       queryKey: [ACTIVITIES_QUERY_KEY, targetKind, organizationId],
     });
+  }
+
+  function removeTargetsFromCachedPages(targetIds: string[]) {
+    const deletedIds = new Set(targetIds);
+
+    queryClient.setQueriesData<
+      PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage
+    >(
+      { queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind] },
+      (current) =>
+        targetKind === "professionals"
+          ? current && "professionals" in current
+            ? {
+                ...current,
+                professionals: current.professionals.filter(
+                  (professional) => !deletedIds.has(professional.id),
+                ),
+              }
+            : current
+          : current && "organizations" in current
+            ? {
+                ...current,
+                organizations: current.organizations.filter(
+                  (organization) => !deletedIds.has(organization.id),
+                ),
+              }
+            : current,
+    );
   }
 
   const saveOrganizationMutation = useMutation({
@@ -3209,29 +3278,16 @@ export function PartnershipCrmWorkbench() {
       ),
     onSuccess: (_result, organizationId) => {
       setDeleteTarget(null);
-      queryClient.setQueriesData<
-        PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage
-      >(
-        { queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind] },
-        (current) =>
-          targetKind === "professionals"
-            ? current && "professionals" in current
-              ? {
-                  ...current,
-                  professionals: current.professionals.filter(
-                    (professional) => professional.id !== organizationId,
-                  ),
-                }
-              : current
-            : current && "organizations" in current
-              ? {
-                  ...current,
-                  organizations: current.organizations.filter(
-                    (organization) => organization.id !== organizationId,
-                  ),
-                }
-              : current,
-      );
+      setSelectedTargetIds((current) => {
+        if (!current.has(organizationId)) {
+          return current;
+        }
+
+        const next = new Set(current);
+        next.delete(organizationId);
+        return next;
+      });
+      removeTargetsFromCachedPages([organizationId]);
       const nextSelection =
         organizations.find((organization) => organization.id !== organizationId)
           ?.id ?? null;
@@ -3262,6 +3318,73 @@ export function PartnershipCrmWorkbench() {
           targetKind === "professionals"
             ? t("Unable to delete CRM professional.")
             : t("Unable to delete CRM organization."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
+  const deleteSelectedTargetsMutation = useMutation({
+    mutationFn: (targetIds: string[]) =>
+      Promise.all(
+        targetIds.map((targetId) =>
+          sdkFetch<{
+            deleted: boolean;
+            organizationId?: string;
+            professionalId?: string;
+          }>(
+            `${crmTargetBasePath(targetKind)}/${encodeURIComponent(targetId)}`,
+            { method: "DELETE" },
+          ),
+        ),
+      ),
+    onSuccess: (_result, targetIds) => {
+      const deletedIds = new Set(targetIds);
+      setDeleteSelectedOpen(false);
+      setSelectedTargetIds(new Set());
+      setDeleteTarget((current) =>
+        current && deletedIds.has(current.id) ? null : current,
+      );
+      removeTargetsFromCachedPages(targetIds);
+
+      if (selectedId && deletedIds.has(selectedId)) {
+        const nextSelection =
+          organizations.find((organization) => !deletedIds.has(organization.id))
+            ?.id ?? null;
+        setSelectedId(nextSelection);
+        setDetailPanelOpen(Boolean(nextSelection));
+        setActivityLogOpen(false);
+        setEmailOpen(false);
+        setNoteDraft("");
+      }
+
+      void queryClient.invalidateQueries({
+        queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind],
+      });
+      for (const targetId of targetIds) {
+        void queryClient.invalidateQueries({
+          queryKey: [ACTIVITIES_QUERY_KEY, targetKind, targetId],
+        });
+      }
+      void organizationQuery.refetch();
+      router.refresh();
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: `${targetIds.length} ${
+          targetKind === "professionals"
+            ? t("CRM professionals deleted.")
+            : t("CRM organizations deleted.")
+        }`,
+      });
+    },
+    onError: (error) => {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message:
+          targetKind === "professionals"
+            ? t("Unable to delete selected CRM professionals.")
+            : t("Unable to delete selected CRM organizations."),
         details: error instanceof Error ? error.message : undefined,
       });
     },
@@ -3967,6 +4090,8 @@ export function PartnershipCrmWorkbench() {
   }
 
   function resetCursorsForFilterChange(patch: Partial<ListFilters>) {
+    setSelectedTargetIds(new Set());
+    setDeleteSelectedOpen(false);
     setCursorStack([]);
     setFilters((current) => ({ ...current, ...patch }));
   }
@@ -3980,11 +4105,13 @@ export function PartnershipCrmWorkbench() {
     setTargetKind(nextTargetKind);
     setCursorStack([]);
     setSelectedId(null);
+    setSelectedTargetIds(new Set());
     setDetailPanelOpen(false);
     setActivityLogOpen(false);
     setNoteDraft("");
     setOrganizationDialog(null);
     setDeleteTarget(null);
+    setDeleteSelectedOpen(false);
     setEmailOpen(false);
     setFilters({
       query: "",
@@ -3998,6 +4125,37 @@ export function PartnershipCrmWorkbench() {
   function handleTargetSelect(targetId: string) {
     setSelectedId(targetId);
     setDetailPanelOpen(true);
+  }
+
+  function setTargetSelected(targetId: string, selected: boolean) {
+    setSelectedTargetIds((current) => {
+      const next = new Set(current);
+      if (selected) {
+        next.add(targetId);
+      } else {
+        next.delete(targetId);
+      }
+      return next;
+    });
+  }
+
+  function setVisibleTargetsSelected(selected: boolean) {
+    setSelectedTargetIds((current) => {
+      const next = new Set(current);
+      for (const organization of organizations) {
+        if (selected) {
+          next.add(organization.id);
+        } else {
+          next.delete(organization.id);
+        }
+      }
+      return next;
+    });
+  }
+
+  function clearSelectedTargets() {
+    setSelectedTargetIds(new Set());
+    setDeleteSelectedOpen(false);
   }
 
   function hideDetailPanel() {
@@ -4318,102 +4476,187 @@ export function PartnershipCrmWorkbench() {
                   : t("No CRM organizations found.")}
               </EmptyState>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>
+              <>
+                {selectedTargetIds.size > 0 ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/80 bg-muted/35 px-3 py-2">
+                    <p className="text-sm font-medium text-foreground">
+                      {selectedTargetIds.size}{" "}
                       {targetKind === "professionals"
-                        ? t("Professional")
-                        : t("Organization")}
-                    </TableHead>
-                    <TableHead>{t("Status")}</TableHead>
-                    <TableHead>
-                      {targetKind === "professionals"
-                        ? t("Mail")
-                        : t("Contact")}
-                    </TableHead>
-                    <TableHead>{t("Last Contact")}</TableHead>
-                    <TableHead>{t("Notes")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {organizations.map((organization) => {
-                    const isSelected =
-                      organization.id === selectedOrganization?.id &&
-                      showDetailPanel;
-
-                    return (
-                      <TableRow
-                        key={organization.id}
-                        data-state={isSelected ? "selected" : undefined}
-                        className={cn(
-                          "cursor-pointer",
-                          isSelected &&
-                            "bg-sky-50/80 hover:bg-sky-50 dark:bg-sky-400/10 dark:hover:bg-sky-400/12",
-                        )}
-                        onClick={() => handleTargetSelect(organization.id)}
+                        ? t(
+                            selectedTargetIds.size === 1
+                              ? "professional selected"
+                              : "professionals selected",
+                          )
+                        : t(
+                            selectedTargetIds.size === 1
+                              ? "organization selected"
+                              : "organizations selected",
+                          )}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearSelectedTargets}
+                        disabled={deleteSelectedTargetsMutation.isPending}
                       >
-                        <TableCell className="whitespace-normal">
-                          <button
-                            type="button"
-                            className="max-w-[260px] text-left"
-                            onClick={() => handleTargetSelect(organization.id)}
-                          >
-                            <span className="block truncate font-medium text-foreground">
-                              {organization.name}
-                            </span>
-                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                              {formatCrmCategory(
-                                organization.category,
-                                language,
-                                targetKind,
-                              ) || t("No category")}{" "}
-                              ·{" "}
-                              {formatCrmCountry(
-                                organization.country,
-                                language,
-                              ) || t("No country")}
-                            </span>
-                          </button>
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge
-                            status={organization.status}
-                            language={language}
-                          />
-                        </TableCell>
-                        <TableCell className="whitespace-normal">
-                          {targetKind === "professionals" ? (
-                            <div className="max-w-[210px] truncate font-medium">
-                              {crmTargetEmail(organization, targetKind) ||
-                                t("No email")}
-                            </div>
-                          ) : (
-                            <>
+                        <X className="h-3.5 w-3.5" />
+                        {t("Clear selected")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setDeleteSelectedOpen(true)}
+                        disabled={deleteSelectedTargetsMutation.isPending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {t("Delete selected")}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          aria-label={
+                            targetKind === "professionals"
+                              ? t("Select all visible CRM professionals")
+                              : t("Select all visible CRM organizations")
+                          }
+                          checked={
+                            allVisibleTargetsSelected
+                              ? true
+                              : someVisibleTargetsSelected
+                                ? "indeterminate"
+                                : false
+                          }
+                          disabled={deleteSelectedTargetsMutation.isPending}
+                          onCheckedChange={(checked) =>
+                            setVisibleTargetsSelected(checked === true)
+                          }
+                        />
+                      </TableHead>
+                      <TableHead>
+                        {targetKind === "professionals"
+                          ? t("Professional")
+                          : t("Organization")}
+                      </TableHead>
+                      <TableHead>{t("Status")}</TableHead>
+                      <TableHead>
+                        {targetKind === "professionals"
+                          ? t("Mail")
+                          : t("Contact")}
+                      </TableHead>
+                      <TableHead>{t("Last Contact")}</TableHead>
+                      <TableHead>{t("Notes")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {organizations.map((organization) => {
+                      const isSelected =
+                        organization.id === selectedOrganization?.id &&
+                        showDetailPanel;
+                      const isBatchSelected = selectedTargetIds.has(
+                        organization.id,
+                      );
+
+                      return (
+                        <TableRow
+                          key={organization.id}
+                          data-state={
+                            isSelected || isBatchSelected
+                              ? "selected"
+                              : undefined
+                          }
+                          className={cn(
+                            "cursor-pointer",
+                            isSelected &&
+                              "bg-sky-50/80 hover:bg-sky-50 dark:bg-sky-400/10 dark:hover:bg-sky-400/12",
+                          )}
+                          onClick={() => handleTargetSelect(organization.id)}
+                        >
+                          <TableCell>
+                            <Checkbox
+                              aria-label={`${t("Select")} ${organization.name}`}
+                              checked={isBatchSelected}
+                              disabled={deleteSelectedTargetsMutation.isPending}
+                              onClick={(event) => event.stopPropagation()}
+                              onCheckedChange={(checked) =>
+                                setTargetSelected(
+                                  organization.id,
+                                  checked === true,
+                                )
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            <button
+                              type="button"
+                              className="max-w-[260px] text-left"
+                              onClick={() =>
+                                handleTargetSelect(organization.id)
+                              }
+                            >
+                              <span className="block truncate font-medium text-foreground">
+                                {organization.name}
+                              </span>
+                              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                                {formatCrmCategory(
+                                  organization.category,
+                                  language,
+                                  targetKind,
+                                ) || t("No category")}{" "}
+                                ·{" "}
+                                {formatCrmCountry(
+                                  organization.country,
+                                  language,
+                                ) || t("No country")}
+                              </span>
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge
+                              status={organization.status}
+                              language={language}
+                            />
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            {targetKind === "professionals" ? (
                               <div className="max-w-[210px] truncate font-medium">
-                                {targetContactName(organization, targetKind) ||
-                                  "—"}
-                              </div>
-                              <div className="max-w-[210px] truncate text-xs text-muted-foreground">
                                 {crmTargetEmail(organization, targetKind) ||
                                   t("No email")}
                               </div>
-                            </>
-                          )}
-                        </TableCell>
-                        <TableCell className="whitespace-normal text-sm text-muted-foreground">
-                          {formatDate(organization.lastContactAt, language)}
-                        </TableCell>
-                        <TableCell className="whitespace-normal">
-                          <p className="line-clamp-2 max-w-[240px] text-xs text-muted-foreground">
-                            {organization.notes || "—"}
-                          </p>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                            ) : (
+                              <>
+                                <div className="max-w-[210px] truncate font-medium">
+                                  {targetContactName(organization, targetKind) ||
+                                    "—"}
+                                </div>
+                                <div className="max-w-[210px] truncate text-xs text-muted-foreground">
+                                  {crmTargetEmail(organization, targetKind) ||
+                                    t("No email")}
+                                </div>
+                              </>
+                            )}
+                          </TableCell>
+                          <TableCell className="whitespace-normal text-sm text-muted-foreground">
+                            {formatDate(organization.lastContactAt, language)}
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            <p className="line-clamp-2 max-w-[240px] text-xs text-muted-foreground">
+                              {organization.notes || "—"}
+                            </p>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </>
             )}
           </div>
 
@@ -4431,7 +4674,11 @@ export function PartnershipCrmWorkbench() {
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  setCursorStack((current) => current.slice(0, -1))
+                  setCursorStack((current) => {
+                    setSelectedTargetIds(new Set());
+                    setDeleteSelectedOpen(false);
+                    return current.slice(0, -1);
+                  })
                 }
                 disabled={
                   cursorStack.length === 0 || organizationQuery.isFetching
@@ -4444,13 +4691,17 @@ export function PartnershipCrmWorkbench() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() =>
-                  organizationQuery.data?.nextCursor &&
+                onClick={() => {
+                  if (!organizationQuery.data?.nextCursor) {
+                    return;
+                  }
+                  setSelectedTargetIds(new Set());
+                  setDeleteSelectedOpen(false);
                   setCursorStack((current) => [
                     ...current,
                     organizationQuery.data!.nextCursor!,
-                  ])
-                }
+                  ]);
+                }}
                 disabled={!hasNextListPage || organizationQuery.isFetching}
               >
                 {t("Next page")}
@@ -4823,6 +5074,88 @@ export function PartnershipCrmWorkbench() {
               {deleteOrganizationMutation.isPending
                 ? t("Deleting...")
                 : t("Delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteSelectedOpen}
+        onOpenChange={(open) => !open && setDeleteSelectedOpen(false)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {targetKind === "professionals"
+                ? t("Delete selected CRM professionals")
+                : t("Delete selected CRM organizations")}
+            </DialogTitle>
+            <DialogDescription>
+              {targetKind === "professionals"
+                ? t(
+                    "This removes every selected professional from the partnership CRM.",
+                  )
+                : t(
+                    "This removes every selected organization from the partnership CRM.",
+                  )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-border/80 bg-background/70 p-3">
+            <p className="text-sm font-semibold text-foreground">
+              {selectedTargetIds.size}{" "}
+              {targetKind === "professionals"
+                ? t(
+                    selectedTargetIds.size === 1
+                      ? "professional selected"
+                      : "professionals selected",
+                  )
+                : t(
+                    selectedTargetIds.size === 1
+                      ? "organization selected"
+                      : "organizations selected",
+                  )}
+            </p>
+            <div className="mt-3 grid gap-2">
+              {selectedTargets.map((target) => (
+                <div
+                  key={target.id}
+                  className="rounded-lg border border-border/70 bg-background px-3 py-2"
+                >
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {target.name}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {crmTargetEmail(target, targetKind) || t("No email")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteSelectedOpen(false)}
+              disabled={deleteSelectedTargetsMutation.isPending}
+            >
+              <X className="h-4 w-4" />
+              {t("Cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() =>
+                deleteSelectedTargetsMutation.mutate(selectedTargetIdList)
+              }
+              disabled={
+                deleteSelectedTargetsMutation.isPending ||
+                selectedTargetIdList.length === 0
+              }
+            >
+              <AlertTriangle className="h-4 w-4" />
+              {deleteSelectedTargetsMutation.isPending
+                ? t("Deleting...")
+                : t("Delete selected")}
             </Button>
           </DialogFooter>
         </DialogContent>
