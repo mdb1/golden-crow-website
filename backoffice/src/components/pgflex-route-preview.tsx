@@ -1013,9 +1013,9 @@ function RouteErrorLogDialog({
     >
       <DialogContent
         showCloseButton={false}
-        className="max-w-4xl overflow-hidden rounded-[2rem] border border-violet-100 bg-[linear-gradient(160deg,rgba(250,250,255,0.98),rgba(255,255,255,0.98)_48%,rgba(245,243,255,0.96))] p-0 text-slate-950 shadow-[0_32px_120px_rgba(15,23,42,0.18)] dark:border-violet-300/18 dark:bg-slate-950"
+        className="max-h-[calc(100vh-2rem)] max-w-4xl overflow-hidden rounded-[2rem] border border-violet-100 bg-[linear-gradient(160deg,rgba(250,250,255,0.98),rgba(255,255,255,0.98)_48%,rgba(245,243,255,0.96))] p-0 text-slate-950 shadow-[0_32px_120px_rgba(15,23,42,0.18)] dark:border-violet-300/18 dark:bg-slate-950"
       >
-        <DialogHeader className="relative border-b border-violet-100 px-6 py-5 pr-16 dark:border-violet-300/18">
+        <DialogHeader className="relative shrink-0 border-b border-violet-100 px-6 py-5 pr-16 dark:border-violet-300/18">
           <DialogTitle className="font-heading text-2xl font-semibold text-slate-950 dark:text-slate-50">
             {t("Google Maps route log")}
           </DialogTitle>
@@ -1037,7 +1037,7 @@ function RouteErrorLogDialog({
           </DialogClose>
         </DialogHeader>
 
-        <div className="space-y-4 px-6 py-5">
+        <div className="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden px-6 py-5">
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
@@ -1078,7 +1078,7 @@ function RouteErrorLogDialog({
             readOnly
             aria-label={t("Route error log details")}
             value={logText}
-            className="min-h-[24rem] resize-none border-violet-100 bg-white/90 font-mono text-xs leading-5 text-slate-950 shadow-inner dark:border-violet-300/18 dark:bg-slate-950 dark:text-violet-50"
+            className="h-[min(52vh,30rem)] min-h-0 resize-none overflow-y-auto overscroll-contain border-violet-100 bg-white/90 font-mono text-xs leading-5 text-slate-950 shadow-inner [field-sizing:fixed] dark:border-violet-300/18 dark:bg-slate-950 dark:text-violet-50"
           />
         </div>
       </DialogContent>

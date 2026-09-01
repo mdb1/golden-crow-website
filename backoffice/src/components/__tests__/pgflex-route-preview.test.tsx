@@ -355,6 +355,8 @@ describe("PGFlexRoutePreview", () => {
     const logField = within(dialog).getByLabelText(
       "Route error log details",
     ) as HTMLTextAreaElement;
+    expect(logField).toHaveClass("overflow-y-auto");
+    expect(logField).toHaveClass("[field-sizing:fixed]");
     expect(logField.value).toContain('"phase": "Route.computeRoutes"');
     expect(logField.value).toContain(
       '"call": "google.maps.routes.Route.computeRoutes"',
