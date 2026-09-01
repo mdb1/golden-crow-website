@@ -45,7 +45,8 @@ const PGFLEX_EVENTS_COLLECTION = "pgflex_events";
 const SEQUENCES_COLLECTION = "admin_sequences";
 const BIOPSY_EMPTY_FIELD_FALLBACK_VALUE = "Not set";
 const DEFAULT_OBSERVATIONS_VALUE = "Sin observaciones";
-const WITHDRAWAL_PGFLEX_DESTINATION = "Humboldt 2433";
+const WITHDRAWAL_PGFLEX_SHIPMENT_TYPE = "2pq" as const;
+const WITHDRAWAL_PGFLEX_DESTINATION = "Humboldt 2433" as const;
 const PGFLEX_IDENTIFIER_MAX_LENGTH = 160;
 
 function isInstitutionManagerRole(role: AdminContext["role"]) {
@@ -244,14 +245,14 @@ type PGFlexDispatcherAssignment = {
 
 type WithdrawalPGFlexEventDocument = {
   identifier: string;
-  shipmentType: "2pq";
+  shipmentType: typeof WITHDRAWAL_PGFLEX_SHIPMENT_TYPE;
   description: string;
   linked_codes: string | null;
   dispatcherId: string | null;
   dispatcherFirebaseId: string | null;
   dispatcherEmail: string | null;
   origin: string;
-  destination: string;
+  destination: typeof WITHDRAWAL_PGFLEX_DESTINATION;
   timeRequested: string;
   pickupTime: null;
   status: "awaiting_pick_up";
@@ -1627,7 +1628,7 @@ function buildWithdrawalPGFlexEventDocument({
 
   return {
     identifier: truncatePGFlexIdentifier(`${institutionName} - ${now}`),
-    shipmentType: "2pq",
+    shipmentType: WITHDRAWAL_PGFLEX_SHIPMENT_TYPE,
     description: buildWithdrawalPGFlexDescription({
       formId,
       linkedCaseIds,

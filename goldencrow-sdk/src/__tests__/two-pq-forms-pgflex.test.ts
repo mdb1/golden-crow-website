@@ -311,7 +311,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     jest.useRealTimers();
   });
 
-  it("creates a PGFlex event when a withdrawal request form is stored", async () => {
+  it("creates a 2PQ PGFlex event with the fixed Humboldt destination when a withdrawal request form is stored", async () => {
     const { createTwoPQFormForContext } =
       await import("../repositories/two-pq-forms.repository");
 
@@ -362,6 +362,8 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       createdByEmail: "admin@example.com",
       dispatcherNotificationEmailSentAt: "2026-08-31T15:45:00.000Z",
     });
+    expect(pgflexEvent?.shipmentType).toBe("2pq");
+    expect(pgflexEvent?.destination).toBe("Humboldt 2433");
     expect(mockSendPGFlexLogisticsAssignmentEmail).toHaveBeenCalledWith(
       {
         email: "alfa@example.com",
