@@ -7,6 +7,7 @@ import { AdminContextProvider } from "@/components/admin-context-provider";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PGFlexLogisticsBrowser } from "@/components/pgflex-logistics-browser";
 import type { AdminContextRecord } from "@/lib/admin-areas";
+import type { PGFlexLogisticsListItem } from "@/lib/pgflex-logistics";
 import { sdkFetch } from "@/lib/sdk-client";
 
 jest.mock("@/lib/sdk-client", () => ({
@@ -25,12 +26,31 @@ const fullAdminContext: AdminContextRecord = {
   projectAccess: ["mydnamap"],
 };
 
-function renderBrowser() {
+function logisticsItem(
+  overrides: Partial<PGFlexLogisticsListItem> = {},
+): PGFlexLogisticsListItem {
+  return {
+    id: "dispatch-1",
+    identifier: "PGF-001",
+    shipmentType: "2pq",
+    origin: "Clinica Norte",
+    destination: "Humboldt 2433",
+    timeRequested: "2026-08-31T10:00:00.000Z",
+    status: "awaiting_pick_up",
+    createdAt: "2026-08-31T10:00:00.000Z",
+    updatedAt: "2026-08-31T10:00:00.000Z",
+    canUpdate: true,
+    canDelete: true,
+    ...overrides,
+  };
+}
+
+function renderBrowser(items: PGFlexLogisticsListItem[] = []) {
   return render(
     <AppLanguageProvider forcedLanguage="es">
       <AdminContextProvider value={fullAdminContext}>
         <PGFlexLogisticsBrowser
-          initialPage={{ items: [], nextCursor: null, scope: "active" }}
+          initialPage={{ items, nextCursor: null, scope: "active" }}
         />
       </AdminContextProvider>
     </AppLanguageProvider>,
@@ -69,5 +89,18 @@ describe("PGFlexLogisticsBrowser", () => {
         "/pgflex/logistics?limit=20&scope=finished",
       );
     });
+  });
+
+  it("does not show the dispatcher email as a status pill", () => {
+    renderBrowser([
+      logisticsItem({
+        dispatcherEmail: "driver@example.com",
+        dispatcherFirebaseId: "driver-uid",
+      }),
+    ]);
+
+    expect(screen.getByText("Esperando retiro")).toBeInTheDocument();
+    expect(screen.queryByText("driver@example.com")).not.toBeInTheDocument();
+    expect(screen.queryByText("driver-uid")).not.toBeInTheDocument();
   });
 });

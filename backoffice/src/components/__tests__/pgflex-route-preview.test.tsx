@@ -3,6 +3,7 @@
 import "@testing-library/jest-dom";
 import { useState } from "react";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -24,6 +25,7 @@ describe("PGFlexRoutePreview", () => {
         __pgflexGoogleMapsAuthError?: Error;
         __pgflexGoogleMapsPromise?: Promise<void>;
         gm_authFailure?: () => void;
+        pgflexGoogleMapsReady?: () => void;
       }
     ).__pgflexGoogleMapsAuthError;
     delete (
@@ -31,6 +33,7 @@ describe("PGFlexRoutePreview", () => {
         __pgflexGoogleMapsAuthError?: Error;
         __pgflexGoogleMapsPromise?: Promise<void>;
         gm_authFailure?: () => void;
+        pgflexGoogleMapsReady?: () => void;
       }
     ).__pgflexGoogleMapsPromise;
     delete (
@@ -38,8 +41,17 @@ describe("PGFlexRoutePreview", () => {
         __pgflexGoogleMapsAuthError?: Error;
         __pgflexGoogleMapsPromise?: Promise<void>;
         gm_authFailure?: () => void;
+        pgflexGoogleMapsReady?: () => void;
       }
     ).gm_authFailure;
+    delete (
+      window as Window & {
+        __pgflexGoogleMapsAuthError?: Error;
+        __pgflexGoogleMapsPromise?: Promise<void>;
+        gm_authFailure?: () => void;
+        pgflexGoogleMapsReady?: () => void;
+      }
+    ).pgflexGoogleMapsReady;
     delete (window as Window & { google?: unknown }).google;
     document.getElementById(scriptId)?.remove();
   }
@@ -250,8 +262,67 @@ describe("PGFlexRoutePreview", () => {
       expect(script).toBeInTheDocument();
       expect(script?.src).toContain("AIzaSyDX5QOmZrG7GekSIMoqFT3oymQP20w2az0");
       expect(script?.src).toContain("v=weekly");
+      expect(script?.src).toContain("loading=async");
+      expect(script?.src).toContain("callback=pgflexGoogleMapsReady");
       expect(script?.src).not.toContain("stale-generic-key");
     });
+  });
+
+  it("waits for the Google Maps ready callback before importing the routes library", async () => {
+    renderControlledPreview();
+    enterRouteAddresses();
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview route" }));
+
+    await waitFor(() => {
+      expect(document.getElementById(scriptId)).toBeInTheDocument();
+    });
+
+    const computeRoutes = jest.fn().mockResolvedValue({
+      routes: [
+        {
+          distanceMeters: 6400,
+          durationMillis: 21 * 60_000,
+          staticDurationMillis: 18 * 60_000,
+          path: [
+            { lat: () => -34.6037, lng: () => -58.3816 },
+            { lat: () => -34.592, lng: () => -58.402 },
+          ],
+        },
+      ],
+    });
+    const importLibrary = jest.fn(async (library: string) => {
+      if (library === "routes") {
+        return {
+          Route: {
+            computeRoutes,
+          },
+        };
+      }
+
+      throw new Error(`Unexpected Google Maps library: ${library}`);
+    });
+    (window as any).google = {
+      maps: {
+        importLibrary,
+        TrafficModel: { BEST_GUESS: "BEST_GUESS" },
+        TravelMode: { DRIVING: "DRIVING" },
+        UnitSystem: { METRIC: "METRIC" },
+      },
+    };
+
+    expect(importLibrary).not.toHaveBeenCalled();
+
+    await act(async () => {
+      (window as any).pgflexGoogleMapsReady();
+    });
+
+    await waitFor(() => {
+      expect(importLibrary).toHaveBeenCalledWith("routes");
+      expect(computeRoutes).toHaveBeenCalled();
+    });
+    expect(screen.getByText("6.4 km")).toBeInTheDocument();
+    expect(screen.getByText("21 min")).toBeInTheDocument();
   });
 
   it("shows a copyable route log dialog when Google rejects the route", async () => {

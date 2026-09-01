@@ -66,6 +66,7 @@ type GoogleMapsWindow = Window &
     __pgflexGoogleMapsPromise?: Promise<void>;
     __pgflexGoogleMapsAuthError?: Error;
     gm_authFailure?: () => void;
+    pgflexGoogleMapsReady?: () => void;
   };
 
 function getGoogleMapsWindow() {
@@ -218,9 +219,18 @@ function googleMapsApiKeyFingerprint(apiKey: string) {
 }
 
 function googleMapsScriptUrlForLog(apiKey: string) {
-  return redactGoogleMapsApiKey(
-    `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async`,
-  );
+  return redactGoogleMapsApiKey(googleMapsScriptUrl(apiKey));
+}
+
+function googleMapsScriptUrl(apiKey: string) {
+  const params = new URLSearchParams({
+    key: apiKey,
+    v: "weekly",
+    loading: "async",
+    callback: "pgflexGoogleMapsReady",
+  });
+
+  return `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
 }
 
 function resolveGoogleMapsApiKeyInfo() {
@@ -328,6 +338,8 @@ function googleMapsEnvironmentLog(apiKey: string) {
         },
     googleNamespacePresent: Boolean(mapsWindow.google?.maps),
     importLibraryPresent: Boolean(mapsWindow.google?.maps?.importLibrary),
+    readyCallbackPresent:
+      typeof mapsWindow.pgflexGoogleMapsReady === "function",
     authFailureCaptured: Boolean(mapsWindow.__pgflexGoogleMapsAuthError),
   };
 }
@@ -429,6 +441,7 @@ function routeErrorLogForFailure({
           script: environment.script,
           googleNamespacePresent: environment.googleNamespacePresent,
           importLibraryPresent: environment.importLibraryPresent,
+          readyCallbackPresent: environment.readyCallbackPresent,
           authFailureCaptured: environment.authFailureCaptured,
         },
       },
@@ -532,7 +545,7 @@ function loadGoogleMaps(apiKey: string) {
   const mapsWindow = getGoogleMapsWindow();
   installGoogleMapsAuthFailureHandler();
 
-  if (mapsWindow.google?.maps) {
+  if (mapsWindow.google?.maps?.importLibrary) {
     return Promise.resolve();
   }
 
@@ -542,20 +555,56 @@ function loadGoogleMaps(apiKey: string) {
 
   mapsWindow.__pgflexGoogleMapsPromise = new Promise<void>(
     (resolve, reject) => {
-      const existingScript = document.getElementById(
+      const expectedScriptUrl = googleMapsScriptUrl(apiKey);
+      const previousReadyCallback = mapsWindow.pgflexGoogleMapsReady;
+      let settled = false;
+      const resolveFromCallback = () => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        const loadedScript = document.getElementById(
+          GOOGLE_MAPS_SCRIPT_ID,
+        ) as HTMLScriptElement | null;
+        if (loadedScript) {
+          loadedScript.dataset.pgflexLoaded = "true";
+        }
+        resolve();
+      };
+      const rejectLoad = (error: Error) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        delete mapsWindow.__pgflexGoogleMapsPromise;
+        const script = document.getElementById(GOOGLE_MAPS_SCRIPT_ID);
+        script?.remove();
+        reject(error);
+      };
+
+      mapsWindow.pgflexGoogleMapsReady = () => {
+        resolveFromCallback();
+        previousReadyCallback?.();
+      };
+
+      let existingScript = document.getElementById(
         GOOGLE_MAPS_SCRIPT_ID,
       ) as HTMLScriptElement | null;
 
       if (existingScript) {
-        existingScript.addEventListener("load", () => resolve(), {
-          once: true,
-        });
+        if (existingScript.src !== expectedScriptUrl) {
+          existingScript.remove();
+          existingScript = null;
+        }
+      }
+
+      if (existingScript) {
         existingScript.addEventListener(
           "error",
           () => {
-            delete mapsWindow.__pgflexGoogleMapsPromise;
-            existingScript.remove();
-            reject(new Error("Google Maps failed to load"));
+            rejectLoad(new Error("Google Maps failed to load"));
           },
           { once: true },
         );
@@ -564,25 +613,13 @@ function loadGoogleMaps(apiKey: string) {
 
       const script = document.createElement("script");
       script.id = GOOGLE_MAPS_SCRIPT_ID;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
-        apiKey,
-      )}&v=weekly&loading=async`;
+      script.src = expectedScriptUrl;
       script.async = true;
       script.defer = true;
       script.addEventListener(
-        "load",
-        () => {
-          script.dataset.pgflexLoaded = "true";
-          resolve();
-        },
-        { once: true },
-      );
-      script.addEventListener(
         "error",
         () => {
-          delete mapsWindow.__pgflexGoogleMapsPromise;
-          script.remove();
-          reject(new Error("Google Maps failed to load"));
+          rejectLoad(new Error("Google Maps failed to load"));
         },
         { once: true },
       );
@@ -597,7 +634,7 @@ function resetGoogleMapsLoaderIfPending() {
   const mapsWindow = getGoogleMapsWindow();
   clearGoogleMapsAuthError();
 
-  if (mapsWindow.google?.maps) {
+  if (mapsWindow.google?.maps?.importLibrary) {
     return;
   }
 

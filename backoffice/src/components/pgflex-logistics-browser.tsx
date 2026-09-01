@@ -23,7 +23,7 @@ import {
   type PGFlexLogisticsListItem,
   type PGFlexLogisticsPage,
 } from "@/lib/pgflex-logistics";
-import { compactList, formatDateTime } from "@/lib/moderation-utils";
+import { formatDateTime } from "@/lib/moderation-utils";
 import { cn } from "@/lib/utils";
 
 function buildLogisticsPath(
@@ -162,7 +162,10 @@ export function PGFlexLogisticsBrowser({
               disabled={pending !== null}
             >
               <RefreshCcw
-                className={cn("h-3.5 w-3.5", pending === "refresh" && "animate-spin")}
+                className={cn(
+                  "h-3.5 w-3.5",
+                  pending === "refresh" && "animate-spin",
+                )}
               />
               {pending === "refresh" ? t("Refreshing") : t("Refresh")}
             </Button>
@@ -201,7 +204,9 @@ export function PGFlexLogisticsBrowser({
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Search dispatches by identifier, route, dispatcher, or status...")}
+              placeholder={t(
+                "Search dispatches by identifier, route, dispatcher, or status...",
+              )}
               className="pl-9"
             />
           </label>
@@ -246,8 +251,7 @@ export function PGFlexLogisticsBrowser({
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {compactList([item.description, item.dispatcherEmail]) ||
-                    t("Standalone dispatch")}
+                  {item.description || t("Standalone dispatch")}
                 </p>
               </div>
 
@@ -266,15 +270,6 @@ export function PGFlexLogisticsBrowser({
                 <Badge variant={getPGFlexStatusBadgeVariant(item.status)}>
                   {t(getPGFlexStatusLabel(item.status))}
                 </Badge>
-                {item.dispatcherEmail ? (
-                  <Badge variant="secondary">{item.dispatcherEmail}</Badge>
-                ) : item.dispatcherFirebaseId || item.dispatcherId ? (
-                  <Badge variant="secondary">
-                    {item.dispatcherFirebaseId ?? item.dispatcherId}
-                  </Badge>
-                ) : (
-                  <Badge variant="outline">{t("Unassigned")}</Badge>
-                )}
               </div>
 
               <div className="flex lg:justify-end">

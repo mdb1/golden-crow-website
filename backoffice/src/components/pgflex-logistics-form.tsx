@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
   LoaderCircle,
   MapPin,
-  Navigation,
   PackageCheck,
   PlusCircle,
   RotateCcw,
@@ -593,7 +593,8 @@ export function PGFlexLogisticsForm({
             <DispatcherRoutePoint label={t("From")} value={item.origin} />
             <div className="flex items-center justify-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full border border-sky-200/80 bg-sky-500/10 text-sky-700 shadow-[0_14px_34px_rgba(14,165,233,0.14)] dark:border-sky-300/18 dark:text-sky-100">
-                <Navigation className="h-5 w-5" />
+                <ArrowDown className="h-5 w-5 md:hidden" />
+                <ArrowRight className="hidden h-5 w-5 md:block" />
               </div>
             </div>
             <DispatcherRoutePoint label={t("To")} value={item.destination} />
