@@ -343,12 +343,18 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
     "Tu contrasena temporal fue enviada por email.",
   "Your security key was sent to you by email.":
     "Tu clave de seguridad fue enviada por email.",
+  "Your access key was sent to you by email.":
+    "Tu clave de acceso fue enviada por email.",
   "If you did not receive it, ask your doctor to send it again.":
     "Si no la recibiste, pedi a tu medico que vuelva a enviartela.",
+  "If you did not receive it, ask an administrator to send it again.":
+    "Si no la recibiste, pedi a un administrador que vuelva a enviartela.",
   "Checking credentials...": "Verificando credenciales...",
   "Sign in with email": "Iniciar con email",
   "Security key": "Clave de seguridad",
+  "Access key": "Clave de acceso",
   "Access portal": "Acceder al portal",
+  "Access PGFlex": "Acceder a PGFlex",
   "Checking email...": "Verificando email...",
   Continue: "Continuar",
   "This is a new-user setup flow, not open registration. We check the email against the backend allowlist and active role assignments before creating anything.":
@@ -2541,8 +2547,15 @@ export function LoginExperience({
           : t(
               "Sign in to the Golden Crow legacy backoffice for PocketGenes and Pocket Gyms.",
             );
-  const patientPortalSecurityKeyStep =
-    isPatientPortal && phase === "auth" && emailPasswordReady;
+  const portalAccessKeyStep =
+    isExclusivePortal && phase === "auth" && emailPasswordReady;
+  const portalAccessKeyLabel = isPGFlexPortal ? "Access key" : "Security key";
+  const portalAccessKeyNotice = isPGFlexPortal
+    ? "Your access key was sent to you by email."
+    : "Your security key was sent to you by email.";
+  const portalAccessKeyFollowUp = isPGFlexPortal
+    ? "If you did not receive it, ask an administrator to send it again."
+    : "If you did not receive it, ask your doctor to send it again.";
 
   return (
     <main
@@ -2568,7 +2581,7 @@ export function LoginExperience({
       >
         <section
           className={
-            patientPortalSecurityKeyStep
+            portalAccessKeyStep
               ? "relative mx-auto w-full max-w-md"
               : isExclusivePortal
                 ? "relative mx-auto w-full max-w-sm"
@@ -2629,7 +2642,16 @@ export function LoginExperience({
               <div
                 className={isExclusivePortal ? "min-w-0" : "min-w-0 space-y-2"}
               >
-                {isExclusivePortal ? (
+                {isPGFlexPortal ? (
+                  <div className="flex justify-center">
+                    <img
+                      src="/pgflex_icon.png"
+                      alt="PGFlex"
+                      className="h-16 w-auto object-contain"
+                    />
+                    <h1 className="sr-only">{panelTitle}</h1>
+                  </div>
+                ) : isExclusivePortal ? (
                   <h1 className="font-heading text-3xl font-semibold tracking-normal text-slate-950">
                     {panelTitle}
                   </h1>
@@ -2706,12 +2728,12 @@ export function LoginExperience({
             {phase === "auth" ? (
               <div
                 className={
-                  patientPortalSecurityKeyStep
+                  portalAccessKeyStep
                     ? "mx-auto w-full max-w-md space-y-6 text-center"
                     : "space-y-5"
                 }
               >
-                {!patientPortalSecurityKeyStep ? (
+                {!portalAccessKeyStep ? (
                   <>
                     <Button
                       onClick={handleGoogleSignIn}
@@ -2738,13 +2760,13 @@ export function LoginExperience({
 
                 <form
                   className={
-                    patientPortalSecurityKeyStep ? "space-y-6" : "space-y-4"
+                    portalAccessKeyStep ? "space-y-6" : "space-y-4"
                   }
                   onSubmit={
                     emailPasswordReady ? handleEmailSignIn : handleEmailContinue
                   }
                 >
-                  {patientPortalSecurityKeyStep ? (
+                  {portalAccessKeyStep ? (
                     <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-5 py-6 shadow-sm">
                       <div className="space-y-2">
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -2769,7 +2791,7 @@ export function LoginExperience({
                           htmlFor="login-password"
                           className="block text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-500"
                         >
-                          {t("Security key")}
+                          {t(portalAccessKeyLabel)}
                         </Label>
                         <Input
                           id="login-password"
@@ -2777,26 +2799,24 @@ export function LoginExperience({
                           autoComplete="one-time-code"
                           value={password}
                           onChange={(event) => setPassword(event.target.value)}
-                          placeholder={t("Security key")}
-                          aria-describedby="patient-security-key-notice"
+                          placeholder={t(portalAccessKeyLabel)}
+                          aria-describedby="portal-access-key-notice"
                           required
                           className="h-16 rounded-2xl border-slate-300 bg-white px-4 text-center text-2xl font-bold tracking-[0.08em] text-slate-950 shadow-inner shadow-white placeholder:text-base placeholder:font-semibold placeholder:tracking-normal placeholder:text-slate-400"
                         />
                       </div>
 
                       <div
-                        id="patient-security-key-notice"
+                        id="portal-access-key-notice"
                         role="note"
                         className="mt-4 flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-left text-xs leading-5 text-blue-950"
                       >
                         <Mail className="mt-0.5 size-4 shrink-0 text-blue-600" />
                         <p>
                           <span className="font-semibold">
-                            {t("Your security key was sent to you by email.")}
+                            {t(portalAccessKeyNotice)}
                           </span>{" "}
-                          {t(
-                            "If you did not receive it, ask your doctor to send it again.",
-                          )}
+                          {t(portalAccessKeyFollowUp)}
                         </p>
                       </div>
                     </div>
@@ -2943,7 +2963,7 @@ export function LoginExperience({
                       type="submit"
                       disabled={loading !== null || password.length === 0}
                       className={
-                        patientPortalSecurityKeyStep
+                        portalAccessKeyStep
                           ? "h-12 w-full justify-center rounded-2xl bg-slate-950 text-base font-semibold text-white hover:bg-slate-800"
                           : "h-11 w-full justify-center rounded-xl"
                       }
@@ -2955,8 +2975,10 @@ export function LoginExperience({
                       )}
                       {loading === "email"
                         ? t("Checking credentials...")
-                        : patientPortalSecurityKeyStep
-                          ? t("Access portal")
+                        : portalAccessKeyStep
+                          ? isPGFlexPortal
+                            ? t("Access PGFlex")
+                            : t("Access portal")
                           : t("Sign in with email")}
                     </Button>
                   ) : (

@@ -181,12 +181,32 @@ describe("PGFlex login", () => {
     window.localStorage.clear();
   });
 
-  it("uses the minimal Spanish portal login without the patient security-key step", async () => {
+  it("uses the PGFlex logo and visible access-key step", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue({
+      ...eligibilityResponse(),
+      json: async () => ({
+        email: "driver@example.com",
+        eligible: true,
+        accountExists: true,
+        accountHasPassword: true,
+      }),
+      text: async () =>
+        JSON.stringify({
+          email: "driver@example.com",
+          eligible: true,
+          accountExists: true,
+          accountHasPassword: true,
+        }),
+    } as unknown as Response);
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, "en");
 
     render(<LoginExperience surface="pgflex" />);
 
     expect(screen.getByRole("heading", { name: "PGFlex" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "PGFlex" }).getAttribute("src")).toBe(
+      "/pgflex_icon.png",
+    );
     expect(
       screen.getByRole("button", { name: "Continuar con Google" }),
     ).toBeTruthy();
@@ -197,6 +217,26 @@ describe("PGFlex login", () => {
     ).toBeNull();
     await waitFor(() => expect(document.documentElement.lang).toBe("es"));
     expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("en");
+
+    await user.type(screen.getByLabelText("Email"), "driver@example.com");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+    const accessKey = (await screen.findByLabelText(
+      "Clave de acceso",
+    )) as HTMLInputElement;
+    expect(accessKey.type).toBe("text");
+    expect(accessKey.getAttribute("aria-describedby")).toBe(
+      "portal-access-key-notice",
+    );
+    expect(screen.getByRole("note").textContent).toContain(
+      "Tu clave de acceso fue enviada por email. Si no la recibiste, pedi a un administrador que vuelva a enviartela.",
+    );
+    expect(screen.queryByLabelText("Password")).toBeNull();
+    expect(screen.queryByLabelText("Contraseña")).toBeNull();
+    expect(screen.queryByLabelText("Contrasena")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Acceder a PGFlex" }),
+    ).toBeTruthy();
   });
 });
 
