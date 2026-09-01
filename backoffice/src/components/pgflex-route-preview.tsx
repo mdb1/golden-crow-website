@@ -165,24 +165,91 @@ function redactGoogleMapsApiKey(value: string) {
   return value.replace(/([?&]key=)[^&]+/i, "$1[redacted]");
 }
 
+function googleMapsApiKeyFingerprint(apiKey: string) {
+  return {
+    length: apiKey.length,
+    prefix: apiKey.slice(0, 6),
+    suffix: apiKey.slice(-6),
+  };
+}
+
 function googleMapsScriptUrlForLog(apiKey: string) {
   return redactGoogleMapsApiKey(
     `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}`,
   );
 }
 
+function resolveGoogleMapsApiKeyInfo() {
+  const candidates = [
+    {
+      source: "NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY",
+      value: normalizeGoogleMapsApiKey(
+        process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY,
+      ),
+    },
+    {
+      source: "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+      value: normalizeGoogleMapsApiKey(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY),
+    },
+  ];
+  const exactConfiguredKey = candidates.find(
+    (candidate) => candidate.value === PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY,
+  );
+
+  if (exactConfiguredKey?.value) {
+    return {
+      value: exactConfiguredKey.value,
+      source: exactConfiguredKey.source,
+      matchesPinnedPGFlexKey: true,
+      fingerprint: googleMapsApiKeyFingerprint(exactConfiguredKey.value),
+    };
+  }
+
+  const ignoredConfiguredKey = candidates.find((candidate) => candidate.value);
+
+  return {
+    value: PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY,
+    source: "PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY fallback",
+    matchesPinnedPGFlexKey: true,
+    fingerprint: googleMapsApiKeyFingerprint(PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY),
+    ...(ignoredConfiguredKey?.value
+      ? {
+          ignoredConfiguredKey: {
+            source: ignoredConfiguredKey.source,
+            fingerprint: googleMapsApiKeyFingerprint(ignoredConfiguredKey.value),
+            reason:
+              "Configured key did not match the pinned PGFlex browser key, so PGFlex used its explicit fallback key.",
+          },
+        }
+      : {}),
+  };
+}
+
 function resolveGoogleMapsApiKeySource() {
-  if (normalizeGoogleMapsApiKey(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY)) {
-    return "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY";
+  return resolveGoogleMapsApiKeyInfo().source;
+}
+
+function googleMapsApiKeyDiagnostics(apiKey: string) {
+  const resolved = resolveGoogleMapsApiKeyInfo();
+
+  if (resolved.value === apiKey) {
+    return {
+      present: Boolean(apiKey),
+      source: resolved.source,
+      matchesPinnedPGFlexKey: resolved.matchesPinnedPGFlexKey,
+      fingerprint: resolved.fingerprint,
+      ...(resolved.ignoredConfiguredKey
+        ? { ignoredConfiguredKey: resolved.ignoredConfiguredKey }
+        : {}),
+    };
   }
 
-  if (
-    normalizeGoogleMapsApiKey(process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY)
-  ) {
-    return "NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY";
-  }
-
-  return "PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY fallback";
+  return {
+    present: Boolean(apiKey),
+    source: "runtime value",
+    matchesPinnedPGFlexKey: apiKey === PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY,
+    fingerprint: googleMapsApiKeyFingerprint(apiKey),
+  };
 }
 
 function googleMapsEnvironmentLog(apiKey: string) {
@@ -194,10 +261,7 @@ function googleMapsEnvironmentLog(apiKey: string) {
   return {
     pageUrl: window.location.href,
     userAgent: window.navigator.userAgent,
-    configuredApiKey: {
-      present: Boolean(apiKey),
-      source: resolveGoogleMapsApiKeySource(),
-    },
+    configuredApiKey: googleMapsApiKeyDiagnostics(apiKey),
     script: script
       ? {
           id: script.id,
@@ -412,13 +476,7 @@ function normalizeGoogleMapsApiKey(value: string | undefined) {
 }
 
 function resolveGoogleMapsApiKey() {
-  return (
-    normalizeGoogleMapsApiKey(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) ??
-    normalizeGoogleMapsApiKey(
-      process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY,
-    ) ??
-    PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY
-  );
+  return resolveGoogleMapsApiKeyInfo().value;
 }
 
 function loadGoogleMaps(apiKey: string) {

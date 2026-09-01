@@ -219,6 +219,27 @@ describe("PGFlexRoutePreview", () => {
     ).toBeInTheDocument();
   });
 
+  it("uses the pinned PGFlex browser key when a generic Google Maps env key is stale", async () => {
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = "stale-generic-key";
+
+    renderControlledPreview();
+    enterRouteAddresses();
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview route" }));
+
+    await waitFor(() => {
+      const script = document.getElementById(
+        scriptId,
+      ) as HTMLScriptElement | null;
+
+      expect(script).toBeInTheDocument();
+      expect(script?.src).toContain(
+        "AIzaSyDX5QOmZrG7GekSIMoqFT3oymQP20w2az0",
+      );
+      expect(script?.src).not.toContain("stale-generic-key");
+    });
+  });
+
   it("shows a copyable route log dialog when Google rejects the route", async () => {
     const alertSpy = jest
       .spyOn(window, "alert")
@@ -254,6 +275,7 @@ describe("PGFlexRoutePreview", () => {
       '"call": "google.maps.DirectionsService.route"',
     );
     expect(logField.value).toContain('"status": "REQUEST_DENIED"');
+    expect(logField.value).toContain('"matchesPinnedPGFlexKey": true');
     expect(logField.value).toContain(
       '"origin": "Av. Corrientes 123, Buenos Aires"',
     );
