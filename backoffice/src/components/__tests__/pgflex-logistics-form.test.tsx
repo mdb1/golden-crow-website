@@ -160,6 +160,9 @@ describe("PGFlexLogisticsForm", () => {
     expect(screen.getByLabelText("Address")).toBeInTheDocument();
     expect(screen.getByLabelText("Neighborhood / Locality")).toBeInTheDocument();
     expect(screen.getByLabelText("Province / District")).toBeInTheDocument();
+    expect(screen.getByLabelText("Province / District")).toHaveTextContent(
+      "Capital Federal",
+    );
     expect(screen.getByLabelText("Country")).toHaveValue("Argentina");
     expect(screen.getByLabelText("Country")).toBeDisabled();
     expect(screen.getByLabelText("Additional trip notes")).toBeInTheDocument();
@@ -190,7 +193,8 @@ describe("PGFlexLogisticsForm", () => {
         body: JSON.stringify({
           identifier: "PGF-001",
           shipmentType: "2pq",
-          origin: "Av. Corrientes 123, Almagro, Capital Federal, Argentina",
+          origin:
+            "Av. Corrientes 123, Almagro, Ciudad Autónoma de Buenos Aires, Argentina",
           destination:
             "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
         }),
@@ -232,7 +236,8 @@ describe("PGFlexLogisticsForm", () => {
         body: JSON.stringify({
           identifier: "PGF-OTHER",
           shipmentType: "other",
-          origin: "Av. Santa Fe 1000, Recoleta, Capital Federal, Argentina",
+          origin:
+            "Av. Santa Fe 1000, Recoleta, Ciudad Autónoma de Buenos Aires, Argentina",
           destination: "Laboratorio Sur",
         }),
       }),
@@ -245,7 +250,7 @@ describe("PGFlexLogisticsForm", () => {
       item: pgflexItem({
         shipmentType: "other",
         origin:
-          "Hidalgo 800, Villa Crespo, Provincia de Buenos Aires, Argentina",
+          "Hidalgo 800, Villa Crespo, Ciudad Autónoma de Buenos Aires, Argentina",
         destination: "Laboratorio Sur",
         canDelete: true,
       }),
@@ -257,7 +262,7 @@ describe("PGFlexLogisticsForm", () => {
     expect(addressInput).toHaveValue("Hidalgo 800");
     expect(localityInput).toHaveValue("Villa Crespo");
     expect(screen.getByLabelText("Province / District")).toHaveTextContent(
-      "Buenos Aires Province",
+      "Capital Federal",
     );
     expect(screen.getByLabelText("Country")).toHaveValue("Argentina");
     expect(screen.getByLabelText("Destination")).toHaveValue("Laboratorio Sur");
@@ -280,7 +285,7 @@ describe("PGFlexLogisticsForm", () => {
           dispatcherFirebaseId: "driver-1",
           dispatcherEmail: "driver@example.com",
           origin:
-            "Hidalgo 900, Villa Crespo, Provincia de Buenos Aires, Argentina",
+            "Hidalgo 900, Villa Crespo, Ciudad Autónoma de Buenos Aires, Argentina",
           destination: "Laboratorio Sur",
           status: "awaiting_pick_up",
         }),
@@ -322,7 +327,8 @@ describe("PGFlexLogisticsForm", () => {
           identifier: "PGF-002",
           shipmentType: "2pq",
           linked_codes: "ABC",
-          origin: "Av. Santa Fe 1000, Recoleta, Capital Federal, Argentina",
+          origin:
+            "Av. Santa Fe 1000, Recoleta, Ciudad Autónoma de Buenos Aires, Argentina",
           destination:
             "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
         }),

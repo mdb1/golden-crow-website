@@ -41,6 +41,19 @@ describe("PGFlexRoutePreview", () => {
     });
   });
 
+  it("splits Ciudad Autonoma de Buenos Aires into the Capital Federal picker shortcut", () => {
+    expect(
+      splitPGFlexRouteOrigin(
+        "Hidalgo 800, Villa Crespo, Ciudad Autónoma de Buenos Aires, Argentina",
+      ),
+    ).toEqual({
+      address: "Hidalgo 800",
+      locality: "Villa Crespo",
+      provinceDistrict: "Capital Federal",
+      country: "Argentina",
+    });
+  });
+
   function resetGoogleMapsGlobals() {
     delete (window as Window & { google?: unknown }).google;
   }
@@ -364,7 +377,8 @@ describe("PGFlexRoutePreview", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual(
       expect.objectContaining({
         origin: {
-          address: "Hidalgo 800, Villa Crespo, Capital Federal, Argentina",
+          address:
+            "Hidalgo 800, Villa Crespo, Ciudad Autónoma de Buenos Aires, Argentina",
         },
         destination: { address: "Humboldt 2433, CABA" },
       }),

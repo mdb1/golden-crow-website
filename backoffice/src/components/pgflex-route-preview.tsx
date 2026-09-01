@@ -101,6 +101,8 @@ type GoogleMapsRouteError = Error & {
 
 export const PGFLEX_ROUTE_ORIGIN_COUNTRY = "Argentina";
 const PGFLEX_ROUTE_ORIGIN_SEPARATOR = ", ";
+const PGFLEX_ROUTE_CAPITAL_FEDERAL_SEARCH_VALUE =
+  "Ciudad Autónoma de Buenos Aires";
 
 const PGFLEX_ROUTE_ORIGIN_PROVINCE_OPTIONS: Array<{
   value: PGFlexRouteOriginProvinceDistrict;
@@ -120,14 +122,27 @@ export function sanitizePGFlexRouteOriginTextPart(value: string) {
 function provinceDistrictFromOriginPart(
   value?: string,
 ): PGFlexRouteOriginProvinceDistrict {
-  return value?.trim() === "Provincia de Buenos Aires"
+  const normalized = value?.trim();
+
+  return normalized === "Provincia de Buenos Aires"
     ? "Provincia de Buenos Aires"
     : "Capital Federal";
+}
+
+function provinceDistrictSearchValue(
+  value: PGFlexRouteOriginProvinceDistrict,
+) {
+  return value === "Capital Federal"
+    ? PGFLEX_ROUTE_CAPITAL_FEDERAL_SEARCH_VALUE
+    : value;
 }
 
 export function composePGFlexRouteOrigin(parts: PGFlexRouteOriginParts) {
   const address = sanitizePGFlexRouteOriginTextPart(parts.address).trim();
   const locality = sanitizePGFlexRouteOriginTextPart(parts.locality).trim();
+  const provinceDistrict = provinceDistrictSearchValue(
+    parts.provinceDistrict,
+  );
 
   if (!address || !locality) {
     return "";
@@ -136,7 +151,7 @@ export function composePGFlexRouteOrigin(parts: PGFlexRouteOriginParts) {
   return [
     address,
     locality,
-    parts.provinceDistrict,
+    provinceDistrict,
     PGFLEX_ROUTE_ORIGIN_COUNTRY,
   ].join(PGFLEX_ROUTE_ORIGIN_SEPARATOR);
 }
