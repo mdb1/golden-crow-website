@@ -87,16 +87,28 @@ describe("PGFlexRoutePreview", () => {
   }
 
   function installRejectingGoogleMapsMock(status = "REQUEST_DENIED") {
+    const error = Object.assign(
+      new Error(`${status}: Routes API request rejected`),
+      {
+        code: status,
+        endpoint: "routes.computeRoutes",
+      },
+    );
+    const computeRoutes = jest.fn().mockRejectedValue(error);
+
     (window as any).google = {
       maps: {
-        DirectionsService: jest.fn(() => ({
-          route: jest.fn(
-            (
-              _request: unknown,
-              callback: (result: unknown | null, status: string) => void,
-            ) => callback(null, status),
-          ),
-        })),
+        importLibrary: jest.fn(async (library: string) => {
+          if (library === "routes") {
+            return {
+              Route: {
+                computeRoutes,
+              },
+            };
+          }
+
+          throw new Error(`Unexpected Google Maps library: ${library}`);
+        }),
         TrafficModel: { BEST_GUESS: "BEST_GUESS" },
         TravelMode: { DRIVING: "DRIVING" },
         UnitSystem: { METRIC: "METRIC" },
@@ -104,37 +116,40 @@ describe("PGFlexRoutePreview", () => {
     };
   }
 
-  function installSuccessfulDirectionsMock() {
+  function installSuccessfulRoutesMock() {
     const result = {
       routes: [
         {
-          overview_path: [
+          distanceMeters: 6400,
+          durationMillis: 21 * 60_000,
+          staticDurationMillis: 18 * 60_000,
+          localizedValues: {
+            distance: { text: "6.4 km" },
+            duration: { text: "21 mins" },
+          },
+          path: [
             { lat: () => -34.6037, lng: () => -58.3816 },
             { lat: () => -34.597, lng: () => -58.395 },
             { lat: () => -34.592, lng: () => -58.402 },
           ],
-          overview_polyline: { points: "encoded-route" },
-          legs: [
-            {
-              distance: { text: "6.4 km" },
-              duration: { text: "18 mins" },
-              duration_in_traffic: { text: "21 mins" },
-            },
-          ],
         },
       ],
     };
+    const computeRoutes = jest.fn().mockResolvedValue(result);
 
     (window as any).google = {
       maps: {
-        DirectionsService: jest.fn(() => ({
-          route: jest.fn(
-            (
-              _request: unknown,
-              callback: (result: unknown | null, status: string) => void,
-            ) => callback(result, "OK"),
-          ),
-        })),
+        importLibrary: jest.fn(async (library: string) => {
+          if (library === "routes") {
+            return {
+              Route: {
+                computeRoutes,
+              },
+            };
+          }
+
+          throw new Error(`Unexpected Google Maps library: ${library}`);
+        }),
         Map: jest.fn(() => {
           throw new Error("Interactive map renderer should not be used");
         }),
@@ -233,9 +248,8 @@ describe("PGFlexRoutePreview", () => {
       ) as HTMLScriptElement | null;
 
       expect(script).toBeInTheDocument();
-      expect(script?.src).toContain(
-        "AIzaSyDX5QOmZrG7GekSIMoqFT3oymQP20w2az0",
-      );
+      expect(script?.src).toContain("AIzaSyDX5QOmZrG7GekSIMoqFT3oymQP20w2az0");
+      expect(script?.src).toContain("v=weekly");
       expect(script?.src).not.toContain("stale-generic-key");
     });
   });
@@ -257,7 +271,7 @@ describe("PGFlexRoutePreview", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(
-      "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Maps JavaScript API and Directions API are enabled.",
+      "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Maps JavaScript API and Routes API are enabled.",
     );
     expect(
       screen.getByRole("button", { name: "Change route" }),
@@ -270,9 +284,9 @@ describe("PGFlexRoutePreview", () => {
     const logField = within(dialog).getByLabelText(
       "Route error log details",
     ) as HTMLTextAreaElement;
-    expect(logField.value).toContain('"phase": "DirectionsService.route"');
+    expect(logField.value).toContain('"phase": "Route.computeRoutes"');
     expect(logField.value).toContain(
-      '"call": "google.maps.DirectionsService.route"',
+      '"call": "google.maps.routes.Route.computeRoutes"',
     );
     expect(logField.value).toContain('"status": "REQUEST_DENIED"');
     expect(logField.value).toContain('"matchesPinnedPGFlexKey": true');
@@ -282,7 +296,11 @@ describe("PGFlexRoutePreview", () => {
     expect(logField.value).toContain(
       '"destination": "Hospital Italiano, Buenos Aires"',
     );
-    expect(logField.value).toContain('"result": null');
+    expect(logField.value).toContain(
+      '"message": "REQUEST_DENIED: Routes API request rejected"',
+    );
+    expect(logField.value).toContain('"code": "REQUEST_DENIED"');
+    expect(logField.value).toContain('"endpoint": "routes.computeRoutes"');
     expect(logField.value).toContain("maps.googleapis.com/maps/api/js");
     expect(logField.value).toContain('"apiKeyRedacted": true');
 
@@ -301,8 +319,8 @@ describe("PGFlexRoutePreview", () => {
     alertSpy.mockRestore();
   });
 
-  it("uses Directions without instantiating the broken interactive map renderer", async () => {
-    installSuccessfulDirectionsMock();
+  it("uses Routes API without instantiating the broken interactive map renderer", async () => {
+    installSuccessfulRoutesMock();
     renderControlledPreview();
     enterRouteAddresses();
 
@@ -310,7 +328,7 @@ describe("PGFlexRoutePreview", () => {
 
     await waitFor(() => expect(screen.getByText("6.4 km")).toBeInTheDocument());
     expect(screen.getByText("21 mins")).toBeInTheDocument();
-    expect(screen.getByAltText("Route preview map")).toBeInTheDocument();
+    expect(screen.queryByAltText("Route preview map")).not.toBeInTheDocument();
     expect((window as any).google.maps.Map).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Change route" }));

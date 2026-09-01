@@ -46,10 +46,14 @@ type RouteEstimate = {
   duration: string;
   usesTraffic: boolean;
   path: RoutePoint[];
-  staticMapUrl: string;
 };
 type LockedRoute = {
   key: string;
+};
+type RoutesLibrary = {
+  Route?: {
+    computeRoutes: (request: unknown) => Promise<any>;
+  };
 };
 type GoogleMapsRouteError = Error & {
   pgflexGoogleStatus?: string;
@@ -148,10 +152,21 @@ function getGoogleMapsAuthError() {
 
 function serializableError(error: unknown) {
   if (error instanceof Error) {
+    const extra = error as Error & {
+      code?: unknown;
+      endpoint?: unknown;
+      status?: unknown;
+    };
+
     return {
       name: error.name,
       message: error.message,
       stack: error.stack,
+      ...(typeof extra.code === "string" ? { code: extra.code } : {}),
+      ...(typeof extra.endpoint === "string"
+        ? { endpoint: extra.endpoint }
+        : {}),
+      ...(typeof extra.status === "string" ? { status: extra.status } : {}),
       pgflexGoogleStatus: (error as GoogleMapsRouteError).pgflexGoogleStatus,
       pgflexGoogleRequest: (error as GoogleMapsRouteError).pgflexGoogleRequest,
       pgflexGoogleResult: (error as GoogleMapsRouteError).pgflexGoogleResult,
@@ -159,6 +174,35 @@ function serializableError(error: unknown) {
   }
 
   return error;
+}
+
+function serializableThrownError(error: unknown) {
+  if (error instanceof Error) {
+    const extra = error as Error & {
+      code?: unknown;
+      endpoint?: unknown;
+      status?: unknown;
+    };
+
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      ...(typeof extra.code === "string" ? { code: extra.code } : {}),
+      ...(typeof extra.endpoint === "string"
+        ? { endpoint: extra.endpoint }
+        : {}),
+      ...(typeof extra.status === "string" ? { status: extra.status } : {}),
+      pgflexGoogleStatus: (error as GoogleMapsRouteError).pgflexGoogleStatus,
+    };
+  }
+
+  return error;
+}
+
+function cloneLogValue(value: unknown) {
+  const serialized = stringifyErrorLog(value);
+  return serialized === undefined ? null : JSON.parse(serialized);
 }
 
 function redactGoogleMapsApiKey(value: string) {
@@ -175,7 +219,7 @@ function googleMapsApiKeyFingerprint(apiKey: string) {
 
 function googleMapsScriptUrlForLog(apiKey: string) {
   return redactGoogleMapsApiKey(
-    `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}`,
+    `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async`,
   );
 }
 
@@ -189,7 +233,9 @@ function resolveGoogleMapsApiKeyInfo() {
     },
     {
       source: "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
-      value: normalizeGoogleMapsApiKey(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY),
+      value: normalizeGoogleMapsApiKey(
+        process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+      ),
     },
   ];
   const exactConfiguredKey = candidates.find(
@@ -211,12 +257,16 @@ function resolveGoogleMapsApiKeyInfo() {
     value: PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY,
     source: "PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY fallback",
     matchesPinnedPGFlexKey: true,
-    fingerprint: googleMapsApiKeyFingerprint(PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY),
+    fingerprint: googleMapsApiKeyFingerprint(
+      PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY,
+    ),
     ...(ignoredConfiguredKey?.value
       ? {
           ignoredConfiguredKey: {
             source: ignoredConfiguredKey.source,
-            fingerprint: googleMapsApiKeyFingerprint(ignoredConfiguredKey.value),
+            fingerprint: googleMapsApiKeyFingerprint(
+              ignoredConfiguredKey.value,
+            ),
             reason:
               "Configured key did not match the pinned PGFlex browser key, so PGFlex used its explicit fallback key.",
           },
@@ -277,9 +327,7 @@ function googleMapsEnvironmentLog(apiKey: string) {
           expectedSrc: googleMapsScriptUrlForLog(apiKey),
         },
     googleNamespacePresent: Boolean(mapsWindow.google?.maps),
-    directionsServicePresent: Boolean(
-      mapsWindow.google?.maps?.DirectionsService,
-    ),
+    importLibraryPresent: Boolean(mapsWindow.google?.maps?.importLibrary),
     authFailureCaptured: Boolean(mapsWindow.__pgflexGoogleMapsAuthError),
   };
 }
@@ -343,6 +391,12 @@ function routeErrorLogForFailure({
       ? Math.max(0, failedTime - startedTime)
       : null;
   const environment = googleMapsEnvironmentLog(apiKey);
+  const capturedRouteRequest = routeError.pgflexGoogleRequest ?? {
+    origin,
+    destination,
+    note: "No Route.computeRoutes request was captured because the failure happened before the Routes library call.",
+  };
+  const capturedRouteResult = routeError.pgflexGoogleResult ?? null;
 
   return stringifyErrorLog({
     logType: "pgflex_route_preview_error",
@@ -374,32 +428,27 @@ function routeErrorLogForFailure({
         observed: {
           script: environment.script,
           googleNamespacePresent: environment.googleNamespacePresent,
-          directionsServicePresent: environment.directionsServicePresent,
+          importLibraryPresent: environment.importLibraryPresent,
           authFailureCaptured: environment.authFailureCaptured,
         },
       },
       {
-        name: "Directions route calculation",
+        name: "Routes API route calculation",
         provider: "Google Maps Platform",
-        call: "google.maps.DirectionsService.route",
-        request:
-          routeError.pgflexGoogleRequest ?? {
-            origin,
-            destination,
-            note: "No DirectionsService.route request was captured because the failure happened before the route callback.",
-          },
+        call: "google.maps.routes.Route.computeRoutes",
+        request: cloneLogValue(capturedRouteRequest),
         response: {
           status: routeError.pgflexGoogleStatus ?? null,
-          result: routeError.pgflexGoogleResult ?? null,
+          result: cloneLogValue(capturedRouteResult),
         },
       },
     ],
     googleApiDump: {
       status: routeError.pgflexGoogleStatus,
-      request: routeError.pgflexGoogleRequest,
-      result: routeError.pgflexGoogleResult,
+      request: cloneLogValue(capturedRouteRequest),
+      result: cloneLogValue(capturedRouteResult),
     },
-    thrownError: serializableError(error),
+    thrownError: serializableThrownError(error),
     environment,
   });
 }
@@ -517,7 +566,7 @@ function loadGoogleMaps(apiKey: string) {
       script.id = GOOGLE_MAPS_SCRIPT_ID;
       script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
         apiKey,
-      )}`;
+      )}&v=weekly&loading=async`;
       script.async = true;
       script.defer = true;
       script.addEventListener(
@@ -556,53 +605,86 @@ function resetGoogleMapsLoaderIfPending() {
   document.getElementById(GOOGLE_MAPS_SCRIPT_ID)?.remove();
 }
 
-function requestRoute({
-  directionsService,
+function routeStatusFromError(error: unknown) {
+  if (error && typeof error === "object") {
+    const candidate = error as Record<string, unknown>;
+    const status =
+      typeof candidate.code === "string"
+        ? candidate.code
+        : typeof candidate.status === "string"
+          ? candidate.status
+          : undefined;
+
+    if (status?.trim()) {
+      return status.trim();
+    }
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  const match = message.match(
+    /\b(REQUEST_DENIED|PERMISSION_DENIED|UNAUTHENTICATED|FAILED_PRECONDITION|ZERO_RESULTS|NOT_FOUND|INVALID_REQUEST|OVER_QUERY_LIMIT|RESOURCE_EXHAUSTED|UNKNOWN_ERROR)\b/i,
+  );
+
+  return match?.[1]?.toUpperCase() ?? "ROUTES_API_ERROR";
+}
+
+async function requestRoute({
+  Route,
   maps,
   origin,
   destination,
 }: {
-  directionsService: any;
+  Route: NonNullable<RoutesLibrary["Route"]>;
   maps: any;
   origin: string;
   destination: string;
 }) {
-  return new Promise<any>((resolve, reject) => {
-    const departureTime = new Date();
-    const request = {
-      origin,
-      destination,
-      travelMode: maps.TravelMode.DRIVING,
-      unitSystem: maps.UnitSystem.METRIC,
-      provideRouteAlternatives: false,
-      drivingOptions: {
-        departureTime,
-        trafficModel: maps.TrafficModel.BEST_GUESS,
-      },
-    };
-    const loggableRequest = {
-      ...request,
-      drivingOptions: {
-        departureTime: departureTime.toISOString(),
-        trafficModel: maps.TrafficModel.BEST_GUESS,
-      },
-    };
+  const departureTime = new Date();
+  const request = {
+    origin,
+    destination,
+    travelMode: maps.TravelMode?.DRIVING ?? "DRIVING",
+    routingPreference: "TRAFFIC_AWARE",
+    trafficModel: maps.TrafficModel?.BEST_GUESS ?? "BEST_GUESS",
+    units: maps.UnitSystem?.METRIC ?? "METRIC",
+    computeAlternativeRoutes: false,
+    fields: [
+      "distanceMeters",
+      "durationMillis",
+      "staticDurationMillis",
+      "localizedValues",
+      "path",
+    ],
+    departureTime,
+  };
+  const loggableRequest = {
+    ...request,
+    departureTime: departureTime.toISOString(),
+  };
 
-    directionsService.route(request, (result: any, status: string) => {
-      if (status === "OK" && result) {
-        resolve(result);
-        return;
-      }
+  try {
+    const result = await Route.computeRoutes(request);
 
-      reject(
-        makeGoogleMapsRouteError({
-          request: loggableRequest,
-          result,
-          status,
-        }),
-      );
+    if (Array.isArray(result?.routes) && result.routes.length > 0) {
+      return result;
+    }
+
+    throw makeGoogleMapsRouteError({
+      request: loggableRequest,
+      result,
+      status: "ZERO_RESULTS",
     });
-  });
+  } catch (error) {
+    if ((error as GoogleMapsRouteError).pgflexGoogleStatus) {
+      throw error;
+    }
+
+    throw makeGoogleMapsRouteError({
+      request: loggableRequest,
+      result: serializableError(error),
+      status: routeStatusFromError(error),
+    });
+  }
 }
 
 function routeKeyFor(origin: string, destination: string) {
@@ -633,10 +715,8 @@ function routePointFromLatLng(location: any): RoutePoint | null {
 
 function routePathFromResult(result: any): RoutePoint[] {
   const route = result?.routes?.[0];
-  const overviewPath = Array.isArray(route?.overview_path)
-    ? route.overview_path
-    : [];
-  const points = overviewPath
+  const routePath = Array.isArray(route?.path) ? route.path : [];
+  const points = routePath
     .map(routePointFromLatLng)
     .filter((point: RoutePoint | null): point is RoutePoint => Boolean(point));
 
@@ -645,47 +725,90 @@ function routePathFromResult(result: any): RoutePoint[] {
   }
 
   const leg = route?.legs?.[0];
-  const start = routePointFromLatLng(leg?.start_location);
-  const end = routePointFromLatLng(leg?.end_location);
+  const start = routePointFromLatLng(leg?.startLocation ?? leg?.start_location);
+  const end = routePointFromLatLng(leg?.endLocation ?? leg?.end_location);
 
   return [start, end].filter((point: RoutePoint | null): point is RoutePoint =>
     Boolean(point),
   );
 }
 
-function routePolylineFromResult(result: any) {
-  const polyline = result?.routes?.[0]?.overview_polyline?.points;
-  return typeof polyline === "string" && polyline.trim()
-    ? polyline.trim()
-    : null;
-}
-
-function staticMapUrlForRoute({
-  apiKey,
-  destination,
-  origin,
-  polyline,
-}: {
-  apiKey: string;
-  destination: string;
-  origin: string;
-  polyline: string | null;
-}) {
-  const params = new URLSearchParams({
-    key: apiKey,
-    maptype: "roadmap",
-    scale: "2",
-    size: "640x360",
-  });
-
-  params.append("markers", `color:0x2563eb|label:A|${origin}`);
-  params.append("markers", `color:0x16a34a|label:B|${destination}`);
-
-  if (polyline) {
-    params.append("path", `color:0x7c3aedff|weight:5|enc:${polyline}`);
+function localizedRouteText(value: unknown) {
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
   }
 
-  return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
+  if (value && typeof value === "object") {
+    const text = (value as { text?: unknown }).text;
+
+    if (typeof text === "string" && text.trim()) {
+      return text.trim();
+    }
+  }
+
+  return null;
+}
+
+function formatRouteDistance(distanceMeters: unknown) {
+  if (typeof distanceMeters !== "number" || !Number.isFinite(distanceMeters)) {
+    return null;
+  }
+
+  if (distanceMeters < 1000) {
+    return `${Math.max(1, Math.round(distanceMeters))} m`;
+  }
+
+  const kilometers = distanceMeters / 1000;
+  return `${kilometers >= 10 ? kilometers.toFixed(0) : kilometers.toFixed(1)} km`;
+}
+
+function formatRouteDuration(durationMillis: unknown) {
+  if (typeof durationMillis !== "number" || !Number.isFinite(durationMillis)) {
+    return null;
+  }
+
+  const totalMinutes = Math.max(1, Math.round(durationMillis / 60_000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) {
+    return `${totalMinutes} min`;
+  }
+
+  return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
+}
+
+function routeDistanceFromResult(result: any) {
+  const route = result?.routes?.[0];
+  return (
+    localizedRouteText(route?.localizedValues?.distance) ??
+    formatRouteDistance(route?.distanceMeters)
+  );
+}
+
+function routeDurationFromResult(result: any) {
+  const route = result?.routes?.[0];
+  return (
+    localizedRouteText(route?.localizedValues?.duration) ??
+    formatRouteDuration(route?.durationMillis)
+  );
+}
+
+function routeUsesTrafficFromResult(result: any) {
+  const route = result?.routes?.[0];
+  const duration = route?.durationMillis;
+  const staticDuration = route?.staticDurationMillis;
+
+  if (
+    typeof duration === "number" &&
+    typeof staticDuration === "number" &&
+    Number.isFinite(duration) &&
+    Number.isFinite(staticDuration)
+  ) {
+    return duration !== staticDuration;
+  }
+
+  return true;
 }
 
 function sketchPolylinePoints(path: RoutePoint[]) {
@@ -724,23 +847,6 @@ function RouteSketch({
   origin: string;
   routeEstimate: RouteEstimate | null;
 }) {
-  const [staticMapFailed, setStaticMapFailed] = useState(false);
-
-  useEffect(() => {
-    setStaticMapFailed(false);
-  }, [routeEstimate?.staticMapUrl]);
-
-  if (routeEstimate?.staticMapUrl && !staticMapFailed) {
-    return (
-      <img
-        src={routeEstimate.staticMapUrl}
-        alt="Route preview map"
-        className="h-full w-full object-cover"
-        onError={() => setStaticMapFailed(true)}
-      />
-    );
-  }
-
   const points = sketchPolylinePoints(routeEstimate?.path ?? []);
 
   return (
@@ -951,13 +1057,13 @@ function routeFailureMessage(
 
   if (isGoogleMapsConfigurationError(error)) {
     return translate(
-      "Google Maps rejected the route preview before calculation. This is a browser API key, billing, or API enablement problem, not an address problem. Check allowed domains for this deploy URL and that Maps JavaScript API and Directions API are enabled.",
+      "Google Maps rejected the route preview before calculation. This is a browser API key, billing, or API enablement problem, not an address problem. Check allowed domains for this deploy URL and that Maps JavaScript API and Routes API are enabled.",
     );
   }
 
   if (/REQUEST_DENIED/i.test(message)) {
     return translate(
-      "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Maps JavaScript API and Directions API are enabled.",
+      "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Maps JavaScript API and Routes API are enabled.",
     );
   }
 
@@ -1008,7 +1114,7 @@ export function PGFlexRoutePreview({
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const apiKey = resolveGoogleMapsApiKey();
-  const directionsServiceRef = useRef<any>(null);
+  const routesLibraryRef = useRef<RoutesLibrary | null>(null);
   const routeRequestIdRef = useRef(0);
   const activeRouteAbortControllerRef = useRef<AbortController | null>(null);
   const lastPreviewedRouteKeyRef = useRef<string | null>(null);
@@ -1064,7 +1170,7 @@ export function PGFlexRoutePreview({
   );
 
   async function ensureRouteServicesReady(signal: AbortSignal) {
-    if (directionsServiceRef.current) {
+    if (routesLibraryRef.current?.Route?.computeRoutes) {
       await assertGoogleMapsAuthIsClean(signal);
       setMapsStatus("ready");
       return;
@@ -1080,11 +1186,22 @@ export function PGFlexRoutePreview({
     );
     const maps = getGoogleMapsWindow().google?.maps;
 
-    if (!maps?.DirectionsService) {
-      throw new Error("Google Maps namespace is unavailable");
+    if (!maps?.importLibrary) {
+      throw new Error("Google Maps importLibrary is unavailable");
     }
 
-    directionsServiceRef.current ??= new maps.DirectionsService();
+    const routesLibrary = (await withTimeout(
+      maps.importLibrary("routes"),
+      ROUTE_REQUEST_TIMEOUT_MS,
+      signal,
+      "Google Maps Routes library load timed out",
+    )) as RoutesLibrary;
+
+    if (!routesLibrary?.Route?.computeRoutes) {
+      throw new Error("Google Maps Routes API library is unavailable");
+    }
+
+    routesLibraryRef.current = routesLibrary;
     await assertGoogleMapsAuthIsClean(signal);
     setMapsStatus("ready");
   }
@@ -1100,7 +1217,7 @@ export function PGFlexRoutePreview({
     setRouteErrorMessage(null);
     setRouteErrorLog(null);
     setRouteErrorLogOpen(false);
-    setMapsStatus(directionsServiceRef.current ? "ready" : "idle");
+    setMapsStatus(routesLibraryRef.current ? "ready" : "idle");
     setRouteStatus("idle");
   }
 
@@ -1137,36 +1254,35 @@ export function PGFlexRoutePreview({
       }
 
       const maps = getGoogleMapsWindow().google?.maps;
-      const directionsService = directionsServiceRef.current;
+      const routeConstructor = routesLibraryRef.current?.Route;
 
-      if (!maps || !directionsService) {
+      if (!maps || !routeConstructor?.computeRoutes) {
         throw new Error("Google Maps route services are unavailable");
       }
 
-      failurePhase = "DirectionsService.route";
+      failurePhase = "Route.computeRoutes";
       const result = await withTimeout(
         requestRoute({
-          directionsService,
+          Route: routeConstructor,
           maps,
           origin: originAddress,
           destination: destinationAddress,
         }),
         ROUTE_REQUEST_TIMEOUT_MS,
         abortController.signal,
-        "Google Maps directions timed out",
+        "Google Maps Routes API timed out",
       );
 
       if (routeRequestIdRef.current !== routeRequestId) {
         return;
       }
 
-      const leg = result.routes?.[0]?.legs?.[0];
-      const duration = leg?.duration_in_traffic?.text ?? leg?.duration?.text;
-      const distance = leg?.distance?.text;
+      const duration = routeDurationFromResult(result);
+      const distance = routeDistanceFromResult(result);
       const path = routePathFromResult(result);
 
       if (!duration || !distance || path.length < 2) {
-        throw new Error("Route leg is incomplete");
+        throw new Error("Routes API response is incomplete");
       }
 
       lastPreviewedRouteKeyRef.current = currentRouteKey;
@@ -1174,13 +1290,7 @@ export function PGFlexRoutePreview({
         distance,
         duration,
         path,
-        staticMapUrl: staticMapUrlForRoute({
-          apiKey,
-          destination: destinationAddress,
-          origin: originAddress,
-          polyline: routePolylineFromResult(result),
-        }),
-        usesTraffic: Boolean(leg?.duration_in_traffic),
+        usesTraffic: routeUsesTrafficFromResult(result),
       });
       setRouteErrorLog(null);
       setRouteErrorLogOpen(false);
@@ -1194,7 +1304,7 @@ export function PGFlexRoutePreview({
 
       resetGoogleMapsLoaderIfPending();
       if (isGoogleMapsConfigurationError(finalError)) {
-        directionsServiceRef.current = null;
+        routesLibraryRef.current = null;
       }
       setRouteEstimate(null);
       setRouteErrorMessage(routeFailureMessage(finalError, t));
@@ -1213,7 +1323,7 @@ export function PGFlexRoutePreview({
       setMapsStatus(
         isGoogleMapsConfigurationError(finalError)
           ? "error"
-          : directionsServiceRef.current
+          : routesLibraryRef.current
             ? "ready"
             : "error",
       );

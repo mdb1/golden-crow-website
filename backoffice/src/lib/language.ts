@@ -148,10 +148,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "La previsualización de recorrido de Google Maps no está disponible.",
   "Unable to calculate a route for these addresses.":
     "No se pudo calcular un recorrido para estas direcciones.",
-  "Google Maps rejected the route preview before calculation. This is a browser API key, billing, or API enablement problem, not an address problem. Check allowed domains for this deploy URL and that Maps JavaScript API and Directions API are enabled.":
-    "Google Maps rechazó la previsualización antes de calcular el recorrido. Es un problema de API key del navegador, billing o APIs activas, no de las direcciones. Revisá los dominios permitidos para esta URL y que Maps JavaScript API y Directions API estén activas.",
-  "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Maps JavaScript API and Directions API are enabled.":
-    "Google rechazó la solicitud de servicios de recorrido. Normalmente es configuración de APIs, no las direcciones. Revisá restricciones de API key, billing y que Maps JavaScript API y Directions API estén activas.",
+  "Google Maps rejected the route preview before calculation. This is a browser API key, billing, or API enablement problem, not an address problem. Check allowed domains for this deploy URL and that Maps JavaScript API and Routes API are enabled.":
+    "Google Maps rechazó la previsualización antes de calcular el recorrido. Es un problema de API key del navegador, billing o APIs activas, no de las direcciones. Revisá los dominios permitidos para esta URL y que Maps JavaScript API y Routes API estén activas.",
+  "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Maps JavaScript API and Routes API are enabled.":
+    "Google rechazó la solicitud de servicios de recorrido. Normalmente es configuración de APIs, no las direcciones. Revisá restricciones de API key, billing y que Maps JavaScript API y Routes API estén activas.",
   "Google could not find a drivable route for these addresses. Use full street, city, province, and country, then try again.":
     "Google no encontró un recorrido manejable para estas direcciones. Usá calle, ciudad, provincia y país completos, y volvé a intentar.",
   "Google Maps quota rejected this route request. Check project quota and billing before trying again.":
@@ -186,6 +186,12 @@ const SPANISH_TEXT: Record<string, string> = {
   "Time of pick up is required.": "La hora de retiro es requerida.",
   "PGFlex logistics item saved.": "Envío PGFlex guardado.",
   "PGFlex logistics status updated.": "Estado del envío PGFlex actualizado.",
+  "Dispatch created": "Envío creado",
+  "The PGFlex dispatch is ready": "El envío PGFlex está listo",
+  "was saved and is available in PGFlex.":
+    "quedó guardado y está disponible en PGFlex.",
+  "Open dispatch": "Ver envío",
+  "See all dispatches": "Ver todos los envíos",
   "Unable to update PGFlex logistics status.":
     "No se pudo actualizar el estado del envío PGFlex.",
   "Unable to create PGFlex logistics item.":

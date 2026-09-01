@@ -186,7 +186,18 @@ describe("PGFlexLogisticsForm", () => {
         }),
       }),
     );
-    expect(push).toHaveBeenCalledWith("/pgflex/logistics/dispatch-1");
+    expect(push).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText("The PGFlex dispatch is ready"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("dispatch-1")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open dispatch" })).toHaveAttribute(
+      "href",
+      "/pgflex/logistics/dispatch-1",
+    );
+    expect(
+      screen.getByRole("link", { name: "See all dispatches" }),
+    ).toHaveAttribute("href", "/pgflex/logistics");
   });
 
   it("hides linked codes and requires an editable destination for other dispatches", async () => {
@@ -280,7 +291,9 @@ describe("PGFlexLogisticsForm", () => {
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Delete dispatch" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Delete dispatch" }),
+    ).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Pedido Retirado" }));
 

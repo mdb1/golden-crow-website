@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   LoaderCircle,
   MapPin,
@@ -65,6 +66,64 @@ import { formatDateTime } from "@/lib/moderation-utils";
 import { sdkFetch } from "@/lib/sdk-client";
 
 const UNASSIGNED_DISPATCHER_VALUE = "__unassigned__";
+const PGFLEX_CREATION_CONFETTI = [
+  {
+    left: "9%",
+    top: "18%",
+    color: "#93c5fd",
+    delay: "0ms",
+    duration: "1080ms",
+  },
+  {
+    left: "18%",
+    top: "10%",
+    color: "#67e8f9",
+    delay: "60ms",
+    duration: "980ms",
+  },
+  {
+    left: "30%",
+    top: "15%",
+    color: "#a5b4fc",
+    delay: "110ms",
+    duration: "1120ms",
+  },
+  {
+    left: "43%",
+    top: "8%",
+    color: "#bae6fd",
+    delay: "170ms",
+    duration: "1020ms",
+  },
+  {
+    left: "58%",
+    top: "12%",
+    color: "#7dd3fc",
+    delay: "220ms",
+    duration: "1180ms",
+  },
+  {
+    left: "70%",
+    top: "14%",
+    color: "#38bdf8",
+    delay: "280ms",
+    duration: "1040ms",
+  },
+  {
+    left: "82%",
+    top: "9%",
+    color: "#c4b5fd",
+    delay: "330ms",
+    duration: "1140ms",
+  },
+  {
+    left: "90%",
+    top: "20%",
+    color: "#bfdbfe",
+    delay: "390ms",
+    duration: "990ms",
+  },
+] as const;
 
 type LogisticsFormState = {
   identifier: string;
@@ -238,6 +297,8 @@ export function PGFlexLogisticsForm({
   const [state, setState] = useState<LogisticsFormState>(sourceState);
   const [pending, setPending] = useState<"save" | "delete" | null>(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [createdItem, setCreatedItem] =
+    useState<PGFlexLogisticsListItem | null>(null);
   const {
     data: dispatcherOptionsPayload,
     isFetching: isFetchingDispatcherOptions,
@@ -261,6 +322,9 @@ export function PGFlexLogisticsForm({
     state.dispatcherFirebaseId ||
     UNASSIGNED_DISPATCHER_VALUE;
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
+  const createdItemHref = createdItem
+    ? `/pgflex/logistics/${encodeURIComponent(createdItem.id)}`
+    : "/pgflex/logistics";
 
   function validatePayload(payload: PGFlexLogisticsInput) {
     if (!payload.identifier) {
@@ -380,7 +444,7 @@ export function PGFlexLogisticsForm({
             body: JSON.stringify(payload),
           },
         );
-        router.push(`/pgflex/logistics/${response.item.id}`);
+        setCreatedItem(response.item);
       } else if (item && isFullAdmin) {
         await sdkFetch<{ item: PGFlexLogisticsListItem }>(
           `/pgflex/logistics/${encodeURIComponent(item.id)}`,
@@ -485,9 +549,7 @@ export function PGFlexLogisticsForm({
     return (
       <div
         className={
-          action
-            ? "flex flex-col gap-5 pb-40 md:pb-44"
-            : "flex flex-col gap-5"
+          action ? "flex flex-col gap-5 pb-40 md:pb-44" : "flex flex-col gap-5"
         }
       >
         <ActionToast toast={toast} onDismiss={() => setToast(null)} />
@@ -593,7 +655,9 @@ export function PGFlexLogisticsForm({
               <div className="rounded-[1.7rem] border border-white/12 bg-background/72 p-4 shadow-[0_-10px_38px_rgba(7,16,24,0.12),0_20px_48px_rgba(7,16,24,0.18)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/54">
                 <div className="flex justify-end">
                   <Button
-                    onClick={() => void handleDispatcherAdvance(action.nextStatus)}
+                    onClick={() =>
+                      void handleDispatcherAdvance(action.nextStatus)
+                    }
                     disabled={!canUpdate || pending !== null}
                     className="h-16 w-full rounded-[1.35rem] border border-sky-200/12 bg-[linear-gradient(180deg,rgba(56,189,248,0.98),rgba(37,99,235,0.96))] text-base font-semibold text-white shadow-[0_18px_52px_rgba(37,99,235,0.34)] disabled:opacity-100 sm:text-lg lg:min-w-[20rem] lg:w-auto lg:px-10"
                   >
@@ -602,7 +666,9 @@ export function PGFlexLogisticsForm({
                     ) : (
                       <ActionIcon className="h-5 w-5" />
                     )}
-                    {pending === "save" ? t(action.savingLabel) : t(action.label)}
+                    {pending === "save"
+                      ? t(action.savingLabel)
+                      : t(action.label)}
                   </Button>
                 </div>
               </div>
@@ -622,6 +688,65 @@ export function PGFlexLogisticsForm({
       }
     >
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+      {mode === "create" && createdItem ? (
+        <div className="pointer-events-none fixed inset-0 z-[85] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-background/42 backdrop-blur-[4px]" />
+          <div className="pointer-events-auto animate-in fade-in-0 zoom-in-95 relative w-full max-w-2xl overflow-hidden rounded-[2rem] border border-sky-200/42 bg-[linear-gradient(155deg,rgba(186,230,253,0.42),rgba(12,74,110,0.98)_50%,rgba(37,99,235,0.94))] px-6 py-8 text-center shadow-[0_34px_130px_rgba(14,165,233,0.34)]">
+            {PGFLEX_CREATION_CONFETTI.map((particle, index) => (
+              <span
+                key={`${particle.left}-${particle.delay}-${index}`}
+                className="two-pq-confetti absolute h-3 w-3 rounded-[5px]"
+                style={{
+                  left: particle.left,
+                  top: particle.top,
+                  background: particle.color,
+                  animationDelay: particle.delay,
+                  animationDuration: particle.duration,
+                }}
+              />
+            ))}
+            <div className="relative flex flex-col items-center">
+              <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-sky-100/18 text-sky-50 shadow-[0_0_0_14px_rgba(186,230,253,0.13)]">
+                <span className="two-pq-success-ring absolute inset-0 rounded-full border border-sky-100/60" />
+                <CheckCircle2 className="h-12 w-12" />
+              </div>
+              <p className="mt-5 text-xs font-semibold uppercase tracking-[0.24em] text-sky-50/88">
+                {t("Dispatch created")}
+              </p>
+              <h3 className="mt-2 font-heading text-3xl font-semibold text-white">
+                {t("The PGFlex dispatch is ready")}
+              </h3>
+              <p className="mt-2 max-w-lg text-sm text-sky-50/84">
+                {t("Dispatch")}{" "}
+                <span className="font-mono text-sky-50">
+                  {createdItem.identifier || createdItem.id}
+                </span>{" "}
+                {t("was saved and is available in PGFlex.")}
+              </p>
+              <div className="mt-6 grid w-full max-w-lg gap-2 sm:grid-cols-2">
+                <Button
+                  className="h-12 rounded-[1.1rem] border border-sky-100/12 bg-white px-6 text-sm font-semibold text-sky-950 shadow-[0_18px_48px_rgba(186,230,253,0.22)] hover:bg-sky-50"
+                  asChild
+                >
+                  <Link href={createdItemHref}>
+                    <PackageCheck className="h-4 w-4" />
+                    {t("Open dispatch")}
+                  </Link>
+                </Button>
+                <Button
+                  className="h-12 rounded-[1.1rem] border border-sky-100/16 bg-sky-300/18 px-6 text-sm font-semibold text-white shadow-[0_18px_48px_rgba(12,74,110,0.22)] hover:bg-sky-200/22"
+                  asChild
+                >
+                  <Link href="/pgflex/logistics">
+                    {t("See all dispatches")}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
@@ -882,7 +1007,7 @@ export function PGFlexLogisticsForm({
         </div>
       </section>
 
-      {mode === "create" ? (
+      {mode === "create" && !createdItem ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:px-0">
           <div className="pointer-events-auto mx-auto md:ml-[calc(var(--sidebar-width)+1rem)] md:mr-6 lg:mr-8">
             <div className="rounded-[1.7rem] border border-white/12 bg-background/72 p-4 shadow-[0_-10px_38px_rgba(7,16,24,0.12),0_20px_48px_rgba(7,16,24,0.18)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/54">
