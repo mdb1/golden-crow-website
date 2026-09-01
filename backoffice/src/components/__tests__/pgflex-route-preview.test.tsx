@@ -3,7 +3,6 @@
 import "@testing-library/jest-dom";
 import { useState } from "react";
 import {
-  act,
   fireEvent,
   render,
   screen,
@@ -18,43 +17,14 @@ describe("PGFlexRoutePreview", () => {
   const originalGoogleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const originalPGFlexGoogleMapsApiKey =
     process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY;
-  const scriptId = "pgflex-google-maps-js-api";
+  const originalFetch = global.fetch;
+  const routesEndpoint =
+    "https://routes.googleapis.com/directions/v2:computeRoutes";
+  const fieldMask =
+    "routes.duration,routes.staticDuration,routes.distanceMeters,routes.polyline.encodedPolyline";
 
-  function resetGoogleMapsLoader() {
-    delete (
-      window as Window & {
-        __pgflexGoogleMapsAuthError?: Error;
-        __pgflexGoogleMapsPromise?: Promise<void>;
-        gm_authFailure?: () => void;
-        pgflexGoogleMapsReady?: () => void;
-      }
-    ).__pgflexGoogleMapsAuthError;
-    delete (
-      window as Window & {
-        __pgflexGoogleMapsAuthError?: Error;
-        __pgflexGoogleMapsPromise?: Promise<void>;
-        gm_authFailure?: () => void;
-        pgflexGoogleMapsReady?: () => void;
-      }
-    ).__pgflexGoogleMapsPromise;
-    delete (
-      window as Window & {
-        __pgflexGoogleMapsAuthError?: Error;
-        __pgflexGoogleMapsPromise?: Promise<void>;
-        gm_authFailure?: () => void;
-        pgflexGoogleMapsReady?: () => void;
-      }
-    ).gm_authFailure;
-    delete (
-      window as Window & {
-        __pgflexGoogleMapsAuthError?: Error;
-        __pgflexGoogleMapsPromise?: Promise<void>;
-        gm_authFailure?: () => void;
-        pgflexGoogleMapsReady?: () => void;
-      }
-    ).pgflexGoogleMapsReady;
+  function resetGoogleMapsGlobals() {
     delete (window as Window & { google?: unknown }).google;
-    document.getElementById(scriptId)?.remove();
   }
 
   function renderControlledPreview() {
@@ -99,88 +69,90 @@ describe("PGFlexRoutePreview", () => {
     });
   }
 
-  function installRejectingGoogleMapsMock(status = "REQUEST_DENIED") {
-    const error = Object.assign(
-      new Error(`${status}: Routes API request rejected`),
-      {
-        code: status,
-        endpoint: "routes.computeRoutes",
-      },
-    );
-    const computeRoutes = jest.fn().mockRejectedValue(error);
+  function jsonResponse(body: unknown, status = 200, statusText = "OK") {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      statusText,
+      headers: {
+        get: jest.fn((name: string) => {
+          const normalized = name.toLowerCase();
 
-    (window as any).google = {
-      maps: {
-        importLibrary: jest.fn(async (library: string) => {
-          if (library === "routes") {
-            return {
-              Route: {
-                computeRoutes,
-              },
-            };
+          if (normalized === "content-type") {
+            return "application/json; charset=UTF-8";
           }
 
-          throw new Error(`Unexpected Google Maps library: ${library}`);
+          if (normalized === "access-control-allow-origin") {
+            return "https://golden-crow-backoffice.vercel.app";
+          }
+
+          if (normalized === "vary") {
+            return "Origin,Accept-Encoding";
+          }
+
+          return null;
         }),
-        TrafficModel: { BEST_GUESS: "BEST_GUESS" },
-        TravelMode: { DRIVING: "DRIVING" },
-        UnitSystem: { METRIC: "METRIC" },
       },
-    };
+      text: jest.fn(async () => JSON.stringify(body)),
+    } as unknown as Response;
   }
 
-  function installSuccessfulRoutesMock() {
+  function installRejectingRoutesRestMock(reason = "API_KEY_SERVICE_BLOCKED") {
+    const result = {
+      error: {
+        code: 403,
+        message:
+          "Requests to this API routes.googleapis.com method google.maps.routing.v2.Routes.ComputeRoutes are blocked.",
+        status: "PERMISSION_DENIED",
+        details: [
+          {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            reason,
+            domain: "googleapis.com",
+            metadata: {
+              service: "routes.googleapis.com",
+              method: "google.maps.routing.v2.Routes.ComputeRoutes",
+            },
+          },
+        ],
+      },
+    };
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue(jsonResponse(result, 403, "Forbidden"));
+    global.fetch = fetchMock as typeof fetch;
+
+    return fetchMock;
+  }
+
+  function installSuccessfulRoutesRestMock() {
     const result = {
       routes: [
         {
           distanceMeters: 6400,
-          durationMillis: 21 * 60_000,
-          staticDurationMillis: 18 * 60_000,
-          localizedValues: {
-            distance: { text: "6.4 km" },
-            duration: { text: "21 mins" },
+          duration: "1260s",
+          staticDuration: "1080s",
+          polyline: {
+            encodedPolyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
           },
-          path: [
-            { lat: () => -34.6037, lng: () => -58.3816 },
-            { lat: () => -34.597, lng: () => -58.395 },
-            { lat: () => -34.592, lng: () => -58.402 },
-          ],
         },
       ],
     };
-    const computeRoutes = jest.fn().mockResolvedValue(result);
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(result));
+    global.fetch = fetchMock as typeof fetch;
 
-    (window as any).google = {
-      maps: {
-        importLibrary: jest.fn(async (library: string) => {
-          if (library === "routes") {
-            return {
-              Route: {
-                computeRoutes,
-              },
-            };
-          }
-
-          throw new Error(`Unexpected Google Maps library: ${library}`);
-        }),
-        Map: jest.fn(() => {
-          throw new Error("Interactive map renderer should not be used");
-        }),
-        TrafficModel: { BEST_GUESS: "BEST_GUESS" },
-        TravelMode: { DRIVING: "DRIVING" },
-        UnitSystem: { METRIC: "METRIC" },
-      },
-    };
+    return fetchMock;
   }
 
   beforeEach(() => {
     delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     delete process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY;
-    resetGoogleMapsLoader();
+    global.fetch = jest.fn() as typeof fetch;
+    resetGoogleMapsGlobals();
   });
 
   afterEach(() => {
-    resetGoogleMapsLoader();
+    resetGoogleMapsGlobals();
   });
 
   afterAll(() => {
@@ -196,12 +168,17 @@ describe("PGFlexRoutePreview", () => {
       process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY =
         originalPGFlexGoogleMapsApiKey;
     }
+
+    global.fetch = originalFetch;
   });
 
-  it("loads Google Maps only after Preview route is clicked", async () => {
+  it("calls Routes REST only after Preview route is clicked", async () => {
+    const fetchMock = installSuccessfulRoutesRestMock();
     const { onDestinationChange, onOriginChange } = renderControlledPreview();
 
-    expect(document.getElementById(scriptId)).not.toBeInTheDocument();
+    expect(
+      document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]'),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Preview route" }),
     ).not.toBeInTheDocument();
@@ -210,7 +187,10 @@ describe("PGFlexRoutePreview", () => {
     ).not.toBeInTheDocument();
 
     enterRouteAddresses();
-    expect(document.getElementById(scriptId)).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]'),
+    ).not.toBeInTheDocument();
 
     expect(onOriginChange).toHaveBeenCalledWith(
       "Av. Corrientes 123, Buenos Aires",
@@ -219,7 +199,6 @@ describe("PGFlexRoutePreview", () => {
       "Hospital Italiano, Buenos Aires",
     );
 
-    expect(document.getElementById(scriptId)).not.toBeInTheDocument();
     const previewButton = screen.getByRole("button", {
       name: "Preview route",
     });
@@ -227,8 +206,28 @@ describe("PGFlexRoutePreview", () => {
     fireEvent.click(previewButton);
 
     await waitFor(() => {
-      expect(document.getElementById(scriptId)).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledWith(
+        routesEndpoint,
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": "AIzaSyDX5QOmZrG7GekSIMoqFT3oymQP20w2az0",
+            "X-Goog-FieldMask": fieldMask,
+          }),
+        }),
+      );
     });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      origin: { address: "Av. Corrientes 123, Buenos Aires" },
+      destination: { address: "Hospital Italiano, Buenos Aires" },
+      travelMode: "DRIVE",
+      routingPreference: "TRAFFIC_AWARE",
+      computeAlternativeRoutes: false,
+    });
+    expect(
+      document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]'),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Origin")).toBeDisabled();
     expect(screen.getByLabelText("Destination")).toBeDisabled();
     expect(
@@ -249,6 +248,7 @@ describe("PGFlexRoutePreview", () => {
 
   it("uses the pinned PGFlex browser key when a generic Google Maps env key is stale", async () => {
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = "stale-generic-key";
+    const fetchMock = installSuccessfulRoutesRestMock();
 
     renderControlledPreview();
     enterRouteAddresses();
@@ -256,74 +256,35 @@ describe("PGFlexRoutePreview", () => {
     fireEvent.click(screen.getByRole("button", { name: "Preview route" }));
 
     await waitFor(() => {
-      const script = document.getElementById(
-        scriptId,
-      ) as HTMLScriptElement | null;
-
-      expect(script).toBeInTheDocument();
-      expect(script?.src).toContain("AIzaSyDX5QOmZrG7GekSIMoqFT3oymQP20w2az0");
-      expect(script?.src).toContain("v=weekly");
-      expect(script?.src).toContain("loading=async");
-      expect(script?.src).toContain("callback=pgflexGoogleMapsReady");
-      expect(script?.src).not.toContain("stale-generic-key");
+      expect(fetchMock).toHaveBeenCalledWith(
+        routesEndpoint,
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "X-Goog-Api-Key": "AIzaSyDX5QOmZrG7GekSIMoqFT3oymQP20w2az0",
+          }),
+        }),
+      );
     });
+    expect(String(fetchMock.mock.calls[0][1]?.headers)).not.toContain(
+      "stale-generic-key",
+    );
   });
 
-  it("waits for the Google Maps ready callback before importing the routes library", async () => {
+  it("renders the Routes REST distance and decoded polyline duration", async () => {
+    const fetchMock = installSuccessfulRoutesRestMock();
     renderControlledPreview();
     enterRouteAddresses();
 
     fireEvent.click(screen.getByRole("button", { name: "Preview route" }));
 
     await waitFor(() => {
-      expect(document.getElementById(scriptId)).toBeInTheDocument();
-    });
-
-    const computeRoutes = jest.fn().mockResolvedValue({
-      routes: [
-        {
-          distanceMeters: 6400,
-          durationMillis: 21 * 60_000,
-          staticDurationMillis: 18 * 60_000,
-          path: [
-            { lat: () => -34.6037, lng: () => -58.3816 },
-            { lat: () => -34.592, lng: () => -58.402 },
-          ],
-        },
-      ],
-    });
-    const importLibrary = jest.fn(async (library: string) => {
-      if (library === "routes") {
-        return {
-          Route: {
-            computeRoutes,
-          },
-        };
-      }
-
-      throw new Error(`Unexpected Google Maps library: ${library}`);
-    });
-    (window as any).google = {
-      maps: {
-        importLibrary,
-        TrafficModel: { BEST_GUESS: "BEST_GUESS" },
-        TravelMode: { DRIVING: "DRIVING" },
-        UnitSystem: { METRIC: "METRIC" },
-      },
-    };
-
-    expect(importLibrary).not.toHaveBeenCalled();
-
-    await act(async () => {
-      (window as any).pgflexGoogleMapsReady();
-    });
-
-    await waitFor(() => {
-      expect(importLibrary).toHaveBeenCalledWith("routes");
-      expect(computeRoutes).toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalled();
     });
     expect(screen.getByText("6.4 km")).toBeInTheDocument();
     expect(screen.getByText("21 min")).toBeInTheDocument();
+    expect(
+      document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]'),
+    ).not.toBeInTheDocument();
   });
 
   it("shows a copyable route log dialog when Google rejects the route", async () => {
@@ -335,7 +296,7 @@ describe("PGFlexRoutePreview", () => {
       configurable: true,
       value: { writeText },
     });
-    installRejectingGoogleMapsMock("REQUEST_DENIED");
+    installRejectingRoutesRestMock("API_KEY_SERVICE_BLOCKED");
     renderControlledPreview();
     enterRouteAddresses();
 
@@ -343,7 +304,7 @@ describe("PGFlexRoutePreview", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(
-      "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Maps JavaScript API and Routes API are enabled.",
+      "This API key is blocked from using Routes API. Add Routes API to the key API restrictions or remove API restrictions for testing.",
     );
     expect(
       screen.getByRole("button", { name: "Change route" }),
@@ -358,42 +319,47 @@ describe("PGFlexRoutePreview", () => {
     ) as HTMLTextAreaElement;
     expect(logField).toHaveClass("overflow-y-auto");
     expect(logField).toHaveClass("[field-sizing:fixed]");
-    expect(logField.value).toContain('"phase": "Route.computeRoutes"');
+    expect(logField.value).toContain('"phase": "Routes REST computeRoutes"');
     expect(logField.value).toContain(
       `"backofficeVersion": "${BACKOFFICE_VERSION}"`,
     );
     expect(logField.value).toContain('"product": "Routes API"');
+    expect(logField.value).toContain('"transport": "browser fetch"');
+    expect(logField.value).toContain(`"method": "POST ${routesEndpoint}"`);
+    expect(logField.value).toContain(`"call": "POST ${routesEndpoint}"`);
+    expect(logField.value).toContain('"X-Goog-Api-Key": "[redacted]"');
+    expect(logField.value).toContain(`"X-Goog-FieldMask": "${fieldMask}"`);
+    expect(logField.value).toContain('"status": "API_KEY_SERVICE_BLOCKED"');
+    expect(logField.value).toContain('"status": 403');
+    expect(logField.value).toContain('"status": "PERMISSION_DENIED"');
+    expect(logField.value).toContain('"reason": "API_KEY_SERVICE_BLOCKED"');
     expect(logField.value).toContain(
-      '"libraryLoader": "google.maps.importLibrary(\'routes\')"',
+      '"method": "google.maps.routing.v2.Routes.ComputeRoutes"',
     );
-    expect(logField.value).toContain(
-      '"method": "google.maps.routes.Route.computeRoutes"',
-    );
-    expect(logField.value).toContain(
-      '"call": "google.maps.routes.Route.computeRoutes"',
-    );
-    expect(logField.value).toContain('"status": "REQUEST_DENIED"');
     expect(logField.value).toContain('"matchesPinnedPGFlexKey": true');
     expect(logField.value).toContain(
-      '"origin": "Av. Corrientes 123, Buenos Aires"',
+      '"address": "Av. Corrientes 123, Buenos Aires"',
     );
     expect(logField.value).toContain(
-      '"destination": "Hospital Italiano, Buenos Aires"',
+      '"address": "Hospital Italiano, Buenos Aires"',
     );
     expect(logField.value).toContain(
-      '"message": "REQUEST_DENIED: Routes API request rejected"',
+      '"message": "Requests to this API routes.googleapis.com method google.maps.routing.v2.Routes.ComputeRoutes are blocked."',
     );
-    expect(logField.value).toContain('"code": "REQUEST_DENIED"');
-    expect(logField.value).toContain('"endpoint": "routes.computeRoutes"');
-    expect(logField.value).toContain("maps.googleapis.com/maps/api/js");
-    expect(logField.value).toContain('"apiKeyRedacted": true');
+    expect(logField.value).toContain(routesEndpoint);
     expect(logField.value).not.toContain(["Directions", "Service"].join(""));
     expect(logField.value).not.toContain(["maps/api", "directions"].join("/"));
+    expect(logField.value).not.toContain(
+      ["google", "maps", "routes", "Route", "computeRoutes"].join("."),
+    );
+    expect(logField.value).not.toContain(
+      ["maps.googleapis.com", "maps/api/js"].join("/"),
+    );
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Copy log" }));
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(
-        expect.stringContaining('"status": "REQUEST_DENIED"'),
+        expect.stringContaining('"reason": "API_KEY_SERVICE_BLOCKED"'),
       );
     });
     await waitFor(() => {
@@ -405,21 +371,22 @@ describe("PGFlexRoutePreview", () => {
     alertSpy.mockRestore();
   });
 
-  it("uses Routes API without instantiating the broken interactive map renderer", async () => {
-    installSuccessfulRoutesMock();
+  it("uses Routes REST without instantiating the Google Maps JS renderer", async () => {
+    const fetchMock = installSuccessfulRoutesRestMock();
     renderControlledPreview();
     enterRouteAddresses();
 
     fireEvent.click(screen.getByRole("button", { name: "Preview route" }));
 
     await waitFor(() => expect(screen.getByText("6.4 km")).toBeInTheDocument());
-    expect(screen.getByText("21 mins")).toBeInTheDocument();
+    expect(screen.getByText("21 min")).toBeInTheDocument();
     expect(screen.queryByAltText("Route preview map")).not.toBeInTheDocument();
-    expect((window as any).google.maps.Map).not.toHaveBeenCalled();
+    expect((window as any).google).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Change route" }));
     expect(
       screen.getByRole("button", { name: "Preview route" }),
-    ).toHaveAttribute("data-variant", "secondary");
+    ).toHaveAttribute("data-variant", "default");
   });
 });

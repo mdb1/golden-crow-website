@@ -148,6 +148,18 @@ const SPANISH_TEXT: Record<string, string> = {
     "La previsualización de recorrido de Google Maps no está disponible.",
   "Unable to calculate a route for these addresses.":
     "No se pudo calcular un recorrido para estas direcciones.",
+  "Routes API is disabled for this Google Cloud project. Enable Routes API on the project that owns this browser key.":
+    "Routes API está desactivada en este proyecto de Google Cloud. Activá Routes API en el proyecto dueño de esta browser key.",
+  "This API key is blocked from using Routes API. Add Routes API to the key API restrictions or remove API restrictions for testing.":
+    "Esta API key no tiene permitido usar Routes API. Agregá Routes API a las restricciones de API de la key o quitá restricciones para probar.",
+  "Billing is disabled for the Google Cloud project. Enable billing before calculating PGFlex routes.":
+    "Billing está desactivado para el proyecto de Google Cloud. Activá billing antes de calcular recorridos PGFlex.",
+  "Google could not match this API key to a valid consumer project. Check that the deployed key belongs to the expected Google Cloud project.":
+    "Google no pudo asociar esta API key con un proyecto válido. Revisá que la key desplegada pertenezca al proyecto de Google Cloud esperado.",
+  "Google rejected the API key as invalid. Check the deployed key value character by character.":
+    "Google rechazó la API key como inválida. Revisá caracter por caracter la key desplegada.",
+  "Google denied the Routes REST request. Open Show log to copy the raw Google response with HTTP status, headers and body.":
+    "Google denegó la solicitud REST de Routes. Abrí Ver log para copiar la respuesta cruda de Google con status HTTP, headers y body.",
   "Google Maps rejected the route preview before calculation. This is a browser API key, billing, or API enablement problem, not an address problem. Check allowed domains for this deploy URL and that Maps JavaScript API and Routes API are enabled.":
     "Google Maps rechazó la previsualización antes de calcular el recorrido. Es un problema de API key del navegador, billing o APIs activas, no de las direcciones. Revisá los dominios permitidos para esta URL y que Maps JavaScript API y Routes API estén activas.",
   "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Maps JavaScript API and Routes API are enabled.":
@@ -160,6 +172,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Google Maps no respondió a tiempo. Usá Change route y volvé a intentar, o revisá las APIs de Google y la configuración de billing.",
   "Google Maps did not answer in time. Use Change route and try again. If the map behind this message shows a Google error, check browser API key restrictions, billing, and enabled Google Maps APIs.":
     "Google Maps no respondió a tiempo. Usá Cambiar recorrido y volvé a intentar. Si el mapa detrás de este mensaje muestra un error de Google, revisá restricciones de API key, billing y APIs de Google Maps activas.",
+  "Routes API did not answer in time. Use Change route and try again; the running request is cancelled when the route is changed.":
+    "Routes API no respondió a tiempo. Usá Cambiar recorrido y volvé a intentar; la solicitud en curso se cancela cuando cambiás el recorrido.",
+  "The browser could not reach Routes API. Check network access, CORS, allowed referrers and the deployed browser key.":
+    "El navegador no pudo llegar a Routes API. Revisá red, CORS, referrers permitidos y la browser key desplegada.",
   "Google Maps failed to load. Verify the browser API key, allowed domains, billing, and that Maps JavaScript API is enabled.":
     "Google Maps no pudo cargar. Revisá la API key del browser, los dominios permitidos, billing y que Maps JavaScript API esté activa.",
   "Google Maps could not calculate this route. Check both addresses and try again with Preview route.":
