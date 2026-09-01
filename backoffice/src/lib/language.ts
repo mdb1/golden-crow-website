@@ -290,6 +290,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Review athlete bookings and their confirmation status.":
     "Revisar reservas de atletas y su estado de confirmación.",
   "Set manually": "Definir manualmente",
+  "Additional trip notes": "Notas adicionales del viaje",
   Description: "Descripción",
   "Description language": "Idioma de descripción",
   English: "Inglés",

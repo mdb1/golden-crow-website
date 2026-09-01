@@ -162,6 +162,7 @@ describe("PGFlexLogisticsForm", () => {
     expect(screen.getByLabelText("Province / District")).toBeInTheDocument();
     expect(screen.getByLabelText("Country")).toHaveValue("Argentina");
     expect(screen.getByLabelText("Country")).toBeDisabled();
+    expect(screen.getByLabelText("Additional trip notes")).toBeInTheDocument();
     const createButton = screen.getByRole("button", {
       name: "Create dispatch",
     });

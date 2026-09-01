@@ -1138,7 +1138,9 @@ export function PGFlexLogisticsForm({
           ) : null}
 
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="pgflex-description">{t("Description")}</Label>
+            <Label htmlFor="pgflex-description">
+              {t("Additional trip notes")}
+            </Label>
             <Textarea
               id="pgflex-description"
               value={state.description}
