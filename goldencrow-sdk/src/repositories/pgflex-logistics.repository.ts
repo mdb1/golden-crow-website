@@ -484,13 +484,13 @@ function assertDispatcherPatchIsStatusOnly(
   }
 }
 
-function dispatcherTransitionPatch(
+function operationalTransitionPatch(
   context: AdminContext,
   existing: PGFlexLogisticsRecord,
   nextStatus: unknown,
   now: string,
 ) {
-  if (context.role !== "transport_dispatcher") {
+  if (nextStatus === undefined || nextStatus === existing.status) {
     return {};
   }
 
@@ -502,10 +502,14 @@ function dispatcherTransitionPatch(
     return { item_was_delivered_at: now };
   }
 
-  throw new AdminRepositoryError(
-    "Transport dispatchers can only move assigned items from awaiting pick up to in transit, or from in transit to arrived.",
-    403,
-  );
+  if (context.role === "transport_dispatcher") {
+    throw new AdminRepositoryError(
+      "Transport dispatchers can only move assigned items from awaiting pick up to in transit, or from in transit to arrived.",
+      403,
+    );
+  }
+
+  return {};
 }
 
 function toPGFlexLogisticsRecord(
@@ -1185,7 +1189,7 @@ export async function updatePGFlexLogisticsItemForContext(
   );
   Object.assign(
     patch,
-    dispatcherTransitionPatch(context, existing, patch.status, now),
+    operationalTransitionPatch(context, existing, patch.status, now),
   );
 
   await adminDb

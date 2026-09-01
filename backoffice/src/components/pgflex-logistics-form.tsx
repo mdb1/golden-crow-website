@@ -288,6 +288,49 @@ function DispatcherReadOnlyField({
   );
 }
 
+type OperationalAdvanceAction = NonNullable<
+  ReturnType<typeof dispatcherActionForStatus>
+>;
+
+function PGFlexOperationalAdvanceDock({
+  action,
+  canUpdate,
+  onAdvance,
+  pending,
+  t,
+}: {
+  action: OperationalAdvanceAction;
+  canUpdate: boolean;
+  onAdvance: (nextStatus: PGFlexLogisticsStatus) => void;
+  pending: "save" | "delete" | null;
+  t: (text: string) => string;
+}) {
+  const ActionIcon = action.Icon;
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:px-0">
+      <div className="pointer-events-auto mx-auto md:ml-[calc(var(--sidebar-width)+1rem)] md:mr-6 lg:mr-8">
+        <div className="rounded-[1.7rem] border border-white/12 bg-background/72 p-4 shadow-[0_-10px_38px_rgba(7,16,24,0.12),0_20px_48px_rgba(7,16,24,0.18)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/54">
+          <div className="flex justify-end">
+            <Button
+              onClick={() => onAdvance(action.nextStatus)}
+              disabled={!canUpdate || pending !== null}
+              className="h-16 w-full rounded-[1.35rem] border border-sky-200/12 bg-[linear-gradient(180deg,rgba(56,189,248,0.98),rgba(37,99,235,0.96))] text-base font-semibold text-white shadow-[0_18px_52px_rgba(37,99,235,0.34)] disabled:opacity-100 sm:text-lg lg:min-w-[20rem] lg:w-auto lg:px-10"
+            >
+              {pending === "save" ? (
+                <LoaderCircle className="h-5 w-5 animate-spin" />
+              ) : (
+                <ActionIcon className="h-5 w-5" />
+              )}
+              {pending === "save" ? t(action.savingLabel) : t(action.label)}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PGFlexLogisticsForm({
   item,
   mode = "edit",
@@ -339,6 +382,14 @@ export function PGFlexLogisticsForm({
   const createdItemHref = createdItem
     ? `/pgflex/logistics/${encodeURIComponent(createdItem.id)}`
     : "/pgflex/logistics";
+  const operationalAdvanceAction =
+    mode === "edit" && item ? dispatcherActionForStatus(item.status) : null;
+  const showOperationalAdvanceDock = Boolean(
+    operationalAdvanceAction &&
+    item &&
+    canUpdate &&
+    (isFullAdmin || isTransportDispatcher),
+  );
 
   function validatePayload(payload: PGFlexLogisticsInput) {
     if (!payload.identifier) {
@@ -514,8 +565,13 @@ export function PGFlexLogisticsForm({
     }
   }
 
-  async function handleDispatcherAdvance(nextStatus: PGFlexLogisticsStatus) {
-    if (!item || !isTransportDispatcher || !canUpdate || pending) {
+  async function handleOperationalAdvance(nextStatus: PGFlexLogisticsStatus) {
+    if (
+      !item ||
+      !(isFullAdmin || isTransportDispatcher) ||
+      !canUpdate ||
+      pending
+    ) {
       return;
     }
 
@@ -568,14 +624,14 @@ export function PGFlexLogisticsForm({
   }
 
   if (mode === "edit" && item && isTransportDispatcher) {
-    const action = dispatcherActionForStatus(item.status);
     const linkedCodes = linkedCodesFromCsv(item.linked_codes);
-    const ActionIcon = action?.Icon;
 
     return (
       <div
         className={
-          action ? "flex flex-col gap-5 pb-40 md:pb-44" : "flex flex-col gap-5"
+          showOperationalAdvanceDock
+            ? "flex flex-col gap-5 pb-40 md:pb-44"
+            : "flex flex-col gap-5"
         }
       >
         <ActionToast toast={toast} onDismiss={() => setToast(null)} />
@@ -663,31 +719,16 @@ export function PGFlexLogisticsForm({
           </div>
         </section>
 
-        {action && ActionIcon ? (
-          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:px-0">
-            <div className="pointer-events-auto mx-auto md:ml-[calc(var(--sidebar-width)+1rem)] md:mr-6 lg:mr-8">
-              <div className="rounded-[1.7rem] border border-white/12 bg-background/72 p-4 shadow-[0_-10px_38px_rgba(7,16,24,0.12),0_20px_48px_rgba(7,16,24,0.18)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/54">
-                <div className="flex justify-end">
-                  <Button
-                    onClick={() =>
-                      void handleDispatcherAdvance(action.nextStatus)
-                    }
-                    disabled={!canUpdate || pending !== null}
-                    className="h-16 w-full rounded-[1.35rem] border border-sky-200/12 bg-[linear-gradient(180deg,rgba(56,189,248,0.98),rgba(37,99,235,0.96))] text-base font-semibold text-white shadow-[0_18px_52px_rgba(37,99,235,0.34)] disabled:opacity-100 sm:text-lg lg:min-w-[20rem] lg:w-auto lg:px-10"
-                  >
-                    {pending === "save" ? (
-                      <LoaderCircle className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <ActionIcon className="h-5 w-5" />
-                    )}
-                    {pending === "save"
-                      ? t(action.savingLabel)
-                      : t(action.label)}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
+        {showOperationalAdvanceDock && operationalAdvanceAction ? (
+          <PGFlexOperationalAdvanceDock
+            action={operationalAdvanceAction}
+            canUpdate={canUpdate}
+            onAdvance={(nextStatus) =>
+              void handleOperationalAdvance(nextStatus)
+            }
+            pending={pending}
+            t={t}
+          />
         ) : null}
       </div>
     );
@@ -696,7 +737,7 @@ export function PGFlexLogisticsForm({
   return (
     <div
       className={
-        mode === "create"
+        mode === "create" || showOperationalAdvanceDock
           ? "flex flex-col gap-5 pb-40 md:pb-44"
           : "flex flex-col gap-5"
       }
@@ -1103,6 +1144,18 @@ export function PGFlexLogisticsForm({
             </div>
           </div>
         </div>
+      ) : null}
+
+      {mode === "edit" &&
+      showOperationalAdvanceDock &&
+      operationalAdvanceAction ? (
+        <PGFlexOperationalAdvanceDock
+          action={operationalAdvanceAction}
+          canUpdate={canUpdate}
+          onAdvance={(nextStatus) => void handleOperationalAdvance(nextStatus)}
+          pending={pending}
+          t={t}
+        />
       ) : null}
 
       {mode === "edit" && item && isFullAdmin ? (

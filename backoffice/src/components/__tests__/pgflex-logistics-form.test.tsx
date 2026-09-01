@@ -371,6 +371,50 @@ describe("PGFlexLogisticsForm", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the operational pickup CTA for full admins and patches the dispatch status", async () => {
+    const user = userEvent.setup();
+    renderForm({ item: pgflexItem({ canDelete: true }) });
+
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Pedido Retirado" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Pedido Retirado" }));
+
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith("/pgflex/logistics/dispatch-1", {
+        method: "PATCH",
+        body: JSON.stringify({ status: "in_transit" }),
+      }),
+    );
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("shows the operational delivery CTA for full admins and patches the dispatch status", async () => {
+    const user = userEvent.setup();
+    renderForm({
+      item: pgflexItem({
+        status: "in_transit",
+        item_was_picked_date_at: "2026-08-31T12:00:00.000Z",
+      }),
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Pedido Entregado" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Pedido Entregado" }));
+
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith("/pgflex/logistics/dispatch-1", {
+        method: "PATCH",
+        body: JSON.stringify({ status: "arrived" }),
+      }),
+    );
+    expect(refresh).toHaveBeenCalled();
+  });
+
   it("renders transport dispatcher detail as read-only with only the pickup action", async () => {
     const user = userEvent.setup();
     renderForm({ item: pgflexItem() }, transportDispatcherContext);

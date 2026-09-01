@@ -594,6 +594,67 @@ describe("PGFlex logistics repository", () => {
     });
   });
 
+  it("lets a full admin use the operational pickup transition and sync linked 2PQ cases", async () => {
+    const { updatePGFlexLogisticsItemForContext } =
+      await import("../repositories/pgflex-logistics.repository");
+    mockDocs.set("pgflex_events/dispatch-admin-1", {
+      identifier: "ENV-ADMIN-001",
+      shipmentType: "2pq",
+      linked_codes: "ABC,DEF",
+      origin: "Clinica Norte",
+      destination:
+        "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
+      dispatcherId: "driver-1",
+      dispatcherFirebaseId: "driver-1",
+      dispatcherEmail: "driver@example.com",
+      status: "awaiting_pick_up",
+      timeRequested: "2026-08-31T10:00:00.000Z",
+      createdAt: "2026-08-31T10:00:00.000Z",
+      updatedAt: "2026-08-31T10:00:00.000Z",
+    });
+    mockDocs.set("2pq_case/case-a", {
+      caseLabel: "ABCXXX",
+      three_letter_code: "ABC",
+      caseStatus: "awaiting_pick_up",
+      updatedAt: "2026-08-31T10:00:00.000Z",
+    });
+    mockDocs.set("2pq_case/case-b", {
+      caseLabel: "DEFXXX",
+      three_letter_code: "DEF",
+      caseStatus: "awaiting_pick_up",
+      updatedAt: "2026-08-31T10:00:00.000Z",
+    });
+
+    const updated = await updatePGFlexLogisticsItemForContext(
+      fullAdminContext,
+      "dispatch-admin-1",
+      { status: "in_transit" },
+    );
+
+    expect(updated).toMatchObject({
+      status: "in_transit",
+      item_was_picked_date_at: "2026-08-31T15:45:00.000Z",
+      canUpdate: true,
+    });
+    expect(mockDocs.get("pgflex_events/dispatch-admin-1")).toMatchObject({
+      status: "in_transit",
+      item_was_picked_date_at: "2026-08-31T15:45:00.000Z",
+      updatedByEmail: "admin@example.com",
+    });
+    expect(mockDocs.get("2pq_case/case-a")).toMatchObject({
+      caseStatus: "in_transit",
+      last_updated_date: "2026-08-31T15:45:00.000Z",
+      updatedAt: "2026-08-31T15:45:00.000Z",
+      updatedByEmail: "admin@example.com",
+    });
+    expect(mockDocs.get("2pq_case/case-b")).toMatchObject({
+      caseStatus: "in_transit",
+      last_updated_date: "2026-08-31T15:45:00.000Z",
+      updatedAt: "2026-08-31T15:45:00.000Z",
+      updatedByEmail: "admin@example.com",
+    });
+  });
+
   it("lets an assigned transport dispatcher mark an in-transit dispatch as delivered", async () => {
     const { updatePGFlexLogisticsItemForContext } =
       await import("../repositories/pgflex-logistics.repository");
@@ -664,6 +725,68 @@ describe("PGFlex logistics repository", () => {
       last_updated_date: "2026-08-31T15:45:00.000Z",
       updatedAt: "2026-08-31T15:45:00.000Z",
       updatedByEmail: "driver@example.com",
+    });
+  });
+
+  it("lets a full admin use the operational delivery transition and sync linked 2PQ cases", async () => {
+    const { updatePGFlexLogisticsItemForContext } =
+      await import("../repositories/pgflex-logistics.repository");
+    mockDocs.set("pgflex_events/dispatch-admin-2", {
+      identifier: "ENV-ADMIN-002",
+      shipmentType: "2pq",
+      linked_codes: "ABC,DEF",
+      origin: "Clinica Norte",
+      destination:
+        "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
+      dispatcherId: "driver-1",
+      dispatcherFirebaseId: "driver-1",
+      dispatcherEmail: "driver@example.com",
+      status: "in_transit",
+      item_was_picked_date_at: "2026-08-31T12:00:00.000Z",
+      timeRequested: "2026-08-31T10:00:00.000Z",
+      createdAt: "2026-08-31T10:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockDocs.set("2pq_case/case-a", {
+      caseLabel: "ABCXXX",
+      three_letter_code: "ABC",
+      caseStatus: "in_transit",
+    });
+    mockDocs.set("2pq_case/case-b", {
+      caseLabel: "DEFXXX",
+      three_letter_code: "DEF",
+      caseStatus: "in_transit",
+    });
+
+    const updated = await updatePGFlexLogisticsItemForContext(
+      fullAdminContext,
+      "dispatch-admin-2",
+      { status: "arrived" },
+    );
+
+    expect(updated).toMatchObject({
+      status: "arrived",
+      item_was_picked_date_at: "2026-08-31T12:00:00.000Z",
+      item_was_delivered_at: "2026-08-31T15:45:00.000Z",
+      canUpdate: true,
+    });
+    expect(mockDocs.get("pgflex_events/dispatch-admin-2")).toMatchObject({
+      status: "arrived",
+      item_was_picked_date_at: "2026-08-31T12:00:00.000Z",
+      item_was_delivered_at: "2026-08-31T15:45:00.000Z",
+      updatedByEmail: "admin@example.com",
+    });
+    expect(mockDocs.get("2pq_case/case-a")).toMatchObject({
+      caseStatus: "samples_received",
+      last_updated_date: "2026-08-31T15:45:00.000Z",
+      updatedAt: "2026-08-31T15:45:00.000Z",
+      updatedByEmail: "admin@example.com",
+    });
+    expect(mockDocs.get("2pq_case/case-b")).toMatchObject({
+      caseStatus: "samples_received",
+      last_updated_date: "2026-08-31T15:45:00.000Z",
+      updatedAt: "2026-08-31T15:45:00.000Z",
+      updatedByEmail: "admin@example.com",
     });
   });
 
