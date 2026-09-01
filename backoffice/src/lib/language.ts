@@ -124,6 +124,8 @@ const SPANISH_TEXT: Record<string, string> = {
   Origin: "Origen",
   Destination: "Destino",
   "Route preview": "Vista del recorrido",
+  "Preview route": "Previsualizar recorrido",
+  "Change route": "Cambiar recorrido",
   "Best driving route with approximate time.":
     "Mejor recorrido en auto con tiempo aproximado.",
   "Traffic aware": "Considera tráfico",
@@ -133,16 +135,22 @@ const SPANISH_TEXT: Record<string, string> = {
     "Configurá NEXT_PUBLIC_GOOGLE_MAPS_API_KEY para activar las vistas de recorrido.",
   "Finding route...": "Calculando recorrido...",
   "Unable to load Google Maps.": "No se pudo cargar Google Maps.",
+  "Google Maps is not rendering correctly.":
+    "Google Maps no está renderizando correctamente.",
   "Unable to calculate a route for these addresses.":
     "No se pudo calcular un recorrido para estas direcciones.",
-  "Google rejected this route request. Verify API key restrictions, billing, and that Maps JavaScript, Geocoding, and Directions APIs are enabled.":
-    "Google rechazó la solicitud del recorrido. Revisá las restricciones de la API key, billing y que estén activas Maps JavaScript, Geocoding y Directions.",
+  "Google Maps loaded but refused to render the map. This is a Maps JavaScript configuration problem, not an address problem. Check browser API key restrictions for this domain, billing, and that Maps JavaScript API is enabled.":
+    "Google Maps cargó el script pero rechazó renderizar el mapa. Es un problema de configuración de Maps JavaScript, no de las direcciones. Revisá las restricciones de la API key para este dominio, billing y que Maps JavaScript API esté activa.",
+  "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Geocoding and Directions APIs are enabled.":
+    "Google rechazó la solicitud de servicios de recorrido. Normalmente es configuración de APIs, no las direcciones. Revisá restricciones de API key, billing y que Geocoding y Directions estén activas.",
   "Google could not find a drivable route for these addresses. Use full street, city, province, and country, then try again.":
     "Google no encontró un recorrido manejable para estas direcciones. Usá calle, ciudad, provincia y país completos, y volvé a intentar.",
   "Google Maps quota rejected this route request. Check project quota and billing before trying again.":
     "La cuota de Google Maps rechazó la solicitud. Revisá la cuota del proyecto y billing antes de volver a intentar.",
   "Google Maps did not answer in time. Use Change route and try again, or verify the Google APIs and billing configuration.":
     "Google Maps no respondió a tiempo. Usá Change route y volvé a intentar, o revisá las APIs de Google y la configuración de billing.",
+  "Google Maps did not answer in time. Use Change route and try again. If the map behind this message shows a Google error, check browser API key restrictions, billing, and enabled Google Maps APIs.":
+    "Google Maps no respondió a tiempo. Usá Cambiar recorrido y volvé a intentar. Si el mapa detrás de este mensaje muestra un error de Google, revisá restricciones de API key, billing y APIs de Google Maps activas.",
   "Google Maps failed to load. Verify the browser API key, allowed domains, billing, and that Maps JavaScript API is enabled.":
     "Google Maps no pudo cargar. Revisá la API key del browser, los dominios permitidos, billing y que Maps JavaScript API esté activa.",
   "Google Maps could not calculate this route. Check both addresses and try again with Preview route.":

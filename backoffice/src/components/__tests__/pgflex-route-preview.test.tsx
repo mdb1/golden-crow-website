@@ -13,8 +13,27 @@ describe("PGFlexRoutePreview", () => {
   const scriptId = "pgflex-google-maps-js-api";
 
   function resetGoogleMapsLoader() {
-    delete (window as Window & { __pgflexGoogleMapsPromise?: Promise<void> })
-      .__pgflexGoogleMapsPromise;
+    delete (
+      window as Window & {
+        __pgflexGoogleMapsAuthError?: Error;
+        __pgflexGoogleMapsPromise?: Promise<void>;
+        gm_authFailure?: () => void;
+      }
+    ).__pgflexGoogleMapsAuthError;
+    delete (
+      window as Window & {
+        __pgflexGoogleMapsAuthError?: Error;
+        __pgflexGoogleMapsPromise?: Promise<void>;
+        gm_authFailure?: () => void;
+      }
+    ).__pgflexGoogleMapsPromise;
+    delete (
+      window as Window & {
+        __pgflexGoogleMapsAuthError?: Error;
+        __pgflexGoogleMapsPromise?: Promise<void>;
+        gm_authFailure?: () => void;
+      }
+    ).gm_authFailure;
     delete (window as Window & { google?: unknown }).google;
     document.getElementById(scriptId)?.remove();
   }
@@ -82,6 +101,36 @@ describe("PGFlexRoutePreview", () => {
           ),
         })),
         Map: jest.fn(() => ({})),
+        TrafficModel: { BEST_GUESS: "BEST_GUESS" },
+        TravelMode: { DRIVING: "DRIVING" },
+        UnitSystem: { METRIC: "METRIC" },
+      },
+    };
+  }
+
+  function installBrokenMapRenderMock() {
+    const renderer = {
+      setDirections: jest.fn(),
+      setMap: jest.fn(),
+    };
+
+    (window as any).google = {
+      maps: {
+        DirectionsRenderer: jest.fn(() => renderer),
+        DirectionsService: jest.fn(() => ({
+          route: jest.fn(),
+        })),
+        Geocoder: jest.fn(() => ({
+          geocode: jest.fn(),
+        })),
+        Map: jest.fn((container: HTMLElement) => {
+          const errorContainer = document.createElement("div");
+          errorContainer.className = "gm-err-container";
+          errorContainer.textContent =
+            "This page can't load Google Maps correctly.";
+          container.appendChild(errorContainer);
+          return {};
+        }),
         TrafficModel: { BEST_GUESS: "BEST_GUESS" },
         TravelMode: { DRIVING: "DRIVING" },
         UnitSystem: { METRIC: "METRIC" },
@@ -168,8 +217,25 @@ describe("PGFlexRoutePreview", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(
-      "Google rejected this route request. Verify API key restrictions, billing, and that Maps JavaScript, Geocoding, and Directions APIs are enabled.",
+      "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Geocoding and Directions APIs are enabled.",
     );
+    expect(
+      screen.getByRole("button", { name: "Change route" }),
+    ).toBeInTheDocument();
+  });
+
+  it("reports a map render configuration error instead of waiting for timeout", async () => {
+    installBrokenMapRenderMock();
+    renderControlledPreview();
+    enterRouteAddresses();
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview route" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Google Maps loaded but refused to render the map.",
+    );
+    expect(alert).toHaveTextContent("not an address problem");
     expect(
       screen.getByRole("button", { name: "Change route" }),
     ).toBeInTheDocument();

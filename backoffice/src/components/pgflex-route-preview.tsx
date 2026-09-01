@@ -18,9 +18,12 @@ import { appText } from "@/lib/language";
 import { cn } from "@/lib/utils";
 
 const GOOGLE_MAPS_SCRIPT_ID = "pgflex-google-maps-js-api";
+const GOOGLE_MAPS_RENDER_ERROR_SELECTOR =
+  ".gm-err-container, .gm-err-title, .gm-err-message";
 const PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY =
   "AIzaSyDX5QOmZrG7GekSIMoqFT3oymQP20w2az0";
 const ROUTE_REQUEST_TIMEOUT_MS = 15000;
+const MAP_RENDER_ERROR_CHECK_DELAY_MS = 250;
 
 type MapsLoadStatus = "idle" | "loading" | "ready" | "error";
 type RouteStatus = "idle" | "loading" | "ready" | "error";
@@ -36,6 +39,8 @@ type GoogleMapsWindow = Window &
   typeof globalThis & {
     google?: { maps: any };
     __pgflexGoogleMapsPromise?: Promise<void>;
+    __pgflexGoogleMapsAuthError?: Error;
+    gm_authFailure?: () => void;
   };
 
 function getGoogleMapsWindow() {
@@ -50,6 +55,108 @@ function makeAbortError() {
 
 function isAbortError(error: unknown) {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function makeGoogleMapsConfigurationError(detail?: string) {
+  const error = new Error(
+    detail
+      ? `Google Maps render authorization failed: ${detail}`
+      : "Google Maps render authorization failed",
+  );
+  error.name = "GoogleMapsConfigurationError";
+  return error;
+}
+
+function isGoogleMapsConfigurationError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.name === "GoogleMapsConfigurationError" ||
+    /render authorization failed|This page can't load Google Maps correctly|Oops! Something went wrong/i.test(
+      error.message,
+    )
+  );
+}
+
+function clearGoogleMapsAuthError() {
+  delete getGoogleMapsWindow().__pgflexGoogleMapsAuthError;
+}
+
+function installGoogleMapsAuthFailureHandler() {
+  const mapsWindow = getGoogleMapsWindow();
+  const currentHandler = mapsWindow.gm_authFailure as
+    ((() => void) & { __pgflexHandler?: boolean }) | undefined;
+
+  if (currentHandler?.__pgflexHandler) {
+    return;
+  }
+
+  const previousHandler = mapsWindow.gm_authFailure;
+  const handler = (() => {
+    mapsWindow.__pgflexGoogleMapsAuthError = makeGoogleMapsConfigurationError();
+    previousHandler?.();
+  }) as (() => void) & { __pgflexHandler?: boolean };
+  handler.__pgflexHandler = true;
+  mapsWindow.gm_authFailure = handler;
+}
+
+function getGoogleMapsAuthError() {
+  return getGoogleMapsWindow().__pgflexGoogleMapsAuthError;
+}
+
+function detectGoogleMapsRenderError(container: HTMLElement | null) {
+  const authError = getGoogleMapsAuthError();
+
+  if (authError) {
+    return authError;
+  }
+
+  if (!container) {
+    return null;
+  }
+
+  const errorNode = container.querySelector(GOOGLE_MAPS_RENDER_ERROR_SELECTOR);
+  const errorText =
+    errorNode?.textContent?.trim() || container.textContent?.trim() || "";
+
+  if (
+    errorNode ||
+    /This page can't load Google Maps correctly|Oops! Something went wrong/i.test(
+      errorText,
+    )
+  ) {
+    return makeGoogleMapsConfigurationError(errorText);
+  }
+
+  return null;
+}
+
+async function assertGoogleMapsCanRender(
+  container: HTMLElement | null,
+  signal: AbortSignal,
+) {
+  const immediateError = detectGoogleMapsRenderError(container);
+
+  if (immediateError) {
+    throw immediateError;
+  }
+
+  await withTimeout(
+    new Promise<void>((resolve) => {
+      window.setTimeout(resolve, MAP_RENDER_ERROR_CHECK_DELAY_MS);
+    }),
+    ROUTE_REQUEST_TIMEOUT_MS,
+    signal,
+    "Google Maps render check timed out",
+  );
+
+  const delayedError = detectGoogleMapsRenderError(container);
+
+  if (delayedError) {
+    throw delayedError;
+  }
 }
 
 function withTimeout<T>(
@@ -112,6 +219,7 @@ function resolveGoogleMapsApiKey() {
 
 function loadGoogleMaps(apiKey: string) {
   const mapsWindow = getGoogleMapsWindow();
+  installGoogleMapsAuthFailureHandler();
 
   if (mapsWindow.google?.maps) {
     return Promise.resolve();
@@ -176,6 +284,7 @@ function loadGoogleMaps(apiKey: string) {
 
 function resetGoogleMapsLoaderIfPending() {
   const mapsWindow = getGoogleMapsWindow();
+  clearGoogleMapsAuthError();
 
   if (mapsWindow.google?.maps) {
     return;
@@ -265,9 +374,15 @@ function routeFailureMessage(
 ) {
   const message = error instanceof Error ? error.message : String(error);
 
+  if (isGoogleMapsConfigurationError(error)) {
+    return translate(
+      "Google Maps loaded but refused to render the map. This is a Maps JavaScript configuration problem, not an address problem. Check browser API key restrictions for this domain, billing, and that Maps JavaScript API is enabled.",
+    );
+  }
+
   if (/REQUEST_DENIED/i.test(message)) {
     return translate(
-      "Google rejected this route request. Verify API key restrictions, billing, and that Maps JavaScript, Geocoding, and Directions APIs are enabled.",
+      "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Geocoding and Directions APIs are enabled.",
     );
   }
 
@@ -285,7 +400,7 @@ function routeFailureMessage(
 
   if (/timed out|timeout/i.test(message)) {
     return translate(
-      "Google Maps did not answer in time. Use Change route and try again, or verify the Google APIs and billing configuration.",
+      "Google Maps did not answer in time. Use Change route and try again. If the map behind this message shows a Google error, check browser API key restrictions, billing, and enabled Google Maps APIs.",
     );
   }
 
@@ -374,12 +489,16 @@ export function PGFlexRoutePreview({
   );
 
   async function ensureMapReady(signal: AbortSignal) {
+    const mapContainer = mapContainerRef.current;
+
     if (
+      mapContainer &&
       mapRef.current &&
       geocoderRef.current &&
       directionsServiceRef.current &&
       directionsRendererRef.current
     ) {
+      await assertGoogleMapsCanRender(mapContainer, signal);
       setMapsStatus("ready");
       return;
     }
@@ -393,12 +512,12 @@ export function PGFlexRoutePreview({
     );
     const maps = getGoogleMapsWindow().google?.maps;
 
-    if (!maps || !mapContainerRef.current) {
+    if (!maps || !mapContainer) {
       throw new Error("Google Maps namespace is unavailable");
     }
 
     if (!mapRef.current) {
-      mapRef.current = new maps.Map(mapContainerRef.current, {
+      mapRef.current = new maps.Map(mapContainer, {
         center: { lat: -34.6037, lng: -58.3816 },
         zoom: 11,
         clickableIcons: false,
@@ -432,6 +551,7 @@ export function PGFlexRoutePreview({
 
     geocoderRef.current ??= new maps.Geocoder();
     directionsServiceRef.current ??= new maps.DirectionsService();
+    await assertGoogleMapsCanRender(mapContainer, signal);
     setMapsStatus("ready");
   }
 
@@ -532,11 +652,28 @@ export function PGFlexRoutePreview({
         return;
       }
 
+      const renderedMapError = detectGoogleMapsRenderError(
+        mapContainerRef.current,
+      );
+      const finalError = renderedMapError ?? error;
+
       resetGoogleMapsLoaderIfPending();
       clearRenderedRoute(directionsRendererRef.current, mapRef.current);
+      if (isGoogleMapsConfigurationError(finalError)) {
+        mapRef.current = null;
+        geocoderRef.current = null;
+        directionsServiceRef.current = null;
+        directionsRendererRef.current = null;
+      }
       setRouteEstimate(null);
-      setRouteErrorMessage(routeFailureMessage(error, t));
-      setMapsStatus(mapRef.current ? "ready" : "error");
+      setRouteErrorMessage(routeFailureMessage(finalError, t));
+      setMapsStatus(
+        isGoogleMapsConfigurationError(finalError)
+          ? "error"
+          : mapRef.current
+            ? "ready"
+            : "error",
+      );
       setRouteStatus("error");
     } finally {
       if (routeRequestIdRef.current === routeRequestId) {
@@ -555,6 +692,7 @@ export function PGFlexRoutePreview({
     routeStatus === "idle" ||
     routeStatus === "loading" ||
     routeStatus === "error";
+  const hideMapCanvas = mapsStatus === "error";
 
   return (
     <div className="space-y-4 md:col-span-2">
@@ -616,7 +754,7 @@ export function PGFlexRoutePreview({
                 disabled={disabled}
               >
                 <RouteIcon className="h-3.5 w-3.5" />
-                Change route
+                {t("Change route")}
               </Button>
             ) : hasBothAddresses ? (
               <Button
@@ -632,7 +770,7 @@ export function PGFlexRoutePreview({
                 ) : (
                   <RouteIcon className="h-3.5 w-3.5" />
                 )}
-                Preview route
+                {t("Preview route")}
               </Button>
             ) : null}
             {routeEstimate ? (
@@ -663,7 +801,11 @@ export function PGFlexRoutePreview({
             ref={mapContainerRef}
             className={cn(
               "h-full w-full transition-opacity duration-300",
-              showMapOverlay ? "opacity-25" : "opacity-100",
+              hideMapCanvas
+                ? "opacity-0"
+                : showMapOverlay
+                  ? "opacity-25"
+                  : "opacity-100",
             )}
           />
 
@@ -684,7 +826,7 @@ export function PGFlexRoutePreview({
                   >
                     <AlertTriangle className="h-5 w-5 text-destructive" />
                     <p className="text-sm font-medium text-foreground">
-                      {t("Unable to load Google Maps.")}
+                      {t("Google Maps is not rendering correctly.")}
                     </p>
                     <p className="text-xs leading-5 text-muted-foreground">
                       {routeErrorMessage ??
@@ -711,7 +853,7 @@ export function PGFlexRoutePreview({
                     <Navigation className="h-5 w-5 text-muted-foreground" />
                     <p className="text-sm font-medium text-foreground">
                       {hasBothAddresses
-                        ? "Preview route"
+                        ? t("Preview route")
                         : t(
                             "Add origin and destination addresses to preview the route.",
                           )}

@@ -27,9 +27,9 @@ module.exports = {
   testEnvironment: "node",
   testMatch: ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
   testPathIgnorePatterns: ["/node_modules/", "/.next/"],
-  // The jsdom-heavy workbench suites are timeout-sensitive when Jest uses
-  // nearly every CPU core. Keep the required `npx jest` gate deterministic.
-  maxWorkers: "50%",
+  // The jsdom-heavy workbench suites are timeout-sensitive under parallel
+  // CPU pressure. Keep the required `npx jest` gate deterministic.
+  maxWorkers: 1,
   // Component tests rely on jsdom + a handful of DOM APIs jsdom does not
   // ship (ResizeObserver, scrollIntoView, matchMedia, pointer-capture).
   // `setupFilesAfterEnv` runs AFTER the test framework is installed —
