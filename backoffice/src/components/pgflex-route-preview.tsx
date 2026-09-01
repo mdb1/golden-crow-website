@@ -6,6 +6,7 @@ import {
   Check,
   Clock3,
   Copy,
+  ExternalLink,
   LoaderCircle,
   MapPinned,
   Navigation,
@@ -713,6 +714,24 @@ function routeKeyFor(origin: string, destination: string) {
   }
 
   return `${originAddress}\n${destinationAddress}`;
+}
+
+function googleMapsDirectionsUrl(origin: string, destination: string) {
+  const originAddress = origin.trim();
+  const destinationAddress = destination.trim();
+
+  if (!originAddress || !destinationAddress) {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    api: "1",
+    origin: originAddress,
+    destination: destinationAddress,
+    travelmode: "driving",
+  });
+
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
 function commaCount(value: string) {
@@ -2012,6 +2031,9 @@ export function PGFlexRoutePreview({
     !hasRoutePreviewError &&
     !routeValidationMessage &&
     hasBothAddresses;
+  const googleMapsRouteUrl = routeEstimate
+    ? googleMapsDirectionsUrl(origin, destination)
+    : null;
 
   return (
     <div className="space-y-4 md:col-span-2">
@@ -2319,6 +2341,22 @@ export function PGFlexRoutePreview({
                 )}
               </div>
             </div>
+          ) : null}
+          {googleMapsRouteUrl && !showMapOverlay ? (
+            <Button
+              asChild
+              size="sm"
+              className="absolute bottom-44 right-3 z-20 h-9 rounded-full border border-white/55 bg-blue-600 px-3.5 text-xs font-semibold text-white shadow-[0_16px_40px_rgba(37,99,235,0.28)] hover:bg-blue-700 md:bottom-24"
+            >
+              <a
+                href={googleMapsRouteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                {t("Open in Google Maps")}
+              </a>
+            </Button>
           ) : null}
         </div>
       </section>

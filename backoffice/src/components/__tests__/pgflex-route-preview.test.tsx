@@ -396,6 +396,9 @@ describe("PGFlexRoutePreview", () => {
       screen.queryByRole("button", { name: "Change route" }),
     ).not.toBeInTheDocument();
     expect(
+      screen.queryByRole("link", { name: "Open in Google Maps" }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.queryByTestId("pgflex-route-address-dock"),
     ).not.toBeInTheDocument();
 
@@ -482,6 +485,22 @@ describe("PGFlexRoutePreview", () => {
     });
     expect(screen.getByText("6.4 km")).toBeInTheDocument();
     expect(screen.getByText("21 min")).toBeInTheDocument();
+    const googleMapsLink = screen.getByRole("link", {
+      name: "Open in Google Maps",
+    });
+    expect(googleMapsLink).toHaveAttribute("target", "_blank");
+    expect(googleMapsLink).toHaveAttribute("rel", "noopener noreferrer");
+    const googleMapsUrl = new URL(googleMapsLink.getAttribute("href") ?? "");
+    expect(googleMapsUrl.origin).toBe("https://www.google.com");
+    expect(googleMapsUrl.pathname).toBe("/maps/dir/");
+    expect(googleMapsUrl.searchParams.get("api")).toBe("1");
+    expect(googleMapsUrl.searchParams.get("origin")).toBe(
+      "Av. Corrientes 123, Buenos Aires, CABA",
+    );
+    expect(googleMapsUrl.searchParams.get("destination")).toBe(
+      "Hospital Italiano, Buenos Aires",
+    );
+    expect(googleMapsUrl.searchParams.get("travelmode")).toBe("driving");
     expect(
       within(screen.getByTestId("pgflex-route-address-dock")).getByText(
         "Av. Corrientes 123, Buenos Aires, CABA",

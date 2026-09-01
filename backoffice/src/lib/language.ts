@@ -187,6 +187,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Google Maps no pudo calcular este recorrido. Revisá ambas direcciones y volvé a intentar con Visualizar recorrido.",
   "Add origin and destination addresses to preview the route.":
     "Agregá origen y destino para visualizar el recorrido.",
+  "Open in Google Maps": "Ver en Google Maps",
   "Complete origin address": "Completá el origen",
   "Add at least locality and province to the origin before previewing the route.":
     "Indicá al menos localidad y provincia en el origen antes de visualizar el recorrido.",
