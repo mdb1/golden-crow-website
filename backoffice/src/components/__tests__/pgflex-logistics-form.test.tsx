@@ -112,6 +112,7 @@ describe("PGFlexLogisticsForm", () => {
       screen.getAllByRole("button", { name: "Create dispatch" }),
     ).toHaveLength(1);
     expect(createButton).toHaveClass("h-16", "w-full");
+    expect(createButton).toHaveClass("lg:min-w-[20rem]", "lg:w-auto");
     expect(screen.queryByLabelText("Time requested")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Status")).not.toBeInTheDocument();
     expect(
