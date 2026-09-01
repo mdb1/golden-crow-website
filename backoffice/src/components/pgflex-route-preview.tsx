@@ -40,6 +40,7 @@ const ROUTES_COMPUTE_ROUTES_FIELD_MASK =
 const MAPS_STATIC_ENDPOINT = "https://maps.googleapis.com/maps/api/staticmap";
 const MAPS_STATIC_IMAGE_SIZE = "640x360";
 const MAPS_STATIC_IMAGE_SCALE = "2";
+const MINIMUM_ORIGIN_COMMA_COUNT = 2;
 const ROUTES_API_IMPLEMENTATION = {
   product: "Routes API",
   transport: "browser fetch",
@@ -604,6 +605,14 @@ function routeKeyFor(origin: string, destination: string) {
   }
 
   return `${originAddress}\n${destinationAddress}`;
+}
+
+function commaCount(value: string) {
+  return value.split(",").length - 1;
+}
+
+function hasEnoughOriginAddressContext(origin: string) {
+  return commaCount(origin) >= MINIMUM_ORIGIN_COMMA_COUNT;
 }
 
 function decodeEncodedPolyline(encodedPolyline: string): RoutePoint[] {
@@ -1499,9 +1508,13 @@ export function PGFlexRoutePreview({
   );
   const [routeErrorLog, setRouteErrorLog] = useState<string | null>(null);
   const [routeErrorLogOpen, setRouteErrorLogOpen] = useState(false);
+  const [routeValidationMessage, setRouteValidationMessage] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     const currentRouteKey = routeKeyFor(origin, destination);
+    setRouteValidationMessage(null);
 
     if (!currentRouteKey) {
       routeRequestIdRef.current += 1;
@@ -1546,6 +1559,7 @@ export function PGFlexRoutePreview({
     setRouteErrorMessage(null);
     setRouteErrorLog(null);
     setRouteErrorLogOpen(false);
+    setRouteValidationMessage(null);
     setMapsStatus("idle");
     setRouteStatus("idle");
   }
@@ -1556,6 +1570,25 @@ export function PGFlexRoutePreview({
     const currentRouteKey = routeKeyFor(originAddress, destinationAddress);
 
     if (!currentRouteKey) {
+      return;
+    }
+
+    if (!hasEnoughOriginAddressContext(originAddress)) {
+      activeRouteAbortControllerRef.current?.abort();
+      activeRouteAbortControllerRef.current = null;
+      routeRequestIdRef.current += 1;
+      setLockedRoute(null);
+      setRouteEstimate(null);
+      setRouteErrorMessage(null);
+      setRouteErrorLog(null);
+      setRouteErrorLogOpen(false);
+      setRouteValidationMessage(
+        t(
+          "Add at least locality and province to the origin before previewing the route.",
+        ),
+      );
+      setMapsStatus("idle");
+      setRouteStatus("idle");
       return;
     }
 
@@ -1573,6 +1606,7 @@ export function PGFlexRoutePreview({
     setRouteErrorMessage(null);
     setRouteErrorLog(null);
     setRouteErrorLogOpen(false);
+    setRouteValidationMessage(null);
     setMapsStatus("loading");
     setRouteStatus("loading");
 
@@ -1850,7 +1884,20 @@ export function PGFlexRoutePreview({
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-2">
-                    {hasBothAddresses ? (
+                    {routeValidationMessage ? (
+                      <div
+                        role="alert"
+                        className="flex flex-col items-center gap-2"
+                      >
+                        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-300" />
+                        <p className="text-sm font-medium text-foreground">
+                          {t("Complete origin address")}
+                        </p>
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          {routeValidationMessage}
+                        </p>
+                      </div>
+                    ) : hasBothAddresses ? (
                       <Button
                         type="button"
                         variant="default"

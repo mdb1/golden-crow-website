@@ -62,7 +62,7 @@ describe("PGFlexRoutePreview", () => {
 
   function enterRouteAddresses() {
     fireEvent.change(screen.getByLabelText("Origin"), {
-      target: { value: "Av. Corrientes 123, Buenos Aires" },
+      target: { value: "Av. Corrientes 123, Buenos Aires, CABA" },
     });
     fireEvent.change(screen.getByLabelText("Destination"), {
       target: { value: "Hospital Italiano, Buenos Aires" },
@@ -193,7 +193,7 @@ describe("PGFlexRoutePreview", () => {
     ).not.toBeInTheDocument();
 
     expect(onOriginChange).toHaveBeenCalledWith(
-      "Av. Corrientes 123, Buenos Aires",
+      "Av. Corrientes 123, Buenos Aires, CABA",
     );
     expect(onDestinationChange).toHaveBeenCalledWith(
       "Hospital Italiano, Buenos Aires",
@@ -224,7 +224,7 @@ describe("PGFlexRoutePreview", () => {
       );
     });
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
-      origin: { address: "Av. Corrientes 123, Buenos Aires" },
+      origin: { address: "Av. Corrientes 123, Buenos Aires, CABA" },
       destination: { address: "Hospital Italiano, Buenos Aires" },
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_AWARE",
@@ -257,6 +257,28 @@ describe("PGFlexRoutePreview", () => {
     expect(
       screen.getByTestId("pgflex-route-center-preview"),
     ).toBeInTheDocument();
+  });
+
+  it("asks for locality and province before calling Routes when the origin is too vague", () => {
+    const fetchMock = installSuccessfulRoutesRestMock();
+    renderControlledPreview();
+
+    fireEvent.change(screen.getByLabelText("Origin"), {
+      target: { value: "Av. Corrientes 123, Buenos Aires" },
+    });
+    fireEvent.change(screen.getByLabelText("Destination"), {
+      target: { value: "Hospital Italiano, Buenos Aires" },
+    });
+
+    fireEvent.click(screen.getByTestId("pgflex-route-center-preview"));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Preview route" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Add at least locality and province to the origin before previewing the route.",
+    );
   });
 
   it("uses the pinned PGFlex browser key when a generic Google Maps env key is stale", async () => {
@@ -297,7 +319,7 @@ describe("PGFlexRoutePreview", () => {
     expect(screen.getByText("21 min")).toBeInTheDocument();
     expect(
       within(screen.getByTestId("pgflex-route-address-dock")).getByText(
-        "Av. Corrientes 123, Buenos Aires",
+        "Av. Corrientes 123, Buenos Aires, CABA",
       ),
     ).toBeInTheDocument();
     expect(
@@ -398,7 +420,7 @@ describe("PGFlexRoutePreview", () => {
     );
     expect(logField.value).toContain('"matchesPinnedPGFlexKey": true');
     expect(logField.value).toContain(
-      '"address": "Av. Corrientes 123, Buenos Aires"',
+      '"address": "Av. Corrientes 123, Buenos Aires, CABA"',
     );
     expect(logField.value).toContain(
       '"address": "Hospital Italiano, Buenos Aires"',
