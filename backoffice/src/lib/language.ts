@@ -101,7 +101,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Route: "Recorrido",
   Pickup: "Retiro",
   "No PGFlex logistics items match the current filter.":
-    "No hay envíos PGFlex que coincidan con el filtro actual.",
+    "No hay envíos PGFlex activos en este momento.",
   "Unable to load more PGFlex logistics items.":
     "No se pudieron cargar más envíos PGFlex.",
   "Unable to refresh PGFlex logistics items.":
