@@ -12,6 +12,7 @@ import {
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import {
   PGFlexRoutePreview,
+  PGFlexRouteSnapshot,
   composePGFlexRouteOrigin,
   splitPGFlexRouteOrigin,
   type PGFlexRouteOriginParts,
@@ -116,6 +117,17 @@ describe("PGFlexRoutePreview", () => {
     render(
       <AppLanguageProvider forcedLanguage="en">
         <ControlledSplitOriginPreview />
+      </AppLanguageProvider>,
+    );
+  }
+
+  function renderRouteSnapshot() {
+    render(
+      <AppLanguageProvider forcedLanguage="en">
+        <PGFlexRouteSnapshot
+          destination="Humboldt 2433, Ciudad Autónoma de Buenos Aires, Argentina"
+          origin="Hidalgo 800, Villa Crespo, Ciudad Autónoma de Buenos Aires, Argentina"
+        />
       </AppLanguageProvider>,
     );
   }
@@ -368,6 +380,33 @@ describe("PGFlexRoutePreview", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Address and neighborhood/locality must each have at least 3 characters.",
     );
+  });
+
+  it("renders a simplified route snapshot without route controls or address overlays", async () => {
+    const fetchMock = installSuccessfulRoutesRestMock();
+    renderRouteSnapshot();
+
+    const snapshot = screen.getByTestId("pgflex-route-snapshot");
+    expect(snapshot).toBeInTheDocument();
+    expect(screen.queryByText("Route preview")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Preview route" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Change route" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("pgflex-route-address-dock"),
+    ).not.toBeInTheDocument();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.getByTestId("pgflex-route-static-map")).toBeInTheDocument(),
+    );
+    expect(snapshot).toHaveAttribute("data-status", "ready");
+    expect(
+      screen.queryByTestId("pgflex-route-address-dock"),
+    ).not.toBeInTheDocument();
   });
 
   it("joins split origin fields before requesting a route", async () => {

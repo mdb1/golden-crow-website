@@ -1255,11 +1255,13 @@ function RouteSketch({
   destination,
   origin,
   routeEstimate,
+  showAddressDock = true,
   t,
 }: {
   destination: string;
   origin: string;
   routeEstimate: RouteEstimate | null;
+  showAddressDock?: boolean;
   t: (text: string) => string;
 }) {
   const staticMapUrl = routeEstimate?.staticMapUrl ?? null;
@@ -1296,7 +1298,9 @@ function RouteSketch({
         />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_16%,rgba(124,58,237,0.08),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0)_42%,rgba(248,250,252,0.24))] dark:bg-[radial-gradient(circle_at_20%_16%,rgba(124,58,237,0.16),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.1),rgba(15,23,42,0)_42%,rgba(15,23,42,0.52))]" />
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white/60 via-white/24 to-transparent dark:from-slate-950/62 dark:via-slate-950/26" />
-        <RouteAddressDock destination={destination} origin={origin} t={t} />
+        {showAddressDock ? (
+          <RouteAddressDock destination={destination} origin={origin} t={t} />
+        ) : null}
       </div>
     );
   }
@@ -1434,7 +1438,9 @@ function RouteSketch({
         />
       </svg>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(124,58,237,0.13),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0)_40%,rgba(248,250,252,0.52))] dark:bg-[radial-gradient(circle_at_18%_18%,rgba(124,58,237,0.22),transparent_32%),linear-gradient(180deg,rgba(15,23,42,0.1),rgba(15,23,42,0)_42%,rgba(15,23,42,0.58))]" />
-      <RouteAddressDock destination={destination} origin={origin} t={t} />
+      {showAddressDock ? (
+        <RouteAddressDock destination={destination} origin={origin} t={t} />
+      ) : null}
     </div>
   );
 }
@@ -1552,6 +1558,116 @@ function RouteErrorLogDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function PGFlexRouteSnapshot({
+  className,
+  destination,
+  origin,
+}: {
+  className?: string;
+  destination: string;
+  origin: string;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const apiKey = resolveGoogleMapsApiKey();
+  const routeRequestIdRef = useRef(0);
+  const activeRouteAbortControllerRef = useRef<AbortController | null>(null);
+  const [routeStatus, setRouteStatus] = useState<RouteStatus>("idle");
+  const [routeEstimate, setRouteEstimate] = useState<RouteEstimate | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const originAddress = origin.trim();
+    const destinationAddress = destination.trim();
+    const currentRouteKey = routeKeyFor(originAddress, destinationAddress);
+
+    activeRouteAbortControllerRef.current?.abort();
+    activeRouteAbortControllerRef.current = null;
+    routeRequestIdRef.current += 1;
+    setRouteEstimate(null);
+
+    if (!currentRouteKey || !hasEnoughOriginAddressContext(originAddress)) {
+      setRouteStatus("idle");
+      return;
+    }
+
+    const abortController = new AbortController();
+    const routeRequestId = routeRequestIdRef.current;
+    activeRouteAbortControllerRef.current = abortController;
+    setRouteStatus("loading");
+
+    void requestRoute({
+      apiKey,
+      origin: originAddress,
+      destination: destinationAddress,
+      signal: abortController.signal,
+    })
+      .then((result) => {
+        if (
+          routeRequestIdRef.current !== routeRequestId ||
+          abortController.signal.aborted
+        ) {
+          return;
+        }
+
+        const duration = routeDurationFromResult(result);
+        const distance = routeDistanceFromResult(result);
+        const encodedPolyline = routeEncodedPolylineFromResult(result);
+        const path = routePathFromResult(result);
+
+        if (!duration || !distance || path.length < 2) {
+          setRouteStatus("error");
+          return;
+        }
+
+        setRouteEstimate({
+          distance,
+          duration,
+          encodedPolyline,
+          staticMapUrl: buildStaticMapUrl({ apiKey, encodedPolyline, path }),
+          path,
+          usesTraffic: routeUsesTrafficFromResult(result),
+        });
+        setRouteStatus("ready");
+      })
+      .catch((error) => {
+        if (isAbortError(error) || abortController.signal.aborted) {
+          return;
+        }
+
+        if (routeRequestIdRef.current === routeRequestId) {
+          setRouteStatus("error");
+        }
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, [apiKey, destination, origin]);
+
+  return (
+    <div
+      aria-label={t("Route preview map")}
+      data-status={routeStatus}
+      data-testid="pgflex-route-snapshot"
+      className={cn(
+        "relative h-56 overflow-hidden rounded-[1.35rem] border border-sky-100/80 bg-slate-100 shadow-[0_18px_44px_rgba(15,23,42,0.08)] dark:border-sky-300/16 dark:bg-slate-950 md:h-72",
+        routeStatus === "loading" && "animate-pulse",
+        className,
+      )}
+    >
+      <RouteSketch
+        destination={destination}
+        origin={origin}
+        routeEstimate={routeEstimate}
+        showAddressDock={false}
+        t={t}
+      />
+    </div>
   );
 }
 

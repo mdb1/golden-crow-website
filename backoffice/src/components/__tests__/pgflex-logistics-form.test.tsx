@@ -461,6 +461,8 @@ describe("PGFlexLogisticsForm", () => {
     renderForm({ item: pgflexItem({ canDelete: true }) });
 
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    expect(screen.getByText("Route preview")).toBeInTheDocument();
+    expect(screen.queryByTestId("pgflex-route-snapshot")).toBeNull();
     expect(
       screen.getByRole("button", { name: "Pedido Retirado" }),
     ).toBeInTheDocument();
@@ -517,6 +519,11 @@ describe("PGFlexLogisticsForm", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "ENV-001" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("pgflex-route-snapshot")).toBeInTheDocument();
+    expect(screen.queryByText("Route preview")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("pgflex-route-address-dock"),
     ).not.toBeInTheDocument();
     expect(screen.getByText("ENV-001")).toHaveClass(
       "text-[0.65rem]",

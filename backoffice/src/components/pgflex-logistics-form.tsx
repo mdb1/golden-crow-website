@@ -27,6 +27,7 @@ import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import {
   PGFlexRoutePreview,
+  PGFlexRouteSnapshot,
   composePGFlexRouteOrigin,
   splitPGFlexRouteOrigin,
   validatePGFlexRouteOriginParts,
@@ -710,6 +711,11 @@ export function PGFlexLogisticsForm({
             </div>
             <DispatcherRoutePoint label={t("To")} value={item.destination} />
           </div>
+
+          <PGFlexRouteSnapshot
+            destination={item.destination}
+            origin={item.origin}
+          />
 
           <div className="grid gap-3 md:grid-cols-2">
             <DispatcherReadOnlyField
