@@ -32,10 +32,10 @@ export const metadata: Metadata = {
 // post-hydration useEffect (ThemeBootstrap) — every full document load (new
 // tab, reload, login redirect) painted ~0.5s of light mode for dark-mode
 // users. This script runs synchronously in <head>, before any paint, reading
-// the same localStorage keys ThemeBootstrap uses ("gc-fitness-appearance"
-// first, then the Pocket Genes key). The attribute is no longer rendered by
+// the same localStorage keys ThemeBootstrap uses (Pocket Genes first, then the
+// legacy GC Fitness key). The attribute is no longer rendered by
 // React, so RSC refreshes can't stomp the runtime value back to light.
-const themeInitScript = `(function(){var t="light";try{var s=localStorage.getItem("gc-fitness-appearance")||localStorage.getItem("pocket-genes-admin-appearance");if(s==="dark"||s==="light")t=s;}catch(e){}var d=document.documentElement;d.dataset.theme=t;d.style.colorScheme=t;d.classList.toggle("dark",t==="dark");})();`;
+const themeInitScript = `(function(){var t="light";try{var p=localStorage.getItem("pocket-genes-admin-appearance");var g=localStorage.getItem("gc-fitness-appearance");var s=p||g;if(s==="dark"||s==="light")t=s;}catch(e){}var d=document.documentElement;d.dataset.theme=t;d.style.colorScheme=t;d.classList.toggle("dark",t==="dark");})();`;
 
 export default function RootLayout({
   children,

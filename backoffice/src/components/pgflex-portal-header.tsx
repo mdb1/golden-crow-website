@@ -47,11 +47,11 @@ export function PGFlexPortalHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-20 h-(--app-header-height) border-b border-border/80 bg-white/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-20 h-(--app-header-height) border-b border-border/80 bg-background/90 backdrop-blur-sm">
       <div className="flex h-(--app-header-height) items-center gap-3 px-4 lg:px-6">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-4" />
-        <h1 className="min-w-0 flex-1 truncate font-heading text-lg font-semibold text-slate-950">
+        <h1 className="min-w-0 flex-1 truncate font-heading text-lg font-semibold text-foreground">
           {titleForPath(pathname, language)}
         </h1>
         <AppearanceToggle />

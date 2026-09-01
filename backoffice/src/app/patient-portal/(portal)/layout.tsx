@@ -36,12 +36,12 @@ export default async function PatientPortalLayout({
   return (
     <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
       <SidebarProvider defaultOpen={false}>
-        <div className="flex min-h-screen w-full overflow-x-hidden bg-white">
+        <div className="flex min-h-screen w-full overflow-x-hidden bg-background text-foreground">
           <PatientPortalSidebar />
-          <SidebarInset className="min-h-screen min-w-0 bg-white">
-            <div className="flex min-h-screen min-w-0 flex-1 flex-col bg-white">
+          <SidebarInset className="min-h-screen min-w-0 bg-background">
+            <div className="flex min-h-screen min-w-0 flex-1 flex-col bg-background">
               <PatientPortalHeader />
-              <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white p-4 lg:p-6">
+              <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background p-4 lg:p-6">
                 <Providers adminContext={adminContext}>{children}</Providers>
               </main>
             </div>

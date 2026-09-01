@@ -52,12 +52,12 @@ export default async function DashboardLayout({
     return (
       <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
         <SidebarProvider defaultOpen={false}>
-          <div className="flex min-h-screen w-full overflow-x-hidden bg-white">
+          <div className="flex min-h-screen w-full overflow-x-hidden bg-background text-foreground">
             <PGFlexPortalSidebar />
-            <SidebarInset className="min-h-screen min-w-0 bg-white">
-              <div className="flex min-h-screen min-w-0 flex-1 flex-col bg-white">
+            <SidebarInset className="min-h-screen min-w-0 bg-background">
+              <div className="flex min-h-screen min-w-0 flex-1 flex-col bg-background">
                 <PGFlexPortalHeader />
-                <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white p-4 lg:p-6">
+                <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background p-4 lg:p-6">
                   <Providers adminContext={adminContext}>
                     <PGFlexRouteGuard>{children}</PGFlexRouteGuard>
                   </Providers>
@@ -87,10 +87,10 @@ export default async function DashboardLayout({
   return (
     <AppLanguageProvider initialLanguage={initialLanguage}>
       <SidebarProvider>
-        <div className="flex min-h-screen w-full overflow-x-hidden">
+        <div className="flex min-h-screen w-full overflow-x-hidden bg-background text-foreground">
           <AppSidebar adminContext={adminContext} />
-          <SidebarInset className="min-h-screen min-w-0 bg-transparent">
-            <div className="relative flex min-h-screen min-w-0 flex-1 flex-col overflow-hidden">
+          <SidebarInset className="min-h-screen min-w-0 bg-background">
+            <div className="relative flex min-h-screen min-w-0 flex-1 flex-col overflow-hidden bg-background">
               <AmbientBackdrop />
               <AppHeader user={session.user!} adminContext={adminContext} />
               <main className="relative z-10 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 lg:p-6">

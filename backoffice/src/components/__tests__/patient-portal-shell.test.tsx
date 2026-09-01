@@ -9,6 +9,8 @@ import { PatientPortalSidebar } from "@/components/patient-portal-sidebar";
 import { PGFlexPortalHeader } from "@/components/pgflex-portal-header";
 import { PGFlexPortalSidebar } from "@/components/pgflex-portal-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { ThemeBootstrap } from "@/components/theme-bootstrap";
+import { APPEARANCE_STORAGE_KEY } from "@/lib/appearance";
 import { LANGUAGE_STORAGE_KEY } from "@/lib/language";
 
 let pathname = "/patient-portal/home";
@@ -34,7 +36,7 @@ describe("patient portal Spanish shell", () => {
   it("forces Spanish without overwriting the backoffice language preference", async () => {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, "en");
 
-    render(
+    const { container } = render(
       <AppLanguageProvider initialLanguage="en" forcedLanguage="es">
         <SidebarProvider>
           <PatientPortalSidebar />
@@ -45,6 +47,17 @@ describe("patient portal Spanish shell", () => {
     );
 
     expect(screen.getByText("Portal de pacientes")).toBeTruthy();
+    expect(container.querySelector("header")?.className).toContain(
+      "bg-background/90",
+    );
+    expect(
+      screen.getByText("Estás en el portal de pacientes").className,
+    ).toContain("text-base");
+    const patientHomeShell = screen.getByText(
+      "Estás en el portal de pacientes",
+    ).parentElement;
+    expect(patientHomeShell?.className).toContain("bg-background");
+    expect(patientHomeShell?.className).toContain("text-foreground");
     expect(screen.getAllByText("Inicio").length).toBeGreaterThan(0);
     expect(screen.getByText("Mis datos")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeTruthy();
@@ -80,7 +93,7 @@ describe("PGFlex portal Spanish shell", () => {
   it("uses the patient-style shell with only Home, PGFlex, and account", async () => {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, "en");
 
-    render(
+    const { container } = render(
       <AppLanguageProvider initialLanguage="en" forcedLanguage="es">
         <SidebarProvider>
           <PGFlexPortalSidebar />
@@ -91,6 +104,14 @@ describe("PGFlex portal Spanish shell", () => {
     );
 
     expect(screen.getByText("Portal PGFlex")).toBeTruthy();
+    expect(container.querySelector("header")?.className).toContain(
+      "bg-background/90",
+    );
+    const pgflexHomeShell = screen.getByText(
+      "Estás en el portal PGFlex",
+    ).parentElement;
+    expect(pgflexHomeShell?.className).toContain("bg-background");
+    expect(pgflexHomeShell?.className).toContain("text-foreground");
     expect(screen.getAllByText("Inicio").length).toBeGreaterThan(0);
     expect(screen.getAllByText("PGFlex").length).toBeGreaterThan(0);
     expect(screen.getByText("Mi cuenta")).toBeTruthy();
@@ -100,5 +121,27 @@ describe("PGFlex portal Spanish shell", () => {
     expect(screen.queryByRole("group", { name: "Language" })).toBeNull();
     await waitFor(() => expect(document.documentElement.lang).toBe("es"));
     expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("en");
+  });
+});
+
+describe("theme bootstrap", () => {
+  beforeEach(() => {
+    document.documentElement.dataset.theme = "";
+    document.documentElement.style.colorScheme = "";
+    document.documentElement.classList.remove("dark");
+    window.localStorage.clear();
+  });
+
+  it("prioritizes the main backoffice appearance over the GC Fitness fallback", async () => {
+    window.localStorage.setItem("gc-fitness-appearance", "light");
+    window.localStorage.setItem(APPEARANCE_STORAGE_KEY, "dark");
+
+    render(<ThemeBootstrap />);
+
+    await waitFor(() =>
+      expect(document.documentElement.dataset.theme).toBe("dark"),
+    );
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(document.documentElement.style.colorScheme).toBe("dark");
   });
 });

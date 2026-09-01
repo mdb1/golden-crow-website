@@ -47,7 +47,7 @@ export function PatientProfileCompletion() {
   }
 
   return (
-    <main className="fixed inset-0 flex min-h-screen items-center justify-center bg-white px-5 text-slate-950">
+    <main className="fixed inset-0 flex min-h-screen items-center justify-center bg-background px-5 text-foreground">
       {failed ? (
         <div className="flex max-w-sm flex-col items-center gap-3 text-center">
           <p className="text-sm text-red-700">
@@ -66,7 +66,7 @@ export function PatientProfileCompletion() {
             aria-hidden="true"
             className="size-6 animate-spin text-blue-600"
           />
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted-foreground">
             Accediendo al portal de pacientes
           </p>
         </div>
