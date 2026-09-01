@@ -39,6 +39,11 @@ type RouteEstimate = {
 type LockedRoute = {
   key: string;
 };
+type GoogleMapsRouteError = Error & {
+  pgflexGoogleStatus?: string;
+  pgflexGoogleRequest?: unknown;
+  pgflexGoogleResult?: unknown;
+};
 type GoogleMapsWindow = Window &
   typeof globalThis & {
     google?: { maps: any };
@@ -68,6 +73,25 @@ function makeGoogleMapsConfigurationError(detail?: string) {
       : "Google Maps render authorization failed",
   );
   error.name = "GoogleMapsConfigurationError";
+  return error;
+}
+
+function makeGoogleMapsRouteError({
+  request,
+  result,
+  status,
+}: {
+  request: unknown;
+  result: unknown;
+  status: string;
+}) {
+  const error = new Error(
+    status || "Google Maps route request failed",
+  ) as GoogleMapsRouteError;
+  error.name = "GoogleMapsRouteError";
+  error.pgflexGoogleStatus = status;
+  error.pgflexGoogleRequest = request;
+  error.pgflexGoogleResult = result;
   return error;
 }
 
@@ -108,6 +132,117 @@ function installGoogleMapsAuthFailureHandler() {
 
 function getGoogleMapsAuthError() {
   return getGoogleMapsWindow().__pgflexGoogleMapsAuthError;
+}
+
+function serializableError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      pgflexGoogleStatus: (error as GoogleMapsRouteError).pgflexGoogleStatus,
+      pgflexGoogleRequest: (error as GoogleMapsRouteError).pgflexGoogleRequest,
+      pgflexGoogleResult: (error as GoogleMapsRouteError).pgflexGoogleResult,
+    };
+  }
+
+  return error;
+}
+
+function redactGoogleMapsApiKey(value: string) {
+  return value.replace(/([?&]key=)[^&]+/i, "$1[redacted]");
+}
+
+function googleMapsEnvironmentLog() {
+  const mapsWindow = getGoogleMapsWindow();
+  const script = document.getElementById(
+    GOOGLE_MAPS_SCRIPT_ID,
+  ) as HTMLScriptElement | null;
+
+  return {
+    pageUrl: window.location.href,
+    userAgent: window.navigator.userAgent,
+    script: script
+      ? {
+          id: script.id,
+          present: true,
+          src: redactGoogleMapsApiKey(script.src),
+          async: script.async,
+          defer: script.defer,
+          loaded: script.dataset.pgflexLoaded === "true",
+        }
+      : {
+          id: GOOGLE_MAPS_SCRIPT_ID,
+          present: false,
+        },
+    googleNamespacePresent: Boolean(mapsWindow.google?.maps),
+    directionsServicePresent: Boolean(
+      mapsWindow.google?.maps?.DirectionsService,
+    ),
+    authFailureCaptured: Boolean(mapsWindow.__pgflexGoogleMapsAuthError),
+  };
+}
+
+function stringifyErrorLog(value: unknown) {
+  const seen = new WeakSet<object>();
+
+  return JSON.stringify(
+    value,
+    (_key, nextValue) => {
+      if (nextValue instanceof Error) {
+        return serializableError(nextValue);
+      }
+
+      if (typeof nextValue === "function") {
+        return `[Function ${nextValue.name || "anonymous"}]`;
+      }
+
+      if (nextValue instanceof Element) {
+        return `<${nextValue.tagName.toLowerCase()}>`;
+      }
+
+      if (nextValue && typeof nextValue === "object") {
+        if (seen.has(nextValue)) {
+          return "[Circular]";
+        }
+
+        seen.add(nextValue);
+      }
+
+      return nextValue;
+    },
+    2,
+  );
+}
+
+function routeErrorLogForFailure({
+  destination,
+  error,
+  origin,
+  phase,
+}: {
+  destination: string;
+  error: unknown;
+  origin: string;
+  phase: string;
+}) {
+  const routeError = error as GoogleMapsRouteError;
+
+  return stringifyErrorLog({
+    capturedAt: new Date().toISOString(),
+    phase,
+    routeInput: {
+      origin,
+      destination,
+    },
+    googleApiDump: {
+      status: routeError.pgflexGoogleStatus,
+      request: routeError.pgflexGoogleRequest,
+      result: routeError.pgflexGoogleResult,
+    },
+    thrownError: serializableError(error),
+    environment: googleMapsEnvironmentLog(),
+  });
 }
 
 async function assertGoogleMapsAuthIsClean(signal: AbortSignal) {
@@ -280,27 +415,40 @@ function requestRoute({
   destination: string;
 }) {
   return new Promise<any>((resolve, reject) => {
-    directionsService.route(
-      {
-        origin,
-        destination,
-        travelMode: maps.TravelMode.DRIVING,
-        unitSystem: maps.UnitSystem.METRIC,
-        provideRouteAlternatives: false,
-        drivingOptions: {
-          departureTime: new Date(),
-          trafficModel: maps.TrafficModel.BEST_GUESS,
-        },
+    const departureTime = new Date();
+    const request = {
+      origin,
+      destination,
+      travelMode: maps.TravelMode.DRIVING,
+      unitSystem: maps.UnitSystem.METRIC,
+      provideRouteAlternatives: false,
+      drivingOptions: {
+        departureTime,
+        trafficModel: maps.TrafficModel.BEST_GUESS,
       },
-      (result: any, status: string) => {
-        if (status === "OK" && result) {
-          resolve(result);
-          return;
-        }
+    };
+    const loggableRequest = {
+      ...request,
+      drivingOptions: {
+        departureTime: departureTime.toISOString(),
+        trafficModel: maps.TrafficModel.BEST_GUESS,
+      },
+    };
 
-        reject(new Error(status));
-      },
-    );
+    directionsService.route(request, (result: any, status: string) => {
+      if (status === "OK" && result) {
+        resolve(result);
+        return;
+      }
+
+      reject(
+        makeGoogleMapsRouteError({
+          request: loggableRequest,
+          result,
+          status,
+        }),
+      );
+    });
   });
 }
 
@@ -604,6 +752,7 @@ export function PGFlexRoutePreview({
   const [routeErrorMessage, setRouteErrorMessage] = useState<string | null>(
     null,
   );
+  const [routeErrorLog, setRouteErrorLog] = useState<string | null>(null);
 
   useEffect(() => {
     const currentRouteKey = routeKeyFor(origin, destination);
@@ -616,6 +765,7 @@ export function PGFlexRoutePreview({
       lastPreviewedRouteKeyRef.current = null;
       setRouteEstimate(null);
       setRouteErrorMessage(null);
+      setRouteErrorLog(null);
       setRouteStatus("idle");
       return;
     }
@@ -628,6 +778,7 @@ export function PGFlexRoutePreview({
       lastPreviewedRouteKeyRef.current = null;
       setRouteEstimate(null);
       setRouteErrorMessage(null);
+      setRouteErrorLog(null);
       setRouteStatus("idle");
     }
   }, [destination, lockedRoute, origin]);
@@ -675,6 +826,7 @@ export function PGFlexRoutePreview({
     setLockedRoute(null);
     setRouteEstimate(null);
     setRouteErrorMessage(null);
+    setRouteErrorLog(null);
     setMapsStatus(directionsServiceRef.current ? "ready" : "idle");
     setRouteStatus("idle");
   }
@@ -698,6 +850,7 @@ export function PGFlexRoutePreview({
     });
     setRouteEstimate(null);
     setRouteErrorMessage(null);
+    setRouteErrorLog(null);
     setRouteStatus("loading");
 
     try {
@@ -752,6 +905,7 @@ export function PGFlexRoutePreview({
         }),
         usesTraffic: Boolean(leg?.duration_in_traffic),
       });
+      setRouteErrorLog(null);
       setRouteStatus("ready");
     } catch (error) {
       if (isAbortError(error) || routeRequestIdRef.current !== routeRequestId) {
@@ -766,6 +920,14 @@ export function PGFlexRoutePreview({
       }
       setRouteEstimate(null);
       setRouteErrorMessage(routeFailureMessage(finalError, t));
+      setRouteErrorLog(
+        routeErrorLogForFailure({
+          destination: destinationAddress,
+          error: finalError,
+          origin: originAddress,
+          phase: "DirectionsService.route",
+        }),
+      );
       setMapsStatus(
         isGoogleMapsConfigurationError(finalError)
           ? "error"
@@ -779,6 +941,10 @@ export function PGFlexRoutePreview({
         activeRouteAbortControllerRef.current = null;
       }
     }
+  }
+
+  function handleShowRouteLog() {
+    window.alert(routeErrorLog ?? t("No route error log available."));
   }
 
   const hasBothAddresses = Boolean(origin.trim() && destination.trim());
@@ -933,6 +1099,16 @@ export function PGFlexRoutePreview({
                           "Google Maps failed to load. Verify the browser API key, allowed domains, billing, and that Maps JavaScript API is enabled.",
                         )}
                     </p>
+                    {routeErrorLog ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleShowRouteLog}
+                      >
+                        {t("Show log")}
+                      </Button>
+                    ) : null}
                   </div>
                 ) : routeStatus === "error" ? (
                   <div
@@ -946,6 +1122,16 @@ export function PGFlexRoutePreview({
                     <p className="text-xs leading-5 text-muted-foreground">
                       {routeErrorMessage}
                     </p>
+                    {routeErrorLog ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleShowRouteLog}
+                      >
+                        {t("Show log")}
+                      </Button>
+                    ) : null}
                   </div>
                 ) : (
                   <>

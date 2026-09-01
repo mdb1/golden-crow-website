@@ -210,6 +210,9 @@ describe("PGFlexRoutePreview", () => {
   });
 
   it("shows an explicit route calculation alert when Google rejects the route", async () => {
+    const alertSpy = jest
+      .spyOn(window, "alert")
+      .mockImplementation(() => undefined);
     installRejectingGoogleMapsMock("REQUEST_DENIED");
     renderControlledPreview();
     enterRouteAddresses();
@@ -223,6 +226,18 @@ describe("PGFlexRoutePreview", () => {
     expect(
       screen.getByRole("button", { name: "Change route" }),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show log" }));
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(alertSpy.mock.calls[0]?.[0]).toContain("DirectionsService.route");
+    expect(alertSpy.mock.calls[0]?.[0]).toContain('"status": "REQUEST_DENIED"');
+    expect(alertSpy.mock.calls[0]?.[0]).toContain(
+      '"origin": "Av. Corrientes 123, Buenos Aires"',
+    );
+    expect(alertSpy.mock.calls[0]?.[0]).toContain(
+      '"destination": "Hospital Italiano, Buenos Aires"',
+    );
+    expect(alertSpy.mock.calls[0]?.[0]).toContain('"result": null');
+    alertSpy.mockRestore();
   });
 
   it("uses Directions without instantiating the broken interactive map renderer", async () => {

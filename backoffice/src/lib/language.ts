@@ -126,6 +126,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Route preview": "Vista del recorrido",
   "Preview route": "Previsualizar recorrido",
   "Change route": "Cambiar recorrido",
+  "No route error log available.":
+    "No hay log de error de recorrido disponible.",
   "Best driving route with approximate time.":
     "Mejor recorrido en auto con tiempo aproximado.",
   "Traffic aware": "Considera tráfico",
