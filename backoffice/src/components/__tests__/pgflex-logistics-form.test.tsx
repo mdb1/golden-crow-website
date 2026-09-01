@@ -464,10 +464,10 @@ describe("PGFlexLogisticsForm", () => {
     expect(screen.getByText("Route preview")).toBeInTheDocument();
     expect(screen.queryByTestId("pgflex-route-snapshot")).toBeNull();
     expect(
-      screen.getByRole("button", { name: "Pedido Retirado" }),
+      screen.getByRole("button", { name: "Mark as picked up" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Pedido Retirado" }));
+    await user.click(screen.getByRole("button", { name: "Mark as picked up" }));
 
     const dialog = await screen.findByRole("alertdialog", {
       name: "Are you sure?",
@@ -503,10 +503,10 @@ describe("PGFlexLogisticsForm", () => {
     });
 
     expect(
-      screen.getByRole("button", { name: "Pedido Entregado" }),
+      screen.getByRole("button", { name: "Mark as delivered" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Pedido Entregado" }));
+    await user.click(screen.getByRole("button", { name: "Mark as delivered" }));
 
     const dialog = await screen.findByRole("alertdialog", {
       name: "Are you sure?",
@@ -561,7 +561,7 @@ describe("PGFlexLogisticsForm", () => {
       screen.queryByRole("button", { name: "Delete dispatch" }),
     ).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Pedido Retirado" }));
+    await user.click(screen.getByRole("button", { name: "Mark as picked up" }));
 
     const dialog = await screen.findByRole("alertdialog", {
       name: "Are you sure?",
@@ -594,11 +594,11 @@ describe("PGFlexLogisticsForm", () => {
       transportDispatcherContext,
     );
 
-    expect(screen.getByText("Pedido Entregado")).toBeInTheDocument();
+    expect(screen.getByText("Mark as delivered")).toBeInTheDocument();
     expect(screen.getByText("Picked up at")).toBeInTheDocument();
     expect(screen.getByText("31-08-2026-12:00PM")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Pedido Entregado" }));
+    await user.click(screen.getByRole("button", { name: "Mark as delivered" }));
 
     const dialog = await screen.findByRole("alertdialog", {
       name: "Are you sure?",

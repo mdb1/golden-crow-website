@@ -175,7 +175,7 @@ function dispatcherActionForStatus(status: PGFlexLogisticsStatus) {
   if (status === "awaiting_pick_up") {
     return {
       nextStatus: "in_transit" as const,
-      label: "Pedido Retirado",
+      label: "Mark as picked up",
       savingLabel: "Saving pickup...",
       Icon: Truck,
     };
@@ -184,7 +184,7 @@ function dispatcherActionForStatus(status: PGFlexLogisticsStatus) {
   if (status === "in_transit") {
     return {
       nextStatus: "arrived" as const,
-      label: "Pedido Entregado",
+      label: "Mark as delivered",
       savingLabel: "Saving delivery...",
       Icon: CheckCircle2,
     };
