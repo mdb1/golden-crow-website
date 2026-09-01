@@ -44,7 +44,7 @@ export default async function TransportDispatchersPage() {
         }
       >
         <AreaAccessEntry
-          accessHref="/roles/access"
+          accessHref="/roles/access?from=transport-dispatchers"
           accessLabel="Role assignment capabilities"
           createHref="/roles/new?role=transport_dispatcher"
           canCreate={canCreateTransportDispatcher}

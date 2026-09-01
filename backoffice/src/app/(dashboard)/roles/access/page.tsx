@@ -1,27 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 import { RoleAssignmentCapabilitiesScreen } from "@/components/role-assignment-capabilities-screen";
 import { getAdminContextServer } from "@/lib/admin-context-server";
-import type { AdminRole } from "@/lib/admin-areas";
+import { selectedRoleForRoleAccess } from "@/lib/role-access-origin";
 import { getSurfaceSpec } from "@/lib/two-pq-dashboard";
-
-function isAdminRole(value: string | undefined): value is AdminRole {
-  return (
-    value === "full_admin" ||
-    value === "organization_publisher" ||
-    value === "individual_publisher" ||
-    value === "transport_dispatcher" ||
-    value === "institution_admin" ||
-    value === "institution_operator" ||
-    value === "institution_laboratory_staff" ||
-    value === "institution_doctor" ||
-    value === "patient"
-  );
-}
 
 export default async function RoleAccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ role?: string }>;
+  searchParams: Promise<{ from?: string; role?: string }>;
 }) {
   const adminContext = await getAdminContextServer();
   if (
@@ -31,7 +17,7 @@ export default async function RoleAccessPage({
     redirect("/my-account");
   }
   const surface = getSurfaceSpec("roles");
-  const { role } = await searchParams;
+  const { from, role } = await searchParams;
 
   if (!surface) {
     notFound();
@@ -40,7 +26,11 @@ export default async function RoleAccessPage({
   return (
     <RoleAssignmentCapabilitiesScreen
       entries={surface.roleAccess}
-      selectedRole={isAdminRole(role) ? role : adminContext.role}
+      selectedRole={selectedRoleForRoleAccess({
+        currentRole: adminContext.role,
+        from,
+        role,
+      })}
       currentRole={adminContext.role}
     />
   );

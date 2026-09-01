@@ -44,7 +44,7 @@ export default async function LaboratoryStaffPage() {
         }
       >
         <AreaAccessEntry
-          accessHref="/roles/access"
+          accessHref="/roles/access?from=laboratory-staff"
           accessLabel="Role assignment capabilities"
           createHref="/roles/new?role=institution_laboratory_staff"
           canCreate={canCreateLaboratoryStaff}

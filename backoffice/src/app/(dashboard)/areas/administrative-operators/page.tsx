@@ -44,7 +44,7 @@ export default async function AdministrativeOperatorsPage() {
         }
       >
         <AreaAccessEntry
-          accessHref="/roles/access"
+          accessHref="/roles/access?from=administrative-operators"
           accessLabel="Role assignment capabilities"
           createHref="/roles/new?role=institution_operator"
           canCreate={canCreateAdministrativeOperator}
