@@ -21,7 +21,8 @@ import { getUserRoleByEmail, normalizeRoleEmail } from "./roles.repository.js";
 const adminDb = adminDbFor("mydnamap");
 const USER_ROLES_COLLECTION = "user_roles";
 const PGFLEX_EVENTS_COLLECTION = "pgflex_events";
-const PGFLEX_2PQ_DESTINATION = "Humboldt 2433";
+const PGFLEX_2PQ_DESTINATION =
+  "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 

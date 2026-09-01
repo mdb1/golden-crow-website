@@ -34,7 +34,8 @@ function logisticsItem(
     identifier: "PGF-001",
     shipmentType: "2pq",
     origin: "Clinica Norte",
-    destination: "Humboldt 2433",
+    destination:
+      "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
     timeRequested: "2026-08-31T10:00:00.000Z",
     status: "awaiting_pick_up",
     createdAt: "2026-08-31T10:00:00.000Z",

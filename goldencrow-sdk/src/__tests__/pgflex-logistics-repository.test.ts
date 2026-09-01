@@ -331,7 +331,8 @@ describe("PGFlex logistics repository", () => {
       description: "Retiro inicial",
       linked_codes: "ABC,DEF",
       origin: "Laboratorio Central",
-      destination: "Humboldt 2433",
+      destination:
+        "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
       status: "in_transit",
       timeRequested: "2026-08-31T15:45:00.000Z",
     });
@@ -344,7 +345,8 @@ describe("PGFlex logistics repository", () => {
       dispatcherFirebaseId: null,
       dispatcherEmail: null,
       origin: "Laboratorio Central",
-      destination: "Humboldt 2433",
+      destination:
+        "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
       status: "in_transit",
       timeRequested: "2026-08-31T15:45:00.000Z",
       createdByEmail: "admin@example.com",
@@ -488,13 +490,13 @@ describe("PGFlex logistics repository", () => {
   });
 
   it("lets an assigned transport dispatcher mark a dispatch as picked up", async () => {
-    const { updatePGFlexLogisticsItemForContext } = await import(
-      "../repositories/pgflex-logistics.repository"
-    );
+    const { updatePGFlexLogisticsItemForContext } =
+      await import("../repositories/pgflex-logistics.repository");
     mockDocs.set("pgflex_events/dispatch-1", {
       identifier: "ENV-001",
       origin: "Clinica Norte",
-      destination: "Humboldt 2433",
+      destination:
+        "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
       dispatcherId: "driver-1",
       dispatcherFirebaseId: "driver-1",
       dispatcherEmail: "driver@example.com",
@@ -524,13 +526,13 @@ describe("PGFlex logistics repository", () => {
   });
 
   it("lets an assigned transport dispatcher mark an in-transit dispatch as delivered", async () => {
-    const { updatePGFlexLogisticsItemForContext } = await import(
-      "../repositories/pgflex-logistics.repository"
-    );
+    const { updatePGFlexLogisticsItemForContext } =
+      await import("../repositories/pgflex-logistics.repository");
     mockDocs.set("pgflex_events/dispatch-2", {
       identifier: "ENV-002",
       origin: "Clinica Norte",
-      destination: "Humboldt 2433",
+      destination:
+        "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
       dispatcherId: "driver-1",
       dispatcherFirebaseId: "driver-1",
       dispatcherEmail: "driver@example.com",
@@ -562,13 +564,13 @@ describe("PGFlex logistics repository", () => {
   });
 
   it("blocks transport dispatchers from arbitrary status changes", async () => {
-    const { updatePGFlexLogisticsItemForContext } = await import(
-      "../repositories/pgflex-logistics.repository"
-    );
+    const { updatePGFlexLogisticsItemForContext } =
+      await import("../repositories/pgflex-logistics.repository");
     mockDocs.set("pgflex_events/dispatch-3", {
       identifier: "ENV-003",
       origin: "Clinica Norte",
-      destination: "Humboldt 2433",
+      destination:
+        "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
       dispatcherId: "driver-1",
       dispatcherFirebaseId: "driver-1",
       dispatcherEmail: "driver@example.com",

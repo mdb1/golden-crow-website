@@ -84,7 +84,8 @@ function pgflexItem(
     dispatcherFirebaseId: "driver-1",
     dispatcherEmail: "driver@example.com",
     origin: "Clinica Norte",
-    destination: "Humboldt 2433",
+    destination:
+      "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
     timeRequested: "2026-08-31T10:00:00.000Z",
     status: "awaiting_pick_up" as const,
     createdAt: "2026-08-31T10:00:00.000Z",
@@ -182,7 +183,8 @@ describe("PGFlexLogisticsForm", () => {
           identifier: "PGF-001",
           shipmentType: "2pq",
           origin: "Av. Corrientes 123",
-          destination: "Humboldt 2433",
+          destination:
+            "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
         }),
       }),
     );
@@ -254,7 +256,8 @@ describe("PGFlexLogisticsForm", () => {
           shipmentType: "2pq",
           linked_codes: "ABC",
           origin: "Av. Santa Fe 1000",
-          destination: "Humboldt 2433",
+          destination:
+            "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
         }),
       }),
     );
@@ -285,7 +288,11 @@ describe("PGFlexLogisticsForm", () => {
     renderForm({ item: pgflexItem() }, transportDispatcherContext);
 
     expect(screen.getByText("Clinica Norte")).toBeInTheDocument();
-    expect(screen.getByText("Humboldt 2433")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Humboldt 2433\s+\(10 'C'\), Ciudad Autónoma de Buenos Aires, Argentina/,
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("ABC, DEF")).toBeInTheDocument();
     expect(screen.getByText("31-08-2026-10:00AM")).toBeInTheDocument();
     expect(
