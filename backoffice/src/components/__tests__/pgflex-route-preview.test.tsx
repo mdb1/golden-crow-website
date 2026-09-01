@@ -81,26 +81,16 @@ describe("PGFlexRoutePreview", () => {
   }
 
   function installRejectingGoogleMapsMock(status = "REQUEST_DENIED") {
-    const renderer = {
-      setDirections: jest.fn(),
-      setMap: jest.fn(),
-    };
-
     (window as any).google = {
       maps: {
-        DirectionsRenderer: jest.fn(() => renderer),
         DirectionsService: jest.fn(() => ({
-          route: jest.fn(),
-        })),
-        Geocoder: jest.fn(() => ({
-          geocode: jest.fn(
+          route: jest.fn(
             (
               _request: unknown,
-              callback: (results: unknown[] | null, status: string) => void,
+              callback: (result: unknown | null, status: string) => void,
             ) => callback(null, status),
           ),
         })),
-        Map: jest.fn(() => ({})),
         TrafficModel: { BEST_GUESS: "BEST_GUESS" },
         TravelMode: { DRIVING: "DRIVING" },
         UnitSystem: { METRIC: "METRIC" },
@@ -108,28 +98,39 @@ describe("PGFlexRoutePreview", () => {
     };
   }
 
-  function installBrokenMapRenderMock() {
-    const renderer = {
-      setDirections: jest.fn(),
-      setMap: jest.fn(),
+  function installSuccessfulDirectionsMock() {
+    const result = {
+      routes: [
+        {
+          overview_path: [
+            { lat: () => -34.6037, lng: () => -58.3816 },
+            { lat: () => -34.597, lng: () => -58.395 },
+            { lat: () => -34.592, lng: () => -58.402 },
+          ],
+          overview_polyline: { points: "encoded-route" },
+          legs: [
+            {
+              distance: { text: "6.4 km" },
+              duration: { text: "18 mins" },
+              duration_in_traffic: { text: "21 mins" },
+            },
+          ],
+        },
+      ],
     };
 
     (window as any).google = {
       maps: {
-        DirectionsRenderer: jest.fn(() => renderer),
         DirectionsService: jest.fn(() => ({
-          route: jest.fn(),
+          route: jest.fn(
+            (
+              _request: unknown,
+              callback: (result: unknown | null, status: string) => void,
+            ) => callback(result, "OK"),
+          ),
         })),
-        Geocoder: jest.fn(() => ({
-          geocode: jest.fn(),
-        })),
-        Map: jest.fn((container: HTMLElement) => {
-          const errorContainer = document.createElement("div");
-          errorContainer.className = "gm-err-container";
-          errorContainer.textContent =
-            "This page can't load Google Maps correctly.";
-          container.appendChild(errorContainer);
-          return {};
+        Map: jest.fn(() => {
+          throw new Error("Interactive map renderer should not be used");
         }),
         TrafficModel: { BEST_GUESS: "BEST_GUESS" },
         TravelMode: { DRIVING: "DRIVING" },
@@ -217,27 +218,23 @@ describe("PGFlexRoutePreview", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(
-      "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Geocoding and Directions APIs are enabled.",
+      "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Maps JavaScript API and Directions API are enabled.",
     );
     expect(
       screen.getByRole("button", { name: "Change route" }),
     ).toBeInTheDocument();
   });
 
-  it("reports a map render configuration error instead of waiting for timeout", async () => {
-    installBrokenMapRenderMock();
+  it("uses Directions without instantiating the broken interactive map renderer", async () => {
+    installSuccessfulDirectionsMock();
     renderControlledPreview();
     enterRouteAddresses();
 
     fireEvent.click(screen.getByRole("button", { name: "Preview route" }));
 
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(
-      "Google Maps loaded but refused to render the map.",
-    );
-    expect(alert).toHaveTextContent("not an address problem");
-    expect(
-      screen.getByRole("button", { name: "Change route" }),
-    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("6.4 km")).toBeInTheDocument());
+    expect(screen.getByText("21 mins")).toBeInTheDocument();
+    expect(screen.getByAltText("Route preview map")).toBeInTheDocument();
+    expect((window as any).google.maps.Map).not.toHaveBeenCalled();
   });
 });

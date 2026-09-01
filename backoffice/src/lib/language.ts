@@ -135,14 +135,14 @@ const SPANISH_TEXT: Record<string, string> = {
     "Configurá NEXT_PUBLIC_GOOGLE_MAPS_API_KEY para activar las vistas de recorrido.",
   "Finding route...": "Calculando recorrido...",
   "Unable to load Google Maps.": "No se pudo cargar Google Maps.",
-  "Google Maps is not rendering correctly.":
-    "Google Maps no está renderizando correctamente.",
+  "Google Maps route preview is unavailable.":
+    "La previsualización de recorrido de Google Maps no está disponible.",
   "Unable to calculate a route for these addresses.":
     "No se pudo calcular un recorrido para estas direcciones.",
-  "Google Maps loaded but refused to render the map. This is a Maps JavaScript configuration problem, not an address problem. Check browser API key restrictions for this domain, billing, and that Maps JavaScript API is enabled.":
-    "Google Maps cargó el script pero rechazó renderizar el mapa. Es un problema de configuración de Maps JavaScript, no de las direcciones. Revisá las restricciones de la API key para este dominio, billing y que Maps JavaScript API esté activa.",
-  "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Geocoding and Directions APIs are enabled.":
-    "Google rechazó la solicitud de servicios de recorrido. Normalmente es configuración de APIs, no las direcciones. Revisá restricciones de API key, billing y que Geocoding y Directions estén activas.",
+  "Google Maps rejected the route preview before calculation. This is a browser API key, billing, or API enablement problem, not an address problem. Check allowed domains for this deploy URL and that Maps JavaScript API and Directions API are enabled.":
+    "Google Maps rechazó la previsualización antes de calcular el recorrido. Es un problema de API key del navegador, billing o APIs activas, no de las direcciones. Revisá los dominios permitidos para esta URL y que Maps JavaScript API y Directions API estén activas.",
+  "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Maps JavaScript API and Directions API are enabled.":
+    "Google rechazó la solicitud de servicios de recorrido. Normalmente es configuración de APIs, no las direcciones. Revisá restricciones de API key, billing y que Maps JavaScript API y Directions API estén activas.",
   "Google could not find a drivable route for these addresses. Use full street, city, province, and country, then try again.":
     "Google no encontró un recorrido manejable para estas direcciones. Usá calle, ciudad, provincia y país completos, y volvé a intentar.",
   "Google Maps quota rejected this route request. Check project quota and billing before trying again.":

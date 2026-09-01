@@ -18,19 +18,23 @@ import { appText } from "@/lib/language";
 import { cn } from "@/lib/utils";
 
 const GOOGLE_MAPS_SCRIPT_ID = "pgflex-google-maps-js-api";
-const GOOGLE_MAPS_RENDER_ERROR_SELECTOR =
-  ".gm-err-container, .gm-err-title, .gm-err-message";
 const PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY =
   "AIzaSyDX5QOmZrG7GekSIMoqFT3oymQP20w2az0";
 const ROUTE_REQUEST_TIMEOUT_MS = 15000;
-const MAP_RENDER_ERROR_CHECK_DELAY_MS = 250;
+const MAP_AUTH_ERROR_CHECK_DELAY_MS = 250;
 
 type MapsLoadStatus = "idle" | "loading" | "ready" | "error";
 type RouteStatus = "idle" | "loading" | "ready" | "error";
+type RoutePoint = {
+  lat: number;
+  lng: number;
+};
 type RouteEstimate = {
   distance: string;
   duration: string;
   usesTraffic: boolean;
+  path: RoutePoint[];
+  staticMapUrl: string;
 };
 type LockedRoute = {
   key: string;
@@ -74,7 +78,7 @@ function isGoogleMapsConfigurationError(error: unknown) {
 
   return (
     error.name === "GoogleMapsConfigurationError" ||
-    /render authorization failed|This page can't load Google Maps correctly|Oops! Something went wrong/i.test(
+    /render authorization failed|route authorization failed|This page can't load Google Maps correctly|Oops! Something went wrong/i.test(
       error.message,
     )
   );
@@ -106,38 +110,8 @@ function getGoogleMapsAuthError() {
   return getGoogleMapsWindow().__pgflexGoogleMapsAuthError;
 }
 
-function detectGoogleMapsRenderError(container: HTMLElement | null) {
-  const authError = getGoogleMapsAuthError();
-
-  if (authError) {
-    return authError;
-  }
-
-  if (!container) {
-    return null;
-  }
-
-  const errorNode = container.querySelector(GOOGLE_MAPS_RENDER_ERROR_SELECTOR);
-  const errorText =
-    errorNode?.textContent?.trim() || container.textContent?.trim() || "";
-
-  if (
-    errorNode ||
-    /This page can't load Google Maps correctly|Oops! Something went wrong/i.test(
-      errorText,
-    )
-  ) {
-    return makeGoogleMapsConfigurationError(errorText);
-  }
-
-  return null;
-}
-
-async function assertGoogleMapsCanRender(
-  container: HTMLElement | null,
-  signal: AbortSignal,
-) {
-  const immediateError = detectGoogleMapsRenderError(container);
+async function assertGoogleMapsAuthIsClean(signal: AbortSignal) {
+  const immediateError = getGoogleMapsAuthError();
 
   if (immediateError) {
     throw immediateError;
@@ -145,14 +119,14 @@ async function assertGoogleMapsCanRender(
 
   await withTimeout(
     new Promise<void>((resolve) => {
-      window.setTimeout(resolve, MAP_RENDER_ERROR_CHECK_DELAY_MS);
+      window.setTimeout(resolve, MAP_AUTH_ERROR_CHECK_DELAY_MS);
     }),
     ROUTE_REQUEST_TIMEOUT_MS,
     signal,
-    "Google Maps render check timed out",
+    "Google Maps auth check timed out",
   );
 
-  const delayedError = detectGoogleMapsRenderError(container);
+  const delayedError = getGoogleMapsAuthError();
 
   if (delayedError) {
     throw delayedError;
@@ -294,21 +268,6 @@ function resetGoogleMapsLoaderIfPending() {
   document.getElementById(GOOGLE_MAPS_SCRIPT_ID)?.remove();
 }
 
-function geocodeAddress(geocoder: any, address: string) {
-  return new Promise<any>((resolve, reject) => {
-    geocoder.geocode({ address }, (results: any[] | null, status: string) => {
-      const location = results?.[0]?.geometry?.location;
-
-      if (status === "OK" && location) {
-        resolve(location);
-        return;
-      }
-
-      reject(new Error(status));
-    });
-  });
-}
-
 function requestRoute({
   directionsService,
   maps,
@@ -317,8 +276,8 @@ function requestRoute({
 }: {
   directionsService: any;
   maps: any;
-  origin: any;
-  destination: any;
+  origin: string;
+  destination: string;
 }) {
   return new Promise<any>((resolve, reject) => {
     directionsService.route(
@@ -345,18 +304,6 @@ function requestRoute({
   });
 }
 
-function clearRenderedRoute(directionsRenderer: any, map: any) {
-  if (!directionsRenderer) {
-    return;
-  }
-
-  directionsRenderer.setMap(null);
-
-  if (map) {
-    directionsRenderer.setMap(map);
-  }
-}
-
 function routeKeyFor(origin: string, destination: string) {
   const originAddress = origin.trim();
   const destinationAddress = destination.trim();
@@ -368,6 +315,217 @@ function routeKeyFor(origin: string, destination: string) {
   return `${originAddress}\n${destinationAddress}`;
 }
 
+function coordinateValue(location: any, key: "lat" | "lng") {
+  const candidate =
+    typeof location?.[key] === "function" ? location[key]() : location?.[key];
+  return typeof candidate === "number" && Number.isFinite(candidate)
+    ? candidate
+    : null;
+}
+
+function routePointFromLatLng(location: any): RoutePoint | null {
+  const lat = coordinateValue(location, "lat");
+  const lng = coordinateValue(location, "lng");
+
+  return lat === null || lng === null ? null : { lat, lng };
+}
+
+function routePathFromResult(result: any): RoutePoint[] {
+  const route = result?.routes?.[0];
+  const overviewPath = Array.isArray(route?.overview_path)
+    ? route.overview_path
+    : [];
+  const points = overviewPath
+    .map(routePointFromLatLng)
+    .filter((point: RoutePoint | null): point is RoutePoint => Boolean(point));
+
+  if (points.length >= 2) {
+    return points;
+  }
+
+  const leg = route?.legs?.[0];
+  const start = routePointFromLatLng(leg?.start_location);
+  const end = routePointFromLatLng(leg?.end_location);
+
+  return [start, end].filter((point: RoutePoint | null): point is RoutePoint =>
+    Boolean(point),
+  );
+}
+
+function routePolylineFromResult(result: any) {
+  const polyline = result?.routes?.[0]?.overview_polyline?.points;
+  return typeof polyline === "string" && polyline.trim()
+    ? polyline.trim()
+    : null;
+}
+
+function staticMapUrlForRoute({
+  apiKey,
+  destination,
+  origin,
+  polyline,
+}: {
+  apiKey: string;
+  destination: string;
+  origin: string;
+  polyline: string | null;
+}) {
+  const params = new URLSearchParams({
+    key: apiKey,
+    maptype: "roadmap",
+    scale: "2",
+    size: "640x360",
+  });
+
+  params.append("markers", `color:0x2563eb|label:A|${origin}`);
+  params.append("markers", `color:0x16a34a|label:B|${destination}`);
+
+  if (polyline) {
+    params.append("path", `color:0x7c3aedff|weight:5|enc:${polyline}`);
+  }
+
+  return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
+}
+
+function sketchPolylinePoints(path: RoutePoint[]) {
+  if (path.length < 2) {
+    return "56,214 320,116 584,214";
+  }
+
+  const minLat = Math.min(...path.map((point) => point.lat));
+  const maxLat = Math.max(...path.map((point) => point.lat));
+  const minLng = Math.min(...path.map((point) => point.lng));
+  const maxLng = Math.max(...path.map((point) => point.lng));
+  const latRange = maxLat - minLat || 0.01;
+  const lngRange = maxLng - minLng || 0.01;
+  const padding = 44;
+  const width = 640;
+  const height = 300;
+
+  return path
+    .map((point) => {
+      const x =
+        padding + ((point.lng - minLng) / lngRange) * (width - padding * 2);
+      const y =
+        padding +
+        (1 - (point.lat - minLat) / latRange) * (height - padding * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function RouteSketch({
+  destination,
+  origin,
+  routeEstimate,
+}: {
+  destination: string;
+  origin: string;
+  routeEstimate: RouteEstimate | null;
+}) {
+  const [staticMapFailed, setStaticMapFailed] = useState(false);
+
+  useEffect(() => {
+    setStaticMapFailed(false);
+  }, [routeEstimate?.staticMapUrl]);
+
+  if (routeEstimate?.staticMapUrl && !staticMapFailed) {
+    return (
+      <img
+        src={routeEstimate.staticMapUrl}
+        alt="Route preview map"
+        className="h-full w-full object-cover"
+        onError={() => setStaticMapFailed(true)}
+      />
+    );
+  }
+
+  const points = sketchPolylinePoints(routeEstimate?.path ?? []);
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-full w-full"
+      viewBox="0 0 640 300"
+      role="presentation"
+    >
+      <defs>
+        <linearGradient id="pgflex-route-line" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="52%" stopColor="#7c3aed" />
+          <stop offset="100%" stopColor="#22c55e" />
+        </linearGradient>
+      </defs>
+      <rect width="640" height="300" fill="rgba(248,250,252,0.72)" />
+      <path
+        d="M 52 58 C 156 18 236 88 320 54 S 484 38 588 86"
+        fill="none"
+        stroke="rgba(148,163,184,0.22)"
+        strokeWidth="20"
+        strokeLinecap="round"
+      />
+      <path
+        d="M 40 230 C 144 188 242 246 332 206 S 502 162 600 210"
+        fill="none"
+        stroke="rgba(14,165,233,0.14)"
+        strokeWidth="24"
+        strokeLinecap="round"
+      />
+      <polyline
+        points={points}
+        fill="none"
+        stroke="rgba(15,23,42,0.14)"
+        strokeWidth="13"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <polyline
+        points={points}
+        fill="none"
+        stroke="url(#pgflex-route-line)"
+        strokeWidth="7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="56" cy="214" r="15" fill="#2563eb" />
+      <circle cx="584" cy="214" r="15" fill="#16a34a" />
+      <text
+        x="56"
+        y="219"
+        textAnchor="middle"
+        fill="white"
+        fontSize="13"
+        fontWeight="700"
+      >
+        A
+      </text>
+      <text
+        x="584"
+        y="219"
+        textAnchor="middle"
+        fill="white"
+        fontSize="13"
+        fontWeight="700"
+      >
+        B
+      </text>
+      <text x="42" y="278" fill="#334155" fontSize="13" fontWeight="700">
+        {origin || "Origen"}
+      </text>
+      <text
+        x="598"
+        y="278"
+        fill="#334155"
+        fontSize="13"
+        fontWeight="700"
+        textAnchor="end"
+      >
+        {destination || "Destino"}
+      </text>
+    </svg>
+  );
+}
+
 function routeFailureMessage(
   error: unknown,
   translate: (text: string) => string,
@@ -376,13 +534,13 @@ function routeFailureMessage(
 
   if (isGoogleMapsConfigurationError(error)) {
     return translate(
-      "Google Maps loaded but refused to render the map. This is a Maps JavaScript configuration problem, not an address problem. Check browser API key restrictions for this domain, billing, and that Maps JavaScript API is enabled.",
+      "Google Maps rejected the route preview before calculation. This is a browser API key, billing, or API enablement problem, not an address problem. Check allowed domains for this deploy URL and that Maps JavaScript API and Directions API are enabled.",
     );
   }
 
   if (/REQUEST_DENIED/i.test(message)) {
     return translate(
-      "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Geocoding and Directions APIs are enabled.",
+      "Google rejected the route services request. This is usually API configuration, not the addresses. Check API key restrictions, billing, and that Maps JavaScript API and Directions API are enabled.",
     );
   }
 
@@ -433,11 +591,7 @@ export function PGFlexRoutePreview({
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const apiKey = resolveGoogleMapsApiKey();
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<any>(null);
-  const geocoderRef = useRef<any>(null);
   const directionsServiceRef = useRef<any>(null);
-  const directionsRendererRef = useRef<any>(null);
   const routeRequestIdRef = useRef(0);
   const activeRouteAbortControllerRef = useRef<AbortController | null>(null);
   const lastPreviewedRouteKeyRef = useRef<string | null>(null);
@@ -458,7 +612,6 @@ export function PGFlexRoutePreview({
       routeRequestIdRef.current += 1;
       activeRouteAbortControllerRef.current?.abort();
       activeRouteAbortControllerRef.current = null;
-      clearRenderedRoute(directionsRendererRef.current, mapRef.current);
       setLockedRoute(null);
       lastPreviewedRouteKeyRef.current = null;
       setRouteEstimate(null);
@@ -471,7 +624,6 @@ export function PGFlexRoutePreview({
       routeRequestIdRef.current += 1;
       activeRouteAbortControllerRef.current?.abort();
       activeRouteAbortControllerRef.current = null;
-      clearRenderedRoute(directionsRendererRef.current, mapRef.current);
       setLockedRoute(null);
       lastPreviewedRouteKeyRef.current = null;
       setRouteEstimate(null);
@@ -488,21 +640,14 @@ export function PGFlexRoutePreview({
     [],
   );
 
-  async function ensureMapReady(signal: AbortSignal) {
-    const mapContainer = mapContainerRef.current;
-
-    if (
-      mapContainer &&
-      mapRef.current &&
-      geocoderRef.current &&
-      directionsServiceRef.current &&
-      directionsRendererRef.current
-    ) {
-      await assertGoogleMapsCanRender(mapContainer, signal);
+  async function ensureRouteServicesReady(signal: AbortSignal) {
+    if (directionsServiceRef.current) {
+      await assertGoogleMapsAuthIsClean(signal);
       setMapsStatus("ready");
       return;
     }
 
+    clearGoogleMapsAuthError();
     setMapsStatus("loading");
     await withTimeout(
       loadGoogleMaps(apiKey),
@@ -512,46 +657,12 @@ export function PGFlexRoutePreview({
     );
     const maps = getGoogleMapsWindow().google?.maps;
 
-    if (!maps || !mapContainer) {
+    if (!maps?.DirectionsService) {
       throw new Error("Google Maps namespace is unavailable");
     }
 
-    if (!mapRef.current) {
-      mapRef.current = new maps.Map(mapContainer, {
-        center: { lat: -34.6037, lng: -58.3816 },
-        zoom: 11,
-        clickableIcons: false,
-        disableDefaultUI: true,
-        gestureHandling: "cooperative",
-        styles: [
-          {
-            featureType: "poi",
-            stylers: [{ visibility: "off" }],
-          },
-          {
-            featureType: "transit",
-            stylers: [{ visibility: "off" }],
-          },
-        ],
-      });
-    }
-
-    if (!directionsRendererRef.current) {
-      directionsRendererRef.current = new maps.DirectionsRenderer({
-        map: mapRef.current,
-        preserveViewport: false,
-        suppressMarkers: false,
-        polylineOptions: {
-          strokeColor: "#7c3aed",
-          strokeOpacity: 0.82,
-          strokeWeight: 5,
-        },
-      });
-    }
-
-    geocoderRef.current ??= new maps.Geocoder();
     directionsServiceRef.current ??= new maps.DirectionsService();
-    await assertGoogleMapsCanRender(mapContainer, signal);
+    await assertGoogleMapsAuthIsClean(signal);
     setMapsStatus("ready");
   }
 
@@ -560,12 +671,11 @@ export function PGFlexRoutePreview({
     activeRouteAbortControllerRef.current = null;
     routeRequestIdRef.current += 1;
     resetGoogleMapsLoaderIfPending();
-    clearRenderedRoute(directionsRendererRef.current, mapRef.current);
     lastPreviewedRouteKeyRef.current = null;
     setLockedRoute(null);
     setRouteEstimate(null);
     setRouteErrorMessage(null);
-    setMapsStatus(mapRef.current ? "ready" : "idle");
+    setMapsStatus(directionsServiceRef.current ? "ready" : "idle");
     setRouteStatus("idle");
   }
 
@@ -591,36 +701,25 @@ export function PGFlexRoutePreview({
     setRouteStatus("loading");
 
     try {
-      await ensureMapReady(abortController.signal);
+      await ensureRouteServicesReady(abortController.signal);
 
       if (routeRequestIdRef.current !== routeRequestId) {
         return;
       }
 
       const maps = getGoogleMapsWindow().google?.maps;
-      const geocoder = geocoderRef.current;
       const directionsService = directionsServiceRef.current;
-      const directionsRenderer = directionsRendererRef.current;
 
-      if (!maps || !geocoder || !directionsService || !directionsRenderer) {
+      if (!maps || !directionsService) {
         throw new Error("Google Maps route services are unavailable");
       }
 
-      const [originLocation, destinationLocation] = await withTimeout(
-        Promise.all([
-          geocodeAddress(geocoder, originAddress),
-          geocodeAddress(geocoder, destinationAddress),
-        ]),
-        ROUTE_REQUEST_TIMEOUT_MS,
-        abortController.signal,
-        "Google Maps geocoding timed out",
-      );
       const result = await withTimeout(
         requestRoute({
           directionsService,
           maps,
-          origin: originLocation,
-          destination: destinationLocation,
+          origin: originAddress,
+          destination: destinationAddress,
         }),
         ROUTE_REQUEST_TIMEOUT_MS,
         abortController.signal,
@@ -631,12 +730,12 @@ export function PGFlexRoutePreview({
         return;
       }
 
-      directionsRenderer.setDirections(result);
       const leg = result.routes?.[0]?.legs?.[0];
       const duration = leg?.duration_in_traffic?.text ?? leg?.duration?.text;
       const distance = leg?.distance?.text;
+      const path = routePathFromResult(result);
 
-      if (!duration || !distance) {
+      if (!duration || !distance || path.length < 2) {
         throw new Error("Route leg is incomplete");
       }
 
@@ -644,6 +743,13 @@ export function PGFlexRoutePreview({
       setRouteEstimate({
         distance,
         duration,
+        path,
+        staticMapUrl: staticMapUrlForRoute({
+          apiKey,
+          destination: destinationAddress,
+          origin: originAddress,
+          polyline: routePolylineFromResult(result),
+        }),
         usesTraffic: Boolean(leg?.duration_in_traffic),
       });
       setRouteStatus("ready");
@@ -652,25 +758,18 @@ export function PGFlexRoutePreview({
         return;
       }
 
-      const renderedMapError = detectGoogleMapsRenderError(
-        mapContainerRef.current,
-      );
-      const finalError = renderedMapError ?? error;
+      const finalError = getGoogleMapsAuthError() ?? error;
 
       resetGoogleMapsLoaderIfPending();
-      clearRenderedRoute(directionsRendererRef.current, mapRef.current);
       if (isGoogleMapsConfigurationError(finalError)) {
-        mapRef.current = null;
-        geocoderRef.current = null;
         directionsServiceRef.current = null;
-        directionsRendererRef.current = null;
       }
       setRouteEstimate(null);
       setRouteErrorMessage(routeFailureMessage(finalError, t));
       setMapsStatus(
         isGoogleMapsConfigurationError(finalError)
           ? "error"
-          : mapRef.current
+          : directionsServiceRef.current
             ? "ready"
             : "error",
       );
@@ -692,7 +791,6 @@ export function PGFlexRoutePreview({
     routeStatus === "idle" ||
     routeStatus === "loading" ||
     routeStatus === "error";
-  const hideMapCanvas = mapsStatus === "error";
 
   return (
     <div className="space-y-4 md:col-span-2">
@@ -798,16 +896,17 @@ export function PGFlexRoutePreview({
 
         <div className="relative h-72 overflow-hidden bg-[radial-gradient(circle_at_20%_20%,rgba(124,58,237,0.18),transparent_28%),linear-gradient(135deg,rgba(148,163,184,0.18),rgba(255,255,255,0.08))]">
           <div
-            ref={mapContainerRef}
             className={cn(
               "h-full w-full transition-opacity duration-300",
-              hideMapCanvas
-                ? "opacity-0"
-                : showMapOverlay
-                  ? "opacity-25"
-                  : "opacity-100",
+              showMapOverlay ? "opacity-25" : "opacity-100",
             )}
-          />
+          >
+            <RouteSketch
+              destination={destination}
+              origin={origin}
+              routeEstimate={routeEstimate}
+            />
+          </div>
 
           {showMapOverlay ? (
             <div className="absolute inset-0 flex items-center justify-center px-4">
@@ -826,7 +925,7 @@ export function PGFlexRoutePreview({
                   >
                     <AlertTriangle className="h-5 w-5 text-destructive" />
                     <p className="text-sm font-medium text-foreground">
-                      {t("Google Maps is not rendering correctly.")}
+                      {t("Google Maps route preview is unavailable.")}
                     </p>
                     <p className="text-xs leading-5 text-muted-foreground">
                       {routeErrorMessage ??
