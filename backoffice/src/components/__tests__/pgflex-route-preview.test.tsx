@@ -395,9 +395,23 @@ describe("PGFlexRoutePreview", () => {
     expect(
       screen.queryByRole("button", { name: "Change route" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Open in Google Maps" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    const googleMapsLink = screen.getByRole("link", {
+      name: "Open in Google Maps",
+    });
+    expect(googleMapsLink).toHaveAttribute("target", "_blank");
+    expect(googleMapsLink).toHaveAttribute("rel", "noopener noreferrer");
+    const googleMapsUrl = new URL(googleMapsLink.getAttribute("href") ?? "");
+    expect(googleMapsUrl.origin).toBe("https://www.google.com");
+    expect(googleMapsUrl.pathname).toBe("/maps/dir/");
+    expect(googleMapsUrl.searchParams.get("api")).toBe("1");
+    expect(googleMapsUrl.searchParams.get("origin")).toBe(
+      "Hidalgo 800, Villa Crespo, Ciudad Autónoma de Buenos Aires, Argentina",
+    );
+    expect(googleMapsUrl.searchParams.get("destination")).toBe(
+      "Humboldt 2433, Ciudad Autónoma de Buenos Aires, Argentina",
+    );
+    expect(googleMapsUrl.searchParams.get("travelmode")).toBe("driving");
     expect(
       screen.queryByTestId("pgflex-route-address-dock"),
     ).not.toBeInTheDocument();

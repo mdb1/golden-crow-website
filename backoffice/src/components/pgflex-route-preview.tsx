@@ -1598,6 +1598,7 @@ export function PGFlexRouteSnapshot({
   const [routeEstimate, setRouteEstimate] = useState<RouteEstimate | null>(
     null,
   );
+  const googleMapsRouteUrl = googleMapsDirectionsUrl(origin, destination);
 
   useEffect(() => {
     const originAddress = origin.trim();
@@ -1686,6 +1687,22 @@ export function PGFlexRouteSnapshot({
         showAddressDock={false}
         t={t}
       />
+      {googleMapsRouteUrl ? (
+        <Button
+          asChild
+          size="sm"
+          className="absolute bottom-3 right-3 z-20 h-9 rounded-full border border-white/55 bg-blue-600 px-3.5 text-xs font-semibold text-white shadow-[0_16px_40px_rgba(37,99,235,0.28)] hover:bg-blue-700"
+        >
+          <a
+            href={googleMapsRouteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            {t("Open in Google Maps")}
+          </a>
+        </Button>
+      ) : null}
     </div>
   );
 }
