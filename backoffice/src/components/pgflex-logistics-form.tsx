@@ -45,11 +45,14 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { appText } from "@/lib/language";
 import {
+  PGFLEX_2PQ_DESTINATION,
+  PGFLEX_LOGISTICS_SHIPMENT_TYPE_OPTIONS,
   PGFLEX_LOGISTICS_STATUS_OPTIONS,
   getPGFlexStatusBadgeVariant,
   getPGFlexStatusLabel,
   type PGFlexLogisticsInput,
   type PGFlexLogisticsListItem,
+  type PGFlexLogisticsShipmentType,
   type PGFlexLogisticsStatus,
   type PGFlexTransportDispatcherOption,
 } from "@/lib/pgflex-logistics";
@@ -60,6 +63,7 @@ const UNASSIGNED_DISPATCHER_VALUE = "__unassigned__";
 
 type LogisticsFormState = {
   identifier: string;
+  shipmentType: PGFlexLogisticsShipmentType;
   description: string;
   linkedCodes: string[];
   dispatcherId: string;
@@ -95,16 +99,22 @@ function toFormState(
     (dispatcherId.includes("@") ? "" : dispatcherId);
   const dispatcherEmail =
     item?.dispatcherEmail ?? (dispatcherId.includes("@") ? dispatcherId : "");
+  const shipmentType =
+    item?.shipmentType ??
+    (item ? (item.linked_codes ? "2pq" : "other") : "2pq");
 
   return {
     identifier: item?.identifier ?? "",
+    shipmentType,
     description: item?.description ?? "",
     linkedCodes: linkedCodesFromCsv(item?.linked_codes),
     dispatcherId,
     dispatcherFirebaseId,
     dispatcherEmail,
     origin: item?.origin ?? "",
-    destination: item?.destination ?? "",
+    destination:
+      item?.destination ??
+      (shipmentType === "other" ? "" : PGFLEX_2PQ_DESTINATION),
     status: item?.status ?? "awaiting_pick_up",
   };
 }
@@ -121,14 +131,20 @@ function toPayload(
 
   return {
     identifier: state.identifier.trim(),
+    shipmentType: state.shipmentType,
     description: state.description.trim() || undefined,
     linked_codes:
-      state.linkedCodes.length > 0 ? state.linkedCodes.join(",") : undefined,
+      state.shipmentType === "2pq" && state.linkedCodes.length > 0
+        ? state.linkedCodes.join(",")
+        : undefined,
     dispatcherId: dispatcherFirebaseId || undefined,
     dispatcherFirebaseId: dispatcherFirebaseId || undefined,
     dispatcherEmail: dispatcherEmail || undefined,
     origin: state.origin.trim(),
-    destination: state.destination.trim(),
+    destination:
+      state.shipmentType === "2pq"
+        ? PGFLEX_2PQ_DESTINATION
+        : state.destination.trim(),
     ...(options.includeStatus === false ? {} : { status: state.status }),
   };
 }
@@ -210,6 +226,22 @@ export function PGFlexLogisticsForm({
       dispatcherId: dispatcher?.firebaseUid ?? value,
       dispatcherFirebaseId: dispatcher?.firebaseUid ?? value,
       dispatcherEmail: dispatcher?.email ?? current.dispatcherEmail,
+    }));
+  }
+
+  function handleShipmentTypeChange(value: string) {
+    const shipmentType = value as PGFlexLogisticsShipmentType;
+
+    setState((current) => ({
+      ...current,
+      shipmentType,
+      linkedCodes: shipmentType === "2pq" ? current.linkedCodes : [],
+      destination:
+        shipmentType === "2pq"
+          ? PGFLEX_2PQ_DESTINATION
+          : current.destination === PGFLEX_2PQ_DESTINATION
+            ? ""
+            : current.destination,
     }));
   }
 
@@ -418,6 +450,26 @@ export function PGFlexLogisticsForm({
         ) : null}
 
         <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="pgflex-shipment-type">{t("Shipment type")}</Label>
+            <Select
+              value={state.shipmentType}
+              onValueChange={handleShipmentTypeChange}
+              disabled={!canEditAllFields || pending !== null}
+            >
+              <SelectTrigger id="pgflex-shipment-type" className="w-full">
+                <SelectValue placeholder={t("Select shipment type")} />
+              </SelectTrigger>
+              <SelectContent>
+                {PGFLEX_LOGISTICS_SHIPMENT_TYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {t(option.label)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="pgflex-identifier">{t("Identifier")}</Label>
             <Input
@@ -472,52 +524,55 @@ export function PGFlexLogisticsForm({
             </Select>
           </div>
 
-          <div className="space-y-2 md:col-span-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Label>{t("Linked codes")}</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddLinkedCode}
-                disabled={!canEditAllFields || pending !== null}
-              >
-                <PlusCircle className="h-3.5 w-3.5" />
-                {t("Add more")}
-              </Button>
+          {state.shipmentType === "2pq" ? (
+            <div className="space-y-2 md:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label>{t("Linked codes")}</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddLinkedCode}
+                  disabled={!canEditAllFields || pending !== null}
+                >
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  {t("Add more")}
+                </Button>
+              </div>
+              {state.linkedCodes.length > 0 ? (
+                <div className="flex flex-wrap gap-2 rounded-2xl border border-border/70 bg-muted/20 px-3 py-3">
+                  {state.linkedCodes.map((code) => (
+                    <span
+                      key={code}
+                      className="inline-flex h-8 items-center gap-2 rounded-full border border-violet-200/80 bg-violet-500/10 px-3 font-mono text-sm font-semibold text-violet-700 dark:border-violet-300/25 dark:text-violet-100"
+                    >
+                      {code}
+                      {canEditAllFields ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLinkedCode(code)}
+                          disabled={pending !== null}
+                          aria-label={`${t("Remove code")} ${code}`}
+                          className="rounded-full text-violet-500 transition hover:text-violet-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:opacity-50 dark:text-violet-200 dark:hover:text-white"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-border/80 bg-muted/15 px-3 py-3 text-sm text-muted-foreground">
+                  {t("No linked codes added.")}
+                </div>
+              )}
             </div>
-            {state.linkedCodes.length > 0 ? (
-              <div className="flex flex-wrap gap-2 rounded-2xl border border-border/70 bg-muted/20 px-3 py-3">
-                {state.linkedCodes.map((code) => (
-                  <span
-                    key={code}
-                    className="inline-flex h-8 items-center gap-2 rounded-full border border-violet-200/80 bg-violet-500/10 px-3 font-mono text-sm font-semibold text-violet-700 dark:border-violet-300/25 dark:text-violet-100"
-                  >
-                    {code}
-                    {canEditAllFields ? (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveLinkedCode(code)}
-                        disabled={pending !== null}
-                        aria-label={`${t("Remove code")} ${code}`}
-                        className="rounded-full text-violet-500 transition hover:text-violet-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:opacity-50 dark:text-violet-200 dark:hover:text-white"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    ) : null}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-border/80 bg-muted/15 px-3 py-3 text-sm text-muted-foreground">
-                {t("No linked codes added.")}
-              </div>
-            )}
-          </div>
+          ) : null}
 
           <PGFlexRoutePreview
             origin={state.origin}
             destination={state.destination}
+            showDestinationField={state.shipmentType === "other"}
             disabled={!canEditAllFields || pending !== null}
             onOriginChange={(origin) =>
               setState((current) => ({ ...current, origin }))

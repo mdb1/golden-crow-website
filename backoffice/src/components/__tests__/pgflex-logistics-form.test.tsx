@@ -102,7 +102,9 @@ describe("PGFlexLogisticsForm", () => {
     const user = userEvent.setup();
     renderCreateForm();
 
+    expect(screen.getByLabelText("Shipment type")).toBeInTheDocument();
     expect(screen.getByText("Linked codes")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Destination")).not.toBeInTheDocument();
     const createButton = screen.getByRole("button", {
       name: "Create dispatch",
     });
@@ -120,7 +122,6 @@ describe("PGFlexLogisticsForm", () => {
 
     await user.type(screen.getByLabelText("Identifier"), "PGF-001");
     await user.type(screen.getByLabelText("Origin"), "Av. Corrientes 123");
-    await user.type(screen.getByLabelText("Destination"), "Hospital Italiano");
     await user.click(createButton);
 
     await waitFor(() =>
@@ -128,12 +129,41 @@ describe("PGFlexLogisticsForm", () => {
         method: "POST",
         body: JSON.stringify({
           identifier: "PGF-001",
+          shipmentType: "2pq",
           origin: "Av. Corrientes 123",
-          destination: "Hospital Italiano",
+          destination: "Humboldt 2433",
         }),
       }),
     );
     expect(push).toHaveBeenCalledWith("/pgflex/logistics/dispatch-1");
+  });
+
+  it("hides linked codes and requires an editable destination for other dispatches", async () => {
+    const user = userEvent.setup();
+    renderCreateForm();
+
+    await user.click(screen.getByLabelText("Shipment type"));
+    await user.click(screen.getByRole("option", { name: "Other" }));
+
+    expect(screen.queryByText("Linked codes")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Destination")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Identifier"), "PGF-OTHER");
+    await user.type(screen.getByLabelText("Origin"), "Av. Santa Fe 1000");
+    await user.type(screen.getByLabelText("Destination"), "Laboratorio Sur");
+    await user.click(screen.getByRole("button", { name: "Create dispatch" }));
+
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith("/pgflex/logistics", {
+        method: "POST",
+        body: JSON.stringify({
+          identifier: "PGF-OTHER",
+          shipmentType: "other",
+          origin: "Av. Santa Fe 1000",
+          destination: "Laboratorio Sur",
+        }),
+      }),
+    );
   });
 
   it("adds optional linked codes and sends them as a comma-separated field", async () => {
@@ -152,7 +182,6 @@ describe("PGFlexLogisticsForm", () => {
 
     await user.type(screen.getByLabelText("Identifier"), "PGF-002");
     await user.type(screen.getByLabelText("Origin"), "Av. Santa Fe 1000");
-    await user.type(screen.getByLabelText("Destination"), "Laboratorio Sur");
     await user.click(screen.getByRole("button", { name: "Create dispatch" }));
 
     await waitFor(() =>
@@ -160,9 +189,10 @@ describe("PGFlexLogisticsForm", () => {
         method: "POST",
         body: JSON.stringify({
           identifier: "PGF-002",
+          shipmentType: "2pq",
           linked_codes: "ABC",
           origin: "Av. Santa Fe 1000",
-          destination: "Laboratorio Sur",
+          destination: "Humboldt 2433",
         }),
       }),
     );

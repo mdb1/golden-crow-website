@@ -108,6 +108,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Standalone dispatch": "Envío independiente",
   "No route": "Sin recorrido",
   Unassigned: "Sin asignar",
+  "Shipment type": "Tipo de envío",
+  "Select shipment type": "Seleccionar tipo de envío",
   Identifier: "Identificador",
   "Linked codes": "Códigos vinculados",
   "No linked codes added.": "No hay códigos vinculados.",

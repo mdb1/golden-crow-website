@@ -4,6 +4,7 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   PGFLEX_LOGISTICS_LIST_SCOPES,
+  PGFLEX_LOGISTICS_SHIPMENT_TYPES,
   PGFLEX_LOGISTICS_STATUSES,
   createPGFlexLogisticsItemForContext,
   deletePGFlexLogisticsItemForContext,
@@ -14,10 +15,14 @@ import {
 } from "../repositories/pgflex-logistics.repository.js";
 
 const PGFlexLogisticsListScopeSchema = z.enum(PGFLEX_LOGISTICS_LIST_SCOPES);
+const PGFlexLogisticsShipmentTypeSchema = z.enum(
+  PGFLEX_LOGISTICS_SHIPMENT_TYPES,
+);
 const PGFlexLogisticsStatusSchema = z.enum(PGFLEX_LOGISTICS_STATUSES);
 const OptionalStringSchema = z.string().trim().max(2000).optional();
 const PGFlexLogisticsBodySchema = z.object({
   identifier: z.string().trim().min(1).max(160),
+  shipmentType: PGFlexLogisticsShipmentTypeSchema.optional(),
   description: OptionalStringSchema,
   linked_codes: z.string().trim().max(600).optional(),
   dispatcherId: z.string().trim().max(180).optional(),
@@ -25,7 +30,7 @@ const PGFlexLogisticsBodySchema = z.object({
   dispatcherEmail: z.string().trim().email().max(180).optional(),
   dispatched_id: z.string().trim().max(180).optional(),
   origin: z.string().trim().min(1).max(240),
-  destination: z.string().trim().min(1).max(240),
+  destination: z.string().trim().max(240).optional(),
   pickupTime: z.string().trim().max(120).optional(),
   status: PGFlexLogisticsStatusSchema.optional(),
 });

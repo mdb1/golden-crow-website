@@ -10,6 +10,7 @@ import type {
   PGFlexLogisticsListItem,
   PGFlexLogisticsPage,
   PGFlexLogisticsRecord,
+  PGFlexLogisticsShipmentType,
   PGFlexLogisticsStatus,
   UserRoleRecord,
 } from "../types/sdk.types.js";
@@ -20,8 +21,14 @@ import { getUserRoleByEmail, normalizeRoleEmail } from "./roles.repository.js";
 const adminDb = adminDbFor("mydnamap");
 const USER_ROLES_COLLECTION = "user_roles";
 const PGFLEX_EVENTS_COLLECTION = "pgflex_events";
+const PGFLEX_2PQ_DESTINATION = "Humboldt 2433";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
+
+export const PGFLEX_LOGISTICS_SHIPMENT_TYPES = [
+  "2pq",
+  "other",
+] as const satisfies readonly PGFlexLogisticsShipmentType[];
 
 export const PGFLEX_LOGISTICS_STATUSES = [
   "awaiting_pick_up",
@@ -46,10 +53,12 @@ const PGFLEX_FINISHED_LOGISTICS_STATUSES: readonly PGFlexLogisticsStatus[] = [
 ];
 
 const STATUS_SET = new Set<string>(PGFLEX_LOGISTICS_STATUSES);
+const SHIPMENT_TYPE_SET = new Set<string>(PGFLEX_LOGISTICS_SHIPMENT_TYPES);
 const LIST_SCOPE_SET = new Set<string>(PGFLEX_LOGISTICS_LIST_SCOPES);
 
 export interface PGFlexLogisticsInput {
   identifier?: string;
+  shipmentType?: PGFlexLogisticsShipmentType;
   description?: string;
   linked_codes?: string;
   dispatcherId?: string;
@@ -70,6 +79,7 @@ type TransportDispatcherAssignment = {
 
 type PGFlexLogisticsDocument = {
   identifier: string;
+  shipmentType: PGFlexLogisticsShipmentType;
   description: string | null;
   linked_codes: string | null;
   dispatcherId: string | null;
@@ -128,6 +138,23 @@ function normalizeStatus(value: unknown): PGFlexLogisticsStatus {
   );
 }
 
+function normalizeShipmentType(
+  value: unknown,
+  fallback: PGFlexLogisticsShipmentType = "other",
+): PGFlexLogisticsShipmentType {
+  const normalized = cleanString(value).toLowerCase();
+
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (SHIPMENT_TYPE_SET.has(normalized)) {
+    return normalized as PGFlexLogisticsShipmentType;
+  }
+
+  throw new AdminRepositoryError("Select a valid shipment type.", 400);
+}
+
 function normalizeListScope(value: unknown): PGFlexLogisticsListScope {
   const normalized = cleanString(value);
   return LIST_SCOPE_SET.has(normalized)
@@ -179,6 +206,31 @@ function normalizeLinkedCodes(value: unknown) {
   }
 
   return [...new Set(codes)].join(",");
+}
+
+function resolveShipmentTypeForInput(payload: PGFlexLogisticsInput) {
+  return normalizeShipmentType(
+    payload.shipmentType,
+    cleanString(payload.linked_codes) ? "2pq" : "other",
+  );
+}
+
+function resolveLinkedCodesForShipment(
+  payload: PGFlexLogisticsInput,
+  shipmentType: PGFlexLogisticsShipmentType,
+) {
+  return shipmentType === "2pq"
+    ? normalizeLinkedCodes(payload.linked_codes)
+    : null;
+}
+
+function resolveDestinationForShipment(
+  payload: PGFlexLogisticsInput,
+  shipmentType: PGFlexLogisticsShipmentType,
+) {
+  return shipmentType === "2pq"
+    ? PGFLEX_2PQ_DESTINATION
+    : requireRequiredString(payload.destination, "Destination");
 }
 
 function isMissingFirestoreIndexError(error: unknown) {
@@ -337,12 +389,17 @@ function toPGFlexLogisticsRecord(
       ? normalizeDispatcherEmail(rawDispatcherId)
       : undefined);
   const legacyPickupTime = optionalString(data.pickupTime);
+  const linkedCodes = optionalString(data.linked_codes);
 
   return {
     id,
     identifier: optionalString(data.identifier) ?? id,
+    shipmentType: normalizeShipmentType(
+      data.shipmentType,
+      linkedCodes ? "2pq" : "other",
+    ),
     description: optionalString(data.description),
-    linked_codes: optionalString(data.linked_codes),
+    linked_codes: linkedCodes,
     dispatcherId: rawDispatcherId ?? dispatcherFirebaseId ?? dispatcherEmail,
     dispatcherFirebaseId,
     dispatcherEmail,
@@ -580,17 +637,19 @@ async function fullDocumentFromInput(
   assignment: TransportDispatcherAssignment;
 }> {
   const assignment = await resolveTransportDispatcherAssignment(payload);
+  const shipmentType = resolveShipmentTypeForInput(payload);
 
   return {
     document: {
       identifier: requireRequiredString(payload.identifier, "Identifier"),
+      shipmentType,
       description: optionalString(payload.description) ?? null,
-      linked_codes: normalizeLinkedCodes(payload.linked_codes),
+      linked_codes: resolveLinkedCodesForShipment(payload, shipmentType),
       dispatcherId: assignment?.firebaseUid ?? null,
       dispatcherFirebaseId: assignment?.firebaseUid ?? null,
       dispatcherEmail: assignment?.email ?? null,
       origin: requireRequiredString(payload.origin, "Origin"),
-      destination: requireRequiredString(payload.destination, "Destination"),
+      destination: resolveDestinationForShipment(payload, shipmentType),
       timeRequested: options.timeRequested ?? timestamps.createdAt,
       pickupTime:
         optionalString(normalizePickupTime(payload.pickupTime)) ?? null,
@@ -612,6 +671,10 @@ async function patchDocumentFromInput(
 ) {
   const document: Partial<Record<keyof PGFlexLogisticsRecord, unknown>> = {};
   let assignment: TransportDispatcherAssignment | undefined;
+  const shipmentType =
+    "shipmentType" in payload
+      ? resolveShipmentTypeForInput(payload)
+      : undefined;
 
   if ("identifier" in payload) {
     document.identifier = requireRequiredString(
@@ -620,12 +683,22 @@ async function patchDocumentFromInput(
     );
   }
 
+  if (shipmentType) {
+    document.shipmentType = shipmentType;
+    if (shipmentType === "other") {
+      document.linked_codes = null;
+    }
+  }
+
   if ("description" in payload) {
     document.description = optionalString(payload.description) ?? null;
   }
 
   if ("linked_codes" in payload) {
-    document.linked_codes = normalizeLinkedCodes(payload.linked_codes);
+    document.linked_codes = resolveLinkedCodesForShipment(
+      payload,
+      shipmentType ?? resolveShipmentTypeForInput(payload),
+    );
   }
 
   if (
@@ -644,10 +717,10 @@ async function patchDocumentFromInput(
     document.origin = requireRequiredString(payload.origin, "Origin");
   }
 
-  if ("destination" in payload) {
-    document.destination = requireRequiredString(
-      payload.destination,
-      "Destination",
+  if ("destination" in payload || shipmentType === "2pq") {
+    document.destination = resolveDestinationForShipment(
+      payload,
+      shipmentType ?? "other",
     );
   }
 

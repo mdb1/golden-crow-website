@@ -121,51 +121,55 @@ function loadGoogleMaps(apiKey: string) {
     return mapsWindow.__pgflexGoogleMapsPromise;
   }
 
-  mapsWindow.__pgflexGoogleMapsPromise = new Promise<void>((resolve, reject) => {
-    const existingScript = document.getElementById(
-      GOOGLE_MAPS_SCRIPT_ID,
-    ) as HTMLScriptElement | null;
+  mapsWindow.__pgflexGoogleMapsPromise = new Promise<void>(
+    (resolve, reject) => {
+      const existingScript = document.getElementById(
+        GOOGLE_MAPS_SCRIPT_ID,
+      ) as HTMLScriptElement | null;
 
-    if (existingScript) {
-      existingScript.addEventListener("load", () => resolve(), { once: true });
-      existingScript.addEventListener(
+      if (existingScript) {
+        existingScript.addEventListener("load", () => resolve(), {
+          once: true,
+        });
+        existingScript.addEventListener(
+          "error",
+          () => {
+            delete mapsWindow.__pgflexGoogleMapsPromise;
+            existingScript.remove();
+            reject(new Error("Google Maps failed to load"));
+          },
+          { once: true },
+        );
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.id = GOOGLE_MAPS_SCRIPT_ID;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
+        apiKey,
+      )}`;
+      script.async = true;
+      script.defer = true;
+      script.addEventListener(
+        "load",
+        () => {
+          script.dataset.pgflexLoaded = "true";
+          resolve();
+        },
+        { once: true },
+      );
+      script.addEventListener(
         "error",
         () => {
           delete mapsWindow.__pgflexGoogleMapsPromise;
-          existingScript.remove();
+          script.remove();
           reject(new Error("Google Maps failed to load"));
         },
         { once: true },
       );
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.id = GOOGLE_MAPS_SCRIPT_ID;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
-      apiKey,
-    )}`;
-    script.async = true;
-    script.defer = true;
-    script.addEventListener(
-      "load",
-      () => {
-        script.dataset.pgflexLoaded = "true";
-        resolve();
-      },
-      { once: true },
-    );
-    script.addEventListener(
-      "error",
-      () => {
-        delete mapsWindow.__pgflexGoogleMapsPromise;
-        script.remove();
-        reject(new Error("Google Maps failed to load"));
-      },
-      { once: true },
-    );
-    document.head.appendChild(script);
-  });
+      document.head.appendChild(script);
+    },
+  );
 
   return mapsWindow.__pgflexGoogleMapsPromise;
 }
@@ -183,19 +187,16 @@ function resetGoogleMapsLoaderIfPending() {
 
 function geocodeAddress(geocoder: any, address: string) {
   return new Promise<any>((resolve, reject) => {
-    geocoder.geocode(
-      { address },
-      (results: any[] | null, status: string) => {
-        const location = results?.[0]?.geometry?.location;
+    geocoder.geocode({ address }, (results: any[] | null, status: string) => {
+      const location = results?.[0]?.geometry?.location;
 
-        if (status === "OK" && location) {
-          resolve(location);
-          return;
-        }
+      if (status === "OK" && location) {
+        resolve(location);
+        return;
+      }
 
-        reject(new Error(status));
-      },
-    );
+      reject(new Error(status));
+    });
   });
 }
 
@@ -302,12 +303,14 @@ function routeFailureMessage(
 export function PGFlexRoutePreview({
   origin,
   destination,
+  showDestinationField = true,
   disabled = false,
   onOriginChange,
   onDestinationChange,
 }: {
   origin: string;
   destination: string;
+  showDestinationField?: boolean;
   disabled?: boolean;
   onOriginChange: (origin: string) => void;
   onDestinationChange: (destination: string) => void;
@@ -325,7 +328,9 @@ export function PGFlexRoutePreview({
   const lastPreviewedRouteKeyRef = useRef<string | null>(null);
   const [mapsStatus, setMapsStatus] = useState<MapsLoadStatus>("idle");
   const [routeStatus, setRouteStatus] = useState<RouteStatus>("idle");
-  const [routeEstimate, setRouteEstimate] = useState<RouteEstimate | null>(null);
+  const [routeEstimate, setRouteEstimate] = useState<RouteEstimate | null>(
+    null,
+  );
   const [lockedRoute, setLockedRoute] = useState<LockedRoute | null>(null);
   const [routeErrorMessage, setRouteErrorMessage] = useState<string | null>(
     null,
@@ -523,10 +528,7 @@ export function PGFlexRoutePreview({
       });
       setRouteStatus("ready");
     } catch (error) {
-      if (
-        isAbortError(error) ||
-        routeRequestIdRef.current !== routeRequestId
-      ) {
+      if (isAbortError(error) || routeRequestIdRef.current !== routeRequestId) {
         return;
       }
 
@@ -556,7 +558,12 @@ export function PGFlexRoutePreview({
 
   return (
     <div className="space-y-4 md:col-span-2">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div
+        className={cn(
+          "grid gap-4",
+          showDestinationField ? "md:grid-cols-2" : "md:grid-cols-1",
+        )}
+      >
         <div className="space-y-2">
           <Label htmlFor="pgflex-origin">{t("Origin")}</Label>
           <Input
@@ -568,16 +575,18 @@ export function PGFlexRoutePreview({
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="pgflex-destination">{t("Destination")}</Label>
-          <Input
-            id="pgflex-destination"
-            value={destination}
-            onChange={(event) => onDestinationChange(event.target.value)}
-            disabled={disabled || isRouteLocked}
-            autoComplete="street-address"
-          />
-        </div>
+        {showDestinationField ? (
+          <div className="space-y-2">
+            <Label htmlFor="pgflex-destination">{t("Destination")}</Label>
+            <Input
+              id="pgflex-destination"
+              value={destination}
+              onChange={(event) => onDestinationChange(event.target.value)}
+              disabled={disabled || isRouteLocked}
+              autoComplete="street-address"
+            />
+          </div>
+        ) : null}
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-border/80 bg-muted/20">
@@ -669,7 +678,10 @@ export function PGFlexRoutePreview({
                     </p>
                   </>
                 ) : mapsStatus === "error" ? (
-                  <div role="alert" className="flex flex-col items-center gap-2">
+                  <div
+                    role="alert"
+                    className="flex flex-col items-center gap-2"
+                  >
                     <AlertTriangle className="h-5 w-5 text-destructive" />
                     <p className="text-sm font-medium text-foreground">
                       {t("Unable to load Google Maps.")}
@@ -682,7 +694,10 @@ export function PGFlexRoutePreview({
                     </p>
                   </div>
                 ) : routeStatus === "error" ? (
-                  <div role="alert" className="flex flex-col items-center gap-2">
+                  <div
+                    role="alert"
+                    className="flex flex-col items-center gap-2"
+                  >
                     <AlertTriangle className="h-5 w-5 text-destructive" />
                     <p className="text-sm font-medium text-foreground">
                       {t("Unable to calculate a route for these addresses.")}
@@ -697,7 +712,9 @@ export function PGFlexRoutePreview({
                     <p className="text-sm font-medium text-foreground">
                       {hasBothAddresses
                         ? "Preview route"
-                        : t("Add origin and destination addresses to preview the route.")}
+                        : t(
+                            "Add origin and destination addresses to preview the route.",
+                          )}
                     </p>
                   </>
                 )}

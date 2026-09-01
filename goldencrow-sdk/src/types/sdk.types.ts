@@ -485,11 +485,14 @@ export interface TwoPQFormDraftRecord {
 export type PGFlexLogisticsStatus =
   "awaiting_pick_up" | "in_transit" | "arrived" | "lost";
 
+export type PGFlexLogisticsShipmentType = "2pq" | "other";
+
 export type PGFlexLogisticsListScope = "active" | "finished";
 
 export interface PGFlexLogisticsRecord {
   id: string;
   identifier: string;
+  shipmentType: PGFlexLogisticsShipmentType;
   description?: string;
   linked_codes?: string;
   dispatcherId?: string;

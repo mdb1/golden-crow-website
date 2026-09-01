@@ -344,6 +344,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     });
     expect(pgflexEvent).toMatchObject({
       identifier: "Clinica Norte - 2026-08-31T15:45:00.000Z",
+      shipmentType: "2pq",
       description:
         "Formulario de solicitud de retiro: FORM-00041. Casos: Caso Alfa, Caso Beta. Codigos: ABC,DEF. Solicitado por: admin@example.com.",
       linked_codes: "ABC,DEF",
@@ -351,7 +352,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       dispatcherFirebaseId: "dispatcher-a",
       dispatcherEmail: "alfa@example.com",
       origin: "Av. Corrientes 123, CABA, Buenos Aires, Argentina",
-      destination: "charcas y honduras",
+      destination: "Humboldt 2433",
       timeRequested: "2026-08-31T15:45:00.000Z",
       pickupTime: null,
       status: "awaiting_pick_up",
@@ -370,7 +371,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
         id: "pgflex_withdrawal_form_00041",
         identifier: "Clinica Norte - 2026-08-31T15:45:00.000Z",
         origin: "Av. Corrientes 123, CABA, Buenos Aires, Argentina",
-        destination: "charcas y honduras",
+        destination: "Humboldt 2433",
         timeRequested: "2026-08-31T15:45:00.000Z",
       },
     );

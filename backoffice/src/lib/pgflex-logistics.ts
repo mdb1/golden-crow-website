@@ -3,11 +3,14 @@ import type { AdminContextRecord } from "@/lib/admin-areas";
 export type PGFlexLogisticsStatus =
   "awaiting_pick_up" | "in_transit" | "arrived" | "lost";
 
+export type PGFlexLogisticsShipmentType = "2pq" | "other";
+
 export type PGFlexLogisticsListScope = "active" | "finished";
 
 export interface PGFlexLogisticsRecord {
   id: string;
   identifier: string;
+  shipmentType: PGFlexLogisticsShipmentType;
   description?: string;
   linked_codes?: string;
   dispatcherId?: string;
@@ -40,6 +43,7 @@ export interface PGFlexLogisticsPage {
 
 export interface PGFlexLogisticsInput {
   identifier: string;
+  shipmentType: PGFlexLogisticsShipmentType;
   description?: string;
   linked_codes?: string;
   dispatcherId?: string;
@@ -58,6 +62,16 @@ export interface PGFlexTransportDispatcherOption {
 }
 
 export const PGFLEX_LOGISTICS_PAGE_SIZE = 20;
+
+export const PGFLEX_2PQ_DESTINATION = "Humboldt 2433";
+
+export const PGFLEX_LOGISTICS_SHIPMENT_TYPE_OPTIONS: Array<{
+  value: PGFlexLogisticsShipmentType;
+  label: string;
+}> = [
+  { value: "2pq", label: "2pq" },
+  { value: "other", label: "Other" },
+];
 
 export const PGFLEX_LOGISTICS_SCOPE_OPTIONS: Array<{
   value: PGFlexLogisticsListScope;

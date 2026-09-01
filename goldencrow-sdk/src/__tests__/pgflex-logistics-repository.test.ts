@@ -295,10 +295,10 @@ describe("PGFlex logistics repository", () => {
       fullAdminContext,
       {
         identifier: "  ENV-001  ",
+        shipmentType: "2pq",
         description: "  Retiro inicial  ",
         linked_codes: " abc, DEF,abc ",
         origin: "Laboratorio Central",
-        destination: "Clinica Norte",
         status: "in_transit",
       },
     );
@@ -312,22 +312,24 @@ describe("PGFlex logistics repository", () => {
     expect(created).toMatchObject({
       id: eventDocs[0]!.id,
       identifier: "ENV-001",
+      shipmentType: "2pq",
       description: "Retiro inicial",
       linked_codes: "ABC,DEF",
       origin: "Laboratorio Central",
-      destination: "Clinica Norte",
+      destination: "Humboldt 2433",
       status: "in_transit",
       timeRequested: "2026-08-31T15:45:00.000Z",
     });
     expect(eventDocs[0]!.data).toMatchObject({
       identifier: "ENV-001",
+      shipmentType: "2pq",
       description: "Retiro inicial",
       linked_codes: "ABC,DEF",
       dispatcherId: null,
       dispatcherFirebaseId: null,
       dispatcherEmail: null,
       origin: "Laboratorio Central",
-      destination: "Clinica Norte",
+      destination: "Humboldt 2433",
       status: "in_transit",
       timeRequested: "2026-08-31T15:45:00.000Z",
       createdByEmail: "admin@example.com",
@@ -335,6 +337,36 @@ describe("PGFlex logistics repository", () => {
     expect(eventDocs[0]!.data).not.toHaveProperty("eventType");
     expect(eventDocs[0]!.data).not.toHaveProperty("logisticsItemId");
     expect(mockSendPGFlexLogisticsAssignmentEmail).not.toHaveBeenCalled();
+  });
+
+  it("stores other logistics items with an editable destination and no linked codes", async () => {
+    const { createPGFlexLogisticsItemForContext } =
+      await import("../repositories/pgflex-logistics.repository");
+
+    const created = await createPGFlexLogisticsItemForContext(
+      fullAdminContext,
+      {
+        identifier: "ENV-OTHER",
+        shipmentType: "other",
+        linked_codes: "ABC",
+        origin: "Laboratorio Central",
+        destination: "Clinica Norte",
+      },
+    );
+
+    const eventDocs = docsIn("pgflex_events");
+
+    expect(created).toMatchObject({
+      shipmentType: "other",
+      linked_codes: undefined,
+      destination: "Clinica Norte",
+    });
+    expect(eventDocs[0]!.data).toMatchObject({
+      identifier: "ENV-OTHER",
+      shipmentType: "other",
+      linked_codes: null,
+      destination: "Clinica Norte",
+    });
   });
 
   it("rejects malformed linked codes before storing the logistics item", async () => {
