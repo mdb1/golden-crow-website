@@ -25,7 +25,13 @@ import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
-import { PGFlexRoutePreview } from "@/components/pgflex-route-preview";
+import {
+  PGFLEX_ROUTE_ORIGIN_COUNTRY,
+  PGFlexRoutePreview,
+  composePGFlexRouteOrigin,
+  type PGFlexRouteOriginParts,
+  type PGFlexRouteOriginProvinceDistrict,
+} from "@/components/pgflex-route-preview";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -148,6 +154,13 @@ type LogisticsFormState = {
   status: PGFlexLogisticsStatus;
 };
 
+const DEFAULT_CREATE_ORIGIN_PARTS: PGFlexRouteOriginParts = {
+  address: "",
+  locality: "",
+  provinceDistrict: "Capital Federal",
+  country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
+};
+
 function linkedCodesFromCsv(value?: string | null) {
   return [
     ...new Set(
@@ -188,6 +201,25 @@ function dispatcherActionForStatus(status: PGFlexLogisticsStatus) {
 
 function readOnlyValue(value?: string | null) {
   return value?.trim() || "-";
+}
+
+function provinceDistrictFromAddressPart(
+  value?: string,
+): PGFlexRouteOriginProvinceDistrict {
+  return value?.trim() === "Provincia de Buenos Aires"
+    ? "Provincia de Buenos Aires"
+    : "Capital Federal";
+}
+
+function createOriginPartsFromAddress(origin: string): PGFlexRouteOriginParts {
+  const parts = origin.split(",").map((part) => part.trim());
+
+  return {
+    address: parts[0] ?? DEFAULT_CREATE_ORIGIN_PARTS.address,
+    locality: parts[1] ?? DEFAULT_CREATE_ORIGIN_PARTS.locality,
+    provinceDistrict: provinceDistrictFromAddressPart(parts[2]),
+    country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
+  };
 }
 
 function toFormState(
@@ -347,7 +379,13 @@ export function PGFlexLogisticsForm({
   const canUpdate = mode === "create" ? isFullAdmin : Boolean(item?.canUpdate);
   const canEditAllFields = isFullAdmin;
   const sourceState = useMemo(() => toFormState(item), [item]);
+  const sourceCreateOriginParts = useMemo(
+    () => createOriginPartsFromAddress(sourceState.origin),
+    [sourceState.origin],
+  );
   const [state, setState] = useState<LogisticsFormState>(sourceState);
+  const [createOriginParts, setCreateOriginParts] =
+    useState<PGFlexRouteOriginParts>(sourceCreateOriginParts);
   const [pending, setPending] = useState<"save" | "delete" | null>(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [createdItem, setCreatedItem] =
@@ -378,7 +416,11 @@ export function PGFlexLogisticsForm({
     selectedDispatcher?.firebaseUid ||
     state.dispatcherFirebaseId ||
     UNASSIGNED_DISPATCHER_VALUE;
-  const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
+  const changed =
+    JSON.stringify(state) !== JSON.stringify(sourceState) ||
+    (mode === "create" &&
+      JSON.stringify(createOriginParts) !==
+        JSON.stringify(sourceCreateOriginParts));
   const createdItemHref = createdItem
     ? `/pgflex/logistics/${encodeURIComponent(createdItem.id)}`
     : "/pgflex/logistics";
@@ -443,6 +485,19 @@ export function PGFlexLogisticsForm({
             ? ""
             : current.destination,
     }));
+  }
+
+  function handleCreateOriginPartsChange(nextParts: PGFlexRouteOriginParts) {
+    setCreateOriginParts(nextParts);
+    setState((current) => ({
+      ...current,
+      origin: composePGFlexRouteOrigin(nextParts),
+    }));
+  }
+
+  function handleReset() {
+    setState(sourceState);
+    setCreateOriginParts(sourceCreateOriginParts);
   }
 
   function resetLinkedCodeDialog() {
@@ -895,7 +950,7 @@ export function PGFlexLogisticsForm({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setState(sourceState)}
+              onClick={handleReset}
               disabled={!changed || pending !== null}
             >
               <RotateCcw className="h-3.5 w-3.5" />
@@ -1051,8 +1106,12 @@ export function PGFlexLogisticsForm({
             destination={state.destination}
             showDestinationField={state.shipmentType === "other"}
             disabled={!canEditAllFields || pending !== null}
+            originParts={mode === "create" ? createOriginParts : undefined}
             onOriginChange={(origin) =>
               setState((current) => ({ ...current, origin }))
+            }
+            onOriginPartsChange={
+              mode === "create" ? handleCreateOriginPartsChange : undefined
             }
             onDestinationChange={(destination) =>
               setState((current) => ({ ...current, destination }))

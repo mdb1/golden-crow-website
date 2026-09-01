@@ -10,7 +10,11 @@ import {
   within,
 } from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
-import { PGFlexRoutePreview } from "@/components/pgflex-route-preview";
+import {
+  PGFlexRoutePreview,
+  composePGFlexRouteOrigin,
+  type PGFlexRouteOriginParts,
+} from "@/components/pgflex-route-preview";
 import { BACKOFFICE_VERSION } from "@/lib/app-version";
 
 describe("PGFlexRoutePreview", () => {
@@ -58,6 +62,35 @@ describe("PGFlexRoutePreview", () => {
     );
 
     return { onDestinationChange, onOriginChange };
+  }
+
+  function renderControlledSplitOriginPreview() {
+    function ControlledSplitOriginPreview() {
+      const [originParts, setOriginParts] = useState<PGFlexRouteOriginParts>({
+        address: "",
+        locality: "",
+        provinceDistrict: "Capital Federal",
+        country: "Argentina",
+      });
+      const [destination, setDestination] = useState("");
+
+      return (
+        <PGFlexRoutePreview
+          origin={composePGFlexRouteOrigin(originParts)}
+          destination={destination}
+          originParts={originParts}
+          onOriginChange={jest.fn()}
+          onOriginPartsChange={setOriginParts}
+          onDestinationChange={setDestination}
+        />
+      );
+    }
+
+    render(
+      <AppLanguageProvider forcedLanguage="en">
+        <ControlledSplitOriginPreview />
+      </AppLanguageProvider>,
+    );
   }
 
   function enterRouteAddresses() {
@@ -278,6 +311,37 @@ describe("PGFlexRoutePreview", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Add at least locality and province to the origin before previewing the route.",
+    );
+  });
+
+  it("joins split origin fields before requesting a route", async () => {
+    const fetchMock = installSuccessfulRoutesRestMock();
+    renderControlledSplitOriginPreview();
+
+    expect(screen.getAllByText("Origin").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Country")).toHaveValue("Argentina");
+    expect(screen.getByLabelText("Country")).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Address"), {
+      target: { value: "Hidalgo 800" },
+    });
+    fireEvent.change(screen.getByLabelText("Neighborhood / Locality"), {
+      target: { value: "Villa Crespo" },
+    });
+    fireEvent.change(screen.getByLabelText("Destination"), {
+      target: { value: "Humboldt 2433, CABA" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview route" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual(
+      expect.objectContaining({
+        origin: {
+          address: "Hidalgo 800, Villa Crespo, Capital Federal, Argentina",
+        },
+        destination: { address: "Humboldt 2433, CABA" },
+      }),
     );
   });
 

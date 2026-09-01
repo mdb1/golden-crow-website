@@ -156,6 +156,12 @@ describe("PGFlexLogisticsForm", () => {
     expect(screen.getByLabelText("Shipment type")).toBeInTheDocument();
     expect(screen.getByText("Linked codes")).toBeInTheDocument();
     expect(screen.queryByLabelText("Destination")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Origin").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Address")).toBeInTheDocument();
+    expect(screen.getByLabelText("Neighborhood / Locality")).toBeInTheDocument();
+    expect(screen.getByLabelText("Province / District")).toBeInTheDocument();
+    expect(screen.getByLabelText("Country")).toHaveValue("Argentina");
+    expect(screen.getByLabelText("Country")).toBeDisabled();
     const createButton = screen.getByRole("button", {
       name: "Create dispatch",
     });
@@ -173,7 +179,8 @@ describe("PGFlexLogisticsForm", () => {
     ).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Identifier"), "PGF-001");
-    await user.type(screen.getByLabelText("Origin"), "Av. Corrientes 123");
+    await user.type(screen.getByLabelText("Address"), "Av. Corrientes 123");
+    await user.type(screen.getByLabelText("Neighborhood / Locality"), "Almagro");
     await user.click(createButton);
 
     await waitFor(() =>
@@ -182,7 +189,7 @@ describe("PGFlexLogisticsForm", () => {
         body: JSON.stringify({
           identifier: "PGF-001",
           shipmentType: "2pq",
-          origin: "Av. Corrientes 123",
+          origin: "Av. Corrientes 123, Almagro, Capital Federal, Argentina",
           destination:
             "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
         }),
@@ -213,7 +220,8 @@ describe("PGFlexLogisticsForm", () => {
     expect(screen.getByLabelText("Destination")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Identifier"), "PGF-OTHER");
-    await user.type(screen.getByLabelText("Origin"), "Av. Santa Fe 1000");
+    await user.type(screen.getByLabelText("Address"), "Av. Santa Fe 1000");
+    await user.type(screen.getByLabelText("Neighborhood / Locality"), "Recoleta");
     await user.type(screen.getByLabelText("Destination"), "Laboratorio Sur");
     await user.click(screen.getByRole("button", { name: "Create dispatch" }));
 
@@ -223,7 +231,7 @@ describe("PGFlexLogisticsForm", () => {
         body: JSON.stringify({
           identifier: "PGF-OTHER",
           shipmentType: "other",
-          origin: "Av. Santa Fe 1000",
+          origin: "Av. Santa Fe 1000, Recoleta, Capital Federal, Argentina",
           destination: "Laboratorio Sur",
         }),
       }),
@@ -253,7 +261,8 @@ describe("PGFlexLogisticsForm", () => {
     expect(screen.getByText("ABC")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Identifier"), "PGF-002");
-    await user.type(screen.getByLabelText("Origin"), "Av. Santa Fe 1000");
+    await user.type(screen.getByLabelText("Address"), "Av. Santa Fe 1000");
+    await user.type(screen.getByLabelText("Neighborhood / Locality"), "Recoleta");
     await user.click(screen.getByRole("button", { name: "Create dispatch" }));
 
     await waitFor(() =>
@@ -263,7 +272,7 @@ describe("PGFlexLogisticsForm", () => {
           identifier: "PGF-002",
           shipmentType: "2pq",
           linked_codes: "ABC",
-          origin: "Av. Santa Fe 1000",
+          origin: "Av. Santa Fe 1000, Recoleta, Capital Federal, Argentina",
           destination:
             "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina",
         }),

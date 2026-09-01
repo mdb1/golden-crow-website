@@ -25,6 +25,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { BACKOFFICE_VERSION } from "@/lib/app-version";
 import { appText } from "@/lib/language";
@@ -77,11 +84,49 @@ type RouteEstimate = {
 type LockedRoute = {
   key: string;
 };
+export type PGFlexRouteOriginProvinceDistrict =
+  | "Capital Federal"
+  | "Provincia de Buenos Aires";
+export type PGFlexRouteOriginParts = {
+  address: string;
+  locality: string;
+  provinceDistrict: PGFlexRouteOriginProvinceDistrict;
+  country: "Argentina";
+};
 type GoogleMapsRouteError = Error & {
   pgflexGoogleStatus?: string;
   pgflexGoogleRequest?: unknown;
   pgflexGoogleResult?: unknown;
 };
+
+export const PGFLEX_ROUTE_ORIGIN_COUNTRY = "Argentina";
+
+const PGFLEX_ROUTE_ORIGIN_PROVINCE_OPTIONS: Array<{
+  value: PGFlexRouteOriginProvinceDistrict;
+  label: string;
+}> = [
+  { value: "Capital Federal", label: "Capital Federal" },
+  {
+    value: "Provincia de Buenos Aires",
+    label: "Buenos Aires Province",
+  },
+];
+
+export function composePGFlexRouteOrigin(parts: PGFlexRouteOriginParts) {
+  const address = parts.address.trim();
+  const locality = parts.locality.trim();
+
+  if (!address || !locality) {
+    return "";
+  }
+
+  return [
+    address,
+    locality,
+    parts.provinceDistrict,
+    PGFLEX_ROUTE_ORIGIN_COUNTRY,
+  ].join(", ");
+}
 
 function makeAbortError() {
   const error = new Error("Route preview cancelled");
@@ -1526,14 +1571,18 @@ export function PGFlexRoutePreview({
   destination,
   showDestinationField = true,
   disabled = false,
+  originParts,
   onOriginChange,
+  onOriginPartsChange,
   onDestinationChange,
 }: {
   origin: string;
   destination: string;
   showDestinationField?: boolean;
   disabled?: boolean;
+  originParts?: PGFlexRouteOriginParts;
   onOriginChange: (origin: string) => void;
+  onOriginPartsChange?: (originParts: PGFlexRouteOriginParts) => void;
   onDestinationChange: (destination: string) => void;
 }) {
   const { language } = useAppLanguage();
@@ -1728,8 +1777,24 @@ export function PGFlexRoutePreview({
     setRouteErrorLogOpen(true);
   }
 
+  function handleOriginPartsChange(
+    next: Partial<Omit<PGFlexRouteOriginParts, "country">>,
+  ) {
+    if (!originParts || !onOriginPartsChange) {
+      return;
+    }
+
+    onOriginPartsChange({
+      ...originParts,
+      ...next,
+      country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
+    });
+  }
+
   const hasBothAddresses = Boolean(origin.trim() && destination.trim());
   const isRouteLocked = Boolean(lockedRoute);
+  const routeFieldDisabled = disabled || isRouteLocked;
+  const usesSplitOrigin = Boolean(originParts && onOriginPartsChange);
   const isPreviewLoading =
     mapsStatus === "loading" || routeStatus === "loading";
   const hasRoutePreviewError =
@@ -1743,31 +1808,100 @@ export function PGFlexRoutePreview({
 
   return (
     <div className="space-y-4 md:col-span-2">
-      <div
-        className={cn(
-          "grid gap-4",
-          showDestinationField ? "md:grid-cols-2" : "md:grid-cols-1",
+      <div className="grid gap-4 md:grid-cols-2">
+        {usesSplitOrigin && originParts ? (
+          <fieldset className="rounded-2xl border border-border/70 bg-muted/14 p-4 md:col-span-2">
+            <legend className="px-1 text-sm font-medium text-foreground">
+              {t("Origin")}
+            </legend>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="pgflex-origin-address">{t("Address")}</Label>
+                <Input
+                  id="pgflex-origin-address"
+                  value={originParts.address}
+                  onChange={(event) =>
+                    handleOriginPartsChange({ address: event.target.value })
+                  }
+                  disabled={routeFieldDisabled}
+                  autoComplete="street-address"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pgflex-origin-locality">
+                  {t("Neighborhood / Locality")}
+                </Label>
+                <Input
+                  id="pgflex-origin-locality"
+                  value={originParts.locality}
+                  onChange={(event) =>
+                    handleOriginPartsChange({ locality: event.target.value })
+                  }
+                  disabled={routeFieldDisabled}
+                  autoComplete="address-level2"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pgflex-origin-province-district">
+                  {t("Province / District")}
+                </Label>
+                <Select
+                  value={originParts.provinceDistrict}
+                  onValueChange={(value) =>
+                    handleOriginPartsChange({
+                      provinceDistrict:
+                        value as PGFlexRouteOriginProvinceDistrict,
+                    })
+                  }
+                  disabled={routeFieldDisabled}
+                >
+                  <SelectTrigger
+                    id="pgflex-origin-province-district"
+                    className="w-full"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PGFLEX_ROUTE_ORIGIN_PROVINCE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {t(option.label)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pgflex-origin-country">{t("Country")}</Label>
+                <Input
+                  id="pgflex-origin-country"
+                  value={PGFLEX_ROUTE_ORIGIN_COUNTRY}
+                  disabled
+                  autoComplete="country-name"
+                />
+              </div>
+            </div>
+          </fieldset>
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="pgflex-origin">{t("Origin")}</Label>
+            <Input
+              id="pgflex-origin"
+              value={origin}
+              onChange={(event) => onOriginChange(event.target.value)}
+              disabled={routeFieldDisabled}
+              autoComplete="street-address"
+            />
+          </div>
         )}
-      >
-        <div className="space-y-2">
-          <Label htmlFor="pgflex-origin">{t("Origin")}</Label>
-          <Input
-            id="pgflex-origin"
-            value={origin}
-            onChange={(event) => onOriginChange(event.target.value)}
-            disabled={disabled || isRouteLocked}
-            autoComplete="street-address"
-          />
-        </div>
 
         {showDestinationField ? (
-          <div className="space-y-2">
+          <div className={cn("space-y-2", usesSplitOrigin && "md:col-span-2")}>
             <Label htmlFor="pgflex-destination">{t("Destination")}</Label>
             <Input
               id="pgflex-destination"
               value={destination}
               onChange={(event) => onDestinationChange(event.target.value)}
-              disabled={disabled || isRouteLocked}
+              disabled={routeFieldDisabled}
               autoComplete="street-address"
             />
           </div>
