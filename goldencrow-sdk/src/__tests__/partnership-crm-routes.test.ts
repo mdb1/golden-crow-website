@@ -187,6 +187,7 @@ describe("partnership CRM routes", () => {
       linkedIn: "https://linkedin.com/company/argenetics",
       lastContactAt: null,
       notes: "",
+      is_favorite: true,
     };
 
     const response = await fastify.inject({
@@ -207,6 +208,7 @@ describe("partnership CRM routes", () => {
         linkedInRoute: "Official LinkedIn page of the affiliated organization.",
         researchBasis:
           "Existing verified Pocket Genes partnership dataset, affiliation website and LinkedIn record.",
+        is_favorite: true,
       }),
     );
   });
@@ -225,6 +227,7 @@ describe("partnership CRM routes", () => {
             category: "pro_reproductive_specialists,pro_fertility_specialists",
             country: "AR",
             status: "replied",
+            is_favorite: true,
             lastContactAt: "2026-08-25T14:29:00-03:00",
           },
         ],
@@ -237,6 +240,7 @@ describe("partnership CRM routes", () => {
       expect.arrayContaining([
         expect.objectContaining({
           lastContactAt: "2026-08-25T14:29:00-03:00",
+          is_favorite: true,
         }),
       ]),
     );

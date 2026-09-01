@@ -31,6 +31,7 @@ const organization: PartnershipCrmOrganizationRecord = {
   contactLinkedIn: "https://linkedin.com/in/marcelo",
   lastContactAt: null,
   notes: "LinkedIn referral.",
+  is_favorite: false,
   normalizedName: "genome lab",
 };
 
@@ -44,6 +45,7 @@ const laboratoryTemplate: PartnershipCrmTemplateRecord = {
   body: "Hola {{contact_name}}, vimos {{organization_name}}{{website_sentence}}.",
   status: "active",
   notes: "",
+  is_favorite: false,
   normalizedName: "laboratory outreach",
 };
 
@@ -57,6 +59,7 @@ const foundationTemplate: PartnershipCrmTemplateRecord = {
   body: "Hola {{contact_name}}, queremos conversar con {{organization_name}}.",
   status: "active",
   notes: "",
+  is_favorite: false,
   normalizedName: "foundation outreach",
 };
 
@@ -82,6 +85,7 @@ const professional: PartnershipCrmProfessionalRecord = {
   linkedIn: "https://linkedin.com/in/ada",
   lastContactAt: null,
   notes: "",
+  is_favorite: false,
   normalizedName: "dra ada genome",
 };
 
@@ -95,6 +99,7 @@ const professionalTemplate: PartnershipCrmTemplateRecord = {
   body: "Hola {{first_name}}, vi tu trabajo como {{title}} en {{primary_affiliation}}. Base: {{research_basis}}",
   status: "active",
   notes: "",
+  is_favorite: false,
   normalizedName: "professional outreach",
 };
 
@@ -144,9 +149,9 @@ describe("partnership CRM helpers", () => {
   it("parses CRM CSV rows without requiring contact email", () => {
     const parsed = parseCrmCsv(
       [
-        "name,category,website,country,contact_name,email,linkedin,status,notes",
-        '"Genome Lab","Genetic Testing Platform, Scientific Society",genomelab.example,"Argentina,Spain",Marcelo,marcelo@genomelab.example,https://linkedin.com/in/marcelo,Contacted,Already replied',
-        "Angelman Argentina,Foundation,angelman.org.ar,Argentina,,,,New,Research contact later",
+        "name,category,website,country,contact_name,email,linkedin,status,is_favorite,notes",
+        '"Genome Lab","Genetic Testing Platform, Scientific Society",genomelab.example,"Argentina,Spain",Marcelo,marcelo@genomelab.example,https://linkedin.com/in/marcelo,Contacted,true,Already replied',
+        "Angelman Argentina,Foundation,angelman.org.ar,Argentina,,,,New,false,Research contact later",
       ].join("\n"),
     );
 
@@ -154,11 +159,11 @@ describe("partnership CRM helpers", () => {
     expect(parsed.rows).toEqual([
       expect.objectContaining({
         name: "Genome Lab",
-        category:
-          "org_genetic_testing_platforms,org_scientific_societies",
+        category: "org_genetic_testing_platforms,org_scientific_societies",
         country: "AR,ES",
         contactEmail: "marcelo@genomelab.example",
         status: "contacted",
+        is_favorite: true,
       }),
       expect.objectContaining({
         name: "Angelman Argentina",
@@ -166,6 +171,7 @@ describe("partnership CRM helpers", () => {
         country: "AR",
         contactEmail: "",
         status: "new",
+        is_favorite: false,
       }),
     ]);
   });
@@ -173,8 +179,8 @@ describe("partnership CRM helpers", () => {
   it("parses professional CRM CSV rows against the professional model", () => {
     const parsed = parseCrmCsv(
       [
-        "name,category,title,primary_affiliation,potential_pocket_genes_editor_fit,email_route,linkedin_route,research_basis,website,country,email,linkedin,status,notes",
-        "Dra. Ada Genome,genetista,Genetista clinica,Genome Lab,\"Clinical genetics, genetic testing and patient education\",Public email listing,Affiliated organization LinkedIn,Verified dataset and website,genomelab.example,Argentina,ada@genomelab.example,https://linkedin.com/in/ada,Contacted,Direct intro",
+        "name,category,title,primary_affiliation,potential_pocket_genes_editor_fit,email_route,linkedin_route,research_basis,website,country,email,linkedin,status,is_favorite,notes",
+        'Dra. Ada Genome,genetista,Genetista clinica,Genome Lab,"Clinical genetics, genetic testing and patient education",Public email listing,Affiliated organization LinkedIn,Verified dataset and website,genomelab.example,Argentina,ada@genomelab.example,https://linkedin.com/in/ada,Contacted,favorito,Direct intro',
       ].join("\n"),
       "professionals",
     );
@@ -193,6 +199,7 @@ describe("partnership CRM helpers", () => {
         researchBasis: "Verified dataset and website",
         email: "ada@genomelab.example",
         status: "contacted",
+        is_favorite: true,
       }),
     ]);
   });
@@ -211,9 +218,9 @@ describe("partnership CRM helpers", () => {
   it("parses CRM template CSV rows with normalized category and status values", () => {
     const parsed = parseCrmTemplateCsv(
       [
-        "name,category,subject,body,status,notes",
-        '"Lab intro","lab","Pocket Genes + {{organization_name}}","Hola {{contact_name}}\\nLinea 2","activo","Primary"',
-        '"Foundation intro","fundacion","Pocket Genes para {{organization_name}}","Hola {{contact_name}}","archivada","Secondary"',
+        "name,category,subject,body,status,is_favorite,notes",
+        '"Lab intro","lab","Pocket Genes + {{organization_name}}","Hola {{contact_name}}\\nLinea 2","activo","starred","Primary"',
+        '"Foundation intro","fundacion","Pocket Genes para {{organization_name}}","Hola {{contact_name}}","archivada","false","Secondary"',
       ].join("\n"),
     );
 
@@ -227,12 +234,14 @@ describe("partnership CRM helpers", () => {
         body: "Hola {{contact_name}}\nLinea 2",
         status: "active",
         notes: "Primary",
+        is_favorite: true,
       }),
       expect.objectContaining({
         name: "Foundation intro",
         audience: "organizations",
         category: "org_rare_disease_foundations",
         status: "archived",
+        is_favorite: false,
       }),
     ]);
   });
@@ -240,8 +249,8 @@ describe("partnership CRM helpers", () => {
   it("parses professional template CSV rows with audience-specific category normalization", () => {
     const parsed = parseCrmTemplateCsv(
       [
-        "name,audience,category,subject,body,status,notes",
-        '"Professional intro","professionals","genetista","Pocket Genes + {{professional_name}}","Hola {{first_name}}","active","Primary"',
+        "name,audience,category,subject,body,status,is_favorite,notes",
+        '"Professional intro","professionals","genetista","Pocket Genes + {{professional_name}}","Hola {{first_name}}","active","yes","Primary"',
       ].join("\n"),
     );
 
@@ -253,6 +262,7 @@ describe("partnership CRM helpers", () => {
         category: "pro_clinical_geneticists",
         subject: "Pocket Genes + {{professional_name}}",
         body: "Hola {{first_name}}",
+        is_favorite: true,
       }),
     ]);
   });

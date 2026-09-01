@@ -37,6 +37,7 @@ const organization: PartnershipCrmOrganizationRecord = {
   contactLinkedIn: "",
   lastContactAt: "2026-08-01T12:00:00.000Z",
   notes: "Temporary CRM row.",
+  is_favorite: false,
   normalizedName: "delete me genomics",
   updatedByEmail: "owner@example.org",
 };
@@ -63,6 +64,7 @@ const professional: PartnershipCrmProfessionalRecord = {
   linkedIn: "https://linkedin.com/in/ada",
   lastContactAt: "2026-08-02T12:00:00.000Z",
   notes: "Professional CRM row.",
+  is_favorite: false,
   normalizedName: "dra ada genome",
 };
 
@@ -136,6 +138,38 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       "/admin/partnership-crm/organizations/org-1",
       { method: "DELETE" },
     );
+  });
+
+  it("shows favorite CRM organizations first with a yellow star cell", async () => {
+    const favoriteOrganization: PartnershipCrmOrganizationRecord = {
+      ...organization,
+      id: "org-favorite",
+      name: "Favorite Genetics",
+      is_favorite: true,
+      normalizedName: "favorite genetics",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      return {
+        organizations: [organization, favoriteOrganization],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getByText("Favorite Genetics")).toBeTruthy();
+    });
+
+    const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+    expect(within(rows[0]).getByText("Favorite Genetics")).toBeTruthy();
+    expect(within(rows[0]).getByRole("img", { name: "Favorite" })).toBeTruthy();
   });
 
   it("deletes multiple selected organizations from the list", async () => {
@@ -411,7 +445,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(screen.getAllByText("ada@genomelab.example").length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByRole("button", { name: "Add Professional" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Add Professional" }),
+    ).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Edit" }));
     const dialog = await screen.findByRole("dialog", {
@@ -420,16 +456,11 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const fieldValue = (label: string) =>
       (
         within(dialog).getByLabelText(label) as
-          | HTMLInputElement
-          | HTMLTextAreaElement
+          HTMLInputElement | HTMLTextAreaElement
       ).value;
 
-    expect(
-      fieldValue("Primary affiliation"),
-    ).toBe("Genome Lab");
-    expect(
-      fieldValue("Potential Pocket Genes editor fit"),
-    ).toBe(
+    expect(fieldValue("Primary affiliation")).toBe("Genome Lab");
+    expect(fieldValue("Potential Pocket Genes editor fit")).toBe(
       "Clinical genetics, genetic testing, result interpretation and patient education.",
     );
     expect(fieldValue("Email route")).toBe(
@@ -673,7 +704,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
   function crmCsv(rowCount: number) {
     return [
-      "name,category,website,country,contact_name,email,linkedin,status,notes",
+      "name,category,website,country,contact_name,email,linkedin,status,is_favorite,notes",
       ...Array.from({ length: rowCount }, (_, index) => {
         const rowNumber = index + 1;
         return [
@@ -685,6 +716,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
           `ada-${rowNumber}@example.org`,
           "",
           "New",
+          rowNumber === 1 ? "true" : "false",
           "Batch import",
         ].join(",");
       }),
@@ -739,9 +771,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
       within(dialog).queryByRole("tablist", { name: "CRM target" }),
     ).toBeNull();
     expect(crmPreviewCalls()).toHaveLength(0);
-    expect(
-      crmImportSession(),
-    ).toEqual(
+    expect(crmImportSession()).toEqual(
       expect.objectContaining({
         mode: "setup",
         previewedRows: 0,
@@ -783,12 +813,12 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
     await user.click(within(dialog).getByRole("button", { name: "Skip row" }));
     await waitFor(() => {
-      expect(within(dialog).getByText("Skipped during interactive review.")).toBeTruthy();
+      expect(
+        within(dialog).getByText("Skipped during interactive review."),
+      ).toBeTruthy();
     });
     expect(crmImportCalls()).toHaveLength(1);
-    expect(
-      crmImportSession(),
-    ).toEqual(
+    expect(crmImportSession()).toEqual(
       expect.objectContaining({
         mode: "interactive",
         nextImportIndex: 2,
@@ -807,9 +837,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     });
     expect(within(dialog).queryByLabelText("CSV file")).toBeNull();
     expect(within(dialog).getByRole("button", { name: "Done" })).toBeTruthy();
-    expect(
-      crmImportSession(),
-    ).toEqual(
+    expect(crmImportSession()).toEqual(
       expect.objectContaining({
         nextImportIndex: 3,
         status: "completed",
@@ -987,7 +1015,9 @@ describe("PartnershipCrmWorkbench import flow", () => {
     );
     await firstImportStarted;
     await waitFor(() => {
-      expect(within(dialog).getByRole("button", { name: "Pause" })).toBeTruthy();
+      expect(
+        within(dialog).getByRole("button", { name: "Pause" }),
+      ).toBeTruthy();
     });
 
     await user.click(within(dialog).getByRole("button", { name: "Pause" }));
@@ -1004,9 +1034,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
       expect(within(dialog).getByText("Row 2 of 3")).toBeTruthy();
     });
     expect(crmImportCalls()).toHaveLength(1);
-    expect(
-      crmImportSession(),
-    ).toEqual(
+    expect(crmImportSession()).toEqual(
       expect.objectContaining({
         mode: "interactive",
         nextImportIndex: 1,
@@ -1025,9 +1053,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     });
     expect(crmPreviewCalls()).toHaveLength(3);
     expect(crmImportCalls()).toHaveLength(3);
-    expect(
-      crmImportSession(),
-    ).toEqual(
+    expect(crmImportSession()).toEqual(
       expect.objectContaining({
         mode: "interactive",
         nextImportIndex: 3,
@@ -1187,7 +1213,9 @@ describe("PartnershipCrmWorkbench import flow", () => {
       expect(screen.getAllByText("CSV loaded").length).toBeGreaterThan(0);
     });
 
-    await user.click(within(dialog).getByRole("button", { name: "Import all" }));
+    await user.click(
+      within(dialog).getByRole("button", { name: "Import all" }),
+    );
 
     await waitFor(() => {
       expect(within(dialog).getByText("CRM import finished")).toBeTruthy();
@@ -1218,9 +1246,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
       [expect.objectContaining({ rowId: "row-3", duplicateAction: "import" })],
       [expect.objectContaining({ rowId: "row-4", duplicateAction: "import" })],
     ]);
-    expect(
-      crmImportSession(),
-    ).toEqual(
+    expect(crmImportSession()).toEqual(
       expect.objectContaining({
         mode: "all",
         previewedRows: 4,
@@ -1263,7 +1289,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
       ).toBeTruthy();
     });
     await expect(navigator.clipboard.readText()).resolves.toContain(
-      "Header row: name,category,website,country,status,contact_name,email,linkedin,last_contact_at,notes",
+      "Header row: name,category,website,country,status,is_favorite,contact_name,email,linkedin,last_contact_at,notes",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "org_genetic_testing_laboratories",
@@ -1275,7 +1301,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
       "Example CSV",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
-      "\"org_genetic_testing_laboratories,org_genomics_laboratories\"",
+      '"org_genetic_testing_laboratories,org_genomics_laboratories"',
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Cells with multiple category or country keys must be quoted",
@@ -1301,9 +1327,9 @@ describe("PartnershipCrmWorkbench import flow", () => {
     expect(
       within(dialog).getAllByText("potential_pocket_genes_editor_fit").length,
     ).toBeGreaterThan(0);
-    expect(
-      within(dialog).getAllByText("email_route").length,
-    ).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText("email_route").length).toBeGreaterThan(
+      0,
+    );
     expect(
       within(dialog).getAllByText("linkedin_route").length,
     ).toBeGreaterThan(0);
@@ -1318,7 +1344,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
       ).toBeTruthy();
     });
     await expect(navigator.clipboard.readText()).resolves.toContain(
-      "Header row: name,category,title,primary_affiliation,potential_pocket_genes_editor_fit,email_route,linkedin_route,research_basis,website,country,status,email,linkedin,last_contact_at,notes",
+      "Header row: name,category,title,primary_affiliation,potential_pocket_genes_editor_fit,email_route,linkedin_route,research_basis,website,country,status,is_favorite,email,linkedin,last_contact_at,notes",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "last_contact_at: Optional. Use a complete ISO datetime with an explicit timezone. Accepted: 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00.",
@@ -1327,7 +1353,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
       "Example CSV",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
-      "\"pro_reproductive_specialists,pro_fertility_specialists\"",
+      '"pro_reproductive_specialists,pro_fertility_specialists"',
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Rejected: 2026-08-25 and 2026-08-25T14:29:00 because they do not include timezone.",

@@ -36,6 +36,7 @@ const ORGANIZATION_HEADERS = [
   "website",
   "country",
   "status",
+  "is_favorite",
   "contact_name",
   "email",
   "linkedin",
@@ -50,6 +51,7 @@ const TEMPLATE_HEADERS = [
   "subject",
   "body",
   "status",
+  "is_favorite",
   "notes",
 ] as const;
 
@@ -65,6 +67,7 @@ const PROFESSIONAL_HEADERS = [
   "website",
   "country",
   "status",
+  "is_favorite",
   "email",
   "linkedin",
   "last_contact_at",
@@ -73,6 +76,10 @@ const PROFESSIONAL_HEADERS = [
 
 const EXPLICIT_DATETIME_RULE =
   "Optional. Use a complete ISO datetime with an explicit timezone. Accepted: 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00. Rejected: 2026-08-25 and 2026-08-25T14:29:00 because they do not include timezone.";
+const CRM_FAVORITE_RULE =
+  "Optional. Use true/false, 1/0, yes/no, or favorito. True rows are shown with a yellow star and sorted first in CRM lists.";
+const TEMPLATE_FAVORITE_RULE =
+  "Optional. Use true/false, 1/0, yes/no, or favorito. True templates are shown with a yellow star and sorted first in plantillas lists.";
 
 const TEMPLATE_VARIABLES = [
   "contact_name",
@@ -119,7 +126,7 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
         label: "category",
         detail:
           "Optional. Use one or more canonical pro_* category keys, or exact professional category labels. Multiple values must be comma-separated inside one quoted CSV cell. Unknown values are ignored; if every value is unknown, category is saved blank.",
-        example: "\"pro_reproductive_specialists,pro_fertility_specialists\"",
+        example: '"pro_reproductive_specialists,pro_fertility_specialists"',
       },
       {
         label: "title",
@@ -157,7 +164,8 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
         label: "research_basis",
         detail:
           "Optional. Maximum 2000 characters. Store the source basis used to validate the lead, such as datasets, affiliation websites, LinkedIn records, or other verified references.",
-        example: "Affiliation website, LinkedIn record, and prior outreach notes.",
+        example:
+          "Affiliation website, LinkedIn record, and prior outreach notes.",
       },
       {
         label: "website",
@@ -169,13 +177,18 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
         label: "country",
         detail:
           "Optional. Use one or more two-letter country codes from the CRM whitelist. Multiple values must be comma-separated inside one quoted CSV cell. GLOBAL and unknown countries are ignored; if every value is invalid, country is saved blank.",
-        example: "\"AR,UY\"",
+        example: '"AR,UY"',
       },
       {
         label: "status",
         detail:
           "Optional. Use one accepted CRM status key. Blank or unrecognized values default to new. Spanish aliases are normalized by the CSV parser before sending.",
         example: "replied",
+      },
+      {
+        label: "is_favorite",
+        detail: CRM_FAVORITE_RULE,
+        example: "true",
       },
       {
         label: "email",
@@ -215,7 +228,7 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
         label: "category",
         detail:
           "Optional. Use one or more canonical org_* category keys, or exact Discover organization labels. Multiple values must be comma-separated inside one quoted CSV cell. Unknown values are ignored; if every value is unknown, category is saved blank.",
-        example: "\"org_genetic_testing_laboratories,org_genomics_laboratories\"",
+        example: '"org_genetic_testing_laboratories,org_genomics_laboratories"',
       },
       {
         label: "website",
@@ -227,13 +240,18 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
         label: "country",
         detail:
           "Optional. Use one or more two-letter country codes from the CRM whitelist. Multiple values must be comma-separated inside one quoted CSV cell. GLOBAL and unknown countries are ignored; if every value is invalid, country is saved blank.",
-        example: "\"AR,UY\"",
+        example: '"AR,UY"',
       },
       {
         label: "status",
         detail:
           "Optional. Use one accepted CRM status key. Blank or unrecognized values default to new. Spanish aliases are normalized by the CSV parser before sending.",
         example: "contacted",
+      },
+      {
+        label: "is_favorite",
+        detail: CRM_FAVORITE_RULE,
+        example: "true",
       },
       {
         label: "contact_name",
@@ -305,6 +323,11 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
       example: "active",
     },
     {
+      label: "is_favorite",
+      detail: TEMPLATE_FAVORITE_RULE,
+      example: "true",
+    },
+    {
       label: "notes",
       detail:
         "Optional internal notes. Maximum 2000 characters. Literal \\n is converted to a line break.",
@@ -321,21 +344,22 @@ function exampleCsvFor(
     return [
       PROFESSIONAL_HEADERS.join(","),
       [
-        "\"Cesar Sanchez Sarmiento\"",
-        "\"pro_reproductive_specialists,pro_fertility_specialists\"",
-        "\"CEO and reproductive medicine specialist\"",
-        "\"MedicGen / Nascentis\"",
-        "\"Genetic testing adoption and carrier screening\"",
-        "\"LinkedIn response; validate recipient context before email\"",
-        "\"Public LinkedIn profile\"",
-        "\"Public affiliation site and LinkedIn record\"",
-        "\"https://medicgen.com/\"",
-        "\"AR\"",
-        "\"replied\"",
-        "\"\"",
-        "\"https://www.linkedin.com/in/nascentisfertility\"",
-        "\"2026-08-25T14:29:00-03:00\"",
-        "\"No direct email yet; coordination referred internally.\"",
+        '"Cesar Sanchez Sarmiento"',
+        '"pro_reproductive_specialists,pro_fertility_specialists"',
+        '"CEO and reproductive medicine specialist"',
+        '"MedicGen / Nascentis"',
+        '"Genetic testing adoption and carrier screening"',
+        '"LinkedIn response; validate recipient context before email"',
+        '"Public LinkedIn profile"',
+        '"Public affiliation site and LinkedIn record"',
+        '"https://medicgen.com/"',
+        '"AR"',
+        '"replied"',
+        '"true"',
+        '""',
+        '"https://www.linkedin.com/in/nascentisfertility"',
+        '"2026-08-25T14:29:00-03:00"',
+        '"No direct email yet; coordination referred internally."',
       ].join(","),
     ].join("\n");
   }
@@ -344,16 +368,17 @@ function exampleCsvFor(
     return [
       ORGANIZATION_HEADERS.join(","),
       [
-        "\"Genome Lab Argentina\"",
-        "\"org_genetic_testing_laboratories,org_genomics_laboratories\"",
-        "\"https://genomelab.example\"",
-        "\"AR,UY\"",
-        "\"contacted\"",
-        "\"Ada Genome\"",
-        "\"ada@genomelab.example\"",
-        "\"https://www.linkedin.com/in/adagenome\"",
-        "\"2026-08-25T17:29:00.000Z\"",
-        "\"Imported after call with lab team.\"",
+        '"Genome Lab Argentina"',
+        '"org_genetic_testing_laboratories,org_genomics_laboratories"',
+        '"https://genomelab.example"',
+        '"AR,UY"',
+        '"contacted"',
+        '"true"',
+        '"Ada Genome"',
+        '"ada@genomelab.example"',
+        '"https://www.linkedin.com/in/adagenome"',
+        '"2026-08-25T17:29:00.000Z"',
+        '"Imported after call with lab team."',
       ].join(","),
     ].join("\n");
   }
@@ -381,8 +406,9 @@ function exampleCsvFor(
       `"${category}"`,
       `"${subject}"`,
       `"${body}"`,
-      "\"active\"",
-      "\"Use only for validated leads.\"",
+      '"active"',
+      '"true"',
+      '"Use only for validated leads."',
     ].join(","),
   ].join("\n");
 }
@@ -391,7 +417,7 @@ function commonPitfallsFor(kind: ImportRulesKind) {
   const common = [
     "Use the exact header row shown here when generating CSVs. Unsupported headers are ignored.",
     "If a cell contains commas, quotes, or line breaks, wrap the whole cell in double quotes.",
-    "Escape a quote inside a cell by doubling it, for example He said \"\"hello\"\".",
+    'Escape a quote inside a cell by doubling it, for example He said ""hello"".',
   ];
 
   if (kind === "templates") {
@@ -527,9 +553,7 @@ function buildImportRulesText({
     t("Field rules"),
     ...lines.flatMap((line) => [
       `${line.label}: ${t(line.detail)}`,
-      ...(line.example
-        ? [`  ${t("Example")}: ${line.example}`]
-        : []),
+      ...(line.example ? [`  ${t("Example")}: ${line.example}`] : []),
     ]),
     "",
     t("Accepted statuses"),

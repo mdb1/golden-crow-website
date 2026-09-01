@@ -41,6 +41,7 @@ const template: PartnershipCrmTemplateRecord = {
   body: "Hola {{contact_name}}",
   status: "active",
   notes: "Primary lab template.",
+  is_favorite: false,
   normalizedName: "lab outreach",
   updatedAt: "2026-08-01T12:00:00.000Z",
 };
@@ -89,6 +90,31 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(screen.queryByPlaceholderText("Category")).toBeNull();
   });
 
+  it("shows favorite templates first with a yellow star cell", async () => {
+    const favoriteTemplate: PartnershipCrmTemplateRecord = {
+      ...template,
+      id: "tpl-favorite",
+      name: "Favorite outreach",
+      is_favorite: true,
+      normalizedName: "favorite outreach",
+    };
+
+    jest.mocked(sdkFetch).mockResolvedValue({
+      templates: [template, favoriteTemplate],
+      nextCursor: undefined,
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Favorite outreach")).toBeTruthy();
+    });
+
+    const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+    expect(within(rows[0]).getByText("Favorite outreach")).toBeTruthy();
+    expect(within(rows[0]).getByRole("img", { name: "Favorite" })).toBeTruthy();
+  });
+
   it("previews and imports templates from CSV", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
@@ -125,9 +151,9 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await user.click(screen.getByRole("button", { name: "Import CSV" }));
     const dialog = await screen.findByRole("dialog");
     const csv = [
-      "name,category,subject,body,status,notes",
-      '"Lab intro","lab","Pocket Genes + {{organization_name}}","Hola {{contact_name}}\\nMensaje","active","First"',
-      '"Foundation intro","fundacion","Pocket Genes para {{organization_name}}","Hola {{contact_name}}","inactive","Second"',
+      "name,category,subject,body,status,is_favorite,notes",
+      '"Lab intro","lab","Pocket Genes + {{organization_name}}","Hola {{contact_name}}\\nMensaje","active","true","First"',
+      '"Foundation intro","fundacion","Pocket Genes para {{organization_name}}","Hola {{contact_name}}","inactive","false","Second"',
     ].join("\n");
     const file = new File([csv], "plantillas.csv", { type: "text/csv" });
     Object.defineProperty(file, "text", { value: async () => csv });
@@ -148,11 +174,13 @@ describe("PartnershipCrmTemplateBrowser", () => {
     );
 
     await waitFor(() => {
-      const postCalls = jest.mocked(sdkFetch).mock.calls.filter(
-        ([path, init]) =>
-          path === "/admin/partnership-crm/templates" &&
-          init?.method === "POST",
-      );
+      const postCalls = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path, init]) =>
+            path === "/admin/partnership-crm/templates" &&
+            init?.method === "POST",
+        );
       expect(postCalls).toHaveLength(2);
     });
 
@@ -175,6 +203,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
         subject: "Pocket Genes + {{organization_name}}",
         body: "Hola {{contact_name}}\nMensaje",
         status: "active",
+        is_favorite: true,
         notes: "First",
       }),
       expect.objectContaining({
@@ -182,6 +211,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
         audience: "organizations",
         category: "org_rare_disease_foundations",
         status: "inactive",
+        is_favorite: false,
         notes: "Second",
       }),
     ]);
@@ -211,7 +241,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await user.click(screen.getByRole("button", { name: "Import CSV" }));
     const dialog = await screen.findByRole("dialog");
     const csv = [
-      "name,category,subject,body,status,notes",
+      "name,category,subject,body,status,is_favorite,notes",
       ...Array.from({ length: 55 }, (_, index) => {
         const row = index + 1;
         return [
@@ -220,6 +250,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
           `"Subject ${row}"`,
           `"Body ${row}"`,
           '"active"',
+          '""',
           '""',
         ].join(",");
       }),
@@ -284,7 +315,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
       ).toBeTruthy();
     });
     await expect(navigator.clipboard.readText()).resolves.toContain(
-      "Header row: name,audience,category,subject,body,status,notes",
+      "Header row: name,audience,category,subject,body,status,is_favorite,notes",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Rules for CRM template CSV imports.",
@@ -330,6 +361,7 @@ describe("PartnershipCrmTemplateWorkbench", () => {
       "Pocket Genes + {{organization_name}}",
     );
     await user.type(screen.getByLabelText("Message"), "Hola {{contact_name}}");
+    await user.click(screen.getByLabelText("Favorite"));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
@@ -341,11 +373,14 @@ describe("PartnershipCrmTemplateWorkbench", () => {
 
     const [, init] = jest
       .mocked(sdkFetch)
-      .mock.calls.find(([path]) => path === "/admin/partnership-crm/templates")!;
+      .mock.calls.find(
+        ([path]) => path === "/admin/partnership-crm/templates",
+      )!;
     expect(JSON.parse(String(init?.body))).toEqual(
       expect.objectContaining({
         category: "org_genetic_testing_laboratories",
         audience: "organizations",
+        is_favorite: true,
       }),
     );
   });
@@ -363,18 +398,15 @@ describe("PartnershipCrmTemplateWorkbench", () => {
     renderWithProviders(<PartnershipCrmTemplateWorkbench mode="create" />);
 
     await user.click(screen.getByRole("tab", { name: /Professionals/ }));
-    expect(
-      screen.getAllByText("Clinical Geneticist").length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Clinical Geneticist").length).toBeGreaterThan(
+      0,
+    );
 
     await user.type(
       screen.getByLabelText("Template name"),
       "Professional outreach",
     );
-    await user.type(
-      screen.getByLabelText("Subject"),
-      "Pocket Genes + ",
-    );
+    await user.type(screen.getByLabelText("Subject"), "Pocket Genes + ");
     await user.paste("{{professional_name}}");
     await user.click(screen.getByLabelText("Message"));
     await user.paste("Hola {{first_name}}");
@@ -389,7 +421,9 @@ describe("PartnershipCrmTemplateWorkbench", () => {
 
     const [, init] = jest
       .mocked(sdkFetch)
-      .mock.calls.find(([path]) => path === "/admin/partnership-crm/templates")!;
+      .mock.calls.find(
+        ([path]) => path === "/admin/partnership-crm/templates",
+      )!;
     expect(JSON.parse(String(init?.body))).toEqual(
       expect.objectContaining({
         audience: "professionals",

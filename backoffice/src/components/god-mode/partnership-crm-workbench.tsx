@@ -36,6 +36,7 @@ import {
   RefreshCw,
   Search,
   Send,
+  Star,
   Trash2,
   UserRound,
   X,
@@ -137,8 +138,7 @@ const CRM_ALL_COUNTRIES_VALUE = "__all_countries__";
 const CRM_NO_COUNTRY_VALUE = "__no_country__";
 
 type CrmTargetInput =
-  | PartnershipCrmOrganizationInput
-  | PartnershipCrmProfessionalInput;
+  PartnershipCrmOrganizationInput | PartnershipCrmProfessionalInput;
 
 type EmailState = {
   to: string;
@@ -172,6 +172,7 @@ type OrganizationFormState = {
   contactLinkedIn: string;
   lastContactAt: string;
   notes: string;
+  is_favorite: boolean;
 };
 
 type ListFilters = {
@@ -263,6 +264,7 @@ function emptyFormState(
     contactLinkedIn: "",
     lastContactAt: "",
     notes: "",
+    is_favorite: false,
   };
 }
 
@@ -392,9 +394,7 @@ function buildCrmImportErrorDetail({
     targetKind: session.targetKind,
     rowIndex,
     rowNumber,
-    rowId:
-      previewRow?.rowId ??
-      (rowNumber ? `row-${rowNumber}` : undefined),
+    rowId: previewRow?.rowId ?? (rowNumber ? `row-${rowNumber}` : undefined),
     endpoint: errorStringProperty(error, "path") ?? endpoint,
     method: errorStringProperty(error, "method") ?? "POST",
     status: errorNumberProperty(error, "status"),
@@ -442,8 +442,7 @@ function restoreCrmImportErrorDetail(
       typeof candidate.rowIndex === "number" ? candidate.rowIndex : null,
     rowNumber:
       typeof candidate.rowNumber === "number" ? candidate.rowNumber : null,
-    rowId:
-      typeof candidate.rowId === "string" ? candidate.rowId : undefined,
+    rowId: typeof candidate.rowId === "string" ? candidate.rowId : undefined,
     endpoint:
       typeof candidate.endpoint === "string" ? candidate.endpoint : undefined,
     method: typeof candidate.method === "string" ? candidate.method : undefined,
@@ -466,10 +465,7 @@ function restoreCrmImportErrorDetail(
   };
 }
 
-function importErrorRowLabel(
-  session: CrmImportSession,
-  language: AppLanguage,
-) {
+function importErrorRowLabel(session: CrmImportSession, language: AppLanguage) {
   const t = (text: string) => appText(language, text);
   const rowNumber =
     session.lastErrorDetail?.rowNumber ??
@@ -492,9 +488,9 @@ function importErrorDescription(
 
   return `${importErrorRowLabel(session, language)} ${t(
     "failed while",
-  )} ${stageText}. ${t("Backend response")}: ${message || t(
-    "Unknown import error.",
-  )}. ${t(
+  )} ${stageText}. ${t("Backend response")}: ${
+    message || t("Unknown import error.")
+  }. ${t(
     "Rows before this checkpoint were kept. Fix the CSV row shown in the log and resume from the saved checkpoint.",
   )}`;
 }
@@ -735,11 +731,7 @@ function validImportSession(
     "import",
     "complete",
   ];
-  const modeOptions: CrmImportSessionMode[] = [
-    "setup",
-    "interactive",
-    "all",
-  ];
+  const modeOptions: CrmImportSessionMode[] = ["setup", "interactive", "all"];
   const restoredStatus = statusOptions.includes(
     candidate.status as CrmImportSessionStatus,
   )
@@ -880,7 +872,10 @@ function crmTargetBasePath(targetKind: PartnershipCrmTargetKind) {
 }
 
 function targetPageRows(
-  page: PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage | undefined,
+  page:
+    | PartnershipCrmOrganizationsPage
+    | PartnershipCrmProfessionalsPage
+    | undefined,
   targetKind: PartnershipCrmTargetKind,
 ) {
   if (!page) {
@@ -937,6 +932,7 @@ function targetPayload(
     website: state.website.trim(),
     country: normalizeCrmCountry(state.country),
     status: state.status,
+    is_favorite: state.is_favorite,
     lastContactAt:
       parsedLastContact && !Number.isNaN(parsedLastContact.getTime())
         ? parsedLastContact.toISOString()
@@ -949,8 +945,7 @@ function targetPayload(
       ...base,
       title: state.title.trim(),
       primaryAffiliation: state.primaryAffiliation.trim(),
-      potentialPocketGenesEditorFit:
-        state.potentialPocketGenesEditorFit.trim(),
+      potentialPocketGenesEditorFit: state.potentialPocketGenesEditorFit.trim(),
       emailRoute: state.emailRoute.trim(),
       linkedInRoute: state.linkedInRoute.trim(),
       researchBasis: state.researchBasis.trim(),
@@ -997,6 +992,7 @@ function toFormState(
     status: organization.status,
     lastContactAt: localDateTimeValue(organization.lastContactAt),
     notes: organization.notes,
+    is_favorite: organization.is_favorite,
   };
 
   if (targetKind === "professionals") {
@@ -1185,6 +1181,50 @@ function StatusBadge({
       {appText(language, statusLabel(status))}
     </Badge>
   );
+}
+
+function FavoriteCell({
+  isFavorite,
+  language,
+}: {
+  isFavorite: boolean;
+  language: AppLanguage;
+}) {
+  const label = appText(language, isFavorite ? "Favorite" : "Not favorite");
+
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className="inline-flex h-6 w-6 items-center justify-center"
+    >
+      {isFavorite ? (
+        <Star
+          aria-hidden="true"
+          className="h-4 w-4 fill-amber-400 text-amber-500"
+        />
+      ) : (
+        <span aria-hidden="true" className="text-xs text-muted-foreground/50">
+          -
+        </span>
+      )}
+    </span>
+  );
+}
+
+function favoriteFirstRecords<T extends { is_favorite?: boolean }>(
+  records: readonly T[],
+) {
+  return records
+    .map((record, index) => ({ record, index }))
+    .sort((left, right) => {
+      const favoriteDelta =
+        Number(Boolean(right.record.is_favorite)) -
+        Number(Boolean(left.record.is_favorite));
+      return favoriteDelta || left.index - right.index;
+    })
+    .map(({ record }) => record);
 }
 
 function CategoryBadgeGroup({
@@ -1555,7 +1595,9 @@ function OrganizationDialog({
           <DialogDescription>
             {isProfessionals
               ? t("One professional, one direct email, and the next action.")
-              : t("One organization, one primary contact, and the next action.")}
+              : t(
+                  "One organization, one primary contact, and the next action.",
+                )}
           </DialogDescription>
         </DialogHeader>
 
@@ -1563,7 +1605,9 @@ function OrganizationDialog({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="crm-org-name">
-                {isProfessionals ? t("Professional name") : t("Organization name")}
+                {isProfessionals
+                  ? t("Professional name")
+                  : t("Organization name")}
               </Label>
               <Input
                 id="crm-org-name"
@@ -1585,7 +1629,9 @@ function OrganizationDialog({
             {isProfessionals ? (
               <>
                 <div className="space-y-1.5">
-                  <Label htmlFor="crm-prof-title">{t("Role / specialty")}</Label>
+                  <Label htmlFor="crm-prof-title">
+                    {t("Role / specialty")}
+                  </Label>
                   <Input
                     id="crm-prof-title"
                     value={form.title}
@@ -1645,6 +1691,27 @@ function OrganizationDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="crm-is-favorite">{t("Favorite")}</Label>
+              <div className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3">
+                <Checkbox
+                  id="crm-is-favorite"
+                  checked={form.is_favorite}
+                  onCheckedChange={(checked) =>
+                    update({ is_favorite: checked === true })
+                  }
+                />
+                <Star
+                  aria-hidden="true"
+                  className={cn(
+                    "h-4 w-4",
+                    form.is_favorite
+                      ? "fill-amber-400 text-amber-500"
+                      : "text-muted-foreground/50",
+                  )}
+                />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="crm-last-contact">{t("Last Contact")}</Label>
@@ -2124,7 +2191,9 @@ function ImportProgressPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">{t(session.targetKind)}</Badge>
-          <Badge variant="outline">{importStatusLabel(session, language)}</Badge>
+          <Badge variant="outline">
+            {importStatusLabel(session, language)}
+          </Badge>
         </div>
       </div>
 
@@ -2367,9 +2436,7 @@ function ImportReviewFact({
 }
 
 function resultLabel(
-  result:
-    | PartnershipCrmImportResult["results"][number]
-    | undefined,
+  result: PartnershipCrmImportResult["results"][number] | undefined,
   language: AppLanguage,
 ) {
   const t = (text: string) => appText(language, text);
@@ -2485,6 +2552,15 @@ function ImportRowReviewCard({
               value={email ? <span className="break-all">{email}</span> : "—"}
             />
             <ImportReviewFact
+              label={t("Favorite")}
+              value={
+                <FavoriteCell
+                  isFavorite={Boolean(target?.is_favorite)}
+                  language={language}
+                />
+              }
+            />
+            <ImportReviewFact
               label={
                 targetKind === "professionals"
                   ? t("Primary affiliation")
@@ -2586,7 +2662,9 @@ function ImportRowReviewCard({
         {processed ? (
           <>
             <p className="text-sm text-muted-foreground sm:mr-auto">
-              {result?.reason ? t(result.reason) : resultLabel(result, language)}
+              {result?.reason
+                ? t(result.reason)
+                : resultLabel(result, language)}
             </p>
             {automatic ? (
               <Button
@@ -2739,7 +2817,9 @@ function ImportDialog({
     session?.mode === "interactive" && session.status !== "completed";
   const showAllRunning =
     session?.mode === "all" &&
-    (pending || session.status === "importing" || session.status === "previewing");
+    (pending ||
+      session.status === "importing" ||
+      session.status === "previewing");
   const showModePicker =
     Boolean(session) &&
     session?.status !== "completed" &&
@@ -3054,11 +3134,17 @@ export function PartnershipCrmWorkbench() {
   const organizationQuery = useQuery({
     queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind, filters, currentCursor],
     queryFn: () =>
-      sdkFetch<PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage>(
-        buildTargetListPath(targetKind, filters, currentCursor),
-      ),
+      sdkFetch<
+        PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage
+      >(buildTargetListPath(targetKind, filters, currentCursor)),
   });
-  const organizations = targetPageRows(organizationQuery.data, targetKind);
+  const organizations = useMemo(
+    () =>
+      favoriteFirstRecords<PartnershipCrmTargetRecord>(
+        targetPageRows(organizationQuery.data, targetKind),
+      ),
+    [organizationQuery.data, targetKind],
+  );
   const currentListPage = cursorStack.length + 1;
   const hasNextListPage = Boolean(organizationQuery.data?.nextCursor);
   const knownListPages = currentListPage + (hasNextListPage ? 1 : 0);
@@ -3183,26 +3269,24 @@ export function PartnershipCrmWorkbench() {
 
     queryClient.setQueriesData<
       PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage
-    >(
-      { queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind] },
-      (current) =>
-        targetKind === "professionals"
-          ? current && "professionals" in current
-            ? {
-                ...current,
-                professionals: current.professionals.filter(
-                  (professional) => !deletedIds.has(professional.id),
-                ),
-              }
-            : current
-          : current && "organizations" in current
-            ? {
-                ...current,
-                organizations: current.organizations.filter(
-                  (organization) => !deletedIds.has(organization.id),
-                ),
-              }
-            : current,
+    >({ queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind] }, (current) =>
+      targetKind === "professionals"
+        ? current && "professionals" in current
+          ? {
+              ...current,
+              professionals: current.professionals.filter(
+                (professional) => !deletedIds.has(professional.id),
+              ),
+            }
+          : current
+        : current && "organizations" in current
+          ? {
+              ...current,
+              organizations: current.organizations.filter(
+                (organization) => !deletedIds.has(organization.id),
+              ),
+            }
+          : current,
     );
   }
 
@@ -3226,13 +3310,10 @@ export function PartnershipCrmWorkbench() {
       return sdkFetch<{
         organization?: PartnershipCrmOrganizationRecord;
         professional?: PartnershipCrmProfessionalRecord;
-      }>(
-        path,
-        {
-          method: mode === "edit" ? "PUT" : "POST",
-          body: JSON.stringify(payload),
-        },
-      );
+      }>(path, {
+        method: mode === "edit" ? "PUT" : "POST",
+        body: JSON.stringify(payload),
+      });
     },
     onSuccess: (result) => {
       const target = result.professional ?? result.organization;
@@ -3712,14 +3793,14 @@ export function PartnershipCrmWorkbench() {
     });
 
     const importEndpoint = importEndpointForTarget(importing.targetKind);
-    const requestPayload = importRequestPayloadForRow(row, importing.targetKind);
-    const result = await sdkFetch<PartnershipCrmImportResult>(
-      importEndpoint,
-      {
-        method: "POST",
-        body: JSON.stringify(requestPayload),
-      },
+    const requestPayload = importRequestPayloadForRow(
+      row,
+      importing.targetKind,
     );
+    const result = await sdkFetch<PartnershipCrmImportResult>(importEndpoint, {
+      method: "POST",
+      body: JSON.stringify(requestPayload),
+    });
 
     importing = saveImportSession({
       ...importing,
@@ -4540,6 +4621,9 @@ export function PartnershipCrmWorkbench() {
                           }
                         />
                       </TableHead>
+                      <TableHead className="w-10">
+                        <span className="sr-only">{t("Favorite")}</span>
+                      </TableHead>
                       <TableHead>
                         {targetKind === "professionals"
                           ? t("Professional")
@@ -4593,6 +4677,12 @@ export function PartnershipCrmWorkbench() {
                               }
                             />
                           </TableCell>
+                          <TableCell>
+                            <FavoriteCell
+                              isFavorite={organization.is_favorite}
+                              language={language}
+                            />
+                          </TableCell>
                           <TableCell className="whitespace-normal">
                             <button
                               type="button"
@@ -4633,8 +4723,10 @@ export function PartnershipCrmWorkbench() {
                             ) : (
                               <>
                                 <div className="max-w-[210px] truncate font-medium">
-                                  {targetContactName(organization, targetKind) ||
-                                    "—"}
+                                  {targetContactName(
+                                    organization,
+                                    targetKind,
+                                  ) || "—"}
                                 </div>
                                 <div className="max-w-[210px] truncate text-xs text-muted-foreground">
                                   {crmTargetEmail(organization, targetKind) ||
@@ -4714,121 +4806,117 @@ export function PartnershipCrmWorkbench() {
         {showDetailPanel && selectedOrganization ? (
           <aside className="grid gap-4">
             <div className="rounded-xl border border-border/80 bg-background/70 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge
-                        status={selectedOrganization.status}
-                        language={language}
-                      />
-                      <CategoryBadgeGroup
-                        value={selectedOrganization.category}
-                        language={language}
-                        targetKind={targetKind}
-                      />
-                    </div>
-                    <h3 className="mt-2 truncate font-heading text-xl font-semibold text-foreground">
-                      {selectedOrganization.name}
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {formatCrmCountry(
-                        selectedOrganization.country,
-                        language,
-                      ) || t("No country")}
-                    </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge
+                      status={selectedOrganization.status}
+                      language={language}
+                    />
+                    <CategoryBadgeGroup
+                      value={selectedOrganization.category}
+                      language={language}
+                      targetKind={targetKind}
+                    />
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <h3 className="mt-2 truncate font-heading text-xl font-semibold text-foreground">
+                    {selectedOrganization.name}
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {formatCrmCountry(selectedOrganization.country, language) ||
+                      t("No country")}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    aria-label={t("Edit")}
+                    title={t("Edit")}
+                    onClick={() =>
+                      setOrganizationDialog({
+                        mode: "edit",
+                        organization: selectedOrganization,
+                      })
+                    }
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon-sm"
+                    aria-label={t("Delete")}
+                    title={t("Delete")}
+                    onClick={() => setDeleteTarget(selectedOrganization)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("Hide details")}
+                    title={t("Hide details")}
+                    onClick={hideDetailPanel}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {t("Pipeline")}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[...PIPELINE_STATUSES, ...OUTCOME_STATUSES].map((status) => (
                     <Button
+                      key={status}
                       type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      aria-label={t("Edit")}
-                      title={t("Edit")}
-                      onClick={() =>
-                        setOrganizationDialog({
-                          mode: "edit",
-                          organization: selectedOrganization,
-                        })
+                      variant={
+                        selectedOrganization.status === status
+                          ? "secondary"
+                          : "outline"
                       }
+                      size="xs"
+                      onClick={() => updateSelectedStatus(status)}
+                      disabled={saveOrganizationMutation.isPending}
                     >
-                      <Pencil className="h-3.5 w-3.5" />
+                      {t(statusLabel(status))}
                     </Button>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon-sm"
-                      aria-label={t("Delete")}
-                      title={t("Delete")}
-                      onClick={() => setDeleteTarget(selectedOrganization)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={t("Hide details")}
-                      title={t("Hide details")}
-                      onClick={hideDetailPanel}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                  ))}
                 </div>
+              </div>
 
-                <div className="mt-4 grid gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    {t("Pipeline")}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {[...PIPELINE_STATUSES, ...OUTCOME_STATUSES].map(
-                      (status) => (
-                        <Button
-                          key={status}
-                          type="button"
-                          variant={
-                            selectedOrganization.status === status
-                              ? "secondary"
-                              : "outline"
-                          }
-                          size="xs"
-                          onClick={() => updateSelectedStatus(status)}
-                          disabled={saveOrganizationMutation.isPending}
-                        >
-                          {t(statusLabel(status))}
-                        </Button>
-                      ),
-                    )}
-                  </div>
-                </div>
+              <div className="mt-4">
+                <OrganizationFacts
+                  organization={selectedOrganization}
+                  targetKind={targetKind}
+                  language={language}
+                />
+              </div>
 
-                <div className="mt-4">
-                  <OrganizationFacts
-                    organization={selectedOrganization}
-                    targetKind={targetKind}
-                    language={language}
-                  />
-                </div>
+              <div className="mt-4 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {t("Notes")}
+                </p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground/88">
+                  {selectedOrganization.notes || t("No notes yet.")}
+                </p>
+              </div>
 
-                <div className="mt-4 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    {t("Notes")}
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground/88">
-                    {selectedOrganization.notes || t("No notes yet.")}
-                  </p>
-                </div>
-
-                <Button
-                  type="button"
-                  size="lg"
-                  onClick={() => setEmailOpen(true)}
-                  disabled={!crmTargetEmail(selectedOrganization, targetKind)}
-                  className={cn(EMAIL_CTA_CLASS, "mt-4 w-full justify-center")}
-                >
-                  <Mail className="h-4 w-4" />
-                  {t("Send Email")}
-                </Button>
+              <Button
+                type="button"
+                size="lg"
+                onClick={() => setEmailOpen(true)}
+                disabled={!crmTargetEmail(selectedOrganization, targetKind)}
+                className={cn(EMAIL_CTA_CLASS, "mt-4 w-full justify-center")}
+              >
+                <Mail className="h-4 w-4" />
+                {t("Send Email")}
+              </Button>
             </div>
           </aside>
         ) : null}

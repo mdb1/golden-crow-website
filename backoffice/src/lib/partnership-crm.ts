@@ -62,6 +62,7 @@ export interface PartnershipCrmOrganizationRecord {
   contactLinkedIn: string;
   lastContactAt: string | null;
   notes: string;
+  is_favorite: boolean;
   normalizedName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -88,6 +89,7 @@ export interface PartnershipCrmProfessionalRecord {
   linkedIn: string;
   lastContactAt: string | null;
   notes: string;
+  is_favorite: boolean;
   normalizedName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -131,6 +133,7 @@ export interface PartnershipCrmTemplateRecord {
   body: string;
   status: PartnershipCrmTemplateStatus;
   notes: string;
+  is_favorite: boolean;
   normalizedName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -151,6 +154,7 @@ export interface PartnershipCrmTemplateInput {
   body: string;
   status?: PartnershipCrmTemplateStatus;
   notes?: string;
+  is_favorite?: boolean;
 }
 
 export interface PartnershipCrmOrganizationInput {
@@ -164,6 +168,7 @@ export interface PartnershipCrmOrganizationInput {
   contactLinkedIn?: string;
   lastContactAt?: string | null;
   notes?: string;
+  is_favorite?: boolean;
 }
 
 export interface PartnershipCrmProfessionalInput {
@@ -182,6 +187,7 @@ export interface PartnershipCrmProfessionalInput {
   linkedIn?: string;
   lastContactAt?: string | null;
   notes?: string;
+  is_favorite?: boolean;
 }
 
 export interface PartnershipCrmDuplicateCandidate {
@@ -211,7 +217,8 @@ export interface PartnershipCrmImportPreviewRow {
   errors: string[];
   missingEmail: boolean;
   duplicateCandidates: Array<
-    PartnershipCrmDuplicateCandidate | PartnershipCrmProfessionalDuplicateCandidate
+    | PartnershipCrmDuplicateCandidate
+    | PartnershipCrmProfessionalDuplicateCandidate
   >;
   duplicateAction?: CrmDuplicateAction;
   duplicateOrganizationId?: string;
@@ -252,7 +259,9 @@ export interface ParsedCrmTemplateCsv {
 }
 
 export interface ParsedCrmCsv {
-  rows: Array<PartnershipCrmOrganizationInput | PartnershipCrmProfessionalInput>;
+  rows: Array<
+    PartnershipCrmOrganizationInput | PartnershipCrmProfessionalInput
+  >;
   errors: Array<{ row: number; message: string }>;
 }
 
@@ -281,7 +290,10 @@ const STATUS_ALIASES: Record<string, PartnershipCrmStatus> = {
   no_encaja: "not_a_fit",
 };
 
-const ORGANIZATION_CATEGORY_ALIASES: Record<string, PartnershipCrmCategory | ""> = {
+const ORGANIZATION_CATEGORY_ALIASES: Record<
+  string,
+  PartnershipCrmCategory | ""
+> = {
   laboratory: "org_genetic_testing_laboratories",
   lab: "org_genetic_testing_laboratories",
   genomics: "org_genomics_laboratories",
@@ -347,6 +359,23 @@ const TEMPLATE_STATUS_ALIASES: Record<string, PartnershipCrmTemplateStatus> = {
   archivada: "archived",
 };
 
+const BOOLEAN_TRUE_ALIASES = new Set([
+  "true",
+  "1",
+  "yes",
+  "y",
+  "si",
+  "s",
+  "favorite",
+  "favourite",
+  "favorito",
+  "favorita",
+  "star",
+  "starred",
+  "destacado",
+  "destacada",
+]);
+
 const HEADER_ALIASES: Record<keyof PartnershipCrmOrganizationInput, string[]> =
   {
     name: [
@@ -365,6 +394,17 @@ const HEADER_ALIASES: Record<keyof PartnershipCrmOrganizationInput, string[]> =
     contactLinkedIn: ["linkedin", "contact_linkedin", "linked_in"],
     lastContactAt: ["last_contact", "last_contact_at", "ultimo_contacto"],
     notes: ["notes", "note", "notas", "observaciones"],
+    is_favorite: [
+      "is_favorite",
+      "favorite",
+      "favourite",
+      "favorito",
+      "favorita",
+      "star",
+      "starred",
+      "destacado",
+      "destacada",
+    ],
   };
 
 const PROFESSIONAL_HEADER_ALIASES: Record<
@@ -374,10 +414,7 @@ const PROFESSIONAL_HEADER_ALIASES: Record<
   name: ["name", "professional", "professional_name", "nombre", "persona"],
   category: ["category", "professional_category", "categoria", "tipo"],
   title: ["title", "role", "specialty", "profession", "titulo", "especialidad"],
-  primaryAffiliation: [
-    "primary_affiliation",
-    "primaryaffiliation",
-  ],
+  primaryAffiliation: ["primary_affiliation", "primaryaffiliation"],
   potentialPocketGenesEditorFit: [
     "potential_pocket_genes_editor_fit",
     "potentialpocketgeneseditorfit",
@@ -420,18 +457,42 @@ const PROFESSIONAL_HEADER_ALIASES: Record<
   linkedIn: ["linkedin", "linked_in"],
   lastContactAt: ["last_contact", "last_contact_at", "ultimo_contacto"],
   notes: ["notes", "note", "notas", "observaciones"],
+  is_favorite: [
+    "is_favorite",
+    "favorite",
+    "favourite",
+    "favorito",
+    "favorita",
+    "star",
+    "starred",
+    "destacado",
+    "destacada",
+  ],
 };
 
-const TEMPLATE_HEADER_ALIASES: Record<keyof PartnershipCrmTemplateInput, string[]> =
-  {
-    name: ["name", "template", "template_name", "nombre", "plantilla"],
-    audience: ["audience", "target", "target_kind", "applies_to", "aplica_a"],
-    category: ["category", "template_category", "categoria", "tipo"],
-    subject: ["subject", "asunto"],
-    body: ["body", "message", "text", "cuerpo", "mensaje", "texto"],
-    status: ["status", "estado"],
-    notes: ["notes", "note", "notas", "observaciones"],
-  };
+const TEMPLATE_HEADER_ALIASES: Record<
+  keyof PartnershipCrmTemplateInput,
+  string[]
+> = {
+  name: ["name", "template", "template_name", "nombre", "plantilla"],
+  audience: ["audience", "target", "target_kind", "applies_to", "aplica_a"],
+  category: ["category", "template_category", "categoria", "tipo"],
+  subject: ["subject", "asunto"],
+  body: ["body", "message", "text", "cuerpo", "mensaje", "texto"],
+  status: ["status", "estado"],
+  notes: ["notes", "note", "notas", "observaciones"],
+  is_favorite: [
+    "is_favorite",
+    "favorite",
+    "favourite",
+    "favorito",
+    "favorita",
+    "star",
+    "starred",
+    "destacado",
+    "destacada",
+  ],
+};
 
 function normalizeKey(value: string) {
   return value
@@ -450,6 +511,10 @@ function normalizeStatus(value: string): PartnershipCrmStatus {
 function normalizeTemplateStatus(value: string): PartnershipCrmTemplateStatus {
   const key = normalizeKey(value);
   return TEMPLATE_STATUS_ALIASES[key] ?? "active";
+}
+
+function normalizeCsvBoolean(value: string | undefined) {
+  return BOOLEAN_TRUE_ALIASES.has(normalizeKey(value ?? ""));
 }
 
 export function normalizeCrmAudience(
@@ -662,8 +727,8 @@ function fieldForHeader(header: string) {
 
 function professionalFieldForHeader(header: string) {
   const normalized = normalizeKey(header);
-  const entry = Object.entries(PROFESSIONAL_HEADER_ALIASES).find(([, aliases]) =>
-    aliases.includes(normalized),
+  const entry = Object.entries(PROFESSIONAL_HEADER_ALIASES).find(
+    ([, aliases]) => aliases.includes(normalized),
   );
 
   return entry?.[0] as keyof PartnershipCrmProfessionalInput | undefined;
@@ -755,6 +820,7 @@ export function parseCrmCsv(
         linkedIn: row.linkedIn?.trim() ?? "",
         lastContactAt: row.lastContactAt?.trim() || null,
         notes: row.notes?.trim() ?? "",
+        is_favorite: normalizeCsvBoolean(row.is_favorite),
       });
       return;
     }
@@ -770,6 +836,7 @@ export function parseCrmCsv(
       contactLinkedIn: row.contactLinkedIn?.trim() ?? "",
       lastContactAt: row.lastContactAt?.trim() || null,
       notes: row.notes?.trim() ?? "",
+      is_favorite: normalizeCsvBoolean(row.is_favorite),
     });
   });
 
@@ -873,6 +940,7 @@ export function parseCrmTemplateCsv(
       body,
       status: normalizeTemplateStatus(row.status ?? ""),
       notes,
+      is_favorite: normalizeCsvBoolean(row.is_favorite),
     });
   });
 
@@ -892,8 +960,7 @@ function firstName(value: string) {
 }
 
 export type PartnershipCrmTargetRecord =
-  | PartnershipCrmOrganizationRecord
-  | PartnershipCrmProfessionalRecord;
+  PartnershipCrmOrganizationRecord | PartnershipCrmProfessionalRecord;
 
 export function crmTargetEmail(
   target: PartnershipCrmTargetRecord,
@@ -1000,7 +1067,10 @@ export function bestCrmTemplateForTarget(
     return null;
   }
 
-  const targetCategories = normalizeCrmCategoryKeys(target.category, targetKind);
+  const targetCategories = normalizeCrmCategoryKeys(
+    target.category,
+    targetKind,
+  );
   const targetCategoryKeys = targetCategories.map((category) =>
     normalizeKey(category),
   );

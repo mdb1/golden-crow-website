@@ -23,6 +23,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Star,
   Trash2,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -30,6 +31,7 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -154,7 +156,7 @@ const PROFESSIONAL_TEMPLATE_VARIABLES = [
 const TEMPLATE_IMPORT_PREVIEW_LIMIT = 50;
 
 const ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV = [
-  "name,audience,category,subject,body,status,notes",
+  "name,audience,category,subject,body,status,is_favorite,notes",
   [
     '"Laboratorio - primer contacto"',
     '"organizations"',
@@ -162,11 +164,12 @@ const ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV = [
     '"Pocket Genes + {{organization_name}}"',
     '"Hola {{contact_name}},\\n\\nSoy Federico de Pocket Genes. Vi el trabajo de {{organization_name}}{{website_sentence}} y queria coordinar una conversacion corta para explorar colaboracion clinica/genomica.\\n\\nTe parece si agendamos 20 minutos esta semana?"',
     '"active"',
+    '"true"',
     '"Usar con laboratorios y centros de genomica."',
   ].join(","),
 ].join("\n");
 const PROFESSIONAL_TEMPLATE_IMPORT_SAMPLE_CSV = [
-  "name,audience,category,subject,body,status,notes",
+  "name,audience,category,subject,body,status,is_favorite,notes",
   [
     '"Profesional - primer contacto"',
     '"professionals"',
@@ -174,6 +177,7 @@ const PROFESSIONAL_TEMPLATE_IMPORT_SAMPLE_CSV = [
     '"Pocket Genes + {{professional_name}}"',
     '"Hola {{first_name}},\\n\\nSoy Federico de Pocket Genes. Vi tu trabajo como {{title}} en {{primary_affiliation}}{{website_sentence}} y queria coordinar una conversacion corta para explorar colaboracion clinica/genomica.\\n\\nTe parece si agendamos 20 minutos esta semana?"',
     '"active"',
+    '"true"',
     '"Usar con profesionales clinicos y referentes de genetica."',
   ].join(","),
 ].join("\n");
@@ -193,6 +197,7 @@ type TemplateFormState = {
   body: string;
   status: PartnershipCrmTemplateStatus;
   notes: string;
+  is_favorite: boolean;
 };
 
 type TemplateImportPreviewRow = {
@@ -217,6 +222,7 @@ const EMPTY_TEMPLATE_FORM: TemplateFormState = {
   body: "",
   status: "active",
   notes: "",
+  is_favorite: false,
 };
 
 function defaultTemplateCategory(audience: PartnershipCrmTemplateAudience) {
@@ -239,6 +245,7 @@ const SAMPLE_ORGANIZATION: PartnershipCrmOrganizationRecord = {
   contactLinkedIn: "",
   lastContactAt: null,
   notes: "",
+  is_favorite: false,
   normalizedName: "organizacion ejemplo",
 };
 
@@ -264,13 +271,16 @@ const SAMPLE_PROFESSIONAL: PartnershipCrmProfessionalRecord = {
   linkedIn: "",
   lastContactAt: null,
   notes: "",
+  is_favorite: false,
   normalizedName: "dra ana genoma",
 };
 
 function sampleTargetForAudience(
   audience: PartnershipCrmTemplateAudience,
 ): PartnershipCrmTargetRecord {
-  return audience === "professionals" ? SAMPLE_PROFESSIONAL : SAMPLE_ORGANIZATION;
+  return audience === "professionals"
+    ? SAMPLE_PROFESSIONAL
+    : SAMPLE_ORGANIZATION;
 }
 
 function buildTemplateListPath(filters: TemplateFilters, cursor?: string) {
@@ -317,6 +327,50 @@ function formatDateTime(
   }).format(parsed);
 }
 
+function FavoriteCell({
+  isFavorite,
+  language,
+}: {
+  isFavorite: boolean;
+  language: AppLanguage;
+}) {
+  const label = appText(language, isFavorite ? "Favorite" : "Not favorite");
+
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className="inline-flex h-6 w-6 items-center justify-center"
+    >
+      {isFavorite ? (
+        <Star
+          aria-hidden="true"
+          className="h-4 w-4 fill-amber-400 text-amber-500"
+        />
+      ) : (
+        <span aria-hidden="true" className="text-xs text-muted-foreground/50">
+          -
+        </span>
+      )}
+    </span>
+  );
+}
+
+function favoriteFirstRecords<T extends { is_favorite?: boolean }>(
+  records: T[],
+) {
+  return records
+    .map((record, index) => ({ record, index }))
+    .sort((left, right) => {
+      const favoriteDelta =
+        Number(Boolean(right.record.is_favorite)) -
+        Number(Boolean(left.record.is_favorite));
+      return favoriteDelta || left.index - right.index;
+    })
+    .map(({ record }) => record);
+}
+
 function templatePayload(
   state: TemplateFormState,
 ): PartnershipCrmTemplateInput {
@@ -328,6 +382,7 @@ function templatePayload(
     body: state.body.trim(),
     status: state.status,
     notes: state.notes.trim(),
+    is_favorite: state.is_favorite,
   };
 }
 
@@ -350,6 +405,7 @@ function toFormState(
     body: template.body,
     status: template.status,
     notes: template.notes,
+    is_favorite: template.is_favorite,
   };
 }
 
@@ -366,6 +422,7 @@ function templateRecordFromState(
     body: state.body,
     status: state.status,
     notes: state.notes,
+    is_favorite: state.is_favorite,
     normalizedName: state.name.trim().toLowerCase(),
   };
 }
@@ -484,8 +541,8 @@ function TemplatePreview({
         </p>
         <p className="truncate">
           <span className="font-semibold text-slate-900 dark:text-slate-50">
-          {t("Recipient")}:
-        </span>{" "}
+            {t("Recipient")}:
+          </span>{" "}
           {form.audience === "professionals"
             ? SAMPLE_PROFESSIONAL.email
             : SAMPLE_ORGANIZATION.contactEmail}
@@ -560,8 +617,7 @@ function TemplateImportDialog({
     [parsed],
   );
   const resultByRow = useMemo(
-    () =>
-      new Map(results.map((result) => [result.rowNumber, result] as const)),
+    () => new Map(results.map((result) => [result.rowNumber, result] as const)),
     [results],
   );
   const invalidCount = previewRows.length - validRows.length;
@@ -787,9 +843,7 @@ function TemplateImportDialog({
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
                       {t("Failed rows")}
                     </p>
-                    <p className="mt-2 text-2xl font-semibold">
-                      {failedCount}
-                    </p>
+                    <p className="mt-2 text-2xl font-semibold">{failedCount}</p>
                   </div>
                 </div>
               </div>
@@ -798,215 +852,226 @@ function TemplateImportDialog({
 
           {!completed ? (
             <>
-          <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(280px,0.7fr)]">
-            <div className="grid gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="crm-template-import-file">
-                  {t("CSV file")}
-                </Label>
-                <Input
-                  id="crm-template-import-file"
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={handleFileChange}
-                  disabled={importing}
-                />
-                {fileName ? (
-                  <p className="text-xs text-muted-foreground">
-                    {t("Selected file")}: {fileName}
-                  </p>
-                ) : null}
+              <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(280px,0.7fr)]">
+                <div className="grid gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="crm-template-import-file">
+                      {t("CSV file")}
+                    </Label>
+                    <Input
+                      id="crm-template-import-file"
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={handleFileChange}
+                      disabled={importing}
+                    />
+                    {fileName ? (
+                      <p className="text-xs text-muted-foreground">
+                        {t("Selected file")}: {fileName}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-3">
+                    <p className="text-sm font-medium">
+                      {parsed ? t("CSV parsed") : t("No CSV selected")}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "Raw CSV contents are not rendered. The preview below is capped to protect the UI.",
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border/70 bg-muted/25 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-heading text-sm font-semibold">
+                      {t("Sample template CSV")}
+                    </h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        parseCsv(
+                          audience === "professionals"
+                            ? PROFESSIONAL_TEMPLATE_IMPORT_SAMPLE_CSV
+                            : ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV,
+                          "sample-plantillas.csv",
+                        )
+                      }
+                      disabled={importing}
+                    >
+                      {t("Use sample")}
+                    </Button>
+                  </div>
+                  <pre className="mt-3 max-h-44 overflow-auto whitespace-pre-wrap rounded-lg bg-background/80 p-3 text-xs leading-5 text-muted-foreground">
+                    {audience === "professionals"
+                      ? PROFESSIONAL_TEMPLATE_IMPORT_SAMPLE_CSV
+                      : ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV}
+                  </pre>
+                </div>
               </div>
 
-              <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-3">
-                <p className="text-sm font-medium">
-                  {parsed ? t("CSV parsed") : t("No CSV selected")}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  {t(
-                    "Raw CSV contents are not rendered. The preview below is capped to protect the UI.",
-                  )}
-                </p>
+              <div className="grid gap-2 sm:grid-cols-5">
+                {[
+                  { label: "Found", value: previewRows.length },
+                  { label: "Valid", value: validRows.length },
+                  { label: "Invalid", value: invalidCount },
+                  { label: "Created templates", value: createdCount },
+                  { label: "Failed rows", value: failedCount },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-xl border border-border/80 bg-background/70 px-3 py-2"
+                  >
+                    <p className="text-xs text-muted-foreground">
+                      {t(item.label)}
+                    </p>
+                    <p className="mt-1 text-lg font-semibold">{item.value}</p>
+                  </div>
+                ))}
               </div>
-            </div>
 
-            <div className="rounded-xl border border-border/70 bg-muted/25 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-heading text-sm font-semibold">
-                  {t("Sample template CSV")}
-                </h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    parseCsv(
-                      audience === "professionals"
-                        ? PROFESSIONAL_TEMPLATE_IMPORT_SAMPLE_CSV
-                        : ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV,
-                      "sample-plantillas.csv",
-                    )
-                  }
-                  disabled={importing}
-                >
-                  {t("Use sample")}
-                </Button>
-              </div>
-              <pre className="mt-3 max-h-44 overflow-auto whitespace-pre-wrap rounded-lg bg-background/80 p-3 text-xs leading-5 text-muted-foreground">
-                {audience === "professionals"
-                  ? PROFESSIONAL_TEMPLATE_IMPORT_SAMPLE_CSV
-                  : ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV}
-              </pre>
-            </div>
-          </div>
+              {parsed && (importing || completed) ? (
+                <div className="rounded-xl border border-border/80 bg-background/70 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-medium">
+                      {completed ? t("Import completed") : t("Importing CSV")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {processedCount} / {validRows.length} {t("templates")}
+                    </p>
+                  </div>
+                  <Progress value={progressValue} className="mt-3 h-2" />
+                </div>
+              ) : null}
 
-          <div className="grid gap-2 sm:grid-cols-5">
-            {[
-              { label: "Found", value: previewRows.length },
-              { label: "Valid", value: validRows.length },
-              { label: "Invalid", value: invalidCount },
-              { label: "Created templates", value: createdCount },
-              { label: "Failed rows", value: failedCount },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="rounded-xl border border-border/80 bg-background/70 px-3 py-2"
-              >
-                <p className="text-xs text-muted-foreground">
-                  {t(item.label)}
-                </p>
-                <p className="mt-1 text-lg font-semibold">{item.value}</p>
-              </div>
-            ))}
-          </div>
+              {headerErrors.length > 0 ? (
+                <ErrorBanner>
+                  {headerErrors.map((error) => t(error.message)).join(" ")}
+                </ErrorBanner>
+              ) : null}
 
-          {parsed && (importing || completed) ? (
-            <div className="rounded-xl border border-border/80 bg-background/70 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-medium">
-                  {completed ? t("Import completed") : t("Importing CSV")}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {processedCount} / {validRows.length} {t("templates")}
-                </p>
-              </div>
-              <Progress value={progressValue} className="mt-3 h-2" />
-            </div>
-          ) : null}
-
-          {headerErrors.length > 0 ? (
-            <ErrorBanner>
-              {headerErrors.map((error) => t(error.message)).join(" ")}
-            </ErrorBanner>
-          ) : null}
-
-          <div className="max-h-[360px] overflow-auto rounded-xl border border-border/80 bg-background/64">
-            {previewRows.length === 0 ? (
-              <EmptyState>{t("No import rows found.")}</EmptyState>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("Row")}</TableHead>
-                    <TableHead>{t("Template")}</TableHead>
-                    <TableHead>{t("Applies to")}</TableHead>
-                    <TableHead>{t("Category")}</TableHead>
-                    <TableHead>{t("Subject")}</TableHead>
-                    <TableHead>{t("Message")}</TableHead>
-                    <TableHead>{t("Status")}</TableHead>
-                    <TableHead>{t("Import")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visiblePreviewRows.map((row) => {
-                    const result = resultByRow.get(row.rowNumber);
-                    const resultLabel = result
-                      ? result.action === "created"
-                        ? "Created"
-                        : result.action === "invalid"
-                          ? "Invalid"
-                          : "Failed"
-                      : row.valid
-                        ? "Ready"
-                        : "Invalid";
-
-                    return (
-                      <TableRow key={row.rowNumber}>
-                        <TableCell className="font-mono text-xs">
-                          {row.rowNumber}
-                        </TableCell>
-                        <TableCell className="min-w-48 whitespace-normal">
-                          <p className="font-medium">{row.template.name}</p>
-                          {row.template.notes ? (
-                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                              {row.template.notes}
-                            </p>
-                          ) : null}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {row.template.audience === "professionals"
-                              ? t("Professionals")
-                              : t("Organizations")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="min-w-44 whitespace-normal text-sm text-muted-foreground">
-                          {formatCrmCategory(
-                            row.template.category ?? "",
-                            language,
-                            row.template.audience ?? "organizations",
-                          ) || t("No category")}
-                        </TableCell>
-                        <TableCell className="min-w-56 whitespace-normal text-sm">
-                          {row.template.subject || "-"}
-                        </TableCell>
-                        <TableCell className="min-w-72 whitespace-normal">
-                          <p className="max-h-16 overflow-hidden whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
-                            {row.template.body || "-"}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <TemplateStatusBadge
-                            status={row.template.status ?? "active"}
-                            language={language}
-                          />
-                        </TableCell>
-                        <TableCell className="min-w-36 whitespace-normal">
-                          <Badge
-                            variant={
-                              result
-                                ? templateImportResultTone(result)
-                                : row.valid
-                                  ? "success"
-                                  : "destructive"
-                            }
-                          >
-                            {t(resultLabel)}
-                          </Badge>
-                          {row.errors.length > 0 ? (
-                            <p className="mt-1 text-xs text-destructive">
-                              {row.errors.map((error) => t(error)).join(" ")}
-                            </p>
-                          ) : null}
-                          {result?.action === "failed" && result.error ? (
-                            <p className="mt-1 text-xs text-destructive">
-                              {result.error}
-                            </p>
-                          ) : null}
-                        </TableCell>
+              <div className="max-h-[360px] overflow-auto rounded-xl border border-border/80 bg-background/64">
+                {previewRows.length === 0 ? (
+                  <EmptyState>{t("No import rows found.")}</EmptyState>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("Row")}</TableHead>
+                        <TableHead>{t("Template")}</TableHead>
+                        <TableHead className="w-10">
+                          <span className="sr-only">{t("Favorite")}</span>
+                        </TableHead>
+                        <TableHead>{t("Applies to")}</TableHead>
+                        <TableHead>{t("Category")}</TableHead>
+                        <TableHead>{t("Subject")}</TableHead>
+                        <TableHead>{t("Message")}</TableHead>
+                        <TableHead>{t("Status")}</TableHead>
+                        <TableHead>{t("Import")}</TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-          {previewRows.length > visiblePreviewRows.length ? (
-            <p className="text-xs text-muted-foreground">
-              {t("Showing first")} {visiblePreviewRows.length} {t("of")}{" "}
-              {previewRows.length} {t("parsed rows")}.
-            </p>
-          ) : null}
+                    </TableHeader>
+                    <TableBody>
+                      {visiblePreviewRows.map((row) => {
+                        const result = resultByRow.get(row.rowNumber);
+                        const resultLabel = result
+                          ? result.action === "created"
+                            ? "Created"
+                            : result.action === "invalid"
+                              ? "Invalid"
+                              : "Failed"
+                          : row.valid
+                            ? "Ready"
+                            : "Invalid";
+
+                        return (
+                          <TableRow key={row.rowNumber}>
+                            <TableCell className="font-mono text-xs">
+                              {row.rowNumber}
+                            </TableCell>
+                            <TableCell className="min-w-48 whitespace-normal">
+                              <p className="font-medium">{row.template.name}</p>
+                              {row.template.notes ? (
+                                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                                  {row.template.notes}
+                                </p>
+                              ) : null}
+                            </TableCell>
+                            <TableCell>
+                              <FavoriteCell
+                                isFavorite={Boolean(row.template.is_favorite)}
+                                language={language}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {row.template.audience === "professionals"
+                                  ? t("Professionals")
+                                  : t("Organizations")}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="min-w-44 whitespace-normal text-sm text-muted-foreground">
+                              {formatCrmCategory(
+                                row.template.category ?? "",
+                                language,
+                                row.template.audience ?? "organizations",
+                              ) || t("No category")}
+                            </TableCell>
+                            <TableCell className="min-w-56 whitespace-normal text-sm">
+                              {row.template.subject || "-"}
+                            </TableCell>
+                            <TableCell className="min-w-72 whitespace-normal">
+                              <p className="max-h-16 overflow-hidden whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
+                                {row.template.body || "-"}
+                              </p>
+                            </TableCell>
+                            <TableCell>
+                              <TemplateStatusBadge
+                                status={row.template.status ?? "active"}
+                                language={language}
+                              />
+                            </TableCell>
+                            <TableCell className="min-w-36 whitespace-normal">
+                              <Badge
+                                variant={
+                                  result
+                                    ? templateImportResultTone(result)
+                                    : row.valid
+                                      ? "success"
+                                      : "destructive"
+                                }
+                              >
+                                {t(resultLabel)}
+                              </Badge>
+                              {row.errors.length > 0 ? (
+                                <p className="mt-1 text-xs text-destructive">
+                                  {row.errors
+                                    .map((error) => t(error))
+                                    .join(" ")}
+                                </p>
+                              ) : null}
+                              {result?.action === "failed" && result.error ? (
+                                <p className="mt-1 text-xs text-destructive">
+                                  {result.error}
+                                </p>
+                              ) : null}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+              {previewRows.length > visiblePreviewRows.length ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("Showing first")} {visiblePreviewRows.length} {t("of")}{" "}
+                  {previewRows.length} {t("parsed rows")}.
+                </p>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -1085,7 +1150,10 @@ export function PartnershipCrmTemplateBrowser() {
         buildTemplateListPath(filters, currentCursor),
       ),
   });
-  const templates = templatesQuery.data?.templates ?? [];
+  const templates = useMemo(
+    () => favoriteFirstRecords(templatesQuery.data?.templates ?? []),
+    [templatesQuery.data?.templates],
+  );
   const statusCounts = useMemo(
     () =>
       Object.fromEntries(
@@ -1257,6 +1325,9 @@ export function PartnershipCrmTemplateBrowser() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("Template")}</TableHead>
+                <TableHead className="w-10">
+                  <span className="sr-only">{t("Favorite")}</span>
+                </TableHead>
                 <TableHead>{t("Applies to")}</TableHead>
                 <TableHead>{t("Status")}</TableHead>
                 <TableHead>{t("Category")}</TableHead>
@@ -1283,6 +1354,12 @@ export function PartnershipCrmTemplateBrowser() {
                     </Link>
                   </TableCell>
                   <TableCell>
+                    <FavoriteCell
+                      isFavorite={template.is_favorite}
+                      language={language}
+                    />
+                  </TableCell>
+                  <TableCell>
                     <Badge variant="outline">
                       {template.audience === "professionals"
                         ? t("Professionals")
@@ -1300,8 +1377,7 @@ export function PartnershipCrmTemplateBrowser() {
                       template.category,
                       language,
                       template.audience ?? "organizations",
-                    ) ||
-                      t("No category")}
+                    ) || t("No category")}
                   </TableCell>
                   <TableCell className="whitespace-normal text-sm text-muted-foreground">
                     {formatDateTime(template.updatedAt, language)}
@@ -1577,7 +1653,7 @@ export function PartnershipCrmTemplateWorkbench({
                 />
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px_120px]">
                 <div className="space-y-1.5">
                   <Label htmlFor="crm-template-name">
                     {t("Template name")}
@@ -1610,6 +1686,29 @@ export function PartnershipCrmTemplateWorkbench({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="crm-template-is-favorite">
+                    {t("Favorite")}
+                  </Label>
+                  <div className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3">
+                    <Checkbox
+                      id="crm-template-is-favorite"
+                      checked={form.is_favorite}
+                      onCheckedChange={(checked) =>
+                        update({ is_favorite: checked === true })
+                      }
+                    />
+                    <Star
+                      aria-hidden="true"
+                      className={cn(
+                        "h-4 w-4",
+                        form.is_favorite
+                          ? "fill-amber-400 text-amber-500"
+                          : "text-muted-foreground/50",
+                      )}
+                    />
+                  </div>
                 </div>
               </div>
 

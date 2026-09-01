@@ -83,6 +83,7 @@ export interface PartnershipCrmOrganizationInput {
   contactLinkedIn?: string;
   lastContactAt?: string | null;
   notes?: string;
+  is_favorite?: boolean;
 }
 
 export interface PartnershipCrmImportRowInput extends PartnershipCrmOrganizationInput {
@@ -107,10 +108,10 @@ export interface PartnershipCrmProfessionalInput {
   linkedIn?: string;
   lastContactAt?: string | null;
   notes?: string;
+  is_favorite?: boolean;
 }
 
-export interface PartnershipCrmProfessionalImportRowInput
-  extends PartnershipCrmProfessionalInput {
+export interface PartnershipCrmProfessionalImportRowInput extends PartnershipCrmProfessionalInput {
   rowId?: string;
   duplicateAction?: "skip" | "update" | "import";
   duplicateProfessionalId?: string;
@@ -130,6 +131,7 @@ export interface PartnershipCrmOrganizationRecord {
   contactLinkedIn: string;
   lastContactAt: string | null;
   notes: string;
+  is_favorite: boolean;
   normalizedName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -156,6 +158,7 @@ export interface PartnershipCrmProfessionalRecord {
   linkedIn: string;
   lastContactAt: string | null;
   notes: string;
+  is_favorite: boolean;
   normalizedName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -182,6 +185,7 @@ export interface PartnershipCrmTemplateInput {
   body?: string;
   status?: PartnershipCrmTemplateStatus;
   notes?: string;
+  is_favorite?: boolean;
 }
 
 export interface PartnershipCrmTemplateRecord {
@@ -194,6 +198,7 @@ export interface PartnershipCrmTemplateRecord {
   body: string;
   status: PartnershipCrmTemplateStatus;
   notes: string;
+  is_favorite: boolean;
   normalizedName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -282,7 +287,9 @@ export interface PartnershipCrmProfessionalImportPreview {
 
 const STATUS_SET = new Set<string>(PARTNERSHIP_CRM_STATUSES);
 const TEMPLATE_STATUS_SET = new Set<string>(PARTNERSHIP_CRM_TEMPLATE_STATUSES);
-const TEMPLATE_AUDIENCE_SET = new Set<string>(PARTNERSHIP_CRM_TEMPLATE_AUDIENCES);
+const TEMPLATE_AUDIENCE_SET = new Set<string>(
+  PARTNERSHIP_CRM_TEMPLATE_AUDIENCES,
+);
 
 function requireGodMode(context: AdminContext) {
   if (!context.isBootstrap) {
@@ -367,7 +374,9 @@ function normalizeTemplateStatus(value: unknown): PartnershipCrmTemplateStatus {
     : "active";
 }
 
-function normalizeTemplateAudience(value: unknown): PartnershipCrmTemplateAudience {
+function normalizeTemplateAudience(
+  value: unknown,
+): PartnershipCrmTemplateAudience {
   const normalized = cleanString(value)
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
@@ -378,6 +387,30 @@ function normalizeTemplateAudience(value: unknown): PartnershipCrmTemplateAudien
 
 function normalizeEmail(value: unknown) {
   return cleanString(value).toLowerCase();
+}
+
+function normalizeBoolean(value: unknown) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalized = normalizeKey(cleanString(value));
+  return [
+    "true",
+    "1",
+    "yes",
+    "y",
+    "si",
+    "s",
+    "favorite",
+    "favourite",
+    "favorito",
+    "favorita",
+    "star",
+    "starred",
+    "destacado",
+    "destacada",
+  ].includes(normalized);
 }
 
 const ORGANIZATION_CATEGORY_ALIASES: Record<
@@ -664,6 +697,7 @@ function organizationDocument(
     contactLinkedIn: normalizeWebsite(input.contactLinkedIn),
     lastContactAt: parseDateTimestamp(input.lastContactAt),
     notes: cleanString(input.notes),
+    is_favorite: normalizeBoolean(input.is_favorite),
     normalizedName,
   });
 }
@@ -695,6 +729,7 @@ function professionalDocument(
     linkedIn: normalizeWebsite(input.linkedIn),
     lastContactAt: parseDateTimestamp(input.lastContactAt),
     notes: cleanString(input.notes),
+    is_favorite: normalizeBoolean(input.is_favorite),
     normalizedName,
   });
 }
@@ -714,6 +749,7 @@ function templateDocument(
     body: cleanString(input.body),
     status: normalizeTemplateStatus(input.status),
     notes: cleanString(input.notes),
+    is_favorite: normalizeBoolean(input.is_favorite),
     normalizedName: normalizeName(name),
   });
 }
@@ -740,6 +776,7 @@ function toOrganizationRecord(
     contactLinkedIn: cleanString(data.contactLinkedIn),
     lastContactAt: timestampToIso(data.lastContactAt) ?? null,
     notes: cleanString(data.notes),
+    is_favorite: normalizeBoolean(data.is_favorite),
     normalizedName:
       cleanString(data.normalizedName) || normalizeName(cleanString(data.name)),
     createdAt: timestampToIso(data.createdAt),
@@ -778,6 +815,7 @@ function toProfessionalRecord(
     linkedIn: cleanString(data.linkedIn),
     lastContactAt: timestampToIso(data.lastContactAt) ?? null,
     notes: cleanString(data.notes),
+    is_favorite: normalizeBoolean(data.is_favorite),
     normalizedName:
       cleanString(data.normalizedName) || normalizeName(cleanString(data.name)),
     createdAt: timestampToIso(data.createdAt),
@@ -827,6 +865,7 @@ function toTemplateRecord(
     body: cleanString(data.body),
     status: normalizeTemplateStatus(data.status),
     notes: cleanString(data.notes),
+    is_favorite: normalizeBoolean(data.is_favorite),
     normalizedName:
       cleanString(data.normalizedName) || normalizeName(cleanString(data.name)),
     createdAt: timestampToIso(data.createdAt),
@@ -991,6 +1030,21 @@ function matchesTemplateFilters(
       crmCategoryKeys(record.category, record.audience),
     )
   );
+}
+
+function favoriteFirstRecords<T extends { is_favorite: boolean }>(
+  records: T[],
+) {
+  return records
+    .map((record, index) => ({ record, index }))
+    .sort((left, right) => {
+      if (left.record.is_favorite !== right.record.is_favorite) {
+        return left.record.is_favorite ? -1 : 1;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ record }) => record);
 }
 
 async function getOrganizationSnapshot(organizationId: string) {
@@ -1212,7 +1266,7 @@ export async function listPartnershipCrmTemplates(
         ? timestampToIso(lastVisible.data().updatedAt)
         : undefined;
 
-    return { templates, nextCursor };
+    return { templates: favoriteFirstRecords(templates), nextCursor };
   }
 
   const templates: PartnershipCrmTemplateRecord[] = [];
@@ -1277,7 +1331,7 @@ export async function listPartnershipCrmTemplates(
     }
   }
 
-  return { templates, nextCursor };
+  return { templates: favoriteFirstRecords(templates), nextCursor };
 }
 
 export async function getPartnershipCrmTemplate(
@@ -1415,7 +1469,7 @@ export async function listPartnershipCrmOrganizations(
         ? timestampToIso(lastVisible.data().updatedAt)
         : undefined;
 
-    return { organizations, nextCursor };
+    return { organizations: favoriteFirstRecords(organizations), nextCursor };
   }
 
   const organizations: PartnershipCrmOrganizationRecord[] = [];
@@ -1480,7 +1534,7 @@ export async function listPartnershipCrmOrganizations(
     }
   }
 
-  return { organizations, nextCursor };
+  return { organizations: favoriteFirstRecords(organizations), nextCursor };
 }
 
 export async function getPartnershipCrmOrganization(
@@ -1601,10 +1655,10 @@ export async function listPartnershipCrmProfessionals(
   const cursorTimestamp = parseCursorTimestamp(options.cursor);
   const hasFilters = Boolean(
     cleanString(options.query) ||
-      (cleanString(options.status) && options.status !== "all") ||
-      cleanString(options.category) ||
-      cleanString(options.country) ||
-      options.emailState,
+    (cleanString(options.status) && options.status !== "all") ||
+    cleanString(options.category) ||
+    cleanString(options.country) ||
+    options.emailState,
   );
   const baseQuery = adminDb
     .collection(PROFESSIONALS_COLLECTION)
@@ -1627,7 +1681,7 @@ export async function listPartnershipCrmProfessionals(
         ? timestampToIso(lastVisible.data().updatedAt)
         : undefined;
 
-    return { professionals, nextCursor };
+    return { professionals: favoriteFirstRecords(professionals), nextCursor };
   }
 
   const professionals: PartnershipCrmProfessionalRecord[] = [];
@@ -1692,7 +1746,7 @@ export async function listPartnershipCrmProfessionals(
     }
   }
 
-  return { professionals, nextCursor };
+  return { professionals: favoriteFirstRecords(professionals), nextCursor };
 }
 
 export async function getPartnershipCrmProfessional(
@@ -1953,6 +2007,7 @@ export async function previewPartnershipCrmImport(
         contactLinkedIn: cleanString(organization.contactLinkedIn),
         lastContactAt: timestampToIso(organization.lastContactAt) ?? null,
         notes: cleanString(organization.notes),
+        is_favorite: normalizeBoolean(organization.is_favorite),
       },
       valid: errors.length === 0,
       errors,
@@ -2116,6 +2171,7 @@ export async function previewPartnershipCrmProfessionalImport(
         linkedIn: cleanString(professional.linkedIn),
         lastContactAt: timestampToIso(professional.lastContactAt) ?? null,
         notes: cleanString(professional.notes),
+        is_favorite: normalizeBoolean(professional.is_favorite),
       },
       valid: errors.length === 0,
       errors,

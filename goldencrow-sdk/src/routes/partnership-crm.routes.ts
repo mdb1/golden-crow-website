@@ -59,6 +59,7 @@ const OrganizationBodySchema = z.object({
   contactLinkedIn: z.string().trim().max(500).optional(),
   lastContactAt: CrmDateTimeSchema,
   notes: OptionalStringSchema,
+  is_favorite: z.boolean().optional(),
 });
 const OrganizationImportRowSchema = OrganizationBodySchema.partial().extend({
   rowId: z.string().trim().max(80).optional(),
@@ -81,6 +82,7 @@ const ProfessionalBodySchema = z.object({
   linkedIn: z.string().trim().max(500).optional(),
   lastContactAt: CrmDateTimeSchema,
   notes: OptionalStringSchema,
+  is_favorite: z.boolean().optional(),
 });
 const ProfessionalImportRowSchema = ProfessionalBodySchema.partial().extend({
   rowId: z.string().trim().max(80).optional(),
@@ -114,6 +116,7 @@ const TemplateBodySchema = z.object({
   body: z.string().trim().min(1).max(12000),
   status: CrmTemplateStatusSchema.optional(),
   notes: OptionalStringSchema,
+  is_favorite: z.boolean().optional(),
 });
 const TemplateParamsSchema = z.object({
   templateId: z.string().trim().min(1),
