@@ -187,7 +187,6 @@ const SPANISH_TEXT: Record<string, string> = {
   Lost: "Perdido",
   "Back to logistics": "Volver a logística",
   "Logistics workbench": "Mesa de trabajo logística",
-  "Read-only dispatch detail": "Detalle de envío en modo lectura",
   "Picked up at": "Retirado el",
   "Delivered at": "Entregado el",
   "Pedido Retirado": "Pedido Retirado",

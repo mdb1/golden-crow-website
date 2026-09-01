@@ -289,6 +289,17 @@ describe("PGFlexLogisticsForm", () => {
     expect(screen.getByText("ABC, DEF")).toBeInTheDocument();
     expect(screen.getByText("31-08-2026-10:00AM")).toBeInTheDocument();
     expect(
+      screen.queryByText(["Read-only", "dispatch", "detail"].join(" ")),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "ENV-001" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("ENV-001")).toHaveClass(
+      "text-[0.65rem]",
+      "text-muted-foreground/70",
+    );
+    expect(screen.getAllByText("Awaiting pick up")).toHaveLength(1);
+    expect(
       screen.queryByText("2026-08-31T10:00:00.000Z"),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();

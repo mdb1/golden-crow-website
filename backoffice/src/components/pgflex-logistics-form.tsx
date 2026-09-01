@@ -564,29 +564,16 @@ export function PGFlexLogisticsForm({
           <span className="font-mono text-xs text-muted-foreground">
             {item.id}
           </span>
-          <Badge variant={getPGFlexStatusBadgeVariant(item.status)}>
-            {t(getPGFlexStatusLabel(item.status))}
-          </Badge>
         </div>
 
         <section className="glass-panel flex flex-col gap-6 px-5 py-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-200/80 bg-sky-500/10 text-sky-700 shadow-[0_14px_34px_rgba(14,165,233,0.16)] dark:border-sky-300/18 dark:text-sky-100">
-                <PackageCheck className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="font-heading text-2xl font-semibold leading-tight text-foreground">
-                  {item.identifier}
-                </h2>
-                <p className="mt-1 text-base text-muted-foreground">
-                  {t("Read-only dispatch detail")}
-                </p>
-              </div>
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-200/80 bg-sky-500/10 text-sky-700 shadow-[0_14px_34px_rgba(14,165,233,0.16)] dark:border-sky-300/18 dark:text-sky-100">
+              <PackageCheck className="h-5 w-5" />
             </div>
-            <Badge variant={getPGFlexStatusBadgeVariant(item.status)}>
-              {t(getPGFlexStatusLabel(item.status))}
-            </Badge>
+            <p className="pt-1 font-mono text-[0.65rem] font-medium uppercase tracking-[0.08em] text-muted-foreground/70">
+              {item.identifier}
+            </p>
           </div>
 
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-stretch">
