@@ -287,6 +287,10 @@ describe("PGFlexLogisticsForm", () => {
     expect(screen.getByText("Clinica Norte")).toBeInTheDocument();
     expect(screen.getByText("Humboldt 2433")).toBeInTheDocument();
     expect(screen.getByText("ABC, DEF")).toBeInTheDocument();
+    expect(screen.getByText("31-08-2026-10:00AM")).toBeInTheDocument();
+    expect(
+      screen.queryByText("2026-08-31T10:00:00.000Z"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
@@ -320,6 +324,7 @@ describe("PGFlexLogisticsForm", () => {
 
     expect(screen.getByText("Pedido Entregado")).toBeInTheDocument();
     expect(screen.getByText("Picked up at")).toBeInTheDocument();
+    expect(screen.getByText("31-08-2026-12:00PM")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Pedido Entregado" }));
 

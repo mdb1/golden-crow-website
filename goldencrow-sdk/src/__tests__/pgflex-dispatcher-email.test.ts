@@ -2,8 +2,15 @@ import {
   buildPGFlexDispatcherInviteEmailMessage,
   buildPGFlexLogisticsAssignmentEmailMessage,
 } from "../lib/pgflex-dispatcher-email.js";
+import { formatPGFlexReadableDateTime } from "../lib/pgflex-readable-date.js";
 
 describe("PGFlex dispatcher email", () => {
+  it("formats PGFlex readable dates with hyphenated date and AM/PM time", () => {
+    expect(formatPGFlexReadableDateTime("2026-09-01T02:59:00.000Z")).toBe(
+      "01-09-2026-02:59AM",
+    );
+  });
+
   it("includes the security key and prefilled PGFlex portal link", () => {
     const message = buildPGFlexDispatcherInviteEmailMessage(
       {
@@ -53,11 +60,15 @@ describe("PGFlex dispatcher email", () => {
     expect(message.text).toContain("Identificador: ENV-123");
     expect(message.text).toContain("Origen: Laboratorio");
     expect(message.text).toContain("Destino: Centro medico");
+    expect(message.text).toContain("Solicitado: 31-08-2026-12:00PM");
+    expect(message.text).not.toContain("Solicitado: 2026-08-31T12:00:00.000Z");
     expect(message.text).toContain("/pgflex/login");
     expect(message.text).toContain(
       "callbackUrl=%2Fpgflex%2Flogistics%2Fpgflex_123",
     );
     expect(message.html).toContain("Nuevo envío asignado");
     expect(message.html).toContain("ENV-123");
+    expect(message.html).toContain("31-08-2026-12:00PM");
+    expect(message.html).not.toContain("2026-08-31T12:00:00.000Z");
   });
 });

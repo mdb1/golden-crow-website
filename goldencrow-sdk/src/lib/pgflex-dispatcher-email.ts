@@ -1,6 +1,7 @@
 import { ENV } from "../config/env.js";
 import type { PGFlexLogisticsRecord } from "../types/sdk.types.js";
 import { sendGmailMessage } from "./gmail-mailer.js";
+import { formatPGFlexReadableDateTime } from "./pgflex-readable-date.js";
 
 const PGFLEX_LOGIN_PATH = "/pgflex/login";
 const PGFLEX_LOGISTICS_PATH = "/pgflex/logistics";
@@ -136,7 +137,9 @@ export function buildPGFlexLogisticsAssignmentEmailMessage(
   const safeIdentifier = escapeHtml(item.identifier);
   const safeOrigin = escapeHtml(item.origin);
   const safeDestination = escapeHtml(item.destination);
-  const safeTimeRequested = escapeHtml(item.timeRequested);
+  const readableTimeRequested =
+    formatPGFlexReadableDateTime(item.timeRequested) ?? item.timeRequested;
+  const safeTimeRequested = escapeHtml(readableTimeRequested);
   const safePortalUrl = escapeHtml(portalUrl);
   const preheader = "Tenés un nuevo envío asignado en PGFlex.";
 
@@ -151,7 +154,7 @@ export function buildPGFlexLogisticsAssignmentEmailMessage(
       `Identificador: ${item.identifier}`,
       `Origen: ${item.origin}`,
       `Destino: ${item.destination}`,
-      `Solicitado: ${item.timeRequested}`,
+      `Solicitado: ${readableTimeRequested}`,
       "",
       `Link al envío: ${portalUrl}`,
       "",

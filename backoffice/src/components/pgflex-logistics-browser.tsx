@@ -16,6 +16,7 @@ import {
   PGFLEX_LOGISTICS_PAGE_SIZE,
   PGFLEX_LOGISTICS_SCOPE_OPTIONS,
   canCreatePGFlexLogistics,
+  formatPGFlexReadableDateTime,
   getPGFlexRouteSummary,
   getPGFlexStatusBadgeVariant,
   getPGFlexStatusLabel,
@@ -23,7 +24,6 @@ import {
   type PGFlexLogisticsListItem,
   type PGFlexLogisticsPage,
 } from "@/lib/pgflex-logistics";
-import { formatDateTime } from "@/lib/moderation-utils";
 import { cn } from "@/lib/utils";
 
 function buildLogisticsPath(
@@ -260,9 +260,9 @@ export function PGFlexLogisticsBrowser({
               </p>
 
               <p className="text-sm text-muted-foreground">
-                {formatDateTime(item.timeRequested) ??
+                {formatPGFlexReadableDateTime(item.timeRequested) ??
                   item.timeRequested ??
-                  formatDateTime(item.pickupTime) ??
+                  formatPGFlexReadableDateTime(item.pickupTime) ??
                   item.pickupTime}
               </p>
 

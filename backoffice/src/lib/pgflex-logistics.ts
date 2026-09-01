@@ -67,6 +67,36 @@ export const PGFLEX_LOGISTICS_PAGE_SIZE = 20;
 
 export const PGFLEX_2PQ_DESTINATION = "Humboldt 2433";
 
+function padPGFlexDatePart(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+export function formatPGFlexReadableDateTime(value: unknown) {
+  const date =
+    value instanceof Date
+      ? value
+      : typeof value === "string" || typeof value === "number"
+        ? new Date(value)
+        : null;
+
+  if (!date || Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  const hours = date.getUTCHours();
+  const meridiem = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 || 12;
+
+  return (
+    [
+      padPGFlexDatePart(date.getUTCDate()),
+      padPGFlexDatePart(date.getUTCMonth() + 1),
+      date.getUTCFullYear(),
+    ].join("-") +
+    `-${padPGFlexDatePart(displayHours)}:${padPGFlexDatePart(date.getUTCMinutes())}${meridiem}`
+  );
+}
+
 export const PGFLEX_LOGISTICS_SHIPMENT_TYPE_OPTIONS: Array<{
   value: PGFlexLogisticsShipmentType;
   label: string;

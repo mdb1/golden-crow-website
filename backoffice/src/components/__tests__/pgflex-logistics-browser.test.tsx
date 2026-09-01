@@ -100,6 +100,7 @@ describe("PGFlexLogisticsBrowser", () => {
     ]);
 
     expect(screen.getByText("Esperando retiro")).toBeInTheDocument();
+    expect(screen.getByText("31-08-2026-10:00AM")).toBeInTheDocument();
     expect(screen.queryByText("driver@example.com")).not.toBeInTheDocument();
     expect(screen.queryByText("driver-uid")).not.toBeInTheDocument();
   });

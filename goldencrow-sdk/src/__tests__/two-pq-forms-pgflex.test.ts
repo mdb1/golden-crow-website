@@ -343,7 +343,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       withdrawalRequestedAt: "2026-08-31T15:45:00.000Z",
     });
     expect(pgflexEvent).toMatchObject({
-      identifier: "Clinica Norte - 2026-08-31T15:45:00.000Z",
+      identifier: "Clinica Norte - 31-08-2026-03:45PM",
       shipmentType: "2pq",
       description:
         "Formulario de solicitud de retiro: FORM-00041. Casos: Caso Alfa, Caso Beta. Codigos: ABC,DEF. Solicitado por: admin@example.com.",
@@ -371,7 +371,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       },
       {
         id: "pgflex_withdrawal_form_00041",
-        identifier: "Clinica Norte - 2026-08-31T15:45:00.000Z",
+        identifier: "Clinica Norte - 31-08-2026-03:45PM",
         origin: "Av. Corrientes 123, CABA, Buenos Aires, Argentina",
         destination: "Humboldt 2433",
         timeRequested: "2026-08-31T15:45:00.000Z",

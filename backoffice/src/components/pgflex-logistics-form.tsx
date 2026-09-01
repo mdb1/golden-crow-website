@@ -54,6 +54,7 @@ import {
   PGFLEX_2PQ_DESTINATION,
   PGFLEX_LOGISTICS_SHIPMENT_TYPE_OPTIONS,
   PGFLEX_LOGISTICS_STATUS_OPTIONS,
+  formatPGFlexReadableDateTime,
   getPGFlexStatusBadgeVariant,
   getPGFlexStatusLabel,
   type PGFlexLogisticsInput,
@@ -62,7 +63,6 @@ import {
   type PGFlexLogisticsStatus,
   type PGFlexTransportDispatcherOption,
 } from "@/lib/pgflex-logistics";
-import { formatDateTime } from "@/lib/moderation-utils";
 import { sdkFetch } from "@/lib/sdk-client";
 
 const UNASSIGNED_DISPATCHER_VALUE = "__unassigned__";
@@ -608,7 +608,7 @@ export function PGFlexLogisticsForm({
             <DispatcherReadOnlyField
               label={t("Time requested")}
               value={
-                formatDateTime(item.timeRequested) ??
+                formatPGFlexReadableDateTime(item.timeRequested) ??
                 item.timeRequested ??
                 t("No timestamp")
               }
@@ -625,7 +625,7 @@ export function PGFlexLogisticsForm({
               <DispatcherReadOnlyField
                 label={t("Picked up at")}
                 value={
-                  formatDateTime(item.item_was_picked_date_at) ??
+                  formatPGFlexReadableDateTime(item.item_was_picked_date_at) ??
                   item.item_was_picked_date_at
                 }
               />
@@ -634,7 +634,7 @@ export function PGFlexLogisticsForm({
               <DispatcherReadOnlyField
                 label={t("Delivered at")}
                 value={
-                  formatDateTime(item.item_was_delivered_at) ??
+                  formatPGFlexReadableDateTime(item.item_was_delivered_at) ??
                   item.item_was_delivered_at
                 }
               />
@@ -955,7 +955,9 @@ export function PGFlexLogisticsForm({
                 <Input
                   id="pgflex-time-requested"
                   value={
-                    formatDateTime(item?.timeRequested ?? item?.pickupTime) ??
+                    formatPGFlexReadableDateTime(
+                      item?.timeRequested ?? item?.pickupTime,
+                    ) ??
                     item?.timeRequested ??
                     item?.pickupTime ??
                     t("No timestamp")

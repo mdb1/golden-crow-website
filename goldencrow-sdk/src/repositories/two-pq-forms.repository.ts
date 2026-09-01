@@ -12,6 +12,7 @@ import {
 import { shouldAutomaticallyGrantPatientPortalAccess } from "../lib/patient-portal-credentials.js";
 import { sendInformedConsentEmail } from "../lib/informed-consent-email.js";
 import { sendPGFlexLogisticsAssignmentEmail } from "../lib/pgflex-dispatcher-email.js";
+import { formatPGFlexReadableDateTime } from "../lib/pgflex-readable-date.js";
 import {
   canCreatePatient,
   canViewDoctor,
@@ -1625,9 +1626,12 @@ function buildWithdrawalPGFlexEventDocument({
     selectedInstitution?.name ??
     institutionId;
   const linkedCodes = linkedCodesForWithdrawalCases(withdrawalCases);
+  const readableRequestedAt = formatPGFlexReadableDateTime(now) ?? now;
 
   return {
-    identifier: truncatePGFlexIdentifier(`${institutionName} - ${now}`),
+    identifier: truncatePGFlexIdentifier(
+      `${institutionName} - ${readableRequestedAt}`,
+    ),
     shipmentType: WITHDRAWAL_PGFLEX_SHIPMENT_TYPE,
     description: buildWithdrawalPGFlexDescription({
       formId,
