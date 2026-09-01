@@ -105,4 +105,24 @@ describe("PGFlexLogisticsBrowser", () => {
     expect(screen.queryByText("driver@example.com")).not.toBeInTheDocument();
     expect(screen.queryByText("driver-uid")).not.toBeInTheDocument();
   });
+
+  it("renders each dispatch as a tappable route cell with prioritized route metadata", () => {
+    renderBrowser([logisticsItem()]);
+
+    const dispatchLink = screen.getByRole("link", { name: /PGF-001/ });
+    expect(dispatchLink).toHaveAttribute(
+      "href",
+      "/pgflex/logistics/dispatch-1",
+    );
+    expect(dispatchLink).toHaveTextContent("Desde: Clinica Norte");
+    expect(dispatchLink).toHaveTextContent(
+      /Hasta: Humboldt 2433\s+\(10 'C'\), Ciudad Autónoma de Buenos Aires, Argentina/,
+    );
+    expect(dispatchLink).toHaveTextContent("Esperando retiro");
+    expect(dispatchLink).toHaveTextContent("31-08-2026-10:00AM");
+    expect(screen.getByText("Abrir")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Abrir" })).toBeNull();
+    expect(screen.queryByText("dispatch-1")).not.toBeInTheDocument();
+    expect(screen.queryByText("Envío independiente")).not.toBeInTheDocument();
+  });
 });

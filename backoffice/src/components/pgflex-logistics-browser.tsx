@@ -17,7 +17,6 @@ import {
   PGFLEX_LOGISTICS_SCOPE_OPTIONS,
   canCreatePGFlexLogistics,
   formatPGFlexReadableDateTime,
-  getPGFlexRouteSummary,
   getPGFlexStatusBadgeVariant,
   getPGFlexStatusLabel,
   type PGFlexLogisticsListScope,
@@ -223,65 +222,73 @@ export function PGFlexLogisticsBrowser({
       </div>
 
       <div className="glass-panel overflow-hidden">
-        <div className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)_180px_180px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
-          <span>{t("Dispatch")}</span>
-          <span>{t("Route")}</span>
-          <span>{t("Requested")}</span>
-          <span>{t("Status")}</span>
-          <span className="text-right">{t("Action")}</span>
-        </div>
-
         {filteredItems.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-muted-foreground">
             {t("No PGFlex logistics items match the current filter.")}
           </div>
         ) : (
-          filteredItems.map((item) => (
-            <div
-              key={item.id}
-              className="grid gap-3 border-b border-border/70 px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)_180px_180px_auto] lg:items-center"
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-medium text-foreground">
-                    {item.identifier}
-                  </h3>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {item.id}
+          filteredItems.map((item) => {
+            const requestedAt =
+              formatPGFlexReadableDateTime(item.timeRequested) ??
+              item.timeRequested ??
+              formatPGFlexReadableDateTime(item.pickupTime) ??
+              item.pickupTime;
+
+            return (
+              <Link
+                key={item.id}
+                href={`/pgflex/logistics/${encodeURIComponent(item.id)}`}
+                className="group block border-b border-border/70 px-4 py-4 transition duration-200 last:border-b-0 hover:-translate-y-0.5 hover:bg-sky-500/[0.045] hover:shadow-[0_18px_48px_rgba(15,23,42,0.08)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/40 dark:hover:bg-sky-300/[0.06]"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base font-semibold text-foreground">
+                        {item.identifier}
+                      </h3>
+                      <Badge variant={getPGFlexStatusBadgeVariant(item.status)}>
+                        {t(getPGFlexStatusLabel(item.status))}
+                      </Badge>
+                      {requestedAt ? (
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {requestedAt}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {item.description ? (
+                      <p className="mt-1.5 text-sm leading-5 text-muted-foreground">
+                        {item.description}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground lg:grid-cols-2">
+                      <p className="min-w-0">
+                        <span className="font-semibold text-foreground">
+                          {t("From")}:
+                        </span>{" "}
+                        <span>{item.origin || t("No route")}</span>
+                      </p>
+                      <p className="min-w-0">
+                        <span className="font-semibold text-foreground">
+                          {t("To")}:
+                        </span>{" "}
+                        <span>{item.destination || t("No route")}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 self-start rounded-xl border border-sky-200/80 bg-white/80 px-3 text-sm font-semibold text-sky-700 shadow-sm transition duration-200 group-hover:border-sky-300 group-hover:bg-sky-50 group-hover:text-sky-900 group-hover:shadow-[0_12px_30px_rgba(14,165,233,0.18)] dark:border-sky-300/20 dark:bg-slate-950/60 dark:text-sky-100 dark:group-hover:bg-sky-400/10"
+                  >
+                    {t("Open")}
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {item.description || t("Standalone dispatch")}
-                </p>
-              </div>
-
-              <p className="min-w-0 text-sm text-muted-foreground">
-                {getPGFlexRouteSummary(item) || t("No route")}
-              </p>
-
-              <p className="text-sm text-muted-foreground">
-                {formatPGFlexReadableDateTime(item.timeRequested) ??
-                  item.timeRequested ??
-                  formatPGFlexReadableDateTime(item.pickupTime) ??
-                  item.pickupTime}
-              </p>
-
-              <div className="flex flex-wrap gap-2">
-                <Badge variant={getPGFlexStatusBadgeVariant(item.status)}>
-                  {t(getPGFlexStatusLabel(item.status))}
-                </Badge>
-              </div>
-
-              <div className="flex lg:justify-end">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/pgflex/logistics/${item.id}`}>
-                    {t("Open")}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          ))
+              </Link>
+            );
+          })
         )}
       </div>
 
