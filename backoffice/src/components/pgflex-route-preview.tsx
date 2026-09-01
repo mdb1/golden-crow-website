@@ -1712,7 +1712,10 @@ export function PGFlexRoutePreview({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div
+            data-testid="pgflex-route-header-actions"
+            className="flex flex-wrap items-center gap-2"
+          >
             {isRouteLocked && !hasRoutePreviewError ? (
               <Button
                 type="button"
@@ -1724,22 +1727,6 @@ export function PGFlexRoutePreview({
               >
                 <RouteIcon className="h-3.5 w-3.5" />
                 {t("Change route")}
-              </Button>
-            ) : hasBothAddresses ? (
-              <Button
-                type="button"
-                variant={mapsStatus === "ready" ? "secondary" : "default"}
-                size="sm"
-                className="gap-1.5"
-                onClick={handlePreviewRoute}
-                disabled={disabled || isPreviewLoading}
-              >
-                {isPreviewLoading ? (
-                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <RouteIcon className="h-3.5 w-3.5" />
-                )}
-                {t("Preview route")}
               </Button>
             ) : null}
             {routeEstimate ? (
@@ -1862,16 +1849,31 @@ export function PGFlexRoutePreview({
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <Navigation className="h-5 w-5 text-muted-foreground" />
-                    <p className="text-sm font-medium text-foreground">
-                      {hasBothAddresses
-                        ? t("Preview route")
-                        : t(
+                  <div className="flex flex-col items-center gap-2">
+                    {hasBothAddresses ? (
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        data-testid="pgflex-route-center-preview"
+                        className="gap-1.5 shadow-[0_14px_34px_rgba(37,99,235,0.28)]"
+                        onClick={handlePreviewRoute}
+                        disabled={disabled || isPreviewLoading}
+                      >
+                        <RouteIcon className="h-3.5 w-3.5" />
+                        {t("Preview route")}
+                      </Button>
+                    ) : (
+                      <>
+                        <Navigation className="h-5 w-5 text-muted-foreground" />
+                        <p className="text-sm font-medium text-foreground">
+                          {t(
                             "Add origin and destination addresses to preview the route.",
                           )}
-                    </p>
-                  </>
+                        </p>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

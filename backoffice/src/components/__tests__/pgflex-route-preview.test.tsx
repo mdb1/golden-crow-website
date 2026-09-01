@@ -199,9 +199,14 @@ describe("PGFlexRoutePreview", () => {
       "Hospital Italiano, Buenos Aires",
     );
 
-    const previewButton = screen.getByRole("button", {
-      name: "Preview route",
-    });
+    expect(
+      within(screen.getByTestId("pgflex-route-header-actions")).queryByRole(
+        "button",
+        { name: "Preview route" },
+      ),
+    ).not.toBeInTheDocument();
+    const previewButton = screen.getByTestId("pgflex-route-center-preview");
+    expect(previewButton).toHaveTextContent("Preview route");
     expect(previewButton).toHaveAttribute("data-variant", "default");
     fireEvent.click(previewButton);
 
@@ -244,7 +249,13 @@ describe("PGFlexRoutePreview", () => {
     expect(screen.getByLabelText("Origin")).not.toBeDisabled();
     expect(screen.getByLabelText("Destination")).not.toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Preview route" }),
+      within(screen.getByTestId("pgflex-route-header-actions")).queryByRole(
+        "button",
+        { name: "Preview route" },
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId("pgflex-route-center-preview"),
     ).toBeInTheDocument();
   });
 
@@ -346,6 +357,9 @@ describe("PGFlexRoutePreview", () => {
     expect(alert).toHaveTextContent(
       "This API key is blocked from using Routes API. Add Routes API to the key API restrictions or remove API restrictions for testing.",
     );
+    expect(
+      screen.queryByRole("button", { name: "Preview route" }),
+    ).not.toBeInTheDocument();
     const changeRouteButtons = screen.getAllByRole("button", {
       name: "Change route",
     });
@@ -432,7 +446,14 @@ describe("PGFlexRoutePreview", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Change route" }));
     expect(
-      screen.getByRole("button", { name: "Preview route" }),
-    ).toHaveAttribute("data-variant", "default");
+      within(screen.getByTestId("pgflex-route-header-actions")).queryByRole(
+        "button",
+        { name: "Preview route" },
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("pgflex-route-center-preview")).toHaveAttribute(
+      "data-variant",
+      "default",
+    );
   });
 });
