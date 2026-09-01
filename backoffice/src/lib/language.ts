@@ -216,6 +216,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to delete PGFlex logistics item.":
     "No se pudo eliminar el envío PGFlex.",
   "Danger zone": "Zona de riesgo",
+  "Irreversible actions that permanently delete this PGFlex dispatch.":
+    "Acciones irreversibles que eliminan permanentemente este envío PGFlex.",
+  "Dispatch deletion": "Eliminación de envío",
+  "Delete this standalone PGFlex logistics item only when it was created by mistake or should no longer appear in PGFlex. This action cannot be undone.":
+    "Eliminá este envío logístico independiente solo cuando fue creado por error o ya no debe aparecer en PGFlex. Esta acción no se puede deshacer.",
   "Delete dispatch": "Eliminar envío",
   "Delete dispatch?": "¿Eliminar envío?",
   "This removes the standalone PGFlex logistics item.":

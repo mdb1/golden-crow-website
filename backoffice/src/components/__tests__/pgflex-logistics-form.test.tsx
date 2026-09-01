@@ -283,6 +283,38 @@ describe("PGFlexLogisticsForm", () => {
     alertSpy.mockRestore();
   });
 
+  it("renders the full admin danger zone as a collapsed disclosure", async () => {
+    const user = userEvent.setup();
+    renderForm({ item: pgflexItem({ canDelete: true }) });
+
+    const dangerZoneButton = screen.getByRole("button", {
+      name: /Danger zone/,
+    });
+    expect(dangerZoneButton).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByText(
+        "Irreversible actions that permanently delete this PGFlex dispatch.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Dispatch deletion")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Delete dispatch" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(dangerZoneButton);
+
+    expect(dangerZoneButton).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Dispatch deletion")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Delete this standalone PGFlex logistics item only when it was created by mistake or should no longer appear in PGFlex. This action cannot be undone.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Delete dispatch" }),
+    ).toBeInTheDocument();
+  });
+
   it("renders transport dispatcher detail as read-only with only the pickup action", async () => {
     const user = userEvent.setup();
     renderForm({ item: pgflexItem() }, transportDispatcherContext);

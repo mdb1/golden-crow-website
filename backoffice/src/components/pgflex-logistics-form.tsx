@@ -9,6 +9,7 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ChevronDown,
   CheckCircle2,
   LoaderCircle,
   MapPin,
@@ -64,6 +65,7 @@ import {
   type PGFlexTransportDispatcherOption,
 } from "@/lib/pgflex-logistics";
 import { sdkFetch } from "@/lib/sdk-client";
+import { cn } from "@/lib/utils";
 
 const UNASSIGNED_DISPATCHER_VALUE = "__unassigned__";
 const PGFLEX_CREATION_CONFETTI = [
@@ -299,6 +301,7 @@ export function PGFlexLogisticsForm({
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [createdItem, setCreatedItem] =
     useState<PGFlexLogisticsListItem | null>(null);
+  const [isDangerZoneOpen, setIsDangerZoneOpen] = useState(false);
   const {
     data: dispatcherOptionsPayload,
     isFetching: isFetchingDispatcherOptions,
@@ -1021,47 +1024,86 @@ export function PGFlexLogisticsForm({
       ) : null}
 
       {mode === "edit" && item && isFullAdmin ? (
-        <section className="glass-panel flex flex-col gap-4 px-5 py-4">
-          <div>
-            <h3 className="font-heading text-lg font-semibold text-foreground">
-              {t("Danger zone")}
-            </h3>
-          </div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="destructive"
-                size="sm"
-                className="w-fit"
-                disabled={pending !== null}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                {t("Delete dispatch")}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogMedia className="bg-destructive/12 text-destructive">
-                  <AlertTriangle className="h-5 w-5" />
-                </AlertDialogMedia>
-                <AlertDialogTitle>{t("Delete dispatch?")}</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("This removes the standalone PGFlex logistics item.")}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={(event) => {
-                    event.preventDefault();
-                    void handleDelete();
-                  }}
-                >
-                  {pending === "delete" ? t("Deleting...") : t("Delete")}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+        <section className="glass-panel px-5 py-4">
+          <button
+            type="button"
+            className="flex w-full min-w-0 items-start gap-3 text-left"
+            onClick={() => setIsDangerZoneOpen((open) => !open)}
+            aria-expanded={isDangerZoneOpen}
+          >
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/10 text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="font-heading text-lg font-semibold text-foreground">
+                  {t("Danger zone")}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 text-muted-foreground transition-transform",
+                    isDangerZoneOpen && "rotate-180",
+                  )}
+                />
+              </span>
+              <span className="mt-1 block text-sm leading-5 text-muted-foreground">
+                {t(
+                  "Irreversible actions that permanently delete this PGFlex dispatch.",
+                )}
+              </span>
+            </span>
+          </button>
+
+          {isDangerZoneOpen ? (
+            <div className="mt-4 grid gap-4 border-t border-border/70 pt-4 text-sm text-muted-foreground lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+              <div>
+                <h4 className="text-sm font-medium text-foreground">
+                  {t("Dispatch deletion")}
+                </h4>
+                <p className="mt-1 leading-6">
+                  {t(
+                    "Delete this standalone PGFlex logistics item only when it was created by mistake or should no longer appear in PGFlex. This action cannot be undone.",
+                  )}
+                </p>
+              </div>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-fit"
+                    disabled={pending !== null}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {t("Delete dispatch")}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogMedia className="bg-destructive/12 text-destructive">
+                      <AlertTriangle className="h-5 w-5" />
+                    </AlertDialogMedia>
+                    <AlertDialogTitle>{t("Delete dispatch?")}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("This removes the standalone PGFlex logistics item.")}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void handleDelete();
+                      }}
+                    >
+                      {pending === "delete" ? t("Deleting...") : t("Delete")}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          ) : null}
         </section>
       ) : null}
     </div>
