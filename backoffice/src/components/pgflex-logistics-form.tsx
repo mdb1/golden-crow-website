@@ -7,11 +7,16 @@ import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowLeft,
+  CheckCircle2,
   LoaderCircle,
+  MapPin,
+  Navigation,
+  PackageCheck,
   PlusCircle,
   RotateCcw,
   Save,
   Trash2,
+  Truck,
   X,
 } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
@@ -90,6 +95,32 @@ function normalizeLinkedCode(value: string) {
   return /^[A-Z]{3}$/.test(normalized) ? normalized : null;
 }
 
+function dispatcherActionForStatus(status: PGFlexLogisticsStatus) {
+  if (status === "awaiting_pick_up") {
+    return {
+      nextStatus: "in_transit" as const,
+      label: "Pedido Retirado",
+      savingLabel: "Saving pickup...",
+      Icon: Truck,
+    };
+  }
+
+  if (status === "in_transit") {
+    return {
+      nextStatus: "arrived" as const,
+      label: "Pedido Entregado",
+      savingLabel: "Saving delivery...",
+      Icon: CheckCircle2,
+    };
+  }
+
+  return null;
+}
+
+function readOnlyValue(value?: string | null) {
+  return value?.trim() || "-";
+}
+
 function toFormState(
   item?: PGFlexLogisticsListItem | null,
 ): LogisticsFormState {
@@ -149,6 +180,45 @@ function toPayload(
   };
 }
 
+function DispatcherRoutePoint({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string;
+}) {
+  return (
+    <div className="rounded-[1.35rem] border border-sky-100/80 bg-white/82 px-5 py-5 shadow-[0_18px_42px_rgba(15,23,42,0.08)] dark:border-sky-300/16 dark:bg-slate-950/40">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-sky-700/80 dark:text-sky-200/82">
+        <MapPin className="h-4 w-4" />
+        {label}
+      </div>
+      <p className="mt-3 text-2xl font-semibold leading-tight text-foreground md:text-3xl">
+        {readOnlyValue(value)}
+      </p>
+    </div>
+  );
+}
+
+function DispatcherReadOnlyField({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-muted/18 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 text-base font-semibold leading-6 text-foreground">
+        {readOnlyValue(value)}
+      </p>
+    </div>
+  );
+}
+
 export function PGFlexLogisticsForm({
   item,
   mode = "edit",
@@ -161,6 +231,7 @@ export function PGFlexLogisticsForm({
   const t = (text: string) => appText(language, text);
   const router = useRouter();
   const isFullAdmin = adminContext.role === "full_admin";
+  const isTransportDispatcher = adminContext.role === "transport_dispatcher";
   const canUpdate = mode === "create" ? isFullAdmin : Boolean(item?.canUpdate);
   const canEditAllFields = isFullAdmin;
   const sourceState = useMemo(() => toFormState(item), [item]);
@@ -353,6 +424,37 @@ export function PGFlexLogisticsForm({
     }
   }
 
+  async function handleDispatcherAdvance(nextStatus: PGFlexLogisticsStatus) {
+    if (!item || !isTransportDispatcher || !canUpdate || pending) {
+      return;
+    }
+
+    setPending("save");
+    try {
+      await sdkFetch<{ item: PGFlexLogisticsListItem }>(
+        `/pgflex/logistics/${encodeURIComponent(item.id)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: nextStatus }),
+        },
+      );
+      router.refresh();
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("PGFlex logistics status updated."),
+      });
+    } catch {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to update PGFlex logistics status."),
+      });
+    } finally {
+      setPending(null);
+    }
+  }
+
   async function handleDelete() {
     if (!item || !isFullAdmin || pending) {
       return;
@@ -373,6 +475,142 @@ export function PGFlexLogisticsForm({
       });
       setPending(null);
     }
+  }
+
+  if (mode === "edit" && item && isTransportDispatcher) {
+    const action = dispatcherActionForStatus(item.status);
+    const linkedCodes = linkedCodesFromCsv(item.linked_codes);
+    const ActionIcon = action?.Icon;
+
+    return (
+      <div
+        className={
+          action
+            ? "flex flex-col gap-5 pb-40 md:pb-44"
+            : "flex flex-col gap-5"
+        }
+      >
+        <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/pgflex/logistics">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {t("Back to logistics")}
+            </Link>
+          </Button>
+          <span className="font-mono text-xs text-muted-foreground">
+            {item.id}
+          </span>
+          <Badge variant={getPGFlexStatusBadgeVariant(item.status)}>
+            {t(getPGFlexStatusLabel(item.status))}
+          </Badge>
+        </div>
+
+        <section className="glass-panel flex flex-col gap-6 px-5 py-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-200/80 bg-sky-500/10 text-sky-700 shadow-[0_14px_34px_rgba(14,165,233,0.16)] dark:border-sky-300/18 dark:text-sky-100">
+                <PackageCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-heading text-2xl font-semibold leading-tight text-foreground">
+                  {item.identifier}
+                </h2>
+                <p className="mt-1 text-base text-muted-foreground">
+                  {t("Read-only dispatch detail")}
+                </p>
+              </div>
+            </div>
+            <Badge variant={getPGFlexStatusBadgeVariant(item.status)}>
+              {t(getPGFlexStatusLabel(item.status))}
+            </Badge>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-stretch">
+            <DispatcherRoutePoint label={t("From")} value={item.origin} />
+            <div className="flex items-center justify-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-sky-200/80 bg-sky-500/10 text-sky-700 shadow-[0_14px_34px_rgba(14,165,233,0.14)] dark:border-sky-300/18 dark:text-sky-100">
+                <Navigation className="h-5 w-5" />
+              </div>
+            </div>
+            <DispatcherRoutePoint label={t("To")} value={item.destination} />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <DispatcherReadOnlyField
+              label={t("Shipment type")}
+              value={item.shipmentType === "2pq" ? "2PQ" : t("Other")}
+            />
+            <DispatcherReadOnlyField
+              label={t("Time requested")}
+              value={
+                formatDateTime(item.timeRequested) ??
+                item.timeRequested ??
+                t("No timestamp")
+              }
+            />
+            <DispatcherReadOnlyField
+              label={t("Linked codes")}
+              value={linkedCodes.length > 0 ? linkedCodes.join(", ") : "-"}
+            />
+            <DispatcherReadOnlyField
+              label={t("Status")}
+              value={t(getPGFlexStatusLabel(item.status))}
+            />
+            {item.item_was_picked_date_at ? (
+              <DispatcherReadOnlyField
+                label={t("Picked up at")}
+                value={
+                  formatDateTime(item.item_was_picked_date_at) ??
+                  item.item_was_picked_date_at
+                }
+              />
+            ) : null}
+            {item.item_was_delivered_at ? (
+              <DispatcherReadOnlyField
+                label={t("Delivered at")}
+                value={
+                  formatDateTime(item.item_was_delivered_at) ??
+                  item.item_was_delivered_at
+                }
+              />
+            ) : null}
+            {item.description ? (
+              <div className="md:col-span-2">
+                <DispatcherReadOnlyField
+                  label={t("Description")}
+                  value={item.description}
+                />
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        {action && ActionIcon ? (
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:px-0">
+            <div className="pointer-events-auto mx-auto md:ml-[calc(var(--sidebar-width)+1rem)] md:mr-6 lg:mr-8">
+              <div className="rounded-[1.7rem] border border-white/12 bg-background/72 p-4 shadow-[0_-10px_38px_rgba(7,16,24,0.12),0_20px_48px_rgba(7,16,24,0.18)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/54">
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => void handleDispatcherAdvance(action.nextStatus)}
+                    disabled={!canUpdate || pending !== null}
+                    className="h-16 w-full rounded-[1.35rem] border border-sky-200/12 bg-[linear-gradient(180deg,rgba(56,189,248,0.98),rgba(37,99,235,0.96))] text-base font-semibold text-white shadow-[0_18px_52px_rgba(37,99,235,0.34)] disabled:opacity-100 sm:text-lg lg:min-w-[20rem] lg:w-auto lg:px-10"
+                  >
+                    {pending === "save" ? (
+                      <LoaderCircle className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <ActionIcon className="h-5 w-5" />
+                    )}
+                    {pending === "save" ? t(action.savingLabel) : t(action.label)}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   return (

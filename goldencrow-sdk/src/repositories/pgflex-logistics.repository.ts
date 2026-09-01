@@ -90,6 +90,8 @@ type PGFlexLogisticsDocument = {
   timeRequested: string;
   pickupTime: string | null;
   status: PGFlexLogisticsStatus;
+  item_was_picked_date_at?: string | null;
+  item_was_delivered_at?: string | null;
   createdAt: string;
   updatedAt: string;
   createdByEmail: string;
@@ -369,6 +371,30 @@ function assertDispatcherPatchIsStatusOnly(
   }
 }
 
+function dispatcherTransitionPatch(
+  context: AdminContext,
+  existing: PGFlexLogisticsRecord,
+  nextStatus: unknown,
+  now: string,
+) {
+  if (context.role !== "transport_dispatcher") {
+    return {};
+  }
+
+  if (existing.status === "awaiting_pick_up" && nextStatus === "in_transit") {
+    return { item_was_picked_date_at: now };
+  }
+
+  if (existing.status === "in_transit" && nextStatus === "arrived") {
+    return { item_was_delivered_at: now };
+  }
+
+  throw new AdminRepositoryError(
+    "Transport dispatchers can only move assigned items from awaiting pick up to in transit, or from in transit to arrived.",
+    403,
+  );
+}
+
 function toPGFlexLogisticsRecord(
   id: string,
   data: Record<string, unknown>,
@@ -412,6 +438,8 @@ function toPGFlexLogisticsRecord(
       now,
     pickupTime: legacyPickupTime,
     status,
+    item_was_picked_date_at: optionalString(data.item_was_picked_date_at),
+    item_was_delivered_at: optionalString(data.item_was_delivered_at),
     createdAt: optionalString(data.createdAt) ?? now,
     updatedAt: optionalString(data.updatedAt) ?? now,
     createdByEmail: normalizeDispatcherEmail(data.createdByEmail),
@@ -432,7 +460,9 @@ function withCapabilities(
   context: AdminContext,
   record: PGFlexLogisticsRecord,
 ): PGFlexLogisticsListItem {
-  const dispatcherCanUpdate = isAssignedDispatcher(context, record);
+  const dispatcherCanUpdate =
+    isAssignedDispatcher(context, record) &&
+    (record.status === "awaiting_pick_up" || record.status === "in_transit");
 
   return {
     ...record,
@@ -668,6 +698,7 @@ async function fullDocumentFromInput(
 async function patchDocumentFromInput(
   payload: PGFlexLogisticsInput,
   context: AdminContext,
+  now: string = new Date().toISOString(),
 ) {
   const document: Partial<Record<keyof PGFlexLogisticsRecord, unknown>> = {};
   let assignment: TransportDispatcherAssignment | undefined;
@@ -735,7 +766,7 @@ async function patchDocumentFromInput(
     );
   }
 
-  document.updatedAt = new Date().toISOString();
+  document.updatedAt = now;
   document.updatedByEmail = normalizeRoleEmail(context.email);
   return { document, assignment };
 }
@@ -1026,9 +1057,15 @@ export async function updatePGFlexLogisticsItemForContext(
   assertDispatcherPatchIsStatusOnly(context, payload);
   const existing = await getPGFlexLogisticsItemForContext(context, itemId);
   assertCanUpdatePGFlexLogistics(context, existing);
+  const now = new Date().toISOString();
   const { document: patch, assignment } = await patchDocumentFromInput(
     payload,
     context,
+    now,
+  );
+  Object.assign(
+    patch,
+    dispatcherTransitionPatch(context, existing, patch.status, now),
   );
 
   await adminDb

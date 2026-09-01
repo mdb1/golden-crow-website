@@ -162,6 +162,13 @@ const SPANISH_TEXT: Record<string, string> = {
   Lost: "Perdido",
   "Back to logistics": "Volver a logística",
   "Logistics workbench": "Mesa de trabajo logística",
+  "Read-only dispatch detail": "Detalle de envío en modo lectura",
+  "Picked up at": "Retirado el",
+  "Delivered at": "Entregado el",
+  "Pedido Retirado": "Pedido Retirado",
+  "Pedido Entregado": "Pedido Entregado",
+  "Saving pickup...": "Guardando retiro...",
+  "Saving delivery...": "Guardando entrega...",
   "Transport dispatchers can update only the status of assigned logistics items.":
     "Los transportistas solo pueden actualizar el estado de los envíos asignados.",
   "Identifier is required.": "El identificador es requerido.",
@@ -170,6 +177,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Time of pick up is required.": "La hora de retiro es requerida.",
   "PGFlex logistics item saved.": "Envío PGFlex guardado.",
   "PGFlex logistics status updated.": "Estado del envío PGFlex actualizado.",
+  "Unable to update PGFlex logistics status.":
+    "No se pudo actualizar el estado del envío PGFlex.",
   "Unable to create PGFlex logistics item.":
     "No se pudo crear el envío PGFlex.",
   "Unable to save PGFlex logistics item.":

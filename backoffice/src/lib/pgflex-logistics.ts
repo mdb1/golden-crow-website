@@ -21,6 +21,8 @@ export interface PGFlexLogisticsRecord {
   timeRequested: string;
   pickupTime?: string;
   status: PGFlexLogisticsStatus;
+  item_was_picked_date_at?: string;
+  item_was_delivered_at?: string;
   createdAt: string;
   updatedAt: string;
   createdByEmail?: string;

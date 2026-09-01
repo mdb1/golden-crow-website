@@ -49,8 +49,12 @@ function makeDocRef(collectionName: string, id?: string): MockDocumentRef {
         data: () => data,
       };
     }),
-    set: jest.fn(async (data: MockDocData) => {
-      mockDocs.set(docKey(ref), { ...data });
+    set: jest.fn(async (data: MockDocData, options?: { merge?: boolean }) => {
+      const current = mockDocs.get(docKey(ref)) ?? {};
+      mockDocs.set(
+        docKey(ref),
+        options?.merge ? { ...current, ...data } : { ...data },
+      );
     }),
     delete: jest.fn(async () => {
       mockDocs.delete(docKey(ref));
@@ -270,6 +274,17 @@ const fullAdminContext = {
   projectAccess: ["mydnamap" as const],
 };
 
+const transportDispatcherContext = {
+  email: "driver@example.com",
+  uid: "driver-1",
+  role: "transport_dispatcher" as const,
+  isBootstrap: false,
+  canAccessBackoffice: false,
+  canAccessPatientPortal: false,
+  canAccessPGFlex: true,
+  projectAccess: ["mydnamap" as const],
+};
+
 describe("PGFlex logistics repository", () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date("2026-08-31T15:45:00.000Z"));
@@ -470,5 +485,112 @@ describe("PGFlex logistics repository", () => {
       "newest-finished",
       "older-finished",
     ]);
+  });
+
+  it("lets an assigned transport dispatcher mark a dispatch as picked up", async () => {
+    const { updatePGFlexLogisticsItemForContext } = await import(
+      "../repositories/pgflex-logistics.repository"
+    );
+    mockDocs.set("pgflex_events/dispatch-1", {
+      identifier: "ENV-001",
+      origin: "Clinica Norte",
+      destination: "Humboldt 2433",
+      dispatcherId: "driver-1",
+      dispatcherFirebaseId: "driver-1",
+      dispatcherEmail: "driver@example.com",
+      status: "awaiting_pick_up",
+      timeRequested: "2026-08-31T10:00:00.000Z",
+      createdAt: "2026-08-31T10:00:00.000Z",
+      updatedAt: "2026-08-31T10:00:00.000Z",
+    });
+
+    const updated = await updatePGFlexLogisticsItemForContext(
+      transportDispatcherContext,
+      "dispatch-1",
+      { status: "in_transit" },
+    );
+
+    expect(updated).toMatchObject({
+      status: "in_transit",
+      item_was_picked_date_at: "2026-08-31T15:45:00.000Z",
+      canUpdate: true,
+    });
+    expect(mockDocs.get("pgflex_events/dispatch-1")).toMatchObject({
+      status: "in_transit",
+      item_was_picked_date_at: "2026-08-31T15:45:00.000Z",
+      updatedAt: "2026-08-31T15:45:00.000Z",
+      updatedByEmail: "driver@example.com",
+    });
+  });
+
+  it("lets an assigned transport dispatcher mark an in-transit dispatch as delivered", async () => {
+    const { updatePGFlexLogisticsItemForContext } = await import(
+      "../repositories/pgflex-logistics.repository"
+    );
+    mockDocs.set("pgflex_events/dispatch-2", {
+      identifier: "ENV-002",
+      origin: "Clinica Norte",
+      destination: "Humboldt 2433",
+      dispatcherId: "driver-1",
+      dispatcherFirebaseId: "driver-1",
+      dispatcherEmail: "driver@example.com",
+      status: "in_transit",
+      item_was_picked_date_at: "2026-08-31T12:00:00.000Z",
+      timeRequested: "2026-08-31T10:00:00.000Z",
+      createdAt: "2026-08-31T10:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+
+    const updated = await updatePGFlexLogisticsItemForContext(
+      transportDispatcherContext,
+      "dispatch-2",
+      { status: "arrived" },
+    );
+
+    expect(updated).toMatchObject({
+      status: "arrived",
+      item_was_picked_date_at: "2026-08-31T12:00:00.000Z",
+      item_was_delivered_at: "2026-08-31T15:45:00.000Z",
+      canUpdate: false,
+    });
+    expect(mockDocs.get("pgflex_events/dispatch-2")).toMatchObject({
+      status: "arrived",
+      item_was_picked_date_at: "2026-08-31T12:00:00.000Z",
+      item_was_delivered_at: "2026-08-31T15:45:00.000Z",
+      updatedByEmail: "driver@example.com",
+    });
+  });
+
+  it("blocks transport dispatchers from arbitrary status changes", async () => {
+    const { updatePGFlexLogisticsItemForContext } = await import(
+      "../repositories/pgflex-logistics.repository"
+    );
+    mockDocs.set("pgflex_events/dispatch-3", {
+      identifier: "ENV-003",
+      origin: "Clinica Norte",
+      destination: "Humboldt 2433",
+      dispatcherId: "driver-1",
+      dispatcherFirebaseId: "driver-1",
+      dispatcherEmail: "driver@example.com",
+      status: "awaiting_pick_up",
+      timeRequested: "2026-08-31T10:00:00.000Z",
+      createdAt: "2026-08-31T10:00:00.000Z",
+      updatedAt: "2026-08-31T10:00:00.000Z",
+    });
+
+    await expect(
+      updatePGFlexLogisticsItemForContext(
+        transportDispatcherContext,
+        "dispatch-3",
+        { status: "arrived" },
+      ),
+    ).rejects.toMatchObject({
+      message:
+        "Transport dispatchers can only move assigned items from awaiting pick up to in transit, or from in transit to arrived.",
+      statusCode: 403,
+    });
+    expect(mockDocs.get("pgflex_events/dispatch-3")).toMatchObject({
+      status: "awaiting_pick_up",
+    });
   });
 });
