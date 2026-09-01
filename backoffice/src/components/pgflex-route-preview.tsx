@@ -100,6 +100,7 @@ type GoogleMapsRouteError = Error & {
 };
 
 export const PGFLEX_ROUTE_ORIGIN_COUNTRY = "Argentina";
+const PGFLEX_ROUTE_ORIGIN_SEPARATOR = ", ";
 
 const PGFLEX_ROUTE_ORIGIN_PROVINCE_OPTIONS: Array<{
   value: PGFlexRouteOriginProvinceDistrict;
@@ -112,9 +113,21 @@ const PGFLEX_ROUTE_ORIGIN_PROVINCE_OPTIONS: Array<{
   },
 ];
 
+export function sanitizePGFlexRouteOriginTextPart(value: string) {
+  return value.replace(/,+/g, " ").replace(/\s{2,}/g, " ");
+}
+
+function provinceDistrictFromOriginPart(
+  value?: string,
+): PGFlexRouteOriginProvinceDistrict {
+  return value?.trim() === "Provincia de Buenos Aires"
+    ? "Provincia de Buenos Aires"
+    : "Capital Federal";
+}
+
 export function composePGFlexRouteOrigin(parts: PGFlexRouteOriginParts) {
-  const address = parts.address.trim();
-  const locality = parts.locality.trim();
+  const address = sanitizePGFlexRouteOriginTextPart(parts.address).trim();
+  const locality = sanitizePGFlexRouteOriginTextPart(parts.locality).trim();
 
   if (!address || !locality) {
     return "";
@@ -125,7 +138,20 @@ export function composePGFlexRouteOrigin(parts: PGFlexRouteOriginParts) {
     locality,
     parts.provinceDistrict,
     PGFLEX_ROUTE_ORIGIN_COUNTRY,
-  ].join(", ");
+  ].join(PGFLEX_ROUTE_ORIGIN_SEPARATOR);
+}
+
+export function splitPGFlexRouteOrigin(origin: string): PGFlexRouteOriginParts {
+  const parts = origin
+    .split(PGFLEX_ROUTE_ORIGIN_SEPARATOR)
+    .map((part) => sanitizePGFlexRouteOriginTextPart(part.trim()));
+
+  return {
+    address: parts[0] ?? "",
+    locality: parts[1] ?? "",
+    provinceDistrict: provinceDistrictFromOriginPart(parts[2]),
+    country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
+  };
 }
 
 function makeAbortError() {
@@ -1786,7 +1812,15 @@ export function PGFlexRoutePreview({
 
     onOriginPartsChange({
       ...originParts,
-      ...next,
+      ...("address" in next && typeof next.address === "string"
+        ? { address: sanitizePGFlexRouteOriginTextPart(next.address) }
+        : {}),
+      ...("locality" in next && typeof next.locality === "string"
+        ? { locality: sanitizePGFlexRouteOriginTextPart(next.locality) }
+        : {}),
+      ...("provinceDistrict" in next
+        ? { provinceDistrict: next.provinceDistrict }
+        : {}),
       country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
     });
   }

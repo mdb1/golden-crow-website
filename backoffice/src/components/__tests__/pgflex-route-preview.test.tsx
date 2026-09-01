@@ -13,6 +13,7 @@ import { AppLanguageProvider } from "@/components/app-language-provider";
 import {
   PGFlexRoutePreview,
   composePGFlexRouteOrigin,
+  splitPGFlexRouteOrigin,
   type PGFlexRouteOriginParts,
 } from "@/components/pgflex-route-preview";
 import { BACKOFFICE_VERSION } from "@/lib/app-version";
@@ -26,6 +27,19 @@ describe("PGFlexRoutePreview", () => {
     "https://routes.googleapis.com/directions/v2:computeRoutes";
   const fieldMask =
     "routes.duration,routes.staticDuration,routes.distanceMeters,routes.polyline.encodedPolyline";
+
+  it("splits saved origin fields on comma-space separators", () => {
+    expect(
+      splitPGFlexRouteOrigin(
+        "Hidalgo 800, Villa Crespo, Provincia de Buenos Aires, Argentina",
+      ),
+    ).toEqual({
+      address: "Hidalgo 800",
+      locality: "Villa Crespo",
+      provinceDistrict: "Provincia de Buenos Aires",
+      country: "Argentina",
+    });
+  });
 
   function resetGoogleMapsGlobals() {
     delete (window as Window & { google?: unknown }).google;
@@ -323,14 +337,19 @@ describe("PGFlexRoutePreview", () => {
     expect(screen.getByLabelText("Country")).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText("Address"), {
-      target: { value: "Hidalgo 800" },
+      target: { value: "Hidalgo, 800" },
     });
     fireEvent.change(screen.getByLabelText("Neighborhood / Locality"), {
-      target: { value: "Villa Crespo" },
+      target: { value: "Villa, Crespo" },
     });
     fireEvent.change(screen.getByLabelText("Destination"), {
       target: { value: "Humboldt 2433, CABA" },
     });
+
+    expect(screen.getByLabelText("Address")).toHaveValue("Hidalgo 800");
+    expect(screen.getByLabelText("Neighborhood / Locality")).toHaveValue(
+      "Villa Crespo",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Preview route" }));
 

@@ -238,6 +238,55 @@ describe("PGFlexLogisticsForm", () => {
     );
   });
 
+  it("splits an existing edit origin into address blocks and saves without internal commas", async () => {
+    const user = userEvent.setup();
+    renderForm({
+      item: pgflexItem({
+        shipmentType: "other",
+        origin:
+          "Hidalgo 800, Villa Crespo, Provincia de Buenos Aires, Argentina",
+        destination: "Laboratorio Sur",
+        canDelete: true,
+      }),
+    });
+
+    const addressInput = screen.getByLabelText("Address");
+    const localityInput = screen.getByLabelText("Neighborhood / Locality");
+
+    expect(addressInput).toHaveValue("Hidalgo 800");
+    expect(localityInput).toHaveValue("Villa Crespo");
+    expect(screen.getByLabelText("Province / District")).toHaveTextContent(
+      "Buenos Aires Province",
+    );
+    expect(screen.getByLabelText("Country")).toHaveValue("Argentina");
+    expect(screen.getByLabelText("Destination")).toHaveValue("Laboratorio Sur");
+
+    await user.clear(addressInput);
+    await user.type(addressInput, "Hidalgo, 900");
+
+    expect(addressInput).toHaveValue("Hidalgo 900");
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith("/pgflex/logistics/dispatch-1", {
+        method: "PUT",
+        body: JSON.stringify({
+          identifier: "ENV-001",
+          shipmentType: "other",
+          description: "Retiro de cajas 2PQ",
+          dispatcherId: "driver-1",
+          dispatcherFirebaseId: "driver-1",
+          dispatcherEmail: "driver@example.com",
+          origin:
+            "Hidalgo 900, Villa Crespo, Provincia de Buenos Aires, Argentina",
+          destination: "Laboratorio Sur",
+          status: "awaiting_pick_up",
+        }),
+      }),
+    );
+  });
+
   it("adds optional linked codes and sends them as a comma-separated field", async () => {
     const promptSpy = jest.spyOn(window, "prompt");
     const alertSpy = jest
