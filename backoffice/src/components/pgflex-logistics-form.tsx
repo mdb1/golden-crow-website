@@ -338,6 +338,57 @@ function PGFlexOperationalAdvanceDock({
   );
 }
 
+function PGFlexOperationalAdvanceConfirmationDialog({
+  action,
+  onConfirm,
+  onOpenChange,
+  open,
+  pending,
+  t,
+}: {
+  action: OperationalAdvanceAction | null;
+  onConfirm: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  pending: "save" | "delete" | null;
+  t: (text: string) => string;
+}) {
+  const ActionIcon = action?.Icon ?? AlertTriangle;
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent size="default">
+        <AlertDialogHeader>
+          <AlertDialogMedia className="bg-sky-500/10 text-sky-700 dark:text-sky-200">
+            <ActionIcon className="h-5 w-5" />
+          </AlertDialogMedia>
+          <AlertDialogTitle>{t("Are you sure?")}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {t(
+              "This action is irreversible. It will log the time and notify the client.",
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel variant="ghost" disabled={pending !== null}>
+            {t("Cancel")}
+          </AlertDialogCancel>
+          <Button
+            type="button"
+            onClick={() => onConfirm()}
+            disabled={pending !== null || !action}
+          >
+            {pending === "save" ? (
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+            ) : null}
+            {pending === "save" && action ? t(action.savingLabel) : t("Yes")}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export function PGFlexLogisticsForm({
   item,
   mode = "edit",
@@ -366,6 +417,10 @@ export function PGFlexLogisticsForm({
   const [createdItem, setCreatedItem] =
     useState<PGFlexLogisticsListItem | null>(null);
   const [isDangerZoneOpen, setIsDangerZoneOpen] = useState(false);
+  const [
+    operationalAdvanceConfirmation,
+    setOperationalAdvanceConfirmation,
+  ] = useState<OperationalAdvanceAction | null>(null);
   const [linkedCodeDialogOpen, setLinkedCodeDialogOpen] = useState(false);
   const [linkedCodeDraft, setLinkedCodeDraft] = useState("");
   const [linkedCodeError, setLinkedCodeError] = useState<string | null>(null);
@@ -484,6 +539,14 @@ export function PGFlexLogisticsForm({
   function handleReset() {
     setState(sourceState);
     setOriginParts(sourceOriginParts);
+  }
+
+  function handleOperationalAdvanceRequest(nextStatus: PGFlexLogisticsStatus) {
+    if (!operationalAdvanceAction || operationalAdvanceAction.nextStatus !== nextStatus) {
+      return;
+    }
+
+    setOperationalAdvanceConfirmation(operationalAdvanceAction);
   }
 
   function resetLinkedCodeDialog() {
@@ -644,6 +707,15 @@ export function PGFlexLogisticsForm({
     }
   }
 
+  async function handleConfirmOperationalAdvance() {
+    if (!operationalAdvanceConfirmation) {
+      return;
+    }
+
+    await handleOperationalAdvance(operationalAdvanceConfirmation.nextStatus);
+    setOperationalAdvanceConfirmation(null);
+  }
+
   async function handleDelete() {
     if (!item || !isFullAdmin || pending) {
       return;
@@ -678,6 +750,18 @@ export function PGFlexLogisticsForm({
         }
       >
         <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+        <PGFlexOperationalAdvanceConfirmationDialog
+          action={operationalAdvanceConfirmation}
+          onConfirm={() => void handleConfirmOperationalAdvance()}
+          onOpenChange={(open) => {
+            if (!open && pending === null) {
+              setOperationalAdvanceConfirmation(null);
+            }
+          }}
+          open={Boolean(operationalAdvanceConfirmation)}
+          pending={pending}
+          t={t}
+        />
 
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" size="sm" asChild>
@@ -771,9 +855,7 @@ export function PGFlexLogisticsForm({
           <PGFlexOperationalAdvanceDock
             action={operationalAdvanceAction}
             canUpdate={canUpdate}
-            onAdvance={(nextStatus) =>
-              void handleOperationalAdvance(nextStatus)
-            }
+            onAdvance={handleOperationalAdvanceRequest}
             pending={pending}
             t={t}
           />
@@ -791,6 +873,18 @@ export function PGFlexLogisticsForm({
       }
     >
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+      <PGFlexOperationalAdvanceConfirmationDialog
+        action={operationalAdvanceConfirmation}
+        onConfirm={() => void handleConfirmOperationalAdvance()}
+        onOpenChange={(open) => {
+          if (!open && pending === null) {
+            setOperationalAdvanceConfirmation(null);
+          }
+        }}
+        open={Boolean(operationalAdvanceConfirmation)}
+        pending={pending}
+        t={t}
+      />
       <Dialog
         open={linkedCodeDialogOpen}
         onOpenChange={handleLinkedCodeDialogOpenChange}
@@ -1206,7 +1300,7 @@ export function PGFlexLogisticsForm({
         <PGFlexOperationalAdvanceDock
           action={operationalAdvanceAction}
           canUpdate={canUpdate}
-          onAdvance={(nextStatus) => void handleOperationalAdvance(nextStatus)}
+          onAdvance={handleOperationalAdvanceRequest}
           pending={pending}
           t={t}
         />

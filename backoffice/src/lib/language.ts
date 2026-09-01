@@ -203,6 +203,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Pedido Entregado": "Pedido Entregado",
   "Saving pickup...": "Guardando retiro...",
   "Saving delivery...": "Guardando entrega...",
+  "Are you sure?": "¿Estás seguro?",
+  "This action is irreversible. It will log the time and notify the client.":
+    "Esta acción es irreversible. Se va a registrar la hora y notificar al cliente.",
   "Transport dispatchers can update only the status of assigned logistics items.":
     "Los transportistas solo pueden actualizar el estado de los envíos asignados.",
   "Identifier is required.": "El identificador es requerido.",

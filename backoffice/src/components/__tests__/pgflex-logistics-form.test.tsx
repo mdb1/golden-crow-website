@@ -469,6 +469,21 @@ describe("PGFlexLogisticsForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Pedido Retirado" }));
 
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Are you sure?",
+    });
+    expect(
+      within(dialog).getByText(
+        "This action is irreversible. It will log the time and notify the client.",
+      ),
+    ).toBeInTheDocument();
+    expect(sdkFetch).not.toHaveBeenCalledWith(
+      "/pgflex/logistics/dispatch-1",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+
+    await user.click(within(dialog).getByRole("button", { name: "Yes" }));
+
     await waitFor(() =>
       expect(sdkFetch).toHaveBeenCalledWith("/pgflex/logistics/dispatch-1", {
         method: "PATCH",
@@ -492,6 +507,11 @@ describe("PGFlexLogisticsForm", () => {
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Pedido Entregado" }));
+
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Are you sure?",
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Yes" }));
 
     await waitFor(() =>
       expect(sdkFetch).toHaveBeenCalledWith("/pgflex/logistics/dispatch-1", {
@@ -543,6 +563,16 @@ describe("PGFlexLogisticsForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Pedido Retirado" }));
 
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Are you sure?",
+    });
+    expect(
+      within(dialog).getByText(
+        "This action is irreversible. It will log the time and notify the client.",
+      ),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Yes" }));
+
     await waitFor(() =>
       expect(sdkFetch).toHaveBeenCalledWith("/pgflex/logistics/dispatch-1", {
         method: "PATCH",
@@ -569,6 +599,11 @@ describe("PGFlexLogisticsForm", () => {
     expect(screen.getByText("31-08-2026-12:00PM")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Pedido Entregado" }));
+
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Are you sure?",
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Yes" }));
 
     await waitFor(() =>
       expect(sdkFetch).toHaveBeenCalledWith("/pgflex/logistics/dispatch-1", {
