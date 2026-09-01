@@ -126,6 +126,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Route preview": "Vista del recorrido",
   "Preview route": "Visualizar recorrido",
   "Change route": "Cambiar recorrido",
+  "Google Maps route log": "Log de recorrido Google Maps",
+  "Close route error log": "Cerrar log de error de recorrido",
+  "Route error log details": "Detalle del log de error de recorrido",
+  "Full Google Maps route error log. Copy this JSON and send it for debugging.":
+    "Log completo del error de recorrido de Google Maps. Copiá este JSON para enviarlo a depuración.",
+  "Clipboard copy failed. You can still select the log text and copy it manually.":
+    "No se pudo copiar al portapapeles. Todavía podés seleccionar el texto del log y copiarlo manualmente.",
   "No route error log available.":
     "No hay log de error de recorrido disponible.",
   "Best driving route with approximate time.":

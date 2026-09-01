@@ -2,7 +2,13 @@
 
 import "@testing-library/jest-dom";
 import { useState } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PGFlexRoutePreview } from "@/components/pgflex-route-preview";
 
@@ -213,10 +219,15 @@ describe("PGFlexRoutePreview", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows an explicit route calculation alert when Google rejects the route", async () => {
+  it("shows a copyable route log dialog when Google rejects the route", async () => {
     const alertSpy = jest
       .spyOn(window, "alert")
       .mockImplementation(() => undefined);
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
     installRejectingGoogleMapsMock("REQUEST_DENIED");
     renderControlledPreview();
     enterRouteAddresses();
@@ -231,16 +242,40 @@ describe("PGFlexRoutePreview", () => {
       screen.getByRole("button", { name: "Change route" }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show log" }));
-    expect(alertSpy).toHaveBeenCalledTimes(1);
-    expect(alertSpy.mock.calls[0]?.[0]).toContain("DirectionsService.route");
-    expect(alertSpy.mock.calls[0]?.[0]).toContain('"status": "REQUEST_DENIED"');
-    expect(alertSpy.mock.calls[0]?.[0]).toContain(
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Google Maps route log",
+    });
+    const logField = within(dialog).getByLabelText(
+      "Route error log details",
+    ) as HTMLTextAreaElement;
+    expect(logField.value).toContain('"phase": "DirectionsService.route"');
+    expect(logField.value).toContain(
+      '"call": "google.maps.DirectionsService.route"',
+    );
+    expect(logField.value).toContain('"status": "REQUEST_DENIED"');
+    expect(logField.value).toContain(
       '"origin": "Av. Corrientes 123, Buenos Aires"',
     );
-    expect(alertSpy.mock.calls[0]?.[0]).toContain(
+    expect(logField.value).toContain(
       '"destination": "Hospital Italiano, Buenos Aires"',
     );
-    expect(alertSpy.mock.calls[0]?.[0]).toContain('"result": null');
+    expect(logField.value).toContain('"result": null');
+    expect(logField.value).toContain("maps.googleapis.com/maps/api/js");
+    expect(logField.value).toContain('"apiKeyRedacted": true');
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Copy log" }));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(
+        expect.stringContaining('"status": "REQUEST_DENIED"'),
+      );
+    });
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: "Copied" }),
+      ).toBeInTheDocument();
+    });
+    expect(alertSpy).not.toHaveBeenCalled();
     alertSpy.mockRestore();
   });
 

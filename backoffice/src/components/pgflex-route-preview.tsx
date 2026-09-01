@@ -3,17 +3,29 @@
 import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
+  Check,
   Clock3,
+  Copy,
   LoaderCircle,
   MapPinned,
   Navigation,
   Route as RouteIcon,
+  X,
 } from "lucide-react";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { appText } from "@/lib/language";
 import { cn } from "@/lib/utils";
 
@@ -153,7 +165,27 @@ function redactGoogleMapsApiKey(value: string) {
   return value.replace(/([?&]key=)[^&]+/i, "$1[redacted]");
 }
 
-function googleMapsEnvironmentLog() {
+function googleMapsScriptUrlForLog(apiKey: string) {
+  return redactGoogleMapsApiKey(
+    `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}`,
+  );
+}
+
+function resolveGoogleMapsApiKeySource() {
+  if (normalizeGoogleMapsApiKey(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY)) {
+    return "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY";
+  }
+
+  if (
+    normalizeGoogleMapsApiKey(process.env.NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY)
+  ) {
+    return "NEXT_PUBLIC_PGFLEX_GOOGLE_MAPS_API_KEY";
+  }
+
+  return "PGFLEX_GOOGLE_MAPS_BROWSER_API_KEY fallback";
+}
+
+function googleMapsEnvironmentLog(apiKey: string) {
   const mapsWindow = getGoogleMapsWindow();
   const script = document.getElementById(
     GOOGLE_MAPS_SCRIPT_ID,
@@ -162,6 +194,10 @@ function googleMapsEnvironmentLog() {
   return {
     pageUrl: window.location.href,
     userAgent: window.navigator.userAgent,
+    configuredApiKey: {
+      present: Boolean(apiKey),
+      source: resolveGoogleMapsApiKeySource(),
+    },
     script: script
       ? {
           id: script.id,
@@ -174,6 +210,7 @@ function googleMapsEnvironmentLog() {
       : {
           id: GOOGLE_MAPS_SCRIPT_ID,
           present: false,
+          expectedSrc: googleMapsScriptUrlForLog(apiKey),
         },
     googleNamespacePresent: Boolean(mapsWindow.google?.maps),
     directionsServicePresent: Boolean(
@@ -216,32 +253,90 @@ function stringifyErrorLog(value: unknown) {
 }
 
 function routeErrorLogForFailure({
+  apiKey,
   destination,
   error,
+  failedAt,
   origin,
   phase,
+  requestId,
+  startedAt,
 }: {
+  apiKey: string;
   destination: string;
   error: unknown;
+  failedAt: string;
   origin: string;
   phase: string;
+  requestId: number;
+  startedAt: string;
 }) {
   const routeError = error as GoogleMapsRouteError;
+  const failedTime = Date.parse(failedAt);
+  const startedTime = Date.parse(startedAt);
+  const elapsedMs =
+    Number.isFinite(failedTime) && Number.isFinite(startedTime)
+      ? Math.max(0, failedTime - startedTime)
+      : null;
+  const environment = googleMapsEnvironmentLog(apiKey);
 
   return stringifyErrorLog({
-    capturedAt: new Date().toISOString(),
+    logType: "pgflex_route_preview_error",
+    capturedAt: failedAt,
+    component: "PGFlexRoutePreview",
+    requestId,
     phase,
+    elapsedMs,
     routeInput: {
       origin,
       destination,
     },
+    apiCalls: [
+      {
+        name: "Google Maps JavaScript API loader",
+        provider: "Google Maps Platform",
+        call: "GET https://maps.googleapis.com/maps/api/js",
+        request: {
+          scriptId: GOOGLE_MAPS_SCRIPT_ID,
+          src:
+            environment.script.present && "src" in environment.script
+              ? environment.script.src
+              : googleMapsScriptUrlForLog(apiKey),
+          apiKeySource: resolveGoogleMapsApiKeySource(),
+          apiKeyRedacted: true,
+          async: true,
+          defer: true,
+        },
+        observed: {
+          script: environment.script,
+          googleNamespacePresent: environment.googleNamespacePresent,
+          directionsServicePresent: environment.directionsServicePresent,
+          authFailureCaptured: environment.authFailureCaptured,
+        },
+      },
+      {
+        name: "Directions route calculation",
+        provider: "Google Maps Platform",
+        call: "google.maps.DirectionsService.route",
+        request:
+          routeError.pgflexGoogleRequest ?? {
+            origin,
+            destination,
+            note: "No DirectionsService.route request was captured because the failure happened before the route callback.",
+          },
+        response: {
+          status: routeError.pgflexGoogleStatus ?? null,
+          result: routeError.pgflexGoogleResult ?? null,
+        },
+      },
+    ],
     googleApiDump: {
       status: routeError.pgflexGoogleStatus,
       request: routeError.pgflexGoogleRequest,
       result: routeError.pgflexGoogleResult,
     },
     thrownError: serializableError(error),
-    environment: googleMapsEnvironmentLog(),
+    environment,
   });
 }
 
@@ -674,6 +769,122 @@ function RouteSketch({
   );
 }
 
+function RouteErrorLogDialog({
+  log,
+  open,
+  onOpenChange,
+  t,
+}: {
+  log: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  t: (text: string) => string;
+}) {
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle",
+  );
+  const logText = log ?? t("No route error log available.");
+
+  useEffect(() => {
+    if (open) {
+      setCopyStatus("idle");
+    }
+  }, [logText, open]);
+
+  async function handleCopyLog() {
+    try {
+      await navigator.clipboard.writeText(logText);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        onOpenChange(nextOpen);
+        if (!nextOpen) {
+          setCopyStatus("idle");
+        }
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        className="max-w-4xl overflow-hidden rounded-[2rem] border border-violet-100 bg-[linear-gradient(160deg,rgba(250,250,255,0.98),rgba(255,255,255,0.98)_48%,rgba(245,243,255,0.96))] p-0 text-slate-950 shadow-[0_32px_120px_rgba(15,23,42,0.18)] dark:border-violet-300/18 dark:bg-slate-950"
+      >
+        <DialogHeader className="relative border-b border-violet-100 px-6 py-5 pr-16 dark:border-violet-300/18">
+          <DialogTitle className="font-heading text-2xl font-semibold text-slate-950 dark:text-slate-50">
+            {t("Google Maps route log")}
+          </DialogTitle>
+          <DialogDescription className="text-slate-600 dark:text-slate-300">
+            {t(
+              "Full Google Maps route error log. Copy this JSON and send it for debugging.",
+            )}
+          </DialogDescription>
+          <DialogClose asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="absolute right-5 top-5 h-9 w-9 rounded-full text-slate-700 hover:bg-violet-100/80 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-violet-400/10"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">{t("Close route error log")}</span>
+            </Button>
+          </DialogClose>
+        </DialogHeader>
+
+        <div className="space-y-4 px-6 py-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void handleCopyLog()}
+              className="border border-violet-200 bg-[linear-gradient(180deg,rgba(237,233,254,0.98),rgba(221,214,254,0.98))] text-violet-950 shadow-[0_12px_30px_rgba(124,58,237,0.18)] hover:bg-violet-100"
+            >
+              {copyStatus === "copied" ? (
+                <Check className="h-3.5 w-3.5" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+              {copyStatus === "copied"
+                ? t("Copied")
+                : copyStatus === "error"
+                  ? t("Copy error")
+                  : t("Copy log")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="border-slate-200 bg-white/80 text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            >
+              {t("Close")}
+            </Button>
+            {copyStatus === "error" ? (
+              <p role="status" className="text-xs text-destructive">
+                {t(
+                  "Clipboard copy failed. You can still select the log text and copy it manually.",
+                )}
+              </p>
+            ) : null}
+          </div>
+
+          <Textarea
+            readOnly
+            aria-label={t("Route error log details")}
+            value={logText}
+            className="min-h-[24rem] resize-none border-violet-100 bg-white/90 font-mono text-xs leading-5 text-slate-950 shadow-inner dark:border-violet-300/18 dark:bg-slate-950 dark:text-violet-50"
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function routeFailureMessage(
   error: unknown,
   translate: (text: string) => string,
@@ -753,6 +964,7 @@ export function PGFlexRoutePreview({
     null,
   );
   const [routeErrorLog, setRouteErrorLog] = useState<string | null>(null);
+  const [routeErrorLogOpen, setRouteErrorLogOpen] = useState(false);
 
   useEffect(() => {
     const currentRouteKey = routeKeyFor(origin, destination);
@@ -766,6 +978,7 @@ export function PGFlexRoutePreview({
       setRouteEstimate(null);
       setRouteErrorMessage(null);
       setRouteErrorLog(null);
+      setRouteErrorLogOpen(false);
       setRouteStatus("idle");
       return;
     }
@@ -779,6 +992,7 @@ export function PGFlexRoutePreview({
       setRouteEstimate(null);
       setRouteErrorMessage(null);
       setRouteErrorLog(null);
+      setRouteErrorLogOpen(false);
       setRouteStatus("idle");
     }
   }, [destination, lockedRoute, origin]);
@@ -827,6 +1041,7 @@ export function PGFlexRoutePreview({
     setRouteEstimate(null);
     setRouteErrorMessage(null);
     setRouteErrorLog(null);
+    setRouteErrorLogOpen(false);
     setMapsStatus(directionsServiceRef.current ? "ready" : "idle");
     setRouteStatus("idle");
   }
@@ -844,6 +1059,8 @@ export function PGFlexRoutePreview({
     const abortController = new AbortController();
     activeRouteAbortControllerRef.current = abortController;
     const routeRequestId = routeRequestIdRef.current + 1;
+    const requestStartedAt = new Date().toISOString();
+    let failurePhase = "Google Maps JavaScript API loader";
     routeRequestIdRef.current = routeRequestId;
     setLockedRoute({
       key: currentRouteKey,
@@ -851,6 +1068,7 @@ export function PGFlexRoutePreview({
     setRouteEstimate(null);
     setRouteErrorMessage(null);
     setRouteErrorLog(null);
+    setRouteErrorLogOpen(false);
     setRouteStatus("loading");
 
     try {
@@ -867,6 +1085,7 @@ export function PGFlexRoutePreview({
         throw new Error("Google Maps route services are unavailable");
       }
 
+      failurePhase = "DirectionsService.route";
       const result = await withTimeout(
         requestRoute({
           directionsService,
@@ -906,6 +1125,7 @@ export function PGFlexRoutePreview({
         usesTraffic: Boolean(leg?.duration_in_traffic),
       });
       setRouteErrorLog(null);
+      setRouteErrorLogOpen(false);
       setRouteStatus("ready");
     } catch (error) {
       if (isAbortError(error) || routeRequestIdRef.current !== routeRequestId) {
@@ -922,10 +1142,14 @@ export function PGFlexRoutePreview({
       setRouteErrorMessage(routeFailureMessage(finalError, t));
       setRouteErrorLog(
         routeErrorLogForFailure({
+          apiKey,
           destination: destinationAddress,
           error: finalError,
+          failedAt: new Date().toISOString(),
           origin: originAddress,
-          phase: "DirectionsService.route",
+          phase: failurePhase,
+          requestId: routeRequestId,
+          startedAt: requestStartedAt,
         }),
       );
       setMapsStatus(
@@ -944,7 +1168,7 @@ export function PGFlexRoutePreview({
   }
 
   function handleShowRouteLog() {
-    window.alert(routeErrorLog ?? t("No route error log available."));
+    setRouteErrorLogOpen(true);
   }
 
   const hasBothAddresses = Boolean(origin.trim() && destination.trim());
@@ -1150,6 +1374,12 @@ export function PGFlexRoutePreview({
           ) : null}
         </div>
       </section>
+      <RouteErrorLogDialog
+        log={routeErrorLog}
+        open={routeErrorLogOpen}
+        onOpenChange={setRouteErrorLogOpen}
+        t={t}
+      />
     </div>
   );
 }
