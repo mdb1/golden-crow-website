@@ -85,7 +85,7 @@ function pgflexItem(
     dispatcherEmail: "driver@example.com",
     origin: "Clinica Norte",
     destination:
-      "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+      "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
     timeRequested: "2026-08-31T10:00:00.000Z",
     status: "awaiting_pick_up" as const,
     createdAt: "2026-08-31T10:00:00.000Z",
@@ -196,7 +196,7 @@ describe("PGFlexLogisticsForm", () => {
           origin:
             "Av. Corrientes 123, Almagro, Ciudad Autónoma de Buenos Aires, Argentina",
           destination:
-            "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+            "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
         }),
       }),
     );
@@ -350,7 +350,7 @@ describe("PGFlexLogisticsForm", () => {
           origin:
             "Av. Santa Fe 1000, Recoleta, Ciudad Autónoma de Buenos Aires, Argentina",
           destination:
-            "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+            "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
         }),
       }),
     );
@@ -529,7 +529,7 @@ describe("PGFlexLogisticsForm", () => {
     expect(screen.getByText("Clinica Norte")).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Humboldt 2433 \(10 'C'\), Palermo, Ciudad Autónoma de Buenos Aires, Argentina/,
+        /Humboldt 2433 \(PB 10\), Palermo, Ciudad Autónoma de Buenos Aires, Argentina/,
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("ABC, DEF")).toBeInTheDocument();

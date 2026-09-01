@@ -332,7 +332,7 @@ describe("PGFlex logistics repository", () => {
       linked_codes: "ABC,DEF",
       origin: "Laboratorio Central",
       destination:
-        "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+        "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
       status: "in_transit",
       timeRequested: "2026-08-31T15:45:00.000Z",
     });
@@ -346,7 +346,7 @@ describe("PGFlex logistics repository", () => {
       dispatcherEmail: null,
       origin: "Laboratorio Central",
       destination:
-        "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+        "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
       status: "in_transit",
       timeRequested: "2026-08-31T15:45:00.000Z",
       createdByEmail: "admin@example.com",
@@ -498,7 +498,7 @@ describe("PGFlex logistics repository", () => {
       linked_codes: "ABC",
       origin: "Clinica Norte",
       destination:
-        "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+        "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
       status: "awaiting_pick_up",
       timeRequested: "2026-08-31T10:00:00.000Z",
       createdAt: "2026-08-31T10:00:00.000Z",
@@ -541,7 +541,7 @@ describe("PGFlex logistics repository", () => {
       linked_codes: "ABC,DEF",
       origin: "Clinica Norte",
       destination:
-        "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+        "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
       dispatcherId: "driver-1",
       dispatcherFirebaseId: "driver-1",
       dispatcherEmail: "driver@example.com",
@@ -603,7 +603,7 @@ describe("PGFlex logistics repository", () => {
       linked_codes: "ABC,DEF",
       origin: "Clinica Norte",
       destination:
-        "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+        "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
       dispatcherId: "driver-1",
       dispatcherFirebaseId: "driver-1",
       dispatcherEmail: "driver@example.com",
@@ -664,7 +664,7 @@ describe("PGFlex logistics repository", () => {
       linked_codes: "ABC,DEF,GHI",
       origin: "Clinica Norte",
       destination:
-        "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+        "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
       dispatcherId: "driver-1",
       dispatcherFirebaseId: "driver-1",
       dispatcherEmail: "driver@example.com",
@@ -737,7 +737,7 @@ describe("PGFlex logistics repository", () => {
       linked_codes: "ABC,DEF",
       origin: "Clinica Norte",
       destination:
-        "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+        "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
       dispatcherId: "driver-1",
       dispatcherFirebaseId: "driver-1",
       dispatcherEmail: "driver@example.com",
@@ -797,7 +797,7 @@ describe("PGFlex logistics repository", () => {
       identifier: "ENV-003",
       origin: "Clinica Norte",
       destination:
-        "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+        "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
       dispatcherId: "driver-1",
       dispatcherFirebaseId: "driver-1",
       dispatcherEmail: "driver@example.com",

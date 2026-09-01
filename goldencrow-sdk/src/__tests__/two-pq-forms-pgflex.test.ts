@@ -359,7 +359,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       dispatcherEmail: "alfa@example.com",
       origin: "Av. Corrientes 123, CABA, Buenos Aires, Argentina",
       destination:
-        "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+        "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
       timeRequested: "2026-08-31T15:45:00.000Z",
       pickupTime: null,
       status: "awaiting_pick_up",
@@ -371,7 +371,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     });
     expect(pgflexEvent?.shipmentType).toBe("2pq");
     expect(pgflexEvent?.destination).toBe(
-      "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+      "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
     );
     expect(mockSendPGFlexLogisticsAssignmentEmail).toHaveBeenCalledWith(
       {
@@ -383,7 +383,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
         identifier: "Clinica Norte - 31-08-2026-03:45PM",
         origin: "Av. Corrientes 123, CABA, Buenos Aires, Argentina",
         destination:
-          "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+          "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
         timeRequested: "2026-08-31T15:45:00.000Z",
       },
     );

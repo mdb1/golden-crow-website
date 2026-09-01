@@ -67,7 +67,7 @@ export interface PGFlexTransportDispatcherOption {
 export const PGFLEX_LOGISTICS_PAGE_SIZE = 20;
 
 export const PGFLEX_2PQ_DESTINATION =
-  "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina";
+  "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina";
 
 function padPGFlexDatePart(value: number) {
   return String(value).padStart(2, "0");

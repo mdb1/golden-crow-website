@@ -48,7 +48,7 @@ const BIOPSY_EMPTY_FIELD_FALLBACK_VALUE = "Not set";
 const DEFAULT_OBSERVATIONS_VALUE = "Sin observaciones";
 const WITHDRAWAL_PGFLEX_SHIPMENT_TYPE = "2pq" as const;
 const WITHDRAWAL_PGFLEX_DESTINATION =
-  "Humboldt 2433 (10 'C'), Palermo, Ciudad Autónoma de Buenos Aires, Argentina" as const;
+  "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina" as const;
 const PGFLEX_IDENTIFIER_MAX_LENGTH = 160;
 
 function isInstitutionManagerRole(role: AdminContext["role"]) {
