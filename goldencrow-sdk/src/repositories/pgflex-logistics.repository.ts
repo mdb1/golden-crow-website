@@ -21,8 +21,11 @@ import { getUserRoleByEmail, normalizeRoleEmail } from "./roles.repository.js";
 const adminDb = adminDbFor("mydnamap");
 const USER_ROLES_COLLECTION = "user_roles";
 const PGFLEX_EVENTS_COLLECTION = "pgflex_events";
+const TWO_PQ_CASES_COLLECTION = "2pq_case";
 const PGFLEX_2PQ_DESTINATION =
   "Humboldt 2433  (10 'C'), Ciudad Autónoma de Buenos Aires, Argentina";
+const TWO_PQ_CASE_IN_TRANSIT_STATUS = "in_transit";
+const TWO_PQ_CASE_SAMPLES_RECEIVED_STATUS = "samples_received";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 
@@ -236,6 +239,25 @@ function resolveDestinationForShipment(
     : requireRequiredString(payload.destination, "Destination");
 }
 
+function linkedCodesFromNormalizedCsv(value: unknown) {
+  return (normalizeLinkedCodes(value) ?? "")
+    .split(",")
+    .map((code) => code.trim())
+    .filter((code): code is string => /^[A-Z]{3}$/.test(code));
+}
+
+function twoPQCaseStatusForPGFlexStatus(status: PGFlexLogisticsStatus) {
+  if (status === "in_transit") {
+    return TWO_PQ_CASE_IN_TRANSIT_STATUS;
+  }
+
+  if (status === "arrived") {
+    return TWO_PQ_CASE_SAMPLES_RECEIVED_STATUS;
+  }
+
+  return null;
+}
+
 function isMissingFirestoreIndexError(error: unknown) {
   if (!error || typeof error !== "object") {
     return false;
@@ -268,6 +290,96 @@ function buildRecordId() {
   const timestamp = Date.now().toString(36);
   const suffix = Math.random().toString(36).slice(2, 8);
   return `pgflex_${timestamp}_${suffix}`;
+}
+
+async function getUniqueTwoPQCaseIdByField({
+  field,
+  label,
+  value,
+}: {
+  field: "caseLabel" | "three_letter_code";
+  label: string;
+  value: string;
+}) {
+  const snapshot = await adminDb
+    .collection(TWO_PQ_CASES_COLLECTION)
+    .where(field, "==", value)
+    .limit(2)
+    .get();
+
+  if (snapshot.docs.length > 1) {
+    throw new AdminRepositoryError(
+      `Multiple 2PQ cases found for ${label} ${value}.`,
+      409,
+    );
+  }
+
+  return snapshot.docs[0]?.id ?? null;
+}
+
+async function getTwoPQCaseIdForLinkedCode(linkedCode: string) {
+  const caseCode = `${linkedCode}XXX`;
+  return (
+    (await getUniqueTwoPQCaseIdByField({
+      field: "caseLabel",
+      label: "caseCode",
+      value: caseCode,
+    })) ??
+    (await getUniqueTwoPQCaseIdByField({
+      field: "three_letter_code",
+      label: "three_letter_code",
+      value: linkedCode,
+    }))
+  );
+}
+
+async function syncTwoPQCasesForPGFlexStatusChange({
+  context,
+  existing,
+  now,
+  updated,
+}: {
+  context: AdminContext;
+  existing: PGFlexLogisticsRecord;
+  now: string;
+  updated: PGFlexLogisticsRecord;
+}) {
+  if (existing.status === updated.status || updated.shipmentType !== "2pq") {
+    return;
+  }
+
+  const nextCaseStatus = twoPQCaseStatusForPGFlexStatus(updated.status);
+  if (!nextCaseStatus) {
+    return;
+  }
+
+  const linkedCodes = linkedCodesFromNormalizedCsv(updated.linked_codes);
+  if (linkedCodes.length === 0) {
+    return;
+  }
+
+  await Promise.all(
+    linkedCodes.map(async (linkedCode) => {
+      const caseId = await getTwoPQCaseIdForLinkedCode(linkedCode);
+
+      if (!caseId) {
+        return;
+      }
+
+      await adminDb
+        .collection(TWO_PQ_CASES_COLLECTION)
+        .doc(caseId)
+        .set(
+          {
+            caseStatus: nextCaseStatus,
+            last_updated_date: now,
+            updatedAt: now,
+            updatedByEmail: normalizeRoleEmail(context.email),
+          },
+          { merge: true },
+        );
+    }),
+  );
 }
 
 function canAccessPGFlexLogistics(context: AdminContext) {
@@ -1041,6 +1153,13 @@ export async function replacePGFlexLogisticsItemForContext(
     .set(persistedDocument, { merge: false });
 
   const record = toPGFlexLogisticsRecord(itemId, persistedDocument);
+  await syncTwoPQCasesForPGFlexStatusChange({
+    context,
+    existing,
+    now: document.updatedAt,
+    updated: record,
+  });
+
   const emailMetadata = shouldNotifyDispatcher
     ? await sendDispatcherNotificationForItem(record, assignment)
     : {};
@@ -1074,8 +1193,15 @@ export async function updatePGFlexLogisticsItemForContext(
     .doc(itemId)
     .set(patch, { merge: true });
 
+  const updated = await getPGFlexLogisticsItemForContext(context, itemId);
+  await syncTwoPQCasesForPGFlexStatusChange({
+    context,
+    existing,
+    now,
+    updated,
+  });
+
   if (assignmentChanged(existing, assignment ?? null)) {
-    const updated = await getPGFlexLogisticsItemForContext(context, itemId);
     await sendDispatcherNotificationForItem(updated, assignment ?? null);
   }
 
