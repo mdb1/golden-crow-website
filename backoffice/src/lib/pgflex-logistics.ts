@@ -61,6 +61,7 @@ export interface PGFlexTransportDispatcherOption {
   email: string;
   firebaseUid: string;
   displayName: string;
+  is_preferred_asignee: boolean;
 }
 
 export const PGFLEX_LOGISTICS_PAGE_SIZE = 20;

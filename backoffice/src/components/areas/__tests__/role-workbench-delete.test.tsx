@@ -112,3 +112,39 @@ describe("RoleWorkbench destructive user deletion", () => {
     expect(screen.queryByRole("button", { name: "Delete user" })).toBeNull();
   });
 });
+
+describe("RoleWorkbench transport dispatcher metadata", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("saves the preferred assignment checkbox for transport dispatchers", async () => {
+    const user = userEvent.setup();
+    (sdkFetch as jest.Mock).mockResolvedValue({ role: dispatcherRole });
+
+    renderRoleWorkbench();
+
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Assign shipments by default",
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Save role" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/roles/driver%40example.com",
+        expect.objectContaining({ method: "PUT" }),
+      );
+    });
+    const request = (sdkFetch as jest.Mock).mock.calls[0][1] as {
+      body: string;
+    };
+    expect(JSON.parse(request.body)).toEqual(
+      expect.objectContaining({
+        role: "transport_dispatcher",
+        is_preferred_asignee: true,
+      }),
+    );
+  });
+});

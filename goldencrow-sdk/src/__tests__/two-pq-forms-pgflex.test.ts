@@ -297,6 +297,9 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       isActive: true,
       firebaseUid: "dispatcher-z",
       displayName: "Zeta",
+      is_preferred_asignee: false,
+      createdAt: "2026-08-31T14:30:00.000Z",
+      updatedAt: "2026-08-31T14:30:00.000Z",
     });
     mockDocs.set("user_roles/alfa@example.com", {
       email: "alfa@example.com",
@@ -304,6 +307,9 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       isActive: true,
       firebaseUid: "dispatcher-a",
       displayName: "Alfa",
+      is_preferred_asignee: true,
+      createdAt: "2026-08-31T12:30:00.000Z",
+      updatedAt: "2026-08-31T12:30:00.000Z",
     });
   });
 
@@ -381,5 +387,82 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
         timeRequested: "2026-08-31T15:45:00.000Z",
       },
     );
+  });
+
+  it("falls back to the newest active dispatcher when no preferred dispatcher exists", async () => {
+    const { createTwoPQFormForContext } =
+      await import("../repositories/two-pq-forms.repository");
+
+    mockDocs.set("user_roles/alfa@example.com", {
+      ...mockDocs.get("user_roles/alfa@example.com"),
+      is_preferred_asignee: false,
+    });
+
+    await createTwoPQFormForContext(fullAdminContext, {
+      formType: "withdrawal_request",
+      linkedCaseIds: ["case-a", "case-b"],
+      institutionInformation: {
+        name: "Clinica Norte",
+        address: "Av. Corrientes 123",
+        city: "CABA",
+        state: "Buenos Aires",
+        country: "Argentina",
+      },
+    });
+
+    const pgflexEvent = mockDocs.get(
+      "pgflex_events/pgflex_withdrawal_form_00041",
+    );
+    expect(pgflexEvent).toMatchObject({
+      dispatcherId: "dispatcher-z",
+      dispatcherFirebaseId: "dispatcher-z",
+      dispatcherEmail: "zeta@example.com",
+    });
+    expect(mockSendPGFlexLogisticsAssignmentEmail).toHaveBeenCalledWith(
+      {
+        email: "zeta@example.com",
+        displayName: "Zeta",
+      },
+      expect.objectContaining({
+        id: "pgflex_withdrawal_form_00041",
+      }),
+    );
+  });
+
+  it("chooses the newest preferred dispatcher when more than one is marked preferred", async () => {
+    const { createTwoPQFormForContext } =
+      await import("../repositories/two-pq-forms.repository");
+
+    mockDocs.set("user_roles/bravo@example.com", {
+      email: "bravo@example.com",
+      role: "transport_dispatcher",
+      isActive: true,
+      firebaseUid: "dispatcher-b",
+      displayName: "Bravo",
+      is_preferred_asignee: true,
+      createdAt: "2026-08-31T14:00:00.000Z",
+      updatedAt: "2026-08-31T14:00:00.000Z",
+    });
+
+    await createTwoPQFormForContext(fullAdminContext, {
+      formType: "withdrawal_request",
+      linkedCaseIds: ["case-a", "case-b"],
+      institutionInformation: {
+        name: "Clinica Norte",
+        address: "Av. Corrientes 123",
+        city: "CABA",
+        state: "Buenos Aires",
+        country: "Argentina",
+      },
+    });
+
+    const pgflexEvent = mockDocs.get(
+      "pgflex_events/pgflex_withdrawal_form_00041",
+    );
+    expect(pgflexEvent).toMatchObject({
+      dispatcherId: "dispatcher-b",
+      dispatcherFirebaseId: "dispatcher-b",
+      dispatcherEmail: "bravo@example.com",
+    });
   });
 });

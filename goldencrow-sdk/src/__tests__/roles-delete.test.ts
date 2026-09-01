@@ -186,3 +186,50 @@ describe("role user deletion", () => {
     expect(mockDeleteUser).not.toHaveBeenCalled();
   });
 });
+
+describe("transport dispatcher role metadata", () => {
+  beforeEach(() => {
+    jest.resetModules();
+    mockDocs.clear();
+    mockCollection.mockClear();
+    mockDeleteUser.mockReset();
+    mockGetUserByEmail.mockReset();
+  });
+
+  it("persists the preferred assignment flag for transport dispatcher roles", async () => {
+    const { upsertUserRoleForContext } =
+      await import("../repositories/roles.repository");
+
+    mockDocs.set("user_roles/driver@example.com", {
+      email: "driver@example.com",
+      role: "transport_dispatcher",
+      firebaseUid: "driver-uid",
+      isActive: true,
+      canAccessPatientPortal: false,
+      is_preferred_asignee: false,
+      displayName: "Transportista Ejemplo",
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+
+    const role = await upsertUserRoleForContext(
+      godModeContext,
+      "driver@example.com",
+      {
+        role: "transport_dispatcher",
+        isActive: true,
+        is_preferred_asignee: true,
+        displayName: "Transportista Ejemplo",
+        notes: "Disponible",
+      },
+    );
+
+    expect(role.is_preferred_asignee).toBe(true);
+    expect(mockDocs.get("user_roles/driver@example.com")).toMatchObject({
+      role: "transport_dispatcher",
+      is_preferred_asignee: true,
+      firebaseUid: "driver-uid",
+      notes: "Disponible",
+    });
+  });
+});

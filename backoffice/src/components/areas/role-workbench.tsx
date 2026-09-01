@@ -15,6 +15,7 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { OptionSelectField } from "@/components/constrained-fields";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +67,7 @@ type RoleFormState = {
   doctorId: string;
   patientId: string;
   isActive: boolean;
+  is_preferred_asignee: boolean;
   displayName: string;
   notes: string;
 };
@@ -88,6 +90,7 @@ function toRoleFormState(
     doctorId: record?.doctorId ?? defaults?.doctorId ?? "",
     patientId: record?.patientId ?? "",
     isActive: record?.isActive ?? true,
+    is_preferred_asignee: record?.is_preferred_asignee === true,
     displayName: record?.displayName ?? "",
     notes: record?.notes ?? "",
   };
@@ -259,6 +262,7 @@ export function RoleWorkbench({
           institutionId: "",
           doctorId: "",
           patientId: "",
+          is_preferred_asignee: false,
         };
       }
 
@@ -282,6 +286,7 @@ export function RoleWorkbench({
           institutionId: "",
           doctorId: "",
           patientId: "",
+          is_preferred_asignee: false,
         };
       }
 
@@ -293,6 +298,7 @@ export function RoleWorkbench({
           institutionId: "",
           doctorId: "",
           patientId: "",
+          is_preferred_asignee: false,
         };
       }
 
@@ -311,6 +317,7 @@ export function RoleWorkbench({
           institutionId,
           doctorId: "",
           patientId: "",
+          is_preferred_asignee: false,
         };
       }
 
@@ -326,6 +333,7 @@ export function RoleWorkbench({
               ? (adminContext.doctorId ?? current.doctorId)
               : current.doctorId,
           patientId: "",
+          is_preferred_asignee: false,
         };
       }
 
@@ -339,6 +347,7 @@ export function RoleWorkbench({
           adminContext.role === "institution_doctor"
             ? (adminContext.doctorId ?? current.doctorId)
             : current.doctorId,
+        is_preferred_asignee: false,
       };
     });
   }
@@ -450,6 +459,10 @@ export function RoleWorkbench({
                 : undefined,
             patientId: state.role === "patient" ? state.patientId : undefined,
             isActive: state.isActive,
+            is_preferred_asignee:
+              state.role === "transport_dispatcher"
+                ? state.is_preferred_asignee
+                : undefined,
             displayName: state.displayName,
             notes: state.notes,
           }),
@@ -633,6 +646,28 @@ export function RoleWorkbench({
               disabled={!isEditable}
             />
           </div>
+
+          {state.role === "transport_dispatcher" ? (
+            <label
+              htmlFor="role-default-dispatch-assignment"
+              className="flex min-h-10 items-center gap-3 rounded-xl border border-violet-300/45 bg-violet-500/10 px-3 py-2 text-sm"
+            >
+              <Checkbox
+                id="role-default-dispatch-assignment"
+                checked={state.is_preferred_asignee}
+                onCheckedChange={(checked) =>
+                  setState((current) => ({
+                    ...current,
+                    is_preferred_asignee: checked === true,
+                  }))
+                }
+                disabled={!isEditable}
+              />
+              <span className="font-medium text-foreground">
+                {t("Assign shipments by default")}
+              </span>
+            </label>
+          ) : null}
 
           {state.role === "organization_publisher" ? (
             <div className="space-y-2">

@@ -40,6 +40,8 @@ export function InstitutionStaffRoleBrowser({
   const t = (text: string) => appText(language, text);
   const [query, setQuery] = useState("");
   const isTransportDispatcherRole = role === "transport_dispatcher";
+  const priorityAssignmentLabel =
+    language === "es" ? "Asignación prioritaria" : "Priority";
   const { data, isFetching, isLoading, refetch, error } = useQuery({
     queryKey: ["areas", "roles", role],
     queryFn: () => sdkFetch<{ roles: RoleManagementRecord[] }>("/roles"),
@@ -88,7 +90,9 @@ export function InstitutionStaffRoleBrowser({
     return (
       <div className="glass-panel flex flex-col gap-3 px-4 py-4">
         <p className="text-sm text-destructive">
-          {t("Failed to load role assignments. Confirm the SDK is running and retry.")}
+          {t(
+            "Failed to load role assignments. Confirm the SDK is running and retry.",
+          )}
         </p>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
           {t("Retry")}
@@ -129,7 +133,9 @@ export function InstitutionStaffRoleBrowser({
       <div className="glass-panel overflow-hidden">
         <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_180px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
           <span>{t("User email")}</span>
-          <span>{isTransportDispatcherRole ? t("Scope") : t("Institution")}</span>
+          <span>
+            {isTransportDispatcherRole ? t("Scope") : t("Institution")}
+          </span>
           <span>{t("Updated")}</span>
           <span className="text-right">{t("Action")}</span>
         </div>
@@ -146,10 +152,16 @@ export function InstitutionStaffRoleBrowser({
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-medium text-foreground">{record.email}</h3>
+                  <h3 className="font-medium text-foreground">
+                    {record.email}
+                  </h3>
                   <Badge variant={getRoleBadgeVariant(record.role)}>
                     {t(ADMIN_ROLE_LABELS[record.role])}
                   </Badge>
+                  {isTransportDispatcherRole &&
+                  record.is_preferred_asignee === true ? (
+                    <Badge variant="success">{priorityAssignmentLabel}</Badge>
+                  ) : null}
                   {record.isActive ? null : (
                     <Badge variant="warning">{t("Inactive")}</Badge>
                   )}

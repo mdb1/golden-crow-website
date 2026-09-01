@@ -66,6 +66,7 @@ const roles: RoleManagementRecord[] = [
     firebaseUid: "driver-uid",
     isActive: true,
     canAccessPatientPortal: false,
+    is_preferred_asignee: true,
     displayName: "Transportista Ejemplo",
     createdAt: "2026-08-12T12:00:00.000Z",
     updatedAt: "2026-08-12T12:00:00.000Z",
@@ -126,6 +127,7 @@ describe("RolesBrowser access surfaces", () => {
     expect(screen.queryByText("patient-enabled@example.com")).toBeNull();
     expect(screen.getByText("driver@example.com")).toBeTruthy();
     expect(screen.getByText("PGFlex access")).toBeTruthy();
+    expect(screen.getByText("Priority")).toBeTruthy();
     expect(screen.getByText("driver-uid")).toBeTruthy();
   });
 });

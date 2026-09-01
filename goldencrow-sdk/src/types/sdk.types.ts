@@ -75,6 +75,7 @@ export interface UserRoleRecord {
   patientId?: string;
   isActive: boolean;
   canAccessPatientPortal: boolean;
+  is_preferred_asignee?: boolean;
   displayName?: string;
   contactPhone?: string;
   notes?: string;
@@ -529,6 +530,7 @@ export interface PGFlexTransportDispatcherOption {
   email: string;
   firebaseUid: string;
   displayName: string;
+  is_preferred_asignee: boolean;
 }
 
 // CommunityPost — mirrors Firestore posts collection

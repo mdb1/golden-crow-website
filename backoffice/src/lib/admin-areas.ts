@@ -130,6 +130,7 @@ export interface RoleManagementRecord {
   patientId?: string;
   isActive: boolean;
   canAccessPatientPortal: boolean;
+  is_preferred_asignee?: boolean;
   displayName?: string;
   contactPhone?: string;
   notes?: string;

@@ -100,6 +100,7 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
           doctorId: z.string().optional(),
           patientId: z.string().optional(),
           isActive: z.boolean(),
+          is_preferred_asignee: z.boolean().optional(),
           displayName: z.string().optional(),
           notes: z.string().optional(),
         }),

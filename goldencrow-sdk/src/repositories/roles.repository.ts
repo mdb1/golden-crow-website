@@ -197,6 +197,7 @@ function toUserRoleRecord(
       data.canAccessPatientPortal,
       false,
     ),
+    is_preferred_asignee: normalizeBoolean(data.is_preferred_asignee, false),
     displayName: normalizeOptionalString(data.displayName),
     contactPhone: normalizeOptionalString(data.contactPhone),
     notes: normalizeOptionalString(data.notes),
@@ -1291,6 +1292,7 @@ export async function listTransportDispatchersForContext(
           normalizeOptionalString(record.displayName) ??
           authDisplayName ??
           "Transportista sin nombre",
+        is_preferred_asignee: record.is_preferred_asignee === true,
       };
     }),
   );
@@ -1564,6 +1566,10 @@ export async function upsertUserRoleForContext(
       payload.role === "patient"
         ? (existing?.canAccessPatientPortal ?? false)
         : false,
+    is_preferred_asignee:
+      payload.role === "transport_dispatcher"
+        ? payload.is_preferred_asignee === true
+        : null,
     displayName: payload.displayName ?? null,
     contactPhone: payload.contactPhone ?? existing?.contactPhone ?? null,
     notes: payload.notes ?? null,

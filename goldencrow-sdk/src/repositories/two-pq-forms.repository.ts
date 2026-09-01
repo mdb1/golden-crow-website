@@ -243,6 +243,9 @@ type PGFlexDispatcherAssignment = {
   email: string;
   firebaseUid: string;
   displayName: string;
+  is_preferred_asignee: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type WithdrawalPGFlexEventDocument = {
@@ -1490,7 +1493,32 @@ async function toPGFlexDispatcherAssignment(doc: {
       normalizeOptionalString(data.displayName) ??
       authDisplayName ??
       "Transportista sin nombre",
+    is_preferred_asignee: data.is_preferred_asignee === true,
+    createdAt: normalizeOptionalString(data.createdAt),
+    updatedAt: normalizeOptionalString(data.updatedAt),
   };
+}
+
+function dispatcherAssignmentTime(dispatcher: PGFlexDispatcherAssignment) {
+  const timestamp =
+    Date.parse(dispatcher.createdAt ?? "") ||
+    Date.parse(dispatcher.updatedAt ?? "");
+
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function sortNewestDispatcherFirst(
+  left: PGFlexDispatcherAssignment,
+  right: PGFlexDispatcherAssignment,
+) {
+  const timeDifference =
+    dispatcherAssignmentTime(right) - dispatcherAssignmentTime(left);
+
+  if (timeDifference !== 0) {
+    return timeDifference;
+  }
+
+  return left.email.localeCompare(right.email, "es");
 }
 
 async function getFirstPGFlexDispatcherAssignment() {
@@ -1506,11 +1534,13 @@ async function getFirstPGFlexDispatcherAssignment() {
     .filter((dispatcher): dispatcher is PGFlexDispatcherAssignment =>
       Boolean(dispatcher),
     )
-    .sort((left, right) =>
-      left.displayName.localeCompare(right.displayName, "es"),
-    );
+    .sort(sortNewestDispatcherFirst);
 
-  return dispatchers[0] ?? null;
+  const preferredDispatchers = dispatchers.filter(
+    (dispatcher) => dispatcher.is_preferred_asignee,
+  );
+
+  return preferredDispatchers[0] ?? dispatchers[0] ?? null;
 }
 
 function buildWithdrawalPGFlexEventId(formId: string) {

@@ -33,6 +33,8 @@ export function RolesBrowser({
   const t = (text: string) => appText(language, text);
   const [query, setQuery] = useState("");
   const [surface, setSurface] = useState<RoleAccessSurface>("backoffice");
+  const priorityAssignmentLabel =
+    language === "es" ? "Asignación prioritaria" : "Priority";
   const { data, isFetching, isLoading, refetch, error } = useQuery({
     queryKey: ["areas", "roles"],
     queryFn: () => sdkFetch<{ roles: RoleManagementRecord[] }>("/roles"),
@@ -47,8 +49,7 @@ export function RolesBrowser({
     () => ({
       backoffice: roles.filter(
         (record) =>
-          record.role !== "patient" &&
-          record.role !== "transport_dispatcher",
+          record.role !== "patient" && record.role !== "transport_dispatcher",
       ),
       "patient-portal": roles.filter((record) => record.role === "patient"),
       pgflex: roles.filter((record) => record.role === "transport_dispatcher"),
@@ -79,7 +80,7 @@ export function RolesBrowser({
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
-        .includes(normalizedQuery)
+        .includes(normalizedQuery),
     );
   }, [query, surfaceRoles]);
 
@@ -98,7 +99,9 @@ export function RolesBrowser({
     return (
       <div className="glass-panel flex flex-col gap-3 px-4 py-4">
         <p className="text-sm text-destructive">
-          {t("Failed to load role assignments. Confirm the SDK is running and retry.")}
+          {t(
+            "Failed to load role assignments. Confirm the SDK is running and retry.",
+          )}
         </p>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
           {t("Retry")}
@@ -121,19 +124,28 @@ export function RolesBrowser({
         >
           <TabsTrigger value="backoffice" className="h-9 gap-2">
             {t("Backoffice access")}
-            <Badge variant="secondary" className="min-w-6 justify-center px-1.5">
+            <Badge
+              variant="secondary"
+              className="min-w-6 justify-center px-1.5"
+            >
               {rolesBySurface.backoffice.length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="patient-portal" className="h-9 gap-2">
             {t("Patient portal")}
-            <Badge variant="secondary" className="min-w-6 justify-center px-1.5">
+            <Badge
+              variant="secondary"
+              className="min-w-6 justify-center px-1.5"
+            >
               {rolesBySurface["patient-portal"].length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="pgflex" className="h-9 gap-2">
             {t("PGFlex Dispatchers")}
-            <Badge variant="secondary" className="min-w-6 justify-center px-1.5">
+            <Badge
+              variant="secondary"
+              className="min-w-6 justify-center px-1.5"
+            >
               {rolesBySurface.pgflex.length}
             </Badge>
           </TabsTrigger>
@@ -146,13 +158,17 @@ export function RolesBrowser({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("Search roles by email, name, institution, doctor, or patient...")}
+            placeholder={t(
+              "Search roles by email, name, institution, doctor, or patient...",
+            )}
             className="pl-9"
           />
         </label>
 
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span>{t("Showing")} {filteredRoles.length} {t("role records")}</span>
+          <span>
+            {t("Showing")} {filteredRoles.length} {t("role records")}
+          </span>
           <Button
             variant="outline"
             size="sm"
@@ -185,12 +201,18 @@ export function RolesBrowser({
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-medium text-foreground">{record.email}</h3>
+                  <h3 className="font-medium text-foreground">
+                    {record.email}
+                  </h3>
                   <Badge variant={getRoleBadgeVariant(record.role)}>
                     {t(ADMIN_ROLE_LABELS[record.role])}
                   </Badge>
-                  {record.bootstrap ? <Badge variant="outline">Bootstrap</Badge> : null}
-                  {record.isActive ? null : <Badge variant="warning">{t("Inactive")}</Badge>}
+                  {record.bootstrap ? (
+                    <Badge variant="outline">Bootstrap</Badge>
+                  ) : null}
+                  {record.isActive ? null : (
+                    <Badge variant="warning">{t("Inactive")}</Badge>
+                  )}
                   {record.role === "patient" ? (
                     <Badge
                       variant={
@@ -206,6 +228,10 @@ export function RolesBrowser({
                   ) : null}
                   {record.role === "transport_dispatcher" ? (
                     <Badge variant="brand">{t("PGFlex access")}</Badge>
+                  ) : null}
+                  {record.role === "transport_dispatcher" &&
+                  record.is_preferred_asignee === true ? (
+                    <Badge variant="success">{priorityAssignmentLabel}</Badge>
                   ) : null}
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
