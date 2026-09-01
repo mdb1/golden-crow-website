@@ -125,6 +125,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Origin: "Origen",
   Destination: "Destino",
   "Route preview": "Vista del recorrido",
+  "Route preview map": "Mapa de vista del recorrido",
   "Preview route": "Visualizar recorrido",
   "Change route": "Cambiar recorrido",
   "Google Maps route log": "Log de recorrido Google Maps",

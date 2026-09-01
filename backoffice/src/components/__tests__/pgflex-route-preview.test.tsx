@@ -223,6 +223,8 @@ describe("PGFlexRoutePreview", () => {
       destination: { address: "Hospital Italiano, Buenos Aires" },
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_AWARE",
+      polylineQuality: "HIGH_QUALITY",
+      polylineEncoding: "ENCODED_POLYLINE",
       computeAlternativeRoutes: false,
     });
     expect(
@@ -292,6 +294,26 @@ describe("PGFlexRoutePreview", () => {
         "Hospital Italiano, Buenos Aires",
       ),
     ).toBeInTheDocument();
+    const staticMap = screen.getByAltText(
+      "Route preview map",
+    ) as HTMLImageElement;
+    const staticMapSrc = decodeURIComponent(
+      staticMap.getAttribute("src") ?? "",
+    );
+    expect(staticMapSrc).toContain("maps.googleapis.com/maps/api/staticmap");
+    expect(staticMapSrc).toContain(
+      "path=color:0x6d28d9ff|weight:5|enc:_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+    );
+    expect(staticMapSrc).toContain("markers=size:mid|color:blue|label:A|");
+    expect(staticMapSrc).toContain("markers=size:mid|color:green|label:B|");
+
+    fireEvent.error(staticMap);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByAltText("Route preview map"),
+      ).not.toBeInTheDocument();
+    });
     expect(screen.getByTestId("pgflex-route-marker-a")).not.toHaveAttribute(
       "transform",
       "translate(56 214)",
@@ -404,7 +426,7 @@ describe("PGFlexRoutePreview", () => {
 
     await waitFor(() => expect(screen.getByText("6.4 km")).toBeInTheDocument());
     expect(screen.getByText("21 min")).toBeInTheDocument();
-    expect(screen.queryByAltText("Route preview map")).not.toBeInTheDocument();
+    expect(screen.getByAltText("Route preview map")).toBeInTheDocument();
     expect((window as any).google).toBeUndefined();
     expect(fetchMock).toHaveBeenCalledTimes(1);
 

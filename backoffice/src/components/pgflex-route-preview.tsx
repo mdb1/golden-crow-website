@@ -37,12 +37,23 @@ const ROUTES_COMPUTE_ROUTES_ENDPOINT =
   "https://routes.googleapis.com/directions/v2:computeRoutes";
 const ROUTES_COMPUTE_ROUTES_FIELD_MASK =
   "routes.duration,routes.staticDuration,routes.distanceMeters,routes.polyline.encodedPolyline";
+const MAPS_STATIC_ENDPOINT = "https://maps.googleapis.com/maps/api/staticmap";
+const MAPS_STATIC_IMAGE_SIZE = "640x360";
+const MAPS_STATIC_IMAGE_SCALE = "2";
 const ROUTES_API_IMPLEMENTATION = {
   product: "Routes API",
   transport: "browser fetch",
   method: `POST ${ROUTES_COMPUTE_ROUTES_ENDPOINT}`,
   fieldMask: ROUTES_COMPUTE_ROUTES_FIELD_MASK,
+  polylineQuality: "HIGH_QUALITY",
   trafficAware: true,
+  mapRenderer: {
+    product: "Maps Static API",
+    transport: "browser image request",
+    endpoint: MAPS_STATIC_ENDPOINT,
+    size: MAPS_STATIC_IMAGE_SIZE,
+    scale: MAPS_STATIC_IMAGE_SCALE,
+  },
 };
 
 type MapsLoadStatus = "idle" | "loading" | "ready" | "error";
@@ -54,6 +65,8 @@ type RoutePoint = {
 type RouteEstimate = {
   distance: string;
   duration: string;
+  encodedPolyline: string | null;
+  staticMapUrl: string | null;
   usesTraffic: boolean;
   path: RoutePoint[];
 };
@@ -511,6 +524,8 @@ async function requestRoute({
     },
     travelMode: "DRIVE",
     routingPreference: "TRAFFIC_AWARE",
+    polylineQuality: "HIGH_QUALITY",
+    polylineEncoding: "ENCODED_POLYLINE",
     computeAlternativeRoutes: false,
   };
   const loggableRequest = {
@@ -643,11 +658,22 @@ function routePointFromLatLng(location: any): RoutePoint | null {
   return lat === null || lng === null ? null : { lat, lng };
 }
 
-function routePathFromResult(result: any): RoutePoint[] {
+function routeEncodedPolylineFromResult(result: any) {
   const route = result?.routes?.[0];
   const encodedPolyline = route?.polyline?.encodedPolyline;
 
   if (typeof encodedPolyline === "string" && encodedPolyline.trim()) {
+    return encodedPolyline.trim();
+  }
+
+  return null;
+}
+
+function routePathFromResult(result: any): RoutePoint[] {
+  const route = result?.routes?.[0];
+  const encodedPolyline = routeEncodedPolylineFromResult(result);
+
+  if (encodedPolyline) {
     return decodeEncodedPolyline(encodedPolyline);
   }
 
@@ -762,6 +788,84 @@ function routeUsesTrafficFromResult(result: any) {
   }
 
   return true;
+}
+
+function staticMapCoordinate(point: RoutePoint) {
+  return `${point.lat.toFixed(6)},${point.lng.toFixed(6)}`;
+}
+
+function staticMapPathValue({
+  color,
+  encodedPolyline,
+  path,
+  weight,
+}: {
+  color: string;
+  encodedPolyline: string | null;
+  path: RoutePoint[];
+  weight: number;
+}) {
+  const routeLocation = encodedPolyline
+    ? `enc:${encodedPolyline}`
+    : path.map(staticMapCoordinate).join("|");
+
+  return `color:${color}|weight:${weight}|${routeLocation}`;
+}
+
+function buildStaticMapUrl({
+  apiKey,
+  encodedPolyline,
+  path,
+}: {
+  apiKey: string;
+  encodedPolyline: string | null;
+  path: RoutePoint[];
+}) {
+  if (path.length < 2) {
+    return null;
+  }
+
+  const origin = staticMapCoordinate(path[0]!);
+  const destination = staticMapCoordinate(path[path.length - 1]!);
+  const params = new URLSearchParams({
+    key: apiKey,
+    size: MAPS_STATIC_IMAGE_SIZE,
+    scale: MAPS_STATIC_IMAGE_SCALE,
+    format: "jpg-baseline",
+    maptype: "roadmap",
+    language: "es",
+    region: "AR",
+  });
+
+  params.append("visible", `${origin}|${destination}`);
+  params.append("style", "feature:poi.business|element:labels|visibility:off");
+  params.append("style", "feature:transit|visibility:off");
+  params.append(
+    "style",
+    "feature:road|element:geometry|saturation:-22|lightness:14",
+  );
+  params.append(
+    "path",
+    staticMapPathValue({
+      color: "0x0f172a55",
+      encodedPolyline,
+      path,
+      weight: 9,
+    }),
+  );
+  params.append(
+    "path",
+    staticMapPathValue({
+      color: "0x6d28d9ff",
+      encodedPolyline,
+      path,
+      weight: 5,
+    }),
+  );
+  params.append("markers", `size:mid|color:blue|label:A|${origin}`);
+  params.append("markers", `size:mid|color:green|label:B|${destination}`);
+
+  return `${MAPS_STATIC_ENDPOINT}?${params.toString()}`;
 }
 
 type RouteSketchPoint = {
@@ -1000,6 +1104,11 @@ function RouteSketch({
   routeEstimate: RouteEstimate | null;
   t: (text: string) => string;
 }) {
+  const staticMapUrl = routeEstimate?.staticMapUrl ?? null;
+  const [failedStaticMapUrl, setFailedStaticMapUrl] = useState<string | null>(
+    null,
+  );
+  const staticMapFailed = staticMapUrl === failedStaticMapUrl;
   const geometry = routeSketchGeometry(routeEstimate?.path ?? []);
   const routePoints = pointsAttribute(geometry.points);
   const routeShadowPoints = routePoints;
@@ -1008,6 +1117,31 @@ function RouteSketch({
   );
   const arterialSouth = pointsAttribute(offsetRoutePoints(geometry.points, 72));
   const arterialFar = pointsAttribute(offsetRoutePoints(geometry.points, 128));
+
+  useEffect(() => {
+    if (!staticMapUrl) {
+      setFailedStaticMapUrl(null);
+    }
+  }, [staticMapUrl]);
+
+  if (staticMapUrl && !staticMapFailed) {
+    return (
+      <div className="relative h-full w-full overflow-hidden bg-slate-100 dark:bg-slate-950">
+        <img
+          src={staticMapUrl}
+          alt={t("Route preview map")}
+          data-testid="pgflex-route-static-map"
+          className="absolute inset-0 h-full w-full object-cover brightness-[1.03] contrast-[1.02] saturate-[0.9]"
+          loading="eager"
+          decoding="async"
+          onError={() => setFailedStaticMapUrl(staticMapUrl)}
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_16%,rgba(124,58,237,0.08),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0)_42%,rgba(248,250,252,0.24))] dark:bg-[radial-gradient(circle_at_20%_16%,rgba(124,58,237,0.16),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.1),rgba(15,23,42,0)_42%,rgba(15,23,42,0.52))]" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white/60 via-white/24 to-transparent dark:from-slate-950/62 dark:via-slate-950/26" />
+        <RouteAddressDock destination={destination} origin={origin} t={t} />
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-slate-100 dark:bg-slate-950">
@@ -1463,6 +1597,7 @@ export function PGFlexRoutePreview({
 
       const duration = routeDurationFromResult(result);
       const distance = routeDistanceFromResult(result);
+      const encodedPolyline = routeEncodedPolylineFromResult(result);
       const path = routePathFromResult(result);
 
       if (!duration || !distance || path.length < 2) {
@@ -1472,6 +1607,8 @@ export function PGFlexRoutePreview({
       setRouteEstimate({
         distance,
         duration,
+        encodedPolyline,
+        staticMapUrl: buildStaticMapUrl({ apiKey, encodedPolyline, path }),
         path,
         usesTraffic: routeUsesTrafficFromResult(result),
       });
