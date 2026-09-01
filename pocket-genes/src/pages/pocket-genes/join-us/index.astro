@@ -4,7 +4,6 @@ import ClientBookingWidget from '../../../components/ClientBookingWidget.astro';
 import { POCKET_GENES_EMAILS } from '../../../data/pocketGenesPublic';
 
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
-const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 const locale = isEnglish ? 'en' : 'es';
 
 const pageCopy = {
@@ -79,48 +78,6 @@ const pageCopy = {
       },
     ],
     freeBenefitsStatement: 'All of this is available at no cost to approved trusted organizations.',
-    comparisonTitle: 'So, when do you pay?',
-    comparisonBody:
-      'Just add a card when you need higher limits or want your organization to use Pocket Genes to deliver genomic reports.',
-    comparisonOptions: [
-      {
-        id: 'trusted-network-card',
-        step: '1 — Start here',
-        title: 'Trusted Network',
-        price: '$0',
-        statement: 'This is where most organizations stay.',
-        points: [
-          'Everything in the free network shown above',
-          'No platform membership fee',
-          'No credit card required',
-          'No report-delivery commitment',
-          'Trusted organizational presence and community participation',
-        ],
-        cta: 'Schedule a call',
-        href: '#trusted-organization-meeting',
-        note: 'Approval is required. Trusted status cannot be purchased.',
-        tone: 'free',
-      },
-      {
-        id: 'report-delivery-card',
-        step: '2 — If and when you need it',
-        title: 'Report Delivery',
-        price: 'Usage-based',
-        statement: 'Add this only when your organization wants to deliver reports through Pocket Genes.',
-        points: [
-          'Interactive mobile genomic reports',
-          'Six-character report access',
-          'Organized panels, genes, variants, and summaries',
-          'Report configuration and integration support',
-          'Continued connection with report recipients',
-          'All Trusted Network benefits remain included',
-        ],
-        cta: 'Explore report delivery',
-        href: '/pocket-genes/website/integration',
-        note: 'You pay for reports delivered through Pocket Genes—not for participating in the network.',
-        tone: 'paid',
-      },
-    ],
     contactEyebrow: 'Still have questions?',
     contactTitle: "Let's talk.",
     contactBody:
@@ -222,48 +179,6 @@ const pageCopy = {
       },
     ],
     freeBenefitsStatement: 'Todo esto es gratuito para las organizaciones aprobadas.',
-    comparisonTitle: 'Entonces, ¿cuándo pagás?',
-    comparisonBody:
-      'Solo necesitás agregar una tarjeta si querés ampliar tus límites o usar Pocket Genes para entregar informes genómicos.',
-    comparisonOptions: [
-      {
-        id: 'trusted-network-card',
-        step: '1 — Empezá gratis',
-        title: 'Red de confianza',
-        price: '$0',
-        statement: 'Todo lo que la mayoría de las organizaciones necesita, sin costo.',
-        points: [
-          'Perfil y participación en la comunidad',
-          'Hasta cinco publicaciones por semana',
-          'Sin cuota de membresía',
-          'Sin tarjeta de crédito',
-          'No necesitás entregar informes',
-        ],
-        cta: 'Agendá una llamada',
-        href: '#trusted-organization-meeting',
-        note: 'La participación requiere aprobación. La aprobación depende de nuestra evaluación, no de un pago.',
-        tone: 'free',
-      },
-      {
-        id: 'report-delivery-card',
-        step: '2 — Solo si lo necesitás',
-        title: 'Entrega de informes',
-        price: 'Pago por uso',
-        statement: 'Elegí esta opción solo si tu organización quiere entregar informes genómicos a través de Pocket Genes.',
-        points: [
-          'Informes genómicos interactivos, pensados para el celular',
-          'Acceso mediante un código de seis caracteres',
-          'Paneles, genes, variantes y resúmenes organizados',
-          'Ayuda para configurar e integrar los informes',
-          'Contacto continuo con las personas que reciben tus informes',
-          'Todos los beneficios de la Red de confianza',
-        ],
-        cta: 'Ver cómo funciona la entrega de informes',
-        href: '/pocket-genes/website/integration',
-        note: 'Solo pagás por los informes que entregás a través de Pocket Genes. Participar en la red sigue siendo gratis.',
-        tone: 'paid',
-      },
-    ],
     contactEyebrow: '¿Todavía tenés preguntas?',
     contactTitle: 'Hablemos.',
     contactBody:
@@ -297,7 +212,6 @@ const pageCopy = {
 } as const;
 
 const copy = pageCopy[locale];
-const [trustedNetworkOption, reportDeliveryOption] = copy.comparisonOptions;
 const trustMailSubject = encodeURIComponent(
   isEnglish ? 'Question for Pocket Genes' : 'Consulta para Pocket Genes',
 );
@@ -351,43 +265,6 @@ const trustMailSubject = encodeURIComponent(
           <div class="pg-benefits-close">
             <p>{copy.freeBenefitsStatement}</p>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="pg-section pg-pricing-options" aria-labelledby="pricing-comparison-title">
-      <div class="pg-container">
-        <div class="pg-section-heading">
-          <h2 id="pricing-comparison-title">{copy.comparisonTitle}</h2>
-          <p>
-            {copy.comparisonBody}
-          </p>
-        </div>
-
-        <div class="pg-comparison-grid">
-          <article id={trustedNetworkOption.id} class={`pg-comparison-card tone-${trustedNetworkOption.tone}`}>
-            <p class="pg-comparison-step">{trustedNetworkOption.step}</p>
-            <h3>{trustedNetworkOption.title}</h3>
-            <strong class="pg-comparison-price">{trustedNetworkOption.price}</strong>
-            <p class="pg-comparison-statement">{trustedNetworkOption.statement}</p>
-            <ul>
-              {trustedNetworkOption.points.map((point) => <li>{point}</li>)}
-            </ul>
-            <a class="pg-button pg-button-primary" href={trustedNetworkOption.href}>{trustedNetworkOption.cta}</a>
-            <p class="pg-comparison-note">{trustedNetworkOption.note}</p>
-          </article>
-
-          <article id={reportDeliveryOption.id} class={`pg-comparison-card tone-${reportDeliveryOption.tone}`}>
-            <p class="pg-comparison-step">{reportDeliveryOption.step}</p>
-            <h3>{reportDeliveryOption.title}</h3>
-            <strong class="pg-comparison-price">{reportDeliveryOption.price}</strong>
-            <p class="pg-comparison-statement">{reportDeliveryOption.statement}</p>
-            <ul>
-              {reportDeliveryOption.points.map((point) => <li>{point}</li>)}
-            </ul>
-            <a class="pg-button pg-button-secondary" href={localizePath(reportDeliveryOption.href)}>{reportDeliveryOption.cta}</a>
-            <p class="pg-comparison-note">{reportDeliveryOption.note}</p>
-          </article>
         </div>
       </div>
     </section>
@@ -808,125 +685,6 @@ const trustMailSubject = encodeURIComponent(
     font-weight: 850;
   }
 
-  .pg-pricing-options {
-    background: #eef8f7;
-  }
-
-  .pg-comparison-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
-    gap: 22px;
-    align-items: center;
-  }
-
-  .pg-comparison-card {
-    position: relative;
-    min-height: 100%;
-    border-radius: 8px;
-    padding: 30px;
-  }
-
-  .pg-comparison-card.tone-free {
-    border: 2px solid rgba(20, 149, 143, 0.46);
-    background: #ffffff;
-    box-shadow: 0 26px 64px rgba(20, 149, 143, 0.18);
-  }
-
-  .pg-comparison-card.tone-free::before {
-    content: "";
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 8px;
-    border-radius: 8px 0 0 8px;
-    background: linear-gradient(180deg, var(--pg-rose), var(--pg-teal));
-  }
-
-  .pg-comparison-card.tone-paid {
-    border: 1px dashed rgba(33, 118, 174, 0.42);
-    background: #f6f9fd;
-    box-shadow: 0 10px 28px rgba(23, 32, 51, 0.06);
-  }
-
-  .pg-comparison-step {
-    margin: 0 0 14px;
-    color: var(--pg-teal);
-    font-size: 0.82rem;
-    font-weight: 900;
-    text-transform: uppercase;
-  }
-
-  .tone-paid .pg-comparison-step {
-    color: var(--pg-blue);
-  }
-
-  .pg-comparison-card h3 {
-    margin: 0;
-    font-size: 2.4rem;
-    line-height: 1.04;
-    letter-spacing: 0;
-  }
-
-  .pg-comparison-price {
-    display: block;
-    margin-top: 12px;
-    color: var(--pg-rose);
-    font-size: 4rem;
-    line-height: 1;
-    letter-spacing: 0;
-  }
-
-  .tone-paid .pg-comparison-price {
-    color: var(--pg-blue);
-    font-size: 2.15rem;
-  }
-
-  .pg-comparison-statement {
-    margin: 16px 0 0;
-    color: var(--pg-ink);
-    font-size: 1.08rem;
-    font-weight: 850;
-  }
-
-  .pg-comparison-card ul {
-    display: grid;
-    gap: 10px;
-    margin: 22px 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .pg-comparison-card li {
-    position: relative;
-    padding-left: 22px;
-    color: var(--pg-ink-soft);
-  }
-
-  .pg-comparison-card li::before {
-    content: "";
-    position: absolute;
-    top: 0.68em;
-    left: 0;
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: var(--pg-teal);
-  }
-
-  .tone-paid li::before {
-    background: var(--pg-blue);
-  }
-
-  .pg-comparison-card .pg-button {
-    width: 100%;
-    margin-top: 26px;
-  }
-
-  .pg-comparison-note {
-    margin: 14px 0 0;
-    color: var(--pg-muted);
-    font-size: 0.93rem;
-  }
-
   .pg-trust-contact {
     background:
       radial-gradient(circle at 10% 0%, rgba(20, 149, 143, 0.13), transparent 34%),
@@ -1283,7 +1041,6 @@ const trustMailSubject = encodeURIComponent(
 
   @media (max-width: 960px) {
     .pg-benefits-grid,
-    .pg-comparison-grid,
     .pg-trust-contact-band {
       grid-template-columns: 1fr;
     }
@@ -1313,22 +1070,6 @@ const trustMailSubject = encodeURIComponent(
       align-items: stretch;
       flex-direction: column;
       padding: 18px 0 0;
-    }
-
-    .pg-comparison-card {
-      padding: 24px 20px;
-    }
-
-    .pg-comparison-card h3 {
-      font-size: 2rem;
-    }
-
-    .pg-comparison-price {
-      font-size: 3.2rem;
-    }
-
-    .tone-paid .pg-comparison-price {
-      font-size: 1.85rem;
     }
 
     .pg-trusted-booking h2 {
