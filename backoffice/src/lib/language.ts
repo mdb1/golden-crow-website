@@ -124,7 +124,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Origin: "Origen",
   Destination: "Destino",
   "Route preview": "Vista del recorrido",
-  "Preview route": "Previsualizar recorrido",
+  "Preview route": "Visualizar recorrido",
   "Change route": "Cambiar recorrido",
   "No route error log available.":
     "No hay log de error de recorrido disponible.",
@@ -156,9 +156,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Google Maps failed to load. Verify the browser API key, allowed domains, billing, and that Maps JavaScript API is enabled.":
     "Google Maps no pudo cargar. Revisá la API key del browser, los dominios permitidos, billing y que Maps JavaScript API esté activa.",
   "Google Maps could not calculate this route. Check both addresses and try again with Preview route.":
-    "Google Maps no pudo calcular este recorrido. Revisá ambas direcciones y volvé a intentar con Preview route.",
+    "Google Maps no pudo calcular este recorrido. Revisá ambas direcciones y volvé a intentar con Visualizar recorrido.",
   "Add origin and destination addresses to preview the route.":
-    "Agregá origen y destino para previsualizar el recorrido.",
+    "Agregá origen y destino para visualizar el recorrido.",
   "Time of pick up": "Hora de retiro",
   Arrived: "Llegó",
   Lost: "Perdido",

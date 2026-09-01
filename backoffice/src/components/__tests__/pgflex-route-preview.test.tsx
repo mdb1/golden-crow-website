@@ -186,7 +186,11 @@ describe("PGFlexRoutePreview", () => {
     );
 
     expect(document.getElementById(scriptId)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Preview route" }));
+    const previewButton = screen.getByRole("button", {
+      name: "Preview route",
+    });
+    expect(previewButton).toHaveAttribute("data-variant", "default");
+    fireEvent.click(previewButton);
 
     await waitFor(() => {
       expect(document.getElementById(scriptId)).toBeInTheDocument();
@@ -251,5 +255,10 @@ describe("PGFlexRoutePreview", () => {
     expect(screen.getByText("21 mins")).toBeInTheDocument();
     expect(screen.getByAltText("Route preview map")).toBeInTheDocument();
     expect((window as any).google.maps.Map).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Change route" }));
+    expect(
+      screen.getByRole("button", { name: "Preview route" }),
+    ).toHaveAttribute("data-variant", "secondary");
   });
 });

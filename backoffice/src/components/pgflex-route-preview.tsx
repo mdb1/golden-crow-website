@@ -1023,7 +1023,7 @@ export function PGFlexRoutePreview({
             ) : hasBothAddresses ? (
               <Button
                 type="button"
-                variant="secondary"
+                variant={mapsStatus === "ready" ? "secondary" : "default"}
                 size="sm"
                 className="gap-1.5"
                 onClick={handlePreviewRoute}
