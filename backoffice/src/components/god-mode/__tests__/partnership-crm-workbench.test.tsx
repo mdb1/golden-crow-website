@@ -438,6 +438,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Send CRM email",
     });
+    expect(within(dialog).queryByText("Preview")).toBeNull();
+    expect(within(dialog).queryByText("Draft")).toBeNull();
+
     await user.type(within(dialog).getByLabelText("Subject"), "CRM follow-up");
     await user.type(
       within(dialog).getByLabelText("Message"),

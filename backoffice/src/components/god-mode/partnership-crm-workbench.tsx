@@ -1966,103 +1966,99 @@ function EmailComposerDialog({
               className="w-full"
             />
           ) : (
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.68fr)]">
-              <div className="grid gap-4">
-                <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label>{t("From")}</Label>
-                      <Input value={PARTNERSHIP_CRM_FROM_EMAIL} readOnly />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="crm-email-to">{t("Recipient")}</Label>
-                      <Input
-                        id="crm-email-to"
-                        type="email"
-                        value={email.to}
-                        onChange={(event) =>
-                          update({ to: event.target.value, step: "compose" })
-                        }
-                      />
-                    </div>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-[minmax(0,0.62fr)_minmax(0,1fr)]">
-                    <div className="space-y-1.5">
-                      <Label>{t("Template")}</Label>
-                      <Select
-                        value={email.templateId || "no-template"}
-                        onValueChange={(value) => {
-                          if (value !== "no-template") {
-                            applyTemplate(value);
-                          }
-                        }}
-                        disabled={templatesLoading || !hasTemplates}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {!hasTemplates ? (
-                            <SelectItem value="no-template">
-                              {templatesLoading
-                                ? t("Loading templates...")
-                                : t("No active templates")}
-                            </SelectItem>
-                          ) : null}
-                          {templates.map((template) => (
-                            <SelectItem key={template.id} value={template.id}>
-                              {template.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="crm-email-subject">{t("Subject")}</Label>
-                      <Input
-                        id="crm-email-subject"
-                        value={email.subject}
-                        onChange={(event) =>
-                          update({
-                            subject: event.target.value,
-                            step: "compose",
-                          })
-                        }
-                      />
-                    </div>
+            <div className="grid gap-4">
+              <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>{t("From")}</Label>
+                    <Input value={PARTNERSHIP_CRM_FROM_EMAIL} readOnly />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="crm-email-message">{t("Message")}</Label>
-                    <Textarea
-                      id="crm-email-message"
-                      value={email.text}
+                    <Label htmlFor="crm-email-to">{t("Recipient")}</Label>
+                    <Input
+                      id="crm-email-to"
+                      type="email"
+                      value={email.to}
                       onChange={(event) =>
-                        update({ text: event.target.value, step: "compose" })
+                        update({ to: event.target.value, step: "compose" })
                       }
-                      className="min-h-80 font-mono text-sm leading-6"
                     />
                   </div>
                 </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  {hasTemplates ? (
-                    <p className="text-xs text-muted-foreground">
-                      {t(
-                        "Sending updates last contact and records email activity.",
-                      )}
-                    </p>
-                  ) : (
-                    <Button type="button" variant="outline" size="sm" asChild>
-                      <Link href="/god-mode/plantillas/new">
-                        <Plus className="h-3.5 w-3.5" />
-                        {t("Alta de plantilla")}
-                      </Link>
-                    </Button>
-                  )}
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,0.62fr)_minmax(0,1fr)]">
+                  <div className="space-y-1.5">
+                    <Label>{t("Template")}</Label>
+                    <Select
+                      value={email.templateId || "no-template"}
+                      onValueChange={(value) => {
+                        if (value !== "no-template") {
+                          applyTemplate(value);
+                        }
+                      }}
+                      disabled={templatesLoading || !hasTemplates}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {!hasTemplates ? (
+                          <SelectItem value="no-template">
+                            {templatesLoading
+                              ? t("Loading templates...")
+                              : t("No active templates")}
+                          </SelectItem>
+                        ) : null}
+                        {templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="crm-email-subject">{t("Subject")}</Label>
+                    <Input
+                      id="crm-email-subject"
+                      value={email.subject}
+                      onChange={(event) =>
+                        update({
+                          subject: event.target.value,
+                          step: "compose",
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="crm-email-message">{t("Message")}</Label>
+                  <Textarea
+                    id="crm-email-message"
+                    value={email.text}
+                    onChange={(event) =>
+                      update({ text: event.target.value, step: "compose" })
+                    }
+                    className="min-h-80 font-mono text-sm leading-6"
+                  />
                 </div>
               </div>
 
-              <EmailPreviewPanel email={email} language={language} />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {hasTemplates ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t(
+                      "Sending updates last contact and records email activity.",
+                    )}
+                  </p>
+                ) : (
+                  <Button type="button" variant="outline" size="sm" asChild>
+                    <Link href="/god-mode/plantillas/new">
+                      <Plus className="h-3.5 w-3.5" />
+                      {t("Alta de plantilla")}
+                    </Link>
+                  </Button>
+                )}
+              </div>
             </div>
           )
         ) : null}
