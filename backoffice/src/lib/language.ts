@@ -1114,6 +1114,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Template Archived": "Archivada",
   Favorite: "Favorito",
   "Not favorite": "No favorito",
+  "Email sent": "Email enviado",
+  "Reply received": "Respuesta recibida",
   "Import templates from CSV": "Importar plantillas desde CSV",
   "Review each template before creating it in plantillas.":
     "Revisá cada plantilla antes de crearla en plantillas.",

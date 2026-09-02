@@ -35,6 +35,7 @@ import {
   Mail,
   Pause,
   Pencil,
+  PlaneTakeoff,
   Plus,
   RefreshCw,
   Search,
@@ -1191,32 +1192,70 @@ function StatusBadge({
 
 function FavoriteCell({
   isFavorite,
+  status,
   language,
 }: {
   isFavorite: boolean;
+  status?: PartnershipCrmStatus;
   language: AppLanguage;
 }) {
   const label = appText(language, isFavorite ? "Favorite" : "Not favorite");
+  const sentLabel = appText(language, "Email sent");
+  const replyLabel = appText(language, "Reply received");
 
   return (
-    <span
-      role="img"
-      aria-label={label}
-      title={label}
-      className="inline-flex h-6 w-6 items-center justify-center"
-    >
-      {isFavorite ? (
-        <Star
-          aria-hidden="true"
-          className="h-4 w-4 fill-amber-400 text-amber-500"
-        />
-      ) : (
-        <span aria-hidden="true" className="text-xs text-muted-foreground/50">
-          -
+    <span className="inline-flex min-h-6 items-center justify-center gap-1">
+      <span
+        role="img"
+        aria-label={label}
+        title={label}
+        className="inline-flex h-5 w-5 items-center justify-center"
+      >
+        {isFavorite ? (
+          <Star
+            aria-hidden="true"
+            className="h-4 w-4 fill-amber-400 text-amber-500"
+          />
+        ) : (
+          <span aria-hidden="true" className="text-xs text-muted-foreground/50">
+            -
+          </span>
+        )}
+      </span>
+      {status === "contacted" ? (
+        <span
+          role="img"
+          aria-label={sentLabel}
+          title={sentLabel}
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full text-amber-600 dark:text-amber-300"
+        >
+          <PlaneTakeoff aria-hidden="true" className="h-3.5 w-3.5" />
         </span>
-      )}
+      ) : null}
+      {status === "replied" ? (
+        <span
+          role="img"
+          aria-label={replyLabel}
+          title={replyLabel}
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full text-emerald-600 dark:text-emerald-300"
+        >
+          <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />
+        </span>
+      ) : null}
     </span>
   );
+}
+
+function crmDeliveryStatusCellClass(status: PartnershipCrmStatus) {
+  if (status === "contacted") {
+    return "bg-amber-50/45 dark:bg-amber-400/10";
+  }
+
+  if (status === "replied") {
+    return "bg-emerald-50/45 dark:bg-emerald-400/10";
+  }
+
+  return undefined;
 }
 
 function favoriteFirstRecords<T extends { is_favorite?: boolean }>(
@@ -4867,7 +4906,7 @@ export function PartnershipCrmWorkbench() {
                           }
                         />
                       </TableHead>
-                      <TableHead className="w-10">
+                      <TableHead className="w-16">
                         <span className="sr-only">{t("Favorite")}</span>
                       </TableHead>
                       <TableHead>
@@ -4923,9 +4962,15 @@ export function PartnershipCrmWorkbench() {
                               }
                             />
                           </TableCell>
-                          <TableCell>
+                          <TableCell
+                            className={cn(
+                              "w-16",
+                              crmDeliveryStatusCellClass(organization.status),
+                            )}
+                          >
                             <FavoriteCell
                               isFavorite={organization.is_favorite}
+                              status={organization.status}
                               language={language}
                             />
                           </TableCell>

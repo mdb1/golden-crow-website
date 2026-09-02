@@ -212,6 +212,75 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(within(rows[0]).getByRole("img", { name: "Favorite" })).toBeTruthy();
   });
 
+  it("marks contacted and replied CRM rows in the favorite signal cell", async () => {
+    const contactedOrganization: PartnershipCrmOrganizationRecord = {
+      ...organization,
+      id: "org-contacted",
+      name: "Contacted Genetics",
+      status: "contacted",
+      normalizedName: "contacted genetics",
+    };
+    const repliedOrganization: PartnershipCrmOrganizationRecord = {
+      ...organization,
+      id: "org-replied",
+      name: "Replied Genetics",
+      status: "replied",
+      normalizedName: "replied genetics",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+
+      return {
+        organizations: [contactedOrganization, repliedOrganization],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getByText("Contacted Genetics")).toBeTruthy();
+      expect(screen.getByText("Replied Genetics")).toBeTruthy();
+    });
+
+    const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+    const contactedRow = rows.find((row) =>
+      within(row).queryByText("Contacted Genetics"),
+    );
+    const repliedRow = rows.find((row) =>
+      within(row).queryByText("Replied Genetics"),
+    );
+
+    expect(contactedRow).toBeTruthy();
+    expect(repliedRow).toBeTruthy();
+
+    const sentSignal = within(contactedRow as HTMLElement).getByRole("img", {
+      name: "Email sent",
+    });
+    expect(sentSignal.closest("[data-slot='table-cell']")?.className).toContain(
+      "bg-amber-50",
+    );
+
+    const replySignal = within(repliedRow as HTMLElement).getByRole("img", {
+      name: "Reply received",
+    });
+    expect(replySignal.closest("[data-slot='table-cell']")?.className).toContain(
+      "bg-emerald-50",
+    );
+  });
+
   it("deletes multiple selected organizations from the list", async () => {
     const user = userEvent.setup();
     const batchOrganizations: PartnershipCrmOrganizationRecord[] = [
