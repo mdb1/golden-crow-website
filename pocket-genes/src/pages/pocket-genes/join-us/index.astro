@@ -8,15 +8,10 @@ const locale = isEnglish ? 'en' : 'es';
 
 const pageCopy = {
   en: {
-    title: 'Pocket Genes Pricing for Organizations',
-    description:
-      'Join our trusted organizations network for free. Pay only if and when your organization delivers genomic reports.',
-    heroEyebrow: 'Pricing for organizations',
-    heroTitleLead: 'Join our trusted organizations network',
-    heroTitleEmphasis: 'for free.',
-    heroTitleSuffix: '',
-    heroBody:
-      'Approved organizations can build a trusted presence, publish useful information, support their communities, and stay connected with users without paying a platform fee.',
+    title: 'Pocket Genes for Organizations | Join for free',
+    description: 'Join the Pocket Genes trusted organization network for free.',
+    heroTitle: 'Join our network for free.',
+    heroCta: 'I want to join',
     freeBenefitsTitle: 'Everything your organization gets',
     freeBenefitsBody:
       'This is not just an organization listing. Trusted organizations can publish, participate, communicate, and remain discoverable across Pocket Genes.',
@@ -110,14 +105,9 @@ const pageCopy = {
   },
   es: {
     title: 'Pocket Genes para organizaciones | Sumate gratis',
-    description:
-      'Sumá tu organización gratis a la red de confianza de Pocket Genes. Pagá solo si usás la plataforma para entregar informes genómicos.',
-    heroEyebrow: 'Para organizaciones',
-    heroTitleLead: 'Sumate',
-    heroTitleEmphasis: 'gratis',
-    heroTitleSuffix: 'a nuestra red de organizaciones de confianza.',
-    heroBody:
-      'Una vez aprobada, tu organización puede crear su perfil, compartir contenido y eventos, participar en la comunidad y mantenerse en contacto con las personas que la siguen. Todo sin pagar por formar parte de la plataforma.',
+    description: 'Sumá tu organización gratis a la red de confianza de Pocket Genes.',
+    heroTitle: 'Sumate gratis a nuestra red.',
+    heroCta: 'Quiero ser parte',
     freeBenefitsTitle: 'Todo lo que podés hacer siendo parte de la red',
     freeBenefitsBody:
       'Pocket Genes no es solo un directorio. Tu organización puede compartir información útil, participar en conversaciones y mantener un vínculo activo con su comunidad.',
@@ -226,15 +216,8 @@ const trustMailSubject = encodeURIComponent(
     <section class="pg-trust-hero pg-pricing-hero">
       <div class="pg-container pg-trust-hero-grid">
         <div class="pg-hero-copy">
-          <p class="pg-eyebrow">{copy.heroEyebrow}</p>
-          <h1>
-            {copy.heroTitleLead}{' '}
-            <span>{copy.heroTitleEmphasis}</span>
-            {copy.heroTitleSuffix && <> {copy.heroTitleSuffix}</>}
-          </h1>
-          <p class="pg-hero-description">
-            {copy.heroBody}
-          </p>
+          <h1>{copy.heroTitle}</h1>
+          <a class="pg-hero-cta" href="#trusted-organization-meeting">{copy.heroCta}</a>
         </div>
       </div>
     </section>
@@ -354,62 +337,66 @@ const trustMailSubject = encodeURIComponent(
   .pg-pricing-hero {
     position: relative;
     isolation: isolate;
-    min-height: 520px;
+    min-height: 640px;
     display: flex;
     align-items: center;
     overflow: hidden;
-    padding: 112px 0 76px;
-    background:
-      linear-gradient(132deg, #141a45 0%, #172033 42%, #29318b 67%, #0d6d70 100%),
-      linear-gradient(90deg, rgba(228, 80, 128, 0.28), rgba(20, 149, 143, 0.2));
-    color: #ffffff;
+    padding: 124px 0 88px;
+    background: #ffffff;
+    color: var(--pg-ink);
   }
 
   .pg-pricing-hero::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background:
-      linear-gradient(116deg, transparent 0 34%, rgba(255, 255, 255, 0.08) 34% 35%, transparent 35% 54%, rgba(125, 228, 215, 0.1) 54% 55%, transparent 55%),
-      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 92px);
-    opacity: 0.72;
+    content: none;
   }
 
   .pg-trust-hero-grid {
     display: grid;
-    grid-template-columns: minmax(0, 0.92fr);
+    grid-template-columns: minmax(0, 1fr);
     align-items: center;
+    justify-items: center;
+    text-align: center;
   }
 
   .pg-hero-copy {
-    max-width: 940px;
-  }
-
-  .pg-pricing-hero .pg-eyebrow {
-    color: #7de4d7;
+    display: flex;
+    max-width: 1040px;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 auto;
+    text-align: center;
   }
 
   .pg-pricing-hero h1 {
     margin: 0;
-    max-width: 940px;
-    font-size: clamp(3.7rem, 7vw, 5.4rem);
-    line-height: 0.98;
+    max-width: 980px;
+    font-size: 5.75rem;
+    line-height: 0.96;
     letter-spacing: 0;
+    text-wrap: balance;
   }
 
-  .pg-pricing-hero h1 span {
-    display: inline-block;
-    color: #7de4d7;
-    box-shadow: inset 0 -0.16em rgba(228, 80, 128, 0.62);
+  .pg-hero-cta {
+    display: inline-flex;
+    min-height: 72px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 52px;
+    border-radius: 999px;
+    padding: 0 48px;
+    background: #24533b;
+    color: #d9ff82;
+    font-size: 1.45rem;
+    font-weight: 850;
+    line-height: 1;
+    text-decoration: none;
+    transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
   }
 
-  .pg-hero-description {
-    max-width: 720px;
-    margin: 22px 0 0;
-    color: rgba(255, 255, 255, 0.84);
-    font-size: 1.12rem;
-    line-height: 1.6;
+  .pg-hero-cta:hover {
+    background: #1f4834;
+    box-shadow: 0 18px 36px rgba(36, 83, 59, 0.18);
+    transform: translateY(-1px);
   }
 
   .pg-free-benefits {
@@ -1039,6 +1026,24 @@ const trustMailSubject = encodeURIComponent(
     }
   }
 
+  @media (max-width: 900px) {
+    .pg-pricing-hero {
+      min-height: 560px;
+      padding: 112px 0 68px;
+    }
+
+    .pg-pricing-hero h1 {
+      font-size: 4rem;
+    }
+
+    .pg-hero-cta {
+      min-height: 64px;
+      margin-top: 40px;
+      padding: 0 36px;
+      font-size: 1.25rem;
+    }
+  }
+
   @media (max-width: 960px) {
     .pg-benefits-grid,
     .pg-trust-contact-band {
@@ -1053,12 +1058,20 @@ const trustMailSubject = encodeURIComponent(
 
   @media (max-width: 640px) {
     .pg-pricing-hero {
-      min-height: auto;
-      padding: 104px 0 52px;
+      min-height: 520px;
+      padding: 104px 0 56px;
     }
 
     .pg-pricing-hero h1 {
       font-size: 2.85rem;
+    }
+
+    .pg-hero-cta {
+      width: min(100%, 320px);
+      min-height: 60px;
+      margin-top: 34px;
+      padding: 0 24px;
+      font-size: 1.1rem;
     }
 
     .pg-benefit-item {
