@@ -1102,6 +1102,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Recommended templates": "Plantillas recomendadas",
   "Other templates": "Otras plantillas",
   "Load more templates": "Cargar más plantillas",
+  "Overwrite template": "Sobreescribir plantilla",
+  "Mark as favorite": "Marcar como favorita",
+  "Template overwritten.": "Plantilla sobreescrita.",
+  "Unable to overwrite template.": "No se pudo sobreescribir la plantilla.",
+  "Template marked as favorite.": "Plantilla marcada como favorita.",
+  "Unable to mark template as favorite.":
+    "No se pudo marcar la plantilla como favorita.",
   "Template name": "Nombre de plantilla",
   "Template saved.": "Plantilla guardada.",
   "Unable to save template.": "No se pudo guardar la plantilla.",

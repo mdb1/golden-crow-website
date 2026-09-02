@@ -768,6 +768,111 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     ).toBe("Universal body for Ada");
   });
 
+  it("overwrites and favorites the selected CRM email template from the composer", async () => {
+    const user = userEvent.setup();
+    let savedTemplate: PartnershipCrmTemplateRecord = {
+      ...recommendedEmailTemplate,
+      is_favorite: false,
+    };
+    const updatePayloads: unknown[] = [];
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (
+        stringPath.startsWith("/admin/partnership-crm/templates/") &&
+        init?.method === "PUT"
+      ) {
+        const payload = JSON.parse(String(init.body));
+        updatePayloads.push(payload);
+        savedTemplate = {
+          ...savedTemplate,
+          ...payload,
+          id: savedTemplate.id,
+          schemaVersion: savedTemplate.schemaVersion,
+        };
+
+        return { template: savedTemplate };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [savedTemplate], nextCursor: undefined };
+      }
+
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+
+      return {
+        organizations: [organization],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+    const messageInput = await within(dialog).findByLabelText("Message");
+
+    fireEvent.change(messageInput, {
+      target: { value: "Reusable edited template body" },
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Overwrite template" }),
+    );
+
+    await waitFor(() => {
+      expect(updatePayloads).toHaveLength(1);
+    });
+    expect(updatePayloads[0]).toEqual(
+      expect.objectContaining({
+        name: "Recommended lab",
+        subject: "Recommended {{organization_name}}",
+        body: "Reusable edited template body",
+        is_favorite: false,
+      }),
+    );
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Mark as favorite" }),
+    );
+
+    await waitFor(() => {
+      expect(updatePayloads).toHaveLength(2);
+    });
+    expect(updatePayloads[1]).toEqual(
+      expect.objectContaining({
+        body: "Reusable edited template body",
+        is_favorite: true,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: "Mark as favorite" }),
+      ).toHaveProperty("disabled", true);
+    });
+
+    await user.click(within(dialog).getByRole("combobox"));
+    const favoriteOption = await screen.findByRole("option", {
+      name: "Recommended lab",
+    });
+
+    expect(favoriteOption.className).toContain("bg-amber-50");
+    expect(favoriteOption.querySelector(".lucide-star")).toBeTruthy();
+  });
+
   it("switches to the professionals CRM collection and professional fields", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path) => {

@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  type InfiniteData,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -38,6 +39,7 @@ import {
   PlaneTakeoff,
   Plus,
   RefreshCw,
+  Save,
   Search,
   Send,
   Star,
@@ -127,6 +129,7 @@ import {
   type PartnershipCrmTargetKind,
   type PartnershipCrmTargetRecord,
   type PartnershipCrmTemplateRecord,
+  type PartnershipCrmTemplateInput,
   type PartnershipCrmTemplatesPage,
 } from "@/lib/partnership-crm";
 import { cn } from "@/lib/utils";
@@ -970,6 +973,22 @@ function targetPayload(
   } satisfies PartnershipCrmOrganizationInput;
 }
 
+function templatePayload(
+  template: PartnershipCrmTemplateRecord,
+  patch: Partial<Pick<PartnershipCrmTemplateInput, "body" | "is_favorite">>,
+): PartnershipCrmTemplateInput {
+  return {
+    name: template.name,
+    audience: template.audience,
+    category: template.category,
+    subject: template.subject,
+    body: patch.body ?? template.body,
+    status: template.status,
+    notes: template.notes,
+    is_favorite: patch.is_favorite ?? template.is_favorite,
+  };
+}
+
 function localDateTimeValue(value: string | null | undefined) {
   if (!value) {
     return "";
@@ -1329,6 +1348,32 @@ function crmTemplateGroupsForTarget(
             .filter((entry) => entry.rank !== recommendedRank)
             .map((entry) => entry.template),
   };
+}
+
+function CrmTemplateSelectItem({
+  template,
+}: {
+  template: PartnershipCrmTemplateRecord;
+}) {
+  return (
+    <SelectItem
+      value={template.id}
+      className={cn(
+        template.is_favorite &&
+          "bg-amber-50/75 text-amber-950 focus:bg-amber-100 focus:text-amber-950 dark:bg-amber-400/10 dark:text-amber-100 dark:focus:bg-amber-400/15",
+      )}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        {template.is_favorite ? (
+          <Star
+            aria-hidden="true"
+            className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-500"
+          />
+        ) : null}
+        <span className="truncate">{template.name}</span>
+      </span>
+    </SelectItem>
+  );
 }
 
 function favoriteFirstRecords<T extends { is_favorite?: boolean }>(
@@ -2008,6 +2053,9 @@ function EmailComposerDialog({
   templatesHasMore,
   templatesFetchingMore,
   onLoadMoreTemplates,
+  templateActionPending,
+  onOverwriteTemplate,
+  onMarkTemplateFavorite,
   onClose,
   onSend,
   language,
@@ -2021,6 +2069,12 @@ function EmailComposerDialog({
   templatesHasMore: boolean;
   templatesFetchingMore: boolean;
   onLoadMoreTemplates: () => void;
+  templateActionPending: boolean;
+  onOverwriteTemplate: (
+    template: PartnershipCrmTemplateRecord,
+    body: string,
+  ) => void;
+  onMarkTemplateFavorite: (template: PartnershipCrmTemplateRecord) => void;
   onClose: () => void;
   onSend: (state: EmailState) => void;
   language: AppLanguage;
@@ -2108,12 +2162,27 @@ function EmailComposerDialog({
   const selectedTemplateIndex = email?.templateId
     ? orderedTemplates.findIndex((template) => template.id === email.templateId)
     : -1;
+  const selectedTemplate =
+    selectedTemplateIndex >= 0 ? orderedTemplates[selectedTemplateIndex] : null;
   const canChangeTemplate = Boolean(
     email &&
       email.step === "compose" &&
       hasTemplates &&
       !templatesLoading &&
       organization,
+  );
+  const canOverwriteTemplate = Boolean(
+    email &&
+      selectedTemplate &&
+      email.step === "compose" &&
+      email.text.trim() &&
+      !templateActionPending,
+  );
+  const canMarkTemplateFavorite = Boolean(
+    selectedTemplate &&
+      !selectedTemplate.is_favorite &&
+      email?.step === "compose" &&
+      !templateActionPending,
   );
 
   function changeTemplate(direction: "previous" | "next") {
@@ -2217,9 +2286,10 @@ function EmailComposerDialog({
                               {t("Recommended templates")}
                             </SelectLabel>
                             {templateGroups.recommended.map((template) => (
-                              <SelectItem key={template.id} value={template.id}>
-                                {template.name}
-                              </SelectItem>
+                              <CrmTemplateSelectItem
+                                key={template.id}
+                                template={template}
+                              />
                             ))}
                           </SelectGroup>
                         ) : null}
@@ -2227,9 +2297,10 @@ function EmailComposerDialog({
                           <SelectGroup>
                             <SelectLabel>{t("Other templates")}</SelectLabel>
                             {templateGroups.other.map((template) => (
-                              <SelectItem key={template.id} value={template.id}>
-                                {template.name}
-                              </SelectItem>
+                              <CrmTemplateSelectItem
+                                key={template.id}
+                                template={template}
+                              />
                             ))}
                           </SelectGroup>
                         ) : null}
@@ -2328,16 +2399,47 @@ function EmailComposerDialog({
                     <ArrowDown className="h-4 w-4" />
                   </Button>
                 </div>
-                <Button
-                  type="button"
-                  size="lg"
-                  onClick={() => update({ step: "preview" })}
-                  disabled={!canPreview}
-                  className={EMAIL_CTA_CLASS}
-                >
-                  <Mail className="h-4 w-4" />
-                  {t("Preview email")}
-                </Button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => {
+                      if (selectedTemplate && email) {
+                        onOverwriteTemplate(selectedTemplate, email.text);
+                      }
+                    }}
+                    disabled={!canOverwriteTemplate}
+                  >
+                    <Save className="h-4 w-4" />
+                    {t("Overwrite template")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="border-amber-200 bg-amber-50/70 text-amber-950 hover:border-amber-300 hover:bg-amber-100/80 dark:border-amber-300/30 dark:bg-amber-400/10 dark:text-amber-100 dark:hover:bg-amber-400/15"
+                    onClick={() => {
+                      if (selectedTemplate) {
+                        onMarkTemplateFavorite(selectedTemplate);
+                      }
+                    }}
+                    disabled={!canMarkTemplateFavorite}
+                  >
+                    <Star className="h-4 w-4 fill-amber-300 text-amber-500" />
+                    {t("Mark as favorite")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="lg"
+                    onClick={() => update({ step: "preview" })}
+                    disabled={!canPreview}
+                    className={EMAIL_CTA_CLASS}
+                  >
+                    <Mail className="h-4 w-4" />
+                    {t("Preview email")}
+                  </Button>
+                </div>
               </>
             ) : (
               <Button
@@ -3642,6 +3744,28 @@ export function PartnershipCrmWorkbench() {
     [sentEmailLogQuery.data?.pages],
   );
 
+  function replaceTemplateInCachedPages(
+    updatedTemplate: PartnershipCrmTemplateRecord,
+  ) {
+    queryClient.setQueryData<
+      InfiniteData<PartnershipCrmTemplatesPage, string>
+    >([TEMPLATES_QUERY_KEY, "active"], (current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        pages: current.pages.map((page) => ({
+          ...page,
+          templates: page.templates.map((template) =>
+            template.id === updatedTemplate.id ? updatedTemplate : template,
+          ),
+        })),
+      };
+    });
+  }
+
   useEffect(() => {
     const restoredSession = loadCrmImportSession(targetKind);
     if (!restoredSession) {
@@ -3779,6 +3903,54 @@ export function PartnershipCrmWorkbench() {
           targetKind === "professionals"
             ? t("Unable to save CRM professional.")
             : t("Unable to save CRM organization."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
+  const updateEmailTemplateMutation = useMutation({
+    mutationFn: ({
+      template,
+      body,
+      isFavorite,
+    }: {
+      template: PartnershipCrmTemplateRecord;
+      body?: string;
+      isFavorite?: boolean;
+    }) =>
+      sdkFetch<{ template: PartnershipCrmTemplateRecord }>(
+        `/admin/partnership-crm/templates/${encodeURIComponent(template.id)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(
+            templatePayload(template, {
+              body,
+              is_favorite: isFavorite,
+            }),
+          ),
+        },
+      ),
+    onSuccess: (result, variables) => {
+      replaceTemplateInCachedPages(result.template);
+      void queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
+      router.refresh();
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message:
+          typeof variables.body === "string"
+            ? t("Template overwritten.")
+            : t("Template marked as favorite."),
+      });
+    },
+    onError: (error, variables) => {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message:
+          typeof variables.body === "string"
+            ? t("Unable to overwrite template.")
+            : t("Unable to mark template as favorite."),
         details: error instanceof Error ? error.message : undefined,
       });
     },
@@ -5523,6 +5695,13 @@ export function PartnershipCrmWorkbench() {
         templatesFetchingMore={templatesQuery.isFetchingNextPage}
         onLoadMoreTemplates={() => {
           void templatesQuery.fetchNextPage();
+        }}
+        templateActionPending={updateEmailTemplateMutation.isPending}
+        onOverwriteTemplate={(template, body) => {
+          updateEmailTemplateMutation.mutate({ template, body });
+        }}
+        onMarkTemplateFavorite={(template) => {
+          updateEmailTemplateMutation.mutate({ template, isFavorite: true });
         }}
         onClose={() => setEmailOpen(false)}
         onSend={(email) => {
