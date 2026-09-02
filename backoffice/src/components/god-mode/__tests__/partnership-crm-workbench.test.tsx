@@ -104,6 +104,48 @@ const emailTemplates: PartnershipCrmTemplateRecord[] = [
   },
 ];
 
+const recommendedEmailTemplate: PartnershipCrmTemplateRecord = {
+  id: "tpl-recommended",
+  schemaVersion: 1,
+  name: "Recommended lab",
+  audience: "organizations",
+  category: "org_genomics_laboratories",
+  subject: "Recommended {{organization_name}}",
+  body: "Recommended body for {{contact_name}}",
+  status: "active",
+  notes: "",
+  is_favorite: false,
+  normalizedName: "recommended lab",
+};
+
+const otherCategoryEmailTemplate: PartnershipCrmTemplateRecord = {
+  id: "tpl-other-category",
+  schemaVersion: 1,
+  name: "Other category",
+  audience: "organizations",
+  category: "org_fertility_clinics",
+  subject: "Other category {{organization_name}}",
+  body: "Other category body for {{contact_name}}",
+  status: "active",
+  notes: "",
+  is_favorite: false,
+  normalizedName: "other category",
+};
+
+const crossAudienceEmailTemplate: PartnershipCrmTemplateRecord = {
+  id: "tpl-cross-audience",
+  schemaVersion: 1,
+  name: "Universal professional",
+  audience: "professionals",
+  category: "pro_other",
+  subject: "Universal {{organization_name}}",
+  body: "Universal body for {{contact_name}}",
+  status: "active",
+  notes: "",
+  is_favorite: false,
+  normalizedName: "universal professional",
+};
+
 function renderWorkbench() {
   const client = new QueryClient({
     defaultOptions: {
@@ -643,6 +685,87 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
       ).toBe("Second Delete Me Genomics");
     });
+  });
+
+  it("recommends matching templates while allowing any active template selection", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        if (stringPath.includes("cursor=")) {
+          return {
+            templates: [crossAudienceEmailTemplate],
+            nextCursor: undefined,
+          };
+        }
+
+        return {
+          templates: [otherCategoryEmailTemplate, recommendedEmailTemplate],
+          nextCursor: "2026-09-01T12:00:00.000Z",
+        };
+      }
+
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+
+      return {
+        organizations: [organization],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+
+    await waitFor(() => {
+      expect(
+        (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
+      ).toBe("Recommended Delete Me Genomics");
+    });
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/partnership-crm/templates?status=active&limit=50",
+    );
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Load more templates" }),
+    );
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        expect.stringContaining("cursor=2026-09-01T12%3A00%3A00.000Z"),
+      );
+    });
+
+    await user.click(within(dialog).getByRole("combobox"));
+
+    expect(await screen.findByText("Recommended templates")).toBeTruthy();
+    expect(screen.getByText("Other templates")).toBeTruthy();
+
+    await user.click(
+      await screen.findByRole("option", { name: "Universal professional" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
+      ).toBe("Universal Delete Me Genomics");
+    });
+    expect(
+      (within(dialog).getByLabelText("Message") as HTMLTextAreaElement).value,
+    ).toBe("Universal body for Ada");
   });
 
   it("switches to the professionals CRM collection and professional fields", async () => {

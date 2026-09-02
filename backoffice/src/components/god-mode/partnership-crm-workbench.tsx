@@ -102,6 +102,7 @@ import {
   DEFAULT_CRM_CATEGORY,
   DEFAULT_CRM_PROFESSIONAL_CATEGORY,
   crmTargetEmail,
+  normalizeCrmCategoryKeys,
   normalizeCrmCategory,
   normalizeCrmCountry,
   PARTNERSHIP_CRM_FROM_EMAIL,
@@ -1258,6 +1259,78 @@ function crmDeliveryStatusCellClass(status: PartnershipCrmStatus) {
   return undefined;
 }
 
+function crmTemplateRecommendationRank(
+  template: PartnershipCrmTemplateRecord,
+  target: PartnershipCrmTargetRecord | null,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  if (!target || template.status !== "active") {
+    return 3;
+  }
+
+  const templateAudience = template.audience ?? "organizations";
+  if (templateAudience !== targetKind) {
+    return 2;
+  }
+
+  const targetCategories = normalizeCrmCategoryKeys(target.category, targetKind);
+  const templateCategories = normalizeCrmCategoryKeys(
+    template.category,
+    targetKind,
+  );
+
+  if (
+    targetCategories.length > 0 &&
+    templateCategories.some((category) => targetCategories.includes(category))
+  ) {
+    return 0;
+  }
+
+  return 1;
+}
+
+function crmTemplateGroupsForTarget(
+  templates: readonly PartnershipCrmTemplateRecord[],
+  target: PartnershipCrmTargetRecord | null,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const rankedTemplates = templates
+    .map((template, index) => ({
+      template,
+      index,
+      rank: crmTemplateRecommendationRank(template, target, targetKind),
+    }))
+    .sort((left, right) => {
+      const favoriteDelta =
+        Number(Boolean(right.template.is_favorite)) -
+        Number(Boolean(left.template.is_favorite));
+      return (
+        left.rank - right.rank || favoriteDelta || left.index - right.index
+      );
+    });
+  const recommendedRank = rankedTemplates.some((entry) => entry.rank === 0)
+    ? 0
+    : rankedTemplates.some((entry) => entry.rank === 1)
+      ? 1
+      : null;
+
+  return {
+    all: rankedTemplates.map((entry) => entry.template),
+    recommended:
+      recommendedRank === null
+        ? []
+        : rankedTemplates
+            .filter((entry) => entry.rank === recommendedRank)
+            .map((entry) => entry.template),
+    other:
+      recommendedRank === null
+        ? rankedTemplates.map((entry) => entry.template)
+        : rankedTemplates
+            .filter((entry) => entry.rank !== recommendedRank)
+            .map((entry) => entry.template),
+  };
+}
+
 function favoriteFirstRecords<T extends { is_favorite?: boolean }>(
   records: readonly T[],
 ) {
@@ -1932,6 +2005,9 @@ function EmailComposerDialog({
   pending,
   templates,
   templatesLoading,
+  templatesHasMore,
+  templatesFetchingMore,
+  onLoadMoreTemplates,
   onClose,
   onSend,
   language,
@@ -1942,35 +2018,64 @@ function EmailComposerDialog({
   pending: boolean;
   templates: PartnershipCrmTemplateRecord[];
   templatesLoading: boolean;
+  templatesHasMore: boolean;
+  templatesFetchingMore: boolean;
+  onLoadMoreTemplates: () => void;
   onClose: () => void;
   onSend: (state: EmailState) => void;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
   const [email, setEmail] = useState<EmailState | null>(null);
+  const emailTargetKeyRef = useRef<string | null>(null);
+  const templateGroups = useMemo(
+    () => crmTemplateGroupsForTarget(templates, organization, targetKind),
+    [organization, targetKind, templates],
+  );
+  const orderedTemplates = templateGroups.all;
 
   useEffect(() => {
     if (!organization || !open) {
+      emailTargetKeyRef.current = null;
       setEmail(null);
       return;
     }
 
+    const targetKey = `${targetKind}:${organization.id}`;
+    const previousTargetKey = emailTargetKeyRef.current;
+    emailTargetKeyRef.current = targetKey;
+    const targetEmail = crmTargetEmail(organization, targetKind);
     const template = bestCrmTemplateForTarget(
       organization,
-      templates,
+      orderedTemplates,
       targetKind,
     );
     const rendered = template
       ? renderCrmTemplate(template, organization, targetKind)
       : { subject: "", body: "" };
-    setEmail({
-      to: crmTargetEmail(organization, targetKind),
-      templateId: template?.id ?? "",
-      subject: rendered.subject,
-      text: rendered.body,
-      step: "compose",
+    setEmail((current) => {
+      const hasUserDraft = Boolean(
+        current &&
+          previousTargetKey === targetKey &&
+          (current.templateId ||
+            current.subject ||
+            current.text ||
+            current.to !== targetEmail),
+      );
+
+      if (hasUserDraft) {
+        return current;
+      }
+
+      return {
+        to: targetEmail,
+        templateId: template?.id ?? "",
+        subject: rendered.subject,
+        text: rendered.body,
+        step: "compose",
+      };
     });
-  }, [open, organization, targetKind, templates]);
+  }, [open, orderedTemplates, organization, targetKind]);
 
   function update(patch: Partial<EmailState>) {
     setEmail((current) => (current ? { ...current, ...patch } : current));
@@ -1981,7 +2086,7 @@ function EmailComposerDialog({
       return;
     }
 
-    const template = templates.find((entry) => entry.id === templateId);
+    const template = orderedTemplates.find((entry) => entry.id === templateId);
     if (!template) {
       return;
     }
@@ -1998,10 +2103,10 @@ function EmailComposerDialog({
   const canPreview = Boolean(
     email?.to.trim() && email.subject.trim() && email.text.trim(),
   );
-  const hasTemplates = templates.length > 0;
+  const hasTemplates = orderedTemplates.length > 0;
   const isPreviewStep = email?.step === "preview";
   const selectedTemplateIndex = email?.templateId
-    ? templates.findIndex((template) => template.id === email.templateId)
+    ? orderedTemplates.findIndex((template) => template.id === email.templateId)
     : -1;
   const canChangeTemplate = Boolean(
     email &&
@@ -2024,8 +2129,9 @@ function EmailComposerDialog({
           : 0;
     const offset = direction === "next" ? 1 : -1;
     const nextIndex =
-      (currentIndex + offset + templates.length) % templates.length;
-    applyTemplate(templates[nextIndex].id);
+      (currentIndex + offset + orderedTemplates.length) %
+      orderedTemplates.length;
+    applyTemplate(orderedTemplates[nextIndex].id);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -2105,13 +2211,45 @@ function EmailComposerDialog({
                               : t("No active templates")}
                           </SelectItem>
                         ) : null}
-                        {templates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
+                        {templateGroups.recommended.length > 0 ? (
+                          <SelectGroup>
+                            <SelectLabel>
+                              {t("Recommended templates")}
+                            </SelectLabel>
+                            {templateGroups.recommended.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ) : null}
+                        {templateGroups.other.length > 0 ? (
+                          <SelectGroup>
+                            <SelectLabel>{t("Other templates")}</SelectLabel>
+                            {templateGroups.other.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ) : null}
                       </SelectContent>
                     </Select>
+                    {templatesHasMore ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        className="w-fit px-2"
+                        onClick={onLoadMoreTemplates}
+                        disabled={templatesFetchingMore}
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                        {templatesFetchingMore
+                          ? t("Loading templates...")
+                          : t("Load more templates")}
+                      </Button>
+                    ) : null}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="crm-email-subject">{t("Subject")}</Label>
@@ -3404,14 +3542,38 @@ export function PartnershipCrmWorkbench() {
   const listPageLabel = `${t("Page")} ${currentListPage} ${t(
     "of",
   )} ${knownListPages}${hasNextListPage ? "+" : ""}`;
-  const templatesQuery = useQuery({
-    queryKey: [TEMPLATES_QUERY_KEY, targetKind],
-    queryFn: () =>
-      sdkFetch<PartnershipCrmTemplatesPage>(
-        `/admin/partnership-crm/templates?status=active&limit=50&audience=${targetKind}`,
-      ),
+  const templatesQuery = useInfiniteQuery({
+    queryKey: [TEMPLATES_QUERY_KEY, "active"],
+    queryFn: ({ pageParam }) => {
+      const cursor = typeof pageParam === "string" ? pageParam : "";
+      const params = new URLSearchParams({ status: "active", limit: "50" });
+      if (cursor) {
+        params.set("cursor", cursor);
+      }
+
+      return sdkFetch<PartnershipCrmTemplatesPage>(
+        `/admin/partnership-crm/templates?${params.toString()}`,
+      );
+    },
+    initialPageParam: "",
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
-  const emailTemplates = templatesQuery.data?.templates ?? [];
+  const emailTemplates = useMemo(() => {
+    const templatesById = new Map<string, PartnershipCrmTemplateRecord>();
+
+    for (const page of templatesQuery.data?.pages ?? []) {
+      const pageTemplates = Array.isArray(page.templates)
+        ? page.templates
+        : [];
+      for (const template of pageTemplates) {
+        if (!templatesById.has(template.id)) {
+          templatesById.set(template.id, template);
+        }
+      }
+    }
+
+    return Array.from(templatesById.values());
+  }, [templatesQuery.data?.pages]);
   const selectedOrganization = selectedId
     ? (organizations.find((organization) => organization.id === selectedId) ??
       null)
@@ -5356,7 +5518,12 @@ export function PartnershipCrmWorkbench() {
         open={emailOpen}
         pending={sendEmailMutation.isPending}
         templates={emailTemplates}
-        templatesLoading={templatesQuery.isFetching}
+        templatesLoading={templatesQuery.isLoading}
+        templatesHasMore={Boolean(templatesQuery.hasNextPage)}
+        templatesFetchingMore={templatesQuery.isFetchingNextPage}
+        onLoadMoreTemplates={() => {
+          void templatesQuery.fetchNextPage();
+        }}
         onClose={() => setEmailOpen(false)}
         onSend={(email) => {
           if (selectedOrganization) {
