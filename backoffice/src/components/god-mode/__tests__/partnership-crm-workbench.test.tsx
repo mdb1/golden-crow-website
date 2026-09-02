@@ -1,7 +1,13 @@
 /** @jest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PartnershipCrmWorkbench } from "@/components/god-mode/partnership-crm-workbench";
@@ -9,6 +15,7 @@ import { sdkFetch } from "@/lib/sdk-client";
 import type {
   PartnershipCrmOrganizationRecord,
   PartnershipCrmProfessionalRecord,
+  PartnershipCrmTemplateRecord,
 } from "@/lib/partnership-crm";
 
 const routerRefresh = jest.fn();
@@ -67,6 +74,35 @@ const professional: PartnershipCrmProfessionalRecord = {
   is_favorite: false,
   normalizedName: "dra ada genome",
 };
+
+const emailTemplates: PartnershipCrmTemplateRecord[] = [
+  {
+    id: "tpl-1",
+    schemaVersion: 1,
+    name: "Lab intro",
+    audience: "organizations",
+    category: "org_genetic_testing_laboratories",
+    subject: "First {{organization_name}}",
+    body: "Body one for {{contact_name}}",
+    status: "active",
+    notes: "",
+    is_favorite: false,
+    normalizedName: "lab intro",
+  },
+  {
+    id: "tpl-2",
+    schemaVersion: 1,
+    name: "Lab follow-up",
+    audience: "organizations",
+    category: "org_genetic_testing_laboratories",
+    subject: "Second {{organization_name}}",
+    body: "Body two for {{contact_name}}",
+    status: "active",
+    notes: "",
+    is_favorite: false,
+    normalizedName: "lab follow up",
+  },
+];
 
 function renderWorkbench() {
   const client = new QueryClient({
@@ -468,6 +504,76 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(
       within(dialog).getByRole("button", { name: "Send email" }).className,
     ).toContain("bg-blue-600");
+  });
+
+  it("cycles CRM email templates with footer arrows and keyboard arrows", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: emailTemplates, nextCursor: undefined };
+      }
+
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+
+      return {
+        organizations: [organization],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+
+    await waitFor(() => {
+      expect(
+        (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
+      ).toBe("First Delete Me Genomics");
+    });
+    expect(
+      (within(dialog).getByLabelText("Message") as HTMLTextAreaElement).value,
+    ).toBe("Body one for Ada");
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Next template" }),
+    );
+    await waitFor(() => {
+      expect(
+        (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
+      ).toBe("Second Delete Me Genomics");
+    });
+    expect(
+      (within(dialog).getByLabelText("Message") as HTMLTextAreaElement).value,
+    ).toBe("Body two for Ada");
+
+    fireEvent.keyDown(dialog, { key: "ArrowUp" });
+    await waitFor(() => {
+      expect(
+        (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
+      ).toBe("First Delete Me Genomics");
+    });
+
+    fireEvent.keyDown(dialog, { key: "ArrowDown" });
+    await waitFor(() => {
+      expect(
+        (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
+      ).toBe("Second Delete Me Genomics");
+    });
   });
 
   it("switches to the professionals CRM collection and professional fields", async () => {

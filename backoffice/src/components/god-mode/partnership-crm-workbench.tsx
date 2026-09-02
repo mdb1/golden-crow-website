@@ -7,6 +7,7 @@ import {
   useState,
   type ChangeEvent,
   type FormEvent,
+  type KeyboardEvent,
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,8 @@ import {
 } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   Building2,
   CheckCircle2,
   ChevronDown,
@@ -1230,6 +1233,18 @@ function favoriteFirstRecords<T extends { is_favorite?: boolean }>(
     .map(({ record }) => record);
 }
 
+function shouldIgnoreTemplateShortcut(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return Boolean(
+    target.closest(
+      "input, textarea, [contenteditable='true'], [role='textbox'], [data-slot='select-trigger'], [data-slot='select-content']",
+    ),
+  );
+}
+
 function CategoryBadgeGroup({
   value,
   language,
@@ -1946,10 +1961,53 @@ function EmailComposerDialog({
   );
   const hasTemplates = templates.length > 0;
   const isPreviewStep = email?.step === "preview";
+  const selectedTemplateIndex = email?.templateId
+    ? templates.findIndex((template) => template.id === email.templateId)
+    : -1;
+  const canChangeTemplate = Boolean(
+    email &&
+      email.step === "compose" &&
+      hasTemplates &&
+      !templatesLoading &&
+      organization,
+  );
+
+  function changeTemplate(direction: "previous" | "next") {
+    if (!canChangeTemplate) {
+      return;
+    }
+
+    const currentIndex =
+      selectedTemplateIndex >= 0
+        ? selectedTemplateIndex
+        : direction === "next"
+          ? -1
+          : 0;
+    const offset = direction === "next" ? 1 : -1;
+    const nextIndex =
+      (currentIndex + offset + templates.length) % templates.length;
+    applyTemplate(templates[nextIndex].id);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!canChangeTemplate || shouldIgnoreTemplateShortcut(event.target)) {
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      changeTemplate("next");
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      changeTemplate("previous");
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="sm:max-w-5xl">
+      <DialogContent className="sm:max-w-5xl" onKeyDown={handleKeyDown}>
         <DialogHeader>
           <DialogTitle>{t("Send CRM email")}</DialogTitle>
           <DialogDescription>
@@ -2064,18 +2122,46 @@ function EmailComposerDialog({
         ) : null}
 
         {email ? (
-          <DialogFooter>
+          <DialogFooter
+            className={email.step === "compose" ? "sm:justify-between" : ""}
+          >
             {email.step === "compose" ? (
-              <Button
-                type="button"
-                size="lg"
-                onClick={() => update({ step: "preview" })}
-                disabled={!canPreview}
-                className={EMAIL_CTA_CLASS}
-              >
-                <Mail className="h-4 w-4" />
-                {t("Preview email")}
-              </Button>
+              <>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-lg"
+                    aria-label={t("Previous template")}
+                    title={t("Previous template")}
+                    onClick={() => changeTemplate("previous")}
+                    disabled={!canChangeTemplate}
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-lg"
+                    aria-label={t("Next template")}
+                    title={t("Next template")}
+                    onClick={() => changeTemplate("next")}
+                    disabled={!canChangeTemplate}
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={() => update({ step: "preview" })}
+                  disabled={!canPreview}
+                  className={EMAIL_CTA_CLASS}
+                >
+                  <Mail className="h-4 w-4" />
+                  {t("Preview email")}
+                </Button>
+              </>
             ) : (
               <Button
                 type="button"
