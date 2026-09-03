@@ -342,15 +342,41 @@ const trustMailSubject = encodeURIComponent(
     align-items: center;
     overflow: hidden;
     padding: 124px 0 88px;
-    background: #ffffff;
-    color: var(--pg-ink);
+    background:
+      linear-gradient(132deg, #141a45 0%, #172033 42%, #29318b 67%, #0d6d70 100%),
+      linear-gradient(90deg, rgba(228, 80, 128, 0.28), rgba(20, 149, 143, 0.2));
+    color: #ffffff;
   }
 
   .pg-pricing-hero::before {
-    content: none;
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background:
+      linear-gradient(116deg, transparent 0 34%, rgba(255, 255, 255, 0.08) 34% 35%, transparent 35% 54%, rgba(125, 228, 215, 0.1) 54% 55%, transparent 55%),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 92px);
+    opacity: 0.72;
+    pointer-events: none;
+  }
+
+  .pg-pricing-hero::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -54px;
+    z-index: 0;
+    width: 118%;
+    height: 108px;
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+    background: #ffffff;
+    transform: translateX(-50%);
+    pointer-events: none;
   }
 
   .pg-trust-hero-grid {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     align-items: center;
@@ -1060,6 +1086,12 @@ const trustMailSubject = encodeURIComponent(
     .pg-pricing-hero {
       min-height: 520px;
       padding: 104px 0 56px;
+    }
+
+    .pg-pricing-hero::after {
+      bottom: -38px;
+      width: 124%;
+      height: 76px;
     }
 
     .pg-pricing-hero h1 {
