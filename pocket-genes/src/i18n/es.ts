@@ -578,7 +578,7 @@ export const es: Translations = {
   introPlan: {
     title1: 'MODELOS DE',
     title2: 'INTEGRACIÓN',
-    subtitle: 'Elegí cuánto querés avanzar: desde pilotear acceso autorizado a informes en Pocket Genes hasta una app completa con tu marca.',
+    subtitle: 'Vos elegís hasta dónde querés llegar: desde entregar tus informes a través de Pocket Genes hasta una app completa con tu marca.',
     selectorLabel: 'Modelos de integración disponibles',
     instantIntegration: 'Informe móvil',
     customBranding: 'Marca y directorio',
