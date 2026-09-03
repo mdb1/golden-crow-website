@@ -1086,11 +1086,63 @@ const trustMailSubject = encodeURIComponent(
     background: var(--pg-ink);
     color: #ffffff;
     text-decoration: none;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    box-shadow: 0 12px 26px rgba(23, 32, 51, 0.16);
+    transition:
+      transform 220ms ease,
+      box-shadow 220ms ease,
+      background 220ms ease;
+  }
+
+  .pg-store-app::before {
+    content: '';
+    position: absolute;
+    inset: -45% -70%;
+    z-index: 0;
+    background: linear-gradient(
+      110deg,
+      transparent 36%,
+      rgba(255, 255, 255, 0.16) 45%,
+      rgba(255, 255, 255, 0.46) 50%,
+      rgba(255, 255, 255, 0.16) 55%,
+      transparent 64%
+    );
+    transform: translateX(-60%) rotate(4deg);
+    transition: transform 620ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .pg-store-app:hover,
+  .pg-store-app:focus-visible {
+    background: #26384a;
+    transform: translateY(-5px);
+    box-shadow: 0 22px 48px rgba(23, 32, 51, 0.26);
+  }
+
+  .pg-store-app:hover::before,
+  .pg-store-app:focus-visible::before {
+    transform: translateX(62%) rotate(4deg);
+  }
+
+  .pg-store-app:focus-visible {
+    outline: 3px solid rgba(228, 80, 128, 0.34);
+    outline-offset: 4px;
+  }
+
+  .pg-store-app:active {
+    transform: translateY(-2px) scale(0.99);
   }
 
   .pg-store-app span,
   .pg-store-disabled span {
     font-weight: 850;
+  }
+
+  .pg-store-app span,
+  .pg-store-app img {
+    position: relative;
+    z-index: 1;
   }
 
   .pg-store-app img {
@@ -1678,10 +1730,18 @@ const trustMailSubject = encodeURIComponent(
     .pg-identity-flow span,
     .pg-identity-card,
     .pg-identity-card::before,
+    .pg-store-app,
+    .pg-store-app::before,
     .pg-contact-email,
     .pg-contact-copy-button,
     .pg-contact-route {
       transition: none;
+    }
+
+    .pg-store-app:hover,
+    .pg-store-app:focus-visible,
+    .pg-store-app:active {
+      transform: none;
     }
   }
 </style>
