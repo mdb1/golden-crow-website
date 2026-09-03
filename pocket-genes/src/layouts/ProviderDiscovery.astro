@@ -3,35 +3,125 @@ import { useTranslations } from '../i18n/index';
 import { formatBrandText } from '../utils/brandFormatting';
 
 const t = useTranslations(Astro.currentLocale);
+const cycleAngles = ['-90deg', '-18deg', '54deg', '126deg', '198deg'];
+const cycleReverseAngles = ['90deg', '18deg', '-54deg', '-126deg', '-198deg'];
+const cycleArrowAngles = ['-54deg', '18deg', '90deg', '162deg', '234deg'];
+const cyclePalette = [
+  {
+    color: 'rgba(175, 130, 50, 0.78)',
+    soft: 'rgba(175, 130, 50, 0.11)',
+    border: 'rgba(175, 130, 50, 0.34)',
+    shadow: 'rgba(175, 130, 50, 0.18)',
+  },
+  {
+    color: 'rgba(46, 125, 209, 0.78)',
+    soft: 'rgba(46, 125, 209, 0.1)',
+    border: 'rgba(46, 125, 209, 0.3)',
+    shadow: 'rgba(46, 125, 209, 0.16)',
+  },
+  {
+    color: 'rgba(194, 123, 160, 0.8)',
+    soft: 'rgba(194, 123, 160, 0.11)',
+    border: 'rgba(194, 123, 160, 0.32)',
+    shadow: 'rgba(194, 123, 160, 0.16)',
+  },
+  {
+    color: 'rgba(147, 196, 125, 0.82)',
+    soft: 'rgba(147, 196, 125, 0.12)',
+    border: 'rgba(147, 196, 125, 0.34)',
+    shadow: 'rgba(147, 196, 125, 0.15)',
+  },
+  {
+    color: 'rgba(224, 102, 102, 0.78)',
+    soft: 'rgba(224, 102, 102, 0.1)',
+    border: 'rgba(224, 102, 102, 0.3)',
+    shadow: 'rgba(224, 102, 102, 0.15)',
+  },
+];
+const cycleItems = t.integrationRevamp.discovery.loopItems.map(
+  (item, index) => ({
+    item,
+    angle: cycleAngles[index % cycleAngles.length],
+    angleBack: cycleReverseAngles[index % cycleReverseAngles.length],
+    palette: cyclePalette[index % cyclePalette.length],
+  }),
+);
 ---
 
 <section id="provider-discovery" class="provider-discovery">
   <div class="content-wrapper">
     <div class="copy-column">
-      <p class="eyebrow" set:html={formatBrandText(t.integrationRevamp.discovery.eyebrow)} />
+      <p
+        class="eyebrow"
+        set:html={formatBrandText(t.integrationRevamp.discovery.eyebrow)}
+      />
       <h2 class="section-title">
-        <span class="title-accent" set:html={formatBrandText(t.integrationRevamp.discovery.title1)} />
-        <span class="title-main" set:html={formatBrandText(t.integrationRevamp.discovery.title2)} />
+        <span
+          class="title-accent"
+          set:html={formatBrandText(t.integrationRevamp.discovery.title1)}
+        />
+        <span
+          class="title-main"
+          set:html={formatBrandText(t.integrationRevamp.discovery.title2)}
+        />
       </h2>
-      <p class="section-description" set:html={formatBrandText(t.integrationRevamp.discovery.description)} />
-
-      <div class="loop-card">
-        <h3 set:html={formatBrandText(t.integrationRevamp.discovery.loopTitle)} />
-        <div class="loop-steps">
-          {t.integrationRevamp.discovery.loopItems.map((item) => (
-            <span set:html={formatBrandText(item)} />
-          ))}
-        </div>
-      </div>
+      <p
+        class="section-description"
+        set:html={formatBrandText(t.integrationRevamp.discovery.description)}
+      />
     </div>
 
     <div class="directory-panel">
-      <h3 set:html={formatBrandText(t.integrationRevamp.discovery.directoryTitle)} />
-      <p set:html={formatBrandText(t.integrationRevamp.discovery.directoryDescription)} />
+      <h3
+        set:html={formatBrandText(t.integrationRevamp.discovery.directoryTitle)}
+      />
+      <p
+        set:html={formatBrandText(
+          t.integrationRevamp.discovery.directoryDescription,
+        )}
+      />
 
-      <div class="category-grid" aria-label={t.integrationRevamp.discovery.categoriesLabel}>
+      <div
+        class="category-grid"
+        aria-label={t.integrationRevamp.discovery.categoriesLabel}
+      >
         {t.integrationRevamp.discovery.categories.map((category) => (
           <span set:html={formatBrandText(category)} />
+        ))}
+      </div>
+    </div>
+
+    <div class="value-cycle-block">
+      <h3 set:html={formatBrandText(t.integrationRevamp.discovery.loopTitle)} />
+      <div
+        class="value-cycle"
+        role="list"
+        aria-label={t.integrationRevamp.discovery.loopTitle}
+      >
+        <div class="cycle-core">
+          <span>Pocket Genes</span>
+        </div>
+        {cycleArrowAngles.map((angle, index) => (
+          <span
+            class="cycle-arrow"
+            style={`--arrow-angle: ${angle}; --arrow-color: ${cyclePalette[index % cyclePalette.length].color};`}
+            aria-hidden="true"
+          ></span>
+        ))}
+        {cycleItems.map((cycleItem, index) => (
+          <span
+            class="cycle-node"
+            role="listitem"
+            style={`--cycle-angle: ${cycleItem.angle}; --cycle-angle-back: ${cycleItem.angleBack}; --cycle-color: ${cycleItem.palette.color}; --cycle-soft: ${cycleItem.palette.soft}; --cycle-border: ${cycleItem.palette.border}; --cycle-shadow: ${cycleItem.palette.shadow};`}
+          >
+            <span class="cycle-index">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <span
+              class="cycle-node-label"
+              set:html={formatBrandText(cycleItem.item)}
+            />
+          </span>
         ))}
       </div>
     </div>
@@ -92,7 +182,6 @@ const t = useTranslations(Astro.currentLocale);
     line-height: 1.7;
   }
 
-  .loop-card,
   .directory-panel {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
@@ -100,36 +189,11 @@ const t = useTranslations(Astro.currentLocale);
     box-shadow: var(--card-shadow);
   }
 
-  .loop-card {
-    margin-top: clamp(1.5rem, 4vw, 2.5rem);
-    padding: clamp(1.25rem, 3vw, 2rem);
-  }
-
-  .loop-card h3,
   .directory-panel h3 {
     margin: 0 0 1rem;
     color: var(--text-primary);
     font-size: clamp(1.25rem, 2vw, 1.6rem);
     line-height: 1.2;
-  }
-
-  .loop-steps {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.65rem;
-  }
-
-  .loop-steps span {
-    display: inline-flex;
-    align-items: center;
-    min-height: 38px;
-    padding: 0.55rem 0.8rem;
-    border-radius: 999px;
-    background: rgba(175, 130, 50, 0.08);
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    font-weight: 700;
   }
 
   .directory-panel {
@@ -162,6 +226,165 @@ const t = useTranslations(Astro.currentLocale);
     line-height: 1.25;
   }
 
+  .value-cycle-block {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: min(760px, 100%);
+    margin: clamp(0.5rem, 1.5vw, 1rem) auto 0;
+    text-align: center;
+  }
+
+  .value-cycle-block h3 {
+    max-width: 680px;
+    margin: 0 auto clamp(1.6rem, 4vw, 2.6rem);
+    color: var(--text-primary);
+    font-size: clamp(1.45rem, 2.8vw, 2.05rem);
+    line-height: 1.12;
+  }
+
+  .value-cycle {
+    --cycle-size: min(100%, 680px);
+    --cycle-radius: clamp(7.2rem, 30vw, 15rem);
+    --cycle-arrow-radius: clamp(6.3rem, 27vw, 13.4rem);
+    --cycle-node-width: clamp(8rem, 24vw, 12.4rem);
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    place-items: center;
+    width: var(--cycle-size);
+    aspect-ratio: 1;
+    margin: 0 auto;
+  }
+
+  .value-cycle::before,
+  .value-cycle::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+  }
+
+  .value-cycle::before {
+    inset: 8%;
+    z-index: 0;
+    background:
+      radial-gradient(
+        circle at center,
+        transparent 0 56%,
+        rgba(255, 255, 255, 0.92) 57% 61%,
+        transparent 62%
+      ),
+      conic-gradient(
+        from -88deg,
+        rgba(175, 130, 50, 0.5),
+        rgba(46, 125, 209, 0.46),
+        rgba(194, 123, 160, 0.48),
+        rgba(147, 196, 125, 0.5),
+        rgba(224, 102, 102, 0.46),
+        rgba(175, 130, 50, 0.5)
+      );
+    box-shadow:
+      0 32px 70px -48px rgba(17, 24, 39, 0.34),
+      inset 0 0 0 1px rgba(17, 24, 39, 0.04);
+  }
+
+  .value-cycle::after {
+    inset: 19%;
+    z-index: 1;
+    background:
+      radial-gradient(
+        circle at 50% 45%,
+        rgba(255, 255, 255, 0.96),
+        rgba(249, 250, 251, 0.82)
+      ),
+      var(--bg-secondary);
+    border: 1px solid rgba(17, 24, 39, 0.07);
+    box-shadow:
+      inset 0 0 36px rgba(175, 130, 50, 0.06),
+      0 0 0 1px rgba(255, 255, 255, 0.7);
+  }
+
+  .cycle-core {
+    position: relative;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: clamp(6.3rem, 18vw, 9.4rem);
+    aspect-ratio: 1;
+    padding: 1rem;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #101827, #2f3b4f);
+    color: #fff;
+    font-size: clamp(0.82rem, 1.6vw, 1rem);
+    font-weight: 900;
+    line-height: 1.08;
+    letter-spacing: 0;
+    box-shadow:
+      0 20px 44px -30px rgba(17, 24, 39, 0.75),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  }
+
+  .cycle-arrow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 2;
+    width: clamp(0.7rem, 2vw, 1rem);
+    height: clamp(0.7rem, 2vw, 1rem);
+    border-top: 2px solid var(--arrow-color);
+    border-right: 2px solid var(--arrow-color);
+    opacity: 0.82;
+    transform: translate(-50%, -50%) rotate(var(--arrow-angle))
+      translate(var(--cycle-arrow-radius)) rotate(45deg);
+    transform-origin: center;
+  }
+
+  .cycle-node {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 4;
+    display: grid;
+    place-items: center;
+    width: var(--cycle-node-width);
+    min-height: clamp(3.6rem, 7vw, 4.55rem);
+    padding: 0.78rem 0.9rem 0.72rem;
+    border: 1px solid var(--cycle-border);
+    border-radius: 1rem;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.82)),
+      var(--cycle-soft);
+    color: var(--text-primary);
+    box-shadow:
+      0 18px 42px -31px var(--cycle-shadow),
+      0 10px 24px -22px rgba(17, 24, 39, 0.3);
+    font-size: clamp(0.78rem, 1.8vw, 0.98rem);
+    font-weight: 850;
+    line-height: 1.13;
+    transform: translate(-50%, -50%) rotate(var(--cycle-angle))
+      translate(var(--cycle-radius)) rotate(var(--cycle-angle-back));
+  }
+
+  .cycle-index {
+    position: absolute;
+    top: 0.43rem;
+    left: 0.55rem;
+    color: var(--cycle-color);
+    font-size: 0.62rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .cycle-node-label {
+    display: block;
+    max-width: 100%;
+  }
+
+  .cycle-node-label :global(.pg-brand-name) {
+    display: block;
+    margin-top: 0.1rem;
+    font-weight: 900;
+  }
+
   @media (max-width: 960px) {
     .content-wrapper {
       grid-template-columns: 1fr;
@@ -175,6 +398,37 @@ const t = useTranslations(Astro.currentLocale);
 
     .category-grid {
       grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .value-cycle-block {
+      width: min(25rem, 100%);
+      margin-top: 0;
+    }
+
+    .value-cycle {
+      --cycle-size: min(100%, 24rem);
+      --cycle-radius: clamp(6rem, 29vw, 7.4rem);
+      --cycle-arrow-radius: clamp(5.35rem, 25vw, 6.65rem);
+      --cycle-node-width: clamp(6.5rem, 31vw, 8.4rem);
+    }
+
+    .cycle-core {
+      width: clamp(5.25rem, 21vw, 6.25rem);
+      padding: 0.75rem;
+      font-size: clamp(0.72rem, 2.6vw, 0.82rem);
+    }
+
+    .cycle-node {
+      min-height: 3.25rem;
+      padding: 0.62rem 0.5rem 0.58rem;
+      border-radius: 0.8rem;
+      font-size: clamp(0.68rem, 2.7vw, 0.78rem);
+    }
+
+    .cycle-index {
+      display: none;
     }
   }
 </style>
