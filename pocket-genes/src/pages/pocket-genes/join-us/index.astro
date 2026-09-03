@@ -222,71 +222,73 @@ const trustMailSubject = encodeURIComponent(
       </div>
     </section>
 
-    <section id="free-benefits" class="pg-section pg-free-benefits" aria-labelledby="free-benefits-title">
-      <div class="pg-container">
-        <div class="pg-section-heading">
-          <h2 id="free-benefits-title">{copy.freeBenefitsTitle}</h2>
-          <p>
-            {copy.freeBenefitsBody}
-          </p>
-        </div>
-
-        <div class="pg-benefits-package">
-          <div class="pg-benefits-grid">
-            {copy.freeBenefits.map((benefit) => (
-              <article class="pg-benefit-item">
-                <span class={`pg-benefit-icon icon-${benefit.icon}`} aria-hidden="true"></span>
-                <div>
-                  <h3>{benefit.title}</h3>
-                  <p>{benefit.body}</p>
-                  {benefit.qualifier && <small>{benefit.qualifier}</small>}
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div class="pg-benefits-close">
-            <p>{copy.freeBenefitsStatement}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="pg-section-tight pg-trust-contact" aria-labelledby="pg-trust-contact-title">
-      <div class="pg-container">
-        <div class="pg-trust-contact-band">
-          <div class="pg-contact-main">
-            <p class="pg-eyebrow">{copy.contactEyebrow}</p>
-            <h2 id="pg-trust-contact-title">{copy.contactTitle}</h2>
+    <div class="pg-join-shared-band">
+      <section id="free-benefits" class="pg-section pg-free-benefits" aria-labelledby="free-benefits-title">
+        <div class="pg-container">
+          <div class="pg-section-heading">
+            <h2 id="free-benefits-title">{copy.freeBenefitsTitle}</h2>
             <p>
-              {copy.contactBody}
+              {copy.freeBenefitsBody}
             </p>
           </div>
-          <div class="pg-contact-panel">
-            <div class="pg-contact-actions">
-              <a class="pg-contact-email" href={`mailto:${POCKET_GENES_EMAILS.hello}?subject=${trustMailSubject}`}>
-                <span>{copy.primaryInbox}</span>
-                <strong>{POCKET_GENES_EMAILS.hello}</strong>
-              </a>
-              <button class="pg-contact-copy-button" type="button" data-copy-email={POCKET_GENES_EMAILS.hello} data-copy-label={copy.copyEmail} data-copied-label={copy.copied}>
-                {copy.copyEmail}
-              </button>
-            </div>
-            <div class="pg-contact-route-grid" aria-label={copy.contactTopicsLabel}>
-              {copy.contactRoutes.map((route) => (
-                <article class={`pg-contact-route tone-${route.tone}`}>
-                  <span class="pg-route-marker" aria-hidden="true"></span>
+
+          <div class="pg-benefits-package">
+            <div class="pg-benefits-grid">
+              {copy.freeBenefits.map((benefit) => (
+                <article class="pg-benefit-item">
+                  <span class={`pg-benefit-icon icon-${benefit.icon}`} aria-hidden="true"></span>
                   <div>
-                    <h3>{route.title}</h3>
-                    <p>{route.body}</p>
+                    <h3>{benefit.title}</h3>
+                    <p>{benefit.body}</p>
+                    {benefit.qualifier && <small>{benefit.qualifier}</small>}
                   </div>
                 </article>
               ))}
             </div>
+
+            <div class="pg-benefits-close">
+              <p>{copy.freeBenefitsStatement}</p>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <section class="pg-section-tight pg-trust-contact" aria-labelledby="pg-trust-contact-title">
+        <div class="pg-container">
+          <div class="pg-trust-contact-band">
+            <div class="pg-contact-main">
+              <p class="pg-eyebrow">{copy.contactEyebrow}</p>
+              <h2 id="pg-trust-contact-title">{copy.contactTitle}</h2>
+              <p>
+                {copy.contactBody}
+              </p>
+            </div>
+            <div class="pg-contact-panel">
+              <div class="pg-contact-actions">
+                <a class="pg-contact-email" href={`mailto:${POCKET_GENES_EMAILS.hello}?subject=${trustMailSubject}`}>
+                  <span>{copy.primaryInbox}</span>
+                  <strong>{POCKET_GENES_EMAILS.hello}</strong>
+                </a>
+                <button class="pg-contact-copy-button" type="button" data-copy-email={POCKET_GENES_EMAILS.hello} data-copy-label={copy.copyEmail} data-copied-label={copy.copied}>
+                  {copy.copyEmail}
+                </button>
+              </div>
+              <div class="pg-contact-route-grid" aria-label={copy.contactTopicsLabel}>
+                {copy.contactRoutes.map((route) => (
+                  <article class={`pg-contact-route tone-${route.tone}`}>
+                    <span class="pg-route-marker" aria-hidden="true"></span>
+                    <div>
+                      <h3>{route.title}</h3>
+                      <p>{route.body}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
 
     <section id="trusted-organization-meeting" class="pg-section pg-trusted-booking">
       <div class="pg-container pg-trusted-booking-grid">
@@ -398,25 +400,20 @@ const trustMailSubject = encodeURIComponent(
     transform: translateY(-2px);
   }
 
-  .pg-free-benefits,
-  .pg-trust-contact {
+  .pg-join-shared-band {
     --pg-join-blue-background:
       linear-gradient(116deg, transparent 0 34%, rgba(255, 255, 255, 0.08) 34% 35%, transparent 35% 54%, rgba(125, 228, 215, 0.1) 54% 55%, transparent 55%),
       repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 92px),
       linear-gradient(132deg, #141a45 0%, #172033 42%, #29318b 67%, #0d6d70 100%),
       linear-gradient(90deg, rgba(228, 80, 128, 0.28), rgba(20, 149, 143, 0.2));
-  }
-
-  .pg-free-benefits {
     position: relative;
     isolation: isolate;
     overflow: hidden;
     background: var(--pg-join-blue-background);
     color: #ffffff;
-    padding-top: 112px;
   }
 
-  .pg-free-benefits::before {
+  .pg-join-shared-band::before {
     content: "";
     position: absolute;
     top: -54px;
@@ -428,6 +425,19 @@ const trustMailSubject = encodeURIComponent(
     background: #ffffff;
     transform: translateX(-50%);
     pointer-events: none;
+  }
+
+  .pg-join-shared-band > section {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pg-free-benefits {
+    padding-top: 112px;
+  }
+
+  .pg-free-benefits::before {
+    content: none;
   }
 
   .pg-free-benefits > .pg-container {
@@ -714,7 +724,6 @@ const trustMailSubject = encodeURIComponent(
 
   .pg-trust-contact {
     margin-top: -1px;
-    background: var(--pg-join-blue-background);
     color: #ffffff;
   }
 
@@ -1017,7 +1026,7 @@ const trustMailSubject = encodeURIComponent(
       padding-top: 88px;
     }
 
-    .pg-free-benefits::before {
+    .pg-join-shared-band::before {
       top: -38px;
       width: 124%;
       height: 76px;
