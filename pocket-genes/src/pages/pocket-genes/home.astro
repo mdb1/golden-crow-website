@@ -163,7 +163,7 @@ const pageCopy = {
     identityEyebrow: 'Cómo te ayuda',
     identityTitle: 'Para lo que viene\ndespués de recibir\nun informe genético.',
     identityBody:
-      'Un espacio privado donde podés guardar tu informe, entenderlo mejor, encontrar apoyo útil y preparar tus próximas preguntas.',
+      'Nuestra app te ofrece un espacio privado y tuyo donde podés guardar tu informe de forma segura, explorarlo con tiempo y entenderlo mejor a través de nuestra experiencia interactiva y los contenidos educativos asociados.',
     downloadApp: 'Descargar la app',
     talkCta: 'Hablemos',
     userFlowLabel: 'Flujo de usuario de Pocket Genes',
@@ -171,7 +171,7 @@ const pageCopy = {
     productEyebrow: 'Todo en un solo lugar',
     productTitle: 'Estamos para acompañarte',
     productBody:
-      'Entendé mejor tus informes, encontrá información útil y conectá con otras personas. Tu informe permanece siempre privado en tu dispositivo.',
+      'No estás solo. Con nuestra herramienta Friend Finder vas a poder encontrarte con otras personas que tengan un diagnóstico parecido y descubrir una comunidad mucho más grande de pacientes, médicos y profesionales de la salud, todo en la palma de tu mano. ¡Bajarse y usar la app es 100% gratis! ¿Qué estás esperando para empezar este recorrido?',
     productFlowLabel: 'Flujo de producto de Pocket Genes',
     storeEyebrow: 'Descargá Pocket Genes',
     storeTitle: 'Disponible para iPhone y Android.',
@@ -391,7 +391,12 @@ const trustMailSubject = encodeURIComponent(
           <p class="pg-eyebrow">{copy.productEyebrow}</p>
           <h2>{copy.productTitle}</h2>
           <p>
-            {copy.productBody}
+            {copy.productBody.split('Friend Finder').map((part, index, parts) => (
+              <>
+                {part}
+                {index < parts.length - 1 && <em>Friend Finder</em>}
+              </>
+            ))}
           </p>
         </div>
 
