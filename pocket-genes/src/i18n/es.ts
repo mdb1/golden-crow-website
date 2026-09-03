@@ -473,7 +473,7 @@ export const es: Translations = {
       title1: 'TU SERVICIO',
       title2: 'MÁS FÁCIL DE ENCONTRAR',
       description: 'Integrar no solo mejora cómo se entrega un informe. También permite que tu organización forme parte de un ecosistema donde las personas pueden buscar recursos, servicios genéticos y próximos pasos con más contexto.',
-      loopTitle: 'Un círculo de valor para usuarios y proveedores',
+      loopTitle: 'Un círculo de valor\npara usuarios y proveedores',
       loopItems: [
         'Informes interactivos',
         'App de Pocket Genes',
