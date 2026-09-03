@@ -583,7 +583,7 @@ export const es: Translations = {
     instantIntegration: 'Informe móvil',
     customBranding: 'Marca y directorio',
     mobileFirst: 'App dedicada',
-    mobileReportTitle: 'Piloteá acceso a informes dentro de Pocket Genes',
+    mobileReportTitle: 'Llevá tus informes a Pocket Genes',
     mobileReportDesc: 'Mapeamos la estructura aprobada por el proveedor en una experiencia móvil clara, con secciones, contexto, datos del proveedor y explicaciones que el usuario puede volver a consultar.',
     mobileReportItems: ['Acceso a informes seleccionados', 'Navegación móvil de resultados', 'Primer circuito de comentarios'],
     brandDirectoryTitle: 'Sumá identidad, presencia y descubrimiento',
