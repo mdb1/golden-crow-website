@@ -8,34 +8,34 @@ const cycleReverseAngles = ['90deg', '18deg', '-54deg', '-126deg', '-198deg'];
 const cycleArrowAngles = ['-54deg', '18deg', '90deg', '162deg', '234deg'];
 const cyclePalette = [
   {
-    color: 'rgba(175, 130, 50, 0.78)',
-    soft: 'rgba(175, 130, 50, 0.11)',
-    border: 'rgba(175, 130, 50, 0.34)',
-    shadow: 'rgba(175, 130, 50, 0.18)',
+    color: 'var(--pocket_genes_pink, #e45080)',
+    soft: 'rgba(228, 80, 128, 0.12)',
+    border: 'rgba(228, 80, 128, 0.34)',
+    shadow: 'rgba(228, 80, 128, 0.26)',
   },
   {
-    color: 'rgba(46, 125, 209, 0.78)',
-    soft: 'rgba(46, 125, 209, 0.1)',
-    border: 'rgba(46, 125, 209, 0.3)',
-    shadow: 'rgba(46, 125, 209, 0.16)',
+    color: 'var(--pg-teal, #14958f)',
+    soft: 'rgba(20, 149, 143, 0.12)',
+    border: 'rgba(20, 149, 143, 0.32)',
+    shadow: 'rgba(20, 149, 143, 0.22)',
   },
   {
-    color: 'rgba(194, 123, 160, 0.8)',
-    soft: 'rgba(194, 123, 160, 0.11)',
-    border: 'rgba(194, 123, 160, 0.32)',
-    shadow: 'rgba(194, 123, 160, 0.16)',
+    color: 'var(--pg-blue, #2176ae)',
+    soft: 'rgba(33, 118, 174, 0.12)',
+    border: 'rgba(33, 118, 174, 0.31)',
+    shadow: 'rgba(33, 118, 174, 0.22)',
   },
   {
-    color: 'rgba(147, 196, 125, 0.82)',
-    soft: 'rgba(147, 196, 125, 0.12)',
-    border: 'rgba(147, 196, 125, 0.34)',
-    shadow: 'rgba(147, 196, 125, 0.15)',
+    color: 'var(--pg-green, #3c9b68)',
+    soft: 'rgba(60, 155, 104, 0.12)',
+    border: 'rgba(60, 155, 104, 0.31)',
+    shadow: 'rgba(60, 155, 104, 0.2)',
   },
   {
-    color: 'rgba(224, 102, 102, 0.78)',
-    soft: 'rgba(224, 102, 102, 0.1)',
-    border: 'rgba(224, 102, 102, 0.3)',
-    shadow: 'rgba(224, 102, 102, 0.15)',
+    color: 'var(--pg-amber, #d99232)',
+    soft: 'rgba(217, 146, 50, 0.13)',
+    border: 'rgba(217, 146, 50, 0.33)',
+    shadow: 'rgba(217, 146, 50, 0.22)',
   },
 ];
 const cycleItems = t.integrationRevamp.discovery.loopItems.map(
@@ -43,6 +43,8 @@ const cycleItems = t.integrationRevamp.discovery.loopItems.map(
     item,
     angle: cycleAngles[index % cycleAngles.length],
     angleBack: cycleReverseAngles[index % cycleReverseAngles.length],
+    arrowAngle: cycleArrowAngles[index % cycleArrowAngles.length],
+    delay: `${index * 140}ms`,
     palette: cyclePalette[index % cyclePalette.length],
   }),
 );
@@ -98,13 +100,16 @@ const cycleItems = t.integrationRevamp.discovery.loopItems.map(
         role="list"
         aria-label={t.integrationRevamp.discovery.loopTitle}
       >
-        <div class="cycle-core">
-          <span>Pocket Genes</span>
+        <div class="cycle-core" aria-label="Pocket Genes">
+          <span>
+            <span>Pocket</span>
+            <span>Genes</span>
+          </span>
         </div>
-        {cycleArrowAngles.map((angle, index) => (
+        {cycleItems.map((cycleItem) => (
           <span
             class="cycle-arrow"
-            style={`--arrow-angle: ${angle}; --arrow-color: ${cyclePalette[index % cyclePalette.length].color};`}
+            style={`--arrow-angle: ${cycleItem.arrowAngle}; --arrow-color: ${cycleItem.palette.color}; --cycle-delay: ${cycleItem.delay};`}
             aria-hidden="true"
           ></span>
         ))}
@@ -112,7 +117,7 @@ const cycleItems = t.integrationRevamp.discovery.loopItems.map(
           <span
             class="cycle-node"
             role="listitem"
-            style={`--cycle-angle: ${cycleItem.angle}; --cycle-angle-back: ${cycleItem.angleBack}; --cycle-color: ${cycleItem.palette.color}; --cycle-soft: ${cycleItem.palette.soft}; --cycle-border: ${cycleItem.palette.border}; --cycle-shadow: ${cycleItem.palette.shadow};`}
+            style={`--cycle-angle: ${cycleItem.angle}; --cycle-angle-back: ${cycleItem.angleBack}; --cycle-color: ${cycleItem.palette.color}; --cycle-soft: ${cycleItem.palette.soft}; --cycle-border: ${cycleItem.palette.border}; --cycle-shadow: ${cycleItem.palette.shadow}; --cycle-delay: ${cycleItem.delay};`}
           >
             <span class="cycle-index">
               {String(index + 1).padStart(2, '0')}
@@ -229,7 +234,7 @@ const cycleItems = t.integrationRevamp.discovery.loopItems.map(
   .value-cycle-block {
     grid-column: 1 / -1;
     justify-self: center;
-    width: min(760px, 100%);
+    width: min(820px, 100%);
     margin: clamp(0.5rem, 1.5vw, 1rem) auto 0;
     text-align: center;
   }
@@ -243,10 +248,11 @@ const cycleItems = t.integrationRevamp.discovery.loopItems.map(
   }
 
   .value-cycle {
-    --cycle-size: min(100%, 680px);
-    --cycle-radius: clamp(7.2rem, 30vw, 15rem);
-    --cycle-arrow-radius: clamp(6.3rem, 27vw, 13.4rem);
-    --cycle-node-width: clamp(8rem, 24vw, 12.4rem);
+    --cycle-size: min(100%, 720px);
+    --cycle-radius: clamp(8rem, 31vw, 16.2rem);
+    --cycle-arrow-radius: clamp(6.6rem, 26vw, 13.8rem);
+    --cycle-node-width: clamp(8.7rem, 22vw, 13rem);
+    --cycle-track-width: clamp(18px, 2.6vw, 28px);
     position: relative;
     isolation: isolate;
     display: grid;
@@ -264,78 +270,175 @@ const cycleItems = t.integrationRevamp.discovery.loopItems.map(
   }
 
   .value-cycle::before {
-    inset: 8%;
+    inset: 10%;
     z-index: 0;
-    background:
-      radial-gradient(
-        circle at center,
-        transparent 0 56%,
-        rgba(255, 255, 255, 0.92) 57% 61%,
-        transparent 62%
-      ),
-      conic-gradient(
-        from -88deg,
-        rgba(175, 130, 50, 0.5),
-        rgba(46, 125, 209, 0.46),
-        rgba(194, 123, 160, 0.48),
-        rgba(147, 196, 125, 0.5),
-        rgba(224, 102, 102, 0.46),
-        rgba(175, 130, 50, 0.5)
-      );
+    background: conic-gradient(
+      from -90deg,
+      rgba(228, 80, 128, 0.86) 0deg 58deg,
+      transparent 58deg 65deg,
+      rgba(20, 149, 143, 0.86) 65deg 130deg,
+      transparent 130deg 137deg,
+      rgba(33, 118, 174, 0.88) 137deg 202deg,
+      transparent 202deg 209deg,
+      rgba(60, 155, 104, 0.86) 209deg 274deg,
+      transparent 274deg 281deg,
+      rgba(217, 146, 50, 0.9) 281deg 353deg,
+      transparent 353deg 360deg
+    );
+    -webkit-mask: radial-gradient(
+      farthest-side,
+      transparent calc(100% - var(--cycle-track-width) - 1px),
+      #000 calc(100% - var(--cycle-track-width)),
+      #000 calc(100% - 1px),
+      transparent 100%
+    );
+    mask: radial-gradient(
+      farthest-side,
+      transparent calc(100% - var(--cycle-track-width) - 1px),
+      #000 calc(100% - var(--cycle-track-width)),
+      #000 calc(100% - 1px),
+      transparent 100%
+    );
     box-shadow:
-      0 32px 70px -48px rgba(17, 24, 39, 0.34),
+      0 30px 70px -44px rgba(17, 24, 39, 0.38),
       inset 0 0 0 1px rgba(17, 24, 39, 0.04);
   }
 
   .value-cycle::after {
-    inset: 19%;
+    inset: 8.5%;
     z-index: 1;
-    background:
-      radial-gradient(
-        circle at 50% 45%,
-        rgba(255, 255, 255, 0.96),
-        rgba(249, 250, 251, 0.82)
-      ),
-      var(--bg-secondary);
-    border: 1px solid rgba(17, 24, 39, 0.07);
-    box-shadow:
-      inset 0 0 36px rgba(175, 130, 50, 0.06),
-      0 0 0 1px rgba(255, 255, 255, 0.7);
+    background: repeating-conic-gradient(
+      from -86deg,
+      transparent 0deg 10deg,
+      rgba(255, 255, 255, 0.9) 10deg 12deg,
+      transparent 12deg 22deg
+    );
+    opacity: 0.7;
+    filter: drop-shadow(0 0 12px rgba(228, 80, 128, 0.18));
+    -webkit-mask: radial-gradient(
+      farthest-side,
+      transparent calc(100% - var(--cycle-track-width) - 8px),
+      #000 calc(100% - var(--cycle-track-width) - 7px),
+      #000 calc(100% - 3px),
+      transparent calc(100% - 2px)
+    );
+    mask: radial-gradient(
+      farthest-side,
+      transparent calc(100% - var(--cycle-track-width) - 8px),
+      #000 calc(100% - var(--cycle-track-width) - 7px),
+      #000 calc(100% - 3px),
+      transparent calc(100% - 2px)
+    );
+    animation: pgValueCycleSpin 18s linear infinite;
   }
 
   .cycle-core {
     position: relative;
-    z-index: 3;
+    z-index: 5;
     display: grid;
     place-items: center;
-    width: clamp(6.3rem, 18vw, 9.4rem);
+    width: clamp(6.5rem, 17vw, 9.2rem);
     aspect-ratio: 1;
     padding: 1rem;
     border-radius: 50%;
-    background: linear-gradient(145deg, #101827, #2f3b4f);
-    color: #fff;
-    font-size: clamp(0.82rem, 1.6vw, 1rem);
+    background: transparent;
+    color: var(--pocket_genes_pink, #e45080);
+    font-size: clamp(1rem, 2vw, 1.25rem);
     font-weight: 900;
-    line-height: 1.08;
+    line-height: 1;
     letter-spacing: 0;
+    text-shadow: 0 12px 28px rgba(228, 80, 128, 0.24);
+    animation: pgCycleCoreBreath 5.2s ease-in-out infinite;
+  }
+
+  .cycle-core::before,
+  .cycle-core::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .cycle-core::before {
+    inset: -0.8rem;
+    border: 1px solid rgba(228, 80, 128, 0.24);
     box-shadow:
-      0 20px 44px -30px rgba(17, 24, 39, 0.75),
-      inset 0 1px 0 rgba(255, 255, 255, 0.16);
+      0 0 0 8px rgba(228, 80, 128, 0.05),
+      0 18px 36px -30px rgba(228, 80, 128, 0.72);
+  }
+
+  .cycle-core::after {
+    inset: -1.35rem;
+    background: conic-gradient(
+      from 0deg,
+      transparent,
+      rgba(228, 80, 128, 0.3),
+      transparent 34%,
+      transparent
+    );
+    opacity: 0.72;
+    -webkit-mask: radial-gradient(
+      farthest-side,
+      transparent calc(100% - 2px),
+      #000 calc(100% - 1px),
+      transparent 100%
+    );
+    mask: radial-gradient(
+      farthest-side,
+      transparent calc(100% - 2px),
+      #000 calc(100% - 1px),
+      transparent 100%
+    );
+    animation: pgValueCycleSpin 11s linear infinite reverse;
+  }
+
+  .cycle-core > span > span {
+    display: block;
+  }
+
+  .cycle-core > span {
+    position: relative;
+    z-index: 1;
   }
 
   .cycle-arrow {
     position: absolute;
     top: 50%;
     left: 50%;
-    z-index: 2;
-    width: clamp(0.7rem, 2vw, 1rem);
-    height: clamp(0.7rem, 2vw, 1rem);
-    border-top: 2px solid var(--arrow-color);
-    border-right: 2px solid var(--arrow-color);
-    opacity: 0.82;
+    z-index: 3;
+    width: clamp(1.65rem, 4vw, 2.45rem);
+    height: clamp(0.72rem, 2vw, 0.95rem);
+    opacity: 0.86;
     transform: translate(-50%, -50%) rotate(var(--arrow-angle))
-      translate(var(--cycle-arrow-radius)) rotate(45deg);
+      translateX(var(--cycle-arrow-radius)) rotate(90deg);
     transform-origin: center;
+    animation: pgCycleArrowPulse 3.4s ease-in-out infinite;
+    animation-delay: var(--cycle-delay);
+  }
+
+  .cycle-arrow::before,
+  .cycle-arrow::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .cycle-arrow::before {
+    right: 38%;
+    width: 100%;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, var(--arrow-color));
+  }
+
+  .cycle-arrow::after {
+    right: 0;
+    width: clamp(0.55rem, 1.7vw, 0.85rem);
+    aspect-ratio: 1;
+    background: var(--arrow-color);
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+    filter: drop-shadow(0 0 8px var(--arrow-color));
   }
 
   .cycle-node {
@@ -343,31 +446,75 @@ const cycleItems = t.integrationRevamp.discovery.loopItems.map(
     top: 50%;
     left: 50%;
     z-index: 4;
+    isolation: isolate;
     display: grid;
     place-items: center;
     width: var(--cycle-node-width);
-    min-height: clamp(3.6rem, 7vw, 4.55rem);
-    padding: 0.78rem 0.9rem 0.72rem;
+    min-height: clamp(3.7rem, 7vw, 4.65rem);
+    padding: 0.9rem 1.05rem 0.82rem;
     border: 1px solid var(--cycle-border);
-    border-radius: 1rem;
+    border-radius: 999px;
     background:
-      linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.82)),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.86)),
       var(--cycle-soft);
     color: var(--text-primary);
     box-shadow:
-      0 18px 42px -31px var(--cycle-shadow),
-      0 10px 24px -22px rgba(17, 24, 39, 0.3);
+      0 22px 48px -30px var(--cycle-shadow),
+      0 12px 28px -22px rgba(17, 24, 39, 0.36),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
     font-size: clamp(0.78rem, 1.8vw, 0.98rem);
     font-weight: 850;
     line-height: 1.13;
     transform: translate(-50%, -50%) rotate(var(--cycle-angle))
       translate(var(--cycle-radius)) rotate(var(--cycle-angle-back));
+    animation: pgCycleNodeFloat 5.6s ease-in-out infinite;
+    animation-delay: var(--cycle-delay);
+    transition: box-shadow 180ms ease, filter 180ms ease, scale 180ms ease;
+  }
+
+  .cycle-node::before {
+    content: '';
+    position: absolute;
+    inset: 0.32rem;
+    z-index: -1;
+    border-radius: inherit;
+    background: linear-gradient(135deg, var(--cycle-soft), transparent 64%);
+  }
+
+  .cycle-node::after {
+    content: '';
+    position: absolute;
+    right: 1rem;
+    bottom: 0.62rem;
+    left: 1rem;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, var(--cycle-color), transparent);
+    opacity: 0.42;
+  }
+
+  .cycle-node:hover {
+    z-index: 6;
+    scale: 1.05;
+    filter: saturate(1.12);
+    box-shadow:
+      0 26px 54px -26px var(--cycle-shadow),
+      0 18px 34px -24px rgba(17, 24, 39, 0.36),
+      inset 0 1px 0 rgba(255, 255, 255, 0.86);
   }
 
   .cycle-index {
     position: absolute;
-    top: 0.43rem;
-    left: 0.55rem;
+    top: -0.54rem;
+    left: 1.1rem;
+    display: inline-flex;
+    min-width: 1.8rem;
+    min-height: 1.8rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--cycle-border);
+    border-radius: 999px;
+    background: #ffffff;
     color: var(--cycle-color);
     font-size: 0.62rem;
     font-weight: 900;
@@ -375,6 +522,8 @@ const cycleItems = t.integrationRevamp.discovery.loopItems.map(
   }
 
   .cycle-node-label {
+    position: relative;
+    z-index: 1;
     display: block;
     max-width: 100%;
   }
@@ -383,6 +532,50 @@ const cycleItems = t.integrationRevamp.discovery.loopItems.map(
     display: block;
     margin-top: 0.1rem;
     font-weight: 900;
+  }
+
+  @keyframes pgValueCycleSpin {
+    to {
+      rotate: 1turn;
+    }
+  }
+
+  @keyframes pgCycleArrowPulse {
+    0%,
+    100% {
+      opacity: 0.42;
+      scale: 0.92;
+    }
+
+    45%,
+    60% {
+      opacity: 1;
+      scale: 1.08;
+    }
+  }
+
+  @keyframes pgCycleNodeFloat {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+
+    50% {
+      translate: 0 -7px;
+    }
+  }
+
+  @keyframes pgCycleCoreBreath {
+    0%,
+    100% {
+      scale: 1;
+      text-shadow: 0 12px 28px rgba(228, 80, 128, 0.22);
+    }
+
+    50% {
+      scale: 1.04;
+      text-shadow: 0 16px 34px rgba(228, 80, 128, 0.34);
+    }
   }
 
   @media (max-width: 960px) {
@@ -410,25 +603,40 @@ const cycleItems = t.integrationRevamp.discovery.loopItems.map(
     .value-cycle {
       --cycle-size: min(100%, 24rem);
       --cycle-radius: clamp(6rem, 29vw, 7.4rem);
-      --cycle-arrow-radius: clamp(5.35rem, 25vw, 6.65rem);
+      --cycle-arrow-radius: clamp(5.05rem, 24vw, 6.45rem);
       --cycle-node-width: clamp(6.5rem, 31vw, 8.4rem);
+      --cycle-track-width: clamp(12px, 4vw, 17px);
     }
 
     .cycle-core {
-      width: clamp(5.25rem, 21vw, 6.25rem);
+      width: clamp(5rem, 21vw, 6.25rem);
       padding: 0.75rem;
-      font-size: clamp(0.72rem, 2.6vw, 0.82rem);
+      font-size: clamp(0.82rem, 3vw, 0.98rem);
+    }
+
+    .cycle-arrow {
+      width: clamp(1.15rem, 4.8vw, 1.55rem);
+      height: clamp(0.55rem, 2.6vw, 0.7rem);
     }
 
     .cycle-node {
-      min-height: 3.25rem;
-      padding: 0.62rem 0.5rem 0.58rem;
-      border-radius: 0.8rem;
+      min-height: 3.3rem;
+      padding: 0.7rem 0.56rem 0.64rem;
       font-size: clamp(0.68rem, 2.7vw, 0.78rem);
     }
 
     .cycle-index {
       display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .value-cycle::after,
+    .cycle-core,
+    .cycle-core::after,
+    .cycle-arrow,
+    .cycle-node {
+      animation: none;
     }
   }
 </style>
