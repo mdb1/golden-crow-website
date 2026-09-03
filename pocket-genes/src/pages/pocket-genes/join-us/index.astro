@@ -342,36 +342,13 @@ const trustMailSubject = encodeURIComponent(
     align-items: center;
     overflow: hidden;
     padding: 124px 0 88px;
-    background:
-      linear-gradient(132deg, #141a45 0%, #172033 42%, #29318b 67%, #0d6d70 100%),
-      linear-gradient(90deg, rgba(228, 80, 128, 0.28), rgba(20, 149, 143, 0.2));
-    color: #ffffff;
-  }
-
-  .pg-pricing-hero::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    background:
-      linear-gradient(116deg, transparent 0 34%, rgba(255, 255, 255, 0.08) 34% 35%, transparent 35% 54%, rgba(125, 228, 215, 0.1) 54% 55%, transparent 55%),
-      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 92px);
-    opacity: 0.72;
-    pointer-events: none;
-  }
-
-  .pg-pricing-hero::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    bottom: -54px;
-    z-index: 0;
-    width: 118%;
-    height: 108px;
-    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
     background: #ffffff;
-    transform: translateX(-50%);
-    pointer-events: none;
+    color: var(--pg-ink);
+  }
+
+  .pg-pricing-hero::before,
+  .pg-pricing-hero::after {
+    content: none;
   }
 
   .pg-trust-hero-grid {
@@ -426,7 +403,43 @@ const trustMailSubject = encodeURIComponent(
   }
 
   .pg-free-benefits {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background:
+      linear-gradient(116deg, transparent 0 34%, rgba(255, 255, 255, 0.08) 34% 35%, transparent 35% 54%, rgba(125, 228, 215, 0.1) 54% 55%, transparent 55%),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 92px),
+      linear-gradient(132deg, #141a45 0%, #172033 42%, #29318b 67%, #0d6d70 100%),
+      linear-gradient(90deg, rgba(228, 80, 128, 0.28), rgba(20, 149, 143, 0.2));
+    color: #ffffff;
+    padding-top: 112px;
+  }
+
+  .pg-free-benefits::before {
+    content: "";
+    position: absolute;
+    top: -54px;
+    left: 50%;
+    z-index: 0;
+    width: 118%;
+    height: 108px;
+    border-radius: 0 0 50% 50% / 0 0 100% 100%;
     background: #ffffff;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .pg-free-benefits > .pg-container {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pg-free-benefits .pg-section-heading h2 {
+    color: #ffffff;
+  }
+
+  .pg-free-benefits .pg-section-heading p {
+    color: rgba(255, 255, 255, 0.76);
   }
 
   .pg-benefits-package {
@@ -1088,8 +1101,12 @@ const trustMailSubject = encodeURIComponent(
       padding: 104px 0 56px;
     }
 
-    .pg-pricing-hero::after {
-      bottom: -38px;
+    .pg-free-benefits {
+      padding-top: 88px;
+    }
+
+    .pg-free-benefits::before {
+      top: -38px;
       width: 124%;
       height: 76px;
     }
