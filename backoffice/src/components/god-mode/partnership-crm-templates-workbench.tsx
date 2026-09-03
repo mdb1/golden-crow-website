@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Eye,
   FileText,
   FileUp,
   Filter,
@@ -1462,6 +1463,7 @@ export function PartnershipCrmTemplateWorkbench({
   const queryClient = useQueryClient();
   const [form, setForm] = useState<TemplateFormState>(EMPTY_TEMPLATE_FORM);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const isEditing = mode === "edit";
 
@@ -1599,6 +1601,18 @@ export function PartnershipCrmTemplateWorkbench({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <HeaderUnclutterButton />
+          <Button
+            type="button"
+            size="sm"
+            className="bg-blue-600 text-white shadow-[0_8px_18px_rgba(37,99,235,0.22)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
+            onClick={() => setPreviewOpen(true)}
+            disabled={
+              templateQuery.isFetching && isEditing && !templateQuery.data
+            }
+          >
+            <Eye className="h-3.5 w-3.5" />
+            {t("View preview")}
+          </Button>
           {isEditing ? (
             <Button
               type="button"
@@ -1628,16 +1642,13 @@ export function PartnershipCrmTemplateWorkbench({
       ) : null}
 
       {templateQuery.isFetching && isEditing && !templateQuery.data ? (
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,0.96fr)_minmax(320px,0.64fr)]">
-          <div className="grid gap-3">
-            {Array.from({ length: 7 }).map((_, index) => (
-              <Skeleton key={index} className="h-12 rounded-lg" />
-            ))}
-          </div>
-          <Skeleton className="h-[420px] rounded-xl" />
+        <div className="grid gap-3">
+          {Array.from({ length: 7 }).map((_, index) => (
+            <Skeleton key={index} className="h-12 rounded-lg" />
+          ))}
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.96fr)_minmax(320px,0.64fr)]">
+        <div className="grid gap-4">
           <form
             id="crm-template-form"
             onSubmit={handleSubmit}
@@ -1786,12 +1797,20 @@ export function PartnershipCrmTemplateWorkbench({
               </div>
             </div>
           </form>
-
-          <div className="grid gap-4">
-            <TemplatePreview form={form} language={language} />
-          </div>
         </div>
       )}
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="crm-control-surface sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("Preview")}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {t("Rendered template preview.")}
+            </DialogDescription>
+          </DialogHeader>
+          <TemplatePreview form={form} language={language} />
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="crm-control-surface">

@@ -1165,6 +1165,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Las notas de la plantilla deben tener 2000 caracteres o menos.",
   "No active templates": "Sin plantillas activas",
   "Loading templates...": "Cargando plantillas...",
+  "View preview": "Ver vista previa",
+  "Rendered template preview.": "Vista previa renderizada de la plantilla.",
   "Preview sample": "Muestra de vista previa",
   "Volver a plantillas": "Volver a plantillas",
   "Pocket Genes partnership outreach CRM.":

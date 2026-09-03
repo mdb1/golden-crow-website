@@ -342,6 +342,33 @@ describe("PartnershipCrmTemplateWorkbench", () => {
     routerRefresh.mockClear();
   });
 
+  it("opens the template preview in a modal instead of rendering it beside the editor", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValue({
+      template,
+    });
+
+    renderWithProviders(
+      <PartnershipCrmTemplateWorkbench mode="edit" templateId={template.id} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Lab outreach")).toBeTruthy();
+    });
+
+    expect(screen.queryByText("Preview sample")).toBeNull();
+    expect(screen.queryByText("Hola Contacto")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "View preview" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Preview" });
+    expect(within(dialog).getByText("Preview sample")).toBeTruthy();
+    expect(
+      within(dialog).getByText("Pocket Genes + Organizacion Ejemplo"),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("Hola Contacto")).toBeTruthy();
+  });
+
   it("saves new templates with a canonical category from the picker", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockResolvedValue({
