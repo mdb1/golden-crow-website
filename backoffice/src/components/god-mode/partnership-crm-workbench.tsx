@@ -4107,7 +4107,6 @@ export function PartnershipCrmWorkbench() {
     onSuccess: (result) => {
       replaceTemplateInCachedPages(result.template);
       void queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
-      router.refresh();
     },
   });
 
@@ -4120,7 +4119,6 @@ export function PartnershipCrmWorkbench() {
     onSuccess: (_result, template) => {
       removeTemplateFromCachedPages(template.id);
       void queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
-      router.refresh();
     },
   });
 

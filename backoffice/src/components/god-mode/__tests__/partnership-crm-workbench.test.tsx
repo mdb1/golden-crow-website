@@ -874,6 +874,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         is_favorite: false,
       }),
     );
+    expect(routerRefresh).not.toHaveBeenCalled();
 
     await user.click(
       within(dialog).getByRole("button", { name: "Mark as favorite" }),
@@ -897,6 +898,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         within(dialog).getByText("Template marked as favorite."),
       ).toBeTruthy();
     });
+    expect(routerRefresh).not.toHaveBeenCalled();
 
     await user.click(
       within(dialog).getByRole("button", { name: "Unmark as favorite" }),
@@ -917,6 +919,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         within(dialog).getByRole("button", { name: "Mark as favorite" }),
       ).toHaveProperty("disabled", false);
     });
+    expect(routerRefresh).not.toHaveBeenCalled();
 
     await user.click(within(dialog).getByRole("combobox"));
     await user.click(
@@ -942,6 +945,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(savedTemplates.map((template) => template.id)).toEqual([
       "tpl-recommended",
     ]);
+    expect(routerRefresh).not.toHaveBeenCalled();
   });
 
   it("switches to the professionals CRM collection and professional fields", async () => {
