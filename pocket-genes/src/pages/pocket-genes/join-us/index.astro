@@ -168,7 +168,7 @@ const pageCopy = {
         qualifier: '',
       },
     ],
-    freeBenefitsStatement: 'Todo esto es gratuito para las organizaciones aprobadas.',
+    freeBenefitsStatement: '',
     contactEyebrow: '¿Todavía tenés preguntas?',
     contactTitle: 'Hablemos.',
     contactBody:
@@ -246,9 +246,11 @@ const trustMailSubject = encodeURIComponent(
               ))}
             </div>
 
-            <div class="pg-benefits-close">
-              <p>{copy.freeBenefitsStatement}</p>
-            </div>
+            {copy.freeBenefitsStatement && (
+              <div class="pg-benefits-close">
+                <p>{copy.freeBenefitsStatement}</p>
+              </div>
+            )}
           </div>
         </div>
       </section>
