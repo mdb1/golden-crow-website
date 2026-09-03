@@ -918,3 +918,119 @@
     opacity: 0.5;
   }
 }
+
+/* CRM + Plantillas - unlayered dark control overrides.
+   These sit outside @layer so Tailwind utility classes such as dark:bg-input
+   cannot turn editable controls white in explicit dark mode. */
+:is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+  .crm-control-surface
+  :is(
+    [data-slot="input"],
+    [data-slot="textarea"],
+    [data-slot="select-trigger"],
+    [data-slot="input-group"],
+    .crm-control-field
+  ),
+:is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+  [data-slot="select-content"].crm-control-dropdown {
+  border-color: rgba(255, 255, 255, 0.68) !important;
+  background: #000 !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+:is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+  .crm-control-surface
+  :is(
+    input:not([type="checkbox"]):not([type="radio"]),
+    textarea,
+    select,
+    [data-slot="command-input"]
+  ) {
+  background-color: #000 !important;
+  color: #fff !important;
+  caret-color: #fff;
+}
+
+:is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+  .crm-control-surface
+  :is(
+    [data-slot="input"],
+    [data-slot="textarea"],
+    [data-slot="select-trigger"],
+    [data-slot="input-group"],
+    .crm-control-field
+  ):is(:hover, [data-state="open"]) {
+  border-color: rgba(255, 255, 255, 0.86) !important;
+  background: #000 !important;
+  color: #fff !important;
+}
+
+:is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+  .crm-control-surface
+  :is(
+    [data-slot="input"],
+    [data-slot="textarea"],
+    [data-slot="select-trigger"],
+    [data-slot="input-group"],
+    .crm-control-field
+  ):focus-visible,
+:is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+  .crm-control-surface
+  :is([data-slot="input-group"]:focus-within) {
+  border-color: #fff !important;
+  --tw-ring-color: rgba(255, 255, 255, 0.24) !important;
+}
+
+:is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+  .crm-control-surface
+  :is(
+    [data-slot="input"],
+    [data-slot="textarea"],
+    [data-slot="select-trigger"],
+    [data-slot="input-group"],
+    .crm-control-field
+  ):disabled,
+:is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+  .crm-control-surface
+  :is(
+    [data-slot="input"],
+    [data-slot="textarea"],
+    [data-slot="select-trigger"],
+    [data-slot="input-group"],
+    .crm-control-field
+  )[data-disabled] {
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  background: rgba(0, 0, 0, 0.72) !important;
+  color: rgba(255, 255, 255, 0.52) !important;
+}
+
+:is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+  .crm-control-surface
+  :is(input, textarea, [data-slot="command-input"])::placeholder {
+  color: rgba(255, 255, 255, 0.52) !important;
+}
+
+:is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+  [data-slot="select-content"].crm-control-dropdown
+  :is(
+    [data-slot="select-label"],
+    [data-slot="select-scroll-up-button"],
+    [data-slot="select-scroll-down-button"]
+  ) {
+  background: #000 !important;
+  color: rgba(255, 255, 255, 0.64) !important;
+}
+
+:is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+  [data-slot="select-content"].crm-control-dropdown
+  [data-slot="select-item"] {
+  color: #fff !important;
+}
+
+:is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+  [data-slot="select-content"].crm-control-dropdown
+  [data-slot="select-item"]:is(:focus, [data-highlighted]) {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #fff !important;
+}
