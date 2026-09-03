@@ -1769,7 +1769,9 @@ const audienceTiles = createAudienceTiles(copy.audiences);
                         <span class="pg-journey-orbit-core-ring is-outer" aria-hidden="true"></span>
                         <span class="pg-journey-orbit-core-ring is-middle" aria-hidden="true"></span>
                         <span class="pg-journey-orbit-core-ring is-inner" aria-hidden="true"></span>
-                        <p>{copy.journeyCoreTitle}</p>
+                        <p class:list={[copy.journeyCoreTitle.length > 8 && !copy.journeyCoreTitle.includes('\n') && 'is-compact']}>
+                          {copy.journeyCoreTitle}
+                        </p>
                       </div>
                     )}
                     <div
@@ -4209,6 +4211,10 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     white-space: pre-line;
   }
 
+  .pg-journey-orbit-core p.is-compact {
+    font-size: 1.34rem;
+  }
+
   .pg-journey-node:hover,
   .pg-journey-node.is-linked-active {
     box-shadow:
@@ -4487,6 +4493,10 @@ const audienceTiles = createAudienceTiles(copy.audiences);
 
     .pg-journey-orbit-core p {
       font-size: clamp(1rem, 5vw, 1.32rem);
+    }
+
+    .pg-journey-orbit-core p.is-compact {
+      font-size: 0.94rem;
     }
 
     .pg-journey-orbit-core-ring.is-outer {
