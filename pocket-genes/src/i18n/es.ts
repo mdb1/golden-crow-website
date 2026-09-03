@@ -584,7 +584,7 @@ export const es: Translations = {
     customBranding: 'Marca y directorio',
     mobileFirst: 'App dedicada',
     mobileReportTitle: 'Llevá tus informes a Pocket Genes',
-    mobileReportDesc: 'Mapeamos la estructura aprobada por el proveedor en una experiencia móvil clara, con secciones, contexto, datos del proveedor y explicaciones que el usuario puede volver a consultar.',
+    mobileReportDesc: 'Convertimos tu PDF en una experiencia móvil clara, con navegación, secciones, links a papers y contenido educativo y explicaciones que el usuario puede volver a consultar.',
     mobileReportItems: ['Acceso a informes seleccionados', 'Navegación móvil de resultados', 'Primer circuito de comentarios'],
     brandDirectoryTitle: 'Sumá identidad, presencia y descubrimiento',
     brandDirectoryDesc: 'Tu servicio puede mantener visibilidad dentro de la experiencia y aparecer en el directorio para usuarios que buscan próximos pasos dentro del ecosistema.',
