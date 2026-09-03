@@ -76,7 +76,7 @@ export function CrmCategorySelect({
       <SelectTrigger id={id} className="w-full">
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="crm-control-dropdown">
         <SelectItem value={emptyValue}>
           {mode === "filter" ? t("All categories") : t("No category")}
         </SelectItem>
@@ -145,6 +145,7 @@ export function CrmCategoryMultiSelect({
       clearLabel={t("Clear all")}
       removeLabel={t("Remove")}
       doneLabel={t("Done")}
+      controlSurfaceClassName="crm-control-surface"
       selectedCountLabel={(count) =>
         count === 1
           ? t("1 category selected")

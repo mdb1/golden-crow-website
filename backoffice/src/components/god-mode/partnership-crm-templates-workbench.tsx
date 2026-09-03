@@ -520,7 +520,7 @@ function TemplatePreview({
   );
 
   return (
-    <aside className="rounded-xl border border-border/80 bg-white p-4 text-slate-950 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:bg-slate-950 dark:text-slate-50">
+    <aside className="rounded-xl border border-border/80 bg-white p-4 text-slate-950 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:border-white/70 dark:bg-black dark:text-white">
       <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -548,7 +548,7 @@ function TemplatePreview({
             : SAMPLE_ORGANIZATION.contactEmail}
         </p>
       </div>
-      <div className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
+      <div className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:border dark:border-white/40 dark:bg-black dark:text-white">
         {rendered.body || t("No message yet.")}
       </div>
     </aside>
@@ -759,7 +759,7 @@ function TemplateImportDialog({
         }
       }}
     >
-      <DialogContent className="sm:max-w-5xl">
+      <DialogContent className="crm-control-surface sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>{t("Import templates from CSV")}</DialogTitle>
           <DialogDescription>
@@ -1176,7 +1176,7 @@ export function PartnershipCrmTemplateBrowser() {
   }
 
   return (
-    <section className="glass-panel flex flex-col gap-5 px-4 py-4 md:px-5">
+    <section className="glass-panel crm-control-surface flex flex-col gap-5 px-4 py-4 md:px-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <h2 className="font-heading text-xl font-semibold text-foreground">
@@ -1257,7 +1257,7 @@ export function PartnershipCrmTemplateBrowser() {
             <Filter className="h-3.5 w-3.5" />
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="crm-control-dropdown">
             <SelectItem value="all">{t("All statuses")}</SelectItem>
             {CRM_TEMPLATE_STATUS_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
@@ -1584,7 +1584,7 @@ export function PartnershipCrmTemplateWorkbench({
   }
 
   return (
-    <section className="glass-panel flex flex-col gap-5 px-4 py-4 md:px-5">
+    <section className="glass-panel crm-control-surface flex flex-col gap-5 px-4 py-4 md:px-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <Button type="button" variant="ghost" size="sm" asChild>
@@ -1678,7 +1678,7 @@ export function PartnershipCrmTemplateWorkbench({
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="crm-control-dropdown">
                       {CRM_TEMPLATE_STATUS_OPTIONS.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {t(option.label)}
@@ -1794,7 +1794,7 @@ export function PartnershipCrmTemplateWorkbench({
       )}
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
+        <DialogContent className="crm-control-surface">
           <DialogHeader>
             <DialogTitle>{t("Delete template")}</DialogTitle>
             <DialogDescription>

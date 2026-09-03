@@ -463,6 +463,90 @@
     backdrop-filter: blur(10px);
   }
 
+  :is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+    .crm-control-surface
+    :is(
+      [data-slot="input"],
+      [data-slot="textarea"],
+      [data-slot="select-trigger"],
+      .crm-control-field
+    ),
+  :is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+    [data-slot="select-content"].crm-control-dropdown {
+    border-color: rgba(255, 255, 255, 0.72);
+    background: #000;
+    color: #fff;
+    box-shadow: none;
+  }
+
+  :is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+    .crm-control-surface
+    :is([data-slot="input"], [data-slot="textarea"])::placeholder {
+    color: rgba(255, 255, 255, 0.52);
+  }
+
+  :is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+    .crm-control-surface
+    :is(
+      [data-slot="input"],
+      [data-slot="textarea"],
+      [data-slot="select-trigger"],
+      .crm-control-field
+    ):not(:disabled):hover {
+    border-color: rgba(255, 255, 255, 0.9);
+    background: #000;
+    color: #fff;
+  }
+
+  :is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+    .crm-control-surface
+    :is(
+      [data-slot="input"],
+      [data-slot="textarea"],
+      [data-slot="select-trigger"],
+      .crm-control-field
+    ):focus-visible {
+    border-color: #fff;
+    --tw-ring-color: rgba(255, 255, 255, 0.24);
+  }
+
+  :is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+    .crm-control-surface
+    :is(
+      [data-slot="input"],
+      [data-slot="textarea"],
+      [data-slot="select-trigger"],
+      .crm-control-field
+    ):disabled {
+    border-color: rgba(255, 255, 255, 0.26);
+    background: rgba(0, 0, 0, 0.72);
+    color: rgba(255, 255, 255, 0.52);
+  }
+
+  :is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+    [data-slot="select-content"].crm-control-dropdown
+    :is(
+      [data-slot="select-label"],
+      [data-slot="select-scroll-up-button"],
+      [data-slot="select-scroll-down-button"]
+    ) {
+    background: #000;
+    color: rgba(255, 255, 255, 0.64);
+  }
+
+  :is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+    [data-slot="select-content"].crm-control-dropdown
+    [data-slot="select-item"] {
+    color: #fff;
+  }
+
+  :is(:root:not([data-theme="light"]), .dark, [data-theme="dark"])
+    [data-slot="select-content"].crm-control-dropdown
+    [data-slot="select-item"]:is(:focus, [data-highlighted]) {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+  }
+
   .section-eyebrow {
     font-size: 0.68rem;
     font-weight: 600;

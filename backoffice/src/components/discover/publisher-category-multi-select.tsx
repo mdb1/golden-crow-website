@@ -40,6 +40,7 @@ type PublisherCategoryMultiSelectProps = {
   doneLabel: string;
   selectedCountLabel: (count: number) => string;
   className?: string;
+  controlSurfaceClassName?: string;
 };
 
 export function PublisherCategoryMultiSelect({
@@ -58,6 +59,7 @@ export function PublisherCategoryMultiSelect({
   doneLabel,
   selectedCountLabel,
   className,
+  controlSurfaceClassName,
 }: PublisherCategoryMultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -82,7 +84,7 @@ export function PublisherCategoryMultiSelect({
       `${option.label} ${optionLabel(option)}`
         .toLowerCase()
         .includes(normalizedQuery),
-      );
+    );
   }, [optionLabel, provider.options, query]);
   const selectionSummary = selectedOptions.length
     ? selectedCountLabel(selectedOptions.length)
@@ -106,14 +108,19 @@ export function PublisherCategoryMultiSelect({
   }
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
+    <div
+      className={cn("flex flex-col gap-2", className, controlSurfaceClassName)}
+    >
       <Button
         id={id}
         type="button"
         variant="outline"
         onClick={() => setOpen(true)}
         aria-label={`${label}: ${selectionSummary}`}
-        className="h-auto min-h-10 justify-between gap-3 px-3 py-2 text-left"
+        className={cn(
+          "h-auto min-h-10 justify-between gap-3 px-3 py-2 text-left",
+          controlSurfaceClassName && "crm-control-field",
+        )}
       >
         <span className="flex min-w-0 items-center gap-2">
           <ListFilter className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -154,7 +161,9 @@ export function PublisherCategoryMultiSelect({
       ) : null}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="p-0 sm:max-w-5xl">
+        <DialogContent
+          className={cn("p-0 sm:max-w-5xl", controlSurfaceClassName)}
+        >
           <DialogHeader className="border-b border-border px-5 py-4">
             <DialogTitle>{dialogTitle}</DialogTitle>
             <DialogDescription>{dialogDescription}</DialogDescription>

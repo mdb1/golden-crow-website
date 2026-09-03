@@ -648,7 +648,7 @@ export function CrmImportRulesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-5xl">
+      <DialogContent className="crm-control-surface sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>{t("Import rules")}</DialogTitle>
           <DialogDescription>{t(dialogDescriptionFor(kind))}</DialogDescription>

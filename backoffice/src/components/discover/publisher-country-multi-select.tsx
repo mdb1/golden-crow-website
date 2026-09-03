@@ -21,6 +21,7 @@ import {
   parseDiscoverOrganizationCountryCodes,
   serializeDiscoverOrganizationCountryCodes,
 } from "@/lib/discover-organization-fields";
+import { cn } from "@/lib/utils";
 
 type PublisherCountryMultiSelectProps = {
   id: string;
@@ -29,6 +30,7 @@ type PublisherCountryMultiSelectProps = {
   language: AppLanguage;
   t: (text: string) => string;
   includeGlobal?: boolean;
+  controlSurfaceClassName?: string;
 };
 
 export function PublisherCountryMultiSelect({
@@ -38,6 +40,7 @@ export function PublisherCountryMultiSelect({
   language,
   t,
   includeGlobal = true,
+  controlSurfaceClassName,
 }: PublisherCountryMultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -70,7 +73,8 @@ export function PublisherCountryMultiSelect({
       ),
     }))
     .filter((group) => group.options.length > 0);
-  const selectedValue = serializeDiscoverOrganizationCountryCodes(selectedCodes);
+  const selectedValue =
+    serializeDiscoverOrganizationCountryCodes(selectedCodes);
   const displayValue = formatDiscoverOrganizationCountries(
     selectedValue,
     language,
@@ -101,7 +105,7 @@ export function PublisherCountryMultiSelect({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className={cn("flex flex-col gap-2", controlSurfaceClassName)}>
       <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
         <div className="relative min-w-0 flex-1">
           <Globe2
@@ -122,7 +126,10 @@ export function PublisherCountryMultiSelect({
           onClick={() => setOpen(true)}
           aria-expanded={open}
           aria-controls={`${id}-country-picker`}
-          className="h-10 justify-between sm:w-44"
+          className={cn(
+            "h-10 justify-between sm:w-44",
+            controlSurfaceClassName && "crm-control-field",
+          )}
         >
           {t("Choose countries")}
           <ChevronDown className="h-4 w-4" />
@@ -154,7 +161,10 @@ export function PublisherCountryMultiSelect({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           id={`${id}-country-picker`}
-          className="overflow-hidden p-0 sm:max-w-5xl"
+          className={cn(
+            "overflow-hidden p-0 sm:max-w-5xl",
+            controlSurfaceClassName,
+          )}
         >
           <DialogHeader className="border-b border-border px-5 py-4">
             <DialogTitle className="font-heading text-xl font-semibold">

@@ -1467,7 +1467,7 @@ function CrmCountrySelect({
       <SelectTrigger id={id} className="w-full">
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="crm-control-dropdown">
         <SelectItem value={emptyValue}>
           {mode === "filter" ? t("All countries") : t("No country")}
         </SelectItem>
@@ -1756,7 +1756,7 @@ function OrganizationDialog({
 
   return (
     <Dialog open={Boolean(state)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="crm-control-surface sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>
             {state?.mode === "edit"
@@ -1845,6 +1845,7 @@ function OrganizationDialog({
                 language={language}
                 t={t}
                 includeGlobal={false}
+                controlSurfaceClassName="crm-control-surface"
               />
             </div>
             <div className="space-y-1.5">
@@ -1858,7 +1859,7 @@ function OrganizationDialog({
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="crm-control-dropdown">
                   {CRM_STATUS_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {t(option.label)}
@@ -2334,7 +2335,10 @@ function EmailComposerDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="sm:max-w-5xl" onKeyDown={handleKeyDown}>
+      <DialogContent
+        className="crm-control-surface sm:max-w-5xl"
+        onKeyDown={handleKeyDown}
+      >
         <DialogHeader>
           <DialogTitle>{t("Send CRM email")}</DialogTitle>
           <DialogDescription>
@@ -2412,7 +2416,7 @@ function EmailComposerDialog({
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="crm-control-dropdown">
                         {!hasTemplates ? (
                           <SelectItem value="no-template">
                             {templatesLoading
@@ -2626,7 +2630,7 @@ function EmailPreviewPanel({
   return (
     <aside
       className={cn(
-        "rounded-xl border border-border/80 bg-white p-4 text-slate-950 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:bg-slate-950 dark:text-slate-50",
+        "rounded-xl border border-border/80 bg-white p-4 text-slate-950 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:border-white/70 dark:bg-black dark:text-white",
         locked && "p-5",
         className,
       )}
@@ -2667,7 +2671,7 @@ function EmailPreviewPanel({
       </div>
       <div
         className={cn(
-          "mt-4 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:bg-slate-900 dark:text-slate-100",
+          "mt-4 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:border dark:border-white/40 dark:bg-black dark:text-white",
           locked && "max-h-[58vh] min-h-96 overflow-y-auto text-base leading-7",
         )}
       >
@@ -2702,7 +2706,7 @@ function AllSentEmailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="crm-control-surface max-h-[92vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>{t("All emails sent")}</DialogTitle>
           <DialogDescription>
@@ -3471,7 +3475,7 @@ function ImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="crm-control-surface max-h-[92vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>{t("Import CRM CSV")}</DialogTitle>
           <DialogDescription>
@@ -5127,7 +5131,7 @@ export function PartnershipCrmWorkbench() {
   }
 
   return (
-    <section className="glass-panel flex flex-col gap-5 px-4 py-4 md:px-5">
+    <section className="glass-panel crm-control-surface flex flex-col gap-5 px-4 py-4 md:px-5">
       <CrmTargetSegmentedControl
         value={targetKind}
         onChange={handleTargetKindChange}
@@ -5239,7 +5243,7 @@ export function PartnershipCrmWorkbench() {
             <Filter className="h-3.5 w-3.5" />
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="crm-control-dropdown">
             <SelectItem value="all">{t("All statuses")}</SelectItem>
             {CRM_STATUS_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
@@ -5274,7 +5278,7 @@ export function PartnershipCrmWorkbench() {
           <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="crm-control-dropdown">
             <SelectItem value="all">{t("All emails")}</SelectItem>
             <SelectItem value="has_email">{t("Has Email")}</SelectItem>
             <SelectItem value="missing_email">{t("Missing Email")}</SelectItem>
@@ -5945,7 +5949,7 @@ export function PartnershipCrmWorkbench() {
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
       >
-        <DialogContent>
+        <DialogContent className="crm-control-surface">
           <DialogHeader>
             <DialogTitle>
               {targetKind === "professionals"
@@ -5998,7 +6002,7 @@ export function PartnershipCrmWorkbench() {
         open={deleteSelectedOpen}
         onOpenChange={(open) => !open && setDeleteSelectedOpen(false)}
       >
-        <DialogContent>
+        <DialogContent className="crm-control-surface">
           <DialogHeader>
             <DialogTitle>
               {targetKind === "professionals"
