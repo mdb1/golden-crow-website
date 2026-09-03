@@ -2055,7 +2055,8 @@ function EmailComposerDialog({
   onLoadMoreTemplates,
   templateActionPending,
   onOverwriteTemplate,
-  onMarkTemplateFavorite,
+  onSetTemplateFavorite,
+  onDeleteTemplate,
   onClose,
   onSend,
   language,
@@ -2073,14 +2074,20 @@ function EmailComposerDialog({
   onOverwriteTemplate: (
     template: PartnershipCrmTemplateRecord,
     body: string,
-  ) => void;
-  onMarkTemplateFavorite: (template: PartnershipCrmTemplateRecord) => void;
+  ) => Promise<PartnershipCrmTemplateRecord>;
+  onSetTemplateFavorite: (
+    template: PartnershipCrmTemplateRecord,
+    isFavorite: boolean,
+  ) => Promise<PartnershipCrmTemplateRecord>;
+  onDeleteTemplate: (template: PartnershipCrmTemplateRecord) => Promise<void>;
   onClose: () => void;
   onSend: (state: EmailState) => void;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
   const [email, setEmail] = useState<EmailState | null>(null);
+  const [templateToast, setTemplateToast] =
+    useState<ActionToastState | null>(null);
   const emailTargetKeyRef = useRef<string | null>(null);
   const templateGroups = useMemo(
     () => crmTemplateGroupsForTarget(templates, organization, targetKind),
@@ -2092,6 +2099,7 @@ function EmailComposerDialog({
     if (!organization || !open) {
       emailTargetKeyRef.current = null;
       setEmail(null);
+      setTemplateToast(null);
       return;
     }
 
@@ -2130,6 +2138,19 @@ function EmailComposerDialog({
       };
     });
   }, [open, orderedTemplates, organization, targetKind]);
+
+  useEffect(() => {
+    if (!templateToast) {
+      return;
+    }
+
+    const timeout = window.setTimeout(
+      () => setTemplateToast(null),
+      templateToast.durationMs ?? (templateToast.tone === "error" ? 5000 : 2600),
+    );
+
+    return () => window.clearTimeout(timeout);
+  }, [templateToast]);
 
   function update(patch: Partial<EmailState>) {
     setEmail((current) => (current ? { ...current, ...patch } : current));
@@ -2178,12 +2199,104 @@ function EmailComposerDialog({
       email.text.trim() &&
       !templateActionPending,
   );
-  const canMarkTemplateFavorite = Boolean(
+  const canToggleTemplateFavorite = Boolean(
     selectedTemplate &&
-      !selectedTemplate.is_favorite &&
       email?.step === "compose" &&
       !templateActionPending,
   );
+  const canDeleteTemplate = Boolean(
+    selectedTemplate && email?.step === "compose" && !templateActionPending,
+  );
+
+  async function handleOverwriteTemplate() {
+    if (!selectedTemplate || !email || !canOverwriteTemplate) {
+      return;
+    }
+
+    try {
+      await onOverwriteTemplate(selectedTemplate, email.text);
+      setTemplateToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("Template overwritten."),
+      });
+    } catch (error) {
+      setTemplateToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to overwrite template."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    }
+  }
+
+  async function handleToggleTemplateFavorite() {
+    if (!selectedTemplate || !canToggleTemplateFavorite) {
+      return;
+    }
+
+    const nextFavorite = !selectedTemplate.is_favorite;
+
+    try {
+      await onSetTemplateFavorite(selectedTemplate, nextFavorite);
+      setTemplateToast({
+        id: Date.now(),
+        tone: "success",
+        message: nextFavorite
+          ? t("Template marked as favorite.")
+          : t("Template removed from favorites."),
+      });
+    } catch (error) {
+      setTemplateToast({
+        id: Date.now(),
+        tone: "error",
+        message: nextFavorite
+          ? t("Unable to mark template as favorite.")
+          : t("Unable to unmark template as favorite."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    }
+  }
+
+  async function handleDeleteTemplate() {
+    if (!selectedTemplate || !canDeleteTemplate) {
+      return;
+    }
+
+    const nextTemplates = orderedTemplates.filter(
+      (template) => template.id !== selectedTemplate.id,
+    );
+    const nextTemplate =
+      nextTemplates[
+        Math.min(Math.max(selectedTemplateIndex, 0), nextTemplates.length - 1)
+      ] ?? null;
+
+    try {
+      await onDeleteTemplate(selectedTemplate);
+      if (nextTemplate) {
+        applyTemplate(nextTemplate.id);
+      } else {
+        update({
+          templateId: "",
+          subject: "",
+          text: "",
+          step: "compose",
+        });
+      }
+      setTemplateToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("Template deleted."),
+      });
+    } catch (error) {
+      setTemplateToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to delete template."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    }
+  }
 
   function changeTemplate(direction: "previous" | "next") {
     if (!canChangeTemplate) {
@@ -2228,6 +2341,33 @@ function EmailComposerDialog({
             {t("Individual outreach only. Review the preview before sending.")}
           </DialogDescription>
         </DialogHeader>
+
+        {templateToast ? (
+          <div
+            role={templateToast.tone === "error" ? "alert" : "status"}
+            aria-live={templateToast.tone === "error" ? "assertive" : "polite"}
+            className={cn(
+              "flex items-start gap-3 rounded-xl border px-3 py-2.5 text-sm shadow-sm",
+              templateToast.tone === "success"
+                ? "border-emerald-300/60 bg-emerald-50 text-emerald-950 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-100"
+                : "border-destructive/30 bg-destructive/8 text-destructive dark:bg-destructive/15",
+            )}
+          >
+            {templateToast.tone === "success" ? (
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-200" />
+            ) : (
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            )}
+            <div className="min-w-0">
+              <p className="font-medium">{templateToast.message}</p>
+              {templateToast.details ? (
+                <p className="mt-0.5 break-words opacity-80">
+                  {templateToast.details}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
         {organization && email ? (
           isPreviewStep ? (
@@ -2404,11 +2544,7 @@ function EmailComposerDialog({
                     type="button"
                     variant="secondary"
                     size="lg"
-                    onClick={() => {
-                      if (selectedTemplate && email) {
-                        onOverwriteTemplate(selectedTemplate, email.text);
-                      }
-                    }}
+                    onClick={() => void handleOverwriteTemplate()}
                     disabled={!canOverwriteTemplate}
                   >
                     <Save className="h-4 w-4" />
@@ -2419,15 +2555,29 @@ function EmailComposerDialog({
                     variant="outline"
                     size="lg"
                     className="border-amber-200 bg-amber-50/70 text-amber-950 hover:border-amber-300 hover:bg-amber-100/80 dark:border-amber-300/30 dark:bg-amber-400/10 dark:text-amber-100 dark:hover:bg-amber-400/15"
-                    onClick={() => {
-                      if (selectedTemplate) {
-                        onMarkTemplateFavorite(selectedTemplate);
-                      }
-                    }}
-                    disabled={!canMarkTemplateFavorite}
+                    onClick={() => void handleToggleTemplateFavorite()}
+                    disabled={!canToggleTemplateFavorite}
                   >
-                    <Star className="h-4 w-4 fill-amber-300 text-amber-500" />
-                    {t("Mark as favorite")}
+                    <Star
+                      className={cn(
+                        "h-4 w-4 text-amber-500",
+                        selectedTemplate?.is_favorite && "fill-amber-300",
+                      )}
+                    />
+                    {selectedTemplate?.is_favorite
+                      ? t("Unmark as favorite")
+                      : t("Mark as favorite")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="border-red-200 bg-red-50/70 text-red-950 hover:border-red-300 hover:bg-red-100/80 dark:border-red-300/30 dark:bg-red-400/10 dark:text-red-100 dark:hover:bg-red-400/15"
+                    onClick={() => void handleDeleteTemplate()}
+                    disabled={!canDeleteTemplate}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {t("Delete template")}
                   </Button>
                   <Button
                     type="button"
@@ -3766,6 +3916,26 @@ export function PartnershipCrmWorkbench() {
     });
   }
 
+  function removeTemplateFromCachedPages(templateId: string) {
+    queryClient.setQueryData<
+      InfiniteData<PartnershipCrmTemplatesPage, string>
+    >([TEMPLATES_QUERY_KEY, "active"], (current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        pages: current.pages.map((page) => ({
+          ...page,
+          templates: page.templates.filter(
+            (template) => template.id !== templateId,
+          ),
+        })),
+      };
+    });
+  }
+
   useEffect(() => {
     const restoredSession = loadCrmImportSession(targetKind);
     if (!restoredSession) {
@@ -3930,29 +4100,23 @@ export function PartnershipCrmWorkbench() {
           ),
         },
       ),
-    onSuccess: (result, variables) => {
+    onSuccess: (result) => {
       replaceTemplateInCachedPages(result.template);
       void queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
       router.refresh();
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        message:
-          typeof variables.body === "string"
-            ? t("Template overwritten.")
-            : t("Template marked as favorite."),
-      });
     },
-    onError: (error, variables) => {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message:
-          typeof variables.body === "string"
-            ? t("Unable to overwrite template.")
-            : t("Unable to mark template as favorite."),
-        details: error instanceof Error ? error.message : undefined,
-      });
+  });
+
+  const deleteEmailTemplateMutation = useMutation({
+    mutationFn: (template: PartnershipCrmTemplateRecord) =>
+      sdkFetch<{ deleted: boolean; templateId: string }>(
+        `/admin/partnership-crm/templates/${encodeURIComponent(template.id)}`,
+        { method: "DELETE" },
+      ),
+    onSuccess: (_result, template) => {
+      removeTemplateFromCachedPages(template.id);
+      void queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
+      router.refresh();
     },
   });
 
@@ -5696,12 +5860,24 @@ export function PartnershipCrmWorkbench() {
         onLoadMoreTemplates={() => {
           void templatesQuery.fetchNextPage();
         }}
-        templateActionPending={updateEmailTemplateMutation.isPending}
+        templateActionPending={
+          updateEmailTemplateMutation.isPending ||
+          deleteEmailTemplateMutation.isPending
+        }
         onOverwriteTemplate={(template, body) => {
-          updateEmailTemplateMutation.mutate({ template, body });
+          return updateEmailTemplateMutation
+            .mutateAsync({ template, body })
+            .then((result) => result.template);
         }}
-        onMarkTemplateFavorite={(template) => {
-          updateEmailTemplateMutation.mutate({ template, isFavorite: true });
+        onSetTemplateFavorite={(template, isFavorite) => {
+          return updateEmailTemplateMutation
+            .mutateAsync({ template, isFavorite })
+            .then((result) => result.template);
+        }}
+        onDeleteTemplate={(template) => {
+          return deleteEmailTemplateMutation
+            .mutateAsync(template)
+            .then(() => undefined);
         }}
         onClose={() => setEmailOpen(false)}
         onSend={(email) => {

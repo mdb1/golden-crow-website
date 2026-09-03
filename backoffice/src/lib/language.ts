@@ -1104,15 +1104,20 @@ const SPANISH_TEXT: Record<string, string> = {
   "Load more templates": "Cargar más plantillas",
   "Overwrite template": "Sobreescribir plantilla",
   "Mark as favorite": "Marcar como favorita",
+  "Unmark as favorite": "Desmarcar como favorita",
   "Template overwritten.": "Plantilla sobreescrita.",
   "Unable to overwrite template.": "No se pudo sobreescribir la plantilla.",
   "Template marked as favorite.": "Plantilla marcada como favorita.",
+  "Template removed from favorites.": "Plantilla desmarcada como favorita.",
   "Unable to mark template as favorite.":
     "No se pudo marcar la plantilla como favorita.",
+  "Unable to unmark template as favorite.":
+    "No se pudo desmarcar la plantilla como favorita.",
   "Template name": "Nombre de plantilla",
   "Template saved.": "Plantilla guardada.",
   "Unable to save template.": "No se pudo guardar la plantilla.",
-  "Delete template": "Eliminar plantilla",
+  "Delete template": "Borrar plantilla",
+  "Template deleted.": "Plantilla borrada.",
   "Unable to delete template.": "No se pudo eliminar la plantilla.",
   "This removes the template from the CRM send flow.":
     "Esto elimina la plantilla del flujo de envío del CRM.",

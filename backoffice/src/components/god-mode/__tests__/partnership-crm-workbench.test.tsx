@@ -770,32 +770,60 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
   it("overwrites and favorites the selected CRM email template from the composer", async () => {
     const user = userEvent.setup();
-    let savedTemplate: PartnershipCrmTemplateRecord = {
-      ...recommendedEmailTemplate,
-      is_favorite: false,
-    };
+    let savedTemplates: PartnershipCrmTemplateRecord[] = [
+      {
+        ...recommendedEmailTemplate,
+        is_favorite: false,
+      },
+      emailTemplates[1],
+    ];
     const updatePayloads: unknown[] = [];
 
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
       const stringPath = String(path);
       if (
         stringPath.startsWith("/admin/partnership-crm/templates/") &&
+        init?.method === "DELETE"
+      ) {
+        const templateId = decodeURIComponent(
+          stringPath.split("/").at(-1) ?? "",
+        );
+        savedTemplates = savedTemplates.filter(
+          (template) => template.id !== templateId,
+        );
+
+        return { deleted: true, templateId };
+      }
+
+      if (
+        stringPath.startsWith("/admin/partnership-crm/templates/") &&
         init?.method === "PUT"
       ) {
         const payload = JSON.parse(String(init.body));
         updatePayloads.push(payload);
-        savedTemplate = {
-          ...savedTemplate,
-          ...payload,
-          id: savedTemplate.id,
-          schemaVersion: savedTemplate.schemaVersion,
-        };
+        const templateId = decodeURIComponent(
+          stringPath.split("/").at(-1) ?? "",
+        );
+        savedTemplates = savedTemplates.map((template) =>
+          template.id === templateId
+            ? {
+                ...template,
+                ...payload,
+                id: template.id,
+                schemaVersion: template.schemaVersion,
+              }
+            : template,
+        );
 
-        return { template: savedTemplate };
+        return {
+          template:
+            savedTemplates.find((template) => template.id === templateId) ??
+            savedTemplates[0],
+        };
       }
 
       if (stringPath.startsWith("/admin/partnership-crm/templates")) {
-        return { templates: [savedTemplate], nextCursor: undefined };
+        return { templates: savedTemplates, nextCursor: undefined };
       }
 
       if (stringPath.includes("/activities")) {
@@ -835,6 +863,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await waitFor(() => {
       expect(updatePayloads).toHaveLength(1);
     });
+    await waitFor(() => {
+      expect(within(dialog).getByText("Template overwritten.")).toBeTruthy();
+    });
     expect(updatePayloads[0]).toEqual(
       expect.objectContaining({
         name: "Recommended lab",
@@ -860,17 +891,57 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     await waitFor(() => {
       expect(
+        within(dialog).getByRole("button", { name: "Unmark as favorite" }),
+      ).toHaveProperty("disabled", false);
+      expect(
+        within(dialog).getByText("Template marked as favorite."),
+      ).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Unmark as favorite" }),
+    );
+
+    await waitFor(() => {
+      expect(updatePayloads).toHaveLength(3);
+    });
+    expect(updatePayloads[2]).toEqual(
+      expect.objectContaining({
+        body: "Reusable edited template body",
+        is_favorite: false,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
         within(dialog).getByRole("button", { name: "Mark as favorite" }),
-      ).toHaveProperty("disabled", true);
+      ).toHaveProperty("disabled", false);
     });
 
     await user.click(within(dialog).getByRole("combobox"));
-    const favoriteOption = await screen.findByRole("option", {
-      name: "Recommended lab",
+    await user.click(
+      await screen.findByRole("option", { name: "Lab follow-up" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
+      ).toBe("Second Delete Me Genomics");
     });
 
-    expect(favoriteOption.className).toContain("bg-amber-50");
-    expect(favoriteOption.querySelector(".lucide-star")).toBeTruthy();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Delete template" }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Template deleted.")).toBeTruthy();
+      expect(
+        (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
+      ).toBe("Recommended Delete Me Genomics");
+    });
+    expect(savedTemplates.map((template) => template.id)).toEqual([
+      "tpl-recommended",
+    ]);
   });
 
   it("switches to the professionals CRM collection and professional fields", async () => {
