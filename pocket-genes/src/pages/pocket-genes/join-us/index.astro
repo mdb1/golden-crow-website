@@ -10,7 +10,7 @@ const pageCopy = {
   en: {
     title: 'Pocket Genes for Organizations | Join for free',
     description: 'Join the Pocket Genes trusted organization network for free.',
-    heroTitle: 'Join our network for free.',
+    heroTitle: 'Join our network\nfor free',
     heroCta: 'I want to join',
     freeBenefitsTitle: 'Everything your organization gets',
     freeBenefitsBody:
@@ -216,7 +216,7 @@ const trustMailSubject = encodeURIComponent(
     <section class="pg-trust-hero pg-pricing-hero">
       <div class="pg-container pg-trust-hero-grid">
         <div class="pg-hero-copy">
-          <h1>{copy.heroTitle}</h1>
+          <h1>{copy.heroTitle.split('\n').map((line) => <span>{line}</span>)}</h1>
           <a class="pg-hero-cta" href="#trusted-organization-meeting">{copy.heroCta}</a>
         </div>
       </div>
@@ -376,6 +376,10 @@ const trustMailSubject = encodeURIComponent(
     line-height: 0.96;
     letter-spacing: 0;
     text-wrap: balance;
+  }
+
+  .pg-pricing-hero h1 span {
+    display: block;
   }
 
   .pg-hero-cta {
