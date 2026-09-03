@@ -550,8 +550,8 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
     --booking-selected-accent-rgb: 15, 118, 110;
   }
 
-  .client-booking-widget[data-context="pocket-genes-home"] {
-    --booking-selected-accent: var(--pg-rose, #e45080);
+  .client-booking-widget[data-context^="pocket-genes"] {
+    --booking-selected-accent: var(--pocket_genes_pink, var(--pg-rose, #e45080));
     --booking-selected-accent-rgb: 228, 80, 128;
   }
 
