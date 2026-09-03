@@ -237,6 +237,11 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
     '16:30',
     '17:00',
   ];
+  const POCKET_GENES_CONTEXT_PREFIX = 'pocket-genes';
+  const POCKET_GENES_SLOT_FILTER_SEED_PREFIX = 'pocket-genes-booking';
+  const SLOT_FILTER_START_MINUTES = 11 * 60;
+  const SLOT_FILTER_END_MINUTES = 17 * 60;
+  const HIDDEN_SLOT_RATIO = 0.5;
 
   function getBuenosAiresToday() {
     const parts = new Intl.DateTimeFormat('en-US', {
@@ -320,6 +325,46 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
     return `${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`;
   }
 
+  function timeToMinutes(time) {
+    const [hour, minute] = time.split(':').map(Number);
+    return hour * 60 + minute;
+  }
+
+  function isSlotInDeterministicFilterWindow(time) {
+    const minutes = timeToMinutes(time);
+    return minutes >= SLOT_FILTER_START_MINUTES && minutes <= SLOT_FILTER_END_MINUTES;
+  }
+
+  function hashStringToSeed(value) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  function createSeededRandom(seed) {
+    let value = seed >>> 0;
+    return () => {
+      value = (value + 0x6d2b79f5) >>> 0;
+      let randomValue = value;
+      randomValue = Math.imul(randomValue ^ (randomValue >>> 15), randomValue | 1);
+      randomValue ^= randomValue + Math.imul(randomValue ^ (randomValue >>> 7), randomValue | 61);
+      return ((randomValue ^ (randomValue >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function shuffleWithSeed(values, seed) {
+    const shuffled = [...values];
+    const random = createSeededRandom(seed);
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(random() * (index + 1));
+      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+    }
+    return shuffled;
+  }
+
   function toBuenosAiresIso(dayKey, time) {
     return new Date(`${dayKey}T${time}:00-03:00`).toISOString();
   }
@@ -331,6 +376,11 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
     const copy = JSON.parse(root.dataset.copy || '{}');
     const sdkUrl = root.dataset.sdkUrl || 'https://golden-crow-sdk.vercel.app';
     const context = root.dataset.context || 'general';
+    const normalizedContext = context.toLowerCase();
+    const normalizedPath = window.location.pathname.toLowerCase();
+    const shouldFilterPocketGenesSlots =
+      normalizedContext.startsWith(POCKET_GENES_CONTEXT_PREFIX) ||
+      /(^|\/)pocket-genes(\/|$)/.test(normalizedPath);
     const minDate = firstAvailableDate(addDays(getBuenosAiresToday(), 1));
     let selectedDate = minDate;
     let selectedTime = SLOT_TIMES[0];
@@ -358,6 +408,28 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
       });
       backButton?.toggleAttribute('hidden', step === 'calendar');
       root.dataset.step = step;
+    }
+
+    function availableSlotTimesForDate(date) {
+      if (!shouldFilterPocketGenesSlots) return SLOT_TIMES;
+
+      const dateSeed = hashStringToSeed(`${POCKET_GENES_SLOT_FILTER_SEED_PREFIX}:${dateKey(date)}`);
+      const candidateSlots = SLOT_TIMES.filter(isSlotInDeterministicFilterWindow);
+      const hiddenSlotCount = Math.round(candidateSlots.length * HIDDEN_SLOT_RATIO);
+      const hiddenSlots = new Set(
+        shuffleWithSeed(candidateSlots, dateSeed).slice(0, hiddenSlotCount),
+      );
+      const availableSlots = SLOT_TIMES.filter((time) => !hiddenSlots.has(time));
+
+      return availableSlots.length > 0 ? availableSlots : SLOT_TIMES;
+    }
+
+    function ensureSelectedTimeIsAvailable() {
+      const availableSlots = availableSlotTimesForDate(selectedDate);
+      if (!availableSlots.includes(selectedTime)) {
+        selectedTime = availableSlots[0] || SLOT_TIMES[0];
+      }
+      return availableSlots;
     }
 
     function updateSummary(includeTime = false) {
@@ -408,6 +480,7 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
             selectedDate = date;
             updateSummary(false);
             renderCalendar();
+            renderTimes();
           });
         }
         daysGrid.appendChild(element);
@@ -417,7 +490,7 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
     function renderTimes() {
       if (!timesList) return;
       timesList.textContent = '';
-      SLOT_TIMES.forEach((time) => {
+      ensureSelectedTimeIsAvailable().forEach((time) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'booking-time-button';
@@ -465,6 +538,14 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
 
       const data = new FormData(form);
       const dayKey = dateKey(selectedDate);
+      const availableSlots = availableSlotTimesForDate(selectedDate);
+      if (!availableSlots.includes(selectedTime)) {
+        selectedTime = availableSlots[0] || SLOT_TIMES[0];
+        updateSummary(false);
+        renderTimes();
+        setStep('calendar');
+        return;
+      }
       const endTime = addMinutesToTime(selectedTime, 30);
       const payload = {
         source: {
