@@ -255,11 +255,6 @@ const trustMailSubject = encodeURIComponent(
     <section class="pg-section-tight pg-trust-contact" aria-labelledby="pg-trust-contact-title">
       <div class="pg-container">
         <div class="pg-trust-contact-band">
-          <div class="pg-contact-orbits" aria-hidden="true">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
           <div class="pg-contact-main">
             <p class="pg-eyebrow">{copy.contactEyebrow}</p>
             <h2 id="pg-trust-contact-title">{copy.contactTitle}</h2>
@@ -402,15 +397,20 @@ const trustMailSubject = encodeURIComponent(
     transform: translateY(-1px);
   }
 
-  .pg-free-benefits {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
-    background:
+  .pg-free-benefits,
+  .pg-trust-contact {
+    --pg-join-blue-background:
       linear-gradient(116deg, transparent 0 34%, rgba(255, 255, 255, 0.08) 34% 35%, transparent 35% 54%, rgba(125, 228, 215, 0.1) 54% 55%, transparent 55%),
       repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 92px),
       linear-gradient(132deg, #141a45 0%, #172033 42%, #29318b 67%, #0d6d70 100%),
       linear-gradient(90deg, rgba(228, 80, 128, 0.28), rgba(20, 149, 143, 0.2));
+  }
+
+  .pg-free-benefits {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: var(--pg-join-blue-background);
     color: #ffffff;
     padding-top: 112px;
   }
@@ -712,9 +712,9 @@ const trustMailSubject = encodeURIComponent(
   }
 
   .pg-trust-contact {
-    background:
-      radial-gradient(circle at 10% 0%, rgba(20, 149, 143, 0.13), transparent 34%),
-      linear-gradient(180deg, #ffffff 0%, #eef8f7 100%);
+    margin-top: -1px;
+    background: var(--pg-join-blue-background);
+    color: #ffffff;
   }
 
   .pg-trust-contact-band {
@@ -726,85 +726,19 @@ const trustMailSubject = encodeURIComponent(
     align-items: center;
     min-height: 330px;
     overflow: hidden;
-    border: 1px solid rgba(125, 228, 215, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 8px;
-    background:
-      radial-gradient(circle at 0% 0%, rgba(41, 49, 139, 0.48), transparent 34%),
-      radial-gradient(circle at 24% 24%, rgba(77, 102, 214, 0.2), transparent 32%),
-      radial-gradient(circle at 78% 12%, rgba(60, 94, 199, 0.18), transparent 26%),
-      linear-gradient(135deg, #141a45 0%, #172033 48%, #0d3d49 100%);
+    background: rgba(255, 255, 255, 0.08);
     padding: clamp(26px, 5vw, 54px);
     color: #ffffff;
-    box-shadow:
-      0 34px 80px rgba(23, 32, 51, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
   }
 
-  .pg-trust-contact-band::before {
-    content: "";
-    position: absolute;
-    inset: -1px;
-    z-index: 0;
-    background:
-      linear-gradient(110deg, transparent 0 34%, rgba(255, 255, 255, 0.16) 46%, transparent 62%),
-      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 72px);
-    opacity: 0.55;
-    pointer-events: none;
-    transform: translateX(-58%);
-    animation: contactSweep 7.5s ease-in-out infinite;
-  }
-
+  .pg-trust-contact-band::before,
   .pg-trust-contact-band::after {
-    content: "";
-    position: absolute;
-    inset: auto -12% -44% 34%;
-    z-index: 0;
-    height: 260px;
-    border-radius: 999px;
-    background: radial-gradient(circle, rgba(20, 149, 143, 0.48), transparent 68%);
-    filter: blur(20px);
-    opacity: 0.72;
-    pointer-events: none;
-  }
-
-  .pg-contact-orbits {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-  }
-
-  .pg-contact-orbits span {
-    position: absolute;
-    border: 1px solid rgba(125, 228, 215, 0.28);
-    border-radius: 999px;
-    opacity: 0.72;
-    animation: floatSignal 8s ease-in-out infinite;
-  }
-
-  .pg-contact-orbits span:nth-child(1) {
-    width: 190px;
-    height: 190px;
-    top: -74px;
-    right: 17%;
-  }
-
-  .pg-contact-orbits span:nth-child(2) {
-    width: 330px;
-    height: 330px;
-    right: -74px;
-    bottom: -152px;
-    border-color: rgba(88, 112, 230, 0.22);
-    animation-delay: -2.5s;
-  }
-
-  .pg-contact-orbits span:nth-child(3) {
-    width: 124px;
-    height: 124px;
-    left: 43%;
-    bottom: 28px;
-    border-color: rgba(33, 118, 174, 0.34);
-    animation-delay: -5s;
+    content: none;
   }
 
   .pg-contact-main,
@@ -849,10 +783,8 @@ const trustMailSubject = encodeURIComponent(
   .pg-contact-route {
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.18);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
   }
 
   .pg-contact-email {
@@ -984,27 +916,6 @@ const trustMailSubject = encodeURIComponent(
     color: rgba(255, 255, 255, 0.72);
     font-size: 0.94rem;
     line-height: 1.4;
-  }
-
-  @keyframes contactSweep {
-    0%,
-    22% {
-      transform: translateX(-58%);
-    }
-    55%,
-    100% {
-      transform: translateX(58%);
-    }
-  }
-
-  @keyframes floatSignal {
-    0%,
-    100% {
-      transform: translate3d(0, 0, 0) scale(1);
-    }
-    50% {
-      transform: translate3d(10px, -12px, 0) scale(1.04);
-    }
   }
 
   @keyframes pulseDot {
@@ -1148,8 +1059,6 @@ const trustMailSubject = encodeURIComponent(
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .pg-trust-contact-band::before,
-    .pg-contact-orbits span,
     .pg-route-marker::before {
       animation: none;
     }
