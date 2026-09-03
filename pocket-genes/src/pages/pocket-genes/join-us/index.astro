@@ -443,8 +443,8 @@ const trustMailSubject = encodeURIComponent(
   }
 
   .pg-benefits-package {
-    border-top: 4px solid var(--pg-teal);
-    background: linear-gradient(180deg, #ffffff 0%, #f4fbfa 100%);
+    border-top: 4px solid transparent;
+    background: transparent;
     padding: 28px 0 0;
   }
 
@@ -459,13 +459,13 @@ const trustMailSubject = encodeURIComponent(
     grid-template-columns: 48px minmax(0, 1fr);
     gap: 14px;
     min-height: 150px;
-    border-top: 1px solid var(--pg-border);
+    border-top: 1px solid transparent;
     padding: 22px 20px;
   }
 
   .pg-benefit-item:nth-child(3n + 2),
   .pg-benefit-item:nth-child(3n + 3) {
-    border-left: 1px solid var(--pg-border);
+    border-left: 1px solid transparent;
   }
 
   .pg-benefit-icon {
@@ -682,13 +682,13 @@ const trustMailSubject = encodeURIComponent(
 
   .pg-benefit-item p {
     margin: 7px 0 0;
-    color: var(--pg-ink-soft);
+    color: rgba(255, 255, 255, 0.76);
   }
 
   .pg-benefit-item small {
     display: block;
     margin-top: 7px;
-    color: var(--pg-muted);
+    color: #7de4d7;
     font-size: 0.82rem;
     font-weight: 760;
   }
@@ -699,14 +699,14 @@ const trustMailSubject = encodeURIComponent(
     gap: 16px;
     align-items: center;
     justify-content: space-between;
-    border-top: 1px solid var(--pg-border);
+    border-top: 1px solid transparent;
     padding: 22px 20px 0;
   }
 
   .pg-benefits-close p {
     max-width: 640px;
     margin: 0;
-    color: var(--pg-ink);
+    color: #ffffff;
     font-size: 1.05rem;
     font-weight: 850;
   }
