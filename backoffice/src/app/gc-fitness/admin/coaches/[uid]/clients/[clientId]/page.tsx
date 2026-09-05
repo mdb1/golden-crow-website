@@ -21,6 +21,7 @@ import { listProgressPhotosForClientAsAdmin } from "@/lib/gc-fitness/progress-ph
 import {
   listClientAssignmentsForAdmin,
   listClientHabitsForAdmin,
+  listClientNutritionForAdmin,
 } from "@/lib/gc-fitness/admin-actions";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { Badge } from "@/components/ui/badge";
@@ -72,12 +73,14 @@ export default async function AdminCoachClientPage({
   let photos: Awaited<ReturnType<typeof listProgressPhotosForClientAsAdmin>>;
   let assignments: Awaited<ReturnType<typeof listClientAssignmentsForAdmin>>;
   let habits: Awaited<ReturnType<typeof listClientHabitsForAdmin>>;
+  let nutrition: Awaited<ReturnType<typeof listClientNutritionForAdmin>>;
   try {
-    [logs, photos, assignments, habits] = await Promise.all([
+    [logs, photos, assignments, habits, nutrition] = await Promise.all([
       listRecentLogsForClientAsAdmin(uid, clientId),
       listProgressPhotosForClientAsAdmin(uid, clientId),
       listClientAssignmentsForAdmin(uid, clientId),
       listClientHabitsForAdmin(uid, clientId),
+      listClientNutritionForAdmin(uid, clientId),
     ]);
   } catch {
     // Client doesn't exist or doesn't belong to this coach.
@@ -269,6 +272,96 @@ export default async function AdminCoachClientPage({
                       </TableCell>
                       <TableCell>
                         {h.deleted ? (
+                          <Badge variant="secondary">deleted</Badge>
+                        ) : (
+                          <Badge variant="success">active</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/*
+        Nutrition (#949-adjacent). This page fetched and rendered exactly four things —
+        recent activity, workout assignments, habits and progress photos — and never
+        nutrition. Not for one client: for EVERY client, because there was no code path.
+        So the one surface an operator opens to answer "what is going on with this person"
+        was silent about the half of the product that fails QUIETLY: a phase that expired
+        and was never replaced shows up nowhere else, it just makes adherence stop moving.
+
+        The numbers come from the same loader the coach's roster column and the coach's
+        client profile use, so the three surfaces cannot print three different adherence
+        figures for the same week.
+      */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl">Nutrition</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {nutrition.hasActivePlan ? (
+              <Badge variant="success">active phase</Badge>
+            ) : nutrition.neverHadPlan ? (
+              <Badge variant="secondary">never assigned</Badge>
+            ) : (
+              /* The state this card exists for: they HAD a phase and nobody loaded the
+                 next one. Invisible on every other column. */
+              <Badge variant="destructive">no active phase</Badge>
+            )}
+            {nutrition.activePlanName ? (
+              <span className="text-sm">{nutrition.activePlanName}</span>
+            ) : null}
+            {nutrition.activePlanEndsOn ? (
+              <span className="text-xs text-muted-foreground">
+                ends {nutrition.activePlanEndsOn}
+              </span>
+            ) : null}
+            <span className="text-sm text-muted-foreground">
+              {/* `null` is NOT 0. Null means nobody asked anything of this client in the
+                  window; zero means they were asked and did not comply. Printing the first
+                  as "0%" sends an operator to have the wrong conversation. */}
+              7-day adherence:{" "}
+              {nutrition.percent7d === null ? (
+                <span title="Nothing was asked in the last 7 days">n/a</span>
+              ) : (
+                `${nutrition.percent7d}%`
+              )}
+            </span>
+          </div>
+
+          {nutrition.phases.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No nutrition phases assigned yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Phase</TableHead>
+                    <TableHead>Starts</TableHead>
+                    <TableHead>Ends</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {nutrition.phases.map((phase) => (
+                    <TableRow key={phase.id}>
+                      <TableCell>{phase.name || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {phase.startsOn}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {/* Open-ended is a real, intentional shape — not missing data. */}
+                        {phase.endsOn ?? "open-ended"}
+                      </TableCell>
+                      <TableCell>
+                        {phase.deleted ? (
                           <Badge variant="secondary">deleted</Badge>
                         ) : (
                           <Badge variant="success">active</Badge>
