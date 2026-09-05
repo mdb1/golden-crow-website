@@ -7,10 +7,21 @@ import {
   type DiscoverOrganizationCategoryKey,
 } from "./discover-publisher-categories";
 
-export type DiscoverOrganizationStatus = "active" | "inactive" | "archived";
+export type DiscoverOrganizationStatus =
+  | "active"
+  | "inactive"
+  | "archived"
+  | "pending_approval";
 export type DiscoverOrganizationType = DiscoverOrganizationCategoryKey;
 export type DiscoverIndividualStatus = DiscoverOrganizationStatus;
 export type DiscoverIndividualType = DiscoverIndividualCategoryKey;
+export type DiscoverGeneticReportCategory =
+  | "reproductive"
+  | "ophthalmics"
+  | "full_genome"
+  | "raw_pdf"
+  | "raw_vcf"
+  | "other";
 export type DiscoverPublisherSocialKey =
   | "facebook"
   | "twitter"
@@ -63,6 +74,8 @@ export interface DiscoverOrganizationRecord {
   organizationType?: string;
   color_hex?: string;
   verified: boolean;
+  is_genetic_report_provider: boolean;
+  genetic_report_category: DiscoverGeneticReportCategory | null;
   contactEmail?: string;
   internalNotes?: string;
   createdAt: string;
@@ -183,7 +196,20 @@ export const DISCOVER_ORGANIZATION_STATUS_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
   { value: "archived", label: "Archived" },
+  { value: "pending_approval", label: "Pending approval" },
 ] as const;
+
+export const DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS = [
+  { value: "reproductive", label: "Reproductive" },
+  { value: "ophthalmics", label: "Ophthalmics" },
+  { value: "full_genome", label: "Full genome" },
+  { value: "raw_pdf", label: "Raw PDF" },
+  { value: "raw_vcf", label: "Raw VCF" },
+  { value: "other", label: "Other" },
+] as const satisfies readonly {
+  value: DiscoverGeneticReportCategory;
+  label: string;
+}[];
 
 export const DISCOVER_ORGANIZATION_TYPE_OPTIONS =
   DISCOVER_ORGANIZATION_CATEGORY_OPTIONS;
@@ -626,6 +652,20 @@ export function discoverOrganizationStatusLabel(
     DISCOVER_ORGANIZATION_STATUS_OPTIONS.find(
       (option) => option.value === status,
     )?.label ?? status
+  );
+}
+
+export function discoverGeneticReportCategoryLabel(
+  category: DiscoverGeneticReportCategory | null | undefined,
+) {
+  if (!category) {
+    return "No genetic report category";
+  }
+
+  return (
+    DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS.find(
+      (option) => option.value === category,
+    )?.label ?? category
   );
 }
 

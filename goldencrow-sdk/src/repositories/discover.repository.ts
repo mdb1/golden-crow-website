@@ -16,6 +16,7 @@ import type {
   DiscoverFeedItemRecord,
   DiscoverFeedStatus,
   DiscoverFeedType,
+  DiscoverGeneticReportCategory,
   DiscoverIndividualRecord,
   DiscoverIndividualStatus,
   DiscoverListPage,
@@ -309,6 +310,15 @@ const ORGANIZATION_STATUSES = new Set<DiscoverOrganizationStatus>([
   "active",
   "inactive",
   "archived",
+  "pending_approval",
+]);
+const GENETIC_REPORT_CATEGORIES = new Set<DiscoverGeneticReportCategory>([
+  "reproductive",
+  "ophthalmics",
+  "full_genome",
+  "raw_pdf",
+  "raw_vcf",
+  "other",
 ]);
 const FEED_TYPES = new Set<DiscoverFeedType>(FEED_TYPE_VALUES);
 const FEED_STATUSES = new Set<DiscoverFeedStatus>([
@@ -382,6 +392,8 @@ type OrganizationInput = {
   color_hex?: unknown;
   colorHex?: unknown;
   verified?: unknown;
+  is_genetic_report_provider?: unknown;
+  genetic_report_category?: unknown;
   contactEmail?: unknown;
   internalNotes?: unknown;
 };
@@ -1019,6 +1031,9 @@ function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationR
   const organizationType = discoverOrganizationCategoryProvider.normalizeCsv(
     normalizeOptionalString(data.organizationType),
   );
+  const geneticReportCategory = readGeneticReportCategory(
+    data.genetic_report_category,
+  );
 
   return {
     id: doc.id,
@@ -1034,6 +1049,8 @@ function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationR
     organizationType: organizationType || undefined,
     color_hex: readHexColor(data.color_hex ?? data.colorHex),
     verified: data.verified === true,
+    is_genetic_report_provider: data.is_genetic_report_provider === true,
+    genetic_report_category: geneticReportCategory,
     contactEmail: normalizeOptionalString(data.contactEmail),
     internalNotes: normalizeOptionalString(data.internalNotes),
     createdAt: timestampToIso(data.createdAt) ?? "",
@@ -1272,6 +1289,27 @@ function normalizeIndividualType(value: unknown): string | undefined {
   return discoverIndividualCategoryProvider.normalizeCsv(normalized) || undefined;
 }
 
+function readGeneticReportCategory(value: unknown): DiscoverGeneticReportCategory | null {
+  return GENETIC_REPORT_CATEGORIES.has(value as DiscoverGeneticReportCategory)
+    ? (value as DiscoverGeneticReportCategory)
+    : null;
+}
+
+function normalizeGeneticReportCategory(
+  value: unknown,
+): DiscoverGeneticReportCategory | null {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return null;
+  }
+
+  if (!GENETIC_REPORT_CATEGORIES.has(normalized as DiscoverGeneticReportCategory)) {
+    throw new AdminRepositoryError("Use a valid genetic report category.", 400);
+  }
+
+  return normalized as DiscoverGeneticReportCategory;
+}
+
 function organizationDocument(input: OrganizationInput, context: AdminContext) {
   const name = normalizeRequiredString(input.name, "Organization name");
 
@@ -1288,6 +1326,10 @@ function organizationDocument(input: OrganizationInput, context: AdminContext) {
     organizationType: normalizeOrganizationType(input.organizationType),
     color_hex: normalizeHexColor(input.color_hex ?? input.colorHex, "Organization color") ?? null,
     verified: normalizeBoolean(input.verified),
+    is_genetic_report_provider: normalizeBoolean(input.is_genetic_report_provider),
+    genetic_report_category: normalizeGeneticReportCategory(
+      input.genetic_report_category,
+    ),
     contactEmail: normalizeOptionalEmail(input.contactEmail, "Contact email"),
     internalNotes: normalizeOptionalString(input.internalNotes),
     updatedAt: FieldValue.serverTimestamp(),
@@ -1673,6 +1715,8 @@ export async function updateDiscoverOrganization(
           ...input,
           status: existingRecord.status,
           verified: existingRecord.verified,
+          is_genetic_report_provider: existingRecord.is_genetic_report_provider,
+          genetic_report_category: existingRecord.genetic_report_category,
           internalNotes: existingRecord.internalNotes,
         }
       : input;

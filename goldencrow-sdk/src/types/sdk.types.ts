@@ -625,10 +625,21 @@ export interface ModerationDocumentRecord {
   data: Record<string, unknown>;
 }
 
-export type DiscoverOrganizationStatus = "active" | "inactive" | "archived";
+export type DiscoverOrganizationStatus =
+  | "active"
+  | "inactive"
+  | "archived"
+  | "pending_approval";
 export type DiscoverOrganizationType = string;
 export type DiscoverIndividualStatus = DiscoverOrganizationStatus;
 export type DiscoverIndividualType = string;
+export type DiscoverGeneticReportCategory =
+  | "reproductive"
+  | "ophthalmics"
+  | "full_genome"
+  | "raw_pdf"
+  | "raw_vcf"
+  | "other";
 export type DiscoverPublisherSocialKey =
   | "facebook"
   | "twitter"
@@ -681,6 +692,8 @@ export interface DiscoverOrganizationRecord {
   organizationType?: DiscoverOrganizationType;
   color_hex?: string;
   verified: boolean;
+  is_genetic_report_provider: boolean;
+  genetic_report_category: DiscoverGeneticReportCategory | null;
   contactEmail?: string;
   internalNotes?: string;
   createdAt: string;

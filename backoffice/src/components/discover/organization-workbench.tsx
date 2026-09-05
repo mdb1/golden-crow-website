@@ -25,7 +25,10 @@ import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
 import { cn } from "@/lib/utils";
 import {
+  DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS,
   DISCOVER_ORGANIZATION_STATUS_OPTIONS,
+  discoverGeneticReportCategoryLabel,
+  type DiscoverGeneticReportCategory,
   type DiscoverIndividualRecord,
   type DiscoverIndividualStatus,
   type DiscoverOrganizationRecord,
@@ -58,6 +61,8 @@ type OrganizationFormState = {
   individualType: string;
   color_hex: string;
   verified: boolean;
+  is_genetic_report_provider: boolean;
+  genetic_report_category: DiscoverGeneticReportCategory | "";
   contactEmail: string;
   internalNotes: string;
 };
@@ -87,6 +92,8 @@ function toFormState(
     ),
     color_hex: publisher?.color_hex ?? "",
     verified: publisher?.verified ?? false,
+    is_genetic_report_provider: organization?.is_genetic_report_provider ?? false,
+    genetic_report_category: organization?.genetic_report_category ?? "",
     contactEmail: publisher?.contactEmail ?? "",
     internalNotes: publisher?.internalNotes ?? "",
   };
@@ -119,6 +126,14 @@ function payloadFromState(state: OrganizationFormState, publisherKind: Publisher
         ? individualType || undefined
         : undefined,
     color_hex: normalizedColorHex(state.color_hex) || undefined,
+    is_genetic_report_provider:
+      publisherKind === "organization"
+        ? state.is_genetic_report_provider
+        : undefined,
+    genetic_report_category:
+      publisherKind === "organization"
+        ? state.genetic_report_category || null
+        : undefined,
   };
 }
 
@@ -225,6 +240,9 @@ function DiscoverPublisherWorkbench({
   );
   const selectedCategoryDisplayLabels = selectedCategoryLabels.map((label) =>
     t(label),
+  );
+  const geneticReportCategoryLabel = t(
+    discoverGeneticReportCategoryLabel(state.genetic_report_category || null),
   );
 
   function updateState(patch: Partial<OrganizationFormState>) {
@@ -497,6 +515,55 @@ function DiscoverPublisherWorkbench({
               }
               className="md:col-span-2"
             />
+            {!isIndividual ? (
+              <>
+                <label className="flex items-center gap-3 self-end rounded-md border border-border px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={state.is_genetic_report_provider}
+                    onChange={(event) =>
+                      updateState({
+                        is_genetic_report_provider: event.target.checked,
+                      })
+                    }
+                    disabled={!canManageSystemFields}
+                    className="h-4 w-4"
+                  />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="font-medium text-foreground">
+                      {t("Genetic report provider")}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {state.is_genetic_report_provider ? t("Yes") : t("No")}
+                    </span>
+                  </span>
+                </label>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="discover-org-genetic-report-category">
+                    {t("Genetic report category")}
+                  </Label>
+                  <select
+                    id="discover-org-genetic-report-category"
+                    value={state.genetic_report_category}
+                    onChange={(event) =>
+                      updateState({
+                        genetic_report_category:
+                          event.target.value as DiscoverGeneticReportCategory | "",
+                      })
+                    }
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    disabled={!canManageSystemFields}
+                  >
+                    <option value="">{t("No genetic report category")}</option>
+                    {DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {t(option.label)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            ) : null}
             <div className="flex flex-col gap-2 md:col-span-2">
               <Label htmlFor="discover-org-color">{t("Accent color")}</Label>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -698,6 +765,16 @@ function DiscoverPublisherWorkbench({
                   ? selectedCategoryDisplayLabels.join(", ")
                   : t("No categories selected")}
               </div>
+              {!isIndividual ? (
+                <>
+                  <div>
+                    {state.is_genetic_report_provider
+                      ? t("Genetic report provider")
+                      : t("Not a genetic report provider")}
+                  </div>
+                  <div>{geneticReportCategoryLabel}</div>
+                </>
+              ) : null}
               <div className="mt-2 flex items-center gap-2">
                 <span
                   className="h-3.5 w-3.5 rounded-full border border-border"

@@ -44,6 +44,8 @@ const organization: DiscoverOrganizationRecord = {
     "org_patient_advocacy_organizations,org_genetics_research_institutes",
   color_hex: "#123ABC",
   verified: true,
+  is_genetic_report_provider: true,
+  genetic_report_category: "full_genome",
   contactEmail: "hello@example.org",
   internalNotes: "Internal notes",
   createdAt: "2026-08-01T00:00:00.000Z",
@@ -244,6 +246,43 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(screen.getByText("Country coverage").parentElement?.className).toContain(
       "md:col-span-2",
     );
+  });
+
+  it("saves organization genetic report provider fields", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    expect(screen.getByLabelText(/Genetic report provider/)).toBeChecked();
+    expect(screen.getByLabelText("Genetic report category")).toHaveValue(
+      "full_genome",
+    );
+
+    await user.click(screen.getByLabelText(/Genetic report provider/));
+    await user.selectOptions(
+      screen.getByLabelText("Genetic report category"),
+      "raw_vcf",
+    );
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.is_genetic_report_provider).toBe(false);
+    expect(body.genetic_report_category).toBe("raw_vcf");
+  });
+
+  it("does not render organization genetic report fields for individual publishers", () => {
+    renderIndividualWorkbench();
+
+    expect(screen.queryByLabelText("Genetic report provider")).toBeNull();
+    expect(screen.queryByLabelText("Genetic report category")).toBeNull();
   });
 
   it("shows publisher categories translated in Spanish", async () => {

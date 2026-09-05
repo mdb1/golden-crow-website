@@ -74,6 +74,8 @@ const organization: DiscoverOrganizationRecord = {
     "org_patient_advocacy_organizations,org_genetics_research_institutes",
   color_hex: "#123ABC",
   verified: true,
+  is_genetic_report_provider: false,
+  genetic_report_category: null,
   contactEmail: "hello@example.org",
   internalNotes: "",
   createdAt: "2026-08-01T00:00:00.000Z",

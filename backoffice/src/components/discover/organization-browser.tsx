@@ -19,9 +19,13 @@ import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
+import { cn } from "@/lib/utils";
 import {
+  DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS,
   DISCOVER_ORGANIZATION_STATUS_OPTIONS,
+  discoverGeneticReportCategoryLabel,
   discoverOrganizationStatusLabel,
+  type DiscoverGeneticReportCategory,
   type DiscoverIndividualRecord,
   type DiscoverIndividualsPage,
   type DiscoverIndividualStatus,
@@ -44,6 +48,10 @@ type PublisherPage =
 function statusBadgeVariant(status: PublisherStatus) {
   if (status === "active") {
     return "success" as const;
+  }
+
+  if (status === "pending_approval") {
+    return "warning" as const;
   }
 
   if (status === "archived") {
@@ -80,6 +88,14 @@ function publisherPayload(
         : undefined,
     color_hex: publisher.color_hex,
     verified: publisher.verified,
+    is_genetic_report_provider:
+      publisherKind === "organization"
+        ? organization.is_genetic_report_provider ?? false
+        : undefined,
+    genetic_report_category:
+      publisherKind === "organization"
+        ? organization.genetic_report_category ?? null
+        : undefined,
     contactEmail: publisher.contactEmail,
     internalNotes: publisher.internalNotes,
   };
@@ -107,6 +123,10 @@ function DiscoverPublisherBrowser({
   const [publisherType, setPublisherType] = useState("all");
   const [countryCode, setCountryCode] = useState("");
   const [verified, setVerified] = useState<"all" | "verified" | "unverified">("all");
+  const [geneticReportProvider, setGeneticReportProvider] =
+    useState<"all" | "provider" | "not_provider">("all");
+  const [geneticReportCategory, setGeneticReportCategory] =
+    useState<"all" | "none" | DiscoverGeneticReportCategory>("all");
   const [pending, setPending] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const isIndividual = publisherKind === "individual";
@@ -122,6 +142,12 @@ function DiscoverPublisherBrowser({
   const categoryProvider = isIndividual
     ? discoverIndividualCategoryProvider
     : discoverOrganizationCategoryProvider;
+  const filterGridClass = isIndividual
+    ? "lg:grid-cols-[minmax(14rem,1fr)_11rem_13rem_9rem_9rem]"
+    : "lg:grid-cols-[minmax(14rem,1fr)_11rem_13rem_9rem_9rem] xl:grid-cols-[minmax(14rem,1fr)_11rem_13rem_9rem_9rem_12rem_13rem]";
+  const tableGridClass = isIndividual
+    ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_110px_170px_auto]"
+    : "lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)_minmax(0,1fr)_120px_160px_auto]";
 
   function publishersFromPage(page: PublisherPage): PublisherRecord[] {
     return isIndividual
@@ -156,10 +182,35 @@ function DiscoverPublisherBrowser({
         ...translatedTypeLabels,
         publisher.color_hex,
         publisher.contactEmail,
+        !isIndividual && organization.is_genetic_report_provider
+          ? "genetic report provider yes"
+          : !isIndividual
+            ? "not genetic report provider no"
+            : "",
+        !isIndividual
+          ? organization.genetic_report_category
+          : "",
+        !isIndividual
+          ? discoverGeneticReportCategoryLabel(
+              organization.genetic_report_category,
+            )
+          : "",
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
+      const providerMatches =
+        isIndividual ||
+        geneticReportProvider === "all" ||
+        (geneticReportProvider === "provider"
+          ? organization.is_genetic_report_provider
+          : !organization.is_genetic_report_provider);
+      const categoryMatches =
+        isIndividual ||
+        geneticReportCategory === "all" ||
+        (geneticReportCategory === "none"
+          ? !organization.genetic_report_category
+          : organization.genetic_report_category === geneticReportCategory);
 
       return (
         (!normalizedQuery || searchable.includes(normalizedQuery)) &&
@@ -169,12 +220,16 @@ function DiscoverPublisherBrowser({
         (!normalizedCountry ||
           (publisher.countryCode ?? "").toLowerCase().includes(normalizedCountry)) &&
         (verified === "all" ||
-          (verified === "verified" ? publisher.verified : !publisher.verified))
+          (verified === "verified" ? publisher.verified : !publisher.verified)) &&
+        providerMatches &&
+        categoryMatches
       );
     });
   }, [
     categoryProvider,
     countryCode,
+    geneticReportCategory,
+    geneticReportProvider,
     isIndividual,
     language,
     publisherType,
@@ -307,7 +362,7 @@ function DiscoverPublisherBrowser({
           </div>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[minmax(14rem,1fr)_11rem_13rem_9rem_9rem]">
+        <div className={cn("grid gap-3", filterGridClass)}>
           <label className="relative block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -363,13 +418,56 @@ function DiscoverPublisherBrowser({
             <option value="verified">{t("Verified")}</option>
             <option value="unverified">{t("Unverified")}</option>
           </select>
+          {!isIndividual ? (
+            <>
+              <select
+                value={geneticReportProvider}
+                onChange={(event) =>
+                  setGeneticReportProvider(
+                    event.target.value as "all" | "provider" | "not_provider",
+                  )
+                }
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="all">{t("All report providers")}</option>
+                <option value="provider">{t("Report providers only")}</option>
+                <option value="not_provider">{t("Non-providers")}</option>
+              </select>
+              <select
+                value={geneticReportCategory}
+                onChange={(event) =>
+                  setGeneticReportCategory(
+                    event.target.value as
+                      | "all"
+                      | "none"
+                      | DiscoverGeneticReportCategory,
+                  )
+                }
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="all">{t("All report categories")}</option>
+                <option value="none">{t("No genetic report category")}</option>
+                {DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {t(option.label)}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : null}
         </div>
       </div>
 
       <div className="glass-panel overflow-hidden">
-        <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_110px_170px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
+        <div
+          className={cn(
+            "hidden gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid",
+            tableGridClass,
+          )}
+        >
           <span>{isIndividual ? t("Individual publisher") : t("Organization")}</span>
           <span>{t("Categories")}</span>
+          {!isIndividual ? <span>{t("Genetic reports")}</span> : null}
           <span>{t("Status")}</span>
           <span>{t("Updated")}</span>
           <span className="text-right">{t("Action")}</span>
@@ -394,7 +492,10 @@ function DiscoverPublisherBrowser({
             return (
             <div
               key={publisher.id}
-              className="grid gap-3 border-b border-border/70 px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_110px_170px_auto] lg:items-center"
+              className={cn(
+                "grid gap-3 border-b border-border/70 px-4 py-4 last:border-b-0 lg:items-center",
+                tableGridClass,
+              )}
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -442,6 +543,30 @@ function DiscoverPublisherBrowser({
                   </span>
                 )}
               </div>
+
+              {!isIndividual ? (
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge
+                    variant={
+                      organization.is_genetic_report_provider
+                        ? "violet"
+                        : "outline"
+                    }
+                    className="rounded-md"
+                  >
+                    {organization.is_genetic_report_provider
+                      ? t("Genetic report provider")
+                      : t("Not a genetic report provider")}
+                  </Badge>
+                  <Badge variant="secondary" className="rounded-md">
+                    {t(
+                      discoverGeneticReportCategoryLabel(
+                        organization.genetic_report_category,
+                      ),
+                    )}
+                  </Badge>
+                </div>
+              ) : null}
 
               <div>
                 <Badge variant={statusBadgeVariant(publisher.status)}>

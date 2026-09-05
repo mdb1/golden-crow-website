@@ -1,7 +1,13 @@
 /** @jest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
@@ -370,7 +376,6 @@ describe("PartnershipCrmTemplateWorkbench", () => {
   });
 
   it("saves new templates with a canonical category from the picker", async () => {
-    const user = userEvent.setup();
     jest.mocked(sdkFetch).mockResolvedValue({
       template: { ...template, category: "org_genetic_testing_laboratories" },
     });
@@ -382,14 +387,17 @@ describe("PartnershipCrmTemplateWorkbench", () => {
     ).toBeGreaterThan(0);
     expect(screen.queryByPlaceholderText("Category")).toBeNull();
 
-    await user.type(screen.getByLabelText("Template name"), "Lab outreach");
-    await user.type(
-      screen.getByLabelText("Subject"),
-      "Pocket Genes + {{organization_name}}",
-    );
-    await user.type(screen.getByLabelText("Message"), "Hola {{contact_name}}");
-    await user.click(screen.getByLabelText("Favorite"));
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.change(screen.getByLabelText("Template name"), {
+      target: { value: "Lab outreach" },
+    });
+    fireEvent.change(screen.getByLabelText("Subject"), {
+      target: { value: "Pocket Genes + {{organization_name}}" },
+    });
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "Hola {{contact_name}}" },
+    });
+    fireEvent.click(screen.getByLabelText("Favorite"));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(
@@ -413,7 +421,6 @@ describe("PartnershipCrmTemplateWorkbench", () => {
   });
 
   it("saves professional templates with professional audience and categories", async () => {
-    const user = userEvent.setup();
     jest.mocked(sdkFetch).mockResolvedValue({
       template: {
         ...template,
@@ -424,20 +431,21 @@ describe("PartnershipCrmTemplateWorkbench", () => {
 
     renderWithProviders(<PartnershipCrmTemplateWorkbench mode="create" />);
 
-    await user.click(screen.getByRole("tab", { name: /Professionals/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Professionals/ }));
     expect(screen.getAllByText("Clinical Geneticist").length).toBeGreaterThan(
       0,
     );
 
-    await user.type(
-      screen.getByLabelText("Template name"),
-      "Professional outreach",
-    );
-    await user.type(screen.getByLabelText("Subject"), "Pocket Genes + ");
-    await user.paste("{{professional_name}}");
-    await user.click(screen.getByLabelText("Message"));
-    await user.paste("Hola {{first_name}}");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.change(screen.getByLabelText("Template name"), {
+      target: { value: "Professional outreach" },
+    });
+    fireEvent.change(screen.getByLabelText("Subject"), {
+      target: { value: "Pocket Genes + {{professional_name}}" },
+    });
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "Hola {{first_name}}" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(

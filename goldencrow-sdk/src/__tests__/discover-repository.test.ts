@@ -339,6 +339,8 @@ describe("discover repository", () => {
     expect(result.organizations[0]?.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
     );
+    expect(result.organizations[0]?.is_genetic_report_provider).toBe(false);
+    expect(result.organizations[0]?.genetic_report_category).toBeNull();
     expect(result.organizations[0]?.social).toEqual({
       facebook: "https://facebook.com/publisher-one",
       github: "https://github.com/publisher-one",
@@ -417,6 +419,9 @@ describe("discover repository", () => {
       countryCode: "ar, us, ar",
       organizationType:
         "org_patient_advocacy_organizations,org_genetics_research_institutes",
+      status: "pending_approval",
+      is_genetic_report_provider: true,
+      genetic_report_category: "reproductive",
       slug: "manual-slug",
     } as Record<string, unknown>);
     const stored = mockOrganizationDocs.find(
@@ -432,6 +437,9 @@ describe("discover repository", () => {
     expect(organization.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
     );
+    expect(organization.status).toBe("pending_approval");
+    expect(organization.is_genetic_report_provider).toBe(true);
+    expect(organization.genetic_report_category).toBe("reproductive");
     expect(stored?.data.slug).toBe("fundacion-medica-nandu");
     expect(stored?.data.description).toBe("Descripción en español");
     expect(stored?.data.description_en).toBe("English description");
@@ -441,6 +449,9 @@ describe("discover repository", () => {
     expect(stored?.data.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
     );
+    expect(stored?.data.status).toBe("pending_approval");
+    expect(stored?.data.is_genetic_report_provider).toBe(true);
+    expect(stored?.data.genetic_report_category).toBe("reproductive");
   });
 
   it("requires image URLs when creating publishers", async () => {
@@ -505,6 +516,19 @@ describe("discover repository", () => {
     ).rejects.toThrow(
       "Individual publisher category contains invalid keys: org_universities",
     );
+  });
+
+  it("rejects organization genetic report categories outside the fixed list", async () => {
+    const { createDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+
+    await expect(
+      createDiscoverOrganization(fullAdminContext, {
+        name: "Invalid report provider",
+        imageUrl: "https://example.org/invalid-provider.png",
+        genetic_report_category: "fertility",
+      } as Record<string, unknown>),
+    ).rejects.toThrow("Use a valid genetic report category.");
   });
 
   it("creates upcoming events with the compact event payload", async () => {

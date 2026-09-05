@@ -21,7 +21,20 @@ import {
   updateDiscoverOrganization,
 } from "../repositories/discover.repository.js";
 
-const OrganizationStatusSchema = z.enum(["active", "inactive", "archived"]);
+const OrganizationStatusSchema = z.enum([
+  "active",
+  "inactive",
+  "archived",
+  "pending_approval",
+]);
+const GeneticReportCategorySchema = z.enum([
+  "reproductive",
+  "ophthalmics",
+  "full_genome",
+  "raw_pdf",
+  "raw_vcf",
+  "other",
+]);
 const DISCOVER_FEED_TYPES = [
   "news",
   "research_update",
@@ -115,6 +128,8 @@ const OrganizationBodySchema = z.object({
   color_hex: z.string().nullable().optional(),
   colorHex: z.string().nullable().optional(),
   verified: z.boolean().optional(),
+  is_genetic_report_provider: z.boolean().optional(),
+  genetic_report_category: GeneticReportCategorySchema.nullable().optional(),
   contactEmail: z.string().optional(),
   internalNotes: z.string().optional(),
 });
