@@ -28,6 +28,11 @@ import { getTrainerTimezone } from "./trainer-timezone";
 // quick-260714-m57 (#403) — effective per-set type (setType ?? is_warmup) for
 // the "Detalle de series" badges + warmup exclusions.
 import { effectiveSetType, type SetType } from "./set-type";
+// #949 follow-up — the nutrition row's "X de Y" counts one day of marks. Shared
+// with the admin feed rather than recomputed: the two surfaces describing the
+// same document with different denominators is exactly how this row shipped
+// saying "1 de 1" for a day the plan asked for four meals.
+import { summarizeNutritionMarks } from "./activity-feed-model";
 
 export type RecentLogCategory =
   | "habit"
@@ -1444,11 +1449,17 @@ async function buildRecentLogs(params: {
 
   // #949 follow-up — one row per nutrition DAY.
   //
-  // `done` is the ONLY status that counts as compliance: `different` means they ate
-  // something else and `missed` that they did not eat it, and neither scores. The detail
-  // therefore reads "3 de 5", never "5 de 5 registradas" — a day where every meal was
-  // touched but only three were on plan is not a complete day, and printing it as one
-  // would flatter the number the coach is reading.
+  // The detail is "{done} de {expected}", and BOTH halves are deliberate:
+  //
+  //   - `done` is the ONLY status that counts as compliance. `different` means they ate
+  //     something else and `missed` that they did not eat it, and neither scores. A day
+  //     where every meal was touched but only three were on plan is not a complete day,
+  //     and printing it as "5 de 5 registradas" would flatter the number the coach reads.
+  //   - `expected` is the day's FROZEN `targetsSnapshot`, never the size of the `meals`
+  //     map. That map holds only the slots the client TOUCHED, so counting it made the
+  //     denominator follow the numerator and every day read as complete: a day with one
+  //     of four meals marked shipped as "1 de 1". The snapshot also keeps history from
+  //     being re-scored when the coach later edits the phase.
   nutritionSnaps.forEach((snap) => {
     snap.docs.forEach((doc) => {
       const data = doc.data() as Record<string, unknown>;
@@ -1460,11 +1471,24 @@ async function buildRecentLogs(params: {
       const eventAt = asIso(data.updatedAt) ?? asIso(data.createdAt);
       if (!eventAt) return;
 
-      const meals = (data.meals ?? {}) as Record<string, { status?: unknown } | undefined>;
-      const entries = Object.values(meals);
-      const total = entries.length;
-      if (total === 0) return; // a created-but-untouched day is not activity
-      const done = entries.filter((meal) => meal?.status === "done").length;
+      const meals = (data.meals ?? {}) as Record<string, { status: string }>;
+      // The denominator is the day's FROZEN `targetsSnapshot`, not the marks it
+      // received. `meals` only ever contains the slots the client touched, so
+      // counting it made every day read as complete — a day where one of four
+      // meals was marked printed "1 de 1". The snapshot is also what keeps the
+      // past from being re-scored when the coach later edits the phase.
+      const snapshot = data.targetsSnapshot as
+        | { meals?: Array<{ mealId?: unknown }> }
+        | undefined;
+      const snapshotMealIds = (snapshot?.meals ?? [])
+        .map((meal) => (typeof meal?.mealId === "string" ? meal.mealId : null))
+        .filter((id): id is string => id !== null);
+      const marks = summarizeNutritionMarks(meals, snapshotMealIds);
+      // A created-but-untouched day is not activity. The guard is on the MARKS,
+      // not on the expected slots: gating on the snapshot would drop the rows of
+      // any day whose snapshot is missing, which is every log written before the
+      // field existed.
+      if (marks.marked === 0) return;
       const civilDate = typeof data.civilDate === "string" ? data.civilDate : "";
 
       const name = nameByClientId.get(clientId) ?? clientId;
@@ -1476,7 +1500,7 @@ async function buildRecentLogs(params: {
         clientName: name,
         clientPhotoURL: photoByClientId.get(clientId) ?? null,
         title: `${name} registró sus comidas`,
-        detail: `${done} de ${total} comidas según el plan`,
+        detail: `${marks.done} de ${marks.expected} comidas según el plan`,
         workoutLogId: null,
         // Same backdating rule the habit rows use: the app lets people mark a past day, so
         // a row whose civil date differs from the day it was marked must say which day it
