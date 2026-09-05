@@ -4,6 +4,7 @@ export type WizardPublisherKind = 'organization' | 'individual';
 export type WizardCategoryOption = {
   value: string;
   label: string;
+  flag?: string;
 };
 
 export type WizardCountryGroup = {
@@ -393,9 +394,22 @@ function countryLabel(code: string, locale: WizardLocale) {
   return displayNames.of(code) ?? code;
 }
 
+function countryFlag(code: string) {
+  if (code === 'GLOBAL') {
+    return String.fromCodePoint(0x1f310);
+  }
+
+  return code
+    .toUpperCase()
+    .replace(/[A-Z]/g, (char) =>
+      String.fromCodePoint(0x1f1e6 + char.charCodeAt(0) - 65),
+    );
+}
+
 function countryOption(code: string, locale: WizardLocale) {
   return {
     value: code,
+    flag: countryFlag(code),
     label: `${countryLabel(code, locale)} (${code})`,
   };
 }

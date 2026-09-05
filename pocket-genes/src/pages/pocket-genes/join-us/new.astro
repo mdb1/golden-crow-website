@@ -311,9 +311,11 @@ const wizardClientCopy = {
                         type="button"
                         data-country-option={option.value}
                         data-label={option.label}
+                        data-flag={option.flag}
                         aria-pressed="false"
                       >
-                        {option.label}
+                        <span class="pg-country-flag" aria-hidden="true">{option.flag}</span>
+                        <span>{option.label}</span>
                       </button>
                     ))}
                   </div>
@@ -708,7 +710,7 @@ const wizardClientCopy = {
 
     function updateCountryUi() {
       const selected = new Set(state.countries);
-      let selectedLabels = [];
+      let selectedItems = [];
 
       wizardRoot.querySelectorAll('[data-country-option]').forEach((button) => {
         const value = button.getAttribute('data-country-option');
@@ -716,21 +718,42 @@ const wizardClientCopy = {
         button.classList.toggle('is-selected', active);
         button.setAttribute('aria-pressed', active ? 'true' : 'false');
         if (active) {
-          selectedLabels.push(button.getAttribute('data-label') || value);
+          selectedItems.push({
+            label: button.getAttribute('data-label') || value,
+            flag: button.getAttribute('data-flag') || '',
+          });
         }
       });
 
       if (countrySummary) {
-        countrySummary.textContent = selectedLabels.length
-          ? `${selectedLabels.length} ${copy.selectedCountries}`
-          : copy.countryPlaceholder;
+        countrySummary.replaceChildren();
+
+        if (selectedItems.length === 1) {
+          const flag = document.createElement('span');
+          flag.className = 'pg-country-summary-flag';
+          flag.setAttribute('aria-hidden', 'true');
+          flag.textContent = selectedItems[0].flag;
+          const label = document.createElement('span');
+          label.textContent = selectedItems[0].label;
+          countrySummary.append(flag, label);
+        } else {
+          countrySummary.textContent = selectedItems.length
+            ? `${selectedItems.length} ${copy.selectedCountries}`
+            : copy.countryPlaceholder;
+        }
       }
 
       if (countryChips) {
         countryChips.replaceChildren(
-          ...selectedLabels.map((label) => {
+          ...selectedItems.map((item) => {
             const chip = document.createElement('span');
-            chip.textContent = label;
+            const flag = document.createElement('span');
+            flag.className = 'pg-chip-flag';
+            flag.setAttribute('aria-hidden', 'true');
+            flag.textContent = item.flag;
+            const label = document.createElement('span');
+            label.textContent = item.label;
+            chip.append(flag, label);
             return chip;
           }),
         );
@@ -874,6 +897,51 @@ const wizardClientCopy = {
         const label = (button.getAttribute('data-label') || '').toLowerCase();
         button.hidden = Boolean(normalized) && !label.includes(normalized);
       });
+    }
+
+    function positionCountryPopover() {
+      if (!countryPopover || countryPopover.hidden || !countryToggle) return;
+
+      const rect = countryToggle.getBoundingClientRect();
+      const viewportPadding = 16;
+      const gap = 10;
+      const width = Math.min(rect.width, window.innerWidth - viewportPadding * 2);
+      const left = Math.min(
+        Math.max(viewportPadding, rect.left),
+        Math.max(viewportPadding, window.innerWidth - width - viewportPadding),
+      );
+      let top = rect.bottom + gap;
+      let maxHeight = Math.min(460, window.innerHeight - top - viewportPadding);
+
+      if (maxHeight < 240) {
+        const spaceAbove = rect.top - viewportPadding - gap;
+        if (spaceAbove > maxHeight) {
+          maxHeight = Math.min(460, spaceAbove);
+          top = Math.max(viewportPadding, rect.top - gap - maxHeight);
+        }
+      }
+
+      countryPopover.style.setProperty('--country-popover-left', `${left}px`);
+      countryPopover.style.setProperty('--country-popover-top', `${top}px`);
+      countryPopover.style.setProperty('--country-popover-width', `${width}px`);
+      countryPopover.style.setProperty(
+        '--country-popover-max-height',
+        `${Math.max(180, maxHeight)}px`,
+      );
+    }
+
+    function setCountryPopoverOpen(open) {
+      if (!countryPopover || !countryToggle) return;
+
+      countryPopover.hidden = !open;
+      countryToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      countryToggle.closest('.pg-picker-shell')?.classList.toggle('is-open', open);
+      wizardRoot.classList.toggle('has-open-picker', open);
+
+      if (open) {
+        positionCountryPopover();
+        countrySearch?.focus();
+      }
     }
 
     function deterministicColor(seed) {
@@ -1153,20 +1221,19 @@ const wizardClientCopy = {
 
     countryToggle?.addEventListener('click', () => {
       if (!countryPopover) return;
-      countryPopover.hidden = !countryPopover.hidden;
-      countryToggle.setAttribute('aria-expanded', countryPopover.hidden ? 'false' : 'true');
-      if (!countryPopover.hidden) {
-        countrySearch?.focus();
-      }
+      setCountryPopoverOpen(countryPopover.hidden);
     });
 
     document.addEventListener('click', (event) => {
       if (!countryPopover || countryPopover.hidden) return;
-      if (!event.target.closest('.pg-picker-shell')) {
-        countryPopover.hidden = true;
-        countryToggle?.setAttribute('aria-expanded', 'false');
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target?.closest('.pg-picker-shell')) {
+        setCountryPopoverOpen(false);
       }
     });
+
+    window.addEventListener('resize', positionCountryPopover);
+    window.addEventListener('scroll', positionCountryPopover, true);
 
     countrySearch?.addEventListener('input', () => filterCountryOptions(countrySearch.value));
     categorySearch?.addEventListener('input', () => filterCategoryOptions(categorySearch.value));
@@ -1324,7 +1391,7 @@ const wizardClientCopy = {
       var(--wizard-panel);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .pg-wizard-topbar {
@@ -1345,6 +1412,8 @@ const wizardClientCopy = {
   }
 
   .pg-wizard-form {
+    position: relative;
+    z-index: 30;
     width: min(840px, calc(100% - 96px));
     margin: 0 auto;
     padding: 212px 0 172px;
@@ -1476,7 +1545,12 @@ const wizardClientCopy = {
 
   .pg-picker-shell {
     position: relative;
+    z-index: 1;
     max-width: 580px;
+  }
+
+  .pg-picker-shell.is-open {
+    z-index: 3000;
   }
 
   .pg-large-field,
@@ -1507,7 +1581,9 @@ const wizardClientCopy = {
   }
 
   .pg-large-field strong {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     margin-top: 6px;
     color: var(--wizard-ink);
     font-size: 1.18rem;
@@ -1528,9 +1604,14 @@ const wizardClientCopy = {
   }
 
   .pg-picker-popover {
-    position: absolute;
-    z-index: 8;
-    inset: calc(100% + 10px) 0 auto 0;
+    position: fixed;
+    z-index: 5000;
+    left: var(--country-popover-left, 0);
+    top: var(--country-popover-top, 0);
+    width: var(--country-popover-width, 580px);
+    max-height: var(--country-popover-max-height, 460px);
+    display: flex;
+    flex-direction: column;
     border: 1px solid var(--wizard-border);
     border-radius: 18px;
     background: #ffffff;
@@ -1550,7 +1631,9 @@ const wizardClientCopy = {
   }
 
   .pg-country-list {
-    max-height: 360px;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
     overflow: auto;
     padding: 14px 4px 2px;
   }
@@ -1568,6 +1651,9 @@ const wizardClientCopy = {
   }
 
   .pg-country-list button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     width: 100%;
     min-height: 44px;
     border-radius: 12px;
@@ -1589,15 +1675,46 @@ const wizardClientCopy = {
     margin-top: 18px;
   }
 
-  .pg-chip-row span {
+  .pg-chip-row > span {
     display: inline-flex;
     align-items: center;
+    gap: 8px;
     min-height: 38px;
     border-radius: 999px;
     background: #eef8f7;
     color: #0f6f6a;
     padding: 8px 14px;
     font-weight: 650;
+  }
+
+  .pg-country-flag,
+  .pg-country-summary-flag,
+  .pg-chip-flag {
+    width: 24px;
+    flex: 0 0 24px;
+    display: inline-grid;
+    place-items: center;
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+
+  .pg-chip-row .pg-chip-flag {
+    min-height: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    font-weight: inherit;
+  }
+
+  .pg-large-field strong span {
+    color: inherit;
+    line-height: inherit;
+    font-weight: inherit;
+  }
+
+  .pg-large-field strong span:not(.pg-country-summary-flag) {
+    font-size: inherit;
   }
 
   .pg-search-field {
@@ -1801,6 +1918,7 @@ const wizardClientCopy = {
 
   .pg-wizard-actionbar {
     position: absolute;
+    z-index: 20;
     left: 0;
     right: 0;
     bottom: 0;
@@ -2001,7 +2119,7 @@ const wizardClientCopy = {
     }
     to {
       opacity: 1;
-      transform: translateY(0);
+      transform: none;
     }
   }
 
