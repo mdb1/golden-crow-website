@@ -1,0 +1,2115 @@
+---
+import PocketGenesPublicLayout from '../../../layouts/PocketGenesPublicLayout.astro';
+import ClientBookingWidget from '../../../components/ClientBookingWidget.astro';
+import {
+  WIZARD_SOCIAL_OPTIONS,
+  getWizardCategoryOptions,
+  getWizardCountryGroups,
+  getWizardGeneticReportCategoryOptions,
+} from '../../../data/discoverPublisherWizard';
+
+const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
+const locale = isEnglish ? 'en' : 'es';
+const homeHref = isEnglish ? '/en/pocket-genes/home/' : '/pocket-genes/home/';
+const otherLanguageHref = isEnglish
+  ? '/pocket-genes/join-us/new/'
+  : '/en/pocket-genes/join-us/new/';
+const sdkUrl =
+  import.meta.env.PUBLIC_GOLDENCROW_SDK_URL || 'https://golden-crow-sdk.vercel.app';
+const organizationCategories = getWizardCategoryOptions('organization', locale);
+const individualCategories = getWizardCategoryOptions('individual', locale);
+const countryGroups = getWizardCountryGroups(locale);
+const geneticReportCategories = getWizardGeneticReportCategoryOptions(locale);
+
+const pageCopy = {
+  en: {
+    title: 'Create your Pocket Genes profile | Join Pocket Genes',
+    description: 'Request a Pocket Genes publisher profile for your organization or professional work.',
+    sidebarTitle: 'Let’s create your\nPocket Genes profile',
+    sidebarBody: 'Help people discover your work and connect with the right support.',
+    sidebarHint: 'Your request starts as pending approval. Once approved, credentials arrive by email.',
+    signIn: 'Sign in',
+    languageLabel: 'ES',
+    languageAria: 'Open this flow in Spanish',
+    typeTitle: 'Are you an organization or an individual contributor?',
+    typeBody: 'Choose how your profile should appear in Pocket Genes.',
+    organizationLabel: 'Organization',
+    organizationBody: 'Clinics, laboratories, foundations, companies, education providers, or support groups.',
+    individualLabel: 'Individual contributor',
+    individualBody: 'Professionals, researchers, advocates, creators, specialists, or independent experts.',
+    countryTitle: 'Where do you provide services?',
+    countryBody: 'Select every country or region where users can access your work.',
+    countryButtonLabel: 'Countries',
+    countryPlaceholder: 'Choose countries',
+    countrySearch: 'Search countries',
+    countryEmpty: 'No countries match',
+    categoryTitle: 'Choose the categories that best describe your work',
+    categoryBody: 'You can select more than one category if your work spans several areas.',
+    categorySearch: 'Search categories',
+    nameTitle: 'What should we call this profile?',
+    nameBody: 'Use the public name people should recognize in Pocket Genes.',
+    nameLabelOrganization: 'Organization name',
+    nameLabelIndividual: 'Individual name',
+    namePlaceholderOrganization: 'Example Genetics Lab',
+    namePlaceholderIndividual: 'Dr. Alex Rivera',
+    descriptionTitle: 'Describe what people can find through you',
+    descriptionBody: 'Keep it clear and practical. You can add the alternate language too.',
+    descriptionLabel: 'Description in English',
+    descriptionPlaceholder: 'Tell users what you do, who you support, and how you can help.',
+    altDescriptionButton: 'Add Spanish description',
+    altDescriptionLabel: 'Description in Spanish',
+    emailTitle: 'Where should the publishing credentials arrive?',
+    emailBody: 'This email is important. If the request is approved, credentials for publishing and managing the profile will be sent here.',
+    emailLabel: 'Publisher email',
+    emailPlaceholder: 'publisher@example.org',
+    websiteTitle: 'Add a website',
+    websiteBody: 'Optional. Add the page users should open if they want to learn more.',
+    websiteLabel: 'Website URL',
+    websitePlaceholder: 'https://example.org',
+    skipHint: 'You can skip this step.',
+    imageTitle: 'Add an image and profile color',
+    imageBody: 'Optional. Paste an HTTPS image URL and we will suggest a color. You can always pick your own.',
+    imageLabel: 'Image URL',
+    imagePlaceholder: 'https://example.org/profile.png',
+    colorLabel: 'Profile color',
+    colorSuggested: 'Use suggested color',
+    imagePreviewAlt: 'Profile preview',
+    socialTitle: 'Add social media links',
+    socialBody: 'Optional. Add the channels where users can follow or contact you.',
+    socialPlatformLabel: 'Platform',
+    socialUrlLabel: 'URL',
+    socialUrlPlaceholder: 'https://...',
+    addSocial: 'Add social link',
+    providerTitle: 'Do you provide genomic services capable of producing a genetic report?',
+    providerBody: 'This is only for organizations. Tell us if users in the regions you listed can receive a genomic report from your services.',
+    providerYes: 'Yes',
+    providerNo: 'No',
+    reportTitle: 'What type of genetic report do you provide?',
+    reportBody: 'Choose the closest category. If it is not exact, pick Other or Not sure yet.',
+    step: 'Step',
+    of: 'of',
+    back: 'Back',
+    continue: 'Continue',
+    finish: 'Send request',
+    sending: 'Sending...',
+    selectedCountries: 'countries selected',
+    selectedCategories: 'categories selected',
+    required: 'Complete this step to continue.',
+    urlError: 'Use a valid HTTP or HTTPS URL.',
+    imageUrlError: 'Use a valid HTTPS image URL.',
+    emailError: 'Use a valid email address.',
+    submitError: 'We could not send the request. Please try again.',
+    successTitle: 'You did it.',
+    successBody: 'We received your request and will connect with you in the next 24 to 48 hours with the credentials. If we have doubts, we will contact you to set up a meeting.',
+    callTitle: 'Do you want to know more?',
+    callButton: 'Set up a call with us',
+    exploreButton: 'Keep exploring',
+    bookingTitle: 'Pocket Genes publisher call',
+  },
+  es: {
+    title: 'Crear perfil en Pocket Genes | Sumate a Pocket Genes',
+    description: 'Solicitá un perfil publicador de Pocket Genes para tu organización o trabajo profesional.',
+    sidebarTitle: 'Creemos tu perfil\nen Pocket Genes',
+    sidebarBody: 'Ayuda a que las personas descubran tu trabajo y conecten con el apoyo correcto.',
+    sidebarHint: 'Tu solicitud empieza pendiente de aprobación. Cuando se apruebe, las credenciales llegan por email.',
+    signIn: 'Ingresar',
+    languageLabel: 'EN',
+    languageAria: 'Abrir este flujo en inglés',
+    typeTitle: '¿Sos una organización o un contribuidor individual?',
+    typeBody: 'Elegí cómo debería aparecer tu perfil en Pocket Genes.',
+    organizationLabel: 'Organización',
+    organizationBody: 'Clínicas, laboratorios, fundaciones, empresas, educación o grupos de apoyo.',
+    individualLabel: 'Contribuidor individual',
+    individualBody: 'Profesionales, investigadores, referentes, creadores, especialistas o expertos independientes.',
+    countryTitle: '¿Dónde ofrecés tus servicios?',
+    countryBody: 'Seleccioná cada país o región donde las personas puedan acceder a tu trabajo.',
+    countryButtonLabel: 'Países',
+    countryPlaceholder: 'Elegir países',
+    countrySearch: 'Buscar países',
+    countryEmpty: 'No hay países que coincidan',
+    categoryTitle: 'Elegí las categorías que mejor describen tu trabajo',
+    categoryBody: 'Podés elegir más de una categoría si tu trabajo cubre varias áreas.',
+    categorySearch: 'Buscar categorías',
+    nameTitle: '¿Cómo deberíamos llamar a este perfil?',
+    nameBody: 'Usá el nombre público que las personas deberían reconocer en Pocket Genes.',
+    nameLabelOrganization: 'Nombre de la organización',
+    nameLabelIndividual: 'Nombre del contribuidor',
+    namePlaceholderOrganization: 'Laboratorio Genético Ejemplo',
+    namePlaceholderIndividual: 'Dra. Alex Rivera',
+    descriptionTitle: 'Describí qué pueden encontrar las personas',
+    descriptionBody: 'Mantenelo claro y práctico. También podés sumar el idioma alternativo.',
+    descriptionLabel: 'Descripción en español',
+    descriptionPlaceholder: 'Contá qué hacés, a quién acompañás y cómo podés ayudar.',
+    altDescriptionButton: 'Agregar descripción en inglés',
+    altDescriptionLabel: 'Descripción en inglés',
+    emailTitle: '¿A qué email deberían llegar las credenciales?',
+    emailBody: 'Este email es muy importante. Si la solicitud se aprueba, las credenciales para publicar y administrar el perfil van a llegar a esta dirección.',
+    emailLabel: 'Email del publicador',
+    emailPlaceholder: 'publicador@example.org',
+    websiteTitle: 'Sumá una página web',
+    websiteBody: 'Opcional. Agregá la página que las personas deberían abrir si quieren saber más.',
+    websiteLabel: 'URL de la página',
+    websitePlaceholder: 'https://example.org',
+    skipHint: 'Podés saltear este paso.',
+    imageTitle: 'Sumá una imagen y color de perfil',
+    imageBody: 'Opcional. Pegá una URL HTTPS de imagen y sugerimos un color. También podés elegirlo manualmente.',
+    imageLabel: 'URL de imagen',
+    imagePlaceholder: 'https://example.org/perfil.png',
+    colorLabel: 'Color del perfil',
+    colorSuggested: 'Usar color sugerido',
+    imagePreviewAlt: 'Vista previa del perfil',
+    socialTitle: 'Sumá redes sociales',
+    socialBody: 'Opcional. Agregá los canales donde las personas pueden seguirte o contactarte.',
+    socialPlatformLabel: 'Plataforma',
+    socialUrlLabel: 'URL',
+    socialUrlPlaceholder: 'https://...',
+    addSocial: 'Agregar red social',
+    providerTitle: '¿La organización ofrece servicios genómicos capaces de producir un reporte genético?',
+    providerBody: 'Esto aplica solo a organizaciones. Contanos si los usuarios de las regiones que listaste pueden recibir un reporte genómico a partir de tus servicios.',
+    providerYes: 'Sí',
+    providerNo: 'No',
+    reportTitle: '¿Qué categoría de reporte genético ofrecen?',
+    reportBody: 'Elegí la categoría más cercana. Si no es exacta, elegí Otro o No estoy seguro todavía.',
+    step: 'Paso',
+    of: 'de',
+    back: 'Volver',
+    continue: 'Continuar',
+    finish: 'Enviar solicitud',
+    sending: 'Enviando...',
+    selectedCountries: 'países seleccionados',
+    selectedCategories: 'categorías seleccionadas',
+    required: 'Completá este paso para continuar.',
+    urlError: 'Usá una URL HTTP o HTTPS válida.',
+    imageUrlError: 'Usá una URL HTTPS de imagen válida.',
+    emailError: 'Usá un email válido.',
+    submitError: 'No pudimos enviar la solicitud. Intentá nuevamente.',
+    successTitle: 'Listo. Lo lograste.',
+    successBody: 'Recibimos tu solicitud y vamos a contactarte dentro de las próximas 24 a 48 horas con las credenciales. Si tenemos dudas, vamos a escribirte para coordinar una reunión.',
+    callTitle: '¿Querés saber más?',
+    callButton: 'Agendar una llamada con nosotros',
+    exploreButton: 'Seguir explorando',
+    bookingTitle: 'Llamada para publicadores Pocket Genes',
+  },
+} as const;
+
+const copy = pageCopy[locale];
+const wizardClientCopy = {
+  step: copy.step,
+  of: copy.of,
+  continue: copy.continue,
+  finish: copy.finish,
+  sending: copy.sending,
+  back: copy.back,
+  selectedCountries: copy.selectedCountries,
+  selectedCategories: copy.selectedCategories,
+  countryPlaceholder: copy.countryPlaceholder,
+  categorySearch: copy.categorySearch,
+  countryEmpty: copy.countryEmpty,
+  required: copy.required,
+  urlError: copy.urlError,
+  imageUrlError: copy.imageUrlError,
+  emailError: copy.emailError,
+  submitError: copy.submitError,
+  organizationNameLabel: copy.nameLabelOrganization,
+  individualNameLabel: copy.nameLabelIndividual,
+  organizationNamePlaceholder: copy.namePlaceholderOrganization,
+  individualNamePlaceholder: copy.namePlaceholderIndividual,
+  imagePreviewAlt: copy.imagePreviewAlt,
+};
+---
+
+<PocketGenesPublicLayout
+  title={copy.title}
+  description={copy.description}
+  canonicalPath="/pocket-genes/join-us/new"
+  showFooter={false}
+>
+  <main
+    id="main"
+    class="pg-wizard-page"
+    data-publisher-wizard
+    data-locale={locale}
+    data-sdk-url={sdkUrl}
+    data-home-href={homeHref}
+    data-copy={JSON.stringify(wizardClientCopy)}
+  >
+    <aside class="pg-wizard-intro" aria-label="Pocket Genes">
+      <a class="pg-wizard-logo" href={homeHref} aria-label="Pocket Genes">
+        <img src="/pocket-genes/icon_simple.png" alt="" width="52" height="52" />
+      </a>
+      <div class="pg-wizard-intro-copy">
+        <h1>{copy.sidebarTitle.split('\n').map((line) => <span>{line}</span>)}</h1>
+        <p>{copy.sidebarBody}</p>
+        <small>{copy.sidebarHint}</small>
+      </div>
+    </aside>
+
+    <section class="pg-wizard-panel" aria-labelledby="wizard-current-title">
+      <div class="pg-wizard-topbar">
+        <a href={otherLanguageHref} aria-label={copy.languageAria}>{copy.languageLabel}</a>
+        <a href="https://golden-crow-backoffice.vercel.app/login">{copy.signIn}</a>
+      </div>
+
+      <form class="pg-wizard-form" data-wizard-form novalidate>
+        <input
+          class="pg-wizard-honeypot"
+          type="text"
+          name="website"
+          tabindex="-1"
+          autocomplete="off"
+          aria-hidden="true"
+        />
+
+        <div class="pg-wizard-progress" aria-hidden="true">
+          <span data-step-dot></span>
+          <span data-step-dot></span>
+          <span data-step-dot></span>
+          <span data-step-dot></span>
+          <span data-step-dot></span>
+        </div>
+
+        <p class="pg-wizard-step-count" data-step-count></p>
+
+        <div class="pg-wizard-step" data-step-panel="type">
+          <div class="pg-step-heading">
+            <h2 id="wizard-current-title">{copy.typeTitle}</h2>
+            <p>{copy.typeBody}</p>
+          </div>
+          <div class="pg-choice-grid pg-kind-grid">
+            <button type="button" class="pg-choice is-selected" data-kind-option="organization" aria-pressed="true">
+              <span>{copy.organizationLabel}</span>
+              <small>{copy.organizationBody}</small>
+            </button>
+            <button type="button" class="pg-choice" data-kind-option="individual" aria-pressed="false">
+              <span>{copy.individualLabel}</span>
+              <small>{copy.individualBody}</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="pg-wizard-step" data-step-panel="country" hidden>
+          <div class="pg-step-heading">
+            <h2>{copy.countryTitle}</h2>
+            <p>{copy.countryBody}</p>
+          </div>
+          <div class="pg-picker-shell">
+            <button type="button" class="pg-large-field" data-country-toggle aria-expanded="false">
+              <span>{copy.countryButtonLabel}</span>
+              <strong data-country-summary>{copy.countryPlaceholder}</strong>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m6 9 6 6 6-6"></path>
+              </svg>
+            </button>
+            <div class="pg-picker-popover" data-country-popover hidden>
+              <input type="search" data-country-search placeholder={copy.countrySearch} autocomplete="off" />
+              <div class="pg-country-list" data-country-list>
+                {countryGroups.map((group) => (
+                  <div class="pg-country-group">
+                    <p>{group.label}</p>
+                    {group.options.map((option) => (
+                      <button
+                        type="button"
+                        data-country-option={option.value}
+                        data-label={option.label}
+                        aria-pressed="false"
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              <p class="pg-picker-empty" data-country-empty hidden>{copy.countryEmpty}</p>
+            </div>
+          </div>
+          <div class="pg-chip-row" data-country-chips></div>
+        </div>
+
+        <div class="pg-wizard-step" data-step-panel="category" hidden>
+          <div class="pg-step-heading">
+            <h2>{copy.categoryTitle}</h2>
+            <p>{copy.categoryBody}</p>
+          </div>
+          <input class="pg-search-field" type="search" data-category-search placeholder={copy.categorySearch} autocomplete="off" />
+          <div class="pg-category-list" data-category-list="organization">
+            {organizationCategories.map((option) => (
+              <button type="button" data-category-option={option.value} data-label={option.label} aria-pressed="false">
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div class="pg-category-list" data-category-list="individual" hidden>
+            {individualCategories.map((option) => (
+              <button type="button" data-category-option={option.value} data-label={option.label} aria-pressed="false">
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p class="pg-selected-note" data-category-summary></p>
+        </div>
+
+        <div class="pg-wizard-step" data-step-panel="name" hidden>
+          <div class="pg-step-heading">
+            <h2>{copy.nameTitle}</h2>
+            <p>{copy.nameBody}</p>
+          </div>
+          <label class="pg-input-shell">
+            <span data-name-label>{copy.nameLabelOrganization}</span>
+            <input
+              type="text"
+              name="publisherName"
+              data-publisher-name
+              maxlength="180"
+              autocomplete="organization"
+              placeholder={copy.namePlaceholderOrganization}
+            />
+          </label>
+        </div>
+
+        <div class="pg-wizard-step" data-step-panel="description" hidden>
+          <div class="pg-step-heading">
+            <h2>{copy.descriptionTitle}</h2>
+            <p>{copy.descriptionBody}</p>
+          </div>
+          <label class="pg-input-shell pg-textarea-shell">
+            <span>{copy.descriptionLabel}</span>
+            <textarea
+              name="descriptionPrimary"
+              data-description-primary
+              maxlength="5000"
+              rows="7"
+              placeholder={copy.descriptionPlaceholder}
+            ></textarea>
+          </label>
+          <button type="button" class="pg-secondary-action" data-alt-description-toggle>
+            {copy.altDescriptionButton}
+          </button>
+          <label class="pg-input-shell pg-textarea-shell" data-alt-description-field hidden>
+            <span>{copy.altDescriptionLabel}</span>
+            <textarea name="descriptionAlternative" data-description-alternative maxlength="5000" rows="5"></textarea>
+          </label>
+        </div>
+
+        <div class="pg-wizard-step" data-step-panel="email" hidden>
+          <div class="pg-step-heading">
+            <h2>{copy.emailTitle}</h2>
+            <p>{copy.emailBody}</p>
+          </div>
+          <label class="pg-input-shell">
+            <span>{copy.emailLabel}</span>
+            <input
+              type="email"
+              name="contactEmail"
+              data-contact-email
+              maxlength="180"
+              autocomplete="email"
+              placeholder={copy.emailPlaceholder}
+            />
+          </label>
+        </div>
+
+        <div class="pg-wizard-step" data-step-panel="website" hidden>
+          <div class="pg-step-heading">
+            <h2>{copy.websiteTitle}</h2>
+            <p>{copy.websiteBody}</p>
+          </div>
+          <label class="pg-input-shell">
+            <span>{copy.websiteLabel}</span>
+            <input
+              type="url"
+              name="websiteUrl"
+              data-website-url
+              maxlength="1000"
+              placeholder={copy.websitePlaceholder}
+            />
+          </label>
+          <p class="pg-skip-hint">{copy.skipHint}</p>
+        </div>
+
+        <div class="pg-wizard-step" data-step-panel="image" hidden>
+          <div class="pg-step-heading">
+            <h2>{copy.imageTitle}</h2>
+            <p>{copy.imageBody}</p>
+          </div>
+          <div class="pg-image-grid">
+            <div>
+              <label class="pg-input-shell">
+                <span>{copy.imageLabel}</span>
+                <input
+                  type="url"
+                  name="imageUrl"
+                  data-image-url
+                  maxlength="1000"
+                  placeholder={copy.imagePlaceholder}
+                />
+              </label>
+              <p class="pg-skip-hint">{copy.skipHint}</p>
+            </div>
+            <div class="pg-profile-preview" data-profile-preview>
+              <div class="pg-preview-image" data-preview-image>
+                <span>PG</span>
+              </div>
+              <label>
+                <span>{copy.colorLabel}</span>
+                <input type="color" value="#6F3CC3" data-color-input />
+              </label>
+              <button type="button" data-use-suggested-color>{copy.colorSuggested}</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pg-wizard-step" data-step-panel="social" hidden>
+          <div class="pg-step-heading">
+            <h2>{copy.socialTitle}</h2>
+            <p>{copy.socialBody}</p>
+          </div>
+          <div class="pg-social-list" data-social-list></div>
+          <button
+            type="button"
+            class="pg-secondary-action"
+            data-add-social
+            data-platform-label={copy.socialPlatformLabel}
+            data-url-label={copy.socialUrlLabel}
+            data-url-placeholder={copy.socialUrlPlaceholder}
+            data-social-options={JSON.stringify(WIZARD_SOCIAL_OPTIONS)}
+          >
+            {copy.addSocial}
+          </button>
+          <p class="pg-skip-hint">{copy.skipHint}</p>
+        </div>
+
+        <div class="pg-wizard-step" data-step-panel="provider" hidden>
+          <div class="pg-step-heading">
+            <h2>{copy.providerTitle}</h2>
+            <p>{copy.providerBody}</p>
+          </div>
+          <div class="pg-choice-grid pg-answer-grid">
+            <button type="button" class="pg-choice" data-provider-option="true" aria-pressed="false">
+              <span>{copy.providerYes}</span>
+            </button>
+            <button type="button" class="pg-choice" data-provider-option="false" aria-pressed="false">
+              <span>{copy.providerNo}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="pg-wizard-step" data-step-panel="report" hidden>
+          <div class="pg-step-heading">
+            <h2>{copy.reportTitle}</h2>
+            <p>{copy.reportBody}</p>
+          </div>
+          <div class="pg-category-list pg-report-list">
+            {geneticReportCategories.map((option) => (
+              <button
+                type="button"
+                data-report-category-option={option.value}
+                aria-pressed={option.value === '' ? 'true' : 'false'}
+                class:list={[{ 'is-selected': option.value === '' }]}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <p class="pg-wizard-error" data-wizard-error role="alert" hidden></p>
+      </form>
+
+      <div class="pg-wizard-actionbar">
+        <button type="button" class="pg-back-button" data-wizard-back>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19 12H5M12 19l-7-7 7-7"></path>
+          </svg>
+          <span>{copy.back}</span>
+        </button>
+        <button type="button" class="pg-primary-button" data-wizard-next>{copy.continue}</button>
+      </div>
+    </section>
+
+    <section class="pg-wizard-success" data-wizard-success hidden>
+      <span class="pg-success-circle" aria-hidden="true"></span>
+      <div class="pg-success-content">
+        <div class="pg-success-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M20 6 9 17l-5-5"></path>
+          </svg>
+        </div>
+        <h2>{copy.successTitle}</h2>
+        <p>{copy.successBody}</p>
+        <div class="pg-success-actions">
+          <button type="button" data-open-booking>
+            <span>{copy.callTitle}</span>
+            <strong>{copy.callButton}</strong>
+          </button>
+          <a href={homeHref}>{copy.exploreButton}</a>
+        </div>
+        <div class="pg-success-booking" data-success-booking hidden>
+          <ClientBookingWidget
+            context="pocket-genes-join-us-wizard"
+            eventTitle={copy.bookingTitle}
+            brandName="Pocket Genes"
+            emphasizeBrandName={false}
+          />
+        </div>
+      </div>
+    </section>
+  </main>
+</PocketGenesPublicLayout>
+
+<script>
+  const wizardRoot = document.querySelector('[data-publisher-wizard]');
+
+  if (wizardRoot) {
+    const copy = JSON.parse(wizardRoot.getAttribute('data-copy') || '{}');
+    const locale = wizardRoot.getAttribute('data-locale') || 'es';
+    const sdkUrl = wizardRoot.getAttribute('data-sdk-url') || 'https://golden-crow-sdk.vercel.app';
+    const state = {
+      kind: 'organization',
+      countries: [],
+      categories: {
+        organization: [],
+        individual: [],
+      },
+      geneticReportProvider: null,
+      geneticReportCategory: '',
+      currentStep: 0,
+      color: '#6F3CC3',
+      suggestedColor: '#6F3CC3',
+      colorCustomized: false,
+      submitting: false,
+      startedAt: new Date().toISOString(),
+    };
+
+    const form = wizardRoot.querySelector('[data-wizard-form]');
+    const panels = Array.from(wizardRoot.querySelectorAll('[data-step-panel]'));
+    const stepCount = wizardRoot.querySelector('[data-step-count]');
+    const dots = Array.from(wizardRoot.querySelectorAll('[data-step-dot]'));
+    const nextButton = wizardRoot.querySelector('[data-wizard-next]');
+    const backButton = wizardRoot.querySelector('[data-wizard-back]');
+    const errorBox = wizardRoot.querySelector('[data-wizard-error]');
+    const countryToggle = wizardRoot.querySelector('[data-country-toggle]');
+    const countryPopover = wizardRoot.querySelector('[data-country-popover]');
+    const countrySearch = wizardRoot.querySelector('[data-country-search]');
+    const countrySummary = wizardRoot.querySelector('[data-country-summary]');
+    const countryChips = wizardRoot.querySelector('[data-country-chips]');
+    const countryEmpty = wizardRoot.querySelector('[data-country-empty]');
+    const categorySearch = wizardRoot.querySelector('[data-category-search]');
+    const categorySummary = wizardRoot.querySelector('[data-category-summary]');
+    const nameInput = wizardRoot.querySelector('[data-publisher-name]');
+    const nameLabel = wizardRoot.querySelector('[data-name-label]');
+    const descriptionPrimary = wizardRoot.querySelector('[data-description-primary]');
+    const descriptionAlternative = wizardRoot.querySelector('[data-description-alternative]');
+    const altDescriptionToggle = wizardRoot.querySelector('[data-alt-description-toggle]');
+    const altDescriptionField = wizardRoot.querySelector('[data-alt-description-field]');
+    const contactEmail = wizardRoot.querySelector('[data-contact-email]');
+    const websiteUrl = wizardRoot.querySelector('[data-website-url]');
+    const imageUrl = wizardRoot.querySelector('[data-image-url]');
+    const previewImage = wizardRoot.querySelector('[data-preview-image]');
+    const colorInput = wizardRoot.querySelector('[data-color-input]');
+    const useSuggestedColor = wizardRoot.querySelector('[data-use-suggested-color]');
+    const addSocialButton = wizardRoot.querySelector('[data-add-social]');
+    const socialList = wizardRoot.querySelector('[data-social-list]');
+    const success = wizardRoot.querySelector('[data-wizard-success]');
+    const openBooking = wizardRoot.querySelector('[data-open-booking]');
+    const successBooking = wizardRoot.querySelector('[data-success-booking]');
+
+    function visibleSteps() {
+      const steps = ['type', 'country', 'category', 'name', 'description', 'email', 'website', 'image', 'social'];
+
+      if (state.kind === 'organization') {
+        steps.push('provider');
+        if (state.geneticReportProvider === true) {
+          steps.push('report');
+        }
+      }
+
+      return steps;
+    }
+
+    function activeStepKey() {
+      return visibleSteps()[state.currentStep] || 'type';
+    }
+
+    function setError(message) {
+      if (!errorBox) return;
+      errorBox.textContent = message || '';
+      errorBox.hidden = !message;
+    }
+
+    function validUrl(value, httpsOnly = false) {
+      if (!value.trim()) return true;
+      try {
+        const parsed = new URL(value.trim());
+        return httpsOnly
+          ? parsed.protocol === 'https:'
+          : parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }
+
+    function validEmail(value) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+    }
+
+    function selectedCategoryValues() {
+      return state.categories[state.kind] || [];
+    }
+
+    function validateCurrentStep({ silent = false } = {}) {
+      const step = activeStepKey();
+      let message = '';
+
+      if (step === 'country' && state.countries.length === 0) {
+        message = copy.required;
+      } else if (step === 'category' && selectedCategoryValues().length === 0) {
+        message = copy.required;
+      } else if (step === 'name' && !nameInput?.value.trim()) {
+        message = copy.required;
+      } else if (step === 'description' && !descriptionPrimary?.value.trim()) {
+        message = copy.required;
+      } else if (step === 'email') {
+        message = contactEmail?.value.trim() && validEmail(contactEmail.value)
+          ? ''
+          : copy.emailError;
+      } else if (step === 'website' && websiteUrl && !validUrl(websiteUrl.value)) {
+        message = copy.urlError;
+      } else if (step === 'image' && imageUrl && !validUrl(imageUrl.value, true)) {
+        message = copy.imageUrlError;
+      } else if (step === 'social') {
+        const invalidSocial = Array.from(wizardRoot.querySelectorAll('[data-social-url]')).some(
+          (input) => input.value.trim() && !validUrl(input.value),
+        );
+        message = invalidSocial ? copy.urlError : '';
+      } else if (step === 'provider' && state.geneticReportProvider === null) {
+        message = copy.required;
+      }
+
+      if (!silent) {
+        setError(message);
+      }
+
+      return !message;
+    }
+
+    function updateNameCopy() {
+      if (!nameInput || !nameLabel) return;
+
+      if (state.kind === 'organization') {
+        nameLabel.textContent = copy.organizationNameLabel;
+        nameInput.setAttribute('placeholder', copy.organizationNamePlaceholder);
+        nameInput.setAttribute('autocomplete', 'organization');
+      } else {
+        nameLabel.textContent = copy.individualNameLabel;
+        nameInput.setAttribute('placeholder', copy.individualNamePlaceholder);
+        nameInput.setAttribute('autocomplete', 'name');
+      }
+    }
+
+    function updateCountryUi() {
+      const selected = new Set(state.countries);
+      let selectedLabels = [];
+
+      wizardRoot.querySelectorAll('[data-country-option]').forEach((button) => {
+        const value = button.getAttribute('data-country-option');
+        const active = selected.has(value);
+        button.classList.toggle('is-selected', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        if (active) {
+          selectedLabels.push(button.getAttribute('data-label') || value);
+        }
+      });
+
+      if (countrySummary) {
+        countrySummary.textContent = selectedLabels.length
+          ? `${selectedLabels.length} ${copy.selectedCountries}`
+          : copy.countryPlaceholder;
+      }
+
+      if (countryChips) {
+        countryChips.replaceChildren(
+          ...selectedLabels.map((label) => {
+            const chip = document.createElement('span');
+            chip.textContent = label;
+            return chip;
+          }),
+        );
+      }
+    }
+
+    function updateCategoryUi() {
+      const selected = new Set(selectedCategoryValues());
+      wizardRoot.querySelectorAll('[data-category-list]').forEach((list) => {
+        const listKind = list.getAttribute('data-category-list');
+        list.hidden = listKind !== state.kind;
+      });
+
+      wizardRoot.querySelectorAll('[data-category-option]').forEach((button) => {
+        const value = button.getAttribute('data-category-option');
+        const active = selected.has(value);
+        button.classList.toggle('is-selected', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+
+      if (categorySummary) {
+        const count = selectedCategoryValues().length;
+        categorySummary.textContent = count ? `${count} ${copy.selectedCategories}` : '';
+      }
+    }
+
+    function updateProviderUi() {
+      wizardRoot.querySelectorAll('[data-provider-option]').forEach((button) => {
+        const active = String(state.geneticReportProvider) === button.getAttribute('data-provider-option');
+        button.classList.toggle('is-selected', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+
+      wizardRoot.querySelectorAll('[data-report-category-option]').forEach((button) => {
+        const active = state.geneticReportCategory === button.getAttribute('data-report-category-option');
+        button.classList.toggle('is-selected', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    }
+
+    function updateColor(value) {
+      state.color = value;
+      if (colorInput) colorInput.value = value;
+      if (previewImage) {
+        previewImage.style.setProperty('--wizard-preview-color', value);
+      }
+    }
+
+    function renderStep() {
+      const steps = visibleSteps();
+      if (state.currentStep >= steps.length) {
+        state.currentStep = steps.length - 1;
+      }
+
+      const step = activeStepKey();
+      panels.forEach((panel) => {
+        panel.hidden = panel.getAttribute('data-step-panel') !== step;
+      });
+
+      if (stepCount) {
+        stepCount.textContent = `${copy.step} ${state.currentStep + 1} ${copy.of} ${steps.length}`;
+      }
+
+      dots.forEach((dot, index) => {
+        const progressIndex = Math.round((index / Math.max(dots.length - 1, 1)) * (steps.length - 1));
+        dot.classList.toggle('is-active', progressIndex <= state.currentStep);
+      });
+
+      if (backButton) {
+        backButton.disabled = state.currentStep === 0 || state.submitting;
+      }
+
+      if (nextButton) {
+        const last = state.currentStep === steps.length - 1;
+        nextButton.textContent = state.submitting
+          ? copy.sending
+          : last
+            ? copy.finish
+            : copy.continue;
+        nextButton.disabled = state.submitting || !validateCurrentStep({ silent: true });
+      }
+
+      updateNameCopy();
+      updateCountryUi();
+      updateCategoryUi();
+      updateProviderUi();
+    }
+
+    function toggleCountry(value) {
+      if (!value) return;
+
+      if (value === 'GLOBAL') {
+        state.countries = state.countries.includes('GLOBAL') ? [] : ['GLOBAL'];
+      } else {
+        const current = state.countries.filter((code) => code !== 'GLOBAL');
+        state.countries = current.includes(value)
+          ? current.filter((code) => code !== value)
+          : [...current, value];
+      }
+
+      setError('');
+      renderStep();
+    }
+
+    function toggleCategory(value) {
+      if (!value) return;
+      const current = selectedCategoryValues();
+      state.categories[state.kind] = current.includes(value)
+        ? current.filter((category) => category !== value)
+        : [...current, value];
+      setError('');
+      renderStep();
+    }
+
+    function filterCountryOptions(query) {
+      const normalized = query.trim().toLowerCase();
+      let visibleCount = 0;
+
+      wizardRoot.querySelectorAll('[data-country-option]').forEach((button) => {
+        const label = (button.getAttribute('data-label') || '').toLowerCase();
+        const visible = !normalized || label.includes(normalized);
+        button.hidden = !visible;
+        if (visible) visibleCount += 1;
+      });
+
+      wizardRoot.querySelectorAll('.pg-country-group').forEach((group) => {
+        const visibleButtons = Array.from(group.querySelectorAll('[data-country-option]')).some(
+          (button) => !button.hidden,
+        );
+        group.hidden = !visibleButtons;
+      });
+
+      if (countryEmpty) {
+        countryEmpty.hidden = visibleCount > 0;
+      }
+    }
+
+    function filterCategoryOptions(query) {
+      const normalized = query.trim().toLowerCase();
+      wizardRoot.querySelectorAll('[data-category-option]').forEach((button) => {
+        const label = (button.getAttribute('data-label') || '').toLowerCase();
+        button.hidden = Boolean(normalized) && !label.includes(normalized);
+      });
+    }
+
+    function deterministicColor(seed) {
+      const colors = ['#6F3CC3', '#E45080', '#14958F', '#2176AE', '#3C9B68', '#D99232'];
+      let hash = 0;
+      const text = seed || nameInput?.value || 'Pocket Genes';
+
+      for (let index = 0; index < text.length; index += 1) {
+        hash = (hash * 31 + text.charCodeAt(index)) % 9973;
+      }
+
+      return colors[Math.abs(hash) % colors.length];
+    }
+
+    function averageImageColor(url) {
+      return new Promise((resolve) => {
+        if (!url.trim()) {
+          resolve(deterministicColor('Pocket Genes'));
+          return;
+        }
+
+        const image = new Image();
+        image.crossOrigin = 'anonymous';
+        image.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const size = 24;
+            canvas.width = size;
+            canvas.height = size;
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            context.drawImage(image, 0, 0, size, size);
+            const { data } = context.getImageData(0, 0, size, size);
+            let r = 0;
+            let g = 0;
+            let b = 0;
+            let count = 0;
+
+            for (let index = 0; index < data.length; index += 4) {
+              const alpha = data[index + 3];
+              if (alpha < 80) continue;
+              r += data[index];
+              g += data[index + 1];
+              b += data[index + 2];
+              count += 1;
+            }
+
+            if (!count) {
+              resolve(deterministicColor(url));
+              return;
+            }
+
+            const hex = [r / count, g / count, b / count]
+              .map((channel) => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, '0'))
+              .join('');
+            resolve(`#${hex}`.toUpperCase());
+          } catch {
+            resolve(deterministicColor(url));
+          }
+        };
+        image.onerror = () => resolve(deterministicColor(url));
+        image.src = url.trim();
+      });
+    }
+
+    let colorTimer;
+    function updateImagePreview() {
+      if (!imageUrl || !previewImage) return;
+      const url = imageUrl.value.trim();
+      previewImage.replaceChildren();
+
+      if (url && validUrl(url, true)) {
+        const image = document.createElement('img');
+        image.src = url;
+        image.alt = copy.imagePreviewAlt;
+        previewImage.append(image);
+      } else {
+        const initials = document.createElement('span');
+        const text = nameInput?.value.trim() || 'Pocket Genes';
+        initials.textContent = text
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0])
+          .join('')
+          .toUpperCase() || 'PG';
+        previewImage.append(initials);
+      }
+
+      window.clearTimeout(colorTimer);
+      colorTimer = window.setTimeout(async () => {
+        const suggested = await averageImageColor(url);
+        state.suggestedColor = suggested;
+        if (!state.colorCustomized) {
+          updateColor(suggested);
+        }
+      }, 350);
+    }
+
+    function createSocialRow() {
+      if (!addSocialButton || !socialList) return;
+      const options = JSON.parse(addSocialButton.getAttribute('data-social-options') || '[]');
+      const row = document.createElement('div');
+      row.className = 'pg-social-row';
+
+      const selectLabel = document.createElement('label');
+      const selectCaption = document.createElement('span');
+      selectCaption.textContent = addSocialButton.getAttribute('data-platform-label') || 'Platform';
+      const select = document.createElement('select');
+      select.setAttribute('data-social-platform', '');
+      options.forEach((option) => {
+        const item = document.createElement('option');
+        item.value = option.value;
+        item.textContent = option.label;
+        select.append(item);
+      });
+      selectLabel.append(selectCaption, select);
+
+      const urlLabel = document.createElement('label');
+      const urlCaption = document.createElement('span');
+      urlCaption.textContent = addSocialButton.getAttribute('data-url-label') || 'URL';
+      const url = document.createElement('input');
+      url.type = 'url';
+      url.maxLength = 1000;
+      url.placeholder = addSocialButton.getAttribute('data-url-placeholder') || 'https://...';
+      url.setAttribute('data-social-url', '');
+      url.addEventListener('input', () => renderStep());
+      urlLabel.append(urlCaption, url);
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'pg-social-remove';
+      remove.textContent = 'x';
+      remove.setAttribute('aria-label', locale === 'es' ? 'Quitar red social' : 'Remove social link');
+      remove.addEventListener('click', () => {
+        row.remove();
+        renderStep();
+      });
+
+      row.append(selectLabel, urlLabel, remove);
+      socialList.append(row);
+      url.focus();
+      renderStep();
+    }
+
+    function collectSocialLinks() {
+      const social = {};
+      wizardRoot.querySelectorAll('.pg-social-row').forEach((row) => {
+        const platform = row.querySelector('[data-social-platform]')?.value;
+        const url = row.querySelector('[data-social-url]')?.value.trim();
+        if (platform && url) {
+          social[platform] = url;
+        }
+      });
+      return Object.keys(social).length ? social : undefined;
+    }
+
+    function optionalValue(input) {
+      const value = input?.value.trim();
+      return value || undefined;
+    }
+
+    function buildPayload() {
+      const payload = {
+        kind: state.kind,
+        locale,
+        name: nameInput.value.trim(),
+        contactEmail: contactEmail.value.trim().toLowerCase(),
+        countryCode: state.countries.join(','),
+        color_hex: state.color,
+        websiteUrl: optionalValue(websiteUrl),
+        imageUrl: optionalValue(imageUrl),
+        social: collectSocialLinks(),
+        startedAt: state.startedAt,
+        website: form?.elements.website?.value || undefined,
+        source: {
+          pageUrl: window.location.href,
+          referrer: document.referrer || undefined,
+        },
+      };
+
+      if (locale === 'en') {
+        payload.description_en = descriptionPrimary.value.trim();
+        payload.description = optionalValue(descriptionAlternative);
+      } else {
+        payload.description = descriptionPrimary.value.trim();
+        payload.description_en = optionalValue(descriptionAlternative);
+      }
+
+      if (state.kind === 'organization') {
+        payload.organizationType = state.categories.organization.join(',');
+        payload.is_genetic_report_provider = state.geneticReportProvider === true;
+        payload.genetic_report_category =
+          state.geneticReportProvider === true
+            ? state.geneticReportCategory || null
+            : null;
+      } else {
+        payload.individualType = state.categories.individual.join(',');
+      }
+
+      return payload;
+    }
+
+    async function submitWizard() {
+      state.submitting = true;
+      renderStep();
+      setError('');
+
+      try {
+        const response = await fetch(`${sdkUrl.replace(/\/$/, '')}/discover/publisher-requests`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(buildPayload()),
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(result.error || copy.submitError);
+        }
+
+        if (success) {
+          success.hidden = false;
+          requestAnimationFrame(() => {
+            success.classList.add('is-visible');
+          });
+        }
+      } catch (error) {
+        setError(error instanceof Error ? error.message : copy.submitError);
+      } finally {
+        state.submitting = false;
+        renderStep();
+      }
+    }
+
+    wizardRoot.querySelectorAll('[data-kind-option]').forEach((button) => {
+      button.addEventListener('click', () => {
+        state.kind = button.getAttribute('data-kind-option') || 'organization';
+        state.currentStep = Math.min(state.currentStep, visibleSteps().length - 1);
+        wizardRoot.querySelectorAll('[data-kind-option]').forEach((item) => {
+          const active = item === button;
+          item.classList.toggle('is-selected', active);
+          item.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        setError('');
+        renderStep();
+      });
+    });
+
+    wizardRoot.querySelectorAll('[data-country-option]').forEach((button) => {
+      button.addEventListener('click', () => {
+        toggleCountry(button.getAttribute('data-country-option'));
+      });
+    });
+
+    wizardRoot.querySelectorAll('[data-category-option]').forEach((button) => {
+      button.addEventListener('click', () => {
+        toggleCategory(button.getAttribute('data-category-option'));
+      });
+    });
+
+    wizardRoot.querySelectorAll('[data-provider-option]').forEach((button) => {
+      button.addEventListener('click', () => {
+        state.geneticReportProvider = button.getAttribute('data-provider-option') === 'true';
+        setError('');
+        renderStep();
+      });
+    });
+
+    wizardRoot.querySelectorAll('[data-report-category-option]').forEach((button) => {
+      button.addEventListener('click', () => {
+        state.geneticReportCategory = button.getAttribute('data-report-category-option') || '';
+        setError('');
+        renderStep();
+      });
+    });
+
+    countryToggle?.addEventListener('click', () => {
+      if (!countryPopover) return;
+      countryPopover.hidden = !countryPopover.hidden;
+      countryToggle.setAttribute('aria-expanded', countryPopover.hidden ? 'false' : 'true');
+      if (!countryPopover.hidden) {
+        countrySearch?.focus();
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!countryPopover || countryPopover.hidden) return;
+      if (!event.target.closest('.pg-picker-shell')) {
+        countryPopover.hidden = true;
+        countryToggle?.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    countrySearch?.addEventListener('input', () => filterCountryOptions(countrySearch.value));
+    categorySearch?.addEventListener('input', () => filterCategoryOptions(categorySearch.value));
+    addSocialButton?.addEventListener('click', createSocialRow);
+    altDescriptionToggle?.addEventListener('click', () => {
+      if (!altDescriptionField) return;
+      altDescriptionField.hidden = false;
+      altDescriptionToggle.hidden = true;
+      descriptionAlternative?.focus();
+    });
+    colorInput?.addEventListener('input', () => {
+      state.colorCustomized = true;
+      updateColor(colorInput.value);
+    });
+    useSuggestedColor?.addEventListener('click', () => {
+      state.colorCustomized = false;
+      updateColor(state.suggestedColor);
+    });
+    imageUrl?.addEventListener('input', () => {
+      updateImagePreview();
+      renderStep();
+    });
+    nameInput?.addEventListener('input', () => {
+      if (!state.colorCustomized && !imageUrl?.value.trim()) {
+        state.suggestedColor = deterministicColor(nameInput.value);
+        updateColor(state.suggestedColor);
+      }
+      updateImagePreview();
+      renderStep();
+    });
+    [descriptionPrimary, descriptionAlternative, contactEmail, websiteUrl].forEach((input) => {
+      input?.addEventListener('input', () => renderStep());
+    });
+
+    nextButton?.addEventListener('click', () => {
+      if (!validateCurrentStep()) return;
+
+      const steps = visibleSteps();
+      if (state.currentStep === steps.length - 1) {
+        void submitWizard();
+        return;
+      }
+
+      state.currentStep += 1;
+      setError('');
+      renderStep();
+    });
+
+    backButton?.addEventListener('click', () => {
+      state.currentStep = Math.max(0, state.currentStep - 1);
+      setError('');
+      renderStep();
+    });
+
+    openBooking?.addEventListener('click', () => {
+      if (!successBooking) return;
+      successBooking.hidden = false;
+      successBooking.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    renderStep();
+    updateImagePreview();
+  }
+</script>
+
+<style>
+  :global(.pg-site-header) {
+    display: none;
+  }
+
+  .pg-wizard-page {
+    --wizard-purple: #6f3cc3;
+    --wizard-purple-soft: #f3ecff;
+    --wizard-ink: #202127;
+    --wizard-muted: #686b75;
+    --wizard-border: #c8cbd2;
+    --wizard-panel: #ffffff;
+    --wizard-sidebar: #f6f6f7;
+    min-height: 100svh;
+    display: grid;
+    grid-template-columns: minmax(340px, 33vw) minmax(0, 1fr);
+    background: var(--wizard-sidebar);
+    color: var(--wizard-ink);
+    overflow: hidden;
+  }
+
+  .pg-wizard-page [hidden] {
+    display: none !important;
+  }
+
+  .pg-wizard-intro {
+    position: relative;
+    min-height: 100svh;
+    padding: 64px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pg-wizard-logo {
+    width: 58px;
+    height: 58px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 18px;
+    text-decoration: none;
+  }
+
+  .pg-wizard-logo img {
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+  }
+
+  .pg-wizard-intro-copy {
+    width: min(420px, 100%);
+    margin: auto 0;
+  }
+
+  .pg-wizard-intro h1 {
+    margin: 0;
+    font-size: 3.3rem;
+    line-height: 1.08;
+    letter-spacing: 0;
+    font-weight: 720;
+  }
+
+  .pg-wizard-intro h1 span {
+    display: block;
+  }
+
+  .pg-wizard-intro p {
+    margin: 44px 0 0;
+    color: #323643;
+    font-size: 1.2rem;
+    line-height: 1.45;
+    max-width: 360px;
+  }
+
+  .pg-wizard-intro small {
+    display: block;
+    margin-top: 24px;
+    color: var(--wizard-muted);
+    font-size: 0.96rem;
+    line-height: 1.5;
+    max-width: 360px;
+  }
+
+  .pg-wizard-panel {
+    position: relative;
+    min-height: 100svh;
+    border-top-left-radius: 72px;
+    background:
+      radial-gradient(circle at 18% 14%, rgba(228, 80, 128, 0.09), transparent 30%),
+      radial-gradient(circle at 86% 20%, rgba(20, 149, 143, 0.09), transparent 28%),
+      var(--wizard-panel);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .pg-wizard-topbar {
+    position: absolute;
+    z-index: 4;
+    top: 64px;
+    right: 64px;
+    display: inline-flex;
+    align-items: center;
+    gap: 22px;
+    font-size: 1.04rem;
+    font-weight: 650;
+  }
+
+  .pg-wizard-topbar a {
+    color: var(--wizard-ink);
+    text-decoration: none;
+  }
+
+  .pg-wizard-form {
+    width: min(840px, calc(100% - 96px));
+    margin: 0 auto;
+    padding: 212px 0 172px;
+  }
+
+  .pg-wizard-honeypot {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+  }
+
+  .pg-wizard-progress {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+
+  .pg-wizard-progress span {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #dde0e6;
+    transition: width 180ms ease, background 180ms ease;
+  }
+
+  .pg-wizard-progress span.is-active {
+    width: 28px;
+    background: var(--wizard-purple);
+  }
+
+  .pg-wizard-step-count {
+    margin: 0 0 10px;
+    color: var(--wizard-muted);
+    font-size: 0.86rem;
+    font-weight: 650;
+    text-transform: uppercase;
+  }
+
+  .pg-wizard-step {
+    animation: pgStepIn 260ms ease both;
+  }
+
+  .pg-step-heading {
+    max-width: 700px;
+    margin-bottom: 32px;
+  }
+
+  .pg-step-heading h2 {
+    margin: 0;
+    font-size: 1.6rem;
+    line-height: 1.25;
+    letter-spacing: 0;
+    font-weight: 760;
+  }
+
+  .pg-step-heading p {
+    margin: 8px 0 0;
+    color: var(--wizard-muted);
+    font-size: 1.1rem;
+    line-height: 1.45;
+  }
+
+  .pg-choice-grid {
+    display: grid;
+    gap: 18px;
+  }
+
+  .pg-kind-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pg-answer-grid {
+    grid-template-columns: repeat(2, minmax(180px, 240px));
+  }
+
+  .pg-choice,
+  .pg-category-list button,
+  .pg-country-list button {
+    border: 1.5px solid var(--wizard-border);
+    background: #ffffff;
+    color: var(--wizard-ink);
+    cursor: pointer;
+    transition: border-color 180ms ease, background 180ms ease, color 180ms ease, transform 180ms ease;
+  }
+
+  .pg-choice:hover,
+  .pg-category-list button:hover,
+  .pg-country-list button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(111, 60, 195, 0.55);
+  }
+
+  .pg-choice.is-selected,
+  .pg-category-list button.is-selected,
+  .pg-country-list button.is-selected {
+    border-color: var(--wizard-purple);
+    background: var(--wizard-purple-soft);
+    color: var(--wizard-purple);
+    box-shadow: 0 10px 26px rgba(111, 60, 195, 0.12);
+  }
+
+  .pg-choice {
+    min-height: 138px;
+    border-radius: 22px;
+    padding: 24px;
+    text-align: left;
+  }
+
+  .pg-choice span {
+    display: block;
+    font-size: 1.22rem;
+    line-height: 1.25;
+    font-weight: 760;
+  }
+
+  .pg-choice small {
+    display: block;
+    margin-top: 12px;
+    color: var(--wizard-muted);
+    font-size: 0.96rem;
+    line-height: 1.42;
+  }
+
+  .pg-choice.is-selected small {
+    color: #553096;
+  }
+
+  .pg-picker-shell {
+    position: relative;
+    max-width: 580px;
+  }
+
+  .pg-large-field,
+  .pg-input-shell {
+    min-height: 92px;
+    width: 100%;
+    border: 1.5px solid var(--wizard-border);
+    border-radius: 14px;
+    background: #ffffff;
+    padding: 18px 24px;
+  }
+
+  .pg-large-field {
+    display: grid;
+    grid-template-columns: 1fr 28px;
+    align-items: center;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .pg-large-field span,
+  .pg-input-shell > span {
+    display: block;
+    color: var(--wizard-muted);
+    font-size: 0.92rem;
+    line-height: 1.3;
+    font-weight: 560;
+  }
+
+  .pg-large-field strong {
+    display: block;
+    margin-top: 6px;
+    color: var(--wizard-ink);
+    font-size: 1.18rem;
+    line-height: 1.3;
+    font-weight: 620;
+  }
+
+  .pg-large-field svg {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .pg-picker-popover {
+    position: absolute;
+    z-index: 8;
+    inset: calc(100% + 10px) 0 auto 0;
+    border: 1px solid var(--wizard-border);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 24px 50px rgba(32, 33, 39, 0.16);
+    padding: 14px;
+  }
+
+  .pg-picker-popover input,
+  .pg-search-field {
+    width: 100%;
+    height: 52px;
+    border: 1px solid var(--wizard-border);
+    border-radius: 999px;
+    padding: 0 18px;
+    color: var(--wizard-ink);
+    font: inherit;
+  }
+
+  .pg-country-list {
+    max-height: 360px;
+    overflow: auto;
+    padding: 14px 4px 2px;
+  }
+
+  .pg-country-group + .pg-country-group {
+    margin-top: 18px;
+  }
+
+  .pg-country-group p {
+    margin: 0 0 8px;
+    color: var(--wizard-muted);
+    font-size: 0.78rem;
+    font-weight: 760;
+    text-transform: uppercase;
+  }
+
+  .pg-country-list button {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 12px;
+    margin: 4px 0;
+    padding: 10px 12px;
+    text-align: left;
+    font: inherit;
+  }
+
+  .pg-picker-empty {
+    margin: 12px 4px 4px;
+    color: var(--wizard-muted);
+  }
+
+  .pg-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .pg-chip-row span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    border-radius: 999px;
+    background: #eef8f7;
+    color: #0f6f6a;
+    padding: 8px 14px;
+    font-weight: 650;
+  }
+
+  .pg-search-field {
+    max-width: 520px;
+    margin-bottom: 18px;
+  }
+
+  .pg-category-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    max-height: min(45vh, 420px);
+    overflow: auto;
+    padding: 2px 2px 8px;
+  }
+
+  .pg-category-list button {
+    min-height: 54px;
+    border-radius: 999px;
+    padding: 13px 28px;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1.25;
+    font-weight: 650;
+  }
+
+  .pg-selected-note,
+  .pg-skip-hint {
+    margin: 18px 0 0;
+    color: var(--wizard-muted);
+    font-size: 0.98rem;
+  }
+
+  .pg-input-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pg-input-shell input,
+  .pg-input-shell textarea,
+  .pg-social-row input,
+  .pg-social-row select {
+    width: 100%;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--wizard-ink);
+    font: inherit;
+    font-size: 1.16rem;
+    line-height: 1.35;
+  }
+
+  .pg-textarea-shell {
+    min-height: 210px;
+  }
+
+  .pg-input-shell textarea {
+    resize: vertical;
+    min-height: 144px;
+  }
+
+  .pg-input-shell:focus-within,
+  .pg-large-field:focus-visible,
+  .pg-picker-popover input:focus,
+  .pg-search-field:focus,
+  .pg-social-row:focus-within {
+    border-color: var(--wizard-purple);
+    box-shadow: 0 0 0 4px rgba(111, 60, 195, 0.12);
+  }
+
+  .pg-secondary-action {
+    margin-top: 18px;
+    border: 1.5px solid var(--wizard-border);
+    border-radius: 999px;
+    background: #ffffff;
+    color: var(--wizard-ink);
+    min-height: 48px;
+    padding: 0 20px;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .pg-image-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 240px;
+    gap: 28px;
+    align-items: start;
+  }
+
+  .pg-profile-preview {
+    display: grid;
+    gap: 16px;
+    justify-items: center;
+    border: 1px solid rgba(200, 203, 210, 0.8);
+    border-radius: 28px;
+    background: #fbfcfd;
+    padding: 22px;
+  }
+
+  .pg-preview-image {
+    --wizard-preview-color: #6f3cc3;
+    width: 132px;
+    height: 132px;
+    display: grid;
+    place-items: center;
+    border-radius: 34px;
+    overflow: hidden;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.42)),
+      var(--wizard-preview-color);
+    color: #ffffff;
+    font-size: 2rem;
+    font-weight: 800;
+  }
+
+  .pg-preview-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .pg-profile-preview label {
+    display: grid;
+    gap: 8px;
+    color: var(--wizard-muted);
+    font-weight: 650;
+    text-align: center;
+  }
+
+  .pg-profile-preview input {
+    width: 82px;
+    height: 48px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .pg-profile-preview button {
+    border: 0;
+    background: transparent;
+    color: var(--wizard-purple);
+    font: inherit;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  .pg-social-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .pg-social-row {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr) 44px;
+    gap: 12px;
+    align-items: end;
+    border: 1.5px solid var(--wizard-border);
+    border-radius: 16px;
+    background: #ffffff;
+    padding: 12px;
+  }
+
+  .pg-social-row label {
+    display: grid;
+    gap: 4px;
+  }
+
+  .pg-social-row span {
+    color: var(--wizard-muted);
+    font-size: 0.8rem;
+    font-weight: 650;
+  }
+
+  .pg-social-row select,
+  .pg-social-row input {
+    min-height: 42px;
+  }
+
+  .pg-social-remove {
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--wizard-border);
+    border-radius: 999px;
+    background: #ffffff;
+    color: var(--wizard-muted);
+    font: inherit;
+    font-weight: 760;
+    cursor: pointer;
+  }
+
+  .pg-wizard-error {
+    margin: 26px 0 0;
+    border-radius: 14px;
+    background: #fff1f2;
+    color: #9f1239;
+    padding: 14px 16px;
+    font-weight: 650;
+  }
+
+  .pg-wizard-actionbar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    border-top: 1px solid #eceef2;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 24px 64px 28px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .pg-back-button,
+  .pg-primary-button {
+    border: 0;
+    font: inherit;
+    font-size: 1.08rem;
+    font-weight: 780;
+    cursor: pointer;
+  }
+
+  .pg-back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 54px;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--wizard-muted);
+    padding: 0 18px;
+  }
+
+  .pg-back-button svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .pg-primary-button {
+    min-width: 230px;
+    min-height: 80px;
+    border-radius: 999px;
+    background: var(--wizard-purple);
+    color: #ffffff;
+    padding: 0 34px;
+    box-shadow: 0 18px 36px rgba(111, 60, 195, 0.28);
+  }
+
+  .pg-back-button:disabled,
+  .pg-primary-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+    box-shadow: none;
+  }
+
+  .pg-wizard-success {
+    position: fixed;
+    z-index: 2200;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    overflow: auto;
+    padding: 48px;
+    color: #ffffff;
+  }
+
+  .pg-success-circle {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    background: #6f3cc3;
+    transform: translate(-50%, -50%) scale(0);
+  }
+
+  .pg-wizard-success.is-visible .pg-success-circle {
+    animation: pgExplode 980ms cubic-bezier(0.76, 0, 0.24, 1) forwards;
+  }
+
+  .pg-success-content {
+    position: relative;
+    z-index: 2;
+    width: min(920px, 100%);
+    opacity: 0;
+    transform: translateY(22px);
+    text-align: center;
+  }
+
+  .pg-wizard-success.is-visible .pg-success-content {
+    animation: pgSuccessIn 720ms ease 640ms forwards;
+  }
+
+  .pg-success-mark {
+    width: 92px;
+    height: 92px;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 26px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  }
+
+  .pg-success-mark svg {
+    width: 46px;
+    height: 46px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .pg-success-content h2 {
+    margin: 0;
+    font-size: 3.4rem;
+    line-height: 1.05;
+    letter-spacing: 0;
+  }
+
+  .pg-success-content > p {
+    max-width: 720px;
+    margin: 22px auto 0;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 1.2rem;
+    line-height: 1.55;
+  }
+
+  .pg-success-actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 34px;
+  }
+
+  .pg-success-actions button,
+  .pg-success-actions a {
+    min-height: 68px;
+    border-radius: 999px;
+    padding: 12px 28px;
+    text-decoration: none;
+    font: inherit;
+    font-weight: 780;
+    cursor: pointer;
+  }
+
+  .pg-success-actions button {
+    display: grid;
+    gap: 2px;
+    border: 0;
+    background: #ffffff;
+    color: var(--wizard-purple);
+  }
+
+  .pg-success-actions button span {
+    color: #6c6478;
+    font-size: 0.84rem;
+    font-weight: 650;
+  }
+
+  .pg-success-actions button strong {
+    font-weight: 820;
+  }
+
+  .pg-success-actions a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.48);
+    color: #ffffff;
+  }
+
+  .pg-success-booking {
+    margin: 44px auto 0;
+    color: var(--wizard-ink);
+    text-align: left;
+  }
+
+  .pg-success-booking :global(.client-booking-widget) {
+    --booking-selected-accent: #6f3cc3;
+    --booking-selected-accent-rgb: 111, 60, 195;
+  }
+
+  @keyframes pgStepIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pgExplode {
+    to {
+      transform: translate(-50%, -50%) scale(120);
+    }
+  }
+
+  @keyframes pgSuccessIn {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 980px) {
+    .pg-wizard-page {
+      grid-template-columns: 1fr;
+      overflow: auto;
+    }
+
+    .pg-wizard-intro {
+      min-height: auto;
+      padding: 36px 24px 28px;
+    }
+
+    .pg-wizard-intro-copy {
+      margin: 42px 0 0;
+    }
+
+    .pg-wizard-intro h1 {
+      font-size: 2.35rem;
+    }
+
+    .pg-wizard-intro p {
+      margin-top: 20px;
+      font-size: 1.04rem;
+    }
+
+    .pg-wizard-panel {
+      min-height: 720px;
+      border-top-left-radius: 36px;
+      border-top-right-radius: 36px;
+      overflow: visible;
+    }
+
+    .pg-wizard-topbar {
+      top: 28px;
+      right: 24px;
+    }
+
+    .pg-wizard-form {
+      width: calc(100% - 48px);
+      padding: 112px 0 148px;
+    }
+
+    .pg-kind-grid,
+    .pg-answer-grid,
+    .pg-image-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-social-row {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-social-remove {
+      justify-self: end;
+    }
+
+    .pg-wizard-actionbar {
+      position: sticky;
+      height: auto;
+      padding: 18px 24px;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .pg-wizard-intro h1 {
+      font-size: 2rem;
+    }
+
+    .pg-step-heading h2 {
+      font-size: 1.35rem;
+    }
+
+    .pg-step-heading p {
+      font-size: 1rem;
+    }
+
+    .pg-wizard-actionbar {
+      flex-direction: column-reverse;
+      align-items: stretch;
+    }
+
+    .pg-primary-button,
+    .pg-back-button {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .pg-success-content h2 {
+      font-size: 2.4rem;
+    }
+
+    .pg-wizard-success {
+      padding: 28px 18px;
+    }
+  }
+</style>

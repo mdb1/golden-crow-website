@@ -471,6 +471,82 @@ describe("discover repository", () => {
     ).rejects.toThrow("Individual publisher image URL is required.");
   });
 
+  it("creates public organization approval requests with pending defaults", async () => {
+    const { createDiscoverPublisherApprovalRequest } =
+      await import("../repositories/discover.repository");
+
+    const result = await createDiscoverPublisherApprovalRequest({
+      kind: "organization",
+      name: "Wizard Genetics Lab",
+      description_en: "Genetic report support for families.",
+      contactEmail: "JOIN@EXAMPLE.ORG",
+      websiteUrl: "https://example.org",
+      countryCode: "ar, us",
+      organizationType: "org_genetic_testing_laboratories",
+      color_hex: "#6f3cc3",
+      social: {
+        linkedin: "https://linkedin.com/company/wizard-genetics",
+      },
+      is_genetic_report_provider: true,
+      genetic_report_category: "full_genome",
+    });
+    const stored = mockOrganizationDocs.find(
+      (doc) => doc.id === result.publisher.id,
+    );
+
+    expect(result.kind).toBe("organization");
+    expect(result.publisher.status).toBe("pending_approval");
+    expect(result.publisher.imageUrl).toBeNull();
+    expect(result.publisher.verified).toBe(false);
+    expect(result.publisher.contactEmail).toBe("join@example.org");
+    expect(stored?.data.status).toBe("pending_approval");
+    expect(stored?.data.verified).toBe(false);
+    expect(stored?.data.is_genetic_report_provider).toBe(true);
+    expect(stored?.data.genetic_report_category).toBe("full_genome");
+    expect(stored?.data.is_requested_through_web_wizard).toBe(true);
+    expect(stored?.data).toHaveProperty("approval_request_date");
+    expect(stored?.data.createdByUserId).toBe("public-web-wizard");
+    expect(stored?.data.updatedByUserId).toBe("public-web-wizard");
+    expect(stored?.data.countryCode).toBe("AR,US");
+    expect(stored?.data.organizationType).toBe(
+      "org_genetic_testing_laboratories",
+    );
+    expect(stored?.data.contactEmail).toBe("join@example.org");
+    expect(stored?.data.color_hex).toBe("#6F3CC3");
+  });
+
+  it("creates public individual approval requests without organization-only report fields", async () => {
+    const { createDiscoverPublisherApprovalRequest } =
+      await import("../repositories/discover.repository");
+
+    const result = await createDiscoverPublisherApprovalRequest({
+      kind: "individual",
+      name: "Dr. Wizard",
+      description: "Acompañamiento en genética clínica.",
+      description_en: "Clinical genetics support.",
+      contactEmail: "dr@example.org",
+      countryCode: "global",
+      individualType: "pro_clinical_geneticists,pro_genetic_counselors",
+      imageUrl: "https://example.org/dr-wizard.png",
+      colorHex: "14b8a6",
+      is_genetic_report_provider: true,
+      genetic_report_category: "raw_vcf",
+    });
+    const stored = mockIndividualDocs.find((doc) => doc.id === result.publisher.id);
+
+    expect(result.kind).toBe("individual");
+    expect(result.publisher.status).toBe("pending_approval");
+    expect(result.publisher.imageUrl).toBe("https://example.org/dr-wizard.png");
+    expect(result.publisher.verified).toBe(false);
+    expect(stored?.data.is_requested_through_web_wizard).toBe(true);
+    expect(stored?.data.countryCode).toBe("GLOBAL");
+    expect(stored?.data.individualType).toBe(
+      "pro_clinical_geneticists,pro_genetic_counselors",
+    );
+    expect(stored?.data.is_genetic_report_provider).toBeUndefined();
+    expect(stored?.data.genetic_report_category).toBeUndefined();
+  });
+
   it("accepts the expanded fixed professional category keys for individuals", async () => {
     const { createDiscoverIndividual } =
       await import("../repositories/discover.repository");

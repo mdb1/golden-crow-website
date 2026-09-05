@@ -415,6 +415,24 @@ type IndividualInput = {
   internalNotes?: unknown;
 };
 
+type PublicPublisherRequestInput = {
+  kind?: unknown;
+  name?: unknown;
+  imageUrl?: unknown;
+  websiteUrl?: unknown;
+  description?: unknown;
+  description_en?: unknown;
+  social?: unknown;
+  countryCode?: unknown;
+  organizationType?: unknown;
+  individualType?: unknown;
+  color_hex?: unknown;
+  colorHex?: unknown;
+  is_genetic_report_provider?: unknown;
+  genetic_report_category?: unknown;
+  contactEmail?: unknown;
+};
+
 type FeedItemInput = {
   publisherOrganizationId?: unknown;
   publisherIndividualId?: unknown;
@@ -625,6 +643,11 @@ function normalizeOptionalEmail(value: unknown, label: string): string | undefin
   return normalized;
 }
 
+function normalizeRequiredEmail(value: unknown, label: string): string {
+  const normalized = normalizeRequiredString(value, label);
+  return normalizeOptionalEmail(normalized, label)!.toLowerCase();
+}
+
 function normalizeSocialEmail(value: unknown, label: string): string | undefined {
   const normalized = normalizeOptionalString(value);
   if (!normalized) {
@@ -709,6 +732,15 @@ function normalizeCountryCode(value: unknown): string | undefined {
     });
 
   return countryCodes.includes("GLOBAL") ? "GLOBAL" : countryCodes.join(",");
+}
+
+function normalizeRequiredCountryCode(value: unknown): string {
+  const countryCode = normalizeCountryCode(value);
+  if (!countryCode) {
+    throw new AdminRepositoryError("Country coverage is required.", 400);
+  }
+
+  return countryCode;
 }
 
 function slugifyPublisherName(name: string, fallback: string) {
@@ -1272,6 +1304,15 @@ function normalizeOrganizationType(value: unknown): string | undefined {
   return discoverOrganizationCategoryProvider.normalizeCsv(normalized) || undefined;
 }
 
+function normalizeRequiredOrganizationType(value: unknown): string {
+  const organizationType = normalizeOrganizationType(value);
+  if (!organizationType) {
+    throw new AdminRepositoryError("Organization category is required.", 400);
+  }
+
+  return organizationType;
+}
+
 function normalizeIndividualType(value: unknown): string | undefined {
   const normalized = normalizeOptionalString(value);
   if (!normalized) {
@@ -1287,6 +1328,15 @@ function normalizeIndividualType(value: unknown): string | undefined {
   }
 
   return discoverIndividualCategoryProvider.normalizeCsv(normalized) || undefined;
+}
+
+function normalizeRequiredIndividualType(value: unknown): string {
+  const individualType = normalizeIndividualType(value);
+  if (!individualType) {
+    throw new AdminRepositoryError("Individual publisher category is required.", 400);
+  }
+
+  return individualType;
 }
 
 function readGeneticReportCategory(value: unknown): DiscoverGeneticReportCategory | null {
@@ -1308,6 +1358,18 @@ function normalizeGeneticReportCategory(
   }
 
   return normalized as DiscoverGeneticReportCategory;
+}
+
+function normalizePublicPublisherKind(value: unknown): "organization" | "individual" {
+  const normalized = normalizeRequiredString(value, "Publisher type").toLowerCase();
+  if (normalized !== "organization" && normalized !== "individual") {
+    throw new AdminRepositoryError(
+      "Publisher type must be organization or individual.",
+      400,
+    );
+  }
+
+  return normalized;
 }
 
 function organizationDocument(input: OrganizationInput, context: AdminContext) {
@@ -1337,6 +1399,40 @@ function organizationDocument(input: OrganizationInput, context: AdminContext) {
   };
 }
 
+function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
+  const name = normalizeRequiredString(input.name, "Organization name");
+  const isGeneticReportProvider = normalizeBoolean(
+    input.is_genetic_report_provider,
+  );
+
+  return {
+    name,
+    imageUrl: normalizeHttpsUrl(input.imageUrl, "Organization image URL"),
+    status: "pending_approval" as const,
+    slug: slugifyOrganizationName(name),
+    websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
+    description: normalizeOptionalString(input.description),
+    description_en: normalizeOptionalString(input.description_en),
+    social: normalizeSocialLinks(input.social) ?? null,
+    countryCode: normalizeRequiredCountryCode(input.countryCode),
+    organizationType: normalizeRequiredOrganizationType(input.organizationType),
+    color_hex: normalizeHexColor(input.color_hex ?? input.colorHex, "Organization color") ?? null,
+    verified: false,
+    is_genetic_report_provider: isGeneticReportProvider,
+    genetic_report_category: isGeneticReportProvider
+      ? normalizeGeneticReportCategory(input.genetic_report_category)
+      : null,
+    contactEmail: normalizeRequiredEmail(input.contactEmail, "Contact email"),
+    internalNotes: undefined,
+    is_requested_through_web_wizard: true,
+    approval_request_date: FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    createdByUserId: "public-web-wizard",
+    updatedByUserId: "public-web-wizard",
+  };
+}
+
 function individualDocument(input: IndividualInput, context: AdminContext) {
   const name = normalizeRequiredString(input.name, "Individual publisher name");
 
@@ -1357,6 +1453,33 @@ function individualDocument(input: IndividualInput, context: AdminContext) {
     internalNotes: normalizeOptionalString(input.internalNotes),
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
+  };
+}
+
+function publicIndividualRequestDocument(input: PublicPublisherRequestInput) {
+  const name = normalizeRequiredString(input.name, "Individual publisher name");
+
+  return {
+    name,
+    imageUrl: normalizeHttpsUrl(input.imageUrl, "Individual publisher image URL"),
+    status: "pending_approval" as const,
+    slug: slugifyIndividualName(name),
+    websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
+    description: normalizeOptionalString(input.description),
+    description_en: normalizeOptionalString(input.description_en),
+    social: normalizeSocialLinks(input.social) ?? null,
+    countryCode: normalizeRequiredCountryCode(input.countryCode),
+    individualType: normalizeRequiredIndividualType(input.individualType),
+    color_hex: normalizeHexColor(input.color_hex ?? input.colorHex, "Individual publisher color") ?? null,
+    verified: false,
+    contactEmail: normalizeRequiredEmail(input.contactEmail, "Contact email"),
+    internalNotes: undefined,
+    is_requested_through_web_wizard: true,
+    approval_request_date: FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    createdByUserId: "public-web-wizard",
+    updatedByUserId: "public-web-wizard",
   };
 }
 
@@ -1695,6 +1818,32 @@ export async function createDiscoverOrganization(
   );
 
   return getDiscoverOrganization(context, ref.id);
+}
+
+export async function createDiscoverPublisherApprovalRequest(
+  input: PublicPublisherRequestInput,
+) {
+  const kind = normalizePublicPublisherKind(input.kind);
+
+  if (kind === "organization") {
+    const ref = adminDb.collection(ORGANIZATIONS_COLLECTION).doc();
+    await ref.set(withoutUndefined(publicOrganizationRequestDocument(input)));
+    const snapshot = await ref.get();
+
+    return {
+      kind,
+      publisher: toOrganizationRecord(snapshot as QueryDocumentSnapshot),
+    };
+  }
+
+  const ref = adminDb.collection(INDIVIDUALS_COLLECTION).doc();
+  await ref.set(withoutUndefined(publicIndividualRequestDocument(input)));
+  const snapshot = await ref.get();
+
+  return {
+    kind,
+    publisher: toIndividualRecord(snapshot as QueryDocumentSnapshot),
+  };
 }
 
 export async function updateDiscoverOrganization(

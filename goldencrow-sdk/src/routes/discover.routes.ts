@@ -1,4 +1,4 @@
-import { FastifyInstance, type FastifyReply } from "fastify";
+import { FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
@@ -7,6 +7,7 @@ import {
   createDiscoverFeedItem,
   createDiscoverIndividual,
   createDiscoverOrganization,
+  createDiscoverPublisherApprovalRequest,
   deleteDiscoverFeedItem,
   duplicateDiscoverFeedItem,
   getDiscoverFeedItem,
@@ -79,6 +80,15 @@ const QuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
 
+const OptionalPublisherUrlSchema = z.preprocess(
+  (value) => (typeof value === "string" && !value.trim() ? undefined : value),
+  z.string().trim().url().max(1000).nullable().optional(),
+);
+const OptionalPublisherTextSchema = z.preprocess(
+  (value) => (typeof value === "string" && !value.trim() ? undefined : value),
+  z.string().trim().max(5000).optional(),
+);
+
 const SocialLinksSchema = z.object({
   facebook: z.string().optional(),
   twitter: z.string().optional(),
@@ -114,6 +124,61 @@ const SocialLinksSchema = z.object({
   email: z.string().optional(),
   other: z.string().optional(),
 }).optional();
+
+const PublisherRequestBodySchema = z.object({
+  kind: z.enum(["organization", "individual"]),
+  locale: z.enum(["en", "es"]),
+  name: z.string().trim().min(1).max(180),
+  imageUrl: OptionalPublisherUrlSchema,
+  websiteUrl: OptionalPublisherUrlSchema,
+  description: OptionalPublisherTextSchema,
+  description_en: OptionalPublisherTextSchema,
+  social: SocialLinksSchema,
+  countryCode: z.string().trim().min(1).max(500),
+  organizationType: z.string().trim().max(2000).optional(),
+  individualType: z.string().trim().max(2000).optional(),
+  color_hex: z.string().trim().max(20).nullable().optional(),
+  colorHex: z.string().trim().max(20).nullable().optional(),
+  is_genetic_report_provider: z.boolean().optional(),
+  genetic_report_category: GeneticReportCategorySchema.nullable().optional(),
+  contactEmail: z.string().trim().toLowerCase().email().max(180),
+  startedAt: z.string().trim().datetime(),
+  website: OptionalPublisherTextSchema,
+  source: z
+    .object({
+      pageUrl: OptionalPublisherUrlSchema,
+      referrer: OptionalPublisherUrlSchema,
+    })
+    .optional(),
+}).superRefine((body, ctx) => {
+  if (body.kind === "organization" && !body.organizationType?.trim()) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["organizationType"],
+      message: "Organization category is required.",
+    });
+  }
+
+  if (body.kind === "individual" && !body.individualType?.trim()) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["individualType"],
+      message: "Individual publisher category is required.",
+    });
+  }
+
+  const primaryDescription =
+    body.locale === "en" ? body.description_en : body.description;
+  if (!primaryDescription?.trim()) {
+    ctx.addIssue({
+      code: "custom",
+      path: [body.locale === "en" ? "description_en" : "description"],
+      message: "Publisher description is required.",
+    });
+  }
+});
+
+type PublisherRequestBody = z.infer<typeof PublisherRequestBodySchema>;
 
 const OrganizationBodySchema = z.object({
   name: z.string().optional(),
@@ -173,6 +238,19 @@ const FeedItemBodySchema = z.object({
   ...FeedPayloadBodySchemas,
 });
 
+const PUBLIC_PUBLISHER_REQUEST_PATH = "/discover/publisher-requests";
+const PUBLISHER_REQUEST_MIN_ELAPSED_MS = 2500;
+const PUBLISHER_REQUEST_MAX_ELAPSED_MS = 24 * 60 * 60 * 1000;
+const PUBLISHER_REQUEST_WINDOW_MS = 60 * 60 * 1000;
+const PUBLISHER_REQUEST_MAX_PER_WINDOW = 5;
+const publisherRequestRateLimit = new Map<string, { count: number; resetAt: number }>();
+const PUBLIC_PUBLISHER_REQUEST_ORIGINS = new Set([
+  "https://goldencrowvs.com",
+  "https://www.goldencrowvs.com",
+  "http://localhost:4321",
+  "http://127.0.0.1:4321",
+]);
+
 function sendRepositoryError(reply: FastifyReply, error: unknown) {
   if (isAdminRepositoryError(error)) {
     return reply.status(error.statusCode).send({ error: error.message });
@@ -181,10 +259,153 @@ function sendRepositoryError(reply: FastifyReply, error: unknown) {
   throw error;
 }
 
+function headerValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function originFromUrl(value: string | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+function isAllowedPublisherRequestOrigin(origin: string | undefined) {
+  if (!origin) {
+    return false;
+  }
+
+  return (
+    PUBLIC_PUBLISHER_REQUEST_ORIGINS.has(origin) ||
+    /^http:\/\/localhost:\d+$/.test(origin) ||
+    /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
+  );
+}
+
+function publisherRequestClientKey(
+  request: FastifyRequest,
+  body: PublisherRequestBody,
+) {
+  const forwardedFor = headerValue(request.headers["x-forwarded-for"]);
+  const clientIp = forwardedFor?.split(",")[0]?.trim() || request.ip || "unknown";
+  return `${clientIp}:${body.contactEmail.toLowerCase()}`;
+}
+
+function enforcePublisherRequestRateLimit(
+  request: FastifyRequest,
+  body: PublisherRequestBody,
+) {
+  const now = Date.now();
+  for (const [key, bucket] of publisherRequestRateLimit) {
+    if (bucket.resetAt <= now) {
+      publisherRequestRateLimit.delete(key);
+    }
+  }
+
+  const key = publisherRequestClientKey(request, body);
+  const bucket = publisherRequestRateLimit.get(key);
+  if (!bucket) {
+    publisherRequestRateLimit.set(key, {
+      count: 1,
+      resetAt: now + PUBLISHER_REQUEST_WINDOW_MS,
+    });
+    return;
+  }
+
+  bucket.count += 1;
+  if (bucket.count > PUBLISHER_REQUEST_MAX_PER_WINDOW) {
+    throw new Error("RATE_LIMITED");
+  }
+}
+
+function assertPublisherRequestGateway(
+  request: FastifyRequest,
+  body: PublisherRequestBody,
+) {
+  if (body.website) {
+    throw new Error("BOT_FIELD_FILLED");
+  }
+
+  const origin = headerValue(request.headers.origin);
+  const refererOrigin = originFromUrl(headerValue(request.headers.referer));
+  if (
+    !isAllowedPublisherRequestOrigin(origin) &&
+    !isAllowedPublisherRequestOrigin(refererOrigin)
+  ) {
+    throw new Error("BAD_ORIGIN");
+  }
+
+  const startedAt = Date.parse(body.startedAt);
+  const elapsedMs = Date.now() - startedAt;
+  if (
+    !Number.isFinite(startedAt) ||
+    elapsedMs < PUBLISHER_REQUEST_MIN_ELAPSED_MS ||
+    elapsedMs > PUBLISHER_REQUEST_MAX_ELAPSED_MS
+  ) {
+    throw new Error("BAD_FLOW_AGE");
+  }
+
+  enforcePublisherRequestRateLimit(request, body);
+}
+
 export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
+  f.post(
+    PUBLIC_PUBLISHER_REQUEST_PATH,
+    {
+      schema: { body: PublisherRequestBodySchema },
+    },
+    async (request, reply) => {
+      try {
+        assertPublisherRequestGateway(request, request.body);
+        const result = await createDiscoverPublisherApprovalRequest(request.body);
+
+        return reply.status(201).send({
+          status: "ok",
+          kind: result.kind,
+          publisherId: result.publisher.id,
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message === "RATE_LIMITED") {
+            return reply.status(429).send({
+              error: "Too many publisher requests. Please try again later.",
+            });
+          }
+
+          if (error.message === "BAD_ORIGIN") {
+            return reply.status(403).send({
+              error: "Publisher requests must be submitted from Pocket Genes.",
+            });
+          }
+
+          if (
+            error.message === "BOT_FIELD_FILLED" ||
+            error.message === "BAD_FLOW_AGE"
+          ) {
+            return reply.status(400).send({
+              error: "Please restart the request flow and try again.",
+            });
+          }
+        }
+
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
   f.addHook("onRequest", async (request, reply) => {
+    const requestPath = request.url.split("?")[0] ?? request.url;
+    if (requestPath === PUBLIC_PUBLISHER_REQUEST_PATH) {
+      return;
+    }
+
     if (!request.adminContext || !canAccessDiscover(request.adminContext)) {
       return reply.status(403).send({ error: "Discover access required" });
     }

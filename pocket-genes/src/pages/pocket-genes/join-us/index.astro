@@ -202,6 +202,7 @@ const pageCopy = {
 } as const;
 
 const copy = pageCopy[locale];
+const joinWizardHref = isEnglish ? '/en/pocket-genes/join-us/new/' : '/pocket-genes/join-us/new/';
 const trustMailSubject = encodeURIComponent(
   isEnglish ? 'Question for Pocket Genes' : 'Consulta para Pocket Genes',
 );
@@ -217,7 +218,7 @@ const trustMailSubject = encodeURIComponent(
       <div class="pg-container pg-trust-hero-grid">
         <div class="pg-hero-copy">
           <h1>{copy.heroTitle.split('\n').map((line) => <span>{line}</span>)}</h1>
-          <a class="pg-hero-cta" href="#trusted-organization-meeting">{copy.heroCta}</a>
+          <a class="pg-hero-cta" href={joinWizardHref}>{copy.heroCta}</a>
         </div>
       </div>
     </section>
