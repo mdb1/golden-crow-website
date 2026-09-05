@@ -53,7 +53,19 @@ export type RecentLogCategory =
    * to the coach reading the feed, and adding them would bury the rows that
    * are.
    */
-  | "assignment";
+  | "assignment"
+  /**
+   * The athlete marked their meals for a day (`nutrition_logs`).
+   *
+   * Nutrition had a card of its own on the profile but was absent from the FEED, which is
+   * the one place that answers "what did this person do". So a client ticking every meal
+   * for three weeks produced the same timeline as one who never opened the tab — the
+   * adherence number moved and nothing said why.
+   *
+   * One row per DAY, not per meal: six taps in a day is one act, and six rows would bury
+   * every workout and habit under it.
+   */
+  | "nutrition";
 
 export interface RecentLogRow {
   id: string;
@@ -442,6 +454,8 @@ async function buildRecentLogs(params: {
   let workoutLogsSnap: { docs: FirebaseFirestore.QueryDocumentSnapshot[] };
   let usersSnap: { docs: FirebaseFirestore.QueryDocumentSnapshot[] };
   let habitLogsSnaps: FirebaseFirestore.QuerySnapshot[];
+  // Empty on the trainer-wide path by design — see the read block's comment.
+  let nutritionSnaps: FirebaseFirestore.QuerySnapshot[] = [];
   let photoSnaps: Array<FirebaseFirestore.QuerySnapshot | null>;
   let weightSnaps: Array<FirebaseFirestore.QuerySnapshot | null>;
   let profileSnaps: Array<FirebaseFirestore.QuerySnapshot | null>;
@@ -591,6 +605,35 @@ async function buildRecentLogs(params: {
           }),
         )
       : Promise.resolve([] as FirebaseFirestore.QuerySnapshot[]);
+    // #949 follow-up — nutrition days. Same shape as the habit read above: ordered and
+    // cursored by `civilDate`, with the same fallback for an index still building.
+    //
+    // ⚠️ Only the PAGINATED (single-client) path reads these, which is every per-client
+    // feed — the admin drill-down and the coach's client profile. The trainer-wide
+    // dashboard feed below does NOT, deliberately: it fans out over the whole roster and
+    // one row per client per day would drown the rows a coach opens that feed for.
+    const nutritionSnapsP = want("nutrition")
+      ? Promise.all(
+          clients.map((c) => {
+            let q: FirebaseFirestore.Query = db
+              .collection(FirestoreCollections.nutritionLogs)
+              .where("clientId", "==", c.uid);
+            if (cursorCivil) q = q.where("civilDate", "<=", cursorCivil);
+            return q
+              .orderBy("civilDate", "desc")
+              .limit(limit)
+              .get()
+              .catch(() =>
+                db
+                  .collection(FirestoreCollections.nutritionLogs)
+                  .where("clientId", "==", c.uid)
+                  .limit(limit)
+                  .get(),
+              );
+          }),
+        )
+      : Promise.resolve([] as FirebaseFirestore.QuerySnapshot[]);
+
     // Habits master (for the progress badge) — only needed when habit rows show.
     const habitsMasterP = want("habit")
       ? Promise.all(
@@ -637,6 +680,7 @@ async function buildRecentLogs(params: {
       habitSnapsR,
       usersSnapR,
       habitsMasterR,
+      nutritionSnapsR,
     ] = await Promise.all([
       workoutSnapsP,
       photoSnapsP,
@@ -646,6 +690,7 @@ async function buildRecentLogs(params: {
       habitSnapsP,
       usersP,
       habitsMasterP,
+      nutritionSnapsP,
     ]);
 
     workoutLogsSnap = { docs: workoutSnaps.flatMap((s) => s.docs) };
@@ -658,6 +703,7 @@ async function buildRecentLogs(params: {
     weightSnaps = weightSnapsR;
     profileSnaps = profileSnapsR;
     habitsSnaps = habitsMasterR;
+    nutritionSnaps = nutritionSnapsR;
 
     const sourceFull = (
       snaps: Array<FirebaseFirestore.QuerySnapshot | null>,
@@ -667,7 +713,8 @@ async function buildRecentLogs(params: {
       sourceFull(habitSnapsR) ||
       sourceFull(photoSnapsR) ||
       sourceFull(weightSnapsR) ||
-      sourceFull(profileSnapsR);
+      sourceFull(profileSnapsR) ||
+      sourceFull(nutritionSnaps);
   } else {
     // #434 follow-up: fan out workout_logs per roster client (by clientId)
     // instead of a single `trainerId ==` query, so CLIENT-CREATED ("self")
@@ -1392,6 +1439,53 @@ async function buildRecentLogs(params: {
       detail: completed ? "Completado" : "Actualización pendiente",
       workoutLogId: null,
       forCivilDate,
+    });
+  });
+
+  // #949 follow-up — one row per nutrition DAY.
+  //
+  // `done` is the ONLY status that counts as compliance: `different` means they ate
+  // something else and `missed` that they did not eat it, and neither scores. The detail
+  // therefore reads "3 de 5", never "5 de 5 registradas" — a day where every meal was
+  // touched but only three were on plan is not a complete day, and printing it as one
+  // would flatter the number the coach is reading.
+  nutritionSnaps.forEach((snap) => {
+    snap.docs.forEach((doc) => {
+      const data = doc.data() as Record<string, unknown>;
+      const clientId = typeof data.clientId === "string" ? data.clientId : "";
+      if (!clientId) return;
+      // `updatedAt` is the mark instant; `createdAt` covers a day created and never
+      // touched again. Without either there is no point on the timeline to place the row,
+      // and a row with an invented instant sorts somewhere arbitrary.
+      const eventAt = asIso(data.updatedAt) ?? asIso(data.createdAt);
+      if (!eventAt) return;
+
+      const meals = (data.meals ?? {}) as Record<string, { status?: unknown } | undefined>;
+      const entries = Object.values(meals);
+      const total = entries.length;
+      if (total === 0) return; // a created-but-untouched day is not activity
+      const done = entries.filter((meal) => meal?.status === "done").length;
+      const civilDate = typeof data.civilDate === "string" ? data.civilDate : "";
+
+      const name = nameByClientId.get(clientId) ?? clientId;
+      rows.push({
+        id: `nutrition:${doc.id}`,
+        category: "nutrition",
+        eventAt,
+        clientId,
+        clientName: name,
+        clientPhotoURL: photoByClientId.get(clientId) ?? null,
+        title: `${name} registró sus comidas`,
+        detail: `${done} de ${total} comidas según el plan`,
+        workoutLogId: null,
+        // Same backdating rule the habit rows use: the app lets people mark a past day, so
+        // a row whose civil date differs from the day it was marked must say which day it
+        // is FOR instead of masquerading as today's activity.
+        forCivilDate:
+          civilDate && civilDate !== civilDateFormat(new Date(eventAt), trainerTz)
+            ? civilDate
+            : undefined,
+      });
     });
   });
 

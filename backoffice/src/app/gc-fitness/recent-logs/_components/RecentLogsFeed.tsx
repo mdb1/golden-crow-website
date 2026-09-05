@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
+  Apple,
   CalendarPlus,
   ArrowRightLeft,
   Bell,
@@ -65,6 +66,7 @@ const CATEGORY_ICON: Record<
   assignment: CalendarPlus,
   reminder: Bell,
   photo: Camera,
+  nutrition: Apple,
   weight: Scale,
   signup: User,
   profile: User,
@@ -76,6 +78,7 @@ const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
   assignment: "badgeAssignment",
   reminder: "badgeReminder",
   photo: "badgePhoto",
+  nutrition: "badgeNutrition",
   weight: "badgeWeight",
   signup: "badgeSignup",
   profile: "badgeProfile",
