@@ -8,6 +8,8 @@ import { emailMatchesQuery, normalizeSearchQuery } from "@/lib/gc-fitness/admin-
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { planChatCoachRepoint } from "@/lib/gc-fitness/chat-coach-repoint";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import { decodeNutritionPlan } from "@/lib/gc-fitness/nutrition-decode";
+import { loadNutritionRosterSummaries } from "@/lib/gc-fitness/nutrition-roster";
 import { recurrenceLabel } from "@/lib/gc-fitness/coach-activity-log";
 import {
   adminCanViewClientUnderCoach,
@@ -1145,6 +1147,133 @@ export interface AdminClientHabitRow {
  * coach-less client) so the god-mode coach-less profile can reuse these
  * loaders — see `adminCanViewClientUnderCoach` for the full rule.
  */
+/**
+ * How many nutrition phases the admin drill-down reads.
+ *
+ * Generous on purpose: the useful question here is "when did the last phase lapse", and a
+ * tight cap would hide exactly the gap an operator is looking for. Still bounded, because a
+ * client with years of weekly phases must not turn one page view into an unbounded read.
+ */
+const ADMIN_NUTRITION_PHASE_LIMIT = 100;
+
+/**
+ * Flattens a bilingual name for a read-only operator surface.
+ *
+ * Spanish first because the operators are the ones reading this page, falling back to
+ * English and then to an empty string. NOT exported: this file carries `"use server"`, where
+ * a SYNCHRONOUS export passes every jest test and then fails `next build` with "Server
+ * Actions must be async functions" — which, since `main` auto-deploys, ships a broken build
+ * with the suite green.
+ */
+function localizedPlanName(name: { en?: string; es?: string } | null | undefined): string {
+  if (!name) return "";
+  return name.es || name.en || "";
+}
+
+/**
+ * The nutrition line of the admin's read-only client drill-down (#1037-adjacent, but the
+ * gap is older than that).
+ *
+ * ## Why this exists
+ *
+ * The admin client page fetched and rendered exactly four things — recent activity, workout
+ * assignments, habits and progress photos — and never nutrition. Not for this client: for
+ * EVERY client, because there was no code path at all. So the one surface an operator opens
+ * to answer "what is going on with this person" was silent about the half of the product that
+ * fails quietly: a phase that expired and was never replaced does not show up anywhere else,
+ * it just makes adherence stop moving.
+ *
+ * ## Why it reuses the roster loader instead of computing its own number
+ *
+ * `loadNutritionRosterSummaries` is the same loader the coach's roster column and the coach's
+ * client profile use. Reusing it means the three surfaces cannot print three different
+ * adherence figures for the same week — which is exactly the class of divergence that has no
+ * error attached to it: every screen looks internally consistent and they simply disagree.
+ * It takes the `db` and does no gating of its own, which is what makes it safe to call from
+ * an admin context after the admin gate below.
+ *
+ * ## `ratio7d: null` is not zero
+ *
+ * Null means nobody ASKED anything of this client in the window; zero means they were asked
+ * and did not comply. Rendering the first as "0%" sends an operator to have the wrong
+ * conversation, so the type keeps them apart and so must the UI.
+ */
+export interface AdminClientNutrition {
+  /** 7-day adherence, `null` when nothing was asked. Never conflate with 0. */
+  percent7d: number | null;
+  /** Whether a phase is in force TODAY — the signal that goes silent when one expires. */
+  hasActivePlan: boolean;
+  activePlanName: string | null;
+  activePlanEndsOn: string | null;
+  /** Never had any phase at all. Distinct from an expired one: nothing to chase. */
+  neverHadPlan: boolean;
+  /** Every phase, newest first, so an operator can see the gap between two of them. */
+  phases: AdminClientNutritionPhase[];
+}
+
+export interface AdminClientNutritionPhase {
+  id: string;
+  name: string;
+  startsOn: string;
+  /** `null` for an open-ended phase. */
+  endsOn: string | null;
+  deleted: boolean;
+}
+
+export async function listClientNutritionForAdmin(
+  coachUid: string,
+  clientId: string,
+): Promise<AdminClientNutrition> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+  await assertClientBelongsToCoach(db, coachUid, clientId);
+
+  // The CLIENT's zone, not the operator's: a phase boundary belongs to whoever is eating.
+  const clientSnap = await db.collection(FirestoreCollections.users).doc(clientId).get();
+  const clientTimezone =
+    (clientSnap.data() as { timezone?: unknown } | undefined)?.timezone;
+  const timezone = typeof clientTimezone === "string" && clientTimezone ? clientTimezone : null;
+
+  const [summaries, plansSnap] = await Promise.all([
+    loadNutritionRosterSummaries(db, [{ uid: clientId, timezone }], timezone ?? "UTC"),
+    db
+      .collection(FirestoreCollections.nutritionPlans)
+      .where("clientId", "==", clientId)
+      .limit(ADMIN_NUTRITION_PHASE_LIMIT)
+      .get(),
+  ]);
+
+  const summary = summaries.get(clientId);
+  const phases = plansSnap.docs
+    .map((doc) => decodeNutritionPlan(doc.id, doc.data()))
+    .filter((plan): plan is NonNullable<typeof plan> => plan !== null)
+    // Newest first: the interesting question here is "what are they on NOW, and when did the
+    // last one lapse", which reads top-down.
+    .sort((a, b) => b.startsOn.localeCompare(a.startsOn))
+    .map((plan) => ({
+      // `NutritionPlan.id` is optional on the model (it is the doc id, not a body field), but
+      // every plan here came FROM a snapshot, so it is always present. Fall back rather than
+      // assert: a plan with no id is a row that cannot be keyed, not a reason to 500 the page.
+      id: plan.id ?? "",
+      name: localizedPlanName(plan.name),
+      startsOn: plan.startsOn,
+      endsOn: plan.endsOn ?? null,
+      deleted: plan.deleted === true,
+    }));
+
+  return {
+    percent7d: summary?.percent7d ?? null,
+    hasActivePlan: summary?.hasActivePlan ?? false,
+    activePlanName: summary ? localizedPlanName(summary.activePlanName) : null,
+    activePlanEndsOn: summary?.activePlanEndsOn ?? null,
+    // A client with no phase documents at all has never been given one. Read from the
+    // summary rather than from `phases.length` so this agrees with the roster even if the
+    // phase read is capped.
+    neverHadPlan: summary?.neverHadPlan ?? phases.length === 0,
+    phases,
+  };
+}
+
 async function assertClientBelongsToCoach(
   db: FirebaseFirestore.Firestore,
   coachUid: string,
