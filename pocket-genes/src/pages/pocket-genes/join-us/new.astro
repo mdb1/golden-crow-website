@@ -53,11 +53,21 @@ const pageCopy = {
     namePlaceholderOrganization: 'Example Genetics Lab',
     namePlaceholderIndividual: 'Dr. Alex Rivera',
     descriptionTitle: 'Describe what people can find through you',
-    descriptionBody: 'Keep it clear and practical. You can add the alternate language too.',
+    descriptionBody: 'Write at least 30 characters. Keep the main language clear; the alternate language is optional.',
     descriptionLabel: 'Description in English',
     descriptionPlaceholder: 'Tell users what you do, who you support, and how you can help.',
-    altDescriptionButton: 'Add Spanish description',
+    descriptionPrompts: ['What you do', 'Who you support', 'How you can help'],
+    descriptionMinHint: 'Start with the essentials so people understand if your profile is relevant to them.',
+    descriptionReady: 'This is enough to continue. Add the alternate language only if it helps.',
+    descriptionCountLabel: 'characters',
+    descriptionRemainingLabel: 'more characters to continue',
+    descriptionMinError: 'Write at least 30 characters to continue.',
+    altDescriptionButton: 'Add Spanish',
+    altDescriptionTitle: 'Optional second language',
+    altDescriptionBody: 'You can keep this profile only in English and continue.',
     altDescriptionLabel: 'Description in Spanish',
+    altDescriptionPlaceholder: 'Optional Spanish version.',
+    altDescriptionRemove: 'Keep only English',
     emailTitle: 'Where should the publishing credentials arrive?',
     emailBody: 'This email is important. If the request is approved, credentials for publishing and managing the profile will be sent here.',
     emailLabel: 'Publisher email',
@@ -67,12 +77,23 @@ const pageCopy = {
     websiteLabel: 'Website URL',
     websitePlaceholder: 'https://example.org',
     skipHint: 'You can skip this step.',
-    imageTitle: 'Add an image and profile color',
-    imageBody: 'Optional. Paste an HTTPS image URL and we will suggest a color. You can always pick your own.',
+    imageTitle: 'Add the profile image',
+    imageBody: 'Optional. Add an HTTPS image URL first. Once it loads, we will open the color controls.',
+    imageRowTitle: 'Profile image',
+    imageRowBody: 'Use a logo, portrait, or recognizable public image.',
     imageLabel: 'Image URL',
     imagePlaceholder: 'https://example.org/profile.png',
+    imageLoading: 'Loading image and preparing the color...',
+    imageLoaded: 'Image loaded. The suggested color is ready below.',
+    imageLoadError: 'We could not load that image. Try another HTTPS URL or clear it to skip.',
     colorLabel: 'Profile color',
     colorSuggested: 'Use suggested color',
+    colorRowTitle: 'Profile color',
+    colorRowBody: 'We suggested a color from the image so the profile card feels consistent.',
+    colorAutoExplanation: 'Suggested from your image. It will be saved unless you choose another one.',
+    colorCustomExplanation: 'Custom color selected. This color will be saved with the profile.',
+    colorHexLabel: 'Selected color',
+    customColorLabel: 'Pick a different color',
     imagePreviewAlt: 'Profile preview',
     socialTitle: 'Add social media links',
     socialBody: 'Optional. Add the channels where users can follow or contact you.',
@@ -137,11 +158,21 @@ const pageCopy = {
     namePlaceholderOrganization: 'Laboratorio Genético Ejemplo',
     namePlaceholderIndividual: 'Dra. Alex Rivera',
     descriptionTitle: 'Describí qué pueden encontrar las personas',
-    descriptionBody: 'Mantenelo claro y práctico. También podés sumar el idioma alternativo.',
+    descriptionBody: 'Escribí al menos 30 caracteres. El idioma principal es obligatorio; el alternativo es opcional.',
     descriptionLabel: 'Descripción en español',
     descriptionPlaceholder: 'Contá qué hacés, a quién acompañás y cómo podés ayudar.',
-    altDescriptionButton: 'Agregar descripción en inglés',
+    descriptionPrompts: ['Qué hacen', 'A quién ayudan', 'Cómo acompañan'],
+    descriptionMinHint: 'Empezá por lo esencial para que las personas entiendan si tu perfil les sirve.',
+    descriptionReady: 'Listo para continuar. Sumá el idioma alternativo solo si ayuda.',
+    descriptionCountLabel: 'caracteres',
+    descriptionRemainingLabel: 'caracteres más para continuar',
+    descriptionMinError: 'Escribí al menos 30 caracteres para continuar.',
+    altDescriptionButton: 'Sumar inglés opcional',
+    altDescriptionTitle: 'Segundo idioma opcional',
+    altDescriptionBody: 'Podés mantener este perfil solo en español y avanzar.',
     altDescriptionLabel: 'Descripción en inglés',
+    altDescriptionPlaceholder: 'Versión en inglés opcional.',
+    altDescriptionRemove: 'Mantener solo español',
     emailTitle: '¿A qué email deberían llegar las credenciales?',
     emailBody: 'Este email es muy importante. Si la solicitud se aprueba, las credenciales para publicar y administrar el perfil van a llegar a esta dirección.',
     emailLabel: 'Email del publicador',
@@ -151,12 +182,23 @@ const pageCopy = {
     websiteLabel: 'URL de la página',
     websitePlaceholder: 'https://example.org',
     skipHint: 'Podés saltear este paso.',
-    imageTitle: 'Sumá una imagen y color de perfil',
-    imageBody: 'Opcional. Pegá una URL HTTPS de imagen y sugerimos un color. También podés elegirlo manualmente.',
+    imageTitle: 'Sumá la imagen del perfil',
+    imageBody: 'Opcional. Primero pegá una URL HTTPS de imagen. Cuando cargue, abrimos los controles de color.',
+    imageRowTitle: 'Imagen del perfil',
+    imageRowBody: 'Usá un logo, retrato o imagen pública reconocible.',
     imageLabel: 'URL de imagen',
     imagePlaceholder: 'https://example.org/perfil.png',
+    imageLoading: 'Cargando imagen y preparando el color...',
+    imageLoaded: 'Imagen cargada. El color sugerido está listo abajo.',
+    imageLoadError: 'No pudimos cargar esa imagen. Probá otra URL HTTPS o borrala para saltear el paso.',
     colorLabel: 'Color del perfil',
     colorSuggested: 'Usar color sugerido',
+    colorRowTitle: 'Color del perfil',
+    colorRowBody: 'Sugerimos un color desde la imagen para que la ficha se sienta coherente.',
+    colorAutoExplanation: 'Sugerido desde tu imagen. Se guarda así salvo que elijas otro.',
+    colorCustomExplanation: 'Color personalizado seleccionado. Este color se guardará con el perfil.',
+    colorHexLabel: 'Color seleccionado',
+    customColorLabel: 'Elegir otro color',
     imagePreviewAlt: 'Vista previa del perfil',
     socialTitle: 'Sumá redes sociales',
     socialBody: 'Opcional. Agregá los canales donde las personas pueden seguirte o contactarte.',
@@ -215,6 +257,16 @@ const wizardClientCopy = {
   organizationNamePlaceholder: copy.namePlaceholderOrganization,
   individualNamePlaceholder: copy.namePlaceholderIndividual,
   imagePreviewAlt: copy.imagePreviewAlt,
+  descriptionMinHint: copy.descriptionMinHint,
+  descriptionReady: copy.descriptionReady,
+  descriptionCountLabel: copy.descriptionCountLabel,
+  descriptionRemainingLabel: copy.descriptionRemainingLabel,
+  descriptionMinError: copy.descriptionMinError,
+  imageLoading: copy.imageLoading,
+  imageLoaded: copy.imageLoaded,
+  imageLoadError: copy.imageLoadError,
+  colorAutoExplanation: copy.colorAutoExplanation,
+  colorCustomExplanation: copy.colorCustomExplanation,
 };
 ---
 
@@ -373,23 +425,62 @@ const wizardClientCopy = {
             <h2>{copy.descriptionTitle}</h2>
             <p>{copy.descriptionBody}</p>
           </div>
-          <label class="pg-input-shell pg-textarea-shell">
-            <span>{copy.descriptionLabel}</span>
-            <textarea
-              name="descriptionPrimary"
-              data-description-primary
-              maxlength="5000"
-              rows="7"
-              placeholder={copy.descriptionPlaceholder}
-            ></textarea>
-          </label>
-          <button type="button" class="pg-secondary-action" data-alt-description-toggle>
-            {copy.altDescriptionButton}
-          </button>
-          <label class="pg-input-shell pg-textarea-shell" data-alt-description-field hidden>
-            <span>{copy.altDescriptionLabel}</span>
-            <textarea name="descriptionAlternative" data-description-alternative maxlength="5000" rows="5"></textarea>
-          </label>
+          <div class="pg-description-composer">
+            <label class="pg-input-shell pg-textarea-shell pg-description-card" data-description-card>
+              <span>{copy.descriptionLabel}</span>
+              <textarea
+                name="descriptionPrimary"
+                data-description-primary
+                maxlength="5000"
+                rows="7"
+                placeholder={copy.descriptionPlaceholder}
+              ></textarea>
+              <div class="pg-description-meter" aria-hidden="true">
+                <span data-description-meter></span>
+              </div>
+              <div class="pg-description-footer">
+                <small data-description-helper>{copy.descriptionMinHint}</small>
+                <strong data-description-count>0 / 30</strong>
+              </div>
+              <div class="pg-writing-pulses" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </label>
+            <div class="pg-description-prompts">
+              {copy.descriptionPrompts.map((prompt) => <span>{prompt}</span>)}
+            </div>
+            <section class="pg-alt-description-offer" data-alt-description-offer>
+              <div>
+                <strong>{copy.altDescriptionTitle}</strong>
+                <p>{copy.altDescriptionBody}</p>
+              </div>
+              <button type="button" class="pg-secondary-action" data-alt-description-toggle aria-expanded="false">
+                {copy.altDescriptionButton}
+              </button>
+            </section>
+            <section class="pg-alt-description-panel" data-alt-description-field hidden>
+              <div class="pg-alt-description-heading">
+                <div>
+                  <strong>{copy.altDescriptionLabel}</strong>
+                  <p>{copy.altDescriptionBody}</p>
+                </div>
+                <button type="button" data-alt-description-remove>
+                  {copy.altDescriptionRemove}
+                </button>
+              </div>
+              <label class="pg-input-shell pg-textarea-shell pg-alt-description-input">
+                <textarea
+                  name="descriptionAlternative"
+                  data-description-alternative
+                  maxlength="5000"
+                  rows="5"
+                  placeholder={copy.altDescriptionPlaceholder}
+                ></textarea>
+              </label>
+            </section>
+          </div>
         </div>
 
         <div class="pg-wizard-step" data-step-panel="email" hidden>
@@ -433,30 +524,60 @@ const wizardClientCopy = {
             <h2>{copy.imageTitle}</h2>
             <p>{copy.imageBody}</p>
           </div>
-          <div class="pg-image-grid">
-            <div>
-              <label class="pg-input-shell">
-                <span>{copy.imageLabel}</span>
-                <input
-                  type="url"
-                  name="imageUrl"
-                  data-image-url
-                  maxlength="1000"
-                  placeholder={copy.imagePlaceholder}
-                />
-              </label>
-              <p class="pg-skip-hint">{copy.skipHint}</p>
-            </div>
-            <div class="pg-profile-preview" data-profile-preview>
-              <div class="pg-preview-image" data-preview-image>
-                <span>PG</span>
+          <div class="pg-profile-flow">
+            <section class="pg-profile-row pg-profile-image-row">
+              <div class="pg-profile-row-copy">
+                <span>01</span>
+                <h3>{copy.imageRowTitle}</h3>
+                <p>{copy.imageRowBody}</p>
               </div>
-              <label>
-                <span>{copy.colorLabel}</span>
-                <input type="color" value="#6F3CC3" data-color-input />
-              </label>
-              <button type="button" data-use-suggested-color>{copy.colorSuggested}</button>
-            </div>
+              <div class="pg-profile-row-main">
+                <label class="pg-input-shell">
+                  <span>{copy.imageLabel}</span>
+                  <input
+                    type="url"
+                    name="imageUrl"
+                    data-image-url
+                    maxlength="1000"
+                    placeholder={copy.imagePlaceholder}
+                  />
+                </label>
+                <p class="pg-image-status" data-image-status aria-live="polite"></p>
+                <p class="pg-skip-hint">{copy.skipHint}</p>
+              </div>
+              <div class="pg-profile-preview" data-profile-preview>
+                <div class="pg-preview-image" data-preview-image>
+                  <span>PG</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="pg-profile-row pg-color-row" data-color-row hidden>
+              <div class="pg-profile-row-copy">
+                <span>02</span>
+                <h3>{copy.colorRowTitle}</h3>
+                <p>{copy.colorRowBody}</p>
+              </div>
+              <div class="pg-profile-row-main">
+                <p class="pg-color-story" data-color-story>{copy.colorAutoExplanation}</p>
+                <div class="pg-color-controls">
+                  <label class="pg-color-picker">
+                    <span>{copy.customColorLabel}</span>
+                    <input type="color" value="#6F3CC3" data-color-input />
+                    <strong data-color-hex>#6F3CC3</strong>
+                  </label>
+                  <button type="button" class="pg-suggested-color-button" data-use-suggested-color>
+                    <span data-suggested-color-swatch></span>
+                    <span>{copy.colorSuggested}</span>
+                  </button>
+                </div>
+              </div>
+              <div class="pg-color-preview" aria-hidden="true">
+                <span class="pg-color-orbit"></span>
+                <span class="pg-color-swatch" data-color-swatch></span>
+                <small>{copy.colorHexLabel}</small>
+              </div>
+            </section>
           </div>
         </div>
 
@@ -565,6 +686,7 @@ const wizardClientCopy = {
     const copy = JSON.parse(wizardRoot.getAttribute('data-copy') || '{}');
     const locale = wizardRoot.getAttribute('data-locale') || 'es';
     const sdkUrl = wizardRoot.getAttribute('data-sdk-url') || 'https://golden-crow-sdk.vercel.app';
+    const DESCRIPTION_MIN_LENGTH = 30;
     const state = {
       kind: 'organization',
       countries: [],
@@ -578,6 +700,8 @@ const wizardClientCopy = {
       color: '#6F3CC3',
       suggestedColor: '#6F3CC3',
       colorCustomized: false,
+      imageStatus: 'empty',
+      imageLoadToken: 0,
       submitting: false,
       startedAt: new Date().toISOString(),
     };
@@ -601,13 +725,25 @@ const wizardClientCopy = {
     const nameLabel = wizardRoot.querySelector('[data-name-label]');
     const descriptionPrimary = wizardRoot.querySelector('[data-description-primary]');
     const descriptionAlternative = wizardRoot.querySelector('[data-description-alternative]');
+    const descriptionCard = wizardRoot.querySelector('[data-description-card]');
+    const descriptionMeter = wizardRoot.querySelector('[data-description-meter]');
+    const descriptionHelper = wizardRoot.querySelector('[data-description-helper]');
+    const descriptionCount = wizardRoot.querySelector('[data-description-count]');
     const altDescriptionToggle = wizardRoot.querySelector('[data-alt-description-toggle]');
+    const altDescriptionOffer = wizardRoot.querySelector('[data-alt-description-offer]');
     const altDescriptionField = wizardRoot.querySelector('[data-alt-description-field]');
+    const altDescriptionRemove = wizardRoot.querySelector('[data-alt-description-remove]');
     const contactEmail = wizardRoot.querySelector('[data-contact-email]');
     const websiteUrl = wizardRoot.querySelector('[data-website-url]');
     const imageUrl = wizardRoot.querySelector('[data-image-url]');
+    const imageStatus = wizardRoot.querySelector('[data-image-status]');
     const previewImage = wizardRoot.querySelector('[data-preview-image]');
+    const colorRow = wizardRoot.querySelector('[data-color-row]');
+    const colorStory = wizardRoot.querySelector('[data-color-story]');
     const colorInput = wizardRoot.querySelector('[data-color-input]');
+    const colorSwatch = wizardRoot.querySelector('[data-color-swatch]');
+    const suggestedColorSwatch = wizardRoot.querySelector('[data-suggested-color-swatch]');
+    const colorHex = wizardRoot.querySelector('[data-color-hex]');
     const useSuggestedColor = wizardRoot.querySelector('[data-use-suggested-color]');
     const addSocialButton = wizardRoot.querySelector('[data-add-social]');
     const socialList = wizardRoot.querySelector('[data-social-list]');
@@ -668,16 +804,26 @@ const wizardClientCopy = {
         message = copy.required;
       } else if (step === 'name' && !nameInput?.value.trim()) {
         message = copy.required;
-      } else if (step === 'description' && !descriptionPrimary?.value.trim()) {
-        message = copy.required;
+      } else if (
+        step === 'description' &&
+        (descriptionPrimary?.value.trim().length || 0) < DESCRIPTION_MIN_LENGTH
+      ) {
+        message = copy.descriptionMinError;
       } else if (step === 'email') {
         message = contactEmail?.value.trim() && validEmail(contactEmail.value)
           ? ''
           : copy.emailError;
       } else if (step === 'website' && websiteUrl && !validUrl(websiteUrl.value)) {
         message = copy.urlError;
-      } else if (step === 'image' && imageUrl && !validUrl(imageUrl.value, true)) {
-        message = copy.imageUrlError;
+      } else if (step === 'image' && imageUrl) {
+        const url = imageUrl.value.trim();
+        if (url && !validUrl(url, true)) {
+          message = copy.imageUrlError;
+        } else if (url && state.imageStatus === 'loading') {
+          message = copy.imageLoading;
+        } else if (url && state.imageStatus === 'failed') {
+          message = copy.imageLoadError;
+        }
       } else if (step === 'social') {
         const invalidSocial = Array.from(wizardRoot.querySelectorAll('[data-social-url]')).some(
           (input) => input.value.trim() && !validUrl(input.value),
@@ -794,12 +940,83 @@ const wizardClientCopy = {
       });
     }
 
-    function updateColor(value) {
-      state.color = value;
-      if (colorInput) colorInput.value = value;
-      if (previewImage) {
-        previewImage.style.setProperty('--wizard-preview-color', value);
+    function updateDescriptionUi() {
+      if (!descriptionPrimary) return;
+
+      const length = descriptionPrimary.value.trim().length;
+      const done = length >= DESCRIPTION_MIN_LENGTH;
+      const remaining = Math.max(0, DESCRIPTION_MIN_LENGTH - length);
+      const progress = Math.min(1, length / DESCRIPTION_MIN_LENGTH);
+
+      descriptionCard?.classList.toggle('is-started', length > 0);
+      descriptionCard?.classList.toggle('is-complete', done);
+
+      if (descriptionMeter) {
+        descriptionMeter.style.transform = `scaleX(${progress})`;
       }
+
+      if (descriptionCount) {
+        descriptionCount.textContent = `${length} / ${DESCRIPTION_MIN_LENGTH} ${copy.descriptionCountLabel}`;
+      }
+
+      if (descriptionHelper) {
+        descriptionHelper.textContent = done
+          ? copy.descriptionReady
+          : `${remaining} ${copy.descriptionRemainingLabel}`;
+      }
+    }
+
+    let descriptionPulseTimer;
+    function pulseDescriptionWriting() {
+      if (!descriptionCard) return;
+
+      descriptionCard.classList.add('is-writing');
+      window.clearTimeout(descriptionPulseTimer);
+      descriptionPulseTimer = window.setTimeout(() => {
+        descriptionCard.classList.remove('is-writing');
+      }, 760);
+    }
+
+    function updateColorUi() {
+      const current = state.color.toUpperCase();
+      const suggested = state.suggestedColor.toUpperCase();
+
+      if (colorInput) colorInput.value = current;
+      if (previewImage) previewImage.style.setProperty('--wizard-preview-color', current);
+      if (colorSwatch) colorSwatch.style.backgroundColor = current;
+      if (suggestedColorSwatch) suggestedColorSwatch.style.backgroundColor = suggested;
+      if (colorHex) colorHex.textContent = current;
+      if (colorStory) {
+        colorStory.textContent = state.colorCustomized
+          ? copy.colorCustomExplanation
+          : copy.colorAutoExplanation;
+      }
+      colorRow?.classList.toggle('is-custom', state.colorCustomized);
+    }
+
+    function setColorRowVisible(visible) {
+      if (!colorRow) return;
+
+      colorRow.hidden = !visible;
+      colorRow.classList.toggle('is-visible', visible);
+      if (visible) {
+        updateColorUi();
+      }
+    }
+
+    function setImageStatus(status, message = '') {
+      state.imageStatus = status;
+
+      if (imageStatus) {
+        imageStatus.textContent = message;
+        imageStatus.hidden = !message;
+        imageStatus.dataset.status = status;
+      }
+    }
+
+    function updateColor(value) {
+      state.color = value.toUpperCase();
+      updateColorUi();
     }
 
     function renderStep() {
@@ -840,6 +1057,8 @@ const wizardClientCopy = {
       updateCountryUi();
       updateCategoryUi();
       updateProviderUi();
+      updateDescriptionUi();
+      updateColorUi();
     }
 
     function toggleCountry(value) {
@@ -1006,18 +1225,13 @@ const wizardClientCopy = {
       });
     }
 
-    let colorTimer;
     function updateImagePreview() {
       if (!imageUrl || !previewImage) return;
       const url = imageUrl.value.trim();
-      previewImage.replaceChildren();
+      state.imageLoadToken += 1;
+      const token = state.imageLoadToken;
 
-      if (url && validUrl(url, true)) {
-        const image = document.createElement('img');
-        image.src = url;
-        image.alt = copy.imagePreviewAlt;
-        previewImage.append(image);
-      } else {
+      function renderInitials() {
         const initials = document.createElement('span');
         const text = nameInput?.value.trim() || 'Pocket Genes';
         initials.textContent = text
@@ -1027,17 +1241,52 @@ const wizardClientCopy = {
           .map((part) => part[0])
           .join('')
           .toUpperCase() || 'PG';
-        previewImage.append(initials);
+        previewImage.replaceChildren(initials);
       }
 
-      window.clearTimeout(colorTimer);
-      colorTimer = window.setTimeout(async () => {
-        const suggested = await averageImageColor(url);
-        state.suggestedColor = suggested;
-        if (!state.colorCustomized) {
-          updateColor(suggested);
-        }
-      }, 350);
+      previewImage.classList.remove('is-loading', 'is-loaded', 'is-error');
+      setColorRowVisible(false);
+
+      if (url && validUrl(url, true)) {
+        setImageStatus('loading', copy.imageLoading);
+        previewImage.classList.add('is-loading');
+        const image = document.createElement('img');
+        image.alt = copy.imagePreviewAlt;
+        image.onload = async () => {
+          if (token !== state.imageLoadToken) return;
+
+          const suggested = await averageImageColor(url);
+          if (token !== state.imageLoadToken) return;
+
+          state.suggestedColor = suggested.toUpperCase();
+          if (!state.colorCustomized) {
+            updateColor(state.suggestedColor);
+          } else {
+            updateColorUi();
+          }
+
+          previewImage.classList.remove('is-loading');
+          previewImage.classList.add('is-loaded');
+          setImageStatus('loaded', copy.imageLoaded);
+          setColorRowVisible(true);
+          renderStep();
+        };
+        image.onerror = () => {
+          if (token !== state.imageLoadToken) return;
+
+          previewImage.classList.remove('is-loading');
+          previewImage.classList.add('is-error');
+          renderInitials();
+          setImageStatus('failed', copy.imageLoadError);
+          setColorRowVisible(false);
+          renderStep();
+        };
+        previewImage.append(image);
+        image.src = url;
+      } else {
+        renderInitials();
+        setImageStatus(url ? 'invalid' : 'empty', url ? copy.imageUrlError : '');
+      }
     }
 
     function createSocialRow() {
@@ -1241,8 +1490,23 @@ const wizardClientCopy = {
     altDescriptionToggle?.addEventListener('click', () => {
       if (!altDescriptionField) return;
       altDescriptionField.hidden = false;
-      altDescriptionToggle.hidden = true;
-      descriptionAlternative?.focus();
+      if (altDescriptionOffer) {
+        altDescriptionOffer.hidden = true;
+      }
+      altDescriptionToggle.setAttribute('aria-expanded', 'true');
+      requestAnimationFrame(() => descriptionAlternative?.focus());
+    });
+    altDescriptionRemove?.addEventListener('click', () => {
+      if (!altDescriptionField) return;
+      altDescriptionField.hidden = true;
+      if (altDescriptionOffer) {
+        altDescriptionOffer.hidden = false;
+      }
+      altDescriptionToggle?.setAttribute('aria-expanded', 'false');
+      if (descriptionAlternative) {
+        descriptionAlternative.value = '';
+      }
+      renderStep();
     });
     colorInput?.addEventListener('input', () => {
       state.colorCustomized = true;
@@ -1264,7 +1528,11 @@ const wizardClientCopy = {
       updateImagePreview();
       renderStep();
     });
-    [descriptionPrimary, descriptionAlternative, contactEmail, websiteUrl].forEach((input) => {
+    descriptionPrimary?.addEventListener('input', () => {
+      pulseDescriptionWriting();
+      renderStep();
+    });
+    [descriptionAlternative, contactEmail, websiteUrl].forEach((input) => {
       input?.addEventListener('input', () => renderStep());
     });
 
@@ -1777,6 +2045,229 @@ const wizardClientCopy = {
     min-height: 144px;
   }
 
+  .pg-description-composer {
+    display: grid;
+    gap: 18px;
+    max-width: 760px;
+  }
+
+  .pg-description-card {
+    position: relative;
+    isolation: isolate;
+    min-height: 278px;
+    overflow: hidden;
+    background:
+      linear-gradient(135deg, rgba(111, 60, 195, 0.055), rgba(20, 149, 143, 0.035)),
+      #ffffff;
+    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  }
+
+  .pg-description-card::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: auto 24px -70px auto;
+    width: 160px;
+    height: 160px;
+    border-radius: 999px;
+    background: rgba(111, 60, 195, 0.1);
+    filter: blur(18px);
+    opacity: 0;
+    transform: scale(0.75);
+    transition: opacity 220ms ease, transform 220ms ease;
+  }
+
+  .pg-description-card.is-started {
+    border-color: rgba(111, 60, 195, 0.42);
+  }
+
+  .pg-description-card.is-writing {
+    transform: translateY(-1px);
+    box-shadow: 0 22px 45px rgba(32, 33, 39, 0.12);
+  }
+
+  .pg-description-card.is-writing::before,
+  .pg-description-card.is-complete::before {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .pg-description-card.is-complete {
+    border-color: rgba(20, 149, 143, 0.65);
+    box-shadow: 0 18px 38px rgba(20, 149, 143, 0.12);
+  }
+
+  .pg-description-card textarea {
+    position: relative;
+    z-index: 1;
+    min-height: 156px;
+  }
+
+  .pg-description-meter {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #eceef4;
+  }
+
+  .pg-description-meter span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--wizard-purple), #14958f);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 180ms ease;
+  }
+
+  .pg-description-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+  }
+
+  .pg-description-footer small {
+    color: var(--wizard-muted);
+    font-size: 0.92rem;
+    line-height: 1.42;
+  }
+
+  .pg-description-footer strong {
+    flex: 0 0 auto;
+    border: 1px solid rgba(111, 60, 195, 0.2);
+    border-radius: 999px;
+    color: var(--wizard-purple);
+    padding: 7px 12px;
+    font-size: 0.84rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .pg-description-card.is-complete .pg-description-footer strong {
+    border-color: rgba(20, 149, 143, 0.25);
+    background: #eef8f7;
+    color: #0f6f6a;
+  }
+
+  .pg-writing-pulses {
+    position: absolute;
+    right: 22px;
+    bottom: 72px;
+    display: inline-flex;
+    gap: 5px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+
+  .pg-writing-pulses span {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--wizard-purple);
+  }
+
+  .pg-description-card.is-writing .pg-writing-pulses {
+    opacity: 1;
+  }
+
+  .pg-description-card.is-writing .pg-writing-pulses span {
+    animation: pgWritingPulse 720ms ease-in-out infinite;
+  }
+
+  .pg-description-card.is-writing .pg-writing-pulses span:nth-child(2) {
+    animation-delay: 90ms;
+  }
+
+  .pg-description-card.is-writing .pg-writing-pulses span:nth-child(3) {
+    animation-delay: 180ms;
+  }
+
+  .pg-description-prompts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .pg-description-prompts span {
+    border: 1px solid rgba(111, 60, 195, 0.14);
+    border-radius: 999px;
+    background: rgba(111, 60, 195, 0.06);
+    color: #553096;
+    padding: 8px 13px;
+    font-size: 0.88rem;
+    font-weight: 680;
+  }
+
+  .pg-alt-description-offer,
+  .pg-alt-description-panel {
+    border: 1px solid rgba(200, 203, 210, 0.9);
+    border-radius: 20px;
+    background: #ffffff;
+    padding: 18px;
+  }
+
+  .pg-alt-description-offer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+  }
+
+  .pg-alt-description-offer strong,
+  .pg-alt-description-heading strong {
+    display: block;
+    color: var(--wizard-ink);
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .pg-alt-description-offer p,
+  .pg-alt-description-heading p {
+    margin: 5px 0 0;
+    color: var(--wizard-muted);
+    font-size: 0.92rem;
+    line-height: 1.4;
+  }
+
+  .pg-alt-description-offer .pg-secondary-action {
+    flex: 0 0 auto;
+    margin-top: 0;
+  }
+
+  .pg-alt-description-panel {
+    display: grid;
+    gap: 14px;
+    animation: pgSoftReveal 240ms ease both;
+  }
+
+  .pg-alt-description-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+  }
+
+  .pg-alt-description-heading button {
+    flex: 0 0 auto;
+    border: 1px solid rgba(200, 203, 210, 0.9);
+    border-radius: 999px;
+    background: #fbfcfd;
+    color: var(--wizard-ink);
+    min-height: 40px;
+    padding: 0 14px;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .pg-alt-description-input {
+    min-height: 160px;
+  }
+
   .pg-input-shell:focus-within,
   .pg-large-field:focus-visible,
   .pg-picker-popover input:focus,
@@ -1799,21 +2290,64 @@ const wizardClientCopy = {
     cursor: pointer;
   }
 
-  .pg-image-grid {
+  .pg-profile-flow {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 240px;
-    gap: 28px;
-    align-items: start;
+    gap: 18px;
+  }
+
+  .pg-profile-row {
+    display: grid;
+    grid-template-columns: minmax(170px, 220px) minmax(0, 1fr) auto;
+    gap: 22px;
+    align-items: center;
+    border: 1px solid rgba(200, 203, 210, 0.8);
+    border-radius: 24px;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 18px 38px rgba(32, 33, 39, 0.06);
+  }
+
+  .pg-profile-row-copy {
+    display: grid;
+    gap: 8px;
+  }
+
+  .pg-profile-row-copy > span {
+    display: inline-grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border-radius: 14px;
+    background: var(--wizard-purple-soft);
+    color: var(--wizard-purple);
+    font-size: 0.9rem;
+    font-weight: 800;
+  }
+
+  .pg-profile-row-copy h3 {
+    margin: 0;
+    color: var(--wizard-ink);
+    font-size: 1.08rem;
+    line-height: 1.25;
+  }
+
+  .pg-profile-row-copy p {
+    margin: 0;
+    color: var(--wizard-muted);
+    font-size: 0.92rem;
+    line-height: 1.42;
+  }
+
+  .pg-profile-row-main {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
   }
 
   .pg-profile-preview {
+    justify-self: end;
     display: grid;
-    gap: 16px;
     justify-items: center;
-    border: 1px solid rgba(200, 203, 210, 0.8);
-    border-radius: 28px;
-    background: #fbfcfd;
-    padding: 22px;
   }
 
   .pg-preview-image {
@@ -1830,6 +2364,8 @@ const wizardClientCopy = {
     color: #ffffff;
     font-size: 2rem;
     font-weight: 800;
+    position: relative;
+    box-shadow: 0 16px 34px rgba(111, 60, 195, 0.18);
   }
 
   .pg-preview-image img {
@@ -1838,29 +2374,157 @@ const wizardClientCopy = {
     object-fit: cover;
   }
 
-  .pg-profile-preview label {
-    display: grid;
-    gap: 8px;
+  .pg-preview-image.is-loading::after {
+    content: '';
+    position: absolute;
+    width: 34px;
+    height: 34px;
+    border: 3px solid rgba(255, 255, 255, 0.48);
+    border-top-color: #ffffff;
+    border-radius: 999px;
+    animation: pgSpin 850ms linear infinite;
+  }
+
+  .pg-image-status {
+    margin: 2px 0 0;
     color: var(--wizard-muted);
+    font-size: 0.92rem;
     font-weight: 650;
-    text-align: center;
+    line-height: 1.4;
   }
 
-  .pg-profile-preview input {
-    width: 82px;
-    height: 48px;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .pg-profile-preview button {
-    border: 0;
-    background: transparent;
+  .pg-image-status[data-status='loading'] {
     color: var(--wizard-purple);
+  }
+
+  .pg-image-status[data-status='loaded'] {
+    color: #0f6f6a;
+  }
+
+  .pg-image-status[data-status='failed'],
+  .pg-image-status[data-status='invalid'] {
+    color: #9f1239;
+  }
+
+  .pg-image-status[data-status='loading']::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 8px;
+    border-radius: 999px;
+    background: currentColor;
+    animation: pgStatusPulse 900ms ease-in-out infinite;
+  }
+
+  .pg-color-row {
+    border-color: rgba(111, 60, 195, 0.2);
+    background:
+      linear-gradient(135deg, rgba(111, 60, 195, 0.055), rgba(20, 149, 143, 0.04)),
+      #ffffff;
+  }
+
+  .pg-color-row.is-visible {
+    animation: pgColorRowIn 360ms ease both;
+  }
+
+  .pg-color-story {
+    margin: 0;
+    color: var(--wizard-muted);
+    font-size: 0.98rem;
+    line-height: 1.45;
+  }
+
+  .pg-color-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .pg-color-picker,
+  .pg-suggested-color-button {
+    min-height: 56px;
+    border: 1px solid rgba(200, 203, 210, 0.9);
+    border-radius: 999px;
+    background: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 16px;
+    color: var(--wizard-ink);
     font: inherit;
-    font-weight: 750;
     cursor: pointer;
+  }
+
+  .pg-color-picker span,
+  .pg-suggested-color-button span:last-child {
+    color: var(--wizard-muted);
+    font-size: 0.9rem;
+    font-weight: 680;
+  }
+
+  .pg-color-picker input {
+    width: 44px;
+    height: 44px;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .pg-color-picker strong {
+    color: var(--wizard-ink);
+    font-size: 0.94rem;
+    font-weight: 780;
+  }
+
+  .pg-suggested-color-button {
+    color: var(--wizard-purple);
+    font-weight: 760;
+  }
+
+  .pg-suggested-color-button [data-suggested-color-swatch] {
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+    border-radius: 999px;
+    background: var(--wizard-purple);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85);
+  }
+
+  .pg-color-preview {
+    position: relative;
+    justify-self: end;
+    width: 132px;
+    min-height: 132px;
+    display: grid;
+    place-items: center;
+    gap: 8px;
+  }
+
+  .pg-color-swatch {
+    width: 78px;
+    height: 78px;
+    border-radius: 26px;
+    background: var(--wizard-purple);
+    box-shadow: 0 18px 34px rgba(111, 60, 195, 0.24);
+  }
+
+  .pg-color-orbit {
+    position: absolute;
+    inset: 13px;
+    border: 1px solid rgba(111, 60, 195, 0.24);
+    border-radius: 999px;
+    animation: pgColorOrbit 2800ms ease-in-out infinite;
+  }
+
+  .pg-color-preview small {
+    align-self: end;
+    color: var(--wizard-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-align: center;
   }
 
   .pg-social-list {
@@ -2112,6 +2776,70 @@ const wizardClientCopy = {
     --booking-selected-accent-rgb: 111, 60, 195;
   }
 
+  @keyframes pgWritingPulse {
+    0%,
+    100% {
+      opacity: 0.35;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 1;
+      transform: translateY(-4px);
+    }
+  }
+
+  @keyframes pgStatusPulse {
+    0%,
+    100% {
+      opacity: 0.38;
+      transform: scale(0.82);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes pgSpin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes pgSoftReveal {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pgColorRowIn {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pgColorOrbit {
+    0%,
+    100% {
+      opacity: 0.45;
+      transform: scale(0.9) rotate(0deg);
+    }
+    50% {
+      opacity: 0.95;
+      transform: scale(1.05) rotate(8deg);
+    }
+  }
+
   @keyframes pgStepIn {
     from {
       opacity: 0;
@@ -2178,9 +2906,17 @@ const wizardClientCopy = {
     }
 
     .pg-kind-grid,
-    .pg-answer-grid,
-    .pg-image-grid {
+    .pg-answer-grid {
       grid-template-columns: 1fr;
+    }
+
+    .pg-profile-row {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-profile-preview,
+    .pg-color-preview {
+      justify-self: start;
     }
 
     .pg-social-row {
@@ -2214,6 +2950,22 @@ const wizardClientCopy = {
     .pg-wizard-actionbar {
       flex-direction: column-reverse;
       align-items: stretch;
+    }
+
+    .pg-description-footer,
+    .pg-alt-description-offer,
+    .pg-alt-description-heading,
+    .pg-color-controls {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .pg-alt-description-heading button,
+    .pg-secondary-action,
+    .pg-color-picker,
+    .pg-suggested-color-button {
+      justify-content: center;
+      width: 100%;
     }
 
     .pg-primary-button,
