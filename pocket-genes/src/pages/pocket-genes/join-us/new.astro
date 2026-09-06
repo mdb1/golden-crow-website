@@ -124,6 +124,7 @@ const pageCopy = {
     step: 'Step',
     of: 'of',
     back: 'Back',
+    skip: 'Skip',
     continue: 'Continue',
     finish: 'Send request',
     sending: 'Sending...',
@@ -242,6 +243,7 @@ const pageCopy = {
     step: 'Paso',
     of: 'de',
     back: 'Volver',
+    skip: 'Saltear',
     continue: 'Continuar',
     finish: 'Enviar solicitud',
     sending: 'Enviando...',
@@ -266,6 +268,7 @@ const wizardClientCopy = {
   step: copy.step,
   of: copy.of,
   continue: copy.continue,
+  skip: copy.skip,
   finish: copy.finish,
   sending: copy.sending,
   back: copy.back,
@@ -894,6 +897,22 @@ const wizardClientCopy = {
       return state.categories[state.kind] || [];
     }
 
+    function isEmptySkippableStep(step) {
+      if (step === 'website') {
+        return !websiteUrl?.value.trim();
+      }
+
+      if (step === 'image') {
+        return !imageUrl?.value.trim();
+      }
+
+      if (step === 'social') {
+        return selectedSocialKeys().size === 0;
+      }
+
+      return false;
+    }
+
     function validateCurrentStep({ silent = false } = {}) {
       const step = activeStepKey();
       let message = '';
@@ -1148,11 +1167,16 @@ const wizardClientCopy = {
 
       if (nextButton) {
         const last = state.currentStep === steps.length - 1;
-        nextButton.textContent = state.submitting
-          ? copy.sending
-          : last
-            ? copy.finish
-            : copy.continue;
+        let nextLabel = copy.continue;
+        if (state.submitting) {
+          nextLabel = copy.sending;
+        } else if (isEmptySkippableStep(step)) {
+          nextLabel = copy.skip;
+        } else if (last) {
+          nextLabel = copy.finish;
+        }
+
+        nextButton.textContent = nextLabel;
         nextButton.disabled = state.submitting || !validateCurrentStep({ silent: true });
       }
 
