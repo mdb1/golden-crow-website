@@ -621,15 +621,22 @@ const wizardClientCopy = {
             <h2>{copy.websiteTitle}</h2>
             <p>{copy.websiteBody}</p>
           </div>
-          <label class="pg-input-shell">
+          <label class="pg-input-shell pg-url-input-shell">
             <span>{copy.websiteLabel}</span>
-            <input
-              type="url"
-              name="websiteUrl"
-              data-website-url
-              maxlength="1000"
-              placeholder={copy.websitePlaceholder}
-            />
+            <div class="pg-url-prefix-field">
+              <span class="pg-url-prefix" aria-hidden="true">https://</span>
+              <input
+                type="text"
+                name="websiteUrl"
+                data-website-url
+                maxlength="1000"
+                inputmode="url"
+                autocapitalize="off"
+                autocomplete="url"
+                spellcheck="false"
+                placeholder={copy.websitePlaceholder}
+              />
+            </div>
           </label>
           <p class="pg-skip-hint">{copy.skipHint}</p>
         </div>
@@ -1260,8 +1267,35 @@ const wizardClientCopy = {
       return normalized || value;
     }
 
+    function websiteDisplayValue(value) {
+      return value.trim().replace(/^https?:\/\//i, '');
+    }
+
+    function normalizedWebsiteUrlValue(value) {
+      const displayValue = websiteDisplayValue(value);
+      return displayValue ? normalizedUrl(displayValue, { httpsOnly: true }) : '';
+    }
+
+    function validWebsiteUrl(value) {
+      if (!value.trim()) return true;
+      return Boolean(normalizedWebsiteUrlValue(value));
+    }
+
+    function normalizeWebsiteUrlInput(input) {
+      if (!input) return;
+      input.value = websiteDisplayValue(input.value);
+    }
+
+    function optionalWebsiteUrlValue(input) {
+      const displayValue = websiteDisplayValue(input?.value || '');
+      if (!displayValue) return undefined;
+
+      const normalized = normalizedWebsiteUrlValue(displayValue);
+      return normalized || displayValue;
+    }
+
     function currentWebsiteLookupUrl() {
-      return optionalUrlValue(websiteUrl) || '';
+      return optionalWebsiteUrlValue(websiteUrl) || '';
     }
 
     function resetScrapedLogo({ keepDismissedUrl = true } = {}) {
@@ -1872,7 +1906,7 @@ const wizardClientCopy = {
         message = contactEmail?.value.trim() && validEmail(contactEmail.value)
           ? ''
           : copy.emailError;
-      } else if (step === 'website' && websiteUrl && !validUrl(websiteUrl.value)) {
+      } else if (step === 'website' && websiteUrl && !validWebsiteUrl(websiteUrl.value)) {
         message = copy.urlError;
       } else if (step === 'image' && imageUrl) {
         const url = imageUrl.value.trim();
@@ -2831,7 +2865,7 @@ const wizardClientCopy = {
         contactEmail: contactEmail.value.trim().toLowerCase(),
         countryCode: state.countries.join(','),
         colorHex: state.color,
-        websiteUrl: optionalUrlValue(websiteUrl),
+        websiteUrl: optionalWebsiteUrlValue(websiteUrl),
         imageUrl: state.uploadedImageDataUrl ? undefined : optionalUrlValue(imageUrl, { httpsOnly: true }),
         imageUploadDataUrl: state.uploadedImageDataUrl || undefined,
         imageUploadName: state.uploadedImageName || undefined,
@@ -3080,6 +3114,7 @@ const wizardClientCopy = {
       input?.addEventListener('input', () => renderStep());
     });
     websiteUrl?.addEventListener('input', () => {
+      normalizeWebsiteUrlInput(websiteUrl);
       const hadScrapedUpload =
         state.scrapedLogoDataUrl && state.uploadedImageDataUrl === state.scrapedLogoDataUrl;
       resetScrapedLogo({ keepDismissedUrl: false });
@@ -3089,7 +3124,7 @@ const wizardClientCopy = {
       renderStep();
     });
     websiteUrl?.addEventListener('blur', () => {
-      normalizeUrlInput(websiteUrl);
+      normalizeWebsiteUrlInput(websiteUrl);
       renderStep();
     });
 
@@ -3780,6 +3815,30 @@ const wizardClientCopy = {
     font: inherit;
     font-size: 1.16rem;
     line-height: 1.35;
+  }
+
+  .pg-url-prefix-field {
+    display: flex;
+    min-width: 0;
+    width: 100%;
+    align-items: center;
+  }
+
+  .pg-url-prefix {
+    flex: 0 0 auto;
+    color: #9ba3b2;
+    font-size: 1.16rem;
+    line-height: 1.35;
+    user-select: none;
+  }
+
+  .pg-url-prefix-field input {
+    min-width: 0;
+    padding-left: 1px;
+  }
+
+  .pg-url-input-shell:focus-within .pg-url-prefix {
+    color: #7b8495;
   }
 
   .pg-textarea-shell {
