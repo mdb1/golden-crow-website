@@ -2,6 +2,10 @@ import { FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
+import {
+  FaviconExtractionError,
+  extractFavicon,
+} from "../lib/favicon.js";
 import { canAccessDiscover } from "../repositories/roles.repository.js";
 import {
   createDiscoverFeedItem,
@@ -96,7 +100,7 @@ const PublicImageUploadDataUrlSchema = z.preprocess(
     .string()
     .trim()
     .max(900000)
-    .regex(/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/)
+    .regex(/^data:image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/]+={0,2}$/)
     .optional(),
 );
 const PublicImageUploadNameSchema = z.preprocess(
@@ -104,7 +108,14 @@ const PublicImageUploadNameSchema = z.preprocess(
   z.string().trim().max(180).optional(),
 );
 const PublicImageUploadMimeTypeSchema = z
-  .enum(["image/png", "image/jpeg", "image/webp"])
+  .enum([
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/svg+xml",
+    "image/x-icon",
+    "image/vnd.microsoft.icon",
+  ])
   .optional();
 
 const SocialLinksSchema = z.object({
@@ -201,6 +212,14 @@ const PublisherRequestBodySchema = z.object({
 
 type PublisherRequestBody = z.infer<typeof PublisherRequestBodySchema>;
 
+const PublisherFaviconBodySchema = z.object({
+  websiteUrl: z.string().trim().min(1).max(1000),
+  startedAt: z.string().trim().datetime(),
+  website: OptionalPublisherTextSchema,
+});
+
+type PublisherFaviconBody = z.infer<typeof PublisherFaviconBodySchema>;
+
 const OrganizationBodySchema = z.object({
   name: z.string().optional(),
   imageUrl: z.string().nullable().optional(),
@@ -266,11 +285,14 @@ const FeedItemBodySchema = z.object({
 });
 
 const PUBLIC_PUBLISHER_REQUEST_PATH = "/discover/publisher-requests";
+const PUBLIC_PUBLISHER_FAVICON_PATH = "/discover/publisher-favicon";
 const PUBLISHER_REQUEST_MIN_ELAPSED_MS = 2500;
 const PUBLISHER_REQUEST_MAX_ELAPSED_MS = 24 * 60 * 60 * 1000;
 const PUBLISHER_REQUEST_WINDOW_MS = 60 * 60 * 1000;
 const PUBLISHER_REQUEST_MAX_PER_WINDOW = 5;
+const PUBLISHER_FAVICON_MAX_PER_WINDOW = 20;
 const publisherRequestRateLimit = new Map<string, { count: number; resetAt: number }>();
+const publisherFaviconRateLimit = new Map<string, { count: number; resetAt: number }>();
 const PUBLIC_PUBLISHER_REQUEST_ORIGINS = new Set([
   "https://goldencrowvs.com",
   "https://www.goldencrowvs.com",
@@ -323,16 +345,28 @@ function publisherRequestClientKey(
   return `${clientIp}:${body.contactEmail.toLowerCase()}`;
 }
 
+function publisherFaviconClientKey(request: FastifyRequest) {
+  const forwardedFor = headerValue(request.headers["x-forwarded-for"]);
+  return forwardedFor?.split(",")[0]?.trim() || request.ip || "unknown";
+}
+
+function pruneRateLimitBuckets(
+  buckets: Map<string, { count: number; resetAt: number }>,
+  now: number,
+) {
+  for (const [key, bucket] of buckets) {
+    if (bucket.resetAt <= now) {
+      buckets.delete(key);
+    }
+  }
+}
+
 function enforcePublisherRequestRateLimit(
   request: FastifyRequest,
   body: PublisherRequestBody,
 ) {
   const now = Date.now();
-  for (const [key, bucket] of publisherRequestRateLimit) {
-    if (bucket.resetAt <= now) {
-      publisherRequestRateLimit.delete(key);
-    }
-  }
+  pruneRateLimitBuckets(publisherRequestRateLimit, now);
 
   const key = publisherRequestClientKey(request, body);
   const bucket = publisherRequestRateLimit.get(key);
@@ -346,6 +380,26 @@ function enforcePublisherRequestRateLimit(
 
   bucket.count += 1;
   if (bucket.count > PUBLISHER_REQUEST_MAX_PER_WINDOW) {
+    throw new Error("RATE_LIMITED");
+  }
+}
+
+function enforcePublisherFaviconRateLimit(request: FastifyRequest) {
+  const now = Date.now();
+  pruneRateLimitBuckets(publisherFaviconRateLimit, now);
+
+  const key = publisherFaviconClientKey(request);
+  const bucket = publisherFaviconRateLimit.get(key);
+  if (!bucket) {
+    publisherFaviconRateLimit.set(key, {
+      count: 1,
+      resetAt: now + PUBLISHER_REQUEST_WINDOW_MS,
+    });
+    return;
+  }
+
+  bucket.count += 1;
+  if (bucket.count > PUBLISHER_FAVICON_MAX_PER_WINDOW) {
     throw new Error("RATE_LIMITED");
   }
 }
@@ -380,8 +434,89 @@ function assertPublisherRequestGateway(
   enforcePublisherRequestRateLimit(request, body);
 }
 
+function assertPublisherFaviconGateway(
+  request: FastifyRequest,
+  body: PublisherFaviconBody,
+) {
+  if (body.website) {
+    throw new Error("BOT_FIELD_FILLED");
+  }
+
+  const origin = headerValue(request.headers.origin);
+  const refererOrigin = originFromUrl(headerValue(request.headers.referer));
+  if (
+    !isAllowedPublisherRequestOrigin(origin) &&
+    !isAllowedPublisherRequestOrigin(refererOrigin)
+  ) {
+    throw new Error("BAD_ORIGIN");
+  }
+
+  const startedAt = Date.parse(body.startedAt);
+  const elapsedMs = Date.now() - startedAt;
+  if (
+    !Number.isFinite(startedAt) ||
+    elapsedMs < PUBLISHER_REQUEST_MIN_ELAPSED_MS ||
+    elapsedMs > PUBLISHER_REQUEST_MAX_ELAPSED_MS
+  ) {
+    throw new Error("BAD_FLOW_AGE");
+  }
+
+  enforcePublisherFaviconRateLimit(request);
+}
+
 export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
+
+  f.post(
+    PUBLIC_PUBLISHER_FAVICON_PATH,
+    {
+      schema: { body: PublisherFaviconBodySchema },
+    },
+    async (request, reply) => {
+      try {
+        assertPublisherFaviconGateway(request, request.body);
+        const favicon = await extractFavicon(request.body.websiteUrl);
+
+        return reply.send({
+          pageUrl: favicon.pageUrl,
+          faviconUrl: favicon.faviconUrl,
+          contentType: favicon.contentType,
+          imageUploadDataUrl: favicon.dataUrl,
+          imageUploadName: favicon.fileName,
+          imageUploadMimeType: favicon.contentType,
+        });
+      } catch (error) {
+        if (error instanceof FaviconExtractionError) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        if (error instanceof Error) {
+          if (error.message === "RATE_LIMITED") {
+            return reply.status(429).send({
+              error: "Too many logo lookups. Please try again later.",
+            });
+          }
+
+          if (error.message === "BAD_ORIGIN") {
+            return reply.status(403).send({
+              error: "Logo lookups must be requested from Pocket Genes.",
+            });
+          }
+
+          if (
+            error.message === "BOT_FIELD_FILLED" ||
+            error.message === "BAD_FLOW_AGE"
+          ) {
+            return reply.status(400).send({
+              error: "Please restart the request flow and try again.",
+            });
+          }
+        }
+
+        throw error;
+      }
+    },
+  );
 
   f.post(
     PUBLIC_PUBLISHER_REQUEST_PATH,
@@ -429,7 +564,10 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
 
   f.addHook("onRequest", async (request, reply) => {
     const requestPath = request.url.split("?")[0] ?? request.url;
-    if (requestPath === PUBLIC_PUBLISHER_REQUEST_PATH) {
+    if (
+      requestPath === PUBLIC_PUBLISHER_REQUEST_PATH ||
+      requestPath === PUBLIC_PUBLISHER_FAVICON_PATH
+    ) {
       return;
     }
 

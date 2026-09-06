@@ -16,6 +16,7 @@ import { ENV } from "./config/env.js";
 const PUBLIC_PATHS = new Set([
   "/health",
   "/client-bookings",
+  "/discover/publisher-favicon",
   "/discover/publisher-requests",
   "/auth/login",
   "/auth/logout",

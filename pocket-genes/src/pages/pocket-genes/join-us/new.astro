@@ -79,6 +79,11 @@ const pageCopy = {
     websiteBody: 'Optional. Add the page users should open if they want to learn more.',
     websiteLabel: 'Website URL',
     websitePlaceholder: 'example.org',
+    logoLookupTitle: 'Obtaining your logo...',
+    logoLookupBody: 'We are checking the website for a public favicon.',
+    logoFoundTitle: 'We found this image!',
+    logoFoundBody: 'Is this the right image for your profile?',
+    logoPickAnother: 'I want to pick another one',
     skipHint: 'You can skip this step.',
     imageTitle: 'Add the profile image',
     imageBody: 'Optional. Paste an image link or upload a small logo or portrait. Once it loads, we will open the color controls.',
@@ -225,6 +230,11 @@ const pageCopy = {
     websiteBody: 'Opcional. Agregá la página que las personas deberían abrir si quieren saber más.',
     websiteLabel: 'URL de la página',
     websitePlaceholder: 'example.org',
+    logoLookupTitle: 'Buscando tu logo...',
+    logoLookupBody: 'Estamos revisando la página web para encontrar su favicon público.',
+    logoFoundTitle: '¡Encontramos esta imagen!',
+    logoFoundBody: '¿Es la imagen correcta para tu perfil?',
+    logoPickAnother: 'Quiero elegir otra',
     skipHint: 'Podés saltear este paso.',
     imageTitle: 'Sumá la imagen del perfil',
     imageBody: 'Opcional. Pegá un enlace de imagen o subí un logo o retrato chico. Cuando cargue, abrimos los controles de color.',
@@ -343,6 +353,11 @@ const wizardClientCopy = {
   individualNameLabel: copy.nameLabelIndividual,
   organizationNamePlaceholder: copy.namePlaceholderOrganization,
   individualNamePlaceholder: copy.namePlaceholderIndividual,
+  logoLookupTitle: copy.logoLookupTitle,
+  logoLookupBody: copy.logoLookupBody,
+  logoFoundTitle: copy.logoFoundTitle,
+  logoFoundBody: copy.logoFoundBody,
+  logoPickAnother: copy.logoPickAnother,
   imagePreviewAlt: copy.imagePreviewAlt,
   descriptionMinHint: copy.descriptionMinHint,
   descriptionReady: copy.descriptionReady,
@@ -646,9 +661,21 @@ const wizardClientCopy = {
         </div>
 
         <div class="pg-wizard-step" data-step-panel="image" hidden>
-          <div class="pg-step-heading">
+          <div class="pg-step-heading" data-image-step-heading>
             <h2>{copy.imageTitle}</h2>
             <p>{copy.imageBody}</p>
+          </div>
+          <div class="pg-logo-discovery" data-logo-discovery hidden>
+            <div class="pg-logo-discovery-image" data-logo-discovery-image-wrap>
+              <img data-logo-discovery-image alt={copy.imagePreviewAlt} hidden />
+            </div>
+            <div class="pg-logo-discovery-copy">
+              <h3 data-logo-discovery-title>{copy.logoLookupTitle}</h3>
+              <p data-logo-discovery-body>{copy.logoLookupBody}</p>
+            </div>
+            <button type="button" class="pg-tertiary-button" data-logo-discovery-discard hidden>
+              {copy.logoPickAnother}
+            </button>
           </div>
           <div class="pg-profile-flow" data-profile-flow>
             <section class="pg-profile-row pg-profile-image-row">
@@ -990,6 +1017,13 @@ const wizardClientCopy = {
       uploadedImageDataUrl: '',
       uploadedImageName: '',
       uploadedImageMimeType: '',
+      scrapedLogoStatus: 'idle',
+      scrapedLogoLookupToken: 0,
+      scrapedLogoWebsiteUrl: '',
+      scrapedLogoDataUrl: '',
+      scrapedLogoName: '',
+      scrapedLogoMimeType: '',
+      scrapedLogoDismissedUrl: '',
       socialDraftOption: null,
       socialDraftRow: null,
       socialDraftMode: 'add',
@@ -1028,6 +1062,13 @@ const wizardClientCopy = {
     const altDescriptionRemove = wizardRoot.querySelector('[data-alt-description-remove]');
     const contactEmail = wizardRoot.querySelector('[data-contact-email]');
     const websiteUrl = wizardRoot.querySelector('[data-website-url]');
+    const logoDiscovery = wizardRoot.querySelector('[data-logo-discovery]');
+    const logoDiscoveryImageWrap = wizardRoot.querySelector('[data-logo-discovery-image-wrap]');
+    const logoDiscoveryImage = wizardRoot.querySelector('[data-logo-discovery-image]');
+    const logoDiscoveryTitle = wizardRoot.querySelector('[data-logo-discovery-title]');
+    const logoDiscoveryBody = wizardRoot.querySelector('[data-logo-discovery-body]');
+    const logoDiscoveryDiscard = wizardRoot.querySelector('[data-logo-discovery-discard]');
+    const imageStepHeading = wizardRoot.querySelector('[data-image-step-heading]');
     const profileFlow = wizardRoot.querySelector('[data-profile-flow]');
     const imageUrl = wizardRoot.querySelector('[data-image-url]');
     const imageUrlSegment = wizardRoot.querySelector('[data-image-url-segment]');
@@ -1153,6 +1194,157 @@ const wizardClientCopy = {
 
       const normalized = normalizedUrl(value, options);
       return normalized || value;
+    }
+
+    function currentWebsiteLookupUrl() {
+      return optionalUrlValue(websiteUrl) || '';
+    }
+
+    function resetScrapedLogo({ keepDismissedUrl = true } = {}) {
+      if (!keepDismissedUrl) {
+        state.scrapedLogoDismissedUrl = '';
+      }
+      state.scrapedLogoStatus = 'idle';
+      state.scrapedLogoWebsiteUrl = '';
+      state.scrapedLogoDataUrl = '';
+      state.scrapedLogoName = '';
+      state.scrapedLogoMimeType = '';
+      state.scrapedLogoLookupToken += 1;
+      syncLogoDiscoveryUi();
+    }
+
+    function shouldLookupWebsiteLogo(website) {
+      return (
+        Boolean(website) &&
+        state.scrapedLogoDismissedUrl !== website &&
+        !state.uploadedImageDataUrl &&
+        !imageUrl?.value.trim()
+      );
+    }
+
+    function prepareLogoDiscovery() {
+      const website = currentWebsiteLookupUrl();
+      if (!shouldLookupWebsiteLogo(website)) {
+        return null;
+      }
+
+      state.scrapedLogoLookupToken += 1;
+      state.scrapedLogoStatus = 'loading';
+      state.scrapedLogoWebsiteUrl = website;
+      state.scrapedLogoDataUrl = '';
+      state.scrapedLogoName = '';
+      state.scrapedLogoMimeType = '';
+
+      return {
+        token: state.scrapedLogoLookupToken,
+        website,
+      };
+    }
+
+    function syncLogoDiscoveryUi() {
+      const status = state.scrapedLogoStatus;
+      const active = status === 'loading' || status === 'found';
+      if (logoDiscovery) {
+        logoDiscovery.hidden = !active;
+        logoDiscovery.classList.toggle('is-loading', status === 'loading');
+        logoDiscovery.classList.toggle('is-found', status === 'found');
+      }
+      if (profileFlow) {
+        profileFlow.hidden = active;
+      }
+      if (imageStepHeading) {
+        imageStepHeading.hidden = active;
+      }
+      if (logoDiscoveryImageWrap) {
+        logoDiscoveryImageWrap.setAttribute('aria-busy', status === 'loading' ? 'true' : 'false');
+      }
+      if (logoDiscoveryImage) {
+        logoDiscoveryImage.hidden = status !== 'found' || !state.scrapedLogoDataUrl;
+        if (status === 'found' && state.scrapedLogoDataUrl) {
+          logoDiscoveryImage.src = state.scrapedLogoDataUrl;
+        } else {
+          logoDiscoveryImage.removeAttribute('src');
+        }
+      }
+      if (logoDiscoveryTitle) {
+        logoDiscoveryTitle.textContent =
+          status === 'found' ? copy.logoFoundTitle : copy.logoLookupTitle;
+      }
+      if (logoDiscoveryBody) {
+        logoDiscoveryBody.textContent =
+          status === 'found' ? copy.logoFoundBody : copy.logoLookupBody;
+      }
+      if (logoDiscoveryDiscard) {
+        logoDiscoveryDiscard.hidden = status !== 'found';
+      }
+    }
+
+    async function runLogoDiscovery(discovery) {
+      if (!discovery) return;
+
+      syncLogoDiscoveryUi();
+      try {
+        const response = await fetch(`${sdkUrl.replace(/\/$/, '')}/discover/publisher-favicon`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            websiteUrl: discovery.website,
+            startedAt: state.startedAt,
+          }),
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || !result.imageUploadDataUrl) {
+          throw new Error('NO_LOGO');
+        }
+
+        if (discovery.token !== state.scrapedLogoLookupToken) return;
+
+        state.scrapedLogoStatus = 'found';
+        state.scrapedLogoDataUrl = result.imageUploadDataUrl;
+        state.scrapedLogoName = result.imageUploadName || 'favicon';
+        state.scrapedLogoMimeType = result.imageUploadMimeType || result.contentType || '';
+        state.uploadedImageDataUrl = state.scrapedLogoDataUrl;
+        state.uploadedImageName = state.scrapedLogoName;
+        state.uploadedImageMimeType = state.scrapedLogoMimeType;
+        if (imageUrl) {
+          imageUrl.value = '';
+        }
+
+        setImageStatus('loaded', copy.imageUploadReady);
+        const suggested = await averageImageColor(state.scrapedLogoDataUrl);
+        if (discovery.token !== state.scrapedLogoLookupToken) return;
+        state.suggestedColor = suggested.toUpperCase();
+        if (!state.colorCustomized) {
+          updateColor(state.suggestedColor);
+        } else {
+          updateColorUi();
+        }
+        syncUploadedImageUi();
+        syncLogoDiscoveryUi();
+        renderStep();
+      } catch {
+        if (discovery.token !== state.scrapedLogoLookupToken) return;
+
+        resetScrapedLogo();
+        if (!imageUrl?.value.trim() && !state.uploadedImageDataUrl) {
+          setImageStatus('empty', '');
+        }
+        updateImagePreview();
+        renderStep();
+      }
+    }
+
+    function discardScrapedLogo() {
+      const dismissedUrl = state.scrapedLogoWebsiteUrl;
+      state.scrapedLogoDismissedUrl = dismissedUrl;
+      resetScrapedLogo();
+      clearUploadedImage({ rerender: false });
+      setImageStatus('empty', '');
+      updateImagePreview();
+      renderStep();
     }
 
     function currentImageChoiceState() {
@@ -1361,7 +1553,9 @@ const wizardClientCopy = {
         message = copy.urlError;
       } else if (step === 'image' && imageUrl) {
         const url = imageUrl.value.trim();
-        if (url && !validUrl(url, true)) {
+        if (state.scrapedLogoStatus === 'loading') {
+          message = copy.logoLookupTitle;
+        } else if (url && !validUrl(url, true)) {
           message = copy.imageUrlError;
         } else if ((url || state.uploadedImageDataUrl) && state.imageStatus === 'loading') {
           message = copy.imageLoading;
@@ -1629,6 +1823,8 @@ const wizardClientCopy = {
         let nextLabel = copy.continue;
         if (state.submitting) {
           nextLabel = copy.sending;
+        } else if (step === 'image' && state.scrapedLogoStatus === 'loading') {
+          nextLabel = copy.logoLookupTitle;
         } else if (isEmptySkippableStep(step)) {
           nextLabel = copy.skip;
         } else if (last) {
@@ -1646,6 +1842,7 @@ const wizardClientCopy = {
       updateDescriptionUi();
       syncUploadedImageUi();
       updateImageChoiceUi();
+      syncLogoDiscoveryUi();
       updateColorUi();
       updateSocialUi();
     }
@@ -2459,6 +2656,7 @@ const wizardClientCopy = {
     });
     imageUploadClear?.addEventListener('click', () => clearUploadedImage());
     imageReset?.addEventListener('click', () => resetImageSelection());
+    logoDiscoveryDiscard?.addEventListener('click', discardScrapedLogo);
     nameInput?.addEventListener('input', () => {
       if (!state.colorCustomized && !imageUrl?.value.trim() && !state.uploadedImageDataUrl) {
         state.suggestedColor = deterministicColor(nameInput.value);
@@ -2471,8 +2669,17 @@ const wizardClientCopy = {
       pulseDescriptionWriting();
       renderStep();
     });
-    [descriptionAlternative, contactEmail, websiteUrl].forEach((input) => {
+    [descriptionAlternative, contactEmail].forEach((input) => {
       input?.addEventListener('input', () => renderStep());
+    });
+    websiteUrl?.addEventListener('input', () => {
+      const hadScrapedUpload =
+        state.scrapedLogoDataUrl && state.uploadedImageDataUrl === state.scrapedLogoDataUrl;
+      resetScrapedLogo({ keepDismissedUrl: false });
+      if (hadScrapedUpload) {
+        clearUploadedImage({ rerender: false });
+      }
+      renderStep();
     });
     websiteUrl?.addEventListener('blur', () => {
       normalizeUrlInput(websiteUrl);
@@ -2488,13 +2695,24 @@ const wizardClientCopy = {
         return;
       }
 
+      const leavingStep = activeStepKey();
+      const nextStep = steps[state.currentStep + 1] || '';
+      const logoDiscoveryRequest =
+        leavingStep === 'website' && nextStep === 'image'
+          ? prepareLogoDiscovery()
+          : null;
+
       state.currentStep += 1;
       state.hasAdvanced = true;
       setError('');
       renderStep();
+      void runLogoDiscovery(logoDiscoveryRequest);
     });
 
     backButton?.addEventListener('click', () => {
+      if (activeStepKey() === 'image' && state.scrapedLogoStatus === 'loading') {
+        resetScrapedLogo();
+      }
       state.currentStep = Math.max(0, state.currentStep - 1);
       setError('');
       renderStep();
@@ -3381,6 +3599,115 @@ const wizardClientCopy = {
   .pg-profile-flow {
     display: grid;
     gap: 18px;
+  }
+
+  .pg-logo-discovery {
+    min-height: clamp(360px, 58svh, 560px);
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 18px;
+    border: 1px solid rgba(200, 203, 210, 0.8);
+    border-radius: 28px;
+    background:
+      radial-gradient(circle at 50% 18%, rgba(111, 60, 195, 0.12), transparent 34%),
+      linear-gradient(135deg, rgba(111, 60, 195, 0.075), rgba(20, 149, 143, 0.055)),
+      #ffffff;
+    padding: clamp(26px, 5vw, 54px);
+    text-align: center;
+    box-shadow: 0 24px 58px rgba(32, 33, 39, 0.08);
+    animation: pgSoftReveal 240ms ease-out both;
+  }
+
+  .pg-logo-discovery[hidden] {
+    display: none;
+  }
+
+  .pg-logo-discovery-image {
+    width: clamp(178px, 30svh, 260px);
+    height: clamp(178px, 30svh, 260px);
+    position: relative;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.46)),
+      var(--wizard-purple-soft);
+    box-shadow:
+      0 26px 64px rgba(111, 60, 195, 0.18),
+      0 0 0 10px rgba(255, 255, 255, 0.92),
+      0 0 0 12px rgba(111, 60, 195, 0.13);
+    overflow: hidden;
+  }
+
+  .pg-logo-discovery-image::before {
+    content: '';
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(111, 60, 195, 0.16);
+    border-top-color: var(--wizard-purple);
+    border-radius: 999px;
+    animation: pgSpin 850ms linear infinite;
+  }
+
+  .pg-logo-discovery.is-found .pg-logo-discovery-image::before {
+    display: none;
+  }
+
+  .pg-logo-discovery-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: clamp(28px, 5svh, 44px);
+    box-sizing: border-box;
+    animation: pgImageHeroIn 440ms cubic-bezier(0.2, 0.84, 0.24, 1.24) both;
+  }
+
+  .pg-logo-discovery-copy {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    max-width: 34rem;
+  }
+
+  .pg-logo-discovery-copy h3 {
+    margin: 0;
+    color: var(--wizard-ink);
+    font-size: clamp(1.45rem, 3vw, 2rem);
+    line-height: 1.12;
+  }
+
+  .pg-logo-discovery-copy p {
+    margin: 0;
+    color: var(--wizard-muted);
+    font-size: 1rem;
+    line-height: 1.48;
+  }
+
+  .pg-tertiary-button {
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--wizard-purple);
+    min-height: 42px;
+    padding: 0 16px;
+    font: inherit;
+    font-weight: 820;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    cursor: pointer;
+    transition:
+      color 180ms ease,
+      transform 180ms ease,
+      background 180ms ease;
+  }
+
+  .pg-tertiary-button:hover,
+  .pg-tertiary-button:focus-visible {
+    background: var(--wizard-purple-soft);
+    color: #4b2596;
+    transform: translateY(-1px);
+    outline: none;
   }
 
   .pg-profile-flow.is-url-path .pg-profile-row-main {

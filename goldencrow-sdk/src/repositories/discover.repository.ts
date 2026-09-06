@@ -614,9 +614,13 @@ function normalizePublicImageUploadDataUrl(value: unknown): string | undefined {
     throw new AdminRepositoryError("Uploaded image is too large.", 400);
   }
 
-  if (!/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
+  if (
+    !/^data:image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/]+={0,2}$/.test(
+      normalized,
+    )
+  ) {
     throw new AdminRepositoryError(
-      "Uploaded image must be a PNG, JPG, or WebP data URL.",
+      "Uploaded image must be a PNG, JPG, WebP, SVG, or ICO data URL.",
       400,
     );
   }
@@ -630,9 +634,18 @@ function normalizePublicImageUploadMimeType(value: unknown): string | undefined 
     return undefined;
   }
 
-  if (!["image/png", "image/jpeg", "image/webp"].includes(normalized)) {
+  if (
+    ![
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/svg+xml",
+      "image/x-icon",
+      "image/vnd.microsoft.icon",
+    ].includes(normalized)
+  ) {
     throw new AdminRepositoryError(
-      "Uploaded image type must be PNG, JPG, or WebP.",
+      "Uploaded image type must be PNG, JPG, WebP, SVG, or ICO.",
       400,
     );
   }
@@ -649,14 +662,12 @@ function publicImageUploadDocumentFields(input: PublisherImageUploadInput) {
   }
 
   const inferredMimeType = imageUploadDataUrl.match(
-    /^data:image\/(png|jpeg|webp);base64,/,
+    /^data:(image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon));base64,/,
   )?.[1];
   const imageUploadMimeType = normalizePublicImageUploadMimeType(
     input.imageUploadMimeType,
   );
-  const normalizedMimeType = inferredMimeType
-    ? `image/${inferredMimeType}`
-    : undefined;
+  const normalizedMimeType = inferredMimeType;
 
   if (
     imageUploadMimeType &&
