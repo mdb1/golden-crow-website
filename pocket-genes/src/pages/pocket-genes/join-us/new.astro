@@ -699,7 +699,7 @@ const wizardClientCopy = {
                 <p class="pg-image-status" data-image-status aria-live="polite"></p>
                 <p class="pg-skip-hint">{copy.skipHint}</p>
               </div>
-              <div class="pg-profile-preview" data-profile-preview>
+              <div class="pg-profile-preview" data-profile-preview hidden>
                 <button
                   type="button"
                   class="pg-image-reset-button"
@@ -1146,6 +1146,7 @@ const wizardClientCopy = {
     const imageUploadName = wizardRoot.querySelector('[data-image-upload-name]');
     const imageUploadClear = wizardRoot.querySelector('[data-image-upload-clear]');
     const imageStatus = wizardRoot.querySelector('[data-image-status]');
+    const profilePreview = wizardRoot.querySelector('[data-profile-preview]');
     const previewImage = wizardRoot.querySelector('[data-preview-image]');
     const imageReset = wizardRoot.querySelector('[data-image-reset]');
     const imageSelectedCopy = wizardRoot.querySelector('[data-image-selected-copy]');
@@ -1465,10 +1466,18 @@ const wizardClientCopy = {
     function updateImageChoiceUi() {
       const imageChoice = currentImageChoiceState();
       const lockPicker = imageChoice.hasSelectedImage;
+      const showPreview =
+        lockPicker ||
+        state.imageCompressing ||
+        (imageChoice.hasUrl && state.imageStatus === 'loading');
 
       profileFlow?.classList.toggle('is-url-path', imageChoice.path === 'url' && !lockPicker);
       profileFlow?.classList.toggle('is-upload-path', imageChoice.path === 'upload');
       profileFlow?.classList.toggle('has-selected-image', lockPicker);
+
+      if (profilePreview) {
+        profilePreview.hidden = !showPreview;
+      }
 
       if (imageUrlSegment) {
         imageUrlSegment.hidden = imageChoice.path === 'upload' || lockPicker;
@@ -2510,7 +2519,7 @@ const wizardClientCopy = {
         previewImage.replaceChildren(image);
         image.src = previewSource;
       } else {
-        renderInitials();
+        previewImage.replaceChildren();
         setImageStatus(rawUrl ? 'invalid' : 'empty', rawUrl ? copy.imageUrlError : '');
       }
     }
@@ -4476,6 +4485,10 @@ const wizardClientCopy = {
     display: grid;
     justify-items: center;
     gap: 14px;
+  }
+
+  .pg-profile-preview[hidden] {
+    display: none;
   }
 
   .pg-preview-image {
