@@ -93,7 +93,7 @@ const pageCopy = {
     imagePlaceholder: 'example.org/profile.png',
     imageSourceOr: 'or',
     imageUploadTitle: 'Upload a small image instead',
-    imageUploadBody: 'PNG, JPG, or WebP up to 600 KB. We will keep it with this approval request.',
+    imageUploadBody: 'PNG, JPG, or WebP up to 600 KB. Choose one or drop it here.',
     imageUploadButton: 'Choose image',
     imageUploadReady: 'Image selected. The suggested color is ready below.',
     imageUploadTooLarge: 'That image is over 600 KB. Reduce it and upload the smaller version.',
@@ -245,7 +245,7 @@ const pageCopy = {
     imagePlaceholder: 'example.org/perfil.png',
     imageSourceOr: 'o',
     imageUploadTitle: 'Subir una imagen chica',
-    imageUploadBody: 'PNG, JPG o WebP de hasta 600 KB. La dejamos guardada con esta solicitud.',
+    imageUploadBody: 'PNG, JPG o WebP de hasta 600 KB. Elegila o arrastrala acá.',
     imageUploadButton: 'Elegir imagen',
     imageUploadReady: 'Imagen seleccionada. El color sugerido está listo abajo.',
     imageUploadTooLarge: 'La imagen supera los 600 KB. Reducila y volvé a subir una versión más liviana.',
@@ -1495,6 +1495,73 @@ const wizardClientCopy = {
       reader.readAsDataURL(file);
     }
 
+    let imageUploadDragDepth = 0;
+
+    function setImageUploadDragging(active) {
+      imageUploadCard?.classList.toggle('is-dragging', active);
+    }
+
+    function imageFileFromDataTransfer(dataTransfer) {
+      const itemFiles = Array.from(dataTransfer?.items || [])
+        .filter((item) => item.kind === 'file')
+        .map((item) => item.getAsFile())
+        .filter(Boolean);
+      const files = [...itemFiles, ...Array.from(dataTransfer?.files || [])];
+      return files.find((file) => file.type.startsWith('image/')) || files[0];
+    }
+
+    function imageUrlFromDataTransfer(dataTransfer) {
+      const uri = dataTransfer?.getData('text/uri-list') || dataTransfer?.getData('text/plain') || '';
+      return uri
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line && !line.startsWith('#')) || '';
+    }
+
+    function handleImageUploadDragEnter(event) {
+      if (!event.dataTransfer) return;
+      event.preventDefault();
+      imageUploadDragDepth += 1;
+      event.dataTransfer.dropEffect = 'copy';
+      setImageUploadDragging(true);
+    }
+
+    function handleImageUploadDragOver(event) {
+      if (!event.dataTransfer) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+      setImageUploadDragging(true);
+    }
+
+    function handleImageUploadDragLeave(event) {
+      event.preventDefault();
+      imageUploadDragDepth = Math.max(0, imageUploadDragDepth - 1);
+      if (imageUploadDragDepth === 0) {
+        setImageUploadDragging(false);
+      }
+    }
+
+    function handleImageUploadDrop(event) {
+      if (!event.dataTransfer) return;
+      event.preventDefault();
+      imageUploadDragDepth = 0;
+      setImageUploadDragging(false);
+      const file = imageFileFromDataTransfer(event.dataTransfer);
+      if (file) {
+        readUploadedImage(file);
+        return;
+      }
+
+      const droppedUrl = imageUrlFromDataTransfer(event.dataTransfer);
+      if (droppedUrl && imageUrl) {
+        clearUploadedImage({ rerender: false });
+        imageUrl.value = droppedUrl;
+        normalizeUrlInput(imageUrl, { httpsOnly: true });
+        updateImagePreview();
+        renderStep();
+      }
+    }
+
     function validEmail(value) {
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
     }
@@ -2704,6 +2771,10 @@ const wizardClientCopy = {
         readUploadedImage(file);
       }
     });
+    imageUploadCard?.addEventListener('dragenter', handleImageUploadDragEnter);
+    imageUploadCard?.addEventListener('dragover', handleImageUploadDragOver);
+    imageUploadCard?.addEventListener('dragleave', handleImageUploadDragLeave);
+    imageUploadCard?.addEventListener('drop', handleImageUploadDrop);
     imageUploadClear?.addEventListener('click', () => clearUploadedImage());
     imageReset?.addEventListener('click', () => resetImageSelection());
     logoDiscoveryDiscard?.addEventListener('click', discardScrapedLogo);
@@ -3733,10 +3804,16 @@ const wizardClientCopy = {
   }
 
   .pg-logo-discovery-image img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: contain;
-    padding: clamp(28px, 5svh, 44px);
+    min-width: 100%;
+    min-height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center;
+    padding: 0;
     box-sizing: border-box;
     animation: pgImageHeroIn 440ms cubic-bezier(0.2, 0.84, 0.24, 1.24) both;
   }
@@ -3932,9 +4009,15 @@ const wizardClientCopy = {
   }
 
   .pg-preview-image img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
+    min-width: 100%;
+    min-height: 100%;
+    display: block;
     object-fit: cover;
+    object-position: center;
   }
 
   .pg-preview-image.is-loading::after {
@@ -4107,10 +4190,25 @@ const wizardClientCopy = {
 
   .pg-image-upload-card:hover,
   .pg-image-upload-card:focus-within,
+  .pg-image-upload-card.is-dragging,
   .pg-image-upload-card.has-upload {
     transform: translateY(-1px);
     border-color: rgba(111, 60, 195, 0.62);
     box-shadow: 0 16px 30px rgba(111, 60, 195, 0.12);
+  }
+
+  .pg-image-upload-card.is-dragging {
+    background:
+      linear-gradient(135deg, rgba(111, 60, 195, 0.12), rgba(20, 149, 143, 0.1)),
+      #ffffff;
+    box-shadow:
+      0 20px 36px rgba(111, 60, 195, 0.16),
+      inset 0 0 0 1px rgba(111, 60, 195, 0.16);
+  }
+
+  .pg-image-upload-card.is-dragging .pg-image-upload-action {
+    transform: scale(1.04);
+    box-shadow: 0 12px 24px rgba(111, 60, 195, 0.22);
   }
 
   .pg-image-upload-copy {
@@ -4144,6 +4242,7 @@ const wizardClientCopy = {
     font-size: 0.9rem;
     font-weight: 780;
     white-space: nowrap;
+    transition: transform 180ms ease, box-shadow 180ms ease;
   }
 
   .pg-image-upload-state {
