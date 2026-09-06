@@ -612,6 +612,53 @@ describe("discover repository", () => {
     ).rejects.toThrow("Individual publisher image URL is required.");
   });
 
+  it("preserves uploaded organization logos when updating without an image URL", async () => {
+    const { updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+    mockOrganizationDocs.push({
+      id: "uploaded-org",
+      data: {
+        name: "Uploaded Logo Lab",
+        imageUrl: null,
+        imageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+        imageUploadName: "wizard-logo.png",
+        imageUploadMimeType: "image/png",
+        status: "pending_approval",
+        countryCode: "AR",
+        organizationType: "org_genetic_testing_laboratories",
+        verified: false,
+        is_genetic_report_provider: true,
+        genetic_report_category: "full_genome",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-02T00:00:00.000Z",
+      },
+    });
+
+    const result = await updateDiscoverOrganization(
+      fullAdminContext,
+      "uploaded-org",
+      {
+        name: "Uploaded Logo Lab Updated",
+        imageUrl: null,
+        status: "pending_approval",
+        countryCode: "AR",
+        organizationType: "org_genetic_testing_laboratories",
+        verified: false,
+        is_genetic_report_provider: true,
+        genetic_report_category: "full_genome",
+      } as Record<string, unknown>,
+    );
+    const stored = mockOrganizationDocs.find((doc) => doc.id === "uploaded-org");
+
+    expect(result.imageUrl).toBeNull();
+    expect(result.imageUploadDataUrl).toBe("data:image/png;base64,iVBORw0KGgo=");
+    expect(result.imageUploadName).toBe("wizard-logo.png");
+    expect(result.imageUploadMimeType).toBe("image/png");
+    expect(stored?.data.imageUploadDataUrl).toBe(
+      "data:image/png;base64,iVBORw0KGgo=",
+    );
+  });
+
   it("creates public organization approval requests with pending defaults", async () => {
     const { createDiscoverPublisherApprovalRequest } =
       await import("../repositories/discover.repository");
@@ -641,6 +688,11 @@ describe("discover repository", () => {
     expect(result.kind).toBe("organization");
     expect(result.publisher.status).toBe("pending_approval");
     expect(result.publisher.imageUrl).toBeNull();
+    expect(result.publisher.imageUploadDataUrl).toBe(
+      "data:image/png;base64,iVBORw0KGgo=",
+    );
+    expect(result.publisher.imageUploadName).toBe("wizard-logo.png");
+    expect(result.publisher.imageUploadMimeType).toBe("image/png");
     expect(result.publisher.verified).toBe(false);
     expect(result.publisher.contactEmail).toBe("join@example.org");
     expect(stored?.data.status).toBe("pending_approval");

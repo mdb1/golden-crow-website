@@ -488,6 +488,8 @@ function DiscoverPublisherBrowser({
                 ? individual.individualType
                 : organization.organizationType,
             );
+            const publisherImageSource =
+              publisher.imageUrl || publisher.imageUploadDataUrl;
 
             return (
             <div
@@ -499,10 +501,10 @@ function DiscoverPublisherBrowser({
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  {publisher.imageUrl ? (
+                  {publisherImageSource ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={publisher.imageUrl}
+                      src={publisherImageSource}
                       alt=""
                       className="h-8 w-8 rounded-md border border-border object-cover"
                     />

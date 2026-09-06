@@ -80,20 +80,23 @@ type WorkbenchOverrides = {
   canDeletePublisher?: boolean;
   canManageSystemFields?: boolean;
   mode?: "create" | "edit";
+  organization?: DiscoverOrganizationRecord;
 };
 
 function renderWorkbench(
   initialLanguage: "en" | "es" = "en",
   overrides: WorkbenchOverrides = {},
 ) {
+  const { organization: organizationOverride, ...workbenchOverrides } = overrides;
+
   render(
     <AppLanguageProvider
       initialLanguage={initialLanguage}
       forcedLanguage={initialLanguage}
     >
       <DiscoverOrganizationWorkbench
-        organization={organization}
-        {...overrides}
+        organization={organizationOverride ?? organization}
+        {...workbenchOverrides}
       />
     </AppLanguageProvider>,
   );
@@ -467,6 +470,45 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
 
     expect(screen.getByText("Image URL is required.")).toBeTruthy();
     expect(sdkFetch).not.toHaveBeenCalled();
+  });
+
+  it("renders uploaded wizard logos and saves without an image URL", async () => {
+    const user = userEvent.setup();
+    const uploadedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      imageUrl: null,
+      imageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+      imageUploadName: "wizard-logo.png",
+      imageUploadMimeType: "image/png",
+    };
+    jest.mocked(sdkFetch).mockResolvedValue({ organization: uploadedOrganization });
+    renderWorkbench("en", { organization: uploadedOrganization });
+
+    expect(
+      document.querySelector(
+        'img[src="data:image/png;base64,iVBORw0KGgo="]',
+      ),
+    ).toBeTruthy();
+
+    const nameInput = screen.getByLabelText("Name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Uploaded Logo Lab");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.imageUrl).toBeNull();
+    expect(body.imageUploadDataUrl).toBe("data:image/png;base64,iVBORw0KGgo=");
+    expect(body.imageUploadName).toBe("wizard-logo.png");
+    expect(body.imageUploadMimeType).toBe("image/png");
   });
 
   it("adds social network links as a nested social object", async () => {

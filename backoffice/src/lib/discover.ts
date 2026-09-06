@@ -64,6 +64,9 @@ export interface DiscoverOrganizationRecord {
   id: string;
   name: string;
   imageUrl: string | null;
+  imageUploadDataUrl?: string;
+  imageUploadName?: string;
+  imageUploadMimeType?: string;
   status: DiscoverOrganizationStatus;
   slug?: string;
   websiteUrl?: string;
@@ -88,6 +91,9 @@ export interface DiscoverIndividualRecord {
   id: string;
   name: string;
   imageUrl: string | null;
+  imageUploadDataUrl?: string;
+  imageUploadName?: string;
+  imageUploadMimeType?: string;
   status: DiscoverIndividualStatus;
   slug?: string;
   websiteUrl?: string;

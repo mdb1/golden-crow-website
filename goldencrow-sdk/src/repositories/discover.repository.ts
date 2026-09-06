@@ -380,7 +380,19 @@ type DocumentPageCursor = {
   id: string;
 };
 
-type OrganizationInput = {
+type PublisherImageUploadInput = {
+  imageUploadDataUrl?: unknown;
+  imageUploadName?: unknown;
+  imageUploadMimeType?: unknown;
+};
+
+type PublisherImageUploadRecord = {
+  imageUploadDataUrl?: string;
+  imageUploadName?: string;
+  imageUploadMimeType?: string;
+};
+
+type OrganizationInput = PublisherImageUploadInput & {
   name?: unknown;
   imageUrl?: unknown;
   status?: unknown;
@@ -399,7 +411,7 @@ type OrganizationInput = {
   internalNotes?: unknown;
 };
 
-type IndividualInput = {
+type IndividualInput = PublisherImageUploadInput & {
   name?: unknown;
   imageUrl?: unknown;
   status?: unknown;
@@ -416,13 +428,10 @@ type IndividualInput = {
   internalNotes?: unknown;
 };
 
-type PublicPublisherRequestInput = {
+type PublicPublisherRequestInput = PublisherImageUploadInput & {
   kind?: unknown;
   name?: unknown;
   imageUrl?: unknown;
-  imageUploadDataUrl?: unknown;
-  imageUploadName?: unknown;
-  imageUploadMimeType?: unknown;
   websiteUrl?: unknown;
   description?: unknown;
   description_en?: unknown;
@@ -631,7 +640,7 @@ function normalizePublicImageUploadMimeType(value: unknown): string | undefined 
   return normalized;
 }
 
-function publicImageUploadDocumentFields(input: PublicPublisherRequestInput) {
+function publicImageUploadDocumentFields(input: PublisherImageUploadInput) {
   const imageUploadDataUrl = normalizePublicImageUploadDataUrl(
     input.imageUploadDataUrl,
   );
@@ -665,6 +674,39 @@ function publicImageUploadDocumentFields(input: PublicPublisherRequestInput) {
     imageUploadName: normalizeOptionalString(input.imageUploadName),
     imageUploadMimeType: imageUploadMimeType ?? normalizedMimeType,
   };
+}
+
+function publisherImageDocumentFields(
+  input: PublisherImageUploadInput & { imageUrl?: unknown },
+  label: string,
+) {
+  const imageUrl = normalizeHttpsUrl(input.imageUrl, label);
+  const imageUploadFields = publicImageUploadDocumentFields(input);
+
+  if (!imageUrl && !imageUploadFields.imageUploadDataUrl) {
+    throw new AdminRepositoryError(`${label} is required.`, 400);
+  }
+
+  return {
+    imageUrl,
+    ...imageUploadFields,
+  };
+}
+
+function preserveExistingImageUpload<T extends PublisherImageUploadInput>(
+  input: T,
+  existingRecord: PublisherImageUploadRecord,
+): T {
+  if (normalizeOptionalString(input.imageUploadDataUrl)) {
+    return input;
+  }
+
+  return {
+    ...input,
+    imageUploadDataUrl: existingRecord.imageUploadDataUrl,
+    imageUploadName: existingRecord.imageUploadName,
+    imageUploadMimeType: existingRecord.imageUploadMimeType,
+  } as T;
 }
 
 function normalizeUrl(
@@ -705,10 +747,6 @@ function normalizeUrl(
 
 function normalizeHttpsUrl(value: unknown, label: string): string | null {
   return normalizeUrl(value, label, { httpsOnly: true });
-}
-
-function normalizeRequiredHttpsUrl(value: unknown, label: string): string {
-  return normalizeUrl(value, label, { required: true, httpsOnly: true })!;
 }
 
 function normalizeOptionalHttpUrl(value: unknown, label: string): string | null {
@@ -1156,6 +1194,9 @@ function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationR
     id: doc.id,
     name: normalizeOptionalString(data.name) ?? doc.id,
     imageUrl: normalizeNullableString(data.imageUrl),
+    imageUploadDataUrl: normalizeOptionalString(data.imageUploadDataUrl),
+    imageUploadName: normalizeOptionalString(data.imageUploadName),
+    imageUploadMimeType: normalizeOptionalString(data.imageUploadMimeType),
     status,
     slug: normalizeOptionalString(data.slug),
     websiteUrl: normalizeOptionalString(data.websiteUrl),
@@ -1190,6 +1231,9 @@ function toIndividualRecord(doc: QueryDocumentSnapshot): DiscoverIndividualRecor
     id: doc.id,
     name: normalizeOptionalString(data.name) ?? doc.id,
     imageUrl: normalizeNullableString(data.imageUrl),
+    imageUploadDataUrl: normalizeOptionalString(data.imageUploadDataUrl),
+    imageUploadName: normalizeOptionalString(data.imageUploadName),
+    imageUploadMimeType: normalizeOptionalString(data.imageUploadMimeType),
     status,
     slug: normalizeOptionalString(data.slug),
     websiteUrl: normalizeOptionalString(data.websiteUrl),
@@ -1462,7 +1506,7 @@ function organizationDocument(input: OrganizationInput, context: AdminContext) {
 
   return {
     name,
-    imageUrl: normalizeRequiredHttpsUrl(input.imageUrl, "Organization image URL"),
+    ...publisherImageDocumentFields(input, "Organization image URL"),
     status: normalizeOrganizationStatus(input.status),
     slug: slugifyOrganizationName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
@@ -1524,7 +1568,7 @@ function individualDocument(input: IndividualInput, context: AdminContext) {
 
   return {
     name,
-    imageUrl: normalizeRequiredHttpsUrl(input.imageUrl, "Individual publisher image URL"),
+    ...publisherImageDocumentFields(input, "Individual publisher image URL"),
     status: normalizeOrganizationStatus(input.status),
     slug: slugifyIndividualName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
@@ -1983,10 +2027,15 @@ export async function updateDiscoverOrganization(
         }
       : input;
 
+  const inputWithImageUpload = preserveExistingImageUpload(
+    scopedInput,
+    existingRecord,
+  );
+
   await existing.ref.set(
     withoutUndefined({
       ...existing.data(),
-      ...organizationDocument(scopedInput, context),
+      ...organizationDocument(inputWithImageUpload, context),
     }),
     { merge: false },
   );
@@ -2129,10 +2178,15 @@ export async function updateDiscoverIndividual(
         }
       : input;
 
+  const inputWithImageUpload = preserveExistingImageUpload(
+    scopedInput,
+    existingRecord,
+  );
+
   await existing.ref.set(
     withoutUndefined({
       ...existing.data(),
-      ...individualDocument(scopedInput, context),
+      ...individualDocument(inputWithImageUpload, context),
     }),
     { merge: false },
   );

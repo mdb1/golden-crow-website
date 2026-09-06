@@ -204,6 +204,9 @@ type PublisherRequestBody = z.infer<typeof PublisherRequestBodySchema>;
 const OrganizationBodySchema = z.object({
   name: z.string().optional(),
   imageUrl: z.string().nullable().optional(),
+  imageUploadDataUrl: PublicImageUploadDataUrlSchema,
+  imageUploadName: PublicImageUploadNameSchema,
+  imageUploadMimeType: PublicImageUploadMimeTypeSchema,
   status: OrganizationStatusSchema.optional(),
   websiteUrl: z.string().nullable().optional(),
   description: z.string().optional(),
@@ -223,6 +226,9 @@ const OrganizationBodySchema = z.object({
 const IndividualBodySchema = z.object({
   name: z.string().optional(),
   imageUrl: z.string().nullable().optional(),
+  imageUploadDataUrl: PublicImageUploadDataUrlSchema,
+  imageUploadName: PublicImageUploadNameSchema,
+  imageUploadMimeType: PublicImageUploadMimeTypeSchema,
   status: OrganizationStatusSchema.optional(),
   websiteUrl: z.string().nullable().optional(),
   description: z.string().optional(),

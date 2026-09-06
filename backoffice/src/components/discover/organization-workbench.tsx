@@ -66,6 +66,9 @@ type PublisherRecord = DiscoverOrganizationRecord | DiscoverIndividualRecord;
 type OrganizationFormState = {
   name: string;
   imageUrl: string;
+  imageUploadDataUrl: string;
+  imageUploadName: string;
+  imageUploadMimeType: string;
   status: DiscoverOrganizationStatus | DiscoverIndividualStatus;
   websiteUrl: string;
   description: string;
@@ -91,6 +94,9 @@ function toFormState(
   return {
     name: publisher?.name ?? "",
     imageUrl: publisher?.imageUrl ?? "",
+    imageUploadDataUrl: publisher?.imageUploadDataUrl ?? "",
+    imageUploadName: publisher?.imageUploadName ?? "",
+    imageUploadMimeType: publisher?.imageUploadMimeType ?? "",
     status: publisher?.status ?? "active",
     websiteUrl: publisher?.websiteUrl ?? "",
     description: publisher?.description ?? "",
@@ -127,6 +133,9 @@ function payloadFromState(state: OrganizationFormState, publisherKind: Publisher
     ...state,
     slug: slugifyDiscoverOrganizationName(state.name),
     imageUrl: state.imageUrl || null,
+    imageUploadDataUrl: state.imageUploadDataUrl || undefined,
+    imageUploadName: state.imageUploadName || undefined,
+    imageUploadMimeType: state.imageUploadMimeType || undefined,
     websiteUrl: state.websiteUrl || null,
     social: Object.keys(social).length ? social : undefined,
     countryCode:
@@ -263,6 +272,7 @@ function DiscoverPublisherWorkbench({
   const geneticReportCategoryLabel = t(
     discoverGeneticReportCategoryLabel(state.genetic_report_category || null),
   );
+  const imagePreviewSource = state.imageUrl.trim() || state.imageUploadDataUrl;
   const showDangerZone = mode === "edit" && Boolean(publisher) && canDeletePublisher;
   const publisherDeletionTitle = isIndividual
     ? t("Individual publisher deletion")
@@ -372,7 +382,7 @@ function DiscoverPublisherWorkbench({
       return;
     }
 
-    if (!state.imageUrl.trim()) {
+    if (!state.imageUrl.trim() && !state.imageUploadDataUrl.trim()) {
       setToast({
         id: Date.now(),
         tone: "error",
@@ -738,7 +748,6 @@ function DiscoverPublisherWorkbench({
                 value={state.imageUrl}
                 onChange={(event) => updateState({ imageUrl: event.target.value })}
                 placeholder="https://"
-                required
               />
             </div>
             <PublisherSocialLinksEditor
@@ -816,10 +825,10 @@ function DiscoverPublisherWorkbench({
 
           <div className="flex flex-col gap-3">
             <div className="overflow-hidden rounded-md border border-border bg-muted/30">
-              {state.imageUrl ? (
+              {imagePreviewSource ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={state.imageUrl}
+                  src={imagePreviewSource}
                   alt=""
                   className="aspect-square w-full object-cover"
                 />
