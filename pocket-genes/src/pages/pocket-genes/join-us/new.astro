@@ -125,6 +125,16 @@ const pageCopy = {
     socialEmptySearch: 'No social networks match',
     socialNoLinks: 'No social links added yet.',
     socialAllAdded: 'All social networks added',
+    socialLinkTitle: 'Add the link',
+    socialEditTitle: 'Edit this link',
+    socialLinkBody: 'Paste the profile URL, handle page, or contact link before we add it to your profile.',
+    socialDraftLabel: 'Profile link',
+    socialDraftBack: 'Back to networks',
+    socialDraftSave: 'Collect link',
+    socialDraftUpdate: 'Update link',
+    socialCollectedTitle: 'Collected.',
+    socialCollectedBody: '{network} is ready on your profile stack.',
+    socialEditLabel: 'Edit link',
     socialSelectedLabel: 'links ready',
     socialSelectedSingleLabel: 'link ready',
     socialSelectedEmptyLabel: 'Add URLs to the channels you selected.',
@@ -260,6 +270,16 @@ const pageCopy = {
     socialEmptySearch: 'No hay redes que coincidan',
     socialNoLinks: 'Todavía no agregaste redes.',
     socialAllAdded: 'Todas las redes agregadas',
+    socialLinkTitle: 'Sumá el link',
+    socialEditTitle: 'Editá este link',
+    socialLinkBody: 'Pegá la URL del perfil, página o canal de contacto antes de sumarlo al perfil.',
+    socialDraftLabel: 'Link del perfil',
+    socialDraftBack: 'Volver a redes',
+    socialDraftSave: 'Recolectar link',
+    socialDraftUpdate: 'Actualizar link',
+    socialCollectedTitle: 'Recolectado.',
+    socialCollectedBody: '{network} ya está listo en el perfil.',
+    socialEditLabel: 'Editar link',
     socialSelectedLabel: 'links listos',
     socialSelectedSingleLabel: 'link listo',
     socialSelectedEmptyLabel: 'Agregá URLs a los canales que elegiste.',
@@ -339,6 +359,15 @@ const wizardClientCopy = {
   socialUrlPlaceholder: copy.socialUrlPlaceholder,
   socialNoLinks: copy.socialNoLinks,
   socialAllAdded: copy.socialAllAdded,
+  socialLinkTitle: copy.socialLinkTitle,
+  socialEditTitle: copy.socialEditTitle,
+  socialLinkBody: copy.socialLinkBody,
+  socialDraftLabel: copy.socialDraftLabel,
+  socialDraftSave: copy.socialDraftSave,
+  socialDraftUpdate: copy.socialDraftUpdate,
+  socialCollectedTitle: copy.socialCollectedTitle,
+  socialCollectedBody: copy.socialCollectedBody,
+  socialEditLabel: copy.socialEditLabel,
   socialSelectedLabel: copy.socialSelectedLabel,
   socialSelectedSingleLabel: copy.socialSelectedSingleLabel,
   socialSelectedEmptyLabel: copy.socialSelectedEmptyLabel,
@@ -764,46 +793,85 @@ const wizardClientCopy = {
               aria-labelledby="pg-social-picker-title"
             >
               <div class="pg-social-picker-card">
-                <div class="pg-social-selected-head">
-                  <div class="pg-social-panel-heading">
-                    <span>{copy.socialOptional}</span>
-                    <h3 id="pg-social-picker-title">{copy.socialPickerTitle}</h3>
-                    <p>{copy.socialPickerBody}</p>
+                <div class="pg-social-picker-view" data-social-picker-view="choose">
+                  <div class="pg-social-selected-head">
+                    <div class="pg-social-panel-heading">
+                      <span>{copy.socialOptional}</span>
+                      <h3 id="pg-social-picker-title">{copy.socialPickerTitle}</h3>
+                      <p>{copy.socialPickerBody}</p>
+                    </div>
+                    <button type="button" class="pg-modal-close" data-social-picker-close aria-label={copy.socialPickerClose}>
+                      <span aria-hidden="true">x</span>
+                    </button>
                   </div>
+                  <input
+                    class="pg-search-field pg-social-search"
+                    type="search"
+                    data-social-search
+                    placeholder={copy.socialSearch}
+                    autocomplete="off"
+                  />
+                  <div class="pg-social-option-grid" data-social-option-grid>
+                    {socialOptions.map((option) => (
+                      <button
+                        type="button"
+                        data-social-option={option.value}
+                        data-label={option.label}
+                        data-placeholder={option.placeholder}
+                        data-asset={option.assetName}
+                        aria-pressed="false"
+                      >
+                        <span class="pg-social-icon" aria-hidden="true">
+                          <img src={`/discover/social-network-assets/${option.assetName}.png`} alt="" loading="lazy" />
+                        </span>
+                        <span>
+                          <strong>{option.label}</strong>
+                          <small>{option.placeholder}</small>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <p class="pg-social-empty-search" data-social-empty-search hidden>
+                    {copy.socialEmptySearch}
+                  </p>
+                </div>
+
+                <div class="pg-social-picker-view pg-social-link-stage" data-social-picker-view="link" hidden>
                   <button type="button" class="pg-modal-close" data-social-picker-close aria-label={copy.socialPickerClose}>
                     <span aria-hidden="true">x</span>
                   </button>
-                </div>
-                <input
-                  class="pg-search-field pg-social-search"
-                  type="search"
-                  data-social-search
-                  placeholder={copy.socialSearch}
-                  autocomplete="off"
-                />
-                <div class="pg-social-option-grid" data-social-option-grid>
-                  {socialOptions.map((option) => (
-                    <button
-                      type="button"
-                      data-social-option={option.value}
-                      data-label={option.label}
-                      data-placeholder={option.placeholder}
-                      data-asset={option.assetName}
-                      aria-pressed="false"
-                    >
-                      <span class="pg-social-icon" aria-hidden="true">
-                        <img src={`/discover/social-network-assets/${option.assetName}.png`} alt="" loading="lazy" />
-                      </span>
-                      <span>
-                        <strong>{option.label}</strong>
-                        <small>{option.placeholder}</small>
-                      </span>
+                  <div class="pg-social-link-hero">
+                    <span class="pg-social-icon pg-social-link-icon" data-social-draft-icon aria-hidden="true"></span>
+                    <span class="pg-social-link-spark" aria-hidden="true"></span>
+                    <h3 data-social-draft-title>{copy.socialLinkTitle}</h3>
+                    <p data-social-draft-body>{copy.socialLinkBody}</p>
+                  </div>
+                  <label class="pg-social-draft-field">
+                    <span data-social-draft-label>{copy.socialDraftLabel}</span>
+                    <input
+                      type="url"
+                      data-social-draft-input
+                      placeholder={copy.socialUrlPlaceholder}
+                      autocomplete="off"
+                    />
+                  </label>
+                  <p class="pg-social-draft-error" data-social-draft-error hidden>{copy.socialLinkError}</p>
+                  <div class="pg-social-draft-actions">
+                    <button type="button" class="pg-social-draft-back" data-social-draft-back>
+                      {copy.socialDraftBack}
                     </button>
-                  ))}
+                    <button type="button" class="pg-social-draft-save" data-social-draft-save>
+                      {copy.socialDraftSave}
+                    </button>
+                  </div>
                 </div>
-                <p class="pg-social-empty-search" data-social-empty-search hidden>
-                  {copy.socialEmptySearch}
-                </p>
+
+                <div class="pg-social-picker-view pg-social-success-stage" data-social-picker-view="success" hidden>
+                  <span class="pg-social-success-burst" aria-hidden="true"></span>
+                  <span class="pg-social-icon pg-social-success-icon" data-social-success-icon aria-hidden="true"></span>
+                  <h3 data-social-success-title>{copy.socialCollectedTitle}</h3>
+                  <p data-social-success-body>{copy.socialCollectedBody}</p>
+                </div>
               </div>
             </section>
           </div>
@@ -918,6 +986,9 @@ const wizardClientCopy = {
       uploadedImageDataUrl: '',
       uploadedImageName: '',
       uploadedImageMimeType: '',
+      socialDraftOption: null,
+      socialDraftRow: null,
+      socialDraftMode: 'add',
       submitting: false,
       startedAt: new Date().toISOString(),
     };
@@ -979,14 +1050,26 @@ const wizardClientCopy = {
     const socialOptionsByValue = new Map(socialOptions.map((option) => [option.value, option]));
     const socialPickerPanel = wizardRoot.querySelector('[data-social-picker-panel]');
     const socialPickerOpen = wizardRoot.querySelector('[data-social-picker-open]');
-    const socialPickerClose = wizardRoot.querySelector('[data-social-picker-close]');
+    const socialPickerCloseButtons = Array.from(wizardRoot.querySelectorAll('[data-social-picker-close]'));
     const socialPickerLabel = wizardRoot.querySelector('[data-social-picker-label]');
+    const socialPickerViews = Array.from(wizardRoot.querySelectorAll('[data-social-picker-view]'));
     const socialSearch = wizardRoot.querySelector('[data-social-search]');
     const socialOptionGrid = wizardRoot.querySelector('[data-social-option-grid]');
     const socialEmptySearch = wizardRoot.querySelector('[data-social-empty-search]');
     const socialCount = wizardRoot.querySelector('[data-social-count]');
     const socialEmptyState = wizardRoot.querySelector('[data-social-empty-state]');
     const socialList = wizardRoot.querySelector('[data-social-list]');
+    const socialDraftIcon = wizardRoot.querySelector('[data-social-draft-icon]');
+    const socialDraftTitle = wizardRoot.querySelector('[data-social-draft-title]');
+    const socialDraftBody = wizardRoot.querySelector('[data-social-draft-body]');
+    const socialDraftLabel = wizardRoot.querySelector('[data-social-draft-label]');
+    const socialDraftInput = wizardRoot.querySelector('[data-social-draft-input]');
+    const socialDraftError = wizardRoot.querySelector('[data-social-draft-error]');
+    const socialDraftBack = wizardRoot.querySelector('[data-social-draft-back]');
+    const socialDraftSave = wizardRoot.querySelector('[data-social-draft-save]');
+    const socialSuccessIcon = wizardRoot.querySelector('[data-social-success-icon]');
+    const socialSuccessTitle = wizardRoot.querySelector('[data-social-success-title]');
+    const socialSuccessBody = wizardRoot.querySelector('[data-social-success-body]');
     const success = wizardRoot.querySelector('[data-wizard-success]');
     const openBooking = wizardRoot.querySelector('[data-open-booking]');
     const successBooking = wizardRoot.querySelector('[data-success-booking]');
@@ -1761,25 +1844,170 @@ const wizardClientCopy = {
       }
     }
 
-    function setSocialPickerOpen(open) {
-      if (!socialPickerPanel || !socialPickerOpen) return;
+    function socialAssetSrc(assetName) {
+      return `/discover/social-network-assets/${assetName}.png`;
+    }
 
-      if (open) {
-        setCountryPopoverOpen(false);
+    function setSocialIcon(container, option) {
+      if (!container || !option) return;
+
+      const image = document.createElement('img');
+      image.src = socialAssetSrc(option.assetName);
+      image.alt = '';
+      image.loading = 'lazy';
+      container.replaceChildren(image);
+    }
+
+    function displaySocialValue(value) {
+      const trimmed = value.trim();
+      if (!trimmed) return '';
+      if (trimmed.startsWith('mailto:')) {
+        return trimmed.replace(/^mailto:/, '');
       }
 
-      socialPickerPanel.hidden = !open;
-      socialPickerOpen.setAttribute('aria-expanded', open ? 'true' : 'false');
-      socialWorkbench?.classList.toggle('is-picking-social', open);
-      syncModalState();
-
-      if (open) {
-        requestAnimationFrame(() => socialSearch?.focus());
+      try {
+        const parsed = new URL(urlWithProtocol(trimmed));
+        return parsed.hostname.replace(/^www\./, '') + parsed.pathname.replace(/\/$/, '');
+      } catch {
+        return trimmed;
       }
     }
 
-    function socialAssetSrc(assetName) {
-      return `/discover/social-network-assets/${assetName}.png`;
+    function createPencilIcon() {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('aria-hidden', 'true');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z');
+      svg.append(path);
+      return svg;
+    }
+
+    let socialCollectTimer;
+
+    function setSocialPickerView(view) {
+      socialPickerViews.forEach((section) => {
+        section.hidden = section.getAttribute('data-social-picker-view') !== view;
+      });
+    }
+
+    function resetSocialDraft() {
+      window.clearTimeout(socialCollectTimer);
+      state.socialDraftOption = null;
+      state.socialDraftRow = null;
+      state.socialDraftMode = 'add';
+      if (socialDraftInput) {
+        socialDraftInput.value = '';
+        socialDraftInput.type = 'url';
+        socialDraftInput.placeholder = copy.socialUrlPlaceholder;
+      }
+      if (socialDraftError) {
+        socialDraftError.hidden = true;
+      }
+      if (socialDraftSave) {
+        socialDraftSave.disabled = true;
+        socialDraftSave.textContent = copy.socialDraftSave;
+      }
+    }
+
+    function openSocialModalShell() {
+      if (!socialPickerPanel || !socialPickerOpen) return false;
+
+      setCountryPopoverOpen(false);
+      socialPickerPanel.hidden = false;
+      socialPickerOpen.setAttribute('aria-expanded', 'true');
+      socialWorkbench?.classList.add('is-picking-social');
+      syncModalState();
+      return true;
+    }
+
+    function setSocialPickerOpen(open) {
+      if (!socialPickerPanel || !socialPickerOpen) return;
+
+      if (!open) {
+        socialPickerPanel.hidden = true;
+        socialPickerOpen.setAttribute('aria-expanded', 'false');
+        socialWorkbench?.classList.remove('is-picking-social');
+        resetSocialDraft();
+        setSocialPickerView('choose');
+        syncModalState();
+        return;
+      }
+
+      if (!openSocialModalShell()) return;
+      resetSocialDraft();
+      setSocialPickerView('choose');
+      updateSocialUi();
+      requestAnimationFrame(() => socialSearch?.focus());
+    }
+
+    function updateSocialDraftUi({ showError = false } = {}) {
+      const option = state.socialDraftOption;
+      const value = socialDraftInput?.value.trim() || '';
+      const valid = Boolean(option && value && validSocialValue(option.value, value));
+
+      if (socialDraftSave) {
+        socialDraftSave.disabled = !valid;
+      }
+
+      if (socialDraftError) {
+        socialDraftError.hidden = !showError || !value || valid;
+      }
+
+      return valid;
+    }
+
+    function beginSocialLinkFlow(option, { row = null } = {}) {
+      if (!option || !openSocialModalShell()) return;
+
+      state.socialDraftOption = option;
+      state.socialDraftRow = row;
+      state.socialDraftMode = row ? 'edit' : 'add';
+
+      const existingValue = row?.querySelector('[data-social-url]')?.value.trim() || '';
+      setSocialIcon(socialDraftIcon, option);
+
+      if (socialDraftTitle) {
+        socialDraftTitle.textContent = row
+          ? `${copy.socialEditTitle}: ${option.label}`
+          : `${copy.socialLinkTitle}: ${option.label}`;
+      }
+      if (socialDraftBody) {
+        socialDraftBody.textContent = copy.socialLinkBody;
+      }
+      if (socialDraftLabel) {
+        socialDraftLabel.textContent = `${copy.socialDraftLabel} · ${option.label}`;
+      }
+      if (socialDraftInput) {
+        socialDraftInput.type = option.value === 'email' ? 'text' : 'url';
+        socialDraftInput.placeholder = option.placeholder || copy.socialUrlPlaceholder;
+        socialDraftInput.value = existingValue;
+        socialDraftInput.setAttribute('aria-label', option.label);
+      }
+      if (socialDraftSave) {
+        socialDraftSave.textContent = row ? copy.socialDraftUpdate : copy.socialDraftSave;
+      }
+
+      setSocialPickerView('link');
+      updateSocialDraftUi();
+      requestAnimationFrame(() => socialDraftInput?.focus());
+    }
+
+    function normalizedSocialDraftValue(option, value) {
+      const trimmed = value.trim();
+      if (option.value === 'email') return trimmed;
+      return optionalUrlValue({ value: trimmed });
+    }
+
+    function showSocialCollected(option) {
+      setSocialIcon(socialSuccessIcon, option);
+      if (socialSuccessTitle) {
+        socialSuccessTitle.textContent = copy.socialCollectedTitle;
+      }
+      if (socialSuccessBody) {
+        socialSuccessBody.textContent = copy.socialCollectedBody.replace('{network}', option.label);
+      }
+      setSocialPickerView('success');
     }
 
     function selectedSocialKeys() {
@@ -1861,81 +2089,106 @@ const wizardClientCopy = {
       socialOptionGrid?.classList.toggle('is-empty', availableVisibleCount === 0);
     }
 
-    function createSocialRow(option) {
-      if (!socialList || !option || selectedSocialKeys().has(option.value)) return;
+    function upsertSocialRow(option, value, existingRow = null) {
+      if (!socialList || !option) return;
 
-      const row = document.createElement('div');
-      row.className = 'pg-social-row';
-      row.setAttribute('data-social-row', option.value);
+      let row = existingRow;
+      if (!row && selectedSocialKeys().has(option.value)) return;
 
-      const identity = document.createElement('div');
-      identity.className = 'pg-social-row-identity';
+      if (!row) {
+        row = document.createElement('div');
+        row.className = 'pg-social-row';
+        row.setAttribute('data-social-row', option.value);
 
-      const icon = document.createElement('span');
-      icon.className = 'pg-social-icon';
-      icon.setAttribute('aria-hidden', 'true');
-      const image = document.createElement('img');
-      image.src = socialAssetSrc(option.assetName);
-      image.alt = '';
-      image.loading = 'lazy';
-      icon.append(image);
+        const identity = document.createElement('div');
+        identity.className = 'pg-social-row-identity';
 
-      const label = document.createElement('span');
-      const name = document.createElement('strong');
-      name.textContent = option.label;
-      const hint = document.createElement('small');
-      hint.textContent = option.placeholder || copy.socialUrlPlaceholder;
-      label.append(name, hint);
-      identity.append(icon, label);
+        const icon = document.createElement('span');
+        icon.className = 'pg-social-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        setSocialIcon(icon, option);
 
-      const inputWrap = document.createElement('label');
-      inputWrap.className = 'pg-social-url-field';
-      const inputCaption = document.createElement('span');
-      inputCaption.textContent = copy.socialUrlLabel;
-      const input = document.createElement('input');
-      input.type = option.value === 'email' ? 'text' : 'url';
-      input.maxLength = 1000;
-      input.placeholder = option.placeholder || copy.socialUrlPlaceholder;
-      input.setAttribute('data-social-url', '');
-      input.setAttribute('aria-label', option.label);
-      const inputError = document.createElement('small');
-      inputError.className = 'pg-social-url-error';
-      inputError.setAttribute('data-social-url-error', '');
-      inputError.textContent = copy.socialLinkError;
-      inputError.hidden = true;
-      input.addEventListener('input', () => {
-        updateSocialUi();
-        renderStep();
-      });
-      input.addEventListener('blur', () => {
-        if (option.value !== 'email') {
-          normalizeUrlInput(input);
+        const label = document.createElement('span');
+        const name = document.createElement('strong');
+        name.textContent = option.label;
+        const hint = document.createElement('small');
+        hint.textContent = option.placeholder || copy.socialUrlPlaceholder;
+        label.append(name, hint);
+        identity.append(icon, label);
+
+        const valueButton = document.createElement('button');
+        valueButton.type = 'button';
+        valueButton.className = 'pg-social-value-pill';
+        valueButton.setAttribute('aria-label', `${copy.socialEditLabel} ${option.label}`);
+        const valueCopy = document.createElement('span');
+        valueCopy.className = 'pg-social-value-copy';
+        const valueLabel = document.createElement('small');
+        valueLabel.textContent = copy.socialUrlLabel;
+        const valueText = document.createElement('strong');
+        valueText.setAttribute('data-social-value-text', '');
+        valueCopy.append(valueLabel, valueText);
+        const editIcon = document.createElement('span');
+        editIcon.className = 'pg-social-edit-icon';
+        editIcon.append(createPencilIcon());
+        valueButton.append(valueCopy, editIcon);
+        valueButton.addEventListener('click', () => beginSocialLinkFlow(option, { row }));
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.maxLength = 1000;
+        input.setAttribute('data-social-url', '');
+        input.setAttribute('aria-label', option.label);
+
+        const inputError = document.createElement('small');
+        inputError.className = 'pg-social-url-error';
+        inputError.setAttribute('data-social-url-error', '');
+        inputError.textContent = copy.socialLinkError;
+        inputError.hidden = true;
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'pg-social-remove';
+        remove.setAttribute('aria-label', `${copy.socialRemoveLabel} ${option.label}`);
+        const removeIcon = document.createElement('span');
+        removeIcon.setAttribute('aria-hidden', 'true');
+        removeIcon.textContent = 'x';
+        remove.append(removeIcon);
+        remove.addEventListener('click', () => {
+          row.remove();
           updateSocialUi();
           renderStep();
-        }
-      });
-      inputWrap.append(inputCaption, input, inputError);
+        });
 
-      const remove = document.createElement('button');
-      remove.type = 'button';
-      remove.className = 'pg-social-remove';
-      remove.setAttribute('aria-label', `${copy.socialRemoveLabel} ${option.label}`);
-      const removeIcon = document.createElement('span');
-      removeIcon.setAttribute('aria-hidden', 'true');
-      removeIcon.textContent = 'x';
-      remove.append(removeIcon);
-      remove.addEventListener('click', () => {
-        row.remove();
-        updateSocialUi();
-        renderStep();
-      });
+        row.append(identity, valueButton, input, inputError, remove);
+        socialList.append(row);
+      }
 
-      row.append(identity, inputWrap, remove);
-      socialList.append(row);
-      setSocialPickerOpen(false);
+      const input = row.querySelector('[data-social-url]');
+      const valueText = row.querySelector('[data-social-value-text]');
+      if (input) {
+        input.value = value;
+      }
+      if (valueText) {
+        valueText.textContent = displaySocialValue(value);
+      }
+
       updateSocialUi();
       renderStep();
-      requestAnimationFrame(() => input.focus());
+    }
+
+    function submitSocialDraft() {
+      const option = state.socialDraftOption;
+      const value = socialDraftInput?.value.trim() || '';
+
+      if (!option || !updateSocialDraftUi({ showError: true })) return;
+
+      const normalizedValue = normalizedSocialDraftValue(option, value);
+      upsertSocialRow(option, normalizedValue, state.socialDraftRow);
+      showSocialCollected(option);
+      window.clearTimeout(socialCollectTimer);
+      socialCollectTimer = window.setTimeout(() => {
+        setSocialPickerOpen(false);
+      }, 980);
     }
 
     function collectSocialLinks() {
@@ -2106,11 +2359,27 @@ const wizardClientCopy = {
     categorySearch?.addEventListener('input', () => filterCategoryOptions(categorySearch.value));
     socialSearch?.addEventListener('input', updateSocialUi);
     socialPickerOpen?.addEventListener('click', () => setSocialPickerOpen(true));
-    socialPickerClose?.addEventListener('click', () => setSocialPickerOpen(false));
+    socialPickerCloseButtons.forEach((button) => {
+      button.addEventListener('click', () => setSocialPickerOpen(false));
+    });
+    socialDraftInput?.addEventListener('input', () => updateSocialDraftUi());
+    socialDraftInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submitSocialDraft();
+      }
+    });
+    socialDraftBack?.addEventListener('click', () => {
+      resetSocialDraft();
+      setSocialPickerView('choose');
+      updateSocialUi();
+      requestAnimationFrame(() => socialSearch?.focus());
+    });
+    socialDraftSave?.addEventListener('click', submitSocialDraft);
     wizardRoot.querySelectorAll('[data-social-option]').forEach((button) => {
       button.addEventListener('click', () => {
         const option = socialOptionsByValue.get(button.getAttribute('data-social-option'));
-        createSocialRow(option);
+        beginSocialLinkFlow(option);
       });
     });
     altDescriptionToggle?.addEventListener('click', () => {
@@ -3683,6 +3952,12 @@ const wizardClientCopy = {
     animation: pgModalCardIn 220ms ease both;
   }
 
+  .pg-social-picker-view {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
   .pg-social-panel-heading {
     display: grid;
     gap: 6px;
@@ -3771,27 +4046,57 @@ const wizardClientCopy = {
   }
 
   .pg-social-option-grid button {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
     min-width: 0;
     min-height: 76px;
-    border: 1px solid rgba(200, 203, 210, 0.9);
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.88);
-    padding: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(217, 221, 229, 0.92);
+    border-radius: 24px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(247, 248, 253, 0.9)),
+      #ffffff;
+    padding: 14px;
     color: var(--wizard-ink);
     text-align: left;
     font: inherit;
     cursor: pointer;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      0 12px 28px rgba(30, 32, 38, 0.07);
     transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
   }
 
-  .pg-social-option-grid button:hover {
+  .pg-social-option-grid button::before,
+  .pg-social-row::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+    opacity: 0;
+    transform: translateX(-65%);
+    transition: opacity 180ms ease, transform 380ms ease;
+  }
+
+  .pg-social-option-grid button:hover,
+  .pg-social-option-grid button:focus-visible {
     transform: translateY(-2px);
     border-color: rgba(111, 60, 195, 0.5);
     background: #ffffff;
-    box-shadow: 0 14px 28px rgba(111, 60, 195, 0.1);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.98),
+      0 18px 34px rgba(111, 60, 195, 0.13);
+  }
+
+  .pg-social-option-grid button:hover::before,
+  .pg-social-option-grid button:focus-visible::before,
+  .pg-social-row:hover::before,
+  .pg-social-row:focus-within::before {
+    opacity: 1;
+    transform: translateX(65%);
   }
 
   .pg-social-option-grid button span:last-child {
@@ -3822,21 +4127,25 @@ const wizardClientCopy = {
   }
 
   .pg-social-icon {
-    width: 40px;
-    height: 40px;
-    flex: 0 0 40px;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
     display: inline-grid;
     place-items: center;
-    border-radius: 999px;
-    background: #ffffff;
-    box-shadow: 0 8px 18px rgba(32, 33, 39, 0.1);
+    border: 1px solid rgba(225, 228, 235, 0.9);
+    border-radius: 16px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(244, 246, 251, 0.92)),
+      #ffffff;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.94),
+      0 10px 20px rgba(32, 33, 39, 0.09);
     overflow: hidden;
   }
 
   .pg-social-icon img {
-    width: 100%;
-    height: 100%;
-    border-radius: inherit;
+    width: 68%;
+    height: 68%;
     object-fit: contain;
   }
 
@@ -3875,25 +4184,32 @@ const wizardClientCopy = {
 
   .pg-social-list {
     display: grid;
-    gap: 10px;
+    gap: 12px;
   }
 
   .pg-social-row {
+    position: relative;
     display: grid;
-    grid-template-columns: minmax(160px, 0.72fr) minmax(0, 1fr) 44px;
-    gap: 10px;
+    grid-template-columns: minmax(170px, 0.9fr) minmax(0, 1.1fr) 40px;
+    gap: 12px;
     align-items: center;
-    border: 1.5px solid var(--wizard-border);
-    border-radius: 18px;
-    background: #ffffff;
-    padding: 12px;
-    animation: pgSocialRowIn 220ms ease both;
-    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+    overflow: hidden;
+    border: 1px solid rgba(217, 221, 229, 0.92);
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at 14% 8%, rgba(111, 60, 195, 0.12), transparent 34%),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 249, 253, 0.9)),
+      #ffffff;
+    padding: 14px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.96),
+      0 18px 36px rgba(32, 33, 39, 0.08);
+    animation: pgSocialRowIn 260ms cubic-bezier(0.2, 0.84, 0.24, 1.18) both;
+    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
   }
 
   .pg-social-row.has-value {
-    border-color: rgba(20, 149, 143, 0.38);
-    background: linear-gradient(135deg, rgba(238, 248, 247, 0.72), #ffffff);
+    border-color: rgba(111, 60, 195, 0.24);
   }
 
   .pg-social-row.has-error {
@@ -3906,6 +4222,13 @@ const wizardClientCopy = {
     align-items: center;
     gap: 10px;
     min-width: 0;
+  }
+
+  .pg-social-row .pg-social-icon {
+    width: 56px;
+    height: 56px;
+    flex-basis: 56px;
+    border-radius: 18px;
   }
 
   .pg-social-url-field {
@@ -3932,21 +4255,99 @@ const wizardClientCopy = {
   }
 
   .pg-social-url-error {
+    grid-column: 1 / -1;
     color: #9f1239;
     font-size: 0.76rem;
     font-weight: 700;
     line-height: 1.3;
   }
 
-  .pg-social-remove {
-    width: 44px;
-    height: 44px;
+  .pg-social-value-pill {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    min-height: 62px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid rgba(200, 203, 210, 0.78);
+    border-radius: 20px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(241, 244, 251, 0.9)),
+      #ffffff;
+    color: var(--wizard-ink);
+    padding: 9px 10px 9px 14px;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .pg-social-value-pill:hover,
+  .pg-social-value-pill:focus-visible {
+    transform: translateY(-1px);
+    border-color: rgba(111, 60, 195, 0.46);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.98),
+      0 14px 26px rgba(111, 60, 195, 0.12);
+  }
+
+  .pg-social-value-copy {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .pg-social-value-copy small {
+    color: var(--wizard-muted);
+    font-size: 0.76rem;
+    font-weight: 760;
+  }
+
+  .pg-social-value-copy strong {
+    overflow: hidden;
+    color: var(--wizard-ink);
+    font-size: 0.98rem;
+    line-height: 1.2;
+    font-weight: 760;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pg-social-edit-icon {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
     display: inline-grid;
     place-items: center;
-    border: 1px solid var(--wizard-border);
     border-radius: 999px;
-    background: #ffffff;
-    color: var(--wizard-muted);
+    background: var(--wizard-purple-soft);
+    color: var(--wizard-purple);
+  }
+
+  .pg-social-edit-icon svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .pg-social-remove {
+    position: relative;
+    z-index: 1;
+    width: 40px;
+    height: 40px;
+    display: inline-grid;
+    place-items: center;
+    border: 1px solid rgba(225, 29, 72, 0.18);
+    border-radius: 999px;
+    background: rgba(255, 241, 242, 0.86);
+    color: #be123c;
     font: inherit;
     font-weight: 820;
     cursor: pointer;
@@ -3957,6 +4358,177 @@ const wizardClientCopy = {
     transform: scale(1.04);
     border-color: rgba(159, 18, 57, 0.3);
     color: #9f1239;
+  }
+
+  .pg-social-link-stage {
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .pg-social-link-stage .pg-modal-close {
+    align-self: end;
+  }
+
+  .pg-social-link-hero,
+  .pg-social-success-stage {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .pg-social-link-hero {
+    gap: 10px;
+    padding: 4px 18px 10px;
+  }
+
+  .pg-social-link-icon,
+  .pg-social-success-icon {
+    width: 82px;
+    height: 82px;
+    border-radius: 26px;
+    animation: pgSocialIconPop 360ms cubic-bezier(0.2, 0.84, 0.24, 1.18) both;
+  }
+
+  .pg-social-link-spark {
+    position: absolute;
+    top: 16px;
+    width: 124px;
+    height: 124px;
+    border-radius: 999px;
+    background: repeating-conic-gradient(
+      from 12deg,
+      rgba(111, 60, 195, 0.28) 0 9deg,
+      transparent 9deg 22deg,
+      rgba(20, 149, 143, 0.2) 22deg 28deg,
+      transparent 28deg 40deg
+    );
+    opacity: 0.24;
+    animation: pgSocialSpin 4200ms linear infinite;
+    -webkit-mask-image: radial-gradient(circle, transparent 0 58%, #000 59% 70%, transparent 71%);
+    mask-image: radial-gradient(circle, transparent 0 58%, #000 59% 70%, transparent 71%);
+  }
+
+  .pg-social-link-hero h3,
+  .pg-social-success-stage h3 {
+    margin: 8px 0 0;
+    color: var(--wizard-ink);
+    font-size: 1.35rem;
+    line-height: 1.2;
+  }
+
+  .pg-social-link-hero p,
+  .pg-social-success-stage p {
+    max-width: 520px;
+    margin: 0;
+    color: var(--wizard-muted);
+    font-size: 0.98rem;
+    line-height: 1.45;
+  }
+
+  .pg-social-draft-field {
+    display: grid;
+    gap: 8px;
+    border: 1.5px solid rgba(111, 60, 195, 0.26);
+    border-radius: 24px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 249, 253, 0.94)),
+      #ffffff;
+    padding: 16px 18px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.96),
+      0 16px 32px rgba(111, 60, 195, 0.09);
+  }
+
+  .pg-social-draft-field span {
+    color: var(--wizard-muted);
+    font-size: 0.82rem;
+    font-weight: 760;
+  }
+
+  .pg-social-draft-field input {
+    width: 100%;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--wizard-ink);
+    font: inherit;
+    font-size: 1.08rem;
+    line-height: 1.35;
+  }
+
+  .pg-social-draft-field:focus-within {
+    border-color: rgba(111, 60, 195, 0.58);
+    box-shadow:
+      0 0 0 4px rgba(111, 60, 195, 0.12),
+      0 18px 36px rgba(111, 60, 195, 0.12);
+  }
+
+  .pg-social-draft-error {
+    margin: -4px 0 0;
+    color: #9f1239;
+    font-size: 0.86rem;
+    font-weight: 720;
+  }
+
+  .pg-social-draft-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .pg-social-draft-actions button {
+    min-height: 54px;
+    border-radius: 999px;
+    padding: 0 20px;
+    font: inherit;
+    font-weight: 780;
+    cursor: pointer;
+  }
+
+  .pg-social-draft-back {
+    border: 1px solid rgba(200, 203, 210, 0.88);
+    background: #ffffff;
+    color: var(--wizard-muted);
+  }
+
+  .pg-social-draft-save {
+    border: 0;
+    background: var(--wizard-purple);
+    color: #ffffff;
+    box-shadow: 0 16px 32px rgba(111, 60, 195, 0.22);
+  }
+
+  .pg-social-draft-save:disabled {
+    cursor: not-allowed;
+    opacity: 0.46;
+    box-shadow: none;
+  }
+
+  .pg-social-success-stage {
+    min-height: 350px;
+    align-content: center;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .pg-social-success-stage > :not(.pg-social-success-burst) {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pg-social-success-burst {
+    position: absolute;
+    width: 260px;
+    height: 260px;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle, rgba(111, 60, 195, 0.18), transparent 56%),
+      repeating-conic-gradient(from 0deg, rgba(111, 60, 195, 0.24) 0 10deg, transparent 10deg 24deg);
+    animation: pgSocialCollect 920ms ease both;
+    -webkit-mask-image: radial-gradient(circle, #000 0 48%, transparent 49%);
+    mask-image: radial-gradient(circle, #000 0 48%, transparent 49%);
   }
 
   .pg-wizard-error {
@@ -4283,10 +4855,42 @@ const wizardClientCopy = {
     }
   }
 
+  @keyframes pgSocialCollect {
+    0% {
+      opacity: 0;
+      transform: scale(0.35) rotate(-14deg);
+    }
+    55% {
+      opacity: 0.9;
+      transform: scale(1.08) rotate(5deg);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.36) rotate(12deg);
+    }
+  }
+
+  @keyframes pgSocialIconPop {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.72);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pgSocialSpin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
   @keyframes pgSocialRowIn {
     from {
       opacity: 0;
-      transform: translateY(10px) scale(0.99);
+      transform: translateY(16px) scale(0.96);
     }
     to {
       opacity: 1;
@@ -4489,7 +5093,22 @@ const wizardClientCopy = {
       grid-template-columns: 1fr;
     }
 
+    .pg-social-row {
+      padding-right: 54px;
+    }
+
+    .pg-social-draft-actions {
+      flex-direction: column-reverse;
+    }
+
+    .pg-social-draft-actions button {
+      width: 100%;
+    }
+
     .pg-social-remove {
+      position: absolute;
+      top: 12px;
+      right: 12px;
       justify-self: end;
     }
 
