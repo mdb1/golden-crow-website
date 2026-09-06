@@ -506,7 +506,7 @@ function DiscoverPublisherWorkbench({
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 pb-52 sm:pb-36 lg:pb-32">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -523,7 +523,10 @@ function DiscoverPublisherWorkbench({
         ) : null}
       </div>
 
-      <section className="glass-panel flex flex-col gap-5 px-5 py-4">
+      <section
+        data-testid="discover-publisher-content-panel"
+        className="glass-panel flex flex-col gap-5 px-5 py-4"
+      >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 items-center gap-2">
             <h2 className="font-heading text-xl font-semibold text-foreground">
@@ -888,125 +891,135 @@ function DiscoverPublisherWorkbench({
           </div>
         </div>
 
-        <div className="sticky bottom-0 z-20 border-t border-border bg-background/94 px-5 py-4 shadow-[0_-18px_42px_rgba(15,23,42,0.12)] backdrop-blur">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0 text-sm text-muted-foreground">
-              {changed ? t("Unsaved changes") : t("No unsaved changes")}
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={handleReset}
-                disabled={
-                  (!changed && !manualColorMode && !manualColorError) || pending
-                }
-                className="h-14 justify-center text-base font-semibold sm:min-w-36"
-              >
-                <RotateCcw className="h-4 w-4" />
-                {t("Reset")}
-              </Button>
-              <Button
-                size="lg"
-                onClick={() => void handleSave()}
-                disabled={pending || (!changed && mode === "edit")}
-                className="h-14 min-w-[min(100%,22rem)] justify-center text-base font-semibold"
-              >
-                <Save className="h-5 w-5" />
-                {pending
-                  ? t("Saving...")
-                  : mode === "create"
-                    ? isIndividual
-                      ? t("Create individual publisher")
-                      : t("Create organization")
-                    : t("Save changes")}
-              </Button>
+        {showDangerZone ? (
+          <div
+            data-testid="discover-publisher-danger-zone"
+            className="rounded-md border border-destructive/20 bg-destructive/[0.03] px-4 py-4"
+          >
+            <button
+              type="button"
+              className="flex w-full min-w-0 items-start gap-3 text-left"
+              onClick={() => setIsDangerZoneOpen((open) => !open)}
+              aria-expanded={isDangerZoneOpen}
+            >
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/10 text-destructive">
+                <AlertTriangle className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2">
+                  <span className="font-heading text-lg font-semibold text-foreground">
+                    {t("Danger zone")}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 text-muted-foreground transition-transform",
+                      isDangerZoneOpen && "rotate-180",
+                    )}
+                  />
+                </span>
+                <span className="mt-1 block text-sm leading-5 text-muted-foreground">
+                  {t(
+                    "Irreversible actions that permanently delete this Discover publisher.",
+                  )}
+                </span>
+              </span>
+            </button>
+
+            {isDangerZoneOpen ? (
+              <div className="mt-4 grid gap-4 border-t border-destructive/15 pt-4 text-sm text-muted-foreground lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                <div>
+                  <h4 className="text-sm font-medium text-foreground">
+                    {publisherDeletionTitle}
+                  </h4>
+                  <p className="mt-1 leading-6">{publisherDeleteDescription}</p>
+                </div>
+
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="w-fit"
+                      disabled={pending || deletePending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {publisherDeleteButtonLabel}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogMedia className="bg-destructive/12 text-destructive">
+                        <AlertTriangle className="h-5 w-5" />
+                      </AlertDialogMedia>
+                      <AlertDialogTitle>{publisherDeleteDialogTitle}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {publisherDeleteDialogDescription}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        disabled={deletePending}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          void handleDeletePublisher();
+                        }}
+                      >
+                        {deletePending ? t("Deleting...") : t("Delete")}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+
+      <div
+        data-testid="discover-publisher-save-dock"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:px-0"
+      >
+        <div className="pointer-events-auto mx-auto md:ml-[calc(var(--sidebar-width)+1rem)] md:mr-6 lg:mr-8">
+          <div className="rounded-[1.25rem] border border-border/70 bg-background/88 p-3 shadow-[0_-10px_38px_rgba(15,23,42,0.12)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/72 sm:p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0 text-sm text-muted-foreground">
+                {changed ? t("Unsaved changes") : t("No unsaved changes")}
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handleReset}
+                  disabled={
+                    (!changed && !manualColorMode && !manualColorError) || pending
+                  }
+                  className="h-14 justify-center text-base font-semibold sm:min-w-36"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  {t("Reset")}
+                </Button>
+                <Button
+                  size="lg"
+                  onClick={() => void handleSave()}
+                  disabled={pending || (!changed && mode === "edit")}
+                  className="h-14 min-w-[min(100%,22rem)] justify-center text-base font-semibold"
+                >
+                  <Save className="h-5 w-5" />
+                  {pending
+                    ? t("Saving...")
+                    : mode === "create"
+                      ? isIndividual
+                        ? t("Create individual publisher")
+                        : t("Create organization")
+                      : t("Save changes")}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </section>
-
-      {showDangerZone ? (
-        <section className="glass-panel px-5 py-4">
-          <button
-            type="button"
-            className="flex w-full min-w-0 items-start gap-3 text-left"
-            onClick={() => setIsDangerZoneOpen((open) => !open)}
-            aria-expanded={isDangerZoneOpen}
-          >
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/10 text-destructive">
-              <AlertTriangle className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2">
-                <span className="font-heading text-lg font-semibold text-foreground">
-                  {t("Danger zone")}
-                </span>
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 text-muted-foreground transition-transform",
-                    isDangerZoneOpen && "rotate-180",
-                  )}
-                />
-              </span>
-              <span className="mt-1 block text-sm leading-5 text-muted-foreground">
-                {t(
-                  "Irreversible actions that permanently delete this Discover publisher.",
-                )}
-              </span>
-            </span>
-          </button>
-
-          {isDangerZoneOpen ? (
-            <div className="mt-4 grid gap-4 border-t border-border/70 pt-4 text-sm text-muted-foreground lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-              <div>
-                <h4 className="text-sm font-medium text-foreground">
-                  {publisherDeletionTitle}
-                </h4>
-                <p className="mt-1 leading-6">{publisherDeleteDescription}</p>
-              </div>
-
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="w-fit"
-                    disabled={pending || deletePending}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    {publisherDeleteButtonLabel}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogMedia className="bg-destructive/12 text-destructive">
-                      <AlertTriangle className="h-5 w-5" />
-                    </AlertDialogMedia>
-                    <AlertDialogTitle>{publisherDeleteDialogTitle}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {publisherDeleteDialogDescription}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      disabled={deletePending}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        void handleDeletePublisher();
-                      }}
-                    >
-                      {deletePending ? t("Deleting...") : t("Delete")}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
+      </div>
     </div>
   );
 }

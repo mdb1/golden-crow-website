@@ -215,11 +215,15 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
   it("keeps organization actions at the bottom without the publisher sync button", () => {
     renderWorkbench();
 
+    const saveDock = screen.getByTestId("discover-publisher-save-dock");
+
     expect(
       screen.queryByRole("button", { name: "Sync publisher snapshot" }),
     ).toBeNull();
     expect(screen.getByRole("button", { name: "Reset" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
+    expect(saveDock.className).toContain("fixed");
+    expect(saveDock.className).not.toContain("sticky");
   });
 
   it("does not render the internal notes block", () => {
@@ -245,6 +249,12 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const dangerZoneButton = screen.getByRole("button", {
       name: /Danger zone/i,
     });
+    const contentPanel = screen.getByTestId("discover-publisher-content-panel");
+    const dangerZone = screen.getByTestId("discover-publisher-danger-zone");
+    const saveDock = screen.getByTestId("discover-publisher-save-dock");
+
+    expect(contentPanel.contains(dangerZone)).toBe(true);
+    expect(contentPanel.contains(saveDock)).toBe(false);
     expect(dangerZoneButton.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByText("Organization deletion")).toBeNull();
     expect(
