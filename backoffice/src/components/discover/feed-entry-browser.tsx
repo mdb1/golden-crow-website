@@ -63,12 +63,14 @@ export function DiscoverFeedEntryBrowser({
   organizations,
   individuals,
   initialLoadError,
+  routeBase = "/discover/feed-entries",
 }: {
   initialFeedItems: DiscoverFeedItemRecord[];
   initialNextCursor: string | null;
   organizations: DiscoverOrganizationRecord[];
   individuals: DiscoverIndividualRecord[];
   initialLoadError?: string | null;
+  routeBase?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -212,7 +214,7 @@ export function DiscoverFeedEntryBrowser({
         `/discover/feed-items/${item.id}/duplicate`,
         { method: "POST" },
       );
-      router.push(`/discover/feed-entries/${response.feedItem.id}`);
+      router.push(`${routeBase}/${response.feedItem.id}`);
       router.refresh();
     } catch {
       setToast({
@@ -248,7 +250,7 @@ export function DiscoverFeedEntryBrowser({
               {pending ? t("Working...") : t("Refresh")}
             </Button>
             <Button size="sm" asChild>
-              <Link href="/discover/feed-entries/new">
+              <Link href={`${routeBase}/new`}>
                 <Plus className="h-3.5 w-3.5" />
                 {t("New feed entry")}
               </Link>
@@ -394,7 +396,7 @@ export function DiscoverFeedEntryBrowser({
 
                 <div className="flex flex-wrap gap-2 lg:justify-end">
                   <Button variant="outline" size="sm" asChild>
-                    <Link href={`/discover/feed-entries/${item.id}`}>
+                    <Link href={`${routeBase}/${item.id}`}>
                       {t("Open")}
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>

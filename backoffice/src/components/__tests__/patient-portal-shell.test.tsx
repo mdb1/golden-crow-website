@@ -8,6 +8,8 @@ import { PatientPortalHeader } from "@/components/patient-portal-header";
 import { PatientPortalSidebar } from "@/components/patient-portal-sidebar";
 import { PGFlexPortalHeader } from "@/components/pgflex-portal-header";
 import { PGFlexPortalSidebar } from "@/components/pgflex-portal-sidebar";
+import { PublisherPortalHeader } from "@/components/publisher-portal-header";
+import { PublisherPortalSidebar } from "@/components/publisher-portal-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { ThemeBootstrap } from "@/components/theme-bootstrap";
 import { APPEARANCE_STORAGE_KEY } from "@/lib/appearance";
@@ -121,6 +123,53 @@ describe("PGFlex portal Spanish shell", () => {
     expect(screen.queryByRole("group", { name: "Language" })).toBeNull();
     await waitFor(() => expect(document.documentElement.lang).toBe("es"));
     expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("en");
+  });
+});
+
+describe("Publisher portal Spanish shell", () => {
+  beforeEach(() => {
+    pathname = "/publisher-portal/discover/feed-entries";
+    window.localStorage.clear();
+  });
+
+  it("shows publisher profile and feed entries navigation for organization publishers", () => {
+    render(
+      <AppLanguageProvider initialLanguage="en" forcedLanguage="es">
+        <SidebarProvider>
+          <PublisherPortalSidebar role="organization_publisher" />
+          <PublisherPortalHeader />
+        </SidebarProvider>
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByText("Portal de publicadores")).toBeTruthy();
+    expect(screen.getAllByText("Inicio").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Perfil de publicador").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText("Entradas del feed").length).toBeGreaterThan(0);
+    expect(screen.getByText("Mi cuenta")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: /Perfil de publicador/i })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/discover/organizations");
+  });
+
+  it("points publisher profile navigation to individuals for individual publishers", () => {
+    render(
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <SidebarProvider>
+          <PublisherPortalSidebar role="individual_publisher" />
+        </SidebarProvider>
+      </AppLanguageProvider>,
+    );
+
+    expect(
+      screen
+        .getByRole("link", { name: /Perfil de publicador/i })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/discover/individuals");
   });
 });
 

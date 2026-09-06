@@ -269,6 +269,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Switch to Pocket Gyms": "Cambiar a Pocket Gyms",
   "Show header context": "Mostrar contexto de encabezado",
   "Hide header context": "Ocultar contexto de encabezado",
+  "Publisher profile": "Perfil de publicador",
   "Coach operations console.": "Consola de operaciones del coach.",
   "Coach queues and athlete signals": "Colas del coach y señales de atletas",
   "Coach console": "Consola del coach",

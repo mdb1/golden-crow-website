@@ -155,6 +155,30 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     });
   });
 
+  it("keeps draft navigation inside the publisher portal route base", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+          routeBase="/publisher-portal/discover/feed-entries"
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publisher"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => {
+      expect(routerPush).toHaveBeenCalledWith(
+        "/publisher-portal/discover/feed-entries/feed-1",
+      );
+    });
+  });
+
   it("stores the note main button link and text as root fields", async () => {
     render(
       <AppLanguageProvider initialLanguage="en">

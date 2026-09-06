@@ -33,7 +33,10 @@ function organization(
   };
 }
 
-function renderBrowser(initialLanguage: "en" | "es" = "en") {
+function renderBrowser(
+  initialLanguage: "en" | "es" = "en",
+  options: { routeBase?: string } = {},
+) {
   render(
     <AppLanguageProvider
       initialLanguage={initialLanguage}
@@ -58,6 +61,7 @@ function renderBrowser(initialLanguage: "en" | "es" = "en") {
           }),
         ]}
         initialNextCursor={null}
+        routeBase={options.routeBase}
       />
     </AppLanguageProvider>,
   );
@@ -91,5 +95,16 @@ describe("DiscoverOrganizationBrowser", () => {
     expect(screen.getByText("Argentina Lab")).toBeTruthy();
     expect(screen.getByText("Regional Network")).toBeTruthy();
     expect(screen.queryByText("United States Clinic")).toBeNull();
+  });
+
+  it("uses the provided route base for detail links", () => {
+    renderBrowser("en", {
+      routeBase: "/publisher-portal/discover/organizations",
+    });
+
+    const openLinks = screen.getAllByRole("link", { name: /Open/i });
+    expect(openLinks[0]?.getAttribute("href")).toBe(
+      "/publisher-portal/discover/organizations/argentina-lab",
+    );
   });
 });

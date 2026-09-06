@@ -53,7 +53,7 @@ export default async function PublisherPortalLayout({
     <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
       <SidebarProvider defaultOpen={false}>
         <div className="flex min-h-screen w-full overflow-x-hidden bg-background text-foreground">
-          <PublisherPortalSidebar />
+          <PublisherPortalSidebar role={adminContext.role} />
           <SidebarInset className="min-h-screen min-w-0 bg-background">
             <div className="flex min-h-screen min-w-0 flex-1 flex-col bg-background">
               <PublisherPortalHeader />

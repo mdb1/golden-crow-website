@@ -125,12 +125,14 @@ function DiscoverPublisherBrowser({
   initialNextCursor,
   canCreatePublishers = true,
   canManagePublisherStatus = true,
+  routeBase,
 }: {
   publisherKind: PublisherKind;
   initialPublishers: PublisherRecord[];
   initialNextCursor: string | null;
   canCreatePublishers?: boolean;
   canManagePublisherStatus?: boolean;
+  routeBase?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -151,12 +153,12 @@ function DiscoverPublisherBrowser({
   const endpointBase = isIndividual
     ? "/discover/individuals"
     : "/discover/organizations";
+  const publisherRouteBase =
+    routeBase ??
+    (isIndividual ? "/discover/individuals" : "/discover/organizations");
   const listTitle = isIndividual ? "Individual Publishers" : "Organizations";
-  const createHref = isIndividual
-    ? "/discover/individuals/new"
-    : "/discover/organizations/new";
-  const detailHref = (id: string) =>
-    isIndividual ? `/discover/individuals/${id}` : `/discover/organizations/${id}`;
+  const createHref = `${publisherRouteBase}/new`;
+  const detailHref = (id: string) => `${publisherRouteBase}/${id}`;
   const categoryProvider = isIndividual
     ? discoverIndividualCategoryProvider
     : discoverOrganizationCategoryProvider;
@@ -743,11 +745,13 @@ export function DiscoverOrganizationBrowser({
   initialNextCursor,
   canCreateOrganizations = true,
   canManageOrganizationStatus = true,
+  routeBase,
 }: {
   initialOrganizations: DiscoverOrganizationRecord[];
   initialNextCursor: string | null;
   canCreateOrganizations?: boolean;
   canManageOrganizationStatus?: boolean;
+  routeBase?: string;
 }) {
   return (
     <DiscoverPublisherBrowser
@@ -756,6 +760,7 @@ export function DiscoverOrganizationBrowser({
       initialNextCursor={initialNextCursor}
       canCreatePublishers={canCreateOrganizations}
       canManagePublisherStatus={canManageOrganizationStatus}
+      routeBase={routeBase}
     />
   );
 }
@@ -765,11 +770,13 @@ export function DiscoverIndividualBrowser({
   initialNextCursor,
   canCreateIndividuals = true,
   canManageIndividualStatus = true,
+  routeBase,
 }: {
   initialIndividuals: DiscoverIndividualRecord[];
   initialNextCursor: string | null;
   canCreateIndividuals?: boolean;
   canManageIndividualStatus?: boolean;
+  routeBase?: string;
 }) {
   return (
     <DiscoverPublisherBrowser
@@ -778,6 +785,7 @@ export function DiscoverIndividualBrowser({
       initialNextCursor={initialNextCursor}
       canCreatePublishers={canCreateIndividuals}
       canManagePublisherStatus={canManageIndividualStatus}
+      routeBase={routeBase}
     />
   );
 }

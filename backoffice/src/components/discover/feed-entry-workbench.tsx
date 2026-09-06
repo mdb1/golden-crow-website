@@ -696,6 +696,7 @@ export function DiscoverFeedEntryWorkbench({
   initialIndividualsNextCursor = null,
   scopedOrganizationId,
   scopedIndividualId,
+  routeBase = "/discover/feed-entries",
 }: {
   feedItem?: DiscoverFeedItemRecord;
   mode?: "create" | "edit";
@@ -705,6 +706,7 @@ export function DiscoverFeedEntryWorkbench({
   initialIndividualsNextCursor?: string | null;
   scopedOrganizationId?: string;
   scopedIndividualId?: string;
+  routeBase?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -1068,7 +1070,7 @@ export function DiscoverFeedEntryWorkbench({
       message: t("Draft saved."),
     });
     if (mode === "create") {
-      router.push(`/discover/feed-entries/${saved.id}`);
+      router.push(`${routeBase}/${saved.id}`);
     }
   }
 
@@ -1120,7 +1122,7 @@ export function DiscoverFeedEntryWorkbench({
         { method: "DELETE" },
       );
       router.refresh();
-      router.push("/discover/feed-entries");
+      router.push(routeBase);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : t("Unable to delete the feed entry.");
@@ -1300,7 +1302,7 @@ export function DiscoverFeedEntryWorkbench({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/discover/feed-entries">
+          <Link href={routeBase}>
             <ArrowLeft className="h-3.5 w-3.5" />
             {t("Back to feed entries")}
           </Link>
@@ -1854,7 +1856,7 @@ export function DiscoverFeedEntryWorkbench({
                 variant="outline"
                 onClick={() => {
                   setPublishDialog(null);
-                  router.push("/discover/feed-entries");
+                  router.push(routeBase);
                 }}
               >
                 {t("Back to feed entries")}
@@ -1868,7 +1870,7 @@ export function DiscoverFeedEntryWorkbench({
                       return;
                     }
                     setPublishDialog(null);
-                    router.push(`/discover/feed-entries/${feedItemId}`);
+                    router.push(`${routeBase}/${feedItemId}`);
                   }}
                 >
                   {t("Open entry")}

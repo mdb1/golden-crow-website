@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Home, Newspaper, UserRound } from "lucide-react";
+import { Building2, Home, Newspaper, UserRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAppLanguage } from "@/components/app-language-provider";
 import {
@@ -15,23 +15,54 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { appText } from "@/lib/language";
+import type { AdminContextRecord } from "@/lib/admin-areas";
 import {
   PUBLISHER_PORTAL_ACCOUNT_ROUTE,
+  PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
+  PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE,
+  PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE,
   PUBLISHER_PORTAL_HOME_ROUTE,
 } from "@/lib/publisher-portal-routes";
 
-const PUBLISHER_PORTAL_NAV = [
-  { href: PUBLISHER_PORTAL_HOME_ROUTE, label: "Home", icon: Home },
-  {
-    href: PUBLISHER_PORTAL_ACCOUNT_ROUTE,
-    label: "My account",
-    icon: UserRound,
-  },
-] as const;
+function publisherProfileRoute(role: AdminContextRecord["role"]) {
+  return role === "individual_publisher"
+    ? PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE
+    : PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE;
+}
 
-export function PublisherPortalSidebar() {
+function publisherPortalNav(role: AdminContextRecord["role"]) {
+  return [
+    { href: PUBLISHER_PORTAL_HOME_ROUTE, label: "Home", icon: Home },
+    {
+      href: publisherProfileRoute(role),
+      label: "Publisher profile",
+      icon: Building2,
+    },
+    {
+      href: PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
+      label: "Feed entries",
+      icon: Newspaper,
+    },
+    {
+      href: PUBLISHER_PORTAL_ACCOUNT_ROUTE,
+      label: "My account",
+      icon: UserRound,
+    },
+  ] as const;
+}
+
+function isNavItemActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function PublisherPortalSidebar({
+  role,
+}: {
+  role: AdminContextRecord["role"];
+}) {
   const pathname = usePathname();
   const { language } = useAppLanguage();
+  const navItems = publisherPortalNav(role);
 
   return (
     <Sidebar
@@ -49,11 +80,11 @@ export function PublisherPortalSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {PUBLISHER_PORTAL_NAV.map((item) => (
+              {navItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.href}
+                    isActive={isNavItemActive(pathname, item.href)}
                     tooltip={appText(language, item.label)}
                   >
                     <Link href={item.href}>

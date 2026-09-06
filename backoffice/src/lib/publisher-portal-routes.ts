@@ -2,6 +2,12 @@ export const PUBLISHER_PORTAL_ENTRY_ROUTE = "/publisher-portal/home";
 export const PUBLISHER_PORTAL_HOME_ROUTE = "/publisher-portal/home";
 export const PUBLISHER_PORTAL_LOGIN_ROUTE = "/publisher-portal/login";
 export const PUBLISHER_PORTAL_ACCOUNT_ROUTE = "/publisher-portal/my-account";
+export const PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE =
+  "/publisher-portal/discover/organizations";
+export const PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE =
+  "/publisher-portal/discover/individuals";
+export const PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE =
+  "/publisher-portal/discover/feed-entries";
 
 export function normalizePublisherPortalCallbackUrl(
   callbackUrl: string | null | undefined,

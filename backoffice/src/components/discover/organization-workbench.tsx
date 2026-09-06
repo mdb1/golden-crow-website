@@ -208,6 +208,7 @@ function DiscoverPublisherWorkbench({
   canManageSystemFields = true,
   canDeletePublisher = false,
   deleteSuccessAction = "list",
+  routeBase,
 }: {
   publisher?: PublisherRecord;
   publisherKind: PublisherKind;
@@ -215,6 +216,7 @@ function DiscoverPublisherWorkbench({
   canManageSystemFields?: boolean;
   canDeletePublisher?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
+  routeBase?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -244,13 +246,11 @@ function DiscoverPublisherWorkbench({
     language,
   );
   const isIndividual = publisherKind === "individual";
-  const publisherListHref = isIndividual
-    ? "/discover/individuals"
-    : "/discover/organizations";
-  const publisherDetailHref = (id: string) =>
-    isIndividual
-      ? `/discover/individuals/${id}`
-      : `/discover/organizations/${id}`;
+  const publisherRouteBase =
+    routeBase ??
+    (isIndividual ? "/discover/individuals" : "/discover/organizations");
+  const publisherListHref = publisherRouteBase;
+  const publisherDetailHref = (id: string) => `${publisherRouteBase}/${id}`;
   const endpointBase = isIndividual
     ? "/discover/individuals"
     : "/discover/organizations";
@@ -1212,12 +1212,14 @@ export function DiscoverOrganizationWorkbench({
   canManageSystemFields = true,
   canDeletePublisher = false,
   deleteSuccessAction = "list",
+  routeBase,
 }: {
   organization?: DiscoverOrganizationRecord;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
   canDeletePublisher?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
+  routeBase?: string;
 }) {
   return (
     <DiscoverPublisherWorkbench
@@ -1227,6 +1229,7 @@ export function DiscoverOrganizationWorkbench({
       canManageSystemFields={canManageSystemFields}
       canDeletePublisher={canDeletePublisher}
       deleteSuccessAction={deleteSuccessAction}
+      routeBase={routeBase}
     />
   );
 }
@@ -1237,12 +1240,14 @@ export function DiscoverIndividualWorkbench({
   canManageSystemFields = true,
   canDeletePublisher = false,
   deleteSuccessAction = "list",
+  routeBase,
 }: {
   individual?: DiscoverIndividualRecord;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
   canDeletePublisher?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
+  routeBase?: string;
 }) {
   return (
     <DiscoverPublisherWorkbench
@@ -1252,6 +1257,7 @@ export function DiscoverIndividualWorkbench({
       canManageSystemFields={canManageSystemFields}
       canDeletePublisher={canDeletePublisher}
       deleteSuccessAction={deleteSuccessAction}
+      routeBase={routeBase}
     />
   );
 }
