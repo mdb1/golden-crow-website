@@ -843,7 +843,6 @@ const wizardClientCopy = {
                   </button>
                   <div class="pg-social-link-hero">
                     <span class="pg-social-icon pg-social-link-icon" data-social-draft-icon aria-hidden="true"></span>
-                    <span class="pg-social-link-spark" aria-hidden="true"></span>
                     <h3 data-social-draft-title>{copy.socialLinkTitle}</h3>
                     <p data-social-draft-body>{copy.socialLinkBody}</p>
                   </div>
@@ -1008,6 +1007,41 @@ const wizardClientCopy = {
     const IMAGE_COMPRESSION_MIME_TYPES = ['image/webp', 'image/jpeg'];
     const IMAGE_COMPRESSION_DIMENSION_STEPS = [1600, 1200, 960, 720, 560, 420, 320];
     const IMAGE_COMPRESSION_QUALITY_STEPS = [0.86, 0.76, 0.66, 0.56, 0.46, 0.36];
+    const SOCIAL_ACCENT_COLORS = {
+      facebook: '#1877F2',
+      twitter: '#111111',
+      instagram: '#E4405F',
+      tiktok: '#00F2EA',
+      youtube: '#FF0000',
+      linkedin: '#0A66C2',
+      github: '#24292F',
+      gitlab: '#FC6D26',
+      stack_overflow: '#F48024',
+      hugging_face: '#FFCC4D',
+      kaggle: '#20BEFF',
+      researchgate: '#00CCBB',
+      orcid: '#A6CE39',
+      google_scholar: '#4285F4',
+      pubmed: '#336699',
+      scopus: '#E9711C',
+      web_of_science: '#5A4FCF',
+      biostars: '#2E7D32',
+      protocols_io: '#4E7CFF',
+      osf: '#2D5E87',
+      zenodo: '#1682D4',
+      whatsapp: '#25D366',
+      telegram: '#26A5E4',
+      threads: '#111111',
+      pinterest: '#E60023',
+      snapchat: '#FFFC00',
+      reddit: '#FF4500',
+      discord: '#5865F2',
+      twitch: '#9146FF',
+      bluesky: '#1185FE',
+      mastodon: '#6364FF',
+      email: '#6F3CC3',
+      other: '#6F3CC3',
+    };
     const state = {
       kind: 'organization',
       countries: [],
@@ -2372,6 +2406,10 @@ const wizardClientCopy = {
       image.src = socialAssetSrc(option.assetName);
       image.alt = '';
       image.loading = 'lazy';
+      container.style.setProperty(
+        '--wizard-social-accent',
+        SOCIAL_ACCENT_COLORS[option.value] || '#6F3CC3',
+      );
       container.replaceChildren(image);
     }
 
@@ -5148,29 +5186,43 @@ const wizardClientCopy = {
 
   .pg-social-link-icon,
   .pg-social-success-icon {
+    --wizard-social-accent: #6f3cc3;
+    position: relative;
+    isolation: isolate;
     width: 82px;
     height: 82px;
     border-radius: 26px;
+    overflow: visible;
     animation: pgSocialIconPop 360ms cubic-bezier(0.2, 0.84, 0.24, 1.18) both;
   }
 
-  .pg-social-link-spark {
+  .pg-social-link-icon::before {
+    content: '';
     position: absolute;
-    top: 16px;
+    z-index: -1;
+    top: 50%;
+    left: 50%;
     width: 124px;
     height: 124px;
     border-radius: 999px;
     background: repeating-conic-gradient(
       from 12deg,
-      rgba(111, 60, 195, 0.28) 0 9deg,
+      color-mix(in srgb, var(--wizard-social-accent, #6f3cc3) 46%, transparent) 0 9deg,
       transparent 9deg 22deg,
-      rgba(20, 149, 143, 0.2) 22deg 28deg,
+      rgba(111, 60, 195, 0.3) 22deg 28deg,
       transparent 28deg 40deg
     );
     opacity: 0.24;
-    animation: pgSocialSpin 4200ms linear infinite;
+    transform: translate(-50%, -50%);
+    animation: pgSocialLogoSpin 4200ms linear infinite;
     -webkit-mask-image: radial-gradient(circle, transparent 0 58%, #000 59% 70%, transparent 71%);
     mask-image: radial-gradient(circle, transparent 0 58%, #000 59% 70%, transparent 71%);
+  }
+
+  .pg-social-link-icon img,
+  .pg-social-success-icon img {
+    position: relative;
+    z-index: 1;
   }
 
   .pg-social-link-hero h3,
@@ -5645,9 +5697,9 @@ const wizardClientCopy = {
     }
   }
 
-  @keyframes pgSocialSpin {
+  @keyframes pgSocialLogoSpin {
     to {
-      transform: rotate(360deg);
+      transform: translate(-50%, -50%) rotate(360deg);
     }
   }
 
