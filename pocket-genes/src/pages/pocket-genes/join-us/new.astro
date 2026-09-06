@@ -162,6 +162,7 @@ const pageCopy = {
     skip: 'Skip',
     continue: 'Continue',
     finish: 'Send request',
+    sendingBase: 'Sending',
     sending: 'Sending...',
     selectedCountries: 'countries selected',
     countryAndMore: 'and more...',
@@ -316,6 +317,7 @@ const pageCopy = {
     skip: 'Saltear',
     continue: 'Continuar',
     finish: 'Enviar solicitud',
+    sendingBase: 'Enviando',
     sending: 'Enviando...',
     selectedCountries: 'países seleccionados',
     countryAndMore: 'y más...',
@@ -341,6 +343,7 @@ const wizardClientCopy = {
   continue: copy.continue,
   skip: copy.skip,
   finish: copy.finish,
+  sendingBase: copy.sendingBase,
   sending: copy.sending,
   back: copy.back,
   selectedCountries: copy.selectedCountries,
@@ -963,6 +966,13 @@ const wizardClientCopy = {
       </div>
     </section>
 
+    <section class="pg-submit-loader" data-submit-loader hidden aria-live="polite" aria-busy="true">
+      <div class="pg-submit-loader-content">
+        <span class="pg-submit-loader-circle" aria-hidden="true"></span>
+        <strong data-submit-loader-text>{copy.sending}</strong>
+      </div>
+    </section>
+
     <section class="pg-wizard-success" data-wizard-success hidden>
       <span class="pg-success-circle" aria-hidden="true"></span>
       <div class="pg-success-content">
@@ -1007,6 +1017,7 @@ const wizardClientCopy = {
     const IMAGE_COMPRESSION_MIME_TYPES = ['image/webp', 'image/jpeg'];
     const IMAGE_COMPRESSION_DIMENSION_STEPS = [1600, 1200, 960, 720, 560, 420, 320];
     const IMAGE_COMPRESSION_QUALITY_STEPS = [0.86, 0.76, 0.66, 0.56, 0.46, 0.36];
+    const SUBMIT_LOADING_INTERVAL_MS = 300;
     const SOCIAL_ACCENT_COLORS = {
       facebook: '#1877F2',
       twitter: '#111111',
@@ -1076,6 +1087,7 @@ const wizardClientCopy = {
       socialDraftRow: null,
       socialDraftMode: 'add',
       submitting: false,
+      submitLoadingPhase: 2,
       startedAt: new Date().toISOString(),
     };
 
@@ -1163,9 +1175,13 @@ const wizardClientCopy = {
     const socialSuccessIcon = wizardRoot.querySelector('[data-social-success-icon]');
     const socialSuccessTitle = wizardRoot.querySelector('[data-social-success-title]');
     const socialSuccessBody = wizardRoot.querySelector('[data-social-success-body]');
+    const submitLoader = wizardRoot.querySelector('[data-submit-loader]');
+    const submitLoaderText = wizardRoot.querySelector('[data-submit-loader-text]');
     const success = wizardRoot.querySelector('[data-wizard-success]');
     const openBooking = wizardRoot.querySelector('[data-open-booking]');
     const successBooking = wizardRoot.querySelector('[data-success-booking]');
+    let submitLoadingTimer;
+    let submitLoadingHideTimer;
 
     function visibleSteps() {
       const steps = ['type', 'country', 'category', 'name', 'description', 'email', 'website', 'image', 'social'];
@@ -2090,6 +2106,58 @@ const wizardClientCopy = {
       updateColorUi();
     }
 
+    function submitLoadingLabel() {
+      const base = copy.sendingBase || String(copy.sending || '').replace(/\.+$/, '') || 'Sending';
+      return `${base}${'.'.repeat((state.submitLoadingPhase % 3) + 1)}`;
+    }
+
+    function syncSubmitLoadingUi() {
+      const label = submitLoadingLabel();
+
+      if (submitLoaderText) {
+        submitLoaderText.textContent = label;
+      }
+      if (state.submitting && nextButton) {
+        nextButton.textContent = label;
+      }
+    }
+
+    function startSubmitLoading() {
+      window.clearInterval(submitLoadingTimer);
+      window.clearTimeout(submitLoadingHideTimer);
+      state.submitLoadingPhase = 0;
+
+      if (submitLoader) {
+        submitLoader.hidden = false;
+        submitLoader.classList.remove('is-leaving');
+        requestAnimationFrame(() => {
+          submitLoader.classList.add('is-visible');
+        });
+      }
+
+      syncSubmitLoadingUi();
+      submitLoadingTimer = window.setInterval(() => {
+        if (!state.submitting) return;
+
+        state.submitLoadingPhase = (state.submitLoadingPhase + 1) % 3;
+        syncSubmitLoadingUi();
+      }, SUBMIT_LOADING_INTERVAL_MS);
+    }
+
+    function stopSubmitLoading({ transitionToSuccess = false } = {}) {
+      window.clearInterval(submitLoadingTimer);
+
+      if (!submitLoader) return;
+
+      submitLoader.classList.remove('is-visible');
+      submitLoader.classList.toggle('is-leaving', transitionToSuccess);
+      window.clearTimeout(submitLoadingHideTimer);
+      submitLoadingHideTimer = window.setTimeout(() => {
+        submitLoader.hidden = true;
+        submitLoader.classList.remove('is-leaving');
+      }, transitionToSuccess ? 520 : 180);
+    }
+
     function renderStep() {
       const steps = visibleSteps();
       if (state.currentStep >= steps.length) {
@@ -2132,7 +2200,7 @@ const wizardClientCopy = {
         const last = state.currentStep === steps.length - 1;
         let nextLabel = copy.continue;
         if (state.submitting) {
-          nextLabel = copy.sending;
+          nextLabel = submitLoadingLabel();
         } else if (step === 'image' && state.scrapedLogoStatus === 'loading') {
           nextLabel = copy.logoLookupTitle;
         } else if (step === 'image' && state.imageCompressing) {
@@ -2801,8 +2869,10 @@ const wizardClientCopy = {
 
     async function submitWizard() {
       state.submitting = true;
+      startSubmitLoading();
       renderStep();
       setError('');
+      let didSubmit = false;
 
       try {
         const response = await fetch(`${sdkUrl.replace(/\/$/, '')}/discover/publisher-requests`, {
@@ -2818,6 +2888,8 @@ const wizardClientCopy = {
           throw new Error(result.error || copy.submitError);
         }
 
+        didSubmit = true;
+        stopSubmitLoading({ transitionToSuccess: true });
         if (success) {
           success.hidden = false;
           requestAnimationFrame(() => {
@@ -2825,10 +2897,14 @@ const wizardClientCopy = {
           });
         }
       } catch (error) {
+        stopSubmitLoading();
         setError(error instanceof Error ? error.message : copy.submitError);
       } finally {
         state.submitting = false;
         renderStep();
+        if (!didSubmit) {
+          syncSubmitLoadingUi();
+        }
       }
     }
 
@@ -5409,6 +5485,94 @@ const wizardClientCopy = {
     box-shadow: none;
   }
 
+  .pg-submit-loader {
+    position: fixed;
+    z-index: 2150;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.76);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.985);
+    transition:
+      opacity 220ms ease,
+      transform 260ms ease;
+  }
+
+  .pg-submit-loader[hidden] {
+    display: none;
+  }
+
+  .pg-submit-loader.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  .pg-submit-loader.is-leaving {
+    opacity: 0;
+    transform: scale(1.018);
+    transition:
+      opacity 500ms ease,
+      transform 500ms ease;
+  }
+
+  .pg-submit-loader-content {
+    display: grid;
+    justify-items: center;
+    gap: 16px;
+    color: var(--wizard-purple);
+    text-align: center;
+  }
+
+  .pg-submit-loader-content strong {
+    min-width: 124px;
+    font-size: 1.05rem;
+    line-height: 1.2;
+    font-weight: 860;
+  }
+
+  .pg-submit-loader-circle {
+    position: relative;
+    width: 58px;
+    height: 58px;
+    display: block;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(111, 60, 195, 0.16), rgba(111, 60, 195, 0.04) 58%, transparent 62%);
+    box-shadow:
+      0 18px 42px rgba(111, 60, 195, 0.2),
+      inset 0 0 0 1px rgba(111, 60, 195, 0.12);
+  }
+
+  .pg-submit-loader-circle::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 4px solid rgba(111, 60, 195, 0.16);
+    border-top-color: var(--wizard-purple);
+    border-right-color: rgba(111, 60, 195, 0.58);
+    border-radius: inherit;
+    animation: pgSpin 760ms linear infinite;
+  }
+
+  .pg-submit-loader-circle::after {
+    content: '';
+    position: absolute;
+    inset: 17px;
+    border-radius: inherit;
+    background: var(--wizard-purple);
+    opacity: 0.18;
+    animation: pgSubmitPulse 920ms ease-in-out infinite;
+  }
+
+  .pg-submit-loader.is-leaving .pg-submit-loader-circle {
+    animation: pgSubmitExit 500ms ease forwards;
+  }
+
   .pg-wizard-success {
     position: fixed;
     z-index: 2200;
@@ -5568,6 +5732,25 @@ const wizardClientCopy = {
   @keyframes pgSpin {
     to {
       transform: rotate(360deg);
+    }
+  }
+
+  @keyframes pgSubmitPulse {
+    0%,
+    100% {
+      opacity: 0.14;
+      transform: scale(0.76);
+    }
+    50% {
+      opacity: 0.28;
+      transform: scale(1.08);
+    }
+  }
+
+  @keyframes pgSubmitExit {
+    to {
+      opacity: 0;
+      transform: scale(1.72);
     }
   }
 
