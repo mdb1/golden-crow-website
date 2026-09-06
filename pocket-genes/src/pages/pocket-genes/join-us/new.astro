@@ -337,7 +337,7 @@ const wizardClientCopy = {
     </aside>
 
     <section class="pg-wizard-panel" aria-labelledby="wizard-current-title">
-      <div class="pg-wizard-topbar">
+      <div class="pg-wizard-topbar" data-language-switch>
         <a href={otherLanguageHref} aria-label={copy.languageAria}>{copy.languageLabel}</a>
       </div>
 
@@ -780,6 +780,7 @@ const wizardClientCopy = {
       geneticReportProvider: null,
       geneticReportCategory: '',
       currentStep: 0,
+      hasAdvanced: false,
       color: '#6F3CC3',
       suggestedColor: '#6F3CC3',
       colorCustomized: false,
@@ -795,6 +796,7 @@ const wizardClientCopy = {
     const dots = Array.from(wizardRoot.querySelectorAll('[data-step-dot]'));
     const nextButton = wizardRoot.querySelector('[data-wizard-next]');
     const backButton = wizardRoot.querySelector('[data-wizard-back]');
+    const languageSwitch = wizardRoot.querySelector('[data-language-switch]');
     const errorBox = wizardRoot.querySelector('[data-wizard-error]');
     const countryToggle = wizardRoot.querySelector('[data-country-toggle]');
     const countryPopover = wizardRoot.querySelector('[data-country-popover]');
@@ -1163,6 +1165,10 @@ const wizardClientCopy = {
 
       if (backButton) {
         backButton.disabled = state.currentStep === 0 || state.submitting;
+      }
+
+      if (languageSwitch) {
+        languageSwitch.hidden = state.hasAdvanced || state.currentStep !== 0;
       }
 
       if (nextButton) {
@@ -1778,6 +1784,7 @@ const wizardClientCopy = {
       }
 
       state.currentStep += 1;
+      state.hasAdvanced = true;
       setError('');
       renderStep();
     });
