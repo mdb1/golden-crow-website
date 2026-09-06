@@ -2001,6 +2001,7 @@ const wizardClientCopy = {
 
       if (colorInput) colorInput.value = current;
       if (previewImage) previewImage.style.setProperty('--wizard-preview-color', current);
+      if (profileFlow) profileFlow.style.setProperty('--wizard-suggested-color', suggested);
       if (colorSwatch) colorSwatch.style.backgroundColor = current;
       if (suggestedColorSwatch) suggestedColorSwatch.style.backgroundColor = suggested;
       if (colorHex) colorHex.textContent = current;
@@ -4068,7 +4069,11 @@ const wizardClientCopy = {
     text-align: center;
     background:
       repeating-linear-gradient(135deg, rgba(111, 60, 195, 0.04) 0 1px, transparent 1px 18px),
-      linear-gradient(135deg, rgba(111, 60, 195, 0.08), rgba(20, 149, 143, 0.055)),
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--wizard-suggested-color, #6f3cc3) 12%, transparent),
+        rgba(111, 60, 195, 0.065)
+      ),
       #ffffff;
   }
 
@@ -4148,6 +4153,7 @@ const wizardClientCopy = {
   }
 
   .pg-profile-flow.has-selected-image .pg-profile-preview {
+    --wizard-selected-image-size: clamp(174px, 30svh, 252px);
     justify-self: center;
     place-items: center;
     width: min(100%, 420px);
@@ -4157,18 +4163,24 @@ const wizardClientCopy = {
     content: '';
     position: absolute;
     z-index: 0;
-    top: 50%;
+    top: calc(var(--wizard-selected-image-size) / 2);
     left: 50%;
-    width: clamp(240px, 42vw, 410px);
-    height: clamp(240px, 42vw, 410px);
+    width: calc(var(--wizard-selected-image-size) * 1.62);
+    height: calc(var(--wizard-selected-image-size) * 1.62);
     border-radius: 999px;
-    background: repeating-conic-gradient(
-      from -12deg,
-      rgba(111, 60, 195, 0.28) 0 7deg,
-      transparent 7deg 18deg,
-      rgba(20, 149, 143, 0.2) 18deg 23deg,
-      transparent 23deg 36deg
-    );
+    background:
+      radial-gradient(
+        circle,
+        color-mix(in srgb, var(--wizard-suggested-color, #6f3cc3) 20%, transparent) 0 44%,
+        transparent 45%
+      ),
+      repeating-conic-gradient(
+        from -12deg,
+        color-mix(in srgb, var(--wizard-suggested-color, #6f3cc3) 52%, transparent) 0 7deg,
+        transparent 7deg 18deg,
+        rgba(111, 60, 195, 0.28) 18deg 23deg,
+        transparent 23deg 36deg
+      );
     opacity: 0.42;
     transform: translate(-50%, -50%) scale(0.88);
     animation: pgImageBurst 1900ms ease-in-out infinite;
@@ -4177,8 +4189,8 @@ const wizardClientCopy = {
   }
 
   .pg-profile-flow.has-selected-image .pg-preview-image {
-    width: clamp(174px, 30svh, 252px);
-    height: clamp(174px, 30svh, 252px);
+    width: var(--wizard-selected-image-size);
+    height: var(--wizard-selected-image-size);
     border-radius: 999px;
     box-shadow:
       0 24px 60px rgba(111, 60, 195, 0.24),
