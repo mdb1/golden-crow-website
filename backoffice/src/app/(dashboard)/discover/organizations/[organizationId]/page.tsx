@@ -46,6 +46,9 @@ export default async function DiscoverOrganizationDetailPage({
         <DiscoverOrganizationWorkbench
           organization={organization}
           canManageSystemFields={adminContext.role === "full_admin"}
+          canDeletePublisher={
+            adminContext.role === "full_admin" && adminContext.isBootstrap
+          }
         />
       </HeaderUnclutterScope>
     </div>

@@ -9,6 +9,8 @@ import {
   createDiscoverOrganization,
   createDiscoverPublisherApprovalRequest,
   deleteDiscoverFeedItem,
+  deleteDiscoverIndividual,
+  deleteDiscoverOrganization,
   duplicateDiscoverFeedItem,
   getDiscoverFeedItem,
   getDiscoverIndividual,
@@ -486,6 +488,26 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
     },
   );
 
+  f.delete(
+    "/discover/organizations/:organizationId",
+    {
+      schema: {
+        params: z.object({ organizationId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await deleteDiscoverOrganization(
+          request.adminContext!,
+          request.params.organizationId,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
   f.post(
     "/discover/organizations/:organizationId/sync-publisher-snapshot",
     {
@@ -575,6 +597,26 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
           request.body,
         );
         return reply.send({ individual });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.delete(
+    "/discover/individuals/:individualId",
+    {
+      schema: {
+        params: z.object({ individualId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await deleteDiscoverIndividual(
+          request.adminContext!,
+          request.params.individualId,
+        );
+        return reply.send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

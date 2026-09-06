@@ -32,6 +32,7 @@ const INDIVIDUALS_COLLECTION = "feed_individuals";
 const FEED_ITEMS_COLLECTION = "feed_items";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
+const PUBLISHER_DELETE_BATCH_SIZE = 450;
 
 const FEED_TYPE_VALUES = [
   "news",
@@ -454,6 +455,15 @@ type FeedItemInput = {
 function requireFullAdmin(context: AdminContext) {
   if (context.role !== "full_admin") {
     throw new AdminRepositoryError("Full admin access required.", 403);
+  }
+}
+
+function requireGodMode(context: AdminContext) {
+  if (context.role !== "full_admin" || !context.isBootstrap) {
+    throw new AdminRepositoryError(
+      "God mode is required to delete Discover publishers.",
+      403,
+    );
   }
 }
 
@@ -1761,6 +1771,32 @@ async function feedItemDocument(
   };
 }
 
+async function deleteFeedItemsForPublisher(
+  field: "publisherOrganizationId" | "publisherIndividualId",
+  publisherId: string,
+) {
+  let deletedFeedItemCount = 0;
+
+  while (true) {
+    const snapshot = await adminDb
+      .collection(FEED_ITEMS_COLLECTION)
+      .where(field, "==", publisherId)
+      .limit(PUBLISHER_DELETE_BATCH_SIZE)
+      .get();
+
+    if (snapshot.docs.length === 0) {
+      return deletedFeedItemCount;
+    }
+
+    const batch = adminDb.batch();
+    for (const doc of snapshot.docs) {
+      batch.delete(doc.ref);
+      deletedFeedItemCount += 1;
+    }
+    await batch.commit();
+  }
+}
+
 export async function listDiscoverOrganizations(
   context: AdminContext,
   options: { cursor?: string; limit?: unknown } = {},
@@ -1879,6 +1915,25 @@ export async function updateDiscoverOrganization(
   );
 
   return getDiscoverOrganization(context, organizationId);
+}
+
+export async function deleteDiscoverOrganization(
+  context: AdminContext,
+  organizationId: string,
+) {
+  requireGodMode(context);
+  const existing = await getOrganizationSnapshot(organizationId);
+  if (!existing) {
+    throw new AdminRepositoryError("Organization not found.", 404);
+  }
+
+  const deletedFeedItemCount = await deleteFeedItemsForPublisher(
+    "publisherOrganizationId",
+    organizationId,
+  );
+  await adminDb.collection(ORGANIZATIONS_COLLECTION).doc(organizationId).delete();
+
+  return { deleted: true, organizationId, deletedFeedItemCount };
 }
 
 export async function syncDiscoverPublisherSnapshot(
@@ -2006,6 +2061,25 @@ export async function updateDiscoverIndividual(
   );
 
   return getDiscoverIndividual(context, individualId);
+}
+
+export async function deleteDiscoverIndividual(
+  context: AdminContext,
+  individualId: string,
+) {
+  requireGodMode(context);
+  const existing = await getIndividualSnapshot(individualId);
+  if (!existing) {
+    throw new AdminRepositoryError("Individual publisher not found.", 404);
+  }
+
+  const deletedFeedItemCount = await deleteFeedItemsForPublisher(
+    "publisherIndividualId",
+    individualId,
+  );
+  await adminDb.collection(INDIVIDUALS_COLLECTION).doc(individualId).delete();
+
+  return { deleted: true, individualId, deletedFeedItemCount };
 }
 
 export async function listDiscoverFeedItems(

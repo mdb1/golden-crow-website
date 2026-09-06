@@ -4,18 +4,33 @@ import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   ArrowLeft,
+  ChevronDown,
   Check,
   Palette,
   PencilLine,
   RotateCcw,
   Save,
+  Trash2,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { PublisherCategoryMultiSelect } from "@/components/discover/publisher-category-multi-select";
 import { PublisherCountryMultiSelect } from "@/components/discover/publisher-country-multi-select";
 import { PublisherSocialLinksEditor } from "@/components/discover/publisher-social-links-editor";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -169,11 +184,13 @@ function DiscoverPublisherWorkbench({
   publisherKind,
   mode = "edit",
   canManageSystemFields = true,
+  canDeletePublisher = false,
 }: {
   publisher?: PublisherRecord;
   publisherKind: PublisherKind;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
+  canDeletePublisher?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -188,6 +205,8 @@ function DiscoverPublisherWorkbench({
   const colorPickerRef = useRef<HTMLInputElement>(null);
   const [manualColorError, setManualColorError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [isDangerZoneOpen, setIsDangerZoneOpen] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const sourceState = useMemo(() => toFormState(publisher), [publisher]);
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
@@ -244,6 +263,30 @@ function DiscoverPublisherWorkbench({
   const geneticReportCategoryLabel = t(
     discoverGeneticReportCategoryLabel(state.genetic_report_category || null),
   );
+  const showDangerZone = mode === "edit" && Boolean(publisher) && canDeletePublisher;
+  const publisherDeletionTitle = isIndividual
+    ? t("Individual publisher deletion")
+    : t("Organization deletion");
+  const publisherDeleteButtonLabel = isIndividual
+    ? t("Delete individual publisher")
+    : t("Delete organization");
+  const publisherDeleteDialogTitle = isIndividual
+    ? t("Delete individual publisher?")
+    : t("Delete organization?");
+  const publisherDeleteDescription = isIndividual
+    ? t(
+        "Delete this individual publisher and every Discover feed entry attached to it. This action cannot be undone.",
+      )
+    : t(
+        "Delete this organization and every Discover feed entry attached to it. This action cannot be undone.",
+      );
+  const publisherDeleteDialogDescription = isIndividual
+    ? t(
+        "This permanently removes this individual publisher from feed_individuals and deletes linked feed_items.",
+      )
+    : t(
+        "This permanently removes this organization from feed_organizations and deletes linked feed_items.",
+      );
 
   function updateState(patch: Partial<OrganizationFormState>) {
     setState((current) => ({ ...current, ...patch }));
@@ -410,6 +453,38 @@ function DiscoverPublisherWorkbench({
       });
     } finally {
       setPending(false);
+    }
+  }
+
+  async function handleDeletePublisher() {
+    if (!publisher || !showDangerZone || deletePending) {
+      return;
+    }
+
+    setDeletePending(true);
+    try {
+      await sdkFetch(`${endpointBase}/${encodeURIComponent(publisher.id)}`, {
+        method: "DELETE",
+      });
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: isIndividual
+          ? t("Individual publisher deleted.")
+          : t("Organization deleted."),
+      });
+      router.push(publisherListHref);
+      router.refresh();
+    } catch (error) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: isIndividual
+          ? t("Unable to delete the individual publisher.")
+          : t("Unable to delete the organization."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+      setDeletePending(false);
     }
   }
 
@@ -823,6 +898,88 @@ function DiscoverPublisherWorkbench({
           </div>
         </div>
       </section>
+
+      {showDangerZone ? (
+        <section className="glass-panel px-5 py-4">
+          <button
+            type="button"
+            className="flex w-full min-w-0 items-start gap-3 text-left"
+            onClick={() => setIsDangerZoneOpen((open) => !open)}
+            aria-expanded={isDangerZoneOpen}
+          >
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/10 text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="font-heading text-lg font-semibold text-foreground">
+                  {t("Danger zone")}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 text-muted-foreground transition-transform",
+                    isDangerZoneOpen && "rotate-180",
+                  )}
+                />
+              </span>
+              <span className="mt-1 block text-sm leading-5 text-muted-foreground">
+                {t(
+                  "Irreversible actions that permanently delete this Discover publisher.",
+                )}
+              </span>
+            </span>
+          </button>
+
+          {isDangerZoneOpen ? (
+            <div className="mt-4 grid gap-4 border-t border-border/70 pt-4 text-sm text-muted-foreground lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+              <div>
+                <h4 className="text-sm font-medium text-foreground">
+                  {publisherDeletionTitle}
+                </h4>
+                <p className="mt-1 leading-6">{publisherDeleteDescription}</p>
+              </div>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-fit"
+                    disabled={pending || deletePending}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {publisherDeleteButtonLabel}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogMedia className="bg-destructive/12 text-destructive">
+                      <AlertTriangle className="h-5 w-5" />
+                    </AlertDialogMedia>
+                    <AlertDialogTitle>{publisherDeleteDialogTitle}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {publisherDeleteDialogDescription}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      disabled={deletePending}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void handleDeletePublisher();
+                      }}
+                    >
+                      {deletePending ? t("Deleting...") : t("Delete")}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -831,10 +988,12 @@ export function DiscoverOrganizationWorkbench({
   organization,
   mode = "edit",
   canManageSystemFields = true,
+  canDeletePublisher = false,
 }: {
   organization?: DiscoverOrganizationRecord;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
+  canDeletePublisher?: boolean;
 }) {
   return (
     <DiscoverPublisherWorkbench
@@ -842,6 +1001,7 @@ export function DiscoverOrganizationWorkbench({
       publisherKind="organization"
       mode={mode}
       canManageSystemFields={canManageSystemFields}
+      canDeletePublisher={canDeletePublisher}
     />
   );
 }
@@ -850,10 +1010,12 @@ export function DiscoverIndividualWorkbench({
   individual,
   mode = "edit",
   canManageSystemFields = true,
+  canDeletePublisher = false,
 }: {
   individual?: DiscoverIndividualRecord;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
+  canDeletePublisher?: boolean;
 }) {
   return (
     <DiscoverPublisherWorkbench
@@ -861,6 +1023,7 @@ export function DiscoverIndividualWorkbench({
       publisherKind="individual"
       mode={mode}
       canManageSystemFields={canManageSystemFields}
+      canDeletePublisher={canDeletePublisher}
     />
   );
 }

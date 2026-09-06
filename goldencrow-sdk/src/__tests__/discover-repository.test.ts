@@ -24,6 +24,7 @@ class QueryStub {
   operations: QueryOperation[] = [];
 
   constructor(
+    private readonly collectionName: string,
     private readonly docs: MockDoc[],
     private readonly failOnGet = false,
   ) {}
@@ -60,8 +61,28 @@ class QueryStub {
       throw error;
     }
 
+    let docs = this.docs;
+    for (const operation of this.operations) {
+      if (operation.type === "where" && operation.operator === "==") {
+        docs = docs.filter(
+          (doc) => doc.data[operation.field] === operation.value,
+        );
+      }
+    }
+
+    const limit = [...this.operations]
+      .reverse()
+      .find(
+        (
+          operation,
+        ): operation is Extract<QueryOperation, { type: "limit" }> =>
+          operation.type === "limit",
+      )?.value;
+
     return {
-      docs: this.docs.map((doc) => documentSnapshotFor(doc, true)),
+      docs: docs
+        .slice(0, limit)
+        .map((doc) => documentSnapshotFor(doc, true, this.collectionName)),
     };
   }
 }
@@ -159,7 +180,11 @@ function documentRefFor(collectionName: string, id: string): MockDocumentRef {
     id,
     get: jest.fn(async () => {
       const doc = docs.find((entry) => entry.id === id);
-      return documentSnapshotFor(doc ?? { id, data: {} }, Boolean(doc));
+      return documentSnapshotFor(
+        doc ?? { id, data: {} },
+        Boolean(doc),
+        collectionName,
+      );
     }),
     set: jest.fn(async (data: MockDocData) => {
       const index = docs.findIndex((entry) => entry.id === id);
@@ -194,12 +219,13 @@ function documentRefFor(collectionName: string, id: string): MockDocumentRef {
 function documentSnapshotFor(
   doc: MockDoc,
   exists: boolean,
+  collectionName: string,
 ): MockDocumentSnapshot {
   return {
     exists,
     id: doc.id,
     data: () => doc.data,
-    ref: documentRefFor("feed_items", doc.id),
+    ref: documentRefFor(collectionName, doc.id),
   };
 }
 
@@ -234,6 +260,7 @@ jest.mock("../config/firebase.js", () => ({
     collection: jest.fn((name: string) => {
       const docs = collectionDocs(name);
       const query = new QueryStub(
+        name,
         docs,
         name === "feed_items" && failNextFeedItemsQuery,
       );
@@ -248,6 +275,17 @@ jest.mock("../config/firebase.js", () => ({
         doc: jest.fn((id?: string) => {
           const documentId = id ?? `${name}-generated-${++mockGeneratedId}`;
           return documentRefFor(name, documentId);
+        }),
+      };
+    }),
+    batch: jest.fn(() => {
+      const deletes: MockDocumentRef[] = [];
+      return {
+        delete: jest.fn((ref: MockDocumentRef) => {
+          deletes.push(ref);
+        }),
+        commit: jest.fn(async () => {
+          await Promise.all(deletes.map((ref) => ref.delete()));
         }),
       };
     }),
@@ -286,6 +324,12 @@ describe("discover repository", () => {
     canAccessPatientPortal: false,
     canAccessPGFlex: false,
     projectAccess: ["mydnamap" as const],
+  };
+  const godModeContext = {
+    ...fullAdminContext,
+    email: "god@example.com",
+    uid: "god-1",
+    isBootstrap: true,
   };
 
   it("falls back when the publisher-scoped updatedAt query needs a missing index", async () => {
@@ -365,6 +409,103 @@ describe("discover repository", () => {
     expect(result.individuals[0]?.description_en).toBe(
       "Individual description",
     );
+  });
+
+  it("requires god mode to hard delete Discover publishers", async () => {
+    const { deleteDiscoverOrganization, deleteDiscoverIndividual } =
+      await import("../repositories/discover.repository");
+
+    await expect(
+      deleteDiscoverOrganization(fullAdminContext, "org-1"),
+    ).rejects.toThrow("God mode is required to delete Discover publishers.");
+    await expect(
+      deleteDiscoverIndividual(fullAdminContext, "person-1"),
+    ).rejects.toThrow("God mode is required to delete Discover publishers.");
+    expect(mockOrganizationDocs.some((doc) => doc.id === "org-1")).toBe(true);
+    expect(mockIndividualDocs.some((doc) => doc.id === "person-1")).toBe(true);
+  });
+
+  it("hard deletes an organization and its linked Discover feed entries", async () => {
+    failNextFeedItemsQuery = false;
+    mockFeedDocs.push(
+      {
+        id: "feed-org-linked",
+        data: {
+          publisherOrganizationId: "org-1",
+          publisherSnapshot: { name: "Publisher One", imageUrl: null },
+          type: "news",
+          status: "draft",
+          title: "Second org item",
+          subtitle: "Summary",
+          body: "Body",
+          language: "en",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          updatedAt: "2026-08-02T00:00:00.000Z",
+        },
+      },
+      {
+        id: "feed-individual-linked",
+        data: {
+          publisherIndividualId: "person-1",
+          publisherSnapshot: { name: "Dr. Publisher One", imageUrl: null },
+          type: "news",
+          status: "draft",
+          title: "Individual item",
+          subtitle: "Summary",
+          body: "Body",
+          language: "en",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          updatedAt: "2026-08-02T00:00:00.000Z",
+        },
+      },
+    );
+    const { deleteDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+
+    const result = await deleteDiscoverOrganization(godModeContext, "org-1");
+
+    expect(result).toEqual({
+      deleted: true,
+      organizationId: "org-1",
+      deletedFeedItemCount: 2,
+    });
+    expect(mockOrganizationDocs.some((doc) => doc.id === "org-1")).toBe(false);
+    expect(mockIndividualDocs.some((doc) => doc.id === "person-1")).toBe(true);
+    expect(mockFeedDocs.map((doc) => doc.id)).toEqual([
+      "feed-individual-linked",
+    ]);
+  });
+
+  it("hard deletes an individual publisher and its linked Discover feed entries", async () => {
+    failNextFeedItemsQuery = false;
+    mockFeedDocs.push({
+      id: "feed-person-linked",
+      data: {
+        publisherIndividualId: "person-1",
+        publisherSnapshot: { name: "Dr. Publisher One", imageUrl: null },
+        type: "news",
+        status: "draft",
+        title: "Individual item",
+        subtitle: "Summary",
+        body: "Body",
+        language: "en",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-02T00:00:00.000Z",
+      },
+    });
+    const { deleteDiscoverIndividual } =
+      await import("../repositories/discover.repository");
+
+    const result = await deleteDiscoverIndividual(godModeContext, "person-1");
+
+    expect(result).toEqual({
+      deleted: true,
+      individualId: "person-1",
+      deletedFeedItemCount: 1,
+    });
+    expect(mockIndividualDocs.some((doc) => doc.id === "person-1")).toBe(false);
+    expect(mockOrganizationDocs.some((doc) => doc.id === "org-1")).toBe(true);
+    expect(mockFeedDocs.map((doc) => doc.id)).toEqual(["feed-a"]);
   });
 
   it("generates organization slugs from names instead of manual input", async () => {

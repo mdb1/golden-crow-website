@@ -2398,6 +2398,27 @@ const SPANISH_TEXT: Record<string, string> = {
   "Feed entry deleted.": "Entrada del feed eliminada.",
   "Unable to delete the feed entry.":
     "No se pudo eliminar la entrada del feed.",
+  "Irreversible actions that permanently delete this Discover publisher.":
+    "Acciones irreversibles que eliminan permanentemente este publicador de Discover.",
+  "Organization deletion": "Eliminación de organización",
+  "Individual publisher deletion": "Eliminación de editor individual",
+  "Delete this organization and every Discover feed entry attached to it. This action cannot be undone.":
+    "Eliminá esta organización y cada entrada de Discover vinculada. Esta acción no se puede deshacer.",
+  "Delete this individual publisher and every Discover feed entry attached to it. This action cannot be undone.":
+    "Eliminá este editor individual y cada entrada de Discover vinculada. Esta acción no se puede deshacer.",
+  "Delete organization": "Eliminar organización",
+  "Delete individual publisher": "Eliminar editor individual",
+  "Delete organization?": "¿Eliminar organización?",
+  "Delete individual publisher?": "¿Eliminar editor individual?",
+  "This permanently removes this organization from feed_organizations and deletes linked feed_items.":
+    "Esto elimina permanentemente esta organización de feed_organizations y borra los feed_items vinculados.",
+  "This permanently removes this individual publisher from feed_individuals and deletes linked feed_items.":
+    "Esto elimina permanentemente este editor individual de feed_individuals y borra los feed_items vinculados.",
+  "Organization deleted.": "Organización eliminada.",
+  "Individual publisher deleted.": "Editor individual eliminado.",
+  "Unable to delete the organization.": "No se pudo eliminar la organización.",
+  "Unable to delete the individual publisher.":
+    "No se pudo eliminar el editor individual.",
   "Unable to load Discover data. Refresh the page or contact support if it repeats.":
     "No se pudieron cargar los datos de Discover. Actualizá la página o contactá a soporte si se repite.",
   "Delete form": "Eliminar formulario",

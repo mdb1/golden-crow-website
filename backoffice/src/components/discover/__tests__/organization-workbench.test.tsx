@@ -1,6 +1,12 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import {
@@ -70,24 +76,39 @@ const individual: DiscoverIndividualRecord = {
   updatedAt: "2026-08-02T00:00:00.000Z",
 };
 
-function renderWorkbench(initialLanguage: "en" | "es" = "en") {
+type WorkbenchOverrides = {
+  canDeletePublisher?: boolean;
+  canManageSystemFields?: boolean;
+  mode?: "create" | "edit";
+};
+
+function renderWorkbench(
+  initialLanguage: "en" | "es" = "en",
+  overrides: WorkbenchOverrides = {},
+) {
   render(
     <AppLanguageProvider
       initialLanguage={initialLanguage}
       forcedLanguage={initialLanguage}
     >
-      <DiscoverOrganizationWorkbench organization={organization} />
+      <DiscoverOrganizationWorkbench
+        organization={organization}
+        {...overrides}
+      />
     </AppLanguageProvider>,
   );
 }
 
-function renderIndividualWorkbench(initialLanguage: "en" | "es" = "en") {
+function renderIndividualWorkbench(
+  initialLanguage: "en" | "es" = "en",
+  overrides: WorkbenchOverrides = {},
+) {
   render(
     <AppLanguageProvider
       initialLanguage={initialLanguage}
       forcedLanguage={initialLanguage}
     >
-      <DiscoverIndividualWorkbench individual={individual} />
+      <DiscoverIndividualWorkbench individual={individual} {...overrides} />
     </AppLanguageProvider>,
   );
 }
@@ -205,6 +226,97 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(screen.queryByLabelText("Internal notes")).toBeNull();
   });
 
+  it("hides publisher deletion outside god mode", () => {
+    renderWorkbench();
+
+    expect(screen.queryByRole("button", { name: /Danger zone/i })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Delete organization" }),
+    ).toBeNull();
+  });
+
+  it("renders organization deletion as a collapsed god mode danger zone", async () => {
+    const user = userEvent.setup();
+    renderWorkbench("en", { canDeletePublisher: true });
+
+    const dangerZoneButton = screen.getByRole("button", {
+      name: /Danger zone/i,
+    });
+    expect(dangerZoneButton.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText("Organization deletion")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Delete organization" }),
+    ).toBeNull();
+
+    await user.click(dangerZoneButton);
+
+    expect(dangerZoneButton.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Organization deletion")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Delete this organization and every Discover feed entry attached to it. This action cannot be undone.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Delete organization" }),
+    ).toBeTruthy();
+  });
+
+  it("deletes an organization publisher from the god mode danger zone", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      deleted: true,
+      organizationId: "org-1",
+      deletedFeedItemCount: 2,
+    });
+    renderWorkbench("en", { canDeletePublisher: true });
+
+    await user.click(screen.getByRole("button", { name: /Danger zone/i }));
+    await user.click(
+      screen.getByRole("button", { name: "Delete organization" }),
+    );
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Delete organization?",
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "DELETE",
+      });
+    });
+    expect(routerPush).toHaveBeenCalledWith("/discover/organizations");
+    expect(routerRefresh).toHaveBeenCalled();
+  });
+
+  it("deletes an individual publisher from the god mode danger zone", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      deleted: true,
+      individualId: "individual-1",
+      deletedFeedItemCount: 1,
+    });
+    renderIndividualWorkbench("en", { canDeletePublisher: true });
+
+    await user.click(screen.getByRole("button", { name: /Danger zone/i }));
+    await user.click(
+      screen.getByRole("button", { name: "Delete individual publisher" }),
+    );
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Delete individual publisher?",
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/individuals/individual-1",
+        { method: "DELETE" },
+      );
+    });
+    expect(routerPush).toHaveBeenCalledWith("/discover/individuals");
+    expect(routerRefresh).toHaveBeenCalled();
+  });
+
   it("saves multiple organization categories as comma-separated canonical keys", async () => {
     const user = userEvent.setup();
     renderWorkbench();
@@ -252,10 +364,14 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const user = userEvent.setup();
     renderWorkbench();
 
-    expect(screen.getByLabelText(/Genetic report provider/)).toBeChecked();
-    expect(screen.getByLabelText("Genetic report category")).toHaveValue(
-      "full_genome",
-    );
+    expect(
+      (screen.getByLabelText(/Genetic report provider/) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    expect(
+      (screen.getByLabelText("Genetic report category") as HTMLSelectElement)
+        .value,
+    ).toBe("full_genome");
 
     await user.click(screen.getByLabelText(/Genetic report provider/));
     await user.selectOptions(
