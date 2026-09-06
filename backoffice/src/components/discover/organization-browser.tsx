@@ -45,6 +45,19 @@ type PublisherStatus = DiscoverOrganizationStatus | DiscoverIndividualStatus;
 type PublisherPage =
   | DiscoverOrganizationsPage
   | DiscoverIndividualsPage;
+type BadgeGroup = {
+  visibleLabels: string[];
+  hiddenCount: number;
+  title: string | undefined;
+};
+
+function badgeGroup(labels: string[], limit = 3): BadgeGroup {
+  return {
+    visibleLabels: labels.slice(0, limit),
+    hiddenCount: Math.max(labels.length - limit, 0),
+    title: labels.length > limit ? labels.join(", ") : undefined,
+  };
+}
 
 function statusBadgeVariant(status: PublisherStatus) {
   if (status === "active") {
@@ -143,12 +156,9 @@ function DiscoverPublisherBrowser({
   const categoryProvider = isIndividual
     ? discoverIndividualCategoryProvider
     : discoverOrganizationCategoryProvider;
-  const filterGridClass = isIndividual
-    ? "lg:grid-cols-[minmax(14rem,1fr)_11rem_13rem_9rem_9rem]"
-    : "lg:grid-cols-[minmax(14rem,1fr)_11rem_13rem_9rem_9rem] xl:grid-cols-[minmax(14rem,1fr)_11rem_13rem_9rem_9rem_12rem_13rem]";
-  const tableGridClass = isIndividual
-    ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_110px_170px_auto]"
-    : "lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)_minmax(0,1fr)_120px_160px_auto]";
+  const listGridClass = isIndividual
+    ? "2xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_minmax(0,0.85fr)_auto]"
+    : "2xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)_minmax(0,1.15fr)_auto]";
 
   function publishersFromPage(page: PublisherPage): PublisherRecord[] {
     return isIndividual
@@ -370,7 +380,7 @@ function DiscoverPublisherBrowser({
           </div>
         </div>
 
-        <div className={cn("grid gap-3", filterGridClass)}>
+        <div className="grid gap-3">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -384,50 +394,54 @@ function DiscoverPublisherBrowser({
               className="pl-9"
             />
           </label>
-          <select
-            value={status}
-            onChange={(event) =>
-              setStatus(event.target.value as "all" | PublisherStatus)
-            }
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="all">{t("All statuses")}</option>
-            {DISCOVER_ORGANIZATION_STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {t(option.label)}
-              </option>
-            ))}
-          </select>
-          <select
-            value={publisherType}
-            onChange={(event) => setPublisherType(event.target.value)}
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="all">{t("All categories")}</option>
-            {categoryProvider.options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {t(option.label)}
-              </option>
-            ))}
-          </select>
-          <Input
-            value={countryCode}
-            onChange={(event) => setCountryCode(event.target.value)}
-            placeholder={t("Country")}
-          />
-          <select
-            value={verified}
-            onChange={(event) =>
-              setVerified(event.target.value as "all" | "verified" | "unverified")
-            }
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="all">{t("All")}</option>
-            <option value="verified">{t("Verified")}</option>
-            <option value="unverified">{t("Unverified")}</option>
-          </select>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <select
+              value={status}
+              onChange={(event) =>
+                setStatus(event.target.value as "all" | PublisherStatus)
+              }
+              className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="all">{t("All statuses")}</option>
+              {DISCOVER_ORGANIZATION_STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {t(option.label)}
+                </option>
+              ))}
+            </select>
+            <select
+              value={publisherType}
+              onChange={(event) => setPublisherType(event.target.value)}
+              className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="all">{t("All categories")}</option>
+              {categoryProvider.options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {t(option.label)}
+                </option>
+              ))}
+            </select>
+            <Input
+              value={countryCode}
+              onChange={(event) => setCountryCode(event.target.value)}
+              placeholder={t("Country")}
+            />
+            <select
+              value={verified}
+              onChange={(event) =>
+                setVerified(event.target.value as "all" | "verified" | "unverified")
+              }
+              className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="all">{t("All")}</option>
+              <option value="verified">{t("Verified")}</option>
+              <option value="unverified">{t("Unverified")}</option>
+            </select>
+          </div>
+
           {!isIndividual ? (
-            <>
+            <div className="grid gap-3 sm:grid-cols-2">
               <select
                 value={geneticReportProvider}
                 onChange={(event) =>
@@ -435,7 +449,7 @@ function DiscoverPublisherBrowser({
                     event.target.value as "all" | "provider" | "not_provider",
                   )
                 }
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="all">{t("All report providers")}</option>
                 <option value="provider">{t("Report providers only")}</option>
@@ -451,7 +465,7 @@ function DiscoverPublisherBrowser({
                       | DiscoverGeneticReportCategory,
                   )
                 }
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="all">{t("All report categories")}</option>
                 <option value="none">{t("No genetic report category")}</option>
@@ -461,7 +475,7 @@ function DiscoverPublisherBrowser({
                   </option>
                 ))}
               </select>
-            </>
+            </div>
           ) : null}
         </div>
       </div>
@@ -469,15 +483,13 @@ function DiscoverPublisherBrowser({
       <div className="glass-panel overflow-hidden">
         <div
           className={cn(
-            "hidden gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid",
-            tableGridClass,
+            "hidden gap-4 border-b border-border/80 px-5 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground 2xl:grid",
+            listGridClass,
           )}
         >
           <span>{isIndividual ? t("Individual publisher") : t("Organization")}</span>
           <span>{t("Categories")}</span>
-          {!isIndividual ? <span>{t("Genetic reports")}</span> : null}
           <span>{t("Status")}</span>
-          <span>{t("Updated")}</span>
           <span className="text-right">{t("Action")}</span>
         </div>
 
@@ -496,131 +508,200 @@ function DiscoverPublisherBrowser({
                 ? individual.individualType
                 : organization.organizationType,
             );
+            const categoryBadgeGroup = badgeGroup(categoryLabels);
+            const geneticReportLabels = !isIndividual
+              ? discoverGeneticReportCategoryLabels(
+                  organization.geneticReportCategory,
+                )
+              : [];
+            const geneticReportBadgeGroup = badgeGroup(geneticReportLabels);
             const publisherImageSource =
               publisher.imageUrl || publisher.imageUploadDataUrl;
+            const fallbackInitial =
+              publisher.name.trim().slice(0, 1).toUpperCase() || "P";
 
             return (
-            <div
-              key={publisher.id}
-              className={cn(
-                "grid gap-3 border-b border-border/70 px-4 py-4 last:border-b-0 lg:items-center",
-                tableGridClass,
-              )}
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  {publisherImageSource ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={publisherImageSource}
-                      alt=""
-                      className="h-8 w-8 rounded-md border border-border object-cover"
-                    />
-                  ) : null}
-                  <h3 className="font-medium text-foreground">{publisher.name}</h3>
-                  {publisher.colorHex ? (
-                    <span
-                      className="h-3.5 w-3.5 rounded-full border border-border"
-                      style={{ backgroundColor: publisher.colorHex }}
-                      title={publisher.colorHex}
-                    />
-                  ) : null}
-                  {publisher.verified ? (
-                    <Badge variant="success">{t("Verified")}</Badge>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {compactList([
-                    publisher.id,
-                    publisher.slug,
-                    publisher.countryCode,
-                    publisher.websiteUrl,
-                    publisher.contactEmail,
-                  ]) || t("Discover publisher")}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {categoryLabels.length ? (
-                  categoryLabels.map((label) => (
-                    <Badge key={label} variant="secondary" className="rounded-md">
-                      {t(label)}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-muted-foreground">
-                    {t("Unspecified")}
-                  </span>
+              <div
+                key={publisher.id}
+                className={cn(
+                  "grid gap-4 border-b border-border/70 px-4 py-4 last:border-b-0 lg:px-5 lg:py-5 2xl:items-start",
+                  listGridClass,
                 )}
-              </div>
-
-              {!isIndividual ? (
-                <div className="flex flex-wrap gap-1.5">
-                  <Badge
-                    variant={
-                      organization.isGeneticReportProvider
-                        ? "violet"
-                        : "outline"
-                    }
-                    className="rounded-md"
-                  >
-                    {organization.isGeneticReportProvider
-                      ? t("Genetic report provider")
-                      : t("Not a genetic report provider")}
-                  </Badge>
-                  <Badge variant="secondary" className="rounded-md">
-                    {discoverGeneticReportCategoryLabels(
-                      organization.geneticReportCategory,
-                    )
-                      .map((label) => t(label))
-                      .join(", ") || t("No genetic report category")}
-                  </Badge>
+              >
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-start gap-3">
+                    {publisherImageSource ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={publisherImageSource}
+                        alt=""
+                        className="h-11 w-11 flex-none rounded-lg border border-border object-cover"
+                      />
+                    ) : (
+                      <span
+                        className="flex h-11 w-11 flex-none items-center justify-center rounded-lg border border-border bg-muted text-sm font-semibold text-muted-foreground"
+                        aria-hidden="true"
+                      >
+                        {fallbackInitial}
+                      </span>
+                    )}
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <h3 className="break-words font-medium leading-snug text-foreground">
+                          {publisher.name}
+                        </h3>
+                        {publisher.colorHex ? (
+                          <span
+                            className="h-3.5 w-3.5 flex-none rounded-full border border-border"
+                            style={{ backgroundColor: publisher.colorHex }}
+                            title={publisher.colorHex}
+                          />
+                        ) : null}
+                      </div>
+                      <p className="text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+                        {compactList([
+                          publisher.id,
+                          publisher.slug,
+                          publisher.countryCode,
+                          publisher.websiteUrl,
+                          publisher.contactEmail,
+                        ]) || t("Discover publisher")}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              ) : null}
 
-              <div>
-                <Badge variant={statusBadgeVariant(publisher.status)}>
-                  {t(discoverOrganizationStatusLabel(publisher.status))}
-                </Badge>
-              </div>
+                <div className="min-w-0 space-y-2">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground 2xl:hidden">
+                    {t("Categories")}
+                  </span>
+                  <div
+                    className="flex flex-wrap gap-1.5"
+                    title={categoryBadgeGroup.title}
+                  >
+                    {categoryLabels.length ? (
+                      <>
+                        {categoryBadgeGroup.visibleLabels.map((label) => (
+                          <Badge
+                            key={label}
+                            variant="secondary"
+                            className="rounded-md"
+                          >
+                            {t(label)}
+                          </Badge>
+                        ))}
+                        {categoryBadgeGroup.hiddenCount ? (
+                          <Badge variant="outline" className="rounded-md">
+                            +{categoryBadgeGroup.hiddenCount}
+                          </Badge>
+                        ) : null}
+                      </>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        {t("Unspecified")}
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-              <div className="text-sm text-muted-foreground">
-                {formatDateTime(publisher.updatedAt) ?? t("No timestamp")}
-              </div>
+                <div className="min-w-0 space-y-2">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground 2xl:hidden">
+                    {t("Status")}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant={statusBadgeVariant(publisher.status)}>
+                      {t(discoverOrganizationStatusLabel(publisher.status))}
+                    </Badge>
+                    {publisher.verified ? (
+                      <Badge variant="success">{t("Verified")}</Badge>
+                    ) : null}
+                  </div>
 
-              <div className="flex flex-wrap gap-2 lg:justify-end">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={detailHref(publisher.id)}>
-                    {t("Open")}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </Button>
-                {canManagePublisherStatus ? (
-                  publisher.status === "archived" ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void setPublisherStatus(publisher, "active")}
-                      disabled={pending}
+                  {!isIndividual ? (
+                    <div
+                      className="flex flex-wrap gap-1.5"
+                      title={geneticReportBadgeGroup.title}
                     >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      {t("Reactivate")}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void setPublisherStatus(publisher, "archived")}
-                      disabled={pending}
-                    >
-                      <Archive className="h-3.5 w-3.5" />
-                      {t("Archive")}
-                    </Button>
-                  )
-                ) : null}
+                      <Badge
+                        variant={
+                          organization.isGeneticReportProvider
+                            ? "violet"
+                            : "outline"
+                        }
+                        className="rounded-md"
+                      >
+                        {organization.isGeneticReportProvider
+                          ? t("Genetic report provider")
+                          : t("Not a genetic report provider")}
+                      </Badge>
+                      {geneticReportLabels.length ? (
+                        <>
+                          {geneticReportBadgeGroup.visibleLabels.map((label) => (
+                            <Badge
+                              key={label}
+                              variant="secondary"
+                              className="rounded-md"
+                            >
+                              {t(label)}
+                            </Badge>
+                          ))}
+                          {geneticReportBadgeGroup.hiddenCount ? (
+                            <Badge variant="outline" className="rounded-md">
+                              +{geneticReportBadgeGroup.hiddenCount}
+                            </Badge>
+                          ) : null}
+                        </>
+                      ) : (
+                        <Badge variant="secondary" className="rounded-md">
+                          {t("No genetic report category")}
+                        </Badge>
+                      )}
+                    </div>
+                  ) : null}
+
+                  <div className="text-sm text-muted-foreground">
+                    {t("Updated")}:{" "}
+                    {formatDateTime(publisher.updatedAt) ?? t("No timestamp")}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 2xl:justify-end">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={detailHref(publisher.id)}>
+                      {t("Open")}
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                  {canManagePublisherStatus ? (
+                    publisher.status === "archived" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          void setPublisherStatus(publisher, "active")
+                        }
+                        disabled={pending}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {t("Reactivate")}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          void setPublisherStatus(publisher, "archived")
+                        }
+                        disabled={pending}
+                      >
+                        <Archive className="h-3.5 w-3.5" />
+                        {t("Archive")}
+                      </Button>
+                    )
+                  ) : null}
+                </div>
               </div>
-            </div>
-          );
+            );
           })
         )}
       </div>
