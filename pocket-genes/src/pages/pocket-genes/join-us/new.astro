@@ -96,7 +96,9 @@ const pageCopy = {
     imageUploadBody: 'PNG, JPG, or WebP up to 600 KB. Choose one or drop it here.',
     imageUploadButton: 'Choose image',
     imageUploadReady: 'Image selected. The suggested color is ready below.',
-    imageUploadTooLarge: 'That image is over 600 KB. Reduce it and upload the smaller version.',
+    imageUploadCompressing: 'Compressing this large image...',
+    imageUploadCompressed: 'We compressed it and loaded the lighter image. The suggested color is ready below.',
+    imageUploadTooLarge: 'We could not compress this image under 600 KB here. Reduce it and upload the smaller version.',
     imageUploadReduceLink: 'Compress it for free',
     imageUploadInvalid: 'Choose a PNG, JPG, or WebP image.',
     imageClearUpload: 'Remove upload',
@@ -248,7 +250,9 @@ const pageCopy = {
     imageUploadBody: 'PNG, JPG o WebP de hasta 600 KB. Elegila o arrastrala acá.',
     imageUploadButton: 'Elegir imagen',
     imageUploadReady: 'Imagen seleccionada. El color sugerido está listo abajo.',
-    imageUploadTooLarge: 'La imagen supera los 600 KB. Reducila y volvé a subir una versión más liviana.',
+    imageUploadCompressing: 'Comprimiendo la imagen grande...',
+    imageUploadCompressed: 'La comprimimos y cargamos la versión liviana. El color sugerido está listo abajo.',
+    imageUploadTooLarge: 'No pudimos comprimir esta imagen por debajo de 600 KB desde acá. Reducila y volvé a subir una versión más liviana.',
     imageUploadReduceLink: 'Comprimirla gratis',
     imageUploadInvalid: 'Elegí una imagen PNG, JPG o WebP.',
     imageClearUpload: 'Quitar imagen',
@@ -370,6 +374,8 @@ const wizardClientCopy = {
   imageLoaded: copy.imageLoaded,
   imageLoadError: copy.imageLoadError,
   imageUploadReady: copy.imageUploadReady,
+  imageUploadCompressing: copy.imageUploadCompressing,
+  imageUploadCompressed: copy.imageUploadCompressed,
   imageUploadTooLarge: copy.imageUploadTooLarge,
   imageUploadReduceLink: copy.imageUploadReduceLink,
   imageUploadInvalid: copy.imageUploadInvalid,
@@ -999,6 +1005,9 @@ const wizardClientCopy = {
     const IMAGE_UPLOAD_MAX_BYTES = 600 * 1024;
     const IMAGE_REDUCER_URL = 'https://squoosh.app/';
     const IMAGE_UPLOAD_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+    const IMAGE_COMPRESSION_MIME_TYPES = ['image/webp', 'image/jpeg'];
+    const IMAGE_COMPRESSION_DIMENSION_STEPS = [1600, 1200, 960, 720, 560, 420, 320];
+    const IMAGE_COMPRESSION_QUALITY_STEPS = [0.86, 0.76, 0.66, 0.56, 0.46, 0.36];
     const state = {
       kind: 'organization',
       countries: [],
@@ -1016,6 +1025,9 @@ const wizardClientCopy = {
       colorCustomized: false,
       imageStatus: 'empty',
       imageLoadToken: 0,
+      imageCompressing: false,
+      imageCompressionToken: 0,
+      uploadedImageReadyMessage: '',
       uploadedImageDataUrl: '',
       uploadedImageName: '',
       uploadedImageMimeType: '',
@@ -1394,7 +1406,13 @@ const wizardClientCopy = {
       }
     }
 
-    function clearUploadedImage({ rerender = true } = {}) {
+    function clearUploadedImage({ rerender = true, cancelCompression = true } = {}) {
+      if (cancelCompression) {
+        state.imageCompressionToken += 1;
+        state.imageCompressing = false;
+      }
+
+      state.uploadedImageReadyMessage = '';
       state.uploadedImageDataUrl = '';
       state.uploadedImageName = '';
       state.uploadedImageMimeType = '';
@@ -1403,7 +1421,7 @@ const wizardClientCopy = {
         imageUpload.value = '';
       }
 
-      imageUploadCard?.classList.remove('has-upload');
+      imageUploadCard?.classList.remove('has-upload', 'is-dragging', 'is-compressing');
       if (imageUploadState) {
         imageUploadState.hidden = true;
       }
@@ -1447,25 +1465,120 @@ const wizardClientCopy = {
       updateImageChoiceUi();
     }
 
-    function readUploadedImage(file) {
-      if (!file) return;
+    function imageCompressionFileName(file, mimeType) {
+      const extension = mimeType === 'image/webp' ? 'webp' : 'jpg';
+      const rawName = file.name || `profile-image.${extension}`;
+      const baseName = rawName.replace(/\.[^.]+$/, '') || 'profile-image';
+      return `${baseName}-compressed.${extension}`;
+    }
 
-      if (!IMAGE_UPLOAD_TYPES.has(file.type)) {
-        clearUploadedImage({ rerender: false });
-        setImageStatus('invalid', copy.imageUploadInvalid);
-        renderStep();
-        return;
+    function loadImageElementFromFile(file) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        const objectUrl = URL.createObjectURL(file);
+
+        image.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          resolve(image);
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error('IMAGE_LOAD_FAILED'));
+        };
+        image.src = objectUrl;
+      });
+    }
+
+    function imageCompressionDimensions(image) {
+      const sourceMax = Math.max(
+        image.naturalWidth || image.width || 0,
+        image.naturalHeight || image.height || 0,
+      );
+
+      if (!sourceMax) return [];
+
+      return Array.from(
+        new Set(
+          [sourceMax, ...IMAGE_COMPRESSION_DIMENSION_STEPS]
+            .map((dimension) => Math.min(sourceMax, dimension))
+            .filter((dimension) => Number.isFinite(dimension) && dimension > 0),
+        ),
+      ).sort((a, b) => b - a);
+    }
+
+    function drawCompressedImage(image, maxDimension, mimeType) {
+      const sourceWidth = image.naturalWidth || image.width || 0;
+      const sourceHeight = image.naturalHeight || image.height || 0;
+
+      if (!sourceWidth || !sourceHeight) {
+        throw new Error('IMAGE_DIMENSIONS_UNAVAILABLE');
       }
 
-      if (file.size > IMAGE_UPLOAD_MAX_BYTES) {
-        clearUploadedImage({ rerender: false });
-        setImageStatus('warning', copy.imageUploadTooLarge, {
-          href: IMAGE_REDUCER_URL,
-          label: copy.imageUploadReduceLink,
-        });
-        renderStep();
-        return;
+      const sourceMax = Math.max(sourceWidth, sourceHeight);
+      const scale = Math.min(1, maxDimension / sourceMax);
+      const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+      const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+
+      if (!context) {
+        throw new Error('CANVAS_UNAVAILABLE');
       }
+
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+
+      if (mimeType === 'image/jpeg') {
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, targetWidth, targetHeight);
+      }
+
+      context.drawImage(image, 0, 0, targetWidth, targetHeight);
+      return canvas;
+    }
+
+    function canvasToBlob(canvas, mimeType, quality) {
+      return new Promise((resolve) => {
+        canvas.toBlob(resolve, mimeType, quality);
+      });
+    }
+
+    async function compressUploadedImageFile(file) {
+      const image = await loadImageElementFromFile(file);
+      const dimensions = imageCompressionDimensions(image);
+
+      for (const mimeType of IMAGE_COMPRESSION_MIME_TYPES) {
+        for (const maxDimension of dimensions) {
+          const canvas = drawCompressedImage(image, maxDimension, mimeType);
+
+          for (const quality of IMAGE_COMPRESSION_QUALITY_STEPS) {
+            const blob = await canvasToBlob(canvas, mimeType, quality);
+
+            if (!blob || blob.size === 0) continue;
+
+            if (blob.size <= IMAGE_UPLOAD_MAX_BYTES) {
+              return new File([blob], imageCompressionFileName(file, mimeType), {
+                type: mimeType,
+                lastModified: Date.now(),
+              });
+            }
+          }
+        }
+      }
+
+      throw new Error('IMAGE_COMPRESSION_FAILED');
+    }
+
+    function loadAcceptedUploadedImage(
+      file,
+      { loadingMessage = copy.imageLoading, readyMessage = copy.imageUploadReady } = {},
+    ) {
+      state.imageCompressionToken += 1;
+      state.imageCompressing = false;
+      state.uploadedImageReadyMessage = readyMessage;
+      imageUploadCard?.classList.remove('is-compressing');
 
       const reader = new FileReader();
       reader.onload = () => {
@@ -1482,7 +1595,7 @@ const wizardClientCopy = {
         if (imageUrl) {
           imageUrl.value = '';
         }
-        setImageStatus('loading', copy.imageLoading);
+        setImageStatus('loading', loadingMessage);
         syncUploadedImageUi();
         updateImagePreview();
         renderStep();
@@ -1493,6 +1606,59 @@ const wizardClientCopy = {
         renderStep();
       };
       reader.readAsDataURL(file);
+    }
+
+    async function autoCompressUploadedImage(file) {
+      clearUploadedImage({ rerender: false, cancelCompression: false });
+      state.imageCompressionToken += 1;
+      const token = state.imageCompressionToken;
+      state.imageCompressing = true;
+      imageUploadCard?.classList.add('is-compressing');
+      setImageStatus('loading', copy.imageUploadCompressing);
+      updateImagePreview();
+      renderStep();
+
+      try {
+        const compressedFile = await compressUploadedImageFile(file);
+        if (token !== state.imageCompressionToken) return;
+
+        state.imageCompressing = false;
+        imageUploadCard?.classList.remove('is-compressing');
+        loadAcceptedUploadedImage(compressedFile, {
+          loadingMessage: copy.imageLoading,
+          readyMessage: copy.imageUploadCompressed,
+        });
+      } catch {
+        if (token !== state.imageCompressionToken) return;
+
+        state.imageCompressing = false;
+        imageUploadCard?.classList.remove('is-compressing');
+        clearUploadedImage({ rerender: false, cancelCompression: false });
+        setImageStatus('warning', copy.imageUploadTooLarge, {
+          href: IMAGE_REDUCER_URL,
+          label: copy.imageUploadReduceLink,
+        });
+        updateImagePreview();
+        renderStep();
+      }
+    }
+
+    function readUploadedImage(file) {
+      if (!file) return;
+
+      if (!IMAGE_UPLOAD_TYPES.has(file.type)) {
+        clearUploadedImage({ rerender: false });
+        setImageStatus('invalid', copy.imageUploadInvalid);
+        renderStep();
+        return;
+      }
+
+      if (file.size > IMAGE_UPLOAD_MAX_BYTES) {
+        void autoCompressUploadedImage(file);
+        return;
+      }
+
+      loadAcceptedUploadedImage(file);
     }
 
     let imageUploadDragDepth = 0;
@@ -1662,6 +1828,8 @@ const wizardClientCopy = {
         const url = imageUrl.value.trim();
         if (state.scrapedLogoStatus === 'loading') {
           message = copy.logoLookupTitle;
+        } else if (state.imageCompressing) {
+          message = copy.imageUploadCompressing;
         } else if (url && !validUrl(url, true)) {
           message = copy.imageUrlError;
         } else if ((url || state.uploadedImageDataUrl) && state.imageStatus === 'loading') {
@@ -1932,6 +2100,8 @@ const wizardClientCopy = {
           nextLabel = copy.sending;
         } else if (step === 'image' && state.scrapedLogoStatus === 'loading') {
           nextLabel = copy.logoLookupTitle;
+        } else if (step === 'image' && state.imageCompressing) {
+          nextLabel = copy.imageUploadCompressing;
         } else if (isEmptySkippableStep(step)) {
           nextLabel = copy.skip;
         } else if (last) {
@@ -2136,6 +2306,13 @@ const wizardClientCopy = {
       previewImage.classList.remove('is-loading', 'is-loaded', 'is-error');
       setColorRowVisible(false);
 
+      if (state.imageCompressing) {
+        previewImage.classList.add('is-loading');
+        previewImage.replaceChildren();
+        setImageStatus('loading', copy.imageUploadCompressing);
+        return;
+      }
+
       if (previewSource) {
         setImageStatus('loading', copy.imageLoading);
         previewImage.classList.add('is-loading');
@@ -2158,7 +2335,9 @@ const wizardClientCopy = {
           previewImage.classList.add('is-loaded');
           setImageStatus(
             'loaded',
-            state.uploadedImageDataUrl ? copy.imageUploadReady : copy.imageLoaded,
+            state.uploadedImageDataUrl
+              ? state.uploadedImageReadyMessage || copy.imageUploadReady
+              : copy.imageLoaded,
           );
           setColorRowVisible(true);
           renderStep();
@@ -2754,7 +2933,7 @@ const wizardClientCopy = {
       updateColor(state.suggestedColor);
     });
     imageUrl?.addEventListener('input', () => {
-      if (imageUrl.value.trim() && state.uploadedImageDataUrl) {
+      if (imageUrl.value.trim() && (state.uploadedImageDataUrl || state.imageCompressing)) {
         clearUploadedImage({ rerender: false });
       }
       updateImagePreview();
@@ -4191,6 +4370,7 @@ const wizardClientCopy = {
   .pg-image-upload-card:hover,
   .pg-image-upload-card:focus-within,
   .pg-image-upload-card.is-dragging,
+  .pg-image-upload-card.is-compressing,
   .pg-image-upload-card.has-upload {
     transform: translateY(-1px);
     border-color: rgba(111, 60, 195, 0.62);
@@ -4209,6 +4389,31 @@ const wizardClientCopy = {
   .pg-image-upload-card.is-dragging .pg-image-upload-action {
     transform: scale(1.04);
     box-shadow: 0 12px 24px rgba(111, 60, 195, 0.22);
+  }
+
+  .pg-image-upload-card.is-compressing {
+    cursor: progress;
+    background:
+      linear-gradient(135deg, rgba(20, 149, 143, 0.11), rgba(111, 60, 195, 0.09)),
+      #ffffff;
+  }
+
+  .pg-image-upload-card.is-compressing::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 18px;
+    width: 22px;
+    height: 22px;
+    border: 3px solid rgba(111, 60, 195, 0.24);
+    border-top-color: var(--wizard-purple);
+    border-radius: 999px;
+    transform: translateY(-50%);
+    animation: pgSpin 850ms linear infinite;
+  }
+
+  .pg-image-upload-card.is-compressing .pg-image-upload-action {
+    opacity: 0;
   }
 
   .pg-image-upload-copy {
