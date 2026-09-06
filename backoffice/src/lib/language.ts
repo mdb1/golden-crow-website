@@ -329,7 +329,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Non-providers": "No proveedores",
   "All report categories": "Todas las categorías de reportes",
   Reproductive: "Reproductivo",
-  Ophthalmics: "Oftálmicos",
+  Ophthalmics: "Oftalmológico",
   "Full genome": "Genoma completo",
   "Raw PDF": "PDF sin procesar",
   "Raw VCF": "VCF sin procesar",
