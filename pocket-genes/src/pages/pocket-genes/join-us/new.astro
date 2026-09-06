@@ -135,7 +135,7 @@ const pageCopy = {
     socialAllAdded: 'All social networks added',
     socialLinkTitle: 'Add the link',
     socialEditTitle: 'Edit this link',
-    socialLinkBody: 'Paste the profile URL, handle page, or contact link before we add it to your profile.',
+    socialLinkBody: 'Paste the profile URL, page, channel, or contact link before we add it to your profile.',
     socialDraftLabel: 'Profile link',
     socialDraftBack: 'Back to networks',
     socialDraftSave: 'Add link',
@@ -858,14 +858,20 @@ const wizardClientCopy = {
                     <h3 data-social-draft-title>{copy.socialLinkTitle}</h3>
                     <p data-social-draft-body>{copy.socialLinkBody}</p>
                   </div>
-                  <label class="pg-social-draft-field">
+                  <label class="pg-social-draft-field" data-social-draft-field>
                     <span data-social-draft-label>{copy.socialDraftLabel}</span>
-                    <input
-                      type="url"
-                      data-social-draft-input
-                      placeholder={copy.socialUrlPlaceholder}
-                      autocomplete="off"
-                    />
+                    <span class="pg-social-url-prefix-field" data-social-url-prefix-field>
+                      <span class="pg-social-url-prefix" aria-hidden="true">https://</span>
+                      <input
+                        type="text"
+                        data-social-draft-input
+                        placeholder={copy.socialUrlPlaceholder}
+                        inputmode="url"
+                        autocapitalize="off"
+                        autocomplete="off"
+                        spellcheck="false"
+                      />
+                    </span>
                   </label>
                   <p class="pg-social-draft-error" data-social-draft-error hidden>{copy.socialLinkError}</p>
                   <div class="pg-social-draft-actions">
@@ -1178,6 +1184,7 @@ const wizardClientCopy = {
     const socialDraftTitle = wizardRoot.querySelector('[data-social-draft-title]');
     const socialDraftBody = wizardRoot.querySelector('[data-social-draft-body]');
     const socialDraftLabel = wizardRoot.querySelector('[data-social-draft-label]');
+    const socialDraftField = wizardRoot.querySelector('[data-social-draft-field]');
     const socialDraftInput = wizardRoot.querySelector('[data-social-draft-input]');
     const socialDraftError = wizardRoot.querySelector('[data-social-draft-error]');
     const socialDraftBack = wizardRoot.querySelector('[data-social-draft-back]');
@@ -2708,9 +2715,43 @@ const wizardClientCopy = {
     let socialCollectTimer;
 
     function setSocialPickerView(view) {
+      if (socialPickerPanel) {
+        socialPickerPanel.dataset.socialView = view;
+      }
       socialPickerViews.forEach((section) => {
         section.hidden = section.getAttribute('data-social-picker-view') !== view;
       });
+    }
+
+    function mountSocialPickerGlobally() {
+      if (!socialPickerPanel || socialPickerPanel.parentElement === document.body) return;
+      document.body.append(socialPickerPanel);
+    }
+
+    function socialDraftUsesUrlPrefix(option = state.socialDraftOption) {
+      return Boolean(option && option.value !== 'email');
+    }
+
+    function socialDraftDisplayValue(option, value) {
+      const trimmed = value.trim();
+      if (!socialDraftUsesUrlPrefix(option)) return trimmed;
+      return websiteDisplayValue(trimmed);
+    }
+
+    function syncSocialDraftInputMode(option) {
+      const usesPrefix = socialDraftUsesUrlPrefix(option);
+
+      socialDraftField?.classList.toggle('is-email-draft', !usesPrefix);
+      if (!socialDraftInput) return;
+
+      socialDraftInput.type = 'text';
+      socialDraftInput.inputMode = usesPrefix ? 'url' : 'email';
+      socialDraftInput.autocomplete = usesPrefix ? 'off' : 'email';
+    }
+
+    function normalizeSocialDraftInputDisplay() {
+      if (!socialDraftInput || !socialDraftUsesUrlPrefix()) return;
+      socialDraftInput.value = socialDraftDisplayValue(state.socialDraftOption, socialDraftInput.value);
     }
 
     function resetSocialDraft() {
@@ -2720,9 +2761,12 @@ const wizardClientCopy = {
       state.socialDraftMode = 'add';
       if (socialDraftInput) {
         socialDraftInput.value = '';
-        socialDraftInput.type = 'url';
+        socialDraftInput.type = 'text';
+        socialDraftInput.inputMode = 'url';
+        socialDraftInput.autocomplete = 'off';
         socialDraftInput.placeholder = copy.socialUrlPlaceholder;
       }
+      socialDraftField?.classList.remove('is-email-draft');
       if (socialDraftError) {
         socialDraftError.hidden = true;
       }
@@ -2736,6 +2780,7 @@ const wizardClientCopy = {
       if (!socialPickerPanel || !socialPickerOpen) return false;
 
       setCountryPopoverOpen(false);
+      mountSocialPickerGlobally();
       socialPickerPanel.hidden = false;
       socialPickerOpen.setAttribute('aria-expanded', 'true');
       socialWorkbench?.classList.add('is-picking-social');
@@ -2801,9 +2846,9 @@ const wizardClientCopy = {
         socialDraftLabel.textContent = `${copy.socialDraftLabel} · ${option.label}`;
       }
       if (socialDraftInput) {
-        socialDraftInput.type = option.value === 'email' ? 'text' : 'url';
-        socialDraftInput.placeholder = option.placeholder || copy.socialUrlPlaceholder;
-        socialDraftInput.value = existingValue;
+        syncSocialDraftInputMode(option);
+        socialDraftInput.placeholder = socialDraftDisplayValue(option, option.placeholder || copy.socialUrlPlaceholder);
+        socialDraftInput.value = socialDraftDisplayValue(option, existingValue);
         socialDraftInput.setAttribute('aria-label', option.label);
       }
       if (socialDraftSave) {
@@ -2846,7 +2891,7 @@ const wizardClientCopy = {
       let availableVisibleCount = 0;
       let filledCount = 0;
 
-      wizardRoot.querySelectorAll('[data-social-option]').forEach((button) => {
+      (socialPickerPanel || wizardRoot).querySelectorAll('[data-social-option]').forEach((button) => {
         const value = button.getAttribute('data-social-option');
         const label = button.getAttribute('data-label') || '';
         const placeholder = button.getAttribute('data-placeholder') || '';
@@ -3194,7 +3239,14 @@ const wizardClientCopy = {
     socialPickerCloseButtons.forEach((button) => {
       button.addEventListener('click', () => setSocialPickerOpen(false));
     });
-    socialDraftInput?.addEventListener('input', () => updateSocialDraftUi());
+    socialDraftInput?.addEventListener('input', () => {
+      normalizeSocialDraftInputDisplay();
+      updateSocialDraftUi();
+    });
+    socialDraftInput?.addEventListener('blur', () => {
+      normalizeSocialDraftInputDisplay();
+      updateSocialDraftUi();
+    });
     socialDraftInput?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -5074,38 +5126,73 @@ const wizardClientCopy = {
   }
 
   .pg-social-picker-panel {
+    --wizard-purple: #6f3cc3;
+    --wizard-purple-strong: #5930a2;
+    --wizard-purple-soft: #f3ecff;
+    --wizard-ink: #202127;
+    --wizard-muted: #686b75;
+    --wizard-border: #c8cbd2;
     position: fixed;
-    z-index: 7000;
+    z-index: 100001;
     inset: 0;
+    width: 100vw;
+    min-height: 100svh;
+    height: 100dvh;
     display: grid;
     place-items: center;
-    background: rgba(18, 20, 28, 0.36);
-    padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background:
+      radial-gradient(circle at 22% 14%, rgba(111, 60, 195, 0.2), transparent 32%),
+      radial-gradient(circle at 84% 86%, rgba(20, 149, 143, 0.16), transparent 34%),
+      rgba(18, 20, 28, 0.52);
+    padding:
+      max(18px, env(safe-area-inset-top))
+      clamp(14px, 4vw, 42px)
+      max(18px, env(safe-area-inset-bottom));
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
     animation: pgModalFadeIn 180ms ease both;
+  }
+
+  .pg-social-picker-panel[hidden] {
+    display: none !important;
   }
 
   .pg-social-picker-card {
     position: relative;
-    width: min(920px, 100%);
-    max-height: min(820px, 84svh);
+    width: min(1040px, 100%);
+    height: min(820px, calc(100svh - 36px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+    max-height: calc(100svh - 36px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     display: flex;
     flex-direction: column;
-    border: 1px solid rgba(220, 224, 232, 0.94);
-    border-radius: 28px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 34px;
     background:
-      linear-gradient(135deg, rgba(111, 60, 195, 0.055), rgba(20, 149, 143, 0.035)),
+      linear-gradient(145deg, rgba(111, 60, 195, 0.07), rgba(20, 149, 143, 0.04)),
       #ffffff;
-    box-shadow: 0 34px 80px rgba(18, 20, 28, 0.24);
-    padding: 18px;
+    box-shadow:
+      0 42px 110px rgba(18, 20, 28, 0.36),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    padding: clamp(18px, 2.2vw, 26px);
     animation: pgModalCardIn 220ms ease both;
+  }
+
+  .pg-social-picker-panel[data-social-view='link'] .pg-social-picker-card,
+  .pg-social-picker-panel[data-social-view='success'] .pg-social-picker-card {
+    width: min(640px, 100%);
+    height: auto;
+    min-height: min(480px, calc(100svh - 36px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
   }
 
   .pg-social-picker-view {
     min-height: 0;
+    height: 100%;
     display: flex;
     flex-direction: column;
+  }
+
+  .pg-social-picker-view[hidden] {
+    display: none !important;
   }
 
   .pg-social-panel-heading {
@@ -5181,15 +5268,18 @@ const wizardClientCopy = {
   }
 
   .pg-social-search {
+    flex: 0 0 auto;
     max-width: none;
     margin: 16px 0 14px;
   }
 
   .pg-social-option-grid {
+    flex: 1 1 auto;
+    min-height: 0;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
     gap: 10px;
-    max-height: min(54svh, 520px);
+    align-content: start;
     overflow: auto;
     padding: 2px 2px 8px;
     overscroll-behavior: contain;
@@ -5736,6 +5826,7 @@ const wizardClientCopy = {
   }
 
   .pg-social-draft-field input {
+    min-width: 0;
     width: 100%;
     border: 0;
     outline: none;
@@ -5744,6 +5835,33 @@ const wizardClientCopy = {
     font: inherit;
     font-size: 1.08rem;
     line-height: 1.35;
+  }
+
+  .pg-social-url-prefix-field {
+    display: flex;
+    min-width: 0;
+    width: 100%;
+    align-items: center;
+  }
+
+  .pg-social-url-prefix {
+    flex: 0 0 auto;
+    color: #9ba3b2;
+    font-size: 1.08rem;
+    line-height: 1.35;
+    user-select: none;
+  }
+
+  .pg-social-draft-field.is-email-draft .pg-social-url-prefix {
+    display: none;
+  }
+
+  .pg-social-url-prefix-field input {
+    padding-left: 1px;
+  }
+
+  .pg-social-draft-field:focus-within .pg-social-url-prefix {
+    color: #7b8495;
   }
 
   .pg-social-draft-field:focus-within {
