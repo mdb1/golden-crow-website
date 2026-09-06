@@ -29,9 +29,8 @@ const pageCopy = {
     sidebarTitle: 'Let’s create your\nPocket Genes profile',
     sidebarBody: 'Help people discover your work and connect with the right support.',
     sidebarHint: 'Your request starts as pending approval. Once approved, credentials arrive by email.',
-    signIn: 'Sign in',
-    languageLabel: 'ES',
-    languageAria: 'Open this flow in Spanish',
+    languageLabel: 'Mostrar en español',
+    languageAria: 'Mostrar este flujo en español',
     typeTitle: 'Are you an organization or an individual contributor?',
     typeBody: 'Choose how your profile should appear in Pocket Genes.',
     organizationLabel: 'Organization',
@@ -148,9 +147,8 @@ const pageCopy = {
     sidebarTitle: 'Creemos tu perfil\nen Pocket Genes',
     sidebarBody: 'Ayuda a que las personas descubran tu trabajo y conecten con el apoyo correcto.',
     sidebarHint: 'Tu solicitud empieza pendiente de aprobación. Cuando se apruebe, las credenciales llegan por email.',
-    signIn: 'Ingresar',
-    languageLabel: 'EN',
-    languageAria: 'Abrir este flujo en inglés',
+    languageLabel: 'Switch to English',
+    languageAria: 'Switch to English',
     typeTitle: '¿Sos una organización o un contribuidor individual?',
     typeBody: 'Elegí cómo debería aparecer tu perfil en Pocket Genes.',
     organizationLabel: 'Organización',
@@ -338,7 +336,6 @@ const wizardClientCopy = {
     <section class="pg-wizard-panel" aria-labelledby="wizard-current-title">
       <div class="pg-wizard-topbar">
         <a href={otherLanguageHref} aria-label={copy.languageAria}>{copy.languageLabel}</a>
-        <a href="https://golden-crow-backoffice.vercel.app/login">{copy.signIn}</a>
       </div>
 
       <form class="pg-wizard-form" data-wizard-form novalidate>
@@ -1880,14 +1877,40 @@ const wizardClientCopy = {
     right: 64px;
     display: inline-flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 22px;
     font-size: 1.04rem;
     font-weight: 650;
   }
 
   .pg-wizard-topbar a {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(185, 190, 202, 0.85);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.78);
     color: var(--wizard-ink);
+    padding: 0 16px;
+    box-shadow: 0 14px 28px rgba(27, 29, 36, 0.07);
     text-decoration: none;
+    white-space: nowrap;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      color 180ms ease,
+      transform 180ms ease;
+  }
+
+  .pg-wizard-topbar a:hover,
+  .pg-wizard-topbar a:focus-visible {
+    border-color: rgba(112, 65, 210, 0.55);
+    color: var(--wizard-purple-strong);
+    box-shadow: 0 16px 32px rgba(112, 65, 210, 0.14);
+    transform: translateY(-1px);
   }
 
   .pg-wizard-form {
@@ -3335,6 +3358,13 @@ const wizardClientCopy = {
     .pg-wizard-topbar {
       top: 28px;
       right: 24px;
+      max-width: calc(100% - 48px);
+      font-size: 0.94rem;
+    }
+
+    .pg-wizard-topbar a {
+      min-height: 40px;
+      padding: 0 14px;
     }
 
     .pg-wizard-form {
