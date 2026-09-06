@@ -2,10 +2,10 @@
 import PocketGenesPublicLayout from '../../../layouts/PocketGenesPublicLayout.astro';
 import ClientBookingWidget from '../../../components/ClientBookingWidget.astro';
 import {
-  WIZARD_SOCIAL_OPTIONS,
   getWizardCategoryOptions,
   getWizardCountryGroups,
   getWizardGeneticReportCategoryOptions,
+  getWizardSocialOptions,
 } from '../../../data/discoverPublisherWizard';
 
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
@@ -20,6 +20,7 @@ const organizationCategories = getWizardCategoryOptions('organization', locale);
 const individualCategories = getWizardCategoryOptions('individual', locale);
 const countryGroups = getWizardCountryGroups(locale);
 const geneticReportCategories = getWizardGeneticReportCategoryOptions(locale);
+const socialOptions = getWizardSocialOptions(locale);
 
 const pageCopy = {
   en: {
@@ -96,11 +97,25 @@ const pageCopy = {
     customColorLabel: 'Pick a different color',
     imagePreviewAlt: 'Profile preview',
     socialTitle: 'Add social media links',
-    socialBody: 'Optional. Add the channels where users can follow or contact you.',
+    socialBody: 'Optional. Choose the channels that matter and leave the rest out.',
     socialPlatformLabel: 'Platform',
     socialUrlLabel: 'URL',
     socialUrlPlaceholder: 'https://...',
     addSocial: 'Add social link',
+    socialOptional: 'Optional',
+    socialPickerTitle: 'Choose a network',
+    socialPickerBody: 'Tap a platform to add a dedicated link field with the right icon and example URL.',
+    socialSearch: 'Search social networks',
+    socialEmptySearch: 'No social networks match',
+    socialNoLinks: 'No social links added yet.',
+    socialAllAdded: 'All social networks added',
+    socialSelectedLabel: 'links ready',
+    socialSelectedSingleLabel: 'link ready',
+    socialSelectedEmptyLabel: 'Add URLs to the channels you selected.',
+    socialRemoveLabel: 'Remove',
+    socialLinkError: 'Use a valid URL. Contact email accepts an email address or mailto link.',
+    socialAddedTitle: 'Selected links',
+    socialAddedBody: 'These will appear on your public profile after approval.',
     providerTitle: 'Do you provide genomic services capable of producing a genetic report?',
     providerBody: 'This is only for organizations. Tell us if users in the regions you listed can receive a genomic report from your services.',
     providerYes: 'Yes',
@@ -201,11 +216,25 @@ const pageCopy = {
     customColorLabel: 'Elegir otro color',
     imagePreviewAlt: 'Vista previa del perfil',
     socialTitle: 'Sumá redes sociales',
-    socialBody: 'Opcional. Agregá los canales donde las personas pueden seguirte o contactarte.',
+    socialBody: 'Opcional. Elegí solo los canales importantes y dejá afuera el resto.',
     socialPlatformLabel: 'Plataforma',
     socialUrlLabel: 'URL',
     socialUrlPlaceholder: 'https://...',
     addSocial: 'Agregar red social',
+    socialOptional: 'Opcional',
+    socialPickerTitle: 'Elegí una red',
+    socialPickerBody: 'Tocá una plataforma para sumar un campo dedicado con el ícono y el ejemplo correcto.',
+    socialSearch: 'Buscar redes sociales',
+    socialEmptySearch: 'No hay redes que coincidan',
+    socialNoLinks: 'Todavía no agregaste redes.',
+    socialAllAdded: 'Todas las redes agregadas',
+    socialSelectedLabel: 'links listos',
+    socialSelectedSingleLabel: 'link listo',
+    socialSelectedEmptyLabel: 'Agregá URLs a los canales que elegiste.',
+    socialRemoveLabel: 'Quitar',
+    socialLinkError: 'Usá una URL válida. Email de contacto acepta un email o un enlace mailto.',
+    socialAddedTitle: 'Links seleccionados',
+    socialAddedBody: 'Van a aparecer en el perfil público después de la aprobación.',
     providerTitle: '¿La organización ofrece servicios genómicos capaces de producir un reporte genético?',
     providerBody: 'Esto aplica solo a organizaciones. Contanos si los usuarios de las regiones que listaste pueden recibir un reporte genómico a partir de tus servicios.',
     providerYes: 'Sí',
@@ -267,6 +296,16 @@ const wizardClientCopy = {
   imageLoadError: copy.imageLoadError,
   colorAutoExplanation: copy.colorAutoExplanation,
   colorCustomExplanation: copy.colorCustomExplanation,
+  socialUrlLabel: copy.socialUrlLabel,
+  socialUrlPlaceholder: copy.socialUrlPlaceholder,
+  socialNoLinks: copy.socialNoLinks,
+  socialAllAdded: copy.socialAllAdded,
+  socialSelectedLabel: copy.socialSelectedLabel,
+  socialSelectedSingleLabel: copy.socialSelectedSingleLabel,
+  socialSelectedEmptyLabel: copy.socialSelectedEmptyLabel,
+  socialRemoveLabel: copy.socialRemoveLabel,
+  socialLinkError: copy.socialLinkError,
+  socialEmptySearch: copy.socialEmptySearch,
 };
 ---
 
@@ -586,18 +625,62 @@ const wizardClientCopy = {
             <h2>{copy.socialTitle}</h2>
             <p>{copy.socialBody}</p>
           </div>
-          <div class="pg-social-list" data-social-list></div>
-          <button
-            type="button"
-            class="pg-secondary-action"
-            data-add-social
-            data-platform-label={copy.socialPlatformLabel}
-            data-url-label={copy.socialUrlLabel}
-            data-url-placeholder={copy.socialUrlPlaceholder}
-            data-social-options={JSON.stringify(WIZARD_SOCIAL_OPTIONS)}
+          <div
+            class="pg-social-workbench"
+            data-social-workbench
+            data-social-options={JSON.stringify(socialOptions)}
           >
-            {copy.addSocial}
-          </button>
+            <section class="pg-social-picker-panel">
+              <div class="pg-social-panel-heading">
+                <span>{copy.socialOptional}</span>
+                <h3>{copy.socialPickerTitle}</h3>
+                <p>{copy.socialPickerBody}</p>
+              </div>
+              <input
+                class="pg-search-field pg-social-search"
+                type="search"
+                data-social-search
+                placeholder={copy.socialSearch}
+                autocomplete="off"
+              />
+              <div class="pg-social-option-grid" data-social-option-grid>
+                {socialOptions.map((option) => (
+                  <button
+                    type="button"
+                    data-social-option={option.value}
+                    data-label={option.label}
+                    data-placeholder={option.placeholder}
+                    data-asset={option.assetName}
+                    aria-pressed="false"
+                  >
+                    <span class="pg-social-icon" aria-hidden="true">
+                      <img src={`/discover/social-network-assets/${option.assetName}.png`} alt="" loading="lazy" />
+                    </span>
+                    <span>
+                      <strong>{option.label}</strong>
+                      <small>{option.placeholder}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <p class="pg-social-empty-search" data-social-empty-search hidden>
+                {copy.socialEmptySearch}
+              </p>
+            </section>
+            <section class="pg-social-selected-panel">
+              <div class="pg-social-panel-heading">
+                <span>{copy.socialOptional}</span>
+                <h3>{copy.socialAddedTitle}</h3>
+                <p>{copy.socialAddedBody}</p>
+              </div>
+              <strong class="pg-social-count" data-social-count>0</strong>
+              <div class="pg-social-list" data-social-list>
+                <p class="pg-social-empty-state" data-social-empty-state>
+                  {copy.socialNoLinks}
+                </p>
+              </div>
+            </section>
+          </div>
           <p class="pg-skip-hint">{copy.skipHint}</p>
         </div>
 
@@ -745,7 +828,14 @@ const wizardClientCopy = {
     const suggestedColorSwatch = wizardRoot.querySelector('[data-suggested-color-swatch]');
     const colorHex = wizardRoot.querySelector('[data-color-hex]');
     const useSuggestedColor = wizardRoot.querySelector('[data-use-suggested-color]');
-    const addSocialButton = wizardRoot.querySelector('[data-add-social]');
+    const socialWorkbench = wizardRoot.querySelector('[data-social-workbench]');
+    const socialOptions = JSON.parse(socialWorkbench?.getAttribute('data-social-options') || '[]');
+    const socialOptionsByValue = new Map(socialOptions.map((option) => [option.value, option]));
+    const socialSearch = wizardRoot.querySelector('[data-social-search]');
+    const socialOptionGrid = wizardRoot.querySelector('[data-social-option-grid]');
+    const socialEmptySearch = wizardRoot.querySelector('[data-social-empty-search]');
+    const socialCount = wizardRoot.querySelector('[data-social-count]');
+    const socialEmptyState = wizardRoot.querySelector('[data-social-empty-state]');
     const socialList = wizardRoot.querySelector('[data-social-list]');
     const success = wizardRoot.querySelector('[data-wizard-success]');
     const openBooking = wizardRoot.querySelector('[data-open-booking]');
@@ -790,6 +880,19 @@ const wizardClientCopy = {
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
     }
 
+    function validSocialValue(platform, value) {
+      const trimmed = value.trim();
+      if (!trimmed) return true;
+
+      if (platform === 'email') {
+        if (validEmail(trimmed)) return true;
+        if (!trimmed.startsWith('mailto:')) return false;
+        return validEmail(trimmed.replace(/^mailto:/, ''));
+      }
+
+      return validUrl(trimmed);
+    }
+
     function selectedCategoryValues() {
       return state.categories[state.kind] || [];
     }
@@ -826,9 +929,12 @@ const wizardClientCopy = {
         }
       } else if (step === 'social') {
         const invalidSocial = Array.from(wizardRoot.querySelectorAll('[data-social-url]')).some(
-          (input) => input.value.trim() && !validUrl(input.value),
+          (input) => {
+            const platform = input.closest('[data-social-row]')?.getAttribute('data-social-row') || '';
+            return input.value.trim() && !validSocialValue(platform, input.value);
+          },
         );
-        message = invalidSocial ? copy.urlError : '';
+        message = invalidSocial ? copy.socialLinkError : '';
       } else if (step === 'provider' && state.geneticReportProvider === null) {
         message = copy.required;
       }
@@ -1059,6 +1165,7 @@ const wizardClientCopy = {
       updateProviderUi();
       updateDescriptionUi();
       updateColorUi();
+      updateSocialUi();
     }
 
     function toggleCountry(value) {
@@ -1289,56 +1396,154 @@ const wizardClientCopy = {
       }
     }
 
-    function createSocialRow() {
-      if (!addSocialButton || !socialList) return;
-      const options = JSON.parse(addSocialButton.getAttribute('data-social-options') || '[]');
+    function socialAssetSrc(assetName) {
+      return `/discover/social-network-assets/${assetName}.png`;
+    }
+
+    function selectedSocialKeys() {
+      return new Set(
+        Array.from(wizardRoot.querySelectorAll('[data-social-row]')).map((row) =>
+          row.getAttribute('data-social-row'),
+        ),
+      );
+    }
+
+    function updateSocialUi() {
+      const selected = selectedSocialKeys();
+      const query = socialSearch?.value.trim().toLowerCase() || '';
+      let availableVisibleCount = 0;
+      let filledCount = 0;
+
+      wizardRoot.querySelectorAll('[data-social-option]').forEach((button) => {
+        const value = button.getAttribute('data-social-option');
+        const label = button.getAttribute('data-label') || '';
+        const placeholder = button.getAttribute('data-placeholder') || '';
+        const selectedAlready = selected.has(value);
+        const matches = !query || `${label} ${placeholder}`.toLowerCase().includes(query);
+        const visible = !selectedAlready && matches;
+
+        button.hidden = !visible;
+        button.classList.toggle('is-selected', selectedAlready);
+        button.setAttribute('aria-pressed', selectedAlready ? 'true' : 'false');
+        if (visible) availableVisibleCount += 1;
+      });
+
+      wizardRoot.querySelectorAll('[data-social-row]').forEach((row) => {
+        const input = row.querySelector('[data-social-url]');
+        const error = row.querySelector('[data-social-url-error]');
+        const platform = row.getAttribute('data-social-row') || '';
+        const hasValue = Boolean(input?.value.trim());
+        const valid = !hasValue || validSocialValue(platform, input.value);
+
+        row.classList.toggle('has-value', hasValue);
+        row.classList.toggle('has-error', !valid);
+        input?.setAttribute('aria-invalid', valid ? 'false' : 'true');
+        if (error) {
+          error.hidden = valid;
+        }
+        if (hasValue && valid) filledCount += 1;
+      });
+
+      if (socialEmptySearch) {
+        socialEmptySearch.hidden = availableVisibleCount > 0;
+        socialEmptySearch.textContent = selected.size === socialOptions.length
+          ? copy.socialAllAdded
+          : copy.socialEmptySearch;
+      }
+
+      if (socialEmptyState) {
+        socialEmptyState.hidden = selected.size > 0;
+      }
+
+      if (socialCount) {
+        if (filledCount === 0) {
+          socialCount.textContent = selected.size > 0
+            ? copy.socialSelectedEmptyLabel
+            : copy.socialNoLinks;
+        } else {
+          socialCount.textContent = `${filledCount} ${
+            filledCount === 1 ? copy.socialSelectedSingleLabel : copy.socialSelectedLabel
+          }`;
+        }
+      }
+
+      socialWorkbench?.classList.toggle('has-social-links', selected.size > 0);
+      socialOptionGrid?.classList.toggle('is-empty', availableVisibleCount === 0);
+    }
+
+    function createSocialRow(option) {
+      if (!socialList || !option || selectedSocialKeys().has(option.value)) return;
+
       const row = document.createElement('div');
       row.className = 'pg-social-row';
+      row.setAttribute('data-social-row', option.value);
 
-      const selectLabel = document.createElement('label');
-      const selectCaption = document.createElement('span');
-      selectCaption.textContent = addSocialButton.getAttribute('data-platform-label') || 'Platform';
-      const select = document.createElement('select');
-      select.setAttribute('data-social-platform', '');
-      options.forEach((option) => {
-        const item = document.createElement('option');
-        item.value = option.value;
-        item.textContent = option.label;
-        select.append(item);
+      const identity = document.createElement('div');
+      identity.className = 'pg-social-row-identity';
+
+      const icon = document.createElement('span');
+      icon.className = 'pg-social-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      const image = document.createElement('img');
+      image.src = socialAssetSrc(option.assetName);
+      image.alt = '';
+      image.loading = 'lazy';
+      icon.append(image);
+
+      const label = document.createElement('span');
+      const name = document.createElement('strong');
+      name.textContent = option.label;
+      const hint = document.createElement('small');
+      hint.textContent = option.placeholder || copy.socialUrlPlaceholder;
+      label.append(name, hint);
+      identity.append(icon, label);
+
+      const inputWrap = document.createElement('label');
+      inputWrap.className = 'pg-social-url-field';
+      const inputCaption = document.createElement('span');
+      inputCaption.textContent = copy.socialUrlLabel;
+      const input = document.createElement('input');
+      input.type = option.value === 'email' ? 'text' : 'url';
+      input.maxLength = 1000;
+      input.placeholder = option.placeholder || copy.socialUrlPlaceholder;
+      input.setAttribute('data-social-url', '');
+      input.setAttribute('aria-label', option.label);
+      const inputError = document.createElement('small');
+      inputError.className = 'pg-social-url-error';
+      inputError.setAttribute('data-social-url-error', '');
+      inputError.textContent = copy.socialLinkError;
+      inputError.hidden = true;
+      input.addEventListener('input', () => {
+        updateSocialUi();
+        renderStep();
       });
-      selectLabel.append(selectCaption, select);
-
-      const urlLabel = document.createElement('label');
-      const urlCaption = document.createElement('span');
-      urlCaption.textContent = addSocialButton.getAttribute('data-url-label') || 'URL';
-      const url = document.createElement('input');
-      url.type = 'url';
-      url.maxLength = 1000;
-      url.placeholder = addSocialButton.getAttribute('data-url-placeholder') || 'https://...';
-      url.setAttribute('data-social-url', '');
-      url.addEventListener('input', () => renderStep());
-      urlLabel.append(urlCaption, url);
+      inputWrap.append(inputCaption, input, inputError);
 
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'pg-social-remove';
-      remove.textContent = 'x';
-      remove.setAttribute('aria-label', locale === 'es' ? 'Quitar red social' : 'Remove social link');
+      remove.setAttribute('aria-label', `${copy.socialRemoveLabel} ${option.label}`);
+      const removeIcon = document.createElement('span');
+      removeIcon.setAttribute('aria-hidden', 'true');
+      removeIcon.textContent = 'x';
+      remove.append(removeIcon);
       remove.addEventListener('click', () => {
         row.remove();
+        updateSocialUi();
         renderStep();
       });
 
-      row.append(selectLabel, urlLabel, remove);
+      row.append(identity, inputWrap, remove);
       socialList.append(row);
-      url.focus();
+      updateSocialUi();
       renderStep();
+      requestAnimationFrame(() => input.focus());
     }
 
     function collectSocialLinks() {
       const social = {};
-      wizardRoot.querySelectorAll('.pg-social-row').forEach((row) => {
-        const platform = row.querySelector('[data-social-platform]')?.value;
+      wizardRoot.querySelectorAll('[data-social-row]').forEach((row) => {
+        const platform = row.getAttribute('data-social-row');
         const url = row.querySelector('[data-social-url]')?.value.trim();
         if (platform && url) {
           social[platform] = url;
@@ -1486,7 +1691,13 @@ const wizardClientCopy = {
 
     countrySearch?.addEventListener('input', () => filterCountryOptions(countrySearch.value));
     categorySearch?.addEventListener('input', () => filterCategoryOptions(categorySearch.value));
-    addSocialButton?.addEventListener('click', createSocialRow);
+    socialSearch?.addEventListener('input', updateSocialUi);
+    wizardRoot.querySelectorAll('[data-social-option]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const option = socialOptionsByValue.get(button.getAttribute('data-social-option'));
+        createSocialRow(option);
+      });
+    });
     altDescriptionToggle?.addEventListener('click', () => {
       if (!altDescriptionField) return;
       altDescriptionField.hidden = false;
@@ -2024,8 +2235,7 @@ const wizardClientCopy = {
 
   .pg-input-shell input,
   .pg-input-shell textarea,
-  .pg-social-row input,
-  .pg-social-row select {
+  .pg-social-url-field input {
     width: 100%;
     border: 0;
     outline: none;
@@ -2272,6 +2482,7 @@ const wizardClientCopy = {
   .pg-large-field:focus-visible,
   .pg-picker-popover input:focus,
   .pg-search-field:focus,
+  .pg-social-url-field:focus-within,
   .pg-social-row:focus-within {
     border-color: var(--wizard-purple);
     box-shadow: 0 0 0 4px rgba(111, 60, 195, 0.12);
@@ -2527,48 +2738,263 @@ const wizardClientCopy = {
     text-align: center;
   }
 
+  .pg-social-workbench {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+    gap: 18px;
+    align-items: start;
+  }
+
+  .pg-social-picker-panel,
+  .pg-social-selected-panel {
+    border: 1px solid rgba(200, 203, 210, 0.86);
+    border-radius: 24px;
+    background: #ffffff;
+    box-shadow: 0 18px 38px rgba(32, 33, 39, 0.06);
+    padding: 18px;
+  }
+
+  .pg-social-picker-panel {
+    background:
+      linear-gradient(135deg, rgba(111, 60, 195, 0.055), rgba(20, 149, 143, 0.035)),
+      #ffffff;
+  }
+
+  .pg-social-panel-heading {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .pg-social-panel-heading > span {
+    width: fit-content;
+    border-radius: 999px;
+    background: #eef8f7;
+    color: #0f6f6a;
+    padding: 5px 10px;
+    font-size: 0.76rem;
+    line-height: 1;
+    font-weight: 780;
+    text-transform: uppercase;
+  }
+
+  .pg-social-panel-heading h3 {
+    margin: 0;
+    color: var(--wizard-ink);
+    font-size: 1.08rem;
+    line-height: 1.24;
+  }
+
+  .pg-social-panel-heading p {
+    margin: 0;
+    color: var(--wizard-muted);
+    font-size: 0.92rem;
+    line-height: 1.42;
+  }
+
+  .pg-social-search {
+    max-width: none;
+    margin-bottom: 14px;
+  }
+
+  .pg-social-option-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    max-height: min(46vh, 430px);
+    overflow: auto;
+    padding: 2px 2px 8px;
+  }
+
+  .pg-social-option-grid button {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 76px;
+    border: 1px solid rgba(200, 203, 210, 0.9);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.88);
+    padding: 12px;
+    color: var(--wizard-ink);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  }
+
+  .pg-social-option-grid button:hover {
+    transform: translateY(-2px);
+    border-color: rgba(111, 60, 195, 0.5);
+    background: #ffffff;
+    box-shadow: 0 14px 28px rgba(111, 60, 195, 0.1);
+  }
+
+  .pg-social-option-grid button span:last-child {
+    min-width: 0;
+  }
+
+  .pg-social-option-grid strong,
+  .pg-social-row-identity strong {
+    display: block;
+    overflow: hidden;
+    color: var(--wizard-ink);
+    font-size: 0.94rem;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pg-social-option-grid small,
+  .pg-social-row-identity small {
+    display: block;
+    overflow: hidden;
+    margin-top: 4px;
+    color: var(--wizard-muted);
+    font-size: 0.78rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pg-social-icon {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 8px 18px rgba(32, 33, 39, 0.1);
+    overflow: hidden;
+  }
+
+  .pg-social-icon img {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: contain;
+  }
+
+  .pg-social-empty-search,
+  .pg-social-empty-state {
+    margin: 0;
+    border: 1px dashed rgba(200, 203, 210, 0.95);
+    border-radius: 18px;
+    color: var(--wizard-muted);
+    padding: 18px;
+    font-size: 0.94rem;
+    line-height: 1.4;
+  }
+
+  .pg-social-selected-panel {
+    position: sticky;
+    top: 32px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .pg-social-count {
+    width: fit-content;
+    max-width: 100%;
+    border-radius: 999px;
+    background: var(--wizard-purple-soft);
+    color: var(--wizard-purple);
+    padding: 8px 12px;
+    font-size: 0.86rem;
+    line-height: 1.32;
+    font-weight: 800;
+  }
+
+  .pg-social-workbench.has-social-links .pg-social-count {
+    background: #eef8f7;
+    color: #0f6f6a;
+  }
+
   .pg-social-list {
     display: grid;
-    gap: 12px;
+    gap: 10px;
   }
 
   .pg-social-row {
     display: grid;
-    grid-template-columns: 210px minmax(0, 1fr) 44px;
-    gap: 12px;
-    align-items: end;
+    grid-template-columns: minmax(170px, 0.8fr) minmax(0, 1fr) 44px;
+    gap: 10px;
+    align-items: center;
     border: 1.5px solid var(--wizard-border);
-    border-radius: 16px;
+    border-radius: 18px;
     background: #ffffff;
     padding: 12px;
+    animation: pgSocialRowIn 220ms ease both;
+    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
   }
 
-  .pg-social-row label {
-    display: grid;
+  .pg-social-row.has-value {
+    border-color: rgba(20, 149, 143, 0.38);
+    background: linear-gradient(135deg, rgba(238, 248, 247, 0.72), #ffffff);
+  }
+
+  .pg-social-row.has-error {
+    border-color: rgba(159, 18, 57, 0.45);
+    background: #fff7f8;
+  }
+
+  .pg-social-row-identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .pg-social-url-field {
+    display: flex;
+    flex-direction: column;
     gap: 4px;
+    min-height: 58px;
+    min-width: 0;
+    border: 1px solid rgba(200, 203, 210, 0.9);
+    border-radius: 16px;
+    background: #fbfcfd;
+    padding: 8px 12px;
   }
 
-  .pg-social-row span {
+  .pg-social-url-field > span {
     color: var(--wizard-muted);
-    font-size: 0.8rem;
-    font-weight: 650;
+    font-size: 0.76rem;
+    font-weight: 740;
   }
 
-  .pg-social-row select,
-  .pg-social-row input {
-    min-height: 42px;
+  .pg-social-url-field input {
+    min-height: 28px;
+    font-size: 0.98rem;
+  }
+
+  .pg-social-url-error {
+    color: #9f1239;
+    font-size: 0.76rem;
+    font-weight: 700;
+    line-height: 1.3;
   }
 
   .pg-social-remove {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
+    display: inline-grid;
+    place-items: center;
     border: 1px solid var(--wizard-border);
     border-radius: 999px;
     background: #ffffff;
     color: var(--wizard-muted);
     font: inherit;
-    font-weight: 760;
+    font-weight: 820;
     cursor: pointer;
+    transition: transform 180ms ease, border-color 180ms ease, color 180ms ease;
+  }
+
+  .pg-social-remove:hover {
+    transform: scale(1.04);
+    border-color: rgba(159, 18, 57, 0.3);
+    color: #9f1239;
   }
 
   .pg-wizard-error {
@@ -2840,6 +3266,17 @@ const wizardClientCopy = {
     }
   }
 
+  @keyframes pgSocialRowIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   @keyframes pgStepIn {
     from {
       opacity: 0;
@@ -2919,12 +3356,16 @@ const wizardClientCopy = {
       justify-self: start;
     }
 
-    .pg-social-row {
+    .pg-social-workbench {
       grid-template-columns: 1fr;
     }
 
-    .pg-social-remove {
-      justify-self: end;
+    .pg-social-selected-panel {
+      position: static;
+    }
+
+    .pg-social-row {
+      grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1fr) 44px;
     }
 
     .pg-wizard-actionbar {
@@ -2966,6 +3407,15 @@ const wizardClientCopy = {
     .pg-suggested-color-button {
       justify-content: center;
       width: 100%;
+    }
+
+    .pg-social-option-grid,
+    .pg-social-row {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-social-remove {
+      justify-self: end;
     }
 
     .pg-primary-button,

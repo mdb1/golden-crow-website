@@ -7,6 +7,13 @@ export type WizardCategoryOption = {
   flag?: string;
 };
 
+export type WizardSocialOption = {
+  value: string;
+  label: string;
+  placeholder: string;
+  assetName: string;
+};
+
 export type WizardCountryGroup = {
   key: 'recommended' | 'all';
   label: string;
@@ -353,20 +360,248 @@ const COUNTRY_CODES = [
 const RECOMMENDED_COUNTRY_CODES = ['GLOBAL', 'AR', 'US', 'AU', 'NZ'] as const;
 
 export const WIZARD_SOCIAL_OPTIONS = [
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'linkedin', label: 'LinkedIn' },
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'twitter', label: 'X / Twitter' },
-  { value: 'youtube', label: 'YouTube' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'telegram', label: 'Telegram' },
-  { value: 'researchgate', label: 'ResearchGate' },
-  { value: 'orcid', label: 'ORCID' },
-  { value: 'google_scholar', label: 'Google Scholar' },
-  { value: 'github', label: 'GitHub' },
-  { value: 'other', label: 'Other' },
-] as const satisfies readonly WizardCategoryOption[];
+  {
+    value: 'facebook',
+    label: 'Facebook profile',
+    placeholder: 'https://facebook.com/...',
+    assetName: 'social_facebook',
+  },
+  {
+    value: 'twitter',
+    label: 'X / Twitter profile',
+    placeholder: 'https://x.com/...',
+    assetName: 'social_twitter',
+  },
+  {
+    value: 'instagram',
+    label: 'Instagram profile',
+    placeholder: 'https://instagram.com/...',
+    assetName: 'social_instagram',
+  },
+  {
+    value: 'tiktok',
+    label: 'TikTok profile',
+    placeholder: 'https://tiktok.com/@...',
+    assetName: 'social_tiktok',
+  },
+  {
+    value: 'youtube',
+    label: 'YouTube channel',
+    placeholder: 'https://youtube.com/@...',
+    assetName: 'social_youtube',
+  },
+  {
+    value: 'linkedin',
+    label: 'LinkedIn profile',
+    placeholder: 'https://linkedin.com/in/...',
+    assetName: 'social_linkedin',
+  },
+  {
+    value: 'github',
+    label: 'GitHub profile',
+    placeholder: 'https://github.com/...',
+    assetName: 'social_github',
+  },
+  {
+    value: 'gitlab',
+    label: 'GitLab profile',
+    placeholder: 'https://gitlab.com/...',
+    assetName: 'social_gitlab',
+  },
+  {
+    value: 'stack_overflow',
+    label: 'Stack Overflow profile',
+    placeholder: 'https://stackoverflow.com/users/...',
+    assetName: 'social_stack_overflow',
+  },
+  {
+    value: 'hugging_face',
+    label: 'Hugging Face profile',
+    placeholder: 'https://huggingface.co/...',
+    assetName: 'social_hugging_face',
+  },
+  {
+    value: 'kaggle',
+    label: 'Kaggle profile',
+    placeholder: 'https://kaggle.com/...',
+    assetName: 'social_kaggle',
+  },
+  {
+    value: 'researchgate',
+    label: 'ResearchGate profile',
+    placeholder: 'https://researchgate.net/profile/...',
+    assetName: 'social_researchgate',
+  },
+  {
+    value: 'orcid',
+    label: 'ORCID',
+    placeholder: 'https://orcid.org/...',
+    assetName: 'social_orcid',
+  },
+  {
+    value: 'google_scholar',
+    label: 'Google Scholar profile',
+    placeholder: 'https://scholar.google.com/...',
+    assetName: 'social_google_scholar',
+  },
+  {
+    value: 'pubmed',
+    label: 'PubMed profile',
+    placeholder: 'https://pubmed.ncbi.nlm.nih.gov/...',
+    assetName: 'social_pubmed',
+  },
+  {
+    value: 'scopus',
+    label: 'Scopus profile',
+    placeholder: 'https://scopus.com/...',
+    assetName: 'social_scopus',
+  },
+  {
+    value: 'web_of_science',
+    label: 'Web of Science profile',
+    placeholder: 'https://webofscience.com/...',
+    assetName: 'social_web_of_science',
+  },
+  {
+    value: 'biostars',
+    label: 'BioStars profile',
+    placeholder: 'https://biostars.org/u/...',
+    assetName: 'social_biostars',
+  },
+  {
+    value: 'protocols_io',
+    label: 'protocols.io profile',
+    placeholder: 'https://protocols.io/...',
+    assetName: 'social_protocols_io',
+  },
+  {
+    value: 'osf',
+    label: 'OSF profile',
+    placeholder: 'https://osf.io/...',
+    assetName: 'social_osf',
+  },
+  {
+    value: 'zenodo',
+    label: 'Zenodo profile',
+    placeholder: 'https://zenodo.org/...',
+    assetName: 'social_zenodo',
+  },
+  {
+    value: 'whatsapp',
+    label: 'WhatsApp',
+    placeholder: 'https://wa.me/...',
+    assetName: 'social_whatsapp',
+  },
+  {
+    value: 'telegram',
+    label: 'Telegram',
+    placeholder: 'https://t.me/...',
+    assetName: 'social_telegram',
+  },
+  {
+    value: 'threads',
+    label: 'Threads profile',
+    placeholder: 'https://threads.net/@...',
+    assetName: 'social_threads',
+  },
+  {
+    value: 'pinterest',
+    label: 'Pinterest profile',
+    placeholder: 'https://pinterest.com/...',
+    assetName: 'social_pinterest',
+  },
+  {
+    value: 'snapchat',
+    label: 'Snapchat profile',
+    placeholder: 'https://snapchat.com/add/...',
+    assetName: 'social_snapchat',
+  },
+  {
+    value: 'reddit',
+    label: 'Reddit profile',
+    placeholder: 'https://reddit.com/u/...',
+    assetName: 'social_reddit',
+  },
+  {
+    value: 'discord',
+    label: 'Discord server',
+    placeholder: 'https://discord.gg/...',
+    assetName: 'social_discord',
+  },
+  {
+    value: 'twitch',
+    label: 'Twitch channel',
+    placeholder: 'https://twitch.tv/...',
+    assetName: 'social_twitch',
+  },
+  {
+    value: 'bluesky',
+    label: 'Bluesky profile',
+    placeholder: 'https://bsky.app/profile/...',
+    assetName: 'social_bluesky',
+  },
+  {
+    value: 'mastodon',
+    label: 'Mastodon profile',
+    placeholder: 'https://mastodon.social/@...',
+    assetName: 'social_mastodon',
+  },
+  {
+    value: 'email',
+    label: 'Contact email',
+    placeholder: 'contact@example.org or mailto:...',
+    assetName: 'social_email',
+  },
+  {
+    value: 'other',
+    label: 'Other link',
+    placeholder: 'https://...',
+    assetName: 'social_other',
+  },
+] as const satisfies readonly WizardSocialOption[];
+
+const SOCIAL_LABELS_ES: Record<string, string> = {
+  'Facebook profile': 'Perfil de Facebook',
+  'X / Twitter profile': 'Perfil en X / Twitter',
+  'Instagram profile': 'Perfil de Instagram',
+  'TikTok profile': 'Perfil de TikTok',
+  'YouTube channel': 'Canal de YouTube',
+  'LinkedIn profile': 'Perfil de LinkedIn',
+  'GitHub profile': 'Perfil de GitHub',
+  'GitLab profile': 'Perfil de GitLab',
+  'Stack Overflow profile': 'Perfil de Stack Overflow',
+  'Hugging Face profile': 'Perfil de Hugging Face',
+  'Kaggle profile': 'Perfil de Kaggle',
+  'ResearchGate profile': 'Perfil de ResearchGate',
+  ORCID: 'ORCID',
+  'Google Scholar profile': 'Perfil de Google Scholar',
+  'PubMed profile': 'Perfil de PubMed',
+  'Scopus profile': 'Perfil de Scopus',
+  'Web of Science profile': 'Perfil de Web of Science',
+  'BioStars profile': 'Perfil de BioStars',
+  'protocols.io profile': 'Perfil de protocols.io',
+  'OSF profile': 'Perfil de OSF',
+  'Zenodo profile': 'Perfil de Zenodo',
+  WhatsApp: 'WhatsApp',
+  Telegram: 'Telegram',
+  'Threads profile': 'Perfil de Threads',
+  'Pinterest profile': 'Perfil de Pinterest',
+  'Snapchat profile': 'Perfil de Snapchat',
+  'Reddit profile': 'Perfil de Reddit',
+  'Discord server': 'Servidor de Discord',
+  'Twitch channel': 'Canal de Twitch',
+  'Bluesky profile': 'Perfil de Bluesky',
+  'Mastodon profile': 'Perfil de Mastodon',
+  'Contact email': 'Email de contacto',
+  'Other link': 'Otro enlace',
+};
+
+export function getWizardSocialOptions(locale: WizardLocale) {
+  return WIZARD_SOCIAL_OPTIONS.map((option) => ({
+    ...option,
+    label: locale === 'es' ? SOCIAL_LABELS_ES[option.label] ?? option.label : option.label,
+  }));
+}
 
 export const WIZARD_GENETIC_REPORT_CATEGORY_OPTIONS = [
   { value: '', label: 'Not sure yet', labelEs: 'No estoy seguro todavía' },
