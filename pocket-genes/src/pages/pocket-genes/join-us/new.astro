@@ -3296,9 +3296,16 @@ const wizardClientCopy = {
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
-    scrollbar-gutter: stable;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .pg-wizard-form::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
   }
 
   .pg-wizard-page[data-scroll-mode='none'] .pg-wizard-form,
@@ -5582,6 +5589,14 @@ const wizardClientCopy = {
     overflow: auto;
     padding: 48px;
     color: #ffffff;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .pg-wizard-success::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
   }
 
   .pg-success-circle {
