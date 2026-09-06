@@ -187,6 +187,10 @@ describe("DiscoverOrganizationBrowser", () => {
     const countryRow = screen.getByTestId(
       "publisher-country-row-multi-country-lab",
     );
+    const metadataRow = screen.getByTestId(
+      "publisher-metadata-row-multi-country-lab",
+    );
+    expect(metadataRow.className).toContain("sm:grid-cols-2");
     expect(countryRow.textContent).toContain("United States (US)");
     expect(countryRow.textContent).not.toContain("Laboratory");
   });

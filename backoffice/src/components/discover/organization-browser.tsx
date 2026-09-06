@@ -374,8 +374,8 @@ function DiscoverPublisherBrowser({
     [language],
   );
   const listGridClass = isIndividual
-    ? "2xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_minmax(0,0.85fr)_auto]"
-    : "2xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)_minmax(0,1.15fr)_auto]";
+    ? "xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1.45fr)_auto]"
+    : "xl:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_auto]";
 
   function publishersFromPage(page: PublisherPage): PublisherRecord[] {
     return isIndividual
@@ -713,13 +713,12 @@ function DiscoverPublisherBrowser({
       <div className="glass-panel overflow-hidden">
         <div
           className={cn(
-            "hidden gap-4 border-b border-border/80 px-5 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground 2xl:grid",
+            "hidden gap-4 border-b border-border/80 px-5 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground xl:grid",
             listGridClass,
           )}
         >
           <span>{isIndividual ? t("Individual publisher") : t("Organization")}</span>
-          <span>{t("Categories")}</span>
-          <span>{t("Status")}</span>
+          <span>{t("Categories")} / {t("Status")}</span>
           <span className="text-right">{t("Action")}</span>
         </div>
 
@@ -758,7 +757,7 @@ function DiscoverPublisherBrowser({
               <div
                 key={publisher.id}
                 className={cn(
-                  "grid gap-4 border-b border-border/70 px-4 py-4 last:border-b-0 lg:px-5 lg:py-5 2xl:items-start",
+                  "grid gap-4 border-b border-border/70 px-4 py-4 last:border-b-0 lg:px-5 lg:py-5 xl:items-start",
                   listGridClass,
                 )}
               >
@@ -804,78 +803,21 @@ function DiscoverPublisherBrowser({
                   </div>
                 </div>
 
-                <div className="min-w-0 space-y-2">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground 2xl:hidden">
-                    {t("Categories")}
-                  </span>
-                  <div
-                    className="flex flex-wrap gap-1.5"
-                    title={categoryBadgeGroup.title}
-                  >
-                    {categoryLabels.length ? (
-                      <>
-                        {categoryBadgeGroup.visibleLabels.map((label) => (
-                          <Badge
-                            key={label}
-                            variant="secondary"
-                            className="rounded-md"
-                          >
-                            {t(label)}
-                          </Badge>
-                        ))}
-                        {categoryBadgeGroup.hiddenCount ? (
-                          <Badge variant="outline" className="rounded-md">
-                            +{categoryBadgeGroup.hiddenCount}
-                          </Badge>
-                        ) : null}
-                      </>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">
-                        {t("Unspecified")}
-                      </span>
-                    )}
-                  </div>
-                  <CountryPillRow
-                    countries={countryPills}
-                    emptyLabel={t("No country")}
-                    overflowLabel={t("Countries")}
-                    testId={`publisher-country-row-${publisher.id}`}
-                  />
-                </div>
-
-                <div className="min-w-0 space-y-2">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground 2xl:hidden">
-                    {t("Status")}
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Badge variant={statusBadgeVariant(publisher.status)}>
-                      {t(discoverOrganizationStatusLabel(publisher.status))}
-                    </Badge>
-                    {publisher.verified ? (
-                      <Badge variant="success">{t("Verified")}</Badge>
-                    ) : null}
-                  </div>
-
-                  {!isIndividual ? (
+                <div
+                  className="grid min-w-0 gap-4 sm:grid-cols-2"
+                  data-testid={`publisher-metadata-row-${publisher.id}`}
+                >
+                  <div className="min-w-0 space-y-2">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      {t("Categories")}
+                    </span>
                     <div
                       className="flex flex-wrap gap-1.5"
-                      title={geneticReportBadgeGroup.title}
+                      title={categoryBadgeGroup.title}
                     >
-                      <Badge
-                        variant={
-                          organization.isGeneticReportProvider
-                            ? "violet"
-                            : "outline"
-                        }
-                        className="rounded-md"
-                      >
-                        {organization.isGeneticReportProvider
-                          ? t("Genetic report provider")
-                          : t("Not a genetic report provider")}
-                      </Badge>
-                      {geneticReportLabels.length ? (
+                      {categoryLabels.length ? (
                         <>
-                          {geneticReportBadgeGroup.visibleLabels.map((label) => (
+                          {categoryBadgeGroup.visibleLabels.map((label) => (
                             <Badge
                               key={label}
                               variant="secondary"
@@ -884,27 +826,89 @@ function DiscoverPublisherBrowser({
                               {t(label)}
                             </Badge>
                           ))}
-                          {geneticReportBadgeGroup.hiddenCount ? (
+                          {categoryBadgeGroup.hiddenCount ? (
                             <Badge variant="outline" className="rounded-md">
-                              +{geneticReportBadgeGroup.hiddenCount}
+                              +{categoryBadgeGroup.hiddenCount}
                             </Badge>
                           ) : null}
                         </>
                       ) : (
-                        <Badge variant="secondary" className="rounded-md">
-                          {t("No genetic report category")}
-                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {t("Unspecified")}
+                        </span>
                       )}
                     </div>
-                  ) : null}
+                    <CountryPillRow
+                      countries={countryPills}
+                      emptyLabel={t("No country")}
+                      overflowLabel={t("Countries")}
+                      testId={`publisher-country-row-${publisher.id}`}
+                    />
+                  </div>
 
-                  <div className="text-sm text-muted-foreground">
-                    {t("Updated")}:{" "}
-                    {formatDateTime(publisher.updatedAt) ?? t("No timestamp")}
+                  <div className="min-w-0 space-y-2">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      {t("Status")}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant={statusBadgeVariant(publisher.status)}>
+                        {t(discoverOrganizationStatusLabel(publisher.status))}
+                      </Badge>
+                      {publisher.verified ? (
+                        <Badge variant="success">{t("Verified")}</Badge>
+                      ) : null}
+                    </div>
+
+                    {!isIndividual ? (
+                      <div
+                        className="flex flex-wrap gap-1.5"
+                        title={geneticReportBadgeGroup.title}
+                      >
+                        <Badge
+                          variant={
+                            organization.isGeneticReportProvider
+                              ? "violet"
+                              : "outline"
+                          }
+                          className="rounded-md"
+                        >
+                          {organization.isGeneticReportProvider
+                            ? t("Genetic report provider")
+                            : t("Not a genetic report provider")}
+                        </Badge>
+                        {geneticReportLabels.length ? (
+                          <>
+                            {geneticReportBadgeGroup.visibleLabels.map((label) => (
+                              <Badge
+                                key={label}
+                                variant="secondary"
+                                className="rounded-md"
+                              >
+                                {t(label)}
+                              </Badge>
+                            ))}
+                            {geneticReportBadgeGroup.hiddenCount ? (
+                              <Badge variant="outline" className="rounded-md">
+                                +{geneticReportBadgeGroup.hiddenCount}
+                              </Badge>
+                            ) : null}
+                          </>
+                        ) : (
+                          <Badge variant="secondary" className="rounded-md">
+                            {t("No genetic report category")}
+                          </Badge>
+                        )}
+                      </div>
+                    ) : null}
+
+                    <div className="text-sm text-muted-foreground">
+                      {t("Updated")}:{" "}
+                      {formatDateTime(publisher.updatedAt) ?? t("No timestamp")}
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 2xl:justify-end">
+                <div className="flex flex-wrap gap-2 xl:justify-end">
                   <Button variant="outline" size="sm" asChild>
                     <Link href={detailHref(publisher.id)}>
                       {t("Open")}
