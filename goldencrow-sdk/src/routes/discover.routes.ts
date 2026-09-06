@@ -90,6 +90,22 @@ const OptionalPublisherTextSchema = z.preprocess(
   (value) => (typeof value === "string" && !value.trim() ? undefined : value),
   z.string().trim().max(5000).optional(),
 );
+const PublicImageUploadDataUrlSchema = z.preprocess(
+  (value) => (typeof value === "string" && !value.trim() ? undefined : value),
+  z
+    .string()
+    .trim()
+    .max(900000)
+    .regex(/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/)
+    .optional(),
+);
+const PublicImageUploadNameSchema = z.preprocess(
+  (value) => (typeof value === "string" && !value.trim() ? undefined : value),
+  z.string().trim().max(180).optional(),
+);
+const PublicImageUploadMimeTypeSchema = z
+  .enum(["image/png", "image/jpeg", "image/webp"])
+  .optional();
 
 const SocialLinksSchema = z.object({
   facebook: z.string().optional(),
@@ -132,6 +148,9 @@ const PublisherRequestBodySchema = z.object({
   locale: z.enum(["en", "es"]),
   name: z.string().trim().min(1).max(180),
   imageUrl: OptionalPublisherUrlSchema,
+  imageUploadDataUrl: PublicImageUploadDataUrlSchema,
+  imageUploadName: PublicImageUploadNameSchema,
+  imageUploadMimeType: PublicImageUploadMimeTypeSchema,
   websiteUrl: OptionalPublisherUrlSchema,
   description: OptionalPublisherTextSchema,
   description_en: OptionalPublisherTextSchema,

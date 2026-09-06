@@ -420,6 +420,9 @@ type PublicPublisherRequestInput = {
   kind?: unknown;
   name?: unknown;
   imageUrl?: unknown;
+  imageUploadDataUrl?: unknown;
+  imageUploadName?: unknown;
+  imageUploadMimeType?: unknown;
   websiteUrl?: unknown;
   description?: unknown;
   description_en?: unknown;
@@ -590,6 +593,78 @@ function normalizeRequiredString(value: unknown, label: string) {
   }
 
   return normalized;
+}
+
+function normalizePublicImageUploadDataUrl(value: unknown): string | undefined {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (normalized.length > 900000) {
+    throw new AdminRepositoryError("Uploaded image is too large.", 400);
+  }
+
+  if (!/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
+    throw new AdminRepositoryError(
+      "Uploaded image must be a PNG, JPG, or WebP data URL.",
+      400,
+    );
+  }
+
+  return normalized;
+}
+
+function normalizePublicImageUploadMimeType(value: unknown): string | undefined {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (!["image/png", "image/jpeg", "image/webp"].includes(normalized)) {
+    throw new AdminRepositoryError(
+      "Uploaded image type must be PNG, JPG, or WebP.",
+      400,
+    );
+  }
+
+  return normalized;
+}
+
+function publicImageUploadDocumentFields(input: PublicPublisherRequestInput) {
+  const imageUploadDataUrl = normalizePublicImageUploadDataUrl(
+    input.imageUploadDataUrl,
+  );
+  if (!imageUploadDataUrl) {
+    return {};
+  }
+
+  const inferredMimeType = imageUploadDataUrl.match(
+    /^data:image\/(png|jpeg|webp);base64,/,
+  )?.[1];
+  const imageUploadMimeType = normalizePublicImageUploadMimeType(
+    input.imageUploadMimeType,
+  );
+  const normalizedMimeType = inferredMimeType
+    ? `image/${inferredMimeType}`
+    : undefined;
+
+  if (
+    imageUploadMimeType &&
+    normalizedMimeType &&
+    imageUploadMimeType !== normalizedMimeType
+  ) {
+    throw new AdminRepositoryError(
+      "Uploaded image type does not match the image data.",
+      400,
+    );
+  }
+
+  return {
+    imageUploadDataUrl,
+    imageUploadName: normalizeOptionalString(input.imageUploadName),
+    imageUploadMimeType: imageUploadMimeType ?? normalizedMimeType,
+  };
 }
 
 function normalizeUrl(
@@ -1418,6 +1493,7 @@ function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
   return {
     name,
     imageUrl: normalizeHttpsUrl(input.imageUrl, "Organization image URL"),
+    ...publicImageUploadDocumentFields(input),
     status: "pending_approval" as const,
     slug: slugifyOrganizationName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
@@ -1472,6 +1548,7 @@ function publicIndividualRequestDocument(input: PublicPublisherRequestInput) {
   return {
     name,
     imageUrl: normalizeHttpsUrl(input.imageUrl, "Individual publisher image URL"),
+    ...publicImageUploadDocumentFields(input),
     status: "pending_approval" as const,
     slug: slugifyIndividualName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),

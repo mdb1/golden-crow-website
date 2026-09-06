@@ -43,6 +43,8 @@ const pageCopy = {
     countryPlaceholder: 'Choose countries',
     countrySearch: 'Search countries',
     countryEmpty: 'No countries match',
+    done: 'Done',
+    close: 'Close',
     categoryTitle: 'Choose the categories that best describe your work',
     categoryBody: 'You can select more than one category if your work spans several areas.',
     categorySearch: 'Search categories',
@@ -75,17 +77,25 @@ const pageCopy = {
     websiteTitle: 'Add a website',
     websiteBody: 'Optional. Add the page users should open if they want to learn more.',
     websiteLabel: 'Website URL',
-    websitePlaceholder: 'https://example.org',
+    websitePlaceholder: 'example.org',
     skipHint: 'You can skip this step.',
     imageTitle: 'Add the profile image',
-    imageBody: 'Optional. Add an HTTPS image URL first. Once it loads, we will open the color controls.',
+    imageBody: 'Optional. Paste an image link or upload a small logo or portrait. Once it loads, we will open the color controls.',
     imageRowTitle: 'Profile image',
     imageRowBody: 'Use a logo, portrait, or recognizable public image.',
-    imageLabel: 'Image URL',
-    imagePlaceholder: 'https://example.org/profile.png',
+    imageLabel: 'Image link',
+    imagePlaceholder: 'example.org/profile.png',
+    imageSourceOr: 'or',
+    imageUploadTitle: 'Upload a small image instead',
+    imageUploadBody: 'PNG, JPG, or WebP up to 600 KB. We will keep it with this approval request.',
+    imageUploadButton: 'Choose image',
+    imageUploadReady: 'Image selected. The suggested color is ready below.',
+    imageUploadTooLarge: 'Use an image under 600 KB.',
+    imageUploadInvalid: 'Choose a PNG, JPG, or WebP image.',
+    imageClearUpload: 'Remove upload',
     imageLoading: 'Loading image and preparing the color...',
     imageLoaded: 'Image loaded. The suggested color is ready below.',
-    imageLoadError: 'We could not load that image. Try another HTTPS URL or clear it to skip.',
+    imageLoadError: 'We could not load that image. Try another image link, upload a small image, or clear it to skip.',
     colorLabel: 'Profile color',
     colorSuggested: 'Use suggested color',
     colorRowTitle: 'Profile color',
@@ -104,6 +114,8 @@ const pageCopy = {
     socialOptional: 'Optional',
     socialPickerTitle: 'Choose a network',
     socialPickerBody: 'Tap a platform to add a dedicated link field with the right icon and example URL.',
+    socialOpenPicker: 'Add network',
+    socialPickerClose: 'Close social network picker',
     socialSearch: 'Search social networks',
     socialEmptySearch: 'No social networks match',
     socialNoLinks: 'No social links added yet.',
@@ -162,6 +174,8 @@ const pageCopy = {
     countryPlaceholder: 'Elegir países',
     countrySearch: 'Buscar países',
     countryEmpty: 'No hay países que coincidan',
+    done: 'Listo',
+    close: 'Cerrar',
     categoryTitle: 'Elegí las categorías que mejor describen tu trabajo',
     categoryBody: 'Podés elegir más de una categoría si tu trabajo cubre varias áreas.',
     categorySearch: 'Buscar categorías',
@@ -194,17 +208,25 @@ const pageCopy = {
     websiteTitle: 'Sumá una página web',
     websiteBody: 'Opcional. Agregá la página que las personas deberían abrir si quieren saber más.',
     websiteLabel: 'URL de la página',
-    websitePlaceholder: 'https://example.org',
+    websitePlaceholder: 'example.org',
     skipHint: 'Podés saltear este paso.',
     imageTitle: 'Sumá la imagen del perfil',
-    imageBody: 'Opcional. Primero pegá una URL HTTPS de imagen. Cuando cargue, abrimos los controles de color.',
+    imageBody: 'Opcional. Pegá un enlace de imagen o subí un logo o retrato chico. Cuando cargue, abrimos los controles de color.',
     imageRowTitle: 'Imagen del perfil',
     imageRowBody: 'Usá un logo, retrato o imagen pública reconocible.',
-    imageLabel: 'URL de imagen',
-    imagePlaceholder: 'https://example.org/perfil.png',
+    imageLabel: 'Enlace de imagen',
+    imagePlaceholder: 'example.org/perfil.png',
+    imageSourceOr: 'o',
+    imageUploadTitle: 'Subir una imagen chica',
+    imageUploadBody: 'PNG, JPG o WebP de hasta 600 KB. La dejamos guardada con esta solicitud.',
+    imageUploadButton: 'Elegir imagen',
+    imageUploadReady: 'Imagen seleccionada. El color sugerido está listo abajo.',
+    imageUploadTooLarge: 'Usá una imagen de menos de 600 KB.',
+    imageUploadInvalid: 'Elegí una imagen PNG, JPG o WebP.',
+    imageClearUpload: 'Quitar imagen',
     imageLoading: 'Cargando imagen y preparando el color...',
     imageLoaded: 'Imagen cargada. El color sugerido está listo abajo.',
-    imageLoadError: 'No pudimos cargar esa imagen. Probá otra URL HTTPS o borrala para saltear el paso.',
+    imageLoadError: 'No pudimos cargar esa imagen. Probá otro enlace, subí una imagen chica o borrala para saltear el paso.',
     colorLabel: 'Color del perfil',
     colorSuggested: 'Usar color sugerido',
     colorRowTitle: 'Color del perfil',
@@ -223,6 +245,8 @@ const pageCopy = {
     socialOptional: 'Opcional',
     socialPickerTitle: 'Elegí una red',
     socialPickerBody: 'Tocá una plataforma para sumar un campo dedicado con el ícono y el ejemplo correcto.',
+    socialOpenPicker: 'Agregar red',
+    socialPickerClose: 'Cerrar selector de redes',
     socialSearch: 'Buscar redes sociales',
     socialEmptySearch: 'No hay redes que coincidan',
     socialNoLinks: 'Todavía no agregaste redes.',
@@ -277,6 +301,8 @@ const wizardClientCopy = {
   countryPlaceholder: copy.countryPlaceholder,
   categorySearch: copy.categorySearch,
   countryEmpty: copy.countryEmpty,
+  done: copy.done,
+  close: copy.close,
   required: copy.required,
   urlError: copy.urlError,
   imageUrlError: copy.imageUrlError,
@@ -295,6 +321,9 @@ const wizardClientCopy = {
   imageLoading: copy.imageLoading,
   imageLoaded: copy.imageLoaded,
   imageLoadError: copy.imageLoadError,
+  imageUploadReady: copy.imageUploadReady,
+  imageUploadTooLarge: copy.imageUploadTooLarge,
+  imageUploadInvalid: copy.imageUploadInvalid,
   colorAutoExplanation: copy.colorAutoExplanation,
   colorCustomExplanation: copy.colorCustomExplanation,
   socialUrlLabel: copy.socialUrlLabel,
@@ -307,6 +336,7 @@ const wizardClientCopy = {
   socialRemoveLabel: copy.socialRemoveLabel,
   socialLinkError: copy.socialLinkError,
   socialEmptySearch: copy.socialEmptySearch,
+  socialOpenPicker: copy.socialOpenPicker,
 };
 ---
 
@@ -392,27 +422,41 @@ const wizardClientCopy = {
               </svg>
             </button>
             <div class="pg-picker-popover" data-country-popover hidden>
-              <input type="search" data-country-search placeholder={copy.countrySearch} autocomplete="off" />
-              <div class="pg-country-list" data-country-list>
-                {countryGroups.map((group) => (
-                  <div class="pg-country-group">
-                    <p>{group.label}</p>
-                    {group.options.map((option) => (
-                      <button
-                        type="button"
-                        data-country-option={option.value}
-                        data-label={option.label}
-                        data-flag={option.flag}
-                        aria-pressed="false"
-                      >
-                        <span class="pg-country-flag" aria-hidden="true">{option.flag}</span>
-                        <span>{option.label}</span>
-                      </button>
-                    ))}
+              <div class="pg-picker-modal-card" role="dialog" aria-modal="true" aria-labelledby="pg-country-picker-title">
+                <div class="pg-picker-modal-heading">
+                  <div>
+                    <span>{copy.countryButtonLabel}</span>
+                    <strong id="pg-country-picker-title">{copy.countryTitle}</strong>
                   </div>
-                ))}
+                  <button type="button" class="pg-modal-close" data-country-close aria-label={copy.close}>
+                    <span aria-hidden="true">x</span>
+                  </button>
+                </div>
+                <input type="search" data-country-search placeholder={copy.countrySearch} autocomplete="off" />
+                <div class="pg-country-list" data-country-list>
+                  {countryGroups.map((group) => (
+                    <div class="pg-country-group">
+                      <p>{group.label}</p>
+                      {group.options.map((option) => (
+                        <button
+                          type="button"
+                          data-country-option={option.value}
+                          data-label={option.label}
+                          data-flag={option.flag}
+                          aria-pressed="false"
+                        >
+                          <span class="pg-country-flag" aria-hidden="true">{option.flag}</span>
+                          <span>{option.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                <p class="pg-picker-empty" data-country-empty hidden>{copy.countryEmpty}</p>
+                <div class="pg-picker-modal-actions">
+                  <button type="button" class="pg-picker-done" data-country-close>{copy.done}</button>
+                </div>
               </div>
-              <p class="pg-picker-empty" data-country-empty hidden>{copy.countryEmpty}</p>
             </div>
           </div>
           <div class="pg-chip-row" data-country-chips></div>
@@ -581,6 +625,26 @@ const wizardClientCopy = {
                     placeholder={copy.imagePlaceholder}
                   />
                 </label>
+                <div class="pg-image-divider" aria-hidden="true">
+                  <span>{copy.imageSourceOr}</span>
+                </div>
+                <label class="pg-image-upload-card" data-image-upload-card>
+                  <input
+                    class="pg-file-input"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    data-image-upload
+                  />
+                  <span class="pg-image-upload-copy">
+                    <strong>{copy.imageUploadTitle}</strong>
+                    <small>{copy.imageUploadBody}</small>
+                  </span>
+                  <span class="pg-image-upload-action">{copy.imageUploadButton}</span>
+                </label>
+                <div class="pg-image-upload-state" data-image-upload-state hidden>
+                  <span data-image-upload-name></span>
+                  <button type="button" data-image-upload-clear>{copy.imageClearUpload}</button>
+                </div>
                 <p class="pg-image-status" data-image-status aria-live="polite"></p>
                 <p class="pg-skip-hint">{copy.skipHint}</p>
               </div>
@@ -630,53 +694,78 @@ const wizardClientCopy = {
             data-social-workbench
             data-social-options={JSON.stringify(socialOptions)}
           >
-            <section class="pg-social-picker-panel">
-              <div class="pg-social-panel-heading">
-                <span>{copy.socialOptional}</span>
-                <h3>{copy.socialPickerTitle}</h3>
-                <p>{copy.socialPickerBody}</p>
-              </div>
-              <input
-                class="pg-search-field pg-social-search"
-                type="search"
-                data-social-search
-                placeholder={copy.socialSearch}
-                autocomplete="off"
-              />
-              <div class="pg-social-option-grid" data-social-option-grid>
-                {socialOptions.map((option) => (
-                  <button
-                    type="button"
-                    data-social-option={option.value}
-                    data-label={option.label}
-                    data-placeholder={option.placeholder}
-                    data-asset={option.assetName}
-                    aria-pressed="false"
-                  >
-                    <span class="pg-social-icon" aria-hidden="true">
-                      <img src={`/discover/social-network-assets/${option.assetName}.png`} alt="" loading="lazy" />
-                    </span>
-                    <span>
-                      <strong>{option.label}</strong>
-                      <small>{option.placeholder}</small>
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <p class="pg-social-empty-search" data-social-empty-search hidden>
-                {copy.socialEmptySearch}
-              </p>
-            </section>
             <section class="pg-social-selected-panel">
-              <div class="pg-social-panel-heading">
-                <span>{copy.socialOptional}</span>
-                <h3>{copy.socialAddedTitle}</h3>
-                <p>{copy.socialAddedBody}</p>
+              <div class="pg-social-selected-head">
+                <div class="pg-social-panel-heading">
+                  <span>{copy.socialOptional}</span>
+                  <h3>{copy.socialAddedTitle}</h3>
+                  <p>{copy.socialAddedBody}</p>
+                </div>
+                <button
+                  type="button"
+                  class="pg-social-open-picker"
+                  data-social-picker-open
+                  aria-expanded="false"
+                >
+                  <span aria-hidden="true">+</span>
+                  <strong data-social-picker-label>{copy.socialOpenPicker}</strong>
+                </button>
               </div>
               <strong class="pg-social-count" data-social-count>0</strong>
               <div class="pg-social-list" data-social-list>
                 <p class="pg-social-empty-state" data-social-empty-state>
                   {copy.socialNoLinks}
+                </p>
+              </div>
+            </section>
+            <section
+              class="pg-social-picker-panel"
+              data-social-picker-panel
+              hidden
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="pg-social-picker-title"
+            >
+              <div class="pg-social-picker-card">
+                <div class="pg-social-selected-head">
+                  <div class="pg-social-panel-heading">
+                    <span>{copy.socialOptional}</span>
+                    <h3 id="pg-social-picker-title">{copy.socialPickerTitle}</h3>
+                    <p>{copy.socialPickerBody}</p>
+                  </div>
+                  <button type="button" class="pg-modal-close" data-social-picker-close aria-label={copy.socialPickerClose}>
+                    <span aria-hidden="true">x</span>
+                  </button>
+                </div>
+                <input
+                  class="pg-search-field pg-social-search"
+                  type="search"
+                  data-social-search
+                  placeholder={copy.socialSearch}
+                  autocomplete="off"
+                />
+                <div class="pg-social-option-grid" data-social-option-grid>
+                  {socialOptions.map((option) => (
+                    <button
+                      type="button"
+                      data-social-option={option.value}
+                      data-label={option.label}
+                      data-placeholder={option.placeholder}
+                      data-asset={option.assetName}
+                      aria-pressed="false"
+                    >
+                      <span class="pg-social-icon" aria-hidden="true">
+                        <img src={`/discover/social-network-assets/${option.assetName}.png`} alt="" loading="lazy" />
+                      </span>
+                      <span>
+                        <strong>{option.label}</strong>
+                        <small>{option.placeholder}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p class="pg-social-empty-search" data-social-empty-search hidden>
+                  {copy.socialEmptySearch}
                 </p>
               </div>
             </section>
@@ -770,6 +859,8 @@ const wizardClientCopy = {
     const locale = wizardRoot.getAttribute('data-locale') || 'es';
     const sdkUrl = wizardRoot.getAttribute('data-sdk-url') || 'https://golden-crow-sdk.vercel.app';
     const DESCRIPTION_MIN_LENGTH = 30;
+    const IMAGE_UPLOAD_MAX_BYTES = 600 * 1024;
+    const IMAGE_UPLOAD_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
     const state = {
       kind: 'organization',
       countries: [],
@@ -786,6 +877,9 @@ const wizardClientCopy = {
       colorCustomized: false,
       imageStatus: 'empty',
       imageLoadToken: 0,
+      uploadedImageDataUrl: '',
+      uploadedImageName: '',
+      uploadedImageMimeType: '',
       submitting: false,
       startedAt: new Date().toISOString(),
     };
@@ -800,6 +894,7 @@ const wizardClientCopy = {
     const errorBox = wizardRoot.querySelector('[data-wizard-error]');
     const countryToggle = wizardRoot.querySelector('[data-country-toggle]');
     const countryPopover = wizardRoot.querySelector('[data-country-popover]');
+    const countryCloseButtons = Array.from(wizardRoot.querySelectorAll('[data-country-close]'));
     const countrySearch = wizardRoot.querySelector('[data-country-search]');
     const countrySummary = wizardRoot.querySelector('[data-country-summary]');
     const countryChips = wizardRoot.querySelector('[data-country-chips]');
@@ -821,6 +916,11 @@ const wizardClientCopy = {
     const contactEmail = wizardRoot.querySelector('[data-contact-email]');
     const websiteUrl = wizardRoot.querySelector('[data-website-url]');
     const imageUrl = wizardRoot.querySelector('[data-image-url]');
+    const imageUpload = wizardRoot.querySelector('[data-image-upload]');
+    const imageUploadCard = wizardRoot.querySelector('[data-image-upload-card]');
+    const imageUploadState = wizardRoot.querySelector('[data-image-upload-state]');
+    const imageUploadName = wizardRoot.querySelector('[data-image-upload-name]');
+    const imageUploadClear = wizardRoot.querySelector('[data-image-upload-clear]');
     const imageStatus = wizardRoot.querySelector('[data-image-status]');
     const previewImage = wizardRoot.querySelector('[data-preview-image]');
     const colorRow = wizardRoot.querySelector('[data-color-row]');
@@ -833,6 +933,10 @@ const wizardClientCopy = {
     const socialWorkbench = wizardRoot.querySelector('[data-social-workbench]');
     const socialOptions = JSON.parse(socialWorkbench?.getAttribute('data-social-options') || '[]');
     const socialOptionsByValue = new Map(socialOptions.map((option) => [option.value, option]));
+    const socialPickerPanel = wizardRoot.querySelector('[data-social-picker-panel]');
+    const socialPickerOpen = wizardRoot.querySelector('[data-social-picker-open]');
+    const socialPickerClose = wizardRoot.querySelector('[data-social-picker-close]');
+    const socialPickerLabel = wizardRoot.querySelector('[data-social-picker-label]');
     const socialSearch = wizardRoot.querySelector('[data-social-search]');
     const socialOptionGrid = wizardRoot.querySelector('[data-social-option-grid]');
     const socialEmptySearch = wizardRoot.querySelector('[data-social-empty-search]');
@@ -866,16 +970,128 @@ const wizardClientCopy = {
       errorBox.hidden = !message;
     }
 
-    function validUrl(value, httpsOnly = false) {
-      if (!value.trim()) return true;
+    function urlWithProtocol(value) {
+      const trimmed = value.trim();
+      if (!trimmed) return '';
+      return /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    }
+
+    function normalizedUrl(value, { httpsOnly = false } = {}) {
+      const candidate = urlWithProtocol(value);
+      if (!candidate) return '';
+
       try {
-        const parsed = new URL(value.trim());
-        return httpsOnly
+        const parsed = new URL(candidate);
+        const allowedProtocol = httpsOnly
           ? parsed.protocol === 'https:'
           : parsed.protocol === 'http:' || parsed.protocol === 'https:';
+        if (!allowedProtocol || !parsed.hostname) return '';
+        return parsed.toString();
       } catch {
-        return false;
+        return '';
       }
+    }
+
+    function validUrl(value, httpsOnly = false) {
+      if (!value.trim()) return true;
+      return Boolean(normalizedUrl(value, { httpsOnly }));
+    }
+
+    function normalizeUrlInput(input, { httpsOnly = false } = {}) {
+      const value = input?.value.trim();
+      if (!value) return;
+
+      const normalized = normalizedUrl(value, { httpsOnly });
+      if (normalized) {
+        input.value = normalized;
+      }
+    }
+
+    function optionalUrlValue(input, options = {}) {
+      const value = input?.value.trim();
+      if (!value) return undefined;
+
+      const normalized = normalizedUrl(value, options);
+      return normalized || value;
+    }
+
+    function clearUploadedImage({ rerender = true } = {}) {
+      state.uploadedImageDataUrl = '';
+      state.uploadedImageName = '';
+      state.uploadedImageMimeType = '';
+
+      if (imageUpload && 'value' in imageUpload) {
+        imageUpload.value = '';
+      }
+
+      imageUploadCard?.classList.remove('has-upload');
+      if (imageUploadState) {
+        imageUploadState.hidden = true;
+      }
+      if (imageUploadName) {
+        imageUploadName.textContent = '';
+      }
+
+      if (rerender) {
+        updateImagePreview();
+        renderStep();
+      }
+    }
+
+    function syncUploadedImageUi() {
+      const hasUpload = Boolean(state.uploadedImageDataUrl);
+      imageUploadCard?.classList.toggle('has-upload', hasUpload);
+
+      if (imageUploadState) {
+        imageUploadState.hidden = !hasUpload;
+      }
+      if (imageUploadName) {
+        imageUploadName.textContent = state.uploadedImageName;
+      }
+    }
+
+    function readUploadedImage(file) {
+      if (!file) return;
+
+      if (!IMAGE_UPLOAD_TYPES.has(file.type)) {
+        clearUploadedImage({ rerender: false });
+        setImageStatus('invalid', copy.imageUploadInvalid);
+        renderStep();
+        return;
+      }
+
+      if (file.size > IMAGE_UPLOAD_MAX_BYTES) {
+        clearUploadedImage({ rerender: false });
+        setImageStatus('invalid', copy.imageUploadTooLarge);
+        renderStep();
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = typeof reader.result === 'string' ? reader.result : '';
+        if (!result) {
+          setImageStatus('failed', copy.imageLoadError);
+          renderStep();
+          return;
+        }
+
+        state.uploadedImageDataUrl = result;
+        state.uploadedImageName = file.name;
+        state.uploadedImageMimeType = file.type;
+        if (imageUrl) {
+          imageUrl.value = '';
+        }
+        syncUploadedImageUi();
+        updateImagePreview();
+        renderStep();
+      };
+      reader.onerror = () => {
+        clearUploadedImage({ rerender: false });
+        setImageStatus('failed', copy.imageLoadError);
+        renderStep();
+      };
+      reader.readAsDataURL(file);
     }
 
     function validEmail(value) {
@@ -905,7 +1121,7 @@ const wizardClientCopy = {
       }
 
       if (step === 'image') {
-        return !imageUrl?.value.trim();
+        return !imageUrl?.value.trim() && !state.uploadedImageDataUrl;
       }
 
       if (step === 'social') {
@@ -940,9 +1156,9 @@ const wizardClientCopy = {
         const url = imageUrl.value.trim();
         if (url && !validUrl(url, true)) {
           message = copy.imageUrlError;
-        } else if (url && state.imageStatus === 'loading') {
+        } else if ((url || state.uploadedImageDataUrl) && state.imageStatus === 'loading') {
           message = copy.imageLoading;
-        } else if (url && state.imageStatus === 'failed') {
+        } else if ((url || state.uploadedImageDataUrl) && state.imageStatus === 'failed') {
           message = copy.imageLoadError;
         }
       } else if (step === 'social') {
@@ -1191,6 +1407,7 @@ const wizardClientCopy = {
       updateCategoryUi();
       updateProviderUi();
       updateDescriptionUi();
+      syncUploadedImageUi();
       updateColorUi();
       updateSocialUi();
     }
@@ -1252,48 +1469,30 @@ const wizardClientCopy = {
       });
     }
 
-    function positionCountryPopover() {
-      if (!countryPopover || countryPopover.hidden || !countryToggle) return;
-
-      const rect = countryToggle.getBoundingClientRect();
-      const viewportPadding = 16;
-      const gap = 10;
-      const width = Math.min(rect.width, window.innerWidth - viewportPadding * 2);
-      const left = Math.min(
-        Math.max(viewportPadding, rect.left),
-        Math.max(viewportPadding, window.innerWidth - width - viewportPadding),
+    function syncModalState() {
+      const modalOpen = Boolean(
+        (countryPopover && !countryPopover.hidden) ||
+        (socialPickerPanel && !socialPickerPanel.hidden),
       );
-      let top = rect.bottom + gap;
-      let maxHeight = Math.min(460, window.innerHeight - top - viewportPadding);
-
-      if (maxHeight < 240) {
-        const spaceAbove = rect.top - viewportPadding - gap;
-        if (spaceAbove > maxHeight) {
-          maxHeight = Math.min(460, spaceAbove);
-          top = Math.max(viewportPadding, rect.top - gap - maxHeight);
-        }
-      }
-
-      countryPopover.style.setProperty('--country-popover-left', `${left}px`);
-      countryPopover.style.setProperty('--country-popover-top', `${top}px`);
-      countryPopover.style.setProperty('--country-popover-width', `${width}px`);
-      countryPopover.style.setProperty(
-        '--country-popover-max-height',
-        `${Math.max(180, maxHeight)}px`,
-      );
+      wizardRoot.classList.toggle('has-open-picker', modalOpen);
+      document.documentElement.classList.toggle('pg-wizard-modal-open', modalOpen);
+      document.body.classList.toggle('pg-wizard-modal-open', modalOpen);
     }
 
     function setCountryPopoverOpen(open) {
       if (!countryPopover || !countryToggle) return;
 
+      if (open) {
+        setSocialPickerOpen(false);
+      }
+
       countryPopover.hidden = !open;
       countryToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
       countryToggle.closest('.pg-picker-shell')?.classList.toggle('is-open', open);
-      wizardRoot.classList.toggle('has-open-picker', open);
+      syncModalState();
 
       if (open) {
-        positionCountryPopover();
-        countrySearch?.focus();
+        requestAnimationFrame(() => countrySearch?.focus());
       }
     }
 
@@ -1360,8 +1559,10 @@ const wizardClientCopy = {
     }
 
     function updateImagePreview() {
-      if (!imageUrl || !previewImage) return;
-      const url = imageUrl.value.trim();
+      if (!previewImage) return;
+      const rawUrl = imageUrl?.value.trim() || '';
+      const normalizedImageUrl = rawUrl ? normalizedUrl(rawUrl, { httpsOnly: true }) : '';
+      const previewSource = state.uploadedImageDataUrl || normalizedImageUrl;
       state.imageLoadToken += 1;
       const token = state.imageLoadToken;
 
@@ -1381,7 +1582,7 @@ const wizardClientCopy = {
       previewImage.classList.remove('is-loading', 'is-loaded', 'is-error');
       setColorRowVisible(false);
 
-      if (url && validUrl(url, true)) {
+      if (previewSource) {
         setImageStatus('loading', copy.imageLoading);
         previewImage.classList.add('is-loading');
         const image = document.createElement('img');
@@ -1389,7 +1590,7 @@ const wizardClientCopy = {
         image.onload = async () => {
           if (token !== state.imageLoadToken) return;
 
-          const suggested = await averageImageColor(url);
+          const suggested = await averageImageColor(previewSource);
           if (token !== state.imageLoadToken) return;
 
           state.suggestedColor = suggested.toUpperCase();
@@ -1401,7 +1602,10 @@ const wizardClientCopy = {
 
           previewImage.classList.remove('is-loading');
           previewImage.classList.add('is-loaded');
-          setImageStatus('loaded', copy.imageLoaded);
+          setImageStatus(
+            'loaded',
+            state.uploadedImageDataUrl ? copy.imageUploadReady : copy.imageLoaded,
+          );
           setColorRowVisible(true);
           renderStep();
         };
@@ -1415,11 +1619,28 @@ const wizardClientCopy = {
           setColorRowVisible(false);
           renderStep();
         };
-        previewImage.append(image);
-        image.src = url;
+        previewImage.replaceChildren(image);
+        image.src = previewSource;
       } else {
         renderInitials();
-        setImageStatus(url ? 'invalid' : 'empty', url ? copy.imageUrlError : '');
+        setImageStatus(rawUrl ? 'invalid' : 'empty', rawUrl ? copy.imageUrlError : '');
+      }
+    }
+
+    function setSocialPickerOpen(open) {
+      if (!socialPickerPanel || !socialPickerOpen) return;
+
+      if (open) {
+        setCountryPopoverOpen(false);
+      }
+
+      socialPickerPanel.hidden = !open;
+      socialPickerOpen.setAttribute('aria-expanded', open ? 'true' : 'false');
+      socialWorkbench?.classList.toggle('is-picking-social', open);
+      syncModalState();
+
+      if (open) {
+        requestAnimationFrame(() => socialSearch?.focus());
       }
     }
 
@@ -1494,6 +1715,14 @@ const wizardClientCopy = {
         }
       }
 
+      if (socialPickerOpen) {
+        const allSelected = selected.size === socialOptions.length;
+        socialPickerOpen.disabled = allSelected;
+        if (socialPickerLabel) {
+          socialPickerLabel.textContent = allSelected ? copy.socialAllAdded : copy.socialOpenPicker;
+        }
+      }
+
       socialWorkbench?.classList.toggle('has-social-links', selected.size > 0);
       socialOptionGrid?.classList.toggle('is-empty', availableVisibleCount === 0);
     }
@@ -1544,6 +1773,13 @@ const wizardClientCopy = {
         updateSocialUi();
         renderStep();
       });
+      input.addEventListener('blur', () => {
+        if (option.value !== 'email') {
+          normalizeUrlInput(input);
+          updateSocialUi();
+          renderStep();
+        }
+      });
       inputWrap.append(inputCaption, input, inputError);
 
       const remove = document.createElement('button');
@@ -1562,6 +1798,7 @@ const wizardClientCopy = {
 
       row.append(identity, inputWrap, remove);
       socialList.append(row);
+      setSocialPickerOpen(false);
       updateSocialUi();
       renderStep();
       requestAnimationFrame(() => input.focus());
@@ -1573,7 +1810,7 @@ const wizardClientCopy = {
         const platform = row.getAttribute('data-social-row');
         const url = row.querySelector('[data-social-url]')?.value.trim();
         if (platform && url) {
-          social[platform] = url;
+          social[platform] = platform === 'email' ? url : optionalUrlValue({ value: url });
         }
       });
       return Object.keys(social).length ? social : undefined;
@@ -1592,8 +1829,11 @@ const wizardClientCopy = {
         contactEmail: contactEmail.value.trim().toLowerCase(),
         countryCode: state.countries.join(','),
         color_hex: state.color,
-        websiteUrl: optionalValue(websiteUrl),
-        imageUrl: optionalValue(imageUrl),
+        websiteUrl: optionalUrlValue(websiteUrl),
+        imageUrl: state.uploadedImageDataUrl ? undefined : optionalUrlValue(imageUrl, { httpsOnly: true }),
+        imageUploadDataUrl: state.uploadedImageDataUrl || undefined,
+        imageUploadName: state.uploadedImageName || undefined,
+        imageUploadMimeType: state.uploadedImageMimeType || undefined,
         social: collectSocialLinks(),
         startedAt: state.startedAt,
         website: form?.elements.website?.value || undefined,
@@ -1705,20 +1945,34 @@ const wizardClientCopy = {
       setCountryPopoverOpen(countryPopover.hidden);
     });
 
+    countryCloseButtons.forEach((button) => {
+      button.addEventListener('click', () => setCountryPopoverOpen(false));
+    });
+
     document.addEventListener('click', (event) => {
-      if (!countryPopover || countryPopover.hidden) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (!target?.closest('.pg-picker-shell')) {
+      if (!target) return;
+
+      if (countryPopover && !countryPopover.hidden && target === countryPopover) {
         setCountryPopoverOpen(false);
+      }
+
+      if (socialPickerPanel && !socialPickerPanel.hidden && target === socialPickerPanel) {
+        setSocialPickerOpen(false);
       }
     });
 
-    window.addEventListener('resize', positionCountryPopover);
-    window.addEventListener('scroll', positionCountryPopover, true);
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      setCountryPopoverOpen(false);
+      setSocialPickerOpen(false);
+    });
 
     countrySearch?.addEventListener('input', () => filterCountryOptions(countrySearch.value));
     categorySearch?.addEventListener('input', () => filterCategoryOptions(categorySearch.value));
     socialSearch?.addEventListener('input', updateSocialUi);
+    socialPickerOpen?.addEventListener('click', () => setSocialPickerOpen(true));
+    socialPickerClose?.addEventListener('click', () => setSocialPickerOpen(false));
     wizardRoot.querySelectorAll('[data-social-option]').forEach((button) => {
       button.addEventListener('click', () => {
         const option = socialOptionsByValue.get(button.getAttribute('data-social-option'));
@@ -1755,11 +2009,26 @@ const wizardClientCopy = {
       updateColor(state.suggestedColor);
     });
     imageUrl?.addEventListener('input', () => {
+      if (imageUrl.value.trim() && state.uploadedImageDataUrl) {
+        clearUploadedImage({ rerender: false });
+      }
       updateImagePreview();
       renderStep();
     });
+    imageUrl?.addEventListener('blur', () => {
+      normalizeUrlInput(imageUrl, { httpsOnly: true });
+      updateImagePreview();
+      renderStep();
+    });
+    imageUpload?.addEventListener('change', () => {
+      const file = imageUpload.files?.[0];
+      if (file) {
+        readUploadedImage(file);
+      }
+    });
+    imageUploadClear?.addEventListener('click', () => clearUploadedImage());
     nameInput?.addEventListener('input', () => {
-      if (!state.colorCustomized && !imageUrl?.value.trim()) {
+      if (!state.colorCustomized && !imageUrl?.value.trim() && !state.uploadedImageDataUrl) {
         state.suggestedColor = deterministicColor(nameInput.value);
         updateColor(state.suggestedColor);
       }
@@ -1772,6 +2041,10 @@ const wizardClientCopy = {
     });
     [descriptionAlternative, contactEmail, websiteUrl].forEach((input) => {
       input?.addEventListener('input', () => renderStep());
+    });
+    websiteUrl?.addEventListener('blur', () => {
+      normalizeUrlInput(websiteUrl);
+      renderStep();
     });
 
     nextButton?.addEventListener('click', () => {
@@ -1829,6 +2102,11 @@ const wizardClientCopy = {
 
   .pg-wizard-page [hidden] {
     display: none !important;
+  }
+
+  :global(html.pg-wizard-modal-open),
+  :global(body.pg-wizard-modal-open) {
+    overflow: hidden;
   }
 
   .pg-wizard-intro {
@@ -2083,7 +2361,7 @@ const wizardClientCopy = {
   }
 
   .pg-picker-shell.is-open {
-    z-index: 3000;
+    z-index: 3;
   }
 
   .pg-large-field,
@@ -2138,18 +2416,85 @@ const wizardClientCopy = {
 
   .pg-picker-popover {
     position: fixed;
-    z-index: 5000;
-    left: var(--country-popover-left, 0);
-    top: var(--country-popover-top, 0);
-    width: var(--country-popover-width, 580px);
-    max-height: var(--country-popover-max-height, 460px);
+    z-index: 7000;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border: 0;
+    background: rgba(18, 20, 28, 0.36);
+    padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    animation: pgModalFadeIn 180ms ease both;
+  }
+
+  .pg-picker-modal-card {
+    position: relative;
+    width: min(720px, 100%);
+    max-height: min(760px, 84svh);
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--wizard-border);
-    border-radius: 18px;
+    border: 1px solid rgba(220, 224, 232, 0.94);
+    border-radius: 28px;
+    background:
+      linear-gradient(135deg, rgba(111, 60, 195, 0.05), rgba(20, 149, 143, 0.035)),
+      #ffffff;
+    box-shadow: 0 34px 80px rgba(18, 20, 28, 0.24);
+    padding: 18px;
+    animation: pgModalCardIn 220ms ease both;
+  }
+
+  .pg-picker-modal-heading,
+  .pg-social-selected-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+  }
+
+  .pg-picker-modal-heading {
+    margin-bottom: 14px;
+  }
+
+  .pg-picker-modal-heading span {
+    display: block;
+    color: var(--wizard-muted);
+    font-size: 0.78rem;
+    font-weight: 780;
+    text-transform: uppercase;
+  }
+
+  .pg-picker-modal-heading strong {
+    display: block;
+    margin-top: 4px;
+    color: var(--wizard-ink);
+    font-size: 1.16rem;
+    line-height: 1.25;
+  }
+
+  .pg-modal-close {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    display: inline-grid;
+    place-items: center;
+    border: 1px solid rgba(200, 203, 210, 0.9);
+    border-radius: 999px;
     background: #ffffff;
-    box-shadow: 0 24px 50px rgba(32, 33, 39, 0.16);
-    padding: 14px;
+    color: var(--wizard-muted);
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 820;
+    cursor: pointer;
+    transition: transform 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .pg-modal-close:hover,
+  .pg-modal-close:focus-visible {
+    transform: scale(1.04);
+    border-color: rgba(111, 60, 195, 0.38);
+    color: var(--wizard-purple);
+    box-shadow: 0 12px 26px rgba(111, 60, 195, 0.12);
   }
 
   .pg-picker-popover input,
@@ -2166,9 +2511,10 @@ const wizardClientCopy = {
   .pg-country-list {
     flex: 1 1 auto;
     min-height: 0;
-    max-height: none;
+    max-height: min(54svh, 520px);
     overflow: auto;
-    padding: 14px 4px 2px;
+    padding: 14px 4px 8px;
+    overscroll-behavior: contain;
   }
 
   .pg-country-group + .pg-country-group {
@@ -2199,6 +2545,27 @@ const wizardClientCopy = {
   .pg-picker-empty {
     margin: 12px 4px 4px;
     color: var(--wizard-muted);
+  }
+
+  .pg-picker-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    border-top: 1px solid rgba(236, 238, 242, 0.95);
+    padding-top: 14px;
+  }
+
+  .pg-picker-done {
+    min-height: 52px;
+    min-width: 132px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--wizard-purple);
+    color: #ffffff;
+    padding: 0 24px;
+    font: inherit;
+    font-weight: 780;
+    cursor: pointer;
+    box-shadow: 0 14px 28px rgba(111, 60, 195, 0.2);
   }
 
   .pg-chip-row {
@@ -2256,18 +2623,18 @@ const wizardClientCopy = {
   }
 
   .pg-category-list {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
     gap: 12px;
-    max-height: min(45vh, 420px);
-    overflow: auto;
+    max-height: none;
+    overflow: visible;
     padding: 2px 2px 8px;
   }
 
   .pg-category-list button {
     min-height: 54px;
     border-radius: 999px;
-    padding: 13px 28px;
+    padding: 13px 18px;
     font: inherit;
     font-size: 1rem;
     line-height: 1.25;
@@ -2682,6 +3049,129 @@ const wizardClientCopy = {
     animation: pgStatusPulse 900ms ease-in-out infinite;
   }
 
+  .pg-image-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--wizard-muted);
+    font-size: 0.8rem;
+    font-weight: 760;
+    text-transform: uppercase;
+  }
+
+  .pg-image-divider::before,
+  .pg-image-divider::after {
+    content: '';
+    height: 1px;
+    flex: 1 1 auto;
+    background: #eceef2;
+  }
+
+  .pg-file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .pg-image-upload-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    border: 1.5px dashed rgba(111, 60, 195, 0.34);
+    border-radius: 20px;
+    background:
+      linear-gradient(135deg, rgba(111, 60, 195, 0.055), rgba(20, 149, 143, 0.035)),
+      #ffffff;
+    padding: 16px;
+    cursor: pointer;
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      transform 180ms ease,
+      background 180ms ease;
+  }
+
+  .pg-image-upload-card:hover,
+  .pg-image-upload-card:focus-within,
+  .pg-image-upload-card.has-upload {
+    transform: translateY(-1px);
+    border-color: rgba(111, 60, 195, 0.62);
+    box-shadow: 0 16px 30px rgba(111, 60, 195, 0.12);
+  }
+
+  .pg-image-upload-copy {
+    min-width: 0;
+  }
+
+  .pg-image-upload-copy strong {
+    display: block;
+    color: var(--wizard-ink);
+    font-size: 0.98rem;
+    line-height: 1.25;
+  }
+
+  .pg-image-upload-copy small {
+    display: block;
+    margin-top: 4px;
+    color: var(--wizard-muted);
+    font-size: 0.86rem;
+    line-height: 1.4;
+  }
+
+  .pg-image-upload-action {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--wizard-purple);
+    color: #ffffff;
+    padding: 0 16px;
+    font-size: 0.9rem;
+    font-weight: 780;
+    white-space: nowrap;
+  }
+
+  .pg-image-upload-state {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid rgba(20, 149, 143, 0.26);
+    border-radius: 16px;
+    background: #eef8f7;
+    color: #0f6f6a;
+    padding: 10px 12px;
+    animation: pgSoftReveal 220ms ease both;
+  }
+
+  .pg-image-upload-state span {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.9rem;
+    font-weight: 760;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pg-image-upload-state button {
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.86);
+    color: #0f6f6a;
+    min-height: 34px;
+    padding: 0 12px;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 780;
+    cursor: pointer;
+  }
+
   .pg-color-row {
     border-color: rgba(111, 60, 195, 0.2);
     background:
@@ -2794,12 +3284,10 @@ const wizardClientCopy = {
 
   .pg-social-workbench {
     display: grid;
-    grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
-    gap: 18px;
-    align-items: start;
+    gap: 16px;
+    max-width: 820px;
   }
 
-  .pg-social-picker-panel,
   .pg-social-selected-panel {
     border: 1px solid rgba(200, 203, 210, 0.86);
     border-radius: 24px;
@@ -2809,15 +3297,38 @@ const wizardClientCopy = {
   }
 
   .pg-social-picker-panel {
+    position: fixed;
+    z-index: 7000;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(18, 20, 28, 0.36);
+    padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    animation: pgModalFadeIn 180ms ease both;
+  }
+
+  .pg-social-picker-card {
+    position: relative;
+    width: min(920px, 100%);
+    max-height: min(820px, 84svh);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(220, 224, 232, 0.94);
+    border-radius: 28px;
     background:
       linear-gradient(135deg, rgba(111, 60, 195, 0.055), rgba(20, 149, 143, 0.035)),
       #ffffff;
+    box-shadow: 0 34px 80px rgba(18, 20, 28, 0.24);
+    padding: 18px;
+    animation: pgModalCardIn 220ms ease both;
   }
 
   .pg-social-panel-heading {
     display: grid;
     gap: 6px;
-    margin-bottom: 14px;
+    margin-bottom: 0;
   }
 
   .pg-social-panel-heading > span {
@@ -2846,18 +3357,59 @@ const wizardClientCopy = {
     line-height: 1.42;
   }
 
+  .pg-social-selected-head {
+    margin-bottom: 14px;
+  }
+
+  .pg-social-open-picker {
+    min-height: 48px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid rgba(111, 60, 195, 0.3);
+    border-radius: 999px;
+    background: var(--wizard-purple);
+    color: #ffffff;
+    padding: 0 18px;
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 780;
+    cursor: pointer;
+    box-shadow: 0 14px 28px rgba(111, 60, 195, 0.18);
+    transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+  }
+
+  .pg-social-open-picker:hover,
+  .pg-social-open-picker:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 34px rgba(111, 60, 195, 0.24);
+  }
+
+  .pg-social-open-picker:disabled {
+    cursor: not-allowed;
+    opacity: 0.52;
+    box-shadow: none;
+  }
+
+  .pg-social-open-picker strong {
+    font: inherit;
+  }
+
   .pg-social-search {
     max-width: none;
-    margin-bottom: 14px;
+    margin: 16px 0 14px;
   }
 
   .pg-social-option-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
     gap: 10px;
-    max-height: min(46vh, 430px);
+    max-height: min(54svh, 520px);
     overflow: auto;
     padding: 2px 2px 8px;
+    overscroll-behavior: contain;
   }
 
   .pg-social-option-grid button {
@@ -2942,8 +3494,6 @@ const wizardClientCopy = {
   }
 
   .pg-social-selected-panel {
-    position: sticky;
-    top: 32px;
     display: grid;
     gap: 14px;
   }
@@ -2972,7 +3522,7 @@ const wizardClientCopy = {
 
   .pg-social-row {
     display: grid;
-    grid-template-columns: minmax(170px, 0.8fr) minmax(0, 1fr) 44px;
+    grid-template-columns: minmax(160px, 0.72fr) minmax(0, 1fr) 44px;
     gap: 10px;
     align-items: center;
     border: 1.5px solid var(--wizard-border);
@@ -3116,6 +3666,13 @@ const wizardClientCopy = {
     color: #ffffff;
     padding: 0 34px;
     box-shadow: 0 18px 36px rgba(111, 60, 195, 0.28);
+    transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+  }
+
+  .pg-primary-button:not(:disabled):hover,
+  .pg-primary-button:not(:disabled):focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 22px 42px rgba(111, 60, 195, 0.32);
   }
 
   .pg-back-button:disabled,
@@ -3359,7 +3916,8 @@ const wizardClientCopy = {
   @media (max-width: 980px) {
     .pg-wizard-page {
       grid-template-columns: 1fr;
-      overflow: auto;
+      min-height: 100svh;
+      overflow: visible;
     }
 
     .pg-wizard-intro {
@@ -3367,27 +3925,32 @@ const wizardClientCopy = {
     }
 
     .pg-wizard-panel {
-      min-height: 720px;
-      border-top-left-radius: 36px;
-      border-top-right-radius: 36px;
+      min-height: 100svh;
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
       overflow: visible;
     }
 
     .pg-wizard-topbar {
-      top: 28px;
-      right: 24px;
-      max-width: calc(100% - 48px);
+      position: fixed;
+      top: calc(14px + env(safe-area-inset-top));
+      right: 16px;
+      left: 16px;
+      z-index: 80;
+      max-width: none;
+      pointer-events: none;
       font-size: 0.94rem;
     }
 
     .pg-wizard-topbar a {
       min-height: 40px;
       padding: 0 14px;
+      pointer-events: auto;
     }
 
     .pg-wizard-form {
-      width: calc(100% - 48px);
-      padding: 112px 0 148px;
+      width: min(760px, calc(100% - 32px));
+      padding: calc(88px + env(safe-area-inset-top)) 0 calc(136px + env(safe-area-inset-bottom));
     }
 
     .pg-kind-grid,
@@ -3417,9 +3980,15 @@ const wizardClientCopy = {
     }
 
     .pg-wizard-actionbar {
-      position: sticky;
+      position: fixed;
+      z-index: 70;
+      left: 0;
+      right: 0;
+      bottom: 0;
       height: auto;
-      padding: 18px 24px;
+      min-height: 92px;
+      padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+      box-shadow: 0 -18px 34px rgba(32, 33, 39, 0.1);
     }
   }
 
@@ -3433,8 +4002,9 @@ const wizardClientCopy = {
     }
 
     .pg-wizard-actionbar {
-      flex-direction: column-reverse;
-      align-items: stretch;
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
     }
 
     .pg-description-footer,
@@ -3448,9 +4018,46 @@ const wizardClientCopy = {
     .pg-alt-description-heading button,
     .pg-secondary-action,
     .pg-color-picker,
-    .pg-suggested-color-button {
+    .pg-suggested-color-button,
+    .pg-image-upload-action,
+    .pg-social-open-picker {
       justify-content: center;
       width: 100%;
+    }
+
+    .pg-picker-modal-card,
+    .pg-social-picker-card {
+      width: 100%;
+      max-height: calc(100svh - 28px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      border-radius: 24px;
+      padding: 14px;
+    }
+
+    .pg-picker-modal-heading,
+    .pg-social-selected-head {
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pg-modal-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+    }
+
+    .pg-picker-modal-heading,
+    .pg-social-picker-card .pg-social-selected-head {
+      padding-right: 54px;
+    }
+
+    .pg-image-upload-card,
+    .pg-image-upload-state {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
+
+    .pg-image-upload-state {
+      display: grid;
     }
 
     .pg-social-option-grid,
@@ -3464,8 +4071,21 @@ const wizardClientCopy = {
 
     .pg-primary-button,
     .pg-back-button {
-      width: 100%;
       justify-content: center;
+    }
+
+    .pg-primary-button {
+      min-width: 0;
+      min-height: 58px;
+      flex: 1 1 auto;
+      padding: 0 18px;
+    }
+
+    .pg-back-button {
+      min-width: 0;
+      min-height: 52px;
+      flex: 0 0 auto;
+      padding: 0 12px;
     }
 
     .pg-success-content h2 {
@@ -3474,6 +4094,26 @@ const wizardClientCopy = {
 
     .pg-wizard-success {
       padding: 28px 18px;
+    }
+  }
+
+  @keyframes pgModalFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes pgModalCardIn {
+    from {
+      opacity: 0;
+      transform: translateY(14px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
     }
   }
 </style>

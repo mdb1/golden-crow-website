@@ -622,6 +622,9 @@ describe("discover repository", () => {
       description_en: "Genetic report support for families.",
       contactEmail: "JOIN@EXAMPLE.ORG",
       websiteUrl: "https://example.org",
+      imageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+      imageUploadName: "wizard-logo.png",
+      imageUploadMimeType: "image/png",
       countryCode: "ar, us",
       organizationType: "org_genetic_testing_laboratories",
       color_hex: "#6f3cc3",
@@ -654,6 +657,11 @@ describe("discover repository", () => {
     );
     expect(stored?.data.contactEmail).toBe("join@example.org");
     expect(stored?.data.color_hex).toBe("#6F3CC3");
+    expect(stored?.data.imageUploadDataUrl).toBe(
+      "data:image/png;base64,iVBORw0KGgo=",
+    );
+    expect(stored?.data.imageUploadName).toBe("wizard-logo.png");
+    expect(stored?.data.imageUploadMimeType).toBe("image/png");
   });
 
   it("creates public individual approval requests without organization-only report fields", async () => {
