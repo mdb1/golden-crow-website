@@ -38,6 +38,10 @@ import {
   discoverIndividualCategoryProvider,
   discoverOrganizationCategoryProvider,
 } from "@/lib/discover-publisher-categories";
+import {
+  getDiscoverOrganizationCountryGroups,
+  parseDiscoverOrganizationCountryCodes,
+} from "@/lib/discover-organization-fields";
 
 type PublisherKind = "organization" | "individual";
 type PublisherRecord = DiscoverOrganizationRecord | DiscoverIndividualRecord;
@@ -156,6 +160,10 @@ function DiscoverPublisherBrowser({
   const categoryProvider = isIndividual
     ? discoverIndividualCategoryProvider
     : discoverOrganizationCategoryProvider;
+  const countryGroups = useMemo(
+    () => getDiscoverOrganizationCountryGroups(language),
+    [language],
+  );
   const listGridClass = isIndividual
     ? "2xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_minmax(0,0.85fr)_auto]"
     : "2xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)_minmax(0,1.15fr)_auto]";
@@ -168,7 +176,7 @@ function DiscoverPublisherBrowser({
 
   const filteredPublishers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const normalizedCountry = countryCode.trim().toLowerCase();
+    const selectedCountryCode = countryCode.trim().toUpperCase();
 
     return publishers.filter((publisher) => {
       const organization = publisher as DiscoverOrganizationRecord;
@@ -235,8 +243,9 @@ function DiscoverPublisherBrowser({
         (status === "all" || publisher.status === status) &&
         (publisherType === "all" ||
           categoryProvider.hasKey(currentType, publisherType)) &&
-        (!normalizedCountry ||
-          (publisher.countryCode ?? "").toLowerCase().includes(normalizedCountry)) &&
+        (!selectedCountryCode ||
+          parseDiscoverOrganizationCountryCodes(publisher.countryCode ?? "")
+            .includes(selectedCountryCode)) &&
         (verified === "all" ||
           (verified === "verified" ? publisher.verified : !publisher.verified)) &&
         providerMatches &&
@@ -422,11 +431,23 @@ function DiscoverPublisherBrowser({
                 </option>
               ))}
             </select>
-            <Input
+            <select
               value={countryCode}
               onChange={(event) => setCountryCode(event.target.value)}
-              placeholder={t("Country")}
-            />
+              aria-label={t("Country")}
+              className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">{t("All countries")}</option>
+              {countryGroups.map((group) => (
+                <optgroup key={group.key} label={t(group.label)}>
+                  {group.options.map((option) => (
+                    <option key={option.code} value={option.code}>
+                      {option.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
             <select
               value={verified}
               onChange={(event) =>
