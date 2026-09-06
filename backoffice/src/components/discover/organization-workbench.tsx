@@ -209,6 +209,7 @@ function DiscoverPublisherWorkbench({
   canDeletePublisher = false,
   deleteSuccessAction = "list",
   routeBase,
+  showListBackLink = true,
 }: {
   publisher?: PublisherRecord;
   publisherKind: PublisherKind;
@@ -217,6 +218,7 @@ function DiscoverPublisherWorkbench({
   canDeletePublisher?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
+  showListBackLink?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -589,14 +591,16 @@ function DiscoverPublisherWorkbench({
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href={publisherListHref}>
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {isIndividual
-              ? t("Back to individual publishers")
-              : t("Back to organizations")}
-          </Link>
-        </Button>
+        {showListBackLink ? (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={publisherListHref}>
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {isIndividual
+                ? t("Back to individual publishers")
+                : t("Back to organizations")}
+            </Link>
+          </Button>
+        ) : null}
         {publisher ? (
           <span className="font-mono text-xs text-muted-foreground">
             {publisher.id}
@@ -1213,6 +1217,7 @@ export function DiscoverOrganizationWorkbench({
   canDeletePublisher = false,
   deleteSuccessAction = "list",
   routeBase,
+  showListBackLink = true,
 }: {
   organization?: DiscoverOrganizationRecord;
   mode?: "create" | "edit";
@@ -1220,6 +1225,7 @@ export function DiscoverOrganizationWorkbench({
   canDeletePublisher?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
+  showListBackLink?: boolean;
 }) {
   return (
     <DiscoverPublisherWorkbench
@@ -1230,6 +1236,7 @@ export function DiscoverOrganizationWorkbench({
       canDeletePublisher={canDeletePublisher}
       deleteSuccessAction={deleteSuccessAction}
       routeBase={routeBase}
+      showListBackLink={showListBackLink}
     />
   );
 }
@@ -1241,6 +1248,7 @@ export function DiscoverIndividualWorkbench({
   canDeletePublisher = false,
   deleteSuccessAction = "list",
   routeBase,
+  showListBackLink = true,
 }: {
   individual?: DiscoverIndividualRecord;
   mode?: "create" | "edit";
@@ -1248,6 +1256,7 @@ export function DiscoverIndividualWorkbench({
   canDeletePublisher?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
+  showListBackLink?: boolean;
 }) {
   return (
     <DiscoverPublisherWorkbench
@@ -1258,6 +1267,7 @@ export function DiscoverIndividualWorkbench({
       canDeletePublisher={canDeletePublisher}
       deleteSuccessAction={deleteSuccessAction}
       routeBase={routeBase}
+      showListBackLink={showListBackLink}
     />
   );
 }

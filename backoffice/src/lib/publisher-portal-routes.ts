@@ -9,6 +9,14 @@ export const PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE =
 export const PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE =
   "/publisher-portal/discover/feed-entries";
 
+export function publisherPortalOrganizationDetailRoute(organizationId: string) {
+  return `${PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE}/${encodeURIComponent(organizationId)}`;
+}
+
+export function publisherPortalIndividualDetailRoute(individualId: string) {
+  return `${PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE}/${encodeURIComponent(individualId)}`;
+}
+
 export function normalizePublisherPortalCallbackUrl(
   callbackUrl: string | null | undefined,
 ) {

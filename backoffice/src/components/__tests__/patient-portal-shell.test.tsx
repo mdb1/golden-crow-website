@@ -132,11 +132,14 @@ describe("Publisher portal Spanish shell", () => {
     window.localStorage.clear();
   });
 
-  it("shows publisher profile and feed entries navigation for organization publishers", () => {
+  it("links organization publishers directly to their own organization", () => {
     render(
       <AppLanguageProvider initialLanguage="en" forcedLanguage="es">
         <SidebarProvider>
-          <PublisherPortalSidebar role="organization_publisher" />
+          <PublisherPortalSidebar
+            role="organization_publisher"
+            organizationId="org-1"
+          />
           <PublisherPortalHeader />
         </SidebarProvider>
       </AppLanguageProvider>,
@@ -144,32 +147,34 @@ describe("Publisher portal Spanish shell", () => {
 
     expect(screen.getByText("Portal de publicadores")).toBeTruthy();
     expect(screen.getAllByText("Inicio").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Perfil de publicador").length).toBeGreaterThan(
-      0,
-    );
+    expect(screen.getAllByText("Organización").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Entradas del feed").length).toBeGreaterThan(0);
     expect(screen.getByText("Mi cuenta")).toBeTruthy();
     expect(
       screen
-        .getByRole("link", { name: /Perfil de publicador/i })
+        .getByRole("link", { name: /Organización/i })
         .getAttribute("href"),
-    ).toBe("/publisher-portal/discover/organizations");
+    ).toBe("/publisher-portal/discover/organizations/org-1");
+    expect(screen.queryByText("Perfil de publicador")).toBeNull();
   });
 
-  it("points publisher profile navigation to individuals for individual publishers", () => {
+  it("links individual publishers directly to their own individual publisher record", () => {
     render(
       <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
         <SidebarProvider>
-          <PublisherPortalSidebar role="individual_publisher" />
+          <PublisherPortalSidebar
+            role="individual_publisher"
+            individualId="ind-1"
+          />
         </SidebarProvider>
       </AppLanguageProvider>,
     );
 
     expect(
       screen
-        .getByRole("link", { name: /Perfil de publicador/i })
+        .getByRole("link", { name: /Editor/i })
         .getAttribute("href"),
-    ).toBe("/publisher-portal/discover/individuals");
+    ).toBe("/publisher-portal/discover/individuals/ind-1");
   });
 });
 

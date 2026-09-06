@@ -6,8 +6,11 @@ import { requireDiscoverAccess } from "@/lib/discover-server";
 import type { DiscoverIndividualRecord } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import {
+  PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE,
+  publisherPortalIndividualDetailRoute,
+  publisherPortalOrganizationDetailRoute,
 } from "@/lib/publisher-portal-routes";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
@@ -18,7 +21,11 @@ export default async function PublisherPortalIndividualDetailPage({
 }) {
   const adminContext = await requireDiscoverAccess();
   if (adminContext.role === "organization_publisher") {
-    redirect(PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE);
+    redirect(
+      adminContext.organizationId
+        ? publisherPortalOrganizationDetailRoute(adminContext.organizationId)
+        : PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE,
+    );
   }
 
   const { individualId } = await params;
@@ -31,7 +38,16 @@ export default async function PublisherPortalIndividualDetailPage({
     );
     individual = response.individual;
   } catch {
-    redirect(PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE);
+    const requestedIndividualRoute =
+      publisherPortalIndividualDetailRoute(individualId);
+    const ownIndividualRoute =
+      adminContext.individualId &&
+      publisherPortalIndividualDetailRoute(adminContext.individualId);
+    redirect(
+      ownIndividualRoute && ownIndividualRoute !== requestedIndividualRoute
+        ? ownIndividualRoute
+        : PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
+    );
   }
 
   const canDeleteOwnPublisher =
@@ -55,6 +71,7 @@ export default async function PublisherPortalIndividualDetailPage({
           canDeletePublisher={canDeleteOwnPublisher}
           deleteSuccessAction="publisher-login"
           routeBase={PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE}
+          showListBackLink={false}
         />
       </HeaderUnclutterScope>
     </div>

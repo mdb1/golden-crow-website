@@ -31,11 +31,16 @@ function titleForPath(pathname: string, language: "en" | "es") {
 
   if (
     pathname === PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE ||
-    pathname.startsWith(`${PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE}/`) ||
+    pathname.startsWith(`${PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE}/`)
+  ) {
+    return appText(language, "Organization");
+  }
+
+  if (
     pathname === PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE ||
     pathname.startsWith(`${PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE}/`)
   ) {
-    return appText(language, "Publisher profile");
+    return appText(language, "Individual publisher");
   }
 
   return appText(language, "Home");

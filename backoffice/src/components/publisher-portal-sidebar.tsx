@@ -22,22 +22,42 @@ import {
   PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE,
   PUBLISHER_PORTAL_HOME_ROUTE,
+  publisherPortalIndividualDetailRoute,
+  publisherPortalOrganizationDetailRoute,
 } from "@/lib/publisher-portal-routes";
 
-function publisherProfileRoute(role: AdminContextRecord["role"]) {
-  return role === "individual_publisher"
-    ? PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE
-    : PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE;
+function publisherProfileNavItem({
+  role,
+  organizationId,
+  individualId,
+}: Pick<AdminContextRecord, "role" | "organizationId" | "individualId">) {
+  if (role === "individual_publisher") {
+    return {
+      href: individualId
+        ? publisherPortalIndividualDetailRoute(individualId)
+        : PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE,
+      label: "Individual publisher",
+      icon: UserRound,
+    } as const;
+  }
+
+  return {
+    href: organizationId
+      ? publisherPortalOrganizationDetailRoute(organizationId)
+      : PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE,
+    label: "Organization",
+    icon: Building2,
+  } as const;
 }
 
-function publisherPortalNav(role: AdminContextRecord["role"]) {
+function publisherPortalNav({
+  role,
+  organizationId,
+  individualId,
+}: Pick<AdminContextRecord, "role" | "organizationId" | "individualId">) {
   return [
     { href: PUBLISHER_PORTAL_HOME_ROUTE, label: "Home", icon: Home },
-    {
-      href: publisherProfileRoute(role),
-      label: "Publisher profile",
-      icon: Building2,
-    },
+    publisherProfileNavItem({ role, organizationId, individualId }),
     {
       href: PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
       label: "Feed entries",
@@ -57,12 +77,16 @@ function isNavItemActive(pathname: string, href: string) {
 
 export function PublisherPortalSidebar({
   role,
+  organizationId,
+  individualId,
 }: {
   role: AdminContextRecord["role"];
+  organizationId?: string;
+  individualId?: string;
 }) {
   const pathname = usePathname();
   const { language } = useAppLanguage();
-  const navItems = publisherPortalNav(role);
+  const navItems = publisherPortalNav({ role, organizationId, individualId });
 
   return (
     <Sidebar

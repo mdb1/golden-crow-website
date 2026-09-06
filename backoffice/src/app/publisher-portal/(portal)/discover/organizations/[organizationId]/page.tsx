@@ -6,8 +6,11 @@ import { requireDiscoverAccess } from "@/lib/discover-server";
 import type { DiscoverOrganizationRecord } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import {
+  PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE,
+  publisherPortalIndividualDetailRoute,
+  publisherPortalOrganizationDetailRoute,
 } from "@/lib/publisher-portal-routes";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
@@ -18,7 +21,11 @@ export default async function PublisherPortalOrganizationDetailPage({
 }) {
   const adminContext = await requireDiscoverAccess();
   if (adminContext.role === "individual_publisher") {
-    redirect(PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE);
+    redirect(
+      adminContext.individualId
+        ? publisherPortalIndividualDetailRoute(adminContext.individualId)
+        : PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE,
+    );
   }
 
   const { organizationId } = await params;
@@ -31,7 +38,16 @@ export default async function PublisherPortalOrganizationDetailPage({
     );
     organization = response.organization;
   } catch {
-    redirect(PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE);
+    const requestedOrganizationRoute =
+      publisherPortalOrganizationDetailRoute(organizationId);
+    const ownOrganizationRoute =
+      adminContext.organizationId &&
+      publisherPortalOrganizationDetailRoute(adminContext.organizationId);
+    redirect(
+      ownOrganizationRoute && ownOrganizationRoute !== requestedOrganizationRoute
+        ? ownOrganizationRoute
+        : PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
+    );
   }
 
   const canDeleteOwnPublisher =
@@ -55,6 +71,7 @@ export default async function PublisherPortalOrganizationDetailPage({
           canDeletePublisher={canDeleteOwnPublisher}
           deleteSuccessAction="publisher-login"
           routeBase={PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE}
+          showListBackLink={false}
         />
       </HeaderUnclutterScope>
     </div>
