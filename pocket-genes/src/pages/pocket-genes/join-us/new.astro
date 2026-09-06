@@ -91,7 +91,8 @@ const pageCopy = {
     imageUploadBody: 'PNG, JPG, or WebP up to 600 KB. We will keep it with this approval request.',
     imageUploadButton: 'Choose image',
     imageUploadReady: 'Image selected. The suggested color is ready below.',
-    imageUploadTooLarge: 'Use an image under 600 KB.',
+    imageUploadTooLarge: 'That image is over 600 KB. Reduce it and upload the smaller version.',
+    imageUploadReduceLink: 'Compress it for free',
     imageUploadInvalid: 'Choose a PNG, JPG, or WebP image.',
     imageClearUpload: 'Remove upload',
     imageSelectedPraise: 'You look great!',
@@ -236,7 +237,8 @@ const pageCopy = {
     imageUploadBody: 'PNG, JPG o WebP de hasta 600 KB. La dejamos guardada con esta solicitud.',
     imageUploadButton: 'Elegir imagen',
     imageUploadReady: 'Imagen seleccionada. El color sugerido está listo abajo.',
-    imageUploadTooLarge: 'Usá una imagen de menos de 600 KB.',
+    imageUploadTooLarge: 'La imagen supera los 600 KB. Reducila y volvé a subir una versión más liviana.',
+    imageUploadReduceLink: 'Comprimirla gratis',
     imageUploadInvalid: 'Elegí una imagen PNG, JPG o WebP.',
     imageClearUpload: 'Quitar imagen',
     imageSelectedPraise: '¡Se ve genial!',
@@ -352,6 +354,7 @@ const wizardClientCopy = {
   imageLoadError: copy.imageLoadError,
   imageUploadReady: copy.imageUploadReady,
   imageUploadTooLarge: copy.imageUploadTooLarge,
+  imageUploadReduceLink: copy.imageUploadReduceLink,
   imageUploadInvalid: copy.imageUploadInvalid,
   colorAutoExplanation: copy.colorAutoExplanation,
   colorCustomExplanation: copy.colorCustomExplanation,
@@ -965,6 +968,7 @@ const wizardClientCopy = {
     const sdkUrl = wizardRoot.getAttribute('data-sdk-url') || 'https://golden-crow-sdk.vercel.app';
     const DESCRIPTION_MIN_LENGTH = 30;
     const IMAGE_UPLOAD_MAX_BYTES = 600 * 1024;
+    const IMAGE_REDUCER_URL = 'https://squoosh.app/';
     const IMAGE_UPLOAD_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
     const state = {
       kind: 'organization',
@@ -1261,7 +1265,10 @@ const wizardClientCopy = {
 
       if (file.size > IMAGE_UPLOAD_MAX_BYTES) {
         clearUploadedImage({ rerender: false });
-        setImageStatus('invalid', copy.imageUploadTooLarge);
+        setImageStatus('warning', copy.imageUploadTooLarge, {
+          href: IMAGE_REDUCER_URL,
+          label: copy.imageUploadReduceLink,
+        });
         renderStep();
         return;
       }
@@ -1551,12 +1558,24 @@ const wizardClientCopy = {
       }
     }
 
-    function setImageStatus(status, message = '') {
+    function setImageStatus(status, message = '', action = null) {
       state.imageStatus = status;
 
       if (imageStatus) {
-        imageStatus.textContent = message;
-        imageStatus.hidden = !message;
+        imageStatus.replaceChildren();
+        if (message) {
+          imageStatus.append(document.createTextNode(message));
+        }
+        if (action?.href && action?.label) {
+          const link = document.createElement('a');
+          link.href = action.href;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = action.label;
+          imageStatus.append(document.createTextNode(' '));
+          imageStatus.append(link);
+        }
+        imageStatus.hidden = !message && !action?.label;
         imageStatus.dataset.status = status;
       }
       updateImageChoiceUi();
@@ -3595,6 +3614,28 @@ const wizardClientCopy = {
 
   .pg-image-status[data-status='loaded'] {
     color: #0f6f6a;
+  }
+
+  .pg-image-status[data-status='warning'] {
+    width: fit-content;
+    max-width: 100%;
+    border: 1px solid rgba(217, 119, 6, 0.24);
+    border-radius: 16px;
+    background: rgba(255, 251, 235, 0.92);
+    color: #92400e;
+    padding: 10px 12px;
+    animation: pgSoftReveal 220ms ease-out both;
+  }
+
+  .pg-image-status a {
+    color: inherit;
+    font-weight: 850;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .pg-image-status a:hover {
+    color: #6f3cc3;
   }
 
   .pg-image-status[data-status='failed'],
