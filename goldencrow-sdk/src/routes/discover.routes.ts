@@ -7,6 +7,9 @@ import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import { FaviconExtractionError, extractFavicon } from "../lib/favicon.js";
+import {
+  sendDiscoverPublisherRequestNotificationEmail,
+} from "../lib/discover-publisher-request-notification-email.js";
 import { canAccessDiscover } from "../repositories/roles.repository.js";
 import {
   createDiscoverFeedItem,
@@ -536,6 +539,21 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
         const result = await createDiscoverPublisherApprovalRequest(
           request.body,
         );
+        if (result.kind === "organization") {
+          try {
+            await sendDiscoverPublisherRequestNotificationEmail(
+              result.publisher,
+            );
+          } catch (error) {
+            request.log.error(
+              {
+                err: error,
+                publisherId: result.publisher.id,
+              },
+              "Failed to send publisher request notification email.",
+            );
+          }
+        }
 
         return reply.status(201).send({
           status: "ok",
