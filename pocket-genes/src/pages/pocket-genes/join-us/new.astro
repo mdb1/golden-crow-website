@@ -753,8 +753,10 @@ const wizardClientCopy = {
                 </div>
               </div>
               <div class="pg-color-preview" aria-hidden="true">
-                <span class="pg-color-orbit"></span>
-                <span class="pg-color-swatch" data-color-swatch></span>
+                <span class="pg-color-preview-stage">
+                  <span class="pg-color-orbit"></span>
+                  <span class="pg-color-swatch" data-color-swatch></span>
+                </span>
                 <small>{copy.colorHexLabel}</small>
               </div>
             </section>
@@ -5016,16 +5018,24 @@ const wizardClientCopy = {
   }
 
   .pg-color-preview {
-    position: relative;
     justify-self: end;
     width: 132px;
-    min-height: 132px;
     display: grid;
-    place-items: center;
+    justify-items: center;
     gap: 8px;
   }
 
+  .pg-color-preview-stage {
+    position: relative;
+    width: 132px;
+    height: 132px;
+    display: grid;
+    place-items: center;
+  }
+
   .pg-color-swatch {
+    position: relative;
+    z-index: 1;
     width: 78px;
     height: 78px;
     border-radius: 26px;
@@ -5042,7 +5052,7 @@ const wizardClientCopy = {
   }
 
   .pg-color-preview small {
-    align-self: end;
+    justify-self: center;
     color: var(--wizard-muted);
     font-size: 0.78rem;
     font-weight: 700;
