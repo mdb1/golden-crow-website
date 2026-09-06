@@ -81,13 +81,15 @@ type WorkbenchOverrides = {
   canManageSystemFields?: boolean;
   mode?: "create" | "edit";
   organization?: DiscoverOrganizationRecord;
+  individual?: DiscoverIndividualRecord;
 };
 
 function renderWorkbench(
   initialLanguage: "en" | "es" = "en",
   overrides: WorkbenchOverrides = {},
 ) {
-  const { organization: organizationOverride, ...workbenchOverrides } = overrides;
+  const { organization: organizationOverride, ...workbenchOverrides } =
+    overrides;
 
   render(
     <AppLanguageProvider
@@ -106,12 +108,21 @@ function renderIndividualWorkbench(
   initialLanguage: "en" | "es" = "en",
   overrides: WorkbenchOverrides = {},
 ) {
+  const {
+    individual: individualOverride,
+    organization: _organizationOverride,
+    ...workbenchOverrides
+  } = overrides;
+
   render(
     <AppLanguageProvider
       initialLanguage={initialLanguage}
       forcedLanguage={initialLanguage}
     >
-      <DiscoverIndividualWorkbench individual={individual} {...overrides} />
+      <DiscoverIndividualWorkbench
+        individual={individualOverride ?? individual}
+        {...workbenchOverrides}
+      />
     </AppLanguageProvider>,
   );
 }
@@ -128,7 +139,9 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const user = userEvent.setup();
     renderWorkbench();
 
-    const colorInput = screen.getByLabelText("Accent color") as HTMLInputElement;
+    const colorInput = screen.getByLabelText(
+      "Accent color",
+    ) as HTMLInputElement;
     expect(colorInput.value).toBe("#123ABC");
     expect(colorInput.readOnly).toBe(true);
     expect(colorInput.className).toContain("border-transparent");
@@ -185,7 +198,9 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const picker = screen.getByLabelText(
       "Accent color picker",
     ) as HTMLInputElement;
-    const colorInput = screen.getByLabelText("Accent color") as HTMLInputElement;
+    const colorInput = screen.getByLabelText(
+      "Accent color",
+    ) as HTMLInputElement;
     Object.defineProperty(picker, "showPicker", {
       configurable: true,
       value: undefined,
@@ -275,6 +290,76 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     ).toBeTruthy();
   });
 
+  it("renders submission evaluation after the danger zone", async () => {
+    renderWorkbench("en", { canDeletePublisher: true });
+
+    const contentPanel = screen.getByTestId("discover-publisher-content-panel");
+    const dangerZone = screen.getByTestId("discover-publisher-danger-zone");
+    const submissionEvaluation = screen.getByTestId(
+      "discover-publisher-submission-evaluation",
+    );
+
+    expect(contentPanel.contains(submissionEvaluation)).toBe(true);
+    expect(
+      Array.from(contentPanel.children).indexOf(submissionEvaluation),
+    ).toBeGreaterThan(Array.from(contentPanel.children).indexOf(dangerZone));
+    expect(
+      screen.getByRole("button", { name: /Submission evaluation/i }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("approves an organization submission and refreshes the detail screen", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      organization: { ...organization, status: "active" },
+    });
+    renderWorkbench("en", {
+      organization: { ...organization, status: "pending_approval" },
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: /Submission evaluation/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/organizations/org-1/submission-evaluation",
+        {
+          method: "POST",
+          body: JSON.stringify({ decision: "approve" }),
+        },
+      );
+    });
+    expect(routerRefresh).toHaveBeenCalled();
+  });
+
+  it("rejects an individual submission by archiving it", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      individual: { ...individual, status: "archived" },
+    });
+    renderIndividualWorkbench("en", {
+      individual: { ...individual, status: "pending_approval" },
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: /Submission evaluation/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/individuals/individual-1/submission-evaluation",
+        {
+          method: "POST",
+          body: JSON.stringify({ decision: "reject" }),
+        },
+      );
+    });
+    expect(routerRefresh).toHaveBeenCalled();
+  });
+
   it("deletes an organization publisher from the god mode danger zone", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockResolvedValueOnce({
@@ -334,7 +419,9 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const user = userEvent.setup();
     renderWorkbench();
 
-    await user.click(screen.getByRole("button", { name: /2 categories selected/i }));
+    await user.click(
+      screen.getByRole("button", { name: /2 categories selected/i }),
+    );
     expect(screen.queryByText("org_medical_societies")).toBeNull();
     await user.click(screen.getByRole("checkbox", { name: "Medical Society" }));
     await user.click(screen.getByRole("button", { name: "Done" }));
@@ -368,9 +455,9 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
   it("keeps the country coverage picker on a full-width form row", () => {
     renderWorkbench();
 
-    expect(screen.getByText("Country coverage").parentElement?.className).toContain(
-      "md:col-span-2",
-    );
+    expect(
+      screen.getByText("Country coverage").parentElement?.className,
+    ).toContain("md:col-span-2");
   });
 
   it("saves organization genetic report provider fields", async () => {
@@ -495,13 +582,13 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       imageUploadName: "wizard-logo.png",
       imageUploadMimeType: "image/png",
     };
-    jest.mocked(sdkFetch).mockResolvedValue({ organization: uploadedOrganization });
+    jest
+      .mocked(sdkFetch)
+      .mockResolvedValue({ organization: uploadedOrganization });
     renderWorkbench("en", { organization: uploadedOrganization });
 
     expect(
-      document.querySelector(
-        'img[src="data:image/png;base64,iVBORw0KGgo="]',
-      ),
+      document.querySelector('img[src="data:image/png;base64,iVBORw0KGgo="]'),
     ).toBeTruthy();
 
     const nameInput = screen.getByLabelText("Name");
@@ -528,15 +615,20 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
   it("adds social network links as a nested social object", async () => {
     renderWorkbench();
 
-    expect(screen.getByDisplayValue("https://facebook.com/publisher-one")).toBeTruthy();
+    expect(
+      screen.getByDisplayValue("https://facebook.com/publisher-one"),
+    ).toBeTruthy();
     expect(screen.queryByLabelText("Social network")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Add social link" }));
     expect(screen.getByRole("dialog")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /LinkedIn profile/i }));
-    fireEvent.change(screen.getByRole("textbox", { name: "LinkedIn profile" }), {
-      target: { value: "https://linkedin.com/in/publisher-one" },
-    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "LinkedIn profile" }),
+      {
+        target: { value: "https://linkedin.com/in/publisher-one" },
+      },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
@@ -559,7 +651,9 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const user = userEvent.setup();
     renderWorkbench();
 
-    expect(screen.getByDisplayValue("https://facebook.com/publisher-one")).toBeTruthy();
+    expect(
+      screen.getByDisplayValue("https://facebook.com/publisher-one"),
+    ).toBeTruthy();
     expect(
       document.querySelector(
         'img[src="/discover/social-network-assets/social_facebook.png"]',

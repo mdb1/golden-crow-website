@@ -7,7 +7,8 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       project?: string;
-      accessSurface?: "backoffice" | "patient-portal" | "pgflex";
+      accessSurface?:
+        "backoffice" | "patient-portal" | "pgflex" | "publisher-portal";
     };
   }
 }
@@ -15,6 +16,7 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     project?: string;
-    accessSurface?: "backoffice" | "patient-portal" | "pgflex";
+    accessSurface?:
+      "backoffice" | "patient-portal" | "pgflex" | "publisher-portal";
   }
 }

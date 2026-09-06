@@ -16,6 +16,7 @@ import { getAdminContextServer } from "@/lib/admin-context-server";
 import { LANGUAGE_COOKIE_NAME, resolveAppLanguage } from "@/lib/language";
 import { PATIENT_PORTAL_ENTRY_ROUTE } from "@/lib/patient-portal-routes";
 import { PGFLEX_LOGIN_ROUTE } from "@/lib/pgflex-routes";
+import { PUBLISHER_PORTAL_ENTRY_ROUTE } from "@/lib/publisher-portal-routes";
 
 export default async function DashboardLayout({
   children,
@@ -32,6 +33,10 @@ export default async function DashboardLayout({
     redirect(PATIENT_PORTAL_ENTRY_ROUTE);
   }
 
+  if (session.user?.accessSurface === "publisher-portal") {
+    redirect(PUBLISHER_PORTAL_ENTRY_ROUTE);
+  }
+
   let adminContext;
 
   try {
@@ -44,7 +49,8 @@ export default async function DashboardLayout({
     if (
       !adminContext.canAccessPGFlex ||
       adminContext.canAccessBackoffice ||
-      adminContext.canAccessPatientPortal
+      adminContext.canAccessPatientPortal ||
+      adminContext.canAccessPublisherPortal
     ) {
       redirect(PGFLEX_LOGIN_ROUTE);
     }
@@ -76,7 +82,9 @@ export default async function DashboardLayout({
         ? PATIENT_PORTAL_ENTRY_ROUTE
         : adminContext.canAccessPGFlex
           ? PGFLEX_LOGIN_ROUTE
-          : "/access-denied",
+          : adminContext.canAccessPublisherPortal
+            ? PUBLISHER_PORTAL_ENTRY_ROUTE
+            : "/access-denied",
     );
   }
   const cookieStore = await cookies();

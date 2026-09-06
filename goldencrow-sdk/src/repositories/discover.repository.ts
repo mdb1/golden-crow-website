@@ -11,6 +11,7 @@ import {
   discoverIndividualCategoryProvider,
   discoverOrganizationCategoryProvider,
 } from "../lib/discover-publisher-categories.js";
+import { provisionPublisherPortalRoleForContext } from "./roles.repository.js";
 import type {
   AdminContext,
   DiscoverFeedItemRecord,
@@ -68,11 +69,7 @@ const FEED_TYPE_VALUES = [
 ] as const satisfies readonly DiscoverFeedType[];
 
 type FeedPayloadFieldKind =
-  | "string"
-  | "array"
-  | "timestamp"
-  | "integer"
-  | "boolean";
+  "string" | "array" | "timestamp" | "integer" | "boolean";
 
 type FeedPayloadField = {
   key: string;
@@ -82,7 +79,10 @@ type FeedPayloadField = {
   aliases?: readonly string[];
 };
 
-const FEED_PAYLOAD_FIELDS: Record<DiscoverFeedType, readonly FeedPayloadField[]> = {
+const FEED_PAYLOAD_FIELDS: Record<
+  DiscoverFeedType,
+  readonly FeedPayloadField[]
+> = {
   news: [
     { key: "category", label: "Category", kind: "string" },
     { key: "region", label: "Region", kind: "string" },
@@ -96,7 +96,12 @@ const FEED_PAYLOAD_FIELDS: Record<DiscoverFeedType, readonly FeedPayloadField[]>
     },
     { key: "genes", label: "Genes", kind: "array" },
     { key: "conditions", label: "Conditions", kind: "array" },
-    { key: "journal", label: "Journal", kind: "string", aliases: ["journalName"] },
+    {
+      key: "journal",
+      label: "Journal",
+      kind: "string",
+      aliases: ["journalName"],
+    },
   ],
   upcoming_event: [
     {
@@ -106,7 +111,12 @@ const FEED_PAYLOAD_FIELDS: Record<DiscoverFeedType, readonly FeedPayloadField[]>
       requiredForPublished: true,
       aliases: ["startsAt"],
     },
-    { key: "location", label: "Location", kind: "string", aliases: ["locationName"] },
+    {
+      key: "location",
+      label: "Location",
+      kind: "string",
+      aliases: ["locationName"],
+    },
     { key: "maxAttendance", label: "Max attendance", kind: "integer" },
   ],
   opportunity: [
@@ -117,7 +127,12 @@ const FEED_PAYLOAD_FIELDS: Record<DiscoverFeedType, readonly FeedPayloadField[]>
     },
     { key: "requirements", label: "Requirements", kind: "string" },
     { key: "eligibility", label: "Eligibility", kind: "string" },
-    { key: "location", label: "Location", kind: "string", aliases: ["locationName"] },
+    {
+      key: "location",
+      label: "Location",
+      kind: "string",
+      aliases: ["locationName"],
+    },
   ],
   video: [
     { key: "provider", label: "Provider", kind: "string" },
@@ -215,7 +230,11 @@ const FEED_PAYLOAD_FIELDS: Record<DiscoverFeedType, readonly FeedPayloadField[]>
     { key: "sampleTypes", label: "Sample types", kind: "array" },
     { key: "intendedUse", label: "Intended use", kind: "string" },
     { key: "turnaroundTime", label: "Turnaround time", kind: "string" },
-    { key: "requiresPrescription", label: "Requires prescription", kind: "boolean" },
+    {
+      key: "requiresPrescription",
+      label: "Requires prescription",
+      kind: "boolean",
+    },
   ],
   report_explainer: [
     { key: "reportSection", label: "Report section", kind: "string" },
@@ -274,7 +293,11 @@ const FEED_PAYLOAD_FIELDS: Record<DiscoverFeedType, readonly FeedPayloadField[]>
     { key: "difficultyLevel", label: "Difficulty level", kind: "string" },
     { key: "duration", label: "Duration", kind: "string" },
     { key: "targetAudience", label: "Target audience", kind: "string" },
-    { key: "certificateAvailable", label: "Certificate available", kind: "boolean" },
+    {
+      key: "certificateAvailable",
+      label: "Certificate available",
+      kind: "boolean",
+    },
   ],
   downloadable_resource: [
     { key: "fileType", label: "File type", kind: "string" },
@@ -334,9 +357,7 @@ const FEED_STATUSES = new Set<DiscoverFeedStatus>([
   "published",
   "archived",
 ]);
-const VALIDATED_STATUSES = new Set<DiscoverFeedStatus>([
-  "published",
-]);
+const VALIDATED_STATUSES = new Set<DiscoverFeedStatus>(["published"]);
 const SNAPSHOT_SYNC_STATUSES = new Set<DiscoverFeedStatus>([
   "draft",
   "published",
@@ -466,6 +487,8 @@ type FeedItemInput = {
   sourceButtonText?: unknown;
 } & Partial<Record<DiscoverFeedType, unknown>>;
 
+type SubmissionEvaluationDecision = "approve" | "reject";
+
 function requireFullAdmin(context: AdminContext) {
   if (context.role !== "full_admin") {
     throw new AdminRepositoryError("Full admin access required.", 403);
@@ -537,7 +560,10 @@ function requireIndividualSurfaceAccess(context: AdminContext) {
   }
 }
 
-function assertOrganizationScope(context: AdminContext, organizationId: string) {
+function assertOrganizationScope(
+  context: AdminContext,
+  organizationId: string,
+) {
   const ownOrganizationId = scopedOrganizationId(context);
   if (ownOrganizationId && ownOrganizationId !== organizationId) {
     throw new AdminRepositoryError(
@@ -560,7 +586,10 @@ function assertIndividualScope(context: AdminContext, individualId: string) {
 function assertFeedItemScope(
   context: AdminContext,
   data:
-    | Pick<DiscoverFeedItemRecord, "publisherOrganizationId" | "publisherIndividualId">
+    | Pick<
+        DiscoverFeedItemRecord,
+        "publisherOrganizationId" | "publisherIndividualId"
+      >
     | Record<string, unknown>,
 ) {
   const ownOrganizationId = scopedOrganizationId(context);
@@ -630,7 +659,9 @@ function normalizePublicImageUploadDataUrl(value: unknown): string | undefined {
   return normalized;
 }
 
-function normalizePublicImageUploadMimeType(value: unknown): string | undefined {
+function normalizePublicImageUploadMimeType(
+  value: unknown,
+): string | undefined {
   const normalized = normalizeOptionalString(value);
   if (!normalized) {
     return undefined;
@@ -762,11 +793,17 @@ function normalizeHttpsUrl(value: unknown, label: string): string | null {
   return normalizeUrl(value, label, { httpsOnly: true });
 }
 
-function normalizeOptionalHttpUrl(value: unknown, label: string): string | null {
+function normalizeOptionalHttpUrl(
+  value: unknown,
+  label: string,
+): string | null {
   return normalizeUrl(value, label);
 }
 
-function normalizeOptionalEmail(value: unknown, label: string): string | undefined {
+function normalizeOptionalEmail(
+  value: unknown,
+  label: string,
+): string | undefined {
   const normalized = normalizeOptionalString(value);
   if (!normalized) {
     return undefined;
@@ -784,7 +821,10 @@ function normalizeRequiredEmail(value: unknown, label: string): string {
   return normalizeOptionalEmail(normalized, label)!.toLowerCase();
 }
 
-function normalizeSocialEmail(value: unknown, label: string): string | undefined {
+function normalizeSocialEmail(
+  value: unknown,
+  label: string,
+): string | undefined {
   const normalized = normalizeOptionalString(value);
   if (!normalized) {
     return undefined;
@@ -797,7 +837,9 @@ function normalizeSocialEmail(value: unknown, label: string): string | undefined
   return email ? `mailto:${email.toLowerCase()}` : undefined;
 }
 
-function normalizeSocialLinksForRead(value: unknown): DiscoverPublisherSocialLinks | undefined {
+function normalizeSocialLinksForRead(
+  value: unknown,
+): DiscoverPublisherSocialLinks | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
   }
@@ -813,7 +855,9 @@ function normalizeSocialLinksForRead(value: unknown): DiscoverPublisherSocialLin
   return Object.keys(social).length ? social : undefined;
 }
 
-function normalizeSocialLinks(value: unknown): DiscoverPublisherSocialLinks | undefined {
+function normalizeSocialLinks(
+  value: unknown,
+): DiscoverPublisherSocialLinks | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -907,7 +951,10 @@ function normalizeHexColor(value: unknown, label: string): string | undefined {
 
   const withHash = normalized.startsWith("#") ? normalized : `#${normalized}`;
   if (!/^#[0-9a-fA-F]{6}$/.test(withHash)) {
-    throw new AdminRepositoryError(`${label} must be a valid 6-digit hex color.`, 400);
+    throw new AdminRepositoryError(
+      `${label} must be a valid 6-digit hex color.`,
+      400,
+    );
   }
 
   return withHash.toUpperCase();
@@ -925,7 +972,10 @@ function normalizeBoolean(value: unknown): boolean {
   return value === true || value === "true" || value === "on";
 }
 
-function normalizeNullableBoolean(value: unknown, label: string): boolean | null {
+function normalizeNullableBoolean(
+  value: unknown,
+  label: string,
+): boolean | null {
   if (value == null || value === "") {
     return null;
   }
@@ -960,7 +1010,10 @@ function normalizeNumber(value: unknown, fallback = 0): number {
   return fallback;
 }
 
-function normalizeNullablePositiveInteger(value: unknown, label: string): number | null {
+function normalizeNullablePositiveInteger(
+  value: unknown,
+  label: string,
+): number | null {
   if (value == null || value === "") {
     return null;
   }
@@ -1011,9 +1064,12 @@ function sanitizeHtmlBody(value: unknown): string | null {
   return normalized
     .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
-    .replace(/<\/?(iframe|object|embed|form|input|button|textarea|select|option|link|meta|base)[^>]*>/gi, "")
+    .replace(
+      /<\/?(iframe|object|embed|form|input|button|textarea|select|option|link|meta|base)[^>]*>/gi,
+      "",
+    )
     .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/\s(href|src)\s*=\s*(['"])\s*javascript:[\s\S]*?\2/gi, " $1=\"#\"")
+    .replace(/\s(href|src)\s*=\s*(['"])\s*javascript:[\s\S]*?\2/gi, ' $1="#"')
     .trim();
 }
 
@@ -1108,7 +1164,9 @@ function decodeCursor(cursor: string | undefined): PageCursor | null {
   }
 
   try {
-    const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as {
+    const parsed = JSON.parse(
+      Buffer.from(cursor, "base64url").toString("utf8"),
+    ) as {
       updatedAtMillis?: unknown;
       id?: unknown;
     };
@@ -1131,13 +1189,17 @@ function encodeDocumentCursor(cursor: DocumentPageCursor): string {
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
 
-function decodeDocumentCursor(cursor: string | undefined): DocumentPageCursor | null {
+function decodeDocumentCursor(
+  cursor: string | undefined,
+): DocumentPageCursor | null {
   if (!cursor) {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as {
+    const parsed = JSON.parse(
+      Buffer.from(cursor, "base64url").toString("utf8"),
+    ) as {
       mode?: unknown;
       id?: unknown;
     };
@@ -1162,7 +1224,8 @@ function isMissingFirestoreIndexError(error: unknown) {
 
   const code = "code" in error ? (error as { code?: unknown }).code : undefined;
   const message =
-    "message" in error && typeof (error as { message?: unknown }).message === "string"
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
       ? (error as { message: string }).message
       : "";
 
@@ -1191,9 +1254,13 @@ function cursorFromDoc(doc: QueryDocumentSnapshot): PageCursor | null {
   };
 }
 
-function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationRecord {
+function toOrganizationRecord(
+  doc: QueryDocumentSnapshot,
+): DiscoverOrganizationRecord {
   const data = doc.data() as Record<string, unknown>;
-  const status = ORGANIZATION_STATUSES.has(data.status as DiscoverOrganizationStatus)
+  const status = ORGANIZATION_STATUSES.has(
+    data.status as DiscoverOrganizationStatus,
+  )
     ? (data.status as DiscoverOrganizationStatus)
     : "inactive";
   const organizationType = discoverOrganizationCategoryProvider.normalizeCsv(
@@ -1231,9 +1298,13 @@ function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationR
   };
 }
 
-function toIndividualRecord(doc: QueryDocumentSnapshot): DiscoverIndividualRecord {
+function toIndividualRecord(
+  doc: QueryDocumentSnapshot,
+): DiscoverIndividualRecord {
   const data = doc.data() as Record<string, unknown>;
-  const status = ORGANIZATION_STATUSES.has(data.status as DiscoverIndividualStatus)
+  const status = ORGANIZATION_STATUSES.has(
+    data.status as DiscoverIndividualStatus,
+  )
     ? (data.status as DiscoverIndividualStatus)
     : "inactive";
   const individualType = discoverIndividualCategoryProvider.normalizeCsv(
@@ -1301,16 +1372,22 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
   const language = languageValue === "es" ? "es" : "en";
   const record: DiscoverFeedItemRecord = {
     id: doc.id,
-    publisherOrganizationId: normalizeNullableString(data.publisherOrganizationId),
+    publisherOrganizationId: normalizeNullableString(
+      data.publisherOrganizationId,
+    ),
     publisherIndividualId: normalizeNullableString(data.publisherIndividualId),
     publisherSnapshot: {
-      name: normalizeOptionalString(publisherSnapshot.name) ?? "Unknown publisher",
+      name:
+        normalizeOptionalString(publisherSnapshot.name) ?? "Unknown publisher",
       imageUrl: normalizeNullableString(publisherSnapshot.imageUrl),
     },
     type,
     publishedAt: timestampToIso(data.publishedAt),
     language,
-    title: normalizeOptionalString(data.title) ?? normalizeOptionalString(activePayload.title) ?? "",
+    title:
+      normalizeOptionalString(data.title) ??
+      normalizeOptionalString(activePayload.title) ??
+      "",
     subtitle:
       normalizeOptionalString(data.subtitle) ??
       normalizeOptionalString(activePayload.summary) ??
@@ -1336,7 +1413,10 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
   for (const payloadKey of FEED_TYPES) {
     const payload = data[payloadKey];
     if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-      record[payloadKey] = serializePayloadValue(payload) as Record<string, unknown>;
+      record[payloadKey] = serializePayloadValue(payload) as Record<
+        string,
+        unknown
+      >;
     }
   }
 
@@ -1372,9 +1452,7 @@ async function listCollectionPage<T>(
   const pageDocs = snapshot.docs.slice(0, pageSize);
   const nextDoc = snapshot.docs[pageSize];
   const nextCursorSource = nextDoc ? pageDocs[pageDocs.length - 1] : undefined;
-  const nextCursor = nextCursorSource
-    ? cursorFromDoc(nextCursorSource)
-    : null;
+  const nextCursor = nextCursorSource ? cursorFromDoc(nextCursorSource) : null;
 
   return {
     records: pageDocs.map(mapper),
@@ -1433,7 +1511,8 @@ function normalizeOrganizationType(value: unknown): string | undefined {
     return undefined;
   }
 
-  const invalidKeys = discoverOrganizationCategoryProvider.invalidKeys(normalized);
+  const invalidKeys =
+    discoverOrganizationCategoryProvider.invalidKeys(normalized);
   if (invalidKeys.length) {
     throw new AdminRepositoryError(
       `Organization category contains invalid keys: ${invalidKeys.join(", ")}`,
@@ -1441,7 +1520,9 @@ function normalizeOrganizationType(value: unknown): string | undefined {
     );
   }
 
-  return discoverOrganizationCategoryProvider.normalizeCsv(normalized) || undefined;
+  return (
+    discoverOrganizationCategoryProvider.normalizeCsv(normalized) || undefined
+  );
 }
 
 function normalizeRequiredOrganizationType(value: unknown): string {
@@ -1459,7 +1540,8 @@ function normalizeIndividualType(value: unknown): string | undefined {
     return undefined;
   }
 
-  const invalidKeys = discoverIndividualCategoryProvider.invalidKeys(normalized);
+  const invalidKeys =
+    discoverIndividualCategoryProvider.invalidKeys(normalized);
   if (invalidKeys.length) {
     throw new AdminRepositoryError(
       `Individual publisher category contains invalid keys: ${invalidKeys.join(", ")}`,
@@ -1467,13 +1549,18 @@ function normalizeIndividualType(value: unknown): string | undefined {
     );
   }
 
-  return discoverIndividualCategoryProvider.normalizeCsv(normalized) || undefined;
+  return (
+    discoverIndividualCategoryProvider.normalizeCsv(normalized) || undefined
+  );
 }
 
 function normalizeRequiredIndividualType(value: unknown): string {
   const individualType = normalizeIndividualType(value);
   if (!individualType) {
-    throw new AdminRepositoryError("Individual publisher category is required.", 400);
+    throw new AdminRepositoryError(
+      "Individual publisher category is required.",
+      400,
+    );
   }
 
   return individualType;
@@ -1525,8 +1612,13 @@ function normalizeGeneticReportCategory(value: unknown): string | null {
   return readGeneticReportCategory(tokens.join(","));
 }
 
-function normalizePublicPublisherKind(value: unknown): "organization" | "individual" {
-  const normalized = normalizeRequiredString(value, "Publisher type").toLowerCase();
+function normalizePublicPublisherKind(
+  value: unknown,
+): "organization" | "individual" {
+  const normalized = normalizeRequiredString(
+    value,
+    "Publisher type",
+  ).toLowerCase();
   if (normalized !== "organization" && normalized !== "individual") {
     throw new AdminRepositoryError(
       "Publisher type must be organization or individual.",
@@ -1613,7 +1705,8 @@ function individualDocument(input: IndividualInput, context: AdminContext) {
     social: normalizeSocialLinks(input.social) ?? null,
     countryCode: normalizeCountryCode(input.countryCode),
     individualType: normalizeIndividualType(input.individualType),
-    colorHex: normalizeHexColor(input.colorHex, "Individual publisher color") ?? null,
+    colorHex:
+      normalizeHexColor(input.colorHex, "Individual publisher color") ?? null,
     verified: normalizeBoolean(input.verified),
     contactEmail: normalizeOptionalEmail(input.contactEmail, "Contact email"),
     internalNotes: normalizeOptionalString(input.internalNotes),
@@ -1627,7 +1720,10 @@ function publicIndividualRequestDocument(input: PublicPublisherRequestInput) {
 
   return {
     name,
-    imageUrl: normalizeHttpsUrl(input.imageUrl, "Individual publisher image URL"),
+    imageUrl: normalizeHttpsUrl(
+      input.imageUrl,
+      "Individual publisher image URL",
+    ),
     ...publicImageUploadDocumentFields(input),
     status: "pending_approval" as const,
     slug: slugifyIndividualName(name),
@@ -1637,7 +1733,8 @@ function publicIndividualRequestDocument(input: PublicPublisherRequestInput) {
     social: normalizeSocialLinks(input.social) ?? null,
     countryCode: normalizeRequiredCountryCode(input.countryCode),
     individualType: normalizeRequiredIndividualType(input.individualType),
-    colorHex: normalizeHexColor(input.colorHex, "Individual publisher color") ?? null,
+    colorHex:
+      normalizeHexColor(input.colorHex, "Individual publisher color") ?? null,
     verified: false,
     contactEmail: normalizeRequiredEmail(input.contactEmail, "Contact email"),
     internalNotes: undefined,
@@ -1699,12 +1796,17 @@ function normalizeFeedStatus(value: unknown): DiscoverFeedStatus {
 
 function payloadInputForType(type: DiscoverFeedType, input: FeedItemInput) {
   const payloadInput = input[getPayloadKey(type)];
-  return payloadInput && typeof payloadInput === "object" && !Array.isArray(payloadInput)
+  return payloadInput &&
+    typeof payloadInput === "object" &&
+    !Array.isArray(payloadInput)
     ? (payloadInput as Record<string, unknown>)
     : {};
 }
 
-function normalizeRootContent(input: FeedItemInput, status: DiscoverFeedStatus) {
+function normalizeRootContent(
+  input: FeedItemInput,
+  status: DiscoverFeedStatus,
+) {
   const title = normalizeOptionalString(input.title);
   const subtitle = normalizeOptionalString(input.subtitle);
   const body = normalizeOptionalString(input.body);
@@ -1712,13 +1814,22 @@ function normalizeRootContent(input: FeedItemInput, status: DiscoverFeedStatus) 
 
   if (VALIDATED_STATUSES.has(status)) {
     if (!title) {
-      throw new AdminRepositoryError("Feed entry title is required before publishing.", 400);
+      throw new AdminRepositoryError(
+        "Feed entry title is required before publishing.",
+        400,
+      );
     }
     if (!subtitle) {
-      throw new AdminRepositoryError("Feed entry subtitle is required before publishing.", 400);
+      throw new AdminRepositoryError(
+        "Feed entry subtitle is required before publishing.",
+        400,
+      );
     }
     if (!body && !htmlBody) {
-      throw new AdminRepositoryError("Feed entry body is required before publishing.", 400);
+      throw new AdminRepositoryError(
+        "Feed entry body is required before publishing.",
+        400,
+      );
     }
   }
 
@@ -1770,7 +1881,10 @@ function normalizePayloadField(
     field.requiredForPublished &&
     (value === undefined || value === null || value === "")
   ) {
-    throw new AdminRepositoryError(`${field.label} is required before publishing.`, 400);
+    throw new AdminRepositoryError(
+      `${field.label} is required before publishing.`,
+      400,
+    );
   }
 
   if (field.kind === "array") {
@@ -1845,8 +1959,12 @@ async function feedItemDocument(
   context: AdminContext,
   existing?: Record<string, unknown>,
 ) {
-  const publisherOrganizationId = normalizeOptionalString(input.publisherOrganizationId);
-  const publisherIndividualId = normalizeOptionalString(input.publisherIndividualId);
+  const publisherOrganizationId = normalizeOptionalString(
+    input.publisherOrganizationId,
+  );
+  const publisherIndividualId = normalizeOptionalString(
+    input.publisherIndividualId,
+  );
 
   if (publisherOrganizationId && publisherIndividualId) {
     throw new AdminRepositoryError(
@@ -1885,15 +2003,24 @@ async function feedItemDocument(
     );
   }
 
-  const inputPublishedAt = normalizeTimestamp(input.publishedAt, "Published time");
-  const existingPublishedAt = normalizeTimestamp(existing?.publishedAt, "Published time");
+  const inputPublishedAt = normalizeTimestamp(
+    input.publishedAt,
+    "Published time",
+  );
+  const existingPublishedAt = normalizeTimestamp(
+    existing?.publishedAt,
+    "Published time",
+  );
   const publishedAt =
     status === "published"
-      ? inputPublishedAt ?? existingPublishedAt ?? FieldValue.serverTimestamp()
+      ? (inputPublishedAt ??
+        existingPublishedAt ??
+        FieldValue.serverTimestamp())
       : inputPublishedAt;
   const archivedAt =
     status === "archived"
-      ? normalizeTimestamp(existing?.archivedAt, "Archived time") ?? FieldValue.serverTimestamp()
+      ? (normalizeTimestamp(existing?.archivedAt, "Archived time") ??
+        FieldValue.serverTimestamp())
       : null;
   const root = normalizeRootContent(input, status);
   const payload = normalizeTypePayload(type, input, status, root);
@@ -1958,7 +2085,10 @@ export async function listDiscoverOrganizations(
 
   const ownOrganizationId = scopedOrganizationId(context);
   if (ownOrganizationId) {
-    const organization = await getDiscoverOrganization(context, ownOrganizationId);
+    const organization = await getDiscoverOrganization(
+      context,
+      ownOrganizationId,
+    );
     return {
       organizations: [organization],
       nextCursor: null,
@@ -2089,9 +2219,74 @@ export async function deleteDiscoverOrganization(
     "publisherOrganizationId",
     organizationId,
   );
-  await adminDb.collection(ORGANIZATIONS_COLLECTION).doc(organizationId).delete();
+  await adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId)
+    .delete();
 
   return { deleted: true, organizationId, deletedFeedItemCount };
+}
+
+export async function evaluateDiscoverOrganizationSubmission(
+  context: AdminContext,
+  organizationId: string,
+  decision: SubmissionEvaluationDecision,
+) {
+  requireFullAdmin(context);
+  const existing = await getOrganizationSnapshot(organizationId);
+  if (!existing) {
+    throw new AdminRepositoryError("Organization not found.", 404);
+  }
+
+  const organization = toOrganizationRecord(existing);
+  if (decision === "reject") {
+    await existing.ref.set(
+      withoutUndefined({
+        ...existing.data(),
+        status: "archived",
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByUserId: context.uid,
+      }),
+      { merge: false },
+    );
+
+    return {
+      decision,
+      organization: await getDiscoverOrganization(context, organizationId),
+      role: null,
+    };
+  }
+
+  const contactEmail = normalizeOptionalString(organization.contactEmail);
+  if (!contactEmail) {
+    throw new AdminRepositoryError(
+      "A contact email is required to approve this organization.",
+      400,
+    );
+  }
+
+  const role = await provisionPublisherPortalRoleForContext(context, {
+    kind: "organization",
+    publisherId: organizationId,
+    displayName: organization.name,
+    contactEmail,
+  });
+
+  await existing.ref.set(
+    withoutUndefined({
+      ...existing.data(),
+      status: "active",
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByUserId: context.uid,
+    }),
+    { merge: false },
+  );
+
+  return {
+    decision,
+    organization: await getDiscoverOrganization(context, organizationId),
+    role,
+  };
 }
 
 export async function syncDiscoverPublisherSnapshot(
@@ -2245,6 +2440,68 @@ export async function deleteDiscoverIndividual(
   return { deleted: true, individualId, deletedFeedItemCount };
 }
 
+export async function evaluateDiscoverIndividualSubmission(
+  context: AdminContext,
+  individualId: string,
+  decision: SubmissionEvaluationDecision,
+) {
+  requireFullAdmin(context);
+  const existing = await getIndividualSnapshot(individualId);
+  if (!existing) {
+    throw new AdminRepositoryError("Individual publisher not found.", 404);
+  }
+
+  const individual = toIndividualRecord(existing);
+  if (decision === "reject") {
+    await existing.ref.set(
+      withoutUndefined({
+        ...existing.data(),
+        status: "archived",
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByUserId: context.uid,
+      }),
+      { merge: false },
+    );
+
+    return {
+      decision,
+      individual: await getDiscoverIndividual(context, individualId),
+      role: null,
+    };
+  }
+
+  const contactEmail = normalizeOptionalString(individual.contactEmail);
+  if (!contactEmail) {
+    throw new AdminRepositoryError(
+      "A contact email is required to approve this individual publisher.",
+      400,
+    );
+  }
+
+  const role = await provisionPublisherPortalRoleForContext(context, {
+    kind: "individual",
+    publisherId: individualId,
+    displayName: individual.name,
+    contactEmail,
+  });
+
+  await existing.ref.set(
+    withoutUndefined({
+      ...existing.data(),
+      status: "active",
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByUserId: context.uid,
+    }),
+    { merge: false },
+  );
+
+  return {
+    decision,
+    individual: await getDiscoverIndividual(context, individualId),
+    role,
+  };
+}
+
 export async function listDiscoverFeedItems(
   context: AdminContext,
   options: { cursor?: string; limit?: unknown } = {},
@@ -2334,7 +2591,12 @@ export async function updateDiscoverFeedItem(
   }
   assertFeedItemScope(context, existing.data());
 
-  const document = await feedItemDocument(feedItemId, input, context, existing.data());
+  const document = await feedItemDocument(
+    feedItemId,
+    input,
+    context,
+    existing.data(),
+  );
   const current = existing.data();
   const createdAt = current.createdAt ?? FieldValue.serverTimestamp();
   const createdByUserId = current.createdByUserId ?? context.uid;
@@ -2373,7 +2635,8 @@ export async function duplicateDiscoverFeedItem(
 ) {
   requireDiscoverAccess(context);
   const source = await getDiscoverFeedItem(context, feedItemId);
-  const sourcePayload = source[source.type] as Record<string, unknown> | undefined;
+  const sourcePayload = source[source.type] as
+    Record<string, unknown> | undefined;
   const duplicateInput: FeedItemInput = {
     publisherOrganizationId: source.publisherOrganizationId ?? undefined,
     publisherIndividualId: source.publisherIndividualId ?? undefined,

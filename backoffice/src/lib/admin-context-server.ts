@@ -20,6 +20,7 @@ interface SdkContextResponse {
     canAccessBackoffice: boolean;
     canAccessPatientPortal: boolean;
     canAccessPGFlex?: boolean;
+    canAccessPublisherPortal?: boolean;
     projectAccess: string[];
   };
   capabilities: string[];
@@ -43,6 +44,7 @@ export async function getAdminContextServer(
     canAccessBackoffice: ctx.canAccessBackoffice,
     canAccessPatientPortal: ctx.canAccessPatientPortal,
     canAccessPGFlex: ctx.canAccessPGFlex ?? false,
+    canAccessPublisherPortal: ctx.canAccessPublisherPortal ?? false,
     project:
       (activeProject as ProjectKey) ??
       (ctx.projectAccess?.[0] as ProjectKey | undefined) ??

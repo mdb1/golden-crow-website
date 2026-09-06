@@ -40,12 +40,23 @@ const PGFLEX_PUBLIC_PATHS = new Set([
   "/pgflex/complete-profile",
 ]);
 
+const PUBLISHER_PORTAL_PUBLIC_PATHS = new Set([
+  "/publisher-portal/login",
+  "/publisher-portal/complete-profile",
+]);
+
 // NextAuth handler — reused for non-gc-fitness paths. Lazy-cached so we
 // don't pay the construction cost when only gc-fitness paths are hit.
 const nextAuthHandler = withAuth(
   (request: NextRequestWithAuth) => {
     if (request.nextauth.token?.accessSurface === "pgflex") {
       return NextResponse.redirect(new URL("/pgflex/logistics", request.url));
+    }
+
+    if (request.nextauth.token?.accessSurface === "publisher-portal") {
+      return NextResponse.redirect(
+        new URL("/publisher-portal/home", request.url),
+      );
     }
 
     return NextResponse.next();
@@ -72,6 +83,13 @@ const pgflexAuthHandler = withAuth({
   },
 });
 
+const publisherPortalAuthHandler = withAuth({
+  pages: {
+    signIn: "/publisher-portal/login",
+    error: "/publisher-portal/login",
+  },
+});
+
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -95,6 +113,15 @@ export default async function proxy(request: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (pgflexAuthHandler as any)(request);
+  }
+
+  if (pathname.startsWith("/publisher-portal")) {
+    if (PUBLISHER_PORTAL_PUBLIC_PATHS.has(pathname)) {
+      return NextResponse.next();
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (publisherPortalAuthHandler as any)(request);
   }
 
   if (pathname === "/open-api" || pathname.startsWith("/open-api/")) {
@@ -232,9 +259,10 @@ export const config = {
     // self-hosted via next.config rewrites (#378) — otherwise this middleware
     // would route them through the NextAuth branch and redirect the handler to
     // /login, breaking the proxied sign-in flow.
-    "/((?!login|access-denied|botfarm|api/auth|api/sdk|open-api|_next/static|_next/image|favicon.ico|gc-fitness|api/gc-fitness|patient-portal|pgflex|__).*)",
+    "/((?!login|access-denied|botfarm|api/auth|api/sdk|open-api|_next/static|_next/image|favicon.ico|gc-fitness|api/gc-fitness|patient-portal|pgflex|publisher-portal|__).*)",
     "/patient-portal/:path*",
     "/pgflex/:path*",
+    "/publisher-portal/:path*",
     "/gc-fitness/:path*",
     "/api/gc-fitness/login",
     "/api/gc-fitness/logout",

@@ -1,4 +1,8 @@
-import { isPatientPortalSdkPath, isPGFlexSdkPath } from "../middleware/auth.js";
+import {
+  isPatientPortalSdkPath,
+  isPGFlexSdkPath,
+  isPublisherPortalSdkPath,
+} from "../middleware/auth.js";
 
 jest.mock("../config/firebase.js", () => ({
   adminAuthFor: jest.fn(() => ({})),
@@ -20,5 +24,24 @@ describe("auth middleware", () => {
     expect(isPGFlexSdkPath("/auth/profile-setup")).toBe(true);
     expect(isPGFlexSdkPath("/auth/profile-setup/pgflex")).toBe(true);
     expect(isPGFlexSdkPath("/roles")).toBe(false);
+  });
+
+  it("allows publisher portal sessions to manage account setup and scoped Discover paths only", () => {
+    expect(isPublisherPortalSdkPath("/auth/my-account")).toBe(true);
+    expect(isPublisherPortalSdkPath("/auth/profile-setup")).toBe(true);
+    expect(isPublisherPortalSdkPath("/auth/profile-setup/publisher")).toBe(
+      true,
+    );
+    expect(isPublisherPortalSdkPath("/discover/organizations")).toBe(true);
+    expect(isPublisherPortalSdkPath("/discover/organizations/org-1")).toBe(
+      true,
+    );
+    expect(isPublisherPortalSdkPath("/discover/feed-items/feed-1")).toBe(true);
+    expect(isPublisherPortalSdkPath("/roles")).toBe(false);
+    expect(
+      isPublisherPortalSdkPath(
+        "/discover/organizations/org-1/submission-evaluation",
+      ),
+    ).toBe(false);
   });
 });

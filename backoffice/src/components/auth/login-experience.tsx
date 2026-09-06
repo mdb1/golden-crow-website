@@ -62,10 +62,15 @@ import {
   normalizePGFlexCallbackUrl,
   PGFLEX_ENTRY_ROUTE,
 } from "@/lib/pgflex-routes";
+import {
+  normalizePublisherPortalCallbackUrl,
+  PUBLISHER_PORTAL_ENTRY_ROUTE,
+} from "@/lib/publisher-portal-routes";
 import type { AdminRole } from "@/lib/admin-areas";
 
 type ProjectKey = "mydnamap" | "pocket-gyms";
-export type LoginSurface = "backoffice" | "patient-portal" | "pgflex";
+export type LoginSurface =
+  "backoffice" | "patient-portal" | "pgflex" | "publisher-portal";
 type Phase = "auth" | "select" | "signup-email" | "signup-password";
 type LoadingState =
   | "google"
@@ -132,6 +137,7 @@ type SignupEligibility = {
   canAccessBackoffice: boolean;
   canAccessPatientPortal: boolean;
   canAccessPGFlex: boolean;
+  canAccessPublisherPortal: boolean;
   requiredSurface?: LoginSurface;
   role?: AdminRole;
   accountExists: boolean;
@@ -282,37 +288,64 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "Finish new-user setup": "Finalizar configuracion de nuevo usuario",
   "Welcome back": "Bienvenido de nuevo",
   "Patient portal": "Portal de pacientes",
+  "Publisher portal": "Portal de publicadores",
   PGFlex: "PGFlex",
   "Use the patient portal login": "Usá el login del portal de pacientes",
   "Use the backoffice login": "Usá el login del backoffice",
   "Use the PGFlex login": "Usá el login de PGFlex",
+  "Use the publisher portal login": "Usá el login del portal de publicadores",
   "Open patient portal login": "Abrir login del portal de pacientes",
   "Open backoffice login": "Abrir login del backoffice",
   "Open PGFlex login": "Abrir login de PGFlex",
+  "Open publisher portal login": "Abrir login del portal de publicadores",
   "This account has patient portal access and cannot sign in through the backoffice login.":
     "Esta cuenta tiene acceso al portal de pacientes y no puede iniciar sesión desde el login del backoffice.",
   "This account has patient portal access and cannot sign in through the PGFlex login.":
     "Esta cuenta tiene acceso al portal de pacientes y no puede iniciar sesión desde el login de PGFlex.",
+  "This account has patient portal access and cannot sign in through the publisher portal login.":
+    "Esta cuenta tiene acceso al portal de pacientes y no puede iniciar sesión desde el login del portal de publicadores.",
   "This account has backoffice access and cannot sign in through the patient portal login.":
     "Esta cuenta tiene acceso al backoffice y no puede iniciar sesión desde el portal de pacientes.",
   "This account has backoffice access and cannot sign in through the PGFlex login.":
     "Esta cuenta tiene acceso al backoffice y no puede iniciar sesión desde el login de PGFlex.",
+  "This account has backoffice access and cannot sign in through the publisher portal login.":
+    "Esta cuenta tiene acceso al backoffice y no puede iniciar sesión desde el login del portal de publicadores.",
   "This account has PGFlex access and cannot sign in through the backoffice login.":
     "Esta cuenta tiene acceso a PGFlex y no puede iniciar sesión desde el login del backoffice.",
   "This account has PGFlex access and cannot sign in through the patient portal login.":
     "Esta cuenta tiene acceso a PGFlex y no puede iniciar sesión desde el portal de pacientes.",
+  "This account has PGFlex access and cannot sign in through the publisher portal login.":
+    "Esta cuenta tiene acceso a PGFlex y no puede iniciar sesión desde el login del portal de publicadores.",
+  "This account has publisher portal access and cannot sign in through the backoffice login.":
+    "Esta cuenta tiene acceso al portal de publicadores y no puede iniciar sesión desde el login del backoffice.",
+  "This account has publisher portal access and cannot sign in through the patient portal login.":
+    "Esta cuenta tiene acceso al portal de publicadores y no puede iniciar sesión desde el portal de pacientes.",
+  "This account has publisher portal access and cannot sign in through the PGFlex login.":
+    "Esta cuenta tiene acceso al portal de publicadores y no puede iniciar sesión desde el login de PGFlex.",
   "This account is not approved for PGFlex access":
     "Esta cuenta no está aprobada para acceder a PGFlex",
+  "This account is not approved for publisher portal access":
+    "Esta cuenta no está aprobada para acceder al portal de publicadores",
   "Authentication worked, but this account does not have an active transport dispatcher role.":
     "La autenticación funcionó, pero esta cuenta no tiene un rol transportista activo.",
+  "Authentication worked, but this account does not have an active publisher role.":
+    "La autenticación funcionó, pero esta cuenta no tiene un rol de publicador activo.",
   "Ask a full admin to assign an active transport dispatcher role.":
     "Pedí a un administrador total que asigne un rol transportista activo.",
+  "Ask a full admin to approve a Discover submission or assign an active publisher role.":
+    "Pedí a un administrador total que apruebe la solicitud de Discover o asigne un rol de publicador activo.",
   "This account exists, but it is not approved for PGFlex access.":
     "Esta cuenta existe, pero no está aprobada para acceder a PGFlex.",
+  "This account exists, but it is not approved for publisher portal access.":
+    "Esta cuenta existe, pero no está aprobada para acceder al portal de publicadores.",
   "No PGFlex account or approved transport assignment was found for this email.":
     "No se encontró una cuenta PGFlex ni una asignación transportista aprobada para este email.",
+  "No publisher portal account or approved publisher assignment was found for this email.":
+    "No se encontró una cuenta del portal de publicadores ni una asignación de publicador aprobada para este email.",
   "This email does not have PGFlex access yet.":
     "Este email todavía no tiene acceso a PGFlex.",
+  "This email does not have publisher portal access yet.":
+    "Este email todavía no tiene acceso al portal de publicadores.",
   "Your account can manage more than one legacy product. Pick where to continue.":
     "Tu cuenta puede gestionar mas de un producto legacy. Elegi donde continuar.",
   "This path is for invited new users who do not have an email password yet.":
@@ -515,27 +548,42 @@ function pgflexCallbackUrl() {
   return normalizePGFlexCallbackUrl(callbackUrl);
 }
 
+function publisherPortalCallbackUrl() {
+  if (typeof window === "undefined") return undefined;
+
+  const callbackUrl = new URLSearchParams(window.location.search).get(
+    "callbackUrl",
+  );
+  return normalizePublisherPortalCallbackUrl(callbackUrl);
+}
+
 function isLoginSurface(value: unknown): value is LoginSurface {
   return (
-    value === "backoffice" || value === "patient-portal" || value === "pgflex"
+    value === "backoffice" ||
+    value === "patient-portal" ||
+    value === "pgflex" ||
+    value === "publisher-portal"
   );
 }
 
 function surfaceAccessName(surface: LoginSurface) {
   if (surface === "patient-portal") return "patient portal";
   if (surface === "pgflex") return "PGFlex";
+  if (surface === "publisher-portal") return "publisher portal";
   return "backoffice";
 }
 
 function surfaceLoginName(surface: LoginSurface) {
   if (surface === "patient-portal") return "patient portal login";
   if (surface === "pgflex") return "PGFlex login";
+  if (surface === "publisher-portal") return "publisher portal login";
   return "backoffice login";
 }
 
 function surfaceLoginHref(surface: LoginSurface) {
   if (surface === "patient-portal") return "/patient-portal/login";
   if (surface === "pgflex") return "/pgflex/login";
+  if (surface === "publisher-portal") return "/publisher-portal/login";
   return "/login";
 }
 
@@ -1106,24 +1154,31 @@ function sdkLoginNotice(
 
     const patientPortal = surface === "patient-portal";
     const pgflexPortal = surface === "pgflex";
+    const publisherPortal = surface === "publisher-portal";
     return {
       tone: "error",
       title: patientPortal
         ? "This account is not approved for patient portal access"
         : pgflexPortal
           ? "This account is not approved for PGFlex access"
-          : "This account is not approved for backoffice access",
+          : publisherPortal
+            ? "This account is not approved for publisher portal access"
+            : "This account is not approved for backoffice access",
       message: patientPortal
         ? "Authentication worked, but this patient has not been granted active patient portal access."
         : pgflexPortal
           ? "Authentication worked, but this account does not have an active transport dispatcher role."
-          : "Authentication worked, but the SDK did not find an active allowlist entry or admin role assignment for this email.",
+          : publisherPortal
+            ? "Authentication worked, but this account does not have an active publisher role."
+            : "Authentication worked, but the SDK did not find an active allowlist entry or admin role assignment for this email.",
       details: [
         patientPortal
           ? "Ask the care team to grant access from the patient detail screen."
           : pgflexPortal
             ? "Ask a full admin to assign an active transport dispatcher role."
-            : "Ask a full admin to add the email to the team allowlist or assign an active admin role.",
+            : publisherPortal
+              ? "Ask a full admin to approve a Discover submission or assign an active publisher role."
+              : "Ask a full admin to add the email to the team allowlist or assign an active admin role.",
         "If access was granted moments ago, sign out of Google and try again.",
       ],
       log,
@@ -1558,7 +1613,11 @@ function PasswordInput({
 }
 
 function VersionPill({ surface }: { surface: LoginSurface }) {
-  if (surface === "patient-portal") {
+  if (
+    surface === "patient-portal" ||
+    surface === "pgflex" ||
+    surface === "publisher-portal"
+  ) {
     return (
       <span className="text-xs text-slate-400">v{BACKOFFICE_VERSION}</span>
     );
@@ -1657,7 +1716,9 @@ export function LoginExperience({
 }) {
   const isPatientPortal = surface === "patient-portal";
   const isPGFlexPortal = surface === "pgflex";
-  const isExclusivePortal = isPatientPortal || isPGFlexPortal;
+  const isPublisherPortal = surface === "publisher-portal";
+  const isExclusivePortal =
+    isPatientPortal || isPGFlexPortal || isPublisherPortal;
   const normalizedInitialEmail = isExclusivePortal
     ? normalizeAuthEmail(initialEmail ?? "")
     : "";
@@ -1824,12 +1885,16 @@ export function LoginExperience({
         ? "/patient-portal/complete-profile"
         : isPGFlexPortal
           ? "/pgflex/complete-profile"
-          : "/complete-profile"
+          : isPublisherPortal
+            ? "/publisher-portal/complete-profile"
+            : "/complete-profile"
       : isPatientPortal
         ? (patientPortalCallbackUrl() ?? PATIENT_PORTAL_ENTRY_ROUTE)
         : isPGFlexPortal
           ? (pgflexCallbackUrl() ?? PGFLEX_ENTRY_ROUTE)
-          : "/2pq-dashboard";
+          : isPublisherPortal
+            ? (publisherPortalCallbackUrl() ?? PUBLISHER_PORTAL_ENTRY_ROUTE)
+            : "/2pq-dashboard";
 
     if (redirectTo.endsWith("/complete-profile")) {
       const fallbackProject = projectAccess.includes("mydnamap")
@@ -1987,21 +2052,29 @@ export function LoginExperience({
           ? data.accountExists
             ? "This account exists, but it is not approved for PGFlex access."
             : "No PGFlex account or approved transport assignment was found for this email."
-          : data.accountExists
-            ? "This account exists, but it is not approved for backoffice access."
-            : "No backoffice account or approved invitation was found for this email.";
+          : isPublisherPortal
+            ? data.accountExists
+              ? "This account exists, but it is not approved for publisher portal access."
+              : "No publisher portal account or approved publisher assignment was found for this email."
+            : data.accountExists
+              ? "This account exists, but it is not approved for backoffice access."
+              : "No backoffice account or approved invitation was found for this email.";
         setNotice({
           tone: "error",
           title: data.accountExists
             ? isPGFlexPortal
               ? "This account is not approved for PGFlex access"
-              : "This account is not approved for backoffice access"
+              : isPublisherPortal
+                ? "This account is not approved for publisher portal access"
+                : "This account is not approved for backoffice access"
             : "This email is not approved yet",
           message,
           details: [
             isPGFlexPortal
               ? "Ask a full admin to assign an active transport dispatcher role."
-              : "Ask a full admin to add the email to the allowlist or assign an active admin role first.",
+              : isPublisherPortal
+                ? "Ask a full admin to approve a Discover submission or assign an active publisher role."
+                : "Ask a full admin to add the email to the allowlist or assign an active admin role first.",
           ],
           log: authEventLog({
             source: "legacy-sdk",
@@ -2307,7 +2380,9 @@ export function LoginExperience({
           ? "The new-user flow only creates accounts for patients whose portal access was already approved."
           : isPGFlexPortal
             ? "This email does not have PGFlex access yet."
-            : "The new-user flow only creates accounts for emails already approved by the team.";
+            : isPublisherPortal
+              ? "This email does not have publisher portal access yet."
+              : "The new-user flow only creates accounts for emails already approved by the team.";
         setNotice({
           tone: "error",
           title: "This email is not approved yet",
@@ -2317,7 +2392,9 @@ export function LoginExperience({
               ? "Ask the care team to grant patient portal access from the patient detail screen first."
               : isPGFlexPortal
                 ? "Ask a full admin to assign an active transport dispatcher role."
-                : "Ask a full admin to add the email to the allowlist or assign an active admin role first.",
+                : isPublisherPortal
+                  ? "Ask a full admin to approve a Discover submission or assign an active publisher role."
+                  : "Ask a full admin to add the email to the allowlist or assign an active admin role first.",
             "After approval, return here and run this check again.",
           ],
           log: authEventLog({
@@ -2525,13 +2602,17 @@ export function LoginExperience({
       ? phase === "auth" || phase === "select"
         ? t("PGFlex")
         : t("Create account")
-      : phase === "select"
-        ? t("Choose your workspace")
-        : phase === "signup-email"
-          ? t("Create an email account")
-          : phase === "signup-password"
-            ? t("Finish new-user setup")
-            : t("Welcome back");
+      : isPublisherPortal
+        ? phase === "auth" || phase === "select"
+          ? t("Publisher portal")
+          : t("Create account")
+        : phase === "select"
+          ? t("Choose your workspace")
+          : phase === "signup-email"
+            ? t("Create an email account")
+            : phase === "signup-password"
+              ? t("Finish new-user setup")
+              : t("Welcome back");
 
   const panelDescription =
     phase === "select"
@@ -2549,13 +2630,16 @@ export function LoginExperience({
             );
   const portalAccessKeyStep =
     isExclusivePortal && phase === "auth" && emailPasswordReady;
-  const portalAccessKeyLabel = isPGFlexPortal ? "Access key" : "Security key";
-  const portalAccessKeyNotice = isPGFlexPortal
-    ? "Your access key was sent to you by email."
-    : "Your security key was sent to you by email.";
-  const portalAccessKeyFollowUp = isPGFlexPortal
-    ? "If you did not receive it, ask an administrator to send it again."
-    : "If you did not receive it, ask your doctor to send it again.";
+  const portalAccessKeyLabel =
+    isPGFlexPortal || isPublisherPortal ? "Access key" : "Security key";
+  const portalAccessKeyNotice =
+    isPGFlexPortal || isPublisherPortal
+      ? "Your access key was sent to you by email."
+      : "Your security key was sent to you by email.";
+  const portalAccessKeyFollowUp =
+    isPGFlexPortal || isPublisherPortal
+      ? "If you did not receive it, ask an administrator to send it again."
+      : "If you did not receive it, ask your doctor to send it again.";
 
   return (
     <main
@@ -2759,9 +2843,7 @@ export function LoginExperience({
                 ) : null}
 
                 <form
-                  className={
-                    portalAccessKeyStep ? "space-y-6" : "space-y-4"
-                  }
+                  className={portalAccessKeyStep ? "space-y-6" : "space-y-4"}
                   onSubmit={
                     emailPasswordReady ? handleEmailSignIn : handleEmailContinue
                   }

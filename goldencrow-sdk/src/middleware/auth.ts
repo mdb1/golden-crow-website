@@ -30,6 +30,18 @@ const PGFLEX_SDK_PATHS = new Set([
   "/pgflex/logistics",
 ]);
 
+const PUBLISHER_PORTAL_SDK_PATHS = new Set([
+  "/auth/context",
+  "/auth/my-account",
+  "/auth/my-account/role",
+  "/auth/my-account/email",
+  "/auth/profile-setup",
+  "/auth/profile-setup/publisher",
+  "/discover/organizations",
+  "/discover/individuals",
+  "/discover/feed-items",
+]);
+
 export function isPatientPortalSdkPath(path: string) {
   return (
     PATIENT_PORTAL_SDK_PATHS.has(path) ||
@@ -40,6 +52,19 @@ export function isPatientPortalSdkPath(path: string) {
 
 export function isPGFlexSdkPath(path: string) {
   return PGFLEX_SDK_PATHS.has(path) || path.startsWith("/pgflex/logistics/");
+}
+
+export function isPublisherPortalSdkPath(path: string) {
+  if (path.endsWith("/submission-evaluation")) {
+    return false;
+  }
+
+  return (
+    PUBLISHER_PORTAL_SDK_PATHS.has(path) ||
+    path.startsWith("/discover/organizations/") ||
+    path.startsWith("/discover/individuals/") ||
+    path.startsWith("/discover/feed-items/")
+  );
 }
 
 export async function authMiddleware(
@@ -68,7 +93,8 @@ export async function authMiddleware(
       !adminContext ||
       (!adminContext.canAccessBackoffice &&
         !adminContext.canAccessPatientPortal &&
-        !adminContext.canAccessPGFlex)
+        !adminContext.canAccessPGFlex &&
+        !adminContext.canAccessPublisherPortal)
     ) {
       return reply.status(403).send({ error: "Account not authorized" });
     }
@@ -77,6 +103,8 @@ export async function authMiddleware(
     if (
       adminContext.canAccessPatientPortal &&
       !adminContext.canAccessBackoffice &&
+      !adminContext.canAccessPGFlex &&
+      !adminContext.canAccessPublisherPortal &&
       !isPatientPortalSdkPath(requestPath)
     ) {
       return reply.status(403).send({
@@ -88,10 +116,23 @@ export async function authMiddleware(
       adminContext.canAccessPGFlex &&
       !adminContext.canAccessBackoffice &&
       !adminContext.canAccessPatientPortal &&
+      !adminContext.canAccessPublisherPortal &&
       !isPGFlexSdkPath(requestPath)
     ) {
       return reply.status(403).send({
         error: "This PGFlex session cannot access backoffice APIs",
+      });
+    }
+
+    if (
+      adminContext.canAccessPublisherPortal &&
+      !adminContext.canAccessBackoffice &&
+      !adminContext.canAccessPatientPortal &&
+      !adminContext.canAccessPGFlex &&
+      !isPublisherPortalSdkPath(requestPath)
+    ) {
+      return reply.status(403).send({
+        error: "This publisher portal session cannot access backoffice APIs",
       });
     }
 

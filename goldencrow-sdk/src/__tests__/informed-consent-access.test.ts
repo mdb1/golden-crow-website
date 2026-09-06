@@ -17,6 +17,9 @@ function context(
     canAccessBackoffice: values.role !== "patient",
     canAccessPatientPortal: values.role === "patient",
     canAccessPGFlex: values.role === "transport_dispatcher",
+    canAccessPublisherPortal:
+      values.role === "organization_publisher" ||
+      values.role === "individual_publisher",
     projectAccess: ["mydnamap"],
     ...values,
   };

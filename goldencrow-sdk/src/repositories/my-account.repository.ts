@@ -19,6 +19,7 @@ import {
   canAccessBackoffice,
   canAccessPatientPortal,
   canAccessPGFlex,
+  canAccessPublisherPortal,
 } from "../lib/access-surfaces.js";
 import type {
   AdminContext,
@@ -146,6 +147,10 @@ function contextFromRole(
     canAccessBackoffice: canAccessBackoffice(role, context.isBootstrap),
     canAccessPatientPortal: canAccessPatientPortal(role, context.isBootstrap),
     canAccessPGFlex: canAccessPGFlex(role, context.isBootstrap),
+    canAccessPublisherPortal: canAccessPublisherPortal(
+      role,
+      context.isBootstrap,
+    ),
   };
 }
 

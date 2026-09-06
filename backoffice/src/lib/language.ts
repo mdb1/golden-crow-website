@@ -329,7 +329,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Report providers only": "Solo proveedores de reportes",
   "Non-providers": "No proveedores",
   "All report categories": "Todas las categorías de reportes",
-  "Select genetic report categories": "Seleccionar categorías de reporte genético",
+  "Select genetic report categories":
+    "Seleccionar categorías de reporte genético",
   "Choose one or more genetic report categories. They will be saved as comma-separated keys.":
     "Elegí una o más categorías de reporte genético. Se guardan como claves separadas por coma.",
   "No report categories selected": "Sin categorías de reporte seleccionadas",
@@ -1010,6 +1011,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Access surface": "Tipo de acceso",
   "Backoffice access": "Acceso al backoffice",
   "Patient portal": "Portal de pacientes",
+  "Publisher portal": "Portal de publicadores",
   "Patient portal data": "Mis datos",
   "Patient has accessed the patient portal":
     "El paciente ingresó al portal de pacientes",
@@ -2432,6 +2434,24 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to delete the organization.": "No se pudo eliminar la organización.",
   "Unable to delete the individual publisher.":
     "No se pudo eliminar el editor individual.",
+  "Submission evaluation": "Evaluación de solicitud",
+  "Approve to create portal access and email credentials, or reject to archive this publisher.":
+    "Aprobá para crear el acceso al portal y enviar credenciales, o rechazá para archivar este publicador.",
+  "Approval decision": "Decisión de aprobación",
+  "Approval activates the publisher, assigns the correct publisher role, generates a new access key, and emails it as Clave de acceso.":
+    "La aprobación activa el publicador, asigna el rol correcto, genera una nueva clave de acceso y la envía por email como Clave de acceso.",
+  Approve: "Aprobar",
+  Reject: "Rechazar",
+  "Approving...": "Aprobando...",
+  "Rejecting...": "Rechazando...",
+  "Organization approved and credentials sent.":
+    "Organización aprobada y credenciales enviadas.",
+  "Individual publisher approved and credentials sent.":
+    "Editor individual aprobado y credenciales enviadas.",
+  "Unable to evaluate the organization submission.":
+    "No se pudo evaluar la solicitud de la organización.",
+  "Unable to evaluate the individual publisher submission.":
+    "No se pudo evaluar la solicitud del editor individual.",
   "Unable to load Discover data. Refresh the page or contact support if it repeats.":
     "No se pudieron cargar los datos de Discover. Actualizá la página o contactá a soporte si se repite.",
   "Delete form": "Eliminar formulario",

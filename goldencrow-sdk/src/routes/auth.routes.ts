@@ -22,6 +22,7 @@ import {
 import {
   completeProfileSetup,
   completePatientProfileSetup,
+  completePublisherProfileSetup,
   completeTransportDispatcherProfileSetup,
   createEligibleEmailAccount,
   getEmailSignupEligibility,
@@ -32,14 +33,14 @@ import {
 const LoginBodySchema = z.object({
   idToken: z.string().min(1, "idToken is required"),
   surface: z
-    .enum(["backoffice", "patient-portal", "pgflex"])
+    .enum(["backoffice", "patient-portal", "pgflex", "publisher-portal"])
     .default("backoffice"),
 });
 
 const EmailSignupEligibilitySchema = z.object({
   email: z.string().email(),
   surface: z
-    .enum(["backoffice", "patient-portal", "pgflex"])
+    .enum(["backoffice", "patient-portal", "pgflex", "publisher-portal"])
     .default("backoffice"),
 });
 
@@ -47,7 +48,7 @@ const EmailSignupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6).max(128),
   surface: z
-    .enum(["backoffice", "patient-portal", "pgflex"])
+    .enum(["backoffice", "patient-portal", "pgflex", "publisher-portal"])
     .default("backoffice"),
 });
 
@@ -141,7 +142,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
             ? adminContext?.canAccessPatientPortal
             : surface === "pgflex"
               ? adminContext?.canAccessPGFlex
-              : adminContext?.canAccessBackoffice;
+              : surface === "publisher-portal"
+                ? adminContext?.canAccessPublisherPortal
+                : adminContext?.canAccessBackoffice;
         if (!adminContext || !canAccessRequestedSurface) {
           const requiredSurface = adminContext?.canAccessBackoffice
             ? "backoffice"
@@ -149,13 +152,17 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
               ? "patient-portal"
               : adminContext?.canAccessPGFlex
                 ? "pgflex"
-                : undefined;
+                : adminContext?.canAccessPublisherPortal
+                  ? "publisher-portal"
+                  : undefined;
           const requiredLogin =
             requiredSurface === "patient-portal"
               ? "patient portal"
               : requiredSurface === "pgflex"
                 ? "PGFlex"
-                : "backoffice";
+                : requiredSurface === "publisher-portal"
+                  ? "publisher portal"
+                  : "backoffice";
           return reply.status(403).send({
             error: requiredSurface
               ? `This account must sign in through the ${requiredLogin} login.`
@@ -345,6 +352,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       context.role !== "patient" ||
       !context.canAccessPatientPortal ||
       context.canAccessBackoffice ||
+      context.canAccessPGFlex ||
+      context.canAccessPublisherPortal ||
       !context.patientId
     ) {
       return reply
@@ -379,7 +388,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       context.role !== "transport_dispatcher" ||
       !context.canAccessPGFlex ||
       context.canAccessBackoffice ||
-      context.canAccessPatientPortal
+      context.canAccessPatientPortal ||
+      context.canAccessPublisherPortal
     ) {
       return reply
         .status(403)
@@ -388,6 +398,42 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     try {
       const state = await completeTransportDispatcherProfileSetup(
+        request.user.uid,
+        context.email,
+      );
+      return reply.send({ state });
+    } catch (error) {
+      if (isProfileSetupError(error)) {
+        return reply.status(error.statusCode).send({ error: error.message });
+      }
+
+      throw error;
+    }
+  });
+
+  f.put("/auth/profile-setup/publisher", async (request, reply) => {
+    const context = request.adminContext;
+    if (!context || !request.user?.uid) {
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
+    }
+
+    if (
+      (context.role !== "organization_publisher" &&
+        context.role !== "individual_publisher") ||
+      !context.canAccessPublisherPortal ||
+      context.canAccessBackoffice ||
+      context.canAccessPatientPortal ||
+      context.canAccessPGFlex
+    ) {
+      return reply
+        .status(403)
+        .send({ error: "Publisher portal access is required." });
+    }
+
+    try {
+      const state = await completePublisherProfileSetup(
         request.user.uid,
         context.email,
       );

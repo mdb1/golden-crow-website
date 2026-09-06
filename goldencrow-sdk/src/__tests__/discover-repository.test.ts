@@ -73,9 +73,7 @@ class QueryStub {
     const limit = [...this.operations]
       .reverse()
       .find(
-        (
-          operation,
-        ): operation is Extract<QueryOperation, { type: "limit" }> =>
+        (operation): operation is Extract<QueryOperation, { type: "limit" }> =>
           operation.type === "limit",
       )?.value;
 
@@ -91,6 +89,7 @@ const mockQueryStubs: QueryStub[] = [];
 const mockFeedDocs: MockDoc[] = [];
 const mockOrganizationDocs: MockDoc[] = [];
 const mockIndividualDocs: MockDoc[] = [];
+const mockProvisionPublisherPortalRoleForContext = jest.fn();
 let mockGeneratedId = 0;
 let failNextFeedItemsQuery = true;
 
@@ -292,6 +291,11 @@ jest.mock("../config/firebase.js", () => ({
   })),
 }));
 
+jest.mock("../repositories/roles.repository.js", () => ({
+  provisionPublisherPortalRoleForContext:
+    mockProvisionPublisherPortalRoleForContext,
+}));
+
 describe("discover repository", () => {
   beforeEach(() => {
     jest.resetModules();
@@ -311,6 +315,15 @@ describe("discover repository", () => {
       ...initialIndividualDocs.map(cloneDoc),
     );
     mockQueryStubs.length = 0;
+    mockProvisionPublisherPortalRoleForContext.mockReset();
+    mockProvisionPublisherPortalRoleForContext.mockResolvedValue({
+      email: "publisher@example.org",
+      role: "organization_publisher",
+      isActive: true,
+      canAccessPatientPortal: false,
+      createdAt: "2026-08-05T12:00:00.000Z",
+      updatedAt: "2026-08-05T12:00:00.000Z",
+    });
     mockGeneratedId = 0;
     failNextFeedItemsQuery = true;
   });
@@ -323,6 +336,7 @@ describe("discover repository", () => {
     canAccessBackoffice: true,
     canAccessPatientPortal: false,
     canAccessPGFlex: false,
+    canAccessPublisherPortal: false,
     projectAccess: ["mydnamap" as const],
   };
   const godModeContext = {
@@ -344,6 +358,7 @@ describe("discover repository", () => {
       canAccessBackoffice: true,
       canAccessPatientPortal: false,
       canAccessPGFlex: false,
+      canAccessPublisherPortal: false,
       projectAccess: ["mydnamap"],
     });
 
@@ -406,9 +421,7 @@ describe("discover repository", () => {
       "pro_research_scientists",
     );
     expect(result.individuals[0]?.description).toBe("Descripción individual");
-    expect(result.individuals[0]?.descriptionEn).toBe(
-      "Individual description",
-    );
+    expect(result.individuals[0]?.descriptionEn).toBe("Individual description");
   });
 
   it("requires god mode to hard delete Discover publishers", async () => {
@@ -506,6 +519,54 @@ describe("discover repository", () => {
     expect(mockIndividualDocs.some((doc) => doc.id === "person-1")).toBe(false);
     expect(mockOrganizationDocs.some((doc) => doc.id === "org-1")).toBe(true);
     expect(mockFeedDocs.map((doc) => doc.id)).toEqual(["feed-a"]);
+  });
+
+  it("approves an organization submission by activating it and provisioning portal access", async () => {
+    const { evaluateDiscoverOrganizationSubmission } =
+      await import("../repositories/discover.repository");
+    const stored = mockOrganizationDocs.find((doc) => doc.id === "org-1");
+    stored!.data.status = "pending_approval";
+    stored!.data.contactEmail = "approval@example.org";
+
+    const result = await evaluateDiscoverOrganizationSubmission(
+      fullAdminContext,
+      "org-1",
+      "approve",
+    );
+
+    expect(mockProvisionPublisherPortalRoleForContext).toHaveBeenCalledWith(
+      fullAdminContext,
+      {
+        kind: "organization",
+        publisherId: "org-1",
+        displayName: "Publisher One",
+        contactEmail: "approval@example.org",
+      },
+    );
+    const nextStored = mockOrganizationDocs.find((doc) => doc.id === "org-1");
+    expect(result.organization.status).toBe("active");
+    expect(nextStored?.data.status).toBe("active");
+    expect(nextStored?.data.updatedByUserId).toBe("admin-1");
+  });
+
+  it("rejects an individual submission by archiving it without provisioning portal access", async () => {
+    const { evaluateDiscoverIndividualSubmission } =
+      await import("../repositories/discover.repository");
+    const stored = mockIndividualDocs.find((doc) => doc.id === "person-1");
+    stored!.data.status = "pending_approval";
+    stored!.data.contactEmail = "individual@example.org";
+
+    const result = await evaluateDiscoverIndividualSubmission(
+      fullAdminContext,
+      "person-1",
+      "reject",
+    );
+
+    expect(mockProvisionPublisherPortalRoleForContext).not.toHaveBeenCalled();
+    const nextStored = mockIndividualDocs.find((doc) => doc.id === "person-1");
+    expect(result.individual.status).toBe("archived");
+    expect(nextStored?.data.status).toBe("archived");
+    expect(nextStored?.data.updatedByUserId).toBe("admin-1");
   });
 
   it("generates organization slugs from names instead of manual input", async () => {
@@ -652,10 +713,14 @@ describe("discover repository", () => {
         geneticReportCategory: "grc_full_genome",
       } as Record<string, unknown>,
     );
-    const stored = mockOrganizationDocs.find((doc) => doc.id === "uploaded-org");
+    const stored = mockOrganizationDocs.find(
+      (doc) => doc.id === "uploaded-org",
+    );
 
     expect(result.imageUrl).toBeNull();
-    expect(result.imageUploadDataUrl).toBe("data:image/png;base64,iVBORw0KGgo=");
+    expect(result.imageUploadDataUrl).toBe(
+      "data:image/png;base64,iVBORw0KGgo=",
+    );
     expect(result.imageUploadName).toBe("wizard-logo.png");
     expect(result.imageUploadMimeType).toBe("image/png");
     expect(stored?.data.imageUploadDataUrl).toBe(
@@ -739,7 +804,9 @@ describe("discover repository", () => {
       isGeneticReportProvider: true,
       geneticReportCategory: "grc_other",
     });
-    const stored = mockIndividualDocs.find((doc) => doc.id === result.publisher.id);
+    const stored = mockIndividualDocs.find(
+      (doc) => doc.id === result.publisher.id,
+    );
 
     expect(result.kind).toBe("individual");
     expect(result.publisher.status).toBe("pending_approval");

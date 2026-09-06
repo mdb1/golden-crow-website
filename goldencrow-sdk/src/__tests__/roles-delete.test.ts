@@ -12,6 +12,9 @@ type MockDocumentRef = {
 const mockDocs = new Map<string, MockDocData>();
 const mockDeleteUser = jest.fn();
 const mockGetUserByEmail = jest.fn();
+const mockGeneratePatientTemporaryPassword = jest.fn(() => "ABCDEFGH");
+const mockProvisionPatientFirebaseAccount = jest.fn();
+const mockSendPublisherPortalInviteEmail = jest.fn();
 const mockCollection = jest.fn((collectionName: string) => ({
   doc: (id: string) => makeDocRef(collectionName, id),
 }));
@@ -32,8 +35,11 @@ function makeDocRef(collectionName: string, id: string): MockDocumentRef {
         data: () => data,
       };
     }),
-    set: jest.fn(async (data: MockDocData) => {
-      mockDocs.set(docKey(ref), { ...data });
+    set: jest.fn(async (data: MockDocData, options?: { merge?: boolean }) => {
+      mockDocs.set(docKey(ref), {
+        ...(options?.merge ? mockDocs.get(docKey(ref)) : {}),
+        ...data,
+      });
     }),
     delete: jest.fn(async () => {
       mockDocs.delete(docKey(ref));
@@ -58,12 +64,16 @@ jest.mock("../config/env.js", () => ({
 }));
 
 jest.mock("../lib/patient-portal-credentials.js", () => ({
-  generatePatientTemporaryPassword: jest.fn(() => "ABCDEFGH"),
-  provisionPatientFirebaseAccount: jest.fn(),
+  generatePatientTemporaryPassword: mockGeneratePatientTemporaryPassword,
+  provisionPatientFirebaseAccount: mockProvisionPatientFirebaseAccount,
 }));
 
 jest.mock("../lib/pgflex-dispatcher-email.js", () => ({
   sendPGFlexDispatcherInviteEmail: jest.fn(),
+}));
+
+jest.mock("../lib/publisher-portal-email.js", () => ({
+  sendPublisherPortalInviteEmail: mockSendPublisherPortalInviteEmail,
 }));
 
 const godModeContext = {
@@ -74,6 +84,7 @@ const godModeContext = {
   canAccessBackoffice: true,
   canAccessPatientPortal: false,
   canAccessPGFlex: false,
+  canAccessPublisherPortal: false,
   projectAccess: ["mydnamap" as const],
 };
 
@@ -84,6 +95,9 @@ describe("role user deletion", () => {
     mockCollection.mockClear();
     mockDeleteUser.mockReset();
     mockGetUserByEmail.mockReset();
+    mockGeneratePatientTemporaryPassword.mockClear();
+    mockProvisionPatientFirebaseAccount.mockReset();
+    mockSendPublisherPortalInviteEmail.mockReset();
   });
 
   it("deletes the role document and Firebase Auth account in god mode", async () => {
@@ -194,6 +208,9 @@ describe("transport dispatcher role metadata", () => {
     mockCollection.mockClear();
     mockDeleteUser.mockReset();
     mockGetUserByEmail.mockReset();
+    mockGeneratePatientTemporaryPassword.mockClear();
+    mockProvisionPatientFirebaseAccount.mockReset();
+    mockSendPublisherPortalInviteEmail.mockReset();
   });
 
   it("persists the preferred assignment flag for transport dispatcher roles", async () => {
@@ -230,6 +247,61 @@ describe("transport dispatcher role metadata", () => {
       is_preferred_asignee: true,
       firebaseUid: "driver-uid",
       notes: "Disponible",
+    });
+  });
+
+  it("provisions publisher portal access with a generated access key", async () => {
+    const { provisionPublisherPortalRoleForContext } =
+      await import("../repositories/roles.repository");
+    mockDocs.set("feed_organizations/org-1", {
+      name: "Publisher One",
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockProvisionPatientFirebaseAccount.mockResolvedValue({
+      user: { uid: "publisher-uid" },
+      created: true,
+    });
+
+    const role = await provisionPublisherPortalRoleForContext(godModeContext, {
+      kind: "organization",
+      publisherId: "org-1",
+      displayName: "Publisher One",
+      contactEmail: " PUBLISHER@example.org ",
+    });
+
+    expect(mockGeneratePatientTemporaryPassword).toHaveBeenCalledTimes(1);
+    expect(mockProvisionPatientFirebaseAccount).toHaveBeenCalledWith(
+      expect.objectContaining({}),
+      {
+        email: "publisher@example.org",
+        displayName: "Publisher One",
+        temporaryPassword: "ABCDEFGH",
+      },
+    );
+    expect(mockSendPublisherPortalInviteEmail).toHaveBeenCalledWith(
+      {
+        email: "publisher@example.org",
+        displayName: "Publisher One",
+      },
+      "ABCDEFGH",
+    );
+    expect(role).toMatchObject({
+      email: "publisher@example.org",
+      role: "organization_publisher",
+      organizationId: "org-1",
+      firebaseUid: "publisher-uid",
+      isActive: true,
+      canAccessPatientPortal: false,
+      organizationName: "Publisher One",
+    });
+    expect(mockDocs.get("user_roles/publisher@example.org")).toMatchObject({
+      role: "organization_publisher",
+      organizationId: "org-1",
+      firebaseUid: "publisher-uid",
+      publisherPortalInviteEmailSentAt: expect.any(String),
+      publisherPortalInviteEmailFailedAt: null,
+      publisherPortalInviteEmailLastError: null,
     });
   });
 });

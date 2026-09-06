@@ -6,10 +6,13 @@ const SDK_URL =
   process.env.NEXT_PUBLIC_SDK_URL ??
   "http://localhost:3000";
 
-type AccessSurface = "backoffice" | "patient-portal" | "pgflex";
+type AccessSurface =
+  "backoffice" | "patient-portal" | "pgflex" | "publisher-portal";
 
 function normalizeAccessSurface(value: unknown): AccessSurface {
-  return value === "patient-portal" || value === "pgflex"
+  return value === "patient-portal" ||
+    value === "pgflex" ||
+    value === "publisher-portal"
     ? value
     : "backoffice";
 }

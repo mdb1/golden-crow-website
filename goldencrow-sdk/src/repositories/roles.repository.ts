@@ -10,6 +10,7 @@ import {
   canAccessBackoffice,
   canAccessPatientPortal,
   canAccessPGFlex,
+  canAccessPublisherPortal,
   canRoleAccessBackoffice,
   resolveRequiredAuthSurface,
 } from "../lib/access-surfaces.js";
@@ -28,6 +29,7 @@ import {
   provisionPatientFirebaseAccount,
 } from "../lib/patient-portal-credentials.js";
 import { sendPGFlexDispatcherInviteEmail } from "../lib/pgflex-dispatcher-email.js";
+import { sendPublisherPortalInviteEmail } from "../lib/publisher-portal-email.js";
 
 const USER_ROLES_COLLECTION = "user_roles";
 const FEED_ORGANIZATIONS_COLLECTION = "feed_organizations";
@@ -98,6 +100,7 @@ export interface BackofficeEmailAccess {
   canAccessBackoffice: boolean;
   canAccessPatientPortal: boolean;
   canAccessPGFlex: boolean;
+  canAccessPublisherPortal: boolean;
   projectAccess: ProjectKey[];
 }
 
@@ -118,6 +121,10 @@ export async function getBackofficeEmailAccess(
     viaAllowlist,
   );
   const hasPGFlexAccess = canAccessPGFlex(roleRecord, viaAllowlist);
+  const hasPublisherPortalAccess = canAccessPublisherPortal(
+    roleRecord,
+    viaAllowlist,
+  );
 
   return {
     email: normalizedEmail,
@@ -127,10 +134,14 @@ export async function getBackofficeEmailAccess(
     canAccessBackoffice: hasBackofficeAccess,
     canAccessPatientPortal: hasPatientPortalAccess,
     canAccessPGFlex: hasPGFlexAccess,
+    canAccessPublisherPortal: hasPublisherPortalAccess,
     projectAccess: normalizedEmail
       ? resolveBackofficeProjectAccess(normalizedEmail, {
           includeMydnamap:
-            hasBackofficeAccess || hasPatientPortalAccess || hasPGFlexAccess,
+            hasBackofficeAccess ||
+            hasPatientPortalAccess ||
+            hasPGFlexAccess ||
+            hasPublisherPortalAccess,
         })
       : [],
   };
@@ -212,6 +223,15 @@ function toUserRoleRecord(
     ),
     pgflexInviteEmailLastError: normalizeOptionalString(
       data.pgflexInviteEmailLastError,
+    ),
+    publisherPortalInviteEmailSentAt: normalizeOptionalString(
+      data.publisherPortalInviteEmailSentAt,
+    ),
+    publisherPortalInviteEmailFailedAt: normalizeOptionalString(
+      data.publisherPortalInviteEmailFailedAt,
+    ),
+    publisherPortalInviteEmailLastError: normalizeOptionalString(
+      data.publisherPortalInviteEmailLastError,
     ),
   };
 }
@@ -608,7 +628,7 @@ export async function resolveAdminContext(input: {
   const access = await getBackofficeEmailAccess(normalizedEmail);
   const roleRecord = access.roleRecord;
 
-  if (roleRecord && access.viaRoleAssignment) {
+  if (roleRecord && access.viaRoleAssignment && access.canAccessBackoffice) {
     return {
       email: normalizedEmail,
       uid,
@@ -622,6 +642,7 @@ export async function resolveAdminContext(input: {
       canAccessBackoffice: true,
       canAccessPatientPortal: false,
       canAccessPGFlex: false,
+      canAccessPublisherPortal: false,
       projectAccess: access.projectAccess,
     };
   }
@@ -635,6 +656,7 @@ export async function resolveAdminContext(input: {
       canAccessBackoffice: true,
       canAccessPatientPortal: false,
       canAccessPGFlex: false,
+      canAccessPublisherPortal: false,
       projectAccess: access.projectAccess,
     };
   }
@@ -653,6 +675,7 @@ export async function resolveAdminContext(input: {
       canAccessBackoffice: false,
       canAccessPatientPortal: access.canAccessPatientPortal,
       canAccessPGFlex: access.canAccessPGFlex,
+      canAccessPublisherPortal: access.canAccessPublisherPortal,
       projectAccess: access.projectAccess,
     };
   }
@@ -1492,6 +1515,103 @@ async function sendTransportDispatcherInviteForRole(
   }
 }
 
+function publisherPortalRoleForKind(kind: "organization" | "individual") {
+  return kind === "organization"
+    ? ("organization_publisher" as const)
+    : ("individual_publisher" as const);
+}
+
+export async function provisionPublisherPortalRoleForContext(
+  context: AdminContext,
+  input: {
+    kind: "organization" | "individual";
+    publisherId: string;
+    displayName: string;
+    contactEmail: string;
+  },
+): Promise<RoleManagementRecord> {
+  if (context.role !== "full_admin") {
+    throw new AdminRepositoryError(
+      "Only full admins can approve Discover publisher submissions.",
+      403,
+    );
+  }
+
+  const normalizedEmail = normalizeRoleEmail(input.contactEmail);
+  if (!normalizedEmail) {
+    throw new AdminRepositoryError(
+      "A contact email is required to create publisher portal access.",
+      400,
+    );
+  }
+
+  const displayName =
+    normalizeOptionalString(input.displayName) ?? normalizedEmail;
+  const role = publisherPortalRoleForKind(input.kind);
+  const roleRecord = await upsertUserRoleForContext(context, normalizedEmail, {
+    role,
+    isActive: true,
+    organizationId:
+      input.kind === "organization" ? input.publisherId : undefined,
+    individualId: input.kind === "individual" ? input.publisherId : undefined,
+    displayName,
+    notes: "Approved from Discover submission evaluation.",
+  });
+
+  const temporaryPassword = generatePatientTemporaryPassword();
+  const { user } = await provisionPatientFirebaseAccount(
+    adminAuthFor("mydnamap"),
+    {
+      email: normalizedEmail,
+      displayName,
+      temporaryPassword,
+    },
+  );
+  const roleRef = adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .doc(normalizedEmail);
+
+  try {
+    await sendPublisherPortalInviteEmail(
+      { email: normalizedEmail, displayName },
+      temporaryPassword,
+    );
+    const sentAt = new Date().toISOString();
+    const emailMetadata = {
+      firebaseUid: user.uid,
+      publisherPortalInviteEmailSentAt: sentAt,
+      publisherPortalInviteEmailFailedAt: null,
+      publisherPortalInviteEmailLastError: null,
+    };
+    await roleRef.set(emailMetadata, { merge: true });
+    return hydrateRoleManagementRecord({
+      ...roleRecord,
+      firebaseUid: user.uid,
+      publisherPortalInviteEmailSentAt: sentAt,
+      publisherPortalInviteEmailFailedAt: undefined,
+      publisherPortalInviteEmailLastError: undefined,
+    });
+  } catch (error) {
+    const failedAt = new Date().toISOString();
+    const lastError = errorMessage(error);
+    const emailMetadata = {
+      firebaseUid: user.uid,
+      publisherPortalInviteEmailSentAt: null,
+      publisherPortalInviteEmailFailedAt: failedAt,
+      publisherPortalInviteEmailLastError: lastError,
+    };
+    await roleRef.set(emailMetadata, { merge: true });
+    console.error("Failed to send publisher portal invite email", error);
+    return hydrateRoleManagementRecord({
+      ...roleRecord,
+      firebaseUid: user.uid,
+      publisherPortalInviteEmailSentAt: undefined,
+      publisherPortalInviteEmailFailedAt: failedAt,
+      publisherPortalInviteEmailLastError: lastError,
+    });
+  }
+}
+
 export async function upsertUserRoleForContext(
   context: AdminContext,
   email: string,
@@ -1538,7 +1658,9 @@ export async function upsertUserRoleForContext(
     email: normalizedEmail,
     role: payload.role,
     firebaseUid:
-      payload.role === "transport_dispatcher"
+      payload.role === "transport_dispatcher" ||
+      payload.role === "organization_publisher" ||
+      payload.role === "individual_publisher"
         ? (existing?.firebaseUid ?? null)
         : null,
     organizationId:

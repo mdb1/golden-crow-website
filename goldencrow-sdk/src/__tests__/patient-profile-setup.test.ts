@@ -2,6 +2,7 @@ import {
   buildPatientProfileSetupInput,
   buildPatientUsername,
   buildProfileSetupUsername,
+  buildPublisherProfileSetupInput,
   buildTransportDispatcherProfileSetupInput,
 } from "../repositories/profile-setup.repository.js";
 
@@ -36,17 +37,21 @@ describe("patient profile setup", () => {
 
   it("keeps generated usernames within the profile limit", () => {
     expect(
-      buildPatientUsername("this-is-a-very-long-patient-email@example.com", 456),
+      buildPatientUsername(
+        "this-is-a-very-long-patient-email@example.com",
+        456,
+      ),
     ).toMatch(/^[a-z0-9._-]{3,32}$/);
     expect(
-      buildPatientUsername("this-is-a-very-long-patient-email@example.com", 456),
+      buildPatientUsername(
+        "this-is-a-very-long-patient-email@example.com",
+        456,
+      ),
     ).toHaveLength(32);
   });
 
   it("uses the patient name and leaves every professional field empty", () => {
-    expect(
-      buildPatientProfileSetupInput("Paciente Ejemplo"),
-    ).toEqual({
+    expect(buildPatientProfileSetupInput("Paciente Ejemplo")).toEqual({
       fullName: "Paciente Ejemplo",
       iconName: "person.crop.circle.fill",
       iconColorHex: "#5A4FCF",
@@ -64,6 +69,20 @@ describe("patient profile setup", () => {
       buildTransportDispatcherProfileSetupInput("Transportista Ejemplo"),
     ).toEqual({
       fullName: "Transportista Ejemplo",
+      iconName: "person.crop.circle.fill",
+      iconColorHex: "#5A4FCF",
+      ownerProfession: "",
+      ownerCompany: "",
+      ownerContactNumber: "",
+      ownerBio: "",
+      gender: "",
+      condition: "",
+    });
+  });
+
+  it("uses the publisher display name and leaves every professional field empty", () => {
+    expect(buildPublisherProfileSetupInput("Laboratorio Ejemplo")).toEqual({
+      fullName: "Laboratorio Ejemplo",
       iconName: "person.crop.circle.fill",
       iconColorHex: "#5A4FCF",
       ownerProfession: "",

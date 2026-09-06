@@ -42,6 +42,7 @@ export interface AdminContextRecord {
   canAccessBackoffice: boolean;
   canAccessPatientPortal: boolean;
   canAccessPGFlex: boolean;
+  canAccessPublisherPortal?: boolean;
   project: ProjectKey;
   projectAccess: ProjectKey[];
 }
@@ -140,6 +141,9 @@ export interface RoleManagementRecord {
   pgflexInviteEmailSentAt?: string;
   pgflexInviteEmailFailedAt?: string;
   pgflexInviteEmailLastError?: string;
+  publisherPortalInviteEmailSentAt?: string;
+  publisherPortalInviteEmailFailedAt?: string;
+  publisherPortalInviteEmailLastError?: string;
   organizationName?: string;
   individualName?: string;
   institutionName?: string;

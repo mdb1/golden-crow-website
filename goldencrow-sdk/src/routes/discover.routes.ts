@@ -1,11 +1,12 @@
-import { FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
+import {
+  FastifyInstance,
+  type FastifyReply,
+  type FastifyRequest,
+} from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
-import {
-  FaviconExtractionError,
-  extractFavicon,
-} from "../lib/favicon.js";
+import { FaviconExtractionError, extractFavicon } from "../lib/favicon.js";
 import { canAccessDiscover } from "../repositories/roles.repository.js";
 import {
   createDiscoverFeedItem,
@@ -16,6 +17,8 @@ import {
   deleteDiscoverIndividual,
   deleteDiscoverOrganization,
   duplicateDiscoverFeedItem,
+  evaluateDiscoverIndividualSubmission,
+  evaluateDiscoverOrganizationSubmission,
   getDiscoverFeedItem,
   getDiscoverIndividual,
   getDiscoverOrganization,
@@ -68,11 +71,10 @@ const DISCOVER_FEED_TYPES = [
   "advocacy_campaign",
 ] as const;
 const FeedTypeSchema = z.enum(DISCOVER_FEED_TYPES);
-const FeedStatusSchema = z.enum([
-  "draft",
-  "published",
-  "archived",
-]);
+const FeedStatusSchema = z.enum(["draft", "published", "archived"]);
+const SubmissionEvaluationBodySchema = z.object({
+  decision: z.enum(["approve", "reject"]),
+});
 
 const QuerySchema = z.object({
   cursor: z.string().optional(),
@@ -93,7 +95,9 @@ const PublicImageUploadDataUrlSchema = z.preprocess(
     .string()
     .trim()
     .max(900000)
-    .regex(/^data:image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/]+={0,2}$/)
+    .regex(
+      /^data:image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/]+={0,2}$/,
+    )
     .optional(),
 );
 const PublicImageUploadNameSchema = z.preprocess(
@@ -111,96 +115,101 @@ const PublicImageUploadMimeTypeSchema = z
   ])
   .optional();
 
-const SocialLinksSchema = z.object({
-  facebook: z.string().optional(),
-  twitter: z.string().optional(),
-  instagram: z.string().optional(),
-  tiktok: z.string().optional(),
-  youtube: z.string().optional(),
-  linkedin: z.string().optional(),
-  github: z.string().optional(),
-  gitlab: z.string().optional(),
-  stack_overflow: z.string().optional(),
-  hugging_face: z.string().optional(),
-  kaggle: z.string().optional(),
-  researchgate: z.string().optional(),
-  orcid: z.string().optional(),
-  google_scholar: z.string().optional(),
-  pubmed: z.string().optional(),
-  scopus: z.string().optional(),
-  web_of_science: z.string().optional(),
-  biostars: z.string().optional(),
-  protocols_io: z.string().optional(),
-  osf: z.string().optional(),
-  zenodo: z.string().optional(),
-  whatsapp: z.string().optional(),
-  telegram: z.string().optional(),
-  threads: z.string().optional(),
-  pinterest: z.string().optional(),
-  snapchat: z.string().optional(),
-  reddit: z.string().optional(),
-  discord: z.string().optional(),
-  twitch: z.string().optional(),
-  bluesky: z.string().optional(),
-  mastodon: z.string().optional(),
-  email: z.string().optional(),
-  other: z.string().optional(),
-}).optional();
+const SocialLinksSchema = z
+  .object({
+    facebook: z.string().optional(),
+    twitter: z.string().optional(),
+    instagram: z.string().optional(),
+    tiktok: z.string().optional(),
+    youtube: z.string().optional(),
+    linkedin: z.string().optional(),
+    github: z.string().optional(),
+    gitlab: z.string().optional(),
+    stack_overflow: z.string().optional(),
+    hugging_face: z.string().optional(),
+    kaggle: z.string().optional(),
+    researchgate: z.string().optional(),
+    orcid: z.string().optional(),
+    google_scholar: z.string().optional(),
+    pubmed: z.string().optional(),
+    scopus: z.string().optional(),
+    web_of_science: z.string().optional(),
+    biostars: z.string().optional(),
+    protocols_io: z.string().optional(),
+    osf: z.string().optional(),
+    zenodo: z.string().optional(),
+    whatsapp: z.string().optional(),
+    telegram: z.string().optional(),
+    threads: z.string().optional(),
+    pinterest: z.string().optional(),
+    snapchat: z.string().optional(),
+    reddit: z.string().optional(),
+    discord: z.string().optional(),
+    twitch: z.string().optional(),
+    bluesky: z.string().optional(),
+    mastodon: z.string().optional(),
+    email: z.string().optional(),
+    other: z.string().optional(),
+  })
+  .optional();
 
-const PublisherRequestBodySchema = z.object({
-  kind: z.enum(["organization", "individual"]),
-  locale: z.enum(["en", "es"]),
-  name: z.string().trim().min(1).max(180),
-  imageUrl: OptionalPublisherUrlSchema,
-  imageUploadDataUrl: PublicImageUploadDataUrlSchema,
-  imageUploadName: PublicImageUploadNameSchema,
-  imageUploadMimeType: PublicImageUploadMimeTypeSchema,
-  websiteUrl: OptionalPublisherUrlSchema,
-  description: OptionalPublisherTextSchema,
-  descriptionEn: OptionalPublisherTextSchema,
-  social: SocialLinksSchema,
-  countryCode: z.string().trim().min(1).max(500),
-  organizationType: z.string().trim().max(2000).optional(),
-  individualType: z.string().trim().max(2000).optional(),
-  colorHex: z.string().trim().max(20).nullable().optional(),
-  isGeneticReportProvider: z.boolean().optional(),
-  geneticReportCategory: GeneticReportCategorySelectionSchema.nullable().optional(),
-  contactEmail: z.string().trim().toLowerCase().email().max(180),
-  startedAt: z.string().trim().datetime(),
-  website: OptionalPublisherTextSchema,
-  source: z
-    .object({
-      pageUrl: OptionalPublisherUrlSchema,
-      referrer: OptionalPublisherUrlSchema,
-    })
-    .optional(),
-}).superRefine((body, ctx) => {
-  if (body.kind === "organization" && !body.organizationType?.trim()) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["organizationType"],
-      message: "Organization category is required.",
-    });
-  }
+const PublisherRequestBodySchema = z
+  .object({
+    kind: z.enum(["organization", "individual"]),
+    locale: z.enum(["en", "es"]),
+    name: z.string().trim().min(1).max(180),
+    imageUrl: OptionalPublisherUrlSchema,
+    imageUploadDataUrl: PublicImageUploadDataUrlSchema,
+    imageUploadName: PublicImageUploadNameSchema,
+    imageUploadMimeType: PublicImageUploadMimeTypeSchema,
+    websiteUrl: OptionalPublisherUrlSchema,
+    description: OptionalPublisherTextSchema,
+    descriptionEn: OptionalPublisherTextSchema,
+    social: SocialLinksSchema,
+    countryCode: z.string().trim().min(1).max(500),
+    organizationType: z.string().trim().max(2000).optional(),
+    individualType: z.string().trim().max(2000).optional(),
+    colorHex: z.string().trim().max(20).nullable().optional(),
+    isGeneticReportProvider: z.boolean().optional(),
+    geneticReportCategory:
+      GeneticReportCategorySelectionSchema.nullable().optional(),
+    contactEmail: z.string().trim().toLowerCase().email().max(180),
+    startedAt: z.string().trim().datetime(),
+    website: OptionalPublisherTextSchema,
+    source: z
+      .object({
+        pageUrl: OptionalPublisherUrlSchema,
+        referrer: OptionalPublisherUrlSchema,
+      })
+      .optional(),
+  })
+  .superRefine((body, ctx) => {
+    if (body.kind === "organization" && !body.organizationType?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["organizationType"],
+        message: "Organization category is required.",
+      });
+    }
 
-  if (body.kind === "individual" && !body.individualType?.trim()) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["individualType"],
-      message: "Individual publisher category is required.",
-    });
-  }
+    if (body.kind === "individual" && !body.individualType?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["individualType"],
+        message: "Individual publisher category is required.",
+      });
+    }
 
-  const primaryDescription =
-    body.locale === "en" ? body.descriptionEn : body.description;
-  if (!primaryDescription?.trim()) {
-    ctx.addIssue({
-      code: "custom",
-      path: [body.locale === "en" ? "descriptionEn" : "description"],
-      message: "Publisher description is required.",
-    });
-  }
-});
+    const primaryDescription =
+      body.locale === "en" ? body.descriptionEn : body.description;
+    if (!primaryDescription?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: [body.locale === "en" ? "descriptionEn" : "description"],
+        message: "Publisher description is required.",
+      });
+    }
+  });
 
 type PublisherRequestBody = z.infer<typeof PublisherRequestBodySchema>;
 
@@ -228,7 +237,8 @@ const OrganizationBodySchema = z.object({
   colorHex: z.string().nullable().optional(),
   verified: z.boolean().optional(),
   isGeneticReportProvider: z.boolean().optional(),
-  geneticReportCategory: GeneticReportCategorySelectionSchema.nullable().optional(),
+  geneticReportCategory:
+    GeneticReportCategorySelectionSchema.nullable().optional(),
   contactEmail: z.string().optional(),
   internalNotes: z.string().optional(),
 });
@@ -281,8 +291,14 @@ const PUBLISHER_REQUEST_MAX_ELAPSED_MS = 24 * 60 * 60 * 1000;
 const PUBLISHER_REQUEST_WINDOW_MS = 60 * 60 * 1000;
 const PUBLISHER_REQUEST_MAX_PER_WINDOW = 5;
 const PUBLISHER_FAVICON_MAX_PER_WINDOW = 20;
-const publisherRequestRateLimit = new Map<string, { count: number; resetAt: number }>();
-const publisherFaviconRateLimit = new Map<string, { count: number; resetAt: number }>();
+const publisherRequestRateLimit = new Map<
+  string,
+  { count: number; resetAt: number }
+>();
+const publisherFaviconRateLimit = new Map<
+  string,
+  { count: number; resetAt: number }
+>();
 const PUBLIC_PUBLISHER_REQUEST_ORIGINS = new Set([
   "https://goldencrowvs.com",
   "https://www.goldencrowvs.com",
@@ -331,7 +347,8 @@ function publisherRequestClientKey(
   body: PublisherRequestBody,
 ) {
   const forwardedFor = headerValue(request.headers["x-forwarded-for"]);
-  const clientIp = forwardedFor?.split(",")[0]?.trim() || request.ip || "unknown";
+  const clientIp =
+    forwardedFor?.split(",")[0]?.trim() || request.ip || "unknown";
   return `${clientIp}:${body.contactEmail.toLowerCase()}`;
 }
 
@@ -516,7 +533,9 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
     async (request, reply) => {
       try {
         assertPublisherRequestGateway(request, request.body);
-        const result = await createDiscoverPublisherApprovalRequest(request.body);
+        const result = await createDiscoverPublisherApprovalRequest(
+          request.body,
+        );
 
         return reply.status(201).send({
           status: "ok",
@@ -573,7 +592,10 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       try {
-        const result = await listDiscoverOrganizations(request.adminContext!, request.query);
+        const result = await listDiscoverOrganizations(
+          request.adminContext!,
+          request.query,
+        );
         return reply.send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);
@@ -662,6 +684,28 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
   );
 
   f.post(
+    "/discover/organizations/:organizationId/submission-evaluation",
+    {
+      schema: {
+        params: z.object({ organizationId: z.string().min(1) }),
+        body: SubmissionEvaluationBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await evaluateDiscoverOrganizationSubmission(
+          request.adminContext!,
+          request.params.organizationId,
+          request.body.decision,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
     "/discover/organizations/:organizationId/sync-publisher-snapshot",
     {
       schema: {
@@ -688,7 +732,10 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       try {
-        const result = await listDiscoverIndividuals(request.adminContext!, request.query);
+        const result = await listDiscoverIndividuals(
+          request.adminContext!,
+          request.query,
+        );
         return reply.send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);
@@ -776,6 +823,28 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
     },
   );
 
+  f.post(
+    "/discover/individuals/:individualId/submission-evaluation",
+    {
+      schema: {
+        params: z.object({ individualId: z.string().min(1) }),
+        body: SubmissionEvaluationBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await evaluateDiscoverIndividualSubmission(
+          request.adminContext!,
+          request.params.individualId,
+          request.body.decision,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
   f.get(
     "/discover/feed-items",
     {
@@ -783,7 +852,10 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       try {
-        const result = await listDiscoverFeedItems(request.adminContext!, request.query);
+        const result = await listDiscoverFeedItems(
+          request.adminContext!,
+          request.query,
+        );
         return reply.send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);

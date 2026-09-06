@@ -35,6 +35,7 @@ export interface EmailSignupEligibility {
   canAccessBackoffice: boolean;
   canAccessPatientPortal: boolean;
   canAccessPGFlex: boolean;
+  canAccessPublisherPortal: boolean;
   requiredSurface?: AuthSurface;
   role?: AdminRole;
   accountExists: boolean;
@@ -220,6 +221,22 @@ export function buildTransportDispatcherProfileSetupInput(
   };
 }
 
+export function buildPublisherProfileSetupInput(
+  displayName: string,
+): CompleteProfileSetupInput {
+  return {
+    fullName: displayName,
+    iconName: DEFAULT_ICON_NAME,
+    iconColorHex: DEFAULT_ICON_COLOR,
+    ownerProfession: "",
+    ownerCompany: "",
+    ownerContactNumber: "",
+    ownerBio: "",
+    gender: "",
+    condition: "",
+  };
+}
+
 function validateCompleteProfileInput(input: CompleteProfileSetupInput) {
   const fullName = input.fullName.trim();
   if (!fullName) {
@@ -343,17 +360,22 @@ export async function getEmailSignupEligibility(
         ? access.canAccessPatientPortal
         : surface === "pgflex"
           ? access.canAccessPGFlex
-          : access.canAccessBackoffice,
+          : surface === "publisher-portal"
+            ? access.canAccessPublisherPortal
+            : access.canAccessBackoffice,
     viaAllowlist: access.viaAllowlist,
     viaRoleAssignment:
       surface === "patient-portal"
         ? access.canAccessPatientPortal
         : surface === "pgflex"
           ? access.canAccessPGFlex
-          : access.viaRoleAssignment,
+          : surface === "publisher-portal"
+            ? access.canAccessPublisherPortal
+            : access.viaRoleAssignment,
     canAccessBackoffice: access.canAccessBackoffice,
     canAccessPatientPortal: access.canAccessPatientPortal,
     canAccessPGFlex: access.canAccessPGFlex,
+    canAccessPublisherPortal: access.canAccessPublisherPortal,
     requiredSurface: resolveRequiredAuthSurfaceForEmailAccess(access),
     role: access.roleRecord?.role,
     accountExists: Boolean(authUser),
@@ -379,7 +401,9 @@ export async function createEligibleEmailAccount(input: {
         ? "This email does not have patient portal access yet."
         : input.surface === "pgflex"
           ? "This email does not have PGFlex access yet."
-          : "This email does not have backoffice access yet.",
+          : input.surface === "publisher-portal"
+            ? "This email does not have publisher portal access yet."
+            : "This email does not have backoffice access yet.",
       403,
     );
   }
@@ -606,6 +630,56 @@ export async function completeTransportDispatcherProfileSetup(
     uid,
     "transport_dispatcher",
     buildTransportDispatcherProfileSetupInput(displayName),
+  );
+}
+
+export async function completePublisherProfileSetup(
+  uid: string,
+  email: string,
+): Promise<ProfileSetupState> {
+  const currentState = await getProfileSetupState(uid);
+  if (!currentState.needsCompletion) {
+    return currentState;
+  }
+
+  const normalizedEmail = normalizeRoleEmail(currentState.email || email);
+  const roleRecord = await getUserRoleByEmail(normalizedEmail);
+  if (
+    !roleRecord ||
+    (roleRecord.role !== "organization_publisher" &&
+      roleRecord.role !== "individual_publisher") ||
+    roleRecord.isActive === false
+  ) {
+    throw new ProfileSetupError("Publisher portal access is required.", 403);
+  }
+
+  if (roleRecord.firebaseUid && roleRecord.firebaseUid !== uid) {
+    throw new ProfileSetupError(
+      "Publisher portal identity does not match this account.",
+      403,
+    );
+  }
+
+  const displayName =
+    roleRecord.displayName || currentState.displayName || normalizedEmail;
+  if (!displayName.trim()) {
+    throw new ProfileSetupError("Publisher roles require a display name.", 400);
+  }
+
+  if (!roleRecord.firebaseUid) {
+    await adminDb.collection(getRoleCollectionName()).doc(normalizedEmail).set(
+      {
+        firebaseUid: uid,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true },
+    );
+  }
+
+  return completeProfileSetup(
+    uid,
+    roleRecord.role,
+    buildPublisherProfileSetupInput(displayName),
   );
 }
 

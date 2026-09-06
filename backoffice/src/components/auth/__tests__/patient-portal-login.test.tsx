@@ -56,13 +56,15 @@ function eligibilityResponse() {
 
 function invitedBackofficeSignupResponse() {
   const body = {
-    email: "federico0812+publisher@gmail.com",
+    email: "federico0812+admin@gmail.com",
     eligible: true,
     viaAllowlist: false,
     viaRoleAssignment: true,
     canAccessBackoffice: true,
     canAccessPatientPortal: false,
-    role: "organization_publisher",
+    canAccessPGFlex: false,
+    canAccessPublisherPortal: false,
+    role: "institution_admin",
     accountExists: false,
     accountHasPassword: false,
     projectAccess: ["mydnamap"],
@@ -204,9 +206,9 @@ describe("PGFlex login", () => {
     render(<LoginExperience surface="pgflex" />);
 
     expect(screen.getByRole("heading", { name: "PGFlex" })).toBeTruthy();
-    expect(screen.getByRole("img", { name: "PGFlex" }).getAttribute("src")).toBe(
-      "/pgflex_icon.png",
-    );
+    expect(
+      screen.getByRole("img", { name: "PGFlex" }).getAttribute("src"),
+    ).toBe("/pgflex_icon.png");
     expect(
       screen.getByRole("button", { name: "Continuar con Google" }),
     ).toBeTruthy();
@@ -236,6 +238,52 @@ describe("PGFlex login", () => {
     expect(screen.queryByLabelText("Contrasena")).toBeNull();
     expect(
       screen.getByRole("button", { name: "Acceder a PGFlex" }),
+    ).toBeTruthy();
+  });
+});
+
+describe("publisher portal login", () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    fetchMock.mockReset();
+    Object.defineProperty(globalThis, "fetch", {
+      configurable: true,
+      writable: true,
+      value: fetchMock,
+    });
+    window.localStorage.clear();
+  });
+
+  it("uses the visible access-key step for invited publishers", async () => {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, "en");
+
+    render(
+      <LoginExperience
+        surface="publisher-portal"
+        initialEmail="Publisher@Example.com "
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Portal de publicadores" }),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText("Email")).toBeNull();
+    expect(screen.getByText("publisher@example.com")).toBeTruthy();
+    expect(
+      screen.queryByRole("group", { name: "Idioma del login" }),
+    ).toBeNull();
+    await waitFor(() => expect(document.documentElement.lang).toBe("es"));
+    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("en");
+
+    const accessKey = screen.getByLabelText(
+      "Clave de acceso",
+    ) as HTMLInputElement;
+    expect(accessKey.type).toBe("text");
+    expect(screen.getByRole("note").textContent).toContain(
+      "Tu clave de acceso fue enviada por email. Si no la recibiste, pedi a un administrador que vuelva a enviartela.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Acceder al portal" }),
     ).toBeTruthy();
   });
 });
@@ -283,7 +331,7 @@ describe("backoffice login", () => {
 
     await user.type(
       screen.getByLabelText("Email"),
-      "federico0812+publisher@gmail.com",
+      "federico0812+admin@gmail.com",
     );
     await user.click(await screen.findByRole("button", { name: "Continuar" }));
 
@@ -296,7 +344,7 @@ describe("backoffice login", () => {
     expect(screen.getByLabelText("Nuevo password")).toBeTruthy();
     expect(
       screen.queryByText(
-        /federico0812\+publisher@gmail\.com fue aprobado mediante la asignacion de rol/i,
+        /federico0812\+admin@gmail\.com fue aprobado mediante la asignacion de rol/i,
       ),
     ).toBeNull();
   });
@@ -319,6 +367,7 @@ describe("backoffice login", () => {
         canAccessBackoffice: false,
         canAccessPatientPortal: false,
         canAccessPGFlex: true,
+        canAccessPublisherPortal: false,
         requiredSurface: "pgflex",
         role: "transport_dispatcher",
         accountExists: true,
@@ -349,5 +398,60 @@ describe("backoffice login", () => {
         .getByRole("link", { name: "Abrir login de PGFlex" })
         .getAttribute("href"),
     ).toBe("/pgflex/login");
+  });
+
+  it("warns Discover publishers to use the publisher portal login", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { forEach: jest.fn() },
+      clone() {
+        return this;
+      },
+      json: async () => ({
+        email: "publisher@example.com",
+        eligible: false,
+        viaAllowlist: false,
+        viaRoleAssignment: true,
+        canAccessBackoffice: false,
+        canAccessPatientPortal: false,
+        canAccessPGFlex: false,
+        canAccessPublisherPortal: true,
+        requiredSurface: "publisher-portal",
+        role: "organization_publisher",
+        accountExists: true,
+        accountHasPassword: true,
+        projectAccess: ["mydnamap"],
+      }),
+      text: async () =>
+        JSON.stringify({
+          email: "publisher@example.com",
+          eligible: false,
+          requiredSurface: "publisher-portal",
+          accountExists: true,
+        }),
+    } as unknown as Response);
+
+    render(<LoginExperience surface="backoffice" />);
+
+    await user.type(screen.getByLabelText("Email"), "publisher@example.com");
+    await user.click(await screen.findByRole("button", { name: "Continuar" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain(
+      "Usá el login del portal de publicadores",
+    );
+    expect(alert.textContent).toContain(
+      "Esta cuenta tiene acceso al portal de publicadores y no puede iniciar sesión desde el login del backoffice.",
+    );
+    expect(
+      screen
+        .getByRole("link", {
+          name: "Abrir login del portal de publicadores",
+        })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/login");
   });
 });

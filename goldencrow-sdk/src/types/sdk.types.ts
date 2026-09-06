@@ -85,6 +85,9 @@ export interface UserRoleRecord {
   pgflexInviteEmailSentAt?: string;
   pgflexInviteEmailFailedAt?: string;
   pgflexInviteEmailLastError?: string;
+  publisherPortalInviteEmailSentAt?: string;
+  publisherPortalInviteEmailFailedAt?: string;
+  publisherPortalInviteEmailLastError?: string;
 }
 
 /**
@@ -117,6 +120,7 @@ export interface AdminContext {
   canAccessBackoffice: boolean;
   canAccessPatientPortal: boolean;
   canAccessPGFlex: boolean;
+  canAccessPublisherPortal?: boolean;
   projectAccess: ProjectKey[];
 }
 
@@ -626,10 +630,7 @@ export interface ModerationDocumentRecord {
 }
 
 export type DiscoverOrganizationStatus =
-  | "active"
-  | "inactive"
-  | "archived"
-  | "pending_approval";
+  "active" | "inactive" | "archived" | "pending_approval";
 export type DiscoverOrganizationType = string;
 export type DiscoverIndividualStatus = DiscoverOrganizationStatus;
 export type DiscoverIndividualType = string;

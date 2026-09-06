@@ -8,11 +8,13 @@ import {
   ArrowLeft,
   ChevronDown,
   Check,
+  CheckCircle2,
   Palette,
   PencilLine,
   RotateCcw,
   Save,
   Trash2,
+  XCircle,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
@@ -87,9 +89,11 @@ type OrganizationFormState = {
 function toFormState(
   publisher?: PublisherRecord | null,
 ): OrganizationFormState {
-  const organization = publisher as Partial<DiscoverOrganizationRecord> | undefined;
+  const organization = publisher as
+    Partial<DiscoverOrganizationRecord> | undefined;
   const individual = publisher as Partial<DiscoverIndividualRecord> | undefined;
-  const isGeneticReportProvider = organization?.isGeneticReportProvider ?? false;
+  const isGeneticReportProvider =
+    organization?.isGeneticReportProvider ?? false;
 
   return {
     name: publisher?.name ?? "",
@@ -115,14 +119,17 @@ function toFormState(
     verified: publisher?.verified ?? false,
     isGeneticReportProvider,
     geneticReportCategory: isGeneticReportProvider
-      ? organization?.geneticReportCategory ?? ""
+      ? (organization?.geneticReportCategory ?? "")
       : "",
     contactEmail: publisher?.contactEmail ?? "",
     internalNotes: publisher?.internalNotes ?? "",
   };
 }
 
-function payloadFromState(state: OrganizationFormState, publisherKind: PublisherKind) {
+function payloadFromState(
+  state: OrganizationFormState,
+  publisherKind: PublisherKind,
+) {
   const organizationType = discoverOrganizationCategoryProvider.normalizeCsv(
     state.organizationType,
   );
@@ -148,9 +155,7 @@ function payloadFromState(state: OrganizationFormState, publisherKind: Publisher
         ? organizationType || undefined
         : undefined,
     individualType:
-      publisherKind === "individual"
-        ? individualType || undefined
-        : undefined,
+      publisherKind === "individual" ? individualType || undefined : undefined,
     colorHex: normalizedColorHex(state.colorHex) || undefined,
     isGeneticReportProvider:
       publisherKind === "organization"
@@ -190,7 +195,8 @@ const DESCRIPTION_LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
 ] as const;
 
-type DescriptionLanguage = (typeof DESCRIPTION_LANGUAGE_OPTIONS)[number]["value"];
+type DescriptionLanguage =
+  (typeof DESCRIPTION_LANGUAGE_OPTIONS)[number]["value"];
 
 function DiscoverPublisherWorkbench({
   publisher,
@@ -220,6 +226,11 @@ function DiscoverPublisherWorkbench({
   const [pending, setPending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [isDangerZoneOpen, setIsDangerZoneOpen] = useState(false);
+  const [isSubmissionEvaluationOpen, setIsSubmissionEvaluationOpen] =
+    useState(false);
+  const [evaluationPending, setEvaluationPending] = useState<
+    "approve" | "reject" | null
+  >(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const sourceState = useMemo(() => toFormState(publisher), [publisher]);
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
@@ -249,9 +260,7 @@ function DiscoverPublisherWorkbench({
     : t("Organization color must be a 6-digit hex value.");
   const colorHex = normalizedColorHex(state.colorHex);
   const appliedColorError =
-    state.colorHex.trim() && colorHex === null
-      ? colorErrorText
-      : null;
+    state.colorHex.trim() && colorHex === null ? colorErrorText : null;
   const colorError = manualColorError || appliedColorError;
   const visibleColorText = manualColorMode
     ? manualColorDraft
@@ -273,14 +282,18 @@ function DiscoverPublisherWorkbench({
   const selectedCategoryDisplayLabels = selectedCategoryLabels.map((label) =>
     t(label),
   );
-  const selectedGeneticReportCategoryLabels = discoverGeneticReportCategoryLabels(
-    state.geneticReportCategory || null,
-  ).map((label) => t(label));
+  const selectedGeneticReportCategoryLabels =
+    discoverGeneticReportCategoryLabels(
+      state.geneticReportCategory || null,
+    ).map((label) => t(label));
   const geneticReportCategoryLabel = selectedGeneticReportCategoryLabels.length
     ? selectedGeneticReportCategoryLabels.join(", ")
     : t("No genetic report category");
   const imagePreviewSource = state.imageUrl.trim() || state.imageUploadDataUrl;
-  const showDangerZone = mode === "edit" && Boolean(publisher) && canDeletePublisher;
+  const showDangerZone =
+    mode === "edit" && Boolean(publisher) && canDeletePublisher;
+  const showSubmissionEvaluation =
+    mode === "edit" && Boolean(publisher) && canManageSystemFields;
   const publisherDeletionTitle = isIndividual
     ? t("Individual publisher deletion")
     : t("Organization deletion");
@@ -304,6 +317,15 @@ function DiscoverPublisherWorkbench({
     : t(
         "This permanently removes this organization from feed_organizations and deletes linked feed_items.",
       );
+  const evaluationApproveSuccess = isIndividual
+    ? t("Individual publisher approved and credentials sent.")
+    : t("Organization approved and credentials sent.");
+  const evaluationRejectSuccess = isIndividual
+    ? t("Individual publisher archived.")
+    : t("Organization archived.");
+  const evaluationError = isIndividual
+    ? t("Unable to evaluate the individual publisher submission.")
+    : t("Unable to evaluate the organization submission.");
 
   function updateState(patch: Partial<OrganizationFormState>) {
     setState((current) => ({ ...current, ...patch }));
@@ -407,18 +429,16 @@ function DiscoverPublisherWorkbench({
     try {
       if (mode === "create") {
         const response = await sdkFetch<
-          { organization: DiscoverOrganizationRecord } |
-          { individual: DiscoverIndividualRecord }
-        >(
-          endpointBase,
-          {
-            method: "POST",
-            body: JSON.stringify(payloadFromState(nextState, publisherKind)),
-          },
-        );
+          | { organization: DiscoverOrganizationRecord }
+          | { individual: DiscoverIndividualRecord }
+        >(endpointBase, {
+          method: "POST",
+          body: JSON.stringify(payloadFromState(nextState, publisherKind)),
+        });
         const saved = isIndividual
           ? (response as { individual: DiscoverIndividualRecord }).individual
-          : (response as { organization: DiscoverOrganizationRecord }).organization;
+          : (response as { organization: DiscoverOrganizationRecord })
+              .organization;
         setState(nextState);
         closeManualColorEditor(nextState.colorHex);
         setToast({
@@ -438,15 +458,12 @@ function DiscoverPublisherWorkbench({
       }
 
       await sdkFetch<
-        { organization: DiscoverOrganizationRecord } |
-        { individual: DiscoverIndividualRecord }
-      >(
-        `${endpointBase}/${publisher.id}`,
-        {
-          method: "PUT",
-          body: JSON.stringify(payloadFromState(nextState, publisherKind)),
-        },
-      );
+        | { organization: DiscoverOrganizationRecord }
+        | { individual: DiscoverIndividualRecord }
+      >(`${endpointBase}/${publisher.id}`, {
+        method: "PUT",
+        body: JSON.stringify(payloadFromState(nextState, publisherKind)),
+      });
       setState(nextState);
       closeManualColorEditor(nextState.colorHex);
       setToast({
@@ -505,6 +522,51 @@ function DiscoverPublisherWorkbench({
     }
   }
 
+  async function handleSubmissionEvaluation(decision: "approve" | "reject") {
+    if (!publisher || !showSubmissionEvaluation || evaluationPending) {
+      return;
+    }
+
+    setEvaluationPending(decision);
+    try {
+      const response = await sdkFetch<
+        | { organization: DiscoverOrganizationRecord }
+        | { individual: DiscoverIndividualRecord }
+      >(
+        `${endpointBase}/${encodeURIComponent(publisher.id)}/submission-evaluation`,
+        {
+          method: "POST",
+          body: JSON.stringify({ decision }),
+        },
+      );
+      const saved = isIndividual
+        ? (response as { individual: DiscoverIndividualRecord }).individual
+        : (response as { organization: DiscoverOrganizationRecord })
+            .organization;
+      const nextState = toFormState(saved);
+      setState(nextState);
+      closeManualColorEditor(nextState.colorHex);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message:
+          decision === "approve"
+            ? evaluationApproveSuccess
+            : evaluationRejectSuccess,
+      });
+      router.refresh();
+    } catch (error) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: evaluationError,
+        details: error instanceof Error ? error.message : undefined,
+      });
+    } finally {
+      setEvaluationPending(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5 pb-52 sm:pb-36 lg:pb-32">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
@@ -513,7 +575,9 @@ function DiscoverPublisherWorkbench({
         <Button variant="ghost" size="sm" asChild>
           <Link href={publisherListHref}>
             <ArrowLeft className="h-3.5 w-3.5" />
-            {isIndividual ? t("Back to individual publishers") : t("Back to organizations")}
+            {isIndividual
+              ? t("Back to individual publishers")
+              : t("Back to organizations")}
           </Link>
         </Button>
         {publisher ? (
@@ -573,7 +637,9 @@ function DiscoverPublisherWorkbench({
               </select>
             </div>
             <div className="flex flex-col gap-2 md:col-span-2">
-              <Label htmlFor="discover-org-country">{t("Country coverage")}</Label>
+              <Label htmlFor="discover-org-country">
+                {t("Country coverage")}
+              </Label>
               <PublisherCountryMultiSelect
                 id="discover-org-country"
                 value={state.countryCode}
@@ -584,7 +650,9 @@ function DiscoverPublisherWorkbench({
             </div>
             <PublisherCategoryMultiSelect
               provider={categoryProvider}
-              value={isIndividual ? state.individualType : state.organizationType}
+              value={
+                isIndividual ? state.individualType : state.organizationType
+              }
               onChange={(value: string) =>
                 updateState(
                   isIndividual
@@ -593,13 +661,19 @@ function DiscoverPublisherWorkbench({
                 )
               }
               optionLabel={(option) => t(option.label)}
-              label={isIndividual ? t("Professional categories") : t("Organization category")}
+              label={
+                isIndividual
+                  ? t("Professional categories")
+                  : t("Organization category")
+              }
               dialogTitle={
                 isIndividual
                   ? t("Select professional categories")
                   : t("Select organization category")
               }
-              dialogDescription={t("Choose one or more canonical Discover categories. They will be saved as comma-separated keys.")}
+              dialogDescription={t(
+                "Choose one or more canonical Discover categories. They will be saved as comma-separated keys.",
+              )}
               emptyLabel={t("No categories selected")}
               searchPlaceholder={t("Search categories")}
               clearLabel={t("Clear all")}
@@ -765,7 +839,9 @@ function DiscoverPublisherWorkbench({
                 id="discover-org-image"
                 type="url"
                 value={state.imageUrl}
-                onChange={(event) => updateState({ imageUrl: event.target.value })}
+                onChange={(event) =>
+                  updateState({ imageUrl: event.target.value })
+                }
                 placeholder="https://"
               />
             </div>
@@ -789,7 +865,9 @@ function DiscoverPublisherWorkbench({
                         key={option.value}
                         type="button"
                         aria-pressed={active}
-                        onClick={() => setActiveDescriptionLanguage(option.value)}
+                        onClick={() =>
+                          setActiveDescriptionLanguage(option.value)
+                        }
                         className={cn(
                           "h-7 rounded-[6px] px-2.5 text-xs font-medium transition-colors",
                           active
@@ -806,14 +884,20 @@ function DiscoverPublisherWorkbench({
               <Textarea
                 id={activeDescriptionId}
                 value={activeDescriptionValue}
-                onChange={(event) => updateActiveDescription(event.target.value)}
+                onChange={(event) =>
+                  updateActiveDescription(event.target.value)
+                }
                 rows={4}
               />
               {showEnglishDescriptionWarning ? (
                 <p className="rounded-md border border-violet-200 bg-violet-50 px-2.5 py-2 text-xs font-medium text-violet-900 dark:border-violet-400/30 dark:bg-violet-500/12 dark:text-violet-100">
                   {isIndividual
-                    ? t("Add an English individual publisher description to reach a broader audience.")
-                    : t("Add an English organization description to reach a broader audience.")}
+                    ? t(
+                        "Add an English individual publisher description to reach a broader audience.",
+                      )
+                    : t(
+                        "Add an English organization description to reach a broader audience.",
+                      )}
                 </p>
               ) : null}
             </div>
@@ -951,7 +1035,9 @@ function DiscoverPublisherWorkbench({
                       <AlertDialogMedia className="bg-destructive/12 text-destructive">
                         <AlertTriangle className="h-5 w-5" />
                       </AlertDialogMedia>
-                      <AlertDialogTitle>{publisherDeleteDialogTitle}</AlertDialogTitle>
+                      <AlertDialogTitle>
+                        {publisherDeleteDialogTitle}
+                      </AlertDialogTitle>
                       <AlertDialogDescription>
                         {publisherDeleteDialogDescription}
                       </AlertDialogDescription>
@@ -975,6 +1061,84 @@ function DiscoverPublisherWorkbench({
             ) : null}
           </div>
         ) : null}
+
+        {showSubmissionEvaluation ? (
+          <div
+            data-testid="discover-publisher-submission-evaluation"
+            className="rounded-md border border-violet-200 bg-violet-500/[0.035] px-4 py-4 dark:border-violet-400/25 dark:bg-violet-500/10"
+          >
+            <button
+              type="button"
+              className="flex w-full min-w-0 items-start gap-3 text-left"
+              onClick={() => setIsSubmissionEvaluationOpen((open) => !open)}
+              aria-expanded={isSubmissionEvaluationOpen}
+            >
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-violet-200 bg-violet-100 text-violet-700 dark:border-violet-400/30 dark:bg-violet-500/20 dark:text-violet-200">
+                <CheckCircle2 className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2">
+                  <span className="font-heading text-lg font-semibold text-foreground">
+                    {t("Submission evaluation")}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 text-muted-foreground transition-transform",
+                      isSubmissionEvaluationOpen && "rotate-180",
+                    )}
+                  />
+                </span>
+                <span className="mt-1 block text-sm leading-5 text-muted-foreground">
+                  {t(
+                    "Approve to create portal access and email credentials, or reject to archive this publisher.",
+                  )}
+                </span>
+              </span>
+            </button>
+
+            {isSubmissionEvaluationOpen ? (
+              <div className="mt-4 grid gap-4 border-t border-violet-200/70 pt-4 text-sm text-muted-foreground lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start dark:border-violet-400/20">
+                <div>
+                  <h4 className="text-sm font-medium text-foreground">
+                    {t("Approval decision")}
+                  </h4>
+                  <p className="mt-1 leading-6">
+                    {t(
+                      "Approval activates the publisher, assigns the correct publisher role, generates a new access key, and emails it as Clave de acceso.",
+                    )}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={pending || evaluationPending !== null}
+                    onClick={() => void handleSubmissionEvaluation("reject")}
+                    className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    {evaluationPending === "reject"
+                      ? t("Rejecting...")
+                      : t("Reject")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={pending || evaluationPending !== null}
+                    onClick={() => void handleSubmissionEvaluation("approve")}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {evaluationPending === "approve"
+                      ? t("Approving...")
+                      : t("Approve")}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       <div
@@ -993,7 +1157,8 @@ function DiscoverPublisherWorkbench({
                   size="lg"
                   onClick={handleReset}
                   disabled={
-                    (!changed && !manualColorMode && !manualColorError) || pending
+                    (!changed && !manualColorMode && !manualColorError) ||
+                    pending
                   }
                   className="h-14 justify-center text-base font-semibold sm:min-w-36"
                 >
