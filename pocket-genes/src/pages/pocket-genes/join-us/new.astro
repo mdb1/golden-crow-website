@@ -509,9 +509,10 @@ const wizardClientCopy = {
             <p>{copy.descriptionBody}</p>
           </div>
           <div class="pg-description-composer">
-            <label class="pg-input-shell pg-textarea-shell pg-description-card" data-description-card>
-              <span>{copy.descriptionLabel}</span>
+            <div class="pg-input-shell pg-textarea-shell pg-description-card" data-description-card>
+              <label for="publisher-description-primary">{copy.descriptionLabel}</label>
               <textarea
+                id="publisher-description-primary"
                 name="descriptionPrimary"
                 data-description-primary
                 maxlength="5000"
@@ -530,7 +531,7 @@ const wizardClientCopy = {
                 <span></span>
                 <span></span>
               </div>
-            </label>
+            </div>
             <div class="pg-description-prompts">
               {copy.descriptionPrompts.map((prompt) => <span>{prompt}</span>)}
             </div>
@@ -553,15 +554,16 @@ const wizardClientCopy = {
                   {copy.altDescriptionRemove}
                 </button>
               </div>
-              <label class="pg-input-shell pg-textarea-shell pg-alt-description-input">
+              <div class="pg-input-shell pg-textarea-shell pg-alt-description-input">
                 <textarea
+                  aria-label={copy.altDescriptionLabel}
                   name="descriptionAlternative"
                   data-description-alternative
                   maxlength="5000"
                   rows="5"
                   placeholder={copy.altDescriptionPlaceholder}
                 ></textarea>
-              </label>
+              </div>
             </section>
           </div>
         </div>
@@ -871,6 +873,7 @@ const wizardClientCopy = {
       geneticReportProvider: null,
       geneticReportCategory: '',
       currentStep: 0,
+      renderedStep: '',
       hasAdvanced: false,
       color: '#6F3CC3',
       suggestedColor: '#6F3CC3',
@@ -962,6 +965,15 @@ const wizardClientCopy = {
 
     function activeStepKey() {
       return visibleSteps()[state.currentStep] || 'type';
+    }
+
+    const contentScrollSteps = new Set(['category', 'description', 'image', 'social']);
+    const modalScrollSteps = new Set(['country']);
+
+    function scrollModeForStep(step) {
+      if (contentScrollSteps.has(step)) return 'content';
+      if (modalScrollSteps.has(step)) return 'modal';
+      return 'none';
     }
 
     function setError(message) {
@@ -1366,9 +1378,19 @@ const wizardClientCopy = {
       }
 
       const step = activeStepKey();
+      const previousStep = state.renderedStep;
+      const stepChanged = Boolean(previousStep && previousStep !== step);
+      state.renderedStep = step;
+      wizardRoot.dataset.activeStep = step;
+      wizardRoot.dataset.scrollMode = scrollModeForStep(step);
+
       panels.forEach((panel) => {
         panel.hidden = panel.getAttribute('data-step-panel') !== step;
       });
+
+      if (stepChanged && form) {
+        form.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      }
 
       if (stepCount) {
         stepCount.textContent = `${copy.step} ${state.currentStep + 1} ${copy.of} ${steps.length}`;
@@ -2093,6 +2115,8 @@ const wizardClientCopy = {
     --wizard-panel: #ffffff;
     --wizard-sidebar: #f6f6f7;
     min-height: 100svh;
+    height: 100svh;
+    height: 100dvh;
     display: grid;
     grid-template-columns: minmax(340px, 33vw) minmax(0, 1fr);
     background: var(--wizard-sidebar);
@@ -2111,7 +2135,8 @@ const wizardClientCopy = {
 
   .pg-wizard-intro {
     position: relative;
-    min-height: 100svh;
+    min-height: 0;
+    height: 100%;
     padding: 64px;
     display: flex;
     flex-direction: column;
@@ -2168,20 +2193,21 @@ const wizardClientCopy = {
 
   .pg-wizard-panel {
     position: relative;
-    min-height: 100svh;
+    min-height: 0;
+    height: 100%;
     border-top-left-radius: 72px;
     background:
       radial-gradient(circle at 18% 14%, rgba(228, 80, 128, 0.09), transparent 30%),
       radial-gradient(circle at 86% 20%, rgba(20, 149, 143, 0.09), transparent 28%),
       var(--wizard-panel);
-    display: flex;
-    flex-direction: column;
-    overflow: visible;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    overflow: hidden;
   }
 
   .pg-wizard-topbar {
     position: absolute;
-    z-index: 4;
+    z-index: 80;
     top: 64px;
     right: 64px;
     display: inline-flex;
@@ -2226,8 +2252,27 @@ const wizardClientCopy = {
     position: relative;
     z-index: 30;
     width: min(840px, calc(100% - 96px));
+    min-height: 0;
+    height: 100%;
     margin: 0 auto;
-    padding: 212px 0 172px;
+    padding: clamp(94px, 12svh, 156px) 0 46px;
+    display: grid;
+    align-content: start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pg-wizard-page[data-scroll-mode='none'] .pg-wizard-form,
+  .pg-wizard-page[data-scroll-mode='modal'] .pg-wizard-form {
+    align-content: safe center;
+  }
+
+  .pg-wizard-page[data-scroll-mode='content'] .pg-wizard-form {
+    padding-top: clamp(34px, 7svh, 78px);
   }
 
   .pg-wizard-honeypot {
@@ -2383,7 +2428,8 @@ const wizardClientCopy = {
   }
 
   .pg-large-field span,
-  .pg-input-shell > span {
+  .pg-input-shell > span,
+  .pg-input-shell > label {
     display: block;
     color: var(--wizard-muted);
     font-size: 0.92rem;
@@ -3611,12 +3657,9 @@ const wizardClientCopy = {
   }
 
   .pg-wizard-actionbar {
-    position: absolute;
-    z-index: 20;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 140px;
+    position: relative;
+    z-index: 60;
+    min-height: 120px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -3624,6 +3667,7 @@ const wizardClientCopy = {
     border-top: 1px solid #eceef2;
     background: rgba(255, 255, 255, 0.92);
     padding: 24px 64px 28px;
+    box-shadow: 0 -18px 34px rgba(32, 33, 39, 0.07);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
@@ -3917,7 +3961,9 @@ const wizardClientCopy = {
     .pg-wizard-page {
       grid-template-columns: 1fr;
       min-height: 100svh;
-      overflow: visible;
+      height: 100svh;
+      height: 100dvh;
+      overflow: hidden;
     }
 
     .pg-wizard-intro {
@@ -3925,14 +3971,15 @@ const wizardClientCopy = {
     }
 
     .pg-wizard-panel {
-      min-height: 100svh;
+      min-height: 0;
+      height: 100%;
       border-top-left-radius: 0;
       border-top-right-radius: 0;
-      overflow: visible;
+      overflow: hidden;
     }
 
     .pg-wizard-topbar {
-      position: fixed;
+      position: absolute;
       top: calc(14px + env(safe-area-inset-top));
       right: 16px;
       left: 16px;
@@ -3950,7 +3997,11 @@ const wizardClientCopy = {
 
     .pg-wizard-form {
       width: min(760px, calc(100% - 32px));
-      padding: calc(88px + env(safe-area-inset-top)) 0 calc(136px + env(safe-area-inset-bottom));
+      padding: calc(74px + env(safe-area-inset-top)) 0 30px;
+    }
+
+    .pg-wizard-page[data-scroll-mode='content'] .pg-wizard-form {
+      padding-top: calc(26px + env(safe-area-inset-top));
     }
 
     .pg-kind-grid,
@@ -3980,12 +4031,8 @@ const wizardClientCopy = {
     }
 
     .pg-wizard-actionbar {
-      position: fixed;
+      position: relative;
       z-index: 70;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: auto;
       min-height: 92px;
       padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
       box-shadow: 0 -18px 34px rgba(32, 33, 39, 0.1);
