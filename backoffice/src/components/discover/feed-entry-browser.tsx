@@ -53,7 +53,7 @@ function hasPublishBlocker(item: DiscoverFeedItemRecord) {
   return (
     !item.title.trim() ||
     !item.subtitle.trim() ||
-    (!item.body.trim() && !item.html_body?.trim())
+    (!item.body.trim() && !item.htmlBody?.trim())
   );
 }
 
@@ -111,20 +111,16 @@ export function DiscoverFeedEntryBrowser({
         item.publisherSnapshot.name,
         item.type,
         item.status,
-        item.source_url,
+        item.sourceUrl,
         item.language,
         item.title,
         item.subtitle,
         item.body,
         typeof payload?.category === "string" ? payload.category : "",
         typeof payload?.region === "string" ? payload.region : "",
-        typeof payload?.virtual_meeting_link === "string"
-          ? payload.virtual_meeting_link
-          : "",
         typeof payload?.virtualMeetingLink === "string"
           ? payload.virtualMeetingLink
           : "",
-        typeof payload?.meeting_url === "string" ? payload.meeting_url : "",
         typeof payload?.meetingUrl === "string" ? payload.meetingUrl : "",
       ]
         .filter(Boolean)
@@ -370,7 +366,7 @@ export function DiscoverFeedEntryBrowser({
                     {getDiscoverFeedSummary(item)}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {compactList([item.id, item.language, item.source_url ?? undefined])}
+                    {compactList([item.id, item.language, item.sourceUrl ?? undefined])}
                   </p>
                 </div>
 

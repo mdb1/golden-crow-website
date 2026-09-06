@@ -37,6 +37,14 @@
 - Prefer cursor-based Server Action pagination. For merged activity feeds, bound each Firestore source with a small `limit(...)`, merge those bounded results, and return a cursor for the next page.
 - Avoid fan-out reads across every client/thread when a scoped indexed query or collection-group query can fetch the same page.
 
+## Discover Field Naming
+
+- Discover publisher and feed item document/API keys must be camelCase only for `feed_organizations`, `feed_individuals`, and `feed_items`.
+- Do not add, read, write, or preserve snake_case field keys in those collections. For example, use `descriptionEn`, `colorHex`, `isRequestedThroughWebWizard`, `approvalRequestDate`, `htmlBody`, `imageUrl`, `sourceUrl`, and `sourceButtonText`.
+- When a user describes a new Discover field in snake_case, treat that spelling as conversational shorthand and implement the actual key in camelCase.
+- Snake_case identifier values remain valid and must not be renamed. This includes status/type/category identifiers such as `pending_approval`, `research_update`, `raw_vcf`, and `pro_medical_geneticists`.
+- Collection names and public route slugs such as `feed_organizations`, `feed_individuals`, `feed_items`, and `/discover/feed-entries` are not field keys; do not rename them as part of field naming cleanup.
+
 ## Auth Surface Isolation
 
 - There are two independent authentication circuits. They must coexist, but they must not share Firebase client apps, server cookies, login pages, redirects, or route handlers unless the user explicitly asks for a cross-surface auth migration.

@@ -481,7 +481,7 @@ const initialCopy = isEnglishPage
         cleanText(fields.countryCode),
       ].filter(Boolean),
       meta: [],
-      accent: readColor(fields.color_hex) || readColor(fields.colorHex),
+      accent: readColor(fields.colorHex),
     };
   }
 
@@ -507,7 +507,7 @@ const initialCopy = isEnglishPage
       Array.isArray(payload.genes) ? payload.genes.slice(0, 3).join(', ') : '',
       Array.isArray(payload.conditions) ? payload.conditions.slice(0, 2).join(', ') : '',
       cleanText(payload.journal),
-      cleanText(payload.opportunity_type || payload.opportunityType),
+      cleanText(payload.opportunityType),
     ].filter(Boolean);
 
     return {
@@ -518,8 +518,8 @@ const initialCopy = isEnglishPage
       summary,
       body,
       imageUrl: validUrl(fields.publisherSnapshot?.imageUrl) || '/pocket-genes/icon_simple.png',
-      mediaUrl: validUrl(fields.image_url) || validUrl(fields.imageUrl) || validUrl(payload.imageUrl),
-      websiteUrl: validUrl(fields.source_url) || validUrl(fields.sourceUrl),
+      mediaUrl: validUrl(fields.imageUrl) || validUrl(payload.imageUrl),
+      websiteUrl: validUrl(fields.sourceUrl),
       badges: [typeLabel(type)],
       meta,
       accent: '',

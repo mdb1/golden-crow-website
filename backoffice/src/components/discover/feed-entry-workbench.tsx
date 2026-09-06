@@ -94,10 +94,10 @@ type FeedEntryFormState = {
   title: string;
   subtitle: string;
   body: string;
-  html_body: string;
-  image_url: string;
-  source_url: string;
-  source_button_text: string;
+  htmlBody: string;
+  imageUrl: string;
+  sourceUrl: string;
+  sourceButtonText: string;
   payloads: FeedEntryPayloadsState;
 };
 
@@ -320,10 +320,10 @@ function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
     title: item?.title ?? "",
     subtitle: item?.subtitle ?? "",
     body: item?.body ?? "",
-    html_body: item?.html_body ?? "",
-    image_url: item?.image_url ?? "",
-    source_url: item?.source_url ?? "",
-    source_button_text: item?.source_button_text ?? "",
+    htmlBody: item?.htmlBody ?? "",
+    imageUrl: item?.imageUrl ?? "",
+    sourceUrl: item?.sourceUrl ?? "",
+    sourceButtonText: item?.sourceButtonText ?? "",
     payloads: payloadsFromItem(item),
   };
 }
@@ -371,10 +371,10 @@ function payloadFromState(
     title: state.title,
     subtitle: state.subtitle,
     body: state.body,
-    html_body: state.html_body || null,
-    image_url: state.image_url || null,
-    source_url: state.source_url || null,
-    source_button_text: state.source_url ? state.source_button_text || null : null,
+    htmlBody: state.htmlBody || null,
+    imageUrl: state.imageUrl || null,
+    sourceUrl: state.sourceUrl || null,
+    sourceButtonText: state.sourceUrl ? state.sourceButtonText || null : null,
     [state.type]: payloadForType(state),
   };
 }
@@ -729,7 +729,7 @@ export function DiscoverFeedEntryWorkbench({
     return initialState;
   });
   const [bodyMode, setBodyMode] = useState<BodyMode>(
-    feedItem?.html_body ? "rich" : "plain",
+    feedItem?.htmlBody ? "rich" : "plain",
   );
   const [organizations, setOrganizations] = useState(initialOrganizations);
   const [organizationsNextCursor, setOrganizationsNextCursor] = useState(
@@ -775,10 +775,10 @@ export function DiscoverFeedEntryWorkbench({
   const selectedPublisher = selectedOrganization ?? selectedIndividual;
   const changed = JSON.stringify(state) !== JSON.stringify(savedState);
   const bodyCharacterCount = bodyMode === "rich"
-    ? htmlToPlainText(state.html_body).length
+    ? htmlToPlainText(state.htmlBody).length
     : state.body.length;
-  const sourceUrlError = sourceUrlErrorFor(state.source_url);
-  const imageUrlError = imageUrlErrorFor(state.image_url);
+  const sourceUrlError = sourceUrlErrorFor(state.sourceUrl);
+  const imageUrlError = imageUrlErrorFor(state.imageUrl);
   const editStatus = feedItem?.status ?? "draft";
   const editPublishedAt = feedItem?.publishedAt ?? null;
   const isWorking = pending || deletePending;
@@ -848,7 +848,7 @@ export function DiscoverFeedEntryWorkbench({
     setBodyMode(nextMode);
     setState((current) => {
       if (nextMode === "rich") {
-        const nextHtml = current.html_body || plainTextToHtml(current.body);
+        const nextHtml = current.htmlBody || plainTextToHtml(current.body);
         window.requestAnimationFrame(() => {
           if (richEditorRef.current) {
             richEditorRef.current.innerHTML = nextHtml;
@@ -856,16 +856,16 @@ export function DiscoverFeedEntryWorkbench({
         });
         return {
           ...current,
-          html_body: nextHtml,
+          htmlBody: nextHtml,
           body: htmlToPlainText(nextHtml),
         };
       }
 
-      const nextBody = current.body || htmlToPlainText(current.html_body);
+      const nextBody = current.body || htmlToPlainText(current.htmlBody);
       return {
         ...current,
         body: nextBody,
-        html_body: "",
+        htmlBody: "",
       };
     });
   }
@@ -873,7 +873,7 @@ export function DiscoverFeedEntryWorkbench({
   function syncRichBody() {
     const html = richEditorRef.current?.innerHTML ?? "";
     updateState({
-      html_body: html,
+      htmlBody: html,
       body: htmlToPlainText(html),
     });
   }
@@ -966,12 +966,12 @@ export function DiscoverFeedEntryWorkbench({
       return t("Choose one publisher.");
     }
 
-    const nextSourceUrlError = sourceUrlErrorFor(nextState.source_url);
+    const nextSourceUrlError = sourceUrlErrorFor(nextState.sourceUrl);
     if (nextSourceUrlError) {
       return nextSourceUrlError;
     }
 
-    const nextImageUrlError = imageUrlErrorFor(nextState.image_url);
+    const nextImageUrlError = imageUrlErrorFor(nextState.imageUrl);
     if (nextImageUrlError) {
       return nextImageUrlError;
     }
@@ -987,7 +987,7 @@ export function DiscoverFeedEntryWorkbench({
       if (!nextState.subtitle.trim()) {
         return t("Subtitle is required before publishing.");
       }
-      if (!nextState.body.trim() && !nextState.html_body.trim()) {
+      if (!nextState.body.trim() && !nextState.htmlBody.trim()) {
         return t("Body is required before publishing.");
       }
       if (nextState.type === "upcoming_event") {
@@ -1499,9 +1499,9 @@ export function DiscoverFeedEntryWorkbench({
                   <Input
                     id="discover-feed-image"
                     type="url"
-                    value={state.image_url}
+                    value={state.imageUrl}
                     onChange={(event) =>
-                      updateState({ image_url: event.target.value })
+                      updateState({ imageUrl: event.target.value })
                     }
                     placeholder="https://"
                     aria-invalid={Boolean(imageUrlError)}
@@ -1594,7 +1594,7 @@ export function DiscoverFeedEntryWorkbench({
                     onBlur={syncRichBody}
                     className="min-h-[24rem] px-5 py-4 text-base leading-7 outline-none prose-headings:font-heading [&_a]:text-sky-700 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-sky-300 [&_blockquote]:pl-4 [&_h2]:mb-3 [&_h2]:mt-5 [&_li]:ml-5 [&_ul]:list-disc"
                     dangerouslySetInnerHTML={{
-                      __html: state.html_body || plainTextToHtml(state.body),
+                      __html: state.htmlBody || plainTextToHtml(state.body),
                     }}
                   />
                 </div>
@@ -1621,13 +1621,13 @@ export function DiscoverFeedEntryWorkbench({
                   <Input
                     id="discover-feed-source"
                     type="url"
-                    value={state.source_url}
+                    value={state.sourceUrl}
                     onChange={(event) => {
                       const sourceUrl = event.target.value;
                       updateState({
-                        source_url: sourceUrl,
-                        source_button_text: sourceUrl.trim()
-                          ? state.source_button_text
+                        sourceUrl: sourceUrl,
+                        sourceButtonText: sourceUrl.trim()
+                          ? state.sourceButtonText
                           : "",
                       });
                     }}
@@ -1646,12 +1646,12 @@ export function DiscoverFeedEntryWorkbench({
                 >
                   <Input
                     id="discover-feed-source-button-text"
-                    value={state.source_button_text}
+                    value={state.sourceButtonText}
                     onChange={(event) =>
-                      updateState({ source_button_text: event.target.value })
+                      updateState({ sourceButtonText: event.target.value })
                     }
                     placeholder={t("Open organizer website")}
-                    disabled={!state.source_url.trim()}
+                    disabled={!state.sourceUrl.trim()}
                     className="h-11 border-sky-200/80 bg-white/90 shadow-sm dark:border-sky-300/18 dark:bg-slate-950/50"
                   />
                 </FieldShell>
@@ -1701,14 +1701,14 @@ export function DiscoverFeedEntryWorkbench({
                 </div>
 
                 <div className="mt-4 overflow-hidden rounded-md border border-border bg-muted/30">
-                  {state.image_url && !imageUrlError ? (
+                  {state.imageUrl && !imageUrlError ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={state.image_url}
+                      src={state.imageUrl}
                       alt=""
                       className="aspect-[1024/500] w-full object-cover"
                     />
-                  ) : state.image_url && imageUrlError ? (
+                  ) : state.imageUrl && imageUrlError ? (
                     <div className="flex aspect-[1024/500] items-center justify-center px-4 text-center text-sm text-destructive">
                       <ImageIcon className="mr-2 h-4 w-4" />
                       {t("Enter a valid cover image URL to preview.")}

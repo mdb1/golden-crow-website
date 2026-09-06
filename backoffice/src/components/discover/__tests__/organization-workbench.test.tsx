@@ -41,17 +41,17 @@ const organization: DiscoverOrganizationRecord = {
   slug: "publisher-one",
   websiteUrl: "https://example.org",
   description: "Descripción pública",
-  description_en: "Public description",
+  descriptionEn: "Public description",
   social: {
     facebook: "https://facebook.com/publisher-one",
   },
   countryCode: "US",
   organizationType:
     "org_patient_advocacy_organizations,org_genetics_research_institutes",
-  color_hex: "#123ABC",
+  colorHex: "#123ABC",
   verified: true,
-  is_genetic_report_provider: true,
-  genetic_report_category: "full_genome",
+  isGeneticReportProvider: true,
+  geneticReportCategory: "full_genome",
   contactEmail: "hello@example.org",
   internalNotes: "Internal notes",
   createdAt: "2026-08-01T00:00:00.000Z",
@@ -66,10 +66,10 @@ const individual: DiscoverIndividualRecord = {
   slug: "individual-one",
   websiteUrl: "https://example.org/individual",
   description: "Descripción individual",
-  description_en: "Individual description",
+  descriptionEn: "Individual description",
   countryCode: "AR",
   individualType: "pro_clinical_geneticists,pro_physicians",
-  color_hex: "#123ABC",
+  colorHex: "#123ABC",
   verified: true,
   contactEmail: "individual@example.org",
   createdAt: "2026-08-01T00:00:00.000Z",
@@ -175,7 +175,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const body = JSON.parse(
       jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
     ) as Record<string, unknown>;
-    expect(body.color_hex).toBe("#ABCDEF");
+    expect(body.colorHex).toBe("#ABCDEF");
   });
 
   it("applies color picker changes without enabling text editing", async () => {
@@ -393,8 +393,8 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const body = JSON.parse(
       jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
     ) as Record<string, unknown>;
-    expect(body.is_genetic_report_provider).toBe(false);
-    expect(body.genetic_report_category).toBe("raw_vcf");
+    expect(body.isGeneticReportProvider).toBe(false);
+    expect(body.geneticReportCategory).toBe("raw_vcf");
   });
 
   it("does not render organization genetic report fields for individual publishers", () => {
@@ -649,7 +649,7 @@ describe("DiscoverOrganizationWorkbench localized description", () => {
     render(
       <AppLanguageProvider initialLanguage="en">
         <DiscoverOrganizationWorkbench
-          organization={{ ...organization, description_en: "" }}
+          organization={{ ...organization, descriptionEn: "" }}
         />
       </AppLanguageProvider>,
     );
@@ -697,6 +697,6 @@ describe("DiscoverOrganizationWorkbench localized description", () => {
       jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
     ) as Record<string, unknown>;
     expect(body.description).toBe("Descripción pública");
-    expect(body.description_en).toBe("Public English description");
+    expect(body.descriptionEn).toBe("Public English description");
   });
 });

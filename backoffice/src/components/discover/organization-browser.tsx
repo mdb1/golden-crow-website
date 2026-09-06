@@ -75,7 +75,7 @@ function publisherPayload(
     status,
     websiteUrl: publisher.websiteUrl,
     description: publisher.description,
-    description_en: publisher.description_en,
+    descriptionEn: publisher.descriptionEn,
     social: publisher.social,
     countryCode: publisher.countryCode,
     organizationType:
@@ -86,15 +86,15 @@ function publisherPayload(
       publisherKind === "individual"
         ? individual.individualType
         : undefined,
-    color_hex: publisher.color_hex,
+    colorHex: publisher.colorHex,
     verified: publisher.verified,
-    is_genetic_report_provider:
+    isGeneticReportProvider:
       publisherKind === "organization"
-        ? organization.is_genetic_report_provider ?? false
+        ? organization.isGeneticReportProvider ?? false
         : undefined,
-    genetic_report_category:
+    geneticReportCategory:
       publisherKind === "organization"
-        ? organization.genetic_report_category ?? null
+        ? organization.geneticReportCategory ?? null
         : undefined,
     contactEmail: publisher.contactEmail,
     internalNotes: publisher.internalNotes,
@@ -175,24 +175,24 @@ function DiscoverPublisherBrowser({
         publisher.slug,
         publisher.websiteUrl,
         publisher.description,
-        publisher.description_en,
+        publisher.descriptionEn,
         publisher.countryCode,
         currentType,
         ...currentTypeLabels,
         ...translatedTypeLabels,
-        publisher.color_hex,
+        publisher.colorHex,
         publisher.contactEmail,
-        !isIndividual && organization.is_genetic_report_provider
+        !isIndividual && organization.isGeneticReportProvider
           ? "genetic report provider yes"
           : !isIndividual
             ? "not genetic report provider no"
             : "",
         !isIndividual
-          ? organization.genetic_report_category
+          ? organization.geneticReportCategory
           : "",
         !isIndividual
           ? discoverGeneticReportCategoryLabel(
-              organization.genetic_report_category,
+              organization.geneticReportCategory,
             )
           : "",
       ]
@@ -203,14 +203,14 @@ function DiscoverPublisherBrowser({
         isIndividual ||
         geneticReportProvider === "all" ||
         (geneticReportProvider === "provider"
-          ? organization.is_genetic_report_provider
-          : !organization.is_genetic_report_provider);
+          ? organization.isGeneticReportProvider
+          : !organization.isGeneticReportProvider);
       const categoryMatches =
         isIndividual ||
         geneticReportCategory === "all" ||
         (geneticReportCategory === "none"
-          ? !organization.genetic_report_category
-          : organization.genetic_report_category === geneticReportCategory);
+          ? !organization.geneticReportCategory
+          : organization.geneticReportCategory === geneticReportCategory);
 
       return (
         (!normalizedQuery || searchable.includes(normalizedQuery)) &&
@@ -510,11 +510,11 @@ function DiscoverPublisherBrowser({
                     />
                   ) : null}
                   <h3 className="font-medium text-foreground">{publisher.name}</h3>
-                  {publisher.color_hex ? (
+                  {publisher.colorHex ? (
                     <span
                       className="h-3.5 w-3.5 rounded-full border border-border"
-                      style={{ backgroundColor: publisher.color_hex }}
-                      title={publisher.color_hex}
+                      style={{ backgroundColor: publisher.colorHex }}
+                      title={publisher.colorHex}
                     />
                   ) : null}
                   {publisher.verified ? (
@@ -550,20 +550,20 @@ function DiscoverPublisherBrowser({
                 <div className="flex flex-wrap gap-1.5">
                   <Badge
                     variant={
-                      organization.is_genetic_report_provider
+                      organization.isGeneticReportProvider
                         ? "violet"
                         : "outline"
                     }
                     className="rounded-md"
                   >
-                    {organization.is_genetic_report_provider
+                    {organization.isGeneticReportProvider
                       ? t("Genetic report provider")
                       : t("Not a genetic report provider")}
                   </Badge>
                   <Badge variant="secondary" className="rounded-md">
                     {t(
                       discoverGeneticReportCategoryLabel(
-                        organization.genetic_report_category,
+                        organization.geneticReportCategory,
                       ),
                     )}
                   </Badge>

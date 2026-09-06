@@ -89,7 +89,7 @@ const FEED_PAYLOAD_FIELDS: Record<DiscoverFeedType, readonly FeedPayloadField[]>
   ],
   research_update: [
     {
-      key: "research_topic",
+      key: "researchTopic",
       label: "Research topic",
       kind: "string",
       aliases: ["topic"],
@@ -107,14 +107,13 @@ const FEED_PAYLOAD_FIELDS: Record<DiscoverFeedType, readonly FeedPayloadField[]>
       aliases: ["startsAt"],
     },
     { key: "location", label: "Location", kind: "string", aliases: ["locationName"] },
-    { key: "max_attendance", label: "Max attendance", kind: "integer" },
+    { key: "maxAttendance", label: "Max attendance", kind: "integer" },
   ],
   opportunity: [
     {
-      key: "opportunity_type",
+      key: "opportunityType",
       label: "Opportunity type",
       kind: "string",
-      aliases: ["opportunityType"],
     },
     { key: "requirements", label: "Requirements", kind: "string" },
     { key: "eligibility", label: "Eligibility", kind: "string" },
@@ -122,188 +121,188 @@ const FEED_PAYLOAD_FIELDS: Record<DiscoverFeedType, readonly FeedPayloadField[]>
   ],
   video: [
     { key: "provider", label: "Provider", kind: "string" },
-    { key: "duration_seconds", label: "Duration seconds", kind: "integer" },
+    { key: "durationSeconds", label: "Duration seconds", kind: "integer" },
     { key: "presenters", label: "Presenters", kind: "array" },
-    { key: "caption_languages", label: "Caption languages", kind: "array" },
+    { key: "captionLanguages", label: "Caption languages", kind: "array" },
   ],
   external_article: [
-    { key: "publication_name", label: "Publication name", kind: "string" },
+    { key: "publicationName", label: "Publication name", kind: "string" },
     { key: "authors", label: "Authors", kind: "array" },
-    { key: "article_date", label: "Article date", kind: "timestamp" },
+    { key: "articleDate", label: "Article date", kind: "timestamp" },
     { key: "section", label: "Section", kind: "string" },
   ],
   podcast_episode: [
-    { key: "podcast_name", label: "Podcast name", kind: "string" },
-    { key: "episode_number", label: "Episode number", kind: "string" },
-    { key: "duration_seconds", label: "Duration seconds", kind: "integer" },
+    { key: "podcastName", label: "Podcast name", kind: "string" },
+    { key: "episodeNumber", label: "Episode number", kind: "string" },
+    { key: "durationSeconds", label: "Duration seconds", kind: "integer" },
     { key: "hosts", label: "Hosts", kind: "array" },
     { key: "guests", label: "Guests", kind: "array" },
   ],
   survey: [
-    { key: "estimated_minutes", label: "Estimated minutes", kind: "integer" },
-    { key: "closing_date", label: "Closing date", kind: "timestamp" },
-    { key: "target_audience", label: "Target audience", kind: "string" },
+    { key: "estimatedMinutes", label: "Estimated minutes", kind: "integer" },
+    { key: "closingDate", label: "Closing date", kind: "timestamp" },
+    { key: "targetAudience", label: "Target audience", kind: "string" },
     { key: "anonymous", label: "Anonymous", kind: "boolean" },
   ],
   organization_spotlight: [
     {
-      key: "featured_organization_id",
+      key: "featuredOrganizationId",
       label: "Featured organization ID",
       kind: "string",
     },
-    { key: "focus_conditions", label: "Focus conditions", kind: "array" },
+    { key: "focusConditions", label: "Focus conditions", kind: "array" },
     { key: "services", label: "Services", kind: "array" },
-    { key: "service_regions", label: "Service regions", kind: "array" },
+    { key: "serviceRegions", label: "Service regions", kind: "array" },
   ],
   professional_spotlight: [
     {
-      key: "featured_individual_id",
+      key: "featuredIndividualId",
       label: "Featured individual ID",
       kind: "string",
     },
     { key: "specialties", label: "Specialties", kind: "array" },
     { key: "languages", label: "Languages", kind: "array" },
-    { key: "service_regions", label: "Service regions", kind: "array" },
+    { key: "serviceRegions", label: "Service regions", kind: "array" },
   ],
   community_invitation: [
-    { key: "community_type", label: "Community type", kind: "string" },
-    { key: "target_audience", label: "Target audience", kind: "string" },
-    { key: "access_type", label: "Access type", kind: "string" },
-    { key: "community_languages", label: "Community languages", kind: "array" },
+    { key: "communityType", label: "Community type", kind: "string" },
+    { key: "targetAudience", label: "Target audience", kind: "string" },
+    { key: "accessType", label: "Access type", kind: "string" },
+    { key: "communityLanguages", label: "Community languages", kind: "array" },
     { key: "moderated", label: "Moderated", kind: "boolean" },
   ],
   bioinformatics_tool: [
-    { key: "tool_name", label: "Tool name", kind: "string" },
-    { key: "tool_category", label: "Tool category", kind: "string" },
-    { key: "input_formats", label: "Input formats", kind: "array" },
-    { key: "technical_level", label: "Technical level", kind: "string" },
-    { key: "license_model", label: "License model", kind: "string" },
+    { key: "toolName", label: "Tool name", kind: "string" },
+    { key: "toolCategory", label: "Tool category", kind: "string" },
+    { key: "inputFormats", label: "Input formats", kind: "array" },
+    { key: "technicalLevel", label: "Technical level", kind: "string" },
+    { key: "licenseModel", label: "License model", kind: "string" },
   ],
   genomic_database: [
-    { key: "resource_name", label: "Resource name", kind: "string" },
-    { key: "data_scope", label: "Data scope", kind: "string" },
-    { key: "supported_species", label: "Supported species", kind: "array" },
-    { key: "access_model", label: "Access model", kind: "string" },
-    { key: "update_frequency", label: "Update frequency", kind: "string" },
+    { key: "resourceName", label: "Resource name", kind: "string" },
+    { key: "dataScope", label: "Data scope", kind: "string" },
+    { key: "supportedSpecies", label: "Supported species", kind: "array" },
+    { key: "accessModel", label: "Access model", kind: "string" },
+    { key: "updateFrequency", label: "Update frequency", kind: "string" },
   ],
   health_guidance: [
-    { key: "target_audience", label: "Target audience", kind: "string" },
-    { key: "reviewed_by", label: "Reviewed by", kind: "string" },
-    { key: "reviewed_at", label: "Reviewed at", kind: "timestamp" },
-    { key: "evidence_level", label: "Evidence level", kind: "string" },
-    { key: "urgency_level", label: "Urgency level", kind: "string" },
+    { key: "targetAudience", label: "Target audience", kind: "string" },
+    { key: "reviewedBy", label: "Reviewed by", kind: "string" },
+    { key: "reviewedAt", label: "Reviewed at", kind: "timestamp" },
+    { key: "evidenceLevel", label: "Evidence level", kind: "string" },
+    { key: "urgencyLevel", label: "Urgency level", kind: "string" },
   ],
   educational_explainer: [
     { key: "topic", label: "Topic", kind: "string" },
-    { key: "difficulty_level", label: "Difficulty level", kind: "string" },
-    { key: "estimated_minutes", label: "Estimated minutes", kind: "integer" },
-    { key: "learning_objectives", label: "Learning objectives", kind: "array" },
+    { key: "difficultyLevel", label: "Difficulty level", kind: "string" },
+    { key: "estimatedMinutes", label: "Estimated minutes", kind: "integer" },
+    { key: "learningObjectives", label: "Learning objectives", kind: "array" },
   ],
   gene_spotlight: [
-    { key: "gene_symbol", label: "Gene symbol", kind: "string" },
-    { key: "gene_name", label: "Gene name", kind: "string" },
-    { key: "inheritance_modes", label: "Inheritance modes", kind: "array" },
-    { key: "related_conditions", label: "Related conditions", kind: "array" },
+    { key: "geneSymbol", label: "Gene symbol", kind: "string" },
+    { key: "geneName", label: "Gene name", kind: "string" },
+    { key: "inheritanceModes", label: "Inheritance modes", kind: "array" },
+    { key: "relatedConditions", label: "Related conditions", kind: "array" },
   ],
   condition_spotlight: [
-    { key: "condition_name", label: "Condition name", kind: "string" },
-    { key: "ontology_ids", label: "Ontology IDs", kind: "array" },
-    { key: "related_genes", label: "Related genes", kind: "array" },
-    { key: "inheritance_modes", label: "Inheritance modes", kind: "array" },
+    { key: "conditionName", label: "Condition name", kind: "string" },
+    { key: "ontologyIds", label: "Ontology IDs", kind: "array" },
+    { key: "relatedGenes", label: "Related genes", kind: "array" },
+    { key: "inheritanceModes", label: "Inheritance modes", kind: "array" },
   ],
   genetic_test_guide: [
-    { key: "test_type", label: "Test type", kind: "string" },
-    { key: "sample_types", label: "Sample types", kind: "array" },
-    { key: "intended_use", label: "Intended use", kind: "string" },
-    { key: "turnaround_time", label: "Turnaround time", kind: "string" },
-    { key: "requires_prescription", label: "Requires prescription", kind: "boolean" },
+    { key: "testType", label: "Test type", kind: "string" },
+    { key: "sampleTypes", label: "Sample types", kind: "array" },
+    { key: "intendedUse", label: "Intended use", kind: "string" },
+    { key: "turnaroundTime", label: "Turnaround time", kind: "string" },
+    { key: "requiresPrescription", label: "Requires prescription", kind: "boolean" },
   ],
   report_explainer: [
-    { key: "report_section", label: "Report section", kind: "string" },
-    { key: "concepts_covered", label: "Concepts covered", kind: "array" },
-    { key: "reading_level", label: "Reading level", kind: "string" },
-    { key: "related_genes", label: "Related genes", kind: "array" },
+    { key: "reportSection", label: "Report section", kind: "string" },
+    { key: "conceptsCovered", label: "Concepts covered", kind: "array" },
+    { key: "readingLevel", label: "Reading level", kind: "string" },
+    { key: "relatedGenes", label: "Related genes", kind: "array" },
   ],
   clinical_guideline: [
-    { key: "issuing_body", label: "Issuing body", kind: "string" },
+    { key: "issuingBody", label: "Issuing body", kind: "string" },
     { key: "version", label: "Version", kind: "string" },
-    { key: "release_date", label: "Release date", kind: "timestamp" },
-    { key: "target_professions", label: "Target professions", kind: "array" },
-    { key: "guideline_status", label: "Guideline status", kind: "string" },
+    { key: "releaseDate", label: "Release date", kind: "timestamp" },
+    { key: "targetProfessions", label: "Target professions", kind: "array" },
+    { key: "guidelineStatus", label: "Guideline status", kind: "string" },
   ],
   clinical_trial: [
-    { key: "trial_identifier", label: "Trial identifier", kind: "string" },
+    { key: "trialIdentifier", label: "Trial identifier", kind: "string" },
     { key: "phase", label: "Phase", kind: "string" },
-    { key: "recruitment_status", label: "Recruitment status", kind: "string" },
+    { key: "recruitmentStatus", label: "Recruitment status", kind: "string" },
     { key: "conditions", label: "Conditions", kind: "array" },
     { key: "countries", label: "Countries", kind: "array" },
     { key: "sponsor", label: "Sponsor", kind: "string" },
   ],
   patient_registry: [
-    { key: "registry_name", label: "Registry name", kind: "string" },
-    { key: "enrollment_status", label: "Enrollment status", kind: "string" },
+    { key: "registryName", label: "Registry name", kind: "string" },
+    { key: "enrollmentStatus", label: "Enrollment status", kind: "string" },
     { key: "conditions", label: "Conditions", kind: "array" },
-    { key: "eligible_population", label: "Eligible population", kind: "string" },
+    { key: "eligiblePopulation", label: "Eligible population", kind: "string" },
     { key: "countries", label: "Countries", kind: "array" },
   ],
   research_participation: [
-    { key: "study_identifier", label: "Study identifier", kind: "string" },
-    { key: "study_type", label: "Study type", kind: "string" },
-    { key: "recruitment_status", label: "Recruitment status", kind: "string" },
-    { key: "eligibility_summary", label: "Eligibility summary", kind: "string" },
-    { key: "participation_mode", label: "Participation mode", kind: "string" },
-    { key: "end_date", label: "End date", kind: "timestamp" },
+    { key: "studyIdentifier", label: "Study identifier", kind: "string" },
+    { key: "studyType", label: "Study type", kind: "string" },
+    { key: "recruitmentStatus", label: "Recruitment status", kind: "string" },
+    { key: "eligibilitySummary", label: "Eligibility summary", kind: "string" },
+    { key: "participationMode", label: "Participation mode", kind: "string" },
+    { key: "endDate", label: "End date", kind: "timestamp" },
   ],
   screening_program: [
-    { key: "screening_type", label: "Screening type", kind: "string" },
-    { key: "eligible_population", label: "Eligible population", kind: "string" },
-    { key: "start_date", label: "Start date", kind: "timestamp" },
-    { key: "end_date", label: "End date", kind: "timestamp" },
+    { key: "screeningType", label: "Screening type", kind: "string" },
+    { key: "eligiblePopulation", label: "Eligible population", kind: "string" },
+    { key: "startDate", label: "Start date", kind: "timestamp" },
+    { key: "endDate", label: "End date", kind: "timestamp" },
     { key: "locations", label: "Locations", kind: "array" },
-    { key: "cost_note", label: "Cost note", kind: "string" },
+    { key: "costNote", label: "Cost note", kind: "string" },
   ],
   support_service: [
-    { key: "service_type", label: "Service type", kind: "string" },
+    { key: "serviceType", label: "Service type", kind: "string" },
     { key: "availability", label: "Availability", kind: "string" },
-    { key: "delivery_mode", label: "Delivery mode", kind: "string" },
+    { key: "deliveryMode", label: "Delivery mode", kind: "string" },
     { key: "languages", label: "Languages", kind: "array" },
-    { key: "eligibility_summary", label: "Eligibility summary", kind: "string" },
+    { key: "eligibilitySummary", label: "Eligibility summary", kind: "string" },
     { key: "regions", label: "Regions", kind: "array" },
   ],
   course: [
-    { key: "delivery_mode", label: "Delivery mode", kind: "string" },
-    { key: "difficulty_level", label: "Difficulty level", kind: "string" },
+    { key: "deliveryMode", label: "Delivery mode", kind: "string" },
+    { key: "difficultyLevel", label: "Difficulty level", kind: "string" },
     { key: "duration", label: "Duration", kind: "string" },
-    { key: "target_audience", label: "Target audience", kind: "string" },
-    { key: "certificate_available", label: "Certificate available", kind: "boolean" },
+    { key: "targetAudience", label: "Target audience", kind: "string" },
+    { key: "certificateAvailable", label: "Certificate available", kind: "boolean" },
   ],
   downloadable_resource: [
-    { key: "file_type", label: "File type", kind: "string" },
-    { key: "page_count", label: "Page count", kind: "integer" },
-    { key: "file_size", label: "File size", kind: "string" },
-    { key: "resource_languages", label: "Resource languages", kind: "array" },
-    { key: "target_audience", label: "Target audience", kind: "string" },
+    { key: "fileType", label: "File type", kind: "string" },
+    { key: "pageCount", label: "Page count", kind: "integer" },
+    { key: "fileSize", label: "File size", kind: "string" },
+    { key: "resourceLanguages", label: "Resource languages", kind: "array" },
+    { key: "targetAudience", label: "Target audience", kind: "string" },
   ],
   lived_experience_story: [
     { key: "perspective", label: "Perspective", kind: "string" },
     { key: "conditions", label: "Conditions", kind: "array" },
-    { key: "life_stage", label: "Life stage", kind: "string" },
+    { key: "lifeStage", label: "Life stage", kind: "string" },
     { key: "topics", label: "Topics", kind: "array" },
-    { key: "content_warning", label: "Content warning", kind: "string" },
+    { key: "contentWarning", label: "Content warning", kind: "string" },
   ],
   expert_qa: [
-    { key: "expert_name", label: "Expert name", kind: "string" },
+    { key: "expertName", label: "Expert name", kind: "string" },
     { key: "credentials", label: "Credentials", kind: "string" },
     { key: "specialty", label: "Specialty", kind: "string" },
-    { key: "questions_count", label: "Questions count", kind: "integer" },
-    { key: "recorded_at", label: "Recorded at", kind: "timestamp" },
+    { key: "questionsCount", label: "Questions count", kind: "integer" },
+    { key: "recordedAt", label: "Recorded at", kind: "timestamp" },
   ],
   advocacy_campaign: [
-    { key: "campaign_type", label: "Campaign type", kind: "string" },
+    { key: "campaignType", label: "Campaign type", kind: "string" },
     { key: "organizer", label: "Organizer", kind: "string" },
-    { key: "target_region", label: "Target region", kind: "string" },
+    { key: "targetRegion", label: "Target region", kind: "string" },
     { key: "deadline", label: "Deadline", kind: "timestamp" },
-    { key: "campaign_goal", label: "Campaign goal", kind: "string" },
+    { key: "campaignGoal", label: "Campaign goal", kind: "string" },
   ],
 };
 
@@ -398,15 +397,14 @@ type OrganizationInput = PublisherImageUploadInput & {
   status?: unknown;
   websiteUrl?: unknown;
   description?: unknown;
-  description_en?: unknown;
+  descriptionEn?: unknown;
   social?: unknown;
   countryCode?: unknown;
   organizationType?: unknown;
-  color_hex?: unknown;
   colorHex?: unknown;
   verified?: unknown;
-  is_genetic_report_provider?: unknown;
-  genetic_report_category?: unknown;
+  isGeneticReportProvider?: unknown;
+  geneticReportCategory?: unknown;
   contactEmail?: unknown;
   internalNotes?: unknown;
 };
@@ -417,11 +415,10 @@ type IndividualInput = PublisherImageUploadInput & {
   status?: unknown;
   websiteUrl?: unknown;
   description?: unknown;
-  description_en?: unknown;
+  descriptionEn?: unknown;
   social?: unknown;
   countryCode?: unknown;
   individualType?: unknown;
-  color_hex?: unknown;
   colorHex?: unknown;
   verified?: unknown;
   contactEmail?: unknown;
@@ -434,15 +431,14 @@ type PublicPublisherRequestInput = PublisherImageUploadInput & {
   imageUrl?: unknown;
   websiteUrl?: unknown;
   description?: unknown;
-  description_en?: unknown;
+  descriptionEn?: unknown;
   social?: unknown;
   countryCode?: unknown;
   organizationType?: unknown;
   individualType?: unknown;
-  color_hex?: unknown;
   colorHex?: unknown;
-  is_genetic_report_provider?: unknown;
-  genetic_report_category?: unknown;
+  isGeneticReportProvider?: unknown;
+  geneticReportCategory?: unknown;
   contactEmail?: unknown;
 };
 
@@ -456,10 +452,8 @@ type FeedItemInput = {
   title?: unknown;
   subtitle?: unknown;
   body?: unknown;
-  html_body?: unknown;
-  image_url?: unknown;
-  source_url?: unknown;
-  source_button_text?: unknown;
+  htmlBody?: unknown;
+  imageUrl?: unknown;
   sourceUrl?: unknown;
   sourceButtonText?: unknown;
 } & Partial<Record<DiscoverFeedType, unknown>>;
@@ -1198,7 +1192,7 @@ function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationR
     normalizeOptionalString(data.organizationType),
   );
   const geneticReportCategory = readGeneticReportCategory(
-    data.genetic_report_category,
+    data.geneticReportCategory,
   );
 
   return {
@@ -1212,14 +1206,14 @@ function toOrganizationRecord(doc: QueryDocumentSnapshot): DiscoverOrganizationR
     slug: normalizeOptionalString(data.slug),
     websiteUrl: normalizeOptionalString(data.websiteUrl),
     description: normalizeOptionalString(data.description),
-    description_en: normalizeOptionalString(data.description_en),
+    descriptionEn: normalizeOptionalString(data.descriptionEn),
     social: normalizeSocialLinksForRead(data.social),
     countryCode: normalizeOptionalString(data.countryCode),
     organizationType: organizationType || undefined,
-    color_hex: readHexColor(data.color_hex ?? data.colorHex),
+    colorHex: readHexColor(data.colorHex),
     verified: data.verified === true,
-    is_genetic_report_provider: data.is_genetic_report_provider === true,
-    genetic_report_category: geneticReportCategory,
+    isGeneticReportProvider: data.isGeneticReportProvider === true,
+    geneticReportCategory: geneticReportCategory,
     contactEmail: normalizeOptionalString(data.contactEmail),
     internalNotes: normalizeOptionalString(data.internalNotes),
     createdAt: timestampToIso(data.createdAt) ?? "",
@@ -1249,11 +1243,11 @@ function toIndividualRecord(doc: QueryDocumentSnapshot): DiscoverIndividualRecor
     slug: normalizeOptionalString(data.slug),
     websiteUrl: normalizeOptionalString(data.websiteUrl),
     description: normalizeOptionalString(data.description),
-    description_en: normalizeOptionalString(data.description_en),
+    descriptionEn: normalizeOptionalString(data.descriptionEn),
     social: normalizeSocialLinksForRead(data.social),
     countryCode: normalizeOptionalString(data.countryCode),
     individualType: individualType || undefined,
-    color_hex: readHexColor(data.color_hex ?? data.colorHex),
+    colorHex: readHexColor(data.colorHex),
     verified: data.verified === true,
     contactEmail: normalizeOptionalString(data.contactEmail),
     internalNotes: normalizeOptionalString(data.internalNotes),
@@ -1295,8 +1289,6 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
       ? (data.publisherSnapshot as Record<string, unknown>)
       : {};
   const activePayload = payloadForSerializedItem(data, type);
-  const legacySourceUrl = data.sourceUrl ?? data.source_url;
-  const legacySourceButtonText = data.sourceButtonText ?? data.source_button_text;
   const languageValue = data.language ?? data.locale;
   const language = languageValue === "es" ? "es" : "en";
   const record: DiscoverFeedItemRecord = {
@@ -1319,12 +1311,12 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
       normalizeOptionalString(data.body) ??
       normalizeOptionalString(activePayload.detailBody) ??
       "",
-    html_body: normalizeNullableString(data.html_body),
-    image_url:
-      normalizeNullableString(data.image_url) ??
+    htmlBody: normalizeNullableString(data.htmlBody),
+    imageUrl:
+      normalizeNullableString(data.imageUrl) ??
       normalizeNullableString(activePayload.imageUrl),
-    source_url: normalizeNullableString(legacySourceUrl),
-    source_button_text: normalizeNullableString(legacySourceButtonText),
+    sourceUrl: normalizeNullableString(data.sourceUrl),
+    sourceButtonText: normalizeNullableString(data.sourceButtonText),
     status,
     createdAt: timestampToIso(data.createdAt) ?? "",
     updatedAt: timestampToIso(data.updatedAt) ?? "",
@@ -1522,15 +1514,15 @@ function organizationDocument(input: OrganizationInput, context: AdminContext) {
     slug: slugifyOrganizationName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
     description: normalizeOptionalString(input.description),
-    description_en: normalizeOptionalString(input.description_en),
+    descriptionEn: normalizeOptionalString(input.descriptionEn),
     social: normalizeSocialLinks(input.social) ?? null,
     countryCode: normalizeCountryCode(input.countryCode),
     organizationType: normalizeOrganizationType(input.organizationType),
-    color_hex: normalizeHexColor(input.color_hex ?? input.colorHex, "Organization color") ?? null,
+    colorHex: normalizeHexColor(input.colorHex, "Organization color") ?? null,
     verified: normalizeBoolean(input.verified),
-    is_genetic_report_provider: normalizeBoolean(input.is_genetic_report_provider),
-    genetic_report_category: normalizeGeneticReportCategory(
-      input.genetic_report_category,
+    isGeneticReportProvider: normalizeBoolean(input.isGeneticReportProvider),
+    geneticReportCategory: normalizeGeneticReportCategory(
+      input.geneticReportCategory,
     ),
     contactEmail: normalizeOptionalEmail(input.contactEmail, "Contact email"),
     internalNotes: normalizeOptionalString(input.internalNotes),
@@ -1542,7 +1534,7 @@ function organizationDocument(input: OrganizationInput, context: AdminContext) {
 function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
   const name = normalizeRequiredString(input.name, "Organization name");
   const isGeneticReportProvider = normalizeBoolean(
-    input.is_genetic_report_provider,
+    input.isGeneticReportProvider,
   );
 
   return {
@@ -1553,20 +1545,20 @@ function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
     slug: slugifyOrganizationName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
     description: normalizeOptionalString(input.description),
-    description_en: normalizeOptionalString(input.description_en),
+    descriptionEn: normalizeOptionalString(input.descriptionEn),
     social: normalizeSocialLinks(input.social) ?? null,
     countryCode: normalizeRequiredCountryCode(input.countryCode),
     organizationType: normalizeRequiredOrganizationType(input.organizationType),
-    color_hex: normalizeHexColor(input.color_hex ?? input.colorHex, "Organization color") ?? null,
+    colorHex: normalizeHexColor(input.colorHex, "Organization color") ?? null,
     verified: false,
-    is_genetic_report_provider: isGeneticReportProvider,
-    genetic_report_category: isGeneticReportProvider
-      ? normalizeGeneticReportCategory(input.genetic_report_category)
+    isGeneticReportProvider: isGeneticReportProvider,
+    geneticReportCategory: isGeneticReportProvider
+      ? normalizeGeneticReportCategory(input.geneticReportCategory)
       : null,
     contactEmail: normalizeRequiredEmail(input.contactEmail, "Contact email"),
     internalNotes: undefined,
-    is_requested_through_web_wizard: true,
-    approval_request_date: FieldValue.serverTimestamp(),
+    isRequestedThroughWebWizard: true,
+    approvalRequestDate: FieldValue.serverTimestamp(),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     createdByUserId: "public-web-wizard",
@@ -1584,11 +1576,11 @@ function individualDocument(input: IndividualInput, context: AdminContext) {
     slug: slugifyIndividualName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
     description: normalizeOptionalString(input.description),
-    description_en: normalizeOptionalString(input.description_en),
+    descriptionEn: normalizeOptionalString(input.descriptionEn),
     social: normalizeSocialLinks(input.social) ?? null,
     countryCode: normalizeCountryCode(input.countryCode),
     individualType: normalizeIndividualType(input.individualType),
-    color_hex: normalizeHexColor(input.color_hex ?? input.colorHex, "Individual publisher color") ?? null,
+    colorHex: normalizeHexColor(input.colorHex, "Individual publisher color") ?? null,
     verified: normalizeBoolean(input.verified),
     contactEmail: normalizeOptionalEmail(input.contactEmail, "Contact email"),
     internalNotes: normalizeOptionalString(input.internalNotes),
@@ -1608,16 +1600,16 @@ function publicIndividualRequestDocument(input: PublicPublisherRequestInput) {
     slug: slugifyIndividualName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
     description: normalizeOptionalString(input.description),
-    description_en: normalizeOptionalString(input.description_en),
+    descriptionEn: normalizeOptionalString(input.descriptionEn),
     social: normalizeSocialLinks(input.social) ?? null,
     countryCode: normalizeRequiredCountryCode(input.countryCode),
     individualType: normalizeRequiredIndividualType(input.individualType),
-    color_hex: normalizeHexColor(input.color_hex ?? input.colorHex, "Individual publisher color") ?? null,
+    colorHex: normalizeHexColor(input.colorHex, "Individual publisher color") ?? null,
     verified: false,
     contactEmail: normalizeRequiredEmail(input.contactEmail, "Contact email"),
     internalNotes: undefined,
-    is_requested_through_web_wizard: true,
-    approval_request_date: FieldValue.serverTimestamp(),
+    isRequestedThroughWebWizard: true,
+    approvalRequestDate: FieldValue.serverTimestamp(),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     createdByUserId: "public-web-wizard",
@@ -1683,7 +1675,7 @@ function normalizeRootContent(input: FeedItemInput, status: DiscoverFeedStatus) 
   const title = normalizeOptionalString(input.title);
   const subtitle = normalizeOptionalString(input.subtitle);
   const body = normalizeOptionalString(input.body);
-  const htmlBody = sanitizeHtmlBody(input.html_body);
+  const htmlBody = sanitizeHtmlBody(input.htmlBody);
 
   if (VALIDATED_STATUSES.has(status)) {
     if (!title) {
@@ -1701,12 +1693,10 @@ function normalizeRootContent(input: FeedItemInput, status: DiscoverFeedStatus) 
     title: title ?? "",
     subtitle: subtitle ?? "",
     body: body ?? "",
-    html_body: htmlBody,
-    image_url: normalizeHttpsUrl(input.image_url, "Image URL"),
-    source_url: normalizeHttpsUrl(input.source_url ?? input.sourceUrl, "Source URL"),
-    source_button_text: normalizeNullableString(
-      input.source_button_text ?? input.sourceButtonText,
-    ),
+    htmlBody: htmlBody,
+    imageUrl: normalizeHttpsUrl(input.imageUrl, "Image URL"),
+    sourceUrl: normalizeHttpsUrl(input.sourceUrl, "Source URL"),
+    sourceButtonText: normalizeNullableString(input.sourceButtonText),
     language: normalizeLanguage(input.language),
   };
 }
@@ -1716,7 +1706,7 @@ function compatibilityAliases(root: ReturnType<typeof normalizeRootContent>) {
     title: root.title,
     summary: root.subtitle,
     detailBody: root.body,
-    imageUrl: root.image_url,
+    imageUrl: root.imageUrl,
   };
 }
 
@@ -1787,7 +1777,7 @@ function compatibilityPayloadAliases(
 
   if (type === "opportunity") {
     return {
-      opportunityType: payload.opportunity_type,
+      opportunityType: payload.opportunityType,
     };
   }
 
@@ -1890,12 +1880,10 @@ async function feedItemDocument(
     title: root.title,
     subtitle: root.subtitle,
     body: root.body,
-    html_body: root.html_body,
-    image_url: root.image_url,
-    source_url: root.source_url,
-    source_button_text: root.source_url ? root.source_button_text : null,
-    sourceUrl: root.source_url,
-    sourceButtonText: root.source_url ? root.source_button_text : null,
+    htmlBody: root.htmlBody,
+    imageUrl: root.imageUrl,
+    sourceUrl: root.sourceUrl,
+    sourceButtonText: root.sourceUrl ? root.sourceButtonText : null,
     archivedAt,
     [getPayloadKey(type)]: payload,
     updatedAt: FieldValue.serverTimestamp(),
@@ -2032,8 +2020,8 @@ export async function updateDiscoverOrganization(
           ...input,
           status: existingRecord.status,
           verified: existingRecord.verified,
-          is_genetic_report_provider: existingRecord.is_genetic_report_provider,
-          genetic_report_category: existingRecord.genetic_report_category,
+          isGeneticReportProvider: existingRecord.isGeneticReportProvider,
+          geneticReportCategory: existingRecord.geneticReportCategory,
           internalNotes: existingRecord.internalNotes,
         }
       : input;
@@ -2363,10 +2351,10 @@ export async function duplicateDiscoverFeedItem(
     title: `${getFeedTitle(source)} copy`,
     subtitle: source.subtitle,
     body: source.body,
-    html_body: source.html_body,
-    image_url: source.image_url,
-    source_url: source.source_url,
-    source_button_text: source.source_button_text,
+    htmlBody: source.htmlBody,
+    imageUrl: source.imageUrl,
+    sourceUrl: source.sourceUrl,
+    sourceButtonText: source.sourceButtonText,
     [source.type]: {
       ...sourcePayload,
     },

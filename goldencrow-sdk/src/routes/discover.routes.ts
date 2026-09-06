@@ -164,15 +164,14 @@ const PublisherRequestBodySchema = z.object({
   imageUploadMimeType: PublicImageUploadMimeTypeSchema,
   websiteUrl: OptionalPublisherUrlSchema,
   description: OptionalPublisherTextSchema,
-  description_en: OptionalPublisherTextSchema,
+  descriptionEn: OptionalPublisherTextSchema,
   social: SocialLinksSchema,
   countryCode: z.string().trim().min(1).max(500),
   organizationType: z.string().trim().max(2000).optional(),
   individualType: z.string().trim().max(2000).optional(),
-  color_hex: z.string().trim().max(20).nullable().optional(),
   colorHex: z.string().trim().max(20).nullable().optional(),
-  is_genetic_report_provider: z.boolean().optional(),
-  genetic_report_category: GeneticReportCategorySchema.nullable().optional(),
+  isGeneticReportProvider: z.boolean().optional(),
+  geneticReportCategory: GeneticReportCategorySchema.nullable().optional(),
   contactEmail: z.string().trim().toLowerCase().email().max(180),
   startedAt: z.string().trim().datetime(),
   website: OptionalPublisherTextSchema,
@@ -200,11 +199,11 @@ const PublisherRequestBodySchema = z.object({
   }
 
   const primaryDescription =
-    body.locale === "en" ? body.description_en : body.description;
+    body.locale === "en" ? body.descriptionEn : body.description;
   if (!primaryDescription?.trim()) {
     ctx.addIssue({
       code: "custom",
-      path: [body.locale === "en" ? "description_en" : "description"],
+      path: [body.locale === "en" ? "descriptionEn" : "description"],
       message: "Publisher description is required.",
     });
   }
@@ -229,15 +228,14 @@ const OrganizationBodySchema = z.object({
   status: OrganizationStatusSchema.optional(),
   websiteUrl: z.string().nullable().optional(),
   description: z.string().optional(),
-  description_en: z.string().optional(),
+  descriptionEn: z.string().optional(),
   social: SocialLinksSchema,
   countryCode: z.string().optional(),
   organizationType: z.string().optional(),
-  color_hex: z.string().nullable().optional(),
   colorHex: z.string().nullable().optional(),
   verified: z.boolean().optional(),
-  is_genetic_report_provider: z.boolean().optional(),
-  genetic_report_category: GeneticReportCategorySchema.nullable().optional(),
+  isGeneticReportProvider: z.boolean().optional(),
+  geneticReportCategory: GeneticReportCategorySchema.nullable().optional(),
   contactEmail: z.string().optional(),
   internalNotes: z.string().optional(),
 });
@@ -251,11 +249,10 @@ const IndividualBodySchema = z.object({
   status: OrganizationStatusSchema.optional(),
   websiteUrl: z.string().nullable().optional(),
   description: z.string().optional(),
-  description_en: z.string().optional(),
+  descriptionEn: z.string().optional(),
   social: SocialLinksSchema,
   countryCode: z.string().optional(),
   individualType: z.string().optional(),
-  color_hex: z.string().nullable().optional(),
   colorHex: z.string().nullable().optional(),
   verified: z.boolean().optional(),
   contactEmail: z.string().optional(),
@@ -277,10 +274,10 @@ const FeedItemBodySchema = z.object({
   title: z.string().optional(),
   subtitle: z.string().optional(),
   body: z.string().optional(),
-  html_body: z.string().nullable().optional(),
-  image_url: z.string().nullable().optional(),
-  source_url: z.string().nullable().optional(),
-  source_button_text: z.string().nullable().optional(),
+  htmlBody: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
+  sourceUrl: z.string().nullable().optional(),
+  sourceButtonText: z.string().nullable().optional(),
   ...FeedPayloadBodySchemas,
 });
 

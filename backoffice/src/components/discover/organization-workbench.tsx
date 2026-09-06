@@ -72,15 +72,15 @@ type OrganizationFormState = {
   status: DiscoverOrganizationStatus | DiscoverIndividualStatus;
   websiteUrl: string;
   description: string;
-  description_en: string;
+  descriptionEn: string;
   social: DiscoverPublisherSocialLinks;
   countryCode: string;
   organizationType: string;
   individualType: string;
-  color_hex: string;
+  colorHex: string;
   verified: boolean;
-  is_genetic_report_provider: boolean;
-  genetic_report_category: DiscoverGeneticReportCategory | "";
+  isGeneticReportProvider: boolean;
+  geneticReportCategory: DiscoverGeneticReportCategory | "";
   contactEmail: string;
   internalNotes: string;
 };
@@ -100,7 +100,7 @@ function toFormState(
     status: publisher?.status ?? "active",
     websiteUrl: publisher?.websiteUrl ?? "",
     description: publisher?.description ?? "",
-    description_en: publisher?.description_en ?? "",
+    descriptionEn: publisher?.descriptionEn ?? "",
     social: publisher?.social ?? {},
     countryCode: serializeDiscoverOrganizationCountryCodes(
       publisher?.countryCode ? publisher.countryCode.split(",") : [],
@@ -111,10 +111,10 @@ function toFormState(
     individualType: discoverIndividualCategoryProvider.normalizeCsv(
       individual?.individualType,
     ),
-    color_hex: publisher?.color_hex ?? "",
+    colorHex: publisher?.colorHex ?? "",
     verified: publisher?.verified ?? false,
-    is_genetic_report_provider: organization?.is_genetic_report_provider ?? false,
-    genetic_report_category: organization?.genetic_report_category ?? "",
+    isGeneticReportProvider: organization?.isGeneticReportProvider ?? false,
+    geneticReportCategory: organization?.geneticReportCategory ?? "",
     contactEmail: publisher?.contactEmail ?? "",
     internalNotes: publisher?.internalNotes ?? "",
   };
@@ -149,14 +149,14 @@ function payloadFromState(state: OrganizationFormState, publisherKind: Publisher
       publisherKind === "individual"
         ? individualType || undefined
         : undefined,
-    color_hex: normalizedColorHex(state.color_hex) || undefined,
-    is_genetic_report_provider:
+    colorHex: normalizedColorHex(state.colorHex) || undefined,
+    isGeneticReportProvider:
       publisherKind === "organization"
-        ? state.is_genetic_report_provider
+        ? state.isGeneticReportProvider
         : undefined,
-    genetic_report_category:
+    geneticReportCategory:
       publisherKind === "organization"
-        ? state.genetic_report_category || null
+        ? state.geneticReportCategory || null
         : undefined,
   };
 }
@@ -209,7 +209,7 @@ function DiscoverPublisherWorkbench({
     useState<DescriptionLanguage>("es");
   const [manualColorMode, setManualColorMode] = useState(false);
   const [manualColorDraft, setManualColorDraft] = useState(() =>
-    colorTextValue(toFormState(publisher).color_hex),
+    colorTextValue(toFormState(publisher).colorHex),
   );
   const colorPickerRef = useRef<HTMLInputElement>(null);
   const [manualColorError, setManualColorError] = useState<string | null>(null);
@@ -243,15 +243,15 @@ function DiscoverPublisherWorkbench({
   const colorErrorText = isIndividual
     ? t("Individual publisher color must be a 6-digit hex value.")
     : t("Organization color must be a 6-digit hex value.");
-  const colorHex = normalizedColorHex(state.color_hex);
+  const colorHex = normalizedColorHex(state.colorHex);
   const appliedColorError =
-    state.color_hex.trim() && colorHex === null
+    state.colorHex.trim() && colorHex === null
       ? colorErrorText
       : null;
   const colorError = manualColorError || appliedColorError;
   const visibleColorText = manualColorMode
     ? manualColorDraft
-    : colorTextValue(state.color_hex);
+    : colorTextValue(state.colorHex);
   const activeDescriptionId =
     activeDescriptionLanguage === "es"
       ? "discover-org-description"
@@ -259,9 +259,9 @@ function DiscoverPublisherWorkbench({
   const activeDescriptionValue =
     activeDescriptionLanguage === "es"
       ? state.description
-      : state.description_en;
+      : state.descriptionEn;
   const showEnglishDescriptionWarning = Boolean(
-    state.description.trim() && !state.description_en.trim(),
+    state.description.trim() && !state.descriptionEn.trim(),
   );
   const selectedCategoryLabels = categoryProvider.labelsForCsv(
     isIndividual ? state.individualType : state.organizationType,
@@ -270,7 +270,7 @@ function DiscoverPublisherWorkbench({
     t(label),
   );
   const geneticReportCategoryLabel = t(
-    discoverGeneticReportCategoryLabel(state.genetic_report_category || null),
+    discoverGeneticReportCategoryLabel(state.geneticReportCategory || null),
   );
   const imagePreviewSource = state.imageUrl.trim() || state.imageUploadDataUrl;
   const showDangerZone = mode === "edit" && Boolean(publisher) && canDeletePublisher;
@@ -310,12 +310,12 @@ function DiscoverPublisherWorkbench({
 
   function handleReset() {
     setState(sourceState);
-    closeManualColorEditor(sourceState.color_hex);
+    closeManualColorEditor(sourceState.colorHex);
   }
 
   function handleColorPickerChange(value: string) {
     const nextColor = value.toUpperCase();
-    updateState({ color_hex: nextColor });
+    updateState({ colorHex: nextColor });
     closeManualColorEditor(nextColor);
   }
 
@@ -337,7 +337,7 @@ function DiscoverPublisherWorkbench({
   }
 
   function startManualColorEdit() {
-    setManualColorDraft(colorTextValue(state.color_hex));
+    setManualColorDraft(colorTextValue(state.colorHex));
     setManualColorMode(true);
     setManualColorError(null);
   }
@@ -349,7 +349,7 @@ function DiscoverPublisherWorkbench({
       return;
     }
 
-    updateState({ color_hex: nextColor });
+    updateState({ colorHex: nextColor });
     closeManualColorEditor(nextColor);
   }
 
@@ -357,7 +357,7 @@ function DiscoverPublisherWorkbench({
     updateState(
       activeDescriptionLanguage === "es"
         ? { description: value }
-        : { description_en: value },
+        : { descriptionEn: value },
     );
   }
 
@@ -393,7 +393,7 @@ function DiscoverPublisherWorkbench({
 
     const nextState = {
       ...state,
-      color_hex: colorHex || "",
+      colorHex: colorHex || "",
     };
 
     setPending(true);
@@ -413,7 +413,7 @@ function DiscoverPublisherWorkbench({
           ? (response as { individual: DiscoverIndividualRecord }).individual
           : (response as { organization: DiscoverOrganizationRecord }).organization;
         setState(nextState);
-        closeManualColorEditor(nextState.color_hex);
+        closeManualColorEditor(nextState.colorHex);
         setToast({
           id: Date.now(),
           tone: "success",
@@ -441,7 +441,7 @@ function DiscoverPublisherWorkbench({
         },
       );
       setState(nextState);
-      closeManualColorEditor(nextState.color_hex);
+      closeManualColorEditor(nextState.colorHex);
       setToast({
         id: Date.now(),
         tone: "success",
@@ -605,10 +605,10 @@ function DiscoverPublisherWorkbench({
                 <label className="flex items-center gap-3 self-end rounded-md border border-border px-3 py-2 text-sm">
                   <input
                     type="checkbox"
-                    checked={state.is_genetic_report_provider}
+                    checked={state.isGeneticReportProvider}
                     onChange={(event) =>
                       updateState({
-                        is_genetic_report_provider: event.target.checked,
+                        isGeneticReportProvider: event.target.checked,
                       })
                     }
                     disabled={!canManageSystemFields}
@@ -619,7 +619,7 @@ function DiscoverPublisherWorkbench({
                       {t("Genetic report provider")}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {state.is_genetic_report_provider ? t("Yes") : t("No")}
+                      {state.isGeneticReportProvider ? t("Yes") : t("No")}
                     </span>
                   </span>
                 </label>
@@ -629,10 +629,10 @@ function DiscoverPublisherWorkbench({
                   </Label>
                   <select
                     id="discover-org-genetic-report-category"
-                    value={state.genetic_report_category}
+                    value={state.geneticReportCategory}
                     onChange={(event) =>
                       updateState({
-                        genetic_report_category:
+                        geneticReportCategory:
                           event.target.value as DiscoverGeneticReportCategory | "",
                       })
                     }
@@ -852,7 +852,7 @@ function DiscoverPublisherWorkbench({
               {!isIndividual ? (
                 <>
                   <div>
-                    {state.is_genetic_report_provider
+                    {state.isGeneticReportProvider
                       ? t("Genetic report provider")
                       : t("Not a genetic report provider")}
                   </div>

@@ -2433,7 +2433,7 @@ const wizardClientCopy = {
         name: nameInput.value.trim(),
         contactEmail: contactEmail.value.trim().toLowerCase(),
         countryCode: state.countries.join(','),
-        color_hex: state.color,
+        colorHex: state.color,
         websiteUrl: optionalUrlValue(websiteUrl),
         imageUrl: state.uploadedImageDataUrl ? undefined : optionalUrlValue(imageUrl, { httpsOnly: true }),
         imageUploadDataUrl: state.uploadedImageDataUrl || undefined,
@@ -2449,17 +2449,17 @@ const wizardClientCopy = {
       };
 
       if (locale === 'en') {
-        payload.description_en = descriptionPrimary.value.trim();
+        payload.descriptionEn = descriptionPrimary.value.trim();
         payload.description = optionalValue(descriptionAlternative);
       } else {
         payload.description = descriptionPrimary.value.trim();
-        payload.description_en = optionalValue(descriptionAlternative);
+        payload.descriptionEn = optionalValue(descriptionAlternative);
       }
 
       if (state.kind === 'organization') {
         payload.organizationType = state.categories.organization.join(',');
-        payload.is_genetic_report_provider = state.geneticReportProvider === true;
-        payload.genetic_report_category =
+        payload.isGeneticReportProvider = state.geneticReportProvider === true;
+        payload.geneticReportCategory =
           state.geneticReportProvider === true
             ? state.geneticReportCategory || null
             : null;

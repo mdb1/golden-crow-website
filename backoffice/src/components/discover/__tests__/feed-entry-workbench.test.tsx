@@ -68,14 +68,14 @@ const organization: DiscoverOrganizationRecord = {
   slug: "publisher-one",
   websiteUrl: "https://example.org",
   description: "Descripción pública",
-  description_en: "Public description",
+  descriptionEn: "Public description",
   countryCode: "AR",
   organizationType:
     "org_patient_advocacy_organizations,org_genetics_research_institutes",
-  color_hex: "#123ABC",
+  colorHex: "#123ABC",
   verified: true,
-  is_genetic_report_provider: false,
-  genetic_report_category: null,
+  isGeneticReportProvider: false,
+  geneticReportCategory: null,
   contactEmail: "hello@example.org",
   internalNotes: "",
   createdAt: "2026-08-01T00:00:00.000Z",
@@ -199,8 +199,8 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
     ) as Record<string, unknown>;
 
-    expect(body.source_url).toBe("https://example.org/register");
-    expect(body.source_button_text).toBe("Open organizer website");
+    expect(body.sourceUrl).toBe("https://example.org/register");
+    expect(body.sourceButtonText).toBe("Open organizer website");
   });
 
   it("shows cover image URL guidance and an example link", () => {
@@ -288,9 +288,9 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
 
     expect(body.type).toBe("clinical_trial");
     expect(body.clinical_trial).toEqual({
-      trial_identifier: "NCT00000000",
+      trialIdentifier: "NCT00000000",
       phase: "",
-      recruitment_status: "",
+      recruitmentStatus: "",
       conditions: ["Pompe disease", "Glycogen storage disease"],
       countries: ["US", "AR"],
       sponsor: "",

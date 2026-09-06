@@ -120,7 +120,7 @@ const initialOrganizationDocs: MockDoc[] = [
       imageUrl: "https://example.org/publisher.png",
       status: "active",
       description: "Descripción pública",
-      description_en: "Public description",
+      descriptionEn: "Public description",
       social: {
         facebook: "https://facebook.com/publisher-one",
         github: "https://github.com/publisher-one",
@@ -128,7 +128,7 @@ const initialOrganizationDocs: MockDoc[] = [
       },
       organizationType:
         "org_patient_advocacy_organizations,org_genetics_research_institutes",
-      color_hex: "#4f46e5",
+      colorHex: "#4f46e5",
       createdAt: "2026-08-01T00:00:00.000Z",
       updatedAt: "2026-08-02T00:00:00.000Z",
     },
@@ -143,9 +143,9 @@ const initialIndividualDocs: MockDoc[] = [
       imageUrl: "https://example.org/individual.png",
       status: "active",
       description: "Descripción individual",
-      description_en: "Individual description",
+      descriptionEn: "Individual description",
       individualType: "researcher",
-      color_hex: "#14b8a6",
+      colorHex: "#14b8a6",
       createdAt: "2026-08-01T00:00:00.000Z",
       updatedAt: "2026-08-02T00:00:00.000Z",
     },
@@ -379,19 +379,19 @@ describe("discover repository", () => {
     const result = await listDiscoverOrganizations(fullAdminContext);
 
     expect(result.organizations).toHaveLength(1);
-    expect(result.organizations[0]?.color_hex).toBe("#4F46E5");
+    expect(result.organizations[0]?.colorHex).toBe("#4F46E5");
     expect(result.organizations[0]?.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
     );
-    expect(result.organizations[0]?.is_genetic_report_provider).toBe(false);
-    expect(result.organizations[0]?.genetic_report_category).toBeNull();
+    expect(result.organizations[0]?.isGeneticReportProvider).toBe(false);
+    expect(result.organizations[0]?.geneticReportCategory).toBeNull();
     expect(result.organizations[0]?.social).toEqual({
       facebook: "https://facebook.com/publisher-one",
       github: "https://github.com/publisher-one",
       email: "mailto:hello@example.org",
     });
     expect(result.organizations[0]?.description).toBe("Descripción pública");
-    expect(result.organizations[0]?.description_en).toBe("Public description");
+    expect(result.organizations[0]?.descriptionEn).toBe("Public description");
   });
 
   it("returns Discover individual publishers", async () => {
@@ -401,12 +401,12 @@ describe("discover repository", () => {
     const result = await listDiscoverIndividuals(fullAdminContext);
 
     expect(result.individuals).toHaveLength(1);
-    expect(result.individuals[0]?.color_hex).toBe("#14B8A6");
+    expect(result.individuals[0]?.colorHex).toBe("#14B8A6");
     expect(result.individuals[0]?.individualType).toBe(
       "pro_research_scientists",
     );
     expect(result.individuals[0]?.description).toBe("Descripción individual");
-    expect(result.individuals[0]?.description_en).toBe(
+    expect(result.individuals[0]?.descriptionEn).toBe(
       "Individual description",
     );
   });
@@ -555,14 +555,14 @@ describe("discover repository", () => {
       imageUrl: "https://example.org/publisher.png",
       websiteUrl: "http://example.org",
       description: "Descripción en español",
-      description_en: "English description",
+      descriptionEn: "English description",
       social,
       countryCode: "ar, us, ar",
       organizationType:
         "org_patient_advocacy_organizations,org_genetics_research_institutes",
       status: "pending_approval",
-      is_genetic_report_provider: true,
-      genetic_report_category: "reproductive",
+      isGeneticReportProvider: true,
+      geneticReportCategory: "reproductive",
       slug: "manual-slug",
     } as Record<string, unknown>);
     const stored = mockOrganizationDocs.find(
@@ -571,7 +571,7 @@ describe("discover repository", () => {
 
     expect(organization.slug).toBe("fundacion-medica-nandu");
     expect(organization.description).toBe("Descripción en español");
-    expect(organization.description_en).toBe("English description");
+    expect(organization.descriptionEn).toBe("English description");
     expect(organization.websiteUrl).toBe("http://example.org/");
     expect(organization.social).toEqual(expectedSocial);
     expect(organization.countryCode).toBe("AR,US");
@@ -579,11 +579,11 @@ describe("discover repository", () => {
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
     );
     expect(organization.status).toBe("pending_approval");
-    expect(organization.is_genetic_report_provider).toBe(true);
-    expect(organization.genetic_report_category).toBe("reproductive");
+    expect(organization.isGeneticReportProvider).toBe(true);
+    expect(organization.geneticReportCategory).toBe("reproductive");
     expect(stored?.data.slug).toBe("fundacion-medica-nandu");
     expect(stored?.data.description).toBe("Descripción en español");
-    expect(stored?.data.description_en).toBe("English description");
+    expect(stored?.data.descriptionEn).toBe("English description");
     expect(stored?.data.websiteUrl).toBe("http://example.org/");
     expect(stored?.data.social).toEqual(expectedSocial);
     expect(stored?.data.countryCode).toBe("AR,US");
@@ -591,8 +591,8 @@ describe("discover repository", () => {
       "org_patient_advocacy_organizations,org_genetics_research_institutes",
     );
     expect(stored?.data.status).toBe("pending_approval");
-    expect(stored?.data.is_genetic_report_provider).toBe(true);
-    expect(stored?.data.genetic_report_category).toBe("reproductive");
+    expect(stored?.data.isGeneticReportProvider).toBe(true);
+    expect(stored?.data.geneticReportCategory).toBe("reproductive");
   });
 
   it("requires image URLs when creating publishers", async () => {
@@ -627,8 +627,8 @@ describe("discover repository", () => {
         countryCode: "AR",
         organizationType: "org_genetic_testing_laboratories",
         verified: false,
-        is_genetic_report_provider: true,
-        genetic_report_category: "full_genome",
+        isGeneticReportProvider: true,
+        geneticReportCategory: "full_genome",
         createdAt: "2026-08-01T00:00:00.000Z",
         updatedAt: "2026-08-02T00:00:00.000Z",
       },
@@ -644,8 +644,8 @@ describe("discover repository", () => {
         countryCode: "AR",
         organizationType: "org_genetic_testing_laboratories",
         verified: false,
-        is_genetic_report_provider: true,
-        genetic_report_category: "full_genome",
+        isGeneticReportProvider: true,
+        geneticReportCategory: "full_genome",
       } as Record<string, unknown>,
     );
     const stored = mockOrganizationDocs.find((doc) => doc.id === "uploaded-org");
@@ -666,7 +666,7 @@ describe("discover repository", () => {
     const result = await createDiscoverPublisherApprovalRequest({
       kind: "organization",
       name: "Wizard Genetics Lab",
-      description_en: "Genetic report support for families.",
+      descriptionEn: "Genetic report support for families.",
       contactEmail: "JOIN@EXAMPLE.ORG",
       websiteUrl: "https://example.org",
       imageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
@@ -674,12 +674,12 @@ describe("discover repository", () => {
       imageUploadMimeType: "image/png",
       countryCode: "ar, us",
       organizationType: "org_genetic_testing_laboratories",
-      color_hex: "#6f3cc3",
+      colorHex: "#6f3cc3",
       social: {
         linkedin: "https://linkedin.com/company/wizard-genetics",
       },
-      is_genetic_report_provider: true,
-      genetic_report_category: "full_genome",
+      isGeneticReportProvider: true,
+      geneticReportCategory: "full_genome",
     });
     const stored = mockOrganizationDocs.find(
       (doc) => doc.id === result.publisher.id,
@@ -697,10 +697,10 @@ describe("discover repository", () => {
     expect(result.publisher.contactEmail).toBe("join@example.org");
     expect(stored?.data.status).toBe("pending_approval");
     expect(stored?.data.verified).toBe(false);
-    expect(stored?.data.is_genetic_report_provider).toBe(true);
-    expect(stored?.data.genetic_report_category).toBe("full_genome");
-    expect(stored?.data.is_requested_through_web_wizard).toBe(true);
-    expect(stored?.data).toHaveProperty("approval_request_date");
+    expect(stored?.data.isGeneticReportProvider).toBe(true);
+    expect(stored?.data.geneticReportCategory).toBe("full_genome");
+    expect(stored?.data.isRequestedThroughWebWizard).toBe(true);
+    expect(stored?.data).toHaveProperty("approvalRequestDate");
     expect(stored?.data.createdByUserId).toBe("public-web-wizard");
     expect(stored?.data.updatedByUserId).toBe("public-web-wizard");
     expect(stored?.data.countryCode).toBe("AR,US");
@@ -708,7 +708,7 @@ describe("discover repository", () => {
       "org_genetic_testing_laboratories",
     );
     expect(stored?.data.contactEmail).toBe("join@example.org");
-    expect(stored?.data.color_hex).toBe("#6F3CC3");
+    expect(stored?.data.colorHex).toBe("#6F3CC3");
     expect(stored?.data.imageUploadDataUrl).toBe(
       "data:image/png;base64,iVBORw0KGgo=",
     );
@@ -724,14 +724,14 @@ describe("discover repository", () => {
       kind: "individual",
       name: "Dr. Wizard",
       description: "Acompañamiento en genética clínica.",
-      description_en: "Clinical genetics support.",
+      descriptionEn: "Clinical genetics support.",
       contactEmail: "dr@example.org",
       countryCode: "global",
       individualType: "pro_clinical_geneticists,pro_genetic_counselors",
       imageUrl: "https://example.org/dr-wizard.png",
       colorHex: "14b8a6",
-      is_genetic_report_provider: true,
-      genetic_report_category: "raw_vcf",
+      isGeneticReportProvider: true,
+      geneticReportCategory: "raw_vcf",
     });
     const stored = mockIndividualDocs.find((doc) => doc.id === result.publisher.id);
 
@@ -739,13 +739,13 @@ describe("discover repository", () => {
     expect(result.publisher.status).toBe("pending_approval");
     expect(result.publisher.imageUrl).toBe("https://example.org/dr-wizard.png");
     expect(result.publisher.verified).toBe(false);
-    expect(stored?.data.is_requested_through_web_wizard).toBe(true);
+    expect(stored?.data.isRequestedThroughWebWizard).toBe(true);
     expect(stored?.data.countryCode).toBe("GLOBAL");
     expect(stored?.data.individualType).toBe(
       "pro_clinical_geneticists,pro_genetic_counselors",
     );
-    expect(stored?.data.is_genetic_report_provider).toBeUndefined();
-    expect(stored?.data.genetic_report_category).toBeUndefined();
+    expect(stored?.data.isGeneticReportProvider).toBeUndefined();
+    expect(stored?.data.geneticReportCategory).toBeUndefined();
   });
 
   it("accepts the expanded fixed professional category keys for individuals", async () => {
@@ -803,7 +803,7 @@ describe("discover repository", () => {
       createDiscoverOrganization(fullAdminContext, {
         name: "Invalid report provider",
         imageUrl: "https://example.org/invalid-provider.png",
-        genetic_report_category: "fertility",
+        geneticReportCategory: "fertility",
       } as Record<string, unknown>),
     ).rejects.toThrow("Use a valid genetic report category.");
   });
@@ -821,11 +821,11 @@ describe("discover repository", () => {
       title: "Rare disease genomics webinar",
       subtitle: "A practical session for families and clinicians.",
       body: "Plain text event details.",
-      source_url: "https://example.org/events/register",
-      source_button_text: "Register now",
+      sourceUrl: "https://example.org/events/register",
+      sourceButtonText: "Register now",
       upcoming_event: {
         date: "2026-09-04T18:00:00.000Z",
-        max_attendance: 250,
+        maxAttendance: 250,
       },
     });
 
@@ -835,13 +835,13 @@ describe("discover repository", () => {
     expect(payload.date).toBeDefined();
     expect(payload.startsAt).toBeDefined();
     expect(payload.location).toBeNull();
-    expect(payload.max_attendance).toBe(250);
-    expect(payload.source_url).toBeUndefined();
-    expect(payload.source_button_text).toBeUndefined();
-    expect(feedItem.source_button_text).toBe("Register now");
-    expect(stored?.source_url).toBe("https://example.org/events/register");
+    expect(payload.maxAttendance).toBe(250);
+    expect(payload.sourceUrl).toBeUndefined();
+    expect(payload.sourceButtonText).toBeUndefined();
+    expect(feedItem.sourceButtonText).toBe("Register now");
     expect(stored?.sourceUrl).toBe("https://example.org/events/register");
-    expect(stored?.source_button_text).toBe("Register now");
+    expect(stored?.sourceUrl).toBe("https://example.org/events/register");
+    expect(stored?.sourceButtonText).toBe("Register now");
     expect(stored?.sourceButtonText).toBe("Register now");
   });
 
@@ -858,11 +858,11 @@ describe("discover repository", () => {
       title: "Clinical trial recruiting for a rare condition",
       subtitle: "Families can review eligibility on the sponsor site.",
       body: "Plain text details for the trial.",
-      source_url: "https://example.org/trials/abc",
+      sourceUrl: "https://example.org/trials/abc",
       clinical_trial: {
-        trial_identifier: "NCT00000000",
+        trialIdentifier: "NCT00000000",
         phase: "Phase 2",
-        recruitment_status: "Recruiting",
+        recruitmentStatus: "Recruiting",
         conditions: ["Pompe disease", "Glycogen storage disease"],
         countries: ["US", "AR"],
         sponsor: "Genome Research Institute",
@@ -873,7 +873,7 @@ describe("discover repository", () => {
     const payload = stored?.clinical_trial as Record<string, unknown>;
 
     expect(feedItem.type).toBe("clinical_trial");
-    expect(payload.trial_identifier).toBe("NCT00000000");
+    expect(payload.trialIdentifier).toBe("NCT00000000");
     expect(payload.conditions).toEqual([
       "Pompe disease",
       "Glycogen storage disease",
