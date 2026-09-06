@@ -3,8 +3,15 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppLanguageProvider } from "@/components/app-language-provider";
-import { DiscoverOrganizationBrowser } from "@/components/discover/organization-browser";
-import type { DiscoverOrganizationRecord } from "@/lib/discover";
+import {
+  DiscoverIndividualBrowser,
+  DiscoverOrganizationBrowser,
+  visibleCountryPillCountForWidth,
+} from "@/components/discover/organization-browser";
+import type {
+  DiscoverIndividualRecord,
+  DiscoverOrganizationRecord,
+} from "@/lib/discover";
 
 function organization(
   overrides: Partial<DiscoverOrganizationRecord>,
@@ -26,6 +33,31 @@ function organization(
     isGeneticReportProvider: false,
     geneticReportCategory: null,
     contactEmail: "hello@example.org",
+    internalNotes: "",
+    createdAt: "2026-08-01T00:00:00.000Z",
+    updatedAt: "2026-08-02T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function individual(
+  overrides: Partial<DiscoverIndividualRecord>,
+): DiscoverIndividualRecord {
+  return {
+    id: "individual-1",
+    name: "Publisher Individual",
+    imageUrl: null,
+    status: "active",
+    slug: "publisher-individual",
+    websiteUrl: "https://individual.example.org",
+    description: "Public individual description",
+    descriptionEn: "Public individual description",
+    social: {},
+    countryCode: "US",
+    individualType: "pro_clinical_geneticists",
+    colorHex: "#123ABC",
+    verified: true,
+    contactEmail: "hello-individual@example.org",
     internalNotes: "",
     createdAt: "2026-08-01T00:00:00.000Z",
     updatedAt: "2026-08-02T00:00:00.000Z",
@@ -68,6 +100,33 @@ function renderBrowser(
 }
 
 describe("DiscoverOrganizationBrowser", () => {
+  it("calculates the maximum country pills that fit in one line", () => {
+    expect(
+      visibleCountryPillCountForWidth({
+        containerWidth: 260,
+        pillWidths: [80, 70, 70],
+        overflowWidth: 24,
+        gapWidth: 6,
+      }),
+    ).toBe(3);
+    expect(
+      visibleCountryPillCountForWidth({
+        containerWidth: 200,
+        pillWidths: [80, 70, 70],
+        overflowWidth: 24,
+        gapWidth: 6,
+      }),
+    ).toBe(2);
+    expect(
+      visibleCountryPillCountForWidth({
+        containerWidth: 120,
+        pillWidths: [80, 70, 70],
+        overflowWidth: 24,
+        gapWidth: 6,
+      }),
+    ).toBe(1);
+  });
+
   it("uses a country dropdown and filters organizations by country code", async () => {
     const user = userEvent.setup();
     renderBrowser();
@@ -106,5 +165,53 @@ describe("DiscoverOrganizationBrowser", () => {
     expect(openLinks[0]?.getAttribute("href")).toBe(
       "/publisher-portal/discover/organizations/argentina-lab",
     );
+  });
+
+  it("renders country pills in a row below organization categories", () => {
+    render(
+      <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
+        <DiscoverOrganizationBrowser
+          initialOrganizations={[
+            organization({
+              id: "multi-country-lab",
+              name: "Multi Country Lab",
+              countryCode: "US,AR,MX",
+              organizationType: "org_laboratories",
+            }),
+          ]}
+          initialNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    const countryRow = screen.getByTestId(
+      "publisher-country-row-multi-country-lab",
+    );
+    expect(countryRow.textContent).toContain("United States (US)");
+    expect(countryRow.textContent).not.toContain("Laboratory");
+  });
+
+  it("renders country pills in a row below individual publisher categories", () => {
+    render(
+      <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
+        <DiscoverIndividualBrowser
+          initialIndividuals={[
+            individual({
+              id: "multi-country-individual",
+              name: "Multi Country Individual",
+              countryCode: "US,AR,MX",
+              individualType: "pro_clinical_geneticists",
+            }),
+          ]}
+          initialNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    const countryRow = screen.getByTestId(
+      "publisher-country-row-multi-country-individual",
+    );
+    expect(countryRow.textContent).toContain("United States (US)");
+    expect(countryRow.textContent).not.toContain("Clinical Geneticists");
   });
 });

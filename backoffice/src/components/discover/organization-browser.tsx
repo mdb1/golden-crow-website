@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Archive,
@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sdkFetch } from "@/lib/sdk-client";
-import { appText } from "@/lib/language";
+import { appText, type AppLanguage } from "@/lib/language";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,7 @@ import {
   discoverOrganizationCategoryProvider,
 } from "@/lib/discover-publisher-categories";
 import {
+  formatDiscoverOrganizationCountry,
   getDiscoverOrganizationCountryGroups,
   parseDiscoverOrganizationCountryCodes,
 } from "@/lib/discover-organization-fields";
@@ -54,6 +55,79 @@ type BadgeGroup = {
   hiddenCount: number;
   title: string | undefined;
 };
+type CountryPill = {
+  code: string;
+  label: string;
+};
+
+const COUNTRY_PILL_GAP_PX = 6;
+
+function countryPillsFor(countryCode: string | undefined, language: AppLanguage) {
+  return parseDiscoverOrganizationCountryCodes(countryCode ?? "").map((code) => ({
+    code,
+    label: formatDiscoverOrganizationCountry(code, language) ?? code,
+  }));
+}
+
+function countryPillLineWidth({
+  visibleCount,
+  pillWidths,
+  overflowWidth,
+  gapWidth,
+}: {
+  visibleCount: number;
+  pillWidths: number[];
+  overflowWidth: number;
+  gapWidth: number;
+}) {
+  const totalCount = pillWidths.length;
+  const hasOverflow = visibleCount < totalCount;
+  const itemCount = visibleCount + (hasOverflow ? 1 : 0);
+  const pillWidth = pillWidths
+    .slice(0, visibleCount)
+    .reduce((sum, width) => sum + width, 0);
+
+  return (
+    pillWidth +
+    (hasOverflow ? overflowWidth : 0) +
+    Math.max(itemCount - 1, 0) * gapWidth
+  );
+}
+
+export function visibleCountryPillCountForWidth({
+  containerWidth,
+  pillWidths,
+  overflowWidth,
+  gapWidth = COUNTRY_PILL_GAP_PX,
+}: {
+  containerWidth: number;
+  pillWidths: number[];
+  overflowWidth: number;
+  gapWidth?: number;
+}) {
+  if (!pillWidths.length) {
+    return 0;
+  }
+
+  if (containerWidth <= 0) {
+    return 1;
+  }
+
+  for (let visibleCount = pillWidths.length; visibleCount > 0; visibleCount -= 1) {
+    if (
+      countryPillLineWidth({
+        visibleCount,
+        pillWidths,
+        overflowWidth,
+        gapWidth,
+      }) <= containerWidth
+    ) {
+      return visibleCount;
+    }
+  }
+
+  return 1;
+}
 
 function badgeGroup(labels: string[], limit = 3): BadgeGroup {
   return {
@@ -61,6 +135,139 @@ function badgeGroup(labels: string[], limit = 3): BadgeGroup {
     hiddenCount: Math.max(labels.length - limit, 0),
     title: labels.length > limit ? labels.join(", ") : undefined,
   };
+}
+
+function measuredWidth(element: HTMLElement | null) {
+  if (!element) {
+    return 0;
+  }
+
+  return element.getBoundingClientRect().width || element.offsetWidth || 0;
+}
+
+function CountryPillRow({
+  countries,
+  emptyLabel,
+  overflowLabel,
+  testId,
+}: {
+  countries: CountryPill[];
+  emptyLabel: string;
+  overflowLabel: string;
+  testId?: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(() =>
+    countries.length > 0 ? 1 : 0,
+  );
+  const countryTitle = countries.map((country) => country.label).join(", ");
+  const hiddenCount = Math.max(countries.length - visibleCount, 0);
+  const visibleCountries = countries.slice(0, Math.max(visibleCount, 1));
+
+  const updateVisibleCount = useCallback(() => {
+    const containerWidth = measuredWidth(containerRef.current);
+    const measureNode = measureRef.current;
+    const pillWidths = Array.from(
+      measureNode?.querySelectorAll<HTMLElement>("[data-country-pill-measure]") ??
+        [],
+    ).map((node) => measuredWidth(node));
+    const overflowWidth = measuredWidth(
+      measureNode?.querySelector<HTMLElement>("[data-country-overflow-measure]") ??
+        null,
+    );
+    const nextVisibleCount = visibleCountryPillCountForWidth({
+      containerWidth,
+      pillWidths,
+      overflowWidth,
+    });
+
+    setVisibleCount(nextVisibleCount);
+  }, []);
+
+  useEffect(() => {
+    setVisibleCount(countries.length > 0 ? 1 : 0);
+  }, [countries]);
+
+  useEffect(() => {
+    updateVisibleCount();
+
+    const observedNode = containerRef.current;
+    if (!observedNode || typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
+
+    const observer = new ResizeObserver(updateVisibleCount);
+    observer.observe(observedNode);
+
+    return () => observer.disconnect();
+  }, [countries, updateVisibleCount]);
+
+  if (!countries.length) {
+    return (
+      <div
+        className="flex h-7 max-w-full items-center overflow-hidden"
+        data-testid={testId}
+      >
+        <span className="inline-flex h-6 max-w-full items-center rounded-full border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground">
+          {emptyLabel}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative max-w-full" title={countryTitle}>
+      <div
+        ref={containerRef}
+        className="flex h-7 max-w-full items-center gap-1.5 overflow-hidden whitespace-nowrap"
+        data-testid={testId}
+      >
+        {visibleCountries.map((country, index) => (
+          <span
+            key={country.code}
+            className={cn(
+              "inline-flex h-6 min-w-0 shrink-0 items-center rounded-full border border-border/80 bg-background px-2.5 text-xs font-medium text-muted-foreground shadow-[0_1px_0_rgba(15,23,42,0.04)]",
+              index === 0 && hiddenCount > 0 ? "max-w-[calc(100%-2rem)]" : "max-w-44",
+            )}
+          >
+            <span className="truncate">{country.label}</span>
+          </span>
+        ))}
+        {hiddenCount > 0 ? (
+          <span
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-violet-200 bg-violet-50 text-violet-700"
+            aria-label={`+${hiddenCount} ${overflowLabel}`}
+            title={`+${hiddenCount} ${overflowLabel}`}
+          >
+            <Plus className="h-3 w-3" aria-hidden="true" />
+          </span>
+        ) : null}
+      </div>
+
+      <div
+        ref={measureRef}
+        className="pointer-events-none invisible absolute left-0 top-0 flex h-7 max-w-none items-center gap-1.5 whitespace-nowrap"
+        aria-hidden="true"
+      >
+        {countries.map((country) => (
+          <span
+            key={country.code}
+            className="inline-flex h-6 items-center rounded-full border border-border/80 bg-background px-2.5 text-xs font-medium"
+            data-country-pill-measure
+          >
+            {country.label}
+          </span>
+        ))}
+        <span
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full border"
+          data-country-overflow-measure
+        >
+          <Plus className="h-3 w-3" aria-hidden="true" />
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function statusBadgeVariant(status: PublisherStatus) {
@@ -538,6 +745,10 @@ function DiscoverPublisherBrowser({
                 )
               : [];
             const geneticReportBadgeGroup = badgeGroup(geneticReportLabels);
+            const countryPills = countryPillsFor(
+              publisher.countryCode,
+              language,
+            );
             const publisherImageSource =
               publisher.imageUrl || publisher.imageUploadDataUrl;
             const fallbackInitial =
@@ -585,7 +796,6 @@ function DiscoverPublisherBrowser({
                         {compactList([
                           publisher.id,
                           publisher.slug,
-                          publisher.countryCode,
                           publisher.websiteUrl,
                           publisher.contactEmail,
                         ]) || t("Discover publisher")}
@@ -625,6 +835,12 @@ function DiscoverPublisherBrowser({
                       </span>
                     )}
                   </div>
+                  <CountryPillRow
+                    countries={countryPills}
+                    emptyLabel={t("No country")}
+                    overflowLabel={t("Countries")}
+                    testId={`publisher-country-row-${publisher.id}`}
+                  />
                 </div>
 
                 <div className="min-w-0 space-y-2">
