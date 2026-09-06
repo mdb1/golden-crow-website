@@ -945,7 +945,7 @@ const wizardClientCopy = {
               <span aria-hidden="true">x</span>
             </button>
           </div>
-          <input type="search" data-country-search placeholder={copy.countrySearch} autocomplete="off" />
+          <input class="pg-search-field pg-country-search" type="search" data-country-search placeholder={copy.countrySearch} autocomplete="off" />
           <div class="pg-country-list" data-country-list>
             {countryGroups.map((group) => (
               <div class="pg-country-group">
@@ -1845,7 +1845,7 @@ const wizardClientCopy = {
       const limit = selectedItems.length > 10 ? 4 : 10;
       const labels = selectedItems.slice(0, limit).map((item) => shortCountryLabel(item.label));
       return selectedItems.length > limit
-        ? `${labels.join(', ')} ${copy.countryAndMore}`
+        ? `${labels.join(', ')}, ${selectedItems.length - limit}+`
         : labels.join(', ');
     }
 
@@ -1958,20 +1958,24 @@ const wizardClientCopy = {
 
     function updateCountryUi() {
       const selected = new Set(state.countries);
-      let selectedItems = [];
+      const optionItems = new Map();
 
       wizardRoot.querySelectorAll('[data-country-option]').forEach((button) => {
         const value = button.getAttribute('data-country-option');
         const active = selected.has(value);
         button.classList.toggle('is-selected', active);
         button.setAttribute('aria-pressed', active ? 'true' : 'false');
-        if (active) {
-          selectedItems.push({
+
+        if (value) {
+          optionItems.set(value, {
             label: button.getAttribute('data-label') || value,
             flag: button.getAttribute('data-flag') || '',
           });
         }
       });
+      const selectedItems = state.countries
+        .map((value) => optionItems.get(value))
+        .filter(Boolean);
 
       if (countrySummary) {
         countrySummary.replaceChildren();
@@ -3798,11 +3802,26 @@ const wizardClientCopy = {
   .pg-search-field {
     width: 100%;
     height: 52px;
+    min-height: 52px;
     border: 1px solid var(--wizard-border);
     border-radius: 999px;
     padding: 0 18px;
     color: var(--wizard-ink);
     font: inherit;
+    line-height: 1.2;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .pg-country-search {
+    flex: 0 0 56px;
+    height: 56px;
+    min-height: 56px;
+    display: block;
+    background: #ffffff;
+    font-size: 1rem;
+    outline: none;
   }
 
   .pg-country-list {
