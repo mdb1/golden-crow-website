@@ -997,7 +997,21 @@ const wizardClientCopy = {
           </svg>
         </div>
         <h2>{copy.successTitle}</h2>
-        <p>{copy.successBody}</p>
+        <p>
+          {locale === 'es' ? (
+            <>
+              {'Recibimos tu solicitud y vamos a contactarte'}
+              <span class="pg-success-mobile-space"> </span>
+              <span class="pg-success-desktop-break" aria-hidden="true"></span>
+              {'dentro de las próximas 24 a 48 horas con las credenciales.'}
+              <br />
+              <br />
+              {'Si tenemos dudas, vamos a escribirte para coordinar una reunión.'}
+            </>
+          ) : (
+            copy.successBody
+          )}
+        </p>
         <div class="pg-success-actions">
           <button type="button" data-open-booking>
             <span>{copy.callTitle}</span>
@@ -6189,6 +6203,14 @@ const wizardClientCopy = {
     white-space: pre-line;
   }
 
+  .pg-success-desktop-break {
+    display: none;
+  }
+
+  .pg-success-mobile-space {
+    display: inline;
+  }
+
   .pg-success-actions {
     display: flex;
     justify-content: center;
@@ -6681,6 +6703,17 @@ const wizardClientCopy = {
 
     .pg-wizard-success {
       padding: 28px 18px;
+    }
+  }
+
+  @media (min-width: 769px) {
+    .pg-success-desktop-break {
+      display: block;
+      height: 0;
+    }
+
+    .pg-success-mobile-space {
+      display: none;
     }
   }
 
