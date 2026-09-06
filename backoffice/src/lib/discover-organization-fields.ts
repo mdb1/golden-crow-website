@@ -23,15 +23,14 @@ export type DiscoverRegionCountryGroup = {
 };
 
 const GLOBAL_COUNTRY_CODE = "GLOBAL";
-const RECOMMENDED_COUNTRY_CODES = ["GLOBAL", "AR", "US", "AU", "NZ"] as const;
-const RECOMMENDED_REGION_COUNTRY_CODES = [
-  "ARG",
-  "ESP",
-  "ENG",
-  "USA",
-  "AUS",
-  "NZL",
-] as const;
+const RECOMMENDED_COUNTRY_CODES_BY_LANGUAGE = {
+  en: ["GLOBAL", "US", "GB", "CA", "AU", "NZ"],
+  es: ["GLOBAL", "AR", "ES", "MX", "CO", "CL", "PE", "UY"],
+} as const satisfies Record<AppLanguage, readonly string[]>;
+const RECOMMENDED_REGION_COUNTRY_CODES_BY_LANGUAGE = {
+  en: ["USA", "ENG", "GBR", "CAN", "AUS", "NZL"],
+  es: ["ARG", "ESP", "MEX", "COL", "CHL", "PER", "URY"],
+} as const satisfies Record<AppLanguage, readonly string[]>;
 
 export const DISCOVER_ORGANIZATION_COUNTRY_CODES = [
   "AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AQ", "AR",
@@ -484,9 +483,10 @@ export function formatDiscoverOrganizationCountries(
 export function getDiscoverOrganizationCountryGroups(
   language: AppLanguage,
 ): DiscoverOrganizationCountryGroup[] {
-  const recommended = new Set<string>(RECOMMENDED_COUNTRY_CODES);
+  const recommendedCountryCodes = RECOMMENDED_COUNTRY_CODES_BY_LANGUAGE[language];
+  const recommended = new Set<string>(recommendedCountryCodes);
   const collator = new Intl.Collator(language, { sensitivity: "base" });
-  const recommendedOptions = RECOMMENDED_COUNTRY_CODES.map((code) =>
+  const recommendedOptions = recommendedCountryCodes.map((code) =>
     countryOption(code, language),
   );
   const allOptions = DISCOVER_ORGANIZATION_COUNTRY_CODES.filter(
@@ -586,9 +586,11 @@ export function formatDiscoverRegionCodes(regionCodes: readonly string[]) {
 export function getDiscoverRegionCountryGroups(
   language: AppLanguage,
 ): DiscoverRegionCountryGroup[] {
-  const recommended = new Set<string>(RECOMMENDED_REGION_COUNTRY_CODES);
+  const recommendedCountryCodes =
+    RECOMMENDED_REGION_COUNTRY_CODES_BY_LANGUAGE[language];
+  const recommended = new Set<string>(recommendedCountryCodes);
   const collator = new Intl.Collator(language, { sensitivity: "base" });
-  const recommendedOptions = RECOMMENDED_REGION_COUNTRY_CODES.map((code) =>
+  const recommendedOptions = recommendedCountryCodes.map((code) =>
     regionCountryOptionFromCode(code, language),
   ).filter((option): option is DiscoverRegionCountryOption => Boolean(option));
   const allOptions = DISCOVER_ORGANIZATION_COUNTRY_CODES.map((code) =>

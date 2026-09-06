@@ -357,7 +357,10 @@ const COUNTRY_CODES = [
   'VN', 'VU', 'WF', 'WS', 'YE', 'YT', 'ZA', 'ZM', 'ZW',
 ] as const;
 
-const RECOMMENDED_COUNTRY_CODES = ['GLOBAL', 'AR', 'US', 'AU', 'NZ'] as const;
+const RECOMMENDED_COUNTRY_CODES_BY_LOCALE = {
+  en: ['GLOBAL', 'US', 'GB', 'CA', 'AU', 'NZ'],
+  es: ['GLOBAL', 'AR', 'ES', 'MX', 'CO', 'CL', 'PE', 'UY'],
+} as const satisfies Record<WizardLocale, readonly string[]>;
 
 export const WIZARD_SOCIAL_OPTIONS = [
   {
@@ -662,9 +665,10 @@ export function getWizardCategoryOptions(
 }
 
 export function getWizardCountryGroups(locale: WizardLocale): WizardCountryGroup[] {
-  const recommended = new Set<string>(RECOMMENDED_COUNTRY_CODES);
+  const recommendedCountryCodes = RECOMMENDED_COUNTRY_CODES_BY_LOCALE[locale];
+  const recommended = new Set<string>(recommendedCountryCodes);
   const collator = new Intl.Collator(locale, { sensitivity: 'base' });
-  const recommendedOptions = RECOMMENDED_COUNTRY_CODES.map((code) =>
+  const recommendedOptions = recommendedCountryCodes.map((code) =>
     countryOption(code, locale),
   );
   const allOptions = COUNTRY_CODES.filter((code) => !recommended.has(code))

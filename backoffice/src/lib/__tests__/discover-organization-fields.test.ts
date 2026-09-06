@@ -13,18 +13,36 @@ import {
 } from "@/lib/discover-organization-fields";
 
 describe("discover organization fields", () => {
-  it("keeps recommended countries first and excludes them from the full list", () => {
-    const groups = getDiscoverOrganizationCountryGroups("en");
+  it("keeps language-specific recommended countries first and excludes them from the full list", () => {
+    const englishGroups = getDiscoverOrganizationCountryGroups("en");
+    const spanishGroups = getDiscoverOrganizationCountryGroups("es");
 
-    expect(groups[0]?.options.map((option) => option.code)).toEqual([
+    expect(englishGroups[0]?.options.map((option) => option.code)).toEqual([
       "GLOBAL",
-      "AR",
       "US",
+      "GB",
+      "CA",
       "AU",
       "NZ",
     ]);
-    expect(groups[1]?.options.map((option) => option.code)).not.toEqual(
-      expect.arrayContaining(["AR", "US", "AU", "NZ"]),
+    expect(spanishGroups[0]?.options.map((option) => option.code)).toEqual([
+      "GLOBAL",
+      "AR",
+      "ES",
+      "MX",
+      "CO",
+      "CL",
+      "PE",
+      "UY",
+    ]);
+    expect(spanishGroups[0]?.options.map((option) => option.code)).not.toEqual(
+      englishGroups[0]?.options.map((option) => option.code),
+    );
+    expect(englishGroups[1]?.options.map((option) => option.code)).not.toEqual(
+      expect.arrayContaining(["US", "GB", "CA", "AU", "NZ"]),
+    );
+    expect(spanishGroups[1]?.options.map((option) => option.code)).not.toEqual(
+      expect.arrayContaining(["AR", "ES", "MX", "CO", "CL", "PE", "UY"]),
     );
     expect(DISCOVER_ORGANIZATION_COUNTRY_CODES.length).toBeGreaterThan(240);
   });
@@ -81,17 +99,41 @@ describe("discover organization fields", () => {
     );
   });
 
-  it("offers all country regions plus England as a product region", () => {
-    const groups = getDiscoverRegionCountryGroups("en");
-    const recommendedCodes = groups[0]?.options.map(
+  it("keeps region recommendations language-specific", () => {
+    const englishGroups = getDiscoverRegionCountryGroups("en");
+    const spanishGroups = getDiscoverRegionCountryGroups("es");
+    const englishRecommendedCodes = englishGroups[0]?.options.map(
       (option) => option.regionCode,
     );
-    const allCodes = groups.flatMap((group) =>
+    const spanishRecommendedCodes = spanishGroups[0]?.options.map(
+      (option) => option.regionCode,
+    );
+    const englishAllCodes = englishGroups.flatMap((group) =>
+      group.options.map((option) => option.regionCode),
+    );
+    const spanishAllCodes = spanishGroups.flatMap((group) =>
       group.options.map((option) => option.regionCode),
     );
 
-    expect(recommendedCodes).toEqual(["ARG", "ESP", "ENG", "USA", "AUS", "NZL"]);
-    expect(allCodes).toContain("GBR");
-    expect(allCodes).toHaveLength(DISCOVER_ORGANIZATION_COUNTRY_CODES.length + 1);
+    expect(englishRecommendedCodes).toEqual([
+      "USA",
+      "ENG",
+      "GBR",
+      "CAN",
+      "AUS",
+      "NZL",
+    ]);
+    expect(spanishRecommendedCodes).toEqual([
+      "ARG",
+      "ESP",
+      "MEX",
+      "COL",
+      "CHL",
+      "PER",
+      "URY",
+    ]);
+    expect(spanishRecommendedCodes).not.toEqual(englishRecommendedCodes);
+    expect(englishAllCodes).toHaveLength(DISCOVER_ORGANIZATION_COUNTRY_CODES.length + 1);
+    expect(spanishAllCodes).toHaveLength(DISCOVER_ORGANIZATION_COUNTRY_CODES.length);
   });
 });
