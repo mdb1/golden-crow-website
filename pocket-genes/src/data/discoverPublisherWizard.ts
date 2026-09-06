@@ -607,7 +607,6 @@ export function getWizardSocialOptions(locale: WizardLocale) {
 }
 
 export const WIZARD_GENETIC_REPORT_CATEGORY_OPTIONS = [
-  { value: '', label: 'Not sure yet', labelEs: 'No estoy seguro todavía' },
   { value: 'reproductive', label: 'Reproductive', labelEs: 'Reproductivo' },
   { value: 'ophthalmics', label: 'Ophthalmics', labelEs: 'Oftalmológico' },
   { value: 'full_genome', label: 'Full genome', labelEs: 'Genoma completo' },

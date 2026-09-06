@@ -147,7 +147,7 @@ const pageCopy = {
     providerYes: 'Yes',
     providerNo: 'No',
     reportTitle: 'What type of genetic report do you provide?',
-    reportBody: 'Choose the closest category. If it is not exact, pick Other or Not sure yet.',
+    reportBody: 'Choose the closest category. If it is not exact, pick Other.',
     step: 'Step',
     of: 'of',
     back: 'Back',
@@ -292,7 +292,7 @@ const pageCopy = {
     providerYes: 'Sí',
     providerNo: 'No',
     reportTitle: '¿Qué categoría de reporte genético ofrecen?',
-    reportBody: 'Elegí la categoría más cercana. Si no es exacta, elegí Otro o No estoy seguro todavía.',
+    reportBody: 'Elegí la categoría más cercana. Si no es exacta, elegí Otro.',
     step: 'Paso',
     of: 'de',
     back: 'Volver',
@@ -1370,6 +1370,8 @@ const wizardClientCopy = {
         );
         message = invalidSocial ? copy.socialLinkError : '';
       } else if (step === 'provider' && state.geneticReportProvider === null) {
+        message = copy.required;
+      } else if (step === 'report' && !state.geneticReportCategory) {
         message = copy.required;
       }
 
