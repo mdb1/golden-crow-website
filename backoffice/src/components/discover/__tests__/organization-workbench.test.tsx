@@ -378,15 +378,13 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     ).toBeTruthy();
 
     await user.click(screen.getByLabelText(/Genetic report provider/));
-    await user.click(
-      screen.getByRole("button", {
-        name: /Genetic report categories: 1 report category selected/i,
+
+    expect(
+      screen.queryByRole("button", {
+        name: /Genetic report categories/i,
       }),
-    );
-    await user.click(
-      within(screen.getByRole("dialog")).getByText("Neurological"),
-    );
-    await user.click(screen.getByRole("button", { name: "Done" }));
+    ).toBeNull();
+
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
@@ -400,7 +398,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
     ) as Record<string, unknown>;
     expect(body.isGeneticReportProvider).toBe(false);
-    expect(body.geneticReportCategory).toBe("grc_full_genome,grc_neurological");
+    expect(body.geneticReportCategory).toBeNull();
   });
 
   it("does not render organization genetic report fields for individual publishers", () => {

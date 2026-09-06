@@ -89,6 +89,7 @@ function toFormState(
 ): OrganizationFormState {
   const organization = publisher as Partial<DiscoverOrganizationRecord> | undefined;
   const individual = publisher as Partial<DiscoverIndividualRecord> | undefined;
+  const isGeneticReportProvider = organization?.isGeneticReportProvider ?? false;
 
   return {
     name: publisher?.name ?? "",
@@ -112,8 +113,10 @@ function toFormState(
     ),
     colorHex: publisher?.colorHex ?? "",
     verified: publisher?.verified ?? false,
-    isGeneticReportProvider: organization?.isGeneticReportProvider ?? false,
-    geneticReportCategory: organization?.geneticReportCategory ?? "",
+    isGeneticReportProvider,
+    geneticReportCategory: isGeneticReportProvider
+      ? organization?.geneticReportCategory ?? ""
+      : "",
     contactEmail: publisher?.contactEmail ?? "",
     internalNotes: publisher?.internalNotes ?? "",
   };
@@ -155,7 +158,9 @@ function payloadFromState(state: OrganizationFormState, publisherKind: Publisher
         : undefined,
     geneticReportCategory:
       publisherKind === "organization"
-        ? state.geneticReportCategory || null
+        ? state.isGeneticReportProvider
+          ? state.geneticReportCategory || null
+          : null
         : undefined,
   };
 }
@@ -604,13 +609,16 @@ function DiscoverPublisherWorkbench({
             />
             {!isIndividual ? (
               <>
-                <label className="flex items-center gap-3 self-end rounded-md border border-border px-3 py-2 text-sm">
+                <label className="flex items-center gap-3 rounded-md border border-border px-3 py-2 text-sm md:col-span-2">
                   <input
                     type="checkbox"
                     checked={state.isGeneticReportProvider}
                     onChange={(event) =>
                       updateState({
                         isGeneticReportProvider: event.target.checked,
+                        geneticReportCategory: event.target.checked
+                          ? state.geneticReportCategory
+                          : "",
                       })
                     }
                     disabled={!canManageSystemFields}
@@ -625,33 +633,36 @@ function DiscoverPublisherWorkbench({
                     </span>
                   </span>
                 </label>
-                <PublisherCategoryMultiSelect
-                  id="discover-org-genetic-report-category"
-                  provider={discoverGeneticReportCategoryProvider}
-                  value={state.geneticReportCategory}
-                  onChange={(geneticReportCategory) =>
-                    updateState({ geneticReportCategory })
-                  }
-                  optionLabel={(option) => t(option.label)}
-                  label={t("Genetic report categories")}
-                  dialogTitle={t("Select genetic report categories")}
-                  dialogDescription={t(
-                    "Choose one or more genetic report categories. They will be saved as comma-separated keys.",
-                  )}
-                  emptyLabel={t("No report categories selected")}
-                  searchPlaceholder={t("Search report categories")}
-                  clearLabel={t("Clear all")}
-                  removeLabel={t("Remove")}
-                  doneLabel={t("Done")}
-                  selectedCountLabel={(count: number) =>
-                    `${count} ${
-                      count === 1
-                        ? t("report category selected")
-                        : t("report categories selected")
-                    }`
-                  }
-                  disabled={!canManageSystemFields}
-                />
+                {state.isGeneticReportProvider ? (
+                  <PublisherCategoryMultiSelect
+                    id="discover-org-genetic-report-category"
+                    provider={discoverGeneticReportCategoryProvider}
+                    value={state.geneticReportCategory}
+                    onChange={(geneticReportCategory) =>
+                      updateState({ geneticReportCategory })
+                    }
+                    optionLabel={(option) => t(option.label)}
+                    label={t("Genetic report categories")}
+                    dialogTitle={t("Select genetic report categories")}
+                    dialogDescription={t(
+                      "Choose one or more genetic report categories. They will be saved as comma-separated keys.",
+                    )}
+                    emptyLabel={t("No report categories selected")}
+                    searchPlaceholder={t("Search report categories")}
+                    clearLabel={t("Clear all")}
+                    removeLabel={t("Remove")}
+                    doneLabel={t("Done")}
+                    selectedCountLabel={(count: number) =>
+                      `${count} ${
+                        count === 1
+                          ? t("report category selected")
+                          : t("report categories selected")
+                      }`
+                    }
+                    className="md:col-span-2"
+                    disabled={!canManageSystemFields}
+                  />
+                ) : null}
               </>
             ) : null}
             <div className="flex flex-col gap-2 md:col-span-2">
@@ -861,7 +872,9 @@ function DiscoverPublisherWorkbench({
                       ? t("Genetic report provider")
                       : t("Not a genetic report provider")}
                   </div>
-                  <div>{geneticReportCategoryLabel}</div>
+                  {state.isGeneticReportProvider ? (
+                    <div>{geneticReportCategoryLabel}</div>
+                  ) : null}
                 </>
               ) : null}
               <div className="mt-2 flex items-center gap-2">
