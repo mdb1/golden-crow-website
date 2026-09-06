@@ -397,13 +397,13 @@ const trustMailSubject = encodeURIComponent(
     font-weight: 850;
     line-height: 1;
     text-decoration: none;
-    box-shadow: 0 18px 38px rgba(33, 118, 174, 0.28), 0 7px 18px rgba(41, 49, 139, 0.14);
+    box-shadow: 0 14px 30px rgba(33, 118, 174, 0.16), 0 5px 14px rgba(41, 49, 139, 0.08);
     transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
   }
 
   .pg-hero-cta:hover {
     background: #3389ed;
-    box-shadow: 0 24px 48px rgba(33, 118, 174, 0.34), 0 10px 22px rgba(41, 49, 139, 0.16);
+    box-shadow: 0 18px 34px rgba(33, 118, 174, 0.21), 0 8px 18px rgba(41, 49, 139, 0.1);
     transform: translateY(-2px);
   }
 
@@ -423,13 +423,20 @@ const trustMailSubject = encodeURIComponent(
   .pg-join-shared-band::before {
     content: "";
     position: absolute;
-    top: -54px;
+    top: -64px;
     left: 50%;
     z-index: 0;
     width: 118%;
-    height: 108px;
+    height: 128px;
     border-radius: 0 0 50% 50% / 0 0 100% 100%;
-    background: #ffffff;
+    background: linear-gradient(
+      180deg,
+      #ffffff 0%,
+      #ffffff 42%,
+      rgba(255, 255, 255, 0.96) 62%,
+      rgba(255, 255, 255, 0.68) 80%,
+      rgba(255, 255, 255, 0) 100%
+    );
     transform: translateX(-50%);
     pointer-events: none;
   }
@@ -1039,9 +1046,9 @@ const trustMailSubject = encodeURIComponent(
     }
 
     .pg-join-shared-band::before {
-      top: -38px;
+      top: -48px;
       width: 124%;
-      height: 76px;
+      height: 96px;
     }
 
     .pg-pricing-hero h1 {
