@@ -32,6 +32,13 @@ export default async function DiscoverIndividualDetailPage({
     redirect("/discover/individuals");
   }
 
+  const canDeleteOwnPublisher =
+    adminContext.role === "individual_publisher" &&
+    adminContext.individualId === individual.id;
+  const canDeletePublisher =
+    (adminContext.role === "full_admin" && adminContext.isBootstrap) ||
+    canDeleteOwnPublisher;
+
   return (
     <div className="flex flex-col gap-6">
       <HeaderUnclutterScope
@@ -46,8 +53,9 @@ export default async function DiscoverIndividualDetailPage({
         <DiscoverIndividualWorkbench
           individual={individual}
           canManageSystemFields={adminContext.role === "full_admin"}
-          canDeletePublisher={
-            adminContext.role === "full_admin" && adminContext.isBootstrap
+          canDeletePublisher={canDeletePublisher}
+          deleteSuccessAction={
+            canDeleteOwnPublisher ? "publisher-login" : "list"
           }
         />
       </HeaderUnclutterScope>

@@ -11,7 +11,10 @@ import {
   discoverIndividualCategoryProvider,
   discoverOrganizationCategoryProvider,
 } from "../lib/discover-publisher-categories.js";
-import { provisionPublisherPortalRoleForContext } from "./roles.repository.js";
+import {
+  deletePublisherPortalRolesForPublisher,
+  provisionPublisherPortalRoleForContext,
+} from "./roles.repository.js";
 import type {
   AdminContext,
   DiscoverFeedItemRecord,
@@ -495,15 +498,6 @@ function requireFullAdmin(context: AdminContext) {
   }
 }
 
-function requireGodMode(context: AdminContext) {
-  if (context.role !== "full_admin" || !context.isBootstrap) {
-    throw new AdminRepositoryError(
-      "God mode is required to delete Discover publishers.",
-      403,
-    );
-  }
-}
-
 function requireDiscoverAccess(context: AdminContext) {
   if (
     context.role !== "full_admin" &&
@@ -581,6 +575,44 @@ function assertIndividualScope(context: AdminContext, individualId: string) {
       403,
     );
   }
+}
+
+function requirePublisherDeleteAccess(
+  context: AdminContext,
+  input: { kind: "organization" | "individual"; publisherId: string },
+) {
+  if (context.role === "full_admin") {
+    if (!context.isBootstrap) {
+      throw new AdminRepositoryError(
+        "God mode is required to delete Discover publishers.",
+        403,
+      );
+    }
+    return;
+  }
+
+  if (
+    input.kind === "organization" &&
+    context.role === "organization_publisher" &&
+    context.organizationId === input.publisherId
+  ) {
+    return;
+  }
+
+  if (
+    input.kind === "individual" &&
+    context.role === "individual_publisher" &&
+    context.individualId === input.publisherId
+  ) {
+    return;
+  }
+
+  throw new AdminRepositoryError(
+    input.kind === "organization"
+      ? "This publisher can delete only its own organization."
+      : "This publisher can delete only its own individual publisher record.",
+    403,
+  );
 }
 
 function assertFeedItemScope(
@@ -2209,7 +2241,10 @@ export async function deleteDiscoverOrganization(
   context: AdminContext,
   organizationId: string,
 ) {
-  requireGodMode(context);
+  requirePublisherDeleteAccess(context, {
+    kind: "organization",
+    publisherId: organizationId,
+  });
   const existing = await getOrganizationSnapshot(organizationId);
   if (!existing) {
     throw new AdminRepositoryError("Organization not found.", 404);
@@ -2219,12 +2254,21 @@ export async function deleteDiscoverOrganization(
     "publisherOrganizationId",
     organizationId,
   );
+  const deletedRoles = await deletePublisherPortalRolesForPublisher({
+    kind: "organization",
+    publisherId: organizationId,
+  });
   await adminDb
     .collection(ORGANIZATIONS_COLLECTION)
     .doc(organizationId)
     .delete();
 
-  return { deleted: true, organizationId, deletedFeedItemCount };
+  return {
+    deleted: true,
+    organizationId,
+    deletedFeedItemCount,
+    ...deletedRoles,
+  };
 }
 
 export async function evaluateDiscoverOrganizationSubmission(
@@ -2425,7 +2469,10 @@ export async function deleteDiscoverIndividual(
   context: AdminContext,
   individualId: string,
 ) {
-  requireGodMode(context);
+  requirePublisherDeleteAccess(context, {
+    kind: "individual",
+    publisherId: individualId,
+  });
   const existing = await getIndividualSnapshot(individualId);
   if (!existing) {
     throw new AdminRepositoryError("Individual publisher not found.", 404);
@@ -2435,9 +2482,18 @@ export async function deleteDiscoverIndividual(
     "publisherIndividualId",
     individualId,
   );
+  const deletedRoles = await deletePublisherPortalRolesForPublisher({
+    kind: "individual",
+    publisherId: individualId,
+  });
   await adminDb.collection(INDIVIDUALS_COLLECTION).doc(individualId).delete();
 
-  return { deleted: true, individualId, deletedFeedItemCount };
+  return {
+    deleted: true,
+    individualId,
+    deletedFeedItemCount,
+    ...deletedRoles,
+  };
 }
 
 export async function evaluateDiscoverIndividualSubmission(

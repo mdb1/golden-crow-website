@@ -368,6 +368,66 @@ export async function deleteRoleUserForContext(
   };
 }
 
+export async function deletePublisherPortalRolesForPublisher(input: {
+  kind: "organization" | "individual";
+  publisherId: string;
+}) {
+  const publisherId = normalizeOptionalString(input.publisherId);
+  if (!publisherId) {
+    throw new AdminRepositoryError("Publisher id is required.", 400);
+  }
+
+  const scopeField =
+    input.kind === "organization" ? "organizationId" : "individualId";
+  const expectedRole = publisherPortalRoleForKind(input.kind);
+  const snapshot = await adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .where(scopeField, "==", publisherId)
+    .get();
+  const deletedRoleEmails: string[] = [];
+  let deletedAuthUserCount = 0;
+
+  for (const roleSnapshot of snapshot.docs) {
+    const normalizedEmail = normalizeRoleEmail(roleSnapshot.id);
+    const record = toUserRoleRecord(
+      normalizedEmail,
+      roleSnapshot.data() as Record<string, unknown>,
+    );
+    const matchesScope =
+      input.kind === "organization"
+        ? record.role === expectedRole && record.organizationId === publisherId
+        : record.role === expectedRole && record.individualId === publisherId;
+
+    if (!matchesScope) {
+      continue;
+    }
+
+    const authUid = await resolveFirebaseUidForRoleUser(
+      normalizedEmail,
+      record,
+    );
+    if (authUid) {
+      try {
+        await adminAuthFor("mydnamap").deleteUser(authUid);
+        deletedAuthUserCount += 1;
+      } catch (error) {
+        if (getFirebaseAuthErrorCode(error) !== "auth/user-not-found") {
+          throw error;
+        }
+      }
+    }
+
+    await roleSnapshot.ref.delete();
+    deletedRoleEmails.push(normalizedEmail);
+  }
+
+  return {
+    deletedRoleCount: deletedRoleEmails.length,
+    deletedAuthUserCount,
+    deletedRoleEmails,
+  };
+}
+
 function getLinkedCollectionIds(payload: {
   role: AdminRole;
   organizationId?: string;

@@ -21,12 +21,17 @@ import type {
 
 const routerPush = jest.fn();
 const routerRefresh = jest.fn();
+const signOut = jest.fn();
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
     push: routerPush,
     refresh: routerRefresh,
   }),
+}));
+
+jest.mock("next-auth/react", () => ({
+  signOut: (...args: unknown[]) => signOut(...args),
 }));
 
 jest.mock("@/lib/sdk-client", () => ({
@@ -79,6 +84,7 @@ const individual: DiscoverIndividualRecord = {
 type WorkbenchOverrides = {
   canDeletePublisher?: boolean;
   canManageSystemFields?: boolean;
+  deleteSuccessAction?: "list" | "publisher-login";
   mode?: "create" | "edit";
   organization?: DiscoverOrganizationRecord;
   individual?: DiscoverIndividualRecord;
@@ -131,6 +137,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
   beforeEach(() => {
     routerPush.mockClear();
     routerRefresh.mockClear();
+    signOut.mockClear();
     jest.mocked(sdkFetch).mockReset();
     jest.mocked(sdkFetch).mockResolvedValue({ organization });
   });
@@ -154,8 +161,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(colorInput.className).not.toContain("border-transparent");
     expect(screen.getByRole("button", { name: /apply/i })).toBeTruthy();
 
-    await user.clear(colorInput);
-    await user.type(colorInput, "#12");
+    fireEvent.change(colorInput, { target: { value: "#12" } });
     await user.click(screen.getByRole("button", { name: /apply/i }));
 
     expect(
@@ -164,8 +170,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(colorInput.value).toBe("#12");
     expect(colorInput.readOnly).toBe(false);
 
-    await user.clear(colorInput);
-    await user.type(colorInput, "abcdef");
+    fireEvent.change(colorInput, { target: { value: "abcdef" } });
     expect(
       screen.queryByText("Organization color must be a 6-digit hex value."),
     ).toBeNull();
@@ -282,7 +287,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(screen.getByText("Organization deletion")).toBeTruthy();
     expect(
       screen.getByText(
-        "Delete this organization and every Discover feed entry attached to it. This action cannot be undone.",
+        "Delete this organization, every linked Discover feed entry, and every publisher role linked to this organization. Publisher users for this organization will lose access and be signed out. This action is irreversible.",
       ),
     ).toBeTruthy();
     expect(
@@ -304,8 +309,10 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       Array.from(contentPanel.children).indexOf(submissionEvaluation),
     ).toBeGreaterThan(Array.from(contentPanel.children).indexOf(dangerZone));
     expect(
-      screen.getByRole("button", { name: /Submission evaluation/i }),
-    ).toHaveAttribute("aria-expanded", "false");
+      screen
+        .getByRole("button", { name: /Submission evaluation/i })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
   });
 
   it("approves an organization submission and refreshes the detail screen", async () => {
@@ -385,6 +392,54 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     });
     expect(routerPush).toHaveBeenCalledWith("/discover/organizations");
     expect(routerRefresh).toHaveBeenCalled();
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it("lets an organization publisher self-delete without showing submission evaluation", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      deleted: true,
+      organizationId: "org-1",
+      deletedFeedItemCount: 2,
+      deletedRoleCount: 1,
+      deletedAuthUserCount: 1,
+      deletedRoleEmails: ["publisher@example.org"],
+    });
+    renderWorkbench("en", {
+      canDeletePublisher: true,
+      canManageSystemFields: false,
+      deleteSuccessAction: "publisher-login",
+    });
+
+    expect(
+      screen.queryByRole("button", { name: /Submission evaluation/i }),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /Danger zone/i }));
+    await user.click(
+      screen.getByRole("button", { name: "Delete organization" }),
+    );
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Delete organization?",
+    });
+    expect(
+      within(dialog).getByText(
+        "This permanently removes this organization from feed_organizations, deletes linked feed_items, and deletes all user_roles tied to this organization. If you are one of those publisher users, your current session will end and you will be sent to the publisher portal login. This cannot be undone.",
+      ),
+    ).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "DELETE",
+      });
+    });
+    expect(signOut).toHaveBeenCalledWith({
+      callbackUrl: "/publisher-portal/login",
+      redirect: true,
+    });
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(routerRefresh).not.toHaveBeenCalled();
   });
 
   it("deletes an individual publisher from the god mode danger zone", async () => {
@@ -413,6 +468,55 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     });
     expect(routerPush).toHaveBeenCalledWith("/discover/individuals");
     expect(routerRefresh).toHaveBeenCalled();
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it("lets an individual publisher self-delete and signs out to the publisher portal", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      deleted: true,
+      individualId: "individual-1",
+      deletedFeedItemCount: 1,
+      deletedRoleCount: 1,
+      deletedAuthUserCount: 1,
+      deletedRoleEmails: ["individual@example.org"],
+    });
+    renderIndividualWorkbench("en", {
+      canDeletePublisher: true,
+      canManageSystemFields: false,
+      deleteSuccessAction: "publisher-login",
+    });
+
+    expect(
+      screen.queryByRole("button", { name: /Submission evaluation/i }),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /Danger zone/i }));
+    await user.click(
+      screen.getByRole("button", { name: "Delete individual publisher" }),
+    );
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Delete individual publisher?",
+    });
+    expect(
+      within(dialog).getByText(
+        "This permanently removes this individual publisher from feed_individuals, deletes linked feed_items, and deletes all user_roles tied to this individual. If you are one of those publisher users, your current session will end and you will be sent to the publisher portal login. This cannot be undone.",
+      ),
+    ).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/individuals/individual-1",
+        { method: "DELETE" },
+      );
+    });
+    expect(signOut).toHaveBeenCalledWith({
+      callbackUrl: "/publisher-portal/login",
+      redirect: true,
+    });
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(routerRefresh).not.toHaveBeenCalled();
   });
 
   it("saves multiple organization categories as comma-separated canonical keys", async () => {

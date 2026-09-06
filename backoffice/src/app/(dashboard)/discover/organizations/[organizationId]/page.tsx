@@ -32,6 +32,13 @@ export default async function DiscoverOrganizationDetailPage({
     redirect("/discover/organizations");
   }
 
+  const canDeleteOwnPublisher =
+    adminContext.role === "organization_publisher" &&
+    adminContext.organizationId === organization.id;
+  const canDeletePublisher =
+    (adminContext.role === "full_admin" && adminContext.isBootstrap) ||
+    canDeleteOwnPublisher;
+
   return (
     <div className="flex flex-col gap-6">
       <HeaderUnclutterScope
@@ -46,8 +53,9 @@ export default async function DiscoverOrganizationDetailPage({
         <DiscoverOrganizationWorkbench
           organization={organization}
           canManageSystemFields={adminContext.role === "full_admin"}
-          canDeletePublisher={
-            adminContext.role === "full_admin" && adminContext.isBootstrap
+          canDeletePublisher={canDeletePublisher}
+          deleteSuccessAction={
+            canDeleteOwnPublisher ? "publisher-login" : "list"
           }
         />
       </HeaderUnclutterScope>

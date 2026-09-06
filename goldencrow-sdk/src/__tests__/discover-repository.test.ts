@@ -90,6 +90,7 @@ const mockFeedDocs: MockDoc[] = [];
 const mockOrganizationDocs: MockDoc[] = [];
 const mockIndividualDocs: MockDoc[] = [];
 const mockProvisionPublisherPortalRoleForContext = jest.fn();
+const mockDeletePublisherPortalRolesForPublisher = jest.fn();
 let mockGeneratedId = 0;
 let failNextFeedItemsQuery = true;
 
@@ -292,6 +293,8 @@ jest.mock("../config/firebase.js", () => ({
 }));
 
 jest.mock("../repositories/roles.repository.js", () => ({
+  deletePublisherPortalRolesForPublisher:
+    mockDeletePublisherPortalRolesForPublisher,
   provisionPublisherPortalRoleForContext:
     mockProvisionPublisherPortalRoleForContext,
 }));
@@ -315,6 +318,12 @@ describe("discover repository", () => {
       ...initialIndividualDocs.map(cloneDoc),
     );
     mockQueryStubs.length = 0;
+    mockDeletePublisherPortalRolesForPublisher.mockReset();
+    mockDeletePublisherPortalRolesForPublisher.mockResolvedValue({
+      deletedRoleCount: 0,
+      deletedAuthUserCount: 0,
+      deletedRoleEmails: [],
+    });
     mockProvisionPublisherPortalRoleForContext.mockReset();
     mockProvisionPublisherPortalRoleForContext.mockResolvedValue({
       email: "publisher@example.org",
@@ -424,7 +433,7 @@ describe("discover repository", () => {
     expect(result.individuals[0]?.descriptionEn).toBe("Individual description");
   });
 
-  it("requires god mode to hard delete Discover publishers", async () => {
+  it("requires god mode or the matching publisher scope to hard delete Discover publishers", async () => {
     const { deleteDiscoverOrganization, deleteDiscoverIndividual } =
       await import("../repositories/discover.repository");
 
@@ -434,6 +443,28 @@ describe("discover repository", () => {
     await expect(
       deleteDiscoverIndividual(fullAdminContext, "person-1"),
     ).rejects.toThrow("God mode is required to delete Discover publishers.");
+    await expect(
+      deleteDiscoverOrganization(
+        {
+          ...fullAdminContext,
+          role: "organization_publisher",
+          organizationId: "another-org",
+        },
+        "org-1",
+      ),
+    ).rejects.toThrow("This publisher can delete only its own organization.");
+    await expect(
+      deleteDiscoverIndividual(
+        {
+          ...fullAdminContext,
+          role: "individual_publisher",
+          individualId: "another-person",
+        },
+        "person-1",
+      ),
+    ).rejects.toThrow(
+      "This publisher can delete only its own individual publisher record.",
+    );
     expect(mockOrganizationDocs.some((doc) => doc.id === "org-1")).toBe(true);
     expect(mockIndividualDocs.some((doc) => doc.id === "person-1")).toBe(true);
   });
@@ -474,6 +505,11 @@ describe("discover repository", () => {
     );
     const { deleteDiscoverOrganization } =
       await import("../repositories/discover.repository");
+    mockDeletePublisherPortalRolesForPublisher.mockResolvedValueOnce({
+      deletedRoleCount: 2,
+      deletedAuthUserCount: 2,
+      deletedRoleEmails: ["publisher@example.org", "ops@example.org"],
+    });
 
     const result = await deleteDiscoverOrganization(godModeContext, "org-1");
 
@@ -481,6 +517,13 @@ describe("discover repository", () => {
       deleted: true,
       organizationId: "org-1",
       deletedFeedItemCount: 2,
+      deletedRoleCount: 2,
+      deletedAuthUserCount: 2,
+      deletedRoleEmails: ["publisher@example.org", "ops@example.org"],
+    });
+    expect(mockDeletePublisherPortalRolesForPublisher).toHaveBeenCalledWith({
+      kind: "organization",
+      publisherId: "org-1",
     });
     expect(mockOrganizationDocs.some((doc) => doc.id === "org-1")).toBe(false);
     expect(mockIndividualDocs.some((doc) => doc.id === "person-1")).toBe(true);
@@ -508,6 +551,11 @@ describe("discover repository", () => {
     });
     const { deleteDiscoverIndividual } =
       await import("../repositories/discover.repository");
+    mockDeletePublisherPortalRolesForPublisher.mockResolvedValueOnce({
+      deletedRoleCount: 1,
+      deletedAuthUserCount: 1,
+      deletedRoleEmails: ["individual@example.org"],
+    });
 
     const result = await deleteDiscoverIndividual(godModeContext, "person-1");
 
@@ -515,10 +563,70 @@ describe("discover repository", () => {
       deleted: true,
       individualId: "person-1",
       deletedFeedItemCount: 1,
+      deletedRoleCount: 1,
+      deletedAuthUserCount: 1,
+      deletedRoleEmails: ["individual@example.org"],
+    });
+    expect(mockDeletePublisherPortalRolesForPublisher).toHaveBeenCalledWith({
+      kind: "individual",
+      publisherId: "person-1",
     });
     expect(mockIndividualDocs.some((doc) => doc.id === "person-1")).toBe(false);
     expect(mockOrganizationDocs.some((doc) => doc.id === "org-1")).toBe(true);
     expect(mockFeedDocs.map((doc) => doc.id)).toEqual(["feed-a"]);
+  });
+
+  it("allows a publisher to hard delete only its own Discover publisher record", async () => {
+    failNextFeedItemsQuery = false;
+    const { deleteDiscoverOrganization, deleteDiscoverIndividual } =
+      await import("../repositories/discover.repository");
+    mockDeletePublisherPortalRolesForPublisher.mockResolvedValueOnce({
+      deletedRoleCount: 1,
+      deletedAuthUserCount: 1,
+      deletedRoleEmails: ["publisher@example.org"],
+    });
+
+    const result = await deleteDiscoverOrganization(
+      {
+        ...fullAdminContext,
+        role: "organization_publisher",
+        organizationId: "org-1",
+      },
+      "org-1",
+    );
+
+    expect(result).toMatchObject({
+      deleted: true,
+      organizationId: "org-1",
+      deletedRoleCount: 1,
+      deletedAuthUserCount: 1,
+    });
+    expect(mockOrganizationDocs.some((doc) => doc.id === "org-1")).toBe(false);
+
+    mockDeletePublisherPortalRolesForPublisher.mockResolvedValueOnce({
+      deletedRoleCount: 1,
+      deletedAuthUserCount: 1,
+      deletedRoleEmails: ["individual@example.org"],
+    });
+
+    const individualResult = await deleteDiscoverIndividual(
+      {
+        ...fullAdminContext,
+        role: "individual_publisher",
+        individualId: "person-1",
+      },
+      "person-1",
+    );
+
+    expect(individualResult).toMatchObject({
+      deleted: true,
+      individualId: "person-1",
+      deletedRoleCount: 1,
+      deletedAuthUserCount: 1,
+    });
+    expect(mockIndividualDocs.some((doc) => doc.id === "person-1")).toBe(
+      false,
+    );
   });
 
   it("approves an organization submission by activating it and provisioning portal access", async () => {

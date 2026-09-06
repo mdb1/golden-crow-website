@@ -17,6 +17,28 @@ const mockProvisionPatientFirebaseAccount = jest.fn();
 const mockSendPublisherPortalInviteEmail = jest.fn();
 const mockCollection = jest.fn((collectionName: string) => ({
   doc: (id: string) => makeDocRef(collectionName, id),
+  where: (field: string, operator: string, value: unknown) => ({
+    get: jest.fn(async () => ({
+      docs: Array.from(mockDocs.entries())
+        .filter(([key, data]) => {
+          if (!key.startsWith(`${collectionName}/`)) {
+            return false;
+          }
+          if (operator !== "==") {
+            return false;
+          }
+          return data[field] === value;
+        })
+        .map(([key, data]) => {
+          const id = key.slice(`${collectionName}/`.length);
+          return {
+            id,
+            data: () => data,
+            ref: makeDocRef(collectionName, id),
+          };
+        }),
+    })),
+  }),
 }));
 
 function docKey(ref: MockDocumentRef) {
@@ -198,6 +220,81 @@ describe("role user deletion", () => {
     });
 
     expect(mockDeleteUser).not.toHaveBeenCalled();
+  });
+
+  it("deletes publisher portal roles and Firebase Auth users linked to an organization", async () => {
+    const { deletePublisherPortalRolesForPublisher } =
+      await import("../repositories/roles.repository");
+
+    mockDocs.set("user_roles/publisher@example.com", {
+      role: "organization_publisher",
+      organizationId: "org-1",
+      firebaseUid: "publisher-uid",
+      isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockDocs.set("user_roles/ops@example.com", {
+      role: "organization_publisher",
+      organizationId: "org-1",
+      isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockDocs.set("user_roles/admin@example.com", {
+      role: "full_admin",
+      organizationId: "org-1",
+      firebaseUid: "admin-uid",
+      isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockGetUserByEmail.mockResolvedValueOnce({ uid: "ops-uid" });
+
+    const result = await deletePublisherPortalRolesForPublisher({
+      kind: "organization",
+      publisherId: "org-1",
+    });
+
+    expect(mockGetUserByEmail).toHaveBeenCalledWith("ops@example.com");
+    expect(mockDeleteUser).toHaveBeenCalledWith("publisher-uid");
+    expect(mockDeleteUser).toHaveBeenCalledWith("ops-uid");
+    expect(mockDeleteUser).not.toHaveBeenCalledWith("admin-uid");
+    expect(result).toEqual({
+      deletedRoleCount: 2,
+      deletedAuthUserCount: 2,
+      deletedRoleEmails: ["publisher@example.com", "ops@example.com"],
+    });
+    expect(mockDocs.has("user_roles/publisher@example.com")).toBe(false);
+    expect(mockDocs.has("user_roles/ops@example.com")).toBe(false);
+    expect(mockDocs.has("user_roles/admin@example.com")).toBe(true);
+  });
+
+  it("deletes publisher portal roles linked to an individual publisher", async () => {
+    const { deletePublisherPortalRolesForPublisher } =
+      await import("../repositories/roles.repository");
+
+    mockDocs.set("user_roles/individual@example.com", {
+      role: "individual_publisher",
+      individualId: "person-1",
+      firebaseUid: "individual-uid",
+      isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+
+    const result = await deletePublisherPortalRolesForPublisher({
+      kind: "individual",
+      publisherId: "person-1",
+    });
+
+    expect(mockDeleteUser).toHaveBeenCalledWith("individual-uid");
+    expect(result).toEqual({
+      deletedRoleCount: 1,
+      deletedAuthUserCount: 1,
+      deletedRoleEmails: ["individual@example.com"],
+    });
+    expect(mockDocs.has("user_roles/individual@example.com")).toBe(false);
   });
 });
 

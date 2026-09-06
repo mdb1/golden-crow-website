@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -40,6 +41,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
+import { PUBLISHER_PORTAL_LOGIN_ROUTE } from "@/lib/publisher-portal-routes";
 import { cn } from "@/lib/utils";
 import {
   DISCOVER_ORGANIZATION_STATUS_OPTIONS,
@@ -63,6 +65,7 @@ import {
 
 type PublisherKind = "organization" | "individual";
 type PublisherRecord = DiscoverOrganizationRecord | DiscoverIndividualRecord;
+type DeleteSuccessAction = "list" | "publisher-login";
 
 type OrganizationFormState = {
   name: string;
@@ -204,12 +207,14 @@ function DiscoverPublisherWorkbench({
   mode = "edit",
   canManageSystemFields = true,
   canDeletePublisher = false,
+  deleteSuccessAction = "list",
 }: {
   publisher?: PublisherRecord;
   publisherKind: PublisherKind;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
   canDeletePublisher?: boolean;
+  deleteSuccessAction?: DeleteSuccessAction;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -305,17 +310,17 @@ function DiscoverPublisherWorkbench({
     : t("Delete organization?");
   const publisherDeleteDescription = isIndividual
     ? t(
-        "Delete this individual publisher and every Discover feed entry attached to it. This action cannot be undone.",
+        "Delete this individual publisher, every linked Discover feed entry, and every publisher role linked to this individual. Publisher users for this individual will lose access and be signed out. This action is irreversible.",
       )
     : t(
-        "Delete this organization and every Discover feed entry attached to it. This action cannot be undone.",
+        "Delete this organization, every linked Discover feed entry, and every publisher role linked to this organization. Publisher users for this organization will lose access and be signed out. This action is irreversible.",
       );
   const publisherDeleteDialogDescription = isIndividual
     ? t(
-        "This permanently removes this individual publisher from feed_individuals and deletes linked feed_items.",
+        "This permanently removes this individual publisher from feed_individuals, deletes linked feed_items, and deletes all user_roles tied to this individual. If you are one of those publisher users, your current session will end and you will be sent to the publisher portal login. This cannot be undone.",
       )
     : t(
-        "This permanently removes this organization from feed_organizations and deletes linked feed_items.",
+        "This permanently removes this organization from feed_organizations, deletes linked feed_items, and deletes all user_roles tied to this organization. If you are one of those publisher users, your current session will end and you will be sent to the publisher portal login. This cannot be undone.",
       );
   const evaluationApproveSuccess = isIndividual
     ? t("Individual publisher approved and credentials sent.")
@@ -507,6 +512,18 @@ function DiscoverPublisherWorkbench({
           ? t("Individual publisher deleted.")
           : t("Organization deleted."),
       });
+      if (deleteSuccessAction === "publisher-login") {
+        try {
+          await signOut({
+            callbackUrl: PUBLISHER_PORTAL_LOGIN_ROUTE,
+            redirect: true,
+          });
+        } catch {
+          router.push(PUBLISHER_PORTAL_LOGIN_ROUTE);
+          router.refresh();
+        }
+        return;
+      }
       router.push(publisherListHref);
       router.refresh();
     } catch (error) {
@@ -1194,11 +1211,13 @@ export function DiscoverOrganizationWorkbench({
   mode = "edit",
   canManageSystemFields = true,
   canDeletePublisher = false,
+  deleteSuccessAction = "list",
 }: {
   organization?: DiscoverOrganizationRecord;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
   canDeletePublisher?: boolean;
+  deleteSuccessAction?: DeleteSuccessAction;
 }) {
   return (
     <DiscoverPublisherWorkbench
@@ -1207,6 +1226,7 @@ export function DiscoverOrganizationWorkbench({
       mode={mode}
       canManageSystemFields={canManageSystemFields}
       canDeletePublisher={canDeletePublisher}
+      deleteSuccessAction={deleteSuccessAction}
     />
   );
 }
@@ -1216,11 +1236,13 @@ export function DiscoverIndividualWorkbench({
   mode = "edit",
   canManageSystemFields = true,
   canDeletePublisher = false,
+  deleteSuccessAction = "list",
 }: {
   individual?: DiscoverIndividualRecord;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
   canDeletePublisher?: boolean;
+  deleteSuccessAction?: DeleteSuccessAction;
 }) {
   return (
     <DiscoverPublisherWorkbench
@@ -1229,6 +1251,7 @@ export function DiscoverIndividualWorkbench({
       mode={mode}
       canManageSystemFields={canManageSystemFields}
       canDeletePublisher={canDeletePublisher}
+      deleteSuccessAction={deleteSuccessAction}
     />
   );
 }

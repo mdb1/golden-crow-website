@@ -2417,18 +2417,18 @@ const SPANISH_TEXT: Record<string, string> = {
     "Acciones irreversibles que eliminan permanentemente este publicador de Discover.",
   "Organization deletion": "Eliminación de organización",
   "Individual publisher deletion": "Eliminación de editor individual",
-  "Delete this organization and every Discover feed entry attached to it. This action cannot be undone.":
-    "Eliminá esta organización y cada entrada de Discover vinculada. Esta acción no se puede deshacer.",
-  "Delete this individual publisher and every Discover feed entry attached to it. This action cannot be undone.":
-    "Eliminá este editor individual y cada entrada de Discover vinculada. Esta acción no se puede deshacer.",
+  "Delete this organization, every linked Discover feed entry, and every publisher role linked to this organization. Publisher users for this organization will lose access and be signed out. This action is irreversible.":
+    "Eliminá esta organización, cada entrada de Discover vinculada y cada rol de publicador asociado a esta organización. Los usuarios publicadores de esta organización perderán el acceso y se cerrará su sesión. Esta acción es irreversible.",
+  "Delete this individual publisher, every linked Discover feed entry, and every publisher role linked to this individual. Publisher users for this individual will lose access and be signed out. This action is irreversible.":
+    "Eliminá este editor individual, cada entrada de Discover vinculada y cada rol de publicador asociado a este editor individual. Los usuarios publicadores de este editor perderán el acceso y se cerrará su sesión. Esta acción es irreversible.",
   "Delete organization": "Eliminar organización",
   "Delete individual publisher": "Eliminar editor individual",
   "Delete organization?": "¿Eliminar organización?",
   "Delete individual publisher?": "¿Eliminar editor individual?",
-  "This permanently removes this organization from feed_organizations and deletes linked feed_items.":
-    "Esto elimina permanentemente esta organización de feed_organizations y borra los feed_items vinculados.",
-  "This permanently removes this individual publisher from feed_individuals and deletes linked feed_items.":
-    "Esto elimina permanentemente este editor individual de feed_individuals y borra los feed_items vinculados.",
+  "This permanently removes this organization from feed_organizations, deletes linked feed_items, and deletes all user_roles tied to this organization. If you are one of those publisher users, your current session will end and you will be sent to the publisher portal login. This cannot be undone.":
+    "Esto elimina permanentemente esta organización de feed_organizations, borra los feed_items vinculados y elimina todos los user_roles asociados a esta organización. Si sos uno de esos usuarios publicadores, tu sesión actual terminará y vas a ir al login del publisher portal. Esto no se puede deshacer.",
+  "This permanently removes this individual publisher from feed_individuals, deletes linked feed_items, and deletes all user_roles tied to this individual. If you are one of those publisher users, your current session will end and you will be sent to the publisher portal login. This cannot be undone.":
+    "Esto elimina permanentemente este editor individual de feed_individuals, borra los feed_items vinculados y elimina todos los user_roles asociados a este editor. Si sos uno de esos usuarios publicadores, tu sesión actual terminará y vas a ir al login del publisher portal. Esto no se puede deshacer.",
   "Organization deleted.": "Organización eliminada.",
   "Individual publisher deleted.": "Editor individual eliminado.",
   "Unable to delete the organization.": "No se pudo eliminar la organización.",
