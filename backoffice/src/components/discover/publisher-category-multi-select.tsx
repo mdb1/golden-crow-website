@@ -41,6 +41,7 @@ type PublisherCategoryMultiSelectProps = {
   selectedCountLabel: (count: number) => string;
   className?: string;
   controlSurfaceClassName?: string;
+  disabled?: boolean;
 };
 
 export function PublisherCategoryMultiSelect({
@@ -60,6 +61,7 @@ export function PublisherCategoryMultiSelect({
   selectedCountLabel,
   className,
   controlSurfaceClassName,
+  disabled = false,
 }: PublisherCategoryMultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -91,10 +93,18 @@ export function PublisherCategoryMultiSelect({
     : emptyLabel;
 
   function updateSelected(nextKeys: readonly string[]) {
+    if (disabled) {
+      return;
+    }
+
     onChange(provider.serialize(nextKeys));
   }
 
   function toggleOption(key: string) {
+    if (disabled) {
+      return;
+    }
+
     if (selectedSet.has(key)) {
       updateSelected(selectedKeys.filter((selectedKey) => selectedKey !== key));
       return;
@@ -104,6 +114,10 @@ export function PublisherCategoryMultiSelect({
   }
 
   function removeOption(key: string) {
+    if (disabled) {
+      return;
+    }
+
     updateSelected(selectedKeys.filter((selectedKey) => selectedKey !== key));
   }
 
@@ -116,6 +130,7 @@ export function PublisherCategoryMultiSelect({
         type="button"
         variant="outline"
         onClick={() => setOpen(true)}
+        disabled={disabled}
         aria-label={`${label}: ${selectionSummary}`}
         className={cn(
           "h-auto min-h-10 justify-between gap-3 px-3 py-2 text-left",
@@ -150,6 +165,7 @@ export function PublisherCategoryMultiSelect({
               <button
                 type="button"
                 onClick={() => removeOption(option.value)}
+                disabled={disabled}
                 className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
                 aria-label={`${removeLabel} ${optionLabel(option)}`}
               >
@@ -228,7 +244,7 @@ export function PublisherCategoryMultiSelect({
               type="button"
               variant="outline"
               onClick={() => updateSelected([])}
-              disabled={!selectedOptions.length}
+              disabled={disabled || !selectedOptions.length}
             >
               {clearLabel}
             </Button>

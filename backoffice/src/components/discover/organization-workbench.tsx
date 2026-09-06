@@ -40,10 +40,9 @@ import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
 import { cn } from "@/lib/utils";
 import {
-  DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS,
   DISCOVER_ORGANIZATION_STATUS_OPTIONS,
-  discoverGeneticReportCategoryLabel,
-  type DiscoverGeneticReportCategory,
+  discoverGeneticReportCategoryLabels,
+  discoverGeneticReportCategoryProvider,
   type DiscoverIndividualRecord,
   type DiscoverIndividualStatus,
   type DiscoverOrganizationRecord,
@@ -80,7 +79,7 @@ type OrganizationFormState = {
   colorHex: string;
   verified: boolean;
   isGeneticReportProvider: boolean;
-  geneticReportCategory: DiscoverGeneticReportCategory | "";
+  geneticReportCategory: string;
   contactEmail: string;
   internalNotes: string;
 };
@@ -269,9 +268,12 @@ function DiscoverPublisherWorkbench({
   const selectedCategoryDisplayLabels = selectedCategoryLabels.map((label) =>
     t(label),
   );
-  const geneticReportCategoryLabel = t(
-    discoverGeneticReportCategoryLabel(state.geneticReportCategory || null),
-  );
+  const selectedGeneticReportCategoryLabels = discoverGeneticReportCategoryLabels(
+    state.geneticReportCategory || null,
+  ).map((label) => t(label));
+  const geneticReportCategoryLabel = selectedGeneticReportCategoryLabels.length
+    ? selectedGeneticReportCategoryLabels.join(", ")
+    : t("No genetic report category");
   const imagePreviewSource = state.imageUrl.trim() || state.imageUploadDataUrl;
   const showDangerZone = mode === "edit" && Boolean(publisher) && canDeletePublisher;
   const publisherDeletionTitle = isIndividual
@@ -623,30 +625,33 @@ function DiscoverPublisherWorkbench({
                     </span>
                   </span>
                 </label>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="discover-org-genetic-report-category">
-                    {t("Genetic report category")}
-                  </Label>
-                  <select
-                    id="discover-org-genetic-report-category"
-                    value={state.geneticReportCategory}
-                    onChange={(event) =>
-                      updateState({
-                        geneticReportCategory:
-                          event.target.value as DiscoverGeneticReportCategory | "",
-                      })
-                    }
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    disabled={!canManageSystemFields}
-                  >
-                    <option value="">{t("No genetic report category")}</option>
-                    {DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {t(option.label)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <PublisherCategoryMultiSelect
+                  id="discover-org-genetic-report-category"
+                  provider={discoverGeneticReportCategoryProvider}
+                  value={state.geneticReportCategory}
+                  onChange={(geneticReportCategory) =>
+                    updateState({ geneticReportCategory })
+                  }
+                  optionLabel={(option) => t(option.label)}
+                  label={t("Genetic report categories")}
+                  dialogTitle={t("Select genetic report categories")}
+                  dialogDescription={t(
+                    "Choose one or more genetic report categories. They will be saved as comma-separated keys.",
+                  )}
+                  emptyLabel={t("No report categories selected")}
+                  searchPlaceholder={t("Search report categories")}
+                  clearLabel={t("Clear all")}
+                  removeLabel={t("Remove")}
+                  doneLabel={t("Done")}
+                  selectedCountLabel={(count: number) =>
+                    `${count} ${
+                      count === 1
+                        ? t("report category selected")
+                        : t("report categories selected")
+                    }`
+                  }
+                  disabled={!canManageSystemFields}
+                />
               </>
             ) : null}
             <div className="flex flex-col gap-2 md:col-span-2">

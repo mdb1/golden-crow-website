@@ -23,7 +23,8 @@ import { cn } from "@/lib/utils";
 import {
   DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS,
   DISCOVER_ORGANIZATION_STATUS_OPTIONS,
-  discoverGeneticReportCategoryLabel,
+  discoverGeneticReportCategoryHasKey,
+  discoverGeneticReportCategoryLabels,
   discoverOrganizationStatusLabel,
   type DiscoverGeneticReportCategory,
   type DiscoverIndividualRecord,
@@ -169,6 +170,13 @@ function DiscoverPublisherBrowser({
       const translatedTypeLabels = currentTypeLabels.map((label) =>
         appText(language, label),
       );
+      const geneticReportCategoryLabels = !isIndividual
+        ? discoverGeneticReportCategoryLabels(
+            organization.geneticReportCategory,
+          )
+        : [];
+      const translatedGeneticReportCategoryLabels =
+        geneticReportCategoryLabels.map((label) => appText(language, label));
       const searchable = [
         publisher.id,
         publisher.name,
@@ -190,11 +198,8 @@ function DiscoverPublisherBrowser({
         !isIndividual
           ? organization.geneticReportCategory
           : "",
-        !isIndividual
-          ? discoverGeneticReportCategoryLabel(
-              organization.geneticReportCategory,
-            )
-          : "",
+        ...geneticReportCategoryLabels,
+        ...translatedGeneticReportCategoryLabels,
       ]
         .filter(Boolean)
         .join(" ")
@@ -209,8 +214,11 @@ function DiscoverPublisherBrowser({
         isIndividual ||
         geneticReportCategory === "all" ||
         (geneticReportCategory === "none"
-          ? !organization.geneticReportCategory
-          : organization.geneticReportCategory === geneticReportCategory);
+          ? !geneticReportCategoryLabels.length
+          : discoverGeneticReportCategoryHasKey(
+              organization.geneticReportCategory,
+              geneticReportCategory,
+            ));
 
       return (
         (!normalizedQuery || searchable.includes(normalizedQuery)) &&
@@ -561,11 +569,11 @@ function DiscoverPublisherBrowser({
                       : t("Not a genetic report provider")}
                   </Badge>
                   <Badge variant="secondary" className="rounded-md">
-                    {t(
-                      discoverGeneticReportCategoryLabel(
-                        organization.geneticReportCategory,
-                      ),
-                    )}
+                    {discoverGeneticReportCategoryLabels(
+                      organization.geneticReportCategory,
+                    )
+                      .map((label) => t(label))
+                      .join(", ") || t("No genetic report category")}
                   </Badge>
                 </div>
               ) : null}

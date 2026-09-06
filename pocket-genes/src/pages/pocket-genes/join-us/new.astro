@@ -152,8 +152,8 @@ const pageCopy = {
     providerBody: 'This is only for organizations. Tell us if users in the regions you listed can receive a genomic report from your services.',
     providerYes: 'Yes',
     providerNo: 'No',
-    reportTitle: 'What type of genetic report do you provide?',
-    reportBody: 'Choose the closest category. If it is not exact, pick Other.',
+    reportTitle: 'What types of genetic reports do you provide?',
+    reportBody: 'Choose every category that applies. If none fits exactly, pick Other.',
     step: 'Step',
     of: 'of',
     back: 'Back',
@@ -303,8 +303,8 @@ const pageCopy = {
     providerBody: 'Esto aplica solo a organizaciones. Contanos si los usuarios de las regiones que listaste pueden recibir un reporte genómico a partir de tus servicios.',
     providerYes: 'Sí',
     providerNo: 'No',
-    reportTitle: '¿Qué categoría de reporte genético ofrecen?',
-    reportBody: 'Elegí la categoría más cercana. Si no es exacta, elegí Otro.',
+    reportTitle: '¿Qué categorías de reporte genético ofrecen?',
+    reportBody: 'Elegí todas las categorías que correspondan. Si ninguna encaja exactamente, elegí Otro.',
     step: 'Paso',
     of: 'de',
     back: 'Volver',
@@ -933,8 +933,7 @@ const wizardClientCopy = {
               <button
                 type="button"
                 data-report-category-option={option.value}
-                aria-pressed={option.value === '' ? 'true' : 'false'}
-                class:list={[{ 'is-selected': option.value === '' }]}
+                aria-pressed="false"
               >
                 {option.label}
               </button>
@@ -1136,7 +1135,7 @@ const wizardClientCopy = {
       return visibleSteps()[state.currentStep] || 'type';
     }
 
-    const contentScrollSteps = new Set(['category', 'description', 'image', 'social']);
+    const contentScrollSteps = new Set(['category', 'description', 'image', 'social', 'report']);
     const modalScrollSteps = new Set(['country']);
 
     function scrollModeForStep(step) {
@@ -1514,6 +1513,28 @@ const wizardClientCopy = {
       return state.categories[state.kind] || [];
     }
 
+    function reportCategoryValues() {
+      return Array.from(wizardRoot.querySelectorAll('[data-report-category-option]'))
+        .map((button) => button.getAttribute('data-report-category-option'))
+        .filter(Boolean);
+    }
+
+    function selectedReportCategoryValues() {
+      const selected = new Set(
+        String(state.geneticReportCategory || '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+      );
+
+      return reportCategoryValues().filter((value) => selected.has(value));
+    }
+
+    function serializeReportCategoryValues(values) {
+      const selected = new Set(values.filter(Boolean));
+      return reportCategoryValues().filter((value) => selected.has(value)).join(',');
+    }
+
     function isEmptySkippableStep(step) {
       if (step === 'website') {
         return !websiteUrl?.value.trim();
@@ -1572,7 +1593,7 @@ const wizardClientCopy = {
         message = invalidSocial ? copy.socialLinkError : '';
       } else if (step === 'provider' && state.geneticReportProvider === null) {
         message = copy.required;
-      } else if (step === 'report' && !state.geneticReportCategory) {
+      } else if (step === 'report' && selectedReportCategoryValues().length === 0) {
         message = copy.required;
       }
 
@@ -1676,8 +1697,9 @@ const wizardClientCopy = {
         button.setAttribute('aria-pressed', active ? 'true' : 'false');
       });
 
+      const selectedReportCategories = new Set(selectedReportCategoryValues());
       wizardRoot.querySelectorAll('[data-report-category-option]').forEach((button) => {
-        const active = state.geneticReportCategory === button.getAttribute('data-report-category-option');
+        const active = selectedReportCategories.has(button.getAttribute('data-report-category-option'));
         button.classList.toggle('is-selected', active);
         button.setAttribute('aria-pressed', active ? 'true' : 'false');
       });
@@ -1869,6 +1891,18 @@ const wizardClientCopy = {
       state.categories[state.kind] = current.includes(value)
         ? current.filter((category) => category !== value)
         : [...current, value];
+      setError('');
+      renderStep();
+    }
+
+    function toggleReportCategory(value) {
+      if (!value) return;
+      const current = selectedReportCategoryValues();
+      state.geneticReportCategory = serializeReportCategoryValues(
+        current.includes(value)
+          ? current.filter((category) => category !== value)
+          : [...current, value],
+      );
       setError('');
       renderStep();
     }
@@ -2539,9 +2573,7 @@ const wizardClientCopy = {
 
     wizardRoot.querySelectorAll('[data-report-category-option]').forEach((button) => {
       button.addEventListener('click', () => {
-        state.geneticReportCategory = button.getAttribute('data-report-category-option') || '';
-        setError('');
-        renderStep();
+        toggleReportCategory(button.getAttribute('data-report-category-option'));
       });
     });
 

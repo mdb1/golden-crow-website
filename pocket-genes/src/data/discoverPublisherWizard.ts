@@ -607,12 +607,21 @@ export function getWizardSocialOptions(locale: WizardLocale) {
 }
 
 export const WIZARD_GENETIC_REPORT_CATEGORY_OPTIONS = [
-  { value: 'reproductive', label: 'Reproductive', labelEs: 'Reproductivo' },
-  { value: 'ophthalmics', label: 'Ophthalmics', labelEs: 'Oftalmológico' },
-  { value: 'full_genome', label: 'Full genome', labelEs: 'Genoma completo' },
-  { value: 'raw_pdf', label: 'Raw PDF', labelEs: 'PDF crudo' },
-  { value: 'raw_vcf', label: 'Raw VCF', labelEs: 'VCF crudo' },
-  { value: 'other', label: 'Other', labelEs: 'Otro' },
+  { value: 'grc_reproductive', label: 'Reproductive', labelEs: 'Reproductivo' },
+  { value: 'grc_ophthalmics', label: 'Ophthalmics', labelEs: 'Oftalmológico' },
+  { value: 'grc_full_genome', label: 'Full genome', labelEs: 'Genoma completo' },
+  { value: 'grc_cardiovascular', label: 'Cardiovascular', labelEs: 'Cardiovascular' },
+  { value: 'grc_rare_diseases', label: 'Rare diseases', labelEs: 'Enfermedades raras' },
+  { value: 'grc_neurological', label: 'Neurological', labelEs: 'Neurológico' },
+  { value: 'grc_prenatal', label: 'Prenatal', labelEs: 'Prenatal' },
+  {
+    value: 'grc_nutrition_and_metabolism',
+    label: 'Nutrition and metabolism',
+    labelEs: 'Nutrición y metabolismo',
+  },
+  { value: 'grc_ancestry', label: 'Ancestry', labelEs: 'Ascendencia' },
+  { value: 'grc_hereditary_cancer', label: 'Hereditary cancer', labelEs: 'Cáncer hereditario' },
+  { value: 'grc_other', label: 'Other', labelEs: 'Otro' },
 ] as const;
 
 function localizeCategory(option: WizardCategoryOption, locale: WizardLocale) {

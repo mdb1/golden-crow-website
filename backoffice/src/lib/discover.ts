@@ -16,12 +16,17 @@ export type DiscoverOrganizationType = DiscoverOrganizationCategoryKey;
 export type DiscoverIndividualStatus = DiscoverOrganizationStatus;
 export type DiscoverIndividualType = DiscoverIndividualCategoryKey;
 export type DiscoverGeneticReportCategory =
-  | "reproductive"
-  | "ophthalmics"
-  | "full_genome"
-  | "raw_pdf"
-  | "raw_vcf"
-  | "other";
+  | "grc_reproductive"
+  | "grc_ophthalmics"
+  | "grc_full_genome"
+  | "grc_cardiovascular"
+  | "grc_rare_diseases"
+  | "grc_neurological"
+  | "grc_prenatal"
+  | "grc_nutrition_and_metabolism"
+  | "grc_ancestry"
+  | "grc_hereditary_cancer"
+  | "grc_other";
 export type DiscoverPublisherSocialKey =
   | "facebook"
   | "twitter"
@@ -78,7 +83,7 @@ export interface DiscoverOrganizationRecord {
   colorHex?: string;
   verified: boolean;
   isGeneticReportProvider: boolean;
-  geneticReportCategory: DiscoverGeneticReportCategory | null;
+  geneticReportCategory: string | null;
   contactEmail?: string;
   internalNotes?: string;
   createdAt: string;
@@ -206,16 +211,32 @@ export const DISCOVER_ORGANIZATION_STATUS_OPTIONS = [
 ] as const;
 
 export const DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS = [
-  { value: "reproductive", label: "Reproductive" },
-  { value: "ophthalmics", label: "Ophthalmics" },
-  { value: "full_genome", label: "Full genome" },
-  { value: "raw_pdf", label: "Raw PDF" },
-  { value: "raw_vcf", label: "Raw VCF" },
-  { value: "other", label: "Other" },
+  { value: "grc_reproductive", label: "Reproductive" },
+  { value: "grc_ophthalmics", label: "Ophthalmics" },
+  { value: "grc_full_genome", label: "Full genome" },
+  { value: "grc_cardiovascular", label: "Cardiovascular" },
+  { value: "grc_rare_diseases", label: "Rare diseases" },
+  { value: "grc_neurological", label: "Neurological" },
+  { value: "grc_prenatal", label: "Prenatal" },
+  { value: "grc_nutrition_and_metabolism", label: "Nutrition and metabolism" },
+  { value: "grc_ancestry", label: "Ancestry" },
+  { value: "grc_hereditary_cancer", label: "Hereditary cancer" },
+  { value: "grc_other", label: "Other" },
 ] as const satisfies readonly {
   value: DiscoverGeneticReportCategory;
   label: string;
 }[];
+
+const DISCOVER_GENETIC_REPORT_CATEGORY_KEYS = new Set(
+  DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS.map((option) => option.value),
+);
+
+export const discoverGeneticReportCategoryProvider = {
+  optionCount: DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS.length,
+  options: DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS,
+  parse: parseDiscoverGeneticReportCategoryKeys,
+  serialize: serializeDiscoverGeneticReportCategoryKeys,
+};
 
 export const DISCOVER_ORGANIZATION_TYPE_OPTIONS =
   DISCOVER_ORGANIZATION_CATEGORY_OPTIONS;
@@ -661,17 +682,53 @@ export function discoverOrganizationStatusLabel(
 }
 
 export function discoverGeneticReportCategoryLabel(
-  category: DiscoverGeneticReportCategory | null | undefined,
+  category: string | null | undefined,
 ) {
-  if (!category) {
-    return "No genetic report category";
-  }
+  return discoverGeneticReportCategoryLabels(category).join(", ") ||
+    "No genetic report category";
+}
 
-  return (
-    DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS.find(
-      (option) => option.value === category,
-    )?.label ?? category
+export function discoverGeneticReportCategoryLabels(
+  category: string | null | undefined,
+) {
+  return parseDiscoverGeneticReportCategoryKeys(category).map(
+    (key) =>
+      DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS.find(
+        (option) => option.value === key,
+      )?.label ?? key,
   );
+}
+
+export function parseDiscoverGeneticReportCategoryKeys(
+  value: string | null | undefined,
+): DiscoverGeneticReportCategory[] {
+  const requested = new Set(
+    String(value ?? "")
+      .split(",")
+      .map((token) => token.trim())
+      .filter((token): token is DiscoverGeneticReportCategory =>
+        DISCOVER_GENETIC_REPORT_CATEGORY_KEYS.has(
+          token as DiscoverGeneticReportCategory,
+        ),
+      ),
+  );
+
+  return DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS
+    .map((option) => option.value)
+    .filter((key) => requested.has(key));
+}
+
+export function serializeDiscoverGeneticReportCategoryKeys(
+  keys: readonly string[],
+) {
+  return parseDiscoverGeneticReportCategoryKeys(keys.join(",")).join(",");
+}
+
+export function discoverGeneticReportCategoryHasKey(
+  value: string | null | undefined,
+  key: DiscoverGeneticReportCategory,
+) {
+  return parseDiscoverGeneticReportCategoryKeys(value).includes(key);
 }
 
 export function discoverOrganizationTypeLabel(

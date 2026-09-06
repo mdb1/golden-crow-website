@@ -562,7 +562,7 @@ describe("discover repository", () => {
         "org_patient_advocacy_organizations,org_genetics_research_institutes",
       status: "pending_approval",
       isGeneticReportProvider: true,
-      geneticReportCategory: "reproductive",
+      geneticReportCategory: "grc_reproductive,grc_full_genome",
       slug: "manual-slug",
     } as Record<string, unknown>);
     const stored = mockOrganizationDocs.find(
@@ -580,7 +580,9 @@ describe("discover repository", () => {
     );
     expect(organization.status).toBe("pending_approval");
     expect(organization.isGeneticReportProvider).toBe(true);
-    expect(organization.geneticReportCategory).toBe("reproductive");
+    expect(organization.geneticReportCategory).toBe(
+      "grc_reproductive,grc_full_genome",
+    );
     expect(stored?.data.slug).toBe("fundacion-medica-nandu");
     expect(stored?.data.description).toBe("Descripción en español");
     expect(stored?.data.descriptionEn).toBe("English description");
@@ -592,7 +594,9 @@ describe("discover repository", () => {
     );
     expect(stored?.data.status).toBe("pending_approval");
     expect(stored?.data.isGeneticReportProvider).toBe(true);
-    expect(stored?.data.geneticReportCategory).toBe("reproductive");
+    expect(stored?.data.geneticReportCategory).toBe(
+      "grc_reproductive,grc_full_genome",
+    );
   });
 
   it("requires image URLs when creating publishers", async () => {
@@ -628,7 +632,7 @@ describe("discover repository", () => {
         organizationType: "org_genetic_testing_laboratories",
         verified: false,
         isGeneticReportProvider: true,
-        geneticReportCategory: "full_genome",
+        geneticReportCategory: "grc_full_genome",
         createdAt: "2026-08-01T00:00:00.000Z",
         updatedAt: "2026-08-02T00:00:00.000Z",
       },
@@ -645,7 +649,7 @@ describe("discover repository", () => {
         organizationType: "org_genetic_testing_laboratories",
         verified: false,
         isGeneticReportProvider: true,
-        geneticReportCategory: "full_genome",
+        geneticReportCategory: "grc_full_genome",
       } as Record<string, unknown>,
     );
     const stored = mockOrganizationDocs.find((doc) => doc.id === "uploaded-org");
@@ -679,7 +683,7 @@ describe("discover repository", () => {
         linkedin: "https://linkedin.com/company/wizard-genetics",
       },
       isGeneticReportProvider: true,
-      geneticReportCategory: "full_genome",
+      geneticReportCategory: "grc_full_genome,grc_rare_diseases",
     });
     const stored = mockOrganizationDocs.find(
       (doc) => doc.id === result.publisher.id,
@@ -698,7 +702,9 @@ describe("discover repository", () => {
     expect(stored?.data.status).toBe("pending_approval");
     expect(stored?.data.verified).toBe(false);
     expect(stored?.data.isGeneticReportProvider).toBe(true);
-    expect(stored?.data.geneticReportCategory).toBe("full_genome");
+    expect(stored?.data.geneticReportCategory).toBe(
+      "grc_full_genome,grc_rare_diseases",
+    );
     expect(stored?.data.isRequestedThroughWebWizard).toBe(true);
     expect(stored?.data).toHaveProperty("approvalRequestDate");
     expect(stored?.data.createdByUserId).toBe("public-web-wizard");
@@ -731,7 +737,7 @@ describe("discover repository", () => {
       imageUrl: "https://example.org/dr-wizard.png",
       colorHex: "14b8a6",
       isGeneticReportProvider: true,
-      geneticReportCategory: "raw_vcf",
+      geneticReportCategory: "grc_other",
     });
     const stored = mockIndividualDocs.find((doc) => doc.id === result.publisher.id);
 
@@ -803,9 +809,9 @@ describe("discover repository", () => {
       createDiscoverOrganization(fullAdminContext, {
         name: "Invalid report provider",
         imageUrl: "https://example.org/invalid-provider.png",
-        geneticReportCategory: "fertility",
+        geneticReportCategory: "raw_vcf",
       } as Record<string, unknown>),
-    ).rejects.toThrow("Use a valid genetic report category.");
+    ).rejects.toThrow("Use valid genetic report categories.");
   });
 
   it("creates upcoming events with the compact event payload", async () => {

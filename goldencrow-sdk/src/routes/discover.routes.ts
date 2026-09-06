@@ -34,14 +34,7 @@ const OrganizationStatusSchema = z.enum([
   "archived",
   "pending_approval",
 ]);
-const GeneticReportCategorySchema = z.enum([
-  "reproductive",
-  "ophthalmics",
-  "full_genome",
-  "raw_pdf",
-  "raw_vcf",
-  "other",
-]);
+const GeneticReportCategorySelectionSchema = z.string().trim().max(500);
 const DISCOVER_FEED_TYPES = [
   "news",
   "research_update",
@@ -171,7 +164,7 @@ const PublisherRequestBodySchema = z.object({
   individualType: z.string().trim().max(2000).optional(),
   colorHex: z.string().trim().max(20).nullable().optional(),
   isGeneticReportProvider: z.boolean().optional(),
-  geneticReportCategory: GeneticReportCategorySchema.nullable().optional(),
+  geneticReportCategory: GeneticReportCategorySelectionSchema.nullable().optional(),
   contactEmail: z.string().trim().toLowerCase().email().max(180),
   startedAt: z.string().trim().datetime(),
   website: OptionalPublisherTextSchema,
@@ -235,7 +228,7 @@ const OrganizationBodySchema = z.object({
   colorHex: z.string().nullable().optional(),
   verified: z.boolean().optional(),
   isGeneticReportProvider: z.boolean().optional(),
-  geneticReportCategory: GeneticReportCategorySchema.nullable().optional(),
+  geneticReportCategory: GeneticReportCategorySelectionSchema.nullable().optional(),
   contactEmail: z.string().optional(),
   internalNotes: z.string().optional(),
 });

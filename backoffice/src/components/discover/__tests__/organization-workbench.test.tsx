@@ -51,7 +51,7 @@ const organization: DiscoverOrganizationRecord = {
   colorHex: "#123ABC",
   verified: true,
   isGeneticReportProvider: true,
-  geneticReportCategory: "full_genome",
+  geneticReportCategory: "grc_full_genome",
   contactEmail: "hello@example.org",
   internalNotes: "Internal notes",
   createdAt: "2026-08-01T00:00:00.000Z",
@@ -372,15 +372,21 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
         .checked,
     ).toBe(true);
     expect(
-      (screen.getByLabelText("Genetic report category") as HTMLSelectElement)
-        .value,
-    ).toBe("full_genome");
+      screen.getByRole("button", {
+        name: /Genetic report categories: 1 report category selected/i,
+      }),
+    ).toBeTruthy();
 
     await user.click(screen.getByLabelText(/Genetic report provider/));
-    await user.selectOptions(
-      screen.getByLabelText("Genetic report category"),
-      "raw_vcf",
+    await user.click(
+      screen.getByRole("button", {
+        name: /Genetic report categories: 1 report category selected/i,
+      }),
     );
+    await user.click(
+      within(screen.getByRole("dialog")).getByText("Neurological"),
+    );
+    await user.click(screen.getByRole("button", { name: "Done" }));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
@@ -394,7 +400,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
     ) as Record<string, unknown>;
     expect(body.isGeneticReportProvider).toBe(false);
-    expect(body.geneticReportCategory).toBe("raw_vcf");
+    expect(body.geneticReportCategory).toBe("grc_full_genome,grc_neurological");
   });
 
   it("does not render organization genetic report fields for individual publishers", () => {

@@ -634,12 +634,17 @@ export type DiscoverOrganizationType = string;
 export type DiscoverIndividualStatus = DiscoverOrganizationStatus;
 export type DiscoverIndividualType = string;
 export type DiscoverGeneticReportCategory =
-  | "reproductive"
-  | "ophthalmics"
-  | "full_genome"
-  | "raw_pdf"
-  | "raw_vcf"
-  | "other";
+  | "grc_reproductive"
+  | "grc_ophthalmics"
+  | "grc_full_genome"
+  | "grc_cardiovascular"
+  | "grc_rare_diseases"
+  | "grc_neurological"
+  | "grc_prenatal"
+  | "grc_nutrition_and_metabolism"
+  | "grc_ancestry"
+  | "grc_hereditary_cancer"
+  | "grc_other";
 export type DiscoverPublisherSocialKey =
   | "facebook"
   | "twitter"
@@ -696,7 +701,7 @@ export interface DiscoverOrganizationRecord {
   colorHex?: string;
   verified: boolean;
   isGeneticReportProvider: boolean;
-  geneticReportCategory: DiscoverGeneticReportCategory | null;
+  geneticReportCategory: string | null;
   contactEmail?: string;
   internalNotes?: string;
   createdAt: string;

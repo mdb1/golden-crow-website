@@ -312,14 +312,22 @@ const ORGANIZATION_STATUSES = new Set<DiscoverOrganizationStatus>([
   "archived",
   "pending_approval",
 ]);
-const GENETIC_REPORT_CATEGORIES = new Set<DiscoverGeneticReportCategory>([
-  "reproductive",
-  "ophthalmics",
-  "full_genome",
-  "raw_pdf",
-  "raw_vcf",
-  "other",
-]);
+const GENETIC_REPORT_CATEGORY_VALUES = [
+  "grc_reproductive",
+  "grc_ophthalmics",
+  "grc_full_genome",
+  "grc_cardiovascular",
+  "grc_rare_diseases",
+  "grc_neurological",
+  "grc_prenatal",
+  "grc_nutrition_and_metabolism",
+  "grc_ancestry",
+  "grc_hereditary_cancer",
+  "grc_other",
+] as const satisfies readonly DiscoverGeneticReportCategory[];
+const GENETIC_REPORT_CATEGORIES = new Set<DiscoverGeneticReportCategory>(
+  GENETIC_REPORT_CATEGORY_VALUES,
+);
 const FEED_TYPES = new Set<DiscoverFeedType>(FEED_TYPE_VALUES);
 const FEED_STATUSES = new Set<DiscoverFeedStatus>([
   "draft",
@@ -1471,25 +1479,50 @@ function normalizeRequiredIndividualType(value: unknown): string {
   return individualType;
 }
 
-function readGeneticReportCategory(value: unknown): DiscoverGeneticReportCategory | null {
-  return GENETIC_REPORT_CATEGORIES.has(value as DiscoverGeneticReportCategory)
-    ? (value as DiscoverGeneticReportCategory)
-    : null;
-}
-
-function normalizeGeneticReportCategory(
-  value: unknown,
-): DiscoverGeneticReportCategory | null {
+function readGeneticReportCategory(value: unknown): string | null {
   const normalized = normalizeOptionalString(value);
   if (!normalized) {
     return null;
   }
 
-  if (!GENETIC_REPORT_CATEGORIES.has(normalized as DiscoverGeneticReportCategory)) {
-    throw new AdminRepositoryError("Use a valid genetic report category.", 400);
+  const requested = new Set(
+    normalized
+      .split(",")
+      .map((token) => token.trim())
+      .filter((token): token is DiscoverGeneticReportCategory =>
+        GENETIC_REPORT_CATEGORIES.has(token as DiscoverGeneticReportCategory),
+      ),
+  );
+  const validKeys = GENETIC_REPORT_CATEGORY_VALUES.filter((key) =>
+    requested.has(key),
+  );
+
+  return validKeys.length ? validKeys.join(",") : null;
+}
+
+function normalizeGeneticReportCategory(value: unknown): string | null {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return null;
   }
 
-  return normalized as DiscoverGeneticReportCategory;
+  const tokens = normalized
+    .split(",")
+    .map((token) => token.trim())
+    .filter(Boolean);
+  if (!tokens.length) {
+    return null;
+  }
+
+  const invalidKeys = tokens.filter(
+    (token) =>
+      !GENETIC_REPORT_CATEGORIES.has(token as DiscoverGeneticReportCategory),
+  );
+  if (invalidKeys.length) {
+    throw new AdminRepositoryError("Use valid genetic report categories.", 400);
+  }
+
+  return readGeneticReportCategory(tokens.join(","));
 }
 
 function normalizePublicPublisherKind(value: unknown): "organization" | "individual" {
