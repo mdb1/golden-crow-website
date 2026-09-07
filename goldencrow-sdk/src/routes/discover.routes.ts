@@ -83,6 +83,9 @@ const QuerySchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
+const FeedItemsQuerySchema = QuerySchema.extend({
+  status: FeedStatusSchema.optional(),
+});
 
 const OptionalPublisherUrlSchema = z.preprocess(
   (value) => (typeof value === "string" && !value.trim() ? undefined : value),
@@ -866,7 +869,7 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
   f.get(
     "/discover/feed-items",
     {
-      schema: { querystring: QuerySchema },
+      schema: { querystring: FeedItemsQuerySchema },
     },
     async (request, reply) => {
       try {

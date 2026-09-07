@@ -491,6 +491,7 @@ type FeedItemInput = {
 } & Partial<Record<DiscoverFeedType, unknown>>;
 
 type SubmissionEvaluationDecision = "approve" | "reject";
+type DiscoverEqualityFilter = { field: string; value: unknown };
 
 function requireFullAdmin(context: AdminContext) {
   if (context.role !== "full_admin") {
@@ -1494,18 +1495,18 @@ async function listCollectionPage<T>(
 
 async function listScopedCollectionPageByDocumentCursor<T>(
   collectionName: string,
-  scopeField: string,
-  scopeValue: string,
+  filters: readonly DiscoverEqualityFilter[],
   cursor: string | undefined,
   limit: unknown,
   mapper: (doc: QueryDocumentSnapshot) => T,
 ): Promise<DiscoverListPage<T>> {
   const pageSize = resolvePageSize(limit);
   const decodedCursor = decodeDocumentCursor(cursor);
-  let query: Query = adminDb
-    .collection(collectionName)
-    .where(scopeField, "==", scopeValue)
-    .limit(pageSize + 1);
+  let query: Query = adminDb.collection(collectionName);
+  for (const filter of filters) {
+    query = query.where(filter.field, "==", filter.value);
+  }
+  query = query.limit(pageSize + 1);
 
   if (decodedCursor) {
     const cursorSnapshot = await adminDb
@@ -2560,7 +2561,7 @@ export async function evaluateDiscoverIndividualSubmission(
 
 export async function listDiscoverFeedItems(
   context: AdminContext,
-  options: { cursor?: string; limit?: unknown } = {},
+  options: { cursor?: string; limit?: unknown; status?: unknown } = {},
 ) {
   requireDiscoverAccess(context);
   const ownOrganizationId = scopedOrganizationId(context);
@@ -2571,6 +2572,16 @@ export async function listDiscoverFeedItems(
       ? "publisherIndividualId"
       : undefined;
   const scopeValue = ownOrganizationId ?? ownIndividualId;
+  const statusFilter = FEED_STATUSES.has(options.status as DiscoverFeedStatus)
+    ? (options.status as DiscoverFeedStatus)
+    : undefined;
+  const equalityFilters: DiscoverEqualityFilter[] = [];
+  if (scopeField && scopeValue) {
+    equalityFilters.push({ field: scopeField, value: scopeValue });
+  }
+  if (statusFilter) {
+    equalityFilters.push({ field: "status", value: statusFilter });
+  }
 
   let page: DiscoverListPage<DiscoverFeedItemRecord>;
   try {
@@ -2579,19 +2590,23 @@ export async function listDiscoverFeedItems(
       options.cursor,
       options.limit,
       toFeedItemRecord,
-      scopeField && scopeValue
-        ? (query) => query.where(scopeField, "==", scopeValue)
+      equalityFilters.length
+        ? (query) =>
+            equalityFilters.reduce(
+              (currentQuery, filter) =>
+                currentQuery.where(filter.field, "==", filter.value),
+              query,
+            )
         : undefined,
     );
   } catch (error) {
-    if (!scopeField || !scopeValue || !isMissingFirestoreIndexError(error)) {
+    if (!equalityFilters.length || !isMissingFirestoreIndexError(error)) {
       throw error;
     }
 
     page = await listScopedCollectionPageByDocumentCursor(
       FEED_ITEMS_COLLECTION,
-      scopeField,
-      scopeValue,
+      equalityFilters,
       options.cursor,
       options.limit,
       toFeedItemRecord,

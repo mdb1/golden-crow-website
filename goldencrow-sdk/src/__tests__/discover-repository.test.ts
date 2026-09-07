@@ -396,6 +396,86 @@ describe("discover repository", () => {
     ]);
   });
 
+  it("filters publisher-scoped feed entries by status", async () => {
+    mockFeedDocs.push(
+      {
+        id: "feed-published",
+        data: {
+          publisherOrganizationId: "org-1",
+          publisherSnapshot: { name: "Publisher One", imageUrl: null },
+          type: "news",
+          status: "published",
+          title: "Published item",
+          subtitle: "Summary",
+          body: "Body",
+          language: "en",
+          publishedAt: "2026-08-05T10:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          updatedAt: "2026-08-05T10:00:00.000Z",
+        },
+      },
+      {
+        id: "feed-other-publisher",
+        data: {
+          publisherOrganizationId: "org-2",
+          publisherSnapshot: { name: "Other Publisher", imageUrl: null },
+          type: "news",
+          status: "published",
+          title: "Other published item",
+          subtitle: "Summary",
+          body: "Body",
+          language: "en",
+          publishedAt: "2026-08-05T10:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          updatedAt: "2026-08-05T10:00:00.000Z",
+        },
+      },
+    );
+    const { listDiscoverFeedItems } =
+      await import("../repositories/discover.repository");
+
+    const result = await listDiscoverFeedItems(
+      {
+        email: "publisher@example.com",
+        uid: "uid-1",
+        role: "organization_publisher",
+        organizationId: "org-1",
+        isBootstrap: false,
+        canAccessBackoffice: true,
+        canAccessPatientPortal: false,
+        canAccessPGFlex: false,
+        canAccessPublisherPortal: false,
+        projectAccess: ["mydnamap"],
+      },
+      { status: "published", limit: 1 },
+    );
+
+    expect(result.feedItems).toHaveLength(1);
+    expect(result.feedItems[0]?.id).toBe("feed-published");
+    expect(mockQueryStubs[0]?.operations).toEqual([
+      {
+        type: "where",
+        field: "publisherOrganizationId",
+        operator: "==",
+        value: "org-1",
+      },
+      { type: "where", field: "status", operator: "==", value: "published" },
+      { type: "orderBy", field: "updatedAt", direction: "desc" },
+      { type: "orderBy", field: "__name__", direction: "desc" },
+      { type: "limit", value: 2 },
+    ]);
+    expect(mockQueryStubs[1]?.operations).toEqual([
+      {
+        type: "where",
+        field: "publisherOrganizationId",
+        operator: "==",
+        value: "org-1",
+      },
+      { type: "where", field: "status", operator: "==", value: "published" },
+      { type: "limit", value: 2 },
+    ]);
+  });
+
   it("returns Discover organization accent colors and localized descriptions", async () => {
     const { listDiscoverOrganizations } =
       await import("../repositories/discover.repository");

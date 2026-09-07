@@ -17,6 +17,10 @@ export function publisherPortalIndividualDetailRoute(individualId: string) {
   return `${PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE}/${encodeURIComponent(individualId)}`;
 }
 
+export function publisherPortalFeedEntryCreateRoute() {
+  return `${PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE}/new`;
+}
+
 export function normalizePublisherPortalCallbackUrl(
   callbackUrl: string | null | undefined,
 ) {

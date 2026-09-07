@@ -28,6 +28,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Pocket Genes Admin": "Administración Pocket Genes",
   "Full admin": "Administrador total",
   "Institution admin": "Administrador de institución",
+  "Organization publisher": "Publicador de organización",
   "Individual publisher": "Editor",
   "Transport dispatcher": "Transportista",
   "Transport dispatchers": "Transportistas",
