@@ -81,6 +81,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { EXERCISES_QUERY_KEY } from "@/lib/gc-fitness/exercises-query-key";
 
 import { MultiSelectCombobox } from "./MultiSelectCombobox";
+import { ExerciseMuscleHeatmapSection } from "@/components/gc-fitness/exercise-muscle-heatmap-section";
 import { ThumbnailUploadDropzone } from "./ThumbnailUploadDropzone";
 
 export type ExerciseFormMode = "create" | "edit" | "view";
@@ -590,6 +591,15 @@ export function ExerciseForm({
             )}
           />
         </div>
+
+        {/* #1071 — el heatmap EN VIVO, justo debajo de los dos selectores de
+            músculo. Es el único lugar donde el heatmap es un control de edición
+            y no una lectura: sirve para ver que lo que elegiste es lo que
+            quisiste decir, antes de guardar. Lee de `form.watch`, no de
+            Firestore, así que se mueve con cada cambio. */}
+        <ExerciseMuscleHeatmapSection
+          exercise={{ muscleGroups: allMuscles, primaryMuscleGroup: primaryMuscle || null }}
+        />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
