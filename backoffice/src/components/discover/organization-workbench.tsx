@@ -709,11 +709,15 @@ function DiscoverPublisherWorkbench({
     ? selectedGeneticReportCategoryLabels.join(", ")
     : t("No genetic report category");
   const imagePreviewSource = state.imageUrl.trim() || state.imageUploadDataUrl;
+  const hasImageUrl = Boolean(state.imageUrl.trim());
   const hasUploadedImage = Boolean(state.imageUploadDataUrl);
+  const hasChosenProfileImagePath = hasImageUrl || hasUploadedImage;
   const canEditBannerImage = !isIndividual && state.isGrcHighlighted;
   const bannerImagePreviewSource =
     state.bannerImageUrl.trim() || state.bannerImageUploadDataUrl;
+  const hasBannerImageUrl = Boolean(state.bannerImageUrl.trim());
   const hasUploadedBannerImage = Boolean(state.bannerImageUploadDataUrl);
+  const hasChosenBannerImagePath = hasBannerImageUrl || hasUploadedBannerImage;
   const imageUploadLimitLabel = formatFileSize(
     PUBLISHER_IMAGE_UPLOAD_MAX_BYTES,
   );
@@ -796,6 +800,10 @@ function DiscoverPublisherWorkbench({
     });
   }
 
+  function clearImageUrlSelection() {
+    updateState({ imageUrl: "" });
+  }
+
   function clearUploadedBannerImageSelection() {
     bannerImageUploadTokenRef.current += 1;
     setBannerImageUploadPending(false);
@@ -807,6 +815,10 @@ function DiscoverPublisherWorkbench({
       bannerImageUploadName: "",
       bannerImageUploadMimeType: "",
     });
+  }
+
+  function clearBannerImageUrlSelection() {
+    updateState({ bannerImageUrl: "" });
   }
 
   function handleImageUrlChange(event: ChangeEvent<HTMLInputElement>) {
@@ -1625,7 +1637,10 @@ function DiscoverPublisherWorkbench({
                 placeholder="https://"
               />
             </div>
-            <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-background/70 p-4 shadow-sm md:col-span-2">
+            <div
+              className="flex flex-col gap-3 rounded-xl border border-border/80 bg-background/70 p-4 shadow-sm md:col-span-2"
+              data-testid="discover-org-profile-image-section"
+            >
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
@@ -1649,76 +1664,103 @@ function DiscoverPublisherWorkbench({
                 ) : null}
               </div>
 
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,0.8fr)]">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="discover-org-image" className="text-xs">
-                    {t("Image URL")}
-                  </Label>
-                  <div className="relative">
-                    <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="discover-org-image"
-                      type="url"
-                      value={state.imageUrl}
-                      onChange={handleImageUrlChange}
-                      placeholder="https://"
-                      disabled={imageUploadPending}
-                      className="pl-9"
-                    />
+              <div
+                className={cn(
+                  "grid gap-3",
+                  hasChosenProfileImagePath
+                    ? "lg:grid-cols-1"
+                    : "lg:grid-cols-[minmax(0,1fr)_minmax(17rem,0.8fr)]",
+                )}
+              >
+                {!hasUploadedImage ? (
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="discover-org-image" className="text-xs">
+                      {t("Image URL")}
+                    </Label>
+                    <div className="relative">
+                      <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="discover-org-image"
+                        type="url"
+                        value={state.imageUrl}
+                        onChange={handleImageUrlChange}
+                        placeholder="https://"
+                        disabled={imageUploadPending}
+                        className={cn("pl-9", hasImageUrl && "pr-24")}
+                      />
+                      {hasImageUrl ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearImageUrlSelection}
+                          disabled={pending || imageUploadPending}
+                          aria-label={t("Clear image URL")}
+                          className="absolute right-1 top-1/2 h-8 -translate-y-1/2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          {t("Clear")}
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
-                <label
-                  htmlFor="discover-org-image-upload"
-                  onDragEnter={handleImageUploadDragEnter}
-                  onDragOver={handleImageUploadDragOver}
-                  onDragLeave={handleImageUploadDragLeave}
-                  onDrop={handleImageUploadDrop}
-                  className={cn(
-                    "relative flex min-h-24 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition duration-200",
-                    imageUploadDragging
-                      ? "border-violet-500 bg-violet-50 shadow-[0_16px_34px_rgba(109,40,217,0.16)] dark:bg-violet-500/12"
-                      : "border-violet-300/80 bg-violet-50/45 hover:-translate-y-0.5 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/35 dark:bg-violet-500/8",
-                    imageUploadPending && "cursor-progress opacity-80",
-                  )}
-                >
-                  <input
-                    ref={imageUploadInputRef}
-                    id="discover-org-image-upload"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={handleImageUploadChange}
-                    disabled={imageUploadPending}
-                    aria-label={t("Upload image file")}
-                    className="sr-only"
-                  />
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-background text-violet-700 shadow-sm dark:bg-background/80 dark:text-violet-200">
-                    {imageUploadPending ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <UploadCloud className="h-5 w-5" />
+                {!hasImageUrl ? (
+                  <label
+                    htmlFor="discover-org-image-upload"
+                    onDragEnter={handleImageUploadDragEnter}
+                    onDragOver={handleImageUploadDragOver}
+                    onDragLeave={handleImageUploadDragLeave}
+                    onDrop={handleImageUploadDrop}
+                    className={cn(
+                      "relative flex min-h-24 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition duration-200",
+                      imageUploadDragging
+                        ? "border-violet-500 bg-violet-50 shadow-[0_16px_34px_rgba(109,40,217,0.16)] dark:bg-violet-500/12"
+                        : "border-violet-300/80 bg-violet-50/45 hover:-translate-y-0.5 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/35 dark:bg-violet-500/8",
+                      imageUploadPending && "cursor-progress opacity-80",
                     )}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-foreground">
-                      {hasUploadedImage
-                        ? t("Replace uploaded image")
-                        : t("Upload image file")}
+                  >
+                    <input
+                      ref={imageUploadInputRef}
+                      id="discover-org-image-upload"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleImageUploadChange}
+                      disabled={imageUploadPending}
+                      aria-label={t("Upload image file")}
+                      className="sr-only"
+                    />
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-background text-violet-700 shadow-sm dark:bg-background/80 dark:text-violet-200">
+                      {imageUploadPending ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <UploadCloud className="h-5 w-5" />
+                      )}
                     </span>
-                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                      {imageUploadDragging
-                        ? t("Drop image to upload")
-                        : t(
-                            "PNG, JPG, or WebP up to 600 KB. Drop it here or choose a file.",
-                          ).replace("600 KB", imageUploadLimitLabel)}
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-foreground">
+                        {hasUploadedImage
+                          ? t("Replace uploaded image")
+                          : t("Upload image file")}
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                        {imageUploadDragging
+                          ? t("Drop image to upload")
+                          : t(
+                              "PNG, JPG, or WebP up to 600 KB. Drop it here or choose a file.",
+                            ).replace("600 KB", imageUploadLimitLabel)}
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  </label>
+                ) : null}
               </div>
 
               {hasUploadedImage ? (
                 <div className="flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50/55 px-3 py-2 text-sm text-emerald-950 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-100">
-                  <span className="min-w-0 truncate">{uploadedImageSummary}</span>
+                  <span className="min-w-0 truncate">
+                    {uploadedImageSummary}
+                  </span>
                   <Button
                     type="button"
                     variant="ghost"
@@ -1802,10 +1844,26 @@ function DiscoverPublisherWorkbench({
                       "cursor-copy hover:border-violet-300 hover:bg-violet-50/40 dark:hover:border-violet-400/40 dark:hover:bg-violet-500/8",
                     bannerImageUploadPending && "cursor-progress opacity-80",
                   )}
-                  onDragEnter={handleBannerImageUploadDragEnter}
-                  onDragOver={handleBannerImageUploadDragOver}
-                  onDragLeave={handleBannerImageUploadDragLeave}
-                  onDrop={handleBannerImageUploadDrop}
+                  onDragEnter={
+                    !bannerImagePreviewSource
+                      ? handleBannerImageUploadDragEnter
+                      : undefined
+                  }
+                  onDragOver={
+                    !bannerImagePreviewSource
+                      ? handleBannerImageUploadDragOver
+                      : undefined
+                  }
+                  onDragLeave={
+                    !bannerImagePreviewSource
+                      ? handleBannerImageUploadDragLeave
+                      : undefined
+                  }
+                  onDrop={
+                    !bannerImagePreviewSource
+                      ? handleBannerImageUploadDrop
+                      : undefined
+                  }
                   data-testid="discover-org-banner-preview-dropzone"
                 >
                   {bannerImagePreviewSource ? (
@@ -1838,76 +1896,102 @@ function DiscoverPublisherWorkbench({
                   )}
                 </div>
 
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,0.8fr)]">
-                  <div className="flex flex-col gap-2">
-                    <Label
-                      htmlFor="discover-org-banner-image"
-                      className="text-xs"
-                    >
-                      {t("Banner image URL")}
-                    </Label>
-                    <div className="relative">
-                      <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="discover-org-banner-image"
-                        type="url"
-                        value={state.bannerImageUrl}
-                        onChange={handleBannerImageUrlChange}
-                        placeholder="https://"
-                        disabled={bannerImageUploadPending}
-                        className="pl-9"
-                      />
+                <div
+                  className={cn(
+                    "grid gap-3",
+                    hasChosenBannerImagePath
+                      ? "lg:grid-cols-1"
+                      : "lg:grid-cols-[minmax(0,1fr)_minmax(17rem,0.8fr)]",
+                  )}
+                >
+                  {!hasUploadedBannerImage ? (
+                    <div className="flex flex-col gap-2">
+                      <Label
+                        htmlFor="discover-org-banner-image"
+                        className="text-xs"
+                      >
+                        {t("Banner image URL")}
+                      </Label>
+                      <div className="relative">
+                        <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          id="discover-org-banner-image"
+                          type="url"
+                          value={state.bannerImageUrl}
+                          onChange={handleBannerImageUrlChange}
+                          placeholder="https://"
+                          disabled={bannerImageUploadPending}
+                          className={cn("pl-9", hasBannerImageUrl && "pr-24")}
+                        />
+                        {hasBannerImageUrl ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearBannerImageUrlSelection}
+                            disabled={pending || bannerImageUploadPending}
+                            aria-label={t("Clear banner image URL")}
+                            className="absolute right-1 top-1/2 h-8 -translate-y-1/2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            {t("Clear")}
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
+                  ) : null}
 
-                  <label
-                    htmlFor="discover-org-banner-image-upload"
-                    onDragEnter={handleBannerImageUploadDragEnter}
-                    onDragOver={handleBannerImageUploadDragOver}
-                    onDragLeave={handleBannerImageUploadDragLeave}
-                    onDrop={handleBannerImageUploadDrop}
-                    className={cn(
-                      "relative flex min-h-24 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition duration-200",
-                      bannerImageUploadDragging
-                        ? "border-violet-500 bg-violet-50 shadow-[0_16px_34px_rgba(109,40,217,0.16)] dark:bg-violet-500/12"
-                        : "border-violet-300/80 bg-background/70 hover:-translate-y-0.5 hover:border-violet-400 hover:bg-background dark:border-violet-400/35 dark:bg-background/60",
-                      bannerImageUploadPending && "cursor-progress opacity-80",
-                    )}
-                  >
-                    <input
-                      ref={bannerImageUploadInputRef}
-                      id="discover-org-banner-image-upload"
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      onChange={handleBannerImageUploadChange}
-                      disabled={bannerImageUploadPending}
-                      aria-label={t("Upload banner file")}
-                      className="sr-only"
-                    />
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 shadow-sm dark:bg-violet-500/15 dark:text-violet-200">
-                      {bannerImageUploadPending ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : (
-                        <UploadCloud className="h-5 w-5" />
+                  {!hasBannerImageUrl ? (
+                    <label
+                      htmlFor="discover-org-banner-image-upload"
+                      onDragEnter={handleBannerImageUploadDragEnter}
+                      onDragOver={handleBannerImageUploadDragOver}
+                      onDragLeave={handleBannerImageUploadDragLeave}
+                      onDrop={handleBannerImageUploadDrop}
+                      className={cn(
+                        "relative flex min-h-24 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition duration-200",
+                        bannerImageUploadDragging
+                          ? "border-violet-500 bg-violet-50 shadow-[0_16px_34px_rgba(109,40,217,0.16)] dark:bg-violet-500/12"
+                          : "border-violet-300/80 bg-background/70 hover:-translate-y-0.5 hover:border-violet-400 hover:bg-background dark:border-violet-400/35 dark:bg-background/60",
+                        bannerImageUploadPending &&
+                          "cursor-progress opacity-80",
                       )}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-foreground">
-                        {hasUploadedBannerImage
-                          ? t("Replace uploaded banner image")
-                          : t("Upload banner file")}
+                    >
+                      <input
+                        ref={bannerImageUploadInputRef}
+                        id="discover-org-banner-image-upload"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={handleBannerImageUploadChange}
+                        disabled={bannerImageUploadPending}
+                        aria-label={t("Upload banner file")}
+                        className="sr-only"
+                      />
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 shadow-sm dark:bg-violet-500/15 dark:text-violet-200">
+                        {bannerImageUploadPending ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <UploadCloud className="h-5 w-5" />
+                        )}
                       </span>
-                      <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                        {bannerImageUploadDragging
-                          ? t("Drop image to upload")
-                          : t(
-                              "PNG, JPG, or WebP up to 600 KB. It will be cropped to 1024 x 500.",
-                            )
-                              .replace("600 KB", imageUploadLimitLabel)
-                              .replace("1024 x 500", bannerImageAspectLabel)}
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-foreground">
+                          {hasUploadedBannerImage
+                            ? t("Replace uploaded banner image")
+                            : t("Upload banner file")}
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                          {bannerImageUploadDragging
+                            ? t("Drop image to upload")
+                            : t(
+                                "PNG, JPG, or WebP up to 600 KB. It will be cropped to 1024 x 500.",
+                              )
+                                .replace("600 KB", imageUploadLimitLabel)
+                                .replace("1024 x 500", bannerImageAspectLabel)}
+                        </span>
                       </span>
-                    </span>
-                  </label>
+                    </label>
+                  ) : null}
                 </div>
 
                 {hasUploadedBannerImage ? (

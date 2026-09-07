@@ -456,6 +456,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "No image URL": "Sin URL de imagen",
   "No website URL": "Sin URL de sitio web",
   "Image URL": "URL de imagen",
+  Clear: "Limpiar",
+  "Clear image URL": "Limpiar URL de imagen",
   "Image URL is required.": "La URL de imagen es obligatoria.",
   "Profile image": "Imagen del perfil",
   "Profile image is required.": "La imagen del perfil es obligatoria.",
@@ -483,6 +485,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Shown in the highlighted GRC card. Use a wide 1024 x 500 image URL or upload a PNG, JPG, or WebP file.":
     "Se muestra en la celda destacada GRC. Usá una imagen horizontal de 1024 x 500 por URL o subí un archivo PNG, JPG o WebP.",
   "Banner image URL": "URL de imagen del banner",
+  "Clear banner image URL": "Limpiar URL de banner",
   "Upload banner file": "Subir banner",
   "Replace uploaded banner image": "Reemplazar banner subido",
   "Using uploaded banner image": "Usando banner subido",

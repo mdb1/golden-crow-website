@@ -676,10 +676,32 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       screen.getByTestId("discover-org-banner-image-section"),
     ).toBeTruthy();
 
+    const bannerSection = screen.getByTestId(
+      "discover-org-banner-image-section",
+    );
     await user.type(
-      screen.getByLabelText("Banner image URL"),
+      within(bannerSection).getByLabelText("Banner image URL"),
       "https://example.org/grc-banner.png",
     );
+    expect(
+      within(bannerSection).queryByLabelText("Upload banner file"),
+    ).toBeNull();
+    await user.click(
+      within(bannerSection).getByRole("button", {
+        name: "Clear banner image URL",
+      }),
+    );
+    expect(
+      within(bannerSection).getByLabelText("Upload banner file"),
+    ).toBeTruthy();
+    await user.type(
+      within(bannerSection).getByLabelText("Banner image URL"),
+      "https://example.org/grc-banner.png",
+    );
+    expect(
+      within(bannerSection).queryByLabelText("Upload banner file"),
+    ).toBeNull();
+
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
@@ -829,9 +851,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const body = JSON.parse(
       jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
     ) as Record<string, unknown>;
-    expect(body.geneticReportCategory).toBe(
-      "grc_full_genome,grc_reproductive",
-    );
+    expect(body.geneticReportCategory).toBe("grc_full_genome,grc_reproductive");
   });
 
   it("does not render organization genetic report fields for individual publishers", () => {
@@ -914,8 +934,35 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const user = userEvent.setup();
     renderWorkbench();
 
+    const imageSection = screen.getByTestId(
+      "discover-org-profile-image-section",
+    );
+    expect(
+      within(imageSection).queryByLabelText("Upload image file"),
+    ).toBeNull();
+    await user.click(
+      within(imageSection).getByRole("button", { name: "Clear image URL" }),
+    );
+    expect(within(imageSection).getByLabelText("Image URL")).toBeTruthy();
+    expect(
+      within(imageSection).getByLabelText("Upload image file"),
+    ).toBeTruthy();
+    await user.type(
+      within(imageSection).getByLabelText("Image URL"),
+      "https://example.org/another-logo.png",
+    );
+    expect(
+      within(imageSection).queryByLabelText("Upload image file"),
+    ).toBeNull();
+    await user.click(
+      within(imageSection).getByRole("button", { name: "Clear image URL" }),
+    );
+    expect(
+      within(imageSection).getByLabelText("Upload image file"),
+    ).toBeTruthy();
+
     await user.upload(
-      screen.getByLabelText("Upload image file"),
+      within(imageSection).getByLabelText("Upload image file"),
       new File(["tiny-image"], "publisher-logo.png", { type: "image/png" }),
     );
 
@@ -923,9 +970,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(
       document.querySelector('img[src^="data:image/png;base64,"]'),
     ).toBeTruthy();
-    expect((screen.getByLabelText("Image URL") as HTMLInputElement).value).toBe(
-      "",
-    );
+    expect(within(imageSection).queryByLabelText("Image URL")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -950,23 +995,31 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     jest.mocked(sdkFetch).mockResolvedValue({ individual });
     renderIndividualWorkbench();
 
+    const imageSection = screen.getByTestId(
+      "discover-org-profile-image-section",
+    );
+    await user.click(
+      within(imageSection).getByRole("button", { name: "Clear image URL" }),
+    );
+
     await user.upload(
-      screen.getByLabelText("Upload image file"),
+      within(imageSection).getByLabelText("Upload image file"),
       new File(["tiny-portrait"], "publisher-portrait.jpg", {
         type: "image/jpeg",
       }),
     );
 
     expect(await screen.findByText("Uploaded image ready.")).toBeTruthy();
-    await user.click(
-      screen.getByRole("button", { name: "Save changes" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
-      expect(sdkFetch).toHaveBeenCalledWith("/discover/individuals/individual-1", {
-        method: "PUT",
-        body: expect.any(String),
-      });
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/individuals/individual-1",
+        {
+          method: "PUT",
+          body: expect.any(String),
+        },
+      );
     });
 
     const body = JSON.parse(
@@ -989,10 +1042,24 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     };
     renderWorkbench("en", { organization: uploadedOrganization });
 
+    const imageSection = screen.getByTestId(
+      "discover-org-profile-image-section",
+    );
+    expect(within(imageSection).queryByLabelText("Image URL")).toBeNull();
+    await user.click(
+      within(imageSection).getByRole("button", {
+        name: "Remove uploaded image",
+      }),
+    );
+
     await user.type(
-      screen.getByLabelText("Image URL"),
+      within(imageSection).getByLabelText("Image URL"),
       "https://example.org/replacement.png",
     );
+    expect(
+      within(imageSection).queryByLabelText("Upload image file"),
+    ).toBeNull();
+
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
