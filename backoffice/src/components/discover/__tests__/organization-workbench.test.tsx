@@ -564,6 +564,22 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     ).toContain("md:col-span-2");
   });
 
+  it("renders selected country chips in the saved comma-separated order", () => {
+    renderWorkbench("en", {
+      organization: {
+        ...organization,
+        countryCode: "ES,AR",
+      },
+    });
+
+    const countryField = screen.getByText("Country coverage").parentElement;
+    const countryTexts = within(countryField as HTMLElement)
+      .getAllByText(/Spain \(ES\)|Argentina \(AR\)/)
+      .map((node) => node.textContent);
+
+    expect(countryTexts).toEqual(["Spain (ES)", "Argentina (AR)"]);
+  });
+
   it("saves organization genetic report provider fields", async () => {
     const user = userEvent.setup();
     renderWorkbench();
@@ -600,6 +616,34 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     ) as Record<string, unknown>;
     expect(body.isGeneticReportProvider).toBe(false);
     expect(body.geneticReportCategory).toBeNull();
+  });
+
+  it("saves genetic report categories in checkbox selection order", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Genetic report categories: 1 report category selected/i,
+      }),
+    );
+    await user.click(screen.getByRole("checkbox", { name: "Reproductive" }));
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.geneticReportCategory).toBe(
+      "grc_full_genome,grc_reproductive",
+    );
   });
 
   it("does not render organization genetic report fields for individual publishers", () => {

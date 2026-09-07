@@ -702,20 +702,20 @@ export function discoverGeneticReportCategoryLabels(
 export function parseDiscoverGeneticReportCategoryKeys(
   value: string | null | undefined,
 ): DiscoverGeneticReportCategory[] {
-  const requested = new Set(
-    String(value ?? "")
-      .split(",")
-      .map((token) => token.trim())
-      .filter((token): token is DiscoverGeneticReportCategory =>
-        DISCOVER_GENETIC_REPORT_CATEGORY_KEYS.has(
-          token as DiscoverGeneticReportCategory,
-        ),
-      ),
-  );
+  const seen = new Set<DiscoverGeneticReportCategory>();
 
-  return DISCOVER_GENETIC_REPORT_CATEGORY_OPTIONS
-    .map((option) => option.value)
-    .filter((key) => requested.has(key));
+  return String(value ?? "")
+    .split(",")
+    .map((token) => token.trim())
+    .filter((token): token is DiscoverGeneticReportCategory => {
+      const key = token as DiscoverGeneticReportCategory;
+      if (!DISCOVER_GENETIC_REPORT_CATEGORY_KEYS.has(key) || seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
 }
 
 export function serializeDiscoverGeneticReportCategoryKeys(
