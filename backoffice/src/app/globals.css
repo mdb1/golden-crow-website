@@ -238,6 +238,18 @@
     --border: rgba(255, 255, 255, 0.09);
     --input: #1a1e26;
     --ring: rgba(211, 168, 78, 0.6);
+
+    /* #1070 (épica #1067) — la rampa del heatmap de músculos.
+       CÁLIDA a propósito: rojo → naranja → ámbar, variando en LUMINANCIA además
+       de en tono, así que sigue siendo legible con daltonismo rojo-verde. La
+       leyenda además lleva el número de series, así que el color nunca es el
+       único portador de la información. Los tonos son los gemelos de
+       `DangerColor` / `StatOrange` / `BrandAmber` en las apps. */
+    --gc-heat-max: #ff453a;
+    --gc-heat-high: #fb8c3d;
+    --gc-heat-mid: #d9a441;
+    --gc-heat-low: rgba(217, 164, 65, 0.4);
+    --gc-heat-none: #2c2c2e;
     --chart-1: #d3a84e;
     /* #480 — 7 distinct categorical colors for the muscle-group charts (one
        overlaid line per coarse group). Tuned for legibility on the dark canvas
@@ -320,6 +332,14 @@
     --ambient-glow-bottom: transparent;
     --ambient-fade-top: #f5f6f8;
     --ambient-fade-mid: #f5f6f8;
+
+    /* #1070 — la rampa del heatmap en claro. Mismos gemelos que las apps en
+       light mode (`DangerColor` / `StatOrange` / `BrandAmber`). */
+    --gc-heat-max: #ff3b30;
+    --gc-heat-high: #f97316;
+    --gc-heat-mid: #d9a441;
+    --gc-heat-low: rgba(217, 164, 65, 0.4);
+    --gc-heat-none: #e7e9ee;
   }
 
   .gc-fitness-theme .gc-shell-bg {
