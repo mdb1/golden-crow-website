@@ -248,6 +248,95 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(saveDock.className).not.toContain("sticky");
   });
 
+  it("renders a rich translated public preview for an organization", () => {
+    const richOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      imageUrl: null,
+      imageUploadDataUrl: "data:image/png;base64,profile-image",
+      bannerImageUrl: null,
+      bannerImageUploadDataUrl: "data:image/png;base64,banner-image",
+      isGrcHighlighted: true,
+      description:
+        "Descripción pública extendida para revisar cómo se ve la organización.",
+      descriptionEn:
+        "Extended public description to review how the organization looks.",
+      countryCode: "ES,AR",
+      organizationType:
+        "org_biotechnology_companies,org_genetic_testing_laboratories",
+      geneticReportCategory: "grc_ophthalmics,grc_full_genome",
+      social: {
+        instagram: "instagram.com/publisher-one",
+        youtube: "https://youtube.com/@publisher-one",
+      },
+    };
+    renderWorkbench("es", {
+      organization: richOrganization,
+      canManageGrcHighlight: true,
+    });
+
+    const preview = screen.getByTestId("discover-publisher-public-preview");
+    const profileImage = within(preview).getByRole("img", {
+      name: "Imagen del perfil Publisher One",
+    });
+    const bannerImage = within(preview).getByRole("img", {
+      name: "Banner destacado GRC Publisher One",
+    });
+    const countries = within(preview)
+      .getAllByText(/España \(ES\)|Argentina \(AR\)/)
+      .map((node) => node.textContent);
+    const instagramLink = within(preview).getByRole("link", {
+      name: "Perfil de Instagram: instagram.com/publisher-one",
+    });
+
+    expect(profileImage.getAttribute("src")).toBe(
+      "data:image/png;base64,profile-image",
+    );
+    expect(bannerImage.getAttribute("src")).toBe(
+      "data:image/png;base64,banner-image",
+    );
+    expect(
+      within(preview).getByText(
+        "Descripción pública extendida para revisar cómo se ve la organización.",
+      ),
+    ).toBeTruthy();
+    expect(within(preview).getByText("Empresa de biotecnología")).toBeTruthy();
+    expect(
+      within(preview).getByText("Laboratorio de pruebas genéticas"),
+    ).toBeTruthy();
+    expect(countries).toEqual(["España (ES)", "Argentina (AR)"]);
+    expect(within(preview).getByText("Oftalmológico")).toBeTruthy();
+    expect(within(preview).getByText("Genoma completo")).toBeTruthy();
+    expect(instagramLink.getAttribute("href")).toBe(
+      "https://instagram.com/publisher-one",
+    );
+    expect(
+      within(
+        screen.getByTestId("discover-publisher-preview-socials"),
+      ).getByRole("link", {
+        name: "Canal de YouTube: https://youtube.com/@publisher-one",
+      }),
+    ).toBeTruthy();
+  });
+
+  it("uses the active language description in the public preview", () => {
+    renderWorkbench("en", {
+      organization: {
+        ...organization,
+        description: "Descripción visible para español.",
+        descriptionEn: "English description visible in preview.",
+      },
+    });
+
+    const preview = screen.getByTestId("discover-publisher-public-preview");
+
+    expect(
+      within(preview).getByText("English description visible in preview."),
+    ).toBeTruthy();
+    expect(
+      within(preview).queryByText("Descripción visible para español."),
+    ).toBeNull();
+  });
+
   it("does not render the internal notes block", () => {
     renderWorkbench("es");
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { signOut } from "next-auth/react";
 import {
   type ChangeEvent,
+  type CSSProperties,
   type DragEvent,
   useMemo,
   useRef,
@@ -13,16 +14,22 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
+  BadgeCheck,
   ChevronDown,
   Check,
   CheckCircle2,
+  ExternalLink,
+  Globe2,
   ImageIcon,
   Loader2,
+  MapPin,
   Link2,
   Palette,
   PencilLine,
   RotateCcw,
   Save,
+  ShieldCheck,
+  Sparkles,
   Trash2,
   UploadCloud,
   XCircle,
@@ -31,7 +38,11 @@ import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { PublisherCategoryMultiSelect } from "@/components/discover/publisher-category-multi-select";
 import { PublisherCountryMultiSelect } from "@/components/discover/publisher-country-multi-select";
-import { PublisherSocialLinksEditor } from "@/components/discover/publisher-social-links-editor";
+import {
+  PublisherSocialLinksEditor,
+  SOCIAL_OPTIONS,
+  socialAssetSrc,
+} from "@/components/discover/publisher-social-links-editor";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,10 +68,12 @@ import {
   DISCOVER_ORGANIZATION_STATUS_OPTIONS,
   discoverGeneticReportCategoryLabels,
   discoverGeneticReportCategoryProvider,
+  discoverOrganizationStatusLabel,
   type DiscoverIndividualRecord,
   type DiscoverIndividualStatus,
   type DiscoverOrganizationRecord,
   type DiscoverOrganizationStatus,
+  type DiscoverPublisherSocialKey,
   type DiscoverPublisherSocialLinks,
 } from "@/lib/discover";
 import {
@@ -68,7 +81,8 @@ import {
   discoverOrganizationCategoryProvider,
 } from "@/lib/discover-publisher-categories";
 import {
-  formatDiscoverOrganizationCountries,
+  formatDiscoverOrganizationCountry,
+  parseDiscoverOrganizationCountryCodes,
   serializeDiscoverOrganizationCountryCodes,
   slugifyDiscoverOrganizationName,
 } from "@/lib/discover-organization-fields";
@@ -104,6 +118,7 @@ const PUBLISHER_IMAGE_COMPRESSION_QUALITY_STEPS = [
 const PUBLISHER_BANNER_IMAGE_WIDTH = 1024;
 const PUBLISHER_BANNER_IMAGE_HEIGHT = 500;
 const IMAGE_REDUCER_URL = "https://squoosh.app/";
+const DEFAULT_PREVIEW_ACCENT_COLOR = "#6D28D9";
 
 type ProcessedPublisherImageUpload = {
   dataUrl: string;
@@ -257,6 +272,72 @@ function cleanPublisherSocialLinks(social: DiscoverPublisherSocialLinks) {
   return Object.fromEntries(
     Object.entries(social).filter(([, value]) => value.trim()),
   ) as DiscoverPublisherSocialLinks;
+}
+
+function previewInitials(name: string, fallback: string) {
+  const source = (name || fallback).trim();
+  const initials = source
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  return initials || "PG";
+}
+
+function previewDescriptionForLanguage(
+  language: "en" | "es",
+  description: string,
+  descriptionEn: string,
+) {
+  const baseDescription = description.trim();
+  const englishDescription = descriptionEn.trim();
+
+  if (language === "en") {
+    return englishDescription || baseDescription;
+  }
+
+  return baseDescription || englishDescription;
+}
+
+function ensureExternalHref(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (/^(https?:|mailto:|tel:)/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+}
+
+function previewSocialHref(key: DiscoverPublisherSocialKey, value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (key === "email" && !/^(mailto:|https?:)/i.test(trimmed)) {
+    return `mailto:${trimmed}`;
+  }
+
+  return ensureExternalHref(trimmed);
+}
+
+function compactPreviewUrlLabel(value: string) {
+  const withoutProtocol = value
+    .trim()
+    .replace(/^(https?:\/\/|mailto:)/i, "")
+    .replace(/\/$/, "");
+
+  return withoutProtocol.length > 34
+    ? `${withoutProtocol.slice(0, 31)}...`
+    : withoutProtocol;
 }
 
 function normalizedColorHex(value: string) {
@@ -660,10 +741,6 @@ function DiscoverPublisherWorkbench({
           (option) => option.value !== "active",
         )
       : DISCOVER_ORGANIZATION_STATUS_OPTIONS;
-  const countryLabel = formatDiscoverOrganizationCountries(
-    state.countryCode,
-    language,
-  );
   const isIndividual = publisherKind === "individual";
   const publisherRouteBase =
     routeBase ??
@@ -710,9 +787,6 @@ function DiscoverPublisherWorkbench({
     discoverGeneticReportCategoryLabels(
       state.geneticReportCategory || null,
     ).map((label) => t(label));
-  const geneticReportCategoryLabel = selectedGeneticReportCategoryLabels.length
-    ? selectedGeneticReportCategoryLabels.join(", ")
-    : t("No genetic report category");
   const imagePreviewSource = state.imageUrl.trim() || state.imageUploadDataUrl;
   const hasImageUrl = Boolean(state.imageUrl.trim());
   const hasUploadedImage = Boolean(state.imageUploadDataUrl);
@@ -723,6 +797,46 @@ function DiscoverPublisherWorkbench({
   const hasBannerImageUrl = Boolean(state.bannerImageUrl.trim());
   const hasUploadedBannerImage = Boolean(state.bannerImageUploadDataUrl);
   const hasChosenBannerImagePath = hasBannerImageUrl || hasUploadedBannerImage;
+  const previewAccentColor = colorHex || DEFAULT_PREVIEW_ACCENT_COLOR;
+  const previewDescription = previewDescriptionForLanguage(
+    language,
+    state.description,
+    state.descriptionEn,
+  );
+  const previewStatusLabel = t(
+    discoverOrganizationStatusLabel(state.status as DiscoverOrganizationStatus),
+  );
+  const previewCountryPills = parseDiscoverOrganizationCountryCodes(
+    state.countryCode,
+  ).map((code) => ({
+    code,
+    label: formatDiscoverOrganizationCountry(code, language) ?? code,
+  }));
+  const previewWebsiteHref = ensureExternalHref(state.websiteUrl);
+  const previewWebsiteLabel = state.websiteUrl.trim()
+    ? compactPreviewUrlLabel(state.websiteUrl)
+    : t("No website URL");
+  const previewSocialEntries = SOCIAL_OPTIONS.flatMap((option) => {
+    const value = state.social[option.key]?.trim();
+    const href = value ? previewSocialHref(option.key, value) : "";
+
+    return value && href
+      ? [
+          {
+            ...option,
+            value,
+            href,
+          },
+        ]
+      : [];
+  });
+  const showPreviewGeneticReports =
+    !isIndividual &&
+    state.isGeneticReportProvider &&
+    selectedGeneticReportCategoryLabels.length > 0;
+  const previewStyle = {
+    "--discover-preview-accent": previewAccentColor,
+  } as CSSProperties;
   const imageUploadLimitLabel = formatFileSize(
     PUBLISHER_IMAGE_UPLOAD_MAX_BYTES,
   );
@@ -2146,83 +2260,219 @@ function DiscoverPublisherWorkbench({
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-3">
-            <div className="overflow-hidden rounded-md border border-border bg-muted/30">
-              {imagePreviewSource ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imagePreviewSource}
-                  alt=""
-                  className="aspect-square w-full object-cover"
-                />
-              ) : (
-                <div className="flex aspect-square items-center justify-center px-4 text-center text-sm text-muted-foreground">
-                  {t("No image URL")}
-                </div>
-              )}
-            </div>
-            {canEditBannerImage ? (
-              <div className="overflow-hidden rounded-md border border-violet-200 bg-violet-50/40 dark:border-violet-400/25 dark:bg-violet-500/8">
-                {bannerImagePreviewSource ? (
+          <aside
+            data-testid="discover-publisher-public-preview"
+            className="overflow-hidden rounded-2xl border border-border bg-background shadow-sm lg:sticky lg:top-24"
+            style={previewStyle}
+          >
+            <div className="relative">
+              <div className="h-32 overflow-hidden bg-[linear-gradient(135deg,var(--discover-preview-accent)_0%,rgba(124,58,237,0.34)_48%,rgba(255,255,255,0.92)_100%)]">
+                {canEditBannerImage && bannerImagePreviewSource ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={bannerImagePreviewSource}
-                    alt=""
-                    className="aspect-[1024/500] w-full object-cover"
+                    alt={`${t("GRC highlight banner")} ${state.name || publisherNameLabel}`}
+                    className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex aspect-[1024/500] items-center justify-center px-4 text-center text-xs text-muted-foreground">
-                    {t("No GRC banner image")}
-                  </div>
+                  <div className="h-full w-full bg-[radial-gradient(circle_at_24%_18%,rgba(255,255,255,0.72),transparent_32%),linear-gradient(135deg,var(--discover-preview-accent),rgba(124,58,237,0.36),rgba(236,253,245,0.5))]" />
                 )}
               </div>
-            ) : null}
-            <div className="rounded-md border border-border px-3 py-3 text-sm text-muted-foreground">
-              <div className="font-medium text-foreground">
-                {state.name || publisherNameLabel}
-              </div>
-              <div>{state.websiteUrl || t("No website URL")}</div>
-              <div>{countryLabel || t("No country")}</div>
-              <div>
-                {selectedCategoryDisplayLabels.length
-                  ? selectedCategoryDisplayLabels.join(", ")
-                  : t("No categories selected")}
-              </div>
-              {!isIndividual ? (
-                <>
-                  <div>
-                    {state.isGeneticReportProvider
-                      ? t("Genetic report provider")
-                      : t("Not a genetic report provider")}
-                  </div>
-                  {state.isGeneticReportProvider ? (
-                    <div>{geneticReportCategoryLabel}</div>
-                  ) : null}
-                  {canManageGrcHighlight ? (
-                    <div>
-                      {state.isGrcHighlighted
-                        ? t("GRC highlighted")
-                        : t("Not GRC highlighted")}
-                    </div>
-                  ) : null}
-                  {state.isGrcHighlighted ? (
-                    <div>
-                      {bannerImagePreviewSource
-                        ? t("GRC banner ready")
-                        : t("No GRC banner image")}
-                    </div>
-                  ) : null}
-                </>
-              ) : null}
-              <div className="mt-2 flex items-center gap-2">
-                <span
-                  className="h-3.5 w-3.5 rounded-full border border-border"
-                  style={{ backgroundColor: colorHex || "transparent" }}
-                />
-                <span>{colorHex || t("No accent color")}</span>
+
+              <div className="absolute left-4 top-20 flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border-4 border-background bg-background shadow-lg">
+                {imagePreviewSource ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imagePreviewSource}
+                    alt={`${t("Profile image")} ${state.name || publisherNameLabel}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span
+                    className="flex h-full w-full items-center justify-center text-2xl font-bold text-white"
+                    style={{ backgroundColor: previewAccentColor }}
+                  >
+                    {previewInitials(state.name, publisherNameLabel)}
+                  </span>
+                )}
               </div>
             </div>
-          </div>
+
+            <div className="px-4 pb-4 pt-16">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    {t("Public preview")}
+                  </p>
+                  <h3 className="mt-1 truncate font-heading text-2xl font-semibold text-foreground">
+                    {state.name || publisherNameLabel}
+                  </h3>
+                </div>
+                <span className="shrink-0 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                  {previewStatusLabel}
+                </span>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {state.verified ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    {t("Verified publisher")}
+                  </span>
+                ) : null}
+                {!isIndividual && state.isGeneticReportProvider ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-100">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    {t("Genetic report provider")}
+                  </span>
+                ) : null}
+                {!isIndividual && state.isGrcHighlighted ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {t("GRC highlighted")}
+                  </span>
+                ) : null}
+              </div>
+
+              <p className="mt-4 whitespace-pre-line text-sm leading-6 text-muted-foreground">
+                {previewDescription || t("No public description yet.")}
+              </p>
+
+              <div className="mt-4 grid gap-3">
+                <div>
+                  <p
+                    className="flex items-center gap-1.5 text-xs font-semibold uppercase"
+                    style={{ color: previewAccentColor }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {t("Profile categories")}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedCategoryDisplayLabels.length ? (
+                      selectedCategoryDisplayLabels.map((label) => (
+                        <span
+                          key={label}
+                          className="rounded-full border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground"
+                        >
+                          {label}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {t("No categories selected")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <p
+                    className="flex items-center gap-1.5 text-xs font-semibold uppercase"
+                    style={{ color: previewAccentColor }}
+                  >
+                    <MapPin className="h-3.5 w-3.5" />
+                    {t("Countries")}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {previewCountryPills.length ? (
+                      previewCountryPills.map((country) => (
+                        <span
+                          key={country.code}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground shadow-sm"
+                        >
+                          <Globe2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          {country.label}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {t("No country")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {showPreviewGeneticReports ? (
+                  <div>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: previewAccentColor }}
+                    >
+                      {t("Genetic reports")}
+                    </p>
+                    <ul className="mt-2 grid gap-1.5 text-sm text-muted-foreground">
+                      {selectedGeneticReportCategoryLabels.map((label) => (
+                        <li key={label} className="flex items-start gap-2">
+                          <span
+                            className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: previewAccentColor }}
+                          />
+                          <span>{label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-5 border-t border-border pt-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  {previewWebsiteHref ? (
+                    <a
+                      href={previewWebsiteHref}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-10 min-w-0 items-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-primary/5"
+                    >
+                      <ExternalLink className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{previewWebsiteLabel}</span>
+                    </a>
+                  ) : (
+                    <span className="inline-flex min-h-10 items-center rounded-full border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">
+                      {previewWebsiteLabel}
+                    </span>
+                  )}
+                </div>
+
+                {previewSocialEntries.length ? (
+                  <div
+                    data-testid="discover-publisher-preview-socials"
+                    className="mt-3 flex flex-wrap gap-2"
+                  >
+                    {previewSocialEntries.map((option) => (
+                      <a
+                        key={option.key}
+                        href={option.href}
+                        target={
+                          option.href.startsWith("mailto:")
+                            ? undefined
+                            : "_blank"
+                        }
+                        rel={
+                          option.href.startsWith("mailto:")
+                            ? undefined
+                            : "noreferrer"
+                        }
+                        aria-label={`${t(option.label)}: ${option.value}`}
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background shadow-sm transition-transform hover:-translate-y-0.5 hover:border-primary/50"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={socialAssetSrc(option.assetName)}
+                          alt=""
+                          className="h-8 w-8 rounded-full object-contain"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    {t("No social links added")}
+                  </p>
+                )}
+              </div>
+            </div>
+          </aside>
         </div>
 
         {showDangerZone ? (

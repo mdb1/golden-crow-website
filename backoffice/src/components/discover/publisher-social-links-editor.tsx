@@ -19,14 +19,14 @@ import type {
 
 const SOCIAL_ASSET_BASE = "/discover/social-network-assets";
 
-type SocialOption = {
+export type SocialOption = {
   key: DiscoverPublisherSocialKey;
   label: string;
   placeholder: string;
   assetName: string;
 };
 
-const SOCIAL_OPTIONS: readonly SocialOption[] = [
+export const SOCIAL_OPTIONS: readonly SocialOption[] = [
   {
     key: "facebook",
     label: "Facebook profile",
@@ -227,7 +227,7 @@ const SOCIAL_OPTIONS: readonly SocialOption[] = [
   },
 ] as const;
 
-function socialAssetSrc(assetName: string) {
+export function socialAssetSrc(assetName: string) {
   return `${SOCIAL_ASSET_BASE}/${assetName}.png`;
 }
 
@@ -265,10 +265,7 @@ export function PublisherSocialLinksEditor({
   const [pickerOpen, setPickerOpen] = useState(false);
   const rows = SOCIAL_OPTIONS.filter((option) => selectedKeys.has(option.key));
 
-  function updateSocial(
-    key: DiscoverPublisherSocialKey,
-    nextValue: string,
-  ) {
+  function updateSocial(key: DiscoverPublisherSocialKey, nextValue: string) {
     onChange({ ...social, [key]: nextValue });
   }
 
