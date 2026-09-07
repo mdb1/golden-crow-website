@@ -457,6 +457,28 @@ const SPANISH_TEXT: Record<string, string> = {
   "No website URL": "Sin URL de sitio web",
   "Image URL": "URL de imagen",
   "Image URL is required.": "La URL de imagen es obligatoria.",
+  "Profile image": "Imagen del perfil",
+  "Profile image is required.": "La imagen del perfil es obligatoria.",
+  "Use an image URL or upload a PNG, JPG, or WebP file. Large files are compressed before saving.":
+    "Usá una URL de imagen o subí un archivo PNG, JPG o WebP. Los archivos grandes se comprimen antes de guardar.",
+  "Upload image file": "Subir imagen",
+  "Replace uploaded image": "Reemplazar imagen subida",
+  "Using uploaded image": "Usando imagen subida",
+  "Remove uploaded image": "Quitar imagen subida",
+  "Drop image to upload": "Soltá la imagen para subirla",
+  "PNG, JPG, or WebP up to 600 KB. Drop it here or choose a file.":
+    "PNG, JPG o WebP de hasta 600 KB. Soltala acá o elegí un archivo.",
+  "Loading image...": "Cargando imagen...",
+  "Compressing image...": "Comprimiendo imagen...",
+  "Uploaded image ready.": "Imagen subida lista.",
+  "Image compressed and ready.": "Imagen comprimida y lista.",
+  "Only PNG, JPG, or WebP images can be uploaded here.":
+    "Solo se pueden subir imágenes PNG, JPG o WebP acá.",
+  "We could not compress this image under 600 KB. Reduce it and upload a smaller version.":
+    "No pudimos comprimir esta imagen por debajo de 600 KB. Reducila y subí una versión más liviana.",
+  "Compress it for free": "Comprimirla gratis",
+  "Wait until the image finishes processing.":
+    "Esperá a que la imagen termine de procesarse.",
   "Website URL": "URL del sitio web",
   "Internal notes": "Notas internas",
   "Verified publisher": "Publicador verificado",

@@ -985,6 +985,102 @@ describe("discover repository", () => {
     );
   });
 
+  it("clears uploaded organization logo fields when a replacement image URL is saved", async () => {
+    const { updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+    mockOrganizationDocs.push({
+      id: "uploaded-org-url-replacement",
+      data: {
+        name: "Uploaded Logo Lab",
+        imageUrl: null,
+        imageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+        imageUploadName: "wizard-logo.png",
+        imageUploadMimeType: "image/png",
+        status: "pending_approval",
+        countryCode: "AR",
+        organizationType: "org_genetic_testing_laboratories",
+        verified: false,
+        isGeneticReportProvider: false,
+        geneticReportCategory: null,
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-02T00:00:00.000Z",
+      },
+    });
+
+    const result = await updateDiscoverOrganization(
+      fullAdminContext,
+      "uploaded-org-url-replacement",
+      {
+        name: "Uploaded Logo Lab URL",
+        imageUrl: "https://example.org/replacement.png",
+        imageUploadDataUrl: null,
+        status: "pending_approval",
+        countryCode: "AR",
+        organizationType: "org_genetic_testing_laboratories",
+        verified: false,
+        isGeneticReportProvider: false,
+        geneticReportCategory: null,
+      } as Record<string, unknown>,
+    );
+    const stored = mockOrganizationDocs.find(
+      (doc) => doc.id === "uploaded-org-url-replacement",
+    );
+
+    expect(result.imageUrl).toBe("https://example.org/replacement.png");
+    expect(result.imageUploadDataUrl).toBeUndefined();
+    expect(result.imageUploadName).toBeUndefined();
+    expect(result.imageUploadMimeType).toBeUndefined();
+    expect(stored?.data.imageUploadDataUrl).toBeUndefined();
+    expect(stored?.data.imageUploadName).toBeUndefined();
+    expect(stored?.data.imageUploadMimeType).toBeUndefined();
+  });
+
+  it("clears uploaded individual portrait fields when a replacement image URL is saved", async () => {
+    const { updateDiscoverIndividual } =
+      await import("../repositories/discover.repository");
+    mockIndividualDocs.push({
+      id: "uploaded-individual-url-replacement",
+      data: {
+        name: "Uploaded Portrait Pro",
+        imageUrl: null,
+        imageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+        imageUploadName: "portrait.png",
+        imageUploadMimeType: "image/png",
+        status: "pending_approval",
+        countryCode: "AR",
+        individualType: "pro_clinical_geneticists",
+        verified: false,
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-02T00:00:00.000Z",
+      },
+    });
+
+    const result = await updateDiscoverIndividual(
+      fullAdminContext,
+      "uploaded-individual-url-replacement",
+      {
+        name: "Uploaded Portrait URL",
+        imageUrl: "https://example.org/portrait.png",
+        imageUploadDataUrl: null,
+        status: "pending_approval",
+        countryCode: "AR",
+        individualType: "pro_clinical_geneticists",
+        verified: false,
+      } as Record<string, unknown>,
+    );
+    const stored = mockIndividualDocs.find(
+      (doc) => doc.id === "uploaded-individual-url-replacement",
+    );
+
+    expect(result.imageUrl).toBe("https://example.org/portrait.png");
+    expect(result.imageUploadDataUrl).toBeUndefined();
+    expect(result.imageUploadName).toBeUndefined();
+    expect(result.imageUploadMimeType).toBeUndefined();
+    expect(stored?.data.imageUploadDataUrl).toBeUndefined();
+    expect(stored?.data.imageUploadName).toBeUndefined();
+    expect(stored?.data.imageUploadMimeType).toBeUndefined();
+  });
+
   it("creates public organization approval requests with pending defaults", async () => {
     const { createDiscoverPublisherApprovalRequest } =
       await import("../repositories/discover.repository");

@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { useMemo, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type DragEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -10,11 +16,15 @@ import {
   ChevronDown,
   Check,
   CheckCircle2,
+  ImageIcon,
+  Loader2,
+  Link2,
   Palette,
   PencilLine,
   RotateCcw,
   Save,
   Trash2,
+  UploadCloud,
   XCircle,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -66,6 +76,39 @@ import {
 type PublisherKind = "organization" | "individual";
 type PublisherRecord = DiscoverOrganizationRecord | DiscoverIndividualRecord;
 type DeleteSuccessAction = "list" | "publisher-login";
+type ImageUploadStatusTone = "loading" | "success" | "warning" | "error";
+type ImageUploadStatus = {
+  tone: ImageUploadStatusTone;
+  message: string;
+  href?: string;
+  linkLabel?: string;
+};
+
+const PUBLISHER_IMAGE_UPLOAD_MAX_BYTES = 600 * 1024;
+const PUBLISHER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH = 900000;
+const PUBLISHER_IMAGE_UPLOAD_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+const PUBLISHER_IMAGE_COMPRESSION_MIME_TYPES = [
+  "image/webp",
+  "image/jpeg",
+] as const;
+const PUBLISHER_IMAGE_COMPRESSION_DIMENSION_STEPS = [
+  1600, 1200, 960, 720, 560, 420, 320,
+] as const;
+const PUBLISHER_IMAGE_COMPRESSION_QUALITY_STEPS = [
+  0.86, 0.76, 0.66, 0.56, 0.46, 0.36,
+] as const;
+const IMAGE_REDUCER_URL = "https://squoosh.app/";
+
+type ProcessedPublisherImageUpload = {
+  dataUrl: string;
+  name: string;
+  mimeType: string;
+  compressed: boolean;
+};
 
 type OrganizationFormState = {
   name: string;
@@ -147,7 +190,8 @@ function payloadFromState(
     ...state,
     slug: slugifyDiscoverOrganizationName(state.name),
     imageUrl: state.imageUrl || null,
-    imageUploadDataUrl: state.imageUploadDataUrl || undefined,
+    imageUploadDataUrl:
+      state.imageUploadDataUrl || (state.imageUrl.trim() ? null : undefined),
     imageUploadName: state.imageUploadName || undefined,
     imageUploadMimeType: state.imageUploadMimeType || undefined,
     websiteUrl: state.websiteUrl || null,
@@ -197,6 +241,194 @@ function colorTextValue(value: string) {
   return normalizedColorHex(value) || value.trim();
 }
 
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  const kilobytes = bytes / 1024;
+  if (kilobytes < 1024) {
+    return `${Math.round(kilobytes)} KB`;
+  }
+
+  return `${(kilobytes / 1024).toFixed(1)} MB`;
+}
+
+function publisherImageCompressionFileName(file: File, mimeType: string) {
+  const extension = mimeType === "image/webp" ? "webp" : "jpg";
+  const rawName = file.name || `profile-image.${extension}`;
+  const baseName = rawName.replace(/\.[^.]+$/, "") || "profile-image";
+
+  return `${baseName}-compressed.${extension}`;
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      if (!result) {
+        reject(new Error("IMAGE_READ_FAILED"));
+        return;
+      }
+      resolve(result);
+    };
+    reader.onerror = () => reject(new Error("IMAGE_READ_FAILED"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageElementFromFile(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("IMAGE_LOAD_FAILED"));
+    };
+    image.src = objectUrl;
+  });
+}
+
+function imageCompressionDimensions(image: HTMLImageElement) {
+  const sourceMax = Math.max(
+    image.naturalWidth || image.width || 0,
+    image.naturalHeight || image.height || 0,
+  );
+
+  if (!sourceMax) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      [sourceMax, ...PUBLISHER_IMAGE_COMPRESSION_DIMENSION_STEPS]
+        .map((dimension) => Math.min(sourceMax, dimension))
+        .filter((dimension) => Number.isFinite(dimension) && dimension > 0),
+    ),
+  ).sort((a, b) => b - a);
+}
+
+function drawCompressedImage(
+  image: HTMLImageElement,
+  maxDimension: number,
+  mimeType: string,
+) {
+  const sourceWidth = image.naturalWidth || image.width || 0;
+  const sourceHeight = image.naturalHeight || image.height || 0;
+
+  if (!sourceWidth || !sourceHeight) {
+    throw new Error("IMAGE_DIMENSIONS_UNAVAILABLE");
+  }
+
+  const sourceMax = Math.max(sourceWidth, sourceHeight);
+  const scale = Math.min(1, maxDimension / sourceMax);
+  const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+  const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("CANVAS_UNAVAILABLE");
+  }
+
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+
+  if (mimeType === "image/jpeg") {
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, targetWidth, targetHeight);
+  }
+
+  context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+  return canvas;
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  mimeType: string,
+  quality: number,
+) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, mimeType, quality);
+  });
+}
+
+async function compressPublisherImageFile(file: File) {
+  const image = await loadImageElementFromFile(file);
+  const dimensions = imageCompressionDimensions(image);
+
+  for (const mimeType of PUBLISHER_IMAGE_COMPRESSION_MIME_TYPES) {
+    for (const maxDimension of dimensions) {
+      const canvas = drawCompressedImage(image, maxDimension, mimeType);
+
+      for (const quality of PUBLISHER_IMAGE_COMPRESSION_QUALITY_STEPS) {
+        const blob = await canvasToBlob(canvas, mimeType, quality);
+
+        if (!blob || blob.size === 0) {
+          continue;
+        }
+
+        if (blob.size <= PUBLISHER_IMAGE_UPLOAD_MAX_BYTES) {
+          return new File(
+            [blob],
+            publisherImageCompressionFileName(file, mimeType),
+            {
+              type: mimeType,
+              lastModified: Date.now(),
+            },
+          );
+        }
+      }
+    }
+  }
+
+  throw new Error("IMAGE_COMPRESSION_FAILED");
+}
+
+async function processPublisherImageFile(
+  file: File,
+): Promise<ProcessedPublisherImageUpload> {
+  if (!PUBLISHER_IMAGE_UPLOAD_TYPES.has(file.type)) {
+    throw new Error("IMAGE_TYPE_UNSUPPORTED");
+  }
+
+  const acceptedFile =
+    file.size > PUBLISHER_IMAGE_UPLOAD_MAX_BYTES
+      ? await compressPublisherImageFile(file)
+      : file;
+  let dataUrl = await readFileAsDataUrl(acceptedFile);
+  let finalFile = acceptedFile;
+
+  if (
+    dataUrl.length > PUBLISHER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH &&
+    acceptedFile === file
+  ) {
+    finalFile = await compressPublisherImageFile(file);
+    dataUrl = await readFileAsDataUrl(finalFile);
+  }
+
+  if (dataUrl.length > PUBLISHER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH) {
+    throw new Error("IMAGE_COMPRESSION_FAILED");
+  }
+
+  return {
+    dataUrl,
+    name: finalFile.name,
+    mimeType: finalFile.type,
+    compressed: finalFile !== file,
+  };
+}
+
 const DESCRIPTION_LANGUAGE_OPTIONS = [
   { value: "es", label: "Spanish" },
   { value: "en", label: "English" },
@@ -237,7 +469,13 @@ function DiscoverPublisherWorkbench({
     colorTextValue(toFormState(publisher).colorHex),
   );
   const colorPickerRef = useRef<HTMLInputElement>(null);
+  const imageUploadInputRef = useRef<HTMLInputElement>(null);
+  const imageUploadTokenRef = useRef(0);
   const [manualColorError, setManualColorError] = useState<string | null>(null);
+  const [imageUploadStatus, setImageUploadStatus] =
+    useState<ImageUploadStatus | null>(null);
+  const [imageUploadPending, setImageUploadPending] = useState(false);
+  const [imageUploadDragging, setImageUploadDragging] = useState(false);
   const [pending, setPending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [isDangerZoneOpen, setIsDangerZoneOpen] = useState(false);
@@ -303,6 +541,15 @@ function DiscoverPublisherWorkbench({
     ? selectedGeneticReportCategoryLabels.join(", ")
     : t("No genetic report category");
   const imagePreviewSource = state.imageUrl.trim() || state.imageUploadDataUrl;
+  const hasUploadedImage = Boolean(state.imageUploadDataUrl);
+  const imageUploadLimitLabel = formatFileSize(
+    PUBLISHER_IMAGE_UPLOAD_MAX_BYTES,
+  );
+  const uploadedImageSummary = state.imageUploadName
+    ? `${state.imageUploadName}${
+        state.imageUploadMimeType ? ` · ${state.imageUploadMimeType}` : ""
+      }`
+    : t("Using uploaded image");
   const showDangerZone =
     mode === "edit" && Boolean(publisher) && canDeletePublisher;
   const showSubmissionEvaluation =
@@ -344,6 +591,162 @@ function DiscoverPublisherWorkbench({
     setState((current) => ({ ...current, ...patch }));
   }
 
+  function resetImageUploadInput() {
+    if (imageUploadInputRef.current) {
+      imageUploadInputRef.current.value = "";
+    }
+  }
+
+  function clearUploadedImageSelection() {
+    imageUploadTokenRef.current += 1;
+    setImageUploadPending(false);
+    setImageUploadDragging(false);
+    setImageUploadStatus(null);
+    resetImageUploadInput();
+    updateState({
+      imageUploadDataUrl: "",
+      imageUploadName: "",
+      imageUploadMimeType: "",
+    });
+  }
+
+  function handleImageUrlChange(event: ChangeEvent<HTMLInputElement>) {
+    const imageUrl = event.target.value;
+    const clearsUploadedImage = Boolean(imageUrl.trim());
+
+    if (clearsUploadedImage) {
+      imageUploadTokenRef.current += 1;
+      setImageUploadPending(false);
+      setImageUploadDragging(false);
+      setImageUploadStatus(null);
+      resetImageUploadInput();
+    }
+
+    updateState({
+      imageUrl,
+      ...(clearsUploadedImage
+        ? {
+            imageUploadDataUrl: "",
+            imageUploadName: "",
+            imageUploadMimeType: "",
+          }
+        : {}),
+    });
+  }
+
+  async function handleImageUploadFile(file: File | undefined | null) {
+    if (!file) {
+      return;
+    }
+
+    imageUploadTokenRef.current += 1;
+    const token = imageUploadTokenRef.current;
+    setImageUploadPending(true);
+    setImageUploadDragging(false);
+    setImageUploadStatus({
+      tone: "loading",
+      message:
+        file.size > PUBLISHER_IMAGE_UPLOAD_MAX_BYTES
+          ? t("Compressing image...")
+          : t("Loading image..."),
+    });
+
+    try {
+      const processed = await processPublisherImageFile(file);
+      if (imageUploadTokenRef.current !== token) {
+        return;
+      }
+
+      updateState({
+        imageUrl: "",
+        imageUploadDataUrl: processed.dataUrl,
+        imageUploadName: processed.name,
+        imageUploadMimeType: processed.mimeType,
+      });
+      setImageUploadStatus({
+        tone: "success",
+        message: processed.compressed
+          ? t("Image compressed and ready.")
+          : t("Uploaded image ready."),
+      });
+    } catch (error) {
+      if (imageUploadTokenRef.current !== token) {
+        return;
+      }
+
+      const unsupported =
+        error instanceof Error && error.message === "IMAGE_TYPE_UNSUPPORTED";
+      setImageUploadStatus(
+        unsupported
+          ? {
+              tone: "error",
+              message: t("Only PNG, JPG, or WebP images can be uploaded here."),
+            }
+          : {
+              tone: "warning",
+              message: t(
+                "We could not compress this image under 600 KB. Reduce it and upload a smaller version.",
+              ),
+              href: IMAGE_REDUCER_URL,
+              linkLabel: t("Compress it for free"),
+            },
+      );
+    } finally {
+      if (imageUploadTokenRef.current === token) {
+        setImageUploadPending(false);
+        resetImageUploadInput();
+      }
+    }
+  }
+
+  function handleImageUploadChange(event: ChangeEvent<HTMLInputElement>) {
+    void handleImageUploadFile(event.target.files?.[0]);
+  }
+
+  function imageFileFromDataTransfer(dataTransfer: DataTransfer) {
+    const files = [
+      ...Array.from(dataTransfer.items || [])
+        .filter((item) => item.kind === "file")
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => Boolean(file)),
+      ...Array.from(dataTransfer.files || []),
+    ];
+
+    return (
+      files.find((file) => file.type.startsWith("image/")) ?? files[0] ?? null
+    );
+  }
+
+  function handleImageUploadDragEnter(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    if (!imageUploadPending) {
+      setImageUploadDragging(true);
+    }
+  }
+
+  function handleImageUploadDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    if (!imageUploadPending) {
+      event.dataTransfer.dropEffect = "copy";
+      setImageUploadDragging(true);
+    }
+  }
+
+  function handleImageUploadDragLeave(event: DragEvent<HTMLLabelElement>) {
+    const nextTarget =
+      event.relatedTarget instanceof Node ? event.relatedTarget : null;
+    if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+      setImageUploadDragging(false);
+    }
+  }
+
+  function handleImageUploadDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    const file = imageFileFromDataTransfer(event.dataTransfer);
+    setImageUploadDragging(false);
+    void handleImageUploadFile(file);
+  }
+
   function closeManualColorEditor(nextColor: string) {
     setManualColorMode(false);
     setManualColorDraft(colorTextValue(nextColor));
@@ -351,6 +754,11 @@ function DiscoverPublisherWorkbench({
   }
 
   function handleReset() {
+    imageUploadTokenRef.current += 1;
+    setImageUploadPending(false);
+    setImageUploadDragging(false);
+    setImageUploadStatus(null);
+    resetImageUploadInput();
     setState(sourceState);
     closeManualColorEditor(sourceState.colorHex);
   }
@@ -404,6 +812,15 @@ function DiscoverPublisherWorkbench({
   }
 
   async function handleSave() {
+    if (imageUploadPending) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Wait until the image finishes processing."),
+      });
+      return;
+    }
+
     if (!state.name.trim()) {
       setToast({
         id: Date.now(),
@@ -428,7 +845,7 @@ function DiscoverPublisherWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Image URL is required."),
+        message: t("Profile image is required."),
       });
       return;
     }
@@ -860,17 +1277,144 @@ function DiscoverPublisherWorkbench({
                 placeholder="https://"
               />
             </div>
-            <div className="flex flex-col gap-2 md:col-span-2">
-              <Label htmlFor="discover-org-image">{t("Image URL")}</Label>
-              <Input
-                id="discover-org-image"
-                type="url"
-                value={state.imageUrl}
-                onChange={(event) =>
-                  updateState({ imageUrl: event.target.value })
-                }
-                placeholder="https://"
-              />
+            <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-background/70 p-4 shadow-sm md:col-span-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+                    <ImageIcon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-foreground">
+                      {t("Profile image")}
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "Use an image URL or upload a PNG, JPG, or WebP file. Large files are compressed before saving.",
+                      )}
+                    </p>
+                  </div>
+                </div>
+                {hasUploadedImage ? (
+                  <span className="inline-flex w-fit items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200">
+                    {t("Using uploaded image")}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,0.8fr)]">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="discover-org-image" className="text-xs">
+                    {t("Image URL")}
+                  </Label>
+                  <div className="relative">
+                    <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="discover-org-image"
+                      type="url"
+                      value={state.imageUrl}
+                      onChange={handleImageUrlChange}
+                      placeholder="https://"
+                      disabled={imageUploadPending}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+
+                <label
+                  htmlFor="discover-org-image-upload"
+                  onDragEnter={handleImageUploadDragEnter}
+                  onDragOver={handleImageUploadDragOver}
+                  onDragLeave={handleImageUploadDragLeave}
+                  onDrop={handleImageUploadDrop}
+                  className={cn(
+                    "relative flex min-h-24 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition duration-200",
+                    imageUploadDragging
+                      ? "border-violet-500 bg-violet-50 shadow-[0_16px_34px_rgba(109,40,217,0.16)] dark:bg-violet-500/12"
+                      : "border-violet-300/80 bg-violet-50/45 hover:-translate-y-0.5 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/35 dark:bg-violet-500/8",
+                    imageUploadPending && "cursor-progress opacity-80",
+                  )}
+                >
+                  <input
+                    ref={imageUploadInputRef}
+                    id="discover-org-image-upload"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleImageUploadChange}
+                    disabled={imageUploadPending}
+                    aria-label={t("Upload image file")}
+                    className="sr-only"
+                  />
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-background text-violet-700 shadow-sm dark:bg-background/80 dark:text-violet-200">
+                    {imageUploadPending ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <UploadCloud className="h-5 w-5" />
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-foreground">
+                      {hasUploadedImage
+                        ? t("Replace uploaded image")
+                        : t("Upload image file")}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      {imageUploadDragging
+                        ? t("Drop image to upload")
+                        : t(
+                            "PNG, JPG, or WebP up to 600 KB. Drop it here or choose a file.",
+                          ).replace("600 KB", imageUploadLimitLabel)}
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              {hasUploadedImage ? (
+                <div className="flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50/55 px-3 py-2 text-sm text-emerald-950 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-100">
+                  <span className="min-w-0 truncate">{uploadedImageSummary}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearUploadedImageSelection}
+                    disabled={pending || imageUploadPending}
+                    className="w-fit text-emerald-900 hover:bg-emerald-100 hover:text-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-500/15"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    {t("Remove uploaded image")}
+                  </Button>
+                </div>
+              ) : null}
+
+              {imageUploadStatus ? (
+                <p
+                  className={cn(
+                    "rounded-lg px-3 py-2 text-xs font-medium leading-5",
+                    imageUploadStatus.tone === "success" &&
+                      "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200",
+                    imageUploadStatus.tone === "loading" &&
+                      "bg-violet-50 text-violet-800 dark:bg-violet-500/10 dark:text-violet-200",
+                    imageUploadStatus.tone === "warning" &&
+                      "bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-100",
+                    imageUploadStatus.tone === "error" &&
+                      "bg-destructive/10 text-destructive",
+                  )}
+                >
+                  {imageUploadStatus.message}
+                  {imageUploadStatus.href && imageUploadStatus.linkLabel ? (
+                    <>
+                      {" "}
+                      <a
+                        href={imageUploadStatus.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold underline underline-offset-4"
+                      >
+                        {imageUploadStatus.linkLabel}
+                      </a>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
             </div>
             <PublisherSocialLinksEditor
               value={state.social}
@@ -1206,7 +1750,8 @@ function DiscoverPublisherWorkbench({
                   onClick={handleReset}
                   disabled={
                     (!changed && !manualColorMode && !manualColorError) ||
-                    pending
+                    pending ||
+                    imageUploadPending
                   }
                   className="h-14 justify-center text-base font-semibold sm:min-w-36"
                 >
@@ -1216,7 +1761,11 @@ function DiscoverPublisherWorkbench({
                 <Button
                   size="lg"
                   onClick={() => void handleSave()}
-                  disabled={pending || (!changed && mode === "edit")}
+                  disabled={
+                    pending ||
+                    imageUploadPending ||
+                    (!changed && mode === "edit")
+                  }
                   className="h-14 min-w-[min(100%,22rem)] justify-center text-base font-semibold"
                 >
                   <Save className="h-5 w-5" />

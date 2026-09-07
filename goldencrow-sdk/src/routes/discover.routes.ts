@@ -104,6 +104,7 @@ const PublicImageUploadDataUrlSchema = z.preprocess(
     .regex(
       /^data:image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/]+={0,2}$/,
     )
+    .nullable()
     .optional(),
 );
 const PublicImageUploadNameSchema = z.preprocess(

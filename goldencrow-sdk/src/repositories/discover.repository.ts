@@ -725,6 +725,14 @@ function normalizePublicImageUploadMimeType(
 }
 
 function publicImageUploadDocumentFields(input: PublisherImageUploadInput) {
+  if (input.imageUploadDataUrl === null) {
+    return {
+      imageUploadDataUrl: undefined,
+      imageUploadName: undefined,
+      imageUploadMimeType: undefined,
+    };
+  }
+
   const imageUploadDataUrl = normalizePublicImageUploadDataUrl(
     input.imageUploadDataUrl,
   );
@@ -779,6 +787,10 @@ function preserveExistingImageUpload<T extends PublisherImageUploadInput>(
   input: T,
   existingRecord: PublisherImageUploadRecord,
 ): T {
+  if (input.imageUploadDataUrl === null) {
+    return input;
+  }
+
   if (normalizeOptionalString(input.imageUploadDataUrl)) {
     return input;
   }

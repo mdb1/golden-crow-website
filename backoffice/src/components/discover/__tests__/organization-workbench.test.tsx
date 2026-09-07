@@ -744,15 +744,116 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(body.countryCode).toBe("US,AR");
   });
 
-  it("requires an image URL before saving", async () => {
+  it("requires a profile image before saving", async () => {
     const user = userEvent.setup();
     renderWorkbench();
 
     await user.clear(screen.getByLabelText("Image URL"));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    expect(screen.getByText("Image URL is required.")).toBeTruthy();
+    expect(screen.getByText("Profile image is required.")).toBeTruthy();
     expect(sdkFetch).not.toHaveBeenCalled();
+  });
+
+  it("uploads raw image files and saves them instead of the image URL", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.upload(
+      screen.getByLabelText("Upload image file"),
+      new File(["tiny-image"], "publisher-logo.png", { type: "image/png" }),
+    );
+
+    expect(await screen.findByText("Uploaded image ready.")).toBeTruthy();
+    expect(
+      document.querySelector('img[src^="data:image/png;base64,"]'),
+    ).toBeTruthy();
+    expect((screen.getByLabelText("Image URL") as HTMLInputElement).value).toBe(
+      "",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.imageUrl).toBeNull();
+    expect(body.imageUploadDataUrl).toMatch(/^data:image\/png;base64,/);
+    expect(body.imageUploadName).toBe("publisher-logo.png");
+    expect(body.imageUploadMimeType).toBe("image/png");
+  });
+
+  it("uploads raw image files for individual publishers", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValue({ individual });
+    renderIndividualWorkbench();
+
+    await user.upload(
+      screen.getByLabelText("Upload image file"),
+      new File(["tiny-portrait"], "publisher-portrait.jpg", {
+        type: "image/jpeg",
+      }),
+    );
+
+    expect(await screen.findByText("Uploaded image ready.")).toBeTruthy();
+    await user.click(
+      screen.getByRole("button", { name: "Save changes" }),
+    );
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/individuals/individual-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.imageUrl).toBeNull();
+    expect(body.imageUploadDataUrl).toMatch(/^data:image\/jpeg;base64,/);
+    expect(body.imageUploadName).toBe("publisher-portrait.jpg");
+    expect(body.imageUploadMimeType).toBe("image/jpeg");
+  });
+
+  it("clears uploaded image data when a replacement URL is entered", async () => {
+    const user = userEvent.setup();
+    const uploadedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      imageUrl: null,
+      imageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+      imageUploadName: "wizard-logo.png",
+      imageUploadMimeType: "image/png",
+    };
+    renderWorkbench("en", { organization: uploadedOrganization });
+
+    await user.type(
+      screen.getByLabelText("Image URL"),
+      "https://example.org/replacement.png",
+    );
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.imageUrl).toBe("https://example.org/replacement.png");
+    expect(body.imageUploadDataUrl).toBeNull();
+    expect(body.imageUploadName).toBeUndefined();
+    expect(body.imageUploadMimeType).toBeUndefined();
   });
 
   it("renders uploaded wizard logos and saves without an image URL", async () => {
