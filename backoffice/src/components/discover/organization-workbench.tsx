@@ -654,6 +654,12 @@ function DiscoverPublisherWorkbench({
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const sourceState = useMemo(() => toFormState(publisher), [publisher]);
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
+  const statusOptions =
+    mode === "edit" && sourceState.status === "pending_approval"
+      ? DISCOVER_ORGANIZATION_STATUS_OPTIONS.filter(
+          (option) => option.value !== "active",
+        )
+      : DISCOVER_ORGANIZATION_STATUS_OPTIONS;
   const countryLabel = formatDiscoverOrganizationCountries(
     state.countryCode,
     language,
@@ -1432,7 +1438,7 @@ function DiscoverPublisherWorkbench({
                 className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 disabled={!canManageSystemFields}
               >
-                {DISCOVER_ORGANIZATION_STATUS_OPTIONS.map((option) => (
+                {statusOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {t(option.label)}
                   </option>

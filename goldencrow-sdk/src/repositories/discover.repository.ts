@@ -821,8 +821,7 @@ function publicBannerImageUploadDocumentFields(
   return {
     bannerImageUploadDataUrl,
     bannerImageUploadName: normalizeOptionalString(input.bannerImageUploadName),
-    bannerImageUploadMimeType:
-      bannerImageUploadMimeType ?? normalizedMimeType,
+    bannerImageUploadMimeType: bannerImageUploadMimeType ?? normalizedMimeType,
   };
 }
 
@@ -1665,10 +1664,29 @@ async function listScopedCollectionPageByDocumentCursor<T>(
   };
 }
 
-function normalizeOrganizationStatus(value: unknown) {
+function normalizeOrganizationStatus(
+  value: unknown,
+  fallback: DiscoverOrganizationStatus = "active",
+) {
   return ORGANIZATION_STATUSES.has(value as DiscoverOrganizationStatus)
     ? (value as DiscoverOrganizationStatus)
-    : "active";
+    : fallback;
+}
+
+function normalizeEditablePublisherStatus(
+  value: unknown,
+  existingStatus: DiscoverOrganizationStatus | undefined,
+  publisherLabel: string,
+) {
+  const status = normalizeOrganizationStatus(value, existingStatus ?? "active");
+  if (existingStatus === "pending_approval" && status === "active") {
+    throw new AdminRepositoryError(
+      `Use submission evaluation to approve this ${publisherLabel}.`,
+      400,
+    );
+  }
+
+  return status;
 }
 
 function normalizeOrganizationType(value: unknown): string | undefined {
@@ -1801,6 +1819,13 @@ function organizationDocument(
   options: { existingRecord?: DiscoverOrganizationRecord } = {},
 ) {
   const name = normalizeRequiredString(input.name, "Organization name");
+  const status = options.existingRecord
+    ? normalizeEditablePublisherStatus(
+        input.status,
+        options.existingRecord.status,
+        "organization",
+      )
+    : normalizeOrganizationStatus(input.status);
   const isGrcHighlighted =
     options.existingRecord &&
     (!canManageGrcHighlight(context) || input.isGrcHighlighted === undefined)
@@ -1813,7 +1838,7 @@ function organizationDocument(
     name,
     ...publisherImageDocumentFields(input, "Organization image URL"),
     ...organizationBannerImageDocumentFields(input, isGrcHighlighted),
-    status: normalizeOrganizationStatus(input.status),
+    status,
     slug: slugifyOrganizationName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
     description: normalizeOptionalString(input.description),
@@ -1872,13 +1897,24 @@ function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
   };
 }
 
-function individualDocument(input: IndividualInput, context: AdminContext) {
+function individualDocument(
+  input: IndividualInput,
+  context: AdminContext,
+  options: { existingRecord?: DiscoverIndividualRecord } = {},
+) {
   const name = normalizeRequiredString(input.name, "Individual publisher name");
+  const status = options.existingRecord
+    ? normalizeEditablePublisherStatus(
+        input.status,
+        options.existingRecord.status,
+        "individual publisher",
+      )
+    : normalizeOrganizationStatus(input.status);
 
   return {
     name,
     ...publisherImageDocumentFields(input, "Individual publisher image URL"),
-    status: normalizeOrganizationStatus(input.status),
+    status,
     slug: slugifyIndividualName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
     description: normalizeOptionalString(input.description),
@@ -2613,7 +2649,7 @@ export async function updateDiscoverIndividual(
   await existing.ref.set(
     withoutUndefined({
       ...existing.data(),
-      ...individualDocument(inputWithImageUpload, context),
+      ...individualDocument(inputWithImageUpload, context, { existingRecord }),
     }),
     { merge: false },
   );

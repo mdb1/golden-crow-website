@@ -343,6 +343,39 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(routerRefresh).toHaveBeenCalled();
   });
 
+  it("does not expose status activation as a normal save path for pending submissions", async () => {
+    const user = userEvent.setup();
+    renderWorkbench("en", {
+      organization: { ...organization, status: "pending_approval" },
+    });
+
+    const statusSelect = screen.getByLabelText("Status") as HTMLSelectElement;
+    expect(
+      Array.from(statusSelect.options).map((option) => option.value),
+    ).toEqual(["inactive", "archived", "pending_approval"]);
+
+    await user.selectOptions(statusSelect, "inactive");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const calledUrls = jest
+      .mocked(sdkFetch)
+      .mock.calls.map(([url]) => String(url));
+    expect(calledUrls).not.toContain(
+      "/discover/organizations/org-1/submission-evaluation",
+    );
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.status).toBe("inactive");
+  });
+
   it("rejects an individual submission by archiving it", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockResolvedValueOnce({

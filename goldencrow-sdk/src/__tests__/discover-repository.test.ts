@@ -705,9 +705,7 @@ describe("discover repository", () => {
       deletedRoleCount: 1,
       deletedAuthUserCount: 1,
     });
-    expect(mockIndividualDocs.some((doc) => doc.id === "person-1")).toBe(
-      false,
-    );
+    expect(mockIndividualDocs.some((doc) => doc.id === "person-1")).toBe(false);
   });
 
   it("approves an organization submission by activating it and provisioning portal access", async () => {
@@ -736,6 +734,84 @@ describe("discover repository", () => {
     expect(result.organization.status).toBe("active");
     expect(nextStored?.data.status).toBe("active");
     expect(nextStored?.data.updatedByUserId).toBe("admin-1");
+  });
+
+  it("keeps regular organization updates from approving pending submissions", async () => {
+    const { updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+    const stored = mockOrganizationDocs.find((doc) => doc.id === "org-1");
+    stored!.data.status = "pending_approval";
+    stored!.data.contactEmail = "approval@example.org";
+
+    const edited = await updateDiscoverOrganization(fullAdminContext, "org-1", {
+      name: "Publisher One Edited",
+      imageUrl: "https://example.org/publisher.png",
+      organizationType:
+        "org_patient_advocacy_organizations,org_genetics_research_institutes",
+    } as Record<string, unknown>);
+    const editedStored = mockOrganizationDocs.find((doc) => doc.id === "org-1");
+
+    expect(edited.status).toBe("pending_approval");
+    expect(editedStored?.data.status).toBe("pending_approval");
+    expect(mockProvisionPublisherPortalRoleForContext).not.toHaveBeenCalled();
+
+    await expect(
+      updateDiscoverOrganization(fullAdminContext, "org-1", {
+        name: "Publisher One Activated",
+        imageUrl: "https://example.org/publisher.png",
+        organizationType:
+          "org_patient_advocacy_organizations,org_genetics_research_institutes",
+        status: "active",
+      } as Record<string, unknown>),
+    ).rejects.toThrow(
+      "Use submission evaluation to approve this organization.",
+    );
+    const rejectedStored = mockOrganizationDocs.find(
+      (doc) => doc.id === "org-1",
+    );
+    expect(rejectedStored?.data.status).toBe("pending_approval");
+    expect(mockProvisionPublisherPortalRoleForContext).not.toHaveBeenCalled();
+  });
+
+  it("keeps regular individual updates from approving pending submissions", async () => {
+    const { updateDiscoverIndividual } =
+      await import("../repositories/discover.repository");
+    const stored = mockIndividualDocs.find((doc) => doc.id === "person-1");
+    stored!.data.status = "pending_approval";
+    stored!.data.contactEmail = "individual@example.org";
+
+    const edited = await updateDiscoverIndividual(
+      fullAdminContext,
+      "person-1",
+      {
+        name: "Dr. Publisher One Edited",
+        imageUrl: "https://example.org/individual.png",
+        individualType: "pro_clinical_geneticists",
+      } as Record<string, unknown>,
+    );
+    const editedStored = mockIndividualDocs.find(
+      (doc) => doc.id === "person-1",
+    );
+
+    expect(edited.status).toBe("pending_approval");
+    expect(editedStored?.data.status).toBe("pending_approval");
+    expect(mockProvisionPublisherPortalRoleForContext).not.toHaveBeenCalled();
+
+    await expect(
+      updateDiscoverIndividual(fullAdminContext, "person-1", {
+        name: "Dr. Publisher One Activated",
+        imageUrl: "https://example.org/individual.png",
+        individualType: "pro_clinical_geneticists",
+        status: "active",
+      } as Record<string, unknown>),
+    ).rejects.toThrow(
+      "Use submission evaluation to approve this individual publisher.",
+    );
+    const rejectedStored = mockIndividualDocs.find(
+      (doc) => doc.id === "person-1",
+    );
+    expect(rejectedStored?.data.status).toBe("pending_approval");
+    expect(mockProvisionPublisherPortalRoleForContext).not.toHaveBeenCalled();
   });
 
   it("rejects an individual submission by archiving it without provisioning portal access", async () => {
