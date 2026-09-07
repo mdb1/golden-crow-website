@@ -215,8 +215,7 @@ function payloadFromState(
     bannerImageUploadDataUrl:
       publisherKind === "organization"
         ? isHighlightedOrganization
-          ? state.bannerImageUploadDataUrl ||
-            (state.bannerImageUrl.trim() ? null : undefined)
+          ? state.bannerImageUploadDataUrl || null
           : null
         : undefined,
     bannerImageUploadName:

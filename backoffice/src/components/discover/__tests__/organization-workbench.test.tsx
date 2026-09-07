@@ -789,6 +789,55 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(body.bannerImageUploadMimeType).toBe("image/jpeg");
   });
 
+  it("sends the banner upload delete signal after removing an uploaded GRC banner", async () => {
+    const user = userEvent.setup();
+    const highlightedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      isGrcHighlighted: true,
+      bannerImageUrl: null,
+      bannerImageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+      bannerImageUploadName: "current-banner.png",
+      bannerImageUploadMimeType: "image/png",
+    };
+    renderWorkbench("en", { organization: highlightedOrganization });
+
+    const bannerSection = screen.getByTestId(
+      "discover-org-banner-image-section",
+    );
+    expect(
+      within(bannerSection).queryByLabelText("Banner image URL"),
+    ).toBeNull();
+
+    await user.click(
+      within(bannerSection).getByRole("button", {
+        name: "Remove uploaded banner image",
+      }),
+    );
+    expect(
+      within(bannerSection).getByLabelText("Banner image URL"),
+    ).toBeTruthy();
+    expect(
+      within(bannerSection).getByLabelText("Upload banner file"),
+    ).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.bannerImageUrl).toBeNull();
+    expect(body.bannerImageUploadDataUrl).toBeNull();
+    expect(body.bannerImageUploadName).toBeUndefined();
+    expect(body.bannerImageUploadMimeType).toBeUndefined();
+  });
+
   it("clears GRC banner fields when god mode removes the highlight", async () => {
     const user = userEvent.setup();
     const highlightedOrganization: DiscoverOrganizationRecord = {
