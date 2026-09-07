@@ -2346,5 +2346,36 @@
     "bulkAssigned": "Assigned to {count} clients",
     "bulkFailedSome": "{count} clients were not assigned",
     "bulkSubtitle": "The plan is copied to each client. Fine-tune it per person from their profile afterwards."
+  },
+  "muscleHeatmap": {
+    "title": "Muscles worked",
+    "legendPrimary": "Primary",
+    "legendSecondary": "Secondary",
+    "legendWorked": "Muscles worked",
+    "legendApproximate": "Approximate",
+    "legendSets": "{count} sets",
+    "emptyGeneric": "No muscle groups for this",
+    "emptyExercise": "This exercise doesn’t declare muscle groups.",
+    "emptyWorkout": "Nothing scheduled for this week yet.",
+    "a11yWorks": "Works {regions}",
+    "approximateExplanation": "This exercise only says “legs” or “arms”, so it can’t tell front from back. The whole limb is shown.",
+    "untrained": "not trained",
+    "regions": {
+      "chest": "Chest",
+      "shoulders": "Shoulders",
+      "biceps": "Biceps",
+      "triceps": "Triceps",
+      "forearms": "Forearms",
+      "abs": "Abs",
+      "obliques": "Obliques",
+      "upper_back": "Upper back",
+      "lower_back": "Lower back",
+      "trapezius": "Traps",
+      "quadriceps": "Quads",
+      "hamstrings": "Hamstrings",
+      "glutes": "Glutes",
+      "calves": "Calves",
+      "adductors": "Adductors"
+    }
   }
 }
