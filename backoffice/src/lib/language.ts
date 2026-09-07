@@ -479,6 +479,20 @@ const SPANISH_TEXT: Record<string, string> = {
   "Compress it for free": "Comprimirla gratis",
   "Wait until the image finishes processing.":
     "Esperá a que la imagen termine de procesarse.",
+  "GRC highlight banner": "Banner destacado GRC",
+  "Shown in the highlighted GRC card. Use a wide 1024 x 500 image URL or upload a PNG, JPG, or WebP file.":
+    "Se muestra en la celda destacada GRC. Usá una imagen horizontal de 1024 x 500 por URL o subí un archivo PNG, JPG o WebP.",
+  "Banner image URL": "URL de imagen del banner",
+  "Upload banner file": "Subir banner",
+  "Replace uploaded banner image": "Reemplazar banner subido",
+  "Using uploaded banner image": "Usando banner subido",
+  "Remove uploaded banner image": "Quitar banner subido",
+  "No GRC banner image": "Sin imagen de banner GRC",
+  "GRC banner ready": "Banner GRC listo",
+  "Processing banner image...": "Procesando banner...",
+  "Banner image processed and ready.": "Banner procesado y listo.",
+  "PNG, JPG, or WebP up to 600 KB. It will be cropped to 1024 x 500.":
+    "PNG, JPG o WebP de hasta 600 KB. Se recorta a 1024 x 500.",
   "Website URL": "URL del sitio web",
   "Internal notes": "Notas internas",
   "Verified publisher": "Publicador verificado",

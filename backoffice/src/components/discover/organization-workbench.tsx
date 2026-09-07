@@ -101,6 +101,8 @@ const PUBLISHER_IMAGE_COMPRESSION_DIMENSION_STEPS = [
 const PUBLISHER_IMAGE_COMPRESSION_QUALITY_STEPS = [
   0.86, 0.76, 0.66, 0.56, 0.46, 0.36,
 ] as const;
+const PUBLISHER_BANNER_IMAGE_WIDTH = 1024;
+const PUBLISHER_BANNER_IMAGE_HEIGHT = 500;
 const IMAGE_REDUCER_URL = "https://squoosh.app/";
 
 type ProcessedPublisherImageUpload = {
@@ -116,6 +118,10 @@ type OrganizationFormState = {
   imageUploadDataUrl: string;
   imageUploadName: string;
   imageUploadMimeType: string;
+  bannerImageUrl: string;
+  bannerImageUploadDataUrl: string;
+  bannerImageUploadName: string;
+  bannerImageUploadMimeType: string;
   status: DiscoverOrganizationStatus | DiscoverIndividualStatus;
   websiteUrl: string;
   description: string;
@@ -148,6 +154,10 @@ function toFormState(
     imageUploadDataUrl: publisher?.imageUploadDataUrl ?? "",
     imageUploadName: publisher?.imageUploadName ?? "",
     imageUploadMimeType: publisher?.imageUploadMimeType ?? "",
+    bannerImageUrl: organization?.bannerImageUrl ?? "",
+    bannerImageUploadDataUrl: organization?.bannerImageUploadDataUrl ?? "",
+    bannerImageUploadName: organization?.bannerImageUploadName ?? "",
+    bannerImageUploadMimeType: organization?.bannerImageUploadMimeType ?? "",
     status: publisher?.status ?? "active",
     websiteUrl: publisher?.websiteUrl ?? "",
     description: publisher?.description ?? "",
@@ -185,6 +195,8 @@ function payloadFromState(
     state.individualType,
   );
   const social = cleanPublisherSocialLinks(state.social);
+  const isHighlightedOrganization =
+    publisherKind === "organization" && state.isGrcHighlighted;
 
   return {
     ...state,
@@ -194,6 +206,27 @@ function payloadFromState(
       state.imageUploadDataUrl || (state.imageUrl.trim() ? null : undefined),
     imageUploadName: state.imageUploadName || undefined,
     imageUploadMimeType: state.imageUploadMimeType || undefined,
+    bannerImageUrl:
+      publisherKind === "organization"
+        ? isHighlightedOrganization
+          ? state.bannerImageUrl || null
+          : null
+        : undefined,
+    bannerImageUploadDataUrl:
+      publisherKind === "organization"
+        ? isHighlightedOrganization
+          ? state.bannerImageUploadDataUrl ||
+            (state.bannerImageUrl.trim() ? null : undefined)
+          : null
+        : undefined,
+    bannerImageUploadName:
+      publisherKind === "organization" && isHighlightedOrganization
+        ? state.bannerImageUploadName || undefined
+        : undefined,
+    bannerImageUploadMimeType:
+      publisherKind === "organization" && isHighlightedOrganization
+        ? state.bannerImageUploadMimeType || undefined
+        : undefined,
     websiteUrl: state.websiteUrl || null,
     social: Object.keys(social).length ? social : undefined,
     countryCode:
@@ -260,6 +293,14 @@ function publisherImageCompressionFileName(file: File, mimeType: string) {
   const baseName = rawName.replace(/\.[^.]+$/, "") || "profile-image";
 
   return `${baseName}-compressed.${extension}`;
+}
+
+function publisherBannerImageFileName(file: File, mimeType: string) {
+  const extension = mimeType === "image/webp" ? "webp" : "jpg";
+  const rawName = file.name || `highlight-banner.${extension}`;
+  const baseName = rawName.replace(/\.[^.]+$/, "") || "highlight-banner";
+
+  return `${baseName}-1024x500.${extension}`;
 }
 
 function readFileAsDataUrl(file: File) {
@@ -353,6 +394,74 @@ function drawCompressedImage(
   return canvas;
 }
 
+function canResizeImagesInBrowser() {
+  return (
+    typeof document !== "undefined" &&
+    typeof URL !== "undefined" &&
+    typeof URL.createObjectURL === "function" &&
+    typeof HTMLCanvasElement !== "undefined" &&
+    typeof HTMLCanvasElement.prototype.toBlob === "function"
+  );
+}
+
+function drawBannerImage(image: HTMLImageElement, mimeType: string) {
+  const sourceWidth = image.naturalWidth || image.width || 0;
+  const sourceHeight = image.naturalHeight || image.height || 0;
+
+  if (!sourceWidth || !sourceHeight) {
+    throw new Error("IMAGE_DIMENSIONS_UNAVAILABLE");
+  }
+
+  const targetAspect =
+    PUBLISHER_BANNER_IMAGE_WIDTH / PUBLISHER_BANNER_IMAGE_HEIGHT;
+  const sourceAspect = sourceWidth / sourceHeight;
+  const cropWidth =
+    sourceAspect > targetAspect
+      ? Math.round(sourceHeight * targetAspect)
+      : sourceWidth;
+  const cropHeight =
+    sourceAspect > targetAspect
+      ? sourceHeight
+      : Math.round(sourceWidth / targetAspect);
+  const sourceX = Math.max(0, Math.round((sourceWidth - cropWidth) / 2));
+  const sourceY = Math.max(0, Math.round((sourceHeight - cropHeight) / 2));
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("CANVAS_UNAVAILABLE");
+  }
+
+  canvas.width = PUBLISHER_BANNER_IMAGE_WIDTH;
+  canvas.height = PUBLISHER_BANNER_IMAGE_HEIGHT;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+
+  if (mimeType === "image/jpeg") {
+    context.fillStyle = "#ffffff";
+    context.fillRect(
+      0,
+      0,
+      PUBLISHER_BANNER_IMAGE_WIDTH,
+      PUBLISHER_BANNER_IMAGE_HEIGHT,
+    );
+  }
+
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    PUBLISHER_BANNER_IMAGE_WIDTH,
+    PUBLISHER_BANNER_IMAGE_HEIGHT,
+  );
+
+  return canvas;
+}
+
 function canvasToBlob(
   canvas: HTMLCanvasElement,
   mimeType: string,
@@ -429,6 +538,57 @@ async function processPublisherImageFile(
   };
 }
 
+async function resizePublisherBannerImageFile(file: File) {
+  const image = await loadImageElementFromFile(file);
+
+  for (const mimeType of PUBLISHER_IMAGE_COMPRESSION_MIME_TYPES) {
+    const canvas = drawBannerImage(image, mimeType);
+
+    for (const quality of PUBLISHER_IMAGE_COMPRESSION_QUALITY_STEPS) {
+      const blob = await canvasToBlob(canvas, mimeType, quality);
+
+      if (!blob || blob.size === 0) {
+        continue;
+      }
+
+      if (blob.size <= PUBLISHER_IMAGE_UPLOAD_MAX_BYTES) {
+        return new File([blob], publisherBannerImageFileName(file, mimeType), {
+          type: mimeType,
+          lastModified: Date.now(),
+        });
+      }
+    }
+  }
+
+  throw new Error("IMAGE_COMPRESSION_FAILED");
+}
+
+async function processPublisherBannerImageFile(
+  file: File,
+): Promise<ProcessedPublisherImageUpload> {
+  if (!PUBLISHER_IMAGE_UPLOAD_TYPES.has(file.type)) {
+    throw new Error("IMAGE_TYPE_UNSUPPORTED");
+  }
+
+  if (!canResizeImagesInBrowser()) {
+    return processPublisherImageFile(file);
+  }
+
+  const resizedFile = await resizePublisherBannerImageFile(file);
+  const dataUrl = await readFileAsDataUrl(resizedFile);
+
+  if (dataUrl.length > PUBLISHER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH) {
+    throw new Error("IMAGE_COMPRESSION_FAILED");
+  }
+
+  return {
+    dataUrl,
+    name: resizedFile.name,
+    mimeType: resizedFile.type,
+    compressed: true,
+  };
+}
+
 const DESCRIPTION_LANGUAGE_OPTIONS = [
   { value: "es", label: "Spanish" },
   { value: "en", label: "English" },
@@ -470,12 +630,20 @@ function DiscoverPublisherWorkbench({
   );
   const colorPickerRef = useRef<HTMLInputElement>(null);
   const imageUploadInputRef = useRef<HTMLInputElement>(null);
+  const bannerImageUploadInputRef = useRef<HTMLInputElement>(null);
   const imageUploadTokenRef = useRef(0);
+  const bannerImageUploadTokenRef = useRef(0);
   const [manualColorError, setManualColorError] = useState<string | null>(null);
   const [imageUploadStatus, setImageUploadStatus] =
     useState<ImageUploadStatus | null>(null);
   const [imageUploadPending, setImageUploadPending] = useState(false);
   const [imageUploadDragging, setImageUploadDragging] = useState(false);
+  const [bannerImageUploadStatus, setBannerImageUploadStatus] =
+    useState<ImageUploadStatus | null>(null);
+  const [bannerImageUploadPending, setBannerImageUploadPending] =
+    useState(false);
+  const [bannerImageUploadDragging, setBannerImageUploadDragging] =
+    useState(false);
   const [pending, setPending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [isDangerZoneOpen, setIsDangerZoneOpen] = useState(false);
@@ -542,14 +710,26 @@ function DiscoverPublisherWorkbench({
     : t("No genetic report category");
   const imagePreviewSource = state.imageUrl.trim() || state.imageUploadDataUrl;
   const hasUploadedImage = Boolean(state.imageUploadDataUrl);
+  const canEditBannerImage = !isIndividual && state.isGrcHighlighted;
+  const bannerImagePreviewSource =
+    state.bannerImageUrl.trim() || state.bannerImageUploadDataUrl;
+  const hasUploadedBannerImage = Boolean(state.bannerImageUploadDataUrl);
   const imageUploadLimitLabel = formatFileSize(
     PUBLISHER_IMAGE_UPLOAD_MAX_BYTES,
   );
+  const bannerImageAspectLabel = `${PUBLISHER_BANNER_IMAGE_WIDTH} × ${PUBLISHER_BANNER_IMAGE_HEIGHT}`;
   const uploadedImageSummary = state.imageUploadName
     ? `${state.imageUploadName}${
         state.imageUploadMimeType ? ` · ${state.imageUploadMimeType}` : ""
       }`
     : t("Using uploaded image");
+  const uploadedBannerImageSummary = state.bannerImageUploadName
+    ? `${state.bannerImageUploadName}${
+        state.bannerImageUploadMimeType
+          ? ` · ${state.bannerImageUploadMimeType}`
+          : ""
+      }`
+    : t("Using uploaded banner image");
   const showDangerZone =
     mode === "edit" && Boolean(publisher) && canDeletePublisher;
   const showSubmissionEvaluation =
@@ -597,6 +777,12 @@ function DiscoverPublisherWorkbench({
     }
   }
 
+  function resetBannerImageUploadInput() {
+    if (bannerImageUploadInputRef.current) {
+      bannerImageUploadInputRef.current.value = "";
+    }
+  }
+
   function clearUploadedImageSelection() {
     imageUploadTokenRef.current += 1;
     setImageUploadPending(false);
@@ -607,6 +793,19 @@ function DiscoverPublisherWorkbench({
       imageUploadDataUrl: "",
       imageUploadName: "",
       imageUploadMimeType: "",
+    });
+  }
+
+  function clearUploadedBannerImageSelection() {
+    bannerImageUploadTokenRef.current += 1;
+    setBannerImageUploadPending(false);
+    setBannerImageUploadDragging(false);
+    setBannerImageUploadStatus(null);
+    resetBannerImageUploadInput();
+    updateState({
+      bannerImageUploadDataUrl: "",
+      bannerImageUploadName: "",
+      bannerImageUploadMimeType: "",
     });
   }
 
@@ -629,6 +828,30 @@ function DiscoverPublisherWorkbench({
             imageUploadDataUrl: "",
             imageUploadName: "",
             imageUploadMimeType: "",
+          }
+        : {}),
+    });
+  }
+
+  function handleBannerImageUrlChange(event: ChangeEvent<HTMLInputElement>) {
+    const bannerImageUrl = event.target.value;
+    const clearsUploadedBannerImage = Boolean(bannerImageUrl.trim());
+
+    if (clearsUploadedBannerImage) {
+      bannerImageUploadTokenRef.current += 1;
+      setBannerImageUploadPending(false);
+      setBannerImageUploadDragging(false);
+      setBannerImageUploadStatus(null);
+      resetBannerImageUploadInput();
+    }
+
+    updateState({
+      bannerImageUrl,
+      ...(clearsUploadedBannerImage
+        ? {
+            bannerImageUploadDataUrl: "",
+            bannerImageUploadName: "",
+            bannerImageUploadMimeType: "",
           }
         : {}),
     });
@@ -699,8 +922,78 @@ function DiscoverPublisherWorkbench({
     }
   }
 
+  async function handleBannerImageUploadFile(file: File | undefined | null) {
+    if (!file) {
+      return;
+    }
+
+    bannerImageUploadTokenRef.current += 1;
+    const token = bannerImageUploadTokenRef.current;
+    setBannerImageUploadPending(true);
+    setBannerImageUploadDragging(false);
+    setBannerImageUploadStatus({
+      tone: "loading",
+      message:
+        file.size > PUBLISHER_IMAGE_UPLOAD_MAX_BYTES ||
+        canResizeImagesInBrowser()
+          ? t("Processing banner image...")
+          : t("Loading image..."),
+    });
+
+    try {
+      const processed = await processPublisherBannerImageFile(file);
+      if (bannerImageUploadTokenRef.current !== token) {
+        return;
+      }
+
+      updateState({
+        bannerImageUrl: "",
+        bannerImageUploadDataUrl: processed.dataUrl,
+        bannerImageUploadName: processed.name,
+        bannerImageUploadMimeType: processed.mimeType,
+      });
+      setBannerImageUploadStatus({
+        tone: "success",
+        message: processed.compressed
+          ? t("Banner image processed and ready.")
+          : t("Uploaded image ready."),
+      });
+    } catch (error) {
+      if (bannerImageUploadTokenRef.current !== token) {
+        return;
+      }
+
+      const unsupported =
+        error instanceof Error && error.message === "IMAGE_TYPE_UNSUPPORTED";
+      setBannerImageUploadStatus(
+        unsupported
+          ? {
+              tone: "error",
+              message: t("Only PNG, JPG, or WebP images can be uploaded here."),
+            }
+          : {
+              tone: "warning",
+              message: t(
+                "We could not compress this image under 600 KB. Reduce it and upload a smaller version.",
+              ),
+              href: IMAGE_REDUCER_URL,
+              linkLabel: t("Compress it for free"),
+            },
+      );
+    } finally {
+      if (bannerImageUploadTokenRef.current === token) {
+        setBannerImageUploadPending(false);
+        resetBannerImageUploadInput();
+      }
+    }
+  }
+
   function handleImageUploadChange(event: ChangeEvent<HTMLInputElement>) {
     void handleImageUploadFile(event.target.files?.[0]);
+  }
+
+  function handleBannerImageUploadChange(event: ChangeEvent<HTMLInputElement>) {
+    void handleBannerImageUploadFile(event.target.files?.[0]);
   }
 
   function imageFileFromDataTransfer(dataTransfer: DataTransfer) {
@@ -747,6 +1040,60 @@ function DiscoverPublisherWorkbench({
     void handleImageUploadFile(file);
   }
 
+  function handleBannerImageUploadDragEnter(
+    event: DragEvent<HTMLLabelElement>,
+  ) {
+    event.preventDefault();
+    if (!bannerImageUploadPending) {
+      setBannerImageUploadDragging(true);
+    }
+  }
+
+  function handleBannerImageUploadDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    if (!bannerImageUploadPending) {
+      event.dataTransfer.dropEffect = "copy";
+      setBannerImageUploadDragging(true);
+    }
+  }
+
+  function handleBannerImageUploadDragLeave(
+    event: DragEvent<HTMLLabelElement>,
+  ) {
+    const nextTarget =
+      event.relatedTarget instanceof Node ? event.relatedTarget : null;
+    if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+      setBannerImageUploadDragging(false);
+    }
+  }
+
+  function handleBannerImageUploadDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    const file = imageFileFromDataTransfer(event.dataTransfer);
+    setBannerImageUploadDragging(false);
+    void handleBannerImageUploadFile(file);
+  }
+
+  function handleGrcHighlightChange(checked: boolean) {
+    if (!checked) {
+      bannerImageUploadTokenRef.current += 1;
+      setBannerImageUploadPending(false);
+      setBannerImageUploadDragging(false);
+      setBannerImageUploadStatus(null);
+      resetBannerImageUploadInput();
+      updateState({
+        isGrcHighlighted: false,
+        bannerImageUrl: "",
+        bannerImageUploadDataUrl: "",
+        bannerImageUploadName: "",
+        bannerImageUploadMimeType: "",
+      });
+      return;
+    }
+
+    updateState({ isGrcHighlighted: true });
+  }
+
   function closeManualColorEditor(nextColor: string) {
     setManualColorMode(false);
     setManualColorDraft(colorTextValue(nextColor));
@@ -755,10 +1102,15 @@ function DiscoverPublisherWorkbench({
 
   function handleReset() {
     imageUploadTokenRef.current += 1;
+    bannerImageUploadTokenRef.current += 1;
     setImageUploadPending(false);
     setImageUploadDragging(false);
     setImageUploadStatus(null);
+    setBannerImageUploadPending(false);
+    setBannerImageUploadDragging(false);
+    setBannerImageUploadStatus(null);
     resetImageUploadInput();
+    resetBannerImageUploadInput();
     setState(sourceState);
     closeManualColorEditor(sourceState.colorHex);
   }
@@ -812,7 +1164,7 @@ function DiscoverPublisherWorkbench({
   }
 
   async function handleSave() {
-    if (imageUploadPending) {
+    if (imageUploadPending || bannerImageUploadPending) {
       setToast({
         id: Date.now(),
         tone: "error",
@@ -1416,6 +1768,173 @@ function DiscoverPublisherWorkbench({
                 </p>
               ) : null}
             </div>
+            {canEditBannerImage ? (
+              <div
+                className="flex flex-col gap-3 rounded-xl border border-violet-200/80 bg-violet-50/35 p-4 shadow-sm md:col-span-2 dark:border-violet-400/25 dark:bg-violet-500/8"
+                data-testid="discover-org-banner-image-section"
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+                      <ImageIcon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-foreground">
+                        {t("GRC highlight banner")}
+                      </div>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {t(
+                          "Shown in the highlighted GRC card. Use a wide 1024 x 500 image URL or upload a PNG, JPG, or WebP file.",
+                        ).replace("1024 x 500", bannerImageAspectLabel)}
+                      </p>
+                    </div>
+                  </div>
+                  {hasUploadedBannerImage ? (
+                    <span className="inline-flex w-fit items-center rounded-full bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-500/15 dark:text-violet-100">
+                      {t("Using uploaded banner image")}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+                  {bannerImagePreviewSource ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={bannerImagePreviewSource}
+                      alt=""
+                      className="aspect-[1024/500] w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex aspect-[1024/500] items-center justify-center px-4 text-center text-sm text-muted-foreground">
+                      {t("No GRC banner image")}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,0.8fr)]">
+                  <div className="flex flex-col gap-2">
+                    <Label
+                      htmlFor="discover-org-banner-image"
+                      className="text-xs"
+                    >
+                      {t("Banner image URL")}
+                    </Label>
+                    <div className="relative">
+                      <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="discover-org-banner-image"
+                        type="url"
+                        value={state.bannerImageUrl}
+                        onChange={handleBannerImageUrlChange}
+                        placeholder="https://"
+                        disabled={bannerImageUploadPending}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  <label
+                    htmlFor="discover-org-banner-image-upload"
+                    onDragEnter={handleBannerImageUploadDragEnter}
+                    onDragOver={handleBannerImageUploadDragOver}
+                    onDragLeave={handleBannerImageUploadDragLeave}
+                    onDrop={handleBannerImageUploadDrop}
+                    className={cn(
+                      "relative flex min-h-24 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition duration-200",
+                      bannerImageUploadDragging
+                        ? "border-violet-500 bg-violet-50 shadow-[0_16px_34px_rgba(109,40,217,0.16)] dark:bg-violet-500/12"
+                        : "border-violet-300/80 bg-background/70 hover:-translate-y-0.5 hover:border-violet-400 hover:bg-background dark:border-violet-400/35 dark:bg-background/60",
+                      bannerImageUploadPending && "cursor-progress opacity-80",
+                    )}
+                  >
+                    <input
+                      ref={bannerImageUploadInputRef}
+                      id="discover-org-banner-image-upload"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleBannerImageUploadChange}
+                      disabled={bannerImageUploadPending}
+                      aria-label={t("Upload banner file")}
+                      className="sr-only"
+                    />
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 shadow-sm dark:bg-violet-500/15 dark:text-violet-200">
+                      {bannerImageUploadPending ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <UploadCloud className="h-5 w-5" />
+                      )}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-foreground">
+                        {hasUploadedBannerImage
+                          ? t("Replace uploaded banner image")
+                          : t("Upload banner file")}
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                        {bannerImageUploadDragging
+                          ? t("Drop image to upload")
+                          : t(
+                              "PNG, JPG, or WebP up to 600 KB. It will be cropped to 1024 x 500.",
+                            )
+                              .replace("600 KB", imageUploadLimitLabel)
+                              .replace("1024 x 500", bannerImageAspectLabel)}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
+                {hasUploadedBannerImage ? (
+                  <div className="flex flex-col gap-2 rounded-lg border border-violet-200 bg-violet-50/65 px-3 py-2 text-sm text-violet-950 sm:flex-row sm:items-center sm:justify-between dark:border-violet-400/25 dark:bg-violet-500/10 dark:text-violet-100">
+                    <span className="min-w-0 truncate">
+                      {uploadedBannerImageSummary}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearUploadedBannerImageSelection}
+                      disabled={pending || bannerImageUploadPending}
+                      className="w-fit text-violet-900 hover:bg-violet-100 hover:text-violet-950 dark:text-violet-100 dark:hover:bg-violet-500/15"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      {t("Remove uploaded banner image")}
+                    </Button>
+                  </div>
+                ) : null}
+
+                {bannerImageUploadStatus ? (
+                  <p
+                    className={cn(
+                      "rounded-lg px-3 py-2 text-xs font-medium leading-5",
+                      bannerImageUploadStatus.tone === "success" &&
+                        "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200",
+                      bannerImageUploadStatus.tone === "loading" &&
+                        "bg-violet-50 text-violet-800 dark:bg-violet-500/10 dark:text-violet-200",
+                      bannerImageUploadStatus.tone === "warning" &&
+                        "bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-100",
+                      bannerImageUploadStatus.tone === "error" &&
+                        "bg-destructive/10 text-destructive",
+                    )}
+                  >
+                    {bannerImageUploadStatus.message}
+                    {bannerImageUploadStatus.href &&
+                    bannerImageUploadStatus.linkLabel ? (
+                      <>
+                        {" "}
+                        <a
+                          href={bannerImageUploadStatus.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold underline underline-offset-4"
+                        >
+                          {bannerImageUploadStatus.linkLabel}
+                        </a>
+                      </>
+                    ) : null}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <PublisherSocialLinksEditor
               value={state.social}
               onChange={(social) => updateState({ social })}
@@ -1501,7 +2020,7 @@ function DiscoverPublisherWorkbench({
                   type="checkbox"
                   checked={state.isGrcHighlighted}
                   onChange={(event) =>
-                    updateState({ isGrcHighlighted: event.target.checked })
+                    handleGrcHighlightChange(event.target.checked)
                   }
                   disabled={pending}
                   className="h-4 w-4"
@@ -1526,6 +2045,22 @@ function DiscoverPublisherWorkbench({
                 </div>
               )}
             </div>
+            {canEditBannerImage ? (
+              <div className="overflow-hidden rounded-md border border-violet-200 bg-violet-50/40 dark:border-violet-400/25 dark:bg-violet-500/8">
+                {bannerImagePreviewSource ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={bannerImagePreviewSource}
+                    alt=""
+                    className="aspect-[1024/500] w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex aspect-[1024/500] items-center justify-center px-4 text-center text-xs text-muted-foreground">
+                    {t("No GRC banner image")}
+                  </div>
+                )}
+              </div>
+            ) : null}
             <div className="rounded-md border border-border px-3 py-3 text-sm text-muted-foreground">
               <div className="font-medium text-foreground">
                 {state.name || publisherNameLabel}
@@ -1552,6 +2087,13 @@ function DiscoverPublisherWorkbench({
                       {state.isGrcHighlighted
                         ? t("GRC highlighted")
                         : t("Not GRC highlighted")}
+                    </div>
+                  ) : null}
+                  {state.isGrcHighlighted ? (
+                    <div>
+                      {bannerImagePreviewSource
+                        ? t("GRC banner ready")
+                        : t("No GRC banner image")}
                     </div>
                   ) : null}
                 </>
@@ -1751,7 +2293,8 @@ function DiscoverPublisherWorkbench({
                   disabled={
                     (!changed && !manualColorMode && !manualColorError) ||
                     pending ||
-                    imageUploadPending
+                    imageUploadPending ||
+                    bannerImageUploadPending
                   }
                   className="h-14 justify-center text-base font-semibold sm:min-w-36"
                 >
@@ -1764,6 +2307,7 @@ function DiscoverPublisherWorkbench({
                   disabled={
                     pending ||
                     imageUploadPending ||
+                    bannerImageUploadPending ||
                     (!changed && mode === "edit")
                   }
                   className="h-14 min-w-[min(100%,22rem)] justify-center text-base font-semibold"

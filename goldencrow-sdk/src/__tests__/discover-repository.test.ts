@@ -917,6 +917,136 @@ describe("discover repository", () => {
     expect(stored?.data.isGrcHighlighted).toBe(false);
   });
 
+  it("keeps GRC banner fields available only while organizations are highlighted", async () => {
+    const { createDiscoverOrganization, updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+
+    const ignoredBanner = await createDiscoverOrganization(godModeContext, {
+      name: "Regular lab",
+      imageUrl: "https://example.org/regular-logo.png",
+      organizationType: "org_genetic_testing_laboratories",
+      isGrcHighlighted: false,
+      bannerImageUrl: "https://example.org/ignored-banner.png",
+    } as Record<string, unknown>);
+
+    expect(ignoredBanner.isGrcHighlighted).toBe(false);
+    expect(ignoredBanner.bannerImageUrl).toBeNull();
+
+    const highlighted = await createDiscoverOrganization(godModeContext, {
+      name: "Highlighted lab",
+      imageUrl: "https://example.org/highlighted-logo.png",
+      organizationType: "org_genetic_testing_laboratories",
+      isGrcHighlighted: true,
+      bannerImageUrl: "https://example.org/highlighted-banner.png",
+    } as Record<string, unknown>);
+
+    expect(highlighted.isGrcHighlighted).toBe(true);
+    expect(highlighted.bannerImageUrl).toBe(
+      "https://example.org/highlighted-banner.png",
+    );
+
+    const publisherUpdate = await updateDiscoverOrganization(
+      {
+        ...fullAdminContext,
+        role: "organization_publisher",
+        organizationId: highlighted.id,
+      },
+      highlighted.id,
+      {
+        name: "Publisher updated highlighted lab",
+        imageUrl: "https://example.org/highlighted-logo.png",
+        organizationType: "org_genetic_testing_laboratories",
+        isGrcHighlighted: false,
+        bannerImageUrl: "https://example.org/publisher-banner.png",
+      } as Record<string, unknown>,
+    );
+
+    expect(publisherUpdate.isGrcHighlighted).toBe(true);
+    expect(publisherUpdate.bannerImageUrl).toBe(
+      "https://example.org/publisher-banner.png",
+    );
+
+    const godUpdate = await updateDiscoverOrganization(
+      godModeContext,
+      highlighted.id,
+      {
+        name: "Unhighlighted lab",
+        imageUrl: "https://example.org/highlighted-logo.png",
+        organizationType: "org_genetic_testing_laboratories",
+        isGrcHighlighted: false,
+      } as Record<string, unknown>,
+    );
+    const stored = mockOrganizationDocs.find(
+      (doc) => doc.id === highlighted.id,
+    );
+
+    expect(godUpdate.isGrcHighlighted).toBe(false);
+    expect(godUpdate.bannerImageUrl).toBeNull();
+    expect(stored?.data.bannerImageUrl).toBeNull();
+    expect(stored?.data.bannerImageUploadDataUrl).toBeUndefined();
+  });
+
+  it("preserves and clears uploaded GRC banner image fields", async () => {
+    const { createDiscoverOrganization, updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+
+    const highlighted = await createDiscoverOrganization(godModeContext, {
+      name: "Uploaded banner lab",
+      imageUrl: "https://example.org/logo.png",
+      organizationType: "org_genetic_testing_laboratories",
+      isGrcHighlighted: true,
+      bannerImageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+      bannerImageUploadName: "banner.png",
+      bannerImageUploadMimeType: "image/png",
+    } as Record<string, unknown>);
+
+    expect(highlighted.bannerImageUrl).toBeNull();
+    expect(highlighted.bannerImageUploadDataUrl).toBe(
+      "data:image/png;base64,iVBORw0KGgo=",
+    );
+    expect(highlighted.bannerImageUploadName).toBe("banner.png");
+    expect(highlighted.bannerImageUploadMimeType).toBe("image/png");
+
+    const preserved = await updateDiscoverOrganization(
+      fullAdminContext,
+      highlighted.id,
+      {
+        name: "Uploaded banner lab updated",
+        imageUrl: "https://example.org/logo.png",
+        organizationType: "org_genetic_testing_laboratories",
+      } as Record<string, unknown>,
+    );
+
+    expect(preserved.bannerImageUploadDataUrl).toBe(
+      "data:image/png;base64,iVBORw0KGgo=",
+    );
+
+    const urlReplacement = await updateDiscoverOrganization(
+      fullAdminContext,
+      highlighted.id,
+      {
+        name: "Uploaded banner lab URL",
+        imageUrl: "https://example.org/logo.png",
+        organizationType: "org_genetic_testing_laboratories",
+        bannerImageUrl: "https://example.org/banner-replacement.png",
+        bannerImageUploadDataUrl: null,
+      } as Record<string, unknown>,
+    );
+    const stored = mockOrganizationDocs.find(
+      (doc) => doc.id === highlighted.id,
+    );
+
+    expect(urlReplacement.bannerImageUrl).toBe(
+      "https://example.org/banner-replacement.png",
+    );
+    expect(urlReplacement.bannerImageUploadDataUrl).toBeUndefined();
+    expect(urlReplacement.bannerImageUploadName).toBeUndefined();
+    expect(urlReplacement.bannerImageUploadMimeType).toBeUndefined();
+    expect(stored?.data.bannerImageUploadDataUrl).toBeUndefined();
+    expect(stored?.data.bannerImageUploadName).toBeUndefined();
+    expect(stored?.data.bannerImageUploadMimeType).toBeUndefined();
+  });
+
   it("requires image URLs when creating publishers", async () => {
     const { createDiscoverOrganization, createDiscoverIndividual } =
       await import("../repositories/discover.repository");

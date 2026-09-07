@@ -651,6 +651,123 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(body.isGrcHighlighted).toBe(true);
   });
 
+  it("hides the GRC banner editor until the organization is highlighted", () => {
+    renderWorkbench();
+
+    expect(
+      screen.queryByTestId("discover-org-banner-image-section"),
+    ).toBeNull();
+    expect(screen.queryByLabelText("Banner image URL")).toBeNull();
+  });
+
+  it("lets organization publishers edit the GRC banner after god mode highlights it", async () => {
+    const user = userEvent.setup();
+    const highlightedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      isGrcHighlighted: true,
+    };
+    renderWorkbench("en", {
+      organization: highlightedOrganization,
+      canManageSystemFields: false,
+    });
+
+    expect(screen.queryByLabelText("GRC highlighted")).toBeNull();
+    expect(
+      screen.getByTestId("discover-org-banner-image-section"),
+    ).toBeTruthy();
+
+    await user.type(
+      screen.getByLabelText("Banner image URL"),
+      "https://example.org/grc-banner.png",
+    );
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.isGrcHighlighted).toBe(true);
+    expect(body.bannerImageUrl).toBe("https://example.org/grc-banner.png");
+    expect(body.bannerImageUploadDataUrl).toBeNull();
+  });
+
+  it("uploads raw GRC banner image files", async () => {
+    const user = userEvent.setup();
+    const highlightedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      isGrcHighlighted: true,
+    };
+    renderWorkbench("en", { organization: highlightedOrganization });
+
+    await user.upload(
+      screen.getByLabelText("Upload banner file"),
+      new File(["wide-banner"], "grc-banner.png", { type: "image/png" }),
+    );
+
+    expect(await screen.findByText("Uploaded image ready.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.bannerImageUrl).toBeNull();
+    expect(body.bannerImageUploadDataUrl).toMatch(/^data:image\/png;base64,/);
+    expect(body.bannerImageUploadName).toBe("grc-banner.png");
+    expect(body.bannerImageUploadMimeType).toBe("image/png");
+  });
+
+  it("clears GRC banner fields when god mode removes the highlight", async () => {
+    const user = userEvent.setup();
+    const highlightedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      isGrcHighlighted: true,
+      bannerImageUrl: "https://example.org/current-banner.png",
+      bannerImageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+      bannerImageUploadName: "current-banner.png",
+      bannerImageUploadMimeType: "image/png",
+    };
+    renderWorkbench("en", {
+      organization: highlightedOrganization,
+      canManageGrcHighlight: true,
+    });
+
+    await user.click(screen.getByLabelText("GRC highlighted"));
+    expect(
+      screen.queryByTestId("discover-org-banner-image-section"),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.isGrcHighlighted).toBe(false);
+    expect(body.bannerImageUrl).toBeNull();
+    expect(body.bannerImageUploadDataUrl).toBeNull();
+    expect(body.bannerImageUploadName).toBeUndefined();
+    expect(body.bannerImageUploadMimeType).toBeUndefined();
+  });
+
   it("saves genetic report categories in checkbox selection order", async () => {
     const user = userEvent.setup();
     renderWorkbench();

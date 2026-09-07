@@ -423,24 +423,39 @@ type PublisherImageUploadRecord = {
   imageUploadMimeType?: string;
 };
 
-type OrganizationInput = PublisherImageUploadInput & {
-  name?: unknown;
-  imageUrl?: unknown;
-  status?: unknown;
-  websiteUrl?: unknown;
-  description?: unknown;
-  descriptionEn?: unknown;
-  social?: unknown;
-  countryCode?: unknown;
-  organizationType?: unknown;
-  colorHex?: unknown;
-  verified?: unknown;
-  isGeneticReportProvider?: unknown;
-  geneticReportCategory?: unknown;
-  isGrcHighlighted?: unknown;
-  contactEmail?: unknown;
-  internalNotes?: unknown;
+type OrganizationBannerImageUploadInput = {
+  bannerImageUrl?: unknown;
+  bannerImageUploadDataUrl?: unknown;
+  bannerImageUploadName?: unknown;
+  bannerImageUploadMimeType?: unknown;
 };
+
+type OrganizationBannerImageUploadRecord = {
+  bannerImageUrl?: string | null;
+  bannerImageUploadDataUrl?: string;
+  bannerImageUploadName?: string;
+  bannerImageUploadMimeType?: string;
+};
+
+type OrganizationInput = PublisherImageUploadInput &
+  OrganizationBannerImageUploadInput & {
+    name?: unknown;
+    imageUrl?: unknown;
+    status?: unknown;
+    websiteUrl?: unknown;
+    description?: unknown;
+    descriptionEn?: unknown;
+    social?: unknown;
+    countryCode?: unknown;
+    organizationType?: unknown;
+    colorHex?: unknown;
+    verified?: unknown;
+    isGeneticReportProvider?: unknown;
+    geneticReportCategory?: unknown;
+    isGrcHighlighted?: unknown;
+    contactEmail?: unknown;
+    internalNotes?: unknown;
+  };
 
 type IndividualInput = PublisherImageUploadInput & {
   name?: unknown;
@@ -766,6 +781,51 @@ function publicImageUploadDocumentFields(input: PublisherImageUploadInput) {
   };
 }
 
+function publicBannerImageUploadDocumentFields(
+  input: OrganizationBannerImageUploadInput,
+) {
+  if (input.bannerImageUploadDataUrl === null) {
+    return {
+      bannerImageUploadDataUrl: undefined,
+      bannerImageUploadName: undefined,
+      bannerImageUploadMimeType: undefined,
+    };
+  }
+
+  const bannerImageUploadDataUrl = normalizePublicImageUploadDataUrl(
+    input.bannerImageUploadDataUrl,
+  );
+  if (!bannerImageUploadDataUrl) {
+    return {};
+  }
+
+  const inferredMimeType = bannerImageUploadDataUrl.match(
+    /^data:(image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon));base64,/,
+  )?.[1];
+  const bannerImageUploadMimeType = normalizePublicImageUploadMimeType(
+    input.bannerImageUploadMimeType,
+  );
+  const normalizedMimeType = inferredMimeType;
+
+  if (
+    bannerImageUploadMimeType &&
+    normalizedMimeType &&
+    bannerImageUploadMimeType !== normalizedMimeType
+  ) {
+    throw new AdminRepositoryError(
+      "Uploaded image type does not match the image data.",
+      400,
+    );
+  }
+
+  return {
+    bannerImageUploadDataUrl,
+    bannerImageUploadName: normalizeOptionalString(input.bannerImageUploadName),
+    bannerImageUploadMimeType:
+      bannerImageUploadMimeType ?? normalizedMimeType,
+  };
+}
+
 function publisherImageDocumentFields(
   input: PublisherImageUploadInput & { imageUrl?: unknown },
   label: string,
@@ -780,6 +840,28 @@ function publisherImageDocumentFields(
   return {
     imageUrl,
     ...imageUploadFields,
+  };
+}
+
+function organizationBannerImageDocumentFields(
+  input: OrganizationBannerImageUploadInput,
+  isGrcHighlighted: boolean,
+) {
+  if (!isGrcHighlighted) {
+    return {
+      bannerImageUrl: null,
+      bannerImageUploadDataUrl: undefined,
+      bannerImageUploadName: undefined,
+      bannerImageUploadMimeType: undefined,
+    };
+  }
+
+  return {
+    bannerImageUrl: normalizeHttpsUrl(
+      input.bannerImageUrl,
+      "GRC highlight banner image URL",
+    ),
+    ...publicBannerImageUploadDocumentFields(input),
   };
 }
 
@@ -800,6 +882,31 @@ function preserveExistingImageUpload<T extends PublisherImageUploadInput>(
     imageUploadDataUrl: existingRecord.imageUploadDataUrl,
     imageUploadName: existingRecord.imageUploadName,
     imageUploadMimeType: existingRecord.imageUploadMimeType,
+  } as T;
+}
+
+function preserveExistingOrganizationBannerImage<
+  T extends OrganizationBannerImageUploadInput,
+>(input: T, existingRecord: OrganizationBannerImageUploadRecord): T {
+  const hasBannerImageUrl = Object.prototype.hasOwnProperty.call(
+    input,
+    "bannerImageUrl",
+  );
+
+  if (
+    hasBannerImageUrl ||
+    input.bannerImageUploadDataUrl === null ||
+    normalizeOptionalString(input.bannerImageUploadDataUrl)
+  ) {
+    return input;
+  }
+
+  return {
+    ...input,
+    bannerImageUrl: existingRecord.bannerImageUrl ?? undefined,
+    bannerImageUploadDataUrl: existingRecord.bannerImageUploadDataUrl,
+    bannerImageUploadName: existingRecord.bannerImageUploadName,
+    bannerImageUploadMimeType: existingRecord.bannerImageUploadMimeType,
   } as T;
 }
 
@@ -1327,6 +1434,14 @@ function toOrganizationRecord(
     imageUploadDataUrl: normalizeOptionalString(data.imageUploadDataUrl),
     imageUploadName: normalizeOptionalString(data.imageUploadName),
     imageUploadMimeType: normalizeOptionalString(data.imageUploadMimeType),
+    bannerImageUrl: normalizeNullableString(data.bannerImageUrl),
+    bannerImageUploadDataUrl: normalizeOptionalString(
+      data.bannerImageUploadDataUrl,
+    ),
+    bannerImageUploadName: normalizeOptionalString(data.bannerImageUploadName),
+    bannerImageUploadMimeType: normalizeOptionalString(
+      data.bannerImageUploadMimeType,
+    ),
     status,
     slug: normalizeOptionalString(data.slug),
     websiteUrl: normalizeOptionalString(data.websiteUrl),
@@ -1697,6 +1812,7 @@ function organizationDocument(
   return {
     name,
     ...publisherImageDocumentFields(input, "Organization image URL"),
+    ...organizationBannerImageDocumentFields(input, isGrcHighlighted),
     status: normalizeOrganizationStatus(input.status),
     slug: slugifyOrganizationName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
@@ -1729,6 +1845,7 @@ function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
     name,
     imageUrl: normalizeHttpsUrl(input.imageUrl, "Organization image URL"),
     ...publicImageUploadDocumentFields(input),
+    bannerImageUrl: null,
     status: "pending_approval" as const,
     slug: slugifyOrganizationName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
@@ -2258,11 +2375,15 @@ export async function updateDiscoverOrganization(
     scopedInput,
     existingRecord,
   );
+  const inputWithBannerImage = preserveExistingOrganizationBannerImage(
+    inputWithImageUpload,
+    existingRecord,
+  );
 
   await existing.ref.set(
     withoutUndefined({
       ...existing.data(),
-      ...organizationDocument(inputWithImageUpload, context, {
+      ...organizationDocument(inputWithBannerImage, context, {
         existingRecord,
       }),
     }),

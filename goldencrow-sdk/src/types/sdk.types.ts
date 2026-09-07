@@ -691,6 +691,10 @@ export interface DiscoverOrganizationRecord {
   imageUploadDataUrl?: string;
   imageUploadName?: string;
   imageUploadMimeType?: string;
+  bannerImageUrl?: string | null;
+  bannerImageUploadDataUrl?: string;
+  bannerImageUploadName?: string;
+  bannerImageUploadMimeType?: string;
   status: DiscoverOrganizationStatus;
   slug?: string;
   websiteUrl?: string;
