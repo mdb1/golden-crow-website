@@ -249,7 +249,7 @@
     --gc-heat-high: #fb8c3d;
     --gc-heat-mid: #d9a441;
     --gc-heat-low: rgba(217, 164, 65, 0.4);
-    --gc-heat-none: #2c2c2e;
+    --gc-heat-none: rgba(255, 255, 255, 0.3);
     --chart-1: #d3a84e;
     /* #480 — 7 distinct categorical colors for the muscle-group charts (one
        overlaid line per coarse group). Tuned for legibility on the dark canvas
@@ -339,7 +339,7 @@
     --gc-heat-high: #f97316;
     --gc-heat-mid: #d9a441;
     --gc-heat-low: rgba(217, 164, 65, 0.4);
-    --gc-heat-none: #e7e9ee;
+    --gc-heat-none: rgba(0, 0, 0, 0.3);
   }
 
   .gc-fitness-theme .gc-shell-bg {

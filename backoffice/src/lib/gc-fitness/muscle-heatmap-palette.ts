@@ -14,6 +14,13 @@
  *
  * Acá las clases son de Tailwind y los valores salen de las CSS vars del tema
  * (`globals.css` → `.gc-fitness-theme`), no de literales sueltos en el JSX.
+ *
+ * ⚠️ EL ESCALÓN 0 ES UN GRIS VISIBLE, no el color de la superficie. `SCREENS.md`
+ * mandaba `SurfaceElevatedColor`, que en modo claro es BLANCO PURO: la silueta
+ * quedaba pintada de blanco sobre una tarjeta blanca, el cuerpo se veía flotando
+ * en pedazos sin cabeza ni manos, y el estado "sin grupos musculares" —que
+ * existe justamente para mostrar una silueta apagada— salía como un recuadro
+ * vacío. Se descubrió MIRANDO EL PNG de iOS; ningún test lo veía.
  */
 
 /** El escalón más alto que produce el agregador. */
