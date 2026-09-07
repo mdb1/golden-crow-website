@@ -136,9 +136,10 @@ describe("muscle heatmap resolver — D-06: the four out-of-vocabulary tags", ()
     expect(lit(ex(["abdominals"]))).toEqual(["abs"]);
   });
 
-  it("uses the same aliases the M7 backfill writes", () => {
-    // Si divergieran, el dibujo del ejercicio CAMBIARÍA el día que corre la
-    // migración: la red y la limpieza tienen que dar el mismo resultado.
+  it("resolves every alias to a real vocabulary tag that paints the same", () => {
+    // El alias tiene que aterrizar en un tag del vocabulario y pintar
+    // exactamente como él: si no, un documento que el backfill normalice se
+    // dibujaría distinto que antes de la migración, sin que nadie lo decida.
     for (const [alias, canonical] of Object.entries(OUT_OF_VOCABULARY_MUSCLE_ALIASES)) {
       expect(`${alias}:${isMuscleGroup(canonical)}`).toBe(`${alias}:true`);
       expect(lit(ex([alias]))).toEqual(lit(ex([canonical])));

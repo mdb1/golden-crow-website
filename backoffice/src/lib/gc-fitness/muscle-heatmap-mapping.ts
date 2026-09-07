@@ -32,11 +32,15 @@ export function normalizeMuscleTag(raw: string): string {
  * Los 4 tags que existen en producción pero NO en `MUSCLE_GROUPS`, mapeados al
  * tag canónico que les corresponde (`D-06`).
  *
- * ⚠️ **Estos alias son los MISMOS que escribe el backfill de M7 (#1075)**, y
- * tienen que seguir siéndolo. Si el resolver los mapeara más fino que el backfill
- * (p. ej. `lats → upper_back` en vez de `lats → back`), el dibujo del ejercicio
- * CAMBIARÍA el día que corre la migración — la red y la limpieza tienen que dar
- * el mismo resultado.
+ * ⚠️ Cada alias apunta al TAG DEL VOCABULARIO, no a una región fina. Si mapeara
+ * más fino (p. ej. `lats → upper_back` en vez de `lats → back`), un documento que
+ * el backfill normalice a `back` pasaría a dibujarse distinto que antes de la
+ * migración, sin que nadie lo haya decidido.
+ *
+ * Lo que esta tabla NO es: la lista de correcciones de la ola 1 de M7 (#1075).
+ * Esos 7 ejercicios no están mal ESCRITOS, están mal CLASIFICADOS —un pushdown de
+ * tríceps tagueado `lats`— y 3 de los 7 aterrizan en un tag distinto del que dice
+ * esta tabla, a propósito.
  */
 export const OUT_OF_VOCABULARY_MUSCLE_ALIASES: Record<string, string> = {
   lats: "back",
