@@ -729,6 +729,44 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(body.bannerImageUploadMimeType).toBe("image/png");
   });
 
+  it("accepts dropped files on the empty GRC banner preview", async () => {
+    const user = userEvent.setup();
+    const highlightedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      isGrcHighlighted: true,
+    };
+    renderWorkbench("en", { organization: highlightedOrganization });
+
+    fireEvent.drop(screen.getByTestId("discover-org-banner-preview-dropzone"), {
+      dataTransfer: {
+        files: [
+          new File(["wide-banner"], "finder-banner.jpg", {
+            type: "image/jpeg",
+          }),
+        ],
+        items: [],
+      },
+    });
+
+    expect(await screen.findByText("Uploaded image ready.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.bannerImageUrl).toBeNull();
+    expect(body.bannerImageUploadDataUrl).toMatch(/^data:image\/jpeg;base64,/);
+    expect(body.bannerImageUploadName).toBe("finder-banner.jpg");
+    expect(body.bannerImageUploadMimeType).toBe("image/jpeg");
+  });
+
   it("clears GRC banner fields when god mode removes the highlight", async () => {
     const user = userEvent.setup();
     const highlightedOrganization: DiscoverOrganizationRecord = {

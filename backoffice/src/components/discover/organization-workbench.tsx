@@ -1040,16 +1040,14 @@ function DiscoverPublisherWorkbench({
     void handleImageUploadFile(file);
   }
 
-  function handleBannerImageUploadDragEnter(
-    event: DragEvent<HTMLLabelElement>,
-  ) {
+  function handleBannerImageUploadDragEnter(event: DragEvent<HTMLElement>) {
     event.preventDefault();
     if (!bannerImageUploadPending) {
       setBannerImageUploadDragging(true);
     }
   }
 
-  function handleBannerImageUploadDragOver(event: DragEvent<HTMLLabelElement>) {
+  function handleBannerImageUploadDragOver(event: DragEvent<HTMLElement>) {
     event.preventDefault();
     if (!bannerImageUploadPending) {
       event.dataTransfer.dropEffect = "copy";
@@ -1057,9 +1055,7 @@ function DiscoverPublisherWorkbench({
     }
   }
 
-  function handleBannerImageUploadDragLeave(
-    event: DragEvent<HTMLLabelElement>,
-  ) {
+  function handleBannerImageUploadDragLeave(event: DragEvent<HTMLElement>) {
     const nextTarget =
       event.relatedTarget instanceof Node ? event.relatedTarget : null;
     if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
@@ -1067,7 +1063,7 @@ function DiscoverPublisherWorkbench({
     }
   }
 
-  function handleBannerImageUploadDrop(event: DragEvent<HTMLLabelElement>) {
+  function handleBannerImageUploadDrop(event: DragEvent<HTMLElement>) {
     event.preventDefault();
     const file = imageFileFromDataTransfer(event.dataTransfer);
     setBannerImageUploadDragging(false);
@@ -1796,7 +1792,22 @@ function DiscoverPublisherWorkbench({
                   ) : null}
                 </div>
 
-                <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+                <div
+                  className={cn(
+                    "overflow-hidden rounded-xl border bg-background shadow-sm transition duration-200",
+                    bannerImageUploadDragging
+                      ? "border-violet-500 bg-violet-50 shadow-[0_18px_42px_rgba(109,40,217,0.18)] dark:bg-violet-500/12"
+                      : "border-border",
+                    !bannerImagePreviewSource &&
+                      "cursor-copy hover:border-violet-300 hover:bg-violet-50/40 dark:hover:border-violet-400/40 dark:hover:bg-violet-500/8",
+                    bannerImageUploadPending && "cursor-progress opacity-80",
+                  )}
+                  onDragEnter={handleBannerImageUploadDragEnter}
+                  onDragOver={handleBannerImageUploadDragOver}
+                  onDragLeave={handleBannerImageUploadDragLeave}
+                  onDrop={handleBannerImageUploadDrop}
+                  data-testid="discover-org-banner-preview-dropzone"
+                >
                   {bannerImagePreviewSource ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -1805,8 +1816,24 @@ function DiscoverPublisherWorkbench({
                       className="aspect-[1024/500] w-full object-cover"
                     />
                   ) : (
-                    <div className="flex aspect-[1024/500] items-center justify-center px-4 text-center text-sm text-muted-foreground">
-                      {t("No GRC banner image")}
+                    <div className="flex aspect-[1024/500] flex-col items-center justify-center gap-3 px-4 text-center text-sm text-muted-foreground">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+                        {bannerImageUploadPending ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <UploadCloud className="h-5 w-5" />
+                        )}
+                      </span>
+                      <span className="font-medium">
+                        {bannerImageUploadDragging
+                          ? t("Drop image to upload")
+                          : t("No GRC banner image")}
+                      </span>
+                      <span className="max-w-md text-xs leading-5">
+                        {t(
+                          "Drag a banner image here or use the upload button below.",
+                        )}
+                      </span>
                     </div>
                   )}
                 </div>

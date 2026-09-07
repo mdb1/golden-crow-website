@@ -488,6 +488,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Using uploaded banner image": "Usando banner subido",
   "Remove uploaded banner image": "Quitar banner subido",
   "No GRC banner image": "Sin imagen de banner GRC",
+  "Drag a banner image here or use the upload button below.":
+    "Arrastrá una imagen de banner acá o usá el botón de carga de abajo.",
   "GRC banner ready": "Banner GRC listo",
   "Processing banner image...": "Procesando banner...",
   "Banner image processed and ready.": "Banner procesado y listo.",
