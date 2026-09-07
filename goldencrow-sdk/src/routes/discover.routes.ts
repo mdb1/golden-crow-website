@@ -544,20 +544,20 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
         const result = await createDiscoverPublisherApprovalRequest(
           request.body,
         );
-        if (result.kind === "organization") {
-          try {
-            await sendDiscoverPublisherRequestNotificationEmail(
-              result.publisher,
-            );
-          } catch (error) {
-            request.log.error(
-              {
-                err: error,
-                publisherId: result.publisher.id,
-              },
-              "Failed to send publisher request notification email.",
-            );
-          }
+        try {
+          await sendDiscoverPublisherRequestNotificationEmail(
+            result.kind,
+            result.publisher,
+          );
+        } catch (error) {
+          request.log.error(
+            {
+              err: error,
+              publisherId: result.publisher.id,
+              publisherKind: result.kind,
+            },
+            "Failed to send publisher request notification email.",
+          );
         }
 
         return reply.status(201).send({

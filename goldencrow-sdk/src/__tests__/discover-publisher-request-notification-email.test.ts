@@ -5,11 +5,14 @@ import {
 
 describe("Discover publisher request notification email", () => {
   it("builds the hardcoded Federico notification for organization requests", () => {
-    const message = buildDiscoverPublisherRequestNotificationEmail({
-      id: "org-1",
-      name: "Wizard Genetics Lab",
-      contactEmail: "join@example.org",
-    });
+    const message = buildDiscoverPublisherRequestNotificationEmail(
+      "organization",
+      {
+        id: "org-1",
+        name: "Wizard Genetics Lab",
+        contactEmail: "join@example.org",
+      },
+    );
 
     expect(DISCOVER_PUBLISHER_REQUEST_NOTIFICATION_EMAIL).toBe(
       "federico@goldencrowvs.com",
@@ -27,6 +30,33 @@ describe("Discover publisher request notification email", () => {
     expect(message.text).toContain("Email: join@example.org");
     expect(message.text).toContain(
       "https://golden-crow-backoffice.vercel.app/discover/organizations/org-1",
+    );
+    expect(message).not.toHaveProperty("html");
+  });
+
+  it("builds the hardcoded Federico notification for individual publisher requests", () => {
+    const message = buildDiscoverPublisherRequestNotificationEmail(
+      "individual",
+      {
+        id: "ind-1",
+        name: "Dr. Wizard",
+        contactEmail: "dr@example.org",
+      },
+    );
+
+    expect(message).toEqual(
+      expect.objectContaining({
+        to: "federico@goldencrowvs.com",
+        subject: "Nuevo publicador individual pendiente en Pocket Genes",
+      }),
+    );
+    expect(message.text).toContain(
+      "Hay un nuevo publicador individual de Pocket Genes esperando revisión.",
+    );
+    expect(message.text).toContain("Publicador individual: Dr. Wizard");
+    expect(message.text).toContain("Email: dr@example.org");
+    expect(message.text).toContain(
+      "https://golden-crow-backoffice.vercel.app/discover/individuals/ind-1",
     );
     expect(message).not.toHaveProperty("html");
   });

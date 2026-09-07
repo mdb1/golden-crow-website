@@ -1,28 +1,58 @@
-import type { DiscoverOrganizationRecord } from "../types/sdk.types.js";
+import type {
+  DiscoverIndividualRecord,
+  DiscoverOrganizationRecord,
+} from "../types/sdk.types.js";
 import { sendGmailMessage } from "./gmail-mailer.js";
 
 export const DISCOVER_PUBLISHER_REQUEST_NOTIFICATION_EMAIL =
   "federico@goldencrowvs.com";
 
-type DiscoverOrganizationNotificationInput = Pick<
-  DiscoverOrganizationRecord,
+export type DiscoverPublisherRequestNotificationKind =
+  | "organization"
+  | "individual";
+
+type DiscoverPublisherNotificationInput = Pick<
+  DiscoverOrganizationRecord | DiscoverIndividualRecord,
   "id" | "name" | "contactEmail"
 >;
 
-export function buildDiscoverPublisherRequestNotificationEmail(
-  organization: DiscoverOrganizationNotificationInput,
+function publisherNotificationCopy(
+  kind: DiscoverPublisherRequestNotificationKind,
 ) {
-  const reviewUrl = `https://golden-crow-backoffice.vercel.app/discover/organizations/${encodeURIComponent(organization.id)}`;
+  if (kind === "individual") {
+    return {
+      routeSegment: "individuals",
+      subject: "Nuevo publicador individual pendiente en Pocket Genes",
+      intro:
+        "Hay un nuevo publicador individual de Pocket Genes esperando revisión.",
+      nameLabel: "Publicador individual",
+    };
+  }
+
+  return {
+    routeSegment: "organizations",
+    subject: "Nueva organización pendiente en Pocket Genes",
+    intro: "Hay una nueva organización de Pocket Genes esperando revisión.",
+    nameLabel: "Organización",
+  };
+}
+
+export function buildDiscoverPublisherRequestNotificationEmail(
+  kind: DiscoverPublisherRequestNotificationKind,
+  publisher: DiscoverPublisherNotificationInput,
+) {
+  const copy = publisherNotificationCopy(kind);
+  const reviewUrl = `https://golden-crow-backoffice.vercel.app/discover/${copy.routeSegment}/${encodeURIComponent(publisher.id)}`;
 
   return {
     to: DISCOVER_PUBLISHER_REQUEST_NOTIFICATION_EMAIL,
-    subject: "Nueva organización pendiente en Pocket Genes",
+    subject: copy.subject,
     text: [
-      "Hay una nueva organización de Pocket Genes esperando revisión.",
+      copy.intro,
       "",
-      `Organización: ${organization.name}`,
-      `Email: ${organization.contactEmail ?? "sin email"}`,
-      `ID: ${organization.id}`,
+      `${copy.nameLabel}: ${publisher.name}`,
+      `Email: ${publisher.contactEmail ?? "sin email"}`,
+      `ID: ${publisher.id}`,
       "",
       `Revisar: ${reviewUrl}`,
     ].join("\n"),
@@ -30,9 +60,10 @@ export function buildDiscoverPublisherRequestNotificationEmail(
 }
 
 export async function sendDiscoverPublisherRequestNotificationEmail(
-  organization: DiscoverOrganizationNotificationInput,
+  kind: DiscoverPublisherRequestNotificationKind,
+  publisher: DiscoverPublisherNotificationInput,
 ) {
   await sendGmailMessage(
-    buildDiscoverPublisherRequestNotificationEmail(organization),
+    buildDiscoverPublisherRequestNotificationEmail(kind, publisher),
   );
 }

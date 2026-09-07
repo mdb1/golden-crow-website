@@ -116,6 +116,7 @@ describe("Discover public routes", () => {
     expect(
       mockSendDiscoverPublisherRequestNotificationEmail,
     ).toHaveBeenCalledWith(
+      "organization",
       expect.objectContaining({
         id: "org-1",
         name: "Wizard Genetics Lab",
@@ -148,13 +149,14 @@ describe("Discover public routes", () => {
     });
   });
 
-  it("does not send the organization notification for individual publisher requests", async () => {
+  it("sends Federico a notification after a public individual publisher request is saved", async () => {
     const fastify = await buildTestServer();
     mockCreateDiscoverPublisherApprovalRequest.mockResolvedValueOnce({
       kind: "individual",
       publisher: {
         id: "ind-1",
         name: "Dr. Wizard",
+        contactEmail: "dr@example.org",
       },
     });
 
@@ -182,6 +184,13 @@ describe("Discover public routes", () => {
     });
     expect(
       mockSendDiscoverPublisherRequestNotificationEmail,
-    ).not.toHaveBeenCalled();
+    ).toHaveBeenCalledWith(
+      "individual",
+      expect.objectContaining({
+        id: "ind-1",
+        name: "Dr. Wizard",
+        contactEmail: "dr@example.org",
+      }),
+    );
   });
 });
