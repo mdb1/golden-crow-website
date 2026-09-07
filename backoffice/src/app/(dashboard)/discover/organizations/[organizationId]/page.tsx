@@ -53,6 +53,9 @@ export default async function DiscoverOrganizationDetailPage({
         <DiscoverOrganizationWorkbench
           organization={organization}
           canManageSystemFields={adminContext.role === "full_admin"}
+          canManageGrcHighlight={
+            adminContext.role === "full_admin" && adminContext.isBootstrap
+          }
           canDeletePublisher={canDeletePublisher}
           deleteSuccessAction={
             canDeleteOwnPublisher ? "publisher-login" : "list"

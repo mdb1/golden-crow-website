@@ -84,6 +84,7 @@ export interface DiscoverOrganizationRecord {
   verified: boolean;
   isGeneticReportProvider: boolean;
   geneticReportCategory: string | null;
+  isGrcHighlighted: boolean;
   contactEmail?: string;
   internalNotes?: string;
   createdAt: string;

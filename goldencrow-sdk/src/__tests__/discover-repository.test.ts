@@ -489,6 +489,7 @@ describe("discover repository", () => {
     );
     expect(result.organizations[0]?.isGeneticReportProvider).toBe(false);
     expect(result.organizations[0]?.geneticReportCategory).toBeNull();
+    expect(result.organizations[0]?.isGrcHighlighted).toBe(false);
     expect(result.organizations[0]?.social).toEqual({
       facebook: "https://facebook.com/publisher-one",
       github: "https://github.com/publisher-one",
@@ -832,6 +833,7 @@ describe("discover repository", () => {
     expect(organization.geneticReportCategory).toBe(
       "grc_reproductive,grc_full_genome",
     );
+    expect(organization.isGrcHighlighted).toBe(false);
     expect(stored?.data.slug).toBe("fundacion-medica-nandu");
     expect(stored?.data.description).toBe("Descripción en español");
     expect(stored?.data.descriptionEn).toBe("English description");
@@ -846,6 +848,73 @@ describe("discover repository", () => {
     expect(stored?.data.geneticReportCategory).toBe(
       "grc_reproductive,grc_full_genome",
     );
+    expect(stored?.data.isGrcHighlighted).toBe(false);
+  });
+
+  it("allows only god mode to set the organization GRC highlight flag", async () => {
+    const { createDiscoverOrganization, updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+
+    const nonGodCreated = await createDiscoverOrganization(fullAdminContext, {
+      name: "Non-god highlight attempt",
+      imageUrl: "https://example.org/non-god-highlight.png",
+      organizationType: "org_genetic_testing_laboratories",
+      isGrcHighlighted: true,
+    } as Record<string, unknown>);
+    const godCreated = await createDiscoverOrganization(godModeContext, {
+      name: "God mode highlighted lab",
+      imageUrl: "https://example.org/god-highlight.png",
+      organizationType: "org_genetic_testing_laboratories",
+      isGrcHighlighted: true,
+    } as Record<string, unknown>);
+
+    expect(nonGodCreated.isGrcHighlighted).toBe(false);
+    expect(godCreated.isGrcHighlighted).toBe(true);
+
+    const fullAdminUpdate = await updateDiscoverOrganization(
+      fullAdminContext,
+      godCreated.id,
+      {
+        name: "Full admin cannot unset highlight",
+        imageUrl: "https://example.org/god-highlight.png",
+        organizationType: "org_genetic_testing_laboratories",
+        isGrcHighlighted: false,
+      } as Record<string, unknown>,
+    );
+
+    expect(fullAdminUpdate.isGrcHighlighted).toBe(true);
+
+    const publisherUpdate = await updateDiscoverOrganization(
+      {
+        ...fullAdminContext,
+        role: "organization_publisher",
+        organizationId: godCreated.id,
+      },
+      godCreated.id,
+      {
+        name: "Publisher cannot unset highlight",
+        imageUrl: "https://example.org/god-highlight.png",
+        organizationType: "org_genetic_testing_laboratories",
+        isGrcHighlighted: false,
+      } as Record<string, unknown>,
+    );
+
+    expect(publisherUpdate.isGrcHighlighted).toBe(true);
+
+    const godUpdate = await updateDiscoverOrganization(
+      godModeContext,
+      godCreated.id,
+      {
+        name: "God mode can unset highlight",
+        imageUrl: "https://example.org/god-highlight.png",
+        organizationType: "org_genetic_testing_laboratories",
+        isGrcHighlighted: false,
+      } as Record<string, unknown>,
+    );
+    const stored = mockOrganizationDocs.find((doc) => doc.id === godCreated.id);
+
+    expect(godUpdate.isGrcHighlighted).toBe(false);
+    expect(stored?.data.isGrcHighlighted).toBe(false);
   });
 
   it("requires image URLs when creating publishers", async () => {
@@ -958,6 +1027,7 @@ describe("discover repository", () => {
     expect(stored?.data.geneticReportCategory).toBe(
       "grc_full_genome,grc_rare_diseases",
     );
+    expect(stored?.data.isGrcHighlighted).toBe(false);
     expect(stored?.data.isRequestedThroughWebWizard).toBe(true);
     expect(stored?.data).toHaveProperty("approvalRequestDate");
     expect(stored?.data.createdByUserId).toBe("public-web-wizard");

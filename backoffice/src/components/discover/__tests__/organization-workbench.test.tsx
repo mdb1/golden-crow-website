@@ -57,6 +57,7 @@ const organization: DiscoverOrganizationRecord = {
   verified: true,
   isGeneticReportProvider: true,
   geneticReportCategory: "grc_full_genome",
+  isGrcHighlighted: false,
   contactEmail: "hello@example.org",
   internalNotes: "Internal notes",
   createdAt: "2026-08-01T00:00:00.000Z",
@@ -83,6 +84,7 @@ const individual: DiscoverIndividualRecord = {
 
 type WorkbenchOverrides = {
   canDeletePublisher?: boolean;
+  canManageGrcHighlight?: boolean;
   canManageSystemFields?: boolean;
   deleteSuccessAction?: "list" | "publisher-login";
   mode?: "create" | "edit";
@@ -618,6 +620,37 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(body.geneticReportCategory).toBeNull();
   });
 
+  it("hides the GRC highlight checkbox without god mode access", () => {
+    renderWorkbench();
+
+    expect(screen.queryByLabelText("GRC highlighted")).toBeNull();
+  });
+
+  it("saves the GRC highlight checkbox from god mode", async () => {
+    const user = userEvent.setup();
+    renderWorkbench("en", { canManageGrcHighlight: true });
+
+    const checkbox = screen.getByLabelText(
+      "GRC highlighted",
+    ) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+
+    await user.click(checkbox);
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.isGrcHighlighted).toBe(true);
+  });
+
   it("saves genetic report categories in checkbox selection order", async () => {
     const user = userEvent.setup();
     renderWorkbench();
@@ -647,10 +680,11 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
   });
 
   it("does not render organization genetic report fields for individual publishers", () => {
-    renderIndividualWorkbench();
+    renderIndividualWorkbench("en", { canManageGrcHighlight: true });
 
     expect(screen.queryByLabelText("Genetic report provider")).toBeNull();
     expect(screen.queryByLabelText("Genetic report category")).toBeNull();
+    expect(screen.queryByLabelText("GRC highlighted")).toBeNull();
   });
 
   it("shows publisher categories translated in Spanish", async () => {

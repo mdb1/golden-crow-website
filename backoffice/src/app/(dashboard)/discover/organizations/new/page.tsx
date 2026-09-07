@@ -6,7 +6,7 @@ import { appText } from "@/lib/language";
 import { getServerAppLanguage } from "@/lib/server-language";
 
 export default async function NewDiscoverOrganizationPage() {
-  await requireDiscoverFullAdmin();
+  const adminContext = await requireDiscoverFullAdmin();
 
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -22,7 +22,10 @@ export default async function NewDiscoverOrganizationPage() {
           />
         }
       >
-        <DiscoverOrganizationWorkbench mode="create" />
+        <DiscoverOrganizationWorkbench
+          mode="create"
+          canManageGrcHighlight={adminContext.isBootstrap}
+        />
       </HeaderUnclutterScope>
     </div>
   );

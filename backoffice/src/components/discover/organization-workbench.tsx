@@ -85,6 +85,7 @@ type OrganizationFormState = {
   verified: boolean;
   isGeneticReportProvider: boolean;
   geneticReportCategory: string;
+  isGrcHighlighted: boolean;
   contactEmail: string;
   internalNotes: string;
 };
@@ -124,6 +125,7 @@ function toFormState(
     geneticReportCategory: isGeneticReportProvider
       ? (organization?.geneticReportCategory ?? "")
       : "",
+    isGrcHighlighted: organization?.isGrcHighlighted ?? false,
     contactEmail: publisher?.contactEmail ?? "",
     internalNotes: publisher?.internalNotes ?? "",
   };
@@ -170,6 +172,8 @@ function payloadFromState(
           ? state.geneticReportCategory || null
           : null
         : undefined,
+    isGrcHighlighted:
+      publisherKind === "organization" ? state.isGrcHighlighted : undefined,
   };
 }
 
@@ -206,6 +210,7 @@ function DiscoverPublisherWorkbench({
   publisherKind,
   mode = "edit",
   canManageSystemFields = true,
+  canManageGrcHighlight = false,
   canDeletePublisher = false,
   deleteSuccessAction = "list",
   routeBase,
@@ -215,6 +220,7 @@ function DiscoverPublisherWorkbench({
   publisherKind: PublisherKind;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
+  canManageGrcHighlight?: boolean;
   canDeletePublisher?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
@@ -945,6 +951,20 @@ function DiscoverPublisherWorkbench({
               />
               {t("Verified publisher")}
             </label>
+            {!isIndividual && canManageGrcHighlight ? (
+              <label className="flex items-center gap-2 self-end rounded-md border border-violet-200 bg-violet-50/60 px-3 py-2 text-sm text-violet-950 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-100">
+                <input
+                  type="checkbox"
+                  checked={state.isGrcHighlighted}
+                  onChange={(event) =>
+                    updateState({ isGrcHighlighted: event.target.checked })
+                  }
+                  disabled={pending}
+                  className="h-4 w-4"
+                />
+                {t("GRC highlighted")}
+              </label>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-3">
@@ -982,6 +1002,13 @@ function DiscoverPublisherWorkbench({
                   </div>
                   {state.isGeneticReportProvider ? (
                     <div>{geneticReportCategoryLabel}</div>
+                  ) : null}
+                  {canManageGrcHighlight ? (
+                    <div>
+                      {state.isGrcHighlighted
+                        ? t("GRC highlighted")
+                        : t("Not GRC highlighted")}
+                    </div>
                   ) : null}
                 </>
               ) : null}
@@ -1214,6 +1241,7 @@ export function DiscoverOrganizationWorkbench({
   organization,
   mode = "edit",
   canManageSystemFields = true,
+  canManageGrcHighlight = false,
   canDeletePublisher = false,
   deleteSuccessAction = "list",
   routeBase,
@@ -1222,6 +1250,7 @@ export function DiscoverOrganizationWorkbench({
   organization?: DiscoverOrganizationRecord;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
+  canManageGrcHighlight?: boolean;
   canDeletePublisher?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
@@ -1233,6 +1262,7 @@ export function DiscoverOrganizationWorkbench({
       publisherKind="organization"
       mode={mode}
       canManageSystemFields={canManageSystemFields}
+      canManageGrcHighlight={canManageGrcHighlight}
       canDeletePublisher={canDeletePublisher}
       deleteSuccessAction={deleteSuccessAction}
       routeBase={routeBase}
@@ -1245,6 +1275,7 @@ export function DiscoverIndividualWorkbench({
   individual,
   mode = "edit",
   canManageSystemFields = true,
+  canManageGrcHighlight = false,
   canDeletePublisher = false,
   deleteSuccessAction = "list",
   routeBase,
@@ -1253,6 +1284,7 @@ export function DiscoverIndividualWorkbench({
   individual?: DiscoverIndividualRecord;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
+  canManageGrcHighlight?: boolean;
   canDeletePublisher?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
@@ -1264,6 +1296,7 @@ export function DiscoverIndividualWorkbench({
       publisherKind="individual"
       mode={mode}
       canManageSystemFields={canManageSystemFields}
+      canManageGrcHighlight={canManageGrcHighlight}
       canDeletePublisher={canDeletePublisher}
       deleteSuccessAction={deleteSuccessAction}
       routeBase={routeBase}

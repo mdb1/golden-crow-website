@@ -245,6 +245,7 @@ const OrganizationBodySchema = z.object({
   isGeneticReportProvider: z.boolean().optional(),
   geneticReportCategory:
     GeneticReportCategorySelectionSchema.nullable().optional(),
+  isGrcHighlighted: z.boolean().optional(),
   contactEmail: z.string().optional(),
   internalNotes: z.string().optional(),
 });

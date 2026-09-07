@@ -78,6 +78,7 @@ describe("Discover public routes", () => {
         verified: false,
         isGeneticReportProvider: false,
         geneticReportCategory: null,
+        isGrcHighlighted: false,
         contactEmail: "join@example.org",
         createdAt: "2026-09-06T00:00:00.000Z",
         updatedAt: "2026-09-06T00:00:00.000Z",

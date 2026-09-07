@@ -437,6 +437,7 @@ type OrganizationInput = PublisherImageUploadInput & {
   verified?: unknown;
   isGeneticReportProvider?: unknown;
   geneticReportCategory?: unknown;
+  isGrcHighlighted?: unknown;
   contactEmail?: unknown;
   internalNotes?: unknown;
 };
@@ -497,6 +498,10 @@ function requireFullAdmin(context: AdminContext) {
   if (context.role !== "full_admin") {
     throw new AdminRepositoryError("Full admin access required.", 403);
   }
+}
+
+function canManageGrcHighlight(context: AdminContext) {
+  return context.role === "full_admin" && context.isBootstrap;
 }
 
 function requireDiscoverAccess(context: AdminContext) {
@@ -1322,6 +1327,7 @@ function toOrganizationRecord(
     verified: data.verified === true,
     isGeneticReportProvider: data.isGeneticReportProvider === true,
     geneticReportCategory: geneticReportCategory,
+    isGrcHighlighted: data.isGrcHighlighted === true,
     contactEmail: normalizeOptionalString(data.contactEmail),
     internalNotes: normalizeOptionalString(data.internalNotes),
     createdAt: timestampToIso(data.createdAt) ?? "",
@@ -1662,8 +1668,19 @@ function normalizePublicPublisherKind(
   return normalized;
 }
 
-function organizationDocument(input: OrganizationInput, context: AdminContext) {
+function organizationDocument(
+  input: OrganizationInput,
+  context: AdminContext,
+  options: { existingRecord?: DiscoverOrganizationRecord } = {},
+) {
   const name = normalizeRequiredString(input.name, "Organization name");
+  const isGrcHighlighted =
+    options.existingRecord &&
+    (!canManageGrcHighlight(context) || input.isGrcHighlighted === undefined)
+      ? options.existingRecord.isGrcHighlighted
+      : canManageGrcHighlight(context)
+        ? normalizeBoolean(input.isGrcHighlighted)
+        : false;
 
   return {
     name,
@@ -1682,6 +1699,7 @@ function organizationDocument(input: OrganizationInput, context: AdminContext) {
     geneticReportCategory: normalizeGeneticReportCategory(
       input.geneticReportCategory,
     ),
+    isGrcHighlighted,
     contactEmail: normalizeOptionalEmail(input.contactEmail, "Contact email"),
     internalNotes: normalizeOptionalString(input.internalNotes),
     updatedAt: FieldValue.serverTimestamp(),
@@ -1713,6 +1731,7 @@ function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
     geneticReportCategory: isGeneticReportProvider
       ? normalizeGeneticReportCategory(input.geneticReportCategory)
       : null,
+    isGrcHighlighted: false,
     contactEmail: normalizeRequiredEmail(input.contactEmail, "Contact email"),
     internalNotes: undefined,
     isRequestedThroughWebWizard: true,
@@ -2218,6 +2237,7 @@ export async function updateDiscoverOrganization(
           verified: existingRecord.verified,
           isGeneticReportProvider: existingRecord.isGeneticReportProvider,
           geneticReportCategory: existingRecord.geneticReportCategory,
+          isGrcHighlighted: existingRecord.isGrcHighlighted,
           internalNotes: existingRecord.internalNotes,
         }
       : input;
@@ -2230,7 +2250,9 @@ export async function updateDiscoverOrganization(
   await existing.ref.set(
     withoutUndefined({
       ...existing.data(),
-      ...organizationDocument(inputWithImageUpload, context),
+      ...organizationDocument(inputWithImageUpload, context, {
+        existingRecord,
+      }),
     }),
     { merge: false },
   );

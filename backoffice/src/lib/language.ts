@@ -326,6 +326,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Genetic report category": "Categoría de reporte genético",
   "Genetic report categories": "Categorías de reporte genético",
   "No genetic report category": "Sin categoría de reporte genético",
+  "GRC highlighted": "Destacado GRC",
+  "Not GRC highlighted": "No destacado GRC",
   "Genetic reports": "Reportes genéticos",
   "All report providers": "Todos los proveedores de reportes",
   "Report providers only": "Solo proveedores de reportes",
