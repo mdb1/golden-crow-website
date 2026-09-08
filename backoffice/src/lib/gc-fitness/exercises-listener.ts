@@ -108,6 +108,17 @@ export interface ExerciseRow {
   primaryMuscles?: string[];
   /** Phase 24-06 — FEXD raw secondary muscle tags (e.g. "triceps"). */
   secondaryMuscles?: string[];
+  /**
+   * #1072 — el grupo PRINCIPAL del vocabulario canónico (twin de iOS
+   * `Exercise.primaryMuscleGroup`). Lo escribe el editor de ejercicios desde
+   * `exercise-schema.ts`, pero el listener no lo decodificaba: sin él el
+   * heatmap del editor de rutinas no puede distinguir principal de secundario
+   * y cae al nivel único (`D-05`) en TODA la biblioteca, no sólo en el 94 % que
+   * de verdad no lo tiene. Ausente en la mayoría de los docs de producción —
+   * ese es el problema que M7 arregla, y esto es lo que hace que se note cuando
+   * lo haga.
+   */
+  primaryMuscleGroup?: string | null;
   /** Phase 24-06 — Exercise mechanic ("compound" | "isolation" | null). */
   mechanic?: string | null;
   /** Phase 24-06 — Difficulty level ("beginner" | "intermediate" | "expert" | null). */
@@ -236,6 +247,10 @@ export function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
     secondaryMuscles: Array.isArray(data.secondaryMuscles)
       ? data.secondaryMuscles
       : [],
+    primaryMuscleGroup:
+      typeof data.primaryMuscleGroup === "string" && data.primaryMuscleGroup.length > 0
+        ? data.primaryMuscleGroup
+        : null,
     mechanic: typeof data.mechanic === "string" ? data.mechanic : null,
     level: typeof data.level === "string" ? data.level : null,
     category: typeof data.category === "string" ? data.category : null,

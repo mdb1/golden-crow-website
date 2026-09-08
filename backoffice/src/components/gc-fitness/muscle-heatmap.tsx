@@ -206,7 +206,16 @@ function MuscleHeatmapLegendRows({ content }: { readonly content: MuscleHeatmapC
             // ⚠️ El número SIEMPRE al lado del color: lo relativo hace que un
             // entreno de 1 serie pinte rojo pleno, y el número es lo que calibra
             // (D-07). Sin él el color sería el único portador de la información.
-            detail={t("legendSets", { count: formatSets(top) })}
+            //
+            // ⚠️ DOS claves, no el plural de next-intl. El valor puede ser
+            // FRACCIONARIO —una región que sólo toca un motor secundario suma
+            // 0,5— así que llega como texto ya formateado y no hay entero que
+            // pluralizar. La regla es la única que corresponde: exactamente 1 es
+            // singular, todo lo demás plural. Twin de `setsLabel` (iOS) y del
+            // `setsRes` de Compose.
+            detail={t(top === 1 ? "legendSetsOne" : "legendSets", {
+              count: formatSets(top),
+            })}
           />
         );
       })}
