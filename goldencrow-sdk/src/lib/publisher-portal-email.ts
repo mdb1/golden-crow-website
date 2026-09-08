@@ -59,15 +59,15 @@ export function buildPublisherPortalInviteEmailMessage(
   return {
     to: recipient.email,
     subject:
-      "¡Bienvenidos a la plataforma Pocket Genes! Te compartimos tus claves de acceso.",
+      "¡Te damos la bienvenida a Pocket Genes! Tu clave de acceso está lista.",
     text: [
       `Hola ${displayName(recipient)},`,
       "",
       "¡Tu solicitud fue aprobada!",
       "",
-      "Ya podés entrar al portal de Pocket Genes para preparar tu perfil y publicar contenido para la comunidad.",
+      "Te damos la bienvenida a Pocket Genes. Ya podés entrar al portal para preparar tu perfil y publicar contenido para la comunidad.",
       "",
-      "Tu clave de acceso es:",
+      "Tu clave de acceso:",
       temporaryPassword,
       "",
       `Portal de Pocket Genes: ${portalUrl}`,
@@ -90,7 +90,7 @@ export function buildPublisherPortalInviteEmailMessage(
                     Pocket Genes
                   </div>
                   <div style="margin-top:16px;font-size:36px;line-height:42px;font-weight:800;color:#ffffff;">
-                    ¡Bienvenidos a la plataforma!
+                    Te damos la bienvenida a Pocket Genes
                   </div>
                 </td>
               </tr>
@@ -103,10 +103,10 @@ export function buildPublisherPortalInviteEmailMessage(
                     Tu solicitud fue aprobada.
                   </p>
                   <p style="margin:0 0 28px;font-size:18px;line-height:30px;color:#4b5563;">
-                    Ya podés entrar al portal de Pocket Genes para preparar tu perfil y publicar contenido para la comunidad.
+                    Te damos la bienvenida a Pocket Genes. Ya podés entrar al portal para preparar tu perfil y publicar contenido para la comunidad.
                   </p>
                   <p style="margin:0 0 18px;font-size:18px;line-height:28px;color:#4b5563;">
-                    Te compartimos tu clave de acceso.
+                    Tu clave de acceso está lista.
                   </p>
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 32px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;">
                     <tr>

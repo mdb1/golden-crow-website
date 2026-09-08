@@ -14,11 +14,12 @@ describe("publisher portal email", () => {
       expect.objectContaining({
         to: "publisher@example.com",
         subject:
-          "¡Bienvenidos a la plataforma Pocket Genes! Te compartimos tus claves de acceso.",
+          "¡Te damos la bienvenida a Pocket Genes! Tu clave de acceso está lista.",
       }),
     );
     expect(message.text).toContain("¡Tu solicitud fue aprobada!");
-    expect(message.text).toContain("Tu clave de acceso es:");
+    expect(message.text).toContain("Te damos la bienvenida a Pocket Genes.");
+    expect(message.text).toContain("Tu clave de acceso:");
     expect(message.text).toContain("ABCDEFGH");
     expect(message.text).toContain("/publisher-portal/login");
     expect(message.text).toContain("email=publisher%40example.com");
