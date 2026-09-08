@@ -573,7 +573,7 @@ const initialCopy = isEnglishPage
       eyebrow: copy.organizationPreview,
       publisher: '',
       title: name,
-      pageTitle: isEnglish ? `${name} on Pocket Genes` : `${name} en Pocket Genes`,
+      pageTitle: isEnglish ? `${name}\non Pocket Genes` : `${name}\nen Pocket Genes`,
       pageDescription: copy.organizationDescription,
       summary: '',
       body,
@@ -984,6 +984,7 @@ const initialCopy = isEnglishPage
     font-size: clamp(1.7rem, 6vw, 2.75rem);
     line-height: 1.1;
     letter-spacing: 0;
+    white-space: pre-line;
     overflow-wrap: anywhere;
   }
 
