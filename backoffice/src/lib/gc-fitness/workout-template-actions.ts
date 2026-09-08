@@ -159,6 +159,21 @@ export interface WorkoutTemplateExerciseDetail {
   /** 26-03 — Exercise-level duration fallback (seconds). Same shape
    *  as `reps` for the time branch. */
   durationSeconds?: number;
+  /**
+   * #1072 (épica #1067) — los tres campos musculares del ejercicio FUENTE, para
+   * el heatmap de la rutina. Se resuelven en el MISMO `getAll()` que ya trae
+   * `exerciseName` y `previewUrl`, así que no cuestan una lectura más.
+   *
+   * ⚠️ Salen del doc de la biblioteca, NO de la plantilla: la plantilla no
+   * congela músculos, y si el coach arregla los tags de un ejercicio la rutina
+   * tiene que reflejarlo. (Es lo contrario del `templateSnapshot` de una
+   * asignación, que sí congela — pero eso es una asignación, no una plantilla.)
+   */
+  muscles: {
+    muscleGroups: string[];
+    primaryMuscleGroup?: string;
+    secondaryMuscles: string[];
+  };
 }
 
 /**
@@ -587,8 +602,35 @@ export async function getWorkoutTemplateForAssignment(templateId: string): Promi
           ? { durationBySetSeconds }
           : {}),
         ...(durationSeconds !== undefined ? { durationSeconds } : {}),
+        muscles: readSourceMuscles(source),
       };
     }),
+  };
+}
+
+/**
+ * #1072 — los tres campos musculares de un doc de `exercises`, ya saneados.
+ *
+ * Indulgente a propósito: un doc sin `muscleGroups` (o con basura adentro)
+ * devuelve listas vacías y el heatmap muestra el cuerpo apagado con su texto.
+ * Inventar un grupo sería exactamente lo que `D-05` evita.
+ */
+function readSourceMuscles(source: Record<string, unknown> | undefined): {
+  muscleGroups: string[];
+  primaryMuscleGroup?: string;
+  secondaryMuscles: string[];
+} {
+  const strings = (value: unknown): string[] =>
+    Array.isArray(value)
+      ? value.filter((v): v is string => typeof v === "string" && v.length > 0)
+      : [];
+  const primary = source?.primaryMuscleGroup;
+  return {
+    muscleGroups: strings(source?.muscleGroups),
+    ...(typeof primary === "string" && primary.length > 0
+      ? { primaryMuscleGroup: primary }
+      : {}),
+    secondaryMuscles: strings(source?.secondaryMuscles),
   };
 }
 

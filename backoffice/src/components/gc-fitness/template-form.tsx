@@ -130,6 +130,8 @@ import {
 } from "@/lib/gc-fitness/superset-groups";
 
 import { ExercisePickerPopover } from "./exercise-picker-popover";
+import { WorkoutMuscleHeatmapSection } from "./workout-muscle-heatmap-section";
+import type { MuscleHeatmapExercise } from "@/lib/gc-fitness/muscle-heatmap-resolver";
 import { ExerciseMultiAddDialog } from "./exercise-multi-add-dialog";
 import { TemplateTagsPicker } from "./template-tags-picker";
 import { useWorkoutTemplates } from "@/lib/gc-fitness/workout-templates-listener";
@@ -428,6 +430,7 @@ export function TemplateForm({
   pickerInitialFilters,
 }: TemplateFormProps) {
   const t = useTranslations("templates.form");
+  const tHeatmap = useTranslations("muscleHeatmap");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [draftRestored, setDraftRestored] = useState(false);
@@ -527,6 +530,42 @@ export function TemplateForm({
     () => estimateTemplateDurationMinutesFromRaw(watchedExercises),
     [watchedExercises],
   );
+  // #1072 — las dos entradas del heatmap de la rutina, memoizadas: el editor
+  // recompone en cada tecla y sin esto cada tecla re-agregaría el entreno.
+  //
+  // Una fila sin `exerciseId` (la que agrega el botón "Agregar ejercicio",
+  // todavía sin elegir) se descarta: no es un ejercicio, es un hueco.
+  const heatmapExercises = useMemo(
+    () =>
+      watchedExercises
+        .filter(
+          (exercise): exercise is typeof exercise & { exerciseId: string } =>
+            typeof exercise?.exerciseId === "string" && exercise.exerciseId.length > 0,
+        )
+        .map((exercise) => ({
+          exerciseId: exercise.exerciseId,
+          sets: exercise.sets,
+          repsBySet: exercise.repsBySet,
+          weightBySetKg: exercise.weightBySetKg,
+          durationBySetSeconds: exercise.durationBySetSeconds,
+          setTypesBySet: exercise.setTypesBySet,
+        })),
+    [watchedExercises],
+  );
+  // La biblioteca entera y no sólo lo elegido: rearmar el mapa en cada tecla
+  // sería el trabajo que el `useMemo` de arriba evita, y el agregador ignora
+  // las claves que no usa.
+  const heatmapExercisesById = useMemo(() => {
+    const map: Record<string, MuscleHeatmapExercise> = {};
+    for (const exercise of exerciseLibrary ?? []) {
+      map[exercise.id] = {
+        muscleGroups: exercise.muscleGroups,
+        primaryMuscleGroup: exercise.primaryMuscleGroup ?? null,
+        secondaryMuscles: exercise.secondaryMuscles ?? [],
+      };
+    }
+    return map;
+  }, [exerciseLibrary]);
 
   // ---- Draft autosave + restore ------------------------------------------
   //
@@ -2748,6 +2787,25 @@ export function TemplateForm({
             </div>
           ) : null}
         </div>
+
+        {/* #1072 (S9) — el heatmap del entreno que se está armando. Contesta
+            "¿esta rutina está desbalanceada?" MIENTRAS todavía se puede
+            cambiar, que es lo único que la hace valer acá: en la ficha
+            informa, en el editor decide.
+
+            Lee de `useWatch` (el estado VIVO del formulario), nunca de
+            Firestore: se tiene que mover al agregar o sacar un ejercicio,
+            antes de guardar. Y va en su propio bloque, fuera de toda fila de
+            ejercicio y de todo picker. */}
+        <WorkoutMuscleHeatmapSection
+          exercises={heatmapExercises}
+          exercisesById={heatmapExercisesById}
+          emptyMessage={
+            heatmapExercises.length === 0
+              ? tHeatmap("emptyRoutine")
+              : tHeatmap("emptyWorkoutExercises")
+          }
+        />
 
         {/* Form-level error from RHF root */}
         {form.formState.errors.exercises &&

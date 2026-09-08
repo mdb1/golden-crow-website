@@ -24,6 +24,7 @@ import { getWorkoutTemplateForAssignment } from "@/lib/gc-fitness/workout-templa
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ExercisePreviewThumb } from "@/components/gc-fitness/exercise-preview-thumb";
+import { WorkoutMuscleHeatmapSection } from "@/components/gc-fitness/workout-muscle-heatmap-section";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 import { ViewTemplateActions } from "./actions";
 
@@ -146,6 +147,32 @@ export default async function ViewTemplatePage({ params }: PageParams) {
         </div>
         <ViewTemplateActions templateId={id} />
       </div>
+
+      {/*
+        #1072 (S9) — el heatmap, arriba de la lista de ejercicios. Es donde el
+        coach decide, así que es donde el desbalance tiene que ser visible ANTES
+        de asignar: contesta "¿qué trabaja esta rutina?" sin leer ocho nombres.
+      */}
+      <Card>
+        <CardContent className="p-4 sm:p-5">
+          <WorkoutMuscleHeatmapSection
+            exercises={template.exercises.map((exercise) => ({
+              exerciseId: exercise.exerciseId,
+              sets: exercise.sets,
+              repsBySet: exercise.repsBySet,
+              weightBySetKg: exercise.weightBySetKg,
+              durationBySetSeconds: exercise.durationBySetSeconds,
+              setTypesBySet: exercise.setTypesBySet,
+            }))}
+            exercisesById={Object.fromEntries(
+              template.exercises.map((exercise) => [
+                exercise.exerciseId,
+                exercise.muscles,
+              ]),
+            )}
+          />
+        </CardContent>
+      </Card>
 
       <section className="flex flex-col gap-3">
         <h2 className="font-heading text-lg font-semibold tracking-tight">
