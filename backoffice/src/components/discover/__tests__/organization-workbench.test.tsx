@@ -360,10 +360,14 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       name: /Configurar mi catalogo de productos/i,
     });
     const dangerZone = screen.getByTestId("discover-publisher-danger-zone");
+    const contentPanel = screen.getByTestId("discover-publisher-content-panel");
+    const preview = screen.getByTestId("discover-publisher-public-preview");
 
     expect(catalogLink.getAttribute("href")).toBe(
       "/discover/organizations/org-1/product-catalog",
     );
+    expect(contentPanel.contains(catalogLink)).toBe(true);
+    expect(preview.contains(catalogLink)).toBe(false);
     expect(
       Boolean(
         catalogLink.compareDocumentPosition(dangerZone) &

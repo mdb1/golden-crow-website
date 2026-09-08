@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   ChevronDown,
+  ChevronRight,
   Check,
   CheckCircle2,
   ExternalLink,
@@ -2269,6 +2270,23 @@ function DiscoverPublisherWorkbench({
                 {t("GRC highlighted")}
               </label>
             ) : null}
+            {showProductCatalogShortcut && publisher ? (
+              <Link
+                href={`${publisherDetailHref(publisher.id)}/product-catalog`}
+                data-testid="discover-org-product-catalog-shortcut"
+                className="group flex w-full items-center justify-between gap-3 rounded-xl border border-foreground/15 bg-background px-4 py-4 text-left text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-foreground/25 hover:bg-muted/35 hover:shadow-[0_18px_42px_rgba(15,23,42,0.10)] md:col-span-2"
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/50 text-foreground">
+                    <ShoppingBag className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                    {t("Configure my product catalog")}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+              </Link>
+            ) : null}
           </div>
 
           <aside
@@ -2485,22 +2503,6 @@ function DiscoverPublisherWorkbench({
             </div>
           </aside>
         </div>
-
-        {showProductCatalogShortcut && publisher ? (
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              size="lg"
-              asChild
-              className="h-12 justify-center rounded-xl border-violet-200 bg-violet-50/80 text-violet-700 shadow-[0_16px_38px_rgba(109,40,217,0.12)] hover:border-violet-300 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-100 dark:hover:bg-violet-500/18"
-            >
-              <Link href={`${publisherDetailHref(publisher.id)}/product-catalog`}>
-                <ShoppingBag className="h-4 w-4" />
-                {t("Configure my product catalog")}
-              </Link>
-            </Button>
-          </div>
-        ) : null}
 
         {showDangerZone ? (
           <div
