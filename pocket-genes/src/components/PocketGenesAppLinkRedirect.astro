@@ -1454,21 +1454,8 @@ const initialCopy = isEnglishPage
 
   @media (min-width: 900px) {
     .app-link-content:has(.shared-preview:not([hidden])) {
-      width: min(100%, 1120px);
-      display: grid;
-      grid-template-columns: minmax(0, 0.92fr) minmax(360px, 0.88fr);
-      column-gap: clamp(2rem, 5vw, 4.5rem);
-      align-items: center;
-      text-align: left;
-    }
-
-    .app-link-content:has(.shared-preview:not([hidden])) > :not(.shared-preview) {
-      grid-column: 1;
-      justify-self: start;
-    }
-
-    .app-link-content:has(.shared-preview:not([hidden])) .app-icon {
-      justify-self: start;
+      width: min(100%, 760px);
+      text-align: center;
     }
 
     .app-link-content:has(.shared-preview:not([hidden])) h1,
@@ -1482,11 +1469,12 @@ const initialCopy = isEnglishPage
     }
 
     .app-link-content:has(.shared-preview:not([hidden])) .shared-preview {
-      grid-column: 2;
-      grid-row: 1 / span 7;
-      align-self: center;
-      justify-self: stretch;
-      margin-top: 0;
+      max-width: 720px;
+      margin-top: 1.6rem;
+    }
+
+    .app-link-content:has(.shared-preview:not([hidden])) .shared-preview-banner {
+      height: 210px;
     }
   }
 
