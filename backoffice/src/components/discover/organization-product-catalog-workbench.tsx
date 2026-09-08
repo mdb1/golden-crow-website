@@ -788,34 +788,42 @@ export function DiscoverOrganizationProductCatalogWorkbench({
     <section className="pb-28">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
 
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-2">
-          <Button variant="ghost" size="sm" asChild>
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div
+          data-testid="product-catalog-workbench-title"
+          className="min-w-0"
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="truncate font-heading text-xl font-semibold text-foreground">
+              {mode === "create"
+                ? t("Add product to catalog")
+                : state.title.trim() || t("Product item")}
+            </h2>
+            <HeaderUnclutterButton />
+          </div>
+          <p className="truncate text-sm text-muted-foreground">
+            {organization.name}
+          </p>
+        </div>
+
+        <nav
+          aria-label="Product catalog navigation"
+          data-testid="product-catalog-workbench-navigation"
+          className="flex w-full flex-col gap-1 rounded-2xl border border-border bg-background/80 p-1.5 shadow-sm sm:w-auto lg:min-w-60"
+        >
+          <Button variant="ghost" size="sm" asChild className="justify-start">
             <Link href={routeBase}>
               <ArrowLeft className="h-3.5 w-3.5" />
               {t("Back to product catalog")}
             </Link>
           </Button>
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <h2 className="truncate font-heading text-xl font-semibold text-foreground">
-                {mode === "create"
-                  ? t("Add product to catalog")
-                  : state.title.trim() || t("Product item")}
-              </h2>
-              <HeaderUnclutterButton />
-            </div>
-            <p className="truncate text-sm text-muted-foreground">
-              {organization.name}
-            </p>
-          </div>
-        </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link href={organizationHref}>
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {t("Back to organization")}
-          </Link>
-        </Button>
+          <Button variant="ghost" size="sm" asChild className="justify-start">
+            <Link href={organizationHref}>
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {t("Back to organization")}
+            </Link>
+          </Button>
+        </nav>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -1104,15 +1112,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-4 py-3 shadow-[0_-20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-            <Link
-              href={routeBase}
-              className="inline-flex items-center gap-2 font-medium text-foreground hover:text-brand"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {t("Back to product catalog")}
-            </Link>
-            <span className="hidden sm:inline">·</span>
+          <div className="flex min-w-0 items-center text-sm text-muted-foreground">
             <span className="truncate">{saveHint}</span>
           </div>
           <div className="flex items-center gap-2 sm:justify-end">
