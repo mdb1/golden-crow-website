@@ -518,7 +518,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Buscar por título, descripción o URL del producto",
   Product: "Producto",
   "No products in the catalog yet":
-    "No subiste ningún producto al catálogo aún!",
+    "¡No subiste ningún producto al catálogo aún!",
   "No products match the loaded rows.":
     "Ningún producto coincide con las filas cargadas.",
   "Create your first product in under 5 minutes.":
