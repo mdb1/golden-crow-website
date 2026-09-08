@@ -62,7 +62,7 @@ export default async function DiscoverOrganizationProductCatalogItemPage({
           <PageHero
             eyebrow={t("Discover")}
             title={catalogItem.title}
-            description={t("Edit one productCatalog item inside this organization record.")}
+            description={t("Edit a product in this organization's catalog.")}
           />
         }
       >

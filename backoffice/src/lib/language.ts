@@ -503,39 +503,40 @@ const SPANISH_TEXT: Record<string, string> = {
     "PNG, JPG o WebP de hasta 600 KB. Se recorta a 1024 x 500.",
   "Product catalog": "Catálogo de productos",
   "Configure my product catalog": "Configurar mi catalogo de productos",
-  "Manage organization-owned productCatalog items.":
-    "Administrá las entradas de catálogo guardadas dentro de esta organización.",
-  "Create one productCatalog item inside this organization record.":
-    "Creá una entrada de catálogo dentro de esta organización.",
-  "Edit one productCatalog item inside this organization record.":
-    "Editá una entrada de catálogo dentro de esta organización.",
+  "Manage this organization's products.":
+    "Administrá los productos que se muestran en el catálogo de esta organización.",
+  "Add a product to this organization's catalog.":
+    "Agregá un producto al catálogo de esta organización.",
+  "Edit a product in this organization's catalog.":
+    "Editá un producto del catálogo de esta organización.",
   "Product catalog refreshed.": "Catálogo actualizado.",
   "Unable to refresh product catalog.":
     "No se pudo actualizar el catálogo.",
-  "New catalog entry": "Nueva entrada de catálogo",
+  "Add product to catalog": "Agregar producto al catálogo",
   "Back to organization": "Volver a la organización",
   "Search product title, description, or URL":
     "Buscar por título, descripción o URL del producto",
   Product: "Producto",
-  "No catalog items yet": "Todavía no hay entradas de catálogo",
-  "No catalog items match the loaded rows.":
-    "Ninguna entrada de catálogo coincide con las filas cargadas.",
-  "Create the first catalog entry for this organization.":
-    "Creá la primera entrada del catálogo de esta organización.",
+  "No products in the catalog yet":
+    "No subiste ningún producto al catálogo aún!",
+  "No products match the loaded rows.":
+    "Ningún producto coincide con las filas cargadas.",
+  "Create your first product in under 5 minutes.":
+    "Creá tu primer producto en menos de 5 minutos.",
   "Try a different search or refresh the catalog.":
     "Probá otra búsqueda o actualizá el catálogo.",
   "Has image": "Tiene imagen",
   "No image": "Sin imagen",
   "No product URL": "Sin URL de producto",
-  "Catalog item deleted.": "Entrada de catálogo eliminada.",
-  "Unable to delete the catalog item.":
-    "No se pudo eliminar la entrada de catálogo.",
-  "Delete catalog item": "Eliminar entrada de catálogo",
-  "Delete catalog item?": "¿Eliminar entrada de catálogo?",
+  "Product deleted.": "Producto eliminado.",
+  "Unable to delete the product.":
+    "No se pudo eliminar el producto.",
+  "Delete product": "Eliminar producto",
+  "Delete product?": "¿Eliminar producto?",
   "This removes the product from the organization catalog. This action cannot be undone.":
     "Esto elimina el producto del catálogo de la organización. No se puede deshacer.",
   "Back to product catalog": "Volver al catálogo de productos",
-  "Catalog item": "Entrada de catálogo",
+  "Product item": "Producto",
   Catalog: "Catálogo",
   "Product title": "Título del producto",
   "Example: Full genome report": "Ejemplo: Reporte de genoma completo",
@@ -572,9 +573,9 @@ const SPANISH_TEXT: Record<string, string> = {
     "Explicá qué es el producto, a quién ayuda y qué pasa después de abrirlo.",
   "Describe this product for people browsing Pocket Genes.":
     "Describí este producto para las personas que exploran Pocket Genes.",
-  "Delete this catalog item from the organization profile.":
-    "Eliminá esta entrada del catálogo del perfil de la organización.",
-  "Create catalog entry": "Crear entrada de catálogo",
+  "Delete this product from the organization profile.":
+    "Eliminá este producto del perfil de la organización.",
+  "Create product": "Crear producto",
   "Add a product title to continue.":
     "Agregá un título de producto para continuar.",
   "Write at least 30 characters in the description.":
@@ -583,10 +584,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Use a valid product URL.": "Usá una URL de producto válida.",
   "Ready to save.": "Listo para guardar.",
   "No unsaved changes.": "Sin cambios sin guardar.",
-  "Catalog item created.": "Entrada de catálogo creada.",
-  "Catalog item saved.": "Entrada de catálogo guardada.",
-  "Unable to save catalog item.":
-    "No se pudo guardar la entrada de catálogo.",
+  "Product added.": "Producto agregado.",
+  "Product saved.": "Producto guardado.",
+  "Unable to save product.":
+    "No se pudo guardar el producto.",
   "Catalog preview": "Vista previa del catálogo",
   "The product description will appear here.":
     "La descripción del producto va a aparecer acá.",

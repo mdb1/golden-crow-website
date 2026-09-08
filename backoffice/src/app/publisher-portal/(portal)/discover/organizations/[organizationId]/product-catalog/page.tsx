@@ -53,7 +53,7 @@ export default async function PublisherPortalOrganizationProductCatalogPage({
           <PageHero
             eyebrow={t("Publisher portal")}
             title={t("Product catalog")}
-            description={t("Manage organization-owned productCatalog items.")}
+            description={t("Manage this organization's products.")}
           />
         }
       >

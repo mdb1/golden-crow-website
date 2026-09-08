@@ -144,13 +144,13 @@ export function DiscoverOrganizationProductCatalogBrowser({
       setToast({
         id: Date.now(),
         tone: "success",
-        message: t("Catalog item deleted."),
+        message: t("Product deleted."),
       });
     } catch {
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to delete the catalog item."),
+        message: t("Unable to delete the product."),
       });
     } finally {
       setPending(false);
@@ -196,7 +196,7 @@ export function DiscoverOrganizationProductCatalogBrowser({
             <Button size="sm" asChild>
               <Link href={`${routeBase}/new`}>
                 <Plus className="h-3.5 w-3.5" />
-                {t("New catalog entry")}
+                {t("Add product to catalog")}
               </Link>
             </Button>
           </div>
@@ -228,19 +228,19 @@ export function DiscoverOrganizationProductCatalogBrowser({
             </div>
             <h3 className="mt-4 font-heading text-lg font-semibold text-foreground">
               {items.length === 0
-                ? t("No catalog items yet")
-                : t("No catalog items match the loaded rows.")}
+                ? t("No products in the catalog yet")
+                : t("No products match the loaded rows.")}
             </h3>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
               {items.length === 0
-                ? t("Create the first catalog entry for this organization.")
+                ? t("Create your first product in under 5 minutes.")
                 : t("Try a different search or refresh the catalog.")}
             </p>
             {items.length === 0 ? (
               <Button className="mt-5" asChild>
                 <Link href={`${routeBase}/new`}>
                   <Plus className="h-4 w-4" />
-                  {t("New catalog entry")}
+                  {t("Add product to catalog")}
                 </Link>
               </Button>
             ) : null}
@@ -333,7 +333,7 @@ export function DiscoverOrganizationProductCatalogBrowser({
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>
-                          {t("Delete catalog item?")}
+                          {t("Delete product?")}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                           {t(

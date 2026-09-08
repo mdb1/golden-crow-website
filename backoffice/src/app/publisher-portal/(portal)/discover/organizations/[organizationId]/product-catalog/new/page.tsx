@@ -52,8 +52,8 @@ export default async function NewPublisherPortalOrganizationProductCatalogItemPa
         header={
           <PageHero
             eyebrow={t("Publisher portal")}
-            title={t("New catalog entry")}
-            description={t("Create one productCatalog item inside this organization record.")}
+            title={t("Add product to catalog")}
+            description={t("Add a product to this organization's catalog.")}
           />
         }
       >

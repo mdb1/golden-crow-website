@@ -44,7 +44,7 @@ export default async function DiscoverOrganizationProductCatalogPage({
           <PageHero
             eyebrow={t("Discover")}
             title={t("Product catalog")}
-            description={t("Manage organization-owned productCatalog items.")}
+            description={t("Manage this organization's products.")}
           />
         }
       >

@@ -553,7 +553,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
     !pending &&
     !imageUploadPending &&
     (mode === "create" || changed);
-  const saveLabel = mode === "create" ? t("Create catalog entry") : t("Save changes");
+  const saveLabel = mode === "create" ? t("Create product") : t("Save changes");
   const saveHint = !titleReady
     ? t("Add a product title to continue.")
     : !descriptionReady
@@ -735,8 +735,8 @@ export function DiscoverOrganizationProductCatalogWorkbench({
         tone: "success",
         message:
           mode === "create"
-            ? t("Catalog item created.")
-            : t("Catalog item saved."),
+            ? t("Product added.")
+            : t("Product saved."),
       });
       router.refresh();
       if (mode === "create") {
@@ -749,7 +749,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
         message:
           error instanceof Error
             ? error.message
-            : t("Unable to save catalog item."),
+            : t("Unable to save product."),
       });
     } finally {
       setPending(false);
@@ -778,7 +778,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
         message:
           error instanceof Error
             ? error.message
-            : t("Unable to delete the catalog item."),
+            : t("Unable to delete the product."),
       });
       setDeletePending(false);
     }
@@ -800,8 +800,8 @@ export function DiscoverOrganizationProductCatalogWorkbench({
             <div className="flex min-w-0 items-center gap-2">
               <h2 className="truncate font-heading text-xl font-semibold text-foreground">
                 {mode === "create"
-                  ? t("New catalog entry")
-                  : state.title.trim() || t("Catalog item")}
+                  ? t("Add product to catalog")
+                  : state.title.trim() || t("Product item")}
               </h2>
               <HeaderUnclutterButton />
             </div>
@@ -1056,7 +1056,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                 {t("Danger zone")}
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {t("Delete this catalog item from the organization profile.")}
+                {t("Delete this product from the organization profile.")}
               </p>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -1066,13 +1066,13 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                     disabled={deletePending}
                   >
                     <Trash2 className="h-4 w-4" />
-                    {deletePending ? t("Deleting...") : t("Delete catalog item")}
+                    {deletePending ? t("Deleting...") : t("Delete product")}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>
-                      {t("Delete catalog item?")}
+                      {t("Delete product?")}
                     </AlertDialogTitle>
                     <AlertDialogDescription>
                       {t(
