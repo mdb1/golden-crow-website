@@ -29,6 +29,7 @@ import {
   RotateCcw,
   Save,
   ShieldCheck,
+  ShoppingBag,
   Sparkles,
   Trash2,
   UploadCloud,
@@ -1527,6 +1528,14 @@ function DiscoverPublisherWorkbench({
             </h2>
             <HeaderUnclutterButton />
           </div>
+          {!isIndividual && mode === "edit" && publisher ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`${publisherDetailHref(publisher.id)}/product-catalog`}>
+                <ShoppingBag className="h-3.5 w-3.5" />
+                {t("Product catalog")}
+              </Link>
+            </Button>
+          ) : null}
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">

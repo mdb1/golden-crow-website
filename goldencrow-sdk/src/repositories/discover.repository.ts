@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   FieldPath,
   FieldValue,
@@ -24,6 +25,7 @@ import type {
   DiscoverIndividualRecord,
   DiscoverIndividualStatus,
   DiscoverListPage,
+  DiscoverOrganizationProductCatalogItem,
   DiscoverOrganizationRecord,
   DiscoverOrganizationStatus,
   DiscoverPublisherSocialLinks,
@@ -37,6 +39,7 @@ const FEED_ITEMS_COLLECTION = "feed_items";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 const PUBLISHER_DELETE_BATCH_SIZE = 450;
+const MAX_PRODUCT_CATALOG_ITEMS = 200;
 
 const FEED_TYPE_VALUES = [
   "news",
@@ -471,6 +474,14 @@ type IndividualInput = PublisherImageUploadInput & {
   verified?: unknown;
   contactEmail?: unknown;
   internalNotes?: unknown;
+};
+
+type ProductCatalogItemInput = PublisherImageUploadInput & {
+  title?: unknown;
+  description?: unknown;
+  imageUrl?: unknown;
+  productUrl?: unknown;
+  callToActionLabel?: unknown;
 };
 
 type PublicPublisherRequestInput = PublisherImageUploadInput & {
@@ -1269,6 +1280,50 @@ function timestampToIso(value: unknown): string | null {
   return null;
 }
 
+function readProductCatalogItem(
+  value: unknown,
+): DiscoverOrganizationProductCatalogItem | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const source = value as Record<string, unknown>;
+  const id = normalizeOptionalString(source.id);
+  const title = normalizeOptionalString(source.title);
+  if (!id || !title) {
+    return null;
+  }
+
+  return {
+    id,
+    title,
+    description: normalizeOptionalString(source.description) ?? "",
+    imageUrl: normalizeNullableString(source.imageUrl),
+    imageUploadDataUrl: normalizeOptionalString(source.imageUploadDataUrl),
+    imageUploadName: normalizeOptionalString(source.imageUploadName),
+    imageUploadMimeType: normalizeOptionalString(source.imageUploadMimeType),
+    productUrl: normalizeNullableString(source.productUrl),
+    callToActionLabel: normalizeNullableString(source.callToActionLabel),
+    createdAt: timestampToIso(source.createdAt) ?? "",
+    updatedAt: timestampToIso(source.updatedAt) ?? "",
+    createdByUserId: normalizeOptionalString(source.createdByUserId),
+    updatedByUserId: normalizeOptionalString(source.updatedByUserId),
+  };
+}
+
+function readProductCatalog(
+  value: unknown,
+): DiscoverOrganizationProductCatalogItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    const item = readProductCatalogItem(entry);
+    return item ? [item] : [];
+  });
+}
+
 function serializePayloadValue(value: unknown): unknown {
   if (value instanceof Timestamp) {
     return value.toDate().toISOString();
@@ -1456,6 +1511,7 @@ function toOrganizationRecord(
     isGrcHighlighted: data.isGrcHighlighted === true,
     contactEmail: normalizeOptionalString(data.contactEmail),
     internalNotes: normalizeOptionalString(data.internalNotes),
+    productCatalog: readProductCatalog(data.productCatalog),
     createdAt: timestampToIso(data.createdAt) ?? "",
     updatedAt: timestampToIso(data.updatedAt) ?? "",
     createdByUserId: normalizeOptionalString(data.createdByUserId),
@@ -1813,6 +1869,99 @@ function normalizePublicPublisherKind(
   return normalized;
 }
 
+function productCatalogItemImageDocumentFields(
+  input: ProductCatalogItemInput,
+  existingItem?: DiscoverOrganizationProductCatalogItem,
+) {
+  const hasImageUrl = Object.prototype.hasOwnProperty.call(input, "imageUrl");
+  const hasUploadDataUrl = Object.prototype.hasOwnProperty.call(
+    input,
+    "imageUploadDataUrl",
+  );
+  const imageUrl = hasImageUrl
+    ? normalizeHttpsUrl(input.imageUrl, "Product image URL")
+    : (existingItem?.imageUrl ?? null);
+  const uploadFields = hasUploadDataUrl
+    ? publicImageUploadDocumentFields(input)
+    : {};
+  const hasNewUpload = Boolean(uploadFields.imageUploadDataUrl);
+
+  if (imageUrl && hasNewUpload) {
+    throw new AdminRepositoryError(
+      "Choose either a product image URL or an uploaded product image, not both.",
+      400,
+    );
+  }
+
+  if (hasNewUpload) {
+    return {
+      imageUrl: null,
+      ...uploadFields,
+    };
+  }
+
+  if (hasImageUrl || input.imageUploadDataUrl === null) {
+    return {
+      imageUrl,
+      imageUploadDataUrl: undefined,
+      imageUploadName: undefined,
+      imageUploadMimeType: undefined,
+    };
+  }
+
+  return {
+    imageUrl,
+    imageUploadDataUrl: existingItem?.imageUploadDataUrl,
+    imageUploadName: existingItem?.imageUploadName,
+    imageUploadMimeType: existingItem?.imageUploadMimeType,
+  };
+}
+
+function productCatalogItemDocument(
+  input: ProductCatalogItemInput,
+  context: AdminContext,
+  existingItem?: DiscoverOrganizationProductCatalogItem,
+): DiscoverOrganizationProductCatalogItem {
+  const title = normalizeRequiredString(input.title, "Catalog item title");
+  const description = normalizeRequiredString(
+    input.description,
+    "Catalog item description",
+  );
+  if (title.length < 2) {
+    throw new AdminRepositoryError(
+      "Catalog item title must contain at least 2 characters.",
+      400,
+    );
+  }
+  if (description.length < 30) {
+    throw new AdminRepositoryError(
+      "Catalog item description must contain at least 30 characters.",
+      400,
+    );
+  }
+  const productUrl = normalizeOptionalHttpUrl(input.productUrl, "Product URL");
+  const now = Timestamp.now();
+  const createdAt = existingItem
+    ? (normalizeTimestamp(existingItem.createdAt, "Catalog item created time") ??
+      now)
+    : now;
+
+  return {
+    id: existingItem?.id ?? `cat_${randomUUID()}`,
+    title,
+    description,
+    ...productCatalogItemImageDocumentFields(input, existingItem),
+    productUrl,
+    callToActionLabel: productUrl
+      ? normalizeNullableString(input.callToActionLabel)
+      : null,
+    createdAt: createdAt.toDate().toISOString(),
+    updatedAt: now.toDate().toISOString(),
+    createdByUserId: existingItem?.createdByUserId ?? context.uid,
+    updatedByUserId: context.uid,
+  };
+}
+
 function organizationDocument(
   input: OrganizationInput,
   context: AdminContext,
@@ -1855,6 +2004,7 @@ function organizationDocument(
     isGrcHighlighted,
     contactEmail: normalizeOptionalEmail(input.contactEmail, "Contact email"),
     internalNotes: normalizeOptionalString(input.internalNotes),
+    productCatalog: options.existingRecord?.productCatalog ?? [],
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
   };
@@ -1888,6 +2038,7 @@ function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
     isGrcHighlighted: false,
     contactEmail: normalizeRequiredEmail(input.contactEmail, "Contact email"),
     internalNotes: undefined,
+    productCatalog: [],
     isRequestedThroughWebWizard: true,
     approvalRequestDate: FieldValue.serverTimestamp(),
     createdAt: FieldValue.serverTimestamp(),
@@ -2460,6 +2611,179 @@ export async function deleteDiscoverOrganization(
     organizationId,
     deletedFeedItemCount,
     ...deletedRoles,
+  };
+}
+
+export async function listDiscoverOrganizationProductCatalog(
+  context: AdminContext,
+  organizationId: string,
+) {
+  const organization = await getDiscoverOrganization(context, organizationId);
+  return { productCatalog: organization.productCatalog ?? [] };
+}
+
+export async function getDiscoverOrganizationProductCatalogItem(
+  context: AdminContext,
+  organizationId: string,
+  catalogItemId: string,
+) {
+  const organization = await getDiscoverOrganization(context, organizationId);
+  const catalogItem = (organization.productCatalog ?? []).find(
+    (item) => item.id === catalogItemId,
+  );
+  if (!catalogItem) {
+    throw new AdminRepositoryError("Catalog item not found.", 404);
+  }
+
+  return catalogItem;
+}
+
+export async function createDiscoverOrganizationProductCatalogItem(
+  context: AdminContext,
+  organizationId: string,
+  input: ProductCatalogItemInput,
+) {
+  requireOrganizationSurfaceAccess(context);
+  assertOrganizationScope(context, organizationId);
+  const organizationRef = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId);
+  let savedItem: DiscoverOrganizationProductCatalogItem | null = null;
+
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(organizationRef);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("Organization not found.", 404);
+    }
+
+    const data = snapshot.data() ?? {};
+    const productCatalog = readProductCatalog(data.productCatalog);
+    if (productCatalog.length >= MAX_PRODUCT_CATALOG_ITEMS) {
+      throw new AdminRepositoryError(
+        `Product catalog can contain up to ${MAX_PRODUCT_CATALOG_ITEMS} items.`,
+        400,
+      );
+    }
+
+    const item = productCatalogItemDocument(input, context);
+    savedItem = item;
+    transaction.set(
+      organizationRef,
+      withoutUndefined({
+        ...data,
+        productCatalog: [...productCatalog, item],
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByUserId: context.uid,
+      }),
+      { merge: false },
+    );
+  });
+
+  if (!savedItem) {
+    throw new AdminRepositoryError("Catalog item could not be created.", 500);
+  }
+
+  return savedItem;
+}
+
+export async function updateDiscoverOrganizationProductCatalogItem(
+  context: AdminContext,
+  organizationId: string,
+  catalogItemId: string,
+  input: ProductCatalogItemInput,
+) {
+  requireOrganizationSurfaceAccess(context);
+  assertOrganizationScope(context, organizationId);
+  const organizationRef = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId);
+  let savedItem: DiscoverOrganizationProductCatalogItem | null = null;
+
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(organizationRef);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("Organization not found.", 404);
+    }
+
+    const data = snapshot.data() ?? {};
+    const productCatalog = readProductCatalog(data.productCatalog);
+    const itemIndex = productCatalog.findIndex(
+      (item) => item.id === catalogItemId,
+    );
+    if (itemIndex === -1) {
+      throw new AdminRepositoryError("Catalog item not found.", 404);
+    }
+
+    const item = productCatalogItemDocument(
+      input,
+      context,
+      productCatalog[itemIndex],
+    );
+    savedItem = item;
+    const nextCatalog = [...productCatalog];
+    nextCatalog[itemIndex] = item;
+
+    transaction.set(
+      organizationRef,
+      withoutUndefined({
+        ...data,
+        productCatalog: nextCatalog,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByUserId: context.uid,
+      }),
+      { merge: false },
+    );
+  });
+
+  if (!savedItem) {
+    throw new AdminRepositoryError("Catalog item could not be updated.", 500);
+  }
+
+  return savedItem;
+}
+
+export async function deleteDiscoverOrganizationProductCatalogItem(
+  context: AdminContext,
+  organizationId: string,
+  catalogItemId: string,
+) {
+  requireOrganizationSurfaceAccess(context);
+  assertOrganizationScope(context, organizationId);
+  const organizationRef = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId);
+
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(organizationRef);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("Organization not found.", 404);
+    }
+
+    const data = snapshot.data() ?? {};
+    const productCatalog = readProductCatalog(data.productCatalog);
+    const nextCatalog = productCatalog.filter(
+      (item) => item.id !== catalogItemId,
+    );
+    if (nextCatalog.length === productCatalog.length) {
+      throw new AdminRepositoryError("Catalog item not found.", 404);
+    }
+
+    transaction.set(
+      organizationRef,
+      withoutUndefined({
+        ...data,
+        productCatalog: nextCatalog,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByUserId: context.uid,
+      }),
+      { merge: false },
+    );
+  });
+
+  return {
+    deleted: true,
+    organizationId,
+    catalogItemId,
   };
 }
 

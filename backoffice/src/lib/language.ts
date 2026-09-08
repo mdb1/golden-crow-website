@@ -501,6 +501,94 @@ const SPANISH_TEXT: Record<string, string> = {
   "Banner image processed and ready.": "Banner procesado y listo.",
   "PNG, JPG, or WebP up to 600 KB. It will be cropped to 1024 x 500.":
     "PNG, JPG o WebP de hasta 600 KB. Se recorta a 1024 x 500.",
+  "Product catalog": "Catálogo de productos",
+  "Manage organization-owned productCatalog items.":
+    "Administrá las entradas de catálogo guardadas dentro de esta organización.",
+  "Create one productCatalog item inside this organization record.":
+    "Creá una entrada de catálogo dentro de esta organización.",
+  "Edit one productCatalog item inside this organization record.":
+    "Editá una entrada de catálogo dentro de esta organización.",
+  "Product catalog refreshed.": "Catálogo actualizado.",
+  "Unable to refresh product catalog.":
+    "No se pudo actualizar el catálogo.",
+  "New catalog entry": "Nueva entrada de catálogo",
+  "Back to organization": "Volver a la organización",
+  "Search product title, description, or URL":
+    "Buscar por título, descripción o URL del producto",
+  Product: "Producto",
+  "No catalog items yet": "Todavía no hay entradas de catálogo",
+  "No catalog items match the loaded rows.":
+    "Ninguna entrada de catálogo coincide con las filas cargadas.",
+  "Create the first catalog entry for this organization.":
+    "Creá la primera entrada del catálogo de esta organización.",
+  "Try a different search or refresh the catalog.":
+    "Probá otra búsqueda o actualizá el catálogo.",
+  "Has image": "Tiene imagen",
+  "No image": "Sin imagen",
+  "No product URL": "Sin URL de producto",
+  "Catalog item deleted.": "Entrada de catálogo eliminada.",
+  "Unable to delete the catalog item.":
+    "No se pudo eliminar la entrada de catálogo.",
+  "Delete catalog item": "Eliminar entrada de catálogo",
+  "Delete catalog item?": "¿Eliminar entrada de catálogo?",
+  "This removes the product from the organization catalog. This action cannot be undone.":
+    "Esto elimina el producto del catálogo de la organización. No se puede deshacer.",
+  "Back to product catalog": "Volver al catálogo de productos",
+  "Catalog item": "Entrada de catálogo",
+  Catalog: "Catálogo",
+  "Product title": "Título del producto",
+  "Example: Full genome report": "Ejemplo: Reporte de genoma completo",
+  "Use the public-facing product name.":
+    "Usá el nombre público del producto.",
+  "Product URL": "URL del producto",
+  "Button label": "Texto del botón",
+  "View product": "Ver producto",
+  "Optional. Used as the product link label.":
+    "Opcional. Se usa como texto del enlace del producto.",
+  "Add a product URL to enable this label.":
+    "Agregá una URL de producto para activar este texto.",
+  "Product image": "Imagen del producto",
+  "Use a URL or upload a small PNG, JPG, or WebP file.":
+    "Usá una URL o subí un archivo PNG, JPG o WebP liviano.",
+  "Choose another image": "Elegir otra imagen",
+  "Remove image": "Quitar imagen",
+  "Uploaded image selected.": "Imagen subida seleccionada.",
+  "Upload product image": "Subir imagen del producto",
+  "Drop it here or choose a file up to 600 KB.":
+    "Soltala acá o elegí un archivo de hasta 600 KB.",
+  "Compressing uploaded product image...":
+    "Comprimiendo imagen del producto...",
+  "Preparing uploaded product image...":
+    "Preparando imagen del producto...",
+  "Use a PNG, JPG, or WebP image.":
+    "Usá una imagen PNG, JPG o WebP.",
+  "The image is still too large after compression.":
+    "La imagen sigue siendo demasiado grande después de comprimirla.",
+  "Image ready": "Imagen lista",
+  "Image ready.": "Imagen lista.",
+  "Product description": "Descripción del producto",
+  "Explain what the product is, who it helps, and what happens after opening it.":
+    "Explicá qué es el producto, a quién ayuda y qué pasa después de abrirlo.",
+  "Describe this product for people browsing Pocket Genes.":
+    "Describí este producto para las personas que exploran Pocket Genes.",
+  "Delete this catalog item from the organization profile.":
+    "Eliminá esta entrada del catálogo del perfil de la organización.",
+  "Create catalog entry": "Crear entrada de catálogo",
+  "Add a product title to continue.":
+    "Agregá un título de producto para continuar.",
+  "Write at least 30 characters in the description.":
+    "Escribí al menos 30 caracteres en la descripción.",
+  "Use a valid image URL.": "Usá una URL de imagen válida.",
+  "Use a valid product URL.": "Usá una URL de producto válida.",
+  "Ready to save.": "Listo para guardar.",
+  "No unsaved changes.": "Sin cambios sin guardar.",
+  "Catalog item created.": "Entrada de catálogo creada.",
+  "Catalog item saved.": "Entrada de catálogo guardada.",
+  "Unable to save catalog item.":
+    "No se pudo guardar la entrada de catálogo.",
+  "Catalog preview": "Vista previa del catálogo",
+  "The product description will appear here.":
+    "La descripción del producto va a aparecer acá.",
   "Website URL": "URL del sitio web",
   "Internal notes": "Notas internas",
   "Verified publisher": "Publicador verificado",

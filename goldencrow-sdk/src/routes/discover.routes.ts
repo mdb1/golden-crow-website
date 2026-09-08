@@ -15,23 +15,28 @@ import {
   createDiscoverFeedItem,
   createDiscoverIndividual,
   createDiscoverOrganization,
+  createDiscoverOrganizationProductCatalogItem,
   createDiscoverPublisherApprovalRequest,
   deleteDiscoverFeedItem,
   deleteDiscoverIndividual,
   deleteDiscoverOrganization,
+  deleteDiscoverOrganizationProductCatalogItem,
   duplicateDiscoverFeedItem,
   evaluateDiscoverIndividualSubmission,
   evaluateDiscoverOrganizationSubmission,
   getDiscoverFeedItem,
   getDiscoverIndividual,
   getDiscoverOrganization,
+  getDiscoverOrganizationProductCatalogItem,
   listDiscoverFeedItems,
   listDiscoverIndividuals,
   listDiscoverOrganizations,
+  listDiscoverOrganizationProductCatalog,
   syncDiscoverPublisherSnapshot,
   updateDiscoverFeedItem,
   updateDiscoverIndividual,
   updateDiscoverOrganization,
+  updateDiscoverOrganizationProductCatalogItem,
 } from "../repositories/discover.repository.js";
 
 const OrganizationStatusSchema = z.enum([
@@ -253,6 +258,17 @@ const OrganizationBodySchema = z.object({
   isGrcHighlighted: z.boolean().optional(),
   contactEmail: z.string().optional(),
   internalNotes: z.string().optional(),
+});
+
+const ProductCatalogItemBodySchema = z.object({
+  title: z.string().trim().max(180).optional(),
+  description: z.string().trim().max(5000).optional(),
+  imageUrl: z.string().nullable().optional(),
+  imageUploadDataUrl: PublicImageUploadDataUrlSchema,
+  imageUploadName: PublicImageUploadNameSchema,
+  imageUploadMimeType: PublicImageUploadMimeTypeSchema,
+  productUrl: z.string().trim().max(1000).nullable().optional(),
+  callToActionLabel: z.string().trim().max(80).nullable().optional(),
 });
 
 const IndividualBodySchema = z.object({
@@ -702,6 +718,124 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
         const result = await deleteDiscoverOrganization(
           request.adminContext!,
           request.params.organizationId,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/discover/organizations/:organizationId/product-catalog",
+    {
+      schema: {
+        params: z.object({ organizationId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await listDiscoverOrganizationProductCatalog(
+          request.adminContext!,
+          request.params.organizationId,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/discover/organizations/:organizationId/product-catalog",
+    {
+      schema: {
+        params: z.object({ organizationId: z.string().min(1) }),
+        body: ProductCatalogItemBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const catalogItem =
+          await createDiscoverOrganizationProductCatalogItem(
+            request.adminContext!,
+            request.params.organizationId,
+            request.body,
+          );
+        return reply.status(201).send({ catalogItem });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/discover/organizations/:organizationId/product-catalog/:catalogItemId",
+    {
+      schema: {
+        params: z.object({
+          organizationId: z.string().min(1),
+          catalogItemId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const catalogItem = await getDiscoverOrganizationProductCatalogItem(
+          request.adminContext!,
+          request.params.organizationId,
+          request.params.catalogItemId,
+        );
+        return reply.send({ catalogItem });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.put(
+    "/discover/organizations/:organizationId/product-catalog/:catalogItemId",
+    {
+      schema: {
+        params: z.object({
+          organizationId: z.string().min(1),
+          catalogItemId: z.string().min(1),
+        }),
+        body: ProductCatalogItemBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const catalogItem =
+          await updateDiscoverOrganizationProductCatalogItem(
+            request.adminContext!,
+            request.params.organizationId,
+            request.params.catalogItemId,
+            request.body,
+          );
+        return reply.send({ catalogItem });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.delete(
+    "/discover/organizations/:organizationId/product-catalog/:catalogItemId",
+    {
+      schema: {
+        params: z.object({
+          organizationId: z.string().min(1),
+          catalogItemId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await deleteDiscoverOrganizationProductCatalogItem(
+          request.adminContext!,
+          request.params.organizationId,
+          request.params.catalogItemId,
         );
         return reply.send(result);
       } catch (error) {
