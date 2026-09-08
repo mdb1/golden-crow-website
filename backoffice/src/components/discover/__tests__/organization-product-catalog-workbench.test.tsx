@@ -118,6 +118,32 @@ describe("DiscoverOrganizationProductCatalogWorkbench", () => {
     expect(within(primaryFields).getByLabelText("Button label")).toBeTruthy();
   });
 
+  it("allows long product descriptions but warns after 100 characters", () => {
+    renderWorkbench();
+
+    const longDescription =
+      "This compact product description is intentionally longer than one hundred characters so the warning stays visible.";
+    const descriptionInput = screen.getByPlaceholderText(
+      "Describe this product for people browsing Pocket Genes.",
+    );
+
+    fireEvent.change(descriptionInput, {
+      target: { value: longDescription },
+    });
+
+    expect((descriptionInput as HTMLTextAreaElement).value).toBe(
+      longDescription,
+    );
+    expect(
+      screen.getByText(
+        "Product descriptions appear in small cards alongside other products. We suggest keeping this under 100 characters so the content displays clearly.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByText(`${longDescription.length}/100`).length,
+    ).toBeGreaterThan(0);
+  });
+
   it("shows the create toast before redirecting back to the catalog list", async () => {
     jest.useFakeTimers();
     sdkFetchMock.mockResolvedValueOnce({

@@ -573,6 +573,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Explicá qué es el producto, a quién ayuda y qué pasa después de abrirlo.",
   "Describe this product for people browsing Pocket Genes.":
     "Describí este producto para las personas que exploran Pocket Genes.",
+  "Product descriptions appear in small cards alongside other products. We suggest keeping this under 100 characters so the content displays clearly.":
+    "Las descripciones de producto se muestran en tarjetas chicas junto a otros productos. Te sugerimos mantenerla por debajo de 100 caracteres para asegurar una buena visualización del contenido.",
   "Delete this product from the organization profile.":
     "Eliminá este producto del perfil de la organización.",
   "Create product": "Crear producto",

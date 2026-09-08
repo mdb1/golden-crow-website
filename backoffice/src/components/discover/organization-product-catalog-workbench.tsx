@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   ExternalLink,
@@ -78,6 +79,7 @@ type ProcessedProductImageUpload = {
 };
 
 const PRODUCT_DESCRIPTION_MIN_LENGTH = 30;
+const PRODUCT_DESCRIPTION_RECOMMENDED_MAX_LENGTH = 100;
 const PRODUCT_IMAGE_UPLOAD_MAX_BYTES = 600 * 1024;
 const PRODUCT_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH = 900000;
 const PRODUCT_IMAGE_UPLOAD_TYPES = new Set([
@@ -552,6 +554,13 @@ export function DiscoverOrganizationProductCatalogWorkbench({
   const titleReady = state.title.trim().length >= 2;
   const descriptionLength = state.description.trim().length;
   const descriptionReady = descriptionLength >= PRODUCT_DESCRIPTION_MIN_LENGTH;
+  const descriptionTooLong =
+    descriptionLength > PRODUCT_DESCRIPTION_RECOMMENDED_MAX_LENGTH;
+  const descriptionBadgeVariant = descriptionTooLong
+    ? "warning"
+    : descriptionReady
+      ? "success"
+      : "outline";
   const imageUrlValid = isValidOptionalHttpsUrl(state.imageUrl);
   const productUrlValid = isValidOptionalHttpsUrl(state.productUrl);
   const canSave =
@@ -856,8 +865,8 @@ export function DiscoverOrganizationProductCatalogWorkbench({
           <div className={publisherFieldPanelClass}>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="brand">{t("Catalog")}</Badge>
-              <Badge variant={descriptionReady ? "success" : "outline"}>
-                {descriptionLength}/{PRODUCT_DESCRIPTION_MIN_LENGTH}
+              <Badge variant={descriptionBadgeVariant}>
+                {descriptionLength}/{PRODUCT_DESCRIPTION_RECOMMENDED_MAX_LENGTH}
               </Badge>
             </div>
             <div
@@ -1076,8 +1085,8 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                   {t("Explain what the product is, who it helps, and what happens after opening it.")}
                 </p>
               </div>
-              <Badge variant={descriptionReady ? "success" : "outline"}>
-                {descriptionLength}/{PRODUCT_DESCRIPTION_MIN_LENGTH}
+              <Badge variant={descriptionBadgeVariant}>
+                {descriptionLength}/{PRODUCT_DESCRIPTION_RECOMMENDED_MAX_LENGTH}
               </Badge>
             </div>
             <Textarea
@@ -1088,6 +1097,19 @@ export function DiscoverOrganizationProductCatalogWorkbench({
               placeholder={t("Describe this product for people browsing Pocket Genes.")}
               className="mt-4 min-h-48 resize-y rounded-xl border-violet-200/75 bg-white/90 shadow-sm focus-visible:border-violet-400 focus-visible:ring-violet-300/35 dark:border-violet-400/18 dark:bg-slate-950/45"
             />
+            {descriptionTooLong ? (
+              <div
+                role="alert"
+                className="mt-3 flex gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/90 p-4 text-sm text-amber-950 shadow-sm dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  {t(
+                    "Product descriptions appear in small cards alongside other products. We suggest keeping this under 100 characters so the content displays clearly.",
+                  )}
+                </p>
+              </div>
+            ) : null}
           </div>
 
           {mode === "edit" && item ? (
