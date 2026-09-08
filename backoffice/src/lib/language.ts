@@ -502,6 +502,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "PNG, JPG, or WebP up to 600 KB. It will be cropped to 1024 x 500.":
     "PNG, JPG o WebP de hasta 600 KB. Se recorta a 1024 x 500.",
   "Product catalog": "Catálogo de productos",
+  "Configure my product catalog": "Configurar mi catalogo de productos",
   "Manage organization-owned productCatalog items.":
     "Administrá las entradas de catálogo guardadas dentro de esta organización.",
   "Create one productCatalog item inside this organization record.":

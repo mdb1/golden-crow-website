@@ -856,6 +856,8 @@ function DiscoverPublisherWorkbench({
     : t("Using uploaded banner image");
   const showDangerZone =
     mode === "edit" && Boolean(publisher) && canDeletePublisher;
+  const showProductCatalogShortcut =
+    !isIndividual && mode === "edit" && Boolean(publisher);
   const showSubmissionEvaluation =
     mode === "edit" && Boolean(publisher) && canManageSystemFields;
   const publisherDeletionTitle = isIndividual
@@ -2483,6 +2485,22 @@ function DiscoverPublisherWorkbench({
             </div>
           </aside>
         </div>
+
+        {showProductCatalogShortcut && publisher ? (
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="lg"
+              asChild
+              className="h-12 justify-center rounded-xl border-violet-200 bg-violet-50/80 text-violet-700 shadow-[0_16px_38px_rgba(109,40,217,0.12)] hover:border-violet-300 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-100 dark:hover:bg-violet-500/18"
+            >
+              <Link href={`${publisherDetailHref(publisher.id)}/product-catalog`}>
+                <ShoppingBag className="h-4 w-4" />
+                {t("Configure my product catalog")}
+              </Link>
+            </Button>
+          </div>
+        ) : null}
 
         {showDangerZone ? (
           <div

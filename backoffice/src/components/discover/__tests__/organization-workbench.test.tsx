@@ -353,6 +353,25 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     ).toBeNull();
   });
 
+  it("shows the product catalog shortcut immediately before the danger zone", () => {
+    renderWorkbench("es", { canDeletePublisher: true });
+
+    const catalogLink = screen.getByRole("link", {
+      name: /Configurar mi catalogo de productos/i,
+    });
+    const dangerZone = screen.getByTestId("discover-publisher-danger-zone");
+
+    expect(catalogLink.getAttribute("href")).toBe(
+      "/discover/organizations/org-1/product-catalog",
+    );
+    expect(
+      Boolean(
+        catalogLink.compareDocumentPosition(dangerZone) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+  });
+
   it("renders organization deletion as a collapsed god mode danger zone", async () => {
     const user = userEvent.setup();
     renderWorkbench("en", { canDeletePublisher: true });
