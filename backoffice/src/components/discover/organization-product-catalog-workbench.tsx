@@ -962,10 +962,10 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                   <button
                     type="button"
                     onClick={clearImage}
-                    className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-lg transition-transform hover:scale-105"
+                    className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-red-700 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-red-300/50 dark:bg-red-600 dark:text-white dark:hover:bg-red-500"
                     aria-label={t("Remove image")}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4 text-white" />
                   </button>
                   <div className="mx-auto flex max-w-sm flex-col items-center text-center">
                     <div className="relative">

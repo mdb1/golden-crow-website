@@ -10,7 +10,10 @@ import {
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { DiscoverOrganizationProductCatalogWorkbench } from "@/components/discover/organization-product-catalog-workbench";
 import { sdkFetch } from "@/lib/sdk-client";
-import type { DiscoverOrganizationRecord } from "@/lib/discover";
+import type {
+  DiscoverOrganizationProductCatalogItem,
+  DiscoverOrganizationRecord,
+} from "@/lib/discover";
 
 const routerPush = jest.fn();
 const routerRefresh = jest.fn();
@@ -52,14 +55,35 @@ const organization: DiscoverOrganizationRecord = {
   updatedAt: "2026-08-02T00:00:00.000Z",
 };
 
-function renderWorkbench() {
+const uploadedImageCatalogItem: DiscoverOrganizationProductCatalogItem = {
+  id: "product-1",
+  title: "Full genome report",
+  description: "A practical full genome report for patients and clinicians.",
+  imageUrl: null,
+  imageUploadDataUrl: "data:image/png;base64,product-image",
+  imageUploadName: "product.png",
+  imageUploadMimeType: "image/png",
+  productUrl: "https://example.org/products/full-genome",
+  callToActionLabel: "View product",
+  createdAt: "2026-08-01T00:00:00.000Z",
+  updatedAt: "2026-08-02T00:00:00.000Z",
+};
+
+function renderWorkbench({
+  item,
+  mode = "create",
+}: {
+  item?: DiscoverOrganizationProductCatalogItem;
+  mode?: "create" | "edit";
+} = {}) {
   render(
     <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
       <DiscoverOrganizationProductCatalogWorkbench
         organization={organization}
+        item={item}
         routeBase="/publisher-portal/discover/organizations/org-1/product-catalog"
         organizationHref="/publisher-portal/discover/organizations/org-1"
-        mode="create"
+        mode={mode}
       />
     </AppLanguageProvider>,
   );
@@ -142,6 +166,17 @@ describe("DiscoverOrganizationProductCatalogWorkbench", () => {
     expect(
       screen.getAllByText(`${longDescription.length}/100`).length,
     ).toBeGreaterThan(0);
+  });
+
+  it("renders the uploaded-image remove control as white on red", () => {
+    renderWorkbench({ item: uploadedImageCatalogItem, mode: "edit" });
+
+    const removeButton = screen.getByRole("button", { name: "Remove image" });
+    const removeIcon = removeButton.querySelector("svg");
+
+    expect(removeButton.className).toContain("bg-red-600");
+    expect(removeButton.className).toContain("text-white");
+    expect(removeIcon?.className.baseVal).toContain("text-white");
   });
 
   it("shows the create toast before redirecting back to the catalog list", async () => {
