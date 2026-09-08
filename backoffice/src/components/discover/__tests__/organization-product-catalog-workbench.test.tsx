@@ -105,6 +105,19 @@ describe("DiscoverOrganizationProductCatalogWorkbench", () => {
     ).toHaveLength(1);
   });
 
+  it("stacks title, product URL, and button label on separate full-width rows", () => {
+    renderWorkbench();
+
+    const primaryFields = screen.getByTestId("product-catalog-primary-fields");
+
+    expect(primaryFields.className).toContain("flex");
+    expect(primaryFields.className).toContain("flex-col");
+    expect(primaryFields.className).not.toContain("grid-cols-2");
+    expect(within(primaryFields).getByLabelText("Product title")).toBeTruthy();
+    expect(within(primaryFields).getByLabelText("Product URL")).toBeTruthy();
+    expect(within(primaryFields).getByLabelText("Button label")).toBeTruthy();
+  });
+
   it("shows the create toast before redirecting back to the catalog list", async () => {
     jest.useFakeTimers();
     sdkFetchMock.mockResolvedValueOnce({

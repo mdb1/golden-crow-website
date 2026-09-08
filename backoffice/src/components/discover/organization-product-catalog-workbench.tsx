@@ -860,7 +860,10 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                 {descriptionLength}/{PRODUCT_DESCRIPTION_MIN_LENGTH}
               </Badge>
             </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div
+              data-testid="product-catalog-primary-fields"
+              className="mt-4 flex flex-col gap-4"
+            >
               <div className="space-y-2">
                 <Label htmlFor="catalog-title">{t("Product title")}</Label>
                 <Input
@@ -884,13 +887,12 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                 placeholder="example.com/products/full-genome"
                 onChange={(value) => updateState({ productUrl: value })}
               />
-            </div>
-            {!productUrlValid ? (
-              <p className="mt-2 text-sm text-destructive">
-                {t("Use a valid product URL.")}
-              </p>
-            ) : null}
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {!productUrlValid ? (
+                <p className="text-sm text-destructive">
+                  {t("Use a valid product URL.")}
+                </p>
+              ) : null}
+
               <div className="space-y-2">
                 <Label htmlFor="catalog-cta">{t("Button label")}</Label>
                 <Input
