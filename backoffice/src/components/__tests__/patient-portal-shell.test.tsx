@@ -148,6 +148,7 @@ describe("Publisher portal Spanish shell", () => {
     expect(screen.getByText("Portal de publicadores")).toBeTruthy();
     expect(screen.getAllByText("Inicio").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Organización").length).toBeGreaterThan(0);
+    expect(screen.getByText("Catálogo")).toBeTruthy();
     expect(screen.getAllByText("Entradas del feed").length).toBeGreaterThan(0);
     expect(screen.getByText("Mi cuenta")).toBeTruthy();
     expect(
@@ -155,6 +156,11 @@ describe("Publisher portal Spanish shell", () => {
         .getByRole("link", { name: /Organización/i })
         .getAttribute("href"),
     ).toBe("/publisher-portal/discover/organizations/org-1");
+    expect(
+      screen
+        .getByRole("link", { name: /Catálogo/i })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/discover/organizations/org-1/product-catalog");
     expect(screen.queryByText("Perfil de publicador")).toBeNull();
   });
 
@@ -175,6 +181,7 @@ describe("Publisher portal Spanish shell", () => {
         .getByRole("link", { name: /Editor/i })
         .getAttribute("href"),
     ).toBe("/publisher-portal/discover/individuals/ind-1");
+    expect(screen.queryByRole("link", { name: /Catálogo/i })).toBeNull();
   });
 });
 
