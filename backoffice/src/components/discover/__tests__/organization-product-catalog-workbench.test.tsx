@@ -1,8 +1,15 @@
 /** @jest-environment jsdom */
 
-import { render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { DiscoverOrganizationProductCatalogWorkbench } from "@/components/discover/organization-product-catalog-workbench";
+import { sdkFetch } from "@/lib/sdk-client";
 import type { DiscoverOrganizationRecord } from "@/lib/discover";
 
 const routerPush = jest.fn();
@@ -18,6 +25,8 @@ jest.mock("next/navigation", () => ({
 jest.mock("@/lib/sdk-client", () => ({
   sdkFetch: jest.fn(),
 }));
+
+const sdkFetchMock = sdkFetch as jest.MockedFunction<typeof sdkFetch>;
 
 const organization: DiscoverOrganizationRecord = {
   id: "org-1",
@@ -58,8 +67,14 @@ function renderWorkbench() {
 
 describe("DiscoverOrganizationProductCatalogWorkbench", () => {
   beforeEach(() => {
+    jest.useRealTimers();
     routerPush.mockClear();
     routerRefresh.mockClear();
+    sdkFetchMock.mockReset();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it("keeps both back links together in the navigation block", () => {
@@ -88,5 +103,66 @@ describe("DiscoverOrganizationProductCatalogWorkbench", () => {
     expect(
       screen.getAllByRole("link", { name: /Back to product catalog/i }),
     ).toHaveLength(1);
+  });
+
+  it("shows the create toast before redirecting back to the catalog list", async () => {
+    jest.useFakeTimers();
+    sdkFetchMock.mockResolvedValueOnce({
+      catalogItem: {
+        id: "product-1",
+        title: "Full genome report",
+        description:
+          "A practical full genome report for patients and clinicians.",
+        imageUrl: null,
+        productUrl: "https://example.org/products/full-genome",
+        callToActionLabel: "View product",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-02T00:00:00.000Z",
+      },
+    });
+    renderWorkbench();
+
+    fireEvent.change(screen.getByLabelText("Product title"), {
+      target: { value: "Full genome report" },
+    });
+    fireEvent.change(screen.getByLabelText("Product URL"), {
+      target: { value: "example.org/products/full-genome" },
+    });
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        "Describe this product for people browsing Pocket Genes.",
+      ),
+      {
+        target: {
+          value:
+            "A practical full genome report for patients and clinicians.",
+        },
+      },
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Create product/i }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(sdkFetchMock).toHaveBeenCalledTimes(1);
+    expect(sdkFetchMock).toHaveBeenCalledWith(
+      "/discover/organizations/org-1/product-catalog",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(screen.getByText("Product added.")).toBeTruthy();
+    expect(routerPush).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(1199);
+    });
+    expect(routerPush).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(routerPush).toHaveBeenCalledWith(
+      "/publisher-portal/discover/organizations/org-1/product-catalog",
+    );
   });
 });

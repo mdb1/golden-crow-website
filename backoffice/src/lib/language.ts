@@ -512,7 +512,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Product catalog refreshed.": "Catálogo actualizado.",
   "Unable to refresh product catalog.":
     "No se pudo actualizar el catálogo.",
-  "Add product to catalog": "Agregar producto al catálogo",
+  "Add product to catalog": "Nueva entrada de catálogo",
   "Back to organization": "Volver a la organización",
   "Search product title, description, or URL":
     "Buscar por título, descripción o URL del producto",

@@ -97,6 +97,7 @@ const PRODUCT_IMAGE_COMPRESSION_QUALITY_STEPS = [
 ] as const;
 const IMAGE_REDUCER_URL = "https://squoosh.app/";
 const DEFAULT_ACCENT = "#6D28D9";
+const CREATE_REDIRECT_DELAY_MS = 1200;
 const publisherFieldPanelClass =
   "rounded-2xl border border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(250,250,255,0.94)_58%,rgba(245,243,255,0.86))] p-5 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/16 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.86))]";
 const publisherPrimaryButtonClass =
@@ -720,6 +721,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
     }
 
     setPending(true);
+    let keepPendingForRedirect = false;
     try {
       const endpoint =
         mode === "create"
@@ -748,7 +750,10 @@ export function DiscoverOrganizationProductCatalogWorkbench({
       });
       router.refresh();
       if (mode === "create") {
-        router.push(`${routeBase}/${encodeURIComponent(response.catalogItem.id)}`);
+        keepPendingForRedirect = true;
+        window.setTimeout(() => {
+          router.push(routeBase);
+        }, CREATE_REDIRECT_DELAY_MS);
       }
     } catch (error) {
       setToast({
@@ -760,7 +765,9 @@ export function DiscoverOrganizationProductCatalogWorkbench({
             : t("Unable to save product."),
       });
     } finally {
-      setPending(false);
+      if (!keepPendingForRedirect) {
+        setPending(false);
+      }
     }
   }
 
