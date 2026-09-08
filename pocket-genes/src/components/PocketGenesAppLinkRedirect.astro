@@ -1,6 +1,11 @@
 ---
 import PocketGenesPublicLayout from '../layouts/PocketGenesPublicLayout.astro';
 import { APP_STORE_URL, PLAY_STORE_URL } from '../data/pocketGenesPublic';
+import {
+  getWizardCategoryOptions,
+  getWizardGeneticReportCategoryOptions,
+  getWizardSocialOptions,
+} from '../data/discoverPublisherWizard';
 
 interface Props {
   area: 'discover' | 'learn' | 'community';
@@ -11,6 +16,22 @@ const { area, resource } = Astro.props;
 const customSchemeBase = `pocketgenes://${area}/${resource}`;
 const isEnglishPage = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const pageLang = isEnglishPage ? 'en' : 'es';
+const canonicalSocialFieldKey = (value: string) =>
+  ({
+    stack_overflow: 'stackOverflow',
+    hugging_face: 'huggingFace',
+    researchgate: 'researchGate',
+    google_scholar: 'googleScholar',
+    web_of_science: 'webOfScience',
+    protocols_io: 'protocolsIo',
+  })[value] ?? value;
+const organizationCategoryOptions = getWizardCategoryOptions('organization', pageLang);
+const geneticReportCategoryOptions = getWizardGeneticReportCategoryOptions(pageLang);
+const socialPreviewOptions = getWizardSocialOptions(pageLang).map((option) => ({
+  key: canonicalSocialFieldKey(option.value),
+  label: option.label,
+  assetName: option.assetName,
+}));
 const initialCopy = isEnglishPage
   ? {
       layoutTitle: 'Open in Pocket Genes',
@@ -88,7 +109,15 @@ const initialCopy = isEnglishPage
         <span data-status-suffix>{initialCopy.retrySuffix}</span>
       </p>
 
-      <article id="shared-preview" class="shared-preview" hidden aria-label="Vista previa del contenido compartido">
+      <article
+        id="shared-preview"
+        class="shared-preview"
+        hidden
+        aria-label={isEnglishPage ? 'Shared content preview' : 'Vista previa del contenido compartido'}
+      >
+        <div class="shared-preview-banner" data-preview-banner-shell hidden>
+          <img data-preview-banner alt="" hidden />
+        </div>
         <div class="shared-preview-topline">
           <div class="shared-preview-avatar" data-preview-avatar>
             <span data-preview-fallback>DNA</span>
@@ -103,6 +132,24 @@ const initialCopy = isEnglishPage
         <p class="shared-preview-summary" data-preview-summary hidden></p>
         <p class="shared-preview-body" data-preview-body hidden></p>
         <img class="shared-preview-media" data-preview-media alt="" hidden />
+        <div class="shared-preview-sections" data-preview-sections hidden>
+          <section class="shared-preview-section" data-preview-categories-section hidden>
+            <h3 data-preview-categories-title></h3>
+            <div class="shared-preview-pill-row" data-preview-categories></div>
+          </section>
+          <section class="shared-preview-section" data-preview-countries-section hidden>
+            <h3 data-preview-countries-title></h3>
+            <div class="shared-preview-pill-row" data-preview-countries></div>
+          </section>
+          <section class="shared-preview-section shared-preview-report-section" data-preview-reports-section hidden>
+            <h3 data-preview-reports-title></h3>
+            <ul data-preview-reports></ul>
+          </section>
+          <section class="shared-preview-section" data-preview-socials-section hidden>
+            <h3 data-preview-socials-title></h3>
+            <div class="shared-preview-socials" data-preview-socials></div>
+          </section>
+        </div>
         <div class="shared-preview-meta" data-preview-meta hidden></div>
         <a class="shared-preview-website" data-preview-website href="#" target="_blank" rel="noopener noreferrer" hidden>
           {initialCopy.website}
@@ -112,7 +159,7 @@ const initialCopy = isEnglishPage
   </main>
 </PocketGenesPublicLayout>
 
-<script define:vars={{ area, resource, customSchemeBase, APP_STORE_URL, PLAY_STORE_URL, pageLang }}>
+<script define:vars={{ area, resource, customSchemeBase, APP_STORE_URL, PLAY_STORE_URL, pageLang, organizationCategoryOptions, geneticReportCategoryOptions, socialPreviewOptions }}>
   const FIRESTORE_PROJECT_ID = 'goldencrow-pocketgenes';
   const FIRESTORE_API_KEY = 'AIzaSyCTiL_RwICvnngYEqE721_MwVmDqGyYZ64';
 
@@ -154,9 +201,18 @@ const initialCopy = isEnglishPage
         openingPrefix: 'Opening the app automatically. If nothing happens, tap ',
         openingSuffix: ' to try again.',
         organizationPreview: 'Organization preview',
+        organizationTitle: 'Organization profile on Pocket Genes',
+        organizationDescription: 'Preview this publisher profile or open it in the app for the complete experience.',
         feedPreview: 'Post preview',
         verified: 'Verified',
+        notVerified: 'Pending verification',
         website: 'Website',
+        countries: 'Countries',
+        categories: 'Categories',
+        geneticReports: 'Genetic reports',
+        geneticReportProvider: 'Genetic report provider',
+        highlighted: 'Highlighted organization',
+        socialLinks: 'Social links',
         types: {
           company: 'Company',
           foundation: 'Foundation',
@@ -223,9 +279,18 @@ const initialCopy = isEnglishPage
         openingPrefix: 'Intentando abrir la app automáticamente. Si no pasa nada, tocá ',
         openingSuffix: ' para volver a intentarlo.',
         organizationPreview: 'Vista previa de organización',
+        organizationTitle: 'Perfil de organización en Pocket Genes',
+        organizationDescription: 'Previsualizá este perfil público o abrilo en la app para ver la experiencia completa.',
         feedPreview: 'Vista previa del post',
         verified: 'Verificada',
+        notVerified: 'Pendiente de verificación',
         website: 'Sitio web',
+        countries: 'Países',
+        categories: 'Categorías',
+        geneticReports: 'Reportes genéticos',
+        geneticReportProvider: 'Proveedor de reportes genéticos',
+        highlighted: 'Organización destacada',
+        socialLinks: 'Redes sociales',
         types: {
           company: 'Empresa',
           foundation: 'Fundación',
@@ -269,6 +334,13 @@ const initialCopy = isEnglishPage
           advocacy_campaign: 'Campaña de acción comunitaria',
         },
       };
+
+  const organizationCategoryLabelByKey = new Map(
+    organizationCategoryOptions.map((option) => [option.value, option.label])
+  );
+  const geneticReportCategoryLabelByKey = new Map(
+    geneticReportCategoryOptions.map((option) => [option.value, option.label])
+  );
 
   title.textContent = randomTitle(copy.titleOptions);
   description.textContent = copy.description;
@@ -416,16 +488,38 @@ const initialCopy = isEnglishPage
     return typeof value === 'string' && value.trim() ? value.trim() : '';
   }
 
-  function validUrl(value) {
+  function externalUrl(value) {
     const text = cleanText(value);
     if (!text) return '';
+    if (/^(mailto:|tel:)/i.test(text)) return text;
 
     try {
-      const url = new URL(text);
-      return url.protocol === 'https:' ? url.toString() : '';
+      const url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`);
+      return ['http:', 'https:'].includes(url.protocol) ? url.toString() : '';
     } catch {
       return '';
     }
+  }
+
+  function imageSource(value) {
+    const text = cleanText(value);
+    if (!text) return '';
+    if (/^data:image\/(?:png|jpe?g|webp|gif|svg\+xml);base64,/i.test(text)) {
+      return text;
+    }
+    if (text.startsWith('/')) {
+      return text;
+    }
+    return externalUrl(text);
+  }
+
+  function socialHref(key, value) {
+    const text = cleanText(value);
+    if (!text) return '';
+    if (key === 'email' && !/^(mailto:|https?:\/\/)/i.test(text)) {
+      return `mailto:${text}`;
+    }
+    return externalUrl(text);
   }
 
   function typeLabel(type) {
@@ -460,26 +554,45 @@ const initialCopy = isEnglishPage
     }
 
     const name = cleanText(fields.name);
-    const body = cleanText(fields.description);
+    const body = localizedDescription(fields);
     if (!name || !body) {
       return null;
     }
+    const categories = labelsForCsv(fields.organizationType, organizationCategoryLabelByKey);
+    const countries = countriesForCsv(fields.countryCode);
+    const reports =
+      fields.isGeneticReportProvider === true
+        ? labelsForCsv(fields.geneticReportCategory, geneticReportCategoryLabelByKey)
+        : [];
+    const socials = socialLinksForPreview(fields.social);
+    const isHighlighted = fields.isGrcHighlighted === true;
+    const websiteUrl = externalUrl(fields.websiteUrl);
 
     return {
       kind: 'organization',
       eyebrow: copy.organizationPreview,
       publisher: '',
       title: name,
+      pageTitle: isEnglish ? `${name} on Pocket Genes` : `${name} en Pocket Genes`,
+      pageDescription: copy.organizationDescription,
       summary: '',
       body,
-      imageUrl: validUrl(fields.imageUrl),
+      imageUrl: imageSource(fields.imageUrl) || imageSource(fields.imageUploadDataUrl),
+      bannerUrl: isHighlighted
+        ? imageSource(fields.bannerImageUrl) || imageSource(fields.bannerImageUploadDataUrl)
+        : '',
       mediaUrl: '',
-      websiteUrl: validUrl(fields.websiteUrl),
+      websiteUrl,
+      websiteLabel: websiteUrl ? compactUrlLabel(websiteUrl) : copy.website,
       badges: [
-        fields.verified === true ? copy.verified : '',
-        typeLabel(cleanText(fields.organizationType) || 'other'),
-        cleanText(fields.countryCode),
+        fields.verified === true ? copy.verified : copy.notVerified,
+        fields.isGeneticReportProvider === true ? copy.geneticReportProvider : '',
+        isHighlighted ? copy.highlighted : '',
       ].filter(Boolean),
+      categories,
+      countries,
+      reports,
+      socials,
       meta: [],
       accent: readColor(fields.colorHex),
     };
@@ -517,13 +630,101 @@ const initialCopy = isEnglishPage
       title,
       summary,
       body,
-      imageUrl: validUrl(fields.publisherSnapshot?.imageUrl) || '/pocket-genes/icon_simple.png',
-      mediaUrl: validUrl(fields.imageUrl) || validUrl(payload.imageUrl),
-      websiteUrl: validUrl(fields.sourceUrl),
+      imageUrl:
+        imageSource(fields.publisherSnapshot?.imageUrl) ||
+        imageSource(fields.publisherSnapshot?.imageUploadDataUrl) ||
+        '/pocket-genes/icon_simple.png',
+      bannerUrl: '',
+      mediaUrl: imageSource(fields.imageUrl) || imageSource(payload.imageUrl),
+      websiteUrl: externalUrl(fields.sourceUrl),
+      websiteLabel: copy.website,
       badges: [typeLabel(type)],
+      categories: [],
+      countries: [],
+      reports: [],
+      socials: [],
       meta,
       accent: '',
     };
+  }
+
+  function localizedDescription(fields) {
+    const baseDescription = cleanText(fields.description);
+    const englishDescription = cleanText(fields.descriptionEn);
+    return isEnglish ? englishDescription || baseDescription : baseDescription || englishDescription;
+  }
+
+  function parseCsv(value) {
+    const seen = new Set();
+    return cleanText(value)
+      .split(',')
+      .map((token) => token.trim())
+      .filter((token) => {
+        if (!token || seen.has(token)) {
+          return false;
+        }
+        seen.add(token);
+        return true;
+      });
+  }
+
+  function labelsForCsv(value, labelMap) {
+    return parseCsv(value)
+      .map((key) => labelMap.get(key))
+      .filter(Boolean);
+  }
+
+  function countriesForCsv(value) {
+    const countryDisplayNames =
+      typeof Intl.DisplayNames === 'function'
+        ? new Intl.DisplayNames([isEnglish ? 'en' : 'es'], { type: 'region' })
+        : null;
+
+    return parseCsv(value)
+      .map((code) => code.toUpperCase())
+      .filter((code) => code === 'GLOBAL' || /^[A-Z]{2}$/.test(code))
+      .map((code) => ({
+        label:
+          code === 'GLOBAL'
+            ? 'Global'
+            : `${countryDisplayNames?.of(code) ?? code} (${code})`,
+        flag: countryFlag(code),
+      }));
+  }
+
+  function countryFlag(code) {
+    if (code === 'GLOBAL') {
+      return '🌐';
+    }
+
+    return code.replace(/[A-Z]/g, (char) =>
+      String.fromCodePoint(0x1f1e6 + char.charCodeAt(0) - 65)
+    );
+  }
+
+  function socialLinksForPreview(social) {
+    if (!social || typeof social !== 'object') {
+      return [];
+    }
+
+    return socialPreviewOptions
+      .map((option) => {
+        const value = cleanText(social[option.key]);
+        const href = socialHref(option.key, value);
+        return value && href
+          ? {
+              label: option.label,
+              href,
+              assetName: option.assetName,
+            }
+          : null;
+      })
+      .filter(Boolean);
+  }
+
+  function compactUrlLabel(value) {
+    const label = cleanText(value).replace(/^(https?:\/\/|mailto:)/i, '').replace(/\/$/, '');
+    return label.length > 32 ? `${label.slice(0, 29)}...` : label;
   }
 
   function readColor(value) {
@@ -535,17 +736,29 @@ const initialCopy = isEnglishPage
     preview.dataset.kind = data.kind;
     if (data.accent) {
       preview.style.setProperty('--shared-preview-accent', data.accent);
+    } else {
+      preview.style.removeProperty('--shared-preview-accent');
+    }
+
+    if (data.pageTitle) {
+      title.textContent = data.pageTitle;
+    }
+    if (data.pageDescription) {
+      description.textContent = data.pageDescription;
     }
 
     setText('[data-preview-publisher]', data.publisher || data.eyebrow);
     setText('[data-preview-title]', data.title);
     setOptionalText('[data-preview-summary]', data.summary);
     setOptionalText('[data-preview-body]', data.body);
+    renderImage('[data-preview-banner]', data.bannerUrl);
+    renderBanner(data.bannerUrl);
     renderImage('[data-preview-image]', data.imageUrl);
     renderImage('[data-preview-media]', data.mediaUrl);
     renderBadges(data.badges);
+    renderPreviewSections(data);
     renderMeta(data.meta);
-    renderWebsite(data.websiteUrl);
+    renderWebsite(data.websiteUrl, data.websiteLabel);
 
     const fallback = preview.querySelector('[data-preview-fallback]');
     if (fallback) {
@@ -574,13 +787,19 @@ const initialCopy = isEnglishPage
   function renderImage(selector, src) {
     const image = preview.querySelector(selector);
     if (!image) return;
-    const url = validUrl(src) || (typeof src === 'string' && src.startsWith('/') ? src : '');
+    const url = imageSource(src);
     image.hidden = !url;
     if (url) {
       image.setAttribute('src', url);
     } else {
       image.removeAttribute('src');
     }
+  }
+
+  function renderBanner(src) {
+    const shell = preview.querySelector('[data-preview-banner-shell]');
+    if (!shell) return;
+    shell.hidden = !imageSource(src);
   }
 
   function renderBadges(badges) {
@@ -609,13 +828,110 @@ const initialCopy = isEnglishPage
     );
   }
 
-  function renderWebsite(url) {
+  function renderPreviewSections(data) {
+    renderPillsSection(
+      '[data-preview-categories-section]',
+      '[data-preview-categories-title]',
+      '[data-preview-categories]',
+      copy.categories,
+      data.categories
+    );
+    renderPillsSection(
+      '[data-preview-countries-section]',
+      '[data-preview-countries-title]',
+      '[data-preview-countries]',
+      copy.countries,
+      data.countries
+    );
+    renderReports(data.reports);
+    renderSocials(data.socials);
+
+    const sections = preview.querySelector('[data-preview-sections]');
+    if (sections) {
+      sections.hidden =
+        !data.categories.length &&
+        !data.countries.length &&
+        !data.reports.length &&
+        !data.socials.length;
+    }
+  }
+
+  function renderPillsSection(sectionSelector, titleSelector, listSelector, titleText, items) {
+    const section = preview.querySelector(sectionSelector);
+    const titleNode = preview.querySelector(titleSelector);
+    const list = preview.querySelector(listSelector);
+    if (!section || !titleNode || !list) return;
+
+    section.hidden = items.length === 0;
+    titleNode.textContent = titleText;
+    list.replaceChildren(
+      ...items.map((item) => {
+        const element = document.createElement('span');
+        element.className = 'shared-preview-badge shared-preview-data-pill';
+        if (typeof item === 'object' && item.flag) {
+          const flag = document.createElement('span');
+          flag.setAttribute('aria-hidden', 'true');
+          flag.textContent = item.flag;
+          element.append(flag, document.createTextNode(item.label));
+        } else {
+          element.textContent = typeof item === 'object' ? item.label : item;
+        }
+        return element;
+      })
+    );
+  }
+
+  function renderReports(reports) {
+    const section = preview.querySelector('[data-preview-reports-section]');
+    const titleNode = preview.querySelector('[data-preview-reports-title]');
+    const list = preview.querySelector('[data-preview-reports]');
+    if (!section || !titleNode || !list) return;
+
+    section.hidden = reports.length === 0;
+    titleNode.textContent = copy.geneticReports;
+    list.replaceChildren(
+      ...reports.map((report) => {
+        const item = document.createElement('li');
+        item.textContent = report;
+        return item;
+      })
+    );
+  }
+
+  function renderSocials(socials) {
+    const section = preview.querySelector('[data-preview-socials-section]');
+    const titleNode = preview.querySelector('[data-preview-socials-title]');
+    const list = preview.querySelector('[data-preview-socials]');
+    if (!section || !titleNode || !list) return;
+
+    section.hidden = socials.length === 0;
+    titleNode.textContent = copy.socialLinks;
+    list.replaceChildren(
+      ...socials.map((social) => {
+        const link = document.createElement('a');
+        const image = document.createElement('img');
+        link.className = 'shared-preview-social-link';
+        link.href = social.href;
+        link.target = social.href.startsWith('mailto:') ? '' : '_blank';
+        link.rel = social.href.startsWith('mailto:') ? '' : 'noopener noreferrer';
+        link.ariaLabel = social.label;
+        link.title = social.label;
+        image.src = `/discover/social-network-assets/${social.assetName}.png`;
+        image.alt = '';
+        image.loading = 'lazy';
+        link.append(image);
+        return link;
+      })
+    );
+  }
+
+  function renderWebsite(url, label) {
     const link = preview.querySelector('[data-preview-website]');
     if (!link) return;
     link.hidden = !url;
     if (url) {
       link.setAttribute('href', url);
-      link.textContent = copy.website;
+      link.textContent = label || copy.website;
     } else {
       link.removeAttribute('href');
     }
@@ -638,6 +954,7 @@ const initialCopy = isEnglishPage
 
   .app-link-content {
     width: min(100%, 560px);
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -661,18 +978,22 @@ const initialCopy = isEnglishPage
   }
 
   h1 {
+    width: 100%;
     max-width: 520px;
     margin: 0.35rem 0 0;
     font-size: clamp(1.7rem, 6vw, 2.75rem);
     line-height: 1.1;
     letter-spacing: 0;
+    overflow-wrap: anywhere;
   }
 
   .app-description {
+    width: 100%;
     max-width: 440px;
     margin: 1rem 0 0;
     color: var(--pg-ink-soft);
     font-size: 1.08rem;
+    overflow-wrap: anywhere;
   }
 
   .app-link-actions {
@@ -806,11 +1127,13 @@ const initialCopy = isEnglishPage
   }
 
   .app-link-status {
+    width: 100%;
     min-height: 3rem;
     margin: 1.25rem 0 0;
     color: var(--pg-muted);
     font-size: 0.9rem;
     line-height: 1.55;
+    overflow-wrap: anywhere;
   }
 
   .app-link-retry {
@@ -829,8 +1152,10 @@ const initialCopy = isEnglishPage
   .shared-preview {
     --shared-preview-accent: var(--pg-rose);
     position: relative;
+    box-sizing: border-box;
     overflow: hidden;
     width: 100%;
+    min-width: 0;
     margin-top: 1.75rem;
     border: 1px solid rgba(197, 210, 223, 0.88);
     border-radius: 8px;
@@ -838,19 +1163,8 @@ const initialCopy = isEnglishPage
       radial-gradient(circle at 10% 10%, color-mix(in srgb, var(--shared-preview-accent) 18%, transparent), transparent 18rem),
       linear-gradient(142deg, rgba(255, 255, 255, 0.95), rgba(255, 247, 250, 0.9) 48%, rgba(255, 255, 255, 0.98));
     padding: 1.1rem;
-    text-align: center;
+    text-align: left;
     box-shadow: 0 18px 44px rgba(23, 32, 51, 0.12);
-  }
-
-  .shared-preview::after {
-    content: "";
-    position: absolute;
-    inset: 48% 0 0;
-    z-index: 2;
-    border-radius: 0 0 8px 8px;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 251, 253, 0.74) 62%, rgba(248, 251, 253, 0.98) 100%);
-    pointer-events: none;
   }
 
   .shared-preview > * {
@@ -862,25 +1176,52 @@ const initialCopy = isEnglishPage
     display: none;
   }
 
+  .shared-preview-banner {
+    height: 170px;
+    margin: -1.1rem -1.1rem 1rem;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 24% 20%, rgba(255, 255, 255, 0.58), transparent 16rem),
+      linear-gradient(132deg, var(--shared-preview-accent), rgba(228, 80, 128, 0.58), rgba(20, 149, 143, 0.18));
+  }
+
+  .shared-preview-banner[hidden] {
+    display: none;
+  }
+
+  .shared-preview-banner img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+
   .shared-preview-topline {
     display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-    align-items: center;
+    gap: 0.95rem;
+    align-items: flex-start;
   }
 
   .shared-preview-avatar {
-    width: 68px;
-    height: 68px;
+    flex: 0 0 auto;
+    width: 86px;
+    height: 86px;
     display: grid;
     place-items: center;
-    border-radius: 999px;
+    border: 4px solid rgba(255, 255, 255, 0.96);
+    border-radius: 24px;
     background: color-mix(in srgb, var(--shared-preview-accent) 28%, #ffffff);
     color: var(--shared-preview-accent);
-    font-size: 0.74rem;
+    font-size: 0.78rem;
     font-weight: 900;
     overflow: hidden;
-    box-shadow: inset 0 0 0 10px rgba(255, 255, 255, 0.42);
+    box-shadow:
+      0 18px 36px rgba(23, 32, 51, 0.16),
+      inset 0 0 0 10px rgba(255, 255, 255, 0.42);
+  }
+
+  .shared-preview[data-kind="organization"] .shared-preview-banner:not([hidden]) + .shared-preview-topline .shared-preview-avatar {
+    margin-top: -3.4rem;
   }
 
   .shared-preview-avatar img {
@@ -892,6 +1233,7 @@ const initialCopy = isEnglishPage
   .shared-preview-heading {
     min-width: 0;
     width: 100%;
+    padding-top: 0.25rem;
   }
 
   .shared-preview-publisher {
@@ -901,19 +1243,24 @@ const initialCopy = isEnglishPage
     font-weight: 850;
   }
 
+  .shared-preview[data-kind="organization"] .shared-preview-publisher {
+    color: var(--shared-preview-accent);
+  }
+
   .shared-preview h2 {
     margin: 0.1rem 0 0;
     color: #2c2530;
-    font-size: clamp(1.35rem, 6vw, 2.1rem);
+    font-size: clamp(1.55rem, 4vw, 2.35rem);
     line-height: 1.08;
     letter-spacing: 0;
+    overflow-wrap: anywhere;
   }
 
   .shared-preview-badges,
   .shared-preview-meta {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 0.45rem;
   }
 
@@ -921,16 +1268,19 @@ const initialCopy = isEnglishPage
     margin-top: 0.55rem;
   }
 
-  .shared-preview-badge {
+  :global(.shared-preview-badge) {
     display: inline-flex;
     align-items: center;
+    gap: 0.35rem;
     min-height: 28px;
+    border: 1px solid color-mix(in srgb, var(--shared-preview-accent) 22%, #ffffff);
     border-radius: 999px;
-    background: color-mix(in srgb, var(--shared-preview-accent) 16%, #ffffff);
+    background: color-mix(in srgb, var(--shared-preview-accent) 13%, #ffffff);
     color: var(--shared-preview-accent);
     padding: 0.25rem 0.65rem;
     font-size: 0.78rem;
     font-weight: 900;
+    line-height: 1.1;
   }
 
   .shared-preview-summary,
@@ -953,6 +1303,12 @@ const initialCopy = isEnglishPage
     -webkit-line-clamp: 5;
   }
 
+  .shared-preview[data-kind="organization"] .shared-preview-body {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+  }
+
   .shared-preview-media {
     width: 100%;
     aspect-ratio: 16 / 9;
@@ -962,11 +1318,114 @@ const initialCopy = isEnglishPage
     box-shadow: inset 0 0 0 1px rgba(23, 32, 51, 0.08);
   }
 
+  .shared-preview-sections {
+    display: grid;
+    gap: 0.95rem;
+    margin-top: 1.15rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(197, 210, 223, 0.82);
+  }
+
+  .shared-preview-sections[hidden],
+  .shared-preview-section[hidden] {
+    display: none;
+  }
+
+  .shared-preview-section h3 {
+    margin: 0;
+    color: var(--shared-preview-accent);
+    font-size: 0.76rem;
+    font-weight: 950;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  .shared-preview-pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0.5rem;
+  }
+
+  :global(.shared-preview-data-pill) {
+    border-color: rgba(197, 210, 223, 0.9);
+    background: rgba(255, 255, 255, 0.84);
+    color: var(--pg-ink);
+    box-shadow: 0 8px 18px rgba(23, 32, 51, 0.06);
+  }
+
+  .shared-preview-report-section ul {
+    display: grid;
+    gap: 0.45rem;
+    margin: 0.55rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  :global(.shared-preview-report-section li) {
+    position: relative;
+    padding-left: 1rem;
+    color: #5d5359;
+    font-size: 0.95rem;
+    line-height: 1.45;
+  }
+
+  :global(.shared-preview-report-section li::before) {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.58em;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--shared-preview-accent);
+  }
+
+  .shared-preview-socials {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 0.55rem;
+  }
+
+  :global(.shared-preview-social-link) {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(197, 210, 223, 0.88);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.78);
+    box-shadow: 0 10px 24px rgba(23, 32, 51, 0.08);
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  :global(.shared-preview-social-link:hover),
+  :global(.shared-preview-social-link:focus-visible) {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--shared-preview-accent) 42%, #c5d2df);
+    box-shadow: 0 14px 30px color-mix(in srgb, var(--shared-preview-accent) 16%, transparent);
+  }
+
+  :global(.shared-preview-social-link img) {
+    width: 32px;
+    height: 32px;
+    display: block;
+    border-radius: 999px;
+    object-fit: contain;
+  }
+
+  @media (min-width: 680px) {
+    .shared-preview-report-section ul {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
   .shared-preview-meta {
     margin-top: 1rem;
   }
 
-  .shared-preview-meta span {
+  :global(.shared-preview-meta span) {
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.7);
     color: var(--pg-ink-soft);
@@ -1040,7 +1499,13 @@ const initialCopy = isEnglishPage
       padding: 0.95rem;
     }
 
+    .shared-preview-banner {
+      height: 138px;
+      margin: -0.95rem -0.95rem 0.9rem;
+    }
+
     .app-link-store-grid {
+      grid-template-columns: 1fr;
       gap: 8px;
     }
 
@@ -1067,8 +1532,13 @@ const initialCopy = isEnglishPage
     }
 
     .shared-preview-avatar {
-      width: 58px;
-      height: 58px;
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+    }
+
+    .shared-preview[data-kind="organization"] .shared-preview-banner:not([hidden]) + .shared-preview-topline .shared-preview-avatar {
+      margin-top: -2.8rem;
     }
   }
 </style>
