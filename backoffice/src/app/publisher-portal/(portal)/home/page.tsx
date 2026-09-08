@@ -33,6 +33,11 @@ export default async function PublisherPortalHomePage() {
       email={account.context.email}
       roleLabel={roleLabel}
       hasPublishedFeedEntry={hasPublishedFeedEntry}
+      organizationId={
+        account.context.role === "organization_publisher"
+          ? account.context.organizationId
+          : undefined
+      }
     />
   );
 }

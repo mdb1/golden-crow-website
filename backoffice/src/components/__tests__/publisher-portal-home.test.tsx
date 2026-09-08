@@ -6,6 +6,8 @@ import type { MyAccountRecord } from "@/lib/admin-areas";
 import {
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   publisherPortalFeedEntryCreateRoute,
+  publisherPortalOrganizationDetailRoute,
+  publisherPortalOrganizationProductCatalogRoute,
 } from "@/lib/publisher-portal-routes";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
@@ -45,10 +47,13 @@ const account = {
   profile: null,
 } as unknown as MyAccountRecord;
 
-function mockPublisherHomeData(hasPublishedFeedEntry: boolean) {
+function mockPublisherHomeData(
+  hasPublishedFeedEntry: boolean,
+  accountOverride: MyAccountRecord = account,
+) {
   jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
     if (path === "/auth/my-account") {
-      return { account };
+      return { account: accountOverride };
     }
 
     if (path === "/discover/feed-items?limit=1&status=published") {
@@ -88,6 +93,16 @@ describe("PublisherPortalHomePage", () => {
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
+    expect(
+      screen
+        .getByRole("link", { name: /Abrir organización/i })
+        .getAttribute("href"),
+    ).toBe(publisherPortalOrganizationDetailRoute("org-1"));
+    expect(
+      screen
+        .getByRole("link", { name: /Abrir catálogo/i })
+        .getAttribute("href"),
+    ).toBe(publisherPortalOrganizationProductCatalogRoute("org-1"));
   });
 
   it("enables both quick accesses once the publisher has a published entry", async () => {
@@ -110,5 +125,29 @@ describe("PublisherPortalHomePage", () => {
         name: "Disponible después de publicar",
       }),
     ).toBeNull();
+    expect(screen.getByText("Personalizar mi organización")).toBeTruthy();
+    expect(screen.getByText("Acceder al catálogo")).toBeTruthy();
+  });
+
+  it("does not show organization quick accesses to individual publishers", async () => {
+    const individualAccount = {
+      ...account,
+      context: {
+        ...account.context,
+        role: "individual_publisher",
+        organizationId: undefined,
+        individualId: "ind-1",
+      },
+      role: {
+        ...account.role,
+        role: "individual_publisher",
+      },
+    } as unknown as MyAccountRecord;
+    mockPublisherHomeData(true, individualAccount);
+
+    render(await PublisherPortalHomePage());
+
+    expect(screen.queryByText("Personalizar mi organización")).toBeNull();
+    expect(screen.queryByText("Acceder al catálogo")).toBeNull();
   });
 });

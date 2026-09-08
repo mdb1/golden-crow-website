@@ -3,9 +3,11 @@ import {
   ArrowRight,
   BadgeCheck,
   BookOpenText,
+  Building2,
   FileText,
   type LucideIcon,
   Newspaper,
+  PackageOpen,
   PenLine,
   Sparkles,
 } from "lucide-react";
@@ -13,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import {
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   publisherPortalFeedEntryCreateRoute,
+  publisherPortalOrganizationDetailRoute,
+  publisherPortalOrganizationProductCatalogRoute,
 } from "@/lib/publisher-portal-routes";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +25,7 @@ type PublisherPortalHomeProps = {
   email: string;
   roleLabel: string;
   hasPublishedFeedEntry: boolean;
+  organizationId?: string;
 };
 
 type QuickAccessCardProps = {
@@ -30,7 +35,7 @@ type QuickAccessCardProps = {
   actionLabel: string;
   href?: string;
   disabled?: boolean;
-  tone: "primary" | "secondary";
+  tone: "primary" | "secondary" | "neutral";
 };
 
 function QuickAccessCard({
@@ -51,7 +56,9 @@ function QuickAccessCard({
           ? "border-border/70 bg-muted/35 text-muted-foreground"
           : tone === "primary"
             ? "border-violet-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,243,255,0.96)_48%,rgba(224,242,254,0.72))] text-violet-950 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-[0_24px_70px_-38px_rgba(109,40,217,0.5)] dark:border-violet-400/24 dark:bg-[linear-gradient(145deg,rgba(35,24,73,0.96),rgba(45,31,92,0.94)_48%,rgba(14,116,144,0.24))] dark:text-violet-50"
-            : "border-sky-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(240,249,255,0.95)_50%,rgba(236,253,245,0.78))] text-sky-950 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_24px_70px_-40px_rgba(14,116,144,0.45)] dark:border-sky-400/24 dark:bg-[linear-gradient(145deg,rgba(12,35,54,0.96),rgba(15,54,76,0.94)_48%,rgba(16,185,129,0.2))] dark:text-sky-50",
+            : tone === "secondary"
+              ? "border-sky-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(240,249,255,0.95)_50%,rgba(236,253,245,0.78))] text-sky-950 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_24px_70px_-40px_rgba(14,116,144,0.45)] dark:border-sky-400/24 dark:bg-[linear-gradient(145deg,rgba(12,35,54,0.96),rgba(15,54,76,0.94)_48%,rgba(16,185,129,0.2))] dark:text-sky-50"
+              : "border-border/80 bg-card/90 text-foreground hover:-translate-y-0.5 hover:border-foreground/20 hover:bg-background hover:shadow-[0_22px_62px_-44px_rgba(15,23,42,0.55)] dark:bg-card/80",
       )}
     >
       <div
@@ -69,7 +76,9 @@ function QuickAccessCard({
               ? "border-border bg-background/60 text-muted-foreground"
               : tone === "primary"
                 ? "border-violet-200 bg-violet-100 text-violet-700"
-                : "border-sky-200 bg-sky-100 text-sky-700",
+                : tone === "secondary"
+                  ? "border-sky-200 bg-sky-100 text-sky-700"
+                  : "border-border bg-background text-foreground",
           )}
         >
           <Icon className="size-5" />
@@ -94,11 +103,14 @@ function QuickAccessCard({
           </Button>
         ) : (
           <Button
+            variant={tone === "neutral" ? "outline" : "default"}
             className={cn(
               "h-11 w-full justify-center rounded-xl text-sm font-semibold",
               tone === "primary"
                 ? "bg-violet-600 text-white shadow-[0_14px_36px_rgba(109,40,217,0.28)] hover:bg-violet-700"
-                : "bg-sky-600 text-white shadow-[0_14px_36px_rgba(2,132,199,0.22)] hover:bg-sky-700",
+                : tone === "secondary"
+                  ? "bg-sky-600 text-white shadow-[0_14px_36px_rgba(2,132,199,0.22)] hover:bg-sky-700"
+                  : "border-foreground/20 bg-background text-foreground shadow-sm hover:bg-muted",
             )}
             asChild
           >
@@ -120,8 +132,15 @@ export function PublisherPortalHome({
   email,
   roleLabel,
   hasPublishedFeedEntry,
+  organizationId,
 }: PublisherPortalHomeProps) {
   const newFeedEntryHref = publisherPortalFeedEntryCreateRoute();
+  const organizationHref = organizationId
+    ? publisherPortalOrganizationDetailRoute(organizationId)
+    : undefined;
+  const productCatalogHref = organizationId
+    ? publisherPortalOrganizationProductCatalogRoute(organizationId)
+    : undefined;
 
   return (
     <div className="min-h-[calc(100vh-var(--app-header-height)-3rem)] bg-background px-1 py-3 text-foreground">
@@ -203,6 +222,27 @@ export function PublisherPortalHome({
             </>
           )}
         </div>
+
+        {organizationId ? (
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <QuickAccessCard
+              icon={Building2}
+              title="Personalizar mi organización"
+              body="Actualizá el nombre, descripción, países, imagen y enlaces principales de tu perfil."
+              actionLabel="Abrir organización"
+              href={organizationHref}
+              tone="neutral"
+            />
+            <QuickAccessCard
+              icon={PackageOpen}
+              title="Acceder al catálogo"
+              body="Entrá directo a tus productos para crear, revisar o ajustar las entradas visibles."
+              actionLabel="Abrir catálogo"
+              href={productCatalogHref}
+              tone="neutral"
+            />
+          </div>
+        ) : null}
       </section>
     </div>
   );
