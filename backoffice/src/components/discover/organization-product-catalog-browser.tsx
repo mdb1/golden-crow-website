@@ -100,6 +100,7 @@ export function DiscoverOrganizationProductCatalogBrowser({
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const hasCatalogItems = items.length > 0;
 
   const filteredItems = useMemo(
     () => items.filter((item) => catalogItemMatches(item, query)),
@@ -193,12 +194,14 @@ export function DiscoverOrganizationProductCatalogBrowser({
               <RefreshCcw className={cn("h-3.5 w-3.5", pending && "animate-spin")} />
               {pending ? t("Working...") : t("Refresh")}
             </Button>
-            <Button size="sm" asChild>
-              <Link href={`${routeBase}/new`}>
-                <Plus className="h-3.5 w-3.5" />
-                {t("Add product to catalog")}
-              </Link>
-            </Button>
+            {hasCatalogItems ? (
+              <Button size="sm" asChild>
+                <Link href={`${routeBase}/new`}>
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("Add product to catalog")}
+                </Link>
+              </Button>
+            ) : null}
           </div>
         </div>
 
