@@ -585,7 +585,7 @@ const initialCopy = isEnglishPage
       websiteUrl,
       websiteLabel: websiteUrl ? compactUrlLabel(websiteUrl) : copy.website,
       badges: [
-        fields.verified === true ? copy.verified : copy.notVerified,
+        fields.verified === true ? copy.verified : '',
         fields.isGeneticReportProvider === true ? copy.geneticReportProvider : '',
         isHighlighted ? copy.highlighted : '',
       ].filter(Boolean),
@@ -747,7 +747,7 @@ const initialCopy = isEnglishPage
       description.textContent = data.pageDescription;
     }
 
-    setText('[data-preview-publisher]', data.publisher || data.eyebrow);
+    setOptionalText('[data-preview-publisher]', data.publisher);
     setText('[data-preview-title]', data.title);
     setOptionalText('[data-preview-summary]', data.summary);
     setOptionalText('[data-preview-body]', data.body);
