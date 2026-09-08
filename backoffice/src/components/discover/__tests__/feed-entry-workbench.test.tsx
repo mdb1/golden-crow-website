@@ -134,8 +134,8 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     const specificTypeSection = screen
       .getByText("Specific type fields")
       .closest("section");
-    expect(specificTypeSection?.className).toContain("rounded-md");
-    expect(specificTypeSection?.className).toContain("border-sky-200/70");
+    expect(specificTypeSection?.className).toContain("rounded-2xl");
+    expect(specificTypeSection?.className).toContain("border-violet-100/80");
 
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
 

@@ -97,6 +97,14 @@ const PRODUCT_IMAGE_COMPRESSION_QUALITY_STEPS = [
 ] as const;
 const IMAGE_REDUCER_URL = "https://squoosh.app/";
 const DEFAULT_ACCENT = "#6D28D9";
+const publisherFieldPanelClass =
+  "rounded-2xl border border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(250,250,255,0.94)_58%,rgba(245,243,255,0.86))] p-5 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/16 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.86))]";
+const publisherPrimaryButtonClass =
+  "h-10 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700";
+const publisherSoftButtonClass =
+  "h-9 rounded-xl border-violet-200/80 bg-white/78 px-3 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18";
+const publisherInputClass =
+  "h-11 rounded-xl border-violet-200/75 bg-white/90 shadow-sm focus-visible:border-violet-400 focus-visible:ring-violet-300/35 dark:border-violet-400/18 dark:bg-slate-950/45";
 
 function stripUrlScheme(value: string | null | undefined) {
   return (value ?? "").trim().replace(/^https?:\/\//i, "");
@@ -394,8 +402,8 @@ function ProductUrlInput({
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
-      <div className="flex h-11 overflow-hidden rounded-lg border border-foreground/20 bg-background shadow-[0_1px_0_rgba(255,255,255,0.4),0_12px_24px_rgba(9,12,18,0.08)] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/40">
-        <span className="flex shrink-0 items-center border-r border-border/80 bg-muted/40 px-3 text-sm font-medium text-muted-foreground">
+      <div className="flex h-11 overflow-hidden rounded-xl border border-violet-200/75 bg-white/90 shadow-sm focus-within:border-violet-400 focus-within:ring-3 focus-within:ring-violet-300/35 dark:border-violet-400/18 dark:bg-slate-950/45">
+        <span className="flex shrink-0 items-center border-r border-violet-100/80 bg-violet-50/70 px-3 text-sm font-medium text-violet-700 dark:border-violet-400/16 dark:bg-violet-500/8 dark:text-violet-100">
           https://
         </span>
         <input
@@ -404,7 +412,7 @@ function ProductUrlInput({
           onChange={(event) => onChange(stripUrlScheme(event.target.value))}
           placeholder={placeholder}
           disabled={disabled}
-          className="min-w-0 flex-1 bg-transparent px-3 text-sm text-foreground outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:bg-white/70 disabled:text-slate-500"
+          className="min-w-0 flex-1 bg-transparent px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:bg-white/70 disabled:text-muted-foreground"
         />
       </div>
     </div>
@@ -428,8 +436,8 @@ function ProductPreview({
 
   return (
     <aside className="xl:sticky xl:top-24">
-      <div className="glass-panel overflow-hidden">
-        <div className="relative min-h-[180px] bg-[radial-gradient(circle_at_top_left,rgba(109,40,217,0.16),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.95),rgba(248,250,252,0.88))] p-5">
+      <div className="overflow-hidden rounded-2xl border border-violet-100/80 bg-white/92 shadow-[0_22px_62px_-46px_rgba(109,40,217,0.46)] dark:border-violet-400/16 dark:bg-slate-950/50">
+        <div className="relative min-h-[180px] bg-[radial-gradient(circle_at_top_left,rgba(109,40,217,0.16),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.95),rgba(245,243,255,0.86)_54%,rgba(240,249,255,0.74))] p-5 dark:bg-[radial-gradient(circle_at_top_left,rgba(167,139,250,0.20),transparent_34%),linear-gradient(135deg,rgba(30,24,57,0.94),rgba(12,35,54,0.68))]">
           <div
             className="absolute right-6 top-6 h-20 w-20 rounded-full opacity-20 blur-2xl"
             style={{ backgroundColor: accent }}
@@ -461,7 +469,7 @@ function ProductPreview({
         </div>
 
         <div className="p-5">
-          <div className="overflow-hidden rounded-2xl border border-border bg-muted/30">
+          <div className="overflow-hidden rounded-2xl border border-violet-100 bg-violet-50/45 shadow-sm dark:border-violet-400/14 dark:bg-violet-500/8">
             <div className="aspect-[4/3] bg-background">
               {imagePreviewSource ? (
                 <img
@@ -809,15 +817,25 @@ export function DiscoverOrganizationProductCatalogWorkbench({
         <nav
           aria-label="Product catalog navigation"
           data-testid="product-catalog-workbench-navigation"
-          className="flex w-full flex-col gap-1 rounded-2xl border border-border bg-background/80 p-1.5 shadow-sm sm:w-auto lg:min-w-60"
+          className="flex w-full flex-col gap-1 rounded-2xl border border-violet-200/70 bg-white/86 p-1.5 shadow-[0_18px_46px_-38px_rgba(109,40,217,0.45)] sm:w-auto lg:min-w-60 dark:border-violet-400/18 dark:bg-violet-500/8"
         >
-          <Button variant="ghost" size="sm" asChild className="justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="h-9 justify-start rounded-xl text-violet-800 hover:bg-violet-100 hover:text-violet-950 dark:text-violet-100 dark:hover:bg-violet-500/14"
+          >
             <Link href={routeBase}>
               <ArrowLeft className="h-3.5 w-3.5" />
               {t("Back to product catalog")}
             </Link>
           </Button>
-          <Button variant="ghost" size="sm" asChild className="justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="h-9 justify-start rounded-xl text-violet-800 hover:bg-violet-100 hover:text-violet-950 dark:text-violet-100 dark:hover:bg-violet-500/14"
+          >
             <Link href={organizationHref}>
               <ArrowLeft className="h-3.5 w-3.5" />
               {t("Back to organization")}
@@ -828,7 +846,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="flex min-w-0 flex-col gap-4">
-          <div className="glass-panel p-5">
+          <div className={publisherFieldPanelClass}>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="brand">{t("Catalog")}</Badge>
               <Badge variant={descriptionReady ? "success" : "outline"}>
@@ -845,7 +863,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                     updateState({ title: event.target.value.slice(0, 180) })
                   }
                   placeholder={t("Example: Full genome report")}
-                  className="h-11"
+                  className={publisherInputClass}
                 />
                 <p className="text-xs text-muted-foreground">
                   {t("Use the public-facing product name.")}
@@ -878,7 +896,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                   }
                   placeholder={t("View product")}
                   disabled={!state.productUrl.trim()}
-                  className="h-11"
+                  className={publisherInputClass}
                 />
                 <p className="text-xs text-muted-foreground">
                   {state.productUrl.trim()
@@ -889,7 +907,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
             </div>
           </div>
 
-          <div className="glass-panel p-5">
+          <div className={publisherFieldPanelClass}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h3 className="font-heading text-lg font-semibold text-foreground">
@@ -900,7 +918,12 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                 </p>
               </div>
               {hasImageUrl || hasUploadedImage ? (
-                <Button variant="outline" size="sm" onClick={clearImage}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearImage}
+                  className={publisherSoftButtonClass}
+                >
                   <RotateCcw className="h-3.5 w-3.5" />
                   {t("Choose another image")}
                 </Button>
@@ -917,7 +940,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
 
             <div className="mt-4">
               {hasUploadedImage ? (
-                <div className="relative overflow-hidden rounded-3xl border border-brand/20 bg-brand/5 p-5">
+                <div className="relative overflow-hidden rounded-3xl border border-violet-200/70 bg-[linear-gradient(145deg,rgba(245,243,255,0.8),rgba(255,255,255,0.92))] p-5 shadow-inner dark:border-violet-400/16 dark:bg-violet-500/8">
                   <button
                     type="button"
                     onClick={clearImage}
@@ -928,8 +951,8 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                   </button>
                   <div className="mx-auto flex max-w-sm flex-col items-center text-center">
                     <div className="relative">
-                      <div className="absolute inset-0 animate-pulse rounded-[2rem] bg-brand/25 blur-2xl" />
-                      <div className="relative h-48 w-48 overflow-hidden rounded-[2rem] border border-white/70 bg-background shadow-2xl">
+                      <div className="absolute inset-0 animate-pulse rounded-[2rem] bg-violet-400/22 blur-2xl" />
+                      <div className="relative h-48 w-48 overflow-hidden rounded-[2rem] border border-white/80 bg-background shadow-2xl">
                         <img
                           src={state.imageUploadDataUrl}
                           alt=""
@@ -1004,11 +1027,11 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                       }
                     }}
                     className={cn(
-                      "flex min-h-32 cursor-pointer items-center gap-4 rounded-2xl border border-dashed border-brand/45 bg-brand/5 p-4 transition-all hover:border-brand hover:bg-brand/10 focus:outline-none focus:ring-3 focus:ring-brand/25",
-                      imageUploadDragging && "scale-[1.01] border-brand bg-brand/12",
+                      "flex min-h-32 cursor-pointer items-center gap-4 rounded-2xl border border-dashed border-violet-300/70 bg-violet-50/55 p-4 shadow-inner transition-all hover:border-violet-400 hover:bg-violet-50 focus:outline-none focus:ring-3 focus:ring-violet-300/35 dark:border-violet-400/24 dark:bg-violet-500/8",
+                      imageUploadDragging && "scale-[1.01] border-violet-500 bg-violet-100/70 dark:bg-violet-500/14",
                     )}
                   >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-background text-brand shadow-sm">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-violet-700 shadow-sm dark:bg-violet-500/12 dark:text-violet-100">
                       {imageUploadPending ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                       ) : (
@@ -1034,7 +1057,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
             {imageStatus ? <div className="mt-3">{imageStatus}</div> : null}
           </div>
 
-          <div className="glass-panel p-5">
+          <div className={publisherFieldPanelClass}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h3 className="font-heading text-lg font-semibold text-foreground">
@@ -1054,7 +1077,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                 updateState({ description: event.target.value.slice(0, 5000) })
               }
               placeholder={t("Describe this product for people browsing Pocket Genes.")}
-              className="mt-4 min-h-48 resize-y"
+              className="mt-4 min-h-48 resize-y rounded-xl border-violet-200/75 bg-white/90 shadow-sm focus-visible:border-violet-400 focus-visible:ring-violet-300/35 dark:border-violet-400/18 dark:bg-slate-950/45"
             />
           </div>
 
@@ -1070,7 +1093,7 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="destructive"
-                    className="mt-4"
+                    className="mt-4 rounded-xl"
                     disabled={deletePending}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -1110,14 +1133,19 @@ export function DiscoverOrganizationProductCatalogWorkbench({
         />
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-4 py-3 shadow-[0_-20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-violet-100/80 bg-white/92 px-4 py-3 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur dark:border-violet-400/14 dark:bg-slate-950/88">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center text-sm text-muted-foreground">
             <span className="truncate">{saveHint}</span>
           </div>
           <div className="flex items-center gap-2 sm:justify-end">
             {state.productUrl.trim() && normalizeHttpsUrlInput(state.productUrl) ? (
-              <Button variant="outline" size="sm" asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className={publisherSoftButtonClass}
+              >
                 <a
                   href={normalizeHttpsUrlInput(state.productUrl) || "#"}
                   target="_blank"
@@ -1128,7 +1156,11 @@ export function DiscoverOrganizationProductCatalogWorkbench({
                 </a>
               </Button>
             ) : null}
-            <Button onClick={() => void save()} disabled={!canSave}>
+            <Button
+              onClick={() => void save()}
+              disabled={!canSave}
+              className={publisherPrimaryButtonClass}
+            >
               {pending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

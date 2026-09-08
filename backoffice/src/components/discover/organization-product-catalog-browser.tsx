@@ -85,6 +85,21 @@ function catalogItemMatches(
     .includes(normalizedQuery);
 }
 
+const publisherPanelClass =
+  "rounded-2xl border border-violet-200/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,243,255,0.94)_52%,rgba(240,249,255,0.78))] shadow-[0_18px_56px_-44px_rgba(109,40,217,0.48)] dark:border-violet-400/22 dark:bg-[linear-gradient(145deg,rgba(35,24,73,0.94),rgba(26,31,52,0.94)_52%,rgba(12,35,54,0.72))]";
+const publisherPrimaryButtonClass =
+  "h-9 rounded-xl bg-violet-600 px-3 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700";
+const publisherSoftButtonClass =
+  "h-9 rounded-xl border-violet-200/80 bg-white/78 px-3 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18";
+const publisherInputClass =
+  "h-11 rounded-xl border-violet-200/80 bg-white/90 shadow-sm focus-visible:border-violet-400 focus-visible:ring-violet-300/35 dark:border-violet-400/20 dark:bg-slate-950/45";
+const publisherTablePanelClass =
+  "overflow-hidden rounded-2xl border border-violet-100/80 bg-white/92 shadow-[0_18px_56px_-46px_rgba(15,23,42,0.46)] dark:border-violet-400/16 dark:bg-slate-950/50";
+const publisherTableHeaderClass =
+  "hidden grid-cols-[minmax(0,2fr)_minmax(0,1fr)_170px_auto] gap-4 border-b border-violet-100/80 bg-violet-50/60 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-950/60 dark:border-violet-400/14 dark:bg-violet-500/8 dark:text-violet-100/62 lg:grid";
+const publisherRowClass =
+  "grid gap-3 border-b border-violet-100/70 px-4 py-4 transition-colors last:border-b-0 hover:bg-violet-50/42 dark:border-violet-400/12 dark:hover:bg-violet-500/6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_170px_auto] lg:items-center";
+
 export function DiscoverOrganizationProductCatalogBrowser({
   organization,
   routeBase,
@@ -162,15 +177,23 @@ export function DiscoverOrganizationProductCatalogBrowser({
     <section className="flex flex-col gap-4">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
 
-      <div className="glass-panel flex flex-col gap-4 px-5 py-4">
+      <div className={`${publisherPanelClass} flex flex-col gap-4 px-5 py-4`}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
+          <div className="flex min-w-0 items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="h-9 rounded-xl text-violet-800 hover:bg-violet-100 hover:text-violet-950 dark:text-violet-100 dark:hover:bg-violet-500/14"
+            >
               <Link href={organizationHref}>
                 <ArrowLeft className="h-3.5 w-3.5" />
                 {t("Back to organization")}
               </Link>
             </Button>
+            <span className="hidden size-11 shrink-0 items-center justify-center rounded-2xl border border-violet-200 bg-violet-100 text-violet-700 shadow-inner sm:flex dark:border-violet-400/20 dark:bg-violet-500/14 dark:text-violet-100">
+              <PackageOpen className="size-5" />
+            </span>
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-2">
                 <h2 className="truncate font-heading text-xl font-semibold text-foreground">
@@ -190,12 +213,13 @@ export function DiscoverOrganizationProductCatalogBrowser({
               size="sm"
               onClick={() => void refresh()}
               disabled={pending}
+              className={publisherSoftButtonClass}
             >
               <RefreshCcw className={cn("h-3.5 w-3.5", pending && "animate-spin")} />
               {pending ? t("Working...") : t("Refresh")}
             </Button>
             {hasCatalogItems ? (
-              <Button size="sm" asChild>
+              <Button size="sm" asChild className={publisherPrimaryButtonClass}>
                 <Link href={`${routeBase}/new`}>
                   <Plus className="h-3.5 w-3.5" />
                   {t("Add product to catalog")}
@@ -211,13 +235,13 @@ export function DiscoverOrganizationProductCatalogBrowser({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("Search product title, description, or URL")}
-            className="pl-9"
+            className={`${publisherInputClass} pl-9`}
           />
         </label>
       </div>
 
-      <div className="glass-panel overflow-hidden">
-        <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1fr)_170px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
+      <div className={publisherTablePanelClass}>
+        <div className={publisherTableHeaderClass}>
           <span>{t("Product")}</span>
           <span>{t("Destination")}</span>
           <span>{t("Updated")}</span>
@@ -226,7 +250,7 @@ export function DiscoverOrganizationProductCatalogBrowser({
 
         {filteredItems.length === 0 ? (
           <div className="px-4 py-12 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand/10 text-brand">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-100 text-violet-700 shadow-inner dark:bg-violet-500/14 dark:text-violet-100">
               <PackageOpen className="h-6 w-6" />
             </div>
             <h3 className="mt-4 font-heading text-lg font-semibold text-foreground">
@@ -240,7 +264,10 @@ export function DiscoverOrganizationProductCatalogBrowser({
                 : t("Try a different search or refresh the catalog.")}
             </p>
             {items.length === 0 ? (
-              <Button className="mt-5" asChild>
+              <Button
+                className={`${publisherPrimaryButtonClass} mt-5 h-11 px-4`}
+                asChild
+              >
                 <Link href={`${routeBase}/new`}>
                   <Plus className="h-4 w-4" />
                   {t("Add product to catalog")}
@@ -256,10 +283,10 @@ export function DiscoverOrganizationProductCatalogBrowser({
             return (
               <div
                 key={item.id}
-                className="grid gap-3 border-b border-border/70 px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_170px_auto] lg:items-center"
+                className={publisherRowClass}
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted/40">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-violet-100 bg-violet-50/60 shadow-sm dark:border-violet-400/14 dark:bg-violet-500/8">
                     {imageSource ? (
                       <img
                         src={imageSource}
@@ -296,7 +323,7 @@ export function DiscoverOrganizationProductCatalogBrowser({
                       href={item.productUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex max-w-full items-center gap-1 font-medium text-brand hover:underline"
+                      className="inline-flex max-w-full items-center gap-1 font-medium text-violet-700 hover:text-violet-900 hover:underline dark:text-violet-200 dark:hover:text-violet-100"
                     >
                       <span className="truncate">{productUrlLabel}</span>
                       <ExternalLink className="h-3.5 w-3.5 shrink-0" />
@@ -316,7 +343,12 @@ export function DiscoverOrganizationProductCatalogBrowser({
                 </div>
 
                 <div className="flex flex-wrap gap-2 lg:justify-end">
-                  <Button variant="outline" size="sm" asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className={publisherSoftButtonClass}
+                  >
                     <Link href={`${routeBase}/${encodeURIComponent(item.id)}`}>
                       {t("Open")}
                       <ArrowRight className="h-3.5 w-3.5" />
@@ -328,6 +360,7 @@ export function DiscoverOrganizationProductCatalogBrowser({
                         variant="destructive"
                         size="sm"
                         disabled={pending}
+                        className="h-9 rounded-xl"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         {t("Delete")}
