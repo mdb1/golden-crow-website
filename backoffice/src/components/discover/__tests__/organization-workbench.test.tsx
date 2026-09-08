@@ -287,6 +287,9 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const instagramLink = within(preview).getByRole("link", {
       name: "Perfil de Instagram: instagram.com/publisher-one",
     });
+    const instagramIcon = instagramLink.querySelector(
+      'img[src="/discover/social-network-assets/social_instagram.png"]',
+    ) as HTMLImageElement | null;
 
     expect(profileImage.getAttribute("src")).toBe(
       "data:image/png;base64,profile-image",
@@ -309,6 +312,8 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(instagramLink.getAttribute("href")).toBe(
       "https://instagram.com/publisher-one",
     );
+    expect(instagramIcon?.style.objectFit).toBe("contain");
+    expect(instagramIcon?.parentElement?.style.width).toBe("32px");
     expect(
       within(
         screen.getByTestId("discover-publisher-preview-socials"),
@@ -1358,6 +1363,11 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
         'img[src="/discover/social-network-assets/social_facebook.png"]',
       ),
     ).toBeTruthy();
+    const currentFacebookIcon = document.querySelector(
+      'img[src="/discover/social-network-assets/social_facebook.png"]',
+    ) as HTMLImageElement | null;
+    expect(currentFacebookIcon?.style.objectFit).toBe("contain");
+    expect(currentFacebookIcon?.parentElement?.style.width).toBe("44px");
     await user.click(screen.getByRole("button", { name: "Add social link" }));
 
     [
@@ -1440,6 +1450,11 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
         ),
       ).toBeTruthy();
     });
+    const pickerTwitterIcon = document.querySelector(
+      'img[src="/discover/social-network-assets/social_twitter.png"]',
+    ) as HTMLImageElement | null;
+    expect(pickerTwitterIcon?.style.objectFit).toBe("contain");
+    expect(pickerTwitterIcon?.parentElement?.style.width).toBe("42px");
   });
 });
 

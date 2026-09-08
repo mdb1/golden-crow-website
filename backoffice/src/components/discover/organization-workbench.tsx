@@ -42,8 +42,8 @@ import { PublisherCategoryMultiSelect } from "@/components/discover/publisher-ca
 import { PublisherCountryMultiSelect } from "@/components/discover/publisher-country-multi-select";
 import {
   PublisherSocialLinksEditor,
+  SocialAssetIcon,
   SOCIAL_OPTIONS,
-  socialAssetSrc,
 } from "@/components/discover/publisher-social-links-editor";
 import {
   AlertDialog,
@@ -2485,11 +2485,11 @@ function DiscoverPublisherWorkbench({
                         aria-label={`${t(option.label)}: ${option.value}`}
                         className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background shadow-sm transition-transform hover:-translate-y-0.5 hover:border-primary/50"
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={socialAssetSrc(option.assetName)}
-                          alt=""
-                          className="h-8 w-8 rounded-full object-contain"
+                        <SocialAssetIcon
+                          option={option}
+                          size={32}
+                          className="rounded-full border-0 bg-transparent shadow-none ring-0"
+                          imageClassName="rounded-full"
                         />
                       </a>
                     ))}
