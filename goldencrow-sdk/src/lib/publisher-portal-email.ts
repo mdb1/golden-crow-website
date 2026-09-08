@@ -54,22 +54,27 @@ export function buildPublisherPortalInviteEmailMessage(
   const safeTemporaryPassword = escapeHtml(temporaryPassword);
   const safePortalUrl = escapeHtml(portalUrl);
   const preheader =
-    "Usá tu clave de acceso para entrar al portal de publicadores.";
+    "Tu solicitud fue aprobada. Ya podés entrar a Pocket Genes.";
 
   return {
     to: recipient.email,
-    subject: "Acceso Publisher Portal",
+    subject:
+      "¡Bienvenidos a la plataforma Pocket Genes! Te compartimos tus claves de acceso.",
     text: [
       `Hola ${displayName(recipient)},`,
       "",
-      "Aprobamos tu solicitud de publicador para Pocket Genes.",
+      "¡Tu solicitud fue aprobada!",
       "",
-      "Esta es tu clave de acceso:",
+      "Ya podés entrar al portal de Pocket Genes para preparar tu perfil y publicar contenido para la comunidad.",
+      "",
+      "Tu clave de acceso es:",
       temporaryPassword,
       "",
-      `Link al portal: ${portalUrl}`,
+      `Portal de Pocket Genes: ${portalUrl}`,
       "",
-      "Gracias.",
+      "Nos alegra tenerte cerca.",
+      "",
+      "Equipo Pocket Genes",
     ].join("\n"),
     html: `
       <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
@@ -85,7 +90,7 @@ export function buildPublisherPortalInviteEmailMessage(
                     Pocket Genes
                   </div>
                   <div style="margin-top:16px;font-size:36px;line-height:42px;font-weight:800;color:#ffffff;">
-                    Acceso de publicador
+                    ¡Bienvenidos a la plataforma!
                   </div>
                 </td>
               </tr>
@@ -94,11 +99,14 @@ export function buildPublisherPortalInviteEmailMessage(
                   <p style="margin:0 0 24px;font-size:20px;line-height:30px;color:#111827;">
                     Hola ${safeName},
                   </p>
-                  <p style="margin:0 0 28px;font-size:20px;line-height:32px;color:#111827;">
-                    Aprobamos tu solicitud de publicador para Pocket Genes.
+                  <p style="margin:0 0 12px;font-size:22px;line-height:32px;font-weight:800;color:#111827;">
+                    Tu solicitud fue aprobada.
+                  </p>
+                  <p style="margin:0 0 28px;font-size:18px;line-height:30px;color:#4b5563;">
+                    Ya podés entrar al portal de Pocket Genes para preparar tu perfil y publicar contenido para la comunidad.
                   </p>
                   <p style="margin:0 0 18px;font-size:18px;line-height:28px;color:#4b5563;">
-                    Esta es tu clave de acceso.
+                    Te compartimos tu clave de acceso.
                   </p>
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 32px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;">
                     <tr>
@@ -111,8 +119,11 @@ export function buildPublisherPortalInviteEmailMessage(
                     </tr>
                   </table>
                   <a href="${safePortalUrl}" style="display:inline-block;background:#6f3cc3;color:#ffffff;text-decoration:none;border-radius:12px;padding:16px 24px;font-size:15px;line-height:20px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">
-                    Entrar al portal
+                    Entrar a Pocket Genes
                   </a>
+                  <p style="margin:28px 0 0;font-size:16px;line-height:26px;color:#6b7280;">
+                    Nos alegra tenerte cerca.
+                  </p>
                 </td>
               </tr>
             </table>
