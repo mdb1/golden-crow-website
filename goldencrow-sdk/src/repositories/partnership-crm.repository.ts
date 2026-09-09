@@ -29,6 +29,9 @@ const DEFAULT_PAGE_SIZE = MAX_PAGE_SIZE;
 const FILTERED_BATCH_LIMIT = MAX_PAGE_SIZE;
 const MAX_FILTERED_SCAN = MAX_PAGE_SIZE * 3;
 const STATUS_COUNT_BATCH_LIMIT = 500;
+const VISUAL_FILTER_BATCH_LIMIT = 500;
+const MISSING_CATEGORY_FILTER_VALUE = "__no_category__";
+const MISSING_COUNTRY_FILTER_VALUE = "__no_country__";
 
 export const PARTNERSHIP_CRM_STATUSES = [
   "new",
@@ -75,6 +78,11 @@ export type PartnershipCrmTargetKind = PartnershipCrmTemplateAudience;
 
 export type PartnershipCrmEmailState = "has_email" | "missing_email";
 export type PartnershipCrmStatusCounts = Record<PartnershipCrmStatus, number>;
+export type PartnershipCrmVisualFilterFacetKey =
+  | "status"
+  | "category"
+  | "country"
+  | "emailState";
 
 type PartnershipCrmTargetListOptions = {
   cursor?: string;
@@ -261,6 +269,25 @@ export interface PartnershipCrmSentEmailLogRecord {
 export interface PartnershipCrmSentEmailLogsPage {
   emails: PartnershipCrmSentEmailLogRecord[];
   nextCursor?: string;
+}
+
+export interface PartnershipCrmVisualFilterBucket {
+  value: string;
+  count: number;
+}
+
+export interface PartnershipCrmVisualFilterFacet {
+  key: PartnershipCrmVisualFilterFacetKey;
+  total: number;
+  buckets: PartnershipCrmVisualFilterBucket[];
+}
+
+export interface PartnershipCrmVisualFilters {
+  targetKind: PartnershipCrmTargetKind;
+  facets: Record<
+    PartnershipCrmVisualFilterFacetKey,
+    PartnershipCrmVisualFilterFacet
+  >;
 }
 
 export interface PartnershipCrmDuplicateCandidate {
@@ -974,8 +1001,12 @@ function matchesFilters(
   },
 ) {
   const query = cleanString(filters.query).toLowerCase();
-  const categoryKeys = crmCategoryKeys(filters.category);
-  const countryCodes = crmCountryCodes(filters.country);
+  const categoryFilter = cleanString(filters.category);
+  const countryFilter = cleanString(filters.country);
+  const categoryKeys = crmCategoryKeys(categoryFilter);
+  const recordCategoryKeys = crmCategoryKeys(record.category);
+  const countryCodes = crmCountryCodes(countryFilter);
+  const recordCountryCodes = crmCountryCodes(record.country);
   const status = cleanString(filters.status);
   const searchable = [
     record.id,
@@ -996,8 +1027,12 @@ function matchesFilters(
   return (
     (!query || searchable.includes(query)) &&
     (!status || status === "all" || record.status === status) &&
-    hasAnyValueOverlap(categoryKeys, crmCategoryKeys(record.category)) &&
-    hasAnyValueOverlap(countryCodes, crmCountryCodes(record.country)) &&
+    (categoryFilter === MISSING_CATEGORY_FILTER_VALUE
+      ? recordCategoryKeys.length === 0
+      : hasAnyValueOverlap(categoryKeys, recordCategoryKeys)) &&
+    (countryFilter === MISSING_COUNTRY_FILTER_VALUE
+      ? recordCountryCodes.length === 0
+      : hasAnyValueOverlap(countryCodes, recordCountryCodes)) &&
     (!filters.emailState ||
       (filters.emailState === "has_email"
         ? Boolean(record.contactEmail)
@@ -1016,8 +1051,12 @@ function matchesProfessionalFilters(
   },
 ) {
   const query = cleanString(filters.query).toLowerCase();
-  const categoryKeys = crmCategoryKeys(filters.category, "professionals");
-  const countryCodes = crmCountryCodes(filters.country);
+  const categoryFilter = cleanString(filters.category);
+  const countryFilter = cleanString(filters.country);
+  const categoryKeys = crmCategoryKeys(categoryFilter, "professionals");
+  const recordCategoryKeys = crmCategoryKeys(record.category, "professionals");
+  const countryCodes = crmCountryCodes(countryFilter);
+  const recordCountryCodes = crmCountryCodes(record.country);
   const status = cleanString(filters.status);
   const searchable = [
     record.id,
@@ -1043,11 +1082,12 @@ function matchesProfessionalFilters(
   return (
     (!query || searchable.includes(query)) &&
     (!status || status === "all" || record.status === status) &&
-    hasAnyValueOverlap(
-      categoryKeys,
-      crmCategoryKeys(record.category, "professionals"),
-    ) &&
-    hasAnyValueOverlap(countryCodes, crmCountryCodes(record.country)) &&
+    (categoryFilter === MISSING_CATEGORY_FILTER_VALUE
+      ? recordCategoryKeys.length === 0
+      : hasAnyValueOverlap(categoryKeys, recordCategoryKeys)) &&
+    (countryFilter === MISSING_COUNTRY_FILTER_VALUE
+      ? recordCountryCodes.length === 0
+      : hasAnyValueOverlap(countryCodes, recordCountryCodes)) &&
     (!filters.emailState ||
       (filters.emailState === "has_email"
         ? Boolean(record.email)
@@ -1280,6 +1320,263 @@ function professionalStatusCounts(options: PartnershipCrmTargetListOptions) {
   return hasProjectedStatusCountFilters(options)
     ? scanProfessionalStatusCounts(options)
     : aggregateStatusCounts(PROFESSIONALS_COLLECTION);
+}
+
+function visualFacetFilters(
+  options: PartnershipCrmTargetListOptions,
+  facetKey: PartnershipCrmVisualFilterFacetKey,
+): PartnershipCrmTargetListOptions {
+  return {
+    query: options.query,
+    status: facetKey === "status" ? "all" : options.status,
+    category: facetKey === "category" ? "" : options.category,
+    country: facetKey === "country" ? "" : options.country,
+    emailState: facetKey === "emailState" ? undefined : options.emailState,
+  };
+}
+
+function incrementFacetCount(counts: Map<string, number>, value: string) {
+  counts.set(value, (counts.get(value) ?? 0) + 1);
+}
+
+function primaryCategoryFacetValue(
+  category: string,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return crmCategoryKeys(category, audience)[0] ?? MISSING_CATEGORY_FILTER_VALUE;
+}
+
+function primaryCountryFacetValue(country: string) {
+  return crmCountryCodes(country)[0] ?? MISSING_COUNTRY_FILTER_VALUE;
+}
+
+function emailStateFacetValue(hasEmail: boolean): PartnershipCrmEmailState {
+  return hasEmail ? "has_email" : "missing_email";
+}
+
+function orderedFacetEntries(
+  counts: Map<string, number>,
+  orderedValues: readonly string[] = [],
+) {
+  const handled = new Set<string>();
+  const orderedEntries = orderedValues.flatMap((value) => {
+    handled.add(value);
+    const count = counts.get(value) ?? 0;
+    return count > 0 ? [{ value, count }] : [];
+  });
+  const remainingEntries = Array.from(counts.entries())
+    .filter(([value, count]) => !handled.has(value) && count > 0)
+    .map(([value, count]) => ({ value, count }))
+    .sort(
+      (left, right) =>
+        right.count - left.count || left.value.localeCompare(right.value),
+    );
+
+  return [...orderedEntries, ...remainingEntries];
+}
+
+function visualFacet(
+  key: PartnershipCrmVisualFilterFacetKey,
+  counts: Map<string, number>,
+  orderedValues: readonly string[] = [],
+): PartnershipCrmVisualFilterFacet {
+  const buckets = orderedFacetEntries(counts, orderedValues);
+
+  return {
+    key,
+    total: buckets.reduce((total, bucket) => total + bucket.count, 0),
+    buckets,
+  };
+}
+
+function visualFacetResponse(
+  targetKind: PartnershipCrmTargetKind,
+  counts: Record<PartnershipCrmVisualFilterFacetKey, Map<string, number>>,
+): PartnershipCrmVisualFilters {
+  const categoryOptions =
+    targetKind === "professionals"
+      ? PARTNERSHIP_CRM_PROFESSIONAL_CATEGORY_OPTIONS
+      : PARTNERSHIP_CRM_ORGANIZATION_CATEGORY_OPTIONS;
+
+  return {
+    targetKind,
+    facets: {
+      status: visualFacet("status", counts.status, PARTNERSHIP_CRM_STATUSES),
+      category: visualFacet("category", counts.category, [
+        ...categoryOptions.map((option) => option.value),
+        MISSING_CATEGORY_FILTER_VALUE,
+      ]),
+      country: visualFacet("country", counts.country, [
+        MISSING_COUNTRY_FILTER_VALUE,
+      ]),
+      emailState: visualFacet("emailState", counts.emailState, [
+        "has_email",
+        "missing_email",
+      ]),
+    },
+  };
+}
+
+function emptyVisualFacetCounts() {
+  return {
+    status: new Map<string, number>(),
+    category: new Map<string, number>(),
+    country: new Map<string, number>(),
+    emailState: new Map<string, number>(),
+  } satisfies Record<PartnershipCrmVisualFilterFacetKey, Map<string, number>>;
+}
+
+async function scanOrganizationVisualFilters(
+  options: PartnershipCrmTargetListOptions,
+): Promise<PartnershipCrmVisualFilters> {
+  const counts = emptyVisualFacetCounts();
+  const statusFilters = visualFacetFilters(options, "status");
+  const categoryFilters = visualFacetFilters(options, "category");
+  const countryFilters = visualFacetFilters(options, "country");
+  const emailStateFilters = visualFacetFilters(options, "emailState");
+  const baseQuery: Query = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .orderBy("updatedAt", "desc")
+    .select(
+      "name",
+      "category",
+      "website",
+      "websiteDomain",
+      "country",
+      "status",
+      "contactName",
+      "contactEmail",
+      "contactLinkedIn",
+      "notes",
+      "updatedAt",
+    );
+  let query: Query = baseQuery;
+
+  while (true) {
+    const snapshot = await query.limit(VISUAL_FILTER_BATCH_LIMIT).get();
+    if (snapshot.empty) {
+      break;
+    }
+
+    for (const doc of snapshot.docs) {
+      const organization = toOrganizationRecord(doc.id, doc.data());
+      if (matchesFilters(organization, statusFilters)) {
+        incrementFacetCount(counts.status, organization.status);
+      }
+      if (matchesFilters(organization, categoryFilters)) {
+        incrementFacetCount(
+          counts.category,
+          primaryCategoryFacetValue(organization.category, "organizations"),
+        );
+      }
+      if (matchesFilters(organization, countryFilters)) {
+        incrementFacetCount(
+          counts.country,
+          primaryCountryFacetValue(organization.country),
+        );
+      }
+      if (matchesFilters(organization, emailStateFilters)) {
+        incrementFacetCount(
+          counts.emailState,
+          emailStateFacetValue(Boolean(organization.contactEmail)),
+        );
+      }
+    }
+
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    if (!lastDoc || snapshot.docs.length < VISUAL_FILTER_BATCH_LIMIT) {
+      break;
+    }
+
+    query = baseQuery.startAfter(lastDoc);
+  }
+
+  return visualFacetResponse("organizations", counts);
+}
+
+async function scanProfessionalVisualFilters(
+  options: PartnershipCrmTargetListOptions,
+): Promise<PartnershipCrmVisualFilters> {
+  const counts = emptyVisualFacetCounts();
+  const statusFilters = visualFacetFilters(options, "status");
+  const categoryFilters = visualFacetFilters(options, "category");
+  const countryFilters = visualFacetFilters(options, "country");
+  const emailStateFilters = visualFacetFilters(options, "emailState");
+  const baseQuery: Query = adminDb
+    .collection(PROFESSIONALS_COLLECTION)
+    .orderBy("updatedAt", "desc")
+    .select(
+      "name",
+      "category",
+      "title",
+      "primaryAffiliation",
+      "potentialPocketGenesEditorFit",
+      "emailRoute",
+      "linkedInRoute",
+      "researchBasis",
+      "website",
+      "websiteDomain",
+      "country",
+      "status",
+      "email",
+      "linkedIn",
+      "notes",
+      "updatedAt",
+    );
+  let query: Query = baseQuery;
+
+  while (true) {
+    const snapshot = await query.limit(VISUAL_FILTER_BATCH_LIMIT).get();
+    if (snapshot.empty) {
+      break;
+    }
+
+    for (const doc of snapshot.docs) {
+      const professional = toProfessionalRecord(doc.id, doc.data());
+      if (matchesProfessionalFilters(professional, statusFilters)) {
+        incrementFacetCount(counts.status, professional.status);
+      }
+      if (matchesProfessionalFilters(professional, categoryFilters)) {
+        incrementFacetCount(
+          counts.category,
+          primaryCategoryFacetValue(professional.category, "professionals"),
+        );
+      }
+      if (matchesProfessionalFilters(professional, countryFilters)) {
+        incrementFacetCount(
+          counts.country,
+          primaryCountryFacetValue(professional.country),
+        );
+      }
+      if (matchesProfessionalFilters(professional, emailStateFilters)) {
+        incrementFacetCount(
+          counts.emailState,
+          emailStateFacetValue(Boolean(professional.email)),
+        );
+      }
+    }
+
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    if (!lastDoc || snapshot.docs.length < VISUAL_FILTER_BATCH_LIMIT) {
+      break;
+    }
+
+    query = baseQuery.startAfter(lastDoc);
+  }
+
+  return visualFacetResponse("professionals", counts);
+}
+
+export async function getPartnershipCrmVisualFilters(
+  context: AdminContext,
+  targetKind: PartnershipCrmTargetKind,
+  options: PartnershipCrmTargetListOptions = {},
+): Promise<PartnershipCrmVisualFilters> {
+  requireGodMode(context);
+
+  return targetKind === "professionals"
+    ? scanProfessionalVisualFilters(options)
+    : scanOrganizationVisualFilters(options);
 }
 
 async function getOrganizationSnapshot(organizationId: string) {

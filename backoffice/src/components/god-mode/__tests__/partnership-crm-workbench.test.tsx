@@ -1189,6 +1189,120 @@ describe("PartnershipCrmWorkbench list pager", () => {
     ).toBeTruthy();
   });
 
+  it("opens visual filters and applies a pie-slice filter to the list", async () => {
+    const user = userEvent.setup();
+    const listPaths: string[] = [];
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      if (
+        stringPath.startsWith(
+          "/admin/partnership-crm/organizations/visual-filters",
+        )
+      ) {
+        return {
+          targetKind: "organizations",
+          facets: {
+            status: {
+              key: "status",
+              total: 10,
+              buckets: [
+                { value: "new", count: 8 },
+                { value: "contacted", count: 2 },
+              ],
+            },
+            category: {
+              key: "category",
+              total: 10,
+              buckets: [
+                { value: "org_genomics_laboratories", count: 7 },
+                { value: "__no_category__", count: 3 },
+              ],
+            },
+            country: {
+              key: "country",
+              total: 10,
+              buckets: [
+                { value: "AR", count: 6 },
+                { value: "__no_country__", count: 4 },
+              ],
+            },
+            emailState: {
+              key: "emailState",
+              total: 10,
+              buckets: [
+                { value: "has_email", count: 9 },
+                { value: "missing_email", count: 1 },
+              ],
+            },
+          },
+        };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/organizations")) {
+        listPaths.push(stringPath);
+      }
+
+      return {
+        organizations: [organization],
+        nextCursor: undefined,
+        statusCounts: {
+          new: 8,
+          contacted: 2,
+          replied: 0,
+          meeting: 0,
+          partner: 0,
+          no_response: 0,
+          not_interested: 0,
+          not_a_fit: 0,
+        },
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getByText("Delete Me Genomics")).toBeTruthy();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Visual filters" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Visual filters",
+    });
+    await waitFor(() => {
+      expect(within(dialog).getByText("Status")).toBeTruthy();
+      expect(within(dialog).getByText("CRM Contacted")).toBeTruthy();
+      expect(within(dialog).getByText("Genomics Laboratory")).toBeTruthy();
+      expect(within(dialog).getByText("No country")).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Apply visual filter from pie: Status - CRM Contacted",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Visual filters" }),
+      ).toBeNull();
+    });
+    await waitFor(() => {
+      expect(listPaths).toContain(
+        "/admin/partnership-crm/organizations?limit=50&status=contacted",
+      );
+    });
+  });
+
   it("shows visible count, page count, and previous/next controls as a right-aligned pager", async () => {
     const user = userEvent.setup();
     renderWorkbench();

@@ -18,6 +18,7 @@ import {
   getPartnershipCrmOrganization,
   getPartnershipCrmProfessional,
   getPartnershipCrmTemplate,
+  getPartnershipCrmVisualFilters,
   importPartnershipCrmOrganizations,
   importPartnershipCrmProfessionals,
   listPartnershipCrmActivities,
@@ -312,6 +313,23 @@ export async function partnershipCrmRoutes(
   );
 
   f.get(
+    "/admin/partnership-crm/organizations/visual-filters",
+    { schema: { querystring: ListOrganizationsQuerySchema } },
+    async (request, reply) => {
+      try {
+        const result = await getPartnershipCrmVisualFilters(
+          request.adminContext!,
+          "organizations",
+          request.query,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
     "/admin/partnership-crm/organizations/:organizationId",
     { schema: { params: OrganizationParamsSchema } },
     async (request, reply) => {
@@ -394,6 +412,23 @@ export async function partnershipCrmRoutes(
           request.body,
         );
         return reply.status(201).send({ professional });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/partnership-crm/professionals/visual-filters",
+    { schema: { querystring: ListOrganizationsQuerySchema } },
+    async (request, reply) => {
+      try {
+        const result = await getPartnershipCrmVisualFilters(
+          request.adminContext!,
+          "professionals",
+          request.query,
+        );
+        return reply.send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

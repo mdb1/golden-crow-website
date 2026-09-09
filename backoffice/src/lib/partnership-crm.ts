@@ -37,6 +37,8 @@ export const CRM_TARGET_OPTIONS = [
   { value: "organizations", label: "Organizations" },
   { value: "professionals", label: "Professionals" },
 ] as const;
+export const CRM_MISSING_CATEGORY_FILTER_VALUE = "__no_category__";
+export const CRM_MISSING_COUNTRY_FILTER_VALUE = "__no_country__";
 
 export type PartnershipCrmStatus = (typeof CRM_STATUS_OPTIONS)[number]["value"];
 export type PartnershipCrmStatusCounts = Record<PartnershipCrmStatus, number>;
@@ -48,6 +50,11 @@ export type PartnershipCrmTemplateAudience = PartnershipCrmTargetKind;
 export type PartnershipCrmCategory = DiscoverOrganizationCategoryKey;
 export type PartnershipCrmProfessionalCategory = DiscoverIndividualCategoryKey;
 export type CrmDuplicateAction = "skip" | "update" | "import";
+export type PartnershipCrmVisualFilterFacetKey =
+  | "status"
+  | "category"
+  | "country"
+  | "emailState";
 
 export interface PartnershipCrmOrganizationRecord {
   id: string;
@@ -168,6 +175,25 @@ export interface PartnershipCrmSentEmailLogRecord {
 export interface PartnershipCrmSentEmailLogsPage {
   emails: PartnershipCrmSentEmailLogRecord[];
   nextCursor?: string;
+}
+
+export interface PartnershipCrmVisualFilterBucket {
+  value: string;
+  count: number;
+}
+
+export interface PartnershipCrmVisualFilterFacet {
+  key: PartnershipCrmVisualFilterFacetKey;
+  total: number;
+  buckets: PartnershipCrmVisualFilterBucket[];
+}
+
+export interface PartnershipCrmVisualFilters {
+  targetKind: PartnershipCrmTargetKind;
+  facets: Record<
+    PartnershipCrmVisualFilterFacetKey,
+    PartnershipCrmVisualFilterFacet
+  >;
 }
 
 export interface PartnershipCrmTemplateInput {

@@ -9,6 +9,7 @@ const mockDeletePartnershipCrmOrganization = jest.fn();
 const mockDeletePartnershipCrmProfessional = jest.fn();
 const mockDeletePartnershipCrmTemplate = jest.fn();
 const mockCreatePartnershipCrmProfessional = jest.fn();
+const mockGetPartnershipCrmVisualFilters = jest.fn();
 const mockListPartnershipCrmSentEmailLog = jest.fn();
 const mockPreviewPartnershipCrmProfessionalImport = jest.fn();
 
@@ -44,6 +45,7 @@ jest.mock("../repositories/partnership-crm.repository.js", () => ({
   getPartnershipCrmOrganization: jest.fn(),
   getPartnershipCrmProfessional: jest.fn(),
   getPartnershipCrmTemplate: jest.fn(),
+  getPartnershipCrmVisualFilters: mockGetPartnershipCrmVisualFilters,
   importPartnershipCrmOrganizations: jest.fn(),
   importPartnershipCrmProfessionals: jest.fn(),
   listPartnershipCrmActivities: jest.fn(),
@@ -111,6 +113,15 @@ describe("partnership CRM routes", () => {
     mockCreatePartnershipCrmProfessional.mockResolvedValue({
       id: "pro-1",
       name: "Dra. Ada Genome",
+    });
+    mockGetPartnershipCrmVisualFilters.mockResolvedValue({
+      targetKind: "organizations",
+      facets: {
+        status: { key: "status", total: 0, buckets: [] },
+        category: { key: "category", total: 0, buckets: [] },
+        country: { key: "country", total: 0, buckets: [] },
+        emailState: { key: "emailState", total: 0, buckets: [] },
+      },
     });
   });
 
@@ -209,6 +220,45 @@ describe("partnership CRM routes", () => {
     expect(mockListPartnershipCrmSentEmailLog).toHaveBeenCalledWith(
       bootstrapContext,
       { limit: 20 },
+    );
+  });
+
+  it("returns visual filter facets for CRM organizations", async () => {
+    const fastify = await buildTestServer();
+    mockGetPartnershipCrmVisualFilters.mockResolvedValue({
+      targetKind: "organizations",
+      facets: {
+        status: {
+          key: "status",
+          total: 3,
+          buckets: [{ value: "new", count: 3 }],
+        },
+        category: { key: "category", total: 3, buckets: [] },
+        country: { key: "country", total: 3, buckets: [] },
+        emailState: { key: "emailState", total: 3, buckets: [] },
+      },
+    });
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/partnership-crm/organizations/visual-filters?status=contacted",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        targetKind: "organizations",
+        facets: expect.objectContaining({
+          status: expect.objectContaining({
+            buckets: [{ value: "new", count: 3 }],
+          }),
+        }),
+      }),
+    );
+    expect(mockGetPartnershipCrmVisualFilters).toHaveBeenCalledWith(
+      bootstrapContext,
+      "organizations",
+      { status: "contacted" },
     );
   });
 

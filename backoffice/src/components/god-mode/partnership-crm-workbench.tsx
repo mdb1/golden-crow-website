@@ -103,6 +103,8 @@ import {
   CRM_STATUS_OPTIONS,
   DEFAULT_CRM_CATEGORY,
   DEFAULT_CRM_PROFESSIONAL_CATEGORY,
+  CRM_MISSING_CATEGORY_FILTER_VALUE,
+  CRM_MISSING_COUNTRY_FILTER_VALUE,
   crmTargetEmail,
   normalizeCrmCategoryKeys,
   normalizeCrmCategory,
@@ -132,6 +134,9 @@ import {
   type PartnershipCrmTemplateRecord,
   type PartnershipCrmTemplateInput,
   type PartnershipCrmTemplatesPage,
+  type PartnershipCrmVisualFilterFacet,
+  type PartnershipCrmVisualFilterFacetKey,
+  type PartnershipCrmVisualFilters,
 } from "@/lib/partnership-crm";
 import { cn } from "@/lib/utils";
 
@@ -147,7 +152,19 @@ const CRM_IMPORT_SESSION_STORAGE_KEYS = {
   professionals: "golden-crow:partnership-crm-professional-import-session:v1",
 } as const;
 const CRM_ALL_COUNTRIES_VALUE = "__all_countries__";
-const CRM_NO_COUNTRY_VALUE = "__no_country__";
+const CRM_NO_COUNTRY_VALUE = CRM_MISSING_COUNTRY_FILTER_VALUE;
+const VISUAL_FILTER_COLORS = [
+  "#2563eb",
+  "#16a34a",
+  "#f97316",
+  "#dc2626",
+  "#7c3aed",
+  "#0891b2",
+  "#ca8a04",
+  "#db2777",
+  "#4b5563",
+  "#0f766e",
+] as const;
 
 type CrmTargetInput =
   PartnershipCrmOrganizationInput | PartnershipCrmProfessionalInput;
@@ -907,8 +924,37 @@ function buildTargetListPath(
   const params = new URLSearchParams({
     limit: String(CRM_TARGET_PAGE_SIZE),
   });
-  const category = normalizeCrmCategory(filters.category, targetKind);
-  const country = normalizeCrmCountry(filters.country);
+  appendTargetFilterParams(params, targetKind, filters);
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+
+  return `${crmTargetBasePath(targetKind)}?${params.toString()}`;
+}
+
+function normalizedCategoryFilter(
+  value: string,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  return value === CRM_MISSING_CATEGORY_FILTER_VALUE
+    ? CRM_MISSING_CATEGORY_FILTER_VALUE
+    : normalizeCrmCategory(value, targetKind);
+}
+
+function normalizedCountryFilter(value: string) {
+  return value === CRM_MISSING_COUNTRY_FILTER_VALUE
+    ? CRM_MISSING_COUNTRY_FILTER_VALUE
+    : normalizeCrmCountry(value);
+}
+
+function appendTargetFilterParams(
+  params: URLSearchParams,
+  targetKind: PartnershipCrmTargetKind,
+  filters: ListFilters,
+) {
+  const category = normalizedCategoryFilter(filters.category, targetKind);
+  const country = normalizedCountryFilter(filters.country);
+
   if (filters.query.trim()) {
     params.set("query", filters.query.trim());
   }
@@ -924,11 +970,19 @@ function buildTargetListPath(
   if (filters.emailState !== "all") {
     params.set("emailState", filters.emailState);
   }
-  if (cursor) {
-    params.set("cursor", cursor);
-  }
+}
 
-  return `${crmTargetBasePath(targetKind)}?${params.toString()}`;
+function buildVisualFiltersPath(
+  targetKind: PartnershipCrmTargetKind,
+  filters: ListFilters,
+) {
+  const params = new URLSearchParams();
+  appendTargetFilterParams(params, targetKind, filters);
+  const queryString = params.toString();
+
+  return `${crmTargetBasePath(targetKind)}/visual-filters${
+    queryString ? `?${queryString}` : ""
+  }`;
 }
 
 function targetPayload(
@@ -1456,13 +1510,23 @@ function CrmCountrySelect({
   );
   const emptyValue =
     mode === "filter" ? CRM_ALL_COUNTRIES_VALUE : CRM_NO_COUNTRY_VALUE;
-  const selectedCountry = normalizeCrmCountry(value).split(",")[0] ?? "";
+  const isMissingFilter =
+    mode === "filter" && value === CRM_MISSING_COUNTRY_FILTER_VALUE;
+  const selectedCountry = isMissingFilter
+    ? CRM_MISSING_COUNTRY_FILTER_VALUE
+    : (normalizeCrmCountry(value).split(",")[0] ?? "");
 
   return (
     <Select
       value={selectedCountry || emptyValue}
       onValueChange={(nextValue) =>
-        onChange(nextValue === emptyValue ? "" : nextValue)
+        onChange(
+          nextValue === emptyValue
+            ? ""
+            : nextValue === CRM_MISSING_COUNTRY_FILTER_VALUE
+              ? CRM_MISSING_COUNTRY_FILTER_VALUE
+              : nextValue,
+        )
       }
     >
       <SelectTrigger id={id} className="w-full">
@@ -1472,6 +1536,11 @@ function CrmCountrySelect({
         <SelectItem value={emptyValue}>
           {mode === "filter" ? t("All countries") : t("No country")}
         </SelectItem>
+        {mode === "filter" ? (
+          <SelectItem value={CRM_MISSING_COUNTRY_FILTER_VALUE}>
+            {t("No country")}
+          </SelectItem>
+        ) : null}
         {countryGroups.map((group) => (
           <SelectGroup key={group.key}>
             <SelectLabel>{t(group.label)}</SelectLabel>
@@ -1484,6 +1553,344 @@ function CrmCountrySelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+type VisualFilterApplyTarget = {
+  facetKey: PartnershipCrmVisualFilterFacetKey;
+  value: string;
+};
+
+type VisualFilterBucketView = {
+  value: string;
+  count: number;
+  label: string;
+  percent: number;
+  color: string;
+};
+
+function piePoint(cx: number, cy: number, radius: number, angle: number) {
+  const radians = ((angle - 90) * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(radians),
+    y: cy + radius * Math.sin(radians),
+  };
+}
+
+function pieSlicePath(
+  cx: number,
+  cy: number,
+  radius: number,
+  startAngle: number,
+  endAngle: number,
+) {
+  const start = piePoint(cx, cy, radius, startAngle);
+  const end = piePoint(cx, cy, radius, endAngle);
+  const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
+
+  return [
+    `M ${cx} ${cy}`,
+    `L ${start.x} ${start.y}`,
+    `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`,
+    "Z",
+  ].join(" ");
+}
+
+function visualFilterFacetTitle(
+  facetKey: PartnershipCrmVisualFilterFacetKey,
+  language: AppLanguage,
+) {
+  const t = (text: string) => appText(language, text);
+
+  if (facetKey === "emailState") {
+    return t("Email availability");
+  }
+
+  return t(
+    facetKey === "status"
+      ? "Status"
+      : facetKey === "category"
+        ? "Category"
+        : "Country",
+  );
+}
+
+function visualFilterBucketLabel(
+  facetKey: PartnershipCrmVisualFilterFacetKey,
+  value: string,
+  language: AppLanguage,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const t = (text: string) => appText(language, text);
+
+  if (facetKey === "status") {
+    const option = CRM_STATUS_OPTIONS.find((entry) => entry.value === value);
+    return option ? t(option.label) : value;
+  }
+
+  if (facetKey === "category") {
+    if (value === CRM_MISSING_CATEGORY_FILTER_VALUE) {
+      return t("No category");
+    }
+
+    return formatCrmCategory(value, language, targetKind) || value;
+  }
+
+  if (facetKey === "country") {
+    if (value === CRM_MISSING_COUNTRY_FILTER_VALUE) {
+      return t("No country");
+    }
+
+    return formatCrmCountry(value, language) || value;
+  }
+
+  return value === "has_email" ? t("Has Email") : t("Missing Email");
+}
+
+function visualFilterBuckets(
+  facet: PartnershipCrmVisualFilterFacet,
+  language: AppLanguage,
+  targetKind: PartnershipCrmTargetKind,
+): VisualFilterBucketView[] {
+  if (facet.total <= 0) {
+    return [];
+  }
+
+  return facet.buckets
+    .filter((bucket) => bucket.count > 0)
+    .map((bucket, index) => ({
+      ...bucket,
+      label: visualFilterBucketLabel(
+        facet.key,
+        bucket.value,
+        language,
+        targetKind,
+      ),
+      percent: Math.round((bucket.count / facet.total) * 100),
+      color: VISUAL_FILTER_COLORS[index % VISUAL_FILTER_COLORS.length],
+    }));
+}
+
+function VisualFilterPieSection({
+  facet,
+  language,
+  targetKind,
+  onApply,
+}: {
+  facet: PartnershipCrmVisualFilterFacet;
+  language: AppLanguage;
+  targetKind: PartnershipCrmTargetKind;
+  onApply: (target: VisualFilterApplyTarget) => void;
+}) {
+  const t = (text: string) => appText(language, text);
+  const title = visualFilterFacetTitle(facet.key, language);
+  const buckets = visualFilterBuckets(facet, language, targetKind);
+  let runningAngle = 0;
+
+  return (
+    <section className="rounded-xl border border-border/80 bg-background/70 p-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="font-heading text-base font-semibold text-foreground">
+          {title}
+        </h3>
+        <span className="text-sm text-muted-foreground">
+          {facet.total} {t("items")}
+        </span>
+      </div>
+
+      {buckets.length === 0 ? (
+        <EmptyState>{t("No data for this filter.")}</EmptyState>
+      ) : (
+        <div className="mt-4 grid gap-4 md:grid-cols-[180px_minmax(0,1fr)] md:items-center">
+          <svg
+            viewBox="0 0 120 120"
+            role="group"
+            aria-label={`${title} ${t("pie chart")}`}
+            className="mx-auto h-44 w-44 overflow-visible"
+          >
+            {buckets.map((bucket) => {
+              const startAngle = runningAngle;
+              const sweep = (bucket.count / facet.total) * 360;
+              const endAngle = startAngle + sweep;
+              runningAngle = endAngle;
+              const label = `${bucket.label}: ${bucket.percent}%`;
+
+              if (bucket.count === facet.total) {
+                return (
+                  <circle
+                    key={bucket.value}
+                    cx="60"
+                    cy="60"
+                    r="52"
+                    fill={bucket.color}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${t(
+                      "Apply visual filter from pie",
+                    )}: ${title} - ${bucket.label}`}
+                    className="cursor-pointer outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() =>
+                      onApply({ facetKey: facet.key, value: bucket.value })
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onApply({ facetKey: facet.key, value: bucket.value });
+                      }
+                    }}
+                  >
+                    <title>{label}</title>
+                  </circle>
+                );
+              }
+
+              return (
+                <path
+                  key={bucket.value}
+                  d={pieSlicePath(60, 60, 52, startAngle, endAngle)}
+                  fill={bucket.color}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${t(
+                    "Apply visual filter from pie",
+                  )}: ${title} - ${bucket.label}`}
+                  className="cursor-pointer outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() =>
+                    onApply({ facetKey: facet.key, value: bucket.value })
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onApply({ facetKey: facet.key, value: bucket.value });
+                    }
+                  }}
+                >
+                  <title>{label}</title>
+                </path>
+              );
+            })}
+            <circle
+              cx="60"
+              cy="60"
+              r="26"
+              fill="hsl(var(--background))"
+              stroke="hsl(var(--border))"
+              strokeWidth="1"
+            />
+            <text
+              x="60"
+              y="57"
+              textAnchor="middle"
+              className="fill-foreground text-sm font-semibold"
+            >
+              {facet.total}
+            </text>
+            <text
+              x="60"
+              y="72"
+              textAnchor="middle"
+              className="fill-muted-foreground text-[10px]"
+            >
+              {t("items")}
+            </text>
+          </svg>
+
+          <div className="grid gap-2">
+            {buckets.map((bucket) => (
+              <button
+                key={bucket.value}
+                type="button"
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`${t("Apply visual filter from legend")}: ${title} - ${bucket.label}`}
+                onClick={() =>
+                  onApply({ facetKey: facet.key, value: bucket.value })
+                }
+              >
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: bucket.color }}
+                />
+                <span className="min-w-0 truncate text-sm font-medium text-foreground">
+                  {bucket.label}
+                </span>
+                <span className="text-sm tabular-nums text-muted-foreground">
+                  {bucket.count} · {bucket.percent}%
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function VisualFiltersDialog({
+  open,
+  onOpenChange,
+  filters,
+  loading,
+  error,
+  language,
+  targetKind,
+  onApply,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  filters?: PartnershipCrmVisualFilters;
+  loading: boolean;
+  error: unknown;
+  language: AppLanguage;
+  targetKind: PartnershipCrmTargetKind;
+  onApply: (target: VisualFilterApplyTarget) => void;
+}) {
+  const t = (text: string) => appText(language, text);
+  const facets = filters
+    ? [
+        filters.facets.status,
+        filters.facets.category,
+        filters.facets.country,
+        filters.facets.emailState,
+      ]
+    : [];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="crm-control-surface max-h-[92vh] overflow-y-auto sm:max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>{t("Visual filters")}</DialogTitle>
+          <DialogDescription>
+            {t("Tap any pie slice or legend row to apply that filter.")}
+          </DialogDescription>
+        </DialogHeader>
+
+        {error ? (
+          <ErrorBanner>{t("Failed to load visual filters.")}</ErrorBanner>
+        ) : null}
+
+        {loading && facets.length === 0 ? (
+          <div className="grid gap-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-64 rounded-xl" />
+            ))}
+          </div>
+        ) : facets.length === 0 ? (
+          <EmptyState>{t("No visual filters available.")}</EmptyState>
+        ) : (
+          <div className="grid gap-4">
+            {facets.map((facet) => (
+              <VisualFilterPieSection
+                key={facet.key}
+                facet={facet}
+                language={language}
+                targetKind={targetKind}
+                onApply={onApply}
+              />
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -3761,6 +4168,7 @@ export function PartnershipCrmWorkbench() {
   const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [sentEmailLogOpen, setSentEmailLogOpen] = useState(false);
+  const [visualFiltersOpen, setVisualFiltersOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importRulesOpen, setImportRulesOpen] = useState(false);
   const [importPreview, setImportPreview] =
@@ -3898,6 +4306,14 @@ export function PartnershipCrmWorkbench() {
     () => sentEmailLogQuery.data?.pages.flatMap((page) => page.emails) ?? [],
     [sentEmailLogQuery.data?.pages],
   );
+  const visualFiltersQuery = useQuery({
+    queryKey: [ORGANIZATIONS_QUERY_KEY, "visual-filters", targetKind, filters],
+    queryFn: () =>
+      sdkFetch<PartnershipCrmVisualFilters>(
+        buildVisualFiltersPath(targetKind, filters),
+      ),
+    enabled: visualFiltersOpen,
+  });
 
   function replaceTemplateInCachedPages(
     updatedTemplate: PartnershipCrmTemplateRecord,
@@ -4959,6 +5375,31 @@ export function PartnershipCrmWorkbench() {
     setFilters((current) => ({ ...current, ...patch }));
   }
 
+  function applyVisualFilter(target: VisualFilterApplyTarget) {
+    setVisualFiltersOpen(false);
+
+    if (target.facetKey === "status") {
+      resetCursorsForFilterChange({
+        status: target.value as ListFilters["status"],
+      });
+      return;
+    }
+
+    if (target.facetKey === "category") {
+      resetCursorsForFilterChange({ category: target.value });
+      return;
+    }
+
+    if (target.facetKey === "country") {
+      resetCursorsForFilterChange({ country: target.value });
+      return;
+    }
+
+    resetCursorsForFilterChange({
+      emailState: target.value as ListFilters["emailState"],
+    });
+  }
+
   function handleTargetKindChange(nextTargetKind: PartnershipCrmTargetKind) {
     if (nextTargetKind === targetKind || importPending) {
       return;
@@ -4976,6 +5417,7 @@ export function PartnershipCrmWorkbench() {
     setDeleteTarget(null);
     setDeleteSelectedOpen(false);
     setEmailOpen(false);
+    setVisualFiltersOpen(false);
     setFilters({
       query: "",
       status: "all",
@@ -5169,6 +5611,15 @@ export function PartnershipCrmWorkbench() {
               )}
             />
             {t("Refresh")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setVisualFiltersOpen(true)}
+          >
+            <Filter className="h-3.5 w-3.5" />
+            {t("Visual filters")}
           </Button>
           <Button
             type="button"
@@ -5911,6 +6362,17 @@ export function PartnershipCrmWorkbench() {
           void sentEmailLogQuery.fetchNextPage();
         }}
         language={language}
+      />
+
+      <VisualFiltersDialog
+        open={visualFiltersOpen}
+        onOpenChange={setVisualFiltersOpen}
+        filters={visualFiltersQuery.data}
+        loading={visualFiltersQuery.isFetching}
+        error={visualFiltersQuery.error}
+        language={language}
+        targetKind={targetKind}
+        onApply={applyVisualFilter}
       />
 
       <ImportDialog

@@ -12,6 +12,7 @@ import {
 import { appText, type AppLanguage } from "@/lib/language";
 import {
   CRM_CATEGORY_OPTIONS,
+  CRM_MISSING_CATEGORY_FILTER_VALUE,
   CRM_PROFESSIONAL_CATEGORY_OPTIONS,
   crmCategoryLabels,
   normalizeCrmCategory,
@@ -20,7 +21,7 @@ import {
 } from "@/lib/partnership-crm";
 
 const CRM_ALL_CATEGORIES_VALUE = "__all_categories__";
-const CRM_NO_CATEGORY_VALUE = "__no_category__";
+const CRM_NO_CATEGORY_VALUE = CRM_MISSING_CATEGORY_FILTER_VALUE;
 
 export function formatCrmCategory(
   value: string,
@@ -59,8 +60,14 @@ export function CrmCategorySelect({
   const emptyValue =
     mode === "filter" ? CRM_ALL_CATEGORIES_VALUE : CRM_NO_CATEGORY_VALUE;
   const selectedKeys = normalizeCrmCategoryKeys(value, audience);
+  const isMissingFilter =
+    mode === "filter" && value === CRM_MISSING_CATEGORY_FILTER_VALUE;
   const selectedValue =
-    selectedKeys.length === 1 ? selectedKeys[0] : emptyValue;
+    selectedKeys.length === 1
+      ? selectedKeys[0]
+      : isMissingFilter
+        ? CRM_MISSING_CATEGORY_FILTER_VALUE
+        : emptyValue;
   const options =
     audience === "professionals"
       ? CRM_PROFESSIONAL_CATEGORY_OPTIONS
@@ -70,7 +77,13 @@ export function CrmCategorySelect({
     <Select
       value={selectedValue}
       onValueChange={(nextValue) =>
-        onChange(nextValue === emptyValue ? "" : nextValue)
+        onChange(
+          nextValue === emptyValue
+            ? ""
+            : nextValue === CRM_MISSING_CATEGORY_FILTER_VALUE
+              ? CRM_MISSING_CATEGORY_FILTER_VALUE
+              : nextValue,
+        )
       }
     >
       <SelectTrigger id={id} className="w-full">
@@ -80,6 +93,11 @@ export function CrmCategorySelect({
         <SelectItem value={emptyValue}>
           {mode === "filter" ? t("All categories") : t("No category")}
         </SelectItem>
+        {mode === "filter" ? (
+          <SelectItem value={CRM_MISSING_CATEGORY_FILTER_VALUE}>
+            {t("No category")}
+          </SelectItem>
+        ) : null}
         {options.map((category) => (
           <SelectItem key={category.value} value={category.value}>
             {t(category.label)}
