@@ -126,6 +126,7 @@ import {
   type PartnershipCrmSentEmailLogRecord,
   type PartnershipCrmSentEmailLogsPage,
   type PartnershipCrmStatus,
+  type PartnershipCrmStatusCounts,
   type PartnershipCrmTargetKind,
   type PartnershipCrmTargetRecord,
   type PartnershipCrmTemplateRecord,
@@ -4915,16 +4916,21 @@ export function PartnershipCrmWorkbench() {
     }
   }
 
-  const pageStatusCounts = useMemo(
-    () =>
-      Object.fromEntries(
-        CRM_STATUS_OPTIONS.map((option) => [
+  const statusCounts = useMemo(() => {
+    const aggregateCounts = organizationQuery.data?.statusCounts;
+
+    return Object.fromEntries(
+      CRM_STATUS_OPTIONS.map((option) => {
+        const aggregateCount = aggregateCounts?.[option.value];
+        return [
           option.value,
-          metricCount(organizations, option.value),
-        ]),
-      ) as Record<PartnershipCrmStatus, number>,
-    [organizations],
-  );
+          typeof aggregateCount === "number"
+            ? aggregateCount
+            : metricCount(organizations, option.value),
+        ];
+      }),
+    ) as PartnershipCrmStatusCounts;
+  }, [organizationQuery.data?.statusCounts, organizations]);
   const activityLogBadge = !selectedOrganization
     ? targetKind === "professionals"
       ? t("No professional selected")
@@ -5313,7 +5319,7 @@ export function PartnershipCrmWorkbench() {
                     {t(statusLabel(status))}
                   </p>
                   <p className={cn("mt-1 text-lg font-semibold", tone.count)}>
-                    {pageStatusCounts[status]}
+                    {statusCounts[status]}
                   </p>
                 </button>
               );

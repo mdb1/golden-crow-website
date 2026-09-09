@@ -1121,6 +1121,74 @@ describe("PartnershipCrmWorkbench list pager", () => {
     });
   });
 
+  it("shows status metrics from all records matching the filters, not only the visible page", async () => {
+    const visibleNewRows = Array.from({ length: 50 }, (_, index) => ({
+      ...organization,
+      id: `org-visible-${index + 1}`,
+      name: `Genome Page Row ${index + 1}`,
+      normalizedName: `genome page row ${index + 1}`,
+      status: "new" as const,
+    }));
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      return {
+        organizations: visibleNewRows,
+        nextCursor: "cursor-2",
+        statusCounts: {
+          new: 87,
+          contacted: 6,
+          replied: 3,
+          meeting: 2,
+          partner: 1,
+          no_response: 0,
+          not_interested: 0,
+          not_a_fit: 0,
+        },
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getByText("Genome Page Row 1")).toBeTruthy();
+    });
+
+    expect(
+      within(screen.getByRole("button", { name: /New\s+87/ })).getByText(
+        "87",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(screen.getByRole("button", { name: /Contacted\s+6/ })).getByText(
+        "6",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(screen.getByRole("button", { name: /Replied\s+3/ })).getByText(
+        "3",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(screen.getByRole("button", { name: /Meeting\s+2/ })).getByText(
+        "2",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(screen.getByRole("button", { name: /Partner\s+1/ })).getByText(
+        "1",
+      ),
+    ).toBeTruthy();
+  });
+
   it("shows visible count, page count, and previous/next controls as a right-aligned pager", async () => {
     const user = userEvent.setup();
     renderWorkbench();

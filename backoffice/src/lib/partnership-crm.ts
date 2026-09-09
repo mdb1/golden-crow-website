@@ -39,6 +39,7 @@ export const CRM_TARGET_OPTIONS = [
 ] as const;
 
 export type PartnershipCrmStatus = (typeof CRM_STATUS_OPTIONS)[number]["value"];
+export type PartnershipCrmStatusCounts = Record<PartnershipCrmStatus, number>;
 export type PartnershipCrmTemplateStatus =
   (typeof CRM_TEMPLATE_STATUS_OPTIONS)[number]["value"];
 export type PartnershipCrmTargetKind =
@@ -111,11 +112,13 @@ export interface PartnershipCrmActivityRecord {
 export interface PartnershipCrmOrganizationsPage {
   organizations: PartnershipCrmOrganizationRecord[];
   nextCursor?: string;
+  statusCounts?: Partial<PartnershipCrmStatusCounts>;
 }
 
 export interface PartnershipCrmProfessionalsPage {
   professionals: PartnershipCrmProfessionalRecord[];
   nextCursor?: string;
+  statusCounts?: Partial<PartnershipCrmStatusCounts>;
 }
 
 export interface PartnershipCrmActivitiesPage {

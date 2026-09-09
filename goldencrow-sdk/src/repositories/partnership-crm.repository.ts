@@ -28,6 +28,7 @@ const MAX_PAGE_SIZE = 50;
 const DEFAULT_PAGE_SIZE = MAX_PAGE_SIZE;
 const FILTERED_BATCH_LIMIT = MAX_PAGE_SIZE;
 const MAX_FILTERED_SCAN = MAX_PAGE_SIZE * 3;
+const STATUS_COUNT_BATCH_LIMIT = 500;
 
 export const PARTNERSHIP_CRM_STATUSES = [
   "new",
@@ -73,6 +74,17 @@ export type PartnershipCrmTemplateAudience =
 export type PartnershipCrmTargetKind = PartnershipCrmTemplateAudience;
 
 export type PartnershipCrmEmailState = "has_email" | "missing_email";
+export type PartnershipCrmStatusCounts = Record<PartnershipCrmStatus, number>;
+
+type PartnershipCrmTargetListOptions = {
+  cursor?: string;
+  limit?: unknown;
+  query?: string;
+  status?: string;
+  category?: string;
+  country?: string;
+  emailState?: PartnershipCrmEmailState;
+};
 
 export interface PartnershipCrmOrganizationInput {
   name?: string;
@@ -211,11 +223,13 @@ export interface PartnershipCrmTemplateRecord {
 export interface PartnershipCrmOrganizationsPage {
   organizations: PartnershipCrmOrganizationRecord[];
   nextCursor?: string;
+  statusCounts: PartnershipCrmStatusCounts;
 }
 
 export interface PartnershipCrmProfessionalsPage {
   professionals: PartnershipCrmProfessionalRecord[];
   nextCursor?: string;
+  statusCounts: PartnershipCrmStatusCounts;
 }
 
 export interface PartnershipCrmActivitiesPage {
@@ -1094,6 +1108,180 @@ function favoriteFirstRecords<T extends { is_favorite: boolean }>(
     .map(({ record }) => record);
 }
 
+function emptyStatusCounts(): PartnershipCrmStatusCounts {
+  return Object.fromEntries(
+    PARTNERSHIP_CRM_STATUSES.map((status) => [status, 0]),
+  ) as PartnershipCrmStatusCounts;
+}
+
+function listStatusCountFilters(options: PartnershipCrmTargetListOptions) {
+  return {
+    query: options.query,
+    status: "all",
+    category: options.category,
+    country: options.country,
+    emailState: options.emailState,
+  };
+}
+
+function hasProjectedStatusCountFilters(
+  options: PartnershipCrmTargetListOptions,
+) {
+  return Boolean(
+    cleanString(options.query) ||
+      cleanString(options.category) ||
+      cleanString(options.country) ||
+      options.emailState,
+  );
+}
+
+function incrementStatusCount(
+  counts: PartnershipCrmStatusCounts,
+  status: unknown,
+) {
+  const normalizedStatus = normalizeStatus(status);
+  counts[normalizedStatus] += 1;
+}
+
+async function aggregateStatusCounts(
+  collectionName: string,
+): Promise<PartnershipCrmStatusCounts> {
+  const counts = emptyStatusCounts();
+  const collection = adminDb.collection(collectionName);
+  const nonNewStatuses = PARTNERSHIP_CRM_STATUSES.filter(
+    (status) => status !== "new",
+  );
+  const [totalSnapshot, ...statusSnapshots] = await Promise.all([
+    collection.count().get(),
+    ...nonNewStatuses.map((status) =>
+      collection.where("status", "==", status).count().get(),
+    ),
+  ]);
+  const total = totalSnapshot.data().count;
+  let knownNonNewTotal = 0;
+
+  nonNewStatuses.forEach((status, index) => {
+    const count = statusSnapshots[index]?.data().count ?? 0;
+    counts[status] = count;
+    knownNonNewTotal += count;
+  });
+
+  counts.new = Math.max(0, total - knownNonNewTotal);
+
+  return counts;
+}
+
+async function scanOrganizationStatusCounts(
+  options: PartnershipCrmTargetListOptions,
+): Promise<PartnershipCrmStatusCounts> {
+  const counts = emptyStatusCounts();
+  const filters = listStatusCountFilters(options);
+  const baseQuery: Query = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .orderBy("updatedAt", "desc")
+    .select(
+      "name",
+      "category",
+      "website",
+      "websiteDomain",
+      "country",
+      "status",
+      "contactName",
+      "contactEmail",
+      "contactLinkedIn",
+      "notes",
+      "updatedAt",
+    );
+  let query: Query = baseQuery;
+
+  while (true) {
+    const snapshot = await query.limit(STATUS_COUNT_BATCH_LIMIT).get();
+    if (snapshot.empty) {
+      break;
+    }
+
+    for (const doc of snapshot.docs) {
+      const organization = toOrganizationRecord(doc.id, doc.data());
+      if (matchesFilters(organization, filters)) {
+        incrementStatusCount(counts, organization.status);
+      }
+    }
+
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    if (!lastDoc || snapshot.docs.length < STATUS_COUNT_BATCH_LIMIT) {
+      break;
+    }
+
+    query = baseQuery.startAfter(lastDoc);
+  }
+
+  return counts;
+}
+
+async function scanProfessionalStatusCounts(
+  options: PartnershipCrmTargetListOptions,
+): Promise<PartnershipCrmStatusCounts> {
+  const counts = emptyStatusCounts();
+  const filters = listStatusCountFilters(options);
+  const baseQuery: Query = adminDb
+    .collection(PROFESSIONALS_COLLECTION)
+    .orderBy("updatedAt", "desc")
+    .select(
+      "name",
+      "category",
+      "title",
+      "primaryAffiliation",
+      "potentialPocketGenesEditorFit",
+      "emailRoute",
+      "linkedInRoute",
+      "researchBasis",
+      "website",
+      "websiteDomain",
+      "country",
+      "status",
+      "email",
+      "linkedIn",
+      "notes",
+      "updatedAt",
+    );
+  let query: Query = baseQuery;
+
+  while (true) {
+    const snapshot = await query.limit(STATUS_COUNT_BATCH_LIMIT).get();
+    if (snapshot.empty) {
+      break;
+    }
+
+    for (const doc of snapshot.docs) {
+      const professional = toProfessionalRecord(doc.id, doc.data());
+      if (matchesProfessionalFilters(professional, filters)) {
+        incrementStatusCount(counts, professional.status);
+      }
+    }
+
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    if (!lastDoc || snapshot.docs.length < STATUS_COUNT_BATCH_LIMIT) {
+      break;
+    }
+
+    query = baseQuery.startAfter(lastDoc);
+  }
+
+  return counts;
+}
+
+function organizationStatusCounts(options: PartnershipCrmTargetListOptions) {
+  return hasProjectedStatusCountFilters(options)
+    ? scanOrganizationStatusCounts(options)
+    : aggregateStatusCounts(ORGANIZATIONS_COLLECTION);
+}
+
+function professionalStatusCounts(options: PartnershipCrmTargetListOptions) {
+  return hasProjectedStatusCountFilters(options)
+    ? scanProfessionalStatusCounts(options)
+    : aggregateStatusCounts(PROFESSIONALS_COLLECTION);
+}
+
 async function getOrganizationSnapshot(organizationId: string) {
   const snapshot = await adminDb
     .collection(ORGANIZATIONS_COLLECTION)
@@ -1519,15 +1707,7 @@ export async function deletePartnershipCrmTemplate(
 
 export async function listPartnershipCrmOrganizations(
   context: AdminContext,
-  options: {
-    cursor?: string;
-    limit?: unknown;
-    query?: string;
-    status?: string;
-    category?: string;
-    country?: string;
-    emailState?: PartnershipCrmEmailState;
-  } = {},
+  options: PartnershipCrmTargetListOptions = {},
 ): Promise<PartnershipCrmOrganizationsPage> {
   requireGodMode(context);
 
@@ -1550,7 +1730,10 @@ export async function listPartnershipCrmOrganizations(
   }
 
   if (!hasFilters) {
-    const snapshot = await query.limit(limit + 1).get();
+    const [snapshot, statusCounts] = await Promise.all([
+      query.limit(limit + 1).get(),
+      organizationStatusCounts(options),
+    ]);
     const visibleDocs = snapshot.docs.slice(0, limit);
     const organizations = visibleDocs.map((doc) =>
       toOrganizationRecord(doc.id, doc.data()),
@@ -1561,7 +1744,11 @@ export async function listPartnershipCrmOrganizations(
         ? timestampToIso(lastVisible.data().updatedAt)
         : undefined;
 
-    return { organizations: favoriteFirstRecords(organizations), nextCursor };
+    return {
+      organizations: favoriteFirstRecords(organizations),
+      nextCursor,
+      statusCounts,
+    };
   }
 
   const organizations: PartnershipCrmOrganizationRecord[] = [];
@@ -1626,7 +1813,11 @@ export async function listPartnershipCrmOrganizations(
     }
   }
 
-  return { organizations: favoriteFirstRecords(organizations), nextCursor };
+  return {
+    organizations: favoriteFirstRecords(organizations),
+    nextCursor,
+    statusCounts: await organizationStatusCounts(options),
+  };
 }
 
 export async function getPartnershipCrmOrganization(
@@ -1731,15 +1922,7 @@ export async function deletePartnershipCrmOrganization(
 
 export async function listPartnershipCrmProfessionals(
   context: AdminContext,
-  options: {
-    cursor?: string;
-    limit?: unknown;
-    query?: string;
-    status?: string;
-    category?: string;
-    country?: string;
-    emailState?: PartnershipCrmEmailState;
-  } = {},
+  options: PartnershipCrmTargetListOptions = {},
 ): Promise<PartnershipCrmProfessionalsPage> {
   requireGodMode(context);
 
@@ -1762,7 +1945,10 @@ export async function listPartnershipCrmProfessionals(
   }
 
   if (!hasFilters) {
-    const snapshot = await query.limit(limit + 1).get();
+    const [snapshot, statusCounts] = await Promise.all([
+      query.limit(limit + 1).get(),
+      professionalStatusCounts(options),
+    ]);
     const visibleDocs = snapshot.docs.slice(0, limit);
     const professionals = visibleDocs.map((doc) =>
       toProfessionalRecord(doc.id, doc.data()),
@@ -1773,7 +1959,11 @@ export async function listPartnershipCrmProfessionals(
         ? timestampToIso(lastVisible.data().updatedAt)
         : undefined;
 
-    return { professionals: favoriteFirstRecords(professionals), nextCursor };
+    return {
+      professionals: favoriteFirstRecords(professionals),
+      nextCursor,
+      statusCounts,
+    };
   }
 
   const professionals: PartnershipCrmProfessionalRecord[] = [];
@@ -1838,7 +2028,11 @@ export async function listPartnershipCrmProfessionals(
     }
   }
 
-  return { professionals: favoriteFirstRecords(professionals), nextCursor };
+  return {
+    professionals: favoriteFirstRecords(professionals),
+    nextCursor,
+    statusCounts: await professionalStatusCounts(options),
+  };
 }
 
 export async function getPartnershipCrmProfessional(
