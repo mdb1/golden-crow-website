@@ -1573,7 +1573,6 @@ function TemplateImportReviewCard({
   importing,
   checkingDuplicates,
   onAdd,
-  onCombine,
   onSkip,
   onImportAllRemaining,
   language,
@@ -1585,7 +1584,6 @@ function TemplateImportReviewCard({
   importing: boolean;
   checkingDuplicates: boolean;
   onAdd: () => void;
-  onCombine: () => void;
   onSkip: () => void;
   onImportAllRemaining: () => void;
   language: AppLanguage;
@@ -1704,7 +1702,7 @@ function TemplateImportReviewCard({
               <p className="text-sm font-semibold">{t("Possible duplicate")}</p>
               <p className="mt-1 text-sm leading-6 text-amber-950/75 dark:text-amber-50/75">
                 {t(
-                  "This row matches an existing template. Accept creates a separate template; skip leaves the existing template unchanged; combine updates the existing template using the merge rules.",
+                  "This row matches an existing template. New duplicate templates are never created from duplicate rows. Update merges the CSV row into the existing template; keeping existing leaves the database unchanged.",
                 )}
               </p>
               {row.duplicateReason ? (
@@ -1849,25 +1847,8 @@ function TemplateImportReviewCard({
           disabled={importing || Boolean(result)}
         >
           <X className="h-4 w-4" />
-          {t("Skip row")}
+          {t(hasDuplicate ? "Keep existing unchanged" : "Skip row")}
         </Button>
-        {hasDuplicate ? (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCombine}
-            disabled={
-              importing || checkingDuplicates || Boolean(result) || !row.valid
-            }
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            {checkingDuplicates
-              ? t("Checking...")
-              : importing
-                ? t("Importing...")
-                : t("Combine with existing")}
-          </Button>
-        ) : null}
         <Button
           type="button"
           onClick={onAdd}
@@ -1875,12 +1856,16 @@ function TemplateImportReviewCard({
             importing || checkingDuplicates || Boolean(result) || !row.valid
           }
         >
-          <Plus className="h-4 w-4" />
+          {hasDuplicate ? (
+            <RefreshCw className="h-4 w-4" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
           {checkingDuplicates
             ? t("Checking...")
             : importing
               ? t("Importing...")
-              : t(hasDuplicate ? "Accept row" : "Add row")}
+              : t(hasDuplicate ? "Merge CSV into existing" : "Add row")}
         </Button>
         <Button
           type="button"
@@ -2292,6 +2277,12 @@ function TemplateImportDialog({
     }
   }
 
+  async function importTemplateFromRow(row: TemplateImportPreviewRow) {
+    return row.duplicateTemplate
+      ? mergeTemplateFromRow(row)
+      : createTemplateFromRow(row);
+  }
+
   async function handleAddCurrentRow() {
     if (!currentRow || currentRowResult || importing) {
       return;
@@ -2299,31 +2290,13 @@ function TemplateImportDialog({
 
     setCompleted(false);
     setImporting(true);
-    const result = await createTemplateFromRow(currentRow);
+    const result = await importTemplateFromRow(currentRow);
     const nextResults = mergeResult(results, result);
     absorbImportedTemplate(result);
     setImporting(false);
     commitImportProgress(activeRowIndex, nextResults);
 
-    if (result.action === "created") {
-      onImported();
-    }
-  }
-
-  async function handleCombineCurrentRow() {
-    if (!currentRow || currentRowResult || importing) {
-      return;
-    }
-
-    setCompleted(false);
-    setImporting(true);
-    const result = await mergeTemplateFromRow(currentRow);
-    const nextResults = mergeResult(results, result);
-    absorbImportedTemplate(result);
-    setImporting(false);
-    commitImportProgress(activeRowIndex, nextResults);
-
-    if (result.action === "updated") {
+    if (result.action === "created" || result.action === "updated") {
       onImported();
     }
   }
@@ -2381,7 +2354,7 @@ function TemplateImportDialog({
     }
 
     let workingResults = results;
-    let createdAny = false;
+    let changedAny = false;
 
     setCompleted(false);
     setReviewPanelOpen(keepReviewPanelOpen);
@@ -2401,10 +2374,13 @@ function TemplateImportDialog({
       }
 
       setActiveRowIndex(rowIndex);
-      const result = await createTemplateFromRow(row);
+      const result = await importTemplateFromRow(row);
       workingResults = mergeResult(workingResults, result);
       absorbImportedTemplate(result);
-      createdAny = createdAny || result.action === "created";
+      changedAny =
+        changedAny ||
+        result.action === "created" ||
+        result.action === "updated";
       setResults(workingResults);
       setProcessedCount(workingResults.length);
     }
@@ -2414,7 +2390,7 @@ function TemplateImportDialog({
     setReviewPanelOpen(false);
     setCompleted(previewRows.length > 0);
 
-    if (createdAny) {
+    if (changedAny) {
       onImported();
     }
   }
@@ -2673,7 +2649,6 @@ function TemplateImportDialog({
                     importing={importing}
                     checkingDuplicates={duplicateScanLoading}
                     onAdd={handleAddCurrentRow}
-                    onCombine={handleCombineCurrentRow}
                     onSkip={handleSkipCurrentRow}
                     onImportAllRemaining={handleImportAllRemaining}
                     language={language}
