@@ -3720,19 +3720,146 @@ function crmVariablePillClassName(variable: CrmTemplateVariableDefinition) {
   );
 }
 
+function crmVariableEditorSegmentClassName(
+  variable: CrmTemplateVariableDefinition,
+) {
+  return cn(
+    "inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 align-baseline font-mono text-[0.74rem] font-semibold leading-5 shadow-sm whitespace-normal break-words",
+    variable.className,
+  );
+}
+
+function normalizeCrmVariableDisplayText(value: string) {
+  return value.replace(/\s+/g, " ").trim() || "—";
+}
+
+function crmEditorTextMeasure(editor: HTMLElement) {
+  const style = window.getComputedStyle(editor);
+  const font =
+    style.font ||
+    `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`.trim();
+  const canvas = document.createElement("canvas");
+  let context: CanvasRenderingContext2D | null = null;
+  const isJsdom =
+    typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent);
+  if (!isJsdom) {
+    try {
+      context = canvas.getContext("2d");
+    } catch {
+      context = null;
+    }
+  }
+  if (context && font) {
+    context.font = font;
+  }
+  const fallbackAverageWidth =
+    Number.parseFloat(style.fontSize || "14") * 0.58 || 8;
+
+  return (text: string) =>
+    context
+      ? context.measureText(text).width
+      : text.length * fallbackAverageWidth;
+}
+
+function editorContentWidth(editor: HTMLElement) {
+  const rectWidth = editor.getBoundingClientRect().width;
+  const width = editor.clientWidth || rectWidth;
+  return width > 0 ? width : 680;
+}
+
+function lineTextAfterAppending(currentLine: string, text: string) {
+  const parts = text.split(/\n/);
+  return parts.length > 1 ? (parts.at(-1) ?? "") : currentLine + text;
+}
+
+function splitCrmVariableDisplayLines({
+  displayValue,
+  maxLineWidth,
+  firstLineWidth,
+  measureText,
+}: {
+  displayValue: string;
+  maxLineWidth: number;
+  firstLineWidth: number;
+  measureText: (text: string) => number;
+}) {
+  const text = normalizeCrmVariableDisplayText(displayValue);
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  let currentMaxWidth = Math.max(140, firstLineWidth);
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+
+    if (!current || measureText(candidate) <= currentMaxWidth) {
+      current = candidate;
+      continue;
+    }
+
+    lines.push(current);
+    current = word;
+    currentMaxWidth = maxLineWidth;
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines.length > 0 ? lines : ["—"];
+}
+
 function createCrmVariablePillElement(
   variable: CrmTemplateVariableDefinition,
   displayValue: string,
+  options: {
+    editor?: HTMLElement;
+    lineTextBeforeVariable?: string;
+  } = {},
 ) {
   const element = document.createElement("span");
   element.contentEditable = "false";
   element.dataset.crmVariable = variable.key;
   element.dataset.crmVariableToken = variable.token;
-  element.className = crmVariablePillClassName(variable);
-  element.textContent = displayValue || "—";
+  element.dataset.crmVariableDisplayText =
+    normalizeCrmVariableDisplayText(displayValue);
+  element.className = "mx-0.5 inline align-baseline";
   element.title = `${variable.token}: ${displayValue || "—"}`;
   element.setAttribute("role", "img");
   element.setAttribute("aria-label", variable.label);
+
+  const editor = options.editor;
+  const measureText = editor
+    ? crmEditorTextMeasure(editor)
+    : (text: string) => text.length * 8;
+  const maxLineWidth = Math.max(
+    180,
+    (editor ? editorContentWidth(editor) : 680) - 24,
+  );
+  const usedWidth = options.lineTextBeforeVariable
+    ? measureText(options.lineTextBeforeVariable) % maxLineWidth
+    : 0;
+  const remainingWidth = maxLineWidth - usedWidth - 12;
+  const firstLineWidth = remainingWidth < 180 ? maxLineWidth : remainingWidth;
+  const lines = splitCrmVariableDisplayLines({
+    displayValue,
+    maxLineWidth,
+    firstLineWidth,
+    measureText,
+  });
+
+  lines.forEach((line, index) => {
+    const segment = document.createElement("span");
+    segment.dataset.crmVariableSegment = String(index + 1);
+    segment.className = crmVariableEditorSegmentClassName(variable);
+    segment.textContent = index < lines.length - 1 ? `${line} ` : line;
+    element.append(segment);
+
+    if (index < lines.length - 1) {
+      element.append(document.createElement("br"));
+    }
+  });
+
   return element;
 }
 
@@ -3748,9 +3875,15 @@ function renderCrmVariableEditorValue(
     variables.map((variable) => [variable.token, variable]),
   );
   let cursor = 0;
+  let lineTextForMeasure = "";
 
   function append(node: Node) {
     stack[stack.length - 1]?.append(node);
+  }
+
+  function appendPlainText(text: string) {
+    append(document.createTextNode(text));
+    lineTextForMeasure = lineTextAfterAppending(lineTextForMeasure, text);
   }
 
   for (const match of value.matchAll(CRM_TEMPLATE_INLINE_TOKEN_PATTERN)) {
@@ -3758,21 +3891,30 @@ function renderCrmVariableEditorValue(
     const index = match.index ?? 0;
 
     if (index > cursor) {
-      append(document.createTextNode(value.slice(cursor, index)));
+      appendPlainText(value.slice(cursor, index));
     }
 
     if (token.startsWith("{{")) {
       const variable = variableByToken.get(
         token as `{{${CrmTemplateVariableKey}}}`,
       );
-      append(
-        variable
-          ? createCrmVariablePillElement(
-              variable,
-              variableDisplayTextByKey.get(variable.key) ?? "—",
-            )
-          : document.createTextNode(token),
-      );
+      if (variable) {
+        const displayText = variableDisplayTextByKey.get(variable.key) ?? "—";
+        const pill = createCrmVariablePillElement(variable, displayText, {
+          editor,
+          lineTextBeforeVariable: lineTextForMeasure,
+        });
+        append(pill);
+        const segments = Array.from(
+          pill.querySelectorAll<HTMLElement>("[data-crm-variable-segment]"),
+        ).map((segment) => segment.textContent ?? "");
+        lineTextForMeasure =
+          segments.length > 1
+            ? (segments.at(-1) ?? "")
+            : lineTextForMeasure + normalizeCrmVariableDisplayText(displayText);
+      } else {
+        appendPlainText(token);
+      }
     } else {
       const formatTag = normalizeCrmInlineFormatTag(token);
       if (formatTag && !formatTag.closing) {
@@ -3794,7 +3936,7 @@ function renderCrmVariableEditorValue(
   }
 
   if (cursor < value.length) {
-    append(document.createTextNode(value.slice(cursor)));
+    appendPlainText(value.slice(cursor));
   }
 
   editor.replaceChildren(fragment);
@@ -3878,7 +4020,7 @@ function insertCrmVariableIntoEditor(
 ) {
   editor.focus();
   const selection = window.getSelection();
-  const pill = createCrmVariablePillElement(variable, displayValue);
+  const pill = createCrmVariablePillElement(variable, displayValue, { editor });
   const spacer = document.createTextNode(" ");
 
   if (!selection || selection.rangeCount === 0) {
@@ -3918,6 +4060,7 @@ function CrmVariableEditor({
   const t = (text: string) => appText(language, text);
   const editorRef = useRef<HTMLDivElement | null>(null);
   const lastRenderedSignatureRef = useRef<string>("");
+  const [editorWidthSignature, setEditorWidthSignature] = useState(0);
   const variableDisplayTextByKey = useMemo(
     () =>
       new Map(
@@ -3956,8 +4099,34 @@ function CrmVariableEditor({
       return;
     }
 
+    function updateWidthSignature(width: number) {
+      setEditorWidthSignature(Math.max(0, Math.round(width)));
+    }
+
+    updateWidthSignature(editorContentWidth(editor));
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (typeof width === "number") {
+        updateWidthSignature(width);
+      }
+    });
+    observer.observe(editor);
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
     const currentValue = extractCrmVariableEditorValue(editor);
-    const nextRenderSignature = `${value}\u0002${variableDisplaySignature}`;
+    const nextRenderSignature = `${value}\u0002${variableDisplaySignature}\u0002${editorWidthSignature}`;
     if (
       currentValue === value &&
       lastRenderedSignatureRef.current === nextRenderSignature
@@ -3972,7 +4141,13 @@ function CrmVariableEditor({
       variableDisplayTextByKey,
     );
     lastRenderedSignatureRef.current = nextRenderSignature;
-  }, [value, variables, variableDisplayTextByKey, variableDisplaySignature]);
+  }, [
+    value,
+    variables,
+    variableDisplayTextByKey,
+    variableDisplaySignature,
+    editorWidthSignature,
+  ]);
 
   function syncFromEditor() {
     const editor = editorRef.current;
@@ -3981,7 +4156,7 @@ function CrmVariableEditor({
     }
 
     const nextValue = extractCrmVariableEditorValue(editor);
-    lastRenderedSignatureRef.current = `${nextValue}\u0002${variableDisplaySignature}`;
+    lastRenderedSignatureRef.current = `${nextValue}\u0002${variableDisplaySignature}\u0002${editorWidthSignature}`;
     onChange(nextValue);
   }
 

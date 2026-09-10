@@ -1471,6 +1471,80 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
   });
 
+  it("splits long CRM variable editor pills into joined visual rows", async () => {
+    const user = userEvent.setup();
+    const longFit =
+      "La creación y conducción de una organización argentina de diagnóstico genético y el desarrollo de iniciativas vinculadas con las pruebas genéticas";
+    const longFitProfessional: PartnershipCrmProfessionalRecord = {
+      ...professional,
+      potentialPocketGenesEditorFit: longFit,
+    };
+    const fitTemplate: PartnershipCrmTemplateRecord = {
+      ...recommendedEmailTemplate,
+      id: "tpl-long-fit",
+      name: "Long fit intro",
+      audience: "professionals",
+      category: "pro_clinical_geneticists",
+      subject: "Pocket Genes + {{professional_name}}",
+      body: "Por tu experiencia en {{potential_pocket_genes_editor_fit}}, pensamos que podría interesarte participar.",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.startsWith("/admin/partnership-crm/professionals")) {
+        return { professionals: [longFitProfessional], nextCursor: undefined };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [fitTemplate], nextCursor: undefined };
+      }
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+
+    await user.click(screen.getByRole("tab", { name: /Professionals/ }));
+    await waitFor(() => {
+      expect(screen.getAllByText("Dra. Ada Genome")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Dra. Ada Genome"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+    const messageEditor = await within(dialog).findByLabelText("Message");
+    const variableNode = within(messageEditor).getByRole("img", {
+      name: "Potential Pocket Genes editor fit",
+    });
+    const variableNodes = messageEditor.querySelectorAll(
+      '[data-crm-variable-token="{{potential_pocket_genes_editor_fit}}"]',
+    );
+    const segments = variableNode.querySelectorAll(
+      "[data-crm-variable-segment]",
+    );
+
+    expect(variableNodes).toHaveLength(1);
+    expect(segments.length).toBeGreaterThan(1);
+    expect(
+      Array.from(segments)
+        .map((segment) => segment.textContent)
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim(),
+    ).toContain(
+      "la creación y conducción de una organización argentina de diagnóstico genético",
+    );
+    expect(
+      within(dialog).getAllByText("{{potential_pocket_genes_editor_fit}}"),
+    ).toHaveLength(1);
+  });
+
   it("blocks CRM email preview when a used professional variable is empty", async () => {
     const user = userEvent.setup();
     const emptyFitProfessional: PartnershipCrmProfessionalRecord = {
