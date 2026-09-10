@@ -4744,16 +4744,27 @@ function EmailComposerDialog({
                 </div>
               </>
             ) : (
-              <Button
-                type="button"
-                size="lg"
-                onClick={() => renderedEmail && onSend(renderedEmail)}
-                disabled={pending || !canPreview}
-                className={EMAIL_CTA_CLASS}
-              >
-                <Send className="h-4 w-4" />
-                {pending ? t("Sending...") : t("Send email")}
-              </Button>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => update({ step: "compose" })}
+                  disabled={pending}
+                >
+                  {t("Keep editing")}
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={() => renderedEmail && onSend(renderedEmail)}
+                  disabled={pending || !canPreview}
+                  className={EMAIL_CTA_CLASS}
+                >
+                  <Send className="h-4 w-4" />
+                  {pending ? t("Sending...") : t("Send email")}
+                </Button>
+              </div>
             )}
           </DialogFooter>
         ) : null}

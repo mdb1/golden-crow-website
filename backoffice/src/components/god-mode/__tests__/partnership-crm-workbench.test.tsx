@@ -1050,9 +1050,29 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       .getByText("Ready to send")
       .closest("aside");
     expect(previewPanel?.className).toContain("w-full");
+    const keepEditingButton = within(dialog).getByRole("button", {
+      name: "Keep editing",
+    });
+    const sendEmailButton = within(dialog).getByRole("button", {
+      name: "Send email",
+    });
     expect(
-      within(dialog).getByRole("button", { name: "Send email" }).className,
-    ).toContain("bg-blue-600");
+      keepEditingButton.compareDocumentPosition(sendEmailButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(sendEmailButton.className).toContain("bg-blue-600");
+
+    await user.click(keepEditingButton);
+
+    await waitFor(() => {
+      expect(within(dialog).queryByText("Ready to send")).toBeNull();
+    });
+    expect(
+      (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
+    ).toBe("CRM follow-up");
+    expect(within(dialog).getByLabelText("Message").textContent).toContain(
+      "Queria escribirte directamente sobre Pocket Genes.",
+    );
   });
 
   it("keeps bold and italic CRM email formatting in preview and send payload", async () => {
