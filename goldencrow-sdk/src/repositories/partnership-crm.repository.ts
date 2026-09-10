@@ -107,7 +107,8 @@ export interface PartnershipCrmOrganizationInput {
 
 export interface PartnershipCrmImportRowInput extends PartnershipCrmOrganizationInput {
   rowId?: string;
-  duplicateAction?: "skip" | "update" | "import" | "fill_missing";
+  duplicateAction?:
+    "skip" | "update" | "import" | "fill_missing" | "replace_variables";
   duplicateOrganizationId?: string;
 }
 
@@ -132,7 +133,8 @@ export interface PartnershipCrmProfessionalInput {
 
 export interface PartnershipCrmProfessionalImportRowInput extends PartnershipCrmProfessionalInput {
   rowId?: string;
-  duplicateAction?: "skip" | "update" | "import" | "fill_missing";
+  duplicateAction?:
+    "skip" | "update" | "import" | "fill_missing" | "replace_variables";
   duplicateProfessionalId?: string;
 }
 
@@ -854,6 +856,44 @@ function fillMissingCrmDocumentFields(
       return [key, existingValue];
     }),
   );
+}
+
+const ORGANIZATION_VARIABLE_FIELD_KEYS = [
+  "name",
+  "contactName",
+  "website",
+  "websiteDomain",
+] as const;
+const PROFESSIONAL_VARIABLE_FIELD_KEYS = [
+  "name",
+  "title",
+  "primaryAffiliation",
+  "potentialPocketGenesEditorFit",
+  "emailRoute",
+  "linkedInRoute",
+  "researchBasis",
+  "website",
+  "websiteDomain",
+] as const;
+
+function fillMissingAndReplaceCrmVariableFields(
+  existing: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const merged = fillMissingCrmDocumentFields(existing, incoming);
+  const variableKeys =
+    targetKind === "professionals"
+      ? PROFESSIONAL_VARIABLE_FIELD_KEYS
+      : ORGANIZATION_VARIABLE_FIELD_KEYS;
+
+  variableKeys.forEach((key) => {
+    if (!isMissingCrmDocumentValue(incoming[key])) {
+      merged[key] = incoming[key];
+    }
+  });
+
+  return merged;
 }
 
 function recordData(value: unknown): Record<string, unknown> {
@@ -2811,7 +2851,9 @@ export async function importPartnershipCrmOrganizations(
       }
 
       if (
-        (duplicateAction === "update" || duplicateAction === "fill_missing") &&
+        (duplicateAction === "update" ||
+          duplicateAction === "fill_missing" ||
+          duplicateAction === "replace_variables") &&
         duplicateId
       ) {
         const existing = await getOrganizationSnapshot(duplicateId);
@@ -2828,7 +2870,13 @@ export async function importPartnershipCrmOrganizations(
         const nextDocument =
           duplicateAction === "fill_missing"
             ? fillMissingCrmDocumentFields(existingData, document)
-            : document;
+            : duplicateAction === "replace_variables"
+              ? fillMissingAndReplaceCrmVariableFields(
+                  existingData,
+                  document,
+                  "organizations",
+                )
+              : document;
         await existing.ref.set(
           withoutUndefined({
             ...nextDocument,
@@ -2843,7 +2891,9 @@ export async function importPartnershipCrmOrganizations(
           title:
             duplicateAction === "fill_missing"
               ? "CSV row filled missing fields on this organization"
-              : "CSV row updated this organization",
+              : duplicateAction === "replace_variables"
+                ? "CSV row replaced variable fields on this organization"
+                : "CSV row updated this organization",
           body: cleanString(row.notes),
         });
         results.push({ rowId, action: "updated", organizationId: duplicateId });
@@ -2986,7 +3036,9 @@ export async function importPartnershipCrmProfessionals(
       }
 
       if (
-        (duplicateAction === "update" || duplicateAction === "fill_missing") &&
+        (duplicateAction === "update" ||
+          duplicateAction === "fill_missing" ||
+          duplicateAction === "replace_variables") &&
         duplicateId
       ) {
         const existing = await getProfessionalSnapshot(duplicateId);
@@ -3003,7 +3055,13 @@ export async function importPartnershipCrmProfessionals(
         const nextDocument =
           duplicateAction === "fill_missing"
             ? fillMissingCrmDocumentFields(existingData, document)
-            : document;
+            : duplicateAction === "replace_variables"
+              ? fillMissingAndReplaceCrmVariableFields(
+                  existingData,
+                  document,
+                  "professionals",
+                )
+              : document;
         await existing.ref.set(
           withoutUndefined({
             ...nextDocument,
@@ -3018,7 +3076,9 @@ export async function importPartnershipCrmProfessionals(
           title:
             duplicateAction === "fill_missing"
               ? "CSV row filled missing fields on this professional"
-              : "CSV row updated this professional",
+              : duplicateAction === "replace_variables"
+                ? "CSV row replaced variable fields on this professional"
+                : "CSV row updated this professional",
           body: cleanString(row.notes),
         });
         results.push({ rowId, action: "updated", professionalId: duplicateId });

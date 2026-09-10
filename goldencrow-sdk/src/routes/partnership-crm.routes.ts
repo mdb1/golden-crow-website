@@ -66,7 +66,7 @@ const OrganizationBodySchema = z.object({
 const OrganizationImportRowSchema = OrganizationBodySchema.partial().extend({
   rowId: z.string().trim().max(80).optional(),
   duplicateAction: z
-    .enum(["skip", "update", "import", "fill_missing"])
+    .enum(["skip", "update", "import", "fill_missing", "replace_variables"])
     .optional(),
   duplicateOrganizationId: z.string().trim().max(160).optional(),
 });
@@ -91,7 +91,7 @@ const ProfessionalBodySchema = z.object({
 const ProfessionalImportRowSchema = ProfessionalBodySchema.partial().extend({
   rowId: z.string().trim().max(80).optional(),
   duplicateAction: z
-    .enum(["skip", "update", "import", "fill_missing"])
+    .enum(["skip", "update", "import", "fill_missing", "replace_variables"])
     .optional(),
   duplicateProfessionalId: z.string().trim().max(160).optional(),
 });

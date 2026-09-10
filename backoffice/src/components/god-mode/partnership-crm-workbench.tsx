@@ -5508,6 +5508,7 @@ function ImportRowReviewCard({
   onNext,
   onCompatibilize,
   onFillMissing,
+  onReplaceVariables,
   onImportRemainingInSequence,
   onPauseAutomaticImport,
   language,
@@ -5522,6 +5523,7 @@ function ImportRowReviewCard({
   onNext: () => void;
   onCompatibilize: () => void;
   onFillMissing: () => void;
+  onReplaceVariables: () => void;
   onImportRemainingInSequence: () => void;
   onPauseAutomaticImport: () => void;
   language: AppLanguage;
@@ -5716,6 +5718,17 @@ function ImportRowReviewCard({
                     <Plus className="h-3.5 w-3.5" />
                     {t("Compatibilizar sumando campos faltantes")}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onReplaceVariables}
+                    disabled={!canAdd}
+                    className="border-blue-500/55 bg-background/70 text-blue-800 hover:bg-blue-50 dark:border-blue-300/35 dark:text-blue-50 dark:hover:bg-blue-400/15"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {t("Compatibilizar reemplazando variables")}
+                  </Button>
                 </div>
               ) : null}
             </div>
@@ -5844,6 +5857,7 @@ function ImportDialog({
   onInteractiveNext,
   onInteractiveCompatibilize,
   onInteractiveFillMissing,
+  onInteractiveReplaceVariables,
   onImportRemainingInSequence,
   onPauseAutomaticImport,
   onImportAll,
@@ -5867,6 +5881,7 @@ function ImportDialog({
   onInteractiveNext: () => void;
   onInteractiveCompatibilize: () => void;
   onInteractiveFillMissing: () => void;
+  onInteractiveReplaceVariables: () => void;
   onImportRemainingInSequence: () => void;
   onPauseAutomaticImport: () => void;
   onImportAll: () => void;
@@ -6033,6 +6048,7 @@ function ImportDialog({
               onNext={onInteractiveNext}
               onCompatibilize={onInteractiveCompatibilize}
               onFillMissing={onInteractiveFillMissing}
+              onReplaceVariables={onInteractiveReplaceVariables}
               onImportRemainingInSequence={onImportRemainingInSequence}
               onPauseAutomaticImport={onPauseAutomaticImport}
               language={language}
@@ -7586,7 +7602,7 @@ export function PartnershipCrmWorkbench() {
           working,
           rowIndex,
           "add",
-          { duplicateAction: "fill_missing" },
+          { duplicateAction: "replace_variables" },
         );
         if (!imported) {
           setInteractiveAutoImportEnabled(false);
@@ -7614,7 +7630,7 @@ export function PartnershipCrmWorkbench() {
         requestPayload: importRequestPayloadForSessionRow(
           working,
           failedImportIndex,
-          { duplicateAction: "fill_missing" },
+          { duplicateAction: "replace_variables" },
         ),
       });
       saveImportSession({
@@ -7780,6 +7796,68 @@ export function PartnershipCrmWorkbench() {
         id: Date.now(),
         tone: "error",
         message: t("CRM import paused."),
+        details: importErrorDescription(
+          { ...importSession, lastError: errorMessage(error), lastErrorDetail },
+          language,
+        ),
+        durationMs: 18000,
+      });
+    }
+  }
+
+  async function replaceVariablesInteractiveDuplicate() {
+    if (!importSession || importSession.status === "completed") {
+      return;
+    }
+
+    try {
+      const rowIndex = importSession.activeRowIndex;
+      const updated = await importSinglePreviewRow(
+        {
+          ...importSession,
+          mode: "interactive",
+          stage: "import",
+        },
+        rowIndex,
+        "add",
+        { duplicateAction: "replace_variables" },
+      );
+      if (!updated) {
+        return;
+      }
+      if (updated.nextImportIndex >= updated.totalRows) {
+        completeCrmImportSession(updated);
+        return;
+      }
+      await advanceInteractiveImportSession(updated);
+    } catch (error) {
+      setInteractiveAutoImportEnabled(false);
+      const rowIndex = importSession.activeRowIndex;
+      const lastErrorDetail = buildCrmImportErrorDetail({
+        error,
+        session: importSession,
+        stage: "import",
+        rowIndex,
+        endpoint: importEndpointForTarget(importSession.targetKind),
+        requestPayload: importRequestPayloadForSessionRow(
+          importSession,
+          rowIndex,
+          { duplicateAction: "replace_variables" },
+        ),
+      });
+      saveImportSession({
+        ...importSession,
+        status: "paused",
+        stage: "import",
+        mode: "interactive",
+        lastError: errorMessage(error),
+        lastErrorDetail,
+        updatedAt: new Date().toISOString(),
+      });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to compatibilize duplicate."),
         details: importErrorDescription(
           { ...importSession, lastError: errorMessage(error), lastErrorDetail },
           language,
@@ -9097,6 +9175,9 @@ export function PartnershipCrmWorkbench() {
         }
         onInteractiveCompatibilize={openInteractiveDuplicateCompatibility}
         onInteractiveFillMissing={() => void fillMissingInteractiveDuplicate()}
+        onInteractiveReplaceVariables={() =>
+          void replaceVariablesInteractiveDuplicate()
+        }
         onImportRemainingInSequence={() =>
           void runInteractiveRemainingInSequence(importSession)
         }

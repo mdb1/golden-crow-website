@@ -1847,6 +1847,8 @@ const SPANISH_TEXT: Record<string, string> = {
   Compatibilizar: "Compatibilizar",
   "Compatibilizar sumando campos faltantes":
     "Compatibilizar sumando campos faltantes",
+  "Compatibilizar reemplazando variables":
+    "Compatibilizar reemplazando variables",
   "Compare the existing CRM record with the CSV row and choose the resolved value for each field.":
     "Compará el registro existente del CRM con la fila del CSV y elegí el valor resuelto para cada campo.",
   "Unable to load duplicate CRM record.":

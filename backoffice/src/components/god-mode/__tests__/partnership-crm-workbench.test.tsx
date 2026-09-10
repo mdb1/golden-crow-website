@@ -2848,6 +2848,11 @@ describe("PartnershipCrmWorkbench import flow", () => {
     await waitFor(() => {
       expect(within(dialog).getByText("Possible duplicate")).toBeTruthy();
     });
+    expect(
+      within(dialog).getByRole("button", {
+        name: "Compatibilizar reemplazando variables",
+      }),
+    ).toBeTruthy();
 
     await user.click(
       within(dialog).getByRole("button", {
@@ -3253,7 +3258,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     );
   });
 
-  it("uses fill-missing duplicate resolution by default when importing remaining rows in sequence", async () => {
+  it("uses replace-variables duplicate resolution by default when importing remaining rows in sequence", async () => {
     const user = userEvent.setup();
 
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
@@ -3330,19 +3335,21 @@ describe("PartnershipCrmWorkbench import flow", () => {
           results: body.organizations.map((row, index) => ({
             rowId: row.rowId,
             action:
-              row.duplicateAction === "fill_missing" ? "updated" : "created",
+              row.duplicateAction === "replace_variables"
+                ? "updated"
+                : "created",
             organizationId:
-              row.duplicateAction === "fill_missing"
+              row.duplicateAction === "replace_variables"
                 ? "org-existing"
                 : `imported-${index}`,
           })),
           summary: {
             total: body.organizations.length,
             created: body.organizations.filter(
-              (row) => row.duplicateAction !== "fill_missing",
+              (row) => row.duplicateAction !== "replace_variables",
             ).length,
             updated: body.organizations.filter(
-              (row) => row.duplicateAction === "fill_missing",
+              (row) => row.duplicateAction === "replace_variables",
             ).length,
             skipped: 0,
             invalid: 0,
@@ -3397,7 +3404,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
         };
         return body.organizations[0]?.duplicateAction;
       }),
-    ).toEqual(["fill_missing", "import"]);
+    ).toEqual(["replace_variables", "import"]);
   });
 
   it("shows a copyable row-level diagnostic log when interactive import fails", async () => {

@@ -613,4 +613,81 @@ describe("partnership CRM duplicate imports", () => {
       }),
     );
   });
+
+  it("replaces professional variable fields while preserving existing non-variable values", async () => {
+    const { importPartnershipCrmProfessionals } =
+      await import("../repositories/partnership-crm.repository");
+    seedProfessional("existing", 1, "pro_bioinformaticians");
+    const existingKey = mockDocKey("partnership_crm_professionals", "existing");
+    mockDocs.set(existingKey, {
+      ...(mockDocs.get(existingKey) ?? {}),
+      name: "Existing Researcher",
+      normalizedName: "existing researcher",
+      category: "pro_bioinformaticians",
+      title: "Old title",
+      primaryAffiliation: "Old Institute",
+      potentialPocketGenesEditorFit: "old bioinformatics fit",
+      emailRoute: "Old public route",
+      linkedInRoute: "Old linkedIn route",
+      researchBasis: "Old research basis",
+      website: "https://old.example.org/",
+      websiteDomain: "old.example.org",
+      country: "AR",
+      status: "contacted",
+      email: "old@example.org",
+      linkedIn: "https://linkedin.com/in/old-researcher",
+      notes: "Keep this note",
+      is_favorite: true,
+    });
+
+    const result = await importPartnershipCrmProfessionals(godModeContext, [
+      {
+        rowId: "row-1",
+        name: "Existing Researcher",
+        category: "pro_clinical_geneticists",
+        title: "New title",
+        primaryAffiliation: "New Institute",
+        potentialPocketGenesEditorFit: "new genomics fit",
+        emailRoute: "New public route",
+        linkedInRoute: "New LinkedIn route",
+        researchBasis: "New research basis",
+        website: "https://new.example.org/profile",
+        country: "US",
+        status: "partner",
+        email: "new@example.org",
+        linkedIn: "https://linkedin.com/in/new-researcher",
+        notes: "Incoming note",
+        is_favorite: false,
+        duplicateAction: "replace_variables",
+        duplicateProfessionalId: "existing",
+      },
+    ]);
+
+    expect(result.summary).toEqual(
+      expect.objectContaining({ total: 1, created: 0, updated: 1 }),
+    );
+    const updated = mockDocs.get(existingKey);
+    expect(updated).toEqual(
+      expect.objectContaining({
+        name: "Existing Researcher",
+        category: "pro_bioinformaticians",
+        title: "New title",
+        primaryAffiliation: "New Institute",
+        potentialPocketGenesEditorFit: "new genomics fit",
+        emailRoute: "New public route",
+        linkedInRoute: "New LinkedIn route",
+        researchBasis: "New research basis",
+        website: "https://new.example.org/profile",
+        websiteDomain: "new.example.org",
+        country: "AR",
+        status: "contacted",
+        email: "old@example.org",
+        linkedIn: "https://linkedin.com/in/old-researcher",
+        notes: "Keep this note",
+        is_favorite: true,
+        createdAt: mockIsoAt(1),
+        updatedByEmail: "admin@example.org",
+      }),
+    );
+  });
 });
