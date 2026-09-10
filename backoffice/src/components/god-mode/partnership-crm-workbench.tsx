@@ -1690,6 +1690,29 @@ type VisualFilterBucketView = {
   color: string;
 };
 
+function VisualFilterBucketStats({
+  count,
+  percent,
+  language,
+}: {
+  count: number;
+  percent: number;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <>
+      <span className="w-24 justify-self-end text-center text-sm tabular-nums text-muted-foreground">
+        {count} {t("items")}
+      </span>
+      <span className="w-14 justify-self-end text-center text-sm tabular-nums text-muted-foreground">
+        {percent}%
+      </span>
+    </>
+  );
+}
+
 function piePoint(cx: number, cy: number, radius: number, angle: number) {
   const radians = ((angle - 90) * Math.PI) / 180;
   return {
@@ -2035,7 +2058,7 @@ function VisualFilterPieSection({
                 key={bucket.value}
                 type="button"
                 className={cn(
-                  "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   bucket.value === selectedBucket?.value &&
                     "bg-muted text-foreground ring-1 ring-border",
                 )}
@@ -2050,9 +2073,11 @@ function VisualFilterPieSection({
                 <span className="min-w-0 truncate text-sm font-medium text-foreground">
                   {bucket.label}
                 </span>
-                <span className="text-sm tabular-nums text-muted-foreground">
-                  {bucket.count} · {bucket.percent}%
-                </span>
+                <VisualFilterBucketStats
+                  count={bucket.count}
+                  percent={bucket.percent}
+                  language={language}
+                />
               </button>
             ))}
 
@@ -2078,7 +2103,7 @@ function VisualFilterPieSection({
                       key={bucket.value}
                       aria-label={`${t("Select visual filter from legend")}: ${title} - ${bucket.label}`}
                       className={cn(
-                        "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2",
+                        "grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2",
                         bucket.value === selectedBucket?.value &&
                           "bg-muted text-foreground",
                       )}
@@ -2091,9 +2116,11 @@ function VisualFilterPieSection({
                       <span className="min-w-0 truncate text-sm font-medium">
                         {bucket.label}
                       </span>
-                      <span className="text-sm tabular-nums text-muted-foreground">
-                        {bucket.count} · {bucket.percent}%
-                      </span>
+                      <VisualFilterBucketStats
+                        count={bucket.count}
+                        percent={bucket.percent}
+                        language={language}
+                      />
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -2109,7 +2136,7 @@ function VisualFilterPieSection({
                 {t("Selected segment")}
               </p>
               {selectedBucket ? (
-                <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
+                <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2">
                   <span
                     className="h-3 w-3 rounded-full"
                     style={{ backgroundColor: selectedBucket.color }}
@@ -2117,9 +2144,11 @@ function VisualFilterPieSection({
                   <span className="min-w-0 truncate text-sm font-semibold text-foreground">
                     {selectedBucket.label}
                   </span>
-                  <span className="text-sm tabular-nums text-muted-foreground">
-                    {selectedBucket.count} · {selectedBucket.percent}%
-                  </span>
+                  <VisualFilterBucketStats
+                    count={selectedBucket.count}
+                    percent={selectedBucket.percent}
+                    language={language}
+                  />
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">

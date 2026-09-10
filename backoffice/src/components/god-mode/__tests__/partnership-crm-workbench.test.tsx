@@ -1593,6 +1593,20 @@ describe("PartnershipCrmWorkbench list pager", () => {
       "Select visual filter from legend: Status - CRM Replied",
       "Select visual filter from legend: Status - CRM Partner",
     ]);
+    const newStatusLegendButton = within(
+      statusSection as HTMLElement,
+    ).getByRole("button", {
+      name: "Select visual filter from legend: Status - CRM New",
+    });
+    const newStatusItemCount = within(newStatusLegendButton).getByText(
+      "8 items",
+    );
+    const newStatusPercent = within(newStatusLegendButton).getByText("50%");
+    expect(newStatusItemCount.className).toContain("w-24");
+    expect(newStatusItemCount.className).toContain("text-center");
+    expect(newStatusPercent.className).toContain("w-14");
+    expect(newStatusPercent.className).toContain("text-center");
+    expect(within(newStatusLegendButton).queryByText("8 · 50%")).toBeNull();
     expect(
       within(statusSection as HTMLElement).queryByRole("button", {
         name: "Select visual filter from legend: Status - CRM No Response",
@@ -1609,12 +1623,20 @@ describe("PartnershipCrmWorkbench list pager", () => {
         name: "See more",
       }),
     );
-    await user.click(
-      await screen.findByRole("menuitem", {
-        name: "Select visual filter from legend: Status - CRM No Response",
-      }),
+    const noResponseOverflowItem = await screen.findByRole("menuitem", {
+      name: "Select visual filter from legend: Status - CRM No Response",
+    });
+    expect(within(noResponseOverflowItem).getByText("1 items").className)
+      .toContain("w-24");
+    expect(within(noResponseOverflowItem).getByText("6%").className).toContain(
+      "w-14",
     );
+    expect(within(noResponseOverflowItem).queryByText("1 · 6%")).toBeNull();
+    await user.click(noResponseOverflowItem);
     expect(within(selectedStatusBlock).getByText("CRM No Response")).toBeTruthy();
+    expect(within(selectedStatusBlock).getByText("1 items")).toBeTruthy();
+    expect(within(selectedStatusBlock).getByText("6%")).toBeTruthy();
+    expect(within(selectedStatusBlock).queryByText("1 · 6%")).toBeNull();
 
     const categorySection = within(dialog)
       .getByText("Category")
