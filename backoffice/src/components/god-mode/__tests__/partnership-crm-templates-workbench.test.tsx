@@ -557,6 +557,18 @@ describe("PartnershipCrmTemplateBrowser", () => {
       expect(within(dialog).getByText("Foundation intro")).toBeTruthy();
     });
 
+    expect(
+      within(dialog).queryByTestId("template-import-current-row"),
+    ).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", { name: "Add row" }),
+    ).toBeNull();
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Review remaining one by one",
+      }),
+    );
+
     const currentRow = within(dialog).getByTestId(
       "template-import-current-row",
     );
@@ -566,10 +578,15 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(within(currentRow).getByText("{{organization_name}}")).toBeTruthy();
     expect(within(currentRow).getByText("{{contact_name}}")).toBeTruthy();
     expect(
-      within(dialog).getAllByRole("button", {
+      within(currentRow).queryByRole("button", {
         name: "Review remaining one by one",
-      }).length,
-    ).toBeGreaterThan(0);
+      }),
+    ).toBeNull();
+    expect(
+      within(currentRow).queryByRole("button", {
+        name: "Import all remaining",
+      }),
+    ).toBeNull();
     await waitFor(() => {
       expect(
         within(dialog)
@@ -597,9 +614,9 @@ describe("PartnershipCrmTemplateBrowser", () => {
     });
 
     await user.click(
-      within(dialog).getAllByRole("button", {
+      within(dialog).getByRole("button", {
         name: "Import all remaining",
-      })[0],
+      }),
     );
 
     await waitFor(() => {
@@ -711,6 +728,19 @@ describe("PartnershipCrmTemplateBrowser", () => {
     Object.defineProperty(file, "text", { value: async () => csv });
 
     await user.upload(within(dialog).getByLabelText("CSV file"), file);
+
+    await waitFor(() => {
+      expect(
+        within(dialog)
+          .getByRole("button", { name: "Import all remaining" })
+          .getAttribute("disabled"),
+      ).toBeNull();
+    });
+    expect(within(dialog).queryByText("Possible duplicate")).toBeNull();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Import all remaining" }),
+    );
 
     await waitFor(() => {
       expect(within(dialog).getByText("Possible duplicate")).toBeTruthy();

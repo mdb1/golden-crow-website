@@ -1572,12 +1572,9 @@ function TemplateImportReviewCard({
   result,
   importing,
   checkingDuplicates,
-  canImportRemaining,
   onAdd,
   onCombine,
   onSkip,
-  onReviewRemaining,
-  onImportAllRemaining,
   language,
 }: {
   row: TemplateImportPreviewRow;
@@ -1586,12 +1583,9 @@ function TemplateImportReviewCard({
   result?: TemplateImportResult;
   importing: boolean;
   checkingDuplicates: boolean;
-  canImportRemaining: boolean;
   onAdd: () => void;
   onCombine: () => void;
   onSkip: () => void;
-  onReviewRemaining: () => void;
-  onImportAllRemaining: () => void;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
@@ -1886,24 +1880,6 @@ function TemplateImportReviewCard({
               ? t("Importing...")
               : t(hasDuplicate ? "Accept row" : "Add row")}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onReviewRemaining}
-          disabled={importing || checkingDuplicates || !canImportRemaining}
-        >
-          <FileText className="h-4 w-4" />
-          {t("Review remaining one by one")}
-        </Button>
-        <Button
-          type="button"
-          className={TEMPLATE_IMPORT_CTA_CLASS}
-          onClick={onImportAllRemaining}
-          disabled={importing || checkingDuplicates || !canImportRemaining}
-        >
-          <FileUp className="h-4 w-4" />
-          {importing ? t("Importing...") : t("Import all remaining")}
-        </Button>
       </div>
     </section>
   );
@@ -1931,6 +1907,7 @@ function TemplateImportDialog({
   const [importing, setImporting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(0);
+  const [reviewPanelOpen, setReviewPanelOpen] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
   const [results, setResults] = useState<TemplateImportResult[]>([]);
   const [existingTemplates, setExistingTemplates] = useState<
@@ -1957,6 +1934,7 @@ function TemplateImportDialog({
     setImporting(false);
     setCompleted(false);
     setActiveRowIndex(0);
+    setReviewPanelOpen(false);
     setProcessedCount(0);
     setResults([]);
     setExistingTemplates([]);
@@ -2091,6 +2069,14 @@ function TemplateImportDialog({
     !importing &&
     !completed &&
     !duplicateScanLoading;
+  const currentRowBlocksBulkImport = Boolean(
+    reviewPanelOpen &&
+    currentRow &&
+    !currentRowResult &&
+    (!currentRow.valid || Boolean(currentRow.duplicateTemplate)),
+  );
+  const canImportAllRemaining =
+    canImportRemaining && !currentRowBlocksBulkImport;
 
   function resetImportState() {
     csvTextRef.current = "";
@@ -2099,6 +2085,7 @@ function TemplateImportDialog({
     setImporting(false);
     setCompleted(false);
     setActiveRowIndex(0);
+    setReviewPanelOpen(false);
     setProcessedCount(0);
     setResults([]);
     setExistingTemplates([]);
@@ -2116,6 +2103,7 @@ function TemplateImportDialog({
     setParsed(text.trim() ? parseCrmTemplateCsv(text, nextAudience) : null);
     setCompleted(false);
     setActiveRowIndex(0);
+    setReviewPanelOpen(false);
     setProcessedCount(0);
     setResults([]);
     setExistingTemplates([]);
@@ -2141,6 +2129,7 @@ function TemplateImportDialog({
       setParsed(parseCrmTemplateCsv(text, audience));
       setCompleted(false);
       setActiveRowIndex(0);
+      setReviewPanelOpen(false);
       setProcessedCount(0);
       setResults([]);
       setExistingTemplates([]);
@@ -2154,6 +2143,7 @@ function TemplateImportDialog({
       });
       setCompleted(false);
       setActiveRowIndex(0);
+      setReviewPanelOpen(false);
       setProcessedCount(0);
       setResults([]);
       setExistingTemplates([]);
@@ -2203,6 +2193,7 @@ function TemplateImportDialog({
     }
 
     setActiveRowIndex(Math.max(0, previewRows.length - 1));
+    setReviewPanelOpen(false);
     setCompleted(previewRows.length > 0);
   }
 
@@ -2363,12 +2354,14 @@ function TemplateImportDialog({
       currentRow && !resultByRow.has(currentRow.rowNumber);
     if (currentIsPending) {
       setCompleted(false);
+      setReviewPanelOpen(true);
       return;
     }
 
     const nextRowIndex = nextUnprocessedRowIndex(-1, results);
     if (nextRowIndex >= 0) {
       setCompleted(false);
+      setReviewPanelOpen(true);
       setActiveRowIndex(nextRowIndex);
     }
   }
@@ -2382,6 +2375,7 @@ function TemplateImportDialog({
     let createdAny = false;
 
     setCompleted(false);
+    setReviewPanelOpen(false);
     setImporting(true);
 
     for (
@@ -2402,6 +2396,7 @@ function TemplateImportDialog({
         setImporting(false);
         setResults(workingResults);
         setProcessedCount(workingResults.length);
+        setReviewPanelOpen(true);
         return;
       }
 
@@ -2655,25 +2650,26 @@ function TemplateImportDialog({
                 </ErrorBanner>
               ) : null}
 
-              {currentRow ? (
-                <TemplateImportReviewCard
-                  row={currentRow}
-                  rowIndex={activeRowIndex}
-                  totalRows={previewRows.length}
-                  result={currentRowResult}
-                  importing={importing}
-                  checkingDuplicates={duplicateScanLoading}
-                  canImportRemaining={canImportRemaining}
-                  onAdd={handleAddCurrentRow}
-                  onCombine={handleCombineCurrentRow}
-                  onSkip={handleSkipCurrentRow}
-                  onReviewRemaining={handleReviewRemainingOneByOne}
-                  onImportAllRemaining={handleImportRemaining}
-                  language={language}
-                />
-              ) : (
+              {reviewPanelOpen ? (
+                currentRow ? (
+                  <TemplateImportReviewCard
+                    row={currentRow}
+                    rowIndex={activeRowIndex}
+                    totalRows={previewRows.length}
+                    result={currentRowResult}
+                    importing={importing}
+                    checkingDuplicates={duplicateScanLoading}
+                    onAdd={handleAddCurrentRow}
+                    onCombine={handleCombineCurrentRow}
+                    onSkip={handleSkipCurrentRow}
+                    language={language}
+                  />
+                ) : (
+                  <EmptyState>{t("No import rows found.")}</EmptyState>
+                )
+              ) : parsed && previewRows.length === 0 ? (
                 <EmptyState>{t("No import rows found.")}</EmptyState>
-              )}
+              ) : null}
 
               <div className="rounded-xl border border-border/80 bg-background/64 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2715,7 +2711,11 @@ function TemplateImportDialog({
                               ? "border-blue-300 bg-blue-50 text-blue-950 dark:border-blue-300/35 dark:bg-blue-400/12 dark:text-blue-50"
                               : "border-border/70 bg-background/60 hover:bg-muted/45",
                           )}
-                          onClick={() => setActiveRowIndex(index)}
+                          onClick={() => {
+                            setActiveRowIndex(index);
+                            setReviewPanelOpen(true);
+                            setCompleted(false);
+                          }}
                           disabled={importing}
                         >
                           <span className="font-mono text-xs">
@@ -2788,20 +2788,22 @@ function TemplateImportDialog({
               >
                 {t("Cancel")}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleReviewRemainingOneByOne}
-                disabled={!canImportRemaining}
-              >
-                <FileText className="h-4 w-4" />
-                {t("Review remaining one by one")}
-              </Button>
+              {!reviewPanelOpen ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleReviewRemainingOneByOne}
+                  disabled={!canImportRemaining}
+                >
+                  <FileText className="h-4 w-4" />
+                  {t("Review remaining one by one")}
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 size="lg"
                 onClick={handleImportRemaining}
-                disabled={!canImportRemaining}
+                disabled={!canImportAllRemaining}
                 className={TEMPLATE_IMPORT_CTA_CLASS}
               >
                 <FileUp className="h-4 w-4" />
