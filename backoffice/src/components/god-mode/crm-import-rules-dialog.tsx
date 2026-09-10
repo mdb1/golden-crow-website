@@ -97,7 +97,7 @@ const TEMPLATE_VARIABLES = [
 ] as const;
 
 const PROFESSIONAL_VARIABLE_QUALITY_RULE =
-  "Best effort is required for professional imports: whenever source data allows it, fill name, title, primary_affiliation, potential_pocket_genes_editor_fit, email_route, linkedin_route, research_basis, and website so professional plantillas that use variables do not render blank or generic.";
+  "Best effort is required for professional imports: whenever source data allows it, fill name, title, primary_affiliation, potential_pocket_genes_editor_fit, email_route, linkedin_route, research_basis, and website so professional plantillas that use variables do not render blank or generic. The potential_pocket_genes_editor_fit value must be a short lowercase noun phrase that fits directly after “Por tu experiencia en ...”; never start it with labels such as “Propuesta editorial:”, “Editorial proposal:”, “Hook editorial:” or similar.";
 
 const PROFESSIONAL_TEMPLATE_VARIABLE_COVERAGE = [
   {
@@ -287,8 +287,8 @@ function ruleLinesFor(
       {
         label: "potential_pocket_genes_editor_fit",
         detail:
-          "Optional but best effort and high value for professional templates. Maximum 2000 characters. Store the exact title, work, topic, or editorial hook only. Do not add wrapping quotes, commas, periods, or explanatory punctuation at the end; the send flow will show it between quotes and in italics. Powers {{potential_pocket_genes_editor_fit}}.",
-        example: "Genetic testing adoption and patient education",
+          "Optional but best effort and high value for professional templates. Maximum 2000 characters. Store only the exact title, work, topic, or editorial hook as a short lowercase noun phrase that fits inside: “Por tu experiencia en {{potential_pocket_genes_editor_fit}}, pensamos que podría haber un buen match.” Never start with labels or prefixes such as “Propuesta editorial:”, “Editorial proposal:”, “Hook editorial:”, “Fit editorial:” or explanatory wording. Do not add wrapping quotes, commas, periods, or explanatory punctuation at the end. Powers {{potential_pocket_genes_editor_fit}}.",
+        example: "adopción de pruebas genéticas y educación de pacientes",
       },
       {
         label: "email_route",
@@ -443,14 +443,13 @@ function ruleLinesFor(
     },
     {
       label: "body",
-      detail:
-        usesAudienceTemplateRules(kind, audience)
-          ? `Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Prefer body copy that uses audience variables where they improve personalization; unknown variables render blank. ${templateAudienceRulePrefix(
-              audience,
-            )} templates must follow the ${templateAudienceRulePrefix(
-              audience,
-            ).toLowerCase()} template body rules, preserve the approved closing verbatim, and contain no additional question or call to action after it.`
-          : "Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Prefer body copy that uses audience variables where they improve personalization; unknown variables render blank.",
+      detail: usesAudienceTemplateRules(kind, audience)
+        ? `Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Prefer body copy that uses audience variables where they improve personalization; unknown variables render blank. ${templateAudienceRulePrefix(
+            audience,
+          )} templates must follow the ${templateAudienceRulePrefix(
+            audience,
+          ).toLowerCase()} template body rules, preserve the approved closing verbatim, and contain no additional question or call to action after it.`
+        : "Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Prefer body copy that uses audience variables where they improve personalization; unknown variables render blank.",
       example: "Hi {{first_name}},\\nI am reaching out about Pocket Genes.",
     },
     {
@@ -975,7 +974,9 @@ export function CrmImportRulesDialog({
           {usesAudienceTemplateRules(kind, audience) ? (
             <section className="rounded-xl border border-emerald-200/70 bg-emerald-50/75 p-4 text-emerald-950 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
               <h3 className="font-heading text-sm font-semibold">
-                {t(`${templateAudienceRulePrefix(audience)} template body rules`)}
+                {t(
+                  `${templateAudienceRulePrefix(audience)} template body rules`,
+                )}
               </h3>
               <div className="mt-3 grid gap-2 text-xs leading-5">
                 {templateBodyRulesForAudience(audience).map((rule) => (
@@ -1020,7 +1021,9 @@ export function CrmImportRulesDialog({
           {usesAudienceTemplateRules(kind, audience) ? (
             <section className="rounded-xl border border-violet-200/70 bg-violet-50/75 p-4 text-violet-950 dark:border-violet-300/20 dark:bg-violet-400/10 dark:text-violet-100">
               <h3 className="font-heading text-sm font-semibold">
-                {t(`${templateAudienceRulePrefix(audience)} template review rules`)}
+                {t(
+                  `${templateAudienceRulePrefix(audience)} template review rules`,
+                )}
               </h3>
               <p className="mt-2 text-sm leading-6">
                 {t(templateReviewRuleForAudience(audience))}

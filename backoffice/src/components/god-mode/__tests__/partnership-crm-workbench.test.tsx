@@ -3679,6 +3679,12 @@ describe("PartnershipCrmWorkbench import flow", () => {
       ),
     ).toBeTruthy();
     expect(
+      within(dialog).getByText(/never start it with labels such as/),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/fits inside: “Por tu experiencia en/),
+    ).toBeTruthy();
+    expect(
       within(dialog).getByText("Professional template variable coverage"),
     ).toBeTruthy();
     expect(
@@ -3713,6 +3719,12 @@ describe("PartnershipCrmWorkbench import flow", () => {
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Best effort is required for professional imports",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "never start it with labels such as",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Por tu experiencia en {{potential_pocket_genes_editor_fit}}, pensamos que podría haber un buen match.",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Professional template variable coverage",

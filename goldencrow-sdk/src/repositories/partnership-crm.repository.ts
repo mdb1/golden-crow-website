@@ -365,6 +365,11 @@ function cleanString(value: unknown) {
 function normalizePotentialPocketGenesEditorFit(value: unknown) {
   return cleanString(value)
     .replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g, "")
+    .replace(
+      /^(?:propuesta\s+editorial|editorial\s+proposal|hook\s+editorial|fit\s+editorial)\s*[:：-]\s*/i,
+      "",
+    )
+    .replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g, "")
     .replace(/[\s,.;:]+$/g, "")
     .trim();
 }

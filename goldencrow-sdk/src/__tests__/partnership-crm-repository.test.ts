@@ -441,6 +441,27 @@ describe("partnership CRM duplicate imports", () => {
     mockCollection.mockClear();
   });
 
+  it("strips editorial labels from professional editor fit import preview values", async () => {
+    const { previewPartnershipCrmProfessionalImport } =
+      await import("../repositories/partnership-crm.repository");
+
+    const preview = await previewPartnershipCrmProfessionalImport(
+      godModeContext,
+      [
+        {
+          rowId: "row-1",
+          name: "Dra. Ada Genome",
+          potentialPocketGenesEditorFit:
+            "Propuesta editorial: 'Rare disease handbook.,'",
+        },
+      ],
+    );
+
+    expect(preview.rows[0]?.professional.potentialPocketGenesEditorFit).toBe(
+      "Rare disease handbook",
+    );
+  });
+
   it("does not flag professional duplicates by shared identity fields when names are unrelated", async () => {
     const { previewPartnershipCrmProfessionalImport } =
       await import("../repositories/partnership-crm.repository");

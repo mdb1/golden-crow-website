@@ -208,7 +208,7 @@ describe("partnership CRM helpers", () => {
     const parsed = parseCrmCsv(
       [
         "name,potential_pocket_genes_editor_fit",
-        "Dra. Ada Genome,\"'Rare disease handbook.,'\"",
+        "Dra. Ada Genome,\"Propuesta editorial: 'Rare disease handbook.,'\"",
       ].join("\n"),
       "professionals",
     );

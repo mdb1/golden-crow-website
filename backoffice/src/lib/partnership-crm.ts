@@ -568,6 +568,11 @@ export function normalizePotentialPocketGenesEditorFit(value: string) {
   return value
     .trim()
     .replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g, "")
+    .replace(
+      /^(?:propuesta\s+editorial|editorial\s+proposal|hook\s+editorial|fit\s+editorial)\s*[:：-]\s*/i,
+      "",
+    )
+    .replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g, "")
     .replace(/[\s,.;:]+$/g, "")
     .trim();
 }
