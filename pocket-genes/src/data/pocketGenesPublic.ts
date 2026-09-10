@@ -37,7 +37,7 @@ const publicNavItemsByLocale: Record<PocketGenesPublicLocale, { label: string; h
     { label: 'Integración', href: '/pocket-genes/website/integration' },
     { label: 'Soluciones', href: '/pocket-genes/solutions' },
     { label: 'Descargar la app', href: '/pocket-genes/download' },
-    { label: 'Trust Center', href: '/pocket-genes/trust-center' },
+    { label: 'Privacidad y seguridad', href: '/pocket-genes/trust-center' },
   ],
 };
 
