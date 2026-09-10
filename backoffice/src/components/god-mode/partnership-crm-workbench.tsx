@@ -3033,6 +3033,8 @@ function VisualFiltersDialog({
   const [selectedSegments, setSelectedSegments] = useState<
     Partial<Record<PartnershipCrmVisualFilterFacetKey, string>>
   >({});
+  const [allowEmptyApply, setAllowEmptyApply] = useState(false);
+  const wasOpenRef = useRef(false);
   const activeSelectedSegments = useMemo(
     () => visualSelectedSegmentsForFilters(activeListFilters, targetKind),
     [activeListFilters, targetKind],
@@ -3047,17 +3049,25 @@ function VisualFiltersDialog({
     : [];
   const selectedCount = Object.keys(selectedSegments).length;
   const activeSelectedCount = Object.keys(activeSelectedSegments).length;
-  const canApplySelectedSegments = selectedCount > 0 || activeSelectedCount > 0;
+  const canApplySelectedSegments =
+    selectedCount > 0 || activeSelectedCount > 0 || allowEmptyApply;
 
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpenRef.current) {
       setSelectedSegments(activeSelectedSegments);
-    } else {
-      setSelectedSegments({});
+      setAllowEmptyApply(false);
     }
+
+    if (!open && wasOpenRef.current) {
+      setSelectedSegments({});
+      setAllowEmptyApply(false);
+    }
+
+    wasOpenRef.current = open;
   }, [activeSelectedSegments, open]);
 
   function selectSegment(target: VisualFilterApplyTarget) {
+    setAllowEmptyApply(false);
     setSelectedSegments((current) => ({
       ...current,
       [target.facetKey]: target.value,
@@ -3103,6 +3113,7 @@ function VisualFiltersDialog({
             className="self-start"
             onClick={() => {
               setSelectedSegments({});
+              setAllowEmptyApply(true);
               onClearAll();
             }}
           >

@@ -2412,7 +2412,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
     ).toBeTruthy();
     expect(
       within(dialog).getByRole("button", { name: "Apply" }),
-    ).toHaveProperty("disabled", true);
+    ).toHaveProperty("disabled", false);
     expect(
       within(statusSection as HTMLElement)
         .getByRole("button", {
@@ -2759,6 +2759,102 @@ describe("PartnershipCrmWorkbench list pager", () => {
     expect(
       listPaths.filter((path) => path.includes("status=contacted")),
     ).toHaveLength(statusPathCountBeforeApply);
+  });
+
+  it("can apply an empty visual filter state after clearing all filters", async () => {
+    const user = userEvent.setup();
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      if (
+        stringPath.startsWith(
+          "/admin/partnership-crm/organizations/visual-filters",
+        )
+      ) {
+        return {
+          targetKind: "organizations",
+          facets: {
+            status: {
+              key: "status",
+              total: 10,
+              buckets: [
+                { value: "new", count: 8 },
+                { value: "contacted", count: 2 },
+              ],
+            },
+            category: {
+              key: "category",
+              total: 10,
+              buckets: [{ value: "org_genomics_laboratories", count: 10 }],
+            },
+            country: {
+              key: "country",
+              total: 10,
+              buckets: [{ value: "AR", count: 10 }],
+            },
+            linkedInState: {
+              key: "linkedInState",
+              total: 10,
+              buckets: [{ value: "has_linkedin", count: 10 }],
+            },
+          },
+        };
+      }
+
+      return {
+        organizations: [organization],
+        nextCursor: undefined,
+        statusCounts: {
+          new: 8,
+          contacted: 2,
+          replied: 0,
+          meeting: 0,
+          partner: 0,
+          no_response: 0,
+          not_interested: 0,
+          not_a_fit: 0,
+        },
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getByText("Delete Me Genomics")).toBeTruthy();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Visual filters" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Visual filters",
+    });
+    expect(
+      within(dialog).getByRole("button", { name: "Apply" }),
+    ).toHaveProperty("disabled", true);
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Clear all filters",
+      }),
+    );
+
+    expect(
+      within(dialog).getByRole("button", { name: "Apply" }),
+    ).toHaveProperty("disabled", false);
+    await user.click(within(dialog).getByRole("button", { name: "Apply" }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Visual filters" }),
+      ).toBeNull();
+    });
   });
 
   it("shows visible count, page count, and previous/next controls as a right-aligned pager", async () => {
