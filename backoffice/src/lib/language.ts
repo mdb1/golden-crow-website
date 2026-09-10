@@ -1581,6 +1581,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "All emails": "Todos los emails",
   "Has Email": "Con email",
   "Missing Email": "Sin email",
+  "All LinkedIn": "Todos los LinkedIn",
+  "Has LinkedIn": "Con LinkedIn",
+  "Missing LinkedIn": "Sin LinkedIn",
   "Resize CRM detail panel": "Redimensionar panel de detalle del CRM",
   "Visual filters": "Filtros visuales",
   "Clear all filters": "Limpiar todos los filtros",
@@ -1590,6 +1593,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No visual filters available.": "No hay filtros visuales disponibles.",
   "No data for this filter.": "Sin datos para este filtro.",
   "Email availability": "Disponibilidad de email",
+  "LinkedIn availability": "Disponibilidad de LinkedIn",
   "Select visual filter from pie":
     "Seleccionar filtro visual desde el gráfico",
   "Select visual filter from legend":

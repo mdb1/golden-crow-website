@@ -76,13 +76,13 @@ export type PartnershipCrmTemplateAudience =
   (typeof PARTNERSHIP_CRM_TEMPLATE_AUDIENCES)[number];
 export type PartnershipCrmTargetKind = PartnershipCrmTemplateAudience;
 
-export type PartnershipCrmEmailState = "has_email" | "missing_email";
+export type PartnershipCrmLinkedInState = "has_linkedin" | "missing_linkedin";
 export type PartnershipCrmStatusCounts = Record<PartnershipCrmStatus, number>;
 export type PartnershipCrmVisualFilterFacetKey =
   | "status"
   | "category"
   | "country"
-  | "emailState";
+  | "linkedInState";
 
 type PartnershipCrmTargetListOptions = {
   cursor?: string;
@@ -91,7 +91,7 @@ type PartnershipCrmTargetListOptions = {
   status?: string;
   category?: string;
   country?: string;
-  emailState?: PartnershipCrmEmailState;
+  linkedInState?: PartnershipCrmLinkedInState;
 };
 
 export interface PartnershipCrmOrganizationInput {
@@ -997,7 +997,7 @@ function matchesFilters(
     status?: string;
     category?: string;
     country?: string;
-    emailState?: PartnershipCrmEmailState;
+    linkedInState?: PartnershipCrmLinkedInState;
   },
 ) {
   const query = cleanString(filters.query).toLowerCase();
@@ -1033,10 +1033,10 @@ function matchesFilters(
     (countryFilter === MISSING_COUNTRY_FILTER_VALUE
       ? recordCountryCodes.length === 0
       : hasAnyValueOverlap(countryCodes, recordCountryCodes)) &&
-    (!filters.emailState ||
-      (filters.emailState === "has_email"
-        ? Boolean(record.contactEmail)
-        : !record.contactEmail))
+    (!filters.linkedInState ||
+      (filters.linkedInState === "has_linkedin"
+        ? Boolean(record.contactLinkedIn)
+        : !record.contactLinkedIn))
   );
 }
 
@@ -1047,7 +1047,7 @@ function matchesProfessionalFilters(
     status?: string;
     category?: string;
     country?: string;
-    emailState?: PartnershipCrmEmailState;
+    linkedInState?: PartnershipCrmLinkedInState;
   },
 ) {
   const query = cleanString(filters.query).toLowerCase();
@@ -1088,10 +1088,10 @@ function matchesProfessionalFilters(
     (countryFilter === MISSING_COUNTRY_FILTER_VALUE
       ? recordCountryCodes.length === 0
       : hasAnyValueOverlap(countryCodes, recordCountryCodes)) &&
-    (!filters.emailState ||
-      (filters.emailState === "has_email"
-        ? Boolean(record.email)
-        : !record.email))
+    (!filters.linkedInState ||
+      (filters.linkedInState === "has_linkedin"
+        ? Boolean(record.linkedIn)
+        : !record.linkedIn))
   );
 }
 
@@ -1160,7 +1160,7 @@ function listStatusCountFilters(options: PartnershipCrmTargetListOptions) {
     status: "all",
     category: options.category,
     country: options.country,
-    emailState: options.emailState,
+    linkedInState: options.linkedInState,
   };
 }
 
@@ -1171,7 +1171,7 @@ function hasProjectedStatusCountFilters(
     cleanString(options.query) ||
       cleanString(options.category) ||
       cleanString(options.country) ||
-      options.emailState,
+      options.linkedInState,
   );
 }
 
@@ -1331,7 +1331,8 @@ function visualFacetFilters(
     status: facetKey === "status" ? "all" : options.status,
     category: facetKey === "category" ? "" : options.category,
     country: facetKey === "country" ? "" : options.country,
-    emailState: facetKey === "emailState" ? undefined : options.emailState,
+    linkedInState:
+      facetKey === "linkedInState" ? undefined : options.linkedInState,
   };
 }
 
@@ -1350,8 +1351,10 @@ function primaryCountryFacetValue(country: string) {
   return crmCountryCodes(country)[0] ?? MISSING_COUNTRY_FILTER_VALUE;
 }
 
-function emailStateFacetValue(hasEmail: boolean): PartnershipCrmEmailState {
-  return hasEmail ? "has_email" : "missing_email";
+function linkedInStateFacetValue(
+  hasLinkedIn: boolean,
+): PartnershipCrmLinkedInState {
+  return hasLinkedIn ? "has_linkedin" : "missing_linkedin";
 }
 
 function orderedFacetEntries(
@@ -1409,9 +1412,9 @@ function visualFacetResponse(
       country: visualFacet("country", counts.country, [
         MISSING_COUNTRY_FILTER_VALUE,
       ]),
-      emailState: visualFacet("emailState", counts.emailState, [
-        "has_email",
-        "missing_email",
+      linkedInState: visualFacet("linkedInState", counts.linkedInState, [
+        "has_linkedin",
+        "missing_linkedin",
       ]),
     },
   };
@@ -1422,7 +1425,7 @@ function emptyVisualFacetCounts() {
     status: new Map<string, number>(),
     category: new Map<string, number>(),
     country: new Map<string, number>(),
-    emailState: new Map<string, number>(),
+    linkedInState: new Map<string, number>(),
   } satisfies Record<PartnershipCrmVisualFilterFacetKey, Map<string, number>>;
 }
 
@@ -1433,7 +1436,7 @@ async function scanOrganizationVisualFilters(
   const statusFilters = visualFacetFilters(options, "status");
   const categoryFilters = visualFacetFilters(options, "category");
   const countryFilters = visualFacetFilters(options, "country");
-  const emailStateFilters = visualFacetFilters(options, "emailState");
+  const linkedInStateFilters = visualFacetFilters(options, "linkedInState");
   const baseQuery: Query = adminDb
     .collection(ORGANIZATIONS_COLLECTION)
     .orderBy("updatedAt", "desc")
@@ -1475,10 +1478,10 @@ async function scanOrganizationVisualFilters(
           primaryCountryFacetValue(organization.country),
         );
       }
-      if (matchesFilters(organization, emailStateFilters)) {
+      if (matchesFilters(organization, linkedInStateFilters)) {
         incrementFacetCount(
-          counts.emailState,
-          emailStateFacetValue(Boolean(organization.contactEmail)),
+          counts.linkedInState,
+          linkedInStateFacetValue(Boolean(organization.contactLinkedIn)),
         );
       }
     }
@@ -1501,7 +1504,7 @@ async function scanProfessionalVisualFilters(
   const statusFilters = visualFacetFilters(options, "status");
   const categoryFilters = visualFacetFilters(options, "category");
   const countryFilters = visualFacetFilters(options, "country");
-  const emailStateFilters = visualFacetFilters(options, "emailState");
+  const linkedInStateFilters = visualFacetFilters(options, "linkedInState");
   const baseQuery: Query = adminDb
     .collection(PROFESSIONALS_COLLECTION)
     .orderBy("updatedAt", "desc")
@@ -1548,10 +1551,10 @@ async function scanProfessionalVisualFilters(
           primaryCountryFacetValue(professional.country),
         );
       }
-      if (matchesProfessionalFilters(professional, emailStateFilters)) {
+      if (matchesProfessionalFilters(professional, linkedInStateFilters)) {
         incrementFacetCount(
-          counts.emailState,
-          emailStateFacetValue(Boolean(professional.email)),
+          counts.linkedInState,
+          linkedInStateFacetValue(Boolean(professional.linkedIn)),
         );
       }
     }
@@ -2015,7 +2018,7 @@ export async function listPartnershipCrmOrganizations(
     (cleanString(options.status) && options.status !== "all") ||
     cleanString(options.category) ||
     cleanString(options.country) ||
-    options.emailState,
+    options.linkedInState,
   );
   const baseQuery = adminDb
     .collection(ORGANIZATIONS_COLLECTION)
@@ -2230,7 +2233,7 @@ export async function listPartnershipCrmProfessionals(
     (cleanString(options.status) && options.status !== "all") ||
     cleanString(options.category) ||
     cleanString(options.country) ||
-    options.emailState,
+    options.linkedInState,
   );
   const baseQuery = adminDb
     .collection(PROFESSIONALS_COLLECTION)

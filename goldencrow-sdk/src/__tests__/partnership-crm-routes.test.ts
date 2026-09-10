@@ -120,7 +120,7 @@ describe("partnership CRM routes", () => {
         status: { key: "status", total: 0, buckets: [] },
         category: { key: "category", total: 0, buckets: [] },
         country: { key: "country", total: 0, buckets: [] },
-        emailState: { key: "emailState", total: 0, buckets: [] },
+        linkedInState: { key: "linkedInState", total: 0, buckets: [] },
       },
     });
   });
@@ -235,13 +235,13 @@ describe("partnership CRM routes", () => {
         },
         category: { key: "category", total: 3, buckets: [] },
         country: { key: "country", total: 3, buckets: [] },
-        emailState: { key: "emailState", total: 3, buckets: [] },
+        linkedInState: { key: "linkedInState", total: 3, buckets: [] },
       },
     });
 
     const response = await fastify.inject({
       method: "GET",
-      url: "/admin/partnership-crm/organizations/visual-filters?status=contacted",
+      url: "/admin/partnership-crm/organizations/visual-filters?status=contacted&linkedInState=has_linkedin",
     });
 
     expect(response.statusCode).toBe(200);
@@ -258,7 +258,7 @@ describe("partnership CRM routes", () => {
     expect(mockGetPartnershipCrmVisualFilters).toHaveBeenCalledWith(
       bootstrapContext,
       "organizations",
-      { status: "contacted" },
+      { status: "contacted", linkedInState: "has_linkedin" },
     );
   });
 

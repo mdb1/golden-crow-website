@@ -1352,12 +1352,12 @@ describe("PartnershipCrmWorkbench list pager", () => {
                 { value: "AR", count: 6 },
               ],
             },
-            emailState: {
-              key: "emailState",
+            linkedInState: {
+              key: "linkedInState",
               total: 10,
               buckets: [
-                { value: "missing_email", count: 1 },
-                { value: "has_email", count: 9 },
+                { value: "missing_linkedin", count: 1 },
+                { value: "has_linkedin", count: 9 },
               ],
             },
           },
@@ -1472,19 +1472,19 @@ describe("PartnershipCrmWorkbench list pager", () => {
       "Select visual filter from legend: Country - No country",
     ]);
 
-    const emailSection = within(dialog)
-      .getByText("Email availability")
+    const linkedInSection = within(dialog)
+      .getByText("LinkedIn availability")
       .closest("section");
-    expect(emailSection).toBeTruthy();
+    expect(linkedInSection).toBeTruthy();
     expect(
-      within(emailSection as HTMLElement)
+      within(linkedInSection as HTMLElement)
         .getAllByRole("button", {
-          name: /^Select visual filter from legend: Email availability -/,
+          name: /^Select visual filter from legend: LinkedIn availability -/,
         })
         .map((button) => button.getAttribute("aria-label")),
     ).toEqual([
-      "Select visual filter from legend: Email availability - Has Email",
-      "Select visual filter from legend: Email availability - Missing Email",
+      "Select visual filter from legend: LinkedIn availability - Has LinkedIn",
+      "Select visual filter from legend: LinkedIn availability - Missing LinkedIn",
     ]);
 
     await user.click(
@@ -1537,6 +1537,11 @@ describe("PartnershipCrmWorkbench list pager", () => {
         name: "Select visual filter from legend: Category - No category",
       }),
     );
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Select visual filter from legend: LinkedIn availability - Missing LinkedIn",
+      }),
+    );
     await user.click(within(dialog).getByRole("button", { name: "Apply" }));
 
     await waitFor(() => {
@@ -1546,7 +1551,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
     });
     await waitFor(() => {
       expect(listPaths).toContain(
-        "/admin/partnership-crm/organizations?limit=50&status=contacted&category=__no_category__",
+        "/admin/partnership-crm/organizations?limit=50&status=contacted&category=__no_category__&linkedInState=missing_linkedin",
       );
     });
   });

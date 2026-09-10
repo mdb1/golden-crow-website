@@ -224,7 +224,7 @@ type ListFilters = {
   status: "all" | PartnershipCrmStatus;
   category: string;
   country: string;
-  emailState: "all" | "has_email" | "missing_email";
+  linkedInState: "all" | "has_linkedin" | "missing_linkedin";
 };
 
 type CrmImportSessionStatus =
@@ -982,8 +982,8 @@ function appendTargetFilterParams(
   if (country) {
     params.set("country", country);
   }
-  if (filters.emailState !== "all") {
-    params.set("emailState", filters.emailState);
+  if (filters.linkedInState !== "all") {
+    params.set("linkedInState", filters.linkedInState);
   }
 }
 
@@ -1617,8 +1617,8 @@ function visualFilterFacetTitle(
 ) {
   const t = (text: string) => appText(language, text);
 
-  if (facetKey === "emailState") {
-    return t("Email availability");
+  if (facetKey === "linkedInState") {
+    return t("LinkedIn availability");
   }
 
   return t(
@@ -1659,7 +1659,7 @@ function visualFilterBucketLabel(
     return formatCrmCountry(value, language) || value;
   }
 
-  return value === "has_email" ? t("Has Email") : t("Missing Email");
+  return value === "has_linkedin" ? t("Has LinkedIn") : t("Missing LinkedIn");
 }
 
 function shouldIgnoreCrmListKeyboardTarget(target: EventTarget | null) {
@@ -1960,7 +1960,7 @@ function VisualFiltersDialog({
         filters.facets.status,
         filters.facets.category,
         filters.facets.country,
-        filters.facets.emailState,
+        filters.facets.linkedInState,
       ]
     : [];
   const selectedCount = Object.keys(selectedSegments).length;
@@ -4316,7 +4316,7 @@ export function PartnershipCrmWorkbench() {
     status: "all",
     category: "",
     country: "",
-    emailState: "all",
+    linkedInState: "all",
   });
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -5704,7 +5704,7 @@ export function PartnershipCrmWorkbench() {
         continue;
       }
 
-      patch.emailState = target.value as ListFilters["emailState"];
+      patch.linkedInState = target.value as ListFilters["linkedInState"];
     }
 
     resetCursorsForFilterChange(patch);
@@ -5733,7 +5733,7 @@ export function PartnershipCrmWorkbench() {
       status: "all",
       category: "",
       country: "",
-      emailState: "all",
+      linkedInState: "all",
     });
   }
 
@@ -6033,10 +6033,10 @@ export function PartnershipCrmWorkbench() {
           mode="filter"
         />
         <Select
-          value={filters.emailState}
+          value={filters.linkedInState}
           onValueChange={(value) =>
             resetCursorsForFilterChange({
-              emailState: value as ListFilters["emailState"],
+              linkedInState: value as ListFilters["linkedInState"],
             })
           }
         >
@@ -6044,9 +6044,11 @@ export function PartnershipCrmWorkbench() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="crm-control-dropdown">
-            <SelectItem value="all">{t("All emails")}</SelectItem>
-            <SelectItem value="has_email">{t("Has Email")}</SelectItem>
-            <SelectItem value="missing_email">{t("Missing Email")}</SelectItem>
+            <SelectItem value="all">{t("All LinkedIn")}</SelectItem>
+            <SelectItem value="has_linkedin">{t("Has LinkedIn")}</SelectItem>
+            <SelectItem value="missing_linkedin">
+              {t("Missing LinkedIn")}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>

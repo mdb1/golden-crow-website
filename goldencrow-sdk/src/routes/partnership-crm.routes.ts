@@ -104,7 +104,7 @@ const ListOrganizationsQuerySchema = z.object({
   status: z.string().trim().max(40).optional(),
   category: CrmCategoryStringSchema,
   country: CrmCountryStringSchema,
-  emailState: z.enum(["has_email", "missing_email"]).optional(),
+  linkedInState: z.enum(["has_linkedin", "missing_linkedin"]).optional(),
 });
 const ListActivitiesQuerySchema = z.object({
   cursor: z.string().trim().datetime().optional(),

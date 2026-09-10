@@ -54,7 +54,7 @@ export type PartnershipCrmVisualFilterFacetKey =
   | "status"
   | "category"
   | "country"
-  | "emailState";
+  | "linkedInState";
 
 export interface PartnershipCrmOrganizationRecord {
   id: string;
