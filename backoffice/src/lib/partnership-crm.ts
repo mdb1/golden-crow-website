@@ -572,6 +572,13 @@ export function normalizePotentialPocketGenesEditorFit(value: string) {
     .trim();
 }
 
+function renderPotentialPocketGenesEditorFit(value: string) {
+  return normalizePotentialPocketGenesEditorFit(value)
+    .replace(/["'“”‘’]/g, "")
+    .trim()
+    .toLocaleLowerCase("es-AR");
+}
+
 export function normalizeCrmAudience(
   value: string,
 ): PartnershipCrmTemplateAudience {
@@ -1059,7 +1066,9 @@ export function renderCrmTemplate(
       targetKind === "professionals" ? professional.primaryAffiliation : "",
     potential_pocket_genes_editor_fit:
       targetKind === "professionals"
-        ? professional.potentialPocketGenesEditorFit
+        ? renderPotentialPocketGenesEditorFit(
+            professional.potentialPocketGenesEditorFit,
+          )
         : "",
     email_route: targetKind === "professionals" ? professional.emailRoute : "",
     linkedin_route:

@@ -1413,6 +1413,13 @@ function crmWebsiteSentence(target: { websiteDomain: string }) {
   return target.websiteDomain ? ` (${target.websiteDomain})` : "";
 }
 
+function crmPotentialEditorFitEmailValue(value: string) {
+  return normalizePotentialPocketGenesEditorFit(value)
+    .replace(/["'“”‘’]/g, "")
+    .trim()
+    .toLocaleLowerCase("es-AR");
+}
+
 function crmTemplateVariableRawValue(
   key: CrmTemplateVariableKey,
   target: PartnershipCrmTargetRecord,
@@ -1469,7 +1476,7 @@ function crmTemplateVariableRawValue(
   }
 }
 
-function crmTemplateVariablePlainValue(
+function crmTemplateVariableRenderedValue(
   key: CrmTemplateVariableKey,
   target: PartnershipCrmTargetRecord,
   targetKind: PartnershipCrmTargetKind,
@@ -1480,16 +1487,26 @@ function crmTemplateVariablePlainValue(
     return "";
   }
 
-  return key === "potential_pocket_genes_editor_fit" ? `"${value}"` : value;
+  return key === "potential_pocket_genes_editor_fit"
+    ? crmPotentialEditorFitEmailValue(value)
+    : value;
+}
+
+function crmTemplateVariablePlainValue(
+  key: CrmTemplateVariableKey,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  return crmTemplateVariableRenderedValue(key, target, targetKind);
 }
 
 function crmTemplateVariableDisplayNode(
   key: CrmTemplateVariableKey,
   value: string,
-  index: number,
+  _index: number,
 ) {
   if (key === "potential_pocket_genes_editor_fit") {
-    return <em key={index}>{`"${value}"`}</em>;
+    return crmPotentialEditorFitEmailValue(value);
   }
 
   return value;
@@ -1552,15 +1569,12 @@ function renderCrmTemplateHtml(
         key as CrmTemplateVariableKey,
       );
       if (variable) {
-        const rawValue = crmTemplateVariableRawValue(
+        const renderedValue = crmTemplateVariableRenderedValue(
           variable.key,
           target,
           targetKind,
         );
-        rendered +=
-          variable.key === "potential_pocket_genes_editor_fit"
-            ? `<em>&quot;${escapeHtml(rawValue)}&quot;</em>`
-            : escapeHtml(rawValue);
+        rendered += escapeHtml(renderedValue);
       }
     } else {
       const formatTag = normalizeCrmInlineFormatTag(token);

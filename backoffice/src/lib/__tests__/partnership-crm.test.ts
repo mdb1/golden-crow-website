@@ -208,7 +208,7 @@ describe("partnership CRM helpers", () => {
     const parsed = parseCrmCsv(
       [
         "name,potential_pocket_genes_editor_fit",
-        'Dra. Ada Genome,"\'Rare disease handbook.,\'"',
+        "Dra. Ada Genome,\"'Rare disease handbook.,'\"",
       ].join("\n"),
       "professionals",
     );
@@ -356,6 +356,22 @@ describe("partnership CRM helpers", () => {
     expect(rendered.body).toContain("Genome Lab");
     expect(rendered.body).toContain("Existing verified Pocket Genes");
     expect(rendered.body).not.toContain("{{professional_name}}");
+
+    const renderedFit = renderCrmTemplate(
+      {
+        ...professionalTemplate,
+        body: "Por tu experiencia en {{potential_pocket_genes_editor_fit}}.",
+      },
+      {
+        ...professional,
+        potentialPocketGenesEditorFit:
+          '"Clinical Genetics, Genetic Testing, Result Interpretation"',
+      },
+      "professionals",
+    );
+    expect(renderedFit.body).toBe(
+      "Por tu experiencia en clinical genetics, genetic testing, result interpretation.",
+    );
   });
 
   it("matches templates to organizations through normalized category aliases", () => {

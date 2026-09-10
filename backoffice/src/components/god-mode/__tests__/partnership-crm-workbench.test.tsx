@@ -1323,8 +1323,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
   });
 
-  it("shows professional template variables as pills and renders editor fit in italics on preview", async () => {
+  it("shows professional editor fit lowercased without quotes or italics in CRM email", async () => {
     const user = userEvent.setup();
+    let sentPayload: Record<string, unknown> | null = null;
     const fitTemplate: PartnershipCrmTemplateRecord = {
       ...recommendedEmailTemplate,
       id: "tpl-fit",
@@ -1335,8 +1336,33 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       body: "Por tu experiencia en {{potential_pocket_genes_editor_fit}} consideramos que Pocket Genes puede amplificar tu trabajo.",
     };
 
-    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
       const stringPath = String(path);
+      if (
+        stringPath === "/admin/partnership-crm/professionals/pro-1/email" &&
+        init?.method === "POST"
+      ) {
+        sentPayload = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return {
+          professional: { ...professional, status: "contacted" },
+          activity: {
+            id: "activity-1",
+            type: "email",
+            title: "Email sent",
+            body: String(sentPayload.text),
+          },
+          sentEmailLog: {
+            id: "email-1",
+            targetKind: "professionals",
+            targetId: professional.id,
+            targetName: professional.name,
+            from: "federico@goldencrowvs.com",
+            to: String(sentPayload.to),
+            subject: String(sentPayload.subject),
+            body: String(sentPayload.text),
+          },
+        };
+      }
       if (stringPath.startsWith("/admin/partnership-crm/professionals")) {
         return { professionals: [professional], nextCursor: undefined };
       }
@@ -1367,8 +1393,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const messageEditor = await within(dialog).findByLabelText("Message");
 
     expect(messageEditor.textContent).toContain(
-      '"Clinical genetics, genetic testing, result interpretation and patient education"',
+      "clinical genetics, genetic testing, result interpretation and patient education",
     );
+    expect(messageEditor.textContent).not.toContain('"');
     expect(messageEditor.textContent).not.toContain(
       "{{potential_pocket_genes_editor_fit}}",
     );
@@ -1383,7 +1410,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       within(variablesTable).getByText("{{potential_pocket_genes_editor_fit}}"),
     ).toBeTruthy();
     expect(
-      within(variablesTable).getByText(/Clinical genetics, genetic testing/),
+      within(variablesTable).getByText(/clinical genetics, genetic testing/),
     ).toBeTruthy();
     expect(
       within(variablesTable).getByText("{{potential_pocket_genes_editor_fit}}")
@@ -1403,10 +1430,25 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       expect(within(dialog).getByText("Ready to send")).toBeTruthy();
     });
     const renderedFit = within(dialog).getByText(
-      /Clinical genetics, genetic testing/,
+      /clinical genetics, genetic testing/,
     );
-    expect(renderedFit.tagName).toBe("EM");
-    expect(renderedFit.textContent).toContain('"');
+    expect(renderedFit.tagName).not.toBe("EM");
+    expect(renderedFit.textContent).not.toContain('"');
+    expect(dialog.querySelector("em")).toBeNull();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Send email" }),
+    );
+
+    await waitFor(() => {
+      expect(sentPayload).not.toBeNull();
+    });
+    expect(sentPayload).toEqual(
+      expect.objectContaining({
+        text: "Por tu experiencia en clinical genetics, genetic testing, result interpretation and patient education consideramos que Pocket Genes puede amplificar tu trabajo.",
+        html: "Por tu experiencia en clinical genetics, genetic testing, result interpretation and patient education consideramos que Pocket Genes puede amplificar tu trabajo.",
+      }),
+    );
   });
 
   it("blocks CRM email preview when a used professional variable is empty", async () => {
