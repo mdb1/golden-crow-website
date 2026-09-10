@@ -5695,14 +5695,14 @@ function ImportRowReviewCard({
                 )}
               </p>
               {!processed ? (
-                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={onCompatibilize}
                     disabled={!canAdd}
-                    className="border-amber-500/55 bg-background/70 text-amber-950 hover:bg-amber-100 dark:border-amber-300/35 dark:text-amber-50 dark:hover:bg-amber-400/15"
+                    className="h-auto min-h-9 justify-start whitespace-normal border-amber-500/55 bg-background/70 text-left text-amber-950 hover:bg-amber-100 dark:border-amber-300/35 dark:text-amber-50 dark:hover:bg-amber-400/15"
                   >
                     <ListChecks className="h-3.5 w-3.5" />
                     {t("Compatibilizar")}
@@ -5713,7 +5713,7 @@ function ImportRowReviewCard({
                     size="sm"
                     onClick={onFillMissing}
                     disabled={!canAdd}
-                    className="border-emerald-500/55 bg-background/70 text-emerald-800 hover:bg-emerald-50 dark:border-emerald-300/35 dark:text-emerald-50 dark:hover:bg-emerald-400/15"
+                    className="h-auto min-h-9 justify-start whitespace-normal border-emerald-500/55 bg-background/70 text-left text-emerald-800 hover:bg-emerald-50 dark:border-emerald-300/35 dark:text-emerald-50 dark:hover:bg-emerald-400/15"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     {t("Compatibilizar sumando campos faltantes")}
@@ -5724,7 +5724,7 @@ function ImportRowReviewCard({
                     size="sm"
                     onClick={onReplaceVariables}
                     disabled={!canAdd}
-                    className="border-blue-500/55 bg-background/70 text-blue-800 hover:bg-blue-50 dark:border-blue-300/35 dark:text-blue-50 dark:hover:bg-blue-400/15"
+                    className="h-auto min-h-9 justify-start whitespace-normal border-blue-500/55 bg-background/70 text-left text-blue-800 hover:bg-blue-50 dark:border-blue-300/35 dark:text-blue-50 dark:hover:bg-blue-400/15"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                     {t("Compatibilizar reemplazando variables")}

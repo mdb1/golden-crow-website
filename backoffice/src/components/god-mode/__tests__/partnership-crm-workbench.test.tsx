@@ -2736,7 +2736,18 @@ describe("PartnershipCrmWorkbench import flow", () => {
     });
   });
 
-  it("quick compatibilizes a duplicate by filling only missing fields", async () => {
+  it.each([
+    {
+      testName: "filling only missing fields",
+      buttonName: "Compatibilizar sumando campos faltantes",
+      duplicateAction: "fill_missing",
+    },
+    {
+      testName: "replacing variable fields",
+      buttonName: "Compatibilizar reemplazando variables",
+      duplicateAction: "replace_variables",
+    },
+  ])("quick compatibilizes a duplicate by $testName", async (scenario) => {
     const user = userEvent.setup();
 
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
@@ -2830,7 +2841,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     await user.click(screen.getByRole("button", { name: "Import CSV" }));
     const dialog = await screen.findByRole("dialog");
     const csv = crmCsv(1);
-    const file = new File([csv], "duplicate-crm-import.csv", {
+    const file = new File([csv], `${scenario.duplicateAction}-crm-import.csv`, {
       type: "text/csv",
     });
     Object.defineProperty(file, "text", { value: async () => csv });
@@ -2853,10 +2864,15 @@ describe("PartnershipCrmWorkbench import flow", () => {
         name: "Compatibilizar reemplazando variables",
       }),
     ).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", {
+        name: "Compatibilizar sumando campos faltantes",
+      }),
+    ).toBeTruthy();
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Compatibilizar sumando campos faltantes",
+        name: scenario.buttonName,
       }),
     );
 
@@ -2869,7 +2885,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     ).toEqual([
       expect.objectContaining({
         rowId: "row-1",
-        duplicateAction: "fill_missing",
+        duplicateAction: scenario.duplicateAction,
         duplicateOrganizationId: "org-existing",
       }),
     ]);
