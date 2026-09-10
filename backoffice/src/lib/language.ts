@@ -1289,8 +1289,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "templates selected": "plantillas seleccionadas",
   "template deleted.": "plantilla eliminada.",
   "templates deleted.": "plantillas eliminadas.",
-  "Select all visible templates":
-    "Seleccionar todas las plantillas visibles",
+  "Select all visible templates": "Seleccionar todas las plantillas visibles",
   "Select template": "Seleccionar plantilla",
   "Delete selected templates": "Eliminar plantillas seleccionadas",
   "This removes every selected template from the CRM send flow.":
@@ -1629,6 +1628,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Has LinkedIn": "Con LinkedIn",
   "Missing LinkedIn": "Sin LinkedIn",
   "Resize CRM detail panel": "Redimensionar panel de detalle del CRM",
+  "Resize template preview panel":
+    "Redimensionar panel de vista previa de plantilla",
   "Visual filters": "Filtros visuales",
   "Clear all filters": "Limpiar todos los filtros",
   "Select visual filter segments before applying.":

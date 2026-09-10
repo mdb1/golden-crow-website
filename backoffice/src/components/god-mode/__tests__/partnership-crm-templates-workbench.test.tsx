@@ -225,6 +225,24 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await user.click(screen.getByText("Lab outreach"));
 
     const panel = await screen.findByTestId("template-preview-panel");
+    const separator = await screen.findByRole("separator", {
+      name: "Resize template preview panel",
+    });
+    expect(screen.getByTestId("crm-template-split-pane").className).toContain(
+      "overflow-hidden",
+    );
+    expect(separator.className).toContain("self-stretch");
+    expect(separator.getAttribute("aria-valuenow")).toBe("50");
+
+    fireEvent.keyDown(separator, { key: "ArrowLeft" });
+    expect(separator.getAttribute("aria-valuenow")).toBe("54");
+
+    fireEvent.keyDown(separator, { key: "End" });
+    expect(separator.getAttribute("aria-valuenow")).toBe("67");
+
+    fireEvent.keyDown(separator, { key: "Home" });
+    expect(separator.getAttribute("aria-valuenow")).toBe("33");
+
     const panelText = panel.textContent ?? "";
     expect(panelText.indexOf("Preview")).toBeLessThan(
       panelText.indexOf("Template fit"),
@@ -276,7 +294,9 @@ describe("PartnershipCrmTemplateBrowser", () => {
     const deleteDialog = await screen.findByRole("dialog", {
       name: "Delete template",
     });
-    await user.click(within(deleteDialog).getByRole("button", { name: "Delete" }));
+    await user.click(
+      within(deleteDialog).getByRole("button", { name: "Delete" }),
+    );
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(
@@ -346,9 +366,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(within(currentRow).getByText("Lab intro")).toBeTruthy();
     expect(within(currentRow).getByText("Organizacion Ejemplo")).toBeTruthy();
     expect(within(currentRow).getByText("Contacto")).toBeTruthy();
-    expect(
-      within(currentRow).getByText("{{organization_name}}"),
-    ).toBeTruthy();
+    expect(within(currentRow).getByText("{{organization_name}}")).toBeTruthy();
     expect(within(currentRow).getByText("{{contact_name}}")).toBeTruthy();
 
     await user.click(
@@ -530,7 +548,9 @@ describe("PartnershipCrmTemplateBrowser", () => {
       within(dialog).getByText("Organization template review rules"),
     ).toBeTruthy();
     expect(
-      within(dialog).getByText(/An organization template is editorially complete/),
+      within(dialog).getByText(
+        /An organization template is editorially complete/,
+      ),
     ).toBeTruthy();
 
     await user.click(within(dialog).getByRole("button", { name: "Copy" }));

@@ -5,8 +5,11 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ChangeEvent,
   type FormEvent,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -237,12 +240,26 @@ type TemplateVariableDefinition = {
 };
 
 type TemplateQuickPatch = Partial<
-  Pick<PartnershipCrmTemplateInput, "category" | "status" | "notes" | "is_favorite">
+  Pick<
+    PartnershipCrmTemplateInput,
+    "category" | "status" | "notes" | "is_favorite"
+  >
 >;
 
 const TEMPLATE_VARIABLE_PATTERN = /\{\{([a-z_]+)\}\}/g;
 
 const TEMPLATE_IMPORT_PREVIEW_LIMIT = 50;
+const TEMPLATE_DETAIL_PANEL_MIN_WIDTH_PERCENT = 100 / 3;
+const TEMPLATE_DETAIL_PANEL_MAX_WIDTH_PERCENT = 200 / 3;
+const TEMPLATE_DETAIL_PANEL_DEFAULT_WIDTH_PERCENT = 50;
+const TEMPLATE_DETAIL_PANEL_KEYBOARD_STEP_PERCENT = 4;
+
+function clampTemplateDetailPanelWidthPercent(value: number) {
+  return Math.min(
+    TEMPLATE_DETAIL_PANEL_MAX_WIDTH_PERCENT,
+    Math.max(TEMPLATE_DETAIL_PANEL_MIN_WIDTH_PERCENT, value),
+  );
+}
 
 const ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV = [
   "name,audience,category,subject,body,status,is_favorite,notes",
@@ -413,7 +430,9 @@ function sampleVariableValue(
       return name.trim().split(/\s+/)[0] ?? "";
     }
     case "primary_affiliation":
-      return audience === "professionals" ? professional.primaryAffiliation : "";
+      return audience === "professionals"
+        ? professional.primaryAffiliation
+        : "";
     case "potential_pocket_genes_editor_fit":
       return audience === "professionals"
         ? professional.potentialPocketGenesEditorFit
@@ -517,7 +536,8 @@ function templateUsageFor(template: PartnershipCrmTemplateRecord) {
     unknownTokens,
     definitions,
     recommendedMissing: definitions.filter(
-      (variable) => variable.recommended && !knownTokens.includes(variable.token),
+      (variable) =>
+        variable.recommended && !knownTokens.includes(variable.token),
     ),
   };
 }
@@ -1045,9 +1065,7 @@ function TemplatePreviewSidePanel({
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="icon-sm" asChild>
               <Link
-                href={`/god-mode/plantillas/${encodeURIComponent(
-                  template.id,
-                )}`}
+                href={`/god-mode/plantillas/${encodeURIComponent(template.id)}`}
                 aria-label={t("Edit")}
                 title={t("Edit")}
               >
@@ -1392,8 +1410,11 @@ function TemplateImportReviewCard({
             {t("Category")}
           </p>
           <p className="mt-1 text-sm font-medium">
-            {formatCrmCategory(row.template.category ?? "", language, audience) ||
-              t("No category")}
+            {formatCrmCategory(
+              row.template.category ?? "",
+              language,
+              audience,
+            ) || t("No category")}
           </p>
         </div>
         <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
@@ -1405,7 +1426,9 @@ function TemplateImportReviewCard({
       </div>
 
       {row.errors.length > 0 ? (
-        <ErrorBanner>{row.errors.map((error) => t(error)).join(" ")}</ErrorBanner>
+        <ErrorBanner>
+          {row.errors.map((error) => t(error)).join(" ")}
+        </ErrorBanner>
       ) : null}
       {result?.action === "failed" && result.error ? (
         <ErrorBanner>{result.error}</ErrorBanner>
@@ -1422,7 +1445,8 @@ function TemplateImportReviewCard({
         <div className="space-y-1.5">
           <Label>{t("Message")}</Label>
           <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border/70 bg-background px-3 py-2 text-sm leading-7">
-            {renderTemplateVariablePillNodes(row.template.body, audience) ?? "-"}
+            {renderTemplateVariablePillNodes(row.template.body, audience) ??
+              "-"}
           </div>
         </div>
       </div>
@@ -1790,7 +1814,10 @@ function TemplateImportDialog({
       rowIndex += 1
     ) {
       const row = previewRows[rowIndex];
-      if (!row || workingResults.some((result) => result.rowNumber === row.rowNumber)) {
+      if (
+        !row ||
+        workingResults.some((result) => result.rowNumber === row.rowNumber)
+      ) {
         continue;
       }
 
@@ -2185,6 +2212,11 @@ export function PartnershipCrmTemplateBrowser() {
     () => new Set(),
   );
   const [previewPanelOpen, setPreviewPanelOpen] = useState(false);
+  const templateSplitPaneRef = useRef<HTMLDivElement | null>(null);
+  const [templatePanelWidthPercent, setTemplatePanelWidthPercent] = useState(
+    TEMPLATE_DETAIL_PANEL_DEFAULT_WIDTH_PERCENT,
+  );
+  const [templatePanelResizing, setTemplatePanelResizing] = useState(false);
   const [deleteTarget, setDeleteTarget] =
     useState<PartnershipCrmTemplateRecord | null>(null);
   const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
@@ -2216,8 +2248,7 @@ export function PartnershipCrmTemplateBrowser() {
     ? (templates.find((template) => template.id === selectedTemplateId) ?? null)
     : null;
   const selectedTemplates = useMemo(
-    () =>
-      templates.filter((template) => selectedTemplateIds.has(template.id)),
+    () => templates.filter((template) => selectedTemplateIds.has(template.id)),
     [selectedTemplateIds, templates],
   );
   const selectedTemplateIdList = useMemo(
@@ -2231,6 +2262,14 @@ export function PartnershipCrmTemplateBrowser() {
     selectedVisibleTemplateCount > 0 &&
     selectedVisibleTemplateCount < templates.length;
   const showPreviewPanel = Boolean(previewPanelOpen && selectedTemplate);
+  const templateSplitPaneStyle = showPreviewPanel
+    ? ({
+        "--crm-template-list-panel-width": `${
+          100 - templatePanelWidthPercent
+        }fr`,
+        "--crm-template-detail-panel-width": `${templatePanelWidthPercent}fr`,
+      } as CSSProperties)
+    : undefined;
   const statusCounts = useMemo(
     () =>
       Object.fromEntries(
@@ -2408,6 +2447,95 @@ export function PartnershipCrmTemplateBrowser() {
     });
   }, [selectedTemplateIds.size, templates]);
 
+  useEffect(() => {
+    if (!templatePanelResizing) {
+      return;
+    }
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    function handlePointerMove(event: PointerEvent) {
+      event.preventDefault();
+      setTemplatePanelWidthFromClientX(event.clientX);
+    }
+
+    function stopResizing() {
+      setTemplatePanelResizing(false);
+    }
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResizing);
+    window.addEventListener("pointercancel", stopResizing);
+
+    return () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResizing);
+      window.removeEventListener("pointercancel", stopResizing);
+    };
+  }, [templatePanelResizing]);
+
+  function setTemplatePanelWidthFromClientX(clientX: number) {
+    const bounds = templateSplitPaneRef.current?.getBoundingClientRect();
+    if (!bounds || bounds.width <= 0) {
+      return;
+    }
+
+    const nextWidth = ((bounds.right - clientX) / bounds.width) * 100;
+    setTemplatePanelWidthPercent(
+      clampTemplateDetailPanelWidthPercent(Math.round(nextWidth * 10) / 10),
+    );
+  }
+
+  function handleTemplatePanelResizePointerDown(
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    setTemplatePanelWidthFromClientX(event.clientX);
+    setTemplatePanelResizing(true);
+  }
+
+  function adjustTemplatePanelWidth(delta: number) {
+    setTemplatePanelWidthPercent((current) =>
+      clampTemplateDetailPanelWidthPercent(current + delta),
+    );
+  }
+
+  function handleTemplatePanelResizeKeyDown(
+    event: KeyboardEvent<HTMLDivElement>,
+  ) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      adjustTemplatePanelWidth(TEMPLATE_DETAIL_PANEL_KEYBOARD_STEP_PERCENT);
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      adjustTemplatePanelWidth(-TEMPLATE_DETAIL_PANEL_KEYBOARD_STEP_PERCENT);
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      setTemplatePanelWidthPercent(TEMPLATE_DETAIL_PANEL_MIN_WIDTH_PERCENT);
+      return;
+    }
+
+    if (event.key === "End") {
+      event.preventDefault();
+      setTemplatePanelWidthPercent(TEMPLATE_DETAIL_PANEL_MAX_WIDTH_PERCENT);
+    }
+  }
+
   function resetCursorsForFilterChange(patch: Partial<TemplateFilters>) {
     setCursorStack([]);
     setSelectedTemplateIds(new Set());
@@ -2569,11 +2697,14 @@ export function PartnershipCrmTemplateBrowser() {
       </div>
 
       <div
+        ref={templateSplitPaneRef}
+        data-testid="crm-template-split-pane"
         className={cn(
           "grid gap-4",
           showPreviewPanel &&
-            "xl:h-[calc(100vh_-_var(--app-header-height)_-_2rem)] xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_1rem_minmax(360px,0.62fr)] xl:items-stretch xl:gap-0 xl:overflow-hidden",
+            "xl:h-[calc(100vh_-_var(--app-header-height)_-_2rem)] xl:min-h-0 xl:grid-cols-[minmax(0,var(--crm-template-list-panel-width))_1rem_minmax(0,var(--crm-template-detail-panel-width))] xl:items-stretch xl:gap-0 xl:overflow-hidden",
         )}
+        style={templateSplitPaneStyle}
       >
         <div
           className={cn(
@@ -2853,8 +2984,27 @@ export function PartnershipCrmTemplateBrowser() {
         </div>
 
         {showPreviewPanel ? (
-          <div className="hidden select-none items-center justify-center self-stretch rounded-full xl:flex">
-            <div className="flex h-16 w-4 items-center justify-center rounded-full border border-border/80 bg-background/90 text-muted-foreground shadow-sm">
+          <div
+            role="separator"
+            tabIndex={0}
+            aria-label={t("Resize template preview panel")}
+            aria-orientation="vertical"
+            aria-valuemin={Math.round(TEMPLATE_DETAIL_PANEL_MIN_WIDTH_PERCENT)}
+            aria-valuemax={Math.round(TEMPLATE_DETAIL_PANEL_MAX_WIDTH_PERCENT)}
+            aria-valuenow={Math.round(templatePanelWidthPercent)}
+            className={cn(
+              "group hidden cursor-col-resize touch-none select-none items-center justify-center self-stretch rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/45 xl:flex",
+              templatePanelResizing && "bg-primary/8",
+            )}
+            onPointerDown={handleTemplatePanelResizePointerDown}
+            onKeyDown={handleTemplatePanelResizeKeyDown}
+          >
+            <div
+              className={cn(
+                "flex h-16 w-4 items-center justify-center rounded-full border border-border/80 bg-background/90 text-muted-foreground shadow-sm transition-colors group-hover:border-primary/45 group-hover:text-foreground group-focus-visible:border-primary/60",
+                templatePanelResizing && "border-primary/60 text-foreground",
+              )}
+            >
               <GripVertical className="h-4 w-4" />
             </div>
           </div>
@@ -2919,7 +3069,9 @@ export function PartnershipCrmTemplateBrowser() {
             <Button
               type="button"
               variant="destructive"
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
+              onClick={() =>
+                deleteTarget && deleteMutation.mutate(deleteTarget)
+              }
               disabled={!deleteTarget || deleteMutation.isPending}
             >
               <Trash2 className="h-4 w-4" />
@@ -2940,7 +3092,9 @@ export function PartnershipCrmTemplateBrowser() {
           <DialogHeader>
             <DialogTitle>{t("Delete selected templates")}</DialogTitle>
             <DialogDescription>
-              {t("This removes every selected template from the CRM send flow.")}
+              {t(
+                "This removes every selected template from the CRM send flow.",
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-72 overflow-y-auto rounded-xl border border-border/80 bg-background/70 p-3">
