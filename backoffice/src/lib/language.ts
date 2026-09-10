@@ -1269,6 +1269,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Overwrite template": "Sobreescribir plantilla",
   "Mark as favorite": "Marcar como favorita",
   "Unmark as favorite": "Desmarcar como favorita",
+  "Mark selected as favorite": "Marcar seleccionadas como favoritas",
+  "Mark selected as not favorite": "Marcar seleccionadas como no favoritas",
   "Template overwritten.": "Plantilla sobreescrita.",
   "Unable to overwrite template.": "No se pudo sobreescribir la plantilla.",
   "Template marked as favorite.": "Plantilla marcada como favorita.",
@@ -1283,6 +1285,12 @@ const SPANISH_TEXT: Record<string, string> = {
   "Delete template": "Borrar plantilla",
   "Template deleted.": "Plantilla borrada.",
   "Unable to delete template.": "No se pudo eliminar la plantilla.",
+  "Selected templates marked as favorite.":
+    "Plantillas seleccionadas marcadas como favoritas.",
+  "Selected templates marked as not favorite.":
+    "Plantillas seleccionadas marcadas como no favoritas.",
+  "Unable to update selected templates.":
+    "No se pudieron actualizar las plantillas seleccionadas.",
   "Unable to delete selected templates.":
     "No se pudieron eliminar las plantillas seleccionadas.",
   "template selected": "plantilla seleccionada",
@@ -1386,6 +1394,12 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to delete CRM organization.":
     "No se pudo eliminar la organización del CRM.",
   "CRM organizations deleted.": "organizaciones del CRM eliminadas.",
+  "Selected CRM organizations marked as favorite.":
+    "Organizaciones seleccionadas del CRM marcadas como favoritas.",
+  "Selected CRM organizations marked as not favorite.":
+    "Organizaciones seleccionadas del CRM marcadas como no favoritas.",
+  "Unable to update selected CRM organizations.":
+    "No se pudieron actualizar las organizaciones seleccionadas del CRM.",
   "Unable to delete selected CRM organizations.":
     "No se pudieron eliminar las organizaciones seleccionadas del CRM.",
   "One professional, one direct email, and the next action.":
@@ -1399,6 +1413,12 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to delete CRM professional.":
     "No se pudo eliminar el profesional del CRM.",
   "CRM professionals deleted.": "profesionales del CRM eliminados.",
+  "Selected CRM professionals marked as favorite.":
+    "Profesionales seleccionados del CRM marcados como favoritos.",
+  "Selected CRM professionals marked as not favorite.":
+    "Profesionales seleccionados del CRM marcados como no favoritos.",
+  "Unable to update selected CRM professionals.":
+    "No se pudieron actualizar los profesionales seleccionados del CRM.",
   "Unable to delete selected CRM professionals.":
     "No se pudieron eliminar los profesionales seleccionados del CRM.",
   "No CRM organizations found.": "No se encontraron organizaciones en el CRM.",

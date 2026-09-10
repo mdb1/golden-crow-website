@@ -6669,6 +6669,46 @@ export function PartnershipCrmWorkbench() {
     );
   }
 
+  function replaceTargetsInCachedPages(
+    updatedTargets: PartnershipCrmTargetRecord[],
+  ) {
+    const targetsById = new Map(
+      updatedTargets.map((target) => [target.id, target]),
+    );
+
+    if (targetsById.size === 0) {
+      return;
+    }
+
+    queryClient.setQueriesData<
+      PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage
+    >({ queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind] }, (current) =>
+      targetKind === "professionals"
+        ? current && "professionals" in current
+          ? {
+              ...current,
+              professionals: current.professionals.map(
+                (professional) =>
+                  (targetsById.get(professional.id) as
+                    PartnershipCrmProfessionalRecord | undefined) ??
+                  professional,
+              ),
+            }
+          : current
+        : current && "organizations" in current
+          ? {
+              ...current,
+              organizations: current.organizations.map(
+                (organization) =>
+                  (targetsById.get(organization.id) as
+                    PartnershipCrmOrganizationRecord | undefined) ??
+                  organization,
+              ),
+            }
+          : current,
+    );
+  }
+
   const saveOrganizationMutation = useMutation({
     mutationFn: ({
       mode,
@@ -6886,6 +6926,72 @@ export function PartnershipCrmWorkbench() {
           targetKind === "professionals"
             ? t("Unable to delete selected CRM professionals.")
             : t("Unable to delete selected CRM organizations."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
+  const updateSelectedTargetsFavoriteMutation = useMutation({
+    mutationFn: ({
+      targets,
+      isFavorite,
+    }: {
+      targets: PartnershipCrmTargetRecord[];
+      isFavorite: boolean;
+    }) =>
+      Promise.all(
+        targets.map((target) =>
+          sdkFetch<{
+            organization?: PartnershipCrmOrganizationRecord;
+            professional?: PartnershipCrmProfessionalRecord;
+          }>(
+            `${crmTargetBasePath(targetKind)}/${encodeURIComponent(target.id)}`,
+            {
+              method: "PUT",
+              body: JSON.stringify(
+                targetPayload(
+                  {
+                    ...toFormState(target, targetKind),
+                    is_favorite: isFavorite,
+                  },
+                  targetKind,
+                ),
+              ),
+            },
+          ),
+        ),
+      ),
+    onSuccess: (results, { isFavorite }) => {
+      const updatedTargets = results
+        .map((result) => result.professional ?? result.organization ?? null)
+        .filter((target): target is PartnershipCrmTargetRecord =>
+          Boolean(target),
+        );
+
+      replaceTargetsInCachedPages(updatedTargets);
+      invalidateOrganizations();
+      void organizationQuery.refetch();
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message:
+          targetKind === "professionals"
+            ? isFavorite
+              ? t("Selected CRM professionals marked as favorite.")
+              : t("Selected CRM professionals marked as not favorite.")
+            : isFavorite
+              ? t("Selected CRM organizations marked as favorite.")
+              : t("Selected CRM organizations marked as not favorite."),
+      });
+    },
+    onError: (error) => {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message:
+          targetKind === "professionals"
+            ? t("Unable to update selected CRM professionals.")
+            : t("Unable to update selected CRM organizations."),
         details: error instanceof Error ? error.message : undefined,
       });
     },
@@ -7765,6 +7871,9 @@ export function PartnershipCrmWorkbench() {
   const importPending =
     importSession?.status === "previewing" ||
     importSession?.status === "importing";
+  const selectedTargetActionPending =
+    deleteSelectedTargetsMutation.isPending ||
+    updateSelectedTargetsFavoriteMutation.isPending;
 
   function setInteractiveAutoImportEnabled(enabled: boolean) {
     interactiveAutoImportRef.current = enabled;
@@ -8267,17 +8376,57 @@ export function PartnershipCrmWorkbench() {
                         variant="ghost"
                         size="sm"
                         onClick={clearSelectedTargets}
-                        disabled={deleteSelectedTargetsMutation.isPending}
+                        disabled={selectedTargetActionPending}
                       >
                         <X className="h-3.5 w-3.5" />
                         {t("Clear selected")}
                       </Button>
                       <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateSelectedTargetsFavoriteMutation.mutate({
+                            targets: selectedTargets,
+                            isFavorite: true,
+                          })
+                        }
+                        disabled={
+                          selectedTargetActionPending ||
+                          selectedTargets.length === 0
+                        }
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                        {updateSelectedTargetsFavoriteMutation.isPending
+                          ? t("Updating...")
+                          : t("Mark selected as favorite")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateSelectedTargetsFavoriteMutation.mutate({
+                            targets: selectedTargets,
+                            isFavorite: false,
+                          })
+                        }
+                        disabled={
+                          selectedTargetActionPending ||
+                          selectedTargets.length === 0
+                        }
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                        {updateSelectedTargetsFavoriteMutation.isPending
+                          ? t("Updating...")
+                          : t("Mark selected as not favorite")}
+                      </Button>
+                      <Button
+                        type="button"
                         variant="destructive"
                         size="sm"
                         onClick={() => setDeleteSelectedOpen(true)}
-                        disabled={deleteSelectedTargetsMutation.isPending}
+                        disabled={selectedTargetActionPending}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         {t("Delete selected")}
@@ -8302,7 +8451,7 @@ export function PartnershipCrmWorkbench() {
                                 ? "indeterminate"
                                 : false
                           }
-                          disabled={deleteSelectedTargetsMutation.isPending}
+                          disabled={selectedTargetActionPending}
                           onCheckedChange={(checked) =>
                             setVisibleTargetsSelected(checked === true)
                           }
@@ -8365,7 +8514,7 @@ export function PartnershipCrmWorkbench() {
                             <Checkbox
                               aria-label={`${t("Select")} ${organization.name}`}
                               checked={isBatchSelected}
-                              disabled={deleteSelectedTargetsMutation.isPending}
+                              disabled={selectedTargetActionPending}
                               onClick={(event) => event.stopPropagation()}
                               onCheckedChange={(checked) =>
                                 setTargetSelected(

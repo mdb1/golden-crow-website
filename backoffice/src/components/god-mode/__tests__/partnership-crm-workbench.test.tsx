@@ -433,6 +433,95 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
   });
 
+  it("marks multiple selected organizations as favorite and not favorite", async () => {
+    const user = userEvent.setup();
+    let batchOrganizations: PartnershipCrmOrganizationRecord[] = [
+      organization,
+      {
+        ...organization,
+        id: "org-2",
+        name: "Batch Favorite Genetics",
+        contactEmail: "batch-favorite@example.org",
+        normalizedName: "batch favorite genetics",
+      },
+    ];
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (init?.method === "PUT") {
+        const targetId = decodeURIComponent(stringPath.split("/").pop() ?? "");
+        const body = JSON.parse(String(init.body));
+        const updated = batchOrganizations.find(
+          (entry) => entry.id === targetId,
+        );
+
+        if (!updated) {
+          throw new Error("Missing test organization");
+        }
+
+        const nextOrganization = {
+          ...updated,
+          is_favorite: Boolean(body.is_favorite),
+        };
+        batchOrganizations = batchOrganizations.map((entry) =>
+          entry.id === targetId ? nextOrganization : entry,
+        );
+
+        return { organization: nextOrganization };
+      }
+
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      return {
+        organizations: batchOrganizations,
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getByText("Batch Favorite Genetics")).toBeTruthy();
+    });
+
+    await user.click(screen.getByLabelText("Select Delete Me Genomics"));
+    await user.click(screen.getByLabelText("Select Batch Favorite Genetics"));
+
+    await user.click(
+      screen.getByRole("button", { name: "Mark selected as favorite" }),
+    );
+
+    await waitFor(() => {
+      const putCalls = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(([, init]) => init?.method === "PUT");
+      expect(putCalls).toHaveLength(2);
+      for (const [, init] of putCalls) {
+        expect(JSON.parse(String(init?.body))).toEqual(
+          expect.objectContaining({ is_favorite: true }),
+        );
+      }
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "Mark selected as not favorite" }),
+    );
+
+    await waitFor(() => {
+      const putCalls = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(([, init]) => init?.method === "PUT");
+      expect(putCalls).toHaveLength(4);
+      for (const [, init] of putCalls.slice(-2)) {
+        expect(JSON.parse(String(init?.body))).toEqual(
+          expect.objectContaining({ is_favorite: false }),
+        );
+      }
+    });
+  });
+
   it("keeps contact name, email, and last-contact metadata in separate fact cards", async () => {
     const user = userEvent.setup();
     renderWorkbench();

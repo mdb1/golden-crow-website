@@ -188,6 +188,101 @@ describe("PartnershipCrmTemplateBrowser", () => {
     );
   });
 
+  it("marks multiple selected templates as favorite and not favorite", async () => {
+    const user = userEvent.setup();
+    let templates: PartnershipCrmTemplateRecord[] = [
+      template,
+      {
+        ...template,
+        id: "tpl-2",
+        name: "Foundation outreach",
+        subject: "Pocket Genes para {{organization_name}}",
+        normalizedName: "foundation outreach",
+      },
+    ];
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (
+        stringPath.startsWith("/admin/partnership-crm/templates/") &&
+        init?.method === "PUT"
+      ) {
+        const templateId = decodeURIComponent(
+          stringPath.split("/").pop() ?? "",
+        );
+        const body = JSON.parse(
+          String(init.body),
+        ) as PartnershipCrmTemplateInput;
+        const currentTemplate = templates.find(
+          (entry) => entry.id === templateId,
+        );
+
+        if (!currentTemplate) {
+          throw new Error("Missing test template");
+        }
+
+        const updatedTemplate = {
+          ...currentTemplate,
+          ...body,
+          id: currentTemplate.id,
+          is_favorite: Boolean(body.is_favorite),
+        };
+        templates = templates.map((entry) =>
+          entry.id === templateId ? updatedTemplate : entry,
+        );
+
+        return { template: updatedTemplate };
+      }
+
+      return {
+        templates,
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Foundation outreach")).toBeTruthy();
+    });
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select all visible templates" }),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Mark selected as favorite" }),
+    );
+
+    await waitFor(() => {
+      const putCalls = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(([, init]) => init?.method === "PUT");
+      expect(putCalls).toHaveLength(2);
+      for (const [, init] of putCalls) {
+        expect(JSON.parse(String(init?.body))).toEqual(
+          expect.objectContaining({ is_favorite: true }),
+        );
+      }
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "Mark selected as not favorite" }),
+    );
+
+    await waitFor(() => {
+      const putCalls = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(([, init]) => init?.method === "PUT");
+      expect(putCalls).toHaveLength(4);
+      for (const [, init] of putCalls.slice(-2)) {
+        expect(JSON.parse(String(init?.body))).toEqual(
+          expect.objectContaining({ is_favorite: false }),
+        );
+      }
+    });
+  });
+
   it("opens a right preview panel, orders preview content, and supports panel actions", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {

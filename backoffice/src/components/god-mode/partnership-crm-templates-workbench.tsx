@@ -2418,6 +2418,71 @@ export function PartnershipCrmTemplateBrowser() {
     },
   });
 
+  const updateSelectedTemplatesFavoriteMutation = useMutation({
+    mutationFn: ({
+      templates,
+      isFavorite,
+    }: {
+      templates: PartnershipCrmTemplateRecord[];
+      isFavorite: boolean;
+    }) =>
+      Promise.all(
+        templates.map((template) =>
+          sdkFetch<{ template: PartnershipCrmTemplateRecord }>(
+            `/admin/partnership-crm/templates/${encodeURIComponent(
+              template.id,
+            )}`,
+            {
+              method: "PUT",
+              body: JSON.stringify(
+                templateInputFromRecord(template, {
+                  is_favorite: isFavorite,
+                }),
+              ),
+            },
+          ),
+        ),
+      ),
+    onSuccess: (results, { isFavorite }) => {
+      const updatedTemplates = new Map(
+        results.map((result) => [result.template.id, result.template]),
+      );
+
+      queryClient.setQueriesData<PartnershipCrmTemplatesPage>(
+        { queryKey: [TEMPLATES_QUERY_KEY] },
+        (current) =>
+          current
+            ? {
+                ...current,
+                templates: current.templates.map(
+                  (template) => updatedTemplates.get(template.id) ?? template,
+                ),
+              }
+            : current,
+      );
+      queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: isFavorite
+          ? t("Selected templates marked as favorite.")
+          : t("Selected templates marked as not favorite."),
+      });
+    },
+    onError: (error) => {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to update selected templates."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
+  const selectedTemplateActionPending =
+    deleteSelectedTemplatesMutation.isPending ||
+    updateSelectedTemplatesFavoriteMutation.isPending;
+
   useEffect(() => {
     if (!selectedTemplateId) {
       return;
@@ -2783,17 +2848,57 @@ export function PartnershipCrmTemplateBrowser() {
                         variant="ghost"
                         size="sm"
                         onClick={clearSelectedTemplates}
-                        disabled={deleteSelectedTemplatesMutation.isPending}
+                        disabled={selectedTemplateActionPending}
                       >
                         <X className="h-3.5 w-3.5" />
                         {t("Clear selected")}
                       </Button>
                       <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateSelectedTemplatesFavoriteMutation.mutate({
+                            templates: selectedTemplates,
+                            isFavorite: true,
+                          })
+                        }
+                        disabled={
+                          selectedTemplateActionPending ||
+                          selectedTemplates.length === 0
+                        }
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                        {updateSelectedTemplatesFavoriteMutation.isPending
+                          ? t("Updating...")
+                          : t("Mark selected as favorite")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateSelectedTemplatesFavoriteMutation.mutate({
+                            templates: selectedTemplates,
+                            isFavorite: false,
+                          })
+                        }
+                        disabled={
+                          selectedTemplateActionPending ||
+                          selectedTemplates.length === 0
+                        }
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                        {updateSelectedTemplatesFavoriteMutation.isPending
+                          ? t("Updating...")
+                          : t("Mark selected as not favorite")}
+                      </Button>
+                      <Button
+                        type="button"
                         variant="destructive"
                         size="sm"
                         onClick={() => setDeleteSelectedOpen(true)}
-                        disabled={deleteSelectedTemplatesMutation.isPending}
+                        disabled={selectedTemplateActionPending}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         {t("Delete selected")}
@@ -2814,7 +2919,7 @@ export function PartnershipCrmTemplateBrowser() {
                                 ? "indeterminate"
                                 : false
                           }
-                          disabled={deleteSelectedTemplatesMutation.isPending}
+                          disabled={selectedTemplateActionPending}
                           onCheckedChange={(checked) =>
                             setVisibleTemplatesSelected(checked === true)
                           }
@@ -2864,9 +2969,7 @@ export function PartnershipCrmTemplateBrowser() {
                                 template.name
                               }`}
                               checked={isBatchSelected}
-                              disabled={
-                                deleteSelectedTemplatesMutation.isPending
-                              }
+                              disabled={selectedTemplateActionPending}
                               onClick={(event) => event.stopPropagation()}
                               onCheckedChange={() =>
                                 toggleTemplateSelection(template.id)
