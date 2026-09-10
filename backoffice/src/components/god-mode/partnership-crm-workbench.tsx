@@ -325,6 +325,25 @@ const OUTCOME_STATUSES: PartnershipCrmStatus[] = [
   "not_a_fit",
 ];
 
+function funnelStatusCounts(
+  rawCounts: PartnershipCrmStatusCounts,
+): PartnershipCrmStatusCounts {
+  const partner = rawCounts.partner;
+  const meeting = rawCounts.meeting + partner;
+  const replied = rawCounts.replied + meeting;
+  const contacted = rawCounts.contacted + replied;
+  const totalPipeline = rawCounts.new + contacted;
+
+  return {
+    ...rawCounts,
+    new: totalPipeline,
+    contacted,
+    replied,
+    meeting,
+    partner,
+  };
+}
+
 function emptyImportSummary(): PartnershipCrmImportResult["summary"] {
   return {
     total: 0,
@@ -5643,7 +5662,7 @@ export function PartnershipCrmWorkbench() {
   const statusCounts = useMemo(() => {
     const aggregateCounts = organizationQuery.data?.statusCounts;
 
-    return Object.fromEntries(
+    const rawCounts = Object.fromEntries(
       CRM_STATUS_OPTIONS.map((option) => {
         const aggregateCount = aggregateCounts?.[option.value];
         return [
@@ -5654,6 +5673,8 @@ export function PartnershipCrmWorkbench() {
         ];
       }),
     ) as PartnershipCrmStatusCounts;
+
+    return funnelStatusCounts(rawCounts);
   }, [organizationQuery.data?.statusCounts, organizations]);
   const activityLogBadge = !selectedOrganization
     ? targetKind === "professionals"

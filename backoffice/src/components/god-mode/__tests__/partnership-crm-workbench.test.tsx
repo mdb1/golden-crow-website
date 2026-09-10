@@ -1234,7 +1234,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
     });
   });
 
-  it("shows status metrics from all records matching the filters, not only the visible page", async () => {
+  it("shows cumulative funnel status metrics from all records matching the filters", async () => {
     const visibleNewRows = Array.from({ length: 50 }, (_, index) => ({
       ...organization,
       id: `org-visible-${index + 1}`,
@@ -1257,11 +1257,11 @@ describe("PartnershipCrmWorkbench list pager", () => {
         organizations: visibleNewRows,
         nextCursor: "cursor-2",
         statusCounts: {
-          new: 87,
-          contacted: 6,
-          replied: 3,
+          new: 241,
+          contacted: 5,
+          replied: 0,
           meeting: 2,
-          partner: 1,
+          partner: 0,
           no_response: 0,
           not_interested: 0,
           not_a_fit: 0,
@@ -1276,18 +1276,18 @@ describe("PartnershipCrmWorkbench list pager", () => {
     });
 
     expect(
-      within(screen.getByRole("button", { name: /New\s+87/ })).getByText(
-        "87",
+      within(screen.getByRole("button", { name: /New\s+248/ })).getByText(
+        "248",
       ),
     ).toBeTruthy();
     expect(
-      within(screen.getByRole("button", { name: /Contacted\s+6/ })).getByText(
-        "6",
+      within(screen.getByRole("button", { name: /Contacted\s+7/ })).getByText(
+        "7",
       ),
     ).toBeTruthy();
     expect(
-      within(screen.getByRole("button", { name: /Replied\s+3/ })).getByText(
-        "3",
+      within(screen.getByRole("button", { name: /Replied\s+2/ })).getByText(
+        "2",
       ),
     ).toBeTruthy();
     expect(
@@ -1296,8 +1296,8 @@ describe("PartnershipCrmWorkbench list pager", () => {
       ),
     ).toBeTruthy();
     expect(
-      within(screen.getByRole("button", { name: /Partner\s+1/ })).getByText(
-        "1",
+      within(screen.getByRole("button", { name: /Partner\s+0/ })).getByText(
+        "0",
       ),
     ).toBeTruthy();
   });
