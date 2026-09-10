@@ -567,6 +567,14 @@ function normalizeCsvBoolean(value: string | undefined) {
   return BOOLEAN_TRUE_ALIASES.has(normalizeKey(value ?? ""));
 }
 
+export function normalizePotentialPocketGenesEditorFit(value: string) {
+  return value
+    .trim()
+    .replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g, "")
+    .replace(/[\s,.;:]+$/g, "")
+    .trim();
+}
+
 export function normalizeCrmAudience(
   value: string,
 ): PartnershipCrmTemplateAudience {
@@ -858,8 +866,9 @@ export function parseCrmCsv(
         category: normalizeCrmCategory(row.category ?? "", "professionals"),
         title: row.title?.trim() ?? "",
         primaryAffiliation: row.primaryAffiliation?.trim() ?? "",
-        potentialPocketGenesEditorFit:
-          row.potentialPocketGenesEditorFit?.trim() ?? "",
+        potentialPocketGenesEditorFit: normalizePotentialPocketGenesEditorFit(
+          row.potentialPocketGenesEditorFit ?? "",
+        ),
         emailRoute: row.emailRoute?.trim() ?? "",
         linkedInRoute: row.linkedInRoute?.trim() ?? "",
         researchBasis: row.researchBasis?.trim() ?? "",

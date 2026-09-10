@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  Braces,
   Building2,
   CheckCircle2,
   ChevronDown,
@@ -118,6 +119,7 @@ import {
   normalizeCrmCategoryKeys,
   normalizeCrmCategory,
   normalizeCrmCountry,
+  normalizePotentialPocketGenesEditorFit,
   PARTNERSHIP_CRM_FROM_EMAIL,
   parseCrmCsv,
   renderCrmTemplate,
@@ -190,6 +192,7 @@ type EmailState = {
   templateId: string;
   subject: string;
   text: string;
+  html?: string;
   step: "compose" | "preview";
 };
 
@@ -1046,7 +1049,9 @@ function targetPayload(
       ...base,
       title: state.title.trim(),
       primaryAffiliation: state.primaryAffiliation.trim(),
-      potentialPocketGenesEditorFit: state.potentialPocketGenesEditorFit.trim(),
+      potentialPocketGenesEditorFit: normalizePotentialPocketGenesEditorFit(
+        state.potentialPocketGenesEditorFit,
+      ),
       emailRoute: state.emailRoute.trim(),
       linkedInRoute: state.linkedInRoute.trim(),
       researchBasis: state.researchBasis.trim(),
@@ -1109,17 +1114,412 @@ function restoreCrmTemplateTargetVariables(
   target: PartnershipCrmTargetRecord,
   targetKind: PartnershipCrmTargetKind,
 ) {
-  const organizationName =
-    targetKind === "professionals"
-      ? (target as PartnershipCrmProfessionalRecord).primaryAffiliation ||
-        target.name
-      : target.name;
+  const replacements = crmTemplateVariablesForTarget(targetKind)
+    .map((variable) => ({
+      token: variable.token,
+      value: crmTemplateVariableRawValue(variable.key, target, targetKind),
+    }))
+    .filter((entry) => entry.value)
+    .sort((left, right) => right.value.length - left.value.length);
 
-  return replaceMaterializedCrmVariable(
+  const restored = replacements.reduce(
+    (nextValue, replacement) =>
+      replaceMaterializedCrmVariable(
+        nextValue,
+        replacement.value,
+        replacement.token,
+      ),
     value,
-    organizationName,
-    "{{organization_name}}",
   );
+
+  return restored.replace(
+    /["'“”‘’]\s*(\{\{potential_pocket_genes_editor_fit\}\})\s*["'“”‘’]/g,
+    "$1",
+  );
+}
+
+type CrmTemplateVariableKey =
+  | "contact_name"
+  | "organization_name"
+  | "professional_name"
+  | "first_name"
+  | "primary_affiliation"
+  | "potential_pocket_genes_editor_fit"
+  | "email_route"
+  | "linkedin_route"
+  | "research_basis"
+  | "title"
+  | "website"
+  | "website_sentence";
+
+type CrmTemplateVariableDefinition = {
+  key: CrmTemplateVariableKey;
+  token: `{{${CrmTemplateVariableKey}}}`;
+  label: string;
+  targets: PartnershipCrmTargetKind[];
+  className: string;
+  dotClassName: string;
+};
+
+const CRM_TEMPLATE_VARIABLES: CrmTemplateVariableDefinition[] = [
+  {
+    key: "contact_name",
+    token: "{{contact_name}}",
+    label: "Contact name",
+    targets: ["organizations"],
+    className:
+      "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-300/35 dark:bg-sky-400/15 dark:text-sky-100",
+    dotClassName: "bg-sky-500",
+  },
+  {
+    key: "organization_name",
+    token: "{{organization_name}}",
+    label: "Organization name",
+    targets: ["organizations", "professionals"],
+    className:
+      "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-300/35 dark:bg-blue-400/15 dark:text-blue-100",
+    dotClassName: "bg-blue-500",
+  },
+  {
+    key: "professional_name",
+    token: "{{professional_name}}",
+    label: "Professional name",
+    targets: ["professionals"],
+    className:
+      "border-violet-200 bg-violet-50 text-violet-900 dark:border-violet-300/35 dark:bg-violet-400/15 dark:text-violet-100",
+    dotClassName: "bg-violet-500",
+  },
+  {
+    key: "first_name",
+    token: "{{first_name}}",
+    label: "First name",
+    targets: ["professionals"],
+    className:
+      "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-900 dark:border-fuchsia-300/35 dark:bg-fuchsia-400/15 dark:text-fuchsia-100",
+    dotClassName: "bg-fuchsia-500",
+  },
+  {
+    key: "primary_affiliation",
+    token: "{{primary_affiliation}}",
+    label: "Primary affiliation",
+    targets: ["professionals"],
+    className:
+      "border-indigo-200 bg-indigo-50 text-indigo-900 dark:border-indigo-300/35 dark:bg-indigo-400/15 dark:text-indigo-100",
+    dotClassName: "bg-indigo-500",
+  },
+  {
+    key: "potential_pocket_genes_editor_fit",
+    token: "{{potential_pocket_genes_editor_fit}}",
+    label: "Potential Pocket Genes editor fit",
+    targets: ["professionals"],
+    className:
+      "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-300/35 dark:bg-emerald-400/15 dark:text-emerald-100",
+    dotClassName: "bg-emerald-500",
+  },
+  {
+    key: "email_route",
+    token: "{{email_route}}",
+    label: "Email route",
+    targets: ["professionals"],
+    className:
+      "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-300/35 dark:bg-amber-400/15 dark:text-amber-100",
+    dotClassName: "bg-amber-500",
+  },
+  {
+    key: "linkedin_route",
+    token: "{{linkedin_route}}",
+    label: "LinkedIn route",
+    targets: ["professionals"],
+    className:
+      "border-cyan-200 bg-cyan-50 text-cyan-900 dark:border-cyan-300/35 dark:bg-cyan-400/15 dark:text-cyan-100",
+    dotClassName: "bg-cyan-500",
+  },
+  {
+    key: "research_basis",
+    token: "{{research_basis}}",
+    label: "Research basis",
+    targets: ["professionals"],
+    className:
+      "border-teal-200 bg-teal-50 text-teal-900 dark:border-teal-300/35 dark:bg-teal-400/15 dark:text-teal-100",
+    dotClassName: "bg-teal-500",
+  },
+  {
+    key: "title",
+    token: "{{title}}",
+    label: "Role / specialty",
+    targets: ["professionals"],
+    className:
+      "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-300/35 dark:bg-rose-400/15 dark:text-rose-100",
+    dotClassName: "bg-rose-500",
+  },
+  {
+    key: "website",
+    token: "{{website}}",
+    label: "Website",
+    targets: ["organizations", "professionals"],
+    className:
+      "border-orange-200 bg-orange-50 text-orange-950 dark:border-orange-300/35 dark:bg-orange-400/15 dark:text-orange-100",
+    dotClassName: "bg-orange-500",
+  },
+  {
+    key: "website_sentence",
+    token: "{{website_sentence}}",
+    label: "Website sentence",
+    targets: ["organizations", "professionals"],
+    className:
+      "border-lime-200 bg-lime-50 text-lime-950 dark:border-lime-300/35 dark:bg-lime-400/15 dark:text-lime-100",
+    dotClassName: "bg-lime-500",
+  },
+];
+
+const CRM_TEMPLATE_VARIABLES_BY_KEY = new Map(
+  CRM_TEMPLATE_VARIABLES.map((variable) => [variable.key, variable]),
+);
+const CRM_TEMPLATE_VARIABLE_PATTERN = /\{\{([a-z_]+)\}\}/g;
+
+function crmTemplateVariablesForTarget(targetKind: PartnershipCrmTargetKind) {
+  return CRM_TEMPLATE_VARIABLES.filter((variable) =>
+    variable.targets.includes(targetKind),
+  );
+}
+
+function crmFirstName(value: string) {
+  return value.trim().split(/\s+/)[0] || value.trim();
+}
+
+function crmWebsiteSentence(target: { websiteDomain: string }) {
+  return target.websiteDomain ? ` (${target.websiteDomain})` : "";
+}
+
+function crmTemplateVariableRawValue(
+  key: CrmTemplateVariableKey,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const organization = target as PartnershipCrmOrganizationRecord;
+  const professional = target as PartnershipCrmProfessionalRecord;
+  const website =
+    targetKind === "professionals"
+      ? professional.website || professional.websiteDomain
+      : organization.website || organization.websiteDomain;
+
+  switch (key) {
+    case "contact_name":
+      return targetKind === "professionals"
+        ? professional.name || "equipo"
+        : organization.contactName || "equipo";
+    case "organization_name":
+      return targetKind === "professionals"
+        ? professional.primaryAffiliation || professional.name
+        : organization.name;
+    case "professional_name":
+      return targetKind === "professionals"
+        ? professional.name
+        : organization.contactName || organization.name;
+    case "first_name":
+      return targetKind === "professionals"
+        ? crmFirstName(professional.name)
+        : crmFirstName(organization.contactName || organization.name);
+    case "primary_affiliation":
+      return targetKind === "professionals" ? professional.primaryAffiliation : "";
+    case "potential_pocket_genes_editor_fit":
+      return targetKind === "professionals"
+        ? normalizePotentialPocketGenesEditorFit(
+            professional.potentialPocketGenesEditorFit,
+          )
+        : "";
+    case "email_route":
+      return targetKind === "professionals" ? professional.emailRoute : "";
+    case "linkedin_route":
+      return targetKind === "professionals" ? professional.linkedInRoute : "";
+    case "research_basis":
+      return targetKind === "professionals" ? professional.researchBasis : "";
+    case "title":
+      return targetKind === "professionals" ? professional.title : "";
+    case "website":
+      return website;
+    case "website_sentence":
+      return crmWebsiteSentence(target);
+    default:
+      return "";
+  }
+}
+
+function crmTemplateVariablePlainValue(
+  key: CrmTemplateVariableKey,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const value = crmTemplateVariableRawValue(key, target, targetKind);
+
+  if (!value) {
+    return "";
+  }
+
+  return key === "potential_pocket_genes_editor_fit" ? `"${value}"` : value;
+}
+
+function crmTemplateVariableDisplayNode(
+  key: CrmTemplateVariableKey,
+  value: string,
+  index: number,
+) {
+  if (key === "potential_pocket_genes_editor_fit") {
+    return <em key={index}>{`"${value}"`}</em>;
+  }
+
+  return value;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderCrmTemplateText(
+  value: string,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  return value.replace(CRM_TEMPLATE_VARIABLE_PATTERN, (_, key: string) => {
+    const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
+      key as CrmTemplateVariableKey,
+    );
+    return variable
+      ? crmTemplateVariablePlainValue(variable.key, target, targetKind)
+      : "";
+  });
+}
+
+function renderCrmTemplateHtml(
+  value: string,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  let rendered = "";
+  let cursor = 0;
+
+  for (const match of value.matchAll(CRM_TEMPLATE_VARIABLE_PATTERN)) {
+    const [token, key] = match;
+    const index = match.index ?? 0;
+    const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
+      key as CrmTemplateVariableKey,
+    );
+    rendered += escapeHtml(value.slice(cursor, index));
+
+    if (variable) {
+      const rawValue = crmTemplateVariableRawValue(
+        variable.key,
+        target,
+        targetKind,
+      );
+      rendered +=
+        variable.key === "potential_pocket_genes_editor_fit"
+          ? `<em>&quot;${escapeHtml(rawValue)}&quot;</em>`
+          : escapeHtml(rawValue);
+    }
+
+    cursor = index + token.length;
+  }
+
+  rendered += escapeHtml(value.slice(cursor));
+  return rendered.replace(/\n/g, "<br>");
+}
+
+function renderCrmTemplateNodes(
+  value: string,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+  let nodeIndex = 0;
+
+  for (const match of value.matchAll(CRM_TEMPLATE_VARIABLE_PATTERN)) {
+    const [token, key] = match;
+    const index = match.index ?? 0;
+    const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
+      key as CrmTemplateVariableKey,
+    );
+
+    if (index > cursor) {
+      nodes.push(value.slice(cursor, index));
+    }
+
+    if (variable) {
+      const rawValue = crmTemplateVariableRawValue(
+        variable.key,
+        target,
+        targetKind,
+      );
+      nodes.push(
+        crmTemplateVariableDisplayNode(variable.key, rawValue, nodeIndex),
+      );
+      nodeIndex += 1;
+    }
+
+    cursor = index + token.length;
+  }
+
+  if (cursor < value.length) {
+    nodes.push(value.slice(cursor));
+  }
+
+  return nodes.length > 0 ? nodes : null;
+}
+
+function usedCrmTemplateVariables(value: string) {
+  const used = new Set<CrmTemplateVariableKey>();
+
+  for (const match of value.matchAll(CRM_TEMPLATE_VARIABLE_PATTERN)) {
+    const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
+      match[1] as CrmTemplateVariableKey,
+    );
+    if (variable) {
+      used.add(variable.key);
+    }
+  }
+
+  return Array.from(used);
+}
+
+function missingCrmTemplateVariables(
+  email: EmailState,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const used = new Set([
+    ...usedCrmTemplateVariables(email.subject),
+    ...usedCrmTemplateVariables(email.text),
+  ]);
+
+  return Array.from(used)
+    .map((key) => CRM_TEMPLATE_VARIABLES_BY_KEY.get(key))
+    .filter((variable): variable is CrmTemplateVariableDefinition =>
+      Boolean(variable),
+    )
+    .filter(
+      (variable) =>
+        variable.targets.includes(targetKind) &&
+        !crmTemplateVariableRawValue(variable.key, target, targetKind),
+    );
+}
+
+function renderedCrmEmailState(
+  email: EmailState,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+): EmailState {
+  return {
+    ...email,
+    subject: renderCrmTemplateText(email.subject, target, targetKind),
+    text: renderCrmTemplateText(email.text, target, targetKind),
+    html: renderCrmTemplateHtml(email.text, target, targetKind),
+  };
 }
 
 function localDateTimeValue(value: string | null | undefined) {
@@ -2398,6 +2798,41 @@ function OrganizationFacts({
               {professional.researchBasis || "—"}
             </p>
           </div>
+          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <Braces className="h-3.5 w-3.5" />
+              {t("Variable fields")}
+            </div>
+            <div className="mt-3 overflow-hidden rounded-lg border border-border/80">
+              <table className="w-full text-left text-xs">
+                <tbody>
+                  {crmTemplateVariablesForTarget("professionals").map(
+                    (variable) => {
+                      const value = crmTemplateVariableRawValue(
+                        variable.key,
+                        professional,
+                        "professionals",
+                      );
+
+                      return (
+                        <tr
+                          key={variable.key}
+                          className="border-b border-border/60 last:border-b-0"
+                        >
+                          <th className="w-[42%] bg-muted/35 px-2 py-1.5 align-top font-mono font-semibold text-muted-foreground">
+                            {variable.token}
+                          </th>
+                          <td className="px-2 py-1.5 align-top text-foreground">
+                            {value || "—"}
+                          </td>
+                        </tr>
+                      );
+                    },
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </>
       ) : null}
       <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
@@ -2846,6 +3281,278 @@ function OrganizationDialog({
   );
 }
 
+function crmVariablePillClassName(variable: CrmTemplateVariableDefinition) {
+  return cn(
+    "mx-0.5 inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 align-baseline font-mono text-[0.74rem] font-semibold leading-5 shadow-sm",
+    variable.className,
+  );
+}
+
+function createCrmVariablePillElement(
+  variable: CrmTemplateVariableDefinition,
+) {
+  const element = document.createElement("span");
+  element.contentEditable = "false";
+  element.dataset.crmVariable = variable.key;
+  element.dataset.crmVariableToken = variable.token;
+  element.className = crmVariablePillClassName(variable);
+  element.textContent = variable.token;
+  element.setAttribute("role", "img");
+  element.setAttribute("aria-label", variable.label);
+  return element;
+}
+
+function renderCrmVariableEditorValue(
+  editor: HTMLElement,
+  value: string,
+  variables: readonly CrmTemplateVariableDefinition[],
+) {
+  const fragment = document.createDocumentFragment();
+  const variableByToken = new Map(
+    variables.map((variable) => [variable.token, variable]),
+  );
+  let cursor = 0;
+
+  for (const match of value.matchAll(CRM_TEMPLATE_VARIABLE_PATTERN)) {
+    const [token] = match;
+    const index = match.index ?? 0;
+
+    if (index > cursor) {
+      fragment.append(document.createTextNode(value.slice(cursor, index)));
+    }
+
+    const variable = variableByToken.get(
+      token as `{{${CrmTemplateVariableKey}}}`,
+    );
+    fragment.append(
+      variable
+        ? createCrmVariablePillElement(variable)
+        : document.createTextNode(token),
+    );
+    cursor = index + token.length;
+  }
+
+  if (cursor < value.length) {
+    fragment.append(document.createTextNode(value.slice(cursor)));
+  }
+
+  editor.replaceChildren(fragment);
+}
+
+function extractCrmVariableEditorValue(root: Node) {
+  let value = "";
+
+  function appendNewline() {
+    if (value && !value.endsWith("\n")) {
+      value += "\n";
+    }
+  }
+
+  function walk(node: Node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      value += node.textContent?.replace(/\u00a0/g, " ") ?? "";
+      return;
+    }
+
+    if (!(node instanceof HTMLElement)) {
+      node.childNodes.forEach(walk);
+      return;
+    }
+
+    if (node.dataset.crmVariableToken) {
+      value += node.dataset.crmVariableToken;
+      return;
+    }
+
+    if (node.tagName === "BR") {
+      value += "\n";
+      return;
+    }
+
+    const isBlock = ["DIV", "P"].includes(node.tagName);
+    if (isBlock && value) {
+      appendNewline();
+    }
+    node.childNodes.forEach(walk);
+    if (isBlock && node.nextSibling) {
+      appendNewline();
+    }
+  }
+
+  root.childNodes.forEach(walk);
+  return value.replace(/\n{3,}/g, "\n\n");
+}
+
+function placeCaretAfter(node: Node) {
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+
+  const range = document.createRange();
+  range.setStartAfter(node);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function insertCrmVariableIntoEditor(
+  editor: HTMLElement,
+  variable: CrmTemplateVariableDefinition,
+) {
+  editor.focus();
+  const selection = window.getSelection();
+  const pill = createCrmVariablePillElement(variable);
+  const spacer = document.createTextNode(" ");
+
+  if (!selection || selection.rangeCount === 0) {
+    editor.append(pill, spacer);
+    placeCaretAfter(spacer);
+    return;
+  }
+
+  const range = selection.getRangeAt(0);
+  if (!editor.contains(range.commonAncestorContainer)) {
+    editor.append(pill, spacer);
+    placeCaretAfter(spacer);
+    return;
+  }
+
+  range.deleteContents();
+  range.insertNode(spacer);
+  range.insertNode(pill);
+  placeCaretAfter(spacer);
+}
+
+function CrmVariableEditor({
+  value,
+  variables,
+  onChange,
+  language,
+}: {
+  value: string;
+  variables: readonly CrmTemplateVariableDefinition[];
+  onChange: (value: string) => void;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const lastRenderedValueRef = useRef<string>("");
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    const currentValue = extractCrmVariableEditorValue(editor);
+    if (currentValue === value && lastRenderedValueRef.current === value) {
+      return;
+    }
+
+    renderCrmVariableEditorValue(editor, value, variables);
+    lastRenderedValueRef.current = value;
+  }, [value, variables]);
+
+  function syncFromEditor() {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    const nextValue = extractCrmVariableEditorValue(editor);
+    lastRenderedValueRef.current = nextValue;
+    onChange(nextValue);
+  }
+
+  function addVariable(variable: CrmTemplateVariableDefinition) {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    insertCrmVariableIntoEditor(editor, variable);
+    syncFromEditor();
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-foreground/20 bg-background shadow-[0_1px_0_rgba(255,255,255,0.4),0_12px_24px_rgba(9,12,18,0.08)] dark:border-white/60 dark:bg-black">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/80 bg-muted/35 px-2 py-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          onClick={() => {
+            editorRef.current?.focus();
+            document.execCommand("insertLineBreak");
+            syncFromEditor();
+          }}
+        >
+          {t("Line break")}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="outline" size="sm">
+              <Braces className="h-3.5 w-3.5" />
+              {t("Add variable")}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="crm-control-dropdown">
+            {variables.map((variable) => (
+              <DropdownMenuItem
+                key={variable.key}
+                onSelect={() => addVariable(variable)}
+              >
+                <span
+                  className={cn(
+                    "h-2.5 w-2.5 rounded-full",
+                    variable.dotClassName,
+                  )}
+                />
+                <span>{variable.label}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <div
+        id="crm-email-message"
+        ref={editorRef}
+        role="textbox"
+        aria-label={t("Message")}
+        contentEditable
+        suppressContentEditableWarning
+        className="min-h-80 overflow-y-auto whitespace-pre-wrap px-3 py-2.5 font-mono text-sm leading-6 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+        onInput={syncFromEditor}
+        onBlur={syncFromEditor}
+        onPaste={(event) => {
+          event.preventDefault();
+          const text = event.clipboardData.getData("text/plain");
+          document.execCommand("insertText", false, text);
+          syncFromEditor();
+        }}
+      />
+      <div className="border-t border-border/80 bg-muted/20 px-3 py-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          {t("Variables")}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {variables.map((variable) => (
+            <button
+              key={variable.key}
+              type="button"
+              className={crmVariablePillClassName(variable)}
+              onClick={() => addVariable(variable)}
+            >
+              {variable.token}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmailComposerDialog({
   organization,
   targetKind,
@@ -2897,6 +3604,10 @@ function EmailComposerDialog({
     [organization, targetKind, templates],
   );
   const orderedTemplates = templateGroups.all;
+  const editorVariables = useMemo(
+    () => crmTemplateVariablesForTarget(targetKind),
+    [targetKind],
+  );
 
   useEffect(() => {
     if (!organization || !open) {
@@ -2936,7 +3647,7 @@ function EmailComposerDialog({
         to: targetEmail,
         templateId: template?.id ?? "",
         subject: rendered.subject,
-        text: rendered.body,
+        text: template?.body ?? "",
         step: "compose",
       };
     });
@@ -2973,13 +3684,24 @@ function EmailComposerDialog({
     update({
       templateId,
       subject: rendered.subject,
-      text: rendered.body,
+      text: template.body,
       step: "compose",
     });
   }
 
+  const missingVariables =
+    email && organization
+      ? missingCrmTemplateVariables(email, organization, targetKind)
+      : [];
+  const renderedEmail =
+    email && organization
+      ? renderedCrmEmailState(email, organization, targetKind)
+      : null;
   const canPreview = Boolean(
-    email?.to.trim() && email.subject.trim() && email.text.trim(),
+    email?.to.trim() &&
+      email.subject.trim() &&
+      email.text.trim() &&
+      missingVariables.length === 0,
   );
   const hasTemplates = orderedTemplates.length > 0;
   const isPreviewStep = email?.step === "preview";
@@ -3123,6 +3845,14 @@ function EmailComposerDialog({
     applyTemplate(orderedTemplates[nextIndex].id);
   }
 
+  function goToPreview() {
+    if (!canPreview) {
+      return;
+    }
+
+    update({ step: "preview" });
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (
       event.key === "Enter" &&
@@ -3131,7 +3861,7 @@ function EmailComposerDialog({
       !shouldIgnoreTemplatePreviewShortcut(event.target, event.currentTarget)
     ) {
       event.preventDefault();
-      update({ step: "preview" });
+      goToPreview();
       return;
     }
 
@@ -3201,7 +3931,10 @@ function EmailComposerDialog({
         {organization && email ? (
           isPreviewStep ? (
             <EmailPreviewPanel
-              email={email}
+              email={renderedEmail ?? email}
+              rawText={email.text}
+              target={organization}
+              targetKind={targetKind}
               language={language}
               locked
               className="w-full"
@@ -3307,14 +4040,22 @@ function EmailComposerDialog({
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="crm-email-message">{t("Message")}</Label>
-                  <Textarea
-                    id="crm-email-message"
+                  <CrmVariableEditor
                     value={email.text}
-                    onChange={(event) =>
-                      update({ text: event.target.value, step: "compose" })
+                    variables={editorVariables}
+                    language={language}
+                    onChange={(value) =>
+                      update({ text: value, step: "compose" })
                     }
-                    className="min-h-80 font-mono text-sm leading-6"
                   />
+                  {missingVariables.length > 0 ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      {t("Missing value for")}{" "}
+                      {missingVariables
+                        .map((variable) => variable.token)
+                        .join(", ")}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -3411,7 +4152,7 @@ function EmailComposerDialog({
                   <Button
                     type="button"
                     size="lg"
-                    onClick={() => update({ step: "preview" })}
+                    onClick={goToPreview}
                     disabled={!canPreview}
                     className={EMAIL_CTA_CLASS}
                   >
@@ -3424,7 +4165,7 @@ function EmailComposerDialog({
               <Button
                 type="button"
                 size="lg"
-                onClick={() => onSend(email)}
+                onClick={() => renderedEmail && onSend(renderedEmail)}
                 disabled={pending || !canPreview}
                 className={EMAIL_CTA_CLASS}
               >
@@ -3441,16 +4182,26 @@ function EmailComposerDialog({
 
 function EmailPreviewPanel({
   email,
+  rawText,
+  target,
+  targetKind,
   language,
   locked = false,
   className,
 }: {
   email: EmailState;
+  rawText?: string;
+  target?: PartnershipCrmTargetRecord;
+  targetKind?: PartnershipCrmTargetKind;
   language: AppLanguage;
   locked?: boolean;
   className?: string;
 }) {
   const t = (text: string) => appText(language, text);
+  const body =
+    rawText && target && targetKind
+      ? renderCrmTemplateNodes(rawText, target, targetKind)
+      : email.text;
 
   return (
     <aside
@@ -3500,7 +4251,7 @@ function EmailPreviewPanel({
           locked && "max-h-[58vh] min-h-96 overflow-y-auto text-base leading-7",
         )}
       >
-        {email.text || t("No message yet.")}
+        {body || t("No message yet.")}
       </div>
     </aside>
   );
@@ -5337,6 +6088,7 @@ export function PartnershipCrmWorkbench() {
             to: email.to,
             subject: email.subject,
             text: email.text,
+            html: email.html,
             templateId: email.templateId,
           }),
         },

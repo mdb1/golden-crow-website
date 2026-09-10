@@ -903,9 +903,11 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
       ).toBe("First Delete Me Genomics");
     });
+    const messageEditor = within(dialog).getByLabelText("Message");
+    expect(messageEditor.textContent).toBe("Body one for {{contact_name}}");
     expect(
-      (within(dialog).getByLabelText("Message") as HTMLTextAreaElement).value,
-    ).toBe("Body one for Ada");
+      within(messageEditor).getByRole("img", { name: "Contact name" }),
+    ).toBeTruthy();
 
     await user.click(
       within(dialog).getByRole("button", { name: "Next template" }),
@@ -915,9 +917,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
       ).toBe("Second Delete Me Genomics");
     });
-    expect(
-      (within(dialog).getByLabelText("Message") as HTMLTextAreaElement).value,
-    ).toBe("Body two for Ada");
+    expect(within(dialog).getByLabelText("Message").textContent).toBe(
+      "Body two for {{contact_name}}",
+    );
 
     fireEvent.keyDown(dialog, { key: "ArrowUp" });
     await waitFor(() => {
@@ -937,6 +939,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await waitFor(() => {
       expect(within(dialog).getByText("Ready to send")).toBeTruthy();
     });
+    expect(within(dialog).getByText("Body two for Ada")).toBeTruthy();
   });
 
   it("recommends matching templates while allowing any active template selection", async () => {
@@ -1015,9 +1018,140 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
       ).toBe("Universal Delete Me Genomics");
     });
+    expect(within(dialog).getByLabelText("Message").textContent).toBe(
+      "Universal body for {{contact_name}}",
+    );
+  });
+
+  it("shows professional template variables as pills and renders editor fit in italics on preview", async () => {
+    const user = userEvent.setup();
+    const fitTemplate: PartnershipCrmTemplateRecord = {
+      ...recommendedEmailTemplate,
+      id: "tpl-fit",
+      name: "Professional fit intro",
+      audience: "professionals",
+      category: "pro_clinical_geneticists",
+      subject: "Pocket Genes + {{professional_name}}",
+      body: "Por tu experiencia en {{potential_pocket_genes_editor_fit}} consideramos que Pocket Genes puede amplificar tu trabajo.",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.startsWith("/admin/partnership-crm/professionals")) {
+        return { professionals: [professional], nextCursor: undefined };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [fitTemplate], nextCursor: undefined };
+      }
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+
+    await user.click(screen.getByRole("tab", { name: /Professionals/ }));
+    await waitFor(() => {
+      expect(screen.getAllByText("Dra. Ada Genome")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Dra. Ada Genome"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+    const messageEditor = await within(dialog).findByLabelText("Message");
+
+    expect(messageEditor.textContent).toContain(
+      "{{potential_pocket_genes_editor_fit}}",
+    );
     expect(
-      (within(dialog).getByLabelText("Message") as HTMLTextAreaElement).value,
-    ).toBe("Universal body for Ada");
+      within(messageEditor).getByRole("img", {
+        name: "Potential Pocket Genes editor fit",
+      }),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("Variables")).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", {
+        name: "{{potential_pocket_genes_editor_fit}}",
+      }).className,
+    ).toContain("emerald");
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Preview email" }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Ready to send")).toBeTruthy();
+    });
+    const renderedFit = within(dialog).getByText(
+      /Clinical genetics, genetic testing/,
+    );
+    expect(renderedFit.tagName).toBe("EM");
+    expect(renderedFit.textContent).toContain('"');
+  });
+
+  it("blocks CRM email preview when a used professional variable is empty", async () => {
+    const user = userEvent.setup();
+    const emptyFitProfessional: PartnershipCrmProfessionalRecord = {
+      ...professional,
+      potentialPocketGenesEditorFit: "",
+    };
+    const fitTemplate: PartnershipCrmTemplateRecord = {
+      ...recommendedEmailTemplate,
+      id: "tpl-fit-empty",
+      name: "Professional fit intro",
+      audience: "professionals",
+      category: "pro_clinical_geneticists",
+      subject: "Pocket Genes + {{professional_name}}",
+      body: "Por tu experiencia en {{potential_pocket_genes_editor_fit}} consideramos que Pocket Genes puede amplificar tu trabajo.",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.startsWith("/admin/partnership-crm/professionals")) {
+        return {
+          professionals: [emptyFitProfessional],
+          nextCursor: undefined,
+        };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [fitTemplate], nextCursor: undefined };
+      }
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+
+    await user.click(screen.getByRole("tab", { name: /Professionals/ }));
+    await waitFor(() => {
+      expect(screen.getAllByText("Dra. Ada Genome")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Dra. Ada Genome"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+
+    expect(
+      await within(dialog).findByText(
+        /Missing value for {{potential_pocket_genes_editor_fit}}/,
+      ),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", { name: "Preview email" }),
+    ).toHaveProperty("disabled", true);
   });
 
   it("overwrites and favorites the selected CRM email template from the composer", async () => {
@@ -1105,11 +1239,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
     const messageInput = await within(dialog).findByLabelText("Message");
 
-    fireEvent.change(messageInput, {
-      target: {
-        value: "Reusable edited template body for Delete Me Genomics.",
-      },
-    });
+    messageInput.textContent =
+      "Reusable edited template body for Delete Me Genomics.";
+    fireEvent.input(messageInput);
     await user.click(
       within(dialog).getByRole("button", { name: "Overwrite template" }),
     );
@@ -1232,9 +1364,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
     expect(screen.getByText("Clinical Geneticist")).toBeTruthy();
     expect(screen.getByText("Role / specialty")).toBeTruthy();
-    expect(screen.getByText("Genetista clinica")).toBeTruthy();
+    expect(screen.getAllByText("Genetista clinica").length).toBeGreaterThan(0);
     expect(screen.getByText("Primary affiliation")).toBeTruthy();
-    expect(screen.getByText("Genome Lab")).toBeTruthy();
+    expect(screen.getAllByText("Genome Lab").length).toBeGreaterThan(0);
     expect(
       screen.getByText(
         "Clinical genetics, genetic testing, result interpretation and patient education.",
@@ -1243,6 +1375,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(screen.getByText("Email route")).toBeTruthy();
     expect(screen.getByText("LinkedIn route")).toBeTruthy();
     expect(screen.getByText("Research basis")).toBeTruthy();
+    expect(screen.getByText("Variable fields")).toBeTruthy();
+    expect(screen.getByText("{{potential_pocket_genes_editor_fit}}"))
+      .toBeTruthy();
     expect(screen.getAllByText("ada@genomelab.example").length).toBeGreaterThan(
       0,
     );

@@ -143,9 +143,8 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
       {
         label: "potential_pocket_genes_editor_fit",
         detail:
-          "Optional. Maximum 2000 characters. Store why this professional could fit Pocket Genes editor work, such as clinical genetics, genetic testing, result interpretation, or patient education.",
-        example:
-          "Genetic testing adoption, carrier screening, and patient education.",
+          "Optional but high value for professional templates. Maximum 2000 characters. Store the exact title, work, topic, or editorial hook only. Do not add wrapping quotes, commas, periods, or explanatory punctuation at the end; the send flow will show it between quotes and in italics.",
+        example: "Genetic testing adoption and patient education",
       },
       {
         label: "email_route",
@@ -549,6 +548,15 @@ function buildImportRulesText({
     "",
     t("Optional columns"),
     optionalHeaders.join(", "),
+    ...(kind === "professionals"
+      ? [
+          "",
+          t("Professional variable quality"),
+          t(
+            "Professional profiles are much more valuable when title, primary_affiliation, potential_pocket_genes_editor_fit, email_route, linkedin_route, research_basis, website, email, and linkedin are all populated because these fields can be reused as outreach variables.",
+          ),
+        ]
+      : []),
     "",
     t("Field rules"),
     ...lines.flatMap((line) => [
@@ -655,6 +663,19 @@ export function CrmImportRulesDialog({
         </DialogHeader>
 
         <div className="grid gap-4">
+          {kind === "professionals" ? (
+            <section className="rounded-xl border border-emerald-200/70 bg-emerald-50/75 p-4 text-emerald-950 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
+              <h3 className="font-heading text-sm font-semibold">
+                {t("Professional variable quality")}
+              </h3>
+              <p className="mt-1 text-sm leading-6">
+                {t(
+                  "Professional profiles are much more valuable when title, primary_affiliation, potential_pocket_genes_editor_fit, email_route, linkedin_route, research_basis, website, email, and linkedin are all populated because these fields can be reused as outreach variables.",
+                )}
+              </p>
+            </section>
+          ) : null}
+
           <section className="rounded-xl border border-border/80 bg-background/70 p-4">
             <div className="flex items-center gap-2">
               <FileCheck2 className="h-4 w-4 text-blue-600 dark:text-blue-300" />

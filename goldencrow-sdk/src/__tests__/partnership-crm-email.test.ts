@@ -22,4 +22,17 @@ describe("partnership CRM email", () => {
     expect(message).not.toHaveProperty("html");
     expect(JSON.stringify(message)).not.toContain("noreply");
   });
+
+  it("keeps optional CRM email HTML for formatted outreach", () => {
+    const message = buildPartnershipCrmEmailMessage({
+      to: "ada@example.org",
+      subject: "Pocket Genes + Ada",
+      text: 'Por tu experiencia en "Clinical genetics"',
+      html: 'Por tu experiencia en <em>&quot;Clinical genetics&quot;</em>',
+    });
+
+    expect(message.html).toBe(
+      'Por tu experiencia en <em>&quot;Clinical genetics&quot;</em>',
+    );
+  });
 });

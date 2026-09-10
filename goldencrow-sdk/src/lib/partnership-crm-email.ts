@@ -7,6 +7,7 @@ type PartnershipCrmEmailInput = {
   to: string;
   subject: string;
   text: string;
+  html?: string;
 };
 
 function optionalEnv(name: string) {
@@ -20,6 +21,7 @@ export function buildPartnershipCrmEmailMessage(
     to: input.to,
     subject: input.subject,
     text: input.text,
+    ...(input.html?.trim() ? { html: input.html } : {}),
   };
 }
 

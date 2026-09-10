@@ -146,6 +146,7 @@ const EmailBodySchema = z.object({
   to: z.string().trim().toLowerCase().email().max(180),
   subject: z.string().trim().min(1).max(180),
   text: z.string().trim().min(1).max(12000),
+  html: z.string().trim().max(24000).optional(),
   templateId: z.string().trim().max(160).optional(),
   templateKey: z.string().trim().max(80).optional(),
 });

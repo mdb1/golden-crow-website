@@ -204,6 +204,23 @@ describe("partnership CRM helpers", () => {
     ]);
   });
 
+  it("normalizes professional editor fit without wrapping quotes or trailing punctuation", () => {
+    const parsed = parseCrmCsv(
+      [
+        "name,potential_pocket_genes_editor_fit",
+        'Dra. Ada Genome,"\'Rare disease handbook.,\'"',
+      ].join("\n"),
+      "professionals",
+    );
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows[0]).toEqual(
+      expect.objectContaining({
+        potentialPocketGenesEditorFit: "Rare disease handbook",
+      }),
+    );
+  });
+
   it("reports missing organization names but keeps the row visible for preview", () => {
     const parsed = parseCrmCsv(
       "name,category,email\n,Foundation,ada@example.org",

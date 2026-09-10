@@ -365,6 +365,13 @@ function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizePotentialPocketGenesEditorFit(value: unknown) {
+  return cleanString(value)
+    .replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g, "")
+    .replace(/[\s,.;:]+$/g, "")
+    .trim();
+}
+
 function normalizeName(value: string) {
   return value
     .normalize("NFD")
@@ -779,7 +786,7 @@ function professionalDocument(
     category: normalizeCrmCategory(input.category, "professionals"),
     title: cleanString(input.title),
     primaryAffiliation: cleanString(input.primaryAffiliation),
-    potentialPocketGenesEditorFit: cleanString(
+    potentialPocketGenesEditorFit: normalizePotentialPocketGenesEditorFit(
       input.potentialPocketGenesEditorFit,
     ),
     emailRoute: cleanString(input.emailRoute),
@@ -865,7 +872,7 @@ function toProfessionalRecord(
     category: normalizeCrmCategory(data.category, "professionals"),
     title: cleanString(data.title),
     primaryAffiliation: cleanString(data.primaryAffiliation),
-    potentialPocketGenesEditorFit: cleanString(
+    potentialPocketGenesEditorFit: normalizePotentialPocketGenesEditorFit(
       data.potentialPocketGenesEditorFit,
     ),
     emailRoute: cleanString(data.emailRoute),
@@ -2769,7 +2776,7 @@ export async function previewPartnershipCrmProfessionalImport(
         category: cleanString(professional.category),
         title: cleanString(professional.title),
         primaryAffiliation: cleanString(professional.primaryAffiliation),
-        potentialPocketGenesEditorFit: cleanString(
+        potentialPocketGenesEditorFit: normalizePotentialPocketGenesEditorFit(
           professional.potentialPocketGenesEditorFit,
         ),
         emailRoute: cleanString(professional.emailRoute),
@@ -2918,6 +2925,7 @@ export async function sendPartnershipCrmOrganizationEmail(
     to: string;
     subject: string;
     text: string;
+    html?: string;
     templateId?: string;
     templateKey?: string;
   },
@@ -2935,6 +2943,7 @@ export async function sendPartnershipCrmOrganizationEmail(
   const to = normalizeEmail(input.to);
   const subject = cleanString(input.subject);
   const text = cleanString(input.text);
+  const html = cleanString(input.html);
 
   if (!to) {
     throw new AdminRepositoryError("Recipient email is required.", 400);
@@ -2949,7 +2958,7 @@ export async function sendPartnershipCrmOrganizationEmail(
   const templateId = cleanString(input.templateId);
   const templateName = await templateNameForId(templateId);
 
-  await sendPartnershipCrmEmail({ to, subject, text });
+  await sendPartnershipCrmEmail({ to, subject, text, html });
 
   const nextStatus =
     organization.status === "new" ? "contacted" : organization.status;
@@ -3002,6 +3011,7 @@ export async function sendPartnershipCrmProfessionalEmail(
     to: string;
     subject: string;
     text: string;
+    html?: string;
     templateId?: string;
     templateKey?: string;
   },
@@ -3019,6 +3029,7 @@ export async function sendPartnershipCrmProfessionalEmail(
   const to = normalizeEmail(input.to);
   const subject = cleanString(input.subject);
   const text = cleanString(input.text);
+  const html = cleanString(input.html);
 
   if (!to) {
     throw new AdminRepositoryError("Recipient email is required.", 400);
@@ -3033,7 +3044,7 @@ export async function sendPartnershipCrmProfessionalEmail(
   const templateId = cleanString(input.templateId);
   const templateName = await templateNameForId(templateId);
 
-  await sendPartnershipCrmEmail({ to, subject, text });
+  await sendPartnershipCrmEmail({ to, subject, text, html });
 
   const nextStatus =
     professional.status === "new" ? "contacted" : professional.status;
