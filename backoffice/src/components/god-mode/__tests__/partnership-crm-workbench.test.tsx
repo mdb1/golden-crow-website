@@ -759,7 +759,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(actionGroup.className).toContain("shrink-0");
     expect(actionGroup.className).toContain("flex-nowrap");
     expect(actionGroup.className).toContain("whitespace-nowrap");
-    expect(within(actionGroup).getAllByRole("button")).toHaveLength(3);
+    expect(within(actionGroup).getAllByRole("button")).toHaveLength(4);
+    expect(
+      within(actionGroup).getByRole("button", { name: "Mark as favorite" }),
+    ).toBeTruthy();
     expect(
       within(actionGroup).getByRole("button", { name: "Edit" }),
     ).toBeTruthy();
@@ -773,6 +776,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const tagsBlock = within(detailPanel).getByTestId("crm-detail-panel-tags");
     expect(within(tagsBlock).getByText("CRM New")).toBeTruthy();
     expect(within(tagsBlock).getByText("Genomics Laboratory")).toBeTruthy();
+    expect(within(detailPanel).queryByText("Favorite")).toBeNull();
     const selectedStatusButton = within(detailPanel).getByRole("button", {
       name: "CRM New",
     });
@@ -830,7 +834,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(screen.getByText("Delete Me Genomics"));
 
     const detailPanel = await screen.findByTestId("crm-detail-panel");
-    await user.click(within(detailPanel).getByLabelText("Favorite"));
+    await user.click(
+      within(detailPanel).getByRole("button", { name: "Mark as favorite" }),
+    );
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(

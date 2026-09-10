@@ -8714,6 +8714,35 @@ export function PartnershipCrmWorkbench() {
                     variant="outline"
                     size="icon-sm"
                     className="shrink-0"
+                    aria-label={
+                      selectedOrganization.is_favorite
+                        ? t("Unmark as favorite")
+                        : t("Mark as favorite")
+                    }
+                    title={
+                      selectedOrganization.is_favorite
+                        ? t("Unmark as favorite")
+                        : t("Mark as favorite")
+                    }
+                    onClick={() =>
+                      updateSelectedFavorite(!selectedOrganization.is_favorite)
+                    }
+                    disabled={saveOrganizationMutation.isPending}
+                  >
+                    <Star
+                      className={cn(
+                        "h-3.5 w-3.5",
+                        selectedOrganization.is_favorite
+                          ? "fill-amber-400 text-amber-500"
+                          : "text-muted-foreground/60",
+                      )}
+                    />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="shrink-0"
                     aria-label={t("Edit")}
                     title={t("Edit")}
                     onClick={() =>
@@ -8795,35 +8824,6 @@ export function PartnershipCrmWorkbench() {
                     );
                   })}
                 </div>
-              </div>
-
-              <div className="mt-4 grid gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  {t("Favorite")}
-                </p>
-                <label
-                  htmlFor="crm-detail-is-favorite"
-                  className="flex h-10 max-w-max cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground"
-                >
-                  <Checkbox
-                    id="crm-detail-is-favorite"
-                    checked={selectedOrganization.is_favorite}
-                    onCheckedChange={(checked) =>
-                      updateSelectedFavorite(checked === true)
-                    }
-                    disabled={saveOrganizationMutation.isPending}
-                  />
-                  <Star
-                    aria-hidden="true"
-                    className={cn(
-                      "h-4 w-4",
-                      selectedOrganization.is_favorite
-                        ? "fill-amber-400 text-amber-500"
-                        : "text-muted-foreground/50",
-                    )}
-                  />
-                  <span>{t("Favorite")}</span>
-                </label>
               </div>
 
               <div className="mt-4">

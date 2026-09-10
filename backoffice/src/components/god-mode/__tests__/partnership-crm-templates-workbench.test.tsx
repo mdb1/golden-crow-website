@@ -368,6 +368,9 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(actionGroup.className).toContain("flex-nowrap");
     expect(actionGroup.className).toContain("whitespace-nowrap");
     expect(
+      within(actionGroup).getByRole("button", { name: "Mark as favorite" }),
+    ).toBeTruthy();
+    expect(
       within(actionGroup).getByRole("link", { name: "Edit" }),
     ).toBeTruthy();
     expect(
@@ -380,13 +383,17 @@ describe("PartnershipCrmTemplateBrowser", () => {
     const tagsBlock = within(panel).getByTestId("template-preview-panel-tags");
     expect(within(tagsBlock).getByText("Template Active")).toBeTruthy();
     expect(within(tagsBlock).getByText("Organizations")).toBeTruthy();
+    expect(within(tagsBlock).queryByText("Favorite")).toBeNull();
+    expect(within(panel).queryByLabelText("Favorite")).toBeNull();
     expect(
       within(panel)
         .getByRole("link", { name: "Edit text" })
         .getAttribute("href"),
     ).toBe("/god-mode/plantillas/tpl-1");
 
-    await user.click(within(panel).getByLabelText("Favorite"));
+    await user.click(
+      within(panel).getByRole("button", { name: "Mark as favorite" }),
+    );
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(

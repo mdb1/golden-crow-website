@@ -1057,6 +1057,35 @@ function TemplatePreviewSidePanel({
               variant="outline"
               size="icon-sm"
               className="shrink-0"
+              aria-label={
+                template.is_favorite
+                  ? t("Unmark as favorite")
+                  : t("Mark as favorite")
+              }
+              title={
+                template.is_favorite
+                  ? t("Unmark as favorite")
+                  : t("Mark as favorite")
+              }
+              onClick={() =>
+                onQuickUpdate({ is_favorite: !template.is_favorite })
+              }
+              disabled={pending}
+            >
+              <Star
+                className={cn(
+                  "h-3.5 w-3.5",
+                  template.is_favorite
+                    ? "fill-amber-400 text-amber-500"
+                    : "text-muted-foreground/60",
+                )}
+              />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="shrink-0"
               asChild
             >
               <Link
@@ -1105,59 +1134,29 @@ function TemplatePreviewSidePanel({
                 ? t("Professionals")
                 : t("Organizations")}
             </Badge>
-            {template.is_favorite ? (
-              <Badge variant="warning">
-                <Star className="h-3.5 w-3.5 fill-amber-400" />
-                {t("Favorite")}
-              </Badge>
-            ) : null}
           </div>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div className="space-y-1.5">
-              <Label>{t("Status")}</Label>
-              <Select
-                value={template.status}
-                onValueChange={(value) =>
-                  onQuickUpdate({
-                    status: value as PartnershipCrmTemplateStatus,
-                  })
-                }
-                disabled={pending}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="crm-control-dropdown">
-                  {CRM_TEMPLATE_STATUS_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {t(option.label)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="template-panel-favorite">{t("Favorite")}</Label>
-              <div className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3">
-                <Checkbox
-                  id="template-panel-favorite"
-                  checked={template.is_favorite}
-                  onCheckedChange={(checked) =>
-                    onQuickUpdate({ is_favorite: checked === true })
-                  }
-                  disabled={pending}
-                />
-                <Star
-                  aria-hidden="true"
-                  className={cn(
-                    "h-4 w-4",
-                    template.is_favorite
-                      ? "fill-amber-400 text-amber-500"
-                      : "text-muted-foreground/50",
-                  )}
-                />
-              </div>
-            </div>
+          <div className="space-y-1.5">
+            <Label>{t("Status")}</Label>
+            <Select
+              value={template.status}
+              onValueChange={(value) =>
+                onQuickUpdate({
+                  status: value as PartnershipCrmTemplateStatus,
+                })
+              }
+              disabled={pending}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="crm-control-dropdown">
+                {CRM_TEMPLATE_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {t(option.label)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">
