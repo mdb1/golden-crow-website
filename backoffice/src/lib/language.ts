@@ -1225,7 +1225,10 @@ const SPANISH_TEXT: Record<string, string> = {
   Saved: "Guardado",
   "Action failed": "La acción falló",
   Dismiss: "Cerrar",
-  "View log": "Ver registro",
+  "View log": "Ver log",
+  "Action error log": "Log de error de acción",
+  "Full error details for this failed action.":
+    "Detalle completo del error para esta acción fallida.",
   "No role assignment record is linked to this session.":
     "No hay un perfil asociado a esta sesión.",
   "Use 100 characters or fewer.": "Usá 100 caracteres o menos.",
