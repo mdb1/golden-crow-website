@@ -1535,6 +1535,28 @@ function shouldIgnoreTemplateShortcut(target: EventTarget | null) {
   );
 }
 
+function shouldIgnoreTemplatePreviewShortcut(
+  target: EventTarget | null,
+  container: HTMLElement,
+) {
+  const element =
+    target instanceof HTMLElement ? target : document.activeElement ?? null;
+
+  if (!(element instanceof HTMLElement) || element === container) {
+    return false;
+  }
+
+  if (shouldIgnoreTemplateShortcut(element)) {
+    return true;
+  }
+
+  return Boolean(
+    element.closest(
+      "a, button, [role='button'], [role='checkbox'], [role='switch'], [role='menuitem']",
+    ),
+  );
+}
+
 function CategoryBadgeGroup({
   value,
   language,
@@ -3052,6 +3074,17 @@ function EmailComposerDialog({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (
+      event.key === "Enter" &&
+      email?.step === "compose" &&
+      canPreview &&
+      !shouldIgnoreTemplatePreviewShortcut(event.target, event.currentTarget)
+    ) {
+      event.preventDefault();
+      update({ step: "preview" });
+      return;
+    }
+
     if (!canChangeTemplate || shouldIgnoreTemplateShortcut(event.target)) {
       return;
     }
@@ -3070,7 +3103,17 @@ function EmailComposerDialog({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent
+        data-crm-email-composer-dialog
+        tabIndex={-1}
         className="crm-control-surface sm:max-w-5xl"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          window.requestAnimationFrame(() => {
+            document
+              .querySelector<HTMLElement>("[data-crm-email-composer-dialog]")
+              ?.focus();
+          });
+        }}
         onKeyDown={handleKeyDown}
       >
         <DialogHeader>

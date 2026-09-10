@@ -782,6 +782,12 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Send CRM email",
     });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(dialog);
+    });
+    expect(document.activeElement).not.toBe(
+      within(dialog).getByDisplayValue("federico@goldencrowvs.com"),
+    );
 
     await waitFor(() => {
       expect(
@@ -816,6 +822,11 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       expect(
         (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
       ).toBe("Second Delete Me Genomics");
+    });
+
+    fireEvent.keyDown(dialog, { key: "Enter" });
+    await waitFor(() => {
+      expect(within(dialog).getByText("Ready to send")).toBeTruthy();
     });
   });
 
