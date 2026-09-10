@@ -563,6 +563,34 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(screen.getAllByText("Third Keyboard Genetics")).toHaveLength(1);
   });
 
+  it("shows a keyboard-adjustable CRM detail panel separator", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    expect(
+      screen.queryByRole("separator", { name: "Resize CRM detail panel" }),
+    ).toBeNull();
+
+    await user.click(screen.getByText("Delete Me Genomics"));
+
+    const separator = await screen.findByRole("separator", {
+      name: "Resize CRM detail panel",
+    });
+    expect(separator.getAttribute("aria-valuenow")).toBe("40");
+
+    fireEvent.keyDown(separator, { key: "ArrowLeft" });
+    expect(separator.getAttribute("aria-valuenow")).toBe("44");
+
+    fireEvent.keyDown(separator, { key: "End" });
+    expect(separator.getAttribute("aria-valuenow")).toBe("67");
+
+    fireEvent.keyDown(separator, { key: "Home" });
+    expect(separator.getAttribute("aria-valuenow")).toBe("33");
+  });
+
   it("places the send email CTA below the selected record notes", async () => {
     const user = userEvent.setup();
     renderWorkbench();

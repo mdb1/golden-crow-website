@@ -5,9 +5,11 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,6 +34,7 @@ import {
   ExternalLink,
   FileUp,
   Filter,
+  GripVertical,
   ListChecks,
   Mail,
   Pause,
@@ -166,6 +169,17 @@ const VISUAL_FILTER_COLORS = [
   "#0f766e",
 ] as const;
 const MAX_VISUAL_FILTER_BUCKETS = 5;
+const CRM_DETAIL_PANEL_MIN_WIDTH_PERCENT = 100 / 3;
+const CRM_DETAIL_PANEL_MAX_WIDTH_PERCENT = 200 / 3;
+const CRM_DETAIL_PANEL_DEFAULT_WIDTH_PERCENT = 40;
+const CRM_DETAIL_PANEL_KEYBOARD_STEP_PERCENT = 4;
+
+function clampCrmDetailPanelWidthPercent(value: number) {
+  return Math.min(
+    CRM_DETAIL_PANEL_MAX_WIDTH_PERCENT,
+    Math.max(CRM_DETAIL_PANEL_MIN_WIDTH_PERCENT, value),
+  );
+}
 
 type CrmTargetInput =
   PartnershipCrmOrganizationInput | PartnershipCrmProfessionalInput;
@@ -4301,6 +4315,11 @@ export function PartnershipCrmWorkbench() {
     () => new Set(),
   );
   const [detailPanelOpen, setDetailPanelOpen] = useState(false);
+  const splitPaneRef = useRef<HTMLDivElement | null>(null);
+  const [detailPanelWidthPercent, setDetailPanelWidthPercent] = useState(
+    CRM_DETAIL_PANEL_DEFAULT_WIDTH_PERCENT,
+  );
+  const [detailPanelResizing, setDetailPanelResizing] = useState(false);
   const [organizationDialog, setOrganizationDialog] =
     useState<OrganizationDialogState>(null);
   const [deleteTarget, setDeleteTarget] =
@@ -4402,6 +4421,70 @@ export function PartnershipCrmWorkbench() {
     selectedVisibleTargetCount > 0 &&
     selectedVisibleTargetCount < organizations.length;
   const showDetailPanel = Boolean(detailPanelOpen && selectedOrganization);
+  const splitPaneStyle = showDetailPanel
+    ? ({
+        "--crm-list-panel-width": `${100 - detailPanelWidthPercent}fr`,
+        "--crm-detail-panel-width": `${detailPanelWidthPercent}fr`,
+      } as CSSProperties)
+    : undefined;
+
+  function setDetailPanelWidthFromClientX(clientX: number) {
+    const bounds = splitPaneRef.current?.getBoundingClientRect();
+    if (!bounds || bounds.width <= 0) {
+      return;
+    }
+
+    const nextWidth = ((bounds.right - clientX) / bounds.width) * 100;
+    setDetailPanelWidthPercent(
+      clampCrmDetailPanelWidthPercent(Math.round(nextWidth * 10) / 10),
+    );
+  }
+
+  function handleDetailPanelResizePointerDown(
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    setDetailPanelWidthFromClientX(event.clientX);
+    setDetailPanelResizing(true);
+  }
+
+  function adjustDetailPanelWidth(delta: number) {
+    setDetailPanelWidthPercent((current) =>
+      clampCrmDetailPanelWidthPercent(current + delta),
+    );
+  }
+
+  function handleDetailPanelResizeKeyDown(
+    event: KeyboardEvent<HTMLDivElement>,
+  ) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      adjustDetailPanelWidth(CRM_DETAIL_PANEL_KEYBOARD_STEP_PERCENT);
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      adjustDetailPanelWidth(-CRM_DETAIL_PANEL_KEYBOARD_STEP_PERCENT);
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      setDetailPanelWidthPercent(CRM_DETAIL_PANEL_MIN_WIDTH_PERCENT);
+      return;
+    }
+
+    if (event.key === "End") {
+      event.preventDefault();
+      setDetailPanelWidthPercent(CRM_DETAIL_PANEL_MAX_WIDTH_PERCENT);
+    }
+  }
+
   const activitiesQuery = useInfiniteQuery({
     queryKey: [ACTIVITIES_QUERY_KEY, targetKind, selectedOrganization?.id],
     queryFn: ({ pageParam }) => {
@@ -4510,6 +4593,38 @@ export function PartnershipCrmWorkbench() {
     setImportPreview(previewFromImportSession(restoredSession));
     setParseErrors(restoredSession.parseErrors);
   }, [targetKind]);
+
+  useEffect(() => {
+    if (!detailPanelResizing) {
+      return;
+    }
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    function handlePointerMove(event: PointerEvent) {
+      event.preventDefault();
+      setDetailPanelWidthFromClientX(event.clientX);
+    }
+
+    function stopResizing() {
+      setDetailPanelResizing(false);
+    }
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResizing);
+    window.addEventListener("pointercancel", stopResizing);
+
+    return () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResizing);
+      window.removeEventListener("pointercancel", stopResizing);
+    };
+  }, [detailPanelResizing]);
 
   useEffect(() => {
     if (!organizations.length) {
@@ -5928,13 +6043,17 @@ export function PartnershipCrmWorkbench() {
       </div>
 
       <div
+        ref={splitPaneRef}
         className={cn(
           "grid gap-4",
           showDetailPanel &&
-            "xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.72fr)]",
+            "xl:grid-cols-[minmax(0,var(--crm-list-panel-width))_1rem_minmax(0,var(--crm-detail-panel-width))] xl:items-start xl:gap-0",
         )}
+        style={splitPaneStyle}
       >
-        <div className="grid content-start gap-4">
+        <div
+          className={cn("grid content-start gap-4", showDetailPanel && "xl:pr-2")}
+        >
           <div className="grid items-start gap-2 sm:grid-cols-5">
             {PIPELINE_STATUSES.map((status) => {
               const tone = pipelineStatusTone(
@@ -6237,8 +6356,35 @@ export function PartnershipCrmWorkbench() {
           </div>
         </div>
 
+        {showDetailPanel ? (
+          <div
+            role="separator"
+            tabIndex={0}
+            aria-label={t("Resize CRM detail panel")}
+            aria-orientation="vertical"
+            aria-valuemin={Math.round(CRM_DETAIL_PANEL_MIN_WIDTH_PERCENT)}
+            aria-valuemax={Math.round(CRM_DETAIL_PANEL_MAX_WIDTH_PERCENT)}
+            aria-valuenow={Math.round(detailPanelWidthPercent)}
+            className={cn(
+              "group sticky top-[calc(var(--app-header-height)_+_1rem)] hidden h-96 max-h-[calc(100vh_-_var(--app-header-height)_-_3rem)] cursor-col-resize touch-none select-none items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/45 xl:flex",
+              detailPanelResizing && "bg-primary/8",
+            )}
+            onPointerDown={handleDetailPanelResizePointerDown}
+            onKeyDown={handleDetailPanelResizeKeyDown}
+          >
+            <div
+              className={cn(
+                "flex h-16 w-4 items-center justify-center rounded-full border border-border/80 bg-background/90 text-muted-foreground shadow-sm transition-colors group-hover:border-primary/45 group-hover:text-foreground group-focus-visible:border-primary/60",
+                detailPanelResizing && "border-primary/60 text-foreground",
+              )}
+            >
+              <GripVertical className="h-4 w-4" />
+            </div>
+          </div>
+        ) : null}
+
         {showDetailPanel && selectedOrganization ? (
-          <aside className="grid gap-4">
+          <aside className="grid gap-4 xl:pl-2">
             <div className="rounded-xl border border-border/80 bg-background/70 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
