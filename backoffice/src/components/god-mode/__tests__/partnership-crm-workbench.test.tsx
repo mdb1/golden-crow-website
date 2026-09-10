@@ -2317,6 +2317,11 @@ describe("PartnershipCrmWorkbench list pager", () => {
       "Select visual filter from legend: LinkedIn availability - Has LinkedIn",
       "Select visual filter from legend: LinkedIn availability - Missing LinkedIn",
     ]);
+    expect(
+      within(statusSection as HTMLElement).getByTestId(
+        "visual-filter-center-count-status",
+      ).textContent,
+    ).toBe("1");
 
     await user.click(
       within(dialog).getByRole("button", {
@@ -2325,6 +2330,11 @@ describe("PartnershipCrmWorkbench list pager", () => {
     );
 
     expect(within(selectedStatusBlock).getByText("CRM Contacted")).toBeTruthy();
+    expect(
+      within(statusSection as HTMLElement).getByTestId(
+        "visual-filter-center-count-status",
+      ).textContent,
+    ).toBe("2");
     await user.click(
       within(selectedStatusBlock).getByRole("button", {
         name: "Clear selection",
@@ -2340,12 +2350,46 @@ describe("PartnershipCrmWorkbench list pager", () => {
         })
         .getAttribute("aria-pressed"),
     ).toBe("false");
+    expect(
+      within(statusSection as HTMLElement).getByTestId(
+        "visual-filter-center-count-status",
+      ).textContent,
+    ).toBe("16");
     await user.click(
       within(dialog).getByRole("button", {
         name: "Select visual filter from pie: Status - CRM Contacted",
       }),
     );
     expect(within(selectedStatusBlock).getByText("CRM Contacted")).toBeTruthy();
+    expect(
+      within(statusSection as HTMLElement).getByTestId(
+        "visual-filter-center-count-status",
+      ).textContent,
+    ).toBe("2");
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Select visual filter from pie: Status - CRM Contacted",
+      }),
+    );
+    expect(
+      within(selectedStatusBlock).getByText("No segment selected"),
+    ).toBeTruthy();
+    expect(
+      within(statusSection as HTMLElement).getByTestId(
+        "visual-filter-center-count-status",
+      ).textContent,
+    ).toBe("16");
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Select visual filter from pie: Status - CRM Contacted",
+      }),
+    );
+    expect(within(selectedStatusBlock).getByText("CRM Contacted")).toBeTruthy();
+    expect(
+      within(statusSection as HTMLElement).getByTestId(
+        "visual-filter-center-count-status",
+      ).textContent,
+    ).toBe("2");
     expect(
       within(statusSection as HTMLElement)
         .getByRole("button", {

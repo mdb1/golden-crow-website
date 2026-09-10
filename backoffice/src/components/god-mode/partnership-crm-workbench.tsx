@@ -2736,6 +2736,7 @@ function VisualFilterPieSection({
   const visibleBuckets = buckets.slice(0, MAX_VISUAL_FILTER_BUCKETS);
   const overflowBuckets = buckets.slice(MAX_VISUAL_FILTER_BUCKETS);
   const pieTotal = buckets.reduce((total, bucket) => total + bucket.count, 0);
+  const centerCount = selectedBucket?.count ?? facet.total;
   let runningAngle = 0;
   const pieSegments = buckets.map((bucket) => {
     const startAngle = runningAngle;
@@ -2752,6 +2753,11 @@ function VisualFilterPieSection({
   });
 
   function selectBucket(bucket: VisualFilterBucketView) {
+    if (bucket.value === selectedBucket?.value) {
+      onClearSelection(facet.key);
+      return;
+    }
+
     onSelect({ facetKey: facet.key, value: bucket.value });
   }
 
@@ -2861,9 +2867,10 @@ function VisualFilterPieSection({
               x="60"
               y="57"
               textAnchor="middle"
+              data-testid={`visual-filter-center-count-${facet.key}`}
               className="fill-foreground text-sm font-semibold"
             >
-              {facet.total}
+              {centerCount}
             </text>
             <text
               x="60"
