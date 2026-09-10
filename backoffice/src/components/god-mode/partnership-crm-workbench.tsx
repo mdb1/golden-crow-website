@@ -3108,11 +3108,9 @@ function EmailComposerDialog({
         className="crm-control-surface sm:max-w-5xl"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
-          window.requestAnimationFrame(() => {
-            document
-              .querySelector<HTMLElement>("[data-crm-email-composer-dialog]")
-              ?.focus();
-          });
+          document
+            .querySelector<HTMLElement>("[data-crm-email-composer-dialog]")
+            ?.focus();
         }}
         onKeyDown={handleKeyDown}
       >
@@ -4532,6 +4530,7 @@ export function PartnershipCrmWorkbench() {
   const [detailPanelOpen, setDetailPanelOpen] = useState(false);
   const splitPaneRef = useRef<HTMLDivElement | null>(null);
   const targetRowRefs = useRef(new Map<string, HTMLTableRowElement>());
+  const centerSplitPaneOnSelectionRef = useRef(false);
   const [detailPanelWidthPercent, setDetailPanelWidthPercent] = useState(
     CRM_DETAIL_PANEL_DEFAULT_WIDTH_PERCENT,
   );
@@ -4923,6 +4922,7 @@ export function PartnershipCrmWorkbench() {
         return;
       }
 
+      centerSplitPaneOnSelectionRef.current = true;
       setSelectedId(nextSelection.id);
       setDetailPanelOpen(true);
     }
@@ -4938,11 +4938,20 @@ export function PartnershipCrmWorkbench() {
 
     const selectedRow = targetRowRefs.current.get(selectedId);
     if (!selectedRow || typeof selectedRow.scrollIntoView !== "function") {
+      centerSplitPaneOnSelectionRef.current = false;
       return;
     }
 
     const frame = window.requestAnimationFrame(() => {
       selectedRow.scrollIntoView({ block: "nearest", inline: "nearest" });
+
+      if (centerSplitPaneOnSelectionRef.current) {
+        centerSplitPaneOnSelectionRef.current = false;
+        splitPaneRef.current?.scrollIntoView({
+          block: "center",
+          inline: "nearest",
+        });
+      }
     });
 
     return () => window.cancelAnimationFrame(frame);

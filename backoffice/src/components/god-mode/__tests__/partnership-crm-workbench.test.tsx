@@ -576,6 +576,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
           inline: "nearest",
         });
       });
+      expect(scrollIntoView).not.toHaveBeenCalledWith({
+        block: "center",
+        inline: "nearest",
+      });
       scrollIntoView.mockClear();
 
       fireEvent.keyDown(window, { key: "ArrowDown" });
@@ -583,6 +587,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         expect(screen.getAllByText("Second Keyboard Genetics")).toHaveLength(2);
         expect(scrollIntoView).toHaveBeenCalledWith({
           block: "nearest",
+          inline: "nearest",
+        });
+        expect(scrollIntoView).toHaveBeenCalledWith({
+          block: "center",
           inline: "nearest",
         });
       });
@@ -596,6 +604,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
           block: "nearest",
           inline: "nearest",
         });
+        expect(scrollIntoView).toHaveBeenCalledWith({
+          block: "center",
+          inline: "nearest",
+        });
       });
       expect(screen.getAllByText("Second Keyboard Genetics")).toHaveLength(1);
       scrollIntoView.mockClear();
@@ -605,6 +617,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         expect(screen.getAllByText("Second Keyboard Genetics")).toHaveLength(2);
         expect(scrollIntoView).toHaveBeenCalledWith({
           block: "nearest",
+          inline: "nearest",
+        });
+        expect(scrollIntoView).toHaveBeenCalledWith({
+          block: "center",
           inline: "nearest",
         });
       });
