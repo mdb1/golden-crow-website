@@ -3180,77 +3180,6 @@ function OrganizationFacts({
               {professional.title || "—"}
             </p>
           </div>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <UserRound className="h-3.5 w-3.5" />
-              {t("Potential Pocket Genes editor fit")}
-            </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-foreground">
-              {professional.potentialPocketGenesEditorFit || "—"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <Mail className="h-3.5 w-3.5" />
-              {t("Email route")}
-            </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-foreground">
-              {professional.emailRoute || "—"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <ExternalLink className="h-3.5 w-3.5" />
-              {t("LinkedIn route")}
-            </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-foreground">
-              {professional.linkedInRoute || "—"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <ListChecks className="h-3.5 w-3.5" />
-              {t("Research basis")}
-            </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-foreground">
-              {professional.researchBasis || "—"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <Braces className="h-3.5 w-3.5" />
-              {t("Variable fields")}
-            </div>
-            <div className="mt-3 overflow-hidden rounded-lg border border-border/80">
-              <table className="w-full text-left text-xs">
-                <tbody>
-                  {crmTemplateVariablesForTarget("professionals").map(
-                    (variable) => {
-                      const value = crmTemplateVariableRawValue(
-                        variable.key,
-                        professional,
-                        "professionals",
-                      );
-
-                      return (
-                        <tr
-                          key={variable.key}
-                          className="border-b border-border/60 last:border-b-0"
-                        >
-                          <th className="w-[42%] bg-muted/35 px-2 py-1.5 align-top font-mono font-semibold text-muted-foreground">
-                            {variable.token}
-                          </th>
-                          <td className="px-2 py-1.5 align-top text-foreground">
-                            {value || "—"}
-                          </td>
-                        </tr>
-                      );
-                    },
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </>
       ) : null}
       <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
@@ -3303,6 +3232,72 @@ function OrganizationFacts({
         )}
       </div>
     </div>
+  );
+}
+
+function MoreInformationField({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </p>
+      <div className="whitespace-pre-wrap text-sm font-medium leading-6 text-foreground/88">
+        {value || "—"}
+      </div>
+    </div>
+  );
+}
+
+function MoreInformationSection({
+  organization,
+  targetKind,
+  language,
+}: {
+  organization: PartnershipCrmTargetRecord;
+  targetKind: PartnershipCrmTargetKind;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const professional = organization as PartnershipCrmProfessionalRecord;
+
+  return (
+    <section className="mt-5 border-t border-border/80 pt-5">
+      <h3 className="font-heading text-base font-semibold text-foreground">
+        {t("More information")}
+      </h3>
+      <div className="mt-4 grid gap-4">
+        {targetKind === "professionals" ? (
+          <>
+            <MoreInformationField
+              label={t("Potential Pocket Genes editor fit")}
+              value={professional.potentialPocketGenesEditorFit || "—"}
+            />
+            <MoreInformationField
+              label={t("Email route")}
+              value={professional.emailRoute || "—"}
+            />
+            <MoreInformationField
+              label={t("LinkedIn route")}
+              value={professional.linkedInRoute || "—"}
+            />
+            <MoreInformationField
+              label={t("Research basis")}
+              value={professional.researchBasis || "—"}
+            />
+          </>
+        ) : null}
+        <MoreInformationField
+          label={t("Notes")}
+          value={organization.notes || t("No notes yet.")}
+        />
+      </div>
+    </section>
   );
 }
 
@@ -8675,15 +8670,6 @@ export function PartnershipCrmWorkbench() {
                 />
               </div>
 
-              <div className="mt-4 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  {t("Notes")}
-                </p>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground/88">
-                  {selectedOrganization.notes || t("No notes yet.")}
-                </p>
-              </div>
-
               <Button
                 type="button"
                 size="lg"
@@ -8694,6 +8680,12 @@ export function PartnershipCrmWorkbench() {
                 <Mail className="h-4 w-4" />
                 {t("Send Email")}
               </Button>
+
+              <MoreInformationSection
+                organization={selectedOrganization}
+                targetKind={targetKind}
+                language={language}
+              />
             </div>
           </aside>
         ) : null}

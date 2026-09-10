@@ -800,7 +800,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(separator.getAttribute("aria-valuenow")).toBe("33");
   });
 
-  it("places the send email CTA below the selected record notes", async () => {
+  it("places the send email CTA above the secondary more information block", async () => {
     const user = userEvent.setup();
     renderWorkbench();
 
@@ -809,14 +809,20 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
     await user.click(screen.getByText("Delete Me Genomics"));
 
+    const sendButton = screen.getByRole("button", { name: "Send Email" });
+    const moreInformationHeading = screen.getByText("More information");
     const notesHeading = screen
       .getAllByText("Notes")
       .find((element) => element.tagName !== "TH");
-    const sendButton = screen.getByRole("button", { name: "Send Email" });
 
+    expect(moreInformationHeading).toBeTruthy();
     expect(notesHeading).toBeTruthy();
     expect(
-      notesHeading!.compareDocumentPosition(sendButton) &
+      sendButton.compareDocumentPosition(moreInformationHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      moreInformationHeading.compareDocumentPosition(notesHeading!) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(sendButton.className).toContain("w-full");
@@ -1563,10 +1569,11 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(screen.getByText("Email route")).toBeTruthy();
     expect(screen.getByText("LinkedIn route")).toBeTruthy();
     expect(screen.getByText("Research basis")).toBeTruthy();
-    expect(screen.getByText("Variable fields")).toBeTruthy();
+    expect(screen.getByText("More information")).toBeTruthy();
+    expect(screen.queryByText("Variable fields")).toBeNull();
     expect(
-      screen.getByText("{{potential_pocket_genes_editor_fit}}"),
-    ).toBeTruthy();
+      screen.queryByText("{{potential_pocket_genes_editor_fit}}"),
+    ).toBeNull();
     expect(screen.getAllByText("ada@genomelab.example").length).toBeGreaterThan(
       0,
     );

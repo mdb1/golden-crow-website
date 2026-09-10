@@ -1632,6 +1632,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No owner recorded": "Sin responsable registrado",
   "Open profile": "Abrir perfil",
   "No notes yet.": "Sin notas todavía.",
+  "More information": "Más información",
   "No category": "Sin categoría",
   Pipeline: "Pipeline",
   "Send Email": "Enviar email",
