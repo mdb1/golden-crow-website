@@ -608,10 +608,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       "overflow-y-auto",
     );
     expect(separator.className).toContain("self-stretch");
-    expect(separator.getAttribute("aria-valuenow")).toBe("40");
+    expect(separator.getAttribute("aria-valuenow")).toBe("50");
 
     fireEvent.keyDown(separator, { key: "ArrowLeft" });
-    expect(separator.getAttribute("aria-valuenow")).toBe("44");
+    expect(separator.getAttribute("aria-valuenow")).toBe("54");
 
     fireEvent.keyDown(separator, { key: "End" });
     expect(separator.getAttribute("aria-valuenow")).toBe("67");
