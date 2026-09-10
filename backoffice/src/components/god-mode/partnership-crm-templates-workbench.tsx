@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Braces,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -20,12 +21,15 @@ import {
   FileText,
   FileUp,
   Filter,
+  GripVertical,
   ListChecks,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
   Star,
   Trash2,
+  X,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
@@ -75,7 +79,6 @@ import {
   PARTNERSHIP_CRM_FROM_EMAIL,
   normalizeCrmPrimaryCategory,
   parseCrmTemplateCsv,
-  renderCrmTemplate,
   templateStatusLabel,
   type ParsedCrmTemplateCsv,
   type PartnershipCrmOrganizationRecord,
@@ -95,64 +98,149 @@ const TEMPLATE_IMPORT_CTA_CLASS =
   "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
 const ORGANIZATION_TEMPLATE_VARIABLES = [
   {
+    key: "contact_name",
     token: "{{contact_name}}",
     label: "Contact name",
+    className:
+      "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-300/35 dark:bg-sky-400/15 dark:text-sky-100",
+    dotClassName: "bg-sky-500",
+    recommended: true,
   },
   {
+    key: "organization_name",
     token: "{{organization_name}}",
     label: "Organization name",
+    className:
+      "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-300/35 dark:bg-blue-400/15 dark:text-blue-100",
+    dotClassName: "bg-blue-500",
+    recommended: true,
   },
   {
+    key: "website",
     token: "{{website}}",
     label: "Website",
+    className:
+      "border-orange-200 bg-orange-50 text-orange-950 dark:border-orange-300/35 dark:bg-orange-400/15 dark:text-orange-100",
+    dotClassName: "bg-orange-500",
+    recommended: false,
   },
   {
+    key: "website_sentence",
     token: "{{website_sentence}}",
     label: "Website sentence",
+    className:
+      "border-lime-200 bg-lime-50 text-lime-950 dark:border-lime-300/35 dark:bg-lime-400/15 dark:text-lime-100",
+    dotClassName: "bg-lime-500",
+    recommended: true,
   },
 ] as const;
 const PROFESSIONAL_TEMPLATE_VARIABLES = [
   {
+    key: "professional_name",
     token: "{{professional_name}}",
     label: "Professional name",
+    className:
+      "border-violet-200 bg-violet-50 text-violet-900 dark:border-violet-300/35 dark:bg-violet-400/15 dark:text-violet-100",
+    dotClassName: "bg-violet-500",
+    recommended: true,
   },
   {
+    key: "first_name",
     token: "{{first_name}}",
     label: "First name",
+    className:
+      "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-900 dark:border-fuchsia-300/35 dark:bg-fuchsia-400/15 dark:text-fuchsia-100",
+    dotClassName: "bg-fuchsia-500",
+    recommended: true,
   },
   {
+    key: "primary_affiliation",
     token: "{{primary_affiliation}}",
     label: "Primary affiliation",
+    className:
+      "border-indigo-200 bg-indigo-50 text-indigo-900 dark:border-indigo-300/35 dark:bg-indigo-400/15 dark:text-indigo-100",
+    dotClassName: "bg-indigo-500",
+    recommended: true,
   },
   {
+    key: "potential_pocket_genes_editor_fit",
     token: "{{potential_pocket_genes_editor_fit}}",
     label: "Potential Pocket Genes editor fit",
+    className:
+      "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-300/35 dark:bg-emerald-400/15 dark:text-emerald-100",
+    dotClassName: "bg-emerald-500",
+    recommended: true,
   },
   {
+    key: "email_route",
     token: "{{email_route}}",
     label: "Email route",
+    className:
+      "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-300/35 dark:bg-amber-400/15 dark:text-amber-100",
+    dotClassName: "bg-amber-500",
+    recommended: false,
   },
   {
+    key: "linkedin_route",
     token: "{{linkedin_route}}",
     label: "LinkedIn route",
+    className:
+      "border-cyan-200 bg-cyan-50 text-cyan-900 dark:border-cyan-300/35 dark:bg-cyan-400/15 dark:text-cyan-100",
+    dotClassName: "bg-cyan-500",
+    recommended: false,
   },
   {
+    key: "research_basis",
     token: "{{research_basis}}",
     label: "Research basis",
+    className:
+      "border-teal-200 bg-teal-50 text-teal-900 dark:border-teal-300/35 dark:bg-teal-400/15 dark:text-teal-100",
+    dotClassName: "bg-teal-500",
+    recommended: false,
   },
   {
+    key: "title",
     token: "{{title}}",
     label: "Role / specialty",
+    className:
+      "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-300/35 dark:bg-rose-400/15 dark:text-rose-100",
+    dotClassName: "bg-rose-500",
+    recommended: true,
   },
   {
+    key: "website",
     token: "{{website}}",
     label: "Website",
+    className:
+      "border-orange-200 bg-orange-50 text-orange-950 dark:border-orange-300/35 dark:bg-orange-400/15 dark:text-orange-100",
+    dotClassName: "bg-orange-500",
+    recommended: false,
   },
   {
+    key: "website_sentence",
     token: "{{website_sentence}}",
     label: "Website sentence",
+    className:
+      "border-lime-200 bg-lime-50 text-lime-950 dark:border-lime-300/35 dark:bg-lime-400/15 dark:text-lime-100",
+    dotClassName: "bg-lime-500",
+    recommended: false,
   },
 ] as const;
+
+type TemplateVariableDefinition = {
+  key: string;
+  token: string;
+  label: string;
+  className: string;
+  dotClassName: string;
+  recommended: boolean;
+};
+
+type TemplateQuickPatch = Partial<
+  Pick<PartnershipCrmTemplateInput, "category" | "status" | "notes" | "is_favorite">
+>;
+
+const TEMPLATE_VARIABLE_PATTERN = /\{\{([a-z_]+)\}\}/g;
 
 const TEMPLATE_IMPORT_PREVIEW_LIMIT = 50;
 
@@ -258,7 +346,7 @@ const SAMPLE_PROFESSIONAL: PartnershipCrmProfessionalRecord = {
   title: "Genetista clinica",
   primaryAffiliation: "Hospital Genomico",
   potentialPocketGenesEditorFit:
-    "Clinical genetics, genetic testing, result interpretation and patient education.",
+    "Clinical genetics, genetic testing, result interpretation and patient education",
   emailRoute:
     "Publicly listed professional or official institutional contact address.",
   linkedInRoute: "Official LinkedIn page of the affiliated organization.",
@@ -282,6 +370,196 @@ function sampleTargetForAudience(
   return audience === "professionals"
     ? SAMPLE_PROFESSIONAL
     : SAMPLE_ORGANIZATION;
+}
+
+function templateVariablesForAudience(
+  audience: PartnershipCrmTemplateAudience,
+): readonly TemplateVariableDefinition[] {
+  return audience === "professionals"
+    ? PROFESSIONAL_TEMPLATE_VARIABLES
+    : ORGANIZATION_TEMPLATE_VARIABLES;
+}
+
+function sampleVariableValue(
+  key: string,
+  target: PartnershipCrmTargetRecord,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  const organization = target as PartnershipCrmOrganizationRecord;
+  const professional = target as PartnershipCrmProfessionalRecord;
+  const website =
+    audience === "professionals"
+      ? professional.website || professional.websiteDomain
+      : organization.website || organization.websiteDomain;
+
+  switch (key) {
+    case "contact_name":
+      return audience === "professionals"
+        ? professional.name || "equipo"
+        : organization.contactName || "equipo";
+    case "organization_name":
+      return audience === "professionals"
+        ? professional.primaryAffiliation || professional.name
+        : organization.name;
+    case "professional_name":
+      return audience === "professionals"
+        ? professional.name
+        : organization.contactName || organization.name;
+    case "first_name": {
+      const name =
+        audience === "professionals"
+          ? professional.name
+          : organization.contactName || organization.name;
+      return name.trim().split(/\s+/)[0] ?? "";
+    }
+    case "primary_affiliation":
+      return audience === "professionals" ? professional.primaryAffiliation : "";
+    case "potential_pocket_genes_editor_fit":
+      return audience === "professionals"
+        ? professional.potentialPocketGenesEditorFit
+        : "";
+    case "email_route":
+      return audience === "professionals" ? professional.emailRoute : "";
+    case "linkedin_route":
+      return audience === "professionals" ? professional.linkedInRoute : "";
+    case "research_basis":
+      return audience === "professionals" ? professional.researchBasis : "";
+    case "title":
+      return audience === "professionals" ? professional.title : "";
+    case "website":
+      return website;
+    case "website_sentence":
+      return target.websiteDomain ? ` (${target.websiteDomain})` : "";
+    default:
+      return "";
+  }
+}
+
+function renderTemplatePreviewText(
+  value: string,
+  target: PartnershipCrmTargetRecord,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return value.replace(TEMPLATE_VARIABLE_PATTERN, (_, key: string) => {
+    const rawValue = sampleVariableValue(key, target, audience);
+    return key === "potential_pocket_genes_editor_fit" && rawValue
+      ? `"${rawValue}"`
+      : rawValue;
+  });
+}
+
+function renderTemplatePreviewNodes(
+  value: string,
+  target: PartnershipCrmTargetRecord,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+
+  for (const match of value.matchAll(TEMPLATE_VARIABLE_PATTERN)) {
+    const [token, key] = match;
+    const index = match.index ?? 0;
+    if (index > cursor) {
+      nodes.push(value.slice(cursor, index));
+    }
+
+    const rawValue = sampleVariableValue(key, target, audience);
+    nodes.push(
+      key === "potential_pocket_genes_editor_fit" && rawValue ? (
+        <em key={`${key}-${index}`}>{`"${rawValue}"`}</em>
+      ) : (
+        rawValue
+      ),
+    );
+    cursor = index + token.length;
+  }
+
+  if (cursor < value.length) {
+    nodes.push(value.slice(cursor));
+  }
+
+  return nodes.length > 0 ? nodes : null;
+}
+
+function uniqueTemplateTokens(value: string) {
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+
+  for (const match of value.matchAll(TEMPLATE_VARIABLE_PATTERN)) {
+    const token = match[0];
+    if (!seen.has(token)) {
+      seen.add(token);
+      tokens.push(token);
+    }
+  }
+
+  return tokens;
+}
+
+function templateUsageFor(template: PartnershipCrmTemplateRecord) {
+  const subjectTokens = uniqueTemplateTokens(template.subject);
+  const bodyTokens = uniqueTemplateTokens(template.body);
+  const allTokens = Array.from(new Set([...subjectTokens, ...bodyTokens]));
+  const definitions = templateVariablesForAudience(template.audience);
+  const definitionByToken = new Map(
+    definitions.map((variable) => [variable.token, variable]),
+  );
+  const knownTokens = allTokens.filter((token) => definitionByToken.has(token));
+  const unknownTokens = allTokens.filter(
+    (token) => !definitionByToken.has(token),
+  );
+
+  return {
+    subjectTokens,
+    bodyTokens,
+    allTokens,
+    knownTokens,
+    unknownTokens,
+    definitions,
+    recommendedMissing: definitions.filter(
+      (variable) => variable.recommended && !knownTokens.includes(variable.token),
+    ),
+  };
+}
+
+function templateFitAnalysis(template: PartnershipCrmTemplateRecord) {
+  const usage = templateUsageFor(template);
+  const subjectUsesVariable = usage.subjectTokens.some((token) =>
+    usage.knownTokens.includes(token),
+  );
+  const bodyVariableCount = usage.bodyTokens.filter((token) =>
+    usage.knownTokens.includes(token),
+  ).length;
+  const recommendedUsed = usage.definitions.filter(
+    (variable) =>
+      variable.recommended && usage.knownTokens.includes(variable.token),
+  ).length;
+  const recommendedTotal = Math.max(
+    usage.definitions.filter((variable) => variable.recommended).length,
+    1,
+  );
+  const score = Math.min(
+    100,
+    (subjectUsesVariable ? 20 : 0) +
+      (bodyVariableCount >= 2 ? 35 : bodyVariableCount === 1 ? 22 : 0) +
+      Math.round((recommendedUsed / recommendedTotal) * 30) +
+      (template.category ? 10 : 0) +
+      (template.is_favorite ? 5 : 0),
+  );
+  const label =
+    score >= 80
+      ? "Strong template fit"
+      : score >= 55
+        ? "Good template fit"
+        : "Needs more dynamic variables";
+
+  return {
+    ...usage,
+    score,
+    label,
+    recommendedUsed,
+    recommendedTotal,
+  };
 }
 
 function buildTemplateListPath(filters: TemplateFilters, cursor?: string) {
@@ -387,6 +665,25 @@ function templatePayload(
   };
 }
 
+function templateInputFromRecord(
+  template: PartnershipCrmTemplateRecord,
+  patch: TemplateQuickPatch = {},
+): PartnershipCrmTemplateInput {
+  const audience = template.audience ?? "organizations";
+
+  return {
+    name: template.name,
+    audience,
+    category: normalizeCrmPrimaryCategory(template.category, audience),
+    subject: template.subject,
+    body: template.body,
+    status: template.status,
+    notes: template.notes,
+    is_favorite: template.is_favorite,
+    ...patch,
+  };
+}
+
 function toFormState(
   template?: PartnershipCrmTemplateRecord,
 ): TemplateFormState {
@@ -407,24 +704,6 @@ function toFormState(
     status: template.status,
     notes: template.notes,
     is_favorite: template.is_favorite,
-  };
-}
-
-function templateRecordFromState(
-  state: TemplateFormState,
-): PartnershipCrmTemplateRecord {
-  return {
-    id: "preview",
-    schemaVersion: 1,
-    name: state.name,
-    audience: state.audience,
-    category: normalizeCrmPrimaryCategory(state.category, state.audience),
-    subject: state.subject,
-    body: state.body,
-    status: state.status,
-    notes: state.notes,
-    is_favorite: state.is_favorite,
-    normalizedName: state.name.trim().toLowerCase(),
   };
 }
 
@@ -514,8 +793,13 @@ function TemplatePreview({
 }) {
   const t = (text: string) => appText(language, text);
   const sampleTarget = sampleTargetForAudience(form.audience);
-  const rendered = renderCrmTemplate(
-    templateRecordFromState(form),
+  const renderedSubject = renderTemplatePreviewText(
+    form.subject,
+    sampleTarget,
+    form.audience,
+  );
+  const renderedBody = renderTemplatePreviewNodes(
+    form.body,
     sampleTarget,
     form.audience,
   );
@@ -528,7 +812,7 @@ function TemplatePreview({
             {t("Preview")}
           </p>
           <h3 className="mt-1 truncate font-heading text-lg font-semibold">
-            {rendered.subject || t("No subject")}
+            {renderedSubject || t("No subject")}
           </h3>
         </div>
         <Badge variant="outline">{t("Preview sample")}</Badge>
@@ -550,7 +834,320 @@ function TemplatePreview({
         </p>
       </div>
       <div className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:border dark:border-white/40 dark:bg-black dark:text-white">
-        {rendered.body || t("No message yet.")}
+        {renderedBody || t("No message yet.")}
+      </div>
+    </aside>
+  );
+}
+
+function TemplateVariablePill({
+  variable,
+  muted = false,
+}: {
+  variable: TemplateVariableDefinition;
+  muted?: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 font-mono text-[0.72rem] font-semibold leading-5",
+        variable.className,
+        muted && "opacity-45",
+      )}
+    >
+      {variable.token}
+    </span>
+  );
+}
+
+function TemplatePreviewSidePanel({
+  template,
+  notesDraft,
+  onNotesDraftChange,
+  onQuickUpdate,
+  onClose,
+  pending,
+  language,
+}: {
+  template: PartnershipCrmTemplateRecord;
+  notesDraft: string;
+  onNotesDraftChange: (value: string) => void;
+  onQuickUpdate: (patch: TemplateQuickPatch) => void;
+  onClose: () => void;
+  pending: boolean;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const analysis = templateFitAnalysis(template);
+  const target = sampleTargetForAudience(template.audience);
+  const renderedSubject = renderTemplatePreviewText(
+    template.subject,
+    target,
+    template.audience,
+  );
+  const renderedBody = renderTemplatePreviewNodes(
+    template.body,
+    target,
+    template.audience,
+  );
+  const notesChanged = notesDraft !== template.notes;
+
+  return (
+    <aside
+      data-testid="template-preview-panel"
+      className="grid gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-auto xl:pl-2"
+    >
+      <div className="rounded-xl border border-border/80 bg-background/70 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <TemplateStatusBadge
+                status={template.status}
+                language={language}
+              />
+              <Badge variant="outline">
+                {template.audience === "professionals"
+                  ? t("Professionals")
+                  : t("Organizations")}
+              </Badge>
+              {template.is_favorite ? (
+                <Badge variant="warning">
+                  <Star className="h-3.5 w-3.5 fill-amber-400" />
+                  {t("Favorite")}
+                </Badge>
+              ) : null}
+            </div>
+            <h3 className="mt-2 truncate font-heading text-xl font-semibold text-foreground">
+              {template.name}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {formatCrmCategory(
+                template.category,
+                language,
+                template.audience,
+              ) || t("No category")}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" asChild>
+              <Link
+                href={`/god-mode/plantillas/${encodeURIComponent(
+                  template.id,
+                )}`}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                {t("Edit text")}
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t("Hide details")}
+              title={t("Hide details")}
+              onClick={onClose}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="space-y-1.5">
+              <Label>{t("Status")}</Label>
+              <Select
+                value={template.status}
+                onValueChange={(value) =>
+                  onQuickUpdate({
+                    status: value as PartnershipCrmTemplateStatus,
+                  })
+                }
+                disabled={pending}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="crm-control-dropdown">
+                  {CRM_TEMPLATE_STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {t(option.label)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="template-panel-favorite">{t("Favorite")}</Label>
+              <div className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3">
+                <Checkbox
+                  id="template-panel-favorite"
+                  checked={template.is_favorite}
+                  onCheckedChange={(checked) =>
+                    onQuickUpdate({ is_favorite: checked === true })
+                  }
+                  disabled={pending}
+                />
+                <Star
+                  aria-hidden="true"
+                  className={cn(
+                    "h-4 w-4",
+                    template.is_favorite
+                      ? "fill-amber-400 text-amber-500"
+                      : "text-muted-foreground/50",
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="template-panel-category">{t("Category")}</Label>
+            <CrmCategorySelect
+              id="template-panel-category"
+              value={template.category}
+              onChange={(category) => onQuickUpdate({ category })}
+              language={language}
+              mode="form"
+              audience={template.audience}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/80 bg-background/70 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {t("Template fit")}
+            </p>
+            <h4 className="mt-1 font-heading text-lg font-semibold">
+              {t(analysis.label)}
+            </h4>
+          </div>
+          <div className="rounded-full border border-border/80 bg-muted/30 px-3 py-1 text-sm font-semibold">
+            {analysis.score}%
+          </div>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-blue-600 dark:bg-blue-400"
+            style={{ width: `${analysis.score}%` }}
+          />
+        </div>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          {analysis.recommendedMissing.length > 0
+            ? `${t("Recommended variables missing")}: ${analysis.recommendedMissing
+                .map((variable) => variable.token)
+                .join(", ")}`
+            : t("Uses the recommended dynamic variables for this audience.")}
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-border/80 bg-background/70 p-4">
+        <div className="flex items-center gap-2">
+          <Braces className="h-4 w-4 text-muted-foreground" />
+          <h4 className="font-heading text-sm font-semibold">
+            {t("Variables")}
+          </h4>
+        </div>
+        <div className="mt-3 overflow-hidden rounded-lg border border-border/80">
+          <table className="w-full text-left text-xs">
+            <tbody>
+              {analysis.definitions.map((variable) => {
+                const usedInSubject = analysis.subjectTokens.includes(
+                  variable.token,
+                );
+                const usedInBody = analysis.bodyTokens.includes(variable.token);
+                const used = usedInSubject || usedInBody;
+
+                return (
+                  <tr
+                    key={variable.token}
+                    className="border-b border-border/60 last:border-b-0"
+                  >
+                    <th className="bg-muted/30 px-2 py-2 align-top">
+                      <TemplateVariablePill variable={variable} muted={!used} />
+                    </th>
+                    <td className="px-2 py-2 align-top text-muted-foreground">
+                      {used ? (
+                        <div className="flex flex-wrap gap-1">
+                          {usedInSubject ? (
+                            <Badge variant="outline">{t("Subject")}</Badge>
+                          ) : null}
+                          {usedInBody ? (
+                            <Badge variant="outline">{t("Message")}</Badge>
+                          ) : null}
+                        </div>
+                      ) : (
+                        t("Not used")
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {analysis.unknownTokens.length > 0 ? (
+          <p className="mt-3 text-sm text-destructive">
+            {t("Unknown variables render blank")}:{" "}
+            {analysis.unknownTokens.join(", ")}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="rounded-xl border border-border/80 bg-white p-4 text-slate-950 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:border-white/70 dark:bg-black dark:text-white">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              {t("Preview")}
+            </p>
+            <h4 className="mt-1 truncate font-heading text-lg font-semibold">
+              {renderedSubject || t("No subject")}
+            </h4>
+          </div>
+          <Badge variant="outline">{t("Read only")}</Badge>
+        </div>
+        <div className="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-300">
+          <p className="truncate">
+            <span className="font-semibold text-slate-900 dark:text-slate-50">
+              {t("From")}:
+            </span>{" "}
+            {PARTNERSHIP_CRM_FROM_EMAIL}
+          </p>
+          <p className="truncate">
+            <span className="font-semibold text-slate-900 dark:text-slate-50">
+              {t("Recipient")}:
+            </span>{" "}
+            {template.audience === "professionals"
+              ? SAMPLE_PROFESSIONAL.email
+              : SAMPLE_ORGANIZATION.contactEmail}
+          </p>
+        </div>
+        <div className="mt-4 max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:border dark:border-white/40 dark:bg-black dark:text-white">
+          {renderedBody || t("No message yet.")}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/80 bg-background/70 p-4">
+        <Label htmlFor="template-panel-notes">{t("Notes")}</Label>
+        <Textarea
+          id="template-panel-notes"
+          value={notesDraft}
+          onChange={(event) => onNotesDraftChange(event.target.value)}
+          className="mt-2 min-h-24"
+        />
+        <Button
+          type="button"
+          size="sm"
+          className="mt-3"
+          onClick={() => onQuickUpdate({ notes: notesDraft })}
+          disabled={pending || !notesChanged}
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          {pending ? t("Saving...") : t("Save notes")}
+        </Button>
       </div>
     </aside>
   );
@@ -1133,6 +1730,12 @@ export function PartnershipCrmTemplateBrowser() {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const queryClient = useQueryClient();
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    null,
+  );
+  const [previewPanelOpen, setPreviewPanelOpen] = useState(false);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [toast, setToast] = useState<ActionToastState | null>(null);
   const [filters, setFilters] = useState<TemplateFilters>({
     query: "",
     audience: "organizations",
@@ -1155,6 +1758,10 @@ export function PartnershipCrmTemplateBrowser() {
     () => favoriteFirstRecords(templatesQuery.data?.templates ?? []),
     [templatesQuery.data?.templates],
   );
+  const selectedTemplate = selectedTemplateId
+    ? (templates.find((template) => template.id === selectedTemplateId) ?? null)
+    : null;
+  const showPreviewPanel = Boolean(previewPanelOpen && selectedTemplate);
   const statusCounts = useMemo(
     () =>
       Object.fromEntries(
@@ -1167,13 +1774,90 @@ export function PartnershipCrmTemplateBrowser() {
     [templates],
   );
 
+  const quickUpdateMutation = useMutation({
+    mutationFn: ({
+      template,
+      patch,
+    }: {
+      template: PartnershipCrmTemplateRecord;
+      patch: TemplateQuickPatch;
+    }) =>
+      sdkFetch<{ template: PartnershipCrmTemplateRecord }>(
+        `/admin/partnership-crm/templates/${encodeURIComponent(template.id)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(templateInputFromRecord(template, patch)),
+        },
+      ),
+    onSuccess: (result) => {
+      queryClient.setQueriesData<PartnershipCrmTemplatesPage>(
+        { queryKey: [TEMPLATES_QUERY_KEY] },
+        (current) =>
+          current
+            ? {
+                ...current,
+                templates: current.templates.map((template) =>
+                  template.id === result.template.id
+                    ? result.template
+                    : template,
+                ),
+              }
+            : current,
+      );
+      setSelectedTemplateId(result.template.id);
+      setNotesDraft(result.template.notes);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("Template saved."),
+      });
+    },
+    onError: (error) => {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to save template."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
+  useEffect(() => {
+    if (!selectedTemplateId) {
+      return;
+    }
+    if (!templates.some((template) => template.id === selectedTemplateId)) {
+      setSelectedTemplateId(null);
+      setPreviewPanelOpen(false);
+    }
+  }, [selectedTemplateId, templates]);
+
+  useEffect(() => {
+    setNotesDraft(selectedTemplate?.notes ?? "");
+  }, [selectedTemplate?.id, selectedTemplate?.notes]);
+
   function resetCursorsForFilterChange(patch: Partial<TemplateFilters>) {
     setCursorStack([]);
     setFilters((current) => ({ ...current, ...patch }));
   }
 
   function handleAudienceChange(audience: PartnershipCrmTemplateAudience) {
+    setSelectedTemplateId(null);
+    setPreviewPanelOpen(false);
     resetCursorsForFilterChange({ audience, category: "" });
+  }
+
+  function handleTemplateSelect(templateId: string) {
+    setSelectedTemplateId(templateId);
+    setPreviewPanelOpen(true);
+  }
+
+  function handleQuickUpdate(patch: TemplateQuickPatch) {
+    if (!selectedTemplate) {
+      return;
+    }
+
+    quickUpdateMutation.mutate({ template: selectedTemplate, patch });
   }
 
   return (
@@ -1277,156 +1961,234 @@ export function PartnershipCrmTemplateBrowser() {
         />
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        {CRM_TEMPLATE_STATUS_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() =>
-              resetCursorsForFilterChange({ status: option.value })
-            }
-            className={cn(
-              "rounded-xl border px-3 py-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/40",
-              filters.status === option.value
-                ? "border-foreground/35 bg-muted"
-                : "border-border/80 bg-background/60",
-            )}
-          >
-            <p className="text-xs text-muted-foreground">{t(option.label)}</p>
-            <p className="mt-1 text-lg font-semibold">
-              {statusCounts[option.value]}
-            </p>
-          </button>
-        ))}
-      </div>
-
-      {templatesQuery.error ? (
-        <ErrorBanner>{t("Failed to load templates.")}</ErrorBanner>
-      ) : null}
-
-      <div className="overflow-hidden rounded-xl border border-border/80 bg-background/64">
-        {templatesQuery.isFetching && templates.length === 0 ? (
-          <div className="grid gap-2 p-3">
-            {Array.from({ length: 7 }).map((_, index) => (
-              <Skeleton key={index} className="h-12 rounded-lg" />
+      <div
+        className={cn(
+          "grid gap-4",
+          showPreviewPanel &&
+            "xl:h-[calc(100vh_-_var(--app-header-height)_-_2rem)] xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_1rem_minmax(360px,0.62fr)] xl:items-stretch xl:gap-0 xl:overflow-hidden",
+        )}
+      >
+        <div
+          className={cn(
+            "grid content-start gap-4",
+            showPreviewPanel &&
+              "xl:flex xl:min-h-0 xl:flex-col xl:overflow-visible xl:pr-2",
+          )}
+        >
+          <div className="grid gap-2 sm:grid-cols-3">
+            {CRM_TEMPLATE_STATUS_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() =>
+                  resetCursorsForFilterChange({ status: option.value })
+                }
+                className={cn(
+                  "rounded-xl border px-3 py-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/40",
+                  filters.status === option.value
+                    ? "border-foreground/35 bg-muted"
+                    : "border-border/80 bg-background/60",
+                )}
+              >
+                <p className="text-xs text-muted-foreground">
+                  {t(option.label)}
+                </p>
+                <p className="mt-1 text-lg font-semibold">
+                  {statusCounts[option.value]}
+                </p>
+              </button>
             ))}
           </div>
-        ) : templates.length === 0 ? (
-          <EmptyState>
-            <span className="block">{t("No templates found.")}</span>
-            <Button type="button" size="sm" asChild className="mt-3">
-              <Link href="/god-mode/plantillas/new">
-                <Plus className="h-3.5 w-3.5" />
-                {t("Alta de plantilla")}
-              </Link>
-            </Button>
-          </EmptyState>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("Template")}</TableHead>
-                <TableHead className="w-10">
-                  <span className="sr-only">{t("Favorite")}</span>
-                </TableHead>
-                <TableHead>{t("Applies to")}</TableHead>
-                <TableHead>{t("Status")}</TableHead>
-                <TableHead>{t("Category")}</TableHead>
-                <TableHead>{t("Updated")}</TableHead>
-                <TableHead>{t("Notes")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {templates.map((template) => (
-                <TableRow key={template.id}>
-                  <TableCell className="whitespace-normal">
-                    <Link
-                      href={`/god-mode/plantillas/${encodeURIComponent(
-                        template.id,
-                      )}`}
-                      className="block max-w-[320px] text-left"
-                    >
-                      <span className="block truncate font-medium text-foreground">
-                        {template.name}
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                        {template.subject || t("No subject")}
-                      </span>
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <FavoriteCell
-                      isFavorite={template.is_favorite}
-                      language={language}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {template.audience === "professionals"
-                        ? t("Professionals")
-                        : t("Organizations")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <TemplateStatusBadge
-                      status={template.status}
-                      language={language}
-                    />
-                  </TableCell>
-                  <TableCell className="whitespace-normal text-sm text-muted-foreground">
-                    {formatCrmCategory(
-                      template.category,
-                      language,
-                      template.audience ?? "organizations",
-                    ) || t("No category")}
-                  </TableCell>
-                  <TableCell className="whitespace-normal text-sm text-muted-foreground">
-                    {formatDateTime(template.updatedAt, language)}
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    <p className="line-clamp-2 max-w-[280px] text-xs text-muted-foreground">
-                      {template.notes || "-"}
-                    </p>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setCursorStack((current) => current.slice(0, -1))}
-          disabled={cursorStack.length === 0 || templatesQuery.isFetching}
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          {t("Previous")}
-        </Button>
-        <span className="text-xs text-muted-foreground">
-          {templates.length} {t("visible")}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            templatesQuery.data?.nextCursor &&
-            setCursorStack((current) => [
-              ...current,
-              templatesQuery.data!.nextCursor!,
-            ])
-          }
-          disabled={
-            !templatesQuery.data?.nextCursor || templatesQuery.isFetching
-          }
-        >
-          {t("Load more")}
-          <ChevronRight className="h-3.5 w-3.5" />
-        </Button>
+          {templatesQuery.error ? (
+            <ErrorBanner>{t("Failed to load templates.")}</ErrorBanner>
+          ) : null}
+
+          <div
+            className={cn(
+              "overflow-hidden rounded-xl border border-border/80 bg-background/64",
+              showPreviewPanel &&
+                "xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-auto",
+            )}
+          >
+            {templatesQuery.isFetching && templates.length === 0 ? (
+              <div className="grid gap-2 p-3">
+                {Array.from({ length: 7 }).map((_, index) => (
+                  <Skeleton key={index} className="h-12 rounded-lg" />
+                ))}
+              </div>
+            ) : templates.length === 0 ? (
+              <EmptyState>
+                <span className="block">{t("No templates found.")}</span>
+                <Button type="button" size="sm" asChild className="mt-3">
+                  <Link href="/god-mode/plantillas/new">
+                    <Plus className="h-3.5 w-3.5" />
+                    {t("Alta de plantilla")}
+                  </Link>
+                </Button>
+              </EmptyState>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("Template")}</TableHead>
+                    <TableHead className="w-10">
+                      <span className="sr-only">{t("Favorite")}</span>
+                    </TableHead>
+                    <TableHead>{t("Applies to")}</TableHead>
+                    <TableHead>{t("Status")}</TableHead>
+                    <TableHead>{t("Category")}</TableHead>
+                    <TableHead>{t("Updated")}</TableHead>
+                    <TableHead>{t("Notes")}</TableHead>
+                    <TableHead className="w-28">
+                      <span className="sr-only">{t("Actions")}</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {templates.map((template) => {
+                    const isSelected =
+                      showPreviewPanel && selectedTemplate?.id === template.id;
+
+                    return (
+                      <TableRow
+                        key={template.id}
+                        data-state={isSelected ? "selected" : undefined}
+                        className={cn(
+                          "cursor-pointer",
+                          isSelected &&
+                            "bg-sky-50/80 hover:bg-sky-50 dark:bg-sky-400/10 dark:hover:bg-sky-400/12",
+                        )}
+                        onClick={() => handleTemplateSelect(template.id)}
+                      >
+                        <TableCell className="whitespace-normal">
+                          <button
+                            type="button"
+                            className="block max-w-[320px] text-left"
+                            onClick={() => handleTemplateSelect(template.id)}
+                          >
+                            <span className="block truncate font-medium text-foreground">
+                              {template.name}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                              {template.subject || t("No subject")}
+                            </span>
+                          </button>
+                        </TableCell>
+                        <TableCell>
+                          <FavoriteCell
+                            isFavorite={template.is_favorite}
+                            language={language}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {template.audience === "professionals"
+                              ? t("Professionals")
+                              : t("Organizations")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <TemplateStatusBadge
+                            status={template.status}
+                            language={language}
+                          />
+                        </TableCell>
+                        <TableCell className="whitespace-normal text-sm text-muted-foreground">
+                          {formatCrmCategory(
+                            template.category,
+                            language,
+                            template.audience ?? "organizations",
+                          ) || t("No category")}
+                        </TableCell>
+                        <TableCell className="whitespace-normal text-sm text-muted-foreground">
+                          {formatDateTime(template.updatedAt, language)}
+                        </TableCell>
+                        <TableCell className="whitespace-normal">
+                          <p className="line-clamp-2 max-w-[280px] text-xs text-muted-foreground">
+                            {template.notes || "-"}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="xs"
+                            asChild
+                          >
+                            <Link
+                              href={`/god-mode/plantillas/${encodeURIComponent(
+                                template.id,
+                              )}`}
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              {t("Edit")}
+                            </Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCursorStack((current) => current.slice(0, -1))}
+              disabled={cursorStack.length === 0 || templatesQuery.isFetching}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              {t("Previous")}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {templates.length} {t("visible")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                templatesQuery.data?.nextCursor &&
+                setCursorStack((current) => [
+                  ...current,
+                  templatesQuery.data!.nextCursor!,
+                ])
+              }
+              disabled={
+                !templatesQuery.data?.nextCursor || templatesQuery.isFetching
+              }
+            >
+              {t("Load more")}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+
+        {showPreviewPanel ? (
+          <div className="hidden select-none items-center justify-center self-stretch rounded-full xl:flex">
+            <div className="flex h-16 w-4 items-center justify-center rounded-full border border-border/80 bg-background/90 text-muted-foreground shadow-sm">
+              <GripVertical className="h-4 w-4" />
+            </div>
+          </div>
+        ) : null}
+
+        {showPreviewPanel && selectedTemplate ? (
+          <TemplatePreviewSidePanel
+            template={selectedTemplate}
+            notesDraft={notesDraft}
+            onNotesDraftChange={setNotesDraft}
+            onQuickUpdate={handleQuickUpdate}
+            onClose={() => setPreviewPanelOpen(false)}
+            pending={quickUpdateMutation.isPending}
+            language={language}
+          />
+        ) : null}
       </div>
 
       <TemplateImportDialog
@@ -1445,6 +2207,11 @@ export function PartnershipCrmTemplateBrowser() {
         language={language}
         kind="templates"
         audience={filters.audience}
+      />
+      <ActionToast
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        language={language}
       />
     </section>
   );

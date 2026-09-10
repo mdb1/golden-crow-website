@@ -121,6 +121,79 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(within(rows[0]).getByRole("img", { name: "Favorite" })).toBeTruthy();
   });
 
+  it("opens a right preview panel and edits quick template metadata only", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (
+        stringPath === "/admin/partnership-crm/templates/tpl-1" &&
+        init?.method === "PUT"
+      ) {
+        const body = JSON.parse(
+          String(init.body),
+        ) as PartnershipCrmTemplateInput;
+
+        return {
+          template: {
+            ...template,
+            ...body,
+            id: template.id,
+            is_favorite: Boolean(body.is_favorite),
+          },
+        };
+      }
+
+      return {
+        templates: [template],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Lab outreach")).toBeTruthy();
+    });
+
+    await user.click(screen.getByText("Lab outreach"));
+
+    const panel = await screen.findByTestId("template-preview-panel");
+    expect(within(panel).getByText("Template fit")).toBeTruthy();
+    expect(within(panel).getByText("Variables")).toBeTruthy();
+    expect(within(panel).getByText("{{organization_name}}")).toBeTruthy();
+    expect(within(panel).getByText("{{contact_name}}")).toBeTruthy();
+    expect(within(panel).getByText("Hola Contacto")).toBeTruthy();
+    expect(
+      within(panel)
+        .getByRole("link", { name: "Edit text" })
+        .getAttribute("href"),
+    ).toBe("/god-mode/plantillas/tpl-1");
+
+    await user.click(within(panel).getByLabelText("Favorite"));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/templates/tpl-1",
+        expect.objectContaining({ method: "PUT" }),
+      );
+    });
+
+    const [, init] = jest
+      .mocked(sdkFetch)
+      .mock.calls.find(
+        ([path, requestInit]) =>
+          path === "/admin/partnership-crm/templates/tpl-1" &&
+          requestInit?.method === "PUT",
+      )!;
+    expect(JSON.parse(String(init?.body))).toEqual(
+      expect.objectContaining({
+        subject: template.subject,
+        body: template.body,
+        is_favorite: true,
+      }),
+    );
+  });
+
   it("previews and imports templates from CSV", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
@@ -331,6 +404,9 @@ describe("PartnershipCrmTemplateBrowser", () => {
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Template variables",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Variables are not mandatory, but they make CRM outreach safer to reuse and score better in plantillas.",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Template category accepts one value only. Multiple categories are not saved as a list.",

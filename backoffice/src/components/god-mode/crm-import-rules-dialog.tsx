@@ -294,13 +294,13 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
     {
       label: "subject",
       detail:
-        "Required. Trimmed before save. Maximum 180 characters. Template variables such as {{organization_name}} or {{first_name}} are allowed. Unknown variables render blank.",
+        "Required. Trimmed before save. Maximum 180 characters. Template variables such as {{organization_name}} or {{first_name}} are allowed. Prefer subjects that use a relevant variable when possible; unknown variables render blank.",
       example: "Pocket Genes + {{organization_name}}",
     },
     {
       label: "body",
       detail:
-        "Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Template variables are allowed and unknown variables render blank.",
+        "Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Prefer body copy that uses audience variables where they improve personalization; unknown variables render blank.",
       example: "Hi {{first_name}},\\nI am reaching out about Pocket Genes.",
     },
     {
@@ -590,6 +590,9 @@ function buildImportRulesText({
           "",
           t("Template variables"),
           t("Use variables in subject or body as {{variable_name}}."),
+          t(
+            "Prefer templates that use the accepted variables for their audience. Variables are not mandatory, but they make CRM outreach safer to reuse and score better in plantillas.",
+          ),
           t("Unknown variables render blank."),
           ...TEMPLATE_VARIABLES.map((variable) => `{{${variable}}}`),
         ]
@@ -853,6 +856,11 @@ export function CrmImportRulesDialog({
               </h3>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t("Use variables in subject or body as {{variable_name}}.")}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t(
+                  "Prefer templates that use the accepted variables for their audience. Variables are not mandatory, but they make CRM outreach safer to reuse and score better in plantillas.",
+                )}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t("Unknown variables render blank.")}
