@@ -6331,7 +6331,7 @@ export function PartnershipCrmWorkbench() {
           className={cn(
             "grid content-start gap-4",
             showDetailPanel &&
-              "xl:min-h-0 xl:overflow-y-auto xl:overscroll-auto xl:pr-2",
+              "xl:flex xl:min-h-0 xl:flex-col xl:overflow-visible xl:pr-2",
           )}
         >
           <div className="grid items-start gap-2 sm:grid-cols-5">
@@ -6370,7 +6370,14 @@ export function PartnershipCrmWorkbench() {
             </ErrorBanner>
           ) : null}
 
-          <div className="overflow-hidden rounded-xl border border-border/80 bg-background/64">
+          <div
+            data-testid="crm-target-table-scroll"
+            className={cn(
+              "overflow-hidden rounded-xl border border-border/80 bg-background/64",
+              showDetailPanel &&
+                "xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-auto",
+            )}
+          >
             {organizationQuery.isFetching && organizations.length === 0 ? (
               <div className="grid gap-2 p-3">
                 {Array.from({ length: 7 }).map((_, index) => (

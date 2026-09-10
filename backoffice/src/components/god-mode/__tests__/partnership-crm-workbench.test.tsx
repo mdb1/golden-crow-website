@@ -669,9 +669,18 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       "overflow-hidden",
     );
     expect(screen.getByTestId("crm-list-panel").className).toContain(
+      "xl:flex-col",
+    );
+    expect(screen.getByTestId("crm-list-panel").className).not.toContain(
       "overflow-y-auto",
     );
-    expect(screen.getByTestId("crm-list-panel").className).toContain(
+    expect(screen.getByTestId("crm-target-table-scroll").className).toContain(
+      "flex-1",
+    );
+    expect(screen.getByTestId("crm-target-table-scroll").className).toContain(
+      "overflow-y-auto",
+    );
+    expect(screen.getByTestId("crm-target-table-scroll").className).toContain(
       "overscroll-auto",
     );
     expect(screen.getByTestId("crm-list-panel").className).not.toContain(
