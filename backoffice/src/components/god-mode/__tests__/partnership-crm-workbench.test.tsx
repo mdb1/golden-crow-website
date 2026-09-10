@@ -670,6 +670,77 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(selectedStatusButton.className).not.toContain("bg-secondary");
   });
 
+  it("toggles favorite from the CRM detail panel", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+
+      if (
+        stringPath === "/admin/partnership-crm/organizations/org-1" &&
+        init?.method === "PUT"
+      ) {
+        const body = JSON.parse(String(init.body));
+
+        return {
+          organization: {
+            ...organization,
+            ...body,
+            id: organization.id,
+          },
+        };
+      }
+
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: emailTemplates, nextCursor: undefined };
+      }
+
+      return {
+        organizations: [organization],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+
+    const detailPanel = await screen.findByTestId("crm-detail-panel");
+    await user.click(within(detailPanel).getByLabelText("Favorite"));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/organizations/org-1",
+        expect.objectContaining({ method: "PUT" }),
+      );
+    });
+
+    const [, init] = jest
+      .mocked(sdkFetch)
+      .mock.calls.find(
+        ([path, requestInit]) =>
+          path === "/admin/partnership-crm/organizations/org-1" &&
+          requestInit?.method === "PUT",
+      )!;
+    expect(JSON.parse(String(init?.body))).toEqual(
+      expect.objectContaining({
+        name: organization.name,
+        status: organization.status,
+        is_favorite: true,
+      }),
+    );
+  });
+
   it("shows a keyboard-adjustable CRM detail panel separator", async () => {
     const user = userEvent.setup();
     renderWorkbench();

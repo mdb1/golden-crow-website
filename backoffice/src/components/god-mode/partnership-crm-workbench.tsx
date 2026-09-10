@@ -6939,6 +6939,24 @@ export function PartnershipCrmWorkbench() {
     });
   }
 
+  function updateSelectedFavorite(isFavorite: boolean) {
+    if (!selectedOrganization) {
+      return;
+    }
+
+    saveOrganizationMutation.mutate({
+      mode: "edit",
+      organizationId: selectedOrganization.id,
+      payload: targetPayload(
+        {
+          ...toFormState(selectedOrganization, targetKind),
+          is_favorite: isFavorite,
+        },
+        targetKind,
+      ),
+    });
+  }
+
   function submitNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedOrganization || !noteDraft.trim()) {
@@ -7580,6 +7598,35 @@ export function PartnershipCrmWorkbench() {
                     );
                   })}
                 </div>
+              </div>
+
+              <div className="mt-4 grid gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {t("Favorite")}
+                </p>
+                <label
+                  htmlFor="crm-detail-is-favorite"
+                  className="flex h-10 max-w-max cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground"
+                >
+                  <Checkbox
+                    id="crm-detail-is-favorite"
+                    checked={selectedOrganization.is_favorite}
+                    onCheckedChange={(checked) =>
+                      updateSelectedFavorite(checked === true)
+                    }
+                    disabled={saveOrganizationMutation.isPending}
+                  />
+                  <Star
+                    aria-hidden="true"
+                    className={cn(
+                      "h-4 w-4",
+                      selectedOrganization.is_favorite
+                        ? "fill-amber-400 text-amber-500"
+                        : "text-muted-foreground/50",
+                    )}
+                  />
+                  <span>{t("Favorite")}</span>
+                </label>
               </div>
 
               <div className="mt-4">
