@@ -298,7 +298,7 @@ type TemplateImportPreviewRow = {
 
 type TemplateImportResult = {
   rowNumber: number;
-  action: "created" | "invalid" | "failed";
+  action: "created" | "skipped" | "invalid" | "failed";
   templateId?: string;
   error?: string;
 };
@@ -744,6 +744,9 @@ function templateImportResultTone(result: TemplateImportResult) {
   if (result.action === "created") {
     return "success" as const;
   }
+  if (result.action === "skipped") {
+    return "secondary" as const;
+  }
   if (result.action === "invalid") {
     return "warning" as const;
   }
@@ -843,21 +846,128 @@ function TemplatePreview({
 function TemplateVariablePill({
   variable,
   muted = false,
+  title,
+  children,
 }: {
   variable: TemplateVariableDefinition;
   muted?: boolean;
+  title?: string;
+  children?: React.ReactNode;
 }) {
   return (
     <span
+      title={title ?? variable.token}
       className={cn(
         "inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 font-mono text-[0.72rem] font-semibold leading-5",
         variable.className,
         muted && "opacity-45",
       )}
     >
-      {variable.token}
+      {children ?? variable.token}
     </span>
   );
+}
+
+function UnknownTemplateVariablePill({ token }: { token: string }) {
+  return (
+    <span
+      title={token}
+      className="inline-flex max-w-full items-center rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 font-mono text-[0.72rem] font-semibold leading-5 text-destructive"
+    >
+      {token}
+    </span>
+  );
+}
+
+function templateVariableDefinitionByToken(
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return new Map(
+    templateVariablesForAudience(audience).map(
+      (variable) => [variable.token, variable] as const,
+    ),
+  );
+}
+
+function templateVariableUsageForText(
+  subject: string,
+  body: string,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  const subjectTokens = uniqueTemplateTokens(subject);
+  const bodyTokens = uniqueTemplateTokens(body);
+  const allTokens = Array.from(new Set([...subjectTokens, ...bodyTokens]));
+  const definitions = templateVariablesForAudience(audience);
+  const definitionByToken = templateVariableDefinitionByToken(audience);
+  const knownTokens = allTokens.filter((token) => definitionByToken.has(token));
+  const unknownTokens = allTokens.filter(
+    (token) => !definitionByToken.has(token),
+  );
+  const variables = allTokens.map((token) => ({
+    token,
+    variable: definitionByToken.get(token),
+    usedInSubject: subjectTokens.includes(token),
+    usedInBody: bodyTokens.includes(token),
+  }));
+
+  return {
+    subjectTokens,
+    bodyTokens,
+    allTokens,
+    knownTokens,
+    unknownTokens,
+    definitions,
+    variables,
+  };
+}
+
+function renderTemplateVariablePillNodes(
+  value: string,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  const nodes: React.ReactNode[] = [];
+  const target = sampleTargetForAudience(audience);
+  const definitionByToken = templateVariableDefinitionByToken(audience);
+  let cursor = 0;
+
+  for (const match of value.matchAll(TEMPLATE_VARIABLE_PATTERN)) {
+    const [token, key] = match;
+    const index = match.index ?? 0;
+
+    if (index > cursor) {
+      nodes.push(value.slice(cursor, index));
+    }
+
+    const variable = definitionByToken.get(token);
+    if (variable) {
+      const rawValue = sampleVariableValue(key, target, audience);
+      const displayedValue =
+        key === "potential_pocket_genes_editor_fit" && rawValue
+          ? `"${rawValue}"`
+          : rawValue;
+      nodes.push(
+        <TemplateVariablePill
+          key={`${token}-${index}`}
+          variable={variable}
+          title={`${variable.token} - ${variable.label}`}
+        >
+          {displayedValue || variable.token}
+        </TemplateVariablePill>,
+      );
+    } else {
+      nodes.push(
+        <UnknownTemplateVariablePill key={`${token}-${index}`} token={token} />,
+      );
+    }
+
+    cursor = index + token.length;
+  }
+
+  if (cursor < value.length) {
+    nodes.push(value.slice(cursor));
+  }
+
+  return nodes.length > 0 ? nodes : null;
 }
 
 function TemplatePreviewSidePanel({
@@ -1153,6 +1263,223 @@ function TemplatePreviewSidePanel({
   );
 }
 
+function TemplateImportReviewCard({
+  row,
+  rowIndex,
+  totalRows,
+  result,
+  importing,
+  canImportRemaining,
+  onAdd,
+  onSkip,
+  onImportRemaining,
+  language,
+}: {
+  row: TemplateImportPreviewRow;
+  rowIndex: number;
+  totalRows: number;
+  result?: TemplateImportResult;
+  importing: boolean;
+  canImportRemaining: boolean;
+  onAdd: () => void;
+  onSkip: () => void;
+  onImportRemaining: () => void;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const audience = row.template.audience ?? "organizations";
+  const usage = templateVariableUsageForText(
+    row.template.subject,
+    row.template.body,
+    audience,
+  );
+  const resultLabel = result
+    ? result.action === "created"
+      ? "Row imported"
+      : result.action === "skipped"
+        ? "Row skipped"
+        : result.action === "invalid"
+          ? "Row invalid"
+          : "Failed"
+    : row.valid
+      ? "Ready"
+      : "Row invalid";
+
+  return (
+    <section
+      data-testid="template-import-current-row"
+      className="grid gap-4 rounded-[1.15rem] border border-border/80 bg-background/75 p-4 shadow-sm"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">{t("Current row")}</Badge>
+            <span className="text-sm text-muted-foreground">
+              {t("Row")} {rowIndex + 1} {t("of")} {totalRows}
+            </span>
+            <Badge
+              variant={
+                result
+                  ? templateImportResultTone(result)
+                  : row.valid
+                    ? "success"
+                    : "destructive"
+              }
+            >
+              {t(resultLabel)}
+            </Badge>
+          </div>
+          <h3 className="mt-2 font-heading text-xl font-semibold text-foreground">
+            {row.template.name || t("Untitled template")}
+          </h3>
+          {row.template.notes ? (
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {row.template.notes}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">
+            {audience === "professionals"
+              ? t("Professionals")
+              : t("Organizations")}
+          </Badge>
+          <TemplateStatusBadge
+            status={row.template.status ?? "active"}
+            language={language}
+          />
+          {row.template.is_favorite ? (
+            <Badge variant="warning">
+              <Star className="h-3.5 w-3.5 fill-amber-400" />
+              {t("Favorite")}
+            </Badge>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {t("Category")}
+          </p>
+          <p className="mt-1 text-sm font-medium">
+            {formatCrmCategory(row.template.category ?? "", language, audience) ||
+              t("No category")}
+          </p>
+        </div>
+        <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {t("CSV row")}
+          </p>
+          <p className="mt-1 font-mono text-sm font-medium">{row.rowNumber}</p>
+        </div>
+      </div>
+
+      {row.errors.length > 0 ? (
+        <ErrorBanner>{row.errors.map((error) => t(error)).join(" ")}</ErrorBanner>
+      ) : null}
+      {result?.action === "failed" && result.error ? (
+        <ErrorBanner>{result.error}</ErrorBanner>
+      ) : null}
+
+      <div className="grid gap-3">
+        <div className="space-y-1.5">
+          <Label>{t("Subject")}</Label>
+          <div className="min-h-11 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm leading-7">
+            {renderTemplateVariablePillNodes(row.template.subject, audience) ??
+              "-"}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>{t("Message")}</Label>
+          <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border/70 bg-background px-3 py-2 text-sm leading-7">
+            {renderTemplateVariablePillNodes(row.template.body, audience) ?? "-"}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+        <div className="flex items-center gap-2">
+          <Braces className="h-4 w-4 text-muted-foreground" />
+          <h4 className="font-heading text-sm font-semibold">
+            {t("Variables used")}
+          </h4>
+        </div>
+        {usage.variables.length > 0 ? (
+          <div className="mt-3 overflow-hidden rounded-lg border border-border/70 bg-background/70">
+            <table className="w-full text-left text-xs">
+              <tbody>
+                {usage.variables.map((entry) => (
+                  <tr
+                    key={entry.token}
+                    className="border-b border-border/60 last:border-b-0"
+                  >
+                    <th className="w-[15rem] bg-muted/30 px-2 py-2 align-top">
+                      {entry.variable ? (
+                        <TemplateVariablePill variable={entry.variable} />
+                      ) : (
+                        <UnknownTemplateVariablePill token={entry.token} />
+                      )}
+                    </th>
+                    <td className="px-2 py-2 align-top text-muted-foreground">
+                      <div className="flex flex-wrap gap-1">
+                        {entry.usedInSubject ? (
+                          <Badge variant="outline">{t("Subject")}</Badge>
+                        ) : null}
+                        {entry.usedInBody ? (
+                          <Badge variant="outline">{t("Message")}</Badge>
+                        ) : null}
+                        {entry.variable ? null : (
+                          <Badge variant="destructive">
+                            {t("Unknown variables render blank")}
+                          </Badge>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {t("No variables used in this message.")}
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onSkip}
+          disabled={importing || Boolean(result)}
+        >
+          <X className="h-4 w-4" />
+          {t("Skip row")}
+        </Button>
+        <Button
+          type="button"
+          onClick={onAdd}
+          disabled={importing || Boolean(result) || !row.valid}
+        >
+          <Plus className="h-4 w-4" />
+          {importing ? t("Importing...") : t("Add row")}
+        </Button>
+        <Button
+          type="button"
+          className={TEMPLATE_IMPORT_CTA_CLASS}
+          onClick={onImportRemaining}
+          disabled={importing || !canImportRemaining}
+        >
+          <FileUp className="h-4 w-4" />
+          {importing ? t("Importing...") : t("Import remaining in sequence")}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 function TemplateImportDialog({
   open,
   initialAudience,
@@ -1174,6 +1501,7 @@ function TemplateImportDialog({
   const [parsed, setParsed] = useState<ParsedCrmTemplateCsv | null>(null);
   const [importing, setImporting] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [activeRowIndex, setActiveRowIndex] = useState(0);
   const [processedCount, setProcessedCount] = useState(0);
   const [results, setResults] = useState<TemplateImportResult[]>([]);
 
@@ -1194,6 +1522,7 @@ function TemplateImportDialog({
     setParsed(null);
     setImporting(false);
     setCompleted(false);
+    setActiveRowIndex(0);
     setProcessedCount(0);
     setResults([]);
   }, [initialAudience, open]);
@@ -1202,12 +1531,12 @@ function TemplateImportDialog({
     () => (parsed ? templatePreviewRows(parsed) : []),
     [parsed],
   );
-  const visiblePreviewRows = useMemo(
-    () => previewRows.slice(0, TEMPLATE_IMPORT_PREVIEW_LIMIT),
-    [previewRows],
-  );
   const validRows = useMemo(
     () => previewRows.filter((row) => row.valid),
+    [previewRows],
+  );
+  const visiblePreviewRows = useMemo(
+    () => previewRows.slice(0, TEMPLATE_IMPORT_PREVIEW_LIMIT),
     [previewRows],
   );
   const headerErrors = useMemo(
@@ -1225,11 +1554,22 @@ function TemplateImportDialog({
   const failedCount = results.filter(
     (result) => result.action === "failed",
   ).length;
+  const skippedCount = results.filter(
+    (result) => result.action === "skipped",
+  ).length;
+  const currentRow = previewRows[activeRowIndex] ?? null;
+  const currentRowResult = currentRow
+    ? resultByRow.get(currentRow.rowNumber)
+    : undefined;
+  const hasPendingRows = previewRows.some(
+    (row) => !resultByRow.has(row.rowNumber),
+  );
   const progressValue =
-    validRows.length > 0
-      ? Math.round((processedCount / validRows.length) * 100)
+    previewRows.length > 0
+      ? Math.round((processedCount / previewRows.length) * 100)
       : 0;
-  const canImport = validRows.length > 0 && !importing && !completed;
+  const canImportRemaining =
+    previewRows.length > 0 && hasPendingRows && !importing && !completed;
 
   function resetImportState() {
     csvTextRef.current = "";
@@ -1237,6 +1577,7 @@ function TemplateImportDialog({
     setParsed(null);
     setImporting(false);
     setCompleted(false);
+    setActiveRowIndex(0);
     setProcessedCount(0);
     setResults([]);
   }
@@ -1250,6 +1591,7 @@ function TemplateImportDialog({
     setFileName(nextFileName);
     setParsed(text.trim() ? parseCrmTemplateCsv(text, nextAudience) : null);
     setCompleted(false);
+    setActiveRowIndex(0);
     setProcessedCount(0);
     setResults([]);
   }
@@ -1272,6 +1614,7 @@ function TemplateImportDialog({
       setFileName(file.name);
       setParsed(parseCrmTemplateCsv(text, audience));
       setCompleted(false);
+      setActiveRowIndex(0);
       setProcessedCount(0);
       setResults([]);
     } catch (error) {
@@ -1282,6 +1625,7 @@ function TemplateImportDialog({
         errors: [{ row: 0, message: errorMessage(error) }],
       });
       setCompleted(false);
+      setActiveRowIndex(0);
       setProcessedCount(0);
       setResults([]);
     } finally {
@@ -1289,60 +1633,150 @@ function TemplateImportDialog({
     }
   }
 
-  async function handleImport() {
-    if (!canImport) {
+  function mergeResult(
+    currentResults: TemplateImportResult[],
+    nextResult: TemplateImportResult,
+  ) {
+    return [
+      ...currentResults.filter(
+        (result) => result.rowNumber !== nextResult.rowNumber,
+      ),
+      nextResult,
+    ].sort((left, right) => left.rowNumber - right.rowNumber);
+  }
+
+  function nextUnprocessedRowIndex(
+    startIndex: number,
+    nextResults: TemplateImportResult[],
+  ) {
+    const processedRows = new Set(
+      nextResults.map((result) => result.rowNumber),
+    );
+
+    return previewRows.findIndex(
+      (row, index) => index > startIndex && !processedRows.has(row.rowNumber),
+    );
+  }
+
+  function commitImportProgress(
+    rowIndex: number,
+    nextResults: TemplateImportResult[],
+  ) {
+    const nextRowIndex = nextUnprocessedRowIndex(rowIndex, nextResults);
+
+    setResults(nextResults);
+    setProcessedCount(nextResults.length);
+
+    if (nextRowIndex >= 0) {
+      setActiveRowIndex(nextRowIndex);
       return;
     }
 
-    const skippedRows = previewRows
-      .filter((row) => !row.valid)
-      .map<TemplateImportResult>((row) => ({
+    setActiveRowIndex(Math.max(0, previewRows.length - 1));
+    setCompleted(previewRows.length > 0);
+  }
+
+  async function createTemplateFromRow(row: TemplateImportPreviewRow) {
+    if (!row.valid) {
+      return {
         rowNumber: row.rowNumber,
-        action: "invalid",
+        action: "invalid" as const,
         error: row.errors.join(" "),
-      }));
-    let nextResults = skippedRows;
+      };
+    }
+
+    try {
+      const response = await sdkFetch<{
+        template: PartnershipCrmTemplateRecord;
+      }>("/admin/partnership-crm/templates", {
+        method: "POST",
+        body: JSON.stringify(row.template),
+      });
+
+      return {
+        rowNumber: row.rowNumber,
+        action: "created" as const,
+        templateId: response.template.id,
+      };
+    } catch (error) {
+      return {
+        rowNumber: row.rowNumber,
+        action: "failed" as const,
+        error: errorMessage(error),
+      };
+    }
+  }
+
+  async function handleAddCurrentRow() {
+    if (!currentRow || currentRowResult || importing) {
+      return;
+    }
+
+    setCompleted(false);
+    setImporting(true);
+    const result = await createTemplateFromRow(currentRow);
+    const nextResults = mergeResult(results, result);
+    setImporting(false);
+    commitImportProgress(activeRowIndex, nextResults);
+
+    if (result.action === "created") {
+      onImported();
+    }
+  }
+
+  function handleSkipCurrentRow() {
+    if (!currentRow || currentRowResult || importing) {
+      return;
+    }
+
+    const result: TemplateImportResult = currentRow.valid
+      ? {
+          rowNumber: currentRow.rowNumber,
+          action: "skipped",
+          error: "Skipped during interactive review.",
+        }
+      : {
+          rowNumber: currentRow.rowNumber,
+          action: "invalid",
+          error: currentRow.errors.join(" "),
+        };
+
+    commitImportProgress(activeRowIndex, mergeResult(results, result));
+  }
+
+  async function handleImportRemaining() {
+    if (!canImportRemaining) {
+      return;
+    }
+
+    let workingResults = results;
     let createdAny = false;
 
     setCompleted(false);
     setImporting(true);
-    setProcessedCount(0);
-    setResults(nextResults);
 
-    for (const [index, row] of validRows.entries()) {
-      try {
-        const response = await sdkFetch<{
-          template: PartnershipCrmTemplateRecord;
-        }>("/admin/partnership-crm/templates", {
-          method: "POST",
-          body: JSON.stringify(row.template),
-        });
-        nextResults = [
-          ...nextResults,
-          {
-            rowNumber: row.rowNumber,
-            action: "created",
-            templateId: response.template.id,
-          },
-        ];
-        createdAny = true;
-      } catch (error) {
-        nextResults = [
-          ...nextResults,
-          {
-            rowNumber: row.rowNumber,
-            action: "failed",
-            error: errorMessage(error),
-          },
-        ];
+    for (
+      let rowIndex = activeRowIndex;
+      rowIndex < previewRows.length;
+      rowIndex += 1
+    ) {
+      const row = previewRows[rowIndex];
+      if (!row || workingResults.some((result) => result.rowNumber === row.rowNumber)) {
+        continue;
       }
 
-      setResults(nextResults);
-      setProcessedCount(index + 1);
+      setActiveRowIndex(rowIndex);
+      const result = await createTemplateFromRow(row);
+      workingResults = mergeResult(workingResults, result);
+      createdAny = createdAny || result.action === "created";
+      setResults(workingResults);
+      setProcessedCount(workingResults.length);
     }
 
     setImporting(false);
-    setCompleted(true);
+    setActiveRowIndex(Math.max(0, previewRows.length - 1));
+    setCompleted(previewRows.length > 0);
+
     if (createdAny) {
       onImported();
     }
@@ -1412,7 +1846,7 @@ function TemplateImportDialog({
                   <div className="h-full rounded-full bg-emerald-600" />
                 </div>
 
-                <div className="mt-5 grid gap-3 text-sm sm:grid-cols-4">
+                <div className="mt-5 grid gap-3 text-sm sm:grid-cols-5">
                   <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
                       {t("Created templates")}
@@ -1435,6 +1869,14 @@ function TemplateImportDialog({
                     </p>
                     <p className="mt-2 text-2xl font-semibold">
                       {invalidCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
+                      {t("Skipped rows")}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {skippedCount}
                     </p>
                   </div>
                   <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
@@ -1512,12 +1954,13 @@ function TemplateImportDialog({
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-5">
+              <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
                 {[
                   { label: "Found", value: previewRows.length },
                   { label: "Valid", value: validRows.length },
                   { label: "Invalid", value: invalidCount },
                   { label: "Created templates", value: createdCount },
+                  { label: "Skipped rows", value: skippedCount },
                   { label: "Failed rows", value: failedCount },
                 ].map((item) => (
                   <div
@@ -1532,14 +1975,16 @@ function TemplateImportDialog({
                 ))}
               </div>
 
-              {parsed && (importing || completed) ? (
+              {parsed && previewRows.length > 0 ? (
                 <div className="rounded-xl border border-border/80 bg-background/70 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-medium">
-                      {completed ? t("Import completed") : t("Importing CSV")}
+                      {importing
+                        ? t("Importing one row at a time")
+                        : t("Ready for review")}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {processedCount} / {validRows.length} {t("templates")}
+                      {processedCount} / {previewRows.length} {t("templates")}
                     </p>
                   </div>
                   <Progress value={progressValue} className="mt-3 h-2" />
@@ -1552,116 +1997,90 @@ function TemplateImportDialog({
                 </ErrorBanner>
               ) : null}
 
-              <div className="max-h-[360px] overflow-auto rounded-xl border border-border/80 bg-background/64">
-                {previewRows.length === 0 ? (
+              {currentRow ? (
+                <TemplateImportReviewCard
+                  row={currentRow}
+                  rowIndex={activeRowIndex}
+                  totalRows={previewRows.length}
+                  result={currentRowResult}
+                  importing={importing}
+                  canImportRemaining={canImportRemaining}
+                  onAdd={handleAddCurrentRow}
+                  onSkip={handleSkipCurrentRow}
+                  onImportRemaining={handleImportRemaining}
+                  language={language}
+                />
+              ) : (
+                <EmptyState>{t("No import rows found.")}</EmptyState>
+              )}
+
+              <div className="rounded-xl border border-border/80 bg-background/64 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="font-heading text-sm font-semibold">
+                    {t("Import queue")}
+                  </h3>
+                  <span className="text-xs text-muted-foreground">
+                    {visiblePreviewRows.length} / {previewRows.length}{" "}
+                    {t("rows")}
+                  </span>
+                </div>
+                {visiblePreviewRows.length === 0 ? (
                   <EmptyState>{t("No import rows found.")}</EmptyState>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("Row")}</TableHead>
-                        <TableHead>{t("Template")}</TableHead>
-                        <TableHead className="w-10">
-                          <span className="sr-only">{t("Favorite")}</span>
-                        </TableHead>
-                        <TableHead>{t("Applies to")}</TableHead>
-                        <TableHead>{t("Category")}</TableHead>
-                        <TableHead>{t("Subject")}</TableHead>
-                        <TableHead>{t("Message")}</TableHead>
-                        <TableHead>{t("Status")}</TableHead>
-                        <TableHead>{t("Import")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {visiblePreviewRows.map((row) => {
-                        const result = resultByRow.get(row.rowNumber);
-                        const resultLabel = result
-                          ? result.action === "created"
-                            ? "Created"
+                  <div className="mt-3 grid max-h-56 gap-2 overflow-auto pr-1">
+                    {visiblePreviewRows.map((row, index) => {
+                      const result = resultByRow.get(row.rowNumber);
+                      const resultLabel = result
+                        ? result.action === "created"
+                          ? "Row imported"
+                          : result.action === "skipped"
+                            ? "Row skipped"
                             : result.action === "invalid"
-                              ? "Invalid"
+                              ? "Row invalid"
                               : "Failed"
-                          : row.valid
-                            ? "Ready"
-                            : "Invalid";
+                        : row.valid
+                          ? "Ready"
+                          : "Row invalid";
 
-                        return (
-                          <TableRow key={row.rowNumber}>
-                            <TableCell className="font-mono text-xs">
-                              {row.rowNumber}
-                            </TableCell>
-                            <TableCell className="min-w-48 whitespace-normal">
-                              <p className="font-medium">{row.template.name}</p>
-                              {row.template.notes ? (
-                                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                                  {row.template.notes}
-                                </p>
-                              ) : null}
-                            </TableCell>
-                            <TableCell>
-                              <FavoriteCell
-                                isFavorite={Boolean(row.template.is_favorite)}
-                                language={language}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {row.template.audience === "professionals"
-                                  ? t("Professionals")
-                                  : t("Organizations")}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="min-w-44 whitespace-normal text-sm text-muted-foreground">
-                              {formatCrmCategory(
-                                row.template.category ?? "",
-                                language,
-                                row.template.audience ?? "organizations",
-                              ) || t("No category")}
-                            </TableCell>
-                            <TableCell className="min-w-56 whitespace-normal text-sm">
-                              {row.template.subject || "-"}
-                            </TableCell>
-                            <TableCell className="min-w-72 whitespace-normal">
-                              <p className="max-h-16 overflow-hidden whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
-                                {row.template.body || "-"}
-                              </p>
-                            </TableCell>
-                            <TableCell>
-                              <TemplateStatusBadge
-                                status={row.template.status ?? "active"}
-                                language={language}
-                              />
-                            </TableCell>
-                            <TableCell className="min-w-36 whitespace-normal">
-                              <Badge
-                                variant={
-                                  result
-                                    ? templateImportResultTone(result)
-                                    : row.valid
-                                      ? "success"
-                                      : "destructive"
-                                }
-                              >
-                                {t(resultLabel)}
-                              </Badge>
-                              {row.errors.length > 0 ? (
-                                <p className="mt-1 text-xs text-destructive">
-                                  {row.errors
-                                    .map((error) => t(error))
-                                    .join(" ")}
-                                </p>
-                              ) : null}
-                              {result?.action === "failed" && result.error ? (
-                                <p className="mt-1 text-xs text-destructive">
-                                  {result.error}
-                                </p>
-                              ) : null}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                      return (
+                        <button
+                          key={row.rowNumber}
+                          type="button"
+                          className={cn(
+                            "grid grid-cols-[4rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
+                            index === activeRowIndex
+                              ? "border-blue-300 bg-blue-50 text-blue-950 dark:border-blue-300/35 dark:bg-blue-400/12 dark:text-blue-50"
+                              : "border-border/70 bg-background/60 hover:bg-muted/45",
+                          )}
+                          onClick={() => setActiveRowIndex(index)}
+                          disabled={importing}
+                        >
+                          <span className="font-mono text-xs">
+                            {t("Row")} {row.rowNumber}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-medium">
+                              {row.template.name || t("Untitled template")}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                              {row.template.subject || t("No subject")}
+                            </span>
+                          </span>
+                          <Badge
+                            variant={
+                              result
+                                ? templateImportResultTone(result)
+                                : row.valid
+                                  ? "success"
+                                  : "destructive"
+                            }
+                          >
+                            {t(resultLabel)}
+                          </Badge>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
               {previewRows.length > visiblePreviewRows.length ? (
@@ -1709,14 +2128,14 @@ function TemplateImportDialog({
               <Button
                 type="button"
                 size="lg"
-                onClick={handleImport}
-                disabled={!canImport}
+                onClick={handleImportRemaining}
+                disabled={!canImportRemaining}
                 className={TEMPLATE_IMPORT_CTA_CLASS}
               >
                 <FileUp className="h-4 w-4" />
                 {importing
                   ? t("Importing...")
-                  : `${t("Import")} ${validRows.length} ${t("templates")}`}
+                  : t("Import remaining in sequence")}
               </Button>
             </>
           )}

@@ -242,14 +242,45 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(within(dialog).queryByLabelText("CSV contents")).toBeNull();
       expect(within(dialog).getByText("CSV parsed")).toBeTruthy();
-      expect(within(dialog).getByText("Lab intro")).toBeTruthy();
+      expect(within(dialog).getAllByText("Lab intro").length).toBeGreaterThan(
+        0,
+      );
       expect(within(dialog).getByText("Foundation intro")).toBeTruthy();
     });
 
+    const currentRow = within(dialog).getByTestId(
+      "template-import-current-row",
+    );
+    expect(within(currentRow).getByText("Lab intro")).toBeTruthy();
+    expect(within(currentRow).getByText("Organizacion Ejemplo")).toBeTruthy();
+    expect(within(currentRow).getByText("Contacto")).toBeTruthy();
+    expect(
+      within(currentRow).getByText("{{organization_name}}"),
+    ).toBeTruthy();
+    expect(within(currentRow).getByText("{{contact_name}}")).toBeTruthy();
+
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Import 2 templates",
+        name: "Add row",
       }),
+    );
+
+    await waitFor(() => {
+      const postCalls = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path, init]) =>
+            path === "/admin/partnership-crm/templates" &&
+            init?.method === "POST",
+        );
+      expect(postCalls).toHaveLength(1);
+      expect(within(dialog).getByText("Row 2 of 2")).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getAllByRole("button", {
+        name: "Import remaining in sequence",
+      })[0],
     );
 
     await waitFor(() => {
@@ -298,7 +329,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
       expect(within(dialog).getByText("Template import finished")).toBeTruthy();
     });
     expect(
-      within(dialog).queryByRole("button", { name: "Import 2 templates" }),
+      within(dialog).queryByRole("button", { name: "Add row" }),
     ).toBeNull();
     expect(within(dialog).getByRole("button", { name: "Done" })).toBeTruthy();
 

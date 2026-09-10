@@ -1311,6 +1311,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "No CSV selected": "No hay CSV seleccionado",
   "Raw CSV contents are not rendered. The preview below is capped to protect the UI.":
     "El contenido crudo del CSV no se renderiza. La vista previa de abajo está limitada para proteger la UI.",
+  "CSV row": "Fila CSV",
+  "Import queue": "Cola de importación",
+  "Variables used": "Variables usadas",
+  "Add row": "Agregar fila",
+  "Untitled template": "Plantilla sin título",
   "Showing first": "Mostrando primeras",
   "parsed rows": "filas parseadas",
   "Template import finished": "Importación de plantillas finalizada",
@@ -1319,6 +1324,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Use sample": "Usar ejemplo",
   "No import rows found.": "No se encontraron filas para importar.",
   "Created templates": "Creadas",
+  "Skipped rows": "Omitidas",
   "Failed rows": "Fallidas",
   templates: "plantillas",
   "CSV needs name, subject, and body columns.":
