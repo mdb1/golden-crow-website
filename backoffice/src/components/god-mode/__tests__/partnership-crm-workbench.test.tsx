@@ -1407,12 +1407,21 @@ describe("PartnershipCrmWorkbench list pager", () => {
     expect(statusSection).toBeTruthy();
     expect(within(statusSection as HTMLElement).queryByText("CRM No Response"))
       .toBeNull();
+    const statusPieSegments = within(statusSection as HTMLElement).getAllByRole(
+      "button",
+      {
+        name: /^Select visual filter from pie: Status -/,
+      },
+    );
+    expect(statusPieSegments[0].getAttribute("fill")).toBe("var(--chart-1)");
+    expect(statusPieSegments[0].getAttribute("stroke")).toBe(
+      "var(--background)",
+    );
+    expect(statusPieSegments[0].getAttribute("vector-effect")).toBe(
+      "non-scaling-stroke",
+    );
     expect(
-      within(statusSection as HTMLElement)
-        .getAllByRole("button", {
-          name: /^Select visual filter from pie: Status -/,
-        })
-        .map((button) => button.getAttribute("aria-label")),
+      statusPieSegments.map((button) => button.getAttribute("aria-label")),
     ).toEqual([
       "Select visual filter from pie: Status - CRM New",
       "Select visual filter from pie: Status - CRM Meeting",
@@ -1499,6 +1508,14 @@ describe("PartnershipCrmWorkbench list pager", () => {
       name: "Selected segment: Status",
     });
     expect(within(selectedStatusBlock).getByText("CRM Contacted")).toBeTruthy();
+    expect(
+      within(statusSection as HTMLElement)
+        .getByRole("button", {
+          name: "Select visual filter from pie: Status - CRM Contacted",
+        })
+        .getAttribute("stroke"),
+    ).toBe("var(--foreground)");
+    expect(statusPieSegments[0].getAttribute("class")).toContain("opacity-55");
     expect(
       screen.getByRole("dialog", { name: "Visual filters" }),
     ).toBeTruthy();

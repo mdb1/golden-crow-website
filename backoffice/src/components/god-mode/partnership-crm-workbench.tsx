@@ -157,16 +157,11 @@ const CRM_IMPORT_SESSION_STORAGE_KEYS = {
 const CRM_ALL_COUNTRIES_VALUE = "__all_countries__";
 const CRM_NO_COUNTRY_VALUE = CRM_MISSING_COUNTRY_FILTER_VALUE;
 const VISUAL_FILTER_COLORS = [
-  "#2563eb",
-  "#16a34a",
-  "#f97316",
-  "#dc2626",
-  "#7c3aed",
-  "#0891b2",
-  "#ca8a04",
-  "#db2777",
-  "#4b5563",
-  "#0f766e",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ] as const;
 const MAX_VISUAL_FILTER_BUCKETS = 5;
 const CRM_DETAIL_PANEL_MIN_WIDTH_PERCENT = 100 / 3;
@@ -1794,20 +1789,25 @@ function VisualFilterPieSection({
             aria-label={`${title} ${t("pie chart")}`}
             className="mx-auto h-44 w-44 overflow-visible"
           >
-            <circle cx="60" cy="60" r="52" fill="hsl(var(--muted))" />
+            <circle cx="60" cy="60" r="52" fill="var(--muted)" />
             {pieSegments.map(
               ({ bucket, startAngle, endAngle, isSelected }) => {
                 const label = `${bucket.label}: ${bucket.percent}%`;
                 const segmentClassName = cn(
-                  "cursor-pointer outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-ring",
-                  hasSelection && !isSelected && "opacity-40",
+                  "cursor-pointer outline-none transition-[filter,opacity] hover:brightness-105 focus-visible:drop-shadow-[0_0_0.35rem_var(--ring)]",
+                  hasSelection &&
+                    !isSelected &&
+                    "opacity-55 saturate-[0.72] dark:opacity-45",
                 );
-                const selectedProps = isSelected
-                  ? {
-                      stroke: "hsl(var(--foreground))",
-                      strokeWidth: 2.5,
-                    }
-                  : {};
+                const segmentStroke = isSelected
+                  ? "var(--foreground)"
+                  : "var(--background)";
+                const segmentStrokeWidth = isSelected ? 3 : 1.35;
+                const segmentStrokeProps = {
+                  stroke: segmentStroke,
+                  strokeWidth: segmentStrokeWidth,
+                  vectorEffect: "non-scaling-stroke" as const,
+                };
 
                 if (bucket.count === facet.total) {
                   return (
@@ -1831,7 +1831,7 @@ function VisualFilterPieSection({
                           selectBucket(bucket);
                         }
                       }}
-                      {...selectedProps}
+                      {...segmentStrokeProps}
                     >
                       <title>{label}</title>
                     </circle>
@@ -1857,7 +1857,7 @@ function VisualFilterPieSection({
                         selectBucket(bucket);
                       }
                     }}
-                    {...selectedProps}
+                    {...segmentStrokeProps}
                   >
                     <title>{label}</title>
                   </path>
@@ -1868,8 +1868,8 @@ function VisualFilterPieSection({
               cx="60"
               cy="60"
               r="26"
-              fill="hsl(var(--background))"
-              stroke="hsl(var(--border))"
+              fill="var(--background)"
+              stroke="var(--border)"
               strokeWidth="1"
             />
             <text
