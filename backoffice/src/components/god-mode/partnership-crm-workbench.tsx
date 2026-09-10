@@ -3139,97 +3139,102 @@ function OrganizationFacts({
   const linkedIn = targetLinkedIn(organization, targetKind);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <UserRound className="h-3.5 w-3.5" />
-          {targetKind === "professionals"
-            ? t("Professional")
-            : t("Primary contact")}
-        </div>
-        <p className="mt-2 font-medium text-foreground">
-          {targetContactName(organization, targetKind) || "—"}
-        </p>
-      </div>
-      <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <Mail className="h-3.5 w-3.5" />
-          {t("Mail")}
-        </div>
-        <p className="mt-2 break-all font-medium text-foreground">
-          {directEmail || t("No email")}
-        </p>
-      </div>
-      {targetKind === "professionals" ? (
-        <>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <Building2 className="h-3.5 w-3.5" />
-              {t("Primary affiliation")}
-            </div>
-            <p className="mt-2 font-medium text-foreground">
-              {professional.primaryAffiliation || "—"}
-            </p>
+    <div className="@container">
+      <div
+        data-testid="crm-organization-facts"
+        className="grid gap-3 @md:grid-cols-2"
+      >
+        <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <UserRound className="h-3.5 w-3.5" />
+            {targetKind === "professionals"
+              ? t("Professional")
+              : t("Primary contact")}
           </div>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <UserRound className="h-3.5 w-3.5" />
-              {t("Role / specialty")}
-            </div>
-            <p className="mt-2 font-medium text-foreground">
-              {professional.title || "—"}
-            </p>
+          <p className="mt-2 break-words font-medium text-foreground">
+            {targetContactName(organization, targetKind) || "—"}
+          </p>
+        </div>
+        <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <Mail className="h-3.5 w-3.5" />
+            {t("Mail")}
           </div>
-        </>
-      ) : null}
-      <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <Clock3 className="h-3.5 w-3.5" />
-          {t("Last Contact")}
+          <p className="mt-2 break-all font-medium text-foreground">
+            {directEmail || t("No email")}
+          </p>
         </div>
-        <p className="mt-2 font-medium text-foreground">
-          {formatDate(organization.lastContactAt, language)}
-        </p>
-      </div>
-      <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <Building2 className="h-3.5 w-3.5" />
-          {t("Website")}
+        {targetKind === "professionals" ? (
+          <>
+            <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                <Building2 className="h-3.5 w-3.5" />
+                {t("Primary affiliation")}
+              </div>
+              <p className="mt-2 break-words font-medium text-foreground">
+                {professional.primaryAffiliation || "—"}
+              </p>
+            </div>
+            <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                <UserRound className="h-3.5 w-3.5" />
+                {t("Role / specialty")}
+              </div>
+              <p className="mt-2 break-words font-medium text-foreground">
+                {professional.title || "—"}
+              </p>
+            </div>
+          </>
+        ) : null}
+        <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <Clock3 className="h-3.5 w-3.5" />
+            {t("Last Contact")}
+          </div>
+          <p className="mt-2 break-words font-medium text-foreground">
+            {formatDate(organization.lastContactAt, language)}
+          </p>
         </div>
-        {organization.website ? (
-          <a
-            href={organization.website}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:underline"
-          >
-            <span className="truncate">
-              {organization.websiteDomain || organization.website}
-            </span>
-            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-          </a>
-        ) : (
-          <p className="mt-2 font-medium text-muted-foreground">—</p>
-        )}
-      </div>
-      <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <ExternalLink className="h-3.5 w-3.5" />
-          {t("LinkedIn")}
+        <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <Building2 className="h-3.5 w-3.5" />
+            {t("Website")}
+          </div>
+          {organization.website ? (
+            <a
+              href={organization.website}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:underline"
+            >
+              <span className="truncate">
+                {organization.websiteDomain || organization.website}
+              </span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            </a>
+          ) : (
+            <p className="mt-2 font-medium text-muted-foreground">—</p>
+          )}
         </div>
-        {linkedIn ? (
-          <a
-            href={linkedIn}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:underline"
-          >
-            <span className="truncate">{t("Open profile")}</span>
-            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-          </a>
-        ) : (
-          <p className="mt-2 font-medium text-muted-foreground">—</p>
-        )}
+        <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <ExternalLink className="h-3.5 w-3.5" />
+            {t("LinkedIn")}
+          </div>
+          {linkedIn ? (
+            <a
+              href={linkedIn}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:underline"
+            >
+              <span className="truncate">{t("Open profile")}</span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            </a>
+          ) : (
+            <p className="mt-2 font-medium text-muted-foreground">—</p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -3247,7 +3252,7 @@ function MoreInformationField({
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </p>
-      <div className="whitespace-pre-wrap text-sm font-medium leading-6 text-foreground/88">
+      <div className="min-w-0 whitespace-pre-wrap break-words text-sm font-medium leading-6 text-foreground/88">
         {value || "—"}
       </div>
     </div>
@@ -8687,9 +8692,9 @@ export function PartnershipCrmWorkbench() {
         {showDetailPanel && selectedOrganization ? (
           <aside
             data-testid="crm-detail-panel"
-            className="grid gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-auto xl:pl-2"
+            className="grid min-w-0 gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-auto xl:pl-2"
           >
-            <div className="rounded-xl border border-border/80 bg-background/70 p-4">
+            <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 p-4">
               <div className="flex items-start gap-3 border-b border-border/70 pb-3">
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate font-heading text-xl font-semibold text-foreground">

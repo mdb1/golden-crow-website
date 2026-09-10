@@ -748,6 +748,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(screen.getByText("Delete Me Genomics"));
 
     const detailPanel = await screen.findByTestId("crm-detail-panel");
+    expect(detailPanel.className).toContain("min-w-0");
+    const factsGrid = within(detailPanel).getByTestId("crm-organization-facts");
+    expect(factsGrid.className).toContain("@md:grid-cols-2");
+    expect(factsGrid.className).not.toContain("sm:grid-cols-2");
     const actionGroup = within(detailPanel).getByTestId(
       "crm-detail-panel-actions",
     );
