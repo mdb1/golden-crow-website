@@ -1037,24 +1037,7 @@ function TemplatePreviewSidePanel({
       <div className="rounded-xl border border-border/80 bg-background/70 p-4">
         <div className="flex items-start gap-3 border-b border-border/70 pb-3">
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <TemplateStatusBadge
-                status={template.status}
-                language={language}
-              />
-              <Badge variant="outline">
-                {template.audience === "professionals"
-                  ? t("Professionals")
-                  : t("Organizations")}
-              </Badge>
-              {template.is_favorite ? (
-                <Badge variant="warning">
-                  <Star className="h-3.5 w-3.5 fill-amber-400" />
-                  {t("Favorite")}
-                </Badge>
-              ) : null}
-            </div>
-            <h3 className="mt-2 truncate font-heading text-xl font-semibold text-foreground">
+            <h3 className="truncate font-heading text-xl font-semibold text-foreground">
               {template.name}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -1112,6 +1095,23 @@ function TemplatePreviewSidePanel({
         </div>
 
         <div className="mt-4 grid gap-3">
+          <div
+            data-testid="template-preview-panel-tags"
+            className="flex flex-wrap items-center gap-2"
+          >
+            <TemplateStatusBadge status={template.status} language={language} />
+            <Badge variant="outline">
+              {template.audience === "professionals"
+                ? t("Professionals")
+                : t("Organizations")}
+            </Badge>
+            {template.is_favorite ? (
+              <Badge variant="warning">
+                <Star className="h-3.5 w-3.5 fill-amber-400" />
+                {t("Favorite")}
+              </Badge>
+            ) : null}
+          </div>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <div className="space-y-1.5">
               <Label>{t("Status")}</Label>

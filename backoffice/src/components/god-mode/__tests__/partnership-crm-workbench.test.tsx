@@ -765,6 +765,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(
       within(actionGroup).getByRole("button", { name: "Hide details" }),
     ).toBeTruthy();
+    expect(within(actionGroup).queryByText("CRM New")).toBeNull();
+    const tagsBlock = within(detailPanel).getByTestId("crm-detail-panel-tags");
+    expect(within(tagsBlock).getByText("CRM New")).toBeTruthy();
+    expect(within(tagsBlock).getByText("Genomics Laboratory")).toBeTruthy();
     const selectedStatusButton = within(detailPanel).getByRole("button", {
       name: "CRM New",
     });

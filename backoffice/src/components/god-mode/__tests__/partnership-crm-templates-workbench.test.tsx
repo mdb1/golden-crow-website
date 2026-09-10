@@ -376,6 +376,10 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(
       within(actionGroup).getByRole("button", { name: "Hide details" }),
     ).toBeTruthy();
+    expect(within(actionGroup).queryByText("Template Active")).toBeNull();
+    const tagsBlock = within(panel).getByTestId("template-preview-panel-tags");
+    expect(within(tagsBlock).getByText("Template Active")).toBeTruthy();
+    expect(within(tagsBlock).getByText("Organizations")).toBeTruthy();
     expect(
       within(panel)
         .getByRole("link", { name: "Edit text" })

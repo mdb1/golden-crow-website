@@ -8692,18 +8692,7 @@ export function PartnershipCrmWorkbench() {
             <div className="rounded-xl border border-border/80 bg-background/70 p-4">
               <div className="flex items-start gap-3 border-b border-border/70 pb-3">
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge
-                      status={selectedOrganization.status}
-                      language={language}
-                    />
-                    <CategoryBadgeGroup
-                      value={selectedOrganization.category}
-                      language={language}
-                      targetKind={targetKind}
-                    />
-                  </div>
-                  <h3 className="mt-2 truncate font-heading text-xl font-semibold text-foreground">
+                  <h3 className="truncate font-heading text-xl font-semibold text-foreground">
                     {selectedOrganization.name}
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
@@ -8754,6 +8743,21 @@ export function PartnershipCrmWorkbench() {
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 </div>
+              </div>
+
+              <div
+                data-testid="crm-detail-panel-tags"
+                className="mt-4 flex flex-wrap items-center gap-2"
+              >
+                <StatusBadge
+                  status={selectedOrganization.status}
+                  language={language}
+                />
+                <CategoryBadgeGroup
+                  value={selectedOrganization.category}
+                  language={language}
+                  targetKind={targetKind}
+                />
               </div>
 
               <div className="mt-4 grid gap-2">
