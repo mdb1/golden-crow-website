@@ -379,6 +379,91 @@ function normalizeName(value: string) {
     .replace(/\s+/g, " ");
 }
 
+const PROFESSIONAL_NAME_STOP_WORDS = new Set([
+  "dr",
+  "dra",
+  "doctor",
+  "doctora",
+  "prof",
+  "profesor",
+  "profesora",
+  "lic",
+  "ing",
+  "phd",
+  "msc",
+  "md",
+  "de",
+  "del",
+  "de la",
+  "la",
+  "las",
+  "los",
+  "el",
+  "y",
+  "e",
+  "da",
+  "das",
+  "do",
+  "dos",
+  "van",
+  "von",
+]);
+
+function professionalNameTokens(value: string) {
+  return normalizeName(value)
+    .split(" ")
+    .filter(
+      (token) => token.length > 1 && !PROFESSIONAL_NAME_STOP_WORDS.has(token),
+    );
+}
+
+function looksLikeMultipleProfessionalNames(value: string) {
+  const chunks = cleanString(value)
+    .split(/[;,]+/)
+    .map((chunk) => chunk.trim())
+    .filter((chunk) => professionalNameTokens(chunk).length >= 2);
+
+  return chunks.length > 1;
+}
+
+function professionalNamesCanReferToSamePerson(left: string, right: string) {
+  const normalizedLeft = normalizeName(cleanString(left));
+  const normalizedRight = normalizeName(cleanString(right));
+  if (!normalizedLeft || !normalizedRight) {
+    return false;
+  }
+
+  if (normalizedLeft === normalizedRight) {
+    return true;
+  }
+
+  if (
+    looksLikeMultipleProfessionalNames(left) ||
+    looksLikeMultipleProfessionalNames(right)
+  ) {
+    return false;
+  }
+
+  const leftTokens = new Set(professionalNameTokens(left));
+  const rightTokens = new Set(professionalNameTokens(right));
+  if (leftTokens.size === 0 || rightTokens.size === 0) {
+    return false;
+  }
+
+  const sharedTokens = [...leftTokens].filter((token) =>
+    rightTokens.has(token),
+  );
+  if (sharedTokens.length === 0) {
+    return false;
+  }
+
+  if (Math.min(leftTokens.size, rightTokens.size) === 1) {
+    return sharedTokens.some((token) => token.length >= 4);
+  }
+
+  return sharedTokens.length >= 2;
+}
+
 function normalizeKey(value: string) {
   return value
     .normalize("NFD")
@@ -1786,7 +1871,8 @@ async function findDuplicateProfessionals(
   input: PartnershipCrmProfessionalInput,
 ) {
   const byId = new Map<string, PartnershipCrmProfessionalDuplicateCandidate>();
-  const normalizedName = normalizeName(cleanString(input.name));
+  const name = cleanString(input.name);
+  const normalizedName = normalizeName(name);
   const email = normalizeEmail(input.email);
   const domain = websiteDomain(input.website);
   const linkedIn = normalizeWebsite(input.linkedIn);
@@ -1797,7 +1883,9 @@ async function findDuplicateProfessionals(
   ) {
     snapshotDocs.forEach((doc) => {
       const record = toProfessionalRecord(doc.id, doc.data());
-      byId.set(record.id, professionalDuplicateCandidateFromRecord(record));
+      if (professionalNamesCanReferToSamePerson(name, record.name)) {
+        byId.set(record.id, professionalDuplicateCandidateFromRecord(record));
+      }
     });
   }
 

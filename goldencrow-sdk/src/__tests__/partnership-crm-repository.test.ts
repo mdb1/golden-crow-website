@@ -441,6 +441,99 @@ describe("partnership CRM duplicate imports", () => {
     mockCollection.mockClear();
   });
 
+  it("does not flag professional duplicates by shared identity fields when names are unrelated", async () => {
+    const { previewPartnershipCrmProfessionalImport } =
+      await import("../repositories/partnership-crm.repository");
+    seedProfessional("existing", 1, "pro_bioinformaticians");
+    mockDocs.set(mockDocKey("partnership_crm_professionals", "existing"), {
+      ...(mockDocs.get(
+        mockDocKey("partnership_crm_professionals", "existing"),
+      ) ?? {}),
+      name: "Nicolás Palopoli",
+      normalizedName: "nicolas palopoli",
+      website: "https://bioinformatica.org/about/",
+      websiteDomain: "bioinformatica.org",
+      email: "contacto@bioinformatica.org",
+      linkedIn: "https://linkedin.com/in/npalopoli",
+    });
+
+    const preview = await previewPartnershipCrmProfessionalImport(
+      godModeContext,
+      [
+        {
+          rowId: "row-1",
+          name: "Adalí Pecci",
+          website: "https://bioinformatica.org/team/",
+          email: "contacto@bioinformatica.org",
+          linkedIn: "https://linkedin.com/in/npalopoli",
+        },
+      ],
+    );
+
+    expect(preview.rows[0]?.duplicateCandidates).toEqual([]);
+    expect(preview.summary.duplicates).toBe(0);
+  });
+
+  it("keeps professional duplicate candidates when the names are compatible", async () => {
+    const { previewPartnershipCrmProfessionalImport } =
+      await import("../repositories/partnership-crm.repository");
+    seedProfessional("existing", 1, "pro_bioinformaticians");
+    mockDocs.set(mockDocKey("partnership_crm_professionals", "existing"), {
+      ...(mockDocs.get(
+        mockDocKey("partnership_crm_professionals", "existing"),
+      ) ?? {}),
+      name: "Dra. Ada Genome",
+      normalizedName: "dra ada genome",
+      website: "https://genomelab.example/",
+      websiteDomain: "genomelab.example",
+    });
+
+    const preview = await previewPartnershipCrmProfessionalImport(
+      godModeContext,
+      [
+        {
+          rowId: "row-1",
+          name: "Ada Genome",
+          website: "https://genomelab.example/team",
+        },
+      ],
+    );
+
+    expect(preview.rows[0]?.duplicateCandidates).toEqual([
+      expect.objectContaining({ id: "existing", name: "Dra. Ada Genome" }),
+    ]);
+    expect(preview.summary.duplicates).toBe(1);
+  });
+
+  it("does not match a multi-author professional row to one listed author", async () => {
+    const { previewPartnershipCrmProfessionalImport } =
+      await import("../repositories/partnership-crm.repository");
+    seedProfessional("existing", 1, "pro_research_scientists");
+    mockDocs.set(mockDocKey("partnership_crm_professionals", "existing"), {
+      ...(mockDocs.get(
+        mockDocKey("partnership_crm_professionals", "existing"),
+      ) ?? {}),
+      name: "Manuel de la Mata",
+      normalizedName: "manuel de la mata",
+      website: "https://bioinformatica.org/about/",
+      websiteDomain: "bioinformatica.org",
+    });
+
+    const preview = await previewPartnershipCrmProfessionalImport(
+      godModeContext,
+      [
+        {
+          rowId: "row-1",
+          name: "Federico Damián Ariel, Manuel de la Mata, Ezequiel Petrillo, Manuel Javier Muñoz, Santiago Andrés Rodríguez Seguí",
+          website: "https://bioinformatica.org/about/",
+        },
+      ],
+    );
+
+    expect(preview.rows[0]?.duplicateCandidates).toEqual([]);
+    expect(preview.summary.duplicates).toBe(0);
+  });
+
   it("fills missing organization fields without replacing existing values", async () => {
     const { importPartnershipCrmOrganizations } =
       await import("../repositories/partnership-crm.repository");
