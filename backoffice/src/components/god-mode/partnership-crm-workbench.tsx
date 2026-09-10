@@ -2717,12 +2717,14 @@ function VisualFilterPieSection({
   targetKind,
   selectedValue,
   onSelect,
+  onClearSelection,
 }: {
   facet: PartnershipCrmVisualFilterFacet;
   language: AppLanguage;
   targetKind: PartnershipCrmTargetKind;
   selectedValue?: string;
   onSelect: (target: VisualFilterApplyTarget) => void;
+  onClearSelection: (facetKey: PartnershipCrmVisualFilterFacetKey) => void;
 }) {
   const t = (text: string) => appText(language, text);
   const title = visualFilterFacetTitle(facet.key, language);
@@ -2953,9 +2955,22 @@ function VisualFilterPieSection({
               aria-label={`${t("Selected segment")}: ${title}`}
               className="mt-2 rounded-lg border border-border/80 bg-muted/30 p-3"
             >
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t("Selected segment")}
-              </p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("Selected segment")}
+                </p>
+                {selectedBucket ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="-mt-1 h-7 px-2 text-xs"
+                    onClick={() => onClearSelection(facet.key)}
+                  >
+                    {t("Clear selection")}
+                  </Button>
+                ) : null}
+              </div>
               {selectedBucket ? (
                 <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2">
                   <span
@@ -3011,6 +3026,10 @@ function VisualFiltersDialog({
   const [selectedSegments, setSelectedSegments] = useState<
     Partial<Record<PartnershipCrmVisualFilterFacetKey, string>>
   >({});
+  const activeSelectedSegments = useMemo(
+    () => visualSelectedSegmentsForFilters(activeListFilters, targetKind),
+    [activeListFilters, targetKind],
+  );
   const facets = filters
     ? [
         filters.facets.status,
@@ -3020,22 +3039,30 @@ function VisualFiltersDialog({
       ]
     : [];
   const selectedCount = Object.keys(selectedSegments).length;
+  const activeSelectedCount = Object.keys(activeSelectedSegments).length;
+  const canApplySelectedSegments = selectedCount > 0 || activeSelectedCount > 0;
 
   useEffect(() => {
     if (open) {
-      setSelectedSegments(
-        visualSelectedSegmentsForFilters(activeListFilters, targetKind),
-      );
+      setSelectedSegments(activeSelectedSegments);
     } else {
       setSelectedSegments({});
     }
-  }, [activeListFilters, open, targetKind]);
+  }, [activeSelectedSegments, open]);
 
   function selectSegment(target: VisualFilterApplyTarget) {
     setSelectedSegments((current) => ({
       ...current,
       [target.facetKey]: target.value,
     }));
+  }
+
+  function clearSegment(facetKey: PartnershipCrmVisualFilterFacetKey) {
+    setSelectedSegments((current) => {
+      const next = { ...current };
+      delete next[facetKey];
+      return next;
+    });
   }
 
   function applySelectedSegments() {
@@ -3045,7 +3072,7 @@ function VisualFiltersDialog({
       return value ? [{ facetKey: facet.key, value }] : [];
     });
 
-    if (targets.length === 0) {
+    if (!canApplySelectedSegments) {
       return;
     }
 
@@ -3099,6 +3126,7 @@ function VisualFiltersDialog({
                   targetKind={targetKind}
                   selectedValue={selectedSegments[facet.key]}
                   onSelect={selectSegment}
+                  onClearSelection={clearSegment}
                 />
               ))}
             </div>
@@ -3109,7 +3137,7 @@ function VisualFiltersDialog({
           <Button
             type="button"
             className="w-full sm:w-auto"
-            disabled={selectedCount === 0}
+            disabled={!canApplySelectedSegments}
             onClick={applySelectedSegments}
           >
             {t("Apply")}
@@ -8182,7 +8210,12 @@ export function PartnershipCrmWorkbench() {
   function applyVisualFilter(targets: VisualFilterApplyTarget[]) {
     setVisualFiltersOpen(false);
 
-    const patch: Partial<ListFilters> = {};
+    const patch: Partial<ListFilters> = {
+      status: "all",
+      category: "",
+      country: "",
+      linkedInState: "all",
+    };
 
     for (const target of targets) {
       if (target.facetKey === "status") {

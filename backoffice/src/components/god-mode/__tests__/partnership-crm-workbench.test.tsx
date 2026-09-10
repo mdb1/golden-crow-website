@@ -2325,6 +2325,27 @@ describe("PartnershipCrmWorkbench list pager", () => {
     );
 
     expect(within(selectedStatusBlock).getByText("CRM Contacted")).toBeTruthy();
+    await user.click(
+      within(selectedStatusBlock).getByRole("button", {
+        name: "Clear selection",
+      }),
+    );
+    expect(
+      within(selectedStatusBlock).getByText("No segment selected"),
+    ).toBeTruthy();
+    expect(
+      within(statusSection as HTMLElement)
+        .getByRole("button", {
+          name: "Select visual filter from pie: Status - CRM Contacted",
+        })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Select visual filter from pie: Status - CRM Contacted",
+      }),
+    );
+    expect(within(selectedStatusBlock).getByText("CRM Contacted")).toBeTruthy();
     expect(
       within(statusSection as HTMLElement)
         .getByRole("button", {
@@ -2551,6 +2572,149 @@ describe("PartnershipCrmWorkbench list pager", () => {
         })
         .getAttribute("aria-pressed"),
     ).toBe("false");
+  });
+
+  it("clears one selected visual filter and removes it when applying", async () => {
+    const user = userEvent.setup();
+    const listPaths: string[] = [];
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      if (
+        stringPath.startsWith(
+          "/admin/partnership-crm/organizations/visual-filters",
+        )
+      ) {
+        return {
+          targetKind: "organizations",
+          facets: {
+            status: {
+              key: "status",
+              total: 10,
+              buckets: [
+                { value: "new", count: 8 },
+                { value: "contacted", count: 2 },
+              ],
+            },
+            category: {
+              key: "category",
+              total: 10,
+              buckets: [{ value: "org_genomics_laboratories", count: 10 }],
+            },
+            country: {
+              key: "country",
+              total: 10,
+              buckets: [{ value: "AR", count: 10 }],
+            },
+            linkedInState: {
+              key: "linkedInState",
+              total: 10,
+              buckets: [{ value: "has_linkedin", count: 10 }],
+            },
+          },
+        };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/organizations")) {
+        listPaths.push(stringPath);
+      }
+
+      return {
+        organizations: [organization],
+        nextCursor: undefined,
+        statusCounts: {
+          new: 8,
+          contacted: 2,
+          replied: 0,
+          meeting: 0,
+          partner: 0,
+          no_response: 0,
+          not_interested: 0,
+          not_a_fit: 0,
+        },
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getByText("Delete Me Genomics")).toBeTruthy();
+    });
+
+    const searchInput = screen.getByPlaceholderText(
+      "Search organizations...",
+    ) as HTMLInputElement;
+    await user.type(searchInput, "Genome");
+    await user.click(screen.getByRole("button", { name: /Contacted\s+2/ }));
+
+    await waitFor(() => {
+      expect(
+        listPaths.some(
+          (path) =>
+            path.includes("query=Genome") && path.includes("status=contacted"),
+        ),
+      ).toBe(true);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Visual filters" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Visual filters",
+    });
+    const statusSection = within(dialog).getByText("Status").closest("section");
+    expect(statusSection).toBeTruthy();
+    const selectedStatusBlock = within(statusSection as HTMLElement).getByRole(
+      "group",
+      {
+        name: "Selected segment: Status",
+      },
+    );
+
+    await waitFor(() => {
+      expect(
+        within(selectedStatusBlock).getByText("CRM Contacted"),
+      ).toBeTruthy();
+    });
+
+    await user.click(
+      within(selectedStatusBlock).getByRole("button", {
+        name: "Clear selection",
+      }),
+    );
+
+    expect(
+      within(selectedStatusBlock).getByText("No segment selected"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", { name: "Apply" }),
+    ).toHaveProperty("disabled", false);
+
+    const statusPathCountBeforeApply = listPaths.filter((path) =>
+      path.includes("status=contacted"),
+    ).length;
+    await user.click(within(dialog).getByRole("button", { name: "Apply" }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Visual filters" }),
+      ).toBeNull();
+    });
+    await waitFor(() => {
+      expect(listPaths).toContain(
+        "/admin/partnership-crm/organizations?limit=50&query=Genome",
+      );
+    });
+    expect(
+      listPaths.filter((path) => path.includes("status=contacted")),
+    ).toHaveLength(statusPathCountBeforeApply);
   });
 
   it("shows visible count, page count, and previous/next controls as a right-aligned pager", async () => {

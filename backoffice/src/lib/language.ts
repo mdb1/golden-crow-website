@@ -783,6 +783,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No countries match": "No hay países que coincidan",
   "No countries selected": "Sin países seleccionados",
   "countries selected": "países seleccionados",
+  "Clear selection": "Limpiar selección",
   "Clear selected": "Limpiar selección",
   "Clear all": "Limpiar todo",
   Done: "Listo",
