@@ -967,7 +967,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const messageInput = await within(dialog).findByLabelText("Message");
 
     fireEvent.change(messageInput, {
-      target: { value: "Reusable edited template body" },
+      target: {
+        value: "Reusable edited template body for Delete Me Genomics.",
+      },
     });
     await user.click(
       within(dialog).getByRole("button", { name: "Overwrite template" }),
@@ -983,7 +985,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       expect.objectContaining({
         name: "Recommended lab",
         subject: "Recommended {{organization_name}}",
-        body: "Reusable edited template body",
+        body: "Reusable edited template body for {{organization_name}}.",
         is_favorite: false,
       }),
     );
@@ -998,7 +1000,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
     expect(updatePayloads[1]).toEqual(
       expect.objectContaining({
-        body: "Reusable edited template body",
+        body: "Reusable edited template body for {{organization_name}}.",
         is_favorite: true,
       }),
     );
@@ -1022,7 +1024,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
     expect(updatePayloads[2]).toEqual(
       expect.objectContaining({
-        body: "Reusable edited template body",
+        body: "Reusable edited template body for {{organization_name}}.",
         is_favorite: false,
       }),
     );

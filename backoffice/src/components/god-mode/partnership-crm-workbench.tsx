@@ -1079,6 +1079,49 @@ function templatePayload(
   };
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceMaterializedCrmVariable(
+  value: string,
+  materializedValue: string,
+  variableToken: string,
+) {
+  const parts = materializedValue.trim().split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) {
+    return value;
+  }
+
+  const pattern = parts.map(escapeRegExp).join("\\s+");
+  const boundary = "A-Za-z0-9_";
+  const regex = new RegExp(
+    `(^|[^${boundary}])(${pattern})(?=$|[^${boundary}])`,
+    "g",
+  );
+
+  return value.replace(regex, `$1${variableToken}`);
+}
+
+function restoreCrmTemplateTargetVariables(
+  value: string,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const organizationName =
+    targetKind === "professionals"
+      ? (target as PartnershipCrmProfessionalRecord).primaryAffiliation ||
+        target.name
+      : target.name;
+
+  return replaceMaterializedCrmVariable(
+    value,
+    organizationName,
+    "{{organization_name}}",
+  );
+}
+
 function localDateTimeValue(value: string | null | undefined) {
   if (!value) {
     return "";
@@ -2852,6 +2895,7 @@ function EmailComposerDialog({
   const canOverwriteTemplate = Boolean(
     email &&
       selectedTemplate &&
+      organization &&
       email.step === "compose" &&
       email.text.trim() &&
       !templateActionPending,
@@ -2866,12 +2910,15 @@ function EmailComposerDialog({
   );
 
   async function handleOverwriteTemplate() {
-    if (!selectedTemplate || !email || !canOverwriteTemplate) {
+    if (!selectedTemplate || !email || !organization || !canOverwriteTemplate) {
       return;
     }
 
     try {
-      await onOverwriteTemplate(selectedTemplate, email.text);
+      await onOverwriteTemplate(
+        selectedTemplate,
+        restoreCrmTemplateTargetVariables(email.text, organization, targetKind),
+      );
       setTemplateToast({
         id: Date.now(),
         tone: "success",
