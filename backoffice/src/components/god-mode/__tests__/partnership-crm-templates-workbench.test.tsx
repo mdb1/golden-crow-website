@@ -563,6 +563,12 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(
       within(dialog).queryByRole("button", { name: "Add row" }),
     ).toBeNull();
+    expect(
+      within(dialog).getByRole("button", { name: "Import all" }),
+    ).toBeTruthy();
+    expect(
+      within(dialog).queryByRole("button", { name: "Import all remaining" }),
+    ).toBeNull();
     await user.click(
       within(dialog).getByRole("button", {
         name: "Review remaining one by one",
@@ -583,10 +589,10 @@ describe("PartnershipCrmTemplateBrowser", () => {
       }),
     ).toBeNull();
     expect(
-      within(currentRow).queryByRole("button", {
+      within(currentRow).getByRole("button", {
         name: "Import all remaining",
       }),
-    ).toBeNull();
+    ).toBeTruthy();
     await waitFor(() => {
       expect(
         within(dialog)
@@ -732,14 +738,19 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(
         within(dialog)
-          .getByRole("button", { name: "Import all remaining" })
+          .getByRole("button", { name: "Import all" })
           .getAttribute("disabled"),
       ).toBeNull();
     });
     expect(within(dialog).queryByText("Possible duplicate")).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", { name: "Import all remaining" }),
+    ).toBeNull();
 
     await user.click(
-      within(dialog).getByRole("button", { name: "Import all remaining" }),
+      within(dialog).getByRole("button", {
+        name: "Review remaining one by one",
+      }),
     );
 
     await waitFor(() => {
