@@ -347,9 +347,19 @@ describe("PartnershipCrmTemplateBrowser", () => {
     );
     expect(within(panel).getByText("Template fit")).toBeTruthy();
     expect(within(panel).getByText("Variables")).toBeTruthy();
-    expect(within(panel).getByText("{{organization_name}}")).toBeTruthy();
-    expect(within(panel).getByText("{{contact_name}}")).toBeTruthy();
     expect(within(panel).getByText("Hola Contacto")).toBeTruthy();
+    const variablesBlock = within(panel).getByTestId(
+      "template-preview-variables",
+    );
+    expect(
+      within(variablesBlock).getByText("{{organization_name}}"),
+    ).toBeTruthy();
+    expect(within(variablesBlock).getByText("{{contact_name}}")).toBeTruthy();
+    expect(within(variablesBlock).queryByText("{{website}}")).toBeNull();
+    expect(
+      within(variablesBlock).queryByText("{{website_sentence}}"),
+    ).toBeNull();
+    expect(within(variablesBlock).queryByText("Not used")).toBeNull();
     const actionGroup = within(panel).getByTestId(
       "template-preview-panel-actions",
     );
@@ -410,6 +420,42 @@ describe("PartnershipCrmTemplateBrowser", () => {
         expect.objectContaining({ method: "DELETE" }),
       );
     });
+  });
+
+  it("shows an empty state when the selected template does not use variables", async () => {
+    const user = userEvent.setup();
+    const staticTemplate: PartnershipCrmTemplateRecord = {
+      ...template,
+      subject: "Pocket Genes invitation",
+      body: "Hola, queremos compartirte una invitacion.",
+    };
+
+    jest.mocked(sdkFetch).mockResolvedValue({
+      templates: [staticTemplate],
+      nextCursor: undefined,
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Lab outreach")).toBeTruthy();
+    });
+
+    await user.click(screen.getByText("Lab outreach"));
+
+    const panel = await screen.findByTestId("template-preview-panel");
+    const variablesBlock = within(panel).getByTestId(
+      "template-preview-variables",
+    );
+
+    expect(
+      within(variablesBlock).getByText("No variables used in this message."),
+    ).toBeTruthy();
+    expect(within(variablesBlock).queryByRole("table")).toBeNull();
+    expect(within(variablesBlock).queryByText("Not used")).toBeNull();
+    expect(
+      within(variablesBlock).queryByText("{{organization_name}}"),
+    ).toBeNull();
   });
 
   it("previews and imports templates from CSV", async () => {

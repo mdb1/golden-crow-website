@@ -1024,6 +1024,9 @@ function TemplatePreviewSidePanel({
     target,
     template.audience,
   );
+  const usedVariableDefinitions = analysis.definitions.filter((variable) =>
+    analysis.knownTokens.includes(variable.token),
+  );
   const notesChanged = notesDraft !== template.notes;
 
   return (
@@ -1245,33 +1248,37 @@ function TemplatePreviewSidePanel({
         </p>
       </div>
 
-      <div className="rounded-xl border border-border/80 bg-background/70 p-4">
+      <div
+        data-testid="template-preview-variables"
+        className="rounded-xl border border-border/80 bg-background/70 p-4"
+      >
         <div className="flex items-center gap-2">
           <Braces className="h-4 w-4 text-muted-foreground" />
           <h4 className="font-heading text-sm font-semibold">
             {t("Variables")}
           </h4>
         </div>
-        <div className="mt-3 overflow-hidden rounded-lg border border-border/80">
-          <table className="w-full text-left text-xs">
-            <tbody>
-              {analysis.definitions.map((variable) => {
-                const usedInSubject = analysis.subjectTokens.includes(
-                  variable.token,
-                );
-                const usedInBody = analysis.bodyTokens.includes(variable.token);
-                const used = usedInSubject || usedInBody;
+        {usedVariableDefinitions.length > 0 ? (
+          <div className="mt-3 overflow-hidden rounded-lg border border-border/80">
+            <table className="w-full text-left text-xs">
+              <tbody>
+                {usedVariableDefinitions.map((variable) => {
+                  const usedInSubject = analysis.subjectTokens.includes(
+                    variable.token,
+                  );
+                  const usedInBody = analysis.bodyTokens.includes(
+                    variable.token,
+                  );
 
-                return (
-                  <tr
-                    key={variable.token}
-                    className="border-b border-border/60 last:border-b-0"
-                  >
-                    <th className="bg-muted/30 px-2 py-2 align-top">
-                      <TemplateVariablePill variable={variable} muted={!used} />
-                    </th>
-                    <td className="px-2 py-2 align-top text-muted-foreground">
-                      {used ? (
+                  return (
+                    <tr
+                      key={variable.token}
+                      className="border-b border-border/60 last:border-b-0"
+                    >
+                      <th className="bg-muted/30 px-2 py-2 align-top">
+                        <TemplateVariablePill variable={variable} />
+                      </th>
+                      <td className="px-2 py-2 align-top text-muted-foreground">
                         <div className="flex flex-wrap gap-1">
                           {usedInSubject ? (
                             <Badge variant="outline">{t("Subject")}</Badge>
@@ -1280,16 +1287,18 @@ function TemplatePreviewSidePanel({
                             <Badge variant="outline">{t("Message")}</Badge>
                           ) : null}
                         </div>
-                      ) : (
-                        t("Not used")
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <EmptyState>{t("No variables used in this message.")}</EmptyState>
+          </div>
+        )}
         {analysis.unknownTokens.length > 0 ? (
           <p className="mt-3 text-sm text-destructive">
             {t("Unknown variables render blank")}:{" "}
