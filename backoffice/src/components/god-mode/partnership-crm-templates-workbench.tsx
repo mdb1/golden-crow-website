@@ -1702,7 +1702,7 @@ function TemplateImportReviewCard({
               <p className="text-sm font-semibold">{t("Possible duplicate")}</p>
               <p className="mt-1 text-sm leading-6 text-amber-950/75 dark:text-amber-50/75">
                 {t(
-                  "This row matches an existing template. New duplicate templates are never created from duplicate rows. Update merges the CSV row into the existing template; keeping existing leaves the database unchanged.",
+                  "This row matches an existing template. Duplicate rows never create a second template. Updating applies this row to the existing template using the compatibility rules below; keeping existing leaves the database unchanged.",
                 )}
               </p>
               {row.duplicateReason ? (
@@ -1766,7 +1766,7 @@ function TemplateImportReviewCard({
 
           <p className="mt-2 text-xs leading-5 text-amber-950/70 dark:text-amber-50/70">
             {t(
-              "Merge rules preserve existing subject and body unless they are blank, merge notes, and keep favorite enabled if either side is favorite.",
+              "Compatibility keeps the existing subject and message unless they are blank, fills missing fields from this row, appends new notes, and keeps favorite enabled if either side is favorite.",
             )}
           </p>
         </div>
@@ -1865,7 +1865,7 @@ function TemplateImportReviewCard({
             ? t("Checking...")
             : importing
               ? t("Importing...")
-              : t(hasDuplicate ? "Merge CSV into existing" : "Add row")}
+              : t(hasDuplicate ? "Update existing with this row" : "Add row")}
         </Button>
         <Button
           type="button"

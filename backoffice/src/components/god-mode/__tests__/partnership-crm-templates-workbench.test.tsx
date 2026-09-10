@@ -792,9 +792,14 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ).toBeTruthy();
     expect(
       within(dialog).getByRole("button", {
-        name: "Merge CSV into existing",
+        name: "Update existing with this row",
       }),
     ).toBeTruthy();
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "Merge CSV into existing",
+      }),
+    ).toBeNull();
     expect(
       within(dialog).queryByRole("button", { name: "Accept row" }),
     ).toBeNull();
@@ -804,7 +809,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Merge CSV into existing",
+        name: "Update existing with this row",
       }),
     );
 
