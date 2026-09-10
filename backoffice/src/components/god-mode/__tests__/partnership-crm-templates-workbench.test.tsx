@@ -539,6 +539,18 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(within(currentRow).getByText("Contacto")).toBeTruthy();
     expect(within(currentRow).getByText("{{organization_name}}")).toBeTruthy();
     expect(within(currentRow).getByText("{{contact_name}}")).toBeTruthy();
+    expect(
+      within(dialog).getAllByRole("button", {
+        name: "Review remaining one by one",
+      }).length,
+    ).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(
+        within(dialog)
+          .getByRole("button", { name: "Add row" })
+          .getAttribute("disabled"),
+      ).toBeNull();
+    });
 
     await user.click(
       within(dialog).getByRole("button", {
@@ -560,7 +572,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
     await user.click(
       within(dialog).getAllByRole("button", {
-        name: "Import remaining in sequence",
+        name: "Import all remaining",
       })[0],
     );
 
@@ -618,6 +630,113 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
+  });
+
+  it("surfaces duplicate template rows and combines them into the existing template", async () => {
+    const user = userEvent.setup();
+    const existingTemplate: PartnershipCrmTemplateRecord = {
+      ...template,
+      id: "tpl-existing",
+      name: "Duplicate intro",
+      category: "org_genetic_testing_laboratories",
+      subject: "Old subject",
+      body: "Old body",
+      notes: "Old note",
+      is_favorite: false,
+      normalizedName: "duplicate intro",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (
+        stringPath === "/admin/partnership-crm/templates/tpl-existing" &&
+        init?.method === "PUT"
+      ) {
+        const body = JSON.parse(
+          String(init.body),
+        ) as PartnershipCrmTemplateInput;
+
+        return {
+          template: {
+            ...existingTemplate,
+            ...body,
+            id: existingTemplate.id,
+          },
+        };
+      }
+
+      return {
+        templates: [existingTemplate],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await user.click(await screen.findByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = [
+      "name,category,subject,body,status,is_favorite,notes",
+      '"Duplicate intro","org_genetic_testing_laboratories","New subject","New body","active","true","New note"',
+    ].join("\n");
+    const file = new File([csv], "duplicate-plantillas.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Possible duplicate")).toBeTruthy();
+    });
+
+    const duplicateBlock = within(dialog).getByTestId(
+      "template-import-duplicate",
+    );
+    expect(within(duplicateBlock).getByText("Duplicate intro")).toBeTruthy();
+    expect(within(duplicateBlock).getByText("Old subject")).toBeTruthy();
+    expect(within(duplicateBlock).getByText("New subject")).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", { name: "Accept row" }),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", { name: "Combine with existing" }),
+    ).toBeTruthy();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Combine with existing" }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Template import finished")).toBeTruthy();
+    });
+
+    const putCall = jest
+      .mocked(sdkFetch)
+      .mock.calls.find(
+        ([path, init]) =>
+          path === "/admin/partnership-crm/templates/tpl-existing" &&
+          init?.method === "PUT",
+      );
+    expect(putCall).toBeTruthy();
+    expect(JSON.parse(String(putCall?.[1]?.body))).toEqual(
+      expect.objectContaining({
+        name: "Duplicate intro",
+        subject: "Old subject",
+        body: "Old body",
+        notes: "Old note\n\n--- CSV import ---\nNew note",
+        is_favorite: true,
+      }),
+    );
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.some(
+          ([path, init]) =>
+            path === "/admin/partnership-crm/templates" &&
+            init?.method === "POST",
+        ),
+    ).toBe(false);
   });
 
   it("does not render raw template CSV contents and caps visible preview rows", async () => {

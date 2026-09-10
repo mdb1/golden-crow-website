@@ -600,6 +600,7 @@ function importBehaviorLinesFor(kind: ImportRulesKind) {
     ? [
         "Preview the parsed template rows before creating templates.",
         "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.",
+        "Use Review remaining one by one to decide Add / Skip / Combine for each row. Possible duplicates are surfaced on the row card before anything is saved.",
         "Literal \\n is converted to a line break in template body and notes.",
         "Use active templates for the CRM send flow; archived templates are kept out of normal sending.",
       ]

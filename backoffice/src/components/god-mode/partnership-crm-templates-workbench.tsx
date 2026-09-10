@@ -311,12 +311,23 @@ type TemplateImportPreviewRow = {
   template: PartnershipCrmTemplateInput;
   errors: string[];
   valid: boolean;
+  duplicateTemplate?: PartnershipCrmTemplateRecord;
+  duplicateReason?: string;
+  conflicts: TemplateImportConflict[];
+};
+
+type TemplateImportConflict = {
+  key: keyof PartnershipCrmTemplateInput;
+  label: string;
+  existingValue: unknown;
+  incomingValue: unknown;
 };
 
 type TemplateImportResult = {
   rowNumber: number;
-  action: "created" | "skipped" | "invalid" | "failed";
+  action: "created" | "updated" | "skipped" | "invalid" | "failed";
   templateId?: string;
+  template?: PartnershipCrmTemplateRecord;
   error?: string;
 };
 
@@ -737,8 +748,111 @@ function statusBadgeVariant(status: PartnershipCrmTemplateStatus) {
   return "secondary" as const;
 }
 
+const TEMPLATE_IMPORT_DUPLICATE_SCAN_PAGE_LIMIT = 50;
+const TEMPLATE_IMPORT_DUPLICATE_SCAN_PAGE_CAP = 10;
+
+const TEMPLATE_IMPORT_CONFLICT_FIELDS: Array<{
+  key: keyof PartnershipCrmTemplateInput;
+  label: string;
+}> = [
+  { key: "name", label: "Template name" },
+  { key: "audience", label: "Applies to" },
+  { key: "category", label: "Category" },
+  { key: "subject", label: "Subject" },
+  { key: "body", label: "Message" },
+  { key: "status", label: "Status" },
+  { key: "notes", label: "Notes" },
+  { key: "is_favorite", label: "Favorite" },
+];
+
+function normalizeTemplateMatchValue(value: string | undefined | null) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function templateImportAudience(
+  template:
+    PartnershipCrmTemplateInput | PartnershipCrmTemplateRecord | undefined,
+): PartnershipCrmTemplateAudience {
+  return template?.audience ?? "organizations";
+}
+
+function findTemplateDuplicateCandidate(
+  incoming: PartnershipCrmTemplateInput,
+  existingTemplates: PartnershipCrmTemplateRecord[],
+) {
+  const incomingAudience = templateImportAudience(incoming);
+  const incomingName = normalizeTemplateMatchValue(incoming.name);
+  const incomingSubject = normalizeTemplateMatchValue(incoming.subject);
+  const sameAudienceTemplates = existingTemplates.filter(
+    (template) => templateImportAudience(template) === incomingAudience,
+  );
+  const byName = sameAudienceTemplates.find(
+    (template) => normalizeTemplateMatchValue(template.name) === incomingName,
+  );
+  if (byName) {
+    return {
+      template: byName,
+      reason: "Same audience and template name.",
+    };
+  }
+
+  if (!incomingSubject) {
+    return null;
+  }
+
+  const bySubject = sameAudienceTemplates.find(
+    (template) =>
+      normalizeTemplateMatchValue(template.subject) === incomingSubject,
+  );
+
+  return bySubject
+    ? {
+        template: bySubject,
+        reason: "Same audience and subject.",
+      }
+    : null;
+}
+
+function comparableTemplateImportValue(
+  value: unknown,
+  key: keyof PartnershipCrmTemplateInput,
+) {
+  if (key === "is_favorite") {
+    return Boolean(value);
+  }
+
+  return typeof value === "string" ? value.trim() : (value ?? "");
+}
+
+function templateImportConflicts(
+  existing: PartnershipCrmTemplateRecord,
+  incoming: PartnershipCrmTemplateInput,
+): TemplateImportConflict[] {
+  return TEMPLATE_IMPORT_CONFLICT_FIELDS.flatMap(({ key, label }) => {
+    const existingValue = comparableTemplateImportValue(existing[key], key);
+    const incomingValue = comparableTemplateImportValue(incoming[key], key);
+
+    return existingValue === incomingValue
+      ? []
+      : [
+          {
+            key,
+            label,
+            existingValue,
+            incomingValue,
+          },
+        ];
+  });
+}
+
 function templatePreviewRows(
   parsed: ParsedCrmTemplateCsv,
+  existingTemplates: PartnershipCrmTemplateRecord[] = [],
 ): TemplateImportPreviewRow[] {
   const errorsByRow = parsed.errors.reduce((map, error) => {
     const errors = map.get(error.row) ?? [];
@@ -750,18 +864,27 @@ function templatePreviewRows(
   return parsed.rows.map((template, index) => {
     const rowNumber = index + 2;
     const errors = errorsByRow.get(rowNumber) ?? [];
+    const duplicate = findTemplateDuplicateCandidate(
+      template,
+      existingTemplates,
+    );
 
     return {
       rowNumber,
       template,
       errors,
       valid: errors.length === 0,
+      duplicateTemplate: duplicate?.template,
+      duplicateReason: duplicate?.reason,
+      conflicts: duplicate
+        ? templateImportConflicts(duplicate.template, template)
+        : [],
     };
   });
 }
 
 function templateImportResultTone(result: TemplateImportResult) {
-  if (result.action === "created") {
+  if (result.action === "created" || result.action === "updated") {
     return "success" as const;
   }
   if (result.action === "skipped") {
@@ -775,6 +898,72 @@ function templateImportResultTone(result: TemplateImportResult) {
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error.";
+}
+
+function formatTemplateImportValue(
+  key: keyof PartnershipCrmTemplateInput,
+  value: unknown,
+  audience: PartnershipCrmTemplateAudience,
+  language: AppLanguage,
+) {
+  const t = (text: string) => appText(language, text);
+
+  if (key === "is_favorite") {
+    return value ? t("Favorite") : t("Not favorite");
+  }
+
+  if (key === "audience") {
+    return value === "professionals" ? t("Professionals") : t("Organizations");
+  }
+
+  if (key === "category") {
+    return formatCrmCategory(String(value ?? ""), language, audience) || "-";
+  }
+
+  if (key === "status") {
+    return t(templateStatusLabel(value as PartnershipCrmTemplateStatus));
+  }
+
+  const text = String(value ?? "").trim();
+  return text || "-";
+}
+
+function mergeTemplateNotes(existingNotes: string, incomingNotes: string) {
+  const existing = existingNotes.trim();
+  const incoming = incomingNotes.trim();
+
+  if (!existing) {
+    return incoming;
+  }
+  if (
+    !incoming ||
+    normalizeTemplateMatchValue(existing) ===
+      normalizeTemplateMatchValue(incoming)
+  ) {
+    return existing;
+  }
+
+  return `${existing}\n\n--- CSV import ---\n${incoming}`;
+}
+
+function mergeTemplateInputWithExisting(
+  existing: PartnershipCrmTemplateRecord,
+  incoming: PartnershipCrmTemplateInput,
+): PartnershipCrmTemplateInput {
+  const audience = templateImportAudience(existing);
+
+  return {
+    name: existing.name.trim() || incoming.name.trim(),
+    audience,
+    category:
+      normalizeCrmPrimaryCategory(existing.category, audience) ||
+      normalizeCrmPrimaryCategory(incoming.category ?? "", audience),
+    subject: existing.subject.trim() || incoming.subject.trim(),
+    body: existing.body.trim() || incoming.body.trim(),
+    status: existing.status || incoming.status || "active",
+    notes: mergeTemplateNotes(existing.notes, incoming.notes ?? ""),
+    is_favorite: Boolean(existing.is_favorite || incoming.is_favorite),
+  };
 }
 
 function TemplateStatusBadge({
@@ -1344,10 +1533,13 @@ function TemplateImportReviewCard({
   totalRows,
   result,
   importing,
+  checkingDuplicates,
   canImportRemaining,
   onAdd,
+  onCombine,
   onSkip,
-  onImportRemaining,
+  onReviewRemaining,
+  onImportAllRemaining,
   language,
 }: {
   row: TemplateImportPreviewRow;
@@ -1355,10 +1547,13 @@ function TemplateImportReviewCard({
   totalRows: number;
   result?: TemplateImportResult;
   importing: boolean;
+  checkingDuplicates: boolean;
   canImportRemaining: boolean;
   onAdd: () => void;
+  onCombine: () => void;
   onSkip: () => void;
-  onImportRemaining: () => void;
+  onReviewRemaining: () => void;
+  onImportAllRemaining: () => void;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
@@ -1371,14 +1566,17 @@ function TemplateImportReviewCard({
   const resultLabel = result
     ? result.action === "created"
       ? "Row imported"
-      : result.action === "skipped"
-        ? "Row skipped"
-        : result.action === "invalid"
-          ? "Row invalid"
-          : "Failed"
+      : result.action === "updated"
+        ? "Row updated"
+        : result.action === "skipped"
+          ? "Row skipped"
+          : result.action === "invalid"
+            ? "Row invalid"
+            : "Failed"
     : row.valid
       ? "Ready"
       : "Row invalid";
+  const hasDuplicate = Boolean(row.duplicateTemplate);
 
   return (
     <section
@@ -1462,6 +1660,86 @@ function TemplateImportReviewCard({
         <ErrorBanner>{result.error}</ErrorBanner>
       ) : null}
 
+      {row.duplicateTemplate ? (
+        <div
+          data-testid="template-import-duplicate"
+          className="rounded-xl border border-amber-200 bg-amber-50/85 p-3 text-amber-950 dark:border-amber-300/25 dark:bg-amber-400/12 dark:text-amber-50"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">{t("Possible duplicate")}</p>
+              <p className="mt-1 text-sm leading-6 text-amber-950/75 dark:text-amber-50/75">
+                {t(
+                  "This row matches an existing template. Accept creates a separate template; skip leaves the existing template unchanged; combine updates the existing template using the merge rules.",
+                )}
+              </p>
+              {row.duplicateReason ? (
+                <p className="mt-1 text-xs text-amber-950/65 dark:text-amber-50/65">
+                  {t(row.duplicateReason)}
+                </p>
+              ) : null}
+            </div>
+            <Badge variant="warning" className="max-w-full truncate">
+              {row.duplicateTemplate.name}
+            </Badge>
+          </div>
+
+          <div className="mt-3 rounded-lg border border-amber-200/80 bg-white/70 dark:border-amber-300/20 dark:bg-black/20">
+            {row.conflicts.length > 0 ? (
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-amber-200/80 dark:border-amber-300/20">
+                  <tr>
+                    <th className="px-2 py-2 font-semibold">{t("Field")}</th>
+                    <th className="px-2 py-2 font-semibold">
+                      {t("Existing template")}
+                    </th>
+                    <th className="px-2 py-2 font-semibold">{t("CSV new")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {row.conflicts.map((conflict) => (
+                    <tr
+                      key={conflict.key}
+                      className="border-b border-amber-200/70 last:border-b-0 dark:border-amber-300/20"
+                    >
+                      <th className="w-36 px-2 py-2 align-top font-medium">
+                        {t(conflict.label)}
+                      </th>
+                      <td className="max-w-[16rem] whitespace-pre-wrap px-2 py-2 align-top">
+                        {formatTemplateImportValue(
+                          conflict.key,
+                          conflict.existingValue,
+                          audience,
+                          language,
+                        )}
+                      </td>
+                      <td className="max-w-[16rem] whitespace-pre-wrap px-2 py-2 align-top">
+                        {formatTemplateImportValue(
+                          conflict.key,
+                          conflict.incomingValue,
+                          audience,
+                          language,
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="px-3 py-2 text-sm text-amber-950/75 dark:text-amber-50/75">
+                {t("No field differences detected.")}
+              </p>
+            )}
+          </div>
+
+          <p className="mt-2 text-xs leading-5 text-amber-950/70 dark:text-amber-50/70">
+            {t(
+              "Merge rules preserve existing subject and body unless they are blank, merge notes, and keep favorite enabled if either side is favorite.",
+            )}
+          </p>
+        </div>
+      ) : null}
+
       <div className="grid gap-3">
         <div className="space-y-1.5">
           <Label>{t("Subject")}</Label>
@@ -1539,22 +1817,54 @@ function TemplateImportReviewCard({
           <X className="h-4 w-4" />
           {t("Skip row")}
         </Button>
+        {hasDuplicate ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCombine}
+            disabled={
+              importing || checkingDuplicates || Boolean(result) || !row.valid
+            }
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {checkingDuplicates
+              ? t("Checking...")
+              : importing
+                ? t("Importing...")
+                : t("Combine with existing")}
+          </Button>
+        ) : null}
         <Button
           type="button"
           onClick={onAdd}
-          disabled={importing || Boolean(result) || !row.valid}
+          disabled={
+            importing || checkingDuplicates || Boolean(result) || !row.valid
+          }
         >
           <Plus className="h-4 w-4" />
-          {importing ? t("Importing...") : t("Add row")}
+          {checkingDuplicates
+            ? t("Checking...")
+            : importing
+              ? t("Importing...")
+              : t(hasDuplicate ? "Accept row" : "Add row")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onReviewRemaining}
+          disabled={importing || checkingDuplicates || !canImportRemaining}
+        >
+          <FileText className="h-4 w-4" />
+          {t("Review remaining one by one")}
         </Button>
         <Button
           type="button"
           className={TEMPLATE_IMPORT_CTA_CLASS}
-          onClick={onImportRemaining}
-          disabled={importing || !canImportRemaining}
+          onClick={onImportAllRemaining}
+          disabled={importing || checkingDuplicates || !canImportRemaining}
         >
           <FileUp className="h-4 w-4" />
-          {importing ? t("Importing...") : t("Import remaining in sequence")}
+          {importing ? t("Importing...") : t("Import all remaining")}
         </Button>
       </div>
     </section>
@@ -1585,6 +1895,11 @@ function TemplateImportDialog({
   const [activeRowIndex, setActiveRowIndex] = useState(0);
   const [processedCount, setProcessedCount] = useState(0);
   const [results, setResults] = useState<TemplateImportResult[]>([]);
+  const [existingTemplates, setExistingTemplates] = useState<
+    PartnershipCrmTemplateRecord[]
+  >([]);
+  const [duplicateScanLoading, setDuplicateScanLoading] = useState(false);
+  const [duplicateScanError, setDuplicateScanError] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -1606,11 +1921,91 @@ function TemplateImportDialog({
     setActiveRowIndex(0);
     setProcessedCount(0);
     setResults([]);
+    setExistingTemplates([]);
+    setDuplicateScanLoading(false);
+    setDuplicateScanError("");
   }, [initialAudience, open]);
 
+  useEffect(() => {
+    const parsedForScan = parsed;
+
+    if (!open || !parsedForScan) {
+      setExistingTemplates([]);
+      setDuplicateScanError("");
+      setDuplicateScanLoading(false);
+      return;
+    }
+
+    const rowsForDuplicateScan = parsedForScan.rows;
+    let cancelled = false;
+
+    async function loadExistingTemplatesForDuplicateScan() {
+      setDuplicateScanLoading(true);
+      setDuplicateScanError("");
+
+      try {
+        const loaded: PartnershipCrmTemplateRecord[] = [];
+        const audiencesToScan = Array.from(
+          new Set(
+            rowsForDuplicateScan.length > 0
+              ? rowsForDuplicateScan.map((row) => templateImportAudience(row))
+              : [audience],
+          ),
+        );
+
+        for (const scanAudience of audiencesToScan) {
+          let cursor: string | undefined;
+
+          for (
+            let pageIndex = 0;
+            pageIndex < TEMPLATE_IMPORT_DUPLICATE_SCAN_PAGE_CAP;
+            pageIndex += 1
+          ) {
+            const params = new URLSearchParams({
+              limit: String(TEMPLATE_IMPORT_DUPLICATE_SCAN_PAGE_LIMIT),
+              audience: scanAudience,
+            });
+            if (cursor) {
+              params.set("cursor", cursor);
+            }
+
+            const page = await sdkFetch<PartnershipCrmTemplatesPage>(
+              `/admin/partnership-crm/templates?${params.toString()}`,
+            );
+            loaded.push(...page.templates);
+
+            if (!page.nextCursor) {
+              break;
+            }
+            cursor = page.nextCursor;
+          }
+        }
+
+        if (!cancelled) {
+          setExistingTemplates(loaded);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setExistingTemplates([]);
+          setDuplicateScanError(errorMessage(error));
+        }
+      } finally {
+        if (!cancelled) {
+          setDuplicateScanLoading(false);
+        }
+      }
+    }
+
+    void loadExistingTemplatesForDuplicateScan();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [audience, open, parsed]);
+
   const previewRows = useMemo(
-    () => (parsed ? templatePreviewRows(parsed) : []),
-    [parsed],
+    () => (parsed ? templatePreviewRows(parsed, existingTemplates) : []),
+    [existingTemplates, parsed],
   );
   const validRows = useMemo(
     () => previewRows.filter((row) => row.valid),
@@ -1632,6 +2027,9 @@ function TemplateImportDialog({
   const createdCount = results.filter(
     (result) => result.action === "created",
   ).length;
+  const updatedCount = results.filter(
+    (result) => result.action === "updated",
+  ).length;
   const failedCount = results.filter(
     (result) => result.action === "failed",
   ).length;
@@ -1650,7 +2048,11 @@ function TemplateImportDialog({
       ? Math.round((processedCount / previewRows.length) * 100)
       : 0;
   const canImportRemaining =
-    previewRows.length > 0 && hasPendingRows && !importing && !completed;
+    previewRows.length > 0 &&
+    hasPendingRows &&
+    !importing &&
+    !completed &&
+    !duplicateScanLoading;
 
   function resetImportState() {
     csvTextRef.current = "";
@@ -1661,6 +2063,9 @@ function TemplateImportDialog({
     setActiveRowIndex(0);
     setProcessedCount(0);
     setResults([]);
+    setExistingTemplates([]);
+    setDuplicateScanLoading(false);
+    setDuplicateScanError("");
   }
 
   function parseCsv(
@@ -1675,6 +2080,8 @@ function TemplateImportDialog({
     setActiveRowIndex(0);
     setProcessedCount(0);
     setResults([]);
+    setExistingTemplates([]);
+    setDuplicateScanError("");
   }
 
   function handleAudienceChange(nextAudience: PartnershipCrmTemplateAudience) {
@@ -1698,6 +2105,8 @@ function TemplateImportDialog({
       setActiveRowIndex(0);
       setProcessedCount(0);
       setResults([]);
+      setExistingTemplates([]);
+      setDuplicateScanError("");
     } catch (error) {
       csvTextRef.current = "";
       setFileName(file.name);
@@ -1709,6 +2118,8 @@ function TemplateImportDialog({
       setActiveRowIndex(0);
       setProcessedCount(0);
       setResults([]);
+      setExistingTemplates([]);
+      setDuplicateScanError("");
     } finally {
       input.value = "";
     }
@@ -1757,6 +2168,19 @@ function TemplateImportDialog({
     setCompleted(previewRows.length > 0);
   }
 
+  function absorbImportedTemplate(result: TemplateImportResult) {
+    if (!result.template) {
+      return;
+    }
+
+    setExistingTemplates((current) => {
+      const withoutCurrent = current.filter(
+        (template) => template.id !== result.template!.id,
+      );
+      return [...withoutCurrent, result.template!];
+    });
+  }
+
   async function createTemplateFromRow(row: TemplateImportPreviewRow) {
     if (!row.valid) {
       return {
@@ -1778,6 +2202,54 @@ function TemplateImportDialog({
         rowNumber: row.rowNumber,
         action: "created" as const,
         templateId: response.template.id,
+        template: response.template,
+      };
+    } catch (error) {
+      return {
+        rowNumber: row.rowNumber,
+        action: "failed" as const,
+        error: errorMessage(error),
+      };
+    }
+  }
+
+  async function mergeTemplateFromRow(row: TemplateImportPreviewRow) {
+    if (!row.valid) {
+      return {
+        rowNumber: row.rowNumber,
+        action: "invalid" as const,
+        error: row.errors.join(" "),
+      };
+    }
+
+    if (!row.duplicateTemplate) {
+      return {
+        rowNumber: row.rowNumber,
+        action: "failed" as const,
+        error: "No duplicate template was found for this row.",
+      };
+    }
+
+    try {
+      const response = await sdkFetch<{
+        template: PartnershipCrmTemplateRecord;
+      }>(
+        `/admin/partnership-crm/templates/${encodeURIComponent(
+          row.duplicateTemplate.id,
+        )}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(
+            mergeTemplateInputWithExisting(row.duplicateTemplate, row.template),
+          ),
+        },
+      );
+
+      return {
+        rowNumber: row.rowNumber,
+        action: "updated" as const,
+        templateId: response.template.id,
+        template: response.template,
       };
     } catch (error) {
       return {
@@ -1797,10 +2269,29 @@ function TemplateImportDialog({
     setImporting(true);
     const result = await createTemplateFromRow(currentRow);
     const nextResults = mergeResult(results, result);
+    absorbImportedTemplate(result);
     setImporting(false);
     commitImportProgress(activeRowIndex, nextResults);
 
     if (result.action === "created") {
+      onImported();
+    }
+  }
+
+  async function handleCombineCurrentRow() {
+    if (!currentRow || currentRowResult || importing) {
+      return;
+    }
+
+    setCompleted(false);
+    setImporting(true);
+    const result = await mergeTemplateFromRow(currentRow);
+    const nextResults = mergeResult(results, result);
+    absorbImportedTemplate(result);
+    setImporting(false);
+    commitImportProgress(activeRowIndex, nextResults);
+
+    if (result.action === "updated") {
       onImported();
     }
   }
@@ -1823,6 +2314,25 @@ function TemplateImportDialog({
         };
 
     commitImportProgress(activeRowIndex, mergeResult(results, result));
+  }
+
+  function handleReviewRemainingOneByOne() {
+    if (!canImportRemaining) {
+      return;
+    }
+
+    const currentIsPending =
+      currentRow && !resultByRow.has(currentRow.rowNumber);
+    if (currentIsPending) {
+      setCompleted(false);
+      return;
+    }
+
+    const nextRowIndex = nextUnprocessedRowIndex(-1, results);
+    if (nextRowIndex >= 0) {
+      setCompleted(false);
+      setActiveRowIndex(nextRowIndex);
+    }
   }
 
   async function handleImportRemaining() {
@@ -1850,8 +2360,16 @@ function TemplateImportDialog({
       }
 
       setActiveRowIndex(rowIndex);
+      if (!row.valid || row.duplicateTemplate) {
+        setImporting(false);
+        setResults(workingResults);
+        setProcessedCount(workingResults.length);
+        return;
+      }
+
       const result = await createTemplateFromRow(row);
       workingResults = mergeResult(workingResults, result);
+      absorbImportedTemplate(result);
       createdAny = createdAny || result.action === "created";
       setResults(workingResults);
       setProcessedCount(workingResults.length);
@@ -1930,13 +2448,21 @@ function TemplateImportDialog({
                   <div className="h-full rounded-full bg-emerald-600" />
                 </div>
 
-                <div className="mt-5 grid gap-3 text-sm sm:grid-cols-5">
+                <div className="mt-5 grid gap-3 text-sm sm:grid-cols-6">
                   <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
                       {t("Created templates")}
                     </p>
                     <p className="mt-2 text-2xl font-semibold">
                       {createdCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
+                      {t("Updated")}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {updatedCount}
                     </p>
                   </div>
                   <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
@@ -2038,12 +2564,13 @@ function TemplateImportDialog({
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
                 {[
                   { label: "Found", value: previewRows.length },
                   { label: "Valid", value: validRows.length },
                   { label: "Invalid", value: invalidCount },
                   { label: "Created templates", value: createdCount },
+                  { label: "Updated", value: updatedCount },
                   { label: "Skipped rows", value: skippedCount },
                   { label: "Failed rows", value: failedCount },
                 ].map((item) => (
@@ -2063,9 +2590,11 @@ function TemplateImportDialog({
                 <div className="rounded-xl border border-border/80 bg-background/70 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-medium">
-                      {importing
-                        ? t("Importing one row at a time")
-                        : t("Ready for review")}
+                      {duplicateScanLoading
+                        ? t("Checking existing templates")
+                        : importing
+                          ? t("Importing one row at a time")
+                          : t("Ready for review")}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {processedCount} / {previewRows.length} {t("templates")}
@@ -2073,6 +2602,13 @@ function TemplateImportDialog({
                   </div>
                   <Progress value={progressValue} className="mt-3 h-2" />
                 </div>
+              ) : null}
+
+              {duplicateScanError ? (
+                <ErrorBanner>
+                  {t("Unable to check existing templates for duplicates.")}{" "}
+                  {duplicateScanError}
+                </ErrorBanner>
               ) : null}
 
               {headerErrors.length > 0 ? (
@@ -2088,10 +2624,13 @@ function TemplateImportDialog({
                   totalRows={previewRows.length}
                   result={currentRowResult}
                   importing={importing}
+                  checkingDuplicates={duplicateScanLoading}
                   canImportRemaining={canImportRemaining}
                   onAdd={handleAddCurrentRow}
+                  onCombine={handleCombineCurrentRow}
                   onSkip={handleSkipCurrentRow}
-                  onImportRemaining={handleImportRemaining}
+                  onReviewRemaining={handleReviewRemainingOneByOne}
+                  onImportAllRemaining={handleImportRemaining}
                   language={language}
                 />
               ) : (
@@ -2117,11 +2656,13 @@ function TemplateImportDialog({
                       const resultLabel = result
                         ? result.action === "created"
                           ? "Row imported"
-                          : result.action === "skipped"
-                            ? "Row skipped"
-                            : result.action === "invalid"
-                              ? "Row invalid"
-                              : "Failed"
+                          : result.action === "updated"
+                            ? "Row updated"
+                            : result.action === "skipped"
+                              ? "Row skipped"
+                              : result.action === "invalid"
+                                ? "Row invalid"
+                                : "Failed"
                         : row.valid
                           ? "Ready"
                           : "Row invalid";
@@ -2211,15 +2752,22 @@ function TemplateImportDialog({
               </Button>
               <Button
                 type="button"
+                variant="outline"
+                onClick={handleReviewRemainingOneByOne}
+                disabled={!canImportRemaining}
+              >
+                <FileText className="h-4 w-4" />
+                {t("Review remaining one by one")}
+              </Button>
+              <Button
+                type="button"
                 size="lg"
                 onClick={handleImportRemaining}
                 disabled={!canImportRemaining}
                 className={TEMPLATE_IMPORT_CTA_CLASS}
               >
                 <FileUp className="h-4 w-4" />
-                {importing
-                  ? t("Importing...")
-                  : t("Import remaining in sequence")}
+                {importing ? t("Importing...") : t("Import all remaining")}
               </Button>
             </>
           )}

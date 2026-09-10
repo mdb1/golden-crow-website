@@ -1512,6 +1512,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Revisá las filas parseadas antes de crear plantillas.",
   "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.":
     "La importación de plantillas crea filas válidas una por una; las filas inválidas se omiten y las completadas no se revierten.",
+  "Use Review remaining one by one to decide Add / Skip / Combine for each row. Possible duplicates are surfaced on the row card before anything is saved.":
+    "Usá Revisar restantes una por una para decidir Agregar / Omitir / Combinar en cada fila. Los posibles duplicados se muestran en la tarjeta antes de guardar nada.",
   "Literal \\n is converted to a line break in template body and notes.":
     "El texto literal \\n se convierte en salto de línea en el cuerpo y las notas de la plantilla.",
   "Use active templates for the CRM send flow; archived templates are kept out of normal sending.":
@@ -1885,6 +1887,23 @@ const SPANISH_TEXT: Record<string, string> = {
   "Possible duplicates": "Posibles duplicados",
   "Duplicate handling": "Gestión de duplicados",
   "Possible duplicate": "Posible duplicado",
+  "Same audience and template name.": "Mismo público y nombre de plantilla.",
+  "Same audience and subject.": "Mismo público y asunto.",
+  "This row matches an existing template. Accept creates a separate template; skip leaves the existing template unchanged; combine updates the existing template using the merge rules.":
+    "Esta fila coincide con una plantilla existente. Aceptar crea una plantilla separada; omitir deja la plantilla existente sin cambios; combinar actualiza la plantilla existente usando las reglas de fusión.",
+  "Existing template": "Plantilla existente",
+  "No field differences detected.": "No se detectaron diferencias de campos.",
+  "Merge rules preserve existing subject and body unless they are blank, merge notes, and keep favorite enabled if either side is favorite.":
+    "Las reglas de fusión preservan asunto y cuerpo existentes salvo que estén vacíos, fusionan notas y mantienen favorito activo si cualquiera de los dos lados lo tiene activo.",
+  "Combine with existing": "Combinar con existente",
+  "Accept row": "Aceptar fila",
+  "Review remaining one by one": "Revisar restantes una por una",
+  "Import all remaining": "Importar todos los restantes",
+  "Checking existing templates": "Revisando plantillas existentes",
+  "Unable to check existing templates for duplicates.":
+    "No se pudieron revisar duplicados contra las plantillas existentes.",
+  "No duplicate template was found for this row.":
+    "No se encontró una plantilla duplicada para esta fila.",
   Skip: "Omitir",
   "Update existing": "Actualizar existente",
   "Import anyway": "Importar igual",
