@@ -929,6 +929,103 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     ).toContain("bg-blue-600");
   });
 
+  it("keeps bold and italic CRM email formatting in preview and send payload", async () => {
+    const user = userEvent.setup();
+    let sentPayload: Record<string, unknown> | null = null;
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [recommendedEmailTemplate], nextCursor: undefined };
+      }
+
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+
+      if (
+        stringPath === "/admin/partnership-crm/organizations/org-1/email" &&
+        init?.method === "POST"
+      ) {
+        sentPayload = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return {
+          organization: { ...organization, status: "contacted" },
+          activity: {
+            id: "activity-1",
+            type: "email",
+            title: "Email sent",
+            body: String(sentPayload.text),
+          },
+          sentEmailLog: {
+            id: "email-1",
+            targetKind: "organizations",
+            targetId: organization.id,
+            targetName: organization.name,
+            from: "federico@goldencrowvs.com",
+            to: String(sentPayload.to),
+            subject: String(sentPayload.subject),
+            body: String(sentPayload.text),
+          },
+        };
+      }
+
+      return {
+        organizations: [organization],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+    const messageEditor = await within(dialog).findByLabelText("Message");
+
+    expect(within(dialog).getByRole("button", { name: "Bold" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Italic" })).toBeTruthy();
+
+    messageEditor.innerHTML =
+      "Hola <strong>muy importante</strong> y <em>curado</em> para {{contact_name}}.";
+    fireEvent.input(messageEditor);
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Preview email" }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Ready to send")).toBeTruthy();
+    });
+    const boldText = within(dialog).getByText("muy importante");
+    const italicText = within(dialog).getByText("curado");
+    expect(boldText.tagName).toBe("STRONG");
+    expect(italicText.tagName).toBe("EM");
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Send email" }),
+    );
+
+    await waitFor(() => {
+      expect(sentPayload).not.toBeNull();
+    });
+    expect(sentPayload).toEqual(
+      expect.objectContaining({
+        text: "Hola muy importante y curado para Ada.",
+        html: "Hola <strong>muy importante</strong> y <em>curado</em> para Ada.",
+      }),
+    );
+  });
+
   it("cycles CRM email templates with footer arrows and keyboard arrows", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path) => {

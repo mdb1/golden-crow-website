@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  Bold,
   Braces,
   Building2,
   CheckCircle2,
@@ -36,6 +37,7 @@ import {
   FileUp,
   Filter,
   GripVertical,
+  Italic,
   ListChecks,
   Mail,
   Pause,
@@ -1379,6 +1381,23 @@ const CRM_TEMPLATE_VARIABLES_BY_KEY = new Map(
   CRM_TEMPLATE_VARIABLES.map((variable) => [variable.key, variable]),
 );
 const CRM_TEMPLATE_VARIABLE_PATTERN = /\{\{([a-z_]+)\}\}/g;
+const CRM_TEMPLATE_INLINE_TOKEN_PATTERN =
+  /\{\{([a-z_]+)\}\}|<\/?(?:strong|b|em|i)>/gi;
+
+function normalizeCrmInlineFormatTag(token: string) {
+  const normalized = token.toLowerCase();
+  const closing = normalized.startsWith("</");
+  const tag = normalized.replace(/[</>]/g, "");
+
+  if (tag === "strong" || tag === "b") {
+    return { tag: "strong" as const, closing };
+  }
+  if (tag === "em" || tag === "i") {
+    return { tag: "em" as const, closing };
+  }
+
+  return null;
+}
 
 function crmTemplateVariablesForTarget(targetKind: PartnershipCrmTargetKind) {
   return CRM_TEMPLATE_VARIABLES.filter((variable) =>
@@ -1490,14 +1509,28 @@ function renderCrmTemplateText(
   target: PartnershipCrmTargetRecord,
   targetKind: PartnershipCrmTargetKind,
 ) {
-  return value.replace(CRM_TEMPLATE_VARIABLE_PATTERN, (_, key: string) => {
-    const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
-      key as CrmTemplateVariableKey,
-    );
-    return variable
-      ? crmTemplateVariablePlainValue(variable.key, target, targetKind)
-      : "";
-  });
+  let rendered = "";
+  let cursor = 0;
+
+  for (const match of value.matchAll(CRM_TEMPLATE_INLINE_TOKEN_PATTERN)) {
+    const [token, key] = match;
+    const index = match.index ?? 0;
+    rendered += value.slice(cursor, index);
+
+    if (token.startsWith("{{")) {
+      const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
+        key as CrmTemplateVariableKey,
+      );
+      rendered += variable
+        ? crmTemplateVariablePlainValue(variable.key, target, targetKind)
+        : "";
+    }
+
+    cursor = index + token.length;
+  }
+
+  rendered += value.slice(cursor);
+  return rendered;
 }
 
 function renderCrmTemplateHtml(
@@ -1507,32 +1540,70 @@ function renderCrmTemplateHtml(
 ) {
   let rendered = "";
   let cursor = 0;
+  const formatStack: Array<"strong" | "em"> = [];
 
-  for (const match of value.matchAll(CRM_TEMPLATE_VARIABLE_PATTERN)) {
+  for (const match of value.matchAll(CRM_TEMPLATE_INLINE_TOKEN_PATTERN)) {
     const [token, key] = match;
     const index = match.index ?? 0;
-    const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
-      key as CrmTemplateVariableKey,
-    );
     rendered += escapeHtml(value.slice(cursor, index));
 
-    if (variable) {
-      const rawValue = crmTemplateVariableRawValue(
-        variable.key,
-        target,
-        targetKind,
+    if (token.startsWith("{{")) {
+      const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
+        key as CrmTemplateVariableKey,
       );
-      rendered +=
-        variable.key === "potential_pocket_genes_editor_fit"
-          ? `<em>&quot;${escapeHtml(rawValue)}&quot;</em>`
-          : escapeHtml(rawValue);
+      if (variable) {
+        const rawValue = crmTemplateVariableRawValue(
+          variable.key,
+          target,
+          targetKind,
+        );
+        rendered +=
+          variable.key === "potential_pocket_genes_editor_fit"
+            ? `<em>&quot;${escapeHtml(rawValue)}&quot;</em>`
+            : escapeHtml(rawValue);
+      }
+    } else {
+      const formatTag = normalizeCrmInlineFormatTag(token);
+      if (formatTag && !formatTag.closing) {
+        rendered += `<${formatTag.tag}>`;
+        formatStack.push(formatTag.tag);
+      } else if (
+        formatTag &&
+        formatTag.closing &&
+        formatStack.at(-1) === formatTag.tag
+      ) {
+        rendered += `</${formatTag.tag}>`;
+        formatStack.pop();
+      }
     }
 
     cursor = index + token.length;
   }
 
   rendered += escapeHtml(value.slice(cursor));
+  while (formatStack.length > 0) {
+    rendered += `</${formatStack.pop()}>`;
+  }
   return rendered.replace(/\n/g, "<br>");
+}
+
+function createCrmTemplateFormatNode(
+  tag: "strong" | "em",
+  children: React.ReactNode[],
+  key: number,
+) {
+  return tag === "strong" ? (
+    <strong key={key}>{children}</strong>
+  ) : (
+    <em key={key}>{children}</em>
+  );
+}
+
+function appendCrmTemplateNode(
+  stack: Array<{ tag: "root" | "strong" | "em"; children: React.ReactNode[] }>,
+  node: React.ReactNode,
+) {
+  stack[stack.length - 1]?.children.push(node);
 }
 
 function renderCrmTemplateNodes(
@@ -1540,41 +1611,78 @@ function renderCrmTemplateNodes(
   target: PartnershipCrmTargetRecord,
   targetKind: PartnershipCrmTargetKind,
 ) {
-  const nodes: React.ReactNode[] = [];
+  const root = { tag: "root" as const, children: [] as React.ReactNode[] };
+  const stack: Array<{
+    tag: "root" | "strong" | "em";
+    children: React.ReactNode[];
+  }> = [root];
   let cursor = 0;
   let nodeIndex = 0;
 
-  for (const match of value.matchAll(CRM_TEMPLATE_VARIABLE_PATTERN)) {
+  for (const match of value.matchAll(CRM_TEMPLATE_INLINE_TOKEN_PATTERN)) {
     const [token, key] = match;
     const index = match.index ?? 0;
-    const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
-      key as CrmTemplateVariableKey,
-    );
 
     if (index > cursor) {
-      nodes.push(value.slice(cursor, index));
+      appendCrmTemplateNode(stack, value.slice(cursor, index));
     }
 
-    if (variable) {
-      const rawValue = crmTemplateVariableRawValue(
-        variable.key,
-        target,
-        targetKind,
+    if (token.startsWith("{{")) {
+      const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
+        key as CrmTemplateVariableKey,
       );
-      nodes.push(
-        crmTemplateVariableDisplayNode(variable.key, rawValue, nodeIndex),
-      );
-      nodeIndex += 1;
+      if (variable) {
+        const rawValue = crmTemplateVariableRawValue(
+          variable.key,
+          target,
+          targetKind,
+        );
+        appendCrmTemplateNode(
+          stack,
+          crmTemplateVariableDisplayNode(variable.key, rawValue, nodeIndex),
+        );
+        nodeIndex += 1;
+      }
+    } else {
+      const formatTag = normalizeCrmInlineFormatTag(token);
+      if (formatTag && !formatTag.closing) {
+        stack.push({ tag: formatTag.tag, children: [] });
+      } else if (
+        formatTag &&
+        formatTag.closing &&
+        stack.length > 1 &&
+        stack.at(-1)?.tag === formatTag.tag
+      ) {
+        const entry = stack.pop();
+        if (entry && entry.tag !== "root") {
+          appendCrmTemplateNode(
+            stack,
+            createCrmTemplateFormatNode(entry.tag, entry.children, nodeIndex),
+          );
+          nodeIndex += 1;
+        }
+      }
     }
 
     cursor = index + token.length;
   }
 
   if (cursor < value.length) {
-    nodes.push(value.slice(cursor));
+    appendCrmTemplateNode(stack, value.slice(cursor));
   }
 
-  return nodes.length > 0 ? nodes : null;
+  while (stack.length > 1) {
+    const entry = stack.pop();
+    if (entry && entry.tag !== "root") {
+      appendCrmTemplateNode(
+        stack,
+        createCrmTemplateFormatNode(entry.tag, entry.children, nodeIndex),
+      );
+      nodeIndex += 1;
+    }
+  }
+
+  return root.children.length > 0 ? root.children : null;
 }
 
 function usedCrmTemplateVariables(value: string) {
@@ -3621,35 +3729,58 @@ function renderCrmVariableEditorValue(
   variableDisplayTextByKey: ReadonlyMap<CrmTemplateVariableKey, string>,
 ) {
   const fragment = document.createDocumentFragment();
+  const stack: Array<DocumentFragment | HTMLElement> = [fragment];
   const variableByToken = new Map(
     variables.map((variable) => [variable.token, variable]),
   );
   let cursor = 0;
 
-  for (const match of value.matchAll(CRM_TEMPLATE_VARIABLE_PATTERN)) {
+  function append(node: Node) {
+    stack[stack.length - 1]?.append(node);
+  }
+
+  for (const match of value.matchAll(CRM_TEMPLATE_INLINE_TOKEN_PATTERN)) {
     const [token] = match;
     const index = match.index ?? 0;
 
     if (index > cursor) {
-      fragment.append(document.createTextNode(value.slice(cursor, index)));
+      append(document.createTextNode(value.slice(cursor, index)));
     }
 
-    const variable = variableByToken.get(
-      token as `{{${CrmTemplateVariableKey}}}`,
-    );
-    fragment.append(
-      variable
-        ? createCrmVariablePillElement(
-            variable,
-            variableDisplayTextByKey.get(variable.key) ?? "—",
-          )
-        : document.createTextNode(token),
-    );
+    if (token.startsWith("{{")) {
+      const variable = variableByToken.get(
+        token as `{{${CrmTemplateVariableKey}}}`,
+      );
+      append(
+        variable
+          ? createCrmVariablePillElement(
+              variable,
+              variableDisplayTextByKey.get(variable.key) ?? "—",
+            )
+          : document.createTextNode(token),
+      );
+    } else {
+      const formatTag = normalizeCrmInlineFormatTag(token);
+      if (formatTag && !formatTag.closing) {
+        const element = document.createElement(formatTag.tag);
+        append(element);
+        stack.push(element);
+      } else if (
+        formatTag &&
+        formatTag.closing &&
+        stack.length > 1 &&
+        (stack.at(-1) as HTMLElement).tagName?.toLowerCase() === formatTag.tag
+      ) {
+        stack.pop();
+      } else {
+        append(document.createTextNode(token));
+      }
+    }
     cursor = index + token.length;
   }
 
   if (cursor < value.length) {
-    fragment.append(document.createTextNode(value.slice(cursor)));
+    append(document.createTextNode(value.slice(cursor)));
   }
 
   editor.replaceChildren(fragment);
@@ -3682,6 +3813,20 @@ function extractCrmVariableEditorValue(root: Node) {
 
     if (node.tagName === "BR") {
       value += "\n";
+      return;
+    }
+
+    if (node.tagName === "STRONG" || node.tagName === "B") {
+      value += "<strong>";
+      node.childNodes.forEach(walk);
+      value += "</strong>";
+      return;
+    }
+
+    if (node.tagName === "EM" || node.tagName === "I") {
+      value += "<em>";
+      node.childNodes.forEach(walk);
+      value += "</em>";
       return;
     }
 
@@ -3840,21 +3985,57 @@ function CrmVariableEditor({
     syncFromEditor();
   }
 
+  function applyInlineFormat(command: "bold" | "italic") {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    editor.focus();
+    document.execCommand(command);
+    syncFromEditor();
+  }
+
   return (
     <div className="overflow-hidden rounded-xl border border-foreground/20 bg-background shadow-[0_1px_0_rgba(255,255,255,0.4),0_12px_24px_rgba(9,12,18,0.08)] dark:border-white/60 dark:bg-black">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/80 bg-muted/35 px-2 py-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          onClick={() => {
-            editorRef.current?.focus();
-            document.execCommand("insertLineBreak");
-            syncFromEditor();
-          }}
-        >
-          {t("Line break")}
-        </Button>
+        <div className="flex flex-wrap items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              editorRef.current?.focus();
+              document.execCommand("insertLineBreak");
+              syncFromEditor();
+            }}
+          >
+            {t("Line break")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label={t("Bold")}
+            title={t("Bold")}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyInlineFormat("bold")}
+          >
+            <Bold className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label={t("Italic")}
+            title={t("Italic")}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyInlineFormat("italic")}
+          >
+            <Italic className="h-3.5 w-3.5" />
+          </Button>
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button type="button" variant="outline" size="sm">
