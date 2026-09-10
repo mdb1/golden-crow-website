@@ -1283,6 +1283,18 @@ const SPANISH_TEXT: Record<string, string> = {
   "Delete template": "Borrar plantilla",
   "Template deleted.": "Plantilla borrada.",
   "Unable to delete template.": "No se pudo eliminar la plantilla.",
+  "Unable to delete selected templates.":
+    "No se pudieron eliminar las plantillas seleccionadas.",
+  "template selected": "plantilla seleccionada",
+  "templates selected": "plantillas seleccionadas",
+  "template deleted.": "plantilla eliminada.",
+  "templates deleted.": "plantillas eliminadas.",
+  "Select all visible templates":
+    "Seleccionar todas las plantillas visibles",
+  "Select template": "Seleccionar plantilla",
+  "Delete selected templates": "Eliminar plantillas seleccionadas",
+  "This removes every selected template from the CRM send flow.":
+    "Esto elimina todas las plantillas seleccionadas del flujo de envío del CRM.",
   "This removes the template from the CRM send flow.":
     "Esto elimina la plantilla del flujo de envío del CRM.",
   "Template variables": "Variables de plantilla",

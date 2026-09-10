@@ -121,6 +121,73 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(within(rows[0]).getByRole("img", { name: "Favorite" })).toBeTruthy();
   });
 
+  it("selects and deletes multiple templates from the list", async () => {
+    const user = userEvent.setup();
+    const secondTemplate: PartnershipCrmTemplateRecord = {
+      ...template,
+      id: "tpl-2",
+      name: "Foundation outreach",
+      subject: "Pocket Genes para {{organization_name}}",
+      normalizedName: "foundation outreach",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (
+        stringPath.startsWith("/admin/partnership-crm/templates/") &&
+        init?.method === "DELETE"
+      ) {
+        return {
+          deleted: true,
+          templateId: stringPath.split("/").at(-1),
+        };
+      }
+
+      return {
+        templates: [template, secondTemplate],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Foundation outreach")).toBeTruthy();
+    });
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select all visible templates" }),
+    );
+    expect(screen.getByText("2 templates selected")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Delete selected" }));
+    const deleteDialog = await screen.findByRole("dialog", {
+      name: "Delete selected templates",
+    });
+    expect(within(deleteDialog).getByText("Lab outreach")).toBeTruthy();
+    expect(within(deleteDialog).getByText("Foundation outreach")).toBeTruthy();
+
+    await user.click(
+      within(deleteDialog).getByRole("button", { name: "Delete selected" }),
+    );
+
+    await waitFor(() => {
+      const deleteCalls = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(([, init]) => init?.method === "DELETE");
+      expect(deleteCalls).toHaveLength(2);
+    });
+
+    expect(jest.mocked(sdkFetch)).toHaveBeenCalledWith(
+      "/admin/partnership-crm/templates/tpl-1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+    expect(jest.mocked(sdkFetch)).toHaveBeenCalledWith(
+      "/admin/partnership-crm/templates/tpl-2",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
   it("opens a right preview panel, orders preview content, and supports panel actions", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {

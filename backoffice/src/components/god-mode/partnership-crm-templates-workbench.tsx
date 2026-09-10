@@ -2181,9 +2181,13 @@ export function PartnershipCrmTemplateBrowser() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     null,
   );
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [previewPanelOpen, setPreviewPanelOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] =
     useState<PartnershipCrmTemplateRecord | null>(null);
+  const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [filters, setFilters] = useState<TemplateFilters>({
@@ -2211,6 +2215,21 @@ export function PartnershipCrmTemplateBrowser() {
   const selectedTemplate = selectedTemplateId
     ? (templates.find((template) => template.id === selectedTemplateId) ?? null)
     : null;
+  const selectedTemplates = useMemo(
+    () =>
+      templates.filter((template) => selectedTemplateIds.has(template.id)),
+    [selectedTemplateIds, templates],
+  );
+  const selectedTemplateIdList = useMemo(
+    () => Array.from(selectedTemplateIds),
+    [selectedTemplateIds],
+  );
+  const selectedVisibleTemplateCount = selectedTemplates.length;
+  const allVisibleTemplatesSelected =
+    templates.length > 0 && selectedVisibleTemplateCount === templates.length;
+  const someVisibleTemplatesSelected =
+    selectedVisibleTemplateCount > 0 &&
+    selectedVisibleTemplateCount < templates.length;
   const showPreviewPanel = Boolean(previewPanelOpen && selectedTemplate);
   const statusCounts = useMemo(
     () =>
@@ -2302,6 +2321,64 @@ export function PartnershipCrmTemplateBrowser() {
     },
   });
 
+  const deleteSelectedTemplatesMutation = useMutation({
+    mutationFn: (templateIds: string[]) =>
+      Promise.all(
+        templateIds.map((templateId) =>
+          sdkFetch<{ deleted: boolean; templateId: string }>(
+            `/admin/partnership-crm/templates/${encodeURIComponent(
+              templateId,
+            )}`,
+            { method: "DELETE" },
+          ),
+        ),
+      ),
+    onSuccess: (_result, templateIds) => {
+      const deletedIds = new Set(templateIds);
+      setDeleteSelectedOpen(false);
+      setSelectedTemplateIds(new Set());
+      setDeleteTarget((current) =>
+        current && deletedIds.has(current.id) ? null : current,
+      );
+
+      if (selectedTemplateId && deletedIds.has(selectedTemplateId)) {
+        setSelectedTemplateId(null);
+        setPreviewPanelOpen(false);
+      }
+
+      queryClient.setQueriesData<PartnershipCrmTemplatesPage>(
+        { queryKey: [TEMPLATES_QUERY_KEY] },
+        (current) =>
+          current
+            ? {
+                ...current,
+                templates: current.templates.filter(
+                  (template) => !deletedIds.has(template.id),
+                ),
+              }
+            : current,
+      );
+      queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: `${templateIds.length} ${
+          templateIds.length === 1
+            ? t("template deleted.")
+            : t("templates deleted.")
+        }`,
+      });
+    },
+    onError: (error) => {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to delete selected templates."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
   useEffect(() => {
     if (!selectedTemplateId) {
       return;
@@ -2316,14 +2393,33 @@ export function PartnershipCrmTemplateBrowser() {
     setNotesDraft(selectedTemplate?.notes ?? "");
   }, [selectedTemplate?.id, selectedTemplate?.notes]);
 
+  useEffect(() => {
+    if (selectedTemplateIds.size === 0) {
+      return;
+    }
+
+    const visibleIds = new Set(templates.map((template) => template.id));
+    setSelectedTemplateIds((current) => {
+      const next = new Set(
+        Array.from(current).filter((templateId) => visibleIds.has(templateId)),
+      );
+
+      return next.size === current.size ? current : next;
+    });
+  }, [selectedTemplateIds.size, templates]);
+
   function resetCursorsForFilterChange(patch: Partial<TemplateFilters>) {
     setCursorStack([]);
+    setSelectedTemplateIds(new Set());
+    setDeleteSelectedOpen(false);
     setFilters((current) => ({ ...current, ...patch }));
   }
 
   function handleAudienceChange(audience: PartnershipCrmTemplateAudience) {
     setSelectedTemplateId(null);
     setPreviewPanelOpen(false);
+    setSelectedTemplateIds(new Set());
+    setDeleteSelectedOpen(false);
     resetCursorsForFilterChange({ audience, category: "" });
   }
 
@@ -2338,6 +2434,37 @@ export function PartnershipCrmTemplateBrowser() {
     }
 
     quickUpdateMutation.mutate({ template: selectedTemplate, patch });
+  }
+
+  function toggleTemplateSelection(templateId: string) {
+    setSelectedTemplateIds((current) => {
+      const next = new Set(current);
+      if (next.has(templateId)) {
+        next.delete(templateId);
+      } else {
+        next.add(templateId);
+      }
+      return next;
+    });
+  }
+
+  function setVisibleTemplatesSelected(selected: boolean) {
+    setSelectedTemplateIds((current) => {
+      const next = new Set(current);
+      for (const template of templates) {
+        if (selected) {
+          next.add(template.id);
+        } else {
+          next.delete(template.id);
+        }
+      }
+      return next;
+    });
+  }
+
+  function clearSelectedTemplates() {
+    setSelectedTemplateIds(new Set());
+    setDeleteSelectedOpen(false);
   }
 
   return (
@@ -2508,110 +2635,185 @@ export function PartnershipCrmTemplateBrowser() {
                 </Button>
               </EmptyState>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("Template")}</TableHead>
-                    <TableHead className="w-10">
-                      <span className="sr-only">{t("Favorite")}</span>
-                    </TableHead>
-                    <TableHead>{t("Applies to")}</TableHead>
-                    <TableHead>{t("Status")}</TableHead>
-                    <TableHead>{t("Category")}</TableHead>
-                    <TableHead>{t("Updated")}</TableHead>
-                    <TableHead>{t("Notes")}</TableHead>
-                    <TableHead className="w-28">
-                      <span className="sr-only">{t("Actions")}</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {templates.map((template) => {
-                    const isSelected =
-                      showPreviewPanel && selectedTemplate?.id === template.id;
-
-                    return (
-                      <TableRow
-                        key={template.id}
-                        data-state={isSelected ? "selected" : undefined}
-                        className={cn(
-                          "cursor-pointer",
-                          isSelected &&
-                            "bg-sky-50/80 hover:bg-sky-50 dark:bg-sky-400/10 dark:hover:bg-sky-400/12",
-                        )}
-                        onClick={() => handleTemplateSelect(template.id)}
+              <>
+                {selectedTemplateIds.size > 0 ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/80 bg-muted/35 px-3 py-2">
+                    <p className="text-sm font-medium text-foreground">
+                      {selectedTemplateIds.size}{" "}
+                      {t(
+                        selectedTemplateIds.size === 1
+                          ? "template selected"
+                          : "templates selected",
+                      )}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearSelectedTemplates}
+                        disabled={deleteSelectedTemplatesMutation.isPending}
                       >
-                        <TableCell className="whitespace-normal">
-                          <button
-                            type="button"
-                            className="block max-w-[320px] text-left"
-                            onClick={() => handleTemplateSelect(template.id)}
-                          >
-                            <span className="block truncate font-medium text-foreground">
-                              {template.name}
-                            </span>
-                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                              {template.subject || t("No subject")}
-                            </span>
-                          </button>
-                        </TableCell>
-                        <TableCell>
-                          <FavoriteCell
-                            isFavorite={template.is_favorite}
-                            language={language}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {template.audience === "professionals"
-                              ? t("Professionals")
-                              : t("Organizations")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <TemplateStatusBadge
-                            status={template.status}
-                            language={language}
-                          />
-                        </TableCell>
-                        <TableCell className="whitespace-normal text-sm text-muted-foreground">
-                          {formatCrmCategory(
-                            template.category,
-                            language,
-                            template.audience ?? "organizations",
-                          ) || t("No category")}
-                        </TableCell>
-                        <TableCell className="whitespace-normal text-sm text-muted-foreground">
-                          {formatDateTime(template.updatedAt, language)}
-                        </TableCell>
-                        <TableCell className="whitespace-normal">
-                          <p className="line-clamp-2 max-w-[280px] text-xs text-muted-foreground">
-                            {template.notes || "-"}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="xs"
-                            asChild
-                          >
-                            <Link
-                              href={`/god-mode/plantillas/${encodeURIComponent(
-                                template.id,
-                              )}`}
+                        <X className="h-3.5 w-3.5" />
+                        {t("Clear selected")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setDeleteSelectedOpen(true)}
+                        disabled={deleteSelectedTemplatesMutation.isPending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {t("Delete selected")}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          aria-label={t("Select all visible templates")}
+                          checked={
+                            allVisibleTemplatesSelected
+                              ? true
+                              : someVisibleTemplatesSelected
+                                ? "indeterminate"
+                                : false
+                          }
+                          disabled={deleteSelectedTemplatesMutation.isPending}
+                          onCheckedChange={(checked) =>
+                            setVisibleTemplatesSelected(checked === true)
+                          }
+                        />
+                      </TableHead>
+                      <TableHead>{t("Template")}</TableHead>
+                      <TableHead className="w-10">
+                        <span className="sr-only">{t("Favorite")}</span>
+                      </TableHead>
+                      <TableHead>{t("Applies to")}</TableHead>
+                      <TableHead>{t("Status")}</TableHead>
+                      <TableHead>{t("Category")}</TableHead>
+                      <TableHead>{t("Updated")}</TableHead>
+                      <TableHead>{t("Notes")}</TableHead>
+                      <TableHead className="w-28">
+                        <span className="sr-only">{t("Actions")}</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {templates.map((template) => {
+                      const isSelected =
+                        showPreviewPanel &&
+                        selectedTemplate?.id === template.id;
+                      const isBatchSelected = selectedTemplateIds.has(
+                        template.id,
+                      );
+
+                      return (
+                        <TableRow
+                          key={template.id}
+                          data-state={
+                            isSelected || isBatchSelected
+                              ? "selected"
+                              : undefined
+                          }
+                          className={cn(
+                            "cursor-pointer",
+                            isSelected &&
+                              "bg-sky-50/80 hover:bg-sky-50 dark:bg-sky-400/10 dark:hover:bg-sky-400/12",
+                          )}
+                          onClick={() => handleTemplateSelect(template.id)}
+                        >
+                          <TableCell>
+                            <Checkbox
+                              aria-label={`${t("Select template")}: ${
+                                template.name
+                              }`}
+                              checked={isBatchSelected}
+                              disabled={
+                                deleteSelectedTemplatesMutation.isPending
+                              }
                               onClick={(event) => event.stopPropagation()}
+                              onCheckedChange={() =>
+                                toggleTemplateSelection(template.id)
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            <button
+                              type="button"
+                              className="block max-w-[320px] text-left"
+                              onClick={() => handleTemplateSelect(template.id)}
                             >
-                              <Pencil className="h-3.5 w-3.5" />
-                              {t("Edit")}
-                            </Link>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                              <span className="block truncate font-medium text-foreground">
+                                {template.name}
+                              </span>
+                              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                                {template.subject || t("No subject")}
+                              </span>
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            <FavoriteCell
+                              isFavorite={template.is_favorite}
+                              language={language}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {template.audience === "professionals"
+                                ? t("Professionals")
+                                : t("Organizations")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <TemplateStatusBadge
+                              status={template.status}
+                              language={language}
+                            />
+                          </TableCell>
+                          <TableCell className="whitespace-normal text-sm text-muted-foreground">
+                            {formatCrmCategory(
+                              template.category,
+                              language,
+                              template.audience ?? "organizations",
+                            ) || t("No category")}
+                          </TableCell>
+                          <TableCell className="whitespace-normal text-sm text-muted-foreground">
+                            {formatDateTime(template.updatedAt, language)}
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            <p className="line-clamp-2 max-w-[280px] text-xs text-muted-foreground">
+                              {template.notes || "-"}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="xs"
+                              asChild
+                            >
+                              <Link
+                                href={`/god-mode/plantillas/${encodeURIComponent(
+                                  template.id,
+                                )}`}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                {t("Edit")}
+                              </Link>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </>
             )}
           </div>
 
@@ -2722,6 +2924,75 @@ export function PartnershipCrmTemplateBrowser() {
             >
               <Trash2 className="h-4 w-4" />
               {deleteMutation.isPending ? t("Deleting...") : t("Delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={deleteSelectedOpen}
+        onOpenChange={(open) => {
+          if (!open && !deleteSelectedTemplatesMutation.isPending) {
+            setDeleteSelectedOpen(false);
+          }
+        }}
+      >
+        <DialogContent className="crm-control-surface">
+          <DialogHeader>
+            <DialogTitle>{t("Delete selected templates")}</DialogTitle>
+            <DialogDescription>
+              {t("This removes every selected template from the CRM send flow.")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-border/80 bg-background/70 p-3">
+            <p className="text-sm font-semibold text-foreground">
+              {selectedTemplateIds.size}{" "}
+              {t(
+                selectedTemplateIds.size === 1
+                  ? "template selected"
+                  : "templates selected",
+              )}
+            </p>
+            <div className="mt-3 grid gap-2">
+              {selectedTemplates.map((template) => (
+                <div
+                  key={template.id}
+                  className="rounded-lg border border-border/70 bg-background px-3 py-2"
+                >
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {template.name}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {template.subject || t("No subject")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteSelectedOpen(false)}
+              disabled={deleteSelectedTemplatesMutation.isPending}
+            >
+              <X className="h-4 w-4" />
+              {t("Cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() =>
+                deleteSelectedTemplatesMutation.mutate(selectedTemplateIdList)
+              }
+              disabled={
+                deleteSelectedTemplatesMutation.isPending ||
+                selectedTemplateIdList.length === 0
+              }
+            >
+              <Trash2 className="h-4 w-4" />
+              {deleteSelectedTemplatesMutation.isPending
+                ? t("Deleting...")
+                : t("Delete selected")}
             </Button>
           </DialogFooter>
         </DialogContent>
