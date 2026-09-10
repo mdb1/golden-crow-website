@@ -52,14 +52,19 @@ const template: PartnershipCrmTemplateRecord = {
   updatedAt: "2026-08-01T12:00:00.000Z",
 };
 
-function renderWithProviders(children: ReactNode) {
-  const client = new QueryClient({
+function createTestQueryClient() {
+  return new QueryClient({
     defaultOptions: {
       queries: { retry: false },
       mutations: { retry: false },
     },
   });
+}
 
+function renderWithProviders(
+  children: ReactNode,
+  client = createTestQueryClient(),
+) {
   return render(
     <QueryClientProvider client={client}>
       <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
@@ -190,6 +195,11 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
   it("marks multiple selected templates as favorite and not favorite", async () => {
     const user = userEvent.setup();
+    const client = createTestQueryClient();
+    const crmEmailTemplateCache = {
+      pages: [{ templates: [template], nextCursor: undefined }],
+      pageParams: [undefined],
+    };
     let templates: PartnershipCrmTemplateRecord[] = [
       template,
       {
@@ -240,7 +250,11 @@ describe("PartnershipCrmTemplateBrowser", () => {
       };
     });
 
-    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+    client.setQueryData(
+      ["god-mode-partnership-crm-templates", "active"],
+      crmEmailTemplateCache,
+    );
+    renderWithProviders(<PartnershipCrmTemplateBrowser />, client);
 
     await waitFor(() => {
       expect(screen.getByText("Foundation outreach")).toBeTruthy();
@@ -281,6 +295,13 @@ describe("PartnershipCrmTemplateBrowser", () => {
         );
       }
     });
+
+    expect(
+      client.getQueryData(["god-mode-partnership-crm-templates", "active"]),
+    ).toBe(crmEmailTemplateCache);
+    expect(
+      screen.queryByText("Unable to update selected templates."),
+    ).toBeNull();
   });
 
   it("opens a right preview panel, orders preview content, and supports panel actions", async () => {

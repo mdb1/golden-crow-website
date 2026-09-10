@@ -13,7 +13,12 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import {
   ArrowLeft,
   Braces,
@@ -679,6 +684,34 @@ function favoriteFirstRecords<T extends { is_favorite?: boolean }>(
       return favoriteDelta || left.index - right.index;
     })
     .map(({ record }) => record);
+}
+
+function isPartnershipCrmTemplatesPage(
+  value: unknown,
+): value is PartnershipCrmTemplatesPage {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    Array.isArray((value as { templates?: unknown }).templates)
+  );
+}
+
+function updateCachedTemplateListPages(
+  queryClient: QueryClient,
+  updater: (
+    templates: PartnershipCrmTemplateRecord[],
+  ) => PartnershipCrmTemplateRecord[],
+) {
+  queryClient.setQueriesData<unknown>(
+    { queryKey: [TEMPLATES_QUERY_KEY] },
+    (current: unknown) =>
+      isPartnershipCrmTemplatesPage(current)
+        ? {
+            ...current,
+            templates: updater(current.templates),
+          }
+        : current,
+  );
 }
 
 function templatePayload(
@@ -2874,19 +2907,10 @@ export function PartnershipCrmTemplateBrowser() {
         },
       ),
     onSuccess: (result) => {
-      queryClient.setQueriesData<PartnershipCrmTemplatesPage>(
-        { queryKey: [TEMPLATES_QUERY_KEY] },
-        (current) =>
-          current
-            ? {
-                ...current,
-                templates: current.templates.map((template) =>
-                  template.id === result.template.id
-                    ? result.template
-                    : template,
-                ),
-              }
-            : current,
+      updateCachedTemplateListPages(queryClient, (templates) =>
+        templates.map((template) =>
+          template.id === result.template.id ? result.template : template,
+        ),
       );
       setSelectedTemplateId(result.template.id);
       setNotesDraft(result.template.notes);
@@ -2961,17 +2985,8 @@ export function PartnershipCrmTemplateBrowser() {
         setPreviewPanelOpen(false);
       }
 
-      queryClient.setQueriesData<PartnershipCrmTemplatesPage>(
-        { queryKey: [TEMPLATES_QUERY_KEY] },
-        (current) =>
-          current
-            ? {
-                ...current,
-                templates: current.templates.filter(
-                  (template) => !deletedIds.has(template.id),
-                ),
-              }
-            : current,
+      updateCachedTemplateListPages(queryClient, (templates) =>
+        templates.filter((template) => !deletedIds.has(template.id)),
       );
       queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
       setToast({
@@ -3024,17 +3039,10 @@ export function PartnershipCrmTemplateBrowser() {
         results.map((result) => [result.template.id, result.template]),
       );
 
-      queryClient.setQueriesData<PartnershipCrmTemplatesPage>(
-        { queryKey: [TEMPLATES_QUERY_KEY] },
-        (current) =>
-          current
-            ? {
-                ...current,
-                templates: current.templates.map(
-                  (template) => updatedTemplates.get(template.id) ?? template,
-                ),
-              }
-            : current,
+      updateCachedTemplateListPages(queryClient, (templates) =>
+        templates.map(
+          (template) => updatedTemplates.get(template.id) ?? template,
+        ),
       );
       queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
       setToast({
