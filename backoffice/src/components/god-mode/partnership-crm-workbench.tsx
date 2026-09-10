@@ -1693,9 +1693,9 @@ function visualFilterBuckets(
 
   return facet.buckets
     .filter((bucket) => bucket.count > 0)
-    .map((bucket, index) => ({
+    .map((bucket, sourceIndex) => ({
       ...bucket,
-      order: index,
+      sourceIndex,
       label: visualFilterBucketLabel(
         facet.key,
         bucket.value,
@@ -1704,9 +1704,12 @@ function visualFilterBuckets(
       ),
       percent: Math.round((bucket.count / facet.total) * 100),
     }))
-    .sort((left, right) => right.count - left.count || left.order - right.order)
+    .sort(
+      (left, right) =>
+        right.count - left.count || left.sourceIndex - right.sourceIndex,
+    )
     .slice(0, MAX_VISUAL_FILTER_BUCKETS)
-    .map(({ order, ...bucket }, index) => ({
+    .map(({ sourceIndex, ...bucket }, index) => ({
       ...bucket,
       color: VISUAL_FILTER_COLORS[index % VISUAL_FILTER_COLORS.length],
     }));
@@ -1746,9 +1749,6 @@ function VisualFilterPieSection({
       isSelected: bucket.value === selectedBucket?.value,
     };
   });
-  const orderedPieSegments = [...pieSegments].sort(
-    (left, right) => Number(left.isSelected) - Number(right.isSelected),
-  );
 
   function selectBucket(bucket: VisualFilterBucketView) {
     onSelect({ facetKey: facet.key, value: bucket.value });
@@ -1776,7 +1776,7 @@ function VisualFilterPieSection({
             className="mx-auto h-44 w-44 overflow-visible"
           >
             <circle cx="60" cy="60" r="52" fill="hsl(var(--muted))" />
-            {orderedPieSegments.map(
+            {pieSegments.map(
               ({ bucket, startAngle, endAngle, isSelected }) => {
                 const label = `${bucket.label}: ${bucket.percent}%`;
                 const segmentClassName = cn(
@@ -1787,8 +1787,6 @@ function VisualFilterPieSection({
                   ? {
                       stroke: "hsl(var(--foreground))",
                       strokeWidth: 2.5,
-                      transform:
-                        "translate(60 60) scale(1.05) translate(-60 -60)",
                     }
                   : {};
 

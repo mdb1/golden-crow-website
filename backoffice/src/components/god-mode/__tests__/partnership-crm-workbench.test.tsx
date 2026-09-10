@@ -1329,35 +1329,35 @@ describe("PartnershipCrmWorkbench list pager", () => {
               total: 16,
               buckets: [
                 { value: "new", count: 8 },
+                { value: "partner", count: 1 },
+                { value: "meeting", count: 2 },
+                { value: "no_response", count: 1 },
                 { value: "contacted", count: 2 },
                 { value: "replied", count: 2 },
-                { value: "meeting", count: 2 },
-                { value: "partner", count: 1 },
-                { value: "no_response", count: 1 },
               ],
             },
             category: {
               key: "category",
               total: 10,
               buckets: [
-                { value: "org_genomics_laboratories", count: 7 },
                 { value: "__no_category__", count: 3 },
+                { value: "org_genomics_laboratories", count: 7 },
               ],
             },
             country: {
               key: "country",
               total: 10,
               buckets: [
-                { value: "AR", count: 6 },
                 { value: "__no_country__", count: 4 },
+                { value: "AR", count: 6 },
               ],
             },
             emailState: {
               key: "emailState",
               total: 10,
               buckets: [
-                { value: "has_email", count: 9 },
                 { value: "missing_email", count: 1 },
+                { value: "has_email", count: 9 },
               ],
             },
           },
@@ -1407,6 +1407,85 @@ describe("PartnershipCrmWorkbench list pager", () => {
     expect(statusSection).toBeTruthy();
     expect(within(statusSection as HTMLElement).queryByText("CRM No Response"))
       .toBeNull();
+    expect(
+      within(statusSection as HTMLElement)
+        .getAllByRole("button", {
+          name: /^Select visual filter from pie: Status -/,
+        })
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      "Select visual filter from pie: Status - CRM New",
+      "Select visual filter from pie: Status - CRM Meeting",
+      "Select visual filter from pie: Status - CRM Contacted",
+      "Select visual filter from pie: Status - CRM Replied",
+      "Select visual filter from pie: Status - CRM Partner",
+    ]);
+    expect(
+      within(statusSection as HTMLElement)
+        .getAllByRole("button", {
+          name: /^Select visual filter from legend: Status -/,
+        })
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      "Select visual filter from legend: Status - CRM New",
+      "Select visual filter from legend: Status - CRM Meeting",
+      "Select visual filter from legend: Status - CRM Contacted",
+      "Select visual filter from legend: Status - CRM Replied",
+      "Select visual filter from legend: Status - CRM Partner",
+    ]);
+
+    const categorySection = within(dialog)
+      .getByText("Category")
+      .closest("section");
+    expect(categorySection).toBeTruthy();
+    expect(
+      within(categorySection as HTMLElement)
+        .getAllByRole("button", {
+          name: /^Select visual filter from pie: Category -/,
+        })
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      "Select visual filter from pie: Category - Genomics Laboratory",
+      "Select visual filter from pie: Category - No category",
+    ]);
+    expect(
+      within(categorySection as HTMLElement)
+        .getAllByRole("button", {
+          name: /^Select visual filter from legend: Category -/,
+        })
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      "Select visual filter from legend: Category - Genomics Laboratory",
+      "Select visual filter from legend: Category - No category",
+    ]);
+
+    const countrySection = within(dialog).getByText("Country").closest("section");
+    expect(countrySection).toBeTruthy();
+    expect(
+      within(countrySection as HTMLElement)
+        .getAllByRole("button", {
+          name: /^Select visual filter from legend: Country -/,
+        })
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      "Select visual filter from legend: Country - Argentina (AR)",
+      "Select visual filter from legend: Country - No country",
+    ]);
+
+    const emailSection = within(dialog)
+      .getByText("Email availability")
+      .closest("section");
+    expect(emailSection).toBeTruthy();
+    expect(
+      within(emailSection as HTMLElement)
+        .getAllByRole("button", {
+          name: /^Select visual filter from legend: Email availability -/,
+        })
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      "Select visual filter from legend: Email availability - Has Email",
+      "Select visual filter from legend: Email availability - Missing Email",
+    ]);
 
     await user.click(
       within(dialog).getByRole("button", {
