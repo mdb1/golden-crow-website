@@ -64,6 +64,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -1722,11 +1728,24 @@ function visualFilterBuckets(
       (left, right) =>
         right.count - left.count || left.sourceIndex - right.sourceIndex,
     )
-    .slice(0, MAX_VISUAL_FILTER_BUCKETS)
     .map(({ sourceIndex, ...bucket }, index) => ({
       ...bucket,
-      color: VISUAL_FILTER_COLORS[index % VISUAL_FILTER_COLORS.length],
+      color: visualFilterBucketColor(index),
     }));
+}
+
+function visualFilterBucketColor(index: number) {
+  const baseColor = VISUAL_FILTER_COLORS[index % VISUAL_FILTER_COLORS.length];
+  const cycle = Math.floor(index / VISUAL_FILTER_COLORS.length);
+
+  if (cycle === 0) {
+    return baseColor;
+  }
+
+  const mixTarget = cycle % 2 === 1 ? "var(--foreground)" : "var(--background)";
+  const baseWeight = Math.max(52, 86 - cycle * 12);
+
+  return `color-mix(in srgb, ${baseColor} ${baseWeight}%, ${mixTarget})`;
 }
 
 function VisualFilterPieSection({
@@ -1749,10 +1768,13 @@ function VisualFilterPieSection({
     (bucket) => bucket.value === selectedValue,
   );
   const hasSelection = Boolean(selectedBucket);
+  const visibleBuckets = buckets.slice(0, MAX_VISUAL_FILTER_BUCKETS);
+  const overflowBuckets = buckets.slice(MAX_VISUAL_FILTER_BUCKETS);
+  const pieTotal = buckets.reduce((total, bucket) => total + bucket.count, 0);
   let runningAngle = 0;
   const pieSegments = buckets.map((bucket) => {
     const startAngle = runningAngle;
-    const sweep = (bucket.count / facet.total) * 360;
+    const sweep = (bucket.count / pieTotal) * 360;
     const endAngle = startAngle + sweep;
     runningAngle = endAngle;
 
@@ -1891,7 +1913,7 @@ function VisualFilterPieSection({
           </svg>
 
           <div className="grid gap-2">
-            {buckets.map((bucket) => (
+            {visibleBuckets.map((bucket) => (
               <button
                 key={bucket.value}
                 type="button"
@@ -1916,6 +1938,50 @@ function VisualFilterPieSection({
                 </span>
               </button>
             ))}
+
+            {overflowBuckets.length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-between"
+                  >
+                    {t("See more")}
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="max-h-72 w-72 overflow-y-auto"
+                >
+                  {overflowBuckets.map((bucket) => (
+                    <DropdownMenuItem
+                      key={bucket.value}
+                      aria-label={`${t("Select visual filter from legend")}: ${title} - ${bucket.label}`}
+                      className={cn(
+                        "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2",
+                        bucket.value === selectedBucket?.value &&
+                          "bg-muted text-foreground",
+                      )}
+                      onSelect={() => selectBucket(bucket)}
+                    >
+                      <span
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: bucket.color }}
+                      />
+                      <span className="min-w-0 truncate text-sm font-medium">
+                        {bucket.label}
+                      </span>
+                      <span className="text-sm tabular-nums text-muted-foreground">
+                        {bucket.count} · {bucket.percent}%
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
 
             <div
               role="group"

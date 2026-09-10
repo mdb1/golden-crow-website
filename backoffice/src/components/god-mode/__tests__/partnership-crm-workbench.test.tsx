@@ -1338,10 +1338,15 @@ describe("PartnershipCrmWorkbench list pager", () => {
             },
             category: {
               key: "category",
-              total: 10,
+              total: 21,
               buckets: [
-                { value: "__no_category__", count: 3 },
                 { value: "org_genomics_laboratories", count: 7 },
+                { value: "org_genetic_testing_laboratories", count: 5 },
+                { value: "org_molecular_diagnostics_laboratories", count: 4 },
+                { value: "org_reproductive_genetics_laboratories", count: 2 },
+                { value: "__no_category__", count: 1 },
+                { value: "org_prenatal_genetics_laboratories", count: 1 },
+                { value: "org_nipt_providers", count: 1 },
               ],
             },
             country: {
@@ -1420,6 +1425,10 @@ describe("PartnershipCrmWorkbench list pager", () => {
     expect(statusPieSegments[0].getAttribute("vector-effect")).toBe(
       "non-scaling-stroke",
     );
+    expect(statusPieSegments).toHaveLength(6);
+    expect(statusPieSegments[5].getAttribute("fill")).toBe(
+      "color-mix(in srgb, var(--chart-1) 74%, var(--foreground))",
+    );
     expect(
       statusPieSegments.map((button) => button.getAttribute("aria-label")),
     ).toEqual([
@@ -1428,6 +1437,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
       "Select visual filter from pie: Status - CRM Contacted",
       "Select visual filter from pie: Status - CRM Replied",
       "Select visual filter from pie: Status - CRM Partner",
+      "Select visual filter from pie: Status - CRM No Response",
     ]);
     expect(
       within(statusSection as HTMLElement)
@@ -1442,20 +1452,49 @@ describe("PartnershipCrmWorkbench list pager", () => {
       "Select visual filter from legend: Status - CRM Replied",
       "Select visual filter from legend: Status - CRM Partner",
     ]);
+    expect(
+      within(statusSection as HTMLElement).queryByRole("button", {
+        name: "Select visual filter from legend: Status - CRM No Response",
+      }),
+    ).toBeNull();
+
+    const selectedStatusBlock = within(
+      statusSection as HTMLElement,
+    ).getByRole("group", {
+      name: "Selected segment: Status",
+    });
+    await user.click(
+      within(statusSection as HTMLElement).getByRole("button", {
+        name: "See more",
+      }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", {
+        name: "Select visual filter from legend: Status - CRM No Response",
+      }),
+    );
+    expect(within(selectedStatusBlock).getByText("CRM No Response")).toBeTruthy();
 
     const categorySection = within(dialog)
       .getByText("Category")
       .closest("section");
     expect(categorySection).toBeTruthy();
+    const categoryPieSegments = within(
+      categorySection as HTMLElement,
+    ).getAllByRole("button", {
+      name: /^Select visual filter from pie: Category -/,
+    });
+    expect(categoryPieSegments).toHaveLength(7);
     expect(
-      within(categorySection as HTMLElement)
-        .getAllByRole("button", {
-          name: /^Select visual filter from pie: Category -/,
-        })
-        .map((button) => button.getAttribute("aria-label")),
+      categoryPieSegments.map((button) => button.getAttribute("aria-label")),
     ).toEqual([
       "Select visual filter from pie: Category - Genomics Laboratory",
+      "Select visual filter from pie: Category - Genetic Testing Laboratory",
+      "Select visual filter from pie: Category - Molecular Diagnostics Laboratory",
+      "Select visual filter from pie: Category - Reproductive Genetics Laboratory",
       "Select visual filter from pie: Category - No category",
+      "Select visual filter from pie: Category - Prenatal Genetics Laboratory",
+      "Select visual filter from pie: Category - NIPT Provider",
     ]);
     expect(
       within(categorySection as HTMLElement)
@@ -1465,8 +1504,29 @@ describe("PartnershipCrmWorkbench list pager", () => {
         .map((button) => button.getAttribute("aria-label")),
     ).toEqual([
       "Select visual filter from legend: Category - Genomics Laboratory",
+      "Select visual filter from legend: Category - Genetic Testing Laboratory",
+      "Select visual filter from legend: Category - Molecular Diagnostics Laboratory",
+      "Select visual filter from legend: Category - Reproductive Genetics Laboratory",
       "Select visual filter from legend: Category - No category",
     ]);
+    await user.click(
+      within(categorySection as HTMLElement).getByRole("button", {
+        name: "See more",
+      }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", {
+        name: "Select visual filter from legend: Category - Prenatal Genetics Laboratory",
+      }),
+    );
+    const selectedCategoryBlock = within(
+      categorySection as HTMLElement,
+    ).getByRole("group", {
+      name: "Selected segment: Category",
+    });
+    expect(
+      within(selectedCategoryBlock).getByText("Prenatal Genetics Laboratory"),
+    ).toBeTruthy();
 
     const countrySection = within(dialog).getByText("Country").closest("section");
     expect(countrySection).toBeTruthy();
@@ -1502,11 +1562,6 @@ describe("PartnershipCrmWorkbench list pager", () => {
       }),
     );
 
-    const selectedStatusBlock = within(
-      statusSection as HTMLElement,
-    ).getByRole("group", {
-      name: "Selected segment: Status",
-    });
     expect(within(selectedStatusBlock).getByText("CRM Contacted")).toBeTruthy();
     expect(
       within(statusSection as HTMLElement)

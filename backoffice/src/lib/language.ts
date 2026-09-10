@@ -1594,6 +1594,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No data for this filter.": "Sin datos para este filtro.",
   "Email availability": "Disponibilidad de email",
   "LinkedIn availability": "Disponibilidad de LinkedIn",
+  "See more": "Ver más",
   "Select visual filter from pie":
     "Seleccionar filtro visual desde el gráfico",
   "Select visual filter from legend":
