@@ -748,6 +748,23 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(screen.getByText("Delete Me Genomics"));
 
     const detailPanel = await screen.findByTestId("crm-detail-panel");
+    const actionGroup = within(detailPanel).getByTestId(
+      "crm-detail-panel-actions",
+    );
+    expect(actionGroup.className).toContain("min-w-max");
+    expect(actionGroup.className).toContain("shrink-0");
+    expect(actionGroup.className).toContain("flex-nowrap");
+    expect(actionGroup.className).toContain("whitespace-nowrap");
+    expect(within(actionGroup).getAllByRole("button")).toHaveLength(3);
+    expect(
+      within(actionGroup).getByRole("button", { name: "Edit" }),
+    ).toBeTruthy();
+    expect(
+      within(actionGroup).getByRole("button", { name: "Delete" }),
+    ).toBeTruthy();
+    expect(
+      within(actionGroup).getByRole("button", { name: "Hide details" }),
+    ).toBeTruthy();
     const selectedStatusButton = within(detailPanel).getByRole("button", {
       name: "CRM New",
     });

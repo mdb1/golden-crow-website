@@ -8690,8 +8690,8 @@ export function PartnershipCrmWorkbench() {
             className="grid gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-auto xl:pl-2"
           >
             <div className="rounded-xl border border-border/80 bg-background/70 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
+              <div className="flex items-start gap-3 border-b border-border/70 pb-3">
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge
                       status={selectedOrganization.status}
@@ -8711,11 +8711,15 @@ export function PartnershipCrmWorkbench() {
                       t("No country")}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div
+                  data-testid="crm-detail-panel-actions"
+                  className="ml-auto flex min-w-max shrink-0 flex-nowrap items-center gap-2 whitespace-nowrap"
+                >
                   <Button
                     type="button"
                     variant="outline"
                     size="icon-sm"
+                    className="shrink-0"
                     aria-label={t("Edit")}
                     title={t("Edit")}
                     onClick={() =>
@@ -8731,6 +8735,7 @@ export function PartnershipCrmWorkbench() {
                     type="button"
                     variant="destructive"
                     size="icon-sm"
+                    className="shrink-0"
                     aria-label={t("Delete")}
                     title={t("Delete")}
                     onClick={() => setDeleteTarget(selectedOrganization)}
@@ -8741,6 +8746,7 @@ export function PartnershipCrmWorkbench() {
                     type="button"
                     variant="ghost"
                     size="icon-sm"
+                    className="shrink-0"
                     aria-label={t("Hide details")}
                     title={t("Hide details")}
                     onClick={hideDetailPanel}

@@ -350,10 +350,21 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(within(panel).getByText("{{organization_name}}")).toBeTruthy();
     expect(within(panel).getByText("{{contact_name}}")).toBeTruthy();
     expect(within(panel).getByText("Hola Contacto")).toBeTruthy();
-    expect(within(panel).getByRole("link", { name: "Edit" })).toBeTruthy();
-    expect(within(panel).getByRole("button", { name: "Delete" })).toBeTruthy();
+    const actionGroup = within(panel).getByTestId(
+      "template-preview-panel-actions",
+    );
+    expect(actionGroup.className).toContain("min-w-max");
+    expect(actionGroup.className).toContain("shrink-0");
+    expect(actionGroup.className).toContain("flex-nowrap");
+    expect(actionGroup.className).toContain("whitespace-nowrap");
     expect(
-      within(panel).getByRole("button", { name: "Hide details" }),
+      within(actionGroup).getByRole("link", { name: "Edit" }),
+    ).toBeTruthy();
+    expect(
+      within(actionGroup).getByRole("button", { name: "Delete" }),
+    ).toBeTruthy();
+    expect(
+      within(actionGroup).getByRole("button", { name: "Hide details" }),
     ).toBeTruthy();
     expect(
       within(panel)
