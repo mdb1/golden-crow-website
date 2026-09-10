@@ -579,6 +579,16 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const separator = await screen.findByRole("separator", {
       name: "Resize CRM detail panel",
     });
+    expect(screen.getByTestId("crm-split-pane").className).toContain(
+      "overflow-hidden",
+    );
+    expect(screen.getByTestId("crm-list-panel").className).toContain(
+      "overflow-y-auto",
+    );
+    expect(screen.getByTestId("crm-detail-panel").className).toContain(
+      "overflow-y-auto",
+    );
+    expect(separator.className).toContain("self-stretch");
     expect(separator.getAttribute("aria-valuenow")).toBe("40");
 
     fireEvent.keyDown(separator, { key: "ArrowLeft" });

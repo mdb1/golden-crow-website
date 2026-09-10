@@ -6044,15 +6044,21 @@ export function PartnershipCrmWorkbench() {
 
       <div
         ref={splitPaneRef}
+        data-testid="crm-split-pane"
         className={cn(
           "grid gap-4",
           showDetailPanel &&
-            "xl:grid-cols-[minmax(0,var(--crm-list-panel-width))_1rem_minmax(0,var(--crm-detail-panel-width))] xl:items-start xl:gap-0",
+            "xl:h-[calc(100vh_-_var(--app-header-height)_-_2rem)] xl:min-h-0 xl:grid-cols-[minmax(0,var(--crm-list-panel-width))_1rem_minmax(0,var(--crm-detail-panel-width))] xl:items-stretch xl:gap-0 xl:overflow-hidden",
         )}
         style={splitPaneStyle}
       >
         <div
-          className={cn("grid content-start gap-4", showDetailPanel && "xl:pr-2")}
+          data-testid="crm-list-panel"
+          className={cn(
+            "grid content-start gap-4",
+            showDetailPanel &&
+              "xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pr-2",
+          )}
         >
           <div className="grid items-start gap-2 sm:grid-cols-5">
             {PIPELINE_STATUSES.map((status) => {
@@ -6366,7 +6372,7 @@ export function PartnershipCrmWorkbench() {
             aria-valuemax={Math.round(CRM_DETAIL_PANEL_MAX_WIDTH_PERCENT)}
             aria-valuenow={Math.round(detailPanelWidthPercent)}
             className={cn(
-              "group sticky top-[calc(var(--app-header-height)_+_1rem)] hidden h-96 max-h-[calc(100vh_-_var(--app-header-height)_-_3rem)] cursor-col-resize touch-none select-none items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/45 xl:flex",
+              "group hidden cursor-col-resize touch-none select-none items-center justify-center self-stretch rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/45 xl:flex",
               detailPanelResizing && "bg-primary/8",
             )}
             onPointerDown={handleDetailPanelResizePointerDown}
@@ -6384,7 +6390,10 @@ export function PartnershipCrmWorkbench() {
         ) : null}
 
         {showDetailPanel && selectedOrganization ? (
-          <aside className="grid gap-4 xl:pl-2">
+          <aside
+            data-testid="crm-detail-panel"
+            className="grid gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pl-2"
+          >
             <div className="rounded-xl border border-border/80 bg-background/70 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
