@@ -1652,6 +1652,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
   it("opens visual filters and applies selected pie-slice filters together", async () => {
     const user = userEvent.setup();
     const listPaths: string[] = [];
+    const visualFilterPaths: string[] = [];
 
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       const stringPath = String(path);
@@ -1668,6 +1669,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
           "/admin/partnership-crm/organizations/visual-filters",
         )
       ) {
+        visualFilterPaths.push(stringPath);
         return {
           targetKind: "organizations",
           facets: {
@@ -1746,6 +1748,11 @@ describe("PartnershipCrmWorkbench list pager", () => {
 
     const dialog = await screen.findByRole("dialog", {
       name: "Visual filters",
+    });
+    await waitFor(() => {
+      expect(visualFilterPaths).toEqual([
+        "/admin/partnership-crm/organizations/visual-filters",
+      ]);
     });
     await waitFor(() => {
       expect(within(dialog).getByText("Status")).toBeTruthy();
@@ -1995,6 +2002,172 @@ describe("PartnershipCrmWorkbench list pager", () => {
         "/admin/partnership-crm/organizations?limit=50&status=contacted&category=__no_category__&linkedInState=missing_linkedin",
       );
     });
+  });
+
+  it("opens visual filters from active list filters without scoping visual totals and clears every filter", async () => {
+    const user = userEvent.setup();
+    const listPaths: string[] = [];
+    const visualFilterPaths: string[] = [];
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      if (
+        stringPath.startsWith(
+          "/admin/partnership-crm/organizations/visual-filters",
+        )
+      ) {
+        visualFilterPaths.push(stringPath);
+        return {
+          targetKind: "organizations",
+          facets: {
+            status: {
+              key: "status",
+              total: 16,
+              buckets: [
+                { value: "new", count: 8 },
+                { value: "contacted", count: 2 },
+                { value: "replied", count: 2 },
+                { value: "meeting", count: 2 },
+                { value: "partner", count: 1 },
+                { value: "no_response", count: 1 },
+              ],
+            },
+            category: {
+              key: "category",
+              total: 10,
+              buckets: [
+                { value: "org_genomics_laboratories", count: 7 },
+                { value: "__no_category__", count: 3 },
+              ],
+            },
+            country: {
+              key: "country",
+              total: 10,
+              buckets: [
+                { value: "AR", count: 6 },
+                { value: "__no_country__", count: 4 },
+              ],
+            },
+            linkedInState: {
+              key: "linkedInState",
+              total: 10,
+              buckets: [
+                { value: "has_linkedin", count: 9 },
+                { value: "missing_linkedin", count: 1 },
+              ],
+            },
+          },
+        };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/organizations")) {
+        listPaths.push(stringPath);
+      }
+
+      return {
+        organizations: [organization],
+        nextCursor: undefined,
+        statusCounts: {
+          new: 8,
+          contacted: 2,
+          replied: 0,
+          meeting: 0,
+          partner: 0,
+          no_response: 0,
+          not_interested: 0,
+          not_a_fit: 0,
+        },
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getByText("Delete Me Genomics")).toBeTruthy();
+    });
+
+    const searchInput = screen.getByPlaceholderText(
+      "Search organizations...",
+    ) as HTMLInputElement;
+    await user.type(searchInput, "Genome");
+    await user.click(screen.getByRole("button", { name: /Contacted\s+2/ }));
+
+    await waitFor(() => {
+      expect(
+        listPaths.some(
+          (path) =>
+            path.includes("query=Genome") &&
+            path.includes("status=contacted"),
+        ),
+      ).toBe(true);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Visual filters" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Visual filters",
+    });
+    await waitFor(() => {
+      expect(visualFilterPaths).toEqual([
+        "/admin/partnership-crm/organizations/visual-filters",
+      ]);
+    });
+    expect(visualFilterPaths.some((path) => path.includes("?"))).toBe(false);
+
+    const statusSection = within(dialog)
+      .getByText("Status")
+      .closest("section");
+    expect(statusSection).toBeTruthy();
+    const selectedStatusBlock = within(
+      statusSection as HTMLElement,
+    ).getByRole("group", {
+      name: "Selected segment: Status",
+    });
+    await waitFor(() => {
+      expect(
+        within(selectedStatusBlock).getByText("CRM Contacted"),
+      ).toBeTruthy();
+    });
+    expect(
+      within(statusSection as HTMLElement)
+        .getByRole("button", {
+          name: "Select visual filter from pie: Status - CRM Contacted",
+        })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Clear all filters",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(within(selectedStatusBlock).getByText("No segment selected"))
+        .toBeTruthy();
+    });
+    expect(
+      (
+        screen.getByPlaceholderText(
+          "Search organizations...",
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("");
+    expect(
+      within(statusSection as HTMLElement)
+        .getByRole("button", {
+          name: "Select visual filter from pie: Status - CRM Contacted",
+        })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
   });
 
   it("shows visible count, page count, and previous/next controls as a right-aligned pager", async () => {

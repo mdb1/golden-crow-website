@@ -231,6 +231,16 @@ type ListFilters = {
   linkedInState: "all" | "has_linkedin" | "missing_linkedin";
 };
 
+function emptyListFilters(): ListFilters {
+  return {
+    query: "",
+    status: "all",
+    category: "",
+    country: "",
+    linkedInState: "all",
+  };
+}
+
 type CrmImportSessionStatus =
   "previewing" | "ready" | "importing" | "paused" | "completed";
 
@@ -1010,17 +1020,34 @@ function appendTargetFilterParams(
   }
 }
 
-function buildVisualFiltersPath(
-  targetKind: PartnershipCrmTargetKind,
-  filters: ListFilters,
-) {
-  const params = new URLSearchParams();
-  appendTargetFilterParams(params, targetKind, filters);
-  const queryString = params.toString();
+function buildVisualFiltersPath(targetKind: PartnershipCrmTargetKind) {
+  return `${crmTargetBasePath(targetKind)}/visual-filters`;
+}
 
-  return `${crmTargetBasePath(targetKind)}/visual-filters${
-    queryString ? `?${queryString}` : ""
-  }`;
+function visualSelectedSegmentsForFilters(
+  filters: ListFilters,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const selectedSegments: Partial<
+    Record<PartnershipCrmVisualFilterFacetKey, string>
+  > = {};
+  const category = normalizedCategoryFilter(filters.category, targetKind);
+  const country = normalizedCountryFilter(filters.country);
+
+  if (filters.status !== "all") {
+    selectedSegments.status = filters.status;
+  }
+  if (category) {
+    selectedSegments.category = category;
+  }
+  if (country) {
+    selectedSegments.country = country;
+  }
+  if (filters.linkedInState !== "all") {
+    selectedSegments.linkedInState = filters.linkedInState;
+  }
+
+  return selectedSegments;
 }
 
 function targetPayload(
@@ -2567,19 +2594,23 @@ function VisualFiltersDialog({
   open,
   onOpenChange,
   filters,
+  activeListFilters,
   loading,
   error,
   language,
   targetKind,
+  onClearAll,
   onApply,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   filters?: PartnershipCrmVisualFilters;
+  activeListFilters: ListFilters;
   loading: boolean;
   error: unknown;
   language: AppLanguage;
   targetKind: PartnershipCrmTargetKind;
+  onClearAll: () => void;
   onApply: (targets: VisualFilterApplyTarget[]) => void;
 }) {
   const t = (text: string) => appText(language, text);
@@ -2597,10 +2628,14 @@ function VisualFiltersDialog({
   const selectedCount = Object.keys(selectedSegments).length;
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setSelectedSegments(
+        visualSelectedSegmentsForFilters(activeListFilters, targetKind),
+      );
+    } else {
       setSelectedSegments({});
     }
-  }, [open]);
+  }, [activeListFilters, open, targetKind]);
 
   function selectSegment(target: VisualFilterApplyTarget) {
     setSelectedSegments((current) => ({
@@ -2638,7 +2673,10 @@ function VisualFiltersDialog({
             variant="outline"
             size="sm"
             className="self-start"
-            onClick={() => setSelectedSegments({})}
+            onClick={() => {
+              setSelectedSegments({});
+              onClearAll();
+            }}
           >
             {t("Clear all filters")}
           </Button>
@@ -5316,13 +5354,9 @@ export function PartnershipCrmWorkbench() {
   const router = useRouter();
   const [targetKind, setTargetKind] =
     useState<PartnershipCrmTargetKind>("organizations");
-  const [filters, setFilters] = useState<ListFilters>({
-    query: "",
-    status: "all",
-    category: "",
-    country: "",
-    linkedInState: "all",
-  });
+  const [filters, setFilters] = useState<ListFilters>(() =>
+    emptyListFilters(),
+  );
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedTargetIds, setSelectedTargetIds] = useState<Set<string>>(
@@ -5546,11 +5580,9 @@ export function PartnershipCrmWorkbench() {
     [sentEmailLogQuery.data?.pages],
   );
   const visualFiltersQuery = useQuery({
-    queryKey: [ORGANIZATIONS_QUERY_KEY, "visual-filters", targetKind, filters],
+    queryKey: [ORGANIZATIONS_QUERY_KEY, "visual-filters", targetKind],
     queryFn: () =>
-      sdkFetch<PartnershipCrmVisualFilters>(
-        buildVisualFiltersPath(targetKind, filters),
-      ),
+      sdkFetch<PartnershipCrmVisualFilters>(buildVisualFiltersPath(targetKind)),
     enabled: visualFiltersOpen,
   });
 
@@ -6748,6 +6780,10 @@ export function PartnershipCrmWorkbench() {
     setFilters((current) => ({ ...current, ...patch }));
   }
 
+  function clearAllFilters() {
+    resetCursorsForFilterChange(emptyListFilters());
+  }
+
   function applyVisualFilter(targets: VisualFilterApplyTarget[]) {
     setVisualFiltersOpen(false);
 
@@ -6793,13 +6829,7 @@ export function PartnershipCrmWorkbench() {
     setDeleteSelectedOpen(false);
     setEmailOpen(false);
     setVisualFiltersOpen(false);
-    setFilters({
-      query: "",
-      status: "all",
-      category: "",
-      country: "",
-      linkedInState: "all",
-    });
+    setFilters(emptyListFilters());
   }
 
   function handleTargetSelect(targetId: string) {
@@ -7859,10 +7889,12 @@ export function PartnershipCrmWorkbench() {
         open={visualFiltersOpen}
         onOpenChange={setVisualFiltersOpen}
         filters={visualFiltersQuery.data}
+        activeListFilters={filters}
         loading={visualFiltersQuery.isFetching}
         error={visualFiltersQuery.error}
         language={language}
         targetKind={targetKind}
+        onClearAll={clearAllFilters}
         onApply={applyVisualFilter}
       />
 

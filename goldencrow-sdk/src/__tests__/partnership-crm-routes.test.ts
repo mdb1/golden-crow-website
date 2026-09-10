@@ -258,7 +258,6 @@ describe("partnership CRM routes", () => {
     expect(mockGetPartnershipCrmVisualFilters).toHaveBeenCalledWith(
       bootstrapContext,
       "organizations",
-      { status: "contacted", linkedInState: "has_linkedin" },
     );
   });
 

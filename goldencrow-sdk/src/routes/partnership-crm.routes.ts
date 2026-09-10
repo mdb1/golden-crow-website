@@ -321,7 +321,6 @@ export async function partnershipCrmRoutes(
         const result = await getPartnershipCrmVisualFilters(
           request.adminContext!,
           "organizations",
-          request.query,
         );
         return reply.send(result);
       } catch (error) {
@@ -427,7 +426,6 @@ export async function partnershipCrmRoutes(
         const result = await getPartnershipCrmVisualFilters(
           request.adminContext!,
           "professionals",
-          request.query,
         );
         return reply.send(result);
       } catch (error) {

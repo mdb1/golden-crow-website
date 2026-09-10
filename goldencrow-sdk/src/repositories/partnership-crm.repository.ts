@@ -1580,13 +1580,12 @@ async function scanProfessionalVisualFilters(
 export async function getPartnershipCrmVisualFilters(
   context: AdminContext,
   targetKind: PartnershipCrmTargetKind,
-  options: PartnershipCrmTargetListOptions = {},
 ): Promise<PartnershipCrmVisualFilters> {
   requireGodMode(context);
 
   return targetKind === "professionals"
-    ? scanProfessionalVisualFilters(options)
-    : scanOrganizationVisualFilters(options);
+    ? scanProfessionalVisualFilters({})
+    : scanOrganizationVisualFilters({});
 }
 
 async function getOrganizationSnapshot(organizationId: string) {
