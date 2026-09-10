@@ -1583,6 +1583,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Missing Email": "Sin email",
   "Resize CRM detail panel": "Redimensionar panel de detalle del CRM",
   "Visual filters": "Filtros visuales",
+  "Clear all filters": "Limpiar todos los filtros",
   "Select visual filter segments before applying.":
     "Seleccioná segmentos de filtros visuales antes de aplicarlos.",
   "Failed to load visual filters.": "No se pudieron cargar los filtros visuales.",

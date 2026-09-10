@@ -1995,11 +1995,22 @@ function VisualFiltersDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="crm-control-surface flex max-h-[92vh] flex-col overflow-hidden sm:max-w-5xl">
-        <DialogHeader className="shrink-0">
-          <DialogTitle>{t("Visual filters")}</DialogTitle>
-          <DialogDescription className="sr-only">
-            {t("Select visual filter segments before applying.")}
-          </DialogDescription>
+        <DialogHeader className="shrink-0 gap-3 pr-10 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <DialogTitle>{t("Visual filters")}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {t("Select visual filter segments before applying.")}
+            </DialogDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="self-start"
+            onClick={() => setSelectedSegments({})}
+          >
+            {t("Clear all filters")}
+          </Button>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">

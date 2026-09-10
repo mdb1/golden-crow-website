@@ -1506,6 +1506,32 @@ describe("PartnershipCrmWorkbench list pager", () => {
       "/admin/partnership-crm/organizations?limit=50&status=contacted",
     );
 
+    const clearAllFiltersButton = within(dialog).getByRole("button", {
+      name: "Clear all filters",
+    });
+    await user.click(clearAllFiltersButton);
+    expect(
+      within(selectedStatusBlock).getByText("No segment selected"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", { name: "Apply" }),
+    ).toHaveProperty("disabled", true);
+    expect(
+      within(statusSection as HTMLElement)
+        .getByRole("button", {
+          name: "Select visual filter from pie: Status - CRM Contacted",
+        })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
+    expect(listPaths).not.toContain(
+      "/admin/partnership-crm/organizations?limit=50&status=contacted",
+    );
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Select visual filter from pie: Status - CRM Contacted",
+      }),
+    );
     await user.click(
       within(dialog).getByRole("button", {
         name: "Select visual filter from legend: Category - No category",
