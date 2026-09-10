@@ -1582,14 +1582,18 @@ const SPANISH_TEXT: Record<string, string> = {
   "Has Email": "Con email",
   "Missing Email": "Sin email",
   "Visual filters": "Filtros visuales",
-  "Tap any pie slice or legend row to apply that filter.":
-    "Tocá cualquier porción del gráfico o fila de la leyenda para aplicar ese filtro.",
+  "Select visual filter segments before applying.":
+    "Seleccioná segmentos de filtros visuales antes de aplicarlos.",
   "Failed to load visual filters.": "No se pudieron cargar los filtros visuales.",
   "No visual filters available.": "No hay filtros visuales disponibles.",
   "No data for this filter.": "Sin datos para este filtro.",
   "Email availability": "Disponibilidad de email",
-  "Apply visual filter from pie": "Aplicar filtro visual desde el gráfico",
-  "Apply visual filter from legend": "Aplicar filtro visual desde la leyenda",
+  "Select visual filter from pie":
+    "Seleccionar filtro visual desde el gráfico",
+  "Select visual filter from legend":
+    "Seleccionar filtro visual desde la leyenda",
+  "Selected segment": "Segmento seleccionado",
+  "No segment selected": "Sin segmento seleccionado",
   "pie chart": "gráfico circular",
   items: "ítems",
   "Primary contact": "Contacto principal",

@@ -1189,7 +1189,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
     ).toBeTruthy();
   });
 
-  it("opens visual filters and applies a pie-slice filter to the list", async () => {
+  it("opens visual filters and applies selected pie-slice filters together", async () => {
     const user = userEvent.setup();
     const listPaths: string[] = [];
 
@@ -1213,10 +1213,14 @@ describe("PartnershipCrmWorkbench list pager", () => {
           facets: {
             status: {
               key: "status",
-              total: 10,
+              total: 16,
               buckets: [
                 { value: "new", count: 8 },
                 { value: "contacted", count: 2 },
+                { value: "replied", count: 2 },
+                { value: "meeting", count: 2 },
+                { value: "partner", count: 1 },
+                { value: "no_response", count: 1 },
               ],
             },
             category: {
@@ -1284,12 +1288,38 @@ describe("PartnershipCrmWorkbench list pager", () => {
       expect(within(dialog).getByText("Genomics Laboratory")).toBeTruthy();
       expect(within(dialog).getByText("No country")).toBeTruthy();
     });
+    const statusSection = within(dialog)
+      .getByText("Status")
+      .closest("section");
+    expect(statusSection).toBeTruthy();
+    expect(within(statusSection as HTMLElement).queryByText("CRM No Response"))
+      .toBeNull();
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Apply visual filter from pie: Status - CRM Contacted",
+        name: "Select visual filter from pie: Status - CRM Contacted",
       }),
     );
+
+    const selectedStatusBlock = within(
+      statusSection as HTMLElement,
+    ).getByRole("group", {
+      name: "Selected segment: Status",
+    });
+    expect(within(selectedStatusBlock).getByText("CRM Contacted")).toBeTruthy();
+    expect(
+      screen.getByRole("dialog", { name: "Visual filters" }),
+    ).toBeTruthy();
+    expect(listPaths).not.toContain(
+      "/admin/partnership-crm/organizations?limit=50&status=contacted",
+    );
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Select visual filter from legend: Category - No category",
+      }),
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Apply" }));
 
     await waitFor(() => {
       expect(
@@ -1298,7 +1328,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
     });
     await waitFor(() => {
       expect(listPaths).toContain(
-        "/admin/partnership-crm/organizations?limit=50&status=contacted",
+        "/admin/partnership-crm/organizations?limit=50&status=contacted&category=__no_category__",
       );
     });
   });

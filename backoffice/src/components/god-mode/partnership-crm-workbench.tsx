@@ -165,6 +165,7 @@ const VISUAL_FILTER_COLORS = [
   "#4b5563",
   "#0f766e",
 ] as const;
+const MAX_VISUAL_FILTER_BUCKETS = 5;
 
 type CrmTargetInput =
   PartnershipCrmOrganizationInput | PartnershipCrmProfessionalInput;
@@ -1660,6 +1661,7 @@ function visualFilterBuckets(
     .filter((bucket) => bucket.count > 0)
     .map((bucket, index) => ({
       ...bucket,
+      order: index,
       label: visualFilterBucketLabel(
         facet.key,
         bucket.value,
@@ -1667,6 +1669,11 @@ function visualFilterBuckets(
         targetKind,
       ),
       percent: Math.round((bucket.count / facet.total) * 100),
+    }))
+    .sort((left, right) => right.count - left.count || left.order - right.order)
+    .slice(0, MAX_VISUAL_FILTER_BUCKETS)
+    .map(({ order, ...bucket }, index) => ({
+      ...bucket,
       color: VISUAL_FILTER_COLORS[index % VISUAL_FILTER_COLORS.length],
     }));
 }
@@ -1675,17 +1682,43 @@ function VisualFilterPieSection({
   facet,
   language,
   targetKind,
-  onApply,
+  selectedValue,
+  onSelect,
 }: {
   facet: PartnershipCrmVisualFilterFacet;
   language: AppLanguage;
   targetKind: PartnershipCrmTargetKind;
-  onApply: (target: VisualFilterApplyTarget) => void;
+  selectedValue?: string;
+  onSelect: (target: VisualFilterApplyTarget) => void;
 }) {
   const t = (text: string) => appText(language, text);
   const title = visualFilterFacetTitle(facet.key, language);
   const buckets = visualFilterBuckets(facet, language, targetKind);
+  const selectedBucket = buckets.find(
+    (bucket) => bucket.value === selectedValue,
+  );
+  const hasSelection = Boolean(selectedBucket);
   let runningAngle = 0;
+  const pieSegments = buckets.map((bucket) => {
+    const startAngle = runningAngle;
+    const sweep = (bucket.count / facet.total) * 360;
+    const endAngle = startAngle + sweep;
+    runningAngle = endAngle;
+
+    return {
+      bucket,
+      startAngle,
+      endAngle,
+      isSelected: bucket.value === selectedBucket?.value,
+    };
+  });
+  const orderedPieSegments = [...pieSegments].sort(
+    (left, right) => Number(left.isSelected) - Number(right.isSelected),
+  );
+
+  function selectBucket(bucket: VisualFilterBucketView) {
+    onSelect({ facetKey: facet.key, value: bucket.value });
+  }
 
   return (
     <section className="rounded-xl border border-border/80 bg-background/70 p-4">
@@ -1708,67 +1741,78 @@ function VisualFilterPieSection({
             aria-label={`${title} ${t("pie chart")}`}
             className="mx-auto h-44 w-44 overflow-visible"
           >
-            {buckets.map((bucket) => {
-              const startAngle = runningAngle;
-              const sweep = (bucket.count / facet.total) * 360;
-              const endAngle = startAngle + sweep;
-              runningAngle = endAngle;
-              const label = `${bucket.label}: ${bucket.percent}%`;
+            <circle cx="60" cy="60" r="52" fill="hsl(var(--muted))" />
+            {orderedPieSegments.map(
+              ({ bucket, startAngle, endAngle, isSelected }) => {
+                const label = `${bucket.label}: ${bucket.percent}%`;
+                const segmentClassName = cn(
+                  "cursor-pointer outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-ring",
+                  hasSelection && !isSelected && "opacity-40",
+                );
+                const selectedProps = isSelected
+                  ? {
+                      stroke: "hsl(var(--foreground))",
+                      strokeWidth: 2.5,
+                      transform:
+                        "translate(60 60) scale(1.05) translate(-60 -60)",
+                    }
+                  : {};
 
-              if (bucket.count === facet.total) {
+                if (bucket.count === facet.total) {
+                  return (
+                    <circle
+                      key={bucket.value}
+                      cx="60"
+                      cy="60"
+                      r="52"
+                      fill={bucket.color}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      aria-label={`${t(
+                        "Select visual filter from pie",
+                      )}: ${title} - ${bucket.label}`}
+                      className={segmentClassName}
+                      onClick={() => selectBucket(bucket)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          selectBucket(bucket);
+                        }
+                      }}
+                      {...selectedProps}
+                    >
+                      <title>{label}</title>
+                    </circle>
+                  );
+                }
+
                 return (
-                  <circle
+                  <path
                     key={bucket.value}
-                    cx="60"
-                    cy="60"
-                    r="52"
+                    d={pieSlicePath(60, 60, 52, startAngle, endAngle)}
                     fill={bucket.color}
                     role="button"
                     tabIndex={0}
+                    aria-pressed={isSelected}
                     aria-label={`${t(
-                      "Apply visual filter from pie",
+                      "Select visual filter from pie",
                     )}: ${title} - ${bucket.label}`}
-                    className="cursor-pointer outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-ring"
-                    onClick={() =>
-                      onApply({ facetKey: facet.key, value: bucket.value })
-                    }
+                    className={segmentClassName}
+                    onClick={() => selectBucket(bucket)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        onApply({ facetKey: facet.key, value: bucket.value });
+                        selectBucket(bucket);
                       }
                     }}
+                    {...selectedProps}
                   >
                     <title>{label}</title>
-                  </circle>
+                  </path>
                 );
-              }
-
-              return (
-                <path
-                  key={bucket.value}
-                  d={pieSlicePath(60, 60, 52, startAngle, endAngle)}
-                  fill={bucket.color}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`${t(
-                    "Apply visual filter from pie",
-                  )}: ${title} - ${bucket.label}`}
-                  className="cursor-pointer outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={() =>
-                    onApply({ facetKey: facet.key, value: bucket.value })
-                  }
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      onApply({ facetKey: facet.key, value: bucket.value });
-                    }
-                  }}
-                >
-                  <title>{label}</title>
-                </path>
-              );
-            })}
+              },
+            )}
             <circle
               cx="60"
               cy="60"
@@ -1800,11 +1844,14 @@ function VisualFilterPieSection({
               <button
                 key={bucket.value}
                 type="button"
-                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label={`${t("Apply visual filter from legend")}: ${title} - ${bucket.label}`}
-                onClick={() =>
-                  onApply({ facetKey: facet.key, value: bucket.value })
-                }
+                className={cn(
+                  "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  bucket.value === selectedBucket?.value &&
+                    "bg-muted text-foreground ring-1 ring-border",
+                )}
+                aria-pressed={bucket.value === selectedBucket?.value}
+                aria-label={`${t("Select visual filter from legend")}: ${title} - ${bucket.label}`}
+                onClick={() => selectBucket(bucket)}
               >
                 <span
                   className="h-3 w-3 rounded-full"
@@ -1818,6 +1865,34 @@ function VisualFilterPieSection({
                 </span>
               </button>
             ))}
+
+            <div
+              role="group"
+              aria-label={`${t("Selected segment")}: ${title}`}
+              className="mt-2 rounded-lg border border-border/80 bg-muted/30 p-3"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("Selected segment")}
+              </p>
+              {selectedBucket ? (
+                <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
+                  <span
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: selectedBucket.color }}
+                  />
+                  <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                    {selectedBucket.label}
+                  </span>
+                  <span className="text-sm tabular-nums text-muted-foreground">
+                    {selectedBucket.count} · {selectedBucket.percent}%
+                  </span>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {t("No segment selected")}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1842,9 +1917,12 @@ function VisualFiltersDialog({
   error: unknown;
   language: AppLanguage;
   targetKind: PartnershipCrmTargetKind;
-  onApply: (target: VisualFilterApplyTarget) => void;
+  onApply: (targets: VisualFilterApplyTarget[]) => void;
 }) {
   const t = (text: string) => appText(language, text);
+  const [selectedSegments, setSelectedSegments] = useState<
+    Partial<Record<PartnershipCrmVisualFilterFacetKey, string>>
+  >({});
   const facets = filters
     ? [
         filters.facets.status,
@@ -1853,42 +1931,84 @@ function VisualFiltersDialog({
         filters.facets.emailState,
       ]
     : [];
+  const selectedCount = Object.keys(selectedSegments).length;
+
+  useEffect(() => {
+    if (!open) {
+      setSelectedSegments({});
+    }
+  }, [open]);
+
+  function selectSegment(target: VisualFilterApplyTarget) {
+    setSelectedSegments((current) => ({
+      ...current,
+      [target.facetKey]: target.value,
+    }));
+  }
+
+  function applySelectedSegments() {
+    const targets = facets.flatMap((facet) => {
+      const value = selectedSegments[facet.key];
+
+      return value ? [{ facetKey: facet.key, value }] : [];
+    });
+
+    if (targets.length === 0) {
+      return;
+    }
+
+    onApply(targets);
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="crm-control-surface max-h-[92vh] overflow-y-auto sm:max-w-5xl">
-        <DialogHeader>
+      <DialogContent className="crm-control-surface flex max-h-[92vh] flex-col overflow-hidden sm:max-w-5xl">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{t("Visual filters")}</DialogTitle>
-          <DialogDescription>
-            {t("Tap any pie slice or legend row to apply that filter.")}
+          <DialogDescription className="sr-only">
+            {t("Select visual filter segments before applying.")}
           </DialogDescription>
         </DialogHeader>
 
-        {error ? (
-          <ErrorBanner>{t("Failed to load visual filters.")}</ErrorBanner>
-        ) : null}
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          {error ? (
+            <ErrorBanner>{t("Failed to load visual filters.")}</ErrorBanner>
+          ) : null}
 
-        {loading && facets.length === 0 ? (
-          <div className="grid gap-4">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="h-64 rounded-xl" />
-            ))}
-          </div>
-        ) : facets.length === 0 ? (
-          <EmptyState>{t("No visual filters available.")}</EmptyState>
-        ) : (
-          <div className="grid gap-4">
-            {facets.map((facet) => (
-              <VisualFilterPieSection
-                key={facet.key}
-                facet={facet}
-                language={language}
-                targetKind={targetKind}
-                onApply={onApply}
-              />
-            ))}
-          </div>
-        )}
+          {loading && facets.length === 0 ? (
+            <div className="grid gap-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-64 rounded-xl" />
+              ))}
+            </div>
+          ) : facets.length === 0 ? (
+            <EmptyState>{t("No visual filters available.")}</EmptyState>
+          ) : (
+            <div className="grid gap-4">
+              {facets.map((facet) => (
+                <VisualFilterPieSection
+                  key={facet.key}
+                  facet={facet}
+                  language={language}
+                  targetKind={targetKind}
+                  selectedValue={selectedSegments[facet.key]}
+                  onSelect={selectSegment}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="shrink-0 border-t border-border/80 pt-4">
+          <Button
+            type="button"
+            className="w-full sm:w-auto"
+            disabled={selectedCount === 0}
+            onClick={applySelectedSegments}
+          >
+            {t("Apply")}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -5375,29 +5495,31 @@ export function PartnershipCrmWorkbench() {
     setFilters((current) => ({ ...current, ...patch }));
   }
 
-  function applyVisualFilter(target: VisualFilterApplyTarget) {
+  function applyVisualFilter(targets: VisualFilterApplyTarget[]) {
     setVisualFiltersOpen(false);
 
-    if (target.facetKey === "status") {
-      resetCursorsForFilterChange({
-        status: target.value as ListFilters["status"],
-      });
-      return;
+    const patch: Partial<ListFilters> = {};
+
+    for (const target of targets) {
+      if (target.facetKey === "status") {
+        patch.status = target.value as ListFilters["status"];
+        continue;
+      }
+
+      if (target.facetKey === "category") {
+        patch.category = target.value;
+        continue;
+      }
+
+      if (target.facetKey === "country") {
+        patch.country = target.value;
+        continue;
+      }
+
+      patch.emailState = target.value as ListFilters["emailState"];
     }
 
-    if (target.facetKey === "category") {
-      resetCursorsForFilterChange({ category: target.value });
-      return;
-    }
-
-    if (target.facetKey === "country") {
-      resetCursorsForFilterChange({ country: target.value });
-      return;
-    }
-
-    resetCursorsForFilterChange({
-      emailState: target.value as ListFilters["emailState"],
-    });
+    resetCursorsForFilterChange(patch);
   }
 
   function handleTargetKindChange(nextTargetKind: PartnershipCrmTargetKind) {
