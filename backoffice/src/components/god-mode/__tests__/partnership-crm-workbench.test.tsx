@@ -563,6 +563,25 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(screen.getAllByText("Third Keyboard Genetics")).toHaveLength(1);
   });
 
+  it("opens the CRM email composer with Enter when the detail panel is open", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Send Email" })).toBeTruthy();
+    });
+
+    fireEvent.keyDown(window, { key: "Enter" });
+
+    expect(
+      await screen.findByRole("dialog", { name: "Send CRM email" }),
+    ).toBeTruthy();
+  });
+
   it("shows a keyboard-adjustable CRM detail panel separator", async () => {
     const user = userEvent.setup();
     renderWorkbench();

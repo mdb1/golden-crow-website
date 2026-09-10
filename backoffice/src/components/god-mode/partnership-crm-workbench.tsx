@@ -1745,6 +1745,37 @@ function shouldIgnoreCrmListKeyboardTarget(target: EventTarget | null) {
   return tagName === "input" || tagName === "select" || tagName === "textarea";
 }
 
+function shouldIgnoreCrmOpenEmailKeyboardTarget(
+  target: EventTarget | null,
+  selectedTargetId: string,
+) {
+  const element =
+    target instanceof Element ? target : document.activeElement ?? null;
+
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (document.querySelector('[role="dialog"]')) {
+    return true;
+  }
+
+  if (shouldIgnoreCrmListKeyboardTarget(element)) {
+    return true;
+  }
+
+  const rowSelector = element.closest<HTMLElement>("[data-crm-row-selector]");
+  if (rowSelector) {
+    return rowSelector.dataset.crmRowSelector !== selectedTargetId;
+  }
+
+  return Boolean(
+    element.closest(
+      "a, button, [role='button'], [role='checkbox'], [role='switch'], [role='menuitem'], [role='separator'], [data-slot='select-trigger'], [data-slot='select-content']",
+    ),
+  );
+}
+
 function visualFilterBuckets(
   facet: PartnershipCrmVisualFilterFacet,
   language: AppLanguage,
@@ -4790,14 +4821,17 @@ export function PartnershipCrmWorkbench() {
     }
 
     function handleCrmListKeyDown(event: globalThis.KeyboardEvent) {
+      const isNavigationKey =
+        event.key === "ArrowDown" || event.key === "ArrowUp";
+      const isOpenEmailKey = event.key === "Enter";
+
       if (
         event.defaultPrevented ||
         event.metaKey ||
         event.ctrlKey ||
         event.altKey ||
         event.shiftKey ||
-        (event.key !== "ArrowDown" && event.key !== "ArrowUp") ||
-        shouldIgnoreCrmListKeyboardTarget(event.target)
+        (!isNavigationKey && !isOpenEmailKey)
       ) {
         return;
       }
@@ -4806,6 +4840,31 @@ export function PartnershipCrmWorkbench() {
         (entry) => entry.id === selectedId,
       );
       if (currentIndex === -1) {
+        return;
+      }
+
+      if (isOpenEmailKey) {
+        const selectedTarget = organizations[currentIndex];
+
+        if (
+          !detailPanelOpen ||
+          emailOpen ||
+          !selectedTarget ||
+          !crmTargetEmail(selectedTarget, targetKind) ||
+          shouldIgnoreCrmOpenEmailKeyboardTarget(
+            event.target,
+            selectedTarget.id,
+          )
+        ) {
+          return;
+        }
+
+        event.preventDefault();
+        setEmailOpen(true);
+        return;
+      }
+
+      if (shouldIgnoreCrmListKeyboardTarget(event.target)) {
         return;
       }
 
@@ -4826,7 +4885,7 @@ export function PartnershipCrmWorkbench() {
 
     window.addEventListener("keydown", handleCrmListKeyDown);
     return () => window.removeEventListener("keydown", handleCrmListKeyDown);
-  }, [organizations, selectedId]);
+  }, [detailPanelOpen, emailOpen, organizations, selectedId, targetKind]);
 
   useEffect(() => {
     if (selectedTargetIds.size === 0) {
@@ -6390,6 +6449,7 @@ export function PartnershipCrmWorkbench() {
                           <TableCell className="whitespace-normal">
                             <button
                               type="button"
+                              data-crm-row-selector={organization.id}
                               className="max-w-[260px] text-left"
                               onClick={() =>
                                 handleTargetSelect(organization.id)
