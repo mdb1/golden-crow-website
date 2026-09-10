@@ -649,6 +649,27 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     ).toBeTruthy();
   });
 
+  it("tints the selected Pipeline status pill in the detail panel", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+
+    const detailPanel = await screen.findByTestId("crm-detail-panel");
+    const selectedStatusButton = within(detailPanel).getByRole("button", {
+      name: "CRM New",
+    });
+
+    expect(selectedStatusButton.getAttribute("data-variant")).toBe("outline");
+    expect(selectedStatusButton.getAttribute("aria-pressed")).toBe("true");
+    expect(selectedStatusButton.className).toContain("bg-sky");
+    expect(selectedStatusButton.className).toContain("text-sky");
+    expect(selectedStatusButton.className).not.toContain("bg-secondary");
+  });
+
   it("shows a keyboard-adjustable CRM detail panel separator", async () => {
     const user = userEvent.setup();
     renderWorkbench();

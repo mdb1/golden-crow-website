@@ -1285,6 +1285,27 @@ const PIPELINE_STATUS_TONES: Partial<
     label: "text-teal-700 dark:text-teal-200/90",
     count: "text-teal-950 dark:text-teal-50",
   },
+  no_response: {
+    card: "border-amber-200/80 bg-amber-50/75 hover:border-amber-300/80 hover:bg-amber-100/70 dark:border-amber-300/20 dark:bg-amber-400/10 dark:hover:bg-amber-400/15",
+    activeCard:
+      "border-amber-300 bg-amber-100/90 shadow-sm dark:border-amber-300/45 dark:bg-amber-400/20",
+    label: "text-amber-700 dark:text-amber-200/90",
+    count: "text-amber-950 dark:text-amber-50",
+  },
+  not_interested: {
+    card: "border-rose-200/80 bg-rose-50/75 hover:border-rose-300/80 hover:bg-rose-100/70 dark:border-rose-300/20 dark:bg-rose-400/10 dark:hover:bg-rose-400/15",
+    activeCard:
+      "border-rose-300 bg-rose-100/90 shadow-sm dark:border-rose-300/45 dark:bg-rose-400/20",
+    label: "text-rose-700 dark:text-rose-200/90",
+    count: "text-rose-950 dark:text-rose-50",
+  },
+  not_a_fit: {
+    card: "border-red-200/80 bg-red-50/75 hover:border-red-300/80 hover:bg-red-100/70 dark:border-red-300/20 dark:bg-red-400/10 dark:hover:bg-red-400/15",
+    activeCard:
+      "border-red-300 bg-red-100/90 shadow-sm dark:border-red-300/45 dark:bg-red-400/20",
+    label: "text-red-700 dark:text-red-200/90",
+    count: "text-red-950 dark:text-red-50",
+  },
 };
 
 function pipelineStatusTone(status: PartnershipCrmStatus, selected: boolean) {
@@ -6753,22 +6774,30 @@ export function PartnershipCrmWorkbench() {
                   {t("Pipeline")}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {[...PIPELINE_STATUSES, ...OUTCOME_STATUSES].map((status) => (
-                    <Button
-                      key={status}
-                      type="button"
-                      variant={
-                        selectedOrganization.status === status
-                          ? "secondary"
-                          : "outline"
-                      }
-                      size="xs"
-                      onClick={() => updateSelectedStatus(status)}
-                      disabled={saveOrganizationMutation.isPending}
-                    >
-                      {t(statusLabel(status))}
-                    </Button>
-                  ))}
+                  {[...PIPELINE_STATUSES, ...OUTCOME_STATUSES].map((status) => {
+                    const isSelectedStatus =
+                      selectedOrganization.status === status;
+                    const selectedTone = pipelineStatusTone(status, true);
+
+                    return (
+                      <Button
+                        key={status}
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        aria-pressed={isSelectedStatus}
+                        className={
+                          isSelectedStatus
+                            ? cn(selectedTone.card, selectedTone.count)
+                            : undefined
+                        }
+                        onClick={() => updateSelectedStatus(status)}
+                        disabled={saveOrganizationMutation.isPending}
+                      >
+                        {t(statusLabel(status))}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
 
