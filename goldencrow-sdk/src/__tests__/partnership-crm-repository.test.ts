@@ -1,0 +1,415 @@
+export {};
+
+type MockDocData = Record<string, unknown>;
+type MockStoredDoc = { id: string; data: MockDocData };
+type MockQueryOperation =
+  | { type: "where"; fieldPath: string; operator: string; value: unknown }
+  | { type: "orderBy"; fieldPath: string; direction: "asc" | "desc" }
+  | { type: "startAfter"; values: unknown[] }
+  | { type: "limit"; count: number };
+type MockQueryDocumentSnapshot = {
+  exists: true;
+  id: string;
+  data: () => MockDocData;
+};
+type MockQuery = {
+  doc: (id: string) => {
+    get: jest.Mock;
+    set: jest.Mock;
+    update: jest.Mock;
+    delete: jest.Mock;
+  };
+  where: jest.Mock;
+  orderBy: jest.Mock;
+  startAfter: jest.Mock;
+  limit: jest.Mock;
+  select: jest.Mock;
+  count: jest.Mock;
+  get: jest.Mock;
+};
+
+const mockDocs = new Map<string, MockDocData>();
+const mockCollection = jest.fn((collectionName: string) =>
+  mockMakeQuery(collectionName),
+);
+
+function mockDocKey(collectionName: string, id: string) {
+  return `${collectionName}/${id}`;
+}
+
+function mockDocsIn(collectionName: string) {
+  return [...mockDocs.entries()]
+    .filter(([key]) => key.startsWith(`${collectionName}/`))
+    .map(([key, data]) => ({
+      id: key.slice(collectionName.length + 1),
+      data,
+    }));
+}
+
+function mockFieldPathName(fieldPath: unknown) {
+  return typeof fieldPath === "string" ? fieldPath : String(fieldPath);
+}
+
+function mockValueForField(doc: MockStoredDoc, fieldPath: string) {
+  return fieldPath === "__name__" ? doc.id : doc.data[fieldPath];
+}
+
+function mockComparableValue(value: unknown) {
+  if (
+    value &&
+    typeof value === "object" &&
+    "toDate" in value &&
+    typeof value.toDate === "function"
+  ) {
+    return value.toDate().toISOString();
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  return String(value ?? "");
+}
+
+function mockCompareValues(
+  left: unknown,
+  right: unknown,
+  direction: "asc" | "desc",
+) {
+  const comparison = mockComparableValue(left).localeCompare(
+    mockComparableValue(right),
+  );
+  return direction === "desc" ? comparison * -1 : comparison;
+}
+
+function mockDocumentSnapshotFor(
+  doc: MockStoredDoc,
+): MockQueryDocumentSnapshot {
+  return {
+    exists: true,
+    id: doc.id,
+    data: () => doc.data,
+  };
+}
+
+function mockApplyQueryOperations(
+  collectionName: string,
+  operations: MockQueryOperation[],
+) {
+  let docs = mockDocsIn(collectionName);
+
+  for (const operation of operations) {
+    if (operation.type !== "where") {
+      continue;
+    }
+
+    docs = docs.filter((doc) => {
+      const value = mockValueForField(doc, operation.fieldPath);
+      if (operation.operator === "==") {
+        return value === operation.value;
+      }
+
+      throw new Error(`Unsupported mock where operator: ${operation.operator}`);
+    });
+  }
+
+  const orderOperations = operations.filter(
+    (
+      operation,
+    ): operation is Extract<MockQueryOperation, { type: "orderBy" }> =>
+      operation.type === "orderBy",
+  );
+
+  if (orderOperations.length > 0) {
+    docs = [...docs].sort((left, right) => {
+      for (const operation of orderOperations) {
+        const comparison = mockCompareValues(
+          mockValueForField(left, operation.fieldPath),
+          mockValueForField(right, operation.fieldPath),
+          operation.direction,
+        );
+
+        if (comparison !== 0) {
+          return comparison;
+        }
+      }
+
+      return 0;
+    });
+  }
+
+  const startAfter = operations.find(
+    (
+      operation,
+    ): operation is Extract<MockQueryOperation, { type: "startAfter" }> =>
+      operation.type === "startAfter",
+  );
+
+  if (startAfter) {
+    const cursor = startAfter.values[0];
+    const cursorIndex =
+      cursor &&
+      typeof cursor === "object" &&
+      "id" in cursor &&
+      typeof cursor.id === "string"
+        ? docs.findIndex((doc) => doc.id === cursor.id)
+        : docs.findIndex((doc) =>
+            orderOperations.every((operation, index) => {
+              const cursorValue = startAfter.values[index] ?? cursor;
+              return (
+                mockComparableValue(
+                  mockValueForField(doc, operation.fieldPath),
+                ) === mockComparableValue(cursorValue)
+              );
+            }),
+          );
+
+    if (cursorIndex >= 0) {
+      docs = docs.slice(cursorIndex + 1);
+    }
+  }
+
+  const limit = [...operations]
+    .reverse()
+    .find(
+      (operation): operation is Extract<MockQueryOperation, { type: "limit" }> =>
+        operation.type === "limit",
+    );
+
+  if (limit) {
+    docs = docs.slice(0, limit.count);
+  }
+
+  return docs.map(mockDocumentSnapshotFor);
+}
+
+function mockMakeQuery(
+  collectionName: string,
+  operations: MockQueryOperation[] = [],
+): MockQuery {
+  return {
+    doc: (id: string) => ({
+      get: jest.fn(async () => {
+        const data = mockDocs.get(mockDocKey(collectionName, id));
+        return {
+          exists: Boolean(data),
+          id,
+          data: () => data,
+        };
+      }),
+      set: jest.fn(async (data: MockDocData) => {
+        mockDocs.set(mockDocKey(collectionName, id), data);
+      }),
+      update: jest.fn(async (data: MockDocData) => {
+        mockDocs.set(mockDocKey(collectionName, id), {
+          ...(mockDocs.get(mockDocKey(collectionName, id)) ?? {}),
+          ...data,
+        });
+      }),
+      delete: jest.fn(async () => {
+        mockDocs.delete(mockDocKey(collectionName, id));
+      }),
+    }),
+    where: jest.fn((fieldPath: unknown, operator: string, value: unknown) => {
+      const operation: MockQueryOperation = {
+        type: "where",
+        fieldPath: mockFieldPathName(fieldPath),
+        operator,
+        value,
+      };
+      return mockMakeQuery(collectionName, [...operations, operation]);
+    }),
+    orderBy: jest.fn((fieldPath: unknown, direction: "asc" | "desc" = "asc") => {
+      const operation: MockQueryOperation = {
+        type: "orderBy",
+        fieldPath: mockFieldPathName(fieldPath),
+        direction,
+      };
+      return mockMakeQuery(collectionName, [...operations, operation]);
+    }),
+    startAfter: jest.fn((...values: unknown[]) => {
+      const operation: MockQueryOperation = { type: "startAfter", values };
+      return mockMakeQuery(collectionName, [...operations, operation]);
+    }),
+    limit: jest.fn((count: number) => {
+      const operation: MockQueryOperation = { type: "limit", count };
+      return mockMakeQuery(collectionName, [...operations, operation]);
+    }),
+    select: jest.fn(() => mockMakeQuery(collectionName, operations)),
+    count: jest.fn(() => ({
+      get: jest.fn(async () => ({
+        data: () => ({
+          count: mockApplyQueryOperations(collectionName, operations).length,
+        }),
+      })),
+    })),
+    get: jest.fn(async () => {
+      const docs = mockApplyQueryOperations(collectionName, operations);
+      return {
+        empty: docs.length === 0,
+        docs,
+      };
+    }),
+  };
+}
+
+jest.mock("firebase-admin/firestore", () => {
+  class MockTimestamp {
+    private constructor(private readonly date: Date) {}
+
+    static fromDate(date: Date) {
+      return new MockTimestamp(date);
+    }
+
+    toDate() {
+      return this.date;
+    }
+  }
+
+  return {
+    FieldValue: {
+      serverTimestamp: jest.fn(() =>
+        MockTimestamp.fromDate(new Date("2026-09-10T12:00:00.000Z")),
+      ),
+    },
+    Timestamp: MockTimestamp,
+  };
+});
+
+jest.mock("../config/firebase.js", () => ({
+  adminDbFor: jest.fn(() => ({
+    collection: mockCollection,
+  })),
+}));
+
+jest.mock("../lib/partnership-crm-email.js", () => ({
+  PARTNERSHIP_CRM_FROM_EMAIL: "partners@example.org",
+  sendPartnershipCrmEmail: jest.fn(),
+}));
+
+const godModeContext = {
+  email: "admin@example.org",
+  uid: "admin-1",
+  role: "full_admin" as const,
+  isBootstrap: true,
+  canAccessBackoffice: true,
+  canAccessPatientPortal: false,
+  canAccessPGFlex: false,
+  projectAccess: ["mydnamap" as const],
+};
+
+function mockIsoAt(index: number) {
+  return new Date(
+    Date.parse("2026-09-10T12:00:00.000Z") - index * 60_000,
+  ).toISOString();
+}
+
+function seedOrganization(id: string, index: number, category: string) {
+  mockDocs.set(mockDocKey("partnership_crm_organizations", id), {
+    schemaVersion: 1,
+    name: `Organization ${id}`,
+    category,
+    website: `https://${id}.example.org`,
+    websiteDomain: `${id}.example.org`,
+    country: "AR",
+    status: "new",
+    contactName: "",
+    contactEmail: "",
+    contactLinkedIn: "",
+    lastContactAt: null,
+    notes: "",
+    is_favorite: false,
+    normalizedName: `organization ${id}`,
+    createdAt: mockIsoAt(index),
+    updatedAt: mockIsoAt(index),
+  });
+}
+
+function seedProfessional(id: string, index: number, category: string) {
+  mockDocs.set(mockDocKey("partnership_crm_professionals", id), {
+    schemaVersion: 1,
+    name: `Professional ${id}`,
+    category,
+    title: "",
+    primaryAffiliation: "",
+    potentialPocketGenesEditorFit: "",
+    emailRoute: "",
+    linkedInRoute: "",
+    researchBasis: "",
+    website: `https://${id}.example.org`,
+    websiteDomain: `${id}.example.org`,
+    country: "AR",
+    status: "new",
+    email: "",
+    linkedIn: "",
+    lastContactAt: null,
+    notes: "",
+    is_favorite: false,
+    normalizedName: `professional ${id}`,
+    createdAt: mockIsoAt(index),
+    updatedAt: mockIsoAt(index),
+  });
+}
+
+describe("partnership CRM repository pagination", () => {
+  beforeEach(() => {
+    mockDocs.clear();
+    mockCollection.mockClear();
+  });
+
+  it("returns all filtered organizations on one page when fewer than the page limit match", async () => {
+    const { listPartnershipCrmOrganizations } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+
+    for (let index = 0; index < 160; index += 1) {
+      seedOrganization(`skip-${index}`, index, "org_fertility_clinics");
+    }
+    for (let index = 0; index < 12; index += 1) {
+      seedOrganization(
+        `match-${index}`,
+        160 + index,
+        "org_genomics_laboratories",
+      );
+    }
+
+    const page = await listPartnershipCrmOrganizations(godModeContext, {
+      category: "org_genomics_laboratories",
+      limit: 50,
+    });
+
+    expect(page.organizations.map((organization) => organization.id)).toEqual(
+      Array.from({ length: 12 }, (_, index) => `match-${index}`),
+    );
+    expect(page.nextCursor).toBeUndefined();
+    expect(page.statusCounts.new).toBe(12);
+  });
+
+  it("returns all filtered professionals on one page when fewer than the page limit match", async () => {
+    const { listPartnershipCrmProfessionals } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+
+    for (let index = 0; index < 160; index += 1) {
+      seedProfessional(`skip-${index}`, index, "pro_other");
+    }
+    for (let index = 0; index < 12; index += 1) {
+      seedProfessional(
+        `match-${index}`,
+        160 + index,
+        "pro_clinical_geneticists",
+      );
+    }
+
+    const page = await listPartnershipCrmProfessionals(godModeContext, {
+      category: "pro_clinical_geneticists",
+      limit: 50,
+    });
+
+    expect(page.professionals.map((professional) => professional.id)).toEqual(
+      Array.from({ length: 12 }, (_, index) => `match-${index}`),
+    );
+    expect(page.nextCursor).toBeUndefined();
+    expect(page.statusCounts.new).toBe(12);
+  });
+});

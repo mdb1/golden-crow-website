@@ -2053,21 +2053,16 @@ export async function listPartnershipCrmOrganizations(
 
   const organizations: PartnershipCrmOrganizationRecord[] = [];
   let pageCursorTimestamp = cursorTimestamp;
-  let scannedDocs = 0;
   let nextCursor: string | undefined;
 
-  while (organizations.length < limit && scannedDocs < MAX_FILTERED_SCAN) {
-    const batchLimit = Math.min(
-      FILTERED_BATCH_LIMIT,
-      MAX_FILTERED_SCAN - scannedDocs,
-    );
+  while (organizations.length < limit) {
     let batchQuery: Query = baseQuery;
 
     if (pageCursorTimestamp) {
       batchQuery = batchQuery.startAfter(pageCursorTimestamp);
     }
 
-    const snapshot = await batchQuery.limit(batchLimit).get();
+    const snapshot = await batchQuery.limit(FILTERED_BATCH_LIMIT).get();
     if (snapshot.empty) {
       nextCursor = undefined;
       break;
@@ -2077,7 +2072,6 @@ export async function listPartnershipCrmOrganizations(
 
     for (const doc of snapshot.docs) {
       lastConsumedDoc = doc;
-      scannedDocs += 1;
 
       const organization = toOrganizationRecord(doc.id, doc.data());
       if (matchesFilters(organization, options)) {
@@ -2086,10 +2080,6 @@ export async function listPartnershipCrmOrganizations(
           break;
         }
       }
-
-      if (scannedDocs >= MAX_FILTERED_SCAN) {
-        break;
-      }
     }
 
     if (!lastConsumedDoc) {
@@ -2097,12 +2087,20 @@ export async function listPartnershipCrmOrganizations(
       break;
     }
 
-    nextCursor = timestampToIso(lastConsumedDoc.data().updatedAt);
     const lastSnapshotDoc = snapshot.docs[snapshot.docs.length - 1];
     const consumedWholeBatch =
       lastSnapshotDoc && lastConsumedDoc.id === lastSnapshotDoc.id;
+    const exhaustedCollection =
+      consumedWholeBatch && snapshot.docs.length < FILTERED_BATCH_LIMIT;
 
-    if (!consumedWholeBatch || snapshot.docs.length < batchLimit) {
+    if (exhaustedCollection) {
+      nextCursor = undefined;
+      break;
+    }
+
+    nextCursor = timestampToIso(lastConsumedDoc.data().updatedAt);
+
+    if (!nextCursor || !consumedWholeBatch || organizations.length >= limit) {
       break;
     }
 
@@ -2268,21 +2266,16 @@ export async function listPartnershipCrmProfessionals(
 
   const professionals: PartnershipCrmProfessionalRecord[] = [];
   let pageCursorTimestamp = cursorTimestamp;
-  let scannedDocs = 0;
   let nextCursor: string | undefined;
 
-  while (professionals.length < limit && scannedDocs < MAX_FILTERED_SCAN) {
-    const batchLimit = Math.min(
-      FILTERED_BATCH_LIMIT,
-      MAX_FILTERED_SCAN - scannedDocs,
-    );
+  while (professionals.length < limit) {
     let batchQuery: Query = baseQuery;
 
     if (pageCursorTimestamp) {
       batchQuery = batchQuery.startAfter(pageCursorTimestamp);
     }
 
-    const snapshot = await batchQuery.limit(batchLimit).get();
+    const snapshot = await batchQuery.limit(FILTERED_BATCH_LIMIT).get();
     if (snapshot.empty) {
       nextCursor = undefined;
       break;
@@ -2292,7 +2285,6 @@ export async function listPartnershipCrmProfessionals(
 
     for (const doc of snapshot.docs) {
       lastConsumedDoc = doc;
-      scannedDocs += 1;
 
       const professional = toProfessionalRecord(doc.id, doc.data());
       if (matchesProfessionalFilters(professional, options)) {
@@ -2301,10 +2293,6 @@ export async function listPartnershipCrmProfessionals(
           break;
         }
       }
-
-      if (scannedDocs >= MAX_FILTERED_SCAN) {
-        break;
-      }
     }
 
     if (!lastConsumedDoc) {
@@ -2312,12 +2300,20 @@ export async function listPartnershipCrmProfessionals(
       break;
     }
 
-    nextCursor = timestampToIso(lastConsumedDoc.data().updatedAt);
     const lastSnapshotDoc = snapshot.docs[snapshot.docs.length - 1];
     const consumedWholeBatch =
       lastSnapshotDoc && lastConsumedDoc.id === lastSnapshotDoc.id;
+    const exhaustedCollection =
+      consumedWholeBatch && snapshot.docs.length < FILTERED_BATCH_LIMIT;
 
-    if (!consumedWholeBatch || snapshot.docs.length < batchLimit) {
+    if (exhaustedCollection) {
+      nextCursor = undefined;
+      break;
+    }
+
+    nextCursor = timestampToIso(lastConsumedDoc.data().updatedAt);
+
+    if (!nextCursor || !consumedWholeBatch || professionals.length >= limit) {
       break;
     }
 
