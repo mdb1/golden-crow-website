@@ -1648,6 +1648,26 @@ function visualFilterBucketLabel(
   return value === "has_email" ? t("Has Email") : t("Missing Email");
 }
 
+function shouldIgnoreCrmListKeyboardTarget(target: EventTarget | null) {
+  const element =
+    target instanceof Element ? target : document.activeElement ?? null;
+
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (element.closest('[role="dialog"]')) {
+    return true;
+  }
+
+  if (element.isContentEditable) {
+    return true;
+  }
+
+  const tagName = element.tagName.toLowerCase();
+  return tagName === "input" || tagName === "select" || tagName === "textarea";
+}
+
 function visualFilterBuckets(
   facet: PartnershipCrmVisualFilterFacet,
   language: AppLanguage,
@@ -4506,6 +4526,50 @@ export function PartnershipCrmWorkbench() {
       setDetailPanelOpen(false);
       setActivityLogOpen(false);
     }
+  }, [organizations, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId || organizations.length === 0) {
+      return;
+    }
+
+    function handleCrmListKeyDown(event: globalThis.KeyboardEvent) {
+      if (
+        event.defaultPrevented ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.shiftKey ||
+        (event.key !== "ArrowDown" && event.key !== "ArrowUp") ||
+        shouldIgnoreCrmListKeyboardTarget(event.target)
+      ) {
+        return;
+      }
+
+      const currentIndex = organizations.findIndex(
+        (entry) => entry.id === selectedId,
+      );
+      if (currentIndex === -1) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const nextIndex =
+        event.key === "ArrowDown"
+          ? Math.min(currentIndex + 1, organizations.length - 1)
+          : Math.max(currentIndex - 1, 0);
+      const nextSelection = organizations[nextIndex];
+      if (!nextSelection || nextSelection.id === selectedId) {
+        return;
+      }
+
+      setSelectedId(nextSelection.id);
+      setDetailPanelOpen(true);
+    }
+
+    window.addEventListener("keydown", handleCrmListKeyDown);
+    return () => window.removeEventListener("keydown", handleCrmListKeyDown);
   }, [organizations, selectedId]);
 
   useEffect(() => {

@@ -488,6 +488,81 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
   });
 
+  it("moves the selected CRM row with up and down arrow keys", async () => {
+    const user = userEvent.setup();
+    const visibleOrganizations: PartnershipCrmOrganizationRecord[] = [
+      {
+        ...organization,
+        id: "org-keyboard-1",
+        name: "First Keyboard Genetics",
+        normalizedName: "first keyboard genetics",
+      },
+      {
+        ...organization,
+        id: "org-keyboard-2",
+        name: "Second Keyboard Genetics",
+        normalizedName: "second keyboard genetics",
+      },
+      {
+        ...organization,
+        id: "org-keyboard-3",
+        name: "Third Keyboard Genetics",
+        normalizedName: "third keyboard genetics",
+      },
+    ];
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+
+      return {
+        organizations: visibleOrganizations,
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getByText("First Keyboard Genetics")).toBeTruthy();
+      expect(screen.getByText("Second Keyboard Genetics")).toBeTruthy();
+      expect(screen.getByText("Third Keyboard Genetics")).toBeTruthy();
+    });
+
+    await user.click(screen.getByText("First Keyboard Genetics"));
+    await waitFor(() => {
+      expect(screen.getAllByText("First Keyboard Genetics")).toHaveLength(2);
+    });
+
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    await waitFor(() => {
+      expect(screen.getAllByText("Second Keyboard Genetics")).toHaveLength(2);
+    });
+    expect(screen.getAllByText("First Keyboard Genetics")).toHaveLength(1);
+
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    await waitFor(() => {
+      expect(screen.getAllByText("Third Keyboard Genetics")).toHaveLength(2);
+    });
+    expect(screen.getAllByText("Second Keyboard Genetics")).toHaveLength(1);
+
+    fireEvent.keyDown(window, { key: "ArrowUp" });
+    await waitFor(() => {
+      expect(screen.getAllByText("Second Keyboard Genetics")).toHaveLength(2);
+    });
+    expect(screen.getAllByText("Third Keyboard Genetics")).toHaveLength(1);
+  });
+
   it("places the send email CTA below the selected record notes", async () => {
     const user = userEvent.setup();
     renderWorkbench();
