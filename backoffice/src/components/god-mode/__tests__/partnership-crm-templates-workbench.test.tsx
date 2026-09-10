@@ -386,6 +386,11 @@ describe("PartnershipCrmTemplateBrowser", () => {
     );
     expect(panelTitle.className).toContain("line-clamp-2");
     expect(panelTitle.className).toContain("break-words");
+    const previewSubject = within(panel).getByTestId(
+      "template-preview-panel-subject",
+    );
+    expect(previewSubject.className).toContain("line-clamp-2");
+    expect(previewSubject.className).toContain("break-words");
     const actionGroup = within(panel).getByTestId(
       "template-preview-panel-actions",
     );

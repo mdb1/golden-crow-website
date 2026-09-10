@@ -1256,7 +1256,7 @@ function TemplatePreviewSidePanel({
       data-testid="template-preview-panel"
       className="grid gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-auto xl:pl-2"
     >
-      <div className="rounded-xl border border-border/80 bg-background/70 p-4">
+      <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 p-4">
         <div className="flex items-start gap-3 border-b border-border/70 pb-3">
           <div className="min-w-0 flex-1">
             <h3
@@ -1416,17 +1416,22 @@ function TemplatePreviewSidePanel({
         </Link>
       </Button>
 
-      <div className="rounded-xl border border-border/80 bg-white p-4 text-slate-950 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:border-white/70 dark:bg-black dark:text-white">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
-          <div className="min-w-0">
+      <div className="min-w-0 rounded-xl border border-border/80 bg-white p-4 text-slate-950 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:border-white/70 dark:bg-black dark:text-white">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+          <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
               {t("Preview")}
             </p>
-            <h4 className="mt-1 truncate font-heading text-lg font-semibold">
+            <h4
+              data-testid="template-preview-panel-subject"
+              className="mt-1 line-clamp-2 break-words font-heading text-lg font-semibold"
+            >
               {renderedSubject || t("No subject")}
             </h4>
           </div>
-          <Badge variant="outline">{t("Read only")}</Badge>
+          <Badge variant="outline" className="shrink-0">
+            {t("Read only")}
+          </Badge>
         </div>
         <div className="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-300">
           <p className="truncate">
