@@ -975,16 +975,20 @@ function TemplatePreviewSidePanel({
   notesDraft,
   onNotesDraftChange,
   onQuickUpdate,
+  onDelete,
   onClose,
   pending,
+  deletePending,
   language,
 }: {
   template: PartnershipCrmTemplateRecord;
   notesDraft: string;
   onNotesDraftChange: (value: string) => void;
   onQuickUpdate: (patch: TemplateQuickPatch) => void;
+  onDelete: () => void;
   onClose: () => void;
   pending: boolean;
+  deletePending: boolean;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
@@ -1039,15 +1043,28 @@ function TemplatePreviewSidePanel({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" asChild>
+            <Button type="button" variant="outline" size="icon-sm" asChild>
               <Link
                 href={`/god-mode/plantillas/${encodeURIComponent(
                   template.id,
                 )}`}
+                aria-label={t("Edit")}
+                title={t("Edit")}
               >
                 <Pencil className="h-3.5 w-3.5" />
-                {t("Edit text")}
+                <span className="sr-only">{t("Edit")}</span>
               </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon-sm"
+              aria-label={t("Delete")}
+              title={t("Delete")}
+              onClick={onDelete}
+              disabled={deletePending}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
             <Button
               type="button"
@@ -1122,6 +1139,51 @@ function TemplatePreviewSidePanel({
               audience={template.audience}
             />
           </div>
+        </div>
+      </div>
+
+      <Button
+        type="button"
+        size="lg"
+        className="h-12 w-full bg-blue-600 text-base font-semibold text-white shadow-[0_12px_28px_rgba(37,99,235,0.28)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
+        asChild
+      >
+        <Link href={`/god-mode/plantillas/${encodeURIComponent(template.id)}`}>
+          <Pencil className="h-4 w-4" />
+          {t("Edit text")}
+        </Link>
+      </Button>
+
+      <div className="rounded-xl border border-border/80 bg-white p-4 text-slate-950 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:border-white/70 dark:bg-black dark:text-white">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              {t("Preview")}
+            </p>
+            <h4 className="mt-1 truncate font-heading text-lg font-semibold">
+              {renderedSubject || t("No subject")}
+            </h4>
+          </div>
+          <Badge variant="outline">{t("Read only")}</Badge>
+        </div>
+        <div className="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-300">
+          <p className="truncate">
+            <span className="font-semibold text-slate-900 dark:text-slate-50">
+              {t("From")}:
+            </span>{" "}
+            {PARTNERSHIP_CRM_FROM_EMAIL}
+          </p>
+          <p className="truncate">
+            <span className="font-semibold text-slate-900 dark:text-slate-50">
+              {t("Recipient")}:
+            </span>{" "}
+            {template.audience === "professionals"
+              ? SAMPLE_PROFESSIONAL.email
+              : SAMPLE_ORGANIZATION.contactEmail}
+          </p>
+        </div>
+        <div className="mt-4 max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:border dark:border-white/40 dark:bg-black dark:text-white">
+          {renderedBody || t("No message yet.")}
         </div>
       </div>
 
@@ -1205,39 +1267,6 @@ function TemplatePreviewSidePanel({
             {analysis.unknownTokens.join(", ")}
           </p>
         ) : null}
-      </div>
-
-      <div className="rounded-xl border border-border/80 bg-white p-4 text-slate-950 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:border-white/70 dark:bg-black dark:text-white">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-              {t("Preview")}
-            </p>
-            <h4 className="mt-1 truncate font-heading text-lg font-semibold">
-              {renderedSubject || t("No subject")}
-            </h4>
-          </div>
-          <Badge variant="outline">{t("Read only")}</Badge>
-        </div>
-        <div className="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-300">
-          <p className="truncate">
-            <span className="font-semibold text-slate-900 dark:text-slate-50">
-              {t("From")}:
-            </span>{" "}
-            {PARTNERSHIP_CRM_FROM_EMAIL}
-          </p>
-          <p className="truncate">
-            <span className="font-semibold text-slate-900 dark:text-slate-50">
-              {t("Recipient")}:
-            </span>{" "}
-            {template.audience === "professionals"
-              ? SAMPLE_PROFESSIONAL.email
-              : SAMPLE_ORGANIZATION.contactEmail}
-          </p>
-        </div>
-        <div className="mt-4 max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:border dark:border-white/40 dark:bg-black dark:text-white">
-          {renderedBody || t("No message yet.")}
-        </div>
       </div>
 
       <div className="rounded-xl border border-border/80 bg-background/70 p-4">
@@ -2153,6 +2182,8 @@ export function PartnershipCrmTemplateBrowser() {
     null,
   );
   const [previewPanelOpen, setPreviewPanelOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] =
+    useState<PartnershipCrmTemplateRecord | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [filters, setFilters] = useState<TemplateFilters>({
@@ -2236,6 +2267,36 @@ export function PartnershipCrmTemplateBrowser() {
         id: Date.now(),
         tone: "error",
         message: t("Unable to save template."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (template: PartnershipCrmTemplateRecord) =>
+      sdkFetch<{ deleted: boolean; templateId: string }>(
+        `/admin/partnership-crm/templates/${encodeURIComponent(template.id)}`,
+        { method: "DELETE" },
+      ),
+    onSuccess: (_result, template) => {
+      setDeleteTarget(null);
+      setSelectedTemplateId((current) =>
+        current === template.id ? null : current,
+      );
+      setPreviewPanelOpen(false);
+      queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("Template deleted."),
+      });
+    },
+    onError: (error) => {
+      setDeleteTarget(null);
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to delete template."),
         details: error instanceof Error ? error.message : undefined,
       });
     },
@@ -2603,8 +2664,10 @@ export function PartnershipCrmTemplateBrowser() {
             notesDraft={notesDraft}
             onNotesDraftChange={setNotesDraft}
             onQuickUpdate={handleQuickUpdate}
+            onDelete={() => setDeleteTarget(selectedTemplate)}
             onClose={() => setPreviewPanelOpen(false)}
             pending={quickUpdateMutation.isPending}
+            deletePending={deleteMutation.isPending}
             language={language}
           />
         ) : null}
@@ -2627,6 +2690,42 @@ export function PartnershipCrmTemplateBrowser() {
         kind="templates"
         audience={filters.audience}
       />
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="crm-control-surface">
+          <DialogHeader>
+            <DialogTitle>{t("Delete template")}</DialogTitle>
+            <DialogDescription>
+              {t("This removes the template from the CRM send flow.")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleteMutation.isPending}
+            >
+              {t("Cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
+              disabled={!deleteTarget || deleteMutation.isPending}
+            >
+              <Trash2 className="h-4 w-4" />
+              {deleteMutation.isPending ? t("Deleting...") : t("Delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <ActionToast
         toast={toast}
         onDismiss={() => setToast(null)}

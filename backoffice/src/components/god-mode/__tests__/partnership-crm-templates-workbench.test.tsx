@@ -121,7 +121,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(within(rows[0]).getByRole("img", { name: "Favorite" })).toBeTruthy();
   });
 
-  it("opens a right preview panel and edits quick template metadata only", async () => {
+  it("opens a right preview panel, orders preview content, and supports panel actions", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
       const stringPath = String(path);
@@ -158,11 +158,23 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await user.click(screen.getByText("Lab outreach"));
 
     const panel = await screen.findByTestId("template-preview-panel");
+    const panelText = panel.textContent ?? "";
+    expect(panelText.indexOf("Preview")).toBeLessThan(
+      panelText.indexOf("Template fit"),
+    );
+    expect(panelText.indexOf("Variables")).toBeGreaterThan(
+      panelText.indexOf("Template fit"),
+    );
     expect(within(panel).getByText("Template fit")).toBeTruthy();
     expect(within(panel).getByText("Variables")).toBeTruthy();
     expect(within(panel).getByText("{{organization_name}}")).toBeTruthy();
     expect(within(panel).getByText("{{contact_name}}")).toBeTruthy();
     expect(within(panel).getByText("Hola Contacto")).toBeTruthy();
+    expect(within(panel).getByRole("link", { name: "Edit" })).toBeTruthy();
+    expect(within(panel).getByRole("button", { name: "Delete" })).toBeTruthy();
+    expect(
+      within(panel).getByRole("button", { name: "Hide details" }),
+    ).toBeTruthy();
     expect(
       within(panel)
         .getByRole("link", { name: "Edit text" })
@@ -192,6 +204,19 @@ describe("PartnershipCrmTemplateBrowser", () => {
         is_favorite: true,
       }),
     );
+
+    await user.click(within(panel).getByRole("button", { name: "Delete" }));
+    const deleteDialog = await screen.findByRole("dialog", {
+      name: "Delete template",
+    });
+    await user.click(within(deleteDialog).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/templates/tpl-1",
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
   });
 
   it("previews and imports templates from CSV", async () => {
