@@ -163,6 +163,33 @@ function renderWorkbench() {
   );
 }
 
+function mockElementScrollIntoView() {
+  const elementPrototype = Element.prototype as {
+    scrollIntoView?: Element["scrollIntoView"];
+  };
+  const originalScrollIntoView = elementPrototype.scrollIntoView;
+  const scrollIntoView = jest.fn();
+
+  Object.defineProperty(elementPrototype, "scrollIntoView", {
+    configurable: true,
+    value: scrollIntoView,
+  });
+
+  return {
+    scrollIntoView,
+    restore: () => {
+      if (originalScrollIntoView) {
+        Object.defineProperty(elementPrototype, "scrollIntoView", {
+          configurable: true,
+          value: originalScrollIntoView,
+        });
+      } else {
+        delete elementPrototype.scrollIntoView;
+      }
+    },
+  };
+}
+
 describe("PartnershipCrmWorkbench delete flow", () => {
   beforeEach(() => {
     routerRefresh.mockClear();
@@ -490,6 +517,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
   it("moves the selected CRM row with up and down arrow keys", async () => {
     const user = userEvent.setup();
+    const { scrollIntoView, restore } = mockElementScrollIntoView();
     const visibleOrganizations: PartnershipCrmOrganizationRecord[] = [
       {
         ...organization,
@@ -531,36 +559,59 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       };
     });
 
-    renderWorkbench();
+    try {
+      renderWorkbench();
 
-    await waitFor(() => {
-      expect(screen.getByText("First Keyboard Genetics")).toBeTruthy();
-      expect(screen.getByText("Second Keyboard Genetics")).toBeTruthy();
-      expect(screen.getByText("Third Keyboard Genetics")).toBeTruthy();
-    });
+      await waitFor(() => {
+        expect(screen.getByText("First Keyboard Genetics")).toBeTruthy();
+        expect(screen.getByText("Second Keyboard Genetics")).toBeTruthy();
+        expect(screen.getByText("Third Keyboard Genetics")).toBeTruthy();
+      });
 
-    await user.click(screen.getByText("First Keyboard Genetics"));
-    await waitFor(() => {
-      expect(screen.getAllByText("First Keyboard Genetics")).toHaveLength(2);
-    });
+      await user.click(screen.getByText("First Keyboard Genetics"));
+      await waitFor(() => {
+        expect(screen.getAllByText("First Keyboard Genetics")).toHaveLength(2);
+        expect(scrollIntoView).toHaveBeenCalledWith({
+          block: "nearest",
+          inline: "nearest",
+        });
+      });
+      scrollIntoView.mockClear();
 
-    fireEvent.keyDown(window, { key: "ArrowDown" });
-    await waitFor(() => {
-      expect(screen.getAllByText("Second Keyboard Genetics")).toHaveLength(2);
-    });
-    expect(screen.getAllByText("First Keyboard Genetics")).toHaveLength(1);
+      fireEvent.keyDown(window, { key: "ArrowDown" });
+      await waitFor(() => {
+        expect(screen.getAllByText("Second Keyboard Genetics")).toHaveLength(2);
+        expect(scrollIntoView).toHaveBeenCalledWith({
+          block: "nearest",
+          inline: "nearest",
+        });
+      });
+      expect(screen.getAllByText("First Keyboard Genetics")).toHaveLength(1);
+      scrollIntoView.mockClear();
 
-    fireEvent.keyDown(window, { key: "ArrowDown" });
-    await waitFor(() => {
-      expect(screen.getAllByText("Third Keyboard Genetics")).toHaveLength(2);
-    });
-    expect(screen.getAllByText("Second Keyboard Genetics")).toHaveLength(1);
+      fireEvent.keyDown(window, { key: "ArrowDown" });
+      await waitFor(() => {
+        expect(screen.getAllByText("Third Keyboard Genetics")).toHaveLength(2);
+        expect(scrollIntoView).toHaveBeenCalledWith({
+          block: "nearest",
+          inline: "nearest",
+        });
+      });
+      expect(screen.getAllByText("Second Keyboard Genetics")).toHaveLength(1);
+      scrollIntoView.mockClear();
 
-    fireEvent.keyDown(window, { key: "ArrowUp" });
-    await waitFor(() => {
-      expect(screen.getAllByText("Second Keyboard Genetics")).toHaveLength(2);
-    });
-    expect(screen.getAllByText("Third Keyboard Genetics")).toHaveLength(1);
+      fireEvent.keyDown(window, { key: "ArrowUp" });
+      await waitFor(() => {
+        expect(screen.getAllByText("Second Keyboard Genetics")).toHaveLength(2);
+        expect(scrollIntoView).toHaveBeenCalledWith({
+          block: "nearest",
+          inline: "nearest",
+        });
+      });
+      expect(screen.getAllByText("Third Keyboard Genetics")).toHaveLength(1);
+    } finally {
+      restore();
+    }
   });
 
   it("opens the CRM email composer with Enter when the detail panel is open", async () => {
@@ -604,8 +655,20 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(screen.getByTestId("crm-list-panel").className).toContain(
       "overflow-y-auto",
     );
+    expect(screen.getByTestId("crm-list-panel").className).toContain(
+      "overscroll-auto",
+    );
+    expect(screen.getByTestId("crm-list-panel").className).not.toContain(
+      "overscroll-contain",
+    );
     expect(screen.getByTestId("crm-detail-panel").className).toContain(
       "overflow-y-auto",
+    );
+    expect(screen.getByTestId("crm-detail-panel").className).toContain(
+      "overscroll-auto",
+    );
+    expect(screen.getByTestId("crm-detail-panel").className).not.toContain(
+      "overscroll-contain",
     );
     expect(separator.className).toContain("self-stretch");
     expect(separator.getAttribute("aria-valuenow")).toBe("50");

@@ -4531,6 +4531,7 @@ export function PartnershipCrmWorkbench() {
   );
   const [detailPanelOpen, setDetailPanelOpen] = useState(false);
   const splitPaneRef = useRef<HTMLDivElement | null>(null);
+  const targetRowRefs = useRef(new Map<string, HTMLTableRowElement>());
   const [detailPanelWidthPercent, setDetailPanelWidthPercent] = useState(
     CRM_DETAIL_PANEL_DEFAULT_WIDTH_PERCENT,
   );
@@ -4929,6 +4930,23 @@ export function PartnershipCrmWorkbench() {
     window.addEventListener("keydown", handleCrmListKeyDown);
     return () => window.removeEventListener("keydown", handleCrmListKeyDown);
   }, [detailPanelOpen, emailOpen, organizations, selectedId, targetKind]);
+
+  useEffect(() => {
+    if (!selectedId || !showDetailPanel) {
+      return;
+    }
+
+    const selectedRow = targetRowRefs.current.get(selectedId);
+    if (!selectedRow || typeof selectedRow.scrollIntoView !== "function") {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      selectedRow.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedId, showDetailPanel]);
 
   useEffect(() => {
     if (selectedTargetIds.size === 0) {
@@ -6304,7 +6322,7 @@ export function PartnershipCrmWorkbench() {
           className={cn(
             "grid content-start gap-4",
             showDetailPanel &&
-              "xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pr-2",
+              "xl:min-h-0 xl:overflow-y-auto xl:overscroll-auto xl:pr-2",
           )}
         >
           <div className="grid items-start gap-2 sm:grid-cols-5">
@@ -6451,13 +6469,24 @@ export function PartnershipCrmWorkbench() {
                       return (
                         <TableRow
                           key={organization.id}
+                          ref={(element) => {
+                            if (element) {
+                              targetRowRefs.current.set(
+                                organization.id,
+                                element,
+                              );
+                            } else {
+                              targetRowRefs.current.delete(organization.id);
+                            }
+                          }}
+                          data-crm-target-row={organization.id}
                           data-state={
                             isSelected || isBatchSelected
                               ? "selected"
                               : undefined
                           }
                           className={cn(
-                            "cursor-pointer",
+                            "cursor-pointer scroll-mb-3 scroll-mt-3",
                             isSelected &&
                               "bg-sky-50/80 hover:bg-sky-50 dark:bg-sky-400/10 dark:hover:bg-sky-400/12",
                           )}
@@ -6640,7 +6669,7 @@ export function PartnershipCrmWorkbench() {
         {showDetailPanel && selectedOrganization ? (
           <aside
             data-testid="crm-detail-panel"
-            className="grid gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pl-2"
+            className="grid gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-auto xl:pl-2"
           >
             <div className="rounded-xl border border-border/80 bg-background/70 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
