@@ -2932,6 +2932,27 @@ describe("PartnershipCrmWorkbench import flow", () => {
     expect(
       within(dialog).getAllByText("research_basis").length,
     ).toBeGreaterThan(0);
+    expect(
+      within(dialog).getByText(
+        /Best effort is required for professional imports/,
+      ),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText("Professional template variable coverage"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "{{professional_name}}, {{first_name}}, {{contact_name}}",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText("{{website}}, {{website_sentence}}"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        /email and linkedin are not template variables/,
+      ),
+    ).toBeTruthy();
 
     await user.click(within(dialog).getByRole("button", { name: "Copy" }));
     await waitFor(() => {
@@ -2950,6 +2971,18 @@ describe("PartnershipCrmWorkbench import flow", () => {
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       '"pro_reproductive_specialists,pro_fertility_specialists"',
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Best effort is required for professional imports",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Professional template variable coverage",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "{{potential_pocket_genes_editor_fit}}: potential_pocket_genes_editor_fit",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "{{website}}, {{website_sentence}}: website",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Rejected: 2026-08-25 and 2026-08-25T14:29:00 because they do not include timezone.",

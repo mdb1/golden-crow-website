@@ -1422,6 +1422,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Accepted statuses": "Estados aceptados",
   "Accepted categories": "Categorías aceptadas",
   "Accepted countries": "Países aceptados",
+  "Professional variable quality": "Calidad de variables profesionales",
+  "Best effort is required for professional imports: whenever source data allows it, fill name, title, primary_affiliation, potential_pocket_genes_editor_fit, email_route, linkedin_route, research_basis, and website so professional plantillas that use variables do not render blank or generic.":
+    "La importación de profesionales requiere best effort: siempre que la fuente lo permita, completá name, title, primary_affiliation, potential_pocket_genes_editor_fit, email_route, linkedin_route, research_basis y website para que las plantillas profesionales que usan variables no se rendericen vacías o genéricas.",
+  "Professional template variable coverage":
+    "Cobertura de variables de plantillas profesionales",
+  "email and linkedin are not template variables, but they should still be filled when available because they make outreach actionable and easier to verify.":
+    "email y linkedin no son variables de plantilla, pero igual deben completarse cuando estén disponibles porque vuelven accionable el outreach y facilitan la verificación.",
   "Use variables in subject or body as {{variable_name}}.":
     "Usá variables en el asunto o cuerpo como {{variable_name}}.",
   "Unknown variables render blank.":
@@ -1498,18 +1505,20 @@ const SPANISH_TEXT: Record<string, string> = {
     "Opcional. Usá una fecha-hora ISO completa con zona horaria explícita. Aceptado: 2026-08-25T17:29:00.000Z o 2026-08-25T14:29:00-03:00. Rechazado: 2026-08-25 y 2026-08-25T14:29:00 porque no incluyen zona horaria.",
   "Optional plain operational notes. Maximum 2000 characters. Do not paste long scraped pages or JSON blobs.":
     "Notas operativas opcionales. Máximo 2000 caracteres. No pegues páginas scrapeadas largas ni blobs JSON.",
-  "Optional. Maximum 180 characters. Store only the professional role, title, specialty, or credential.":
-    "Opcional. Máximo 180 caracteres. Guardá solo el rol, cargo, especialidad o credencial profesional.",
-  "Optional. Maximum 180 characters. Store the main institution, company, lab, hospital, or professional affiliation as a plain name.":
-    "Opcional. Máximo 180 caracteres. Guardá la institución, empresa, laboratorio, hospital o afiliación profesional principal como nombre plano.",
-  "Optional. Maximum 2000 characters. Store why this professional could fit Pocket Genes editor work, such as clinical genetics, genetic testing, result interpretation, or patient education.":
-    "Opcional. Máximo 2000 caracteres. Guardá por qué este profesional podría encajar como editor de Pocket Genes, por ejemplo genética clínica, pruebas genéticas, interpretación de resultados o educación de pacientes.",
-  "Optional. Maximum 2000 characters. Store how the recipient email was found and what context should be verified before outreach. This is not the direct email field.":
-    "Opcional. Máximo 2000 caracteres. Guardá cómo se encontró el email destinatario y qué contexto debe verificarse antes del outreach. Este no es el campo de email directo.",
-  "Optional. Maximum 2000 characters. Store the LinkedIn route, such as the professional profile or official affiliated organization page. This is not the direct LinkedIn URL field.":
-    "Opcional. Máximo 2000 caracteres. Guardá la ruta de LinkedIn, como el perfil profesional o la página oficial de la organización afiliada. Este no es el campo de URL directa de LinkedIn.",
-  "Optional. Maximum 2000 characters. Store the source basis used to validate the lead, such as datasets, affiliation websites, LinkedIn records, or other verified references.":
-    "Opcional. Máximo 2000 caracteres. Guardá la base de fuentes usada para validar el lead, como datasets, sitios de afiliación, registros de LinkedIn u otras referencias verificadas.",
+  "Optional but best effort for professional templates. Maximum 180 characters. Store only the professional role, title, specialty, or credential. Powers {{title}}.":
+    "Opcional, pero best effort para plantillas profesionales. Máximo 180 caracteres. Guardá solo el rol, cargo, especialidad o credencial profesional. Alimenta {{title}}.",
+  "Optional but best effort for professional templates. Maximum 180 characters. Store the main institution, company, lab, hospital, or professional affiliation as a plain name. Powers {{primary_affiliation}}.":
+    "Opcional, pero best effort para plantillas profesionales. Máximo 180 caracteres. Guardá la institución, empresa, laboratorio, hospital o afiliación profesional principal como nombre plano. Alimenta {{primary_affiliation}}.",
+  "Optional but best effort and high value for professional templates. Maximum 2000 characters. Store the exact title, work, topic, or editorial hook only. Do not add wrapping quotes, commas, periods, or explanatory punctuation at the end; the send flow will show it between quotes and in italics. Powers {{potential_pocket_genes_editor_fit}}.":
+    "Opcional, pero best effort y de alto valor para plantillas profesionales. Máximo 2000 caracteres. Guardá solo el título, obra, tema o gancho editorial exacto. No agregues comillas envolventes, comas, puntos ni puntuación explicativa al final; el flujo de envío lo muestra entre comillas y en itálica. Alimenta {{potential_pocket_genes_editor_fit}}.",
+  "Optional but best effort for professional templates. Maximum 2000 characters. Store how the recipient email was found and what context should be verified before outreach. This is not the direct email field. Powers {{email_route}}.":
+    "Opcional, pero best effort para plantillas profesionales. Máximo 2000 caracteres. Guardá cómo se encontró el email destinatario y qué contexto debe verificarse antes del outreach. Este no es el campo de email directo. Alimenta {{email_route}}.",
+  "Optional but best effort for professional templates. Maximum 2000 characters. Store the LinkedIn route, such as the professional profile or official affiliated organization page. This is not the direct LinkedIn URL field. Powers {{linkedin_route}}.":
+    "Opcional, pero best effort para plantillas profesionales. Máximo 2000 caracteres. Guardá la ruta de LinkedIn, como el perfil profesional o la página oficial de la organización afiliada. Este no es el campo de URL directa de LinkedIn. Alimenta {{linkedin_route}}.",
+  "Optional but best effort for professional templates. Maximum 2000 characters. Store the source basis used to validate the lead, such as datasets, affiliation websites, LinkedIn records, or other verified references. Powers {{research_basis}}.":
+    "Opcional, pero best effort para plantillas profesionales. Máximo 2000 caracteres. Guardá la base de fuentes usada para validar el lead, como datasets, sitios de afiliación, registros de LinkedIn u otras referencias verificadas. Alimenta {{research_basis}}.",
+  "Optional but best effort for professional templates. Maximum 500 characters. Use a public website URL. Values without protocol are accepted and normalized with https:// when possible. Powers {{website}} and {{website_sentence}}.":
+    "Opcional, pero best effort para plantillas profesionales. Máximo 500 caracteres. Usá una URL pública. Los valores sin protocolo se aceptan y se normalizan con https:// cuando es posible. Alimenta {{website}} y {{website_sentence}}.",
   "Required. Trimmed before save. Maximum 180 characters. This is the internal template name shown in the template list.":
     "Obligatorio. Se recorta antes de guardar. Máximo 180 caracteres. Es el nombre interno que se muestra en la lista de plantillas.",
   "Required. Trimmed before save. Maximum 180 characters. Template variables such as {{organization_name}} or {{first_name}} are allowed. Unknown variables render blank.":

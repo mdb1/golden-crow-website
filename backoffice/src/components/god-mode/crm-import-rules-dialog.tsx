@@ -96,6 +96,26 @@ const TEMPLATE_VARIABLES = [
   "website_sentence",
 ] as const;
 
+const PROFESSIONAL_VARIABLE_QUALITY_RULE =
+  "Best effort is required for professional imports: whenever source data allows it, fill name, title, primary_affiliation, potential_pocket_genes_editor_fit, email_route, linkedin_route, research_basis, and website so professional plantillas that use variables do not render blank or generic.";
+
+const PROFESSIONAL_TEMPLATE_VARIABLE_COVERAGE = [
+  {
+    variable: "{{professional_name}}, {{first_name}}, {{contact_name}}",
+    source: "name",
+  },
+  { variable: "{{title}}", source: "title" },
+  { variable: "{{primary_affiliation}}", source: "primary_affiliation" },
+  {
+    variable: "{{potential_pocket_genes_editor_fit}}",
+    source: "potential_pocket_genes_editor_fit",
+  },
+  { variable: "{{email_route}}", source: "email_route" },
+  { variable: "{{linkedin_route}}", source: "linkedin_route" },
+  { variable: "{{research_basis}}", source: "research_basis" },
+  { variable: "{{website}}, {{website_sentence}}", source: "website" },
+] as const;
+
 function csvHeadersFor(kind: ImportRulesKind) {
   if (kind === "professionals") {
     return PROFESSIONAL_HEADERS;
@@ -131,45 +151,45 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
       {
         label: "title",
         detail:
-          "Optional. Maximum 180 characters. Store only the professional role, title, specialty, or credential.",
+          "Optional but best effort for professional templates. Maximum 180 characters. Store only the professional role, title, specialty, or credential. Powers {{title}}.",
         example: "CEO and reproductive medicine specialist",
       },
       {
         label: "primary_affiliation",
         detail:
-          "Optional. Maximum 180 characters. Store the main institution, company, lab, hospital, or professional affiliation as a plain name.",
+          "Optional but best effort for professional templates. Maximum 180 characters. Store the main institution, company, lab, hospital, or professional affiliation as a plain name. Powers {{primary_affiliation}}.",
         example: "MedicGen / Nascentis",
       },
       {
         label: "potential_pocket_genes_editor_fit",
         detail:
-          "Optional but high value for professional templates. Maximum 2000 characters. Store the exact title, work, topic, or editorial hook only. Do not add wrapping quotes, commas, periods, or explanatory punctuation at the end; the send flow will show it between quotes and in italics.",
+          "Optional but best effort and high value for professional templates. Maximum 2000 characters. Store the exact title, work, topic, or editorial hook only. Do not add wrapping quotes, commas, periods, or explanatory punctuation at the end; the send flow will show it between quotes and in italics. Powers {{potential_pocket_genes_editor_fit}}.",
         example: "Genetic testing adoption and patient education",
       },
       {
         label: "email_route",
         detail:
-          "Optional. Maximum 2000 characters. Store how the recipient email was found and what context should be verified before outreach. This is not the direct email field.",
+          "Optional but best effort for professional templates. Maximum 2000 characters. Store how the recipient email was found and what context should be verified before outreach. This is not the direct email field. Powers {{email_route}}.",
         example:
           "Public institutional contact; verify recipient context before outreach.",
       },
       {
         label: "linkedin_route",
         detail:
-          "Optional. Maximum 2000 characters. Store the LinkedIn route, such as the professional profile or official affiliated organization page. This is not the direct LinkedIn URL field.",
+          "Optional but best effort for professional templates. Maximum 2000 characters. Store the LinkedIn route, such as the professional profile or official affiliated organization page. This is not the direct LinkedIn URL field. Powers {{linkedin_route}}.",
         example: "Public personal LinkedIn profile used to verify affiliation.",
       },
       {
         label: "research_basis",
         detail:
-          "Optional. Maximum 2000 characters. Store the source basis used to validate the lead, such as datasets, affiliation websites, LinkedIn records, or other verified references.",
+          "Optional but best effort for professional templates. Maximum 2000 characters. Store the source basis used to validate the lead, such as datasets, affiliation websites, LinkedIn records, or other verified references. Powers {{research_basis}}.",
         example:
           "Affiliation website, LinkedIn record, and prior outreach notes.",
       },
       {
         label: "website",
         detail:
-          "Optional. Maximum 500 characters. Use a public website URL. Values without protocol are accepted and normalized with https:// when possible.",
+          "Optional but best effort for professional templates. Maximum 500 characters. Use a public website URL. Values without protocol are accepted and normalized with https:// when possible. Powers {{website}} and {{website_sentence}}.",
         example: "https://medicgen.com/",
       },
       {
@@ -552,8 +572,14 @@ function buildImportRulesText({
       ? [
           "",
           t("Professional variable quality"),
+          t(PROFESSIONAL_VARIABLE_QUALITY_RULE),
+          "",
+          t("Professional template variable coverage"),
+          ...PROFESSIONAL_TEMPLATE_VARIABLE_COVERAGE.map(
+            (item) => `${item.variable}: ${item.source}`,
+          ),
           t(
-            "Professional profiles are much more valuable when title, primary_affiliation, potential_pocket_genes_editor_fit, email_route, linkedin_route, research_basis, website, email, and linkedin are all populated because these fields can be reused as outreach variables.",
+            "email and linkedin are not template variables, but they should still be filled when available because they make outreach actionable and easier to verify.",
           ),
         ]
       : []),
@@ -672,10 +698,33 @@ export function CrmImportRulesDialog({
                 {t("Professional variable quality")}
               </h3>
               <p className="mt-1 text-sm leading-6">
-                {t(
-                  "Professional profiles are much more valuable when title, primary_affiliation, potential_pocket_genes_editor_fit, email_route, linkedin_route, research_basis, website, email, and linkedin are all populated because these fields can be reused as outreach variables.",
-                )}
+                {t(PROFESSIONAL_VARIABLE_QUALITY_RULE)}
               </p>
+              <div className="mt-3 grid gap-2 rounded-lg border border-emerald-200/70 bg-white/55 p-3 text-xs dark:border-emerald-300/20 dark:bg-black/10">
+                <p className="font-semibold">
+                  {t("Professional template variable coverage")}
+                </p>
+                <div className="grid gap-1.5">
+                  {PROFESSIONAL_TEMPLATE_VARIABLE_COVERAGE.map((item) => (
+                    <div
+                      key={item.variable}
+                      className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_minmax(130px,0.35fr)] sm:items-center"
+                    >
+                      <code className="break-words font-mono">
+                        {item.variable}
+                      </code>
+                      <span className="font-mono text-emerald-800 dark:text-emerald-200">
+                        {item.source}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="leading-5">
+                  {t(
+                    "email and linkedin are not template variables, but they should still be filled when available because they make outreach actionable and easier to verify.",
+                  )}
+                </p>
+              </div>
             </section>
           ) : null}
 
