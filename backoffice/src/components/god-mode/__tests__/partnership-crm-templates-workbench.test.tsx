@@ -538,6 +538,70 @@ describe("PartnershipCrmTemplateBrowser", () => {
       "Template body and notes can use literal \\n for line breaks.",
     );
   });
+
+  it("shows professional template import rules with the approved closing and review standards", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValue({
+      templates: [],
+      nextCursor: undefined,
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/templates?limit=20&audience=organizations",
+      );
+    });
+
+    await user.click(screen.getByRole("tab", { name: "Professionals" }));
+    await user.click(screen.getByRole("button", { name: "Import rules" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Import rules",
+    });
+
+    expect(
+      within(dialog).getByText("Professional template body rules"),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("Purpose")).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Invite the recipient to discover the proposal/),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("Approved mandatory closing")).toBeTruthy();
+    expect(
+      within(dialog).getAllByText(
+        /Te comparto nuestro link para que puedas conocer la propuesta/,
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(dialog).getByText("Professional template writing style"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Warm, professional Argentine Spanish/),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText("Professional template review rules"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/CSV validity alone does not establish/),
+    ).toBeTruthy();
+
+    await user.click(within(dialog).getByRole("button", { name: "Copy" }));
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: "Copied" }),
+      ).toBeTruthy();
+    });
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Professional template body rules",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Te comparto nuestro link para que puedas conocer la propuesta y sumarte a la red:",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "A template is editorially complete only when it preserves the approved closing",
+    );
+  });
 });
 
 describe("PartnershipCrmTemplateWorkbench", () => {
