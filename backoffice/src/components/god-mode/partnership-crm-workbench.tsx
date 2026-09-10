@@ -3593,18 +3593,22 @@ function OrganizationDialog({
 
 function crmVariablePillClassName(variable: CrmTemplateVariableDefinition) {
   return cn(
-    "mx-0.5 inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 align-baseline font-mono text-[0.74rem] font-semibold leading-5 shadow-sm",
+    "mx-0.5 inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 align-baseline font-mono text-[0.74rem] font-semibold leading-5 shadow-sm whitespace-normal break-words",
     variable.className,
   );
 }
 
-function createCrmVariablePillElement(variable: CrmTemplateVariableDefinition) {
+function createCrmVariablePillElement(
+  variable: CrmTemplateVariableDefinition,
+  displayValue: string,
+) {
   const element = document.createElement("span");
   element.contentEditable = "false";
   element.dataset.crmVariable = variable.key;
   element.dataset.crmVariableToken = variable.token;
   element.className = crmVariablePillClassName(variable);
-  element.textContent = variable.token;
+  element.textContent = displayValue || "—";
+  element.title = `${variable.token}: ${displayValue || "—"}`;
   element.setAttribute("role", "img");
   element.setAttribute("aria-label", variable.label);
   return element;
@@ -3614,6 +3618,7 @@ function renderCrmVariableEditorValue(
   editor: HTMLElement,
   value: string,
   variables: readonly CrmTemplateVariableDefinition[],
+  variableDisplayTextByKey: ReadonlyMap<CrmTemplateVariableKey, string>,
 ) {
   const fragment = document.createDocumentFragment();
   const variableByToken = new Map(
@@ -3634,7 +3639,10 @@ function renderCrmVariableEditorValue(
     );
     fragment.append(
       variable
-        ? createCrmVariablePillElement(variable)
+        ? createCrmVariablePillElement(
+            variable,
+            variableDisplayTextByKey.get(variable.key) ?? "—",
+          )
         : document.createTextNode(token),
     );
     cursor = index + token.length;
@@ -3707,10 +3715,11 @@ function placeCaretAfter(node: Node) {
 function insertCrmVariableIntoEditor(
   editor: HTMLElement,
   variable: CrmTemplateVariableDefinition,
+  displayValue: string,
 ) {
   editor.focus();
   const selection = window.getSelection();
-  const pill = createCrmVariablePillElement(variable);
+  const pill = createCrmVariablePillElement(variable, displayValue);
   const spacer = document.createTextNode(" ");
 
   if (!selection || selection.rangeCount === 0) {
@@ -3735,17 +3744,52 @@ function insertCrmVariableIntoEditor(
 function CrmVariableEditor({
   value,
   variables,
+  target,
+  targetKind,
   onChange,
   language,
 }: {
   value: string;
   variables: readonly CrmTemplateVariableDefinition[];
+  target: PartnershipCrmTargetRecord;
+  targetKind: PartnershipCrmTargetKind;
   onChange: (value: string) => void;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
   const editorRef = useRef<HTMLDivElement | null>(null);
-  const lastRenderedValueRef = useRef<string>("");
+  const lastRenderedSignatureRef = useRef<string>("");
+  const variableDisplayTextByKey = useMemo(
+    () =>
+      new Map(
+        variables.map((variable) => [
+          variable.key,
+          crmTemplateVariablePlainValue(variable.key, target, targetKind) ||
+            "—",
+        ]),
+      ),
+    [target, targetKind, variables],
+  );
+  const variableDisplaySignature = useMemo(
+    () =>
+      variables
+        .map(
+          (variable) =>
+            `${variable.key}:${variableDisplayTextByKey.get(variable.key)}`,
+        )
+        .join("\u0001"),
+    [variableDisplayTextByKey, variables],
+  );
+  const usedVariables = useMemo(() => {
+    const variableByKey = new Map(
+      variables.map((variable) => [variable.key, variable]),
+    );
+    return usedCrmTemplateVariables(value)
+      .map((key) => variableByKey.get(key))
+      .filter((variable): variable is CrmTemplateVariableDefinition =>
+        Boolean(variable),
+      );
+  }, [value, variables]);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -3754,13 +3798,22 @@ function CrmVariableEditor({
     }
 
     const currentValue = extractCrmVariableEditorValue(editor);
-    if (currentValue === value && lastRenderedValueRef.current === value) {
+    const nextRenderSignature = `${value}\u0002${variableDisplaySignature}`;
+    if (
+      currentValue === value &&
+      lastRenderedSignatureRef.current === nextRenderSignature
+    ) {
       return;
     }
 
-    renderCrmVariableEditorValue(editor, value, variables);
-    lastRenderedValueRef.current = value;
-  }, [value, variables]);
+    renderCrmVariableEditorValue(
+      editor,
+      value,
+      variables,
+      variableDisplayTextByKey,
+    );
+    lastRenderedSignatureRef.current = nextRenderSignature;
+  }, [value, variables, variableDisplayTextByKey, variableDisplaySignature]);
 
   function syncFromEditor() {
     const editor = editorRef.current;
@@ -3769,7 +3822,7 @@ function CrmVariableEditor({
     }
 
     const nextValue = extractCrmVariableEditorValue(editor);
-    lastRenderedValueRef.current = nextValue;
+    lastRenderedSignatureRef.current = `${nextValue}\u0002${variableDisplaySignature}`;
     onChange(nextValue);
   }
 
@@ -3779,7 +3832,11 @@ function CrmVariableEditor({
       return;
     }
 
-    insertCrmVariableIntoEditor(editor, variable);
+    insertCrmVariableIntoEditor(
+      editor,
+      variable,
+      variableDisplayTextByKey.get(variable.key) ?? "—",
+    );
     syncFromEditor();
   }
 
@@ -3844,18 +3901,38 @@ function CrmVariableEditor({
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {t("Variables")}
         </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {variables.map((variable) => (
-            <button
-              key={variable.key}
-              type="button"
-              className={crmVariablePillClassName(variable)}
-              onClick={() => addVariable(variable)}
-            >
-              {variable.token}
-            </button>
-          ))}
-        </div>
+        {usedVariables.length > 0 ? (
+          <div className="mt-2 overflow-x-auto rounded-lg border border-border/80 bg-background">
+            <table className="w-full min-w-[28rem] text-left text-xs">
+              <thead className="bg-muted/45 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">
+                    {t("Variable key")}
+                  </th>
+                  <th className="px-3 py-2 font-semibold">{t("Value")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/70">
+                {usedVariables.map((variable) => (
+                  <tr key={variable.key}>
+                    <td className="w-64 px-3 py-2 align-top">
+                      <span className={crmVariablePillClassName(variable)}>
+                        {variable.token}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 align-top font-medium text-foreground">
+                      {variableDisplayTextByKey.get(variable.key) ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t("No variables used in this message.")}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -4351,6 +4428,8 @@ function EmailComposerDialog({
                   <CrmVariableEditor
                     value={email.text}
                     variables={editorVariables}
+                    target={organization}
+                    targetKind={targetKind}
                     language={language}
                     onChange={(value) =>
                       update({ text: value, step: "compose" })

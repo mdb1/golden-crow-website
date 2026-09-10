@@ -975,10 +975,16 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       ).toBe("First Delete Me Genomics");
     });
     const messageEditor = within(dialog).getByLabelText("Message");
-    expect(messageEditor.textContent).toBe("Body one for {{contact_name}}");
+    expect(messageEditor.textContent).toBe("Body one for Ada");
     expect(
       within(messageEditor).getByRole("img", { name: "Contact name" }),
     ).toBeTruthy();
+    const variablesTable = within(dialog).getByRole("table");
+    expect(within(variablesTable).getByText("{{contact_name}}")).toBeTruthy();
+    expect(within(variablesTable).getByText("Ada")).toBeTruthy();
+    expect(
+      within(variablesTable).queryByText("{{organization_name}}"),
+    ).toBeNull();
 
     await user.click(
       within(dialog).getByRole("button", { name: "Next template" }),
@@ -989,7 +995,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       ).toBe("Second Delete Me Genomics");
     });
     expect(within(dialog).getByLabelText("Message").textContent).toBe(
-      "Body two for {{contact_name}}",
+      "Body two for Ada",
     );
 
     fireEvent.keyDown(dialog, { key: "ArrowUp" });
@@ -1090,7 +1096,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       ).toBe("Universal Delete Me Genomics");
     });
     expect(within(dialog).getByLabelText("Message").textContent).toBe(
-      "Universal body for {{contact_name}}",
+      "Universal body for Ada",
     );
   });
 
@@ -1138,6 +1144,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const messageEditor = await within(dialog).findByLabelText("Message");
 
     expect(messageEditor.textContent).toContain(
+      '"Clinical genetics, genetic testing, result interpretation and patient education"',
+    );
+    expect(messageEditor.textContent).not.toContain(
       "{{potential_pocket_genes_editor_fit}}",
     );
     expect(
@@ -1146,11 +1155,22 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       }),
     ).toBeTruthy();
     expect(within(dialog).getByText("Variables")).toBeTruthy();
+    const variablesTable = within(dialog).getByRole("table");
     expect(
-      within(dialog).getByRole("button", {
-        name: "{{potential_pocket_genes_editor_fit}}",
-      }).className,
+      within(variablesTable).getByText("{{potential_pocket_genes_editor_fit}}"),
+    ).toBeTruthy();
+    expect(
+      within(variablesTable).getByText(/Clinical genetics, genetic testing/),
+    ).toBeTruthy();
+    expect(
+      within(variablesTable).getByText("{{potential_pocket_genes_editor_fit}}")
+        .className,
     ).toContain("emerald");
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "{{potential_pocket_genes_editor_fit}}",
+      }),
+    ).toBeNull();
 
     await user.click(
       within(dialog).getByRole("button", { name: "Preview email" }),

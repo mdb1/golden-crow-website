@@ -1286,6 +1286,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "This removes the template from the CRM send flow.":
     "Esto elimina la plantilla del flujo de envío del CRM.",
   "Template variables": "Variables de plantilla",
+  Variables: "Variables",
+  "Add variable": "Agregar variable",
+  "Line break": "Salto de línea",
+  "Variable key": "Variable",
+  Value: "Valor",
+  "No variables used in this message.":
+    "No hay variables usadas en este mensaje.",
   "Applies to": "Aplica a",
   "Website sentence": "Frase del sitio web",
   "Template Active": "Activa",
