@@ -807,6 +807,52 @@ function normalizeTemplateMatchValue(value: string | undefined | null) {
     .trim();
 }
 
+function templateNameMatchTokens(value: string | undefined | null) {
+  return normalizeTemplateMatchValue(value)
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3);
+}
+
+function templateNamesAreCompatible(
+  existingName: string | undefined | null,
+  incomingName: string | undefined | null,
+) {
+  const existing = normalizeTemplateMatchValue(existingName);
+  const incoming = normalizeTemplateMatchValue(incomingName);
+
+  if (!existing || !incoming) {
+    return false;
+  }
+
+  if (existing === incoming) {
+    return true;
+  }
+
+  const shorter = existing.length < incoming.length ? existing : incoming;
+  const longer = existing.length < incoming.length ? incoming : existing;
+
+  if (shorter.length >= 12 && longer.includes(shorter)) {
+    return true;
+  }
+
+  const existingTokens = new Set(templateNameMatchTokens(existing));
+  const incomingTokens = templateNameMatchTokens(incoming);
+
+  if (existingTokens.size === 0 || incomingTokens.length === 0) {
+    return false;
+  }
+
+  const sharedCount = incomingTokens.filter((token) =>
+    existingTokens.has(token),
+  ).length;
+  const smallerTokenCount = Math.min(
+    existingTokens.size,
+    incomingTokens.length,
+  );
+
+  return sharedCount >= 2 && sharedCount / smallerTokenCount >= 0.6;
+}
+
 function templateImportAudience(
   template:
     PartnershipCrmTemplateInput | PartnershipCrmTemplateRecord | undefined,
@@ -840,13 +886,14 @@ function findTemplateDuplicateCandidate(
 
   const bySubject = sameAudienceTemplates.find(
     (template) =>
-      normalizeTemplateMatchValue(template.subject) === incomingSubject,
+      normalizeTemplateMatchValue(template.subject) === incomingSubject &&
+      templateNamesAreCompatible(template.name, incoming.name),
   );
 
   return bySubject
     ? {
         template: bySubject,
-        reason: "Same audience and subject.",
+        reason: "Same audience and subject, with compatible template name.",
       }
     : null;
 }

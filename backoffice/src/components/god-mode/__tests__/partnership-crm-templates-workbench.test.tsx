@@ -831,6 +831,95 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(templateMutationCalls("POST")).toHaveLength(0);
   });
 
+  it("does not flag a duplicate when only the subject matches and the template name is unrelated", async () => {
+    const user = userEvent.setup();
+    const existingTemplate: PartnershipCrmTemplateRecord = {
+      ...template,
+      id: "tpl-fertility-community",
+      name: "Fertility clinic - Community visibility",
+      category: "org_fertility_clinics",
+      subject: "Pocket Genes + {{organization_name}}",
+      body: "Existing fertility clinic template",
+      notes: "Existing note",
+      normalizedName: "fertility clinic community visibility",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (
+        path === "/admin/partnership-crm/templates" &&
+        init?.method === "POST"
+      ) {
+        const body = JSON.parse(
+          String(init.body),
+        ) as PartnershipCrmTemplateInput;
+        return {
+          template: {
+            ...template,
+            ...body,
+            id: "created-b1",
+            updatedAt: "2026-09-10T12:00:00.000Z",
+          },
+        };
+      }
+
+      return {
+        templates: [existingTemplate],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await user.click(await screen.findByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = [
+      "name,category,subject,body,status,is_favorite,notes",
+      '"B1","org_genetic_testing_laboratories","Pocket Genes + {{organization_name}}","New lab template","active","true","New note"',
+    ].join("\n");
+    const file = new File([csv], "subject-only-match.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+
+    await waitFor(() => {
+      expect(
+        within(dialog)
+          .getByRole("button", { name: "Review remaining one by one" })
+          .getAttribute("disabled"),
+      ).toBeNull();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Review remaining one by one",
+      }),
+    );
+
+    const currentRow = within(dialog).getByTestId(
+      "template-import-current-row",
+    );
+    expect(within(currentRow).getByText("B1")).toBeTruthy();
+    expect(within(dialog).queryByText("Possible duplicate")).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "Update existing with this row",
+      }),
+    ).toBeNull();
+    expect(
+      within(dialog).getByRole("button", { name: "Add row" }),
+    ).toBeTruthy();
+
+    await user.click(within(dialog).getByRole("button", { name: "Add row" }));
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Template import finished")).toBeTruthy();
+    });
+    expect(templateMutationCalls("POST")).toHaveLength(1);
+    expect(templateMutationCalls("PUT")).toHaveLength(0);
+  });
+
   it("imports all duplicate template rows by updating existing templates", async () => {
     const user = userEvent.setup();
     const existingTemplate = duplicateTemplateFixture();
