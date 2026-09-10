@@ -156,6 +156,35 @@ const PROFESSIONAL_TEMPLATE_WRITING_STYLE_RULES = [
 const PROFESSIONAL_TEMPLATE_REVIEW_RULE =
   "A template is editorially complete only when it preserves the approved closing, contains no additional question or call to action after it, and follows the requested voice. CSV validity alone does not establish writing-style compliance.";
 
+const ORGANIZATION_TEMPLATE_BODY_RULES = [
+  {
+    label: "Purpose",
+    detail:
+      "Invite the organization contact to discover the proposal and join the network. Present collaborations, institutional visibility, and editorial contributions as optional opportunities.",
+  },
+  {
+    label: "Personalization",
+    detail:
+      "Use relevant organization variables in the subject and earlier paragraphs to explain why the invitation fits the organization. Keep the closing unchanged.",
+  },
+  {
+    label: "Mandatory closing",
+    detail:
+      "Use the approved closing verbatim, preserving paragraph breaks, followed only by the sender's signature.",
+  },
+] as const;
+
+const ORGANIZATION_TEMPLATE_WRITING_STYLE_RULES = [
+  "Warm, professional Argentine Spanish: Use natural voseo, complete sentences and connected paragraphs. Avoid slang, exaggerated praise and sales jargon.",
+  'Team voice: Prefer formulations such as "Con mi equipo estamos construyendo", "Nos gustaría invitarte" and "Quedamos a la espera de tu respuesta."',
+  "Explain the invitation fully: Introduce the network, explain its relevance to the organization, describe the benefits of joining for free and mention optional ways to participate.",
+  "Keep the invitation low-pressure: Do not ask the recipient to suggest topics, explain concepts, recommend resources or commit to a contribution as the final call to action.",
+  'Preserve the approved wording: Do not shorten the closing to "Conocé más", "Te dejo el link" or "Te comparto el link para conocer Pocket Genes."',
+] as const;
+
+const ORGANIZATION_TEMPLATE_REVIEW_RULE =
+  "An organization template is editorially complete only when it preserves the approved closing, contains no additional question or call to action after it, and follows the requested voice. CSV validity alone does not establish writing-style compliance.";
+
 function csvHeadersFor(kind: ImportRulesKind) {
   if (kind === "professionals") {
     return PROFESSIONAL_HEADERS;
@@ -178,6 +207,51 @@ function usesProfessionalTemplateRules(
   audience: PartnershipCrmTemplateAudience,
 ) {
   return kind === "templates" && audience === "professionals";
+}
+
+function usesOrganizationTemplateRules(
+  kind: ImportRulesKind,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return kind === "templates" && audience === "organizations";
+}
+
+function usesAudienceTemplateRules(
+  kind: ImportRulesKind,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return (
+    usesProfessionalTemplateRules(kind, audience) ||
+    usesOrganizationTemplateRules(kind, audience)
+  );
+}
+
+function templateAudienceRulePrefix(audience: PartnershipCrmTemplateAudience) {
+  return audience === "professionals" ? "Professional" : "Organization";
+}
+
+function templateBodyRulesForAudience(
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return audience === "professionals"
+    ? PROFESSIONAL_TEMPLATE_BODY_RULES
+    : ORGANIZATION_TEMPLATE_BODY_RULES;
+}
+
+function templateWritingStyleRulesForAudience(
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return audience === "professionals"
+    ? PROFESSIONAL_TEMPLATE_WRITING_STYLE_RULES
+    : ORGANIZATION_TEMPLATE_WRITING_STYLE_RULES;
+}
+
+function templateReviewRuleForAudience(
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return audience === "professionals"
+    ? PROFESSIONAL_TEMPLATE_REVIEW_RULE
+    : ORGANIZATION_TEMPLATE_REVIEW_RULE;
 }
 
 function ruleLinesFor(
@@ -370,8 +444,12 @@ function ruleLinesFor(
     {
       label: "body",
       detail:
-        usesProfessionalTemplateRules(kind, audience)
-          ? "Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Prefer body copy that uses audience variables where they improve personalization; unknown variables render blank. Professional templates must follow the Professional template body rules, preserve the approved closing verbatim, and contain no additional question or call to action after it."
+        usesAudienceTemplateRules(kind, audience)
+          ? `Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Prefer body copy that uses audience variables where they improve personalization; unknown variables render blank. ${templateAudienceRulePrefix(
+              audience,
+            )} templates must follow the ${templateAudienceRulePrefix(
+              audience,
+            ).toLowerCase()} template body rules, preserve the approved closing verbatim, and contain no additional question or call to action after it.`
           : "Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Prefer body copy that uses audience variables where they improve personalization; unknown variables render blank.",
       example: "Hi {{first_name}},\\nI am reaching out about Pocket Genes.",
     },
@@ -467,7 +545,7 @@ function exampleCsvFor(
   const body =
     audience === "professionals"
       ? "Hola {{first_name}},\\n\\nCon mi equipo estamos construyendo Pocket Genes, una red para conectar profesionales, instituciones y proyectos vinculados a genetica, medicina reproductiva y salud personalizada. Nos gustaria invitarte porque tu experiencia en {{potential_pocket_genes_editor_fit}} podria aportar una mirada valiosa a la comunidad.\\n\\nSumarte a la red es gratuito y permite que mas personas conozcan tu trabajo, tu afiliacion principal y posibles oportunidades de colaboracion. Si en algun momento te interesa, tambien podrias participar con aportes editoriales o revisar contenidos vinculados a tu especialidad.\\n\\nTe comparto nuestro link para que puedas conocer la propuesta y sumarte a la red:\\n\\nhttps://goldencrowvs.com/pocket-genes/join-us/\\n\\nQuedamos a la espera de tu respuesta.\\n\\nSaludos,\\nFederico"
-      : "Hi {{contact_name}},\\nI am reaching out about {{organization_name}}.";
+      : "Hola {{contact_name}},\\n\\nCon mi equipo estamos construyendo Pocket Genes, una red para conectar organizaciones, profesionales e iniciativas vinculadas a genetica, medicina reproductiva y salud personalizada. Nos gustaria invitar a {{organization_name}} porque su trabajo{{website_sentence}} podria aportar valor a la comunidad.\\n\\nSumarse a la red es gratuito y permite que mas personas conozcan la organizacion, sus servicios y posibles oportunidades de colaboracion. Si en algun momento les interesa, tambien pueden participar con aportes editoriales o compartir novedades institucionales relevantes.\\n\\nTe comparto nuestro link para que puedas conocer la propuesta y sumarte a la red:\\n\\nhttps://goldencrowvs.com/pocket-genes/join-us/\\n\\nQuedamos a la espera de tu respuesta.\\n\\nSaludos,\\nFederico";
 
   return [
     TEMPLATE_HEADERS.join(","),
@@ -641,24 +719,24 @@ function buildImportRulesText({
       `${line.label}: ${t(line.detail)}`,
       ...(line.example ? [`  ${t("Example")}: ${line.example}`] : []),
     ]),
-    ...(usesProfessionalTemplateRules(kind, audience)
+    ...(usesAudienceTemplateRules(kind, audience)
       ? [
           "",
-          t("Professional template body rules"),
-          ...PROFESSIONAL_TEMPLATE_BODY_RULES.map(
+          t(`${templateAudienceRulePrefix(audience)} template body rules`),
+          ...templateBodyRulesForAudience(audience).map(
             (rule) => `${t(rule.label)}: ${t(rule.detail)}`,
           ),
           "",
           t("Approved mandatory closing"),
           PROFESSIONAL_TEMPLATE_MANDATORY_CLOSING,
           "",
-          t("Professional template writing style"),
-          ...PROFESSIONAL_TEMPLATE_WRITING_STYLE_RULES.map(
+          t(`${templateAudienceRulePrefix(audience)} template writing style`),
+          ...templateWritingStyleRulesForAudience(audience).map(
             (rule) => `- ${t(rule)}`,
           ),
           "",
-          t("Professional template review rules"),
-          t(PROFESSIONAL_TEMPLATE_REVIEW_RULE),
+          t(`${templateAudienceRulePrefix(audience)} template review rules`),
+          t(templateReviewRuleForAudience(audience)),
         ]
       : []),
     "",
@@ -894,13 +972,13 @@ export function CrmImportRulesDialog({
             </section>
           </div>
 
-          {usesProfessionalTemplateRules(kind, audience) ? (
+          {usesAudienceTemplateRules(kind, audience) ? (
             <section className="rounded-xl border border-emerald-200/70 bg-emerald-50/75 p-4 text-emerald-950 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
               <h3 className="font-heading text-sm font-semibold">
-                {t("Professional template body rules")}
+                {t(`${templateAudienceRulePrefix(audience)} template body rules`)}
               </h3>
               <div className="mt-3 grid gap-2 text-xs leading-5">
-                {PROFESSIONAL_TEMPLATE_BODY_RULES.map((rule) => (
+                {templateBodyRulesForAudience(audience).map((rule) => (
                   <div
                     key={rule.label}
                     className="rounded-lg border border-emerald-200/70 bg-white/55 px-3 py-2 dark:border-emerald-300/20 dark:bg-black/10"
@@ -921,13 +999,15 @@ export function CrmImportRulesDialog({
             </section>
           ) : null}
 
-          {usesProfessionalTemplateRules(kind, audience) ? (
+          {usesAudienceTemplateRules(kind, audience) ? (
             <section className="rounded-xl border border-blue-200/70 bg-blue-50/75 p-4 text-blue-950 dark:border-blue-300/20 dark:bg-blue-400/10 dark:text-blue-100">
               <h3 className="font-heading text-sm font-semibold">
-                {t("Professional template writing style")}
+                {t(
+                  `${templateAudienceRulePrefix(audience)} template writing style`,
+                )}
               </h3>
               <ul className="mt-3 grid gap-2 text-xs leading-5">
-                {PROFESSIONAL_TEMPLATE_WRITING_STYLE_RULES.map((rule) => (
+                {templateWritingStyleRulesForAudience(audience).map((rule) => (
                   <li key={rule} className="flex gap-2">
                     <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
                     <span>{t(rule)}</span>
@@ -937,13 +1017,13 @@ export function CrmImportRulesDialog({
             </section>
           ) : null}
 
-          {usesProfessionalTemplateRules(kind, audience) ? (
+          {usesAudienceTemplateRules(kind, audience) ? (
             <section className="rounded-xl border border-violet-200/70 bg-violet-50/75 p-4 text-violet-950 dark:border-violet-300/20 dark:bg-violet-400/10 dark:text-violet-100">
               <h3 className="font-heading text-sm font-semibold">
-                {t("Professional template review rules")}
+                {t(`${templateAudienceRulePrefix(audience)} template review rules`)}
               </h3>
               <p className="mt-2 text-sm leading-6">
-                {t(PROFESSIONAL_TEMPLATE_REVIEW_RULE)}
+                {t(templateReviewRuleForAudience(audience))}
               </p>
             </section>
           ) : null}

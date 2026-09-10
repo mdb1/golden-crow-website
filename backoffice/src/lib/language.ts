@@ -1300,11 +1300,17 @@ const SPANISH_TEXT: Record<string, string> = {
   "Template variables": "Variables de plantilla",
   "Professional template body rules":
     "Reglas del cuerpo para plantillas profesionales",
+  "Organization template body rules":
+    "Reglas del cuerpo para plantillas de organizaciones",
   "Approved mandatory closing": "Cierre obligatorio aprobado",
   "Professional template writing style":
     "Estilo de escritura para plantillas profesionales",
+  "Organization template writing style":
+    "Estilo de escritura para plantillas de organizaciones",
   "Professional template review rules":
     "Reglas de revisión para plantillas profesionales",
+  "Organization template review rules":
+    "Reglas de revisión para plantillas de organizaciones",
   Purpose: "Propósito",
   Personalization: "Personalización",
   "Mandatory closing": "Cierre obligatorio",

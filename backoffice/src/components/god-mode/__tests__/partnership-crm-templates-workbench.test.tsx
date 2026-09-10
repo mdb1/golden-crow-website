@@ -509,6 +509,29 @@ describe("PartnershipCrmTemplateBrowser", () => {
         "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.",
       ),
     ).toBeTruthy();
+    expect(
+      within(dialog).getByText("Organization template body rules"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Invite the organization contact/),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getAllByText(
+        /Te comparto nuestro link para que puedas conocer la propuesta/,
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(dialog).getByText("Organization template writing style"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Explain the invitation fully/),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText("Organization template review rules"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/An organization template is editorially complete/),
+    ).toBeTruthy();
 
     await user.click(within(dialog).getByRole("button", { name: "Copy" }));
     await waitFor(() => {
@@ -536,6 +559,12 @@ describe("PartnershipCrmTemplateBrowser", () => {
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Template body and notes can use literal \\n for line breaks.",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Organization template body rules",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "An organization template is editorially complete only when it preserves the approved closing",
     );
   });
 
