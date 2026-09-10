@@ -49,12 +49,9 @@ export type PartnershipCrmTargetKind =
 export type PartnershipCrmTemplateAudience = PartnershipCrmTargetKind;
 export type PartnershipCrmCategory = DiscoverOrganizationCategoryKey;
 export type PartnershipCrmProfessionalCategory = DiscoverIndividualCategoryKey;
-export type CrmDuplicateAction = "skip" | "update" | "import";
+export type CrmDuplicateAction = "skip" | "update" | "import" | "fill_missing";
 export type PartnershipCrmVisualFilterFacetKey =
-  | "status"
-  | "category"
-  | "country"
-  | "linkedInState";
+  "status" | "category" | "country" | "linkedInState";
 
 export interface PartnershipCrmOrganizationRecord {
   id: string;

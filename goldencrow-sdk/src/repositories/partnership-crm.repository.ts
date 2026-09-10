@@ -79,10 +79,7 @@ export type PartnershipCrmTargetKind = PartnershipCrmTemplateAudience;
 export type PartnershipCrmLinkedInState = "has_linkedin" | "missing_linkedin";
 export type PartnershipCrmStatusCounts = Record<PartnershipCrmStatus, number>;
 export type PartnershipCrmVisualFilterFacetKey =
-  | "status"
-  | "category"
-  | "country"
-  | "linkedInState";
+  "status" | "category" | "country" | "linkedInState";
 
 type PartnershipCrmTargetListOptions = {
   cursor?: string;
@@ -110,7 +107,7 @@ export interface PartnershipCrmOrganizationInput {
 
 export interface PartnershipCrmImportRowInput extends PartnershipCrmOrganizationInput {
   rowId?: string;
-  duplicateAction?: "skip" | "update" | "import";
+  duplicateAction?: "skip" | "update" | "import" | "fill_missing";
   duplicateOrganizationId?: string;
 }
 
@@ -135,7 +132,7 @@ export interface PartnershipCrmProfessionalInput {
 
 export interface PartnershipCrmProfessionalImportRowInput extends PartnershipCrmProfessionalInput {
   rowId?: string;
-  duplicateAction?: "skip" | "update" | "import";
+  duplicateAction?: "skip" | "update" | "import" | "fill_missing";
   duplicateProfessionalId?: string;
 }
 
@@ -742,6 +739,33 @@ function withoutUndefined<T extends Record<string, unknown>>(input: T) {
   ) as T;
 }
 
+function isMissingCrmDocumentValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return true;
+  }
+
+  return typeof value === "string" && value.trim().length === 0;
+}
+
+function fillMissingCrmDocumentFields(
+  existing: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+) {
+  return Object.fromEntries(
+    Object.keys({ ...existing, ...incoming }).map((key) => {
+      const existingValue = existing[key];
+      if (
+        isMissingCrmDocumentValue(existingValue) &&
+        !isMissingCrmDocumentValue(incoming[key])
+      ) {
+        return [key, incoming[key]];
+      }
+
+      return [key, existingValue];
+    }),
+  );
+}
+
 function recordData(value: unknown): Record<string, unknown> {
   return value && typeof value === "object"
     ? (value as Record<string, unknown>)
@@ -1176,9 +1200,9 @@ function hasProjectedStatusCountFilters(
 ) {
   return Boolean(
     cleanString(options.query) ||
-      cleanString(options.category) ||
-      cleanString(options.country) ||
-      options.linkedInState,
+    cleanString(options.category) ||
+    cleanString(options.country) ||
+    options.linkedInState,
   );
 }
 
@@ -1351,7 +1375,9 @@ function primaryCategoryFacetValue(
   category: string,
   audience: PartnershipCrmTemplateAudience,
 ) {
-  return crmCategoryKeys(category, audience)[0] ?? MISSING_CATEGORY_FILTER_VALUE;
+  return (
+    crmCategoryKeys(category, audience)[0] ?? MISSING_CATEGORY_FILTER_VALUE
+  );
 }
 
 function primaryCountryFacetValue(country: string) {
@@ -2677,7 +2703,7 @@ export async function importPartnershipCrmOrganizations(
       const duplicateId =
         row.duplicateOrganizationId ?? duplicateCandidates[0]?.id;
       const duplicateAction =
-        duplicateCandidates.length > 0
+        duplicateCandidates.length > 0 || duplicateId
           ? (row.duplicateAction ?? "skip")
           : "import";
 
@@ -2691,7 +2717,10 @@ export async function importPartnershipCrmOrganizations(
         continue;
       }
 
-      if (duplicateAction === "update" && duplicateId) {
+      if (
+        (duplicateAction === "update" || duplicateAction === "fill_missing") &&
+        duplicateId
+      ) {
         const existing = await getOrganizationSnapshot(duplicateId);
         if (!existing) {
           results.push({
@@ -2702,18 +2731,26 @@ export async function importPartnershipCrmOrganizations(
           continue;
         }
 
+        const existingData = recordData(existing.data());
+        const nextDocument =
+          duplicateAction === "fill_missing"
+            ? fillMissingCrmDocumentFields(existingData, document)
+            : document;
         await existing.ref.set(
           withoutUndefined({
-            ...document,
-            createdAt: existing.data()?.createdAt,
-            createdByEmail: existing.data()?.createdByEmail,
+            ...nextDocument,
+            createdAt: existingData.createdAt,
+            createdByEmail: existingData.createdByEmail,
             updatedAt: FieldValue.serverTimestamp(),
             updatedByEmail: context.email,
           }),
         );
         await addActivity(duplicateId, context, {
           type: "import",
-          title: "CSV row updated this organization",
+          title:
+            duplicateAction === "fill_missing"
+              ? "CSV row filled missing fields on this organization"
+              : "CSV row updated this organization",
           body: cleanString(row.notes),
         });
         results.push({ rowId, action: "updated", organizationId: duplicateId });
@@ -2841,7 +2878,7 @@ export async function importPartnershipCrmProfessionals(
       const duplicateId =
         row.duplicateProfessionalId ?? duplicateCandidates[0]?.id;
       const duplicateAction =
-        duplicateCandidates.length > 0
+        duplicateCandidates.length > 0 || duplicateId
           ? (row.duplicateAction ?? "skip")
           : "import";
 
@@ -2855,7 +2892,10 @@ export async function importPartnershipCrmProfessionals(
         continue;
       }
 
-      if (duplicateAction === "update" && duplicateId) {
+      if (
+        (duplicateAction === "update" || duplicateAction === "fill_missing") &&
+        duplicateId
+      ) {
         const existing = await getProfessionalSnapshot(duplicateId);
         if (!existing) {
           results.push({
@@ -2866,18 +2906,26 @@ export async function importPartnershipCrmProfessionals(
           continue;
         }
 
+        const existingData = recordData(existing.data());
+        const nextDocument =
+          duplicateAction === "fill_missing"
+            ? fillMissingCrmDocumentFields(existingData, document)
+            : document;
         await existing.ref.set(
           withoutUndefined({
-            ...document,
-            createdAt: existing.data()?.createdAt,
-            createdByEmail: existing.data()?.createdByEmail,
+            ...nextDocument,
+            createdAt: existingData.createdAt,
+            createdByEmail: existingData.createdByEmail,
             updatedAt: FieldValue.serverTimestamp(),
             updatedByEmail: context.email,
           }),
         );
         await addProfessionalActivity(duplicateId, context, {
           type: "import",
-          title: "CSV row updated this professional",
+          title:
+            duplicateAction === "fill_missing"
+              ? "CSV row filled missing fields on this professional"
+              : "CSV row updated this professional",
           body: cleanString(row.notes),
         });
         results.push({ rowId, action: "updated", professionalId: duplicateId });

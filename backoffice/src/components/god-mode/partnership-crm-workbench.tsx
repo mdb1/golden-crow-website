@@ -223,6 +223,21 @@ type OrganizationFormState = {
   is_favorite: boolean;
 };
 
+type CrmCompatibilityChoice = "existing" | "incoming" | "merged";
+
+type CrmCompatibilityField = {
+  key: keyof OrganizationFormState;
+  label: string;
+  multiline?: boolean;
+};
+
+type CrmDuplicateCompatibilityDialogState = {
+  targetKind: PartnershipCrmTargetKind;
+  rowIndex: number;
+  row: PartnershipCrmImportPreviewRow;
+  duplicateId: string;
+} | null;
+
 type ListFilters = {
   query: string;
   status: "all" | PartnershipCrmStatus;
@@ -326,6 +341,49 @@ function emptyFormState(
   };
 }
 
+const ORGANIZATION_COMPATIBILITY_FIELDS = [
+  { key: "name", label: "Organization" },
+  { key: "category", label: "Category" },
+  { key: "website", label: "Website" },
+  { key: "country", label: "Country" },
+  { key: "status", label: "Status" },
+  { key: "contactName", label: "Primary contact" },
+  { key: "contactEmail", label: "Mail" },
+  { key: "contactLinkedIn", label: "LinkedIn" },
+  { key: "lastContactAt", label: "Last Contact" },
+  { key: "notes", label: "Notes", multiline: true },
+  { key: "is_favorite", label: "Favorite" },
+] satisfies CrmCompatibilityField[];
+
+const PROFESSIONAL_COMPATIBILITY_FIELDS = [
+  { key: "name", label: "Professional" },
+  { key: "category", label: "Category" },
+  { key: "title", label: "Title" },
+  { key: "primaryAffiliation", label: "Primary affiliation" },
+  {
+    key: "potentialPocketGenesEditorFit",
+    label: "Potential Pocket Genes editor fit",
+    multiline: true,
+  },
+  { key: "emailRoute", label: "Email route", multiline: true },
+  { key: "linkedInRoute", label: "LinkedIn route", multiline: true },
+  { key: "researchBasis", label: "Research basis", multiline: true },
+  { key: "website", label: "Website" },
+  { key: "country", label: "Country" },
+  { key: "status", label: "Status" },
+  { key: "email", label: "Mail" },
+  { key: "linkedIn", label: "LinkedIn" },
+  { key: "lastContactAt", label: "Last Contact" },
+  { key: "notes", label: "Notes", multiline: true },
+  { key: "is_favorite", label: "Favorite" },
+] satisfies CrmCompatibilityField[];
+
+function compatibilityFieldsForTarget(targetKind: PartnershipCrmTargetKind) {
+  return targetKind === "professionals"
+    ? PROFESSIONAL_COMPATIBILITY_FIELDS
+    : ORGANIZATION_COMPATIBILITY_FIELDS;
+}
+
 const PIPELINE_STATUSES: PartnershipCrmStatus[] = [
   "new",
   "contacted",
@@ -415,18 +473,35 @@ function safeImportLogValue(value: unknown) {
 function importRequestPayloadForRow(
   row: PartnershipCrmImportPreviewRow,
   targetKind: PartnershipCrmTargetKind,
+  options: {
+    duplicateAction?: CrmDuplicateAction;
+    targetOverride?: CrmTargetInput;
+  } = {},
 ) {
   return {
-    [targetKind]: [rowForImportDecision(row, targetKind, "import")],
+    [targetKind]: [
+      rowForImportDecision(
+        row,
+        targetKind,
+        options.duplicateAction ?? "import",
+        options.targetOverride,
+      ),
+    ],
   };
 }
 
 function importRequestPayloadForSessionRow(
   session: CrmImportSession,
   rowIndex: number,
+  options: {
+    duplicateAction?: CrmDuplicateAction;
+    targetOverride?: CrmTargetInput;
+  } = {},
 ) {
   const row = session.previewRows[rowIndex];
-  return row ? importRequestPayloadForRow(row, session.targetKind) : undefined;
+  return row
+    ? importRequestPayloadForRow(row, session.targetKind, options)
+    : undefined;
 }
 
 function previewRequestPayloadForRow(
@@ -691,8 +766,9 @@ function rowForImportDecision(
   row: PartnershipCrmImportPreviewRow,
   targetKind: PartnershipCrmTargetKind,
   duplicateAction: CrmDuplicateAction,
+  targetOverride?: CrmTargetInput,
 ) {
-  const target = importRowTarget(row, targetKind);
+  const target = targetOverride ?? importRowTarget(row, targetKind);
   return {
     ...(target ?? {}),
     rowId: row.rowId,
@@ -1348,7 +1424,9 @@ function crmTemplateVariableRawValue(
         ? crmFirstName(professional.name)
         : crmFirstName(organization.contactName || organization.name);
     case "primary_affiliation":
-      return targetKind === "professionals" ? professional.primaryAffiliation : "";
+      return targetKind === "professionals"
+        ? professional.primaryAffiliation
+        : "";
     case "potential_pocket_genes_editor_fit":
       return targetKind === "professionals"
         ? normalizePotentialPocketGenesEditorFit(
@@ -1617,6 +1695,165 @@ function toFormState(
   };
 }
 
+function inputToFormState(
+  target: CrmTargetInput | undefined,
+  targetKind: PartnershipCrmTargetKind,
+): OrganizationFormState {
+  const state = emptyFormState(targetKind);
+  if (!target) {
+    return {
+      ...state,
+      category: "",
+    };
+  }
+
+  const base = {
+    ...state,
+    name: target.name ?? "",
+    category: normalizeCrmCategory(target.category ?? "", targetKind),
+    website: target.website ?? "",
+    country: normalizeCrmCountry(target.country ?? ""),
+    status: target.status ?? "new",
+    lastContactAt: localDateTimeValue(target.lastContactAt),
+    notes: target.notes ?? "",
+    is_favorite: Boolean(target.is_favorite),
+  };
+
+  if (targetKind === "professionals") {
+    const professional = target as PartnershipCrmProfessionalInput;
+    return {
+      ...base,
+      title: professional.title ?? "",
+      primaryAffiliation: professional.primaryAffiliation ?? "",
+      potentialPocketGenesEditorFit:
+        professional.potentialPocketGenesEditorFit ?? "",
+      emailRoute: professional.emailRoute ?? "",
+      linkedInRoute: professional.linkedInRoute ?? "",
+      researchBasis: professional.researchBasis ?? "",
+      email: professional.email ?? "",
+      linkedIn: professional.linkedIn ?? "",
+    };
+  }
+
+  const organization = target as PartnershipCrmOrganizationInput;
+  return {
+    ...base,
+    contactName: organization.contactName ?? "",
+    contactEmail: organization.contactEmail ?? "",
+    contactLinkedIn: organization.contactLinkedIn ?? "",
+  };
+}
+
+function duplicateIdForImportRow(
+  row: PartnershipCrmImportPreviewRow | null,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  if (!row) {
+    return undefined;
+  }
+
+  return targetKind === "professionals"
+    ? (row.duplicateProfessionalId ?? row.duplicateCandidates[0]?.id)
+    : (row.duplicateOrganizationId ?? row.duplicateCandidates[0]?.id);
+}
+
+function isMissingCompatibilityValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return true;
+  }
+
+  return typeof value === "string" && value.trim().length === 0;
+}
+
+function mergeDelimitedCompatibilityValues(left: string, right: string) {
+  const values = [...left.split(","), ...right.split(",")]
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return Array.from(new Set(values)).join(",");
+}
+
+function mergeCompatibilityValue(
+  key: keyof OrganizationFormState,
+  existing: OrganizationFormState[keyof OrganizationFormState],
+  incoming: OrganizationFormState[keyof OrganizationFormState],
+) {
+  if (isMissingCompatibilityValue(existing)) {
+    return incoming;
+  }
+  if (isMissingCompatibilityValue(incoming)) {
+    return existing;
+  }
+  if (existing === incoming) {
+    return existing;
+  }
+
+  if (key === "is_favorite") {
+    return Boolean(existing) || Boolean(incoming);
+  }
+
+  if (key === "category" || key === "country") {
+    return mergeDelimitedCompatibilityValues(
+      String(existing),
+      String(incoming),
+    );
+  }
+
+  if (key === "status") {
+    return existing === "new" ? incoming : existing;
+  }
+
+  if (key === "lastContactAt") {
+    const existingTime = Date.parse(String(existing));
+    const incomingTime = Date.parse(String(incoming));
+    if (Number.isNaN(existingTime)) {
+      return incoming;
+    }
+    if (Number.isNaN(incomingTime)) {
+      return existing;
+    }
+    return incomingTime > existingTime ? incoming : existing;
+  }
+
+  const existingText = String(existing).trim();
+  const incomingText = String(incoming).trim();
+  if (key === "notes" || key === "researchBasis") {
+    return `${existingText}\n${incomingText}`.trim();
+  }
+
+  return `${existingText} / ${incomingText}`.trim();
+}
+
+function compatibilityValueForChoice(
+  key: keyof OrganizationFormState,
+  choice: CrmCompatibilityChoice,
+  existing: OrganizationFormState,
+  incoming: OrganizationFormState,
+) {
+  if (choice === "incoming") {
+    return incoming[key];
+  }
+  if (choice === "merged") {
+    return mergeCompatibilityValue(key, existing[key], incoming[key]);
+  }
+  return existing[key];
+}
+
+function defaultCompatibilityChoices(
+  fields: readonly CrmCompatibilityField[],
+  existing: OrganizationFormState,
+  incoming: OrganizationFormState,
+) {
+  return Object.fromEntries(
+    fields.map((field) => [
+      field.key,
+      isMissingCompatibilityValue(existing[field.key]) &&
+      !isMissingCompatibilityValue(incoming[field.key])
+        ? "incoming"
+        : "existing",
+    ]),
+  ) as Partial<Record<keyof OrganizationFormState, CrmCompatibilityChoice>>;
+}
+
 function formatDateTime(
   value: string | null | undefined,
   language: AppLanguage,
@@ -1649,6 +1886,40 @@ function formatDate(value: string | null | undefined, language: AppLanguage) {
   return new Intl.DateTimeFormat(language === "es" ? "es-AR" : "en-US", {
     dateStyle: "medium",
   }).format(parsed);
+}
+
+function formatCompatibilityValue(
+  key: keyof OrganizationFormState,
+  value: OrganizationFormState[keyof OrganizationFormState],
+  language: AppLanguage,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const t = (text: string) => appText(language, text);
+  if (key === "is_favorite") {
+    return value ? t("Yes") : t("No");
+  }
+
+  if (typeof value !== "string" || !value.trim()) {
+    return "—";
+  }
+
+  if (key === "category") {
+    return formatCrmCategory(value, language, targetKind) || t("No category");
+  }
+
+  if (key === "country") {
+    return formatCrmCountry(value, language) || "—";
+  }
+
+  if (key === "status") {
+    return t(statusLabel(value as PartnershipCrmStatus));
+  }
+
+  if (key === "lastContactAt") {
+    return formatDate(value, language);
+  }
+
+  return value;
 }
 
 function statusBadgeVariant(status: PartnershipCrmStatus) {
@@ -1873,7 +2144,10 @@ function crmTemplateRecommendationRank(
     return 2;
   }
 
-  const targetCategories = normalizeCrmCategoryKeys(target.category, targetKind);
+  const targetCategories = normalizeCrmCategoryKeys(
+    target.category,
+    targetKind,
+  );
   const templateCategories = normalizeCrmCategoryKeys(
     template.category,
     targetKind,
@@ -1988,7 +2262,7 @@ function shouldIgnoreTemplatePreviewShortcut(
   container: HTMLElement,
 ) {
   const element =
-    target instanceof HTMLElement ? target : document.activeElement ?? null;
+    target instanceof HTMLElement ? target : (document.activeElement ?? null);
 
   if (!(element instanceof HTMLElement) || element === container) {
     return false;
@@ -2220,7 +2494,7 @@ function visualFilterBucketLabel(
 
 function shouldIgnoreCrmListKeyboardTarget(target: EventTarget | null) {
   const element =
-    target instanceof Element ? target : document.activeElement ?? null;
+    target instanceof Element ? target : (document.activeElement ?? null);
 
   if (!(element instanceof HTMLElement)) {
     return false;
@@ -2243,7 +2517,7 @@ function shouldIgnoreCrmOpenEmailKeyboardTarget(
   selectedTargetId: string,
 ) {
   const element =
-    target instanceof Element ? target : document.activeElement ?? null;
+    target instanceof Element ? target : (document.activeElement ?? null);
 
   if (!(element instanceof HTMLElement)) {
     return false;
@@ -2379,58 +2653,31 @@ function VisualFilterPieSection({
             className="mx-auto h-44 w-44 overflow-visible"
           >
             <circle cx="60" cy="60" r="52" fill="var(--muted)" />
-            {pieSegments.map(
-              ({ bucket, startAngle, endAngle, isSelected }) => {
-                const label = `${bucket.label}: ${bucket.percent}%`;
-                const segmentClassName = cn(
-                  "cursor-pointer outline-none transition-[filter,opacity] hover:brightness-105 focus-visible:drop-shadow-[0_0_0.35rem_var(--ring)]",
-                  hasSelection &&
-                    !isSelected &&
-                    "opacity-55 saturate-[0.72] dark:opacity-45",
-                );
-                const segmentStroke = isSelected
-                  ? "var(--foreground)"
-                  : "var(--background)";
-                const segmentStrokeWidth = isSelected ? 3 : 1.35;
-                const segmentStrokeProps = {
-                  stroke: segmentStroke,
-                  strokeWidth: segmentStrokeWidth,
-                  vectorEffect: "non-scaling-stroke" as const,
-                };
+            {pieSegments.map(({ bucket, startAngle, endAngle, isSelected }) => {
+              const label = `${bucket.label}: ${bucket.percent}%`;
+              const segmentClassName = cn(
+                "cursor-pointer outline-none transition-[filter,opacity] hover:brightness-105 focus-visible:drop-shadow-[0_0_0.35rem_var(--ring)]",
+                hasSelection &&
+                  !isSelected &&
+                  "opacity-55 saturate-[0.72] dark:opacity-45",
+              );
+              const segmentStroke = isSelected
+                ? "var(--foreground)"
+                : "var(--background)";
+              const segmentStrokeWidth = isSelected ? 3 : 1.35;
+              const segmentStrokeProps = {
+                stroke: segmentStroke,
+                strokeWidth: segmentStrokeWidth,
+                vectorEffect: "non-scaling-stroke" as const,
+              };
 
-                if (bucket.count === facet.total) {
-                  return (
-                    <circle
-                      key={bucket.value}
-                      cx="60"
-                      cy="60"
-                      r="52"
-                      fill={bucket.color}
-                      role="button"
-                      tabIndex={0}
-                      aria-pressed={isSelected}
-                      aria-label={`${t(
-                        "Select visual filter from pie",
-                      )}: ${title} - ${bucket.label}`}
-                      className={segmentClassName}
-                      onClick={() => selectBucket(bucket)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          selectBucket(bucket);
-                        }
-                      }}
-                      {...segmentStrokeProps}
-                    >
-                      <title>{label}</title>
-                    </circle>
-                  );
-                }
-
+              if (bucket.count === facet.total) {
                 return (
-                  <path
+                  <circle
                     key={bucket.value}
-                    d={pieSlicePath(60, 60, 52, startAngle, endAngle)}
+                    cx="60"
+                    cy="60"
+                    r="52"
                     fill={bucket.color}
                     role="button"
                     tabIndex={0}
@@ -2449,10 +2696,35 @@ function VisualFilterPieSection({
                     {...segmentStrokeProps}
                   >
                     <title>{label}</title>
-                  </path>
+                  </circle>
                 );
-              },
-            )}
+              }
+
+              return (
+                <path
+                  key={bucket.value}
+                  d={pieSlicePath(60, 60, 52, startAngle, endAngle)}
+                  fill={bucket.color}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  aria-label={`${t(
+                    "Select visual filter from pie",
+                  )}: ${title} - ${bucket.label}`}
+                  className={segmentClassName}
+                  onClick={() => selectBucket(bucket)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectBucket(bucket);
+                    }
+                  }}
+                  {...segmentStrokeProps}
+                >
+                  <title>{label}</title>
+                </path>
+              );
+            })}
             <circle
               cx="60"
               cy="60"
@@ -3326,9 +3598,7 @@ function crmVariablePillClassName(variable: CrmTemplateVariableDefinition) {
   );
 }
 
-function createCrmVariablePillElement(
-  variable: CrmTemplateVariableDefinition,
-) {
+function createCrmVariablePillElement(variable: CrmTemplateVariableDefinition) {
   const element = document.createElement("span");
   element.contentEditable = "false";
   element.dataset.crmVariable = variable.key;
@@ -3634,8 +3904,9 @@ function EmailComposerDialog({
 }) {
   const t = (text: string) => appText(language, text);
   const [email, setEmail] = useState<EmailState | null>(null);
-  const [templateToast, setTemplateToast] =
-    useState<ActionToastState | null>(null);
+  const [templateToast, setTemplateToast] = useState<ActionToastState | null>(
+    null,
+  );
   const emailTargetKeyRef = useRef<string | null>(null);
   const templateGroups = useMemo(
     () => crmTemplateGroupsForTarget(templates, organization, targetKind),
@@ -3670,11 +3941,11 @@ function EmailComposerDialog({
     setEmail((current) => {
       const hasUserDraft = Boolean(
         current &&
-          previousTargetKey === targetKey &&
-          (current.templateId ||
-            current.subject ||
-            current.text ||
-            current.to !== targetEmail),
+        previousTargetKey === targetKey &&
+        (current.templateId ||
+          current.subject ||
+          current.text ||
+          current.to !== targetEmail),
       );
 
       if (hasUserDraft) {
@@ -3698,7 +3969,8 @@ function EmailComposerDialog({
 
     const timeout = window.setTimeout(
       () => setTemplateToast(null),
-      templateToast.durationMs ?? (templateToast.tone === "error" ? 5000 : 2600),
+      templateToast.durationMs ??
+        (templateToast.tone === "error" ? 5000 : 2600),
     );
 
     return () => window.clearTimeout(timeout);
@@ -3737,9 +4009,9 @@ function EmailComposerDialog({
       : null;
   const canPreview = Boolean(
     email?.to.trim() &&
-      email.subject.trim() &&
-      email.text.trim() &&
-      missingVariables.length === 0,
+    email.subject.trim() &&
+    email.text.trim() &&
+    missingVariables.length === 0,
   );
   const hasTemplates = orderedTemplates.length > 0;
   const isPreviewStep = email?.step === "preview";
@@ -3750,23 +4022,21 @@ function EmailComposerDialog({
     selectedTemplateIndex >= 0 ? orderedTemplates[selectedTemplateIndex] : null;
   const canChangeTemplate = Boolean(
     email &&
-      email.step === "compose" &&
-      hasTemplates &&
-      !templatesLoading &&
-      organization,
+    email.step === "compose" &&
+    hasTemplates &&
+    !templatesLoading &&
+    organization,
   );
   const canOverwriteTemplate = Boolean(
     email &&
-      selectedTemplate &&
-      organization &&
-      email.step === "compose" &&
-      email.text.trim() &&
-      !templateActionPending,
+    selectedTemplate &&
+    organization &&
+    email.step === "compose" &&
+    email.text.trim() &&
+    !templateActionPending,
   );
   const canToggleTemplateFavorite = Boolean(
-    selectedTemplate &&
-      email?.step === "compose" &&
-      !templateActionPending,
+    selectedTemplate && email?.step === "compose" && !templateActionPending,
   );
   const canDeleteTemplate = Boolean(
     selectedTemplate && email?.step === "compose" && !templateActionPending,
@@ -4715,6 +4985,244 @@ function resultLabel(
   return t("Row invalid");
 }
 
+function DuplicateCompatibilityDialog({
+  state,
+  existingTarget,
+  loading,
+  error,
+  pending,
+  onClose,
+  onSave,
+  language,
+}: {
+  state: CrmDuplicateCompatibilityDialogState;
+  existingTarget: PartnershipCrmTargetRecord | null;
+  loading: boolean;
+  error: unknown;
+  pending: boolean;
+  onClose: () => void;
+  onSave: (payload: CrmTargetInput) => void;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const targetKind = state?.targetKind ?? "organizations";
+  const fields = useMemo(
+    () => compatibilityFieldsForTarget(targetKind),
+    [targetKind],
+  );
+  const incomingTarget = state
+    ? importRowTarget(state.row, state.targetKind)
+    : undefined;
+  const existingForm = useMemo(
+    () => toFormState(existingTarget ?? undefined, targetKind),
+    [existingTarget, targetKind],
+  );
+  const incomingForm = useMemo(
+    () => inputToFormState(incomingTarget, targetKind),
+    [incomingTarget, targetKind],
+  );
+  const [choices, setChoices] = useState<
+    Partial<Record<keyof OrganizationFormState, CrmCompatibilityChoice>>
+  >({});
+
+  useEffect(() => {
+    setChoices(defaultCompatibilityChoices(fields, existingForm, incomingForm));
+  }, [existingForm, fields, incomingForm, state?.duplicateId]);
+
+  const resolvedForm = useMemo(() => {
+    const next = { ...existingForm };
+    for (const field of fields) {
+      next[field.key] = compatibilityValueForChoice(
+        field.key,
+        choices[field.key] ?? "existing",
+        existingForm,
+        incomingForm,
+      ) as never;
+    }
+    return next;
+  }, [choices, existingForm, fields, incomingForm]);
+  const resolvedPayload = useMemo(
+    () => targetPayload(resolvedForm, targetKind),
+    [resolvedForm, targetKind],
+  );
+  const canSave = Boolean(state && existingTarget && resolvedForm.name.trim());
+
+  function choiceLabel(choice: CrmCompatibilityChoice) {
+    if (choice === "incoming") {
+      return t("CSV");
+    }
+    if (choice === "merged") {
+      return t("Merged");
+    }
+    return t("CRM");
+  }
+
+  function setChoice(
+    key: keyof OrganizationFormState,
+    choice: CrmCompatibilityChoice,
+  ) {
+    setChoices((current) => ({ ...current, [key]: choice }));
+  }
+
+  return (
+    <Dialog open={Boolean(state)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="crm-control-surface max-h-[88vh] overflow-y-auto sm:max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>{t("Compatibilizar")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              "Compare the existing CRM record with the CSV row and choose the resolved value for each field.",
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="grid gap-3">
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+          </div>
+        ) : error ? (
+          <ErrorBanner>{t("Unable to load duplicate CRM record.")}</ErrorBanner>
+        ) : !existingTarget ? (
+          <ErrorBanner>{t("Duplicate target was not found.")}</ErrorBanner>
+        ) : (
+          <div className="grid gap-3">
+            <div className="rounded-xl border border-border/80 bg-muted/25 p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    {t("Duplicate resolver")}
+                  </p>
+                  <h3 className="mt-1 font-heading text-lg font-semibold">
+                    {existingTarget.name}
+                  </h3>
+                </div>
+                <Badge variant="warning">{t("Possible duplicate")}</Badge>
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              {fields.map((field) => {
+                const existingValue = existingForm[field.key];
+                const incomingValue = incomingForm[field.key];
+                const mergedValue = mergeCompatibilityValue(
+                  field.key,
+                  existingValue,
+                  incomingValue,
+                );
+                const resolvedValue = resolvedForm[field.key];
+                const choice = choices[field.key] ?? "existing";
+                const changed = existingValue !== incomingValue;
+
+                return (
+                  <section
+                    key={field.key}
+                    className={cn(
+                      "rounded-xl border p-3",
+                      changed
+                        ? "border-blue-300 bg-blue-50/55 dark:border-blue-300/30 dark:bg-blue-500/10"
+                        : "border-border/80 bg-background/70",
+                    )}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h4 className="font-semibold">{t(field.label)}</h4>
+                      <Badge variant={changed ? "brand" : "outline"}>
+                        {choiceLabel(choice)}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 grid gap-2 lg:grid-cols-3">
+                      {[
+                        {
+                          label: t("CRM existing"),
+                          value: existingValue,
+                          choice: "existing" as const,
+                        },
+                        {
+                          label: t("CSV new"),
+                          value: incomingValue,
+                          choice: "incoming" as const,
+                        },
+                        {
+                          label: t("Merge both"),
+                          value: mergedValue,
+                          choice: "merged" as const,
+                        },
+                      ].map((option) => (
+                        <button
+                          key={option.choice}
+                          type="button"
+                          onClick={() => setChoice(field.key, option.choice)}
+                          className={cn(
+                            "min-h-24 rounded-lg border px-3 py-2 text-left transition",
+                            choice === option.choice
+                              ? "border-blue-500 bg-blue-100 text-blue-950 shadow-sm dark:border-blue-300 dark:bg-blue-400/18 dark:text-blue-50"
+                              : "border-border/80 bg-background text-foreground hover:border-blue-300 hover:bg-blue-50/60 dark:hover:bg-blue-500/10",
+                          )}
+                        >
+                          <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                            {option.label}
+                          </span>
+                          <span
+                            className={cn(
+                              "mt-2 block break-words text-sm font-medium leading-5",
+                              field.multiline && "whitespace-pre-wrap",
+                            )}
+                          >
+                            {formatCompatibilityValue(
+                              field.key,
+                              option.value,
+                              language,
+                              targetKind,
+                            )}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-3 rounded-lg border border-border/70 bg-background/85 px-3 py-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                        {t("Resolved value")}
+                      </p>
+                      <p
+                        className={cn(
+                          "mt-1 break-words text-sm font-semibold",
+                          field.multiline && "whitespace-pre-wrap",
+                        )}
+                      >
+                        {formatCompatibilityValue(
+                          field.key,
+                          resolvedValue,
+                          language,
+                          targetKind,
+                        )}
+                      </p>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            {t("Cancel")}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => onSave(resolvedPayload)}
+            disabled={!canSave || pending || loading}
+            className={EMAIL_CTA_CLASS}
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {pending ? t("Saving...") : t("Save compatibility")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ImportRowReviewCard({
   session,
   row,
@@ -4724,6 +5232,8 @@ function ImportRowReviewCard({
   onAdd,
   onSkip,
   onNext,
+  onCompatibilize,
+  onFillMissing,
   onImportRemainingInSequence,
   onPauseAutomaticImport,
   language,
@@ -4736,6 +5246,8 @@ function ImportRowReviewCard({
   onAdd: () => void;
   onSkip: () => void;
   onNext: () => void;
+  onCompatibilize: () => void;
+  onFillMissing: () => void;
   onImportRemainingInSequence: () => void;
   onPauseAutomaticImport: () => void;
   language: AppLanguage;
@@ -4906,6 +5418,32 @@ function ImportRowReviewCard({
                   "Add imports this row anyway. Skip leaves the existing CRM untouched.",
                 )}
               </p>
+              {!processed ? (
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onCompatibilize}
+                    disabled={!canAdd}
+                    className="border-amber-500/55 bg-background/70 text-amber-950 hover:bg-amber-100 dark:border-amber-300/35 dark:text-amber-50 dark:hover:bg-amber-400/15"
+                  >
+                    <ListChecks className="h-3.5 w-3.5" />
+                    {t("Compatibilizar")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onFillMissing}
+                    disabled={!canAdd}
+                    className="border-emerald-500/55 bg-background/70 text-emerald-800 hover:bg-emerald-50 dark:border-emerald-300/35 dark:text-emerald-50 dark:hover:bg-emerald-400/15"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    {t("Compatibilizar sumando campos faltantes")}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -5030,6 +5568,8 @@ function ImportDialog({
   onInteractiveAdd,
   onInteractiveSkip,
   onInteractiveNext,
+  onInteractiveCompatibilize,
+  onInteractiveFillMissing,
   onImportRemainingInSequence,
   onPauseAutomaticImport,
   onImportAll,
@@ -5051,6 +5591,8 @@ function ImportDialog({
   onInteractiveAdd: () => void;
   onInteractiveSkip: () => void;
   onInteractiveNext: () => void;
+  onInteractiveCompatibilize: () => void;
+  onInteractiveFillMissing: () => void;
   onImportRemainingInSequence: () => void;
   onPauseAutomaticImport: () => void;
   onImportAll: () => void;
@@ -5215,6 +5757,8 @@ function ImportDialog({
               onAdd={onInteractiveAdd}
               onSkip={onInteractiveSkip}
               onNext={onInteractiveNext}
+              onCompatibilize={onInteractiveCompatibilize}
+              onFillMissing={onInteractiveFillMissing}
               onImportRemainingInSequence={onImportRemainingInSequence}
               onPauseAutomaticImport={onPauseAutomaticImport}
               language={language}
@@ -5354,9 +5898,7 @@ export function PartnershipCrmWorkbench() {
   const router = useRouter();
   const [targetKind, setTargetKind] =
     useState<PartnershipCrmTargetKind>("organizations");
-  const [filters, setFilters] = useState<ListFilters>(() =>
-    emptyListFilters(),
-  );
+  const [filters, setFilters] = useState<ListFilters>(() => emptyListFilters());
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedTargetIds, setSelectedTargetIds] = useState<Set<string>>(
@@ -5388,6 +5930,8 @@ export function PartnershipCrmWorkbench() {
   const [importSession, setImportSession] = useState<CrmImportSession | null>(
     null,
   );
+  const [compatibilityDialog, setCompatibilityDialog] =
+    useState<CrmDuplicateCompatibilityDialogState>(null);
   const [interactiveAutoImport, setInteractiveAutoImport] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [activityLogOpen, setActivityLogOpen] = useState(false);
@@ -5436,9 +5980,7 @@ export function PartnershipCrmWorkbench() {
     const templatesById = new Map<string, PartnershipCrmTemplateRecord>();
 
     for (const page of templatesQuery.data?.pages ?? []) {
-      const pageTemplates = Array.isArray(page.templates)
-        ? page.templates
-        : [];
+      const pageTemplates = Array.isArray(page.templates) ? page.templates : [];
       for (const template of pageTemplates) {
         if (!templatesById.has(template.id)) {
           templatesById.set(template.id, template);
@@ -5585,47 +6127,76 @@ export function PartnershipCrmWorkbench() {
       sdkFetch<PartnershipCrmVisualFilters>(buildVisualFiltersPath(targetKind)),
     enabled: visualFiltersOpen,
   });
+  const compatibilityTargetQuery = useQuery({
+    queryKey: [
+      ORGANIZATIONS_QUERY_KEY,
+      "duplicate-compatibility",
+      compatibilityDialog?.targetKind,
+      compatibilityDialog?.duplicateId,
+    ],
+    queryFn: async () => {
+      if (!compatibilityDialog) {
+        throw new Error("Missing duplicate resolver state.");
+      }
+
+      return sdkFetch<{
+        organization?: PartnershipCrmOrganizationRecord;
+        professional?: PartnershipCrmProfessionalRecord;
+      }>(
+        `${crmTargetBasePath(
+          compatibilityDialog.targetKind,
+        )}/${encodeURIComponent(compatibilityDialog.duplicateId)}`,
+      );
+    },
+    enabled: Boolean(compatibilityDialog),
+  });
+  const compatibilityExistingTarget =
+    compatibilityTargetQuery.data?.professional ??
+    compatibilityTargetQuery.data?.organization ??
+    null;
 
   function replaceTemplateInCachedPages(
     updatedTemplate: PartnershipCrmTemplateRecord,
   ) {
-    queryClient.setQueryData<
-      InfiniteData<PartnershipCrmTemplatesPage, string>
-    >([TEMPLATES_QUERY_KEY, "active"], (current) => {
-      if (!current) {
-        return current;
-      }
+    queryClient.setQueryData<InfiniteData<PartnershipCrmTemplatesPage, string>>(
+      [TEMPLATES_QUERY_KEY, "active"],
+      (current) => {
+        if (!current) {
+          return current;
+        }
 
-      return {
-        ...current,
-        pages: current.pages.map((page) => ({
-          ...page,
-          templates: page.templates.map((template) =>
-            template.id === updatedTemplate.id ? updatedTemplate : template,
-          ),
-        })),
-      };
-    });
+        return {
+          ...current,
+          pages: current.pages.map((page) => ({
+            ...page,
+            templates: page.templates.map((template) =>
+              template.id === updatedTemplate.id ? updatedTemplate : template,
+            ),
+          })),
+        };
+      },
+    );
   }
 
   function removeTemplateFromCachedPages(templateId: string) {
-    queryClient.setQueryData<
-      InfiniteData<PartnershipCrmTemplatesPage, string>
-    >([TEMPLATES_QUERY_KEY, "active"], (current) => {
-      if (!current) {
-        return current;
-      }
+    queryClient.setQueryData<InfiniteData<PartnershipCrmTemplatesPage, string>>(
+      [TEMPLATES_QUERY_KEY, "active"],
+      (current) => {
+        if (!current) {
+          return current;
+        }
 
-      return {
-        ...current,
-        pages: current.pages.map((page) => ({
-          ...page,
-          templates: page.templates.filter(
-            (template) => template.id !== templateId,
-          ),
-        })),
-      };
-    });
+        return {
+          ...current,
+          pages: current.pages.map((page) => ({
+            ...page,
+            templates: page.templates.filter(
+              (template) => template.id !== templateId,
+            ),
+          })),
+        };
+      },
+    );
   }
 
   useEffect(() => {
@@ -6328,6 +6899,10 @@ export function PartnershipCrmWorkbench() {
     session: CrmImportSession,
     rowIndex: number,
     decision: "add" | "skip",
+    options: {
+      duplicateAction?: CrmDuplicateAction;
+      targetOverride?: CrmTargetInput;
+    } = {},
   ) {
     const previewed =
       rowIndex < session.previewedRows
@@ -6389,9 +6964,15 @@ export function PartnershipCrmWorkbench() {
     });
 
     const importEndpoint = importEndpointForTarget(importing.targetKind);
+    const effectiveDuplicateAction =
+      options.duplicateAction &&
+      duplicateIdForImportRow(row, importing.targetKind)
+        ? options.duplicateAction
+        : "import";
     const requestPayload = importRequestPayloadForRow(
       row,
       importing.targetKind,
+      { ...options, duplicateAction: effectiveDuplicateAction },
     );
     const result = await sdkFetch<PartnershipCrmImportResult>(importEndpoint, {
       method: "POST",
@@ -6621,7 +7202,12 @@ export function PartnershipCrmWorkbench() {
           updatedAt: new Date().toISOString(),
         });
 
-        const imported = await importSinglePreviewRow(working, rowIndex, "add");
+        const imported = await importSinglePreviewRow(
+          working,
+          rowIndex,
+          "add",
+          { duplicateAction: "fill_missing" },
+        );
         if (!imported) {
           setInteractiveAutoImportEnabled(false);
           return;
@@ -6648,6 +7234,7 @@ export function PartnershipCrmWorkbench() {
         requestPayload: importRequestPayloadForSessionRow(
           working,
           failedImportIndex,
+          { duplicateAction: "fill_missing" },
         ),
       });
       saveImportSession({
@@ -6726,6 +7313,167 @@ export function PartnershipCrmWorkbench() {
         id: Date.now(),
         tone: "error",
         message: t("CRM import paused."),
+        details: importErrorDescription(
+          { ...importSession, lastError: errorMessage(error), lastErrorDetail },
+          language,
+        ),
+        durationMs: 18000,
+      });
+    }
+  }
+
+  function openInteractiveDuplicateCompatibility() {
+    if (!importSession || importSession.status === "completed") {
+      return;
+    }
+
+    const rowIndex = importSession.activeRowIndex;
+    const row = importSession.previewRows[rowIndex] ?? null;
+    const duplicateId = duplicateIdForImportRow(row, importSession.targetKind);
+    if (!row || !duplicateId) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("No duplicate target found for this row."),
+      });
+      return;
+    }
+
+    setCompatibilityDialog({
+      targetKind: importSession.targetKind,
+      rowIndex,
+      row,
+      duplicateId,
+    });
+  }
+
+  async function fillMissingInteractiveDuplicate() {
+    if (!importSession || importSession.status === "completed") {
+      return;
+    }
+
+    try {
+      const rowIndex = importSession.activeRowIndex;
+      const updated = await importSinglePreviewRow(
+        {
+          ...importSession,
+          mode: "interactive",
+          stage: "import",
+        },
+        rowIndex,
+        "add",
+        { duplicateAction: "fill_missing" },
+      );
+      if (!updated) {
+        return;
+      }
+      if (updated.nextImportIndex >= updated.totalRows) {
+        completeCrmImportSession(updated);
+        return;
+      }
+      await advanceInteractiveImportSession(updated);
+    } catch (error) {
+      setInteractiveAutoImportEnabled(false);
+      const rowIndex = importSession.activeRowIndex;
+      const lastErrorDetail = buildCrmImportErrorDetail({
+        error,
+        session: importSession,
+        stage: "import",
+        rowIndex,
+        endpoint: importEndpointForTarget(importSession.targetKind),
+        requestPayload: importRequestPayloadForSessionRow(
+          importSession,
+          rowIndex,
+          { duplicateAction: "fill_missing" },
+        ),
+      });
+      saveImportSession({
+        ...importSession,
+        status: "paused",
+        stage: "import",
+        mode: "interactive",
+        lastError: errorMessage(error),
+        lastErrorDetail,
+        updatedAt: new Date().toISOString(),
+      });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("CRM import paused."),
+        details: importErrorDescription(
+          { ...importSession, lastError: errorMessage(error), lastErrorDetail },
+          language,
+        ),
+        durationMs: 18000,
+      });
+    }
+  }
+
+  async function saveCompatibilityResolution(payload: CrmTargetInput) {
+    if (
+      !importSession ||
+      !compatibilityDialog ||
+      importSession.status === "completed"
+    ) {
+      return;
+    }
+
+    try {
+      const rowIndex = compatibilityDialog.rowIndex;
+      const updated = await importSinglePreviewRow(
+        {
+          ...importSession,
+          mode: "interactive",
+          stage: "import",
+        },
+        rowIndex,
+        "add",
+        { duplicateAction: "update", targetOverride: payload },
+      );
+      if (!updated) {
+        return;
+      }
+
+      setCompatibilityDialog(null);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("Merged duplicate row saved."),
+      });
+      if (updated.nextImportIndex >= updated.totalRows) {
+        completeCrmImportSession(updated);
+        return;
+      }
+      await advanceInteractiveImportSession(updated);
+    } catch (error) {
+      setInteractiveAutoImportEnabled(false);
+      const rowIndex = compatibilityDialog.rowIndex;
+      const lastErrorDetail = buildCrmImportErrorDetail({
+        error,
+        session: importSession,
+        stage: "import",
+        rowIndex,
+        endpoint: importEndpointForTarget(importSession.targetKind),
+        requestPayload: importRequestPayloadForSessionRow(
+          importSession,
+          rowIndex,
+          { duplicateAction: "update", targetOverride: payload },
+        ),
+      });
+      saveImportSession({
+        ...importSession,
+        status: "paused",
+        stage: "import",
+        mode: "interactive",
+        activeRowIndex: rowIndex,
+        lastError: errorMessage(error),
+        lastErrorDetail,
+        updatedAt: new Date().toISOString(),
+      });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to compatibilize duplicate."),
         details: importErrorDescription(
           { ...importSession, lastError: errorMessage(error), lastErrorDetail },
           language,
@@ -7917,6 +8665,8 @@ export function PartnershipCrmWorkbench() {
         onInteractiveNext={() =>
           void advanceInteractiveImportSession(importSession)
         }
+        onInteractiveCompatibilize={openInteractiveDuplicateCompatibility}
+        onInteractiveFillMissing={() => void fillMissingInteractiveDuplicate()}
         onImportRemainingInSequence={() =>
           void runInteractiveRemainingInSequence(importSession)
         }
@@ -7924,6 +8674,17 @@ export function PartnershipCrmWorkbench() {
         onImportAll={() => void runCrmImportSession(importSession)}
         onClearSession={discardImportCheckpoint}
         onResetSession={resetImportSession}
+        language={language}
+      />
+
+      <DuplicateCompatibilityDialog
+        state={compatibilityDialog}
+        existingTarget={compatibilityExistingTarget}
+        loading={compatibilityTargetQuery.isFetching}
+        error={compatibilityTargetQuery.error}
+        pending={importPending}
+        onClose={() => setCompatibilityDialog(null)}
+        onSave={(payload) => void saveCompatibilityResolution(payload)}
         language={language}
       />
 

@@ -345,9 +345,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const replySignal = within(repliedRow as HTMLElement).getByRole("img", {
       name: "Reply received",
     });
-    expect(replySignal.closest("[data-slot='table-cell']")?.className).toContain(
-      "bg-emerald-50",
-    );
+    expect(
+      replySignal.closest("[data-slot='table-cell']")?.className,
+    ).toContain("bg-emerald-50");
   });
 
   it("deletes multiple selected organizations from the list", async () => {
@@ -1447,8 +1447,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(screen.getByText("LinkedIn route")).toBeTruthy();
     expect(screen.getByText("Research basis")).toBeTruthy();
     expect(screen.getByText("Variable fields")).toBeTruthy();
-    expect(screen.getByText("{{potential_pocket_genes_editor_fit}}"))
-      .toBeTruthy();
+    expect(
+      screen.getByText("{{potential_pocket_genes_editor_fit}}"),
+    ).toBeTruthy();
     expect(screen.getAllByText("ada@genomelab.example").length).toBeGreaterThan(
       0,
     );
@@ -1760,12 +1761,11 @@ describe("PartnershipCrmWorkbench list pager", () => {
       expect(within(dialog).getByText("Genomics Laboratory")).toBeTruthy();
       expect(within(dialog).getByText("No country")).toBeTruthy();
     });
-    const statusSection = within(dialog)
-      .getByText("Status")
-      .closest("section");
+    const statusSection = within(dialog).getByText("Status").closest("section");
     expect(statusSection).toBeTruthy();
-    expect(within(statusSection as HTMLElement).queryByText("CRM No Response"))
-      .toBeNull();
+    expect(
+      within(statusSection as HTMLElement).queryByText("CRM No Response"),
+    ).toBeNull();
     const statusPieSegments = within(statusSection as HTMLElement).getAllByRole(
       "button",
       {
@@ -1826,11 +1826,12 @@ describe("PartnershipCrmWorkbench list pager", () => {
       }),
     ).toBeNull();
 
-    const selectedStatusBlock = within(
-      statusSection as HTMLElement,
-    ).getByRole("group", {
-      name: "Selected segment: Status",
-    });
+    const selectedStatusBlock = within(statusSection as HTMLElement).getByRole(
+      "group",
+      {
+        name: "Selected segment: Status",
+      },
+    );
     await user.click(
       within(statusSection as HTMLElement).getByRole("button", {
         name: "See more",
@@ -1839,14 +1840,17 @@ describe("PartnershipCrmWorkbench list pager", () => {
     const noResponseOverflowItem = await screen.findByRole("menuitem", {
       name: "Select visual filter from legend: Status - CRM No Response",
     });
-    expect(within(noResponseOverflowItem).getByText("1 items").className)
-      .toContain("w-24");
+    expect(
+      within(noResponseOverflowItem).getByText("1 items").className,
+    ).toContain("w-24");
     expect(within(noResponseOverflowItem).getByText("6%").className).toContain(
       "w-14",
     );
     expect(within(noResponseOverflowItem).queryByText("1 · 6%")).toBeNull();
     await user.click(noResponseOverflowItem);
-    expect(within(selectedStatusBlock).getByText("CRM No Response")).toBeTruthy();
+    expect(
+      within(selectedStatusBlock).getByText("CRM No Response"),
+    ).toBeTruthy();
     expect(within(selectedStatusBlock).getByText("1 items")).toBeTruthy();
     expect(within(selectedStatusBlock).getByText("6%")).toBeTruthy();
     expect(within(selectedStatusBlock).queryByText("1 · 6%")).toBeNull();
@@ -1904,7 +1908,9 @@ describe("PartnershipCrmWorkbench list pager", () => {
       within(selectedCategoryBlock).getByText("Prenatal Genetics Laboratory"),
     ).toBeTruthy();
 
-    const countrySection = within(dialog).getByText("Country").closest("section");
+    const countrySection = within(dialog)
+      .getByText("Country")
+      .closest("section");
     expect(countrySection).toBeTruthy();
     expect(
       within(countrySection as HTMLElement)
@@ -1947,9 +1953,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
         .getAttribute("stroke"),
     ).toBe("var(--foreground)");
     expect(statusPieSegments[0].getAttribute("class")).toContain("opacity-55");
-    expect(
-      screen.getByRole("dialog", { name: "Visual filters" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Visual filters" })).toBeTruthy();
     expect(listPaths).not.toContain(
       "/admin/partnership-crm/organizations?limit=50&status=contacted",
     );
@@ -2104,8 +2108,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
       expect(
         listPaths.some(
           (path) =>
-            path.includes("query=Genome") &&
-            path.includes("status=contacted"),
+            path.includes("query=Genome") && path.includes("status=contacted"),
         ),
       ).toBe(true);
     });
@@ -2122,15 +2125,14 @@ describe("PartnershipCrmWorkbench list pager", () => {
     });
     expect(visualFilterPaths.some((path) => path.includes("?"))).toBe(false);
 
-    const statusSection = within(dialog)
-      .getByText("Status")
-      .closest("section");
+    const statusSection = within(dialog).getByText("Status").closest("section");
     expect(statusSection).toBeTruthy();
-    const selectedStatusBlock = within(
-      statusSection as HTMLElement,
-    ).getByRole("group", {
-      name: "Selected segment: Status",
-    });
+    const selectedStatusBlock = within(statusSection as HTMLElement).getByRole(
+      "group",
+      {
+        name: "Selected segment: Status",
+      },
+    );
     await waitFor(() => {
       expect(
         within(selectedStatusBlock).getByText("CRM Contacted"),
@@ -2151,8 +2153,9 @@ describe("PartnershipCrmWorkbench list pager", () => {
     );
 
     await waitFor(() => {
-      expect(within(selectedStatusBlock).getByText("No segment selected"))
-        .toBeTruthy();
+      expect(
+        within(selectedStatusBlock).getByText("No segment selected"),
+      ).toBeTruthy();
     });
     expect(
       (
@@ -2447,6 +2450,311 @@ describe("PartnershipCrmWorkbench import flow", () => {
     });
   });
 
+  it("quick compatibilizes a duplicate by filling only missing fields", async () => {
+    const user = userEvent.setup();
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath === "/admin/partnership-crm/import-preview") {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{
+            rowId: string;
+            name?: string;
+            category?: string;
+            website?: string;
+            country?: string;
+            contactName?: string;
+            contactEmail?: string;
+            notes?: string;
+          }>;
+        };
+        return {
+          rows: body.organizations.map((row) => ({
+            rowId: row.rowId,
+            organization: {
+              name: row.name ?? "",
+              category: row.category ?? "",
+              website: row.website ?? "",
+              country: row.country ?? "",
+              status: "new",
+              contactName: row.contactName ?? "",
+              contactEmail: row.contactEmail ?? "",
+              contactLinkedIn: "",
+              lastContactAt: null,
+              notes: row.notes ?? "",
+            },
+            valid: true,
+            errors: [],
+            missingEmail: false,
+            duplicateCandidates: [
+              {
+                id: "org-existing",
+                name: "Genome Lab 1",
+                website: "https://old.example.org",
+                websiteDomain: "old.example.org",
+                contactEmail: "old@example.org",
+                status: "contacted",
+              },
+            ],
+            duplicateOrganizationId: "org-existing",
+          })),
+          summary: {
+            total: body.organizations.length,
+            valid: body.organizations.length,
+            invalid: 0,
+            missingEmail: 0,
+            duplicates: body.organizations.length,
+          },
+        };
+      }
+
+      if (stringPath === "/admin/partnership-crm/import") {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{ rowId: string }>;
+        };
+        return {
+          results: body.organizations.map((row) => ({
+            rowId: row.rowId,
+            action: "updated",
+            organizationId: "org-existing",
+          })),
+          summary: {
+            total: body.organizations.length,
+            created: 0,
+            updated: body.organizations.length,
+            skipped: 0,
+            invalid: 0,
+          },
+        };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      return { organizations: [], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = crmCsv(1);
+    const file = new File([csv], "duplicate-crm-import.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+    await waitFor(() => {
+      expect(within(dialog).getByText("CSV loaded")).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Start interactive download",
+      }),
+    );
+    await waitFor(() => {
+      expect(within(dialog).getByText("Possible duplicate")).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Compatibilizar sumando campos faltantes",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("CRM import finished")).toBeTruthy();
+    });
+    expect(crmImportCalls()).toHaveLength(1);
+    expect(
+      JSON.parse(String(crmImportCalls()[0]?.[1]?.body)).organizations,
+    ).toEqual([
+      expect.objectContaining({
+        rowId: "row-1",
+        duplicateAction: "fill_missing",
+        duplicateOrganizationId: "org-existing",
+      }),
+    ]);
+  });
+
+  it("opens a duplicate compatibility resolver and saves the selected merged payload", async () => {
+    const user = userEvent.setup();
+    const existingOrganization: PartnershipCrmOrganizationRecord = {
+      ...organization,
+      id: "org-existing",
+      name: "Genome Lab 1",
+      category: "org_genetic_testing_laboratories",
+      website: "",
+      websiteDomain: "",
+      country: "AR",
+      status: "contacted",
+      contactName: "",
+      contactEmail: "old@example.org",
+      contactLinkedIn: "",
+      lastContactAt: null,
+      notes: "Existing note",
+      normalizedName: "genome lab 1",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath === "/admin/partnership-crm/import-preview") {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{
+            rowId: string;
+            name?: string;
+            category?: string;
+            website?: string;
+            country?: string;
+            contactName?: string;
+            contactEmail?: string;
+            notes?: string;
+          }>;
+        };
+        return {
+          rows: body.organizations.map((row) => ({
+            rowId: row.rowId,
+            organization: {
+              name: row.name ?? "",
+              category: row.category ?? "",
+              website: "https://new.example.org",
+              country: row.country ?? "",
+              status: "new",
+              contactName: row.contactName ?? "",
+              contactEmail: row.contactEmail ?? "",
+              contactLinkedIn: "",
+              lastContactAt: null,
+              notes: row.notes ?? "",
+            },
+            valid: true,
+            errors: [],
+            missingEmail: false,
+            duplicateCandidates: [
+              {
+                id: "org-existing",
+                name: "Genome Lab 1",
+                website: "",
+                websiteDomain: "",
+                contactEmail: "old@example.org",
+                status: "contacted",
+              },
+            ],
+            duplicateOrganizationId: "org-existing",
+          })),
+          summary: {
+            total: body.organizations.length,
+            valid: body.organizations.length,
+            invalid: 0,
+            missingEmail: 0,
+            duplicates: body.organizations.length,
+          },
+        };
+      }
+
+      if (stringPath === "/admin/partnership-crm/organizations/org-existing") {
+        return { organization: existingOrganization };
+      }
+
+      if (stringPath === "/admin/partnership-crm/import") {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{ rowId: string }>;
+        };
+        return {
+          results: body.organizations.map((row) => ({
+            rowId: row.rowId,
+            action: "updated",
+            organizationId: "org-existing",
+          })),
+          summary: {
+            total: body.organizations.length,
+            created: 0,
+            updated: body.organizations.length,
+            skipped: 0,
+            invalid: 0,
+          },
+        };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      return { organizations: [], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: "Import CSV" }));
+    const importDialog = await screen.findByRole("dialog");
+    const csv = crmCsv(1);
+    const file = new File([csv], "manual-duplicate-crm-import.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(importDialog).getByLabelText("CSV file"), file);
+    await waitFor(() => {
+      expect(within(importDialog).getByText("CSV loaded")).toBeTruthy();
+    });
+
+    await user.click(
+      within(importDialog).getByRole("button", {
+        name: "Start interactive download",
+      }),
+    );
+    await waitFor(() => {
+      expect(within(importDialog).getByText("Possible duplicate")).toBeTruthy();
+    });
+
+    await user.click(
+      within(importDialog).getByRole("button", { name: "Compatibilizar" }),
+    );
+    const resolver = await screen.findByRole("dialog", {
+      name: "Compatibilizar",
+    });
+    expect(
+      within(resolver).getAllByText("CRM existing").length,
+    ).toBeGreaterThan(0);
+    expect(within(resolver).getAllByText("CSV new").length).toBeGreaterThan(0);
+    expect(within(resolver).getAllByText("Merge both").length).toBeGreaterThan(
+      0,
+    );
+
+    await user.click(
+      within(resolver).getByRole("button", { name: "Save compatibility" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        within(importDialog).getByText("CRM import finished"),
+      ).toBeTruthy();
+    });
+    expect(crmImportCalls()).toHaveLength(1);
+    const importedRow = JSON.parse(String(crmImportCalls()[0]?.[1]?.body))
+      .organizations[0];
+    expect(importedRow).toEqual(
+      expect.objectContaining({
+        rowId: "row-1",
+        duplicateAction: "update",
+        duplicateOrganizationId: "org-existing",
+        website: "https://new.example.org",
+        contactEmail: "old@example.org",
+        notes: "Existing note",
+      }),
+    );
+  });
+
   it("requires discarding the checkpoint before choosing a new CRM target or CSV file", async () => {
     const user = userEvent.setup();
     renderWorkbench();
@@ -2657,6 +2965,153 @@ describe("PartnershipCrmWorkbench import flow", () => {
         importSummary: expect.objectContaining({ created: 3 }),
       }),
     );
+  });
+
+  it("uses fill-missing duplicate resolution by default when importing remaining rows in sequence", async () => {
+    const user = userEvent.setup();
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath === "/admin/partnership-crm/import-preview") {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{
+            rowId: string;
+            name?: string;
+            category?: string;
+            website?: string;
+            country?: string;
+            contactName?: string;
+            contactEmail?: string;
+            notes?: string;
+          }>;
+        };
+        return {
+          rows: body.organizations.map((row) => {
+            const isDuplicate = row.rowId === "row-1";
+            return {
+              rowId: row.rowId,
+              organization: {
+                name: row.name ?? "",
+                category: row.category ?? "",
+                website: row.website ?? "",
+                country: row.country ?? "",
+                status: "new",
+                contactName: row.contactName ?? "",
+                contactEmail: row.contactEmail ?? "",
+                contactLinkedIn: "",
+                lastContactAt: null,
+                notes: row.notes ?? "",
+              },
+              valid: true,
+              errors: [],
+              missingEmail: false,
+              duplicateCandidates: isDuplicate
+                ? [
+                    {
+                      id: "org-existing",
+                      name: "Genome Lab 1",
+                      website: "https://old.example.org",
+                      websiteDomain: "old.example.org",
+                      contactEmail: "old@example.org",
+                      status: "contacted",
+                    },
+                  ]
+                : [],
+              duplicateOrganizationId: isDuplicate ? "org-existing" : undefined,
+            };
+          }),
+          summary: {
+            total: body.organizations.length,
+            valid: body.organizations.length,
+            invalid: 0,
+            missingEmail: 0,
+            duplicates: body.organizations.filter(
+              (row) => row.rowId === "row-1",
+            ).length,
+          },
+        };
+      }
+
+      if (stringPath === "/admin/partnership-crm/import") {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{ rowId: string; duplicateAction: string }>;
+        };
+        return {
+          results: body.organizations.map((row, index) => ({
+            rowId: row.rowId,
+            action:
+              row.duplicateAction === "fill_missing" ? "updated" : "created",
+            organizationId:
+              row.duplicateAction === "fill_missing"
+                ? "org-existing"
+                : `imported-${index}`,
+          })),
+          summary: {
+            total: body.organizations.length,
+            created: body.organizations.filter(
+              (row) => row.duplicateAction !== "fill_missing",
+            ).length,
+            updated: body.organizations.filter(
+              (row) => row.duplicateAction === "fill_missing",
+            ).length,
+            skipped: 0,
+            invalid: 0,
+          },
+        };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+
+      return { organizations: [], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = crmCsv(2);
+    const file = new File([csv], "sequence-duplicate-crm-import.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+    await waitFor(() => {
+      expect(within(dialog).getByText("CSV loaded")).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Start interactive download",
+      }),
+    );
+    await waitFor(() => {
+      expect(within(dialog).getByText("Row 1 of 2")).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Import remaining in sequence",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("CRM import finished")).toBeTruthy();
+    });
+    expect(
+      crmImportCalls().map(([, init]) => {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{ duplicateAction: string }>;
+        };
+        return body.organizations[0]?.duplicateAction;
+      }),
+    ).toEqual(["fill_missing", "import"]);
   });
 
   it("shows a copyable row-level diagnostic log when interactive import fails", async () => {
@@ -2949,9 +3404,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
       within(dialog).getByText("{{website}}, {{website_sentence}}"),
     ).toBeTruthy();
     expect(
-      within(dialog).getByText(
-        /email and linkedin are not template variables/,
-      ),
+      within(dialog).getByText(/email and linkedin are not template variables/),
     ).toBeTruthy();
 
     await user.click(within(dialog).getByRole("button", { name: "Copy" }));

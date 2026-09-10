@@ -510,8 +510,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Edit a product in this organization's catalog.":
     "Editá un producto del catálogo de esta organización.",
   "Product catalog refreshed.": "Catálogo actualizado.",
-  "Unable to refresh product catalog.":
-    "No se pudo actualizar el catálogo.",
+  "Unable to refresh product catalog.": "No se pudo actualizar el catálogo.",
   "Add product to catalog": "Nueva entrada de catálogo",
   "Back to organization": "Volver a la organización",
   "Search product title, description, or URL":
@@ -529,8 +528,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No image": "Sin imagen",
   "No product URL": "Sin URL de producto",
   "Product deleted.": "Producto eliminado.",
-  "Unable to delete the product.":
-    "No se pudo eliminar el producto.",
+  "Unable to delete the product.": "No se pudo eliminar el producto.",
   "Delete product": "Eliminar producto",
   "Delete product?": "¿Eliminar producto?",
   "This removes the product from the organization catalog. This action cannot be undone.":
@@ -540,8 +538,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Catalog: "Catálogo",
   "Product title": "Título del producto",
   "Example: Full genome report": "Ejemplo: Reporte de genoma completo",
-  "Use the public-facing product name.":
-    "Usá el nombre público del producto.",
+  "Use the public-facing product name.": "Usá el nombre público del producto.",
   "Product URL": "URL del producto",
   "Button label": "Texto del botón",
   "View product": "Ver producto",
@@ -560,10 +557,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Soltala acá o elegí un archivo de hasta 600 KB.",
   "Compressing uploaded product image...":
     "Comprimiendo imagen del producto...",
-  "Preparing uploaded product image...":
-    "Preparando imagen del producto...",
-  "Use a PNG, JPG, or WebP image.":
-    "Usá una imagen PNG, JPG o WebP.",
+  "Preparing uploaded product image...": "Preparando imagen del producto...",
+  "Use a PNG, JPG, or WebP image.": "Usá una imagen PNG, JPG o WebP.",
   "The image is still too large after compression.":
     "La imagen sigue siendo demasiado grande después de comprimirla.",
   "Image ready": "Imagen lista",
@@ -588,8 +583,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No unsaved changes.": "Sin cambios sin guardar.",
   "Product added.": "Producto agregado.",
   "Product saved.": "Producto guardado.",
-  "Unable to save product.":
-    "No se pudo guardar el producto.",
+  "Unable to save product.": "No se pudo guardar el producto.",
   "Catalog preview": "Vista previa del catálogo",
   "The product description will appear here.":
     "La descripción del producto va a aparecer acá.",
@@ -1598,14 +1592,14 @@ const SPANISH_TEXT: Record<string, string> = {
   "Clear all filters": "Limpiar todos los filtros",
   "Select visual filter segments before applying.":
     "Seleccioná segmentos de filtros visuales antes de aplicarlos.",
-  "Failed to load visual filters.": "No se pudieron cargar los filtros visuales.",
+  "Failed to load visual filters.":
+    "No se pudieron cargar los filtros visuales.",
   "No visual filters available.": "No hay filtros visuales disponibles.",
   "No data for this filter.": "Sin datos para este filtro.",
   "Email availability": "Disponibilidad de email",
   "LinkedIn availability": "Disponibilidad de LinkedIn",
   "See more": "Ver más",
-  "Select visual filter from pie":
-    "Seleccionar filtro visual desde el gráfico",
+  "Select visual filter from pie": "Seleccionar filtro visual desde el gráfico",
   "Select visual filter from legend":
     "Seleccionar filtro visual desde la leyenda",
   "Selected segment": "Segmento seleccionado",
@@ -1784,6 +1778,29 @@ const SPANISH_TEXT: Record<string, string> = {
   Pause: "Pausar",
   "Add imports this row anyway. Skip leaves the existing CRM untouched.":
     "Agregar importa esta fila igual. Omitir deja el CRM existente sin cambios.",
+  Compatibilizar: "Compatibilizar",
+  "Compatibilizar sumando campos faltantes":
+    "Compatibilizar sumando campos faltantes",
+  "Compare the existing CRM record with the CSV row and choose the resolved value for each field.":
+    "Compará el registro existente del CRM con la fila del CSV y elegí el valor resuelto para cada campo.",
+  "Unable to load duplicate CRM record.":
+    "No se pudo cargar el registro duplicado del CRM.",
+  "Duplicate target was not found.":
+    "No se encontró el registro duplicado de destino.",
+  "Duplicate resolver": "Resolución de duplicado",
+  "CRM existing": "CRM existente",
+  "CSV new": "CSV nuevo",
+  "Resolved value": "Valor resuelto",
+  CRM: "CRM",
+  CSV: "CSV",
+  Merged: "Fusionado",
+  "Merge both": "Fusionar ambos",
+  "Save compatibility": "Guardar compatibilización",
+  "Merged duplicate row saved.": "Fila duplicada compatibilizada guardada.",
+  "Unable to compatibilize duplicate.":
+    "No se pudo compatibilizar el duplicado.",
+  "No duplicate target found for this row.":
+    "No se encontró un duplicado de destino para esta fila.",
   "CRM import finished": "Importación del CRM finalizada",
   "The imported rows were committed one by one and the CRM list has been refreshed.":
     "Las filas importadas se confirmaron una por una y la lista del CRM fue actualizada.",

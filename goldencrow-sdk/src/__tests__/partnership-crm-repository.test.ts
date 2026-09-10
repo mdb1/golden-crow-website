@@ -11,13 +11,20 @@ type MockQueryDocumentSnapshot = {
   exists: true;
   id: string;
   data: () => MockDocData;
+  ref: {
+    set: jest.Mock;
+    update: jest.Mock;
+    delete: jest.Mock;
+    collection: jest.Mock;
+  };
 };
 type MockQuery = {
-  doc: (id: string) => {
+  doc: (id?: string) => {
     get: jest.Mock;
     set: jest.Mock;
     update: jest.Mock;
     delete: jest.Mock;
+    collection: jest.Mock;
   };
   where: jest.Mock;
   orderBy: jest.Mock;
@@ -82,13 +89,35 @@ function mockCompareValues(
   return direction === "desc" ? comparison * -1 : comparison;
 }
 
+function mockDocumentRef(collectionName: string, id: string) {
+  return {
+    set: jest.fn(async (data: MockDocData) => {
+      mockDocs.set(mockDocKey(collectionName, id), data);
+    }),
+    update: jest.fn(async (data: MockDocData) => {
+      mockDocs.set(mockDocKey(collectionName, id), {
+        ...(mockDocs.get(mockDocKey(collectionName, id)) ?? {}),
+        ...data,
+      });
+    }),
+    delete: jest.fn(async () => {
+      mockDocs.delete(mockDocKey(collectionName, id));
+    }),
+    collection: jest.fn((subcollectionName: string) =>
+      mockMakeQuery(`${collectionName}/${id}/${subcollectionName}`),
+    ),
+  };
+}
+
 function mockDocumentSnapshotFor(
+  collectionName: string,
   doc: MockStoredDoc,
 ): MockQueryDocumentSnapshot {
   return {
     exists: true,
     id: doc.id,
     data: () => doc.data,
+    ref: mockDocumentRef(collectionName, doc.id),
   };
 }
 
@@ -172,7 +201,9 @@ function mockApplyQueryOperations(
   const limit = [...operations]
     .reverse()
     .find(
-      (operation): operation is Extract<MockQueryOperation, { type: "limit" }> =>
+      (
+        operation,
+      ): operation is Extract<MockQueryOperation, { type: "limit" }> =>
         operation.type === "limit",
     );
 
@@ -180,7 +211,7 @@ function mockApplyQueryOperations(
     docs = docs.slice(0, limit.count);
   }
 
-  return docs.map(mockDocumentSnapshotFor);
+  return docs.map((doc) => mockDocumentSnapshotFor(collectionName, doc));
 }
 
 function mockMakeQuery(
@@ -188,27 +219,17 @@ function mockMakeQuery(
   operations: MockQueryOperation[] = [],
 ): MockQuery {
   return {
-    doc: (id: string) => ({
+    doc: (id = `mock-doc-${mockDocs.size + 1}`) => ({
       get: jest.fn(async () => {
         const data = mockDocs.get(mockDocKey(collectionName, id));
         return {
           exists: Boolean(data),
           id,
           data: () => data,
+          ref: mockDocumentRef(collectionName, id),
         };
       }),
-      set: jest.fn(async (data: MockDocData) => {
-        mockDocs.set(mockDocKey(collectionName, id), data);
-      }),
-      update: jest.fn(async (data: MockDocData) => {
-        mockDocs.set(mockDocKey(collectionName, id), {
-          ...(mockDocs.get(mockDocKey(collectionName, id)) ?? {}),
-          ...data,
-        });
-      }),
-      delete: jest.fn(async () => {
-        mockDocs.delete(mockDocKey(collectionName, id));
-      }),
+      ...mockDocumentRef(collectionName, id),
     }),
     where: jest.fn((fieldPath: unknown, operator: string, value: unknown) => {
       const operation: MockQueryOperation = {
@@ -219,14 +240,16 @@ function mockMakeQuery(
       };
       return mockMakeQuery(collectionName, [...operations, operation]);
     }),
-    orderBy: jest.fn((fieldPath: unknown, direction: "asc" | "desc" = "asc") => {
-      const operation: MockQueryOperation = {
-        type: "orderBy",
-        fieldPath: mockFieldPathName(fieldPath),
-        direction,
-      };
-      return mockMakeQuery(collectionName, [...operations, operation]);
-    }),
+    orderBy: jest.fn(
+      (fieldPath: unknown, direction: "asc" | "desc" = "asc") => {
+        const operation: MockQueryOperation = {
+          type: "orderBy",
+          fieldPath: mockFieldPathName(fieldPath),
+          direction,
+        };
+        return mockMakeQuery(collectionName, [...operations, operation]);
+      },
+    ),
     startAfter: jest.fn((...values: unknown[]) => {
       const operation: MockQueryOperation = { type: "startAfter", values };
       return mockMakeQuery(collectionName, [...operations, operation]);
@@ -358,9 +381,8 @@ describe("partnership CRM repository pagination", () => {
   });
 
   it("returns all filtered organizations on one page when fewer than the page limit match", async () => {
-    const { listPartnershipCrmOrganizations } = await import(
-      "../repositories/partnership-crm.repository"
-    );
+    const { listPartnershipCrmOrganizations } =
+      await import("../repositories/partnership-crm.repository");
 
     for (let index = 0; index < 160; index += 1) {
       seedOrganization(`skip-${index}`, index, "org_fertility_clinics");
@@ -386,9 +408,8 @@ describe("partnership CRM repository pagination", () => {
   });
 
   it("returns all filtered professionals on one page when fewer than the page limit match", async () => {
-    const { listPartnershipCrmProfessionals } = await import(
-      "../repositories/partnership-crm.repository"
-    );
+    const { listPartnershipCrmProfessionals } =
+      await import("../repositories/partnership-crm.repository");
 
     for (let index = 0; index < 160; index += 1) {
       seedProfessional(`skip-${index}`, index, "pro_other");
@@ -411,5 +432,71 @@ describe("partnership CRM repository pagination", () => {
     );
     expect(page.nextCursor).toBeUndefined();
     expect(page.statusCounts.new).toBe(12);
+  });
+});
+
+describe("partnership CRM duplicate imports", () => {
+  beforeEach(() => {
+    mockDocs.clear();
+    mockCollection.mockClear();
+  });
+
+  it("fills missing organization fields without replacing existing values", async () => {
+    const { importPartnershipCrmOrganizations } =
+      await import("../repositories/partnership-crm.repository");
+    seedOrganization("existing", 1, "");
+    const existingKey = mockDocKey("partnership_crm_organizations", "existing");
+    mockDocs.set(existingKey, {
+      ...(mockDocs.get(existingKey) ?? {}),
+      name: "Existing Genome Lab",
+      normalizedName: "existing genome lab",
+      category: "",
+      website: "",
+      websiteDomain: "",
+      country: "",
+      status: "contacted",
+      contactName: "",
+      contactEmail: "old@example.org",
+      notes: "Keep this note",
+      is_favorite: false,
+    });
+
+    const result = await importPartnershipCrmOrganizations(godModeContext, [
+      {
+        rowId: "row-1",
+        name: "Existing Genome Lab",
+        category: "org_genomics_laboratories",
+        website: "https://new.example.org/",
+        country: "US",
+        status: "partner",
+        contactName: "New Contact",
+        contactEmail: "new@example.org",
+        notes: "Incoming note",
+        is_favorite: true,
+        duplicateAction: "fill_missing",
+        duplicateOrganizationId: "existing",
+      },
+    ]);
+
+    expect(result.summary).toEqual(
+      expect.objectContaining({ total: 1, created: 0, updated: 1 }),
+    );
+    const updated = mockDocs.get(existingKey);
+    expect(updated).toEqual(
+      expect.objectContaining({
+        name: "Existing Genome Lab",
+        category: "org_genomics_laboratories",
+        website: "https://new.example.org/",
+        websiteDomain: "new.example.org",
+        country: "US",
+        status: "contacted",
+        contactName: "New Contact",
+        contactEmail: "old@example.org",
+        notes: "Keep this note",
+        is_favorite: false,
+        createdAt: mockIsoAt(1),
+        updatedByEmail: "admin@example.org",
+      }),
+    );
   });
 });
