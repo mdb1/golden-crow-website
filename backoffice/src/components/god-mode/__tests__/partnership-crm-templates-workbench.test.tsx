@@ -360,24 +360,32 @@ describe("PartnershipCrmTemplateBrowser", () => {
       within(variablesBlock).queryByText("{{website_sentence}}"),
     ).toBeNull();
     expect(within(variablesBlock).queryByText("Not used")).toBeNull();
+    const panelTitle = within(panel).getByTestId(
+      "template-preview-panel-title",
+    );
+    expect(panelTitle.className).toContain("line-clamp-2");
+    expect(panelTitle.className).toContain("break-words");
     const actionGroup = within(panel).getByTestId(
       "template-preview-panel-actions",
     );
     expect(actionGroup.className).toContain("min-w-max");
     expect(actionGroup.className).toContain("shrink-0");
-    expect(actionGroup.className).toContain("flex-nowrap");
-    expect(actionGroup.className).toContain("whitespace-nowrap");
+    expect(actionGroup.className).toContain("flex-col");
+    expect(actionGroup.className).toContain("self-stretch");
+    const actionRow = within(panel).getByTestId(
+      "template-preview-panel-action-row",
+    );
+    expect(actionRow.className).toContain("flex-nowrap");
+    expect(actionRow.className).toContain("whitespace-nowrap");
     expect(
-      within(actionGroup).getByRole("button", { name: "Mark as favorite" }),
+      within(actionRow).getByRole("button", { name: "Mark as favorite" }),
+    ).toBeTruthy();
+    expect(within(actionRow).getByRole("link", { name: "Edit" })).toBeTruthy();
+    expect(
+      within(actionRow).getByRole("button", { name: "Delete" }),
     ).toBeTruthy();
     expect(
-      within(actionGroup).getByRole("link", { name: "Edit" }),
-    ).toBeTruthy();
-    expect(
-      within(actionGroup).getByRole("button", { name: "Delete" }),
-    ).toBeTruthy();
-    expect(
-      within(actionGroup).getByRole("button", { name: "Hide details" }),
+      within(actionRow).getByRole("button", { name: "Hide details" }),
     ).toBeTruthy();
     expect(within(actionGroup).queryByText("Template Active")).toBeNull();
     const tagsBlock = within(panel).getByTestId("template-preview-panel-tags");

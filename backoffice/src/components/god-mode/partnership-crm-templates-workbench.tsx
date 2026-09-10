@@ -1037,7 +1037,10 @@ function TemplatePreviewSidePanel({
       <div className="rounded-xl border border-border/80 bg-background/70 p-4">
         <div className="flex items-start gap-3 border-b border-border/70 pb-3">
           <div className="min-w-0 flex-1">
-            <h3 className="truncate font-heading text-xl font-semibold text-foreground">
+            <h3
+              data-testid="template-preview-panel-title"
+              className="line-clamp-2 break-words font-heading text-xl font-semibold text-foreground"
+            >
               {template.name}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -1050,76 +1053,82 @@ function TemplatePreviewSidePanel({
           </div>
           <div
             data-testid="template-preview-panel-actions"
-            className="ml-auto flex min-w-max shrink-0 flex-nowrap items-center gap-2 whitespace-nowrap"
+            className="ml-auto flex min-w-max shrink-0 flex-col items-end self-stretch"
           >
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="shrink-0"
-              aria-label={
-                template.is_favorite
-                  ? t("Unmark as favorite")
-                  : t("Mark as favorite")
-              }
-              title={
-                template.is_favorite
-                  ? t("Unmark as favorite")
-                  : t("Mark as favorite")
-              }
-              onClick={() =>
-                onQuickUpdate({ is_favorite: !template.is_favorite })
-              }
-              disabled={pending}
+            <div
+              data-testid="template-preview-panel-action-row"
+              className="flex shrink-0 flex-nowrap items-center gap-2 whitespace-nowrap"
             >
-              <Star
-                className={cn(
-                  "h-3.5 w-3.5",
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="shrink-0"
+                aria-label={
                   template.is_favorite
-                    ? "fill-amber-400 text-amber-500"
-                    : "text-muted-foreground/60",
-                )}
-              />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="shrink-0"
-              asChild
-            >
-              <Link
-                href={`/god-mode/plantillas/${encodeURIComponent(template.id)}`}
-                aria-label={t("Edit")}
-                title={t("Edit")}
+                    ? t("Unmark as favorite")
+                    : t("Mark as favorite")
+                }
+                title={
+                  template.is_favorite
+                    ? t("Unmark as favorite")
+                    : t("Mark as favorite")
+                }
+                onClick={() =>
+                  onQuickUpdate({ is_favorite: !template.is_favorite })
+                }
+                disabled={pending}
               >
-                <Pencil className="h-3.5 w-3.5" />
-                <span className="sr-only">{t("Edit")}</span>
-              </Link>
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon-sm"
-              className="shrink-0"
-              aria-label={t("Delete")}
-              title={t("Delete")}
-              onClick={onDelete}
-              disabled={deletePending}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="shrink-0"
-              aria-label={t("Hide details")}
-              title={t("Hide details")}
-              onClick={onClose}
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
+                <Star
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    template.is_favorite
+                      ? "fill-amber-400 text-amber-500"
+                      : "text-muted-foreground/60",
+                  )}
+                />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="shrink-0"
+                asChild
+              >
+                <Link
+                  href={`/god-mode/plantillas/${encodeURIComponent(template.id)}`}
+                  aria-label={t("Edit")}
+                  title={t("Edit")}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  <span className="sr-only">{t("Edit")}</span>
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon-sm"
+                className="shrink-0"
+                aria-label={t("Delete")}
+                title={t("Delete")}
+                onClick={onDelete}
+                disabled={deletePending}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="shrink-0"
+                aria-label={t("Hide details")}
+                title={t("Hide details")}
+                onClick={onClose}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <div className="flex-1" aria-hidden="true" />
           </div>
         </div>
 
