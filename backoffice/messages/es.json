@@ -2346,5 +2346,40 @@
     "bulkAssigned": "Asignado a {count} clientes",
     "bulkFailedSome": "{count} clientes quedaron sin asignar",
     "bulkSubtitle": "El plan se copia a cada cliente. Después lo retocás por persona desde su ficha."
+  },
+  "muscleHeatmap": {
+    "title": "Músculos que trabaja",
+    "legendPrimary": "Principal",
+    "legendSecondary": "Secundario",
+    "legendWorked": "Grupos trabajados",
+    "legendApproximate": "Aproximado",
+    "legendSets": "{count} series",
+    "legendSetsOne": "{count} serie",
+    "emptyGeneric": "Sin grupos musculares",
+    "emptyExercise": "Este ejercicio no declara grupos musculares.",
+    "emptyWorkout": "Todavía no hay nada agendado en esta semana.",
+    "a11yWorks": "Trabaja {regions}",
+    "workoutTitle": "Músculos trabajados",
+    "emptyWorkoutExercises": "Ningún ejercicio de este entreno declara grupos musculares.",
+    "emptyRoutine": "Agregá ejercicios para ver qué músculos trabaja esta rutina.",
+    "approximateExplanation": "Este ejercicio sólo declara “piernas” o “brazos”, así que no distingue frente de dorso. Se pinta el miembro entero.",
+    "untrained": "sin trabajar",
+    "regions": {
+      "chest": "Pecho",
+      "shoulders": "Hombros",
+      "biceps": "Bíceps",
+      "triceps": "Tríceps",
+      "forearms": "Antebrazos",
+      "abs": "Abdomen",
+      "obliques": "Oblicuos",
+      "upper_back": "Espalda alta",
+      "lower_back": "Espalda baja",
+      "trapezius": "Trapecios",
+      "quadriceps": "Cuádriceps",
+      "hamstrings": "Isquiotibiales",
+      "glutes": "Glúteos",
+      "calves": "Gemelos",
+      "adductors": "Aductores"
+    }
   }
 }

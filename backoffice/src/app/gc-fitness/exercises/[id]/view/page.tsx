@@ -15,6 +15,7 @@ import {
 } from "@/lib/gc-fitness/auth-helpers";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { ExerciseForm } from "../../_components/ExerciseForm";
+import { ExerciseMuscleHeatmapSection } from "@/components/gc-fitness/exercise-muscle-heatmap-section";
 import type { ExerciseInput } from "@/lib/gc-fitness/exercise-schema";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 import { resolveExercisePreviewUrl } from "@/lib/gc-fitness/exercise-preview-url";
@@ -189,6 +190,18 @@ export default async function ViewExercisePage({ params }: PageParams) {
           </div>
         )}
       </div>
+
+      {/* #1071 — el heatmap de la ficha. Es donde el coach decide, así que es
+          donde el desbalance tiene que ser visible antes de asignar. */}
+      <ExerciseMuscleHeatmapSection
+        exercise={{
+          muscleGroups: defaults.muscleGroups ?? [],
+          primaryMuscleGroup: defaults.primaryMuscleGroup ?? null,
+          secondaryMuscles: Array.isArray(data.secondaryMuscles)
+            ? (data.secondaryMuscles as string[])
+            : [],
+        }}
+      />
 
       <ExerciseForm mode="view" exerciseId={id} defaultValues={defaults} />
     </div>
