@@ -1707,6 +1707,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Sending updates last contact and records email activity.":
     "El envío actualiza el último contacto y registra la actividad de email.",
   "Preview email": "Vista previa del email",
+  "The email must end with the approved closing and Federico signature before preview or send.":
+    "El email debe terminar con el cierre aprobado y la firma de Federico antes de previsualizar o enviar.",
   "Keep editing": "Seguir modificando",
   "Previous template": "Plantilla anterior",
   "Next template": "Plantilla siguiente",

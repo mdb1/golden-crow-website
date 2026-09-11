@@ -159,6 +159,16 @@ const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
 const SENT_EMAIL_LOG_QUERY_KEY = "god-mode-partnership-crm-sent-email-log";
 const EMAIL_CTA_CLASS =
   "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
+const APPROVED_CRM_EMAIL_CLOSING = [
+  "Te comparto nuestro link para que puedas conocer la propuesta y sumarte a la red:",
+  "",
+  "https://goldencrowvs.com/pocket-genes/join-us/",
+  "",
+  "Quedamos a la espera de tu respuesta.",
+  "",
+  "Saludos,",
+  "Federico",
+].join("\n");
 const CRM_TARGET_PAGE_SIZE = 50;
 const CRM_IMPORT_SESSION_STORAGE_KEYS = {
   organizations: "golden-crow:partnership-crm-import-session:v1",
@@ -1548,6 +1558,21 @@ function renderCrmTemplateText(
 
   rendered += value.slice(cursor);
   return rendered;
+}
+
+function normalizeCrmEmailClosingText(value: string) {
+  return value
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .join("\n")
+    .trim();
+}
+
+function hasApprovedCrmEmailClosing(value: string) {
+  return normalizeCrmEmailClosingText(value).endsWith(
+    normalizeCrmEmailClosingText(APPROVED_CRM_EMAIL_CLOSING),
+  );
 }
 
 function renderCrmTemplateHtml(
@@ -4496,6 +4521,9 @@ function EmailComposerDialog({
     email && organization
       ? missingCrmTemplateVariables(email, organization, targetKind)
       : [];
+  const hasApprovedClosing = email
+    ? hasApprovedCrmEmailClosing(email.text)
+    : false;
   const renderedEmail =
     email && organization
       ? renderedCrmEmailState(email, organization, targetKind)
@@ -4504,7 +4532,8 @@ function EmailComposerDialog({
     email?.to.trim() &&
     email.subject.trim() &&
     email.text.trim() &&
-    missingVariables.length === 0,
+    missingVariables.length === 0 &&
+    hasApprovedClosing,
   );
   const hasTemplates = orderedTemplates.length > 0;
   const isPreviewStep = email?.step === "preview";
@@ -4851,6 +4880,13 @@ function EmailComposerDialog({
                       update({ text: value, step: "compose" })
                     }
                   />
+                  {!hasApprovedClosing ? (
+                    <ErrorBanner>
+                      {t(
+                        "The email must end with the approved closing and Federico signature before preview or send.",
+                      )}
+                    </ErrorBanner>
+                  ) : null}
                   {missingVariables.length > 0 ? (
                     <p role="alert" className="text-sm text-destructive">
                       {t("Missing value for")}{" "}

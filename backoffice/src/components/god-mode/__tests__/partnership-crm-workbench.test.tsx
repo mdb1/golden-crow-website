@@ -19,6 +19,24 @@ import type {
 } from "@/lib/partnership-crm";
 
 const routerRefresh = jest.fn();
+const approvedCrmEmailClosing = [
+  "Te comparto nuestro link para que puedas conocer la propuesta y sumarte a la red:",
+  "",
+  "https://goldencrowvs.com/pocket-genes/join-us/",
+  "",
+  "Quedamos a la espera de tu respuesta.",
+  "",
+  "Saludos,",
+  "Federico",
+].join("\n");
+
+function withApprovedCrmEmailClosing(body: string) {
+  return `${body}\n\n${approvedCrmEmailClosing}`;
+}
+
+function withApprovedCrmEmailClosingHtml(body: string) {
+  return `${body}<br><br>${approvedCrmEmailClosing.replace(/\n/g, "<br>")}`;
+}
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -1029,7 +1047,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.type(within(dialog).getByLabelText("Subject"), "CRM follow-up");
     await user.type(
       within(dialog).getByLabelText("Message"),
-      "Hola Ada,\n\nQueria escribirte directamente sobre Pocket Genes.",
+      withApprovedCrmEmailClosing(
+        "Hola Ada,\n\nQueria escribirte directamente sobre Pocket Genes.",
+      ),
     );
 
     await user.click(
@@ -1073,6 +1093,47 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(within(dialog).getByLabelText("Message").textContent).toContain(
       "Queria escribirte directamente sobre Pocket Genes.",
     );
+  });
+
+  it("blocks CRM email preview until the approved closing and signature are present", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+
+    await user.type(within(dialog).getByLabelText("Subject"), "CRM follow-up");
+    const messageEditor = within(dialog).getByLabelText("Message");
+    messageEditor.innerHTML =
+      "Hola Ada,\n\nQueria escribirte directamente sobre Pocket Genes.";
+    fireEvent.input(messageEditor);
+
+    expect(
+      within(dialog).getByText(
+        "The email must end with the approved closing and Federico signature before preview or send.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", { name: "Preview email" }),
+    ).toHaveProperty("disabled", true);
+
+    messageEditor.innerHTML = withApprovedCrmEmailClosing(
+      "Hola Ada,\n\nQueria escribirte directamente sobre Pocket Genes.",
+    );
+    fireEvent.input(messageEditor);
+
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: "Preview email" }),
+      ).toHaveProperty("disabled", false);
+    });
   });
 
   it("keeps bold and italic CRM email formatting in preview and send payload", async () => {
@@ -1141,8 +1202,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(within(dialog).getByRole("button", { name: "Bold" })).toBeTruthy();
     expect(within(dialog).getByRole("button", { name: "Italic" })).toBeTruthy();
 
-    messageEditor.innerHTML =
-      "Hola <strong>muy importante</strong> y <em>curado</em> para {{contact_name}}.";
+    messageEditor.innerHTML = withApprovedCrmEmailClosing(
+      "Hola <strong>muy importante</strong> y <em>curado</em> para {{contact_name}}.",
+    );
     fireEvent.input(messageEditor);
 
     await user.click(
@@ -1166,8 +1228,12 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
     expect(sentPayload).toEqual(
       expect.objectContaining({
-        text: "Hola muy importante y curado para Ada.",
-        html: "Hola <strong>muy importante</strong> y <em>curado</em> para Ada.",
+        text: withApprovedCrmEmailClosing(
+          "Hola muy importante y curado para Ada.",
+        ),
+        html: withApprovedCrmEmailClosingHtml(
+          "Hola <strong>muy importante</strong> y <em>curado</em> para Ada.",
+        ),
       }),
     );
   });
@@ -1177,7 +1243,13 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       const stringPath = String(path);
       if (stringPath.startsWith("/admin/partnership-crm/templates")) {
-        return { templates: emailTemplates, nextCursor: undefined };
+        return {
+          templates: emailTemplates.map((template) => ({
+            ...template,
+            body: withApprovedCrmEmailClosing(template.body),
+          })),
+          nextCursor: undefined,
+        };
       }
 
       if (stringPath.includes("/activities")) {
@@ -1218,7 +1290,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       ).toBe("First Delete Me Genomics");
     });
     const messageEditor = within(dialog).getByLabelText("Message");
-    expect(messageEditor.textContent).toBe("Body one for Ada");
+    expect(messageEditor.textContent).toContain("Body one for Ada");
     expect(
       within(messageEditor).getByRole("img", { name: "Contact name" }),
     ).toBeTruthy();
@@ -1237,7 +1309,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
       ).toBe("Second Delete Me Genomics");
     });
-    expect(within(dialog).getByLabelText("Message").textContent).toBe(
+    expect(within(dialog).getByLabelText("Message").textContent).toContain(
       "Body two for Ada",
     );
 
@@ -1259,7 +1331,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await waitFor(() => {
       expect(within(dialog).getByText("Ready to send")).toBeTruthy();
     });
-    expect(within(dialog).getByText("Body two for Ada")).toBeTruthy();
+    expect(dialog.textContent).toContain("Body two for Ada");
   });
 
   it("recommends matching templates while allowing any active template selection", async () => {
@@ -1353,7 +1425,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       audience: "professionals",
       category: "pro_clinical_geneticists",
       subject: "Pocket Genes + {{professional_name}}",
-      body: "Por tu experiencia en {{potential_pocket_genes_editor_fit}} consideramos que Pocket Genes puede amplificar tu trabajo.",
+      body: withApprovedCrmEmailClosing(
+        "Por tu experiencia en {{potential_pocket_genes_editor_fit}} consideramos que Pocket Genes puede amplificar tu trabajo.",
+      ),
     };
 
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
@@ -1465,8 +1539,12 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
     expect(sentPayload).toEqual(
       expect.objectContaining({
-        text: "Por tu experiencia en clinical genetics, genetic testing, result interpretation and patient education consideramos que Pocket Genes puede amplificar tu trabajo.",
-        html: "Por tu experiencia en clinical genetics, genetic testing, result interpretation and patient education consideramos que Pocket Genes puede amplificar tu trabajo.",
+        text: withApprovedCrmEmailClosing(
+          "Por tu experiencia en clinical genetics, genetic testing, result interpretation and patient education consideramos que Pocket Genes puede amplificar tu trabajo.",
+        ),
+        html: withApprovedCrmEmailClosingHtml(
+          "Por tu experiencia en clinical genetics, genetic testing, result interpretation and patient education consideramos que Pocket Genes puede amplificar tu trabajo.",
+        ),
       }),
     );
   });
@@ -1558,7 +1636,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       audience: "professionals",
       category: "pro_clinical_geneticists",
       subject: "Pocket Genes + {{professional_name}}",
-      body: "Por tu experiencia en {{potential_pocket_genes_editor_fit}} consideramos que Pocket Genes puede amplificar tu trabajo.",
+      body: withApprovedCrmEmailClosing(
+        "Por tu experiencia en {{potential_pocket_genes_editor_fit}} consideramos que Pocket Genes puede amplificar tu trabajo.",
+      ),
     };
 
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
