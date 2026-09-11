@@ -630,7 +630,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ).toBeNull();
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Review remaining one by one",
+        name: "Evaluate one by one",
       }),
     );
 
@@ -644,7 +644,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(within(currentRow).getByText("{{contact_name}}")).toBeTruthy();
     expect(
       within(currentRow).queryByRole("button", {
-        name: "Review remaining one by one",
+        name: "Evaluate one by one",
       }),
     ).toBeNull();
     expect(
@@ -771,7 +771,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Review remaining one by one",
+        name: "Evaluate one by one",
       }),
     );
 
@@ -886,14 +886,14 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(
         within(dialog)
-          .getByRole("button", { name: "Review remaining one by one" })
+          .getByRole("button", { name: "Evaluate one by one" })
           .getAttribute("disabled"),
       ).toBeNull();
     });
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Review remaining one by one",
+        name: "Evaluate one by one",
       }),
     );
 
@@ -976,14 +976,14 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(
         within(dialog)
-          .getByRole("button", { name: "Review remaining one by one" })
+          .getByRole("button", { name: "Evaluate one by one" })
           .getAttribute("disabled"),
       ).toBeNull();
     });
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Review remaining one by one",
+        name: "Evaluate one by one",
       }),
     );
 

@@ -1513,8 +1513,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Revisá las filas parseadas antes de crear plantillas.",
   "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.":
     "La importación de plantillas crea filas válidas una por una; las filas inválidas se omiten y las completadas no se revierten.",
-  "Use Review remaining one by one to decide Add / Skip / Combine for each row. Possible duplicates are surfaced on the row card before anything is saved.":
-    "Usá Revisar restantes una por una para decidir Agregar / Omitir / Combinar en cada fila. Los posibles duplicados se muestran en la tarjeta antes de guardar nada.",
+  "Use Evaluate one by one to decide Add / Skip / Combine for each row. Possible duplicates are surfaced on the row card before anything is saved.":
+    "Usá Evaluar una por una para decidir Agregar / Omitir / Combinar en cada fila. Los posibles duplicados se muestran en la tarjeta antes de guardar nada.",
   "Literal \\n is converted to a line break in template body and notes.":
     "El texto literal \\n se convierte en salto de línea en el cuerpo y las notas de la plantilla.",
   "Use active templates for the CRM send flow; archived templates are kept out of normal sending.":
@@ -1898,7 +1898,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Las reglas de fusión preservan asunto y cuerpo existentes salvo que estén vacíos, fusionan notas y mantienen favorito activo si cualquiera de los dos lados lo tiene activo.",
   "Combine with existing": "Combinar con existente",
   "Accept row": "Aceptar fila",
-  "Review remaining one by one": "Revisar restantes una por una",
+  "Evaluate one by one": "Evaluar una por una",
   "Import all remaining": "Importar todos los restantes",
   "Checking existing templates": "Revisando plantillas existentes",
   "Unable to check existing templates for duplicates.":

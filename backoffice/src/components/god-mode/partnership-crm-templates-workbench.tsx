@@ -2832,7 +2832,7 @@ function TemplateImportDialog({
                   disabled={!canImportRemaining}
                 >
                   <FileText className="h-4 w-4" />
-                  {t("Review remaining one by one")}
+                  {t("Evaluate one by one")}
                 </Button>
               ) : null}
               {!reviewPanelOpen ? (
