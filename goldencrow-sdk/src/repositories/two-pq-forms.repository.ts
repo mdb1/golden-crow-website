@@ -49,6 +49,8 @@ const DEFAULT_OBSERVATIONS_VALUE = "Sin observaciones";
 const WITHDRAWAL_PGFLEX_SHIPMENT_TYPE = "2pq" as const;
 const WITHDRAWAL_PGFLEX_DESTINATION =
   "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina" as const;
+const WITHDRAWAL_PGFLEX_CAPITAL_FEDERAL_ORIGIN_PART =
+  "Ciudad Autónoma de Buenos Aires" as const;
 const PGFLEX_IDENTIFIER_MAX_LENGTH = 160;
 
 function isInstitutionManagerRole(role: AdminContext["role"]) {
@@ -1569,7 +1571,13 @@ function buildWithdrawalPGFlexOrigin(
       selectedInstitution?.state,
     normalizeOptionalString(institutionInformation.country) ??
       selectedInstitution?.country,
-  ].filter((part): part is string => Boolean(part));
+  ]
+    .filter((part): part is string => Boolean(part))
+    .map((part) =>
+      part === "Capital Federal"
+        ? WITHDRAWAL_PGFLEX_CAPITAL_FEDERAL_ORIGIN_PART
+        : part,
+    );
 
   if (parts.length > 0) {
     return parts.join(", ");

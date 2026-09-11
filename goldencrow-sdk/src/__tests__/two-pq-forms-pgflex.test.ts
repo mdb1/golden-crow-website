@@ -327,8 +327,8 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       institutionInformation: {
         name: "Clinica Norte",
         address: "Av. Corrientes 123",
-        city: "CABA",
-        state: "Buenos Aires",
+        city: "Almagro",
+        state: "Capital Federal",
         country: "Argentina",
       },
     });
@@ -357,7 +357,8 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       dispatcherId: "dispatcher-a",
       dispatcherFirebaseId: "dispatcher-a",
       dispatcherEmail: "alfa@example.com",
-      origin: "Av. Corrientes 123, CABA, Buenos Aires, Argentina",
+      origin:
+        "Av. Corrientes 123, Almagro, Ciudad Autónoma de Buenos Aires, Argentina",
       destination:
         "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
       timeRequested: "2026-08-31T15:45:00.000Z",
@@ -381,7 +382,8 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       {
         id: "pgflex_withdrawal_form_00041",
         identifier: "Clinica Norte - 31-08-2026-03:45PM",
-        origin: "Av. Corrientes 123, CABA, Buenos Aires, Argentina",
+        origin:
+          "Av. Corrientes 123, Almagro, Ciudad Autónoma de Buenos Aires, Argentina",
         destination:
           "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
         timeRequested: "2026-08-31T15:45:00.000Z",
