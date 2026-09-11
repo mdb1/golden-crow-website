@@ -116,11 +116,13 @@ const publisherSoftButtonClass =
 const publisherFieldSectionClass =
   "flex flex-col gap-4 rounded-2xl border border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(250,250,255,0.94)_58%,rgba(245,243,255,0.86))] px-4 py-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/16 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.86))]";
 const publisherInputClass =
-  "h-11 rounded-xl border-violet-200/75 bg-white/90 shadow-sm focus-visible:border-violet-400 focus-visible:ring-violet-300/35 dark:border-violet-400/18 dark:bg-slate-950/45";
+  "h-11 rounded-xl border-violet-200/75 bg-white/90 px-4 text-sm shadow-sm focus-visible:border-violet-400 focus-visible:ring-violet-300/35 dark:border-violet-400/18 dark:bg-slate-950/45";
 const publisherTextareaClass =
-  "rounded-xl border-violet-200/75 bg-white/90 shadow-sm focus-visible:border-violet-400 focus-visible:ring-violet-300/35 dark:border-violet-400/18 dark:bg-slate-950/45";
+  "min-h-24 rounded-xl border-violet-200/75 bg-white/90 px-4 py-3 text-sm shadow-sm focus-visible:border-violet-400 focus-visible:ring-violet-300/35 dark:border-violet-400/18 dark:bg-slate-950/45";
 const publisherSelectClass =
-  "h-11 rounded-xl border border-violet-200/75 bg-white/90 px-3 text-sm text-foreground shadow-sm outline-none transition focus:border-violet-400 focus:ring-3 focus:ring-violet-300/35 disabled:cursor-not-allowed disabled:opacity-60 dark:border-violet-400/18 dark:bg-slate-950/45";
+  "h-11 w-full appearance-none rounded-xl border border-violet-200/75 bg-white/90 py-2 pr-16 pl-6 text-sm text-foreground shadow-sm outline-none transition focus:border-violet-400 focus:ring-3 focus:ring-violet-300/35 disabled:cursor-not-allowed disabled:opacity-60 dark:border-violet-400/18 dark:bg-slate-950/45";
+const publisherSelectCaretClass =
+  "pointer-events-none absolute right-6 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-white/55";
 
 const DISCOVER_LOCATION_SUGGESTIONS = [
   "Online",
@@ -454,7 +456,7 @@ function LocationSuggestInput({
           onChange={(event) => onChange(event.target.value)}
           onFocus={() => setFocused(true)}
           autoComplete="off"
-          className="h-10 pl-9"
+          className={`${publisherInputClass} pl-10`}
           aria-autocomplete="list"
           aria-expanded={shouldShowSuggestions}
           aria-controls={`${id}-suggestions`}
@@ -568,7 +570,7 @@ function CountryRegionPicker({
             value={displayValue}
             readOnly
             placeholder={t("Select countries")}
-            className="h-10 pl-9 font-medium uppercase tracking-[0.08em]"
+            className={`${publisherInputClass} pl-10 font-medium uppercase tracking-[0.08em]`}
           />
         </div>
         <Button
@@ -577,7 +579,7 @@ function CountryRegionPicker({
           onClick={() => setOpen(true)}
           aria-expanded={open}
           aria-controls={`${id}-country-picker`}
-          className="h-10 justify-between sm:w-44"
+          className={`${publisherSoftButtonClass} h-11 justify-between rounded-xl px-4 sm:w-52`}
         >
           {t("Choose countries")}
           <ChevronDown className="h-4 w-4" />
@@ -1219,6 +1221,7 @@ export function DiscoverFeedEntryWorkbench({
                     updatePayloadField(state.type, field.key, event.target.value)
                   }
                   placeholder={t("One per line or comma-separated")}
+                  className={publisherTextareaClass}
                   rows={3}
                 />
               </FieldShell>
@@ -1235,6 +1238,7 @@ export function DiscoverFeedEntryWorkbench({
                   onChange={(event) =>
                     updatePayloadField(state.type, field.key, event.target.value)
                   }
+                  className={publisherInputClass}
                 />
               </FieldShell>
             );
@@ -1252,6 +1256,7 @@ export function DiscoverFeedEntryWorkbench({
                   onChange={(event) =>
                     updatePayloadField(state.type, field.key, event.target.value)
                   }
+                  className={publisherInputClass}
                 />
               </FieldShell>
             );
@@ -1260,18 +1265,21 @@ export function DiscoverFeedEntryWorkbench({
           if (field.kind === "boolean") {
             return (
               <FieldShell key={field.key} label={label} htmlFor={fieldId}>
-                <select
-                  id={fieldId}
-                  value={value}
-                  onChange={(event) =>
-                    updatePayloadField(state.type, field.key, event.target.value)
-                  }
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">{t("Not specified")}</option>
-                  <option value="true">{t("Yes")}</option>
-                  <option value="false">{t("No")}</option>
-                </select>
+                <div className="relative">
+                  <select
+                    id={fieldId}
+                    value={value}
+                    onChange={(event) =>
+                      updatePayloadField(state.type, field.key, event.target.value)
+                    }
+                    className={publisherSelectClass}
+                  >
+                    <option value="">{t("Not specified")}</option>
+                    <option value="true">{t("Yes")}</option>
+                    <option value="false">{t("No")}</option>
+                  </select>
+                  <ChevronDown className={publisherSelectCaretClass} />
+                </div>
               </FieldShell>
             );
           }
@@ -1290,6 +1298,7 @@ export function DiscoverFeedEntryWorkbench({
                   onChange={(event) =>
                     updatePayloadField(state.type, field.key, event.target.value)
                   }
+                  className={publisherTextareaClass}
                   rows={3}
                 />
               ) : (
@@ -1299,6 +1308,7 @@ export function DiscoverFeedEntryWorkbench({
                   onChange={(event) =>
                     updatePayloadField(state.type, field.key, event.target.value)
                   }
+                  className={publisherInputClass}
                 />
               )}
             </FieldShell>
@@ -1417,41 +1427,44 @@ export function DiscoverFeedEntryWorkbench({
               <div className="grid gap-4 md:grid-cols-2">
                 <FieldShell label={t("Publisher")} htmlFor="discover-feed-publisher" className="md:col-span-2">
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    <select
-                      id="discover-feed-publisher"
-                      value={publisherSelectValue}
-                      onChange={(event) =>
-                        selectPublisher(event.target.value)
-                      }
-                      className={`${publisherSelectClass} min-w-0 flex-1`}
-                      disabled={!canChangePublisher}
-                    >
-                      <option value="">{t("Choose publisher")}</option>
-                      {organizations.length > 0 ? (
-                        <optgroup label={t("Organizations")}>
-                          {organizations.map((organization) => (
-                            <option
-                              key={organization.id}
-                              value={`organization:${organization.id}`}
-                            >
-                              {organization.name} ({t(organization.status)})
-                            </option>
-                          ))}
-                        </optgroup>
-                      ) : null}
-                      {individuals.length > 0 ? (
-                        <optgroup label={t("Individual Publishers")}>
-                          {individuals.map((individual) => (
-                            <option
-                              key={individual.id}
-                              value={`individual:${individual.id}`}
-                            >
-                              {individual.name} ({t(individual.status)})
-                            </option>
-                          ))}
-                        </optgroup>
-                      ) : null}
-                    </select>
+                    <div className="relative min-w-0 flex-1">
+                      <select
+                        id="discover-feed-publisher"
+                        value={publisherSelectValue}
+                        onChange={(event) =>
+                          selectPublisher(event.target.value)
+                        }
+                        className={publisherSelectClass}
+                        disabled={!canChangePublisher}
+                      >
+                        <option value="">{t("Choose publisher")}</option>
+                        {organizations.length > 0 ? (
+                          <optgroup label={t("Organizations")}>
+                            {organizations.map((organization) => (
+                              <option
+                                key={organization.id}
+                                value={`organization:${organization.id}`}
+                              >
+                                {organization.name} ({t(organization.status)})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : null}
+                        {individuals.length > 0 ? (
+                          <optgroup label={t("Individual Publishers")}>
+                            {individuals.map((individual) => (
+                              <option
+                                key={individual.id}
+                                value={`individual:${individual.id}`}
+                              >
+                                {individual.name} ({t(individual.status)})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : null}
+                      </select>
+                      <ChevronDown className={publisherSelectCaretClass} />
+                    </div>
                     {hasMorePublishers ? (
                       <Button
                         type="button"
@@ -1468,34 +1481,40 @@ export function DiscoverFeedEntryWorkbench({
                 </FieldShell>
 
                 <FieldShell label={t("Type")} htmlFor="discover-feed-type">
-                  <select
-                    id="discover-feed-type"
-                    value={state.type}
-                    onChange={(event) =>
-                      updateState({ type: event.target.value as DiscoverFeedType })
-                    }
-                    className={publisherSelectClass}
-                  >
-                    {DISCOVER_FEED_TYPE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {t(option.label)}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      id="discover-feed-type"
+                      value={state.type}
+                      onChange={(event) =>
+                        updateState({ type: event.target.value as DiscoverFeedType })
+                      }
+                      className={publisherSelectClass}
+                    >
+                      {DISCOVER_FEED_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {t(option.label)}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className={publisherSelectCaretClass} />
+                  </div>
                 </FieldShell>
 
                 <FieldShell label={t("Language")} htmlFor="discover-feed-language">
-                  <select
-                    id="discover-feed-language"
-                    value={state.language}
-                    onChange={(event) =>
-                      updateState({ language: event.target.value as "en" | "es" })
-                    }
-                    className={publisherSelectClass}
-                  >
-                    <option value="en">{t("English")}</option>
-                    <option value="es">{t("Spanish")}</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      id="discover-feed-language"
+                      value={state.language}
+                      onChange={(event) =>
+                        updateState({ language: event.target.value as "en" | "es" })
+                      }
+                      className={publisherSelectClass}
+                    >
+                      <option value="en">{t("English")}</option>
+                      <option value="es">{t("Spanish")}</option>
+                    </select>
+                    <ChevronDown className={publisherSelectCaretClass} />
+                  </div>
                 </FieldShell>
 
                 <FieldShell label={t("Title")} htmlFor="discover-feed-title" className="md:col-span-2">
