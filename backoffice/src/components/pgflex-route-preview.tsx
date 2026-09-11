@@ -108,7 +108,7 @@ const PGFLEX_ROUTE_ORIGIN_TEXT_PART_MIN_LENGTH = 3;
 const PGFLEX_ROUTE_ORIGIN_TEXT_PARTS_MIN_LENGTH_MESSAGE =
   "Address and neighborhood/locality must each have at least 3 characters.";
 
-const PGFLEX_ROUTE_ORIGIN_PROVINCE_OPTIONS: Array<{
+export const PGFLEX_ROUTE_ORIGIN_PROVINCE_OPTIONS: Array<{
   value: PGFlexRouteOriginProvinceDistrict;
   label: string;
 }> = [
@@ -137,6 +137,117 @@ export function validatePGFlexRouteOriginParts(
   }
 
   return null;
+}
+
+export function PGFlexRouteOriginFields({
+  disabled = false,
+  idPrefix,
+  legend,
+  onChange,
+  parts,
+  translate,
+}: {
+  disabled?: boolean;
+  idPrefix: string;
+  legend?: string;
+  onChange: (parts: PGFlexRouteOriginParts) => void;
+  parts: PGFlexRouteOriginParts;
+  translate: (text: string) => string;
+}) {
+  function handlePartsChange(
+    next: Partial<Omit<PGFlexRouteOriginParts, "country">>,
+  ) {
+    onChange({
+      ...parts,
+      ...("address" in next && typeof next.address === "string"
+        ? { address: sanitizePGFlexRouteOriginTextPart(next.address) }
+        : {}),
+      ...("locality" in next && typeof next.locality === "string"
+        ? { locality: sanitizePGFlexRouteOriginTextPart(next.locality) }
+        : {}),
+      ...("provinceDistrict" in next
+        ? { provinceDistrict: next.provinceDistrict }
+        : {}),
+      country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
+    });
+  }
+
+  return (
+    <fieldset className="rounded-2xl border border-border/70 bg-muted/14 p-4 md:col-span-2">
+      {legend ? (
+        <legend className="px-1 text-sm font-medium text-foreground">
+          {legend}
+        </legend>
+      ) : null}
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor={`${idPrefix}-address`}>{translate("Address")}</Label>
+          <Input
+            id={`${idPrefix}-address`}
+            value={parts.address}
+            onChange={(event) =>
+              handlePartsChange({ address: event.target.value })
+            }
+            disabled={disabled}
+            minLength={PGFLEX_ROUTE_ORIGIN_TEXT_PART_MIN_LENGTH}
+            autoComplete="street-address"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`${idPrefix}-locality`}>
+            {translate("Neighborhood / Locality")}
+          </Label>
+          <Input
+            id={`${idPrefix}-locality`}
+            value={parts.locality}
+            onChange={(event) =>
+              handlePartsChange({ locality: event.target.value })
+            }
+            disabled={disabled}
+            minLength={PGFLEX_ROUTE_ORIGIN_TEXT_PART_MIN_LENGTH}
+            autoComplete="address-level2"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`${idPrefix}-province-district`}>
+            {translate("Province / District")}
+          </Label>
+          <Select
+            value={parts.provinceDistrict}
+            onValueChange={(value) =>
+              handlePartsChange({
+                provinceDistrict: value as PGFlexRouteOriginProvinceDistrict,
+              })
+            }
+            disabled={disabled}
+          >
+            <SelectTrigger
+              id={`${idPrefix}-province-district`}
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PGFLEX_ROUTE_ORIGIN_PROVINCE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {translate(option.label)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`${idPrefix}-country`}>{translate("Country")}</Label>
+          <Input
+            id={`${idPrefix}-country`}
+            value={PGFLEX_ROUTE_ORIGIN_COUNTRY}
+            disabled
+            autoComplete="country-name"
+          />
+        </div>
+      </div>
+    </fieldset>
+  );
 }
 
 function provinceDistrictFromOriginPart(
@@ -2007,28 +2118,6 @@ export function PGFlexRoutePreview({
     setRouteErrorLogOpen(true);
   }
 
-  function handleOriginPartsChange(
-    next: Partial<Omit<PGFlexRouteOriginParts, "country">>,
-  ) {
-    if (!originParts || !onOriginPartsChange) {
-      return;
-    }
-
-    onOriginPartsChange({
-      ...originParts,
-      ...("address" in next && typeof next.address === "string"
-        ? { address: sanitizePGFlexRouteOriginTextPart(next.address) }
-        : {}),
-      ...("locality" in next && typeof next.locality === "string"
-        ? { locality: sanitizePGFlexRouteOriginTextPart(next.locality) }
-        : {}),
-      ...("provinceDistrict" in next
-        ? { provinceDistrict: next.provinceDistrict }
-        : {}),
-      country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
-    });
-  }
-
   const hasBothAddresses = Boolean(origin.trim() && destination.trim());
   const isRouteLocked = Boolean(lockedRoute);
   const routeFieldDisabled = disabled || isRouteLocked;
@@ -2056,79 +2145,14 @@ export function PGFlexRoutePreview({
     <div className="space-y-4 md:col-span-2">
       <div className="grid gap-4 md:grid-cols-2">
         {usesSplitOrigin && originParts ? (
-          <fieldset className="rounded-2xl border border-border/70 bg-muted/14 p-4 md:col-span-2">
-            <legend className="px-1 text-sm font-medium text-foreground">
-              {t("Origin")}
-            </legend>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="pgflex-origin-address">{t("Address")}</Label>
-                <Input
-                  id="pgflex-origin-address"
-                  value={originParts.address}
-                  onChange={(event) =>
-                    handleOriginPartsChange({ address: event.target.value })
-                  }
-                  disabled={routeFieldDisabled}
-                  minLength={PGFLEX_ROUTE_ORIGIN_TEXT_PART_MIN_LENGTH}
-                  autoComplete="street-address"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="pgflex-origin-locality">
-                  {t("Neighborhood / Locality")}
-                </Label>
-                <Input
-                  id="pgflex-origin-locality"
-                  value={originParts.locality}
-                  onChange={(event) =>
-                    handleOriginPartsChange({ locality: event.target.value })
-                  }
-                  disabled={routeFieldDisabled}
-                  minLength={PGFLEX_ROUTE_ORIGIN_TEXT_PART_MIN_LENGTH}
-                  autoComplete="address-level2"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="pgflex-origin-province-district">
-                  {t("Province / District")}
-                </Label>
-                <Select
-                  value={originParts.provinceDistrict}
-                  onValueChange={(value) =>
-                    handleOriginPartsChange({
-                      provinceDistrict:
-                        value as PGFlexRouteOriginProvinceDistrict,
-                    })
-                  }
-                  disabled={routeFieldDisabled}
-                >
-                  <SelectTrigger
-                    id="pgflex-origin-province-district"
-                    className="w-full"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PGFLEX_ROUTE_ORIGIN_PROVINCE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {t(option.label)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="pgflex-origin-country">{t("Country")}</Label>
-                <Input
-                  id="pgflex-origin-country"
-                  value={PGFLEX_ROUTE_ORIGIN_COUNTRY}
-                  disabled
-                  autoComplete="country-name"
-                />
-              </div>
-            </div>
-          </fieldset>
+          <PGFlexRouteOriginFields
+            disabled={routeFieldDisabled}
+            idPrefix="pgflex-origin"
+            legend={t("Origin")}
+            parts={originParts}
+            translate={t}
+            onChange={(nextParts) => onOriginPartsChange?.(nextParts)}
+          />
         ) : (
           <div className="space-y-2">
             <Label htmlFor="pgflex-origin">{t("Origin")}</Label>
