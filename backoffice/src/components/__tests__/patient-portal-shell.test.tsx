@@ -105,20 +105,33 @@ describe("PGFlex portal Spanish shell", () => {
       </AppLanguageProvider>,
     );
 
-    expect(screen.getByText("Portal PGFlex")).toBeTruthy();
+    expect(screen.getAllByText("Portal PGFlex").length).toBeGreaterThan(0);
     expect(container.querySelector("header")?.className).toContain(
       "bg-background/90",
     );
-    const pgflexHomeShell = screen.getByText(
-      "Estás en el portal PGFlex",
-    ).parentElement;
+    const pgflexHomeShell = screen
+      .getByRole("heading", {
+        name: "Tus envíos asignados, sin distracciones",
+      })
+      .closest("div[class*='min-h']");
     expect(pgflexHomeShell?.className).toContain("bg-background");
     expect(pgflexHomeShell?.className).toContain("text-foreground");
     expect(screen.getAllByText("Inicio").length).toBeGreaterThan(0);
     expect(screen.getAllByText("PGFlex").length).toBeGreaterThan(0);
-    expect(screen.getByText("Mi cuenta")).toBeTruthy();
+    expect(screen.getAllByText("Mi cuenta").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeTruthy();
-    expect(screen.getByText("Estás en el portal PGFlex")).toBeTruthy();
+    expect(screen.getByText("Envíos activos")).toBeTruthy();
+    expect(screen.getByText("Historial")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /Ver activos/i }).getAttribute("href"),
+    ).toBe("/pgflex/logistics?scope=active");
+    expect(
+      screen.getByRole("link", { name: /Ver historial/i }).getAttribute("href"),
+    ).toBe("/pgflex/logistics?scope=finished");
+    expect(
+      screen.getByRole("link", { name: /Abrir mi cuenta/i }).getAttribute("href"),
+    ).toBe("/pgflex/my-account");
+    expect(screen.queryByText("Crear envío")).toBeNull();
     expect(screen.queryByText("Roles & Permissions")).toBeNull();
     expect(screen.queryByRole("group", { name: "Language" })).toBeNull();
     await waitFor(() => expect(document.documentElement.lang).toBe("es"));
