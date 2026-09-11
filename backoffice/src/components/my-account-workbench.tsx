@@ -25,6 +25,14 @@ import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,6 +59,8 @@ type InlineMessage = {
   tone: "success" | "error" | "info";
   message: string;
 } | null;
+type EmailChangeStep = "form" | "complete";
+type EmailVerificationStep = "intro" | "complete";
 
 const DISPLAY_NAME_MAX_LENGTH = 100;
 const CONTACT_PHONE_MAX_LENGTH = 30;
@@ -453,6 +463,14 @@ export function MyAccountWorkbench({
   );
   const [newEmail, setNewEmail] = useState(initialAccount.auth.email);
   const [emailMessage, setEmailMessage] = useState<InlineMessage>(null);
+  const [emailChangeOpen, setEmailChangeOpen] = useState(false);
+  const [emailChangeStep, setEmailChangeStep] =
+    useState<EmailChangeStep>("form");
+  const [emailChangeRequiresSignIn, setEmailChangeRequiresSignIn] =
+    useState(false);
+  const [verificationOpen, setVerificationOpen] = useState(false);
+  const [verificationStep, setVerificationStep] =
+    useState<EmailVerificationStep>("intro");
   const [pendingRoleSave, setPendingRoleSave] = useState(false);
   const [pendingEmailSave, setPendingEmailSave] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
@@ -488,6 +506,19 @@ export function MyAccountWorkbench({
     (account.context.canAccessPatientPortal || account.context.canAccessPGFlex);
   const t = (text: string) =>
     isPortalAccountView ? appText("es", text) : text;
+
+  function openEmailChangeDialog() {
+    setNewEmail(account.auth.email);
+    setEmailMessage(null);
+    setEmailChangeRequiresSignIn(false);
+    setEmailChangeStep("form");
+    setEmailChangeOpen(true);
+  }
+
+  function openVerificationDialog() {
+    setVerificationStep("intro");
+    setVerificationOpen(true);
+  }
 
   function validateEmailCandidate(showSuccess = true) {
     if (!canChangeEmail) {
@@ -586,7 +617,7 @@ export function MyAccountWorkbench({
         tone: "error",
         message: t("Validate the email field before changing it."),
       });
-      return;
+      return false;
     }
 
     if (!emailChanged) {
@@ -594,7 +625,7 @@ export function MyAccountWorkbench({
         tone: "info",
         message: t("This is already the current account email."),
       });
-      return;
+      return false;
     }
 
     setPendingEmailSave(true);
@@ -609,6 +640,7 @@ export function MyAccountWorkbench({
       setAccount(result.account);
       setRoleState(toRoleProfileState(result.account));
       setNewEmail(result.account.auth.email);
+      setEmailChangeRequiresSignIn(result.requiresSignIn);
       setEmailMessage({
         tone: "success",
         message: t("Email change saved."),
@@ -623,6 +655,7 @@ export function MyAccountWorkbench({
           : t("The requested email is already active on this account."),
         durationMs: 9000,
       });
+      return true;
     } catch (error) {
       setEmailMessage({
         tone: "error",
@@ -639,6 +672,7 @@ export function MyAccountWorkbench({
             ? t(error.message)
             : t("Unable to change your email."),
       });
+      return false;
     } finally {
       setPendingEmailSave(false);
     }
@@ -674,6 +708,7 @@ export function MyAccountWorkbench({
           : `Firebase sent a verification email to ${account.auth.email}.`,
         durationMs: 6500,
       });
+      return true;
     } catch (error) {
       setToast({
         id: Date.now(),
@@ -683,6 +718,7 @@ export function MyAccountWorkbench({
             ? t(error.message)
             : t("Unable to send the verification email."),
       });
+      return false;
     } finally {
       setPendingVerification(false);
     }
@@ -926,37 +962,27 @@ export function MyAccountWorkbench({
             ) : null}
           </div>
 
-          <EditableField
-            id="my-auth-email"
-            label={t("Account email")}
-            helper={
-              canChangeEmail
+          <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-3">
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              {t("Account email")}
+            </p>
+            <p className="mt-1 break-words text-base font-semibold text-foreground">
+              {account.auth.email}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {canChangeEmail
                 ? t("Changing email also moves your role assignment record.")
-                : t("Bootstrap account emails are read only here.")
-            }
-          >
-            <Input
-              id="my-auth-email"
-              type="email"
-              value={newEmail}
-              onChange={(event) => {
-                setNewEmail(event.target.value);
-                setEmailMessage(null);
-              }}
-              placeholder="name@example.com"
-              aria-invalid={emailMessage?.tone === "error"}
-              disabled={!canChangeEmail || pendingEmailSave}
-            />
-          </EditableField>
-          <InlineStatus message={emailMessage} />
+                : t("Bootstrap account emails are read only here.")}
+            </p>
+          </div>
 
-          <div className="grid gap-3 border-t border-border/80 pt-4 md:grid-cols-3">
+          <div className="grid gap-3 border-t border-border/80 pt-4 md:grid-cols-2">
             <Button
               type="button"
               variant="outline"
               size="lg"
               className="h-11 w-full"
-              onClick={() => void handleSendVerification()}
+              onClick={openVerificationDialog}
               disabled={pendingVerification || account.auth.emailVerified}
             >
               <MailCheck className="h-4 w-4" />
@@ -964,32 +990,194 @@ export function MyAccountWorkbench({
                 ? t("Email Verified")
                 : pendingVerification
                   ? t("Sending...")
-                  : t("Send Verification")}
+                  : t("Validate email")}
             </Button>
             <Button
               type="button"
-              variant="outline"
               size="lg"
               className="h-11 w-full"
-              onClick={() => validateEmailCandidate(true)}
+              onClick={openEmailChangeDialog}
               disabled={!canChangeEmail || pendingEmailSave}
             >
-              <CheckCircle2 className="h-4 w-4" />
-              {t("Validate Email")}
-            </Button>
-            <Button
-              type="button"
-              size="lg"
-              className="h-11 w-full"
-              onClick={() => void handleEmailSave()}
-              disabled={!emailChanged || !canChangeEmail || pendingEmailSave}
-            >
               <Save className="h-4 w-4" />
-              {pendingEmailSave ? t("Changing...") : t("Change Email")}
+              {pendingEmailSave ? t("Changing...") : t("Change email")}
             </Button>
           </div>
         </SectionShell>
       </div>
+
+      <Dialog
+        open={verificationOpen}
+        onOpenChange={(open) => {
+          setVerificationOpen(open);
+          if (!open) {
+            setVerificationStep("intro");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          {verificationStep === "complete" ? (
+            <>
+              <DialogHeader>
+                <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-200">
+                  <MailCheck className="h-5 w-5" />
+                </div>
+                <DialogTitle>{t("Verification email sent")}</DialogTitle>
+                <DialogDescription>
+                  {isPortalAccountView
+                    ? `Enviamos un email de verificación a ${account.auth.email}. Revisá tu inbox y seguí el link para validar la cuenta.`
+                    : `We sent a verification email to ${account.auth.email}. Check your inbox and follow the link to validate the account.`}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button type="button" onClick={() => setVerificationOpen(false)}>
+                  {t("Done")}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>{t("Validate email")}</DialogTitle>
+                <DialogDescription>
+                  {t(
+                    "We will send a verification link to the current account email.",
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  {t("Current email")}
+                </p>
+                <p className="mt-1 break-words text-sm font-semibold text-foreground">
+                  {account.auth.email}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setVerificationOpen(false)}
+                  disabled={pendingVerification}
+                >
+                  {t("Cancel")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    const sent = await handleSendVerification();
+                    if (sent) {
+                      setVerificationStep("complete");
+                    }
+                  }}
+                  disabled={pendingVerification}
+                >
+                  <MailCheck className="h-4 w-4" />
+                  {pendingVerification ? t("Sending...") : t("Send verification email")}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={emailChangeOpen}
+        onOpenChange={(open) => {
+          setEmailChangeOpen(open);
+          if (!open) {
+            setEmailMessage(null);
+            setEmailChangeStep("form");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          {emailChangeStep === "complete" ? (
+            <>
+              <DialogHeader>
+                <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-200">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <DialogTitle>{t("Email changed")}</DialogTitle>
+                <DialogDescription>
+                  {emailChangeRequiresSignIn
+                    ? t(
+                        "Email changed. Sign out and sign back in with the new email to refresh this session.",
+                      )
+                    : t("The requested email is already active on this account.")}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  {t("Account email")}
+                </p>
+                <p className="mt-1 break-words text-sm font-semibold text-foreground">
+                  {account.auth.email}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button type="button" onClick={() => setEmailChangeOpen(false)}>
+                  {t("Done")}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>{t("Change email")}</DialogTitle>
+                <DialogDescription>
+                  {t(
+                    "Enter the new email for this account. The role assignment will move to that email, and verification will be required again.",
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <EditableField
+                id="my-auth-email"
+                label={t("New email")}
+                error={emailMessage?.tone === "error" ? emailMessage.message : undefined}
+              >
+                <Input
+                  id="my-auth-email"
+                  type="email"
+                  value={newEmail}
+                  onChange={(event) => {
+                    setNewEmail(event.target.value);
+                    setEmailMessage(null);
+                  }}
+                  placeholder="name@example.com"
+                  aria-invalid={emailMessage?.tone === "error"}
+                  disabled={!canChangeEmail || pendingEmailSave}
+                />
+              </EditableField>
+              {emailMessage?.tone !== "error" ? (
+                <InlineStatus message={emailMessage} />
+              ) : null}
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEmailChangeOpen(false)}
+                  disabled={pendingEmailSave}
+                >
+                  {t("Cancel")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    const saved = await handleEmailSave();
+                    if (saved) {
+                      setEmailChangeStep("complete");
+                    }
+                  }}
+                  disabled={!canChangeEmail || pendingEmailSave}
+                >
+                  {pendingEmailSave ? t("Changing...") : t("Next")}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {showDiagnostics ? (
         <>

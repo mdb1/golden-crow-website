@@ -1175,7 +1175,19 @@ const SPANISH_TEXT: Record<string, string> = {
   "Email Verified": "Email verificado",
   "Send Verification": "Enviar verificación",
   "Validate Email": "Validar email",
+  "Validate email": "Validar email",
   "Change Email": "Cambiar email",
+  "Change email": "Cambiar email",
+  "Current email": "Email actual",
+  "New email": "Nuevo email",
+  "Send verification email": "Enviar email de verificación",
+  "Verification email sent": "Email de verificación enviado",
+  "We will send a verification link to the current account email.":
+    "Vamos a enviar un link de verificación al email actual de la cuenta.",
+  "Enter the new email for this account. The role assignment will move to that email, and verification will be required again.":
+    "Ingresá el nuevo email para esta cuenta. El perfil se moverá a ese email y la verificación será requerida nuevamente.",
+  "Email changed": "Email modificado",
+  Next: "Siguiente",
   "Changing...": "Cambiando...",
   "Bootstrap account emails are read only here.":
     "El email de esta cuenta es de solo lectura.",
