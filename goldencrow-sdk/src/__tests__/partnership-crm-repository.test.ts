@@ -845,6 +845,54 @@ describe("partnership CRM duplicate imports", () => {
     );
   });
 
+  it("converts colon-formatted legacy notes to JSON before automatic compatibility merge", async () => {
+    const { importPartnershipCrmOrganizations } =
+      await import("../repositories/partnership-crm.repository");
+    seedOrganization("existing", 1, "org_genomics_laboratories");
+    const existingKey = mockDocKey("partnership_crm_organizations", "existing");
+    mockDocs.set(existingKey, {
+      ...(mockDocs.get(existingKey) ?? {}),
+      name: "Existing Genome Lab",
+      normalizedName: "existing genome lab",
+      notes: [
+        "**Partnership fit: Mobile delivery for hereditary and prenatal genetic reports. Next step: Demo one of Genos' current reports in Pocket Genes and propose a small local pilot.**",
+        "**Reviewed: 2026-09-12.**",
+        "**Instagram: https://www.instagram.com/genosargentina/**",
+      ].join("\n"),
+    });
+
+    const incomingNotes = JSON.stringify({
+      instagram: "https://www.instagram.com/adnsalta/",
+      services: "NIPT listed as a purchasable service.",
+    });
+
+    const result = await importPartnershipCrmOrganizations(godModeContext, [
+      {
+        rowId: "row-1",
+        name: "Existing Genome Lab",
+        notes: incomingNotes,
+        duplicateAction: "replace_variables",
+        duplicateOrganizationId: "existing",
+      },
+    ]);
+
+    expect(result.summary).toEqual(
+      expect.objectContaining({ total: 1, created: 0, updated: 1 }),
+    );
+    const updated = mockDocs.get(existingKey);
+    expect(updated).toEqual(
+      expect.objectContaining({
+        notes: JSON.stringify({
+          partnership_fit:
+            "Mobile delivery for hereditary and prenatal genetic reports. Next step: Demo one of Genos' current reports in Pocket Genes and propose a small local pilot.",
+          reviewed: "2026-09-12.",
+          instagram: "https://www.instagram.com/adnsalta/",
+          services: "NIPT listed as a purchasable service.",
+        }),
+      }),
+    );
+  });
+
   it("replaces professional variable fields while preserving existing non-variable values", async () => {
     const { importPartnershipCrmProfessionals } =
       await import("../repositories/partnership-crm.repository");

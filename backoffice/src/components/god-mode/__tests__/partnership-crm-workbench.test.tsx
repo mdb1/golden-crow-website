@@ -3416,6 +3416,11 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
   it("opens a duplicate compatibility resolver and saves the selected merged payload", async () => {
     const user = userEvent.setup();
+    const existingNotes = [
+      "**Partnership fit: Mobile delivery for hereditary and prenatal genetic reports. Next step: Demo one of Genos' current reports in Pocket Genes and propose a small local pilot.**",
+      "**Reviewed: 2026-09-12.**",
+      "**Instagram: https://www.instagram.com/genosargentina/**",
+    ].join("\n");
     const incomingNotes = JSON.stringify({
       instagram: "https://www.instagram.com/adnsalta/",
       services: "NIPT listed as a purchasable service.",
@@ -3433,7 +3438,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
       contactEmail: "old@example.org",
       contactLinkedIn: "",
       lastContactAt: null,
-      notes: "Existing note",
+      notes: existingNotes,
       normalizedName: "genome lab 1",
     };
 
@@ -3591,10 +3596,15 @@ describe("PartnershipCrmWorkbench import flow", () => {
         .length,
     ).toBeGreaterThan(0);
     expect(
-      within(resolver).getAllByText("previous_notes").length,
+      within(resolver).getAllByText("partnership_fit").length,
     ).toBeGreaterThan(0);
     expect(
-      within(resolver).getAllByText("Existing note").length,
+      within(resolver).getAllByText(
+        "Mobile delivery for hereditary and prenatal genetic reports. Next step: Demo one of Genos' current reports in Pocket Genes and propose a small local pilot.",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(resolver).getAllByText("reviewed").length,
     ).toBeGreaterThan(0);
 
     await user.click(
@@ -3617,9 +3627,11 @@ describe("PartnershipCrmWorkbench import flow", () => {
         website: "https://new.example.org",
         contactEmail: "old@example.org",
         notes: JSON.stringify({
+          partnership_fit:
+            "Mobile delivery for hereditary and prenatal genetic reports. Next step: Demo one of Genos' current reports in Pocket Genes and propose a small local pilot.",
+          reviewed: "2026-09-12.",
           instagram: "https://www.instagram.com/adnsalta/",
           services: "NIPT listed as a purchasable service.",
-          previous_notes: "Existing note",
         }),
       }),
     );

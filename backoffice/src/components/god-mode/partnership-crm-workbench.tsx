@@ -1949,6 +1949,60 @@ function stringifyCrmStructuredNoteValue(value: unknown) {
   }
 }
 
+function normalizeCrmStructuredNoteKey(key: string) {
+  return key
+    .trim()
+    .replace(/[*`]+/g, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function cleanCrmStructuredNoteLine(value: string) {
+  return value
+    .trim()
+    .replace(/^[-*•]\s+/, "")
+    .replace(/^["']+|["']+$/g, "")
+    .replace(/^\*+|\*+$/g, "")
+    .trim();
+}
+
+function parseCrmColonStructuredNotes(value: string): CrmStructuredNotes | null {
+  const cleanedLines = value
+    .split(/\r?\n/)
+    .map(cleanCrmStructuredNoteLine)
+    .filter(Boolean);
+
+  if (cleanedLines.length === 0) {
+    return null;
+  }
+
+  const entries: CrmStructuredNoteEntry[] = [];
+  for (const line of cleanedLines) {
+    const colonIndex = line.indexOf(":");
+    if (colonIndex <= 0) {
+      return null;
+    }
+
+    const key = normalizeCrmStructuredNoteKey(line.slice(0, colonIndex));
+    const entryValue = cleanCrmStructuredNoteLine(line.slice(colonIndex + 1));
+    if (!key || !entryValue) {
+      return null;
+    }
+
+    entries.push({ key, value: entryValue });
+  }
+
+  return {
+    entries,
+    record: Object.fromEntries(
+      entries.map((entry) => [entry.key, entry.value]),
+    ),
+  };
+}
+
 function parseCrmStructuredNotes(value: unknown): CrmStructuredNotes | null {
   if (typeof value !== "string") {
     return null;
@@ -1956,7 +2010,7 @@ function parseCrmStructuredNotes(value: unknown): CrmStructuredNotes | null {
 
   const trimmed = value.trim();
   if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
-    return null;
+    return parseCrmColonStructuredNotes(trimmed);
   }
 
   try {
