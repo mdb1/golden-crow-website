@@ -17,7 +17,6 @@ const pageCopy = {
       'Our team coordinates the conversations, edits the material, and publishes each contribution with participant review before publication.',
     cta: 'I want to participate',
     secondaryCta: 'See how it works',
-    visualAlt: 'Pocket Genes screens showing community and genomic information',
     purposeTitle: 'The campaign and its purpose',
     purposeBody:
       'The goal is to bring real experience and ideas from the Argentine genomics ecosystem into Pocket Genes: practical knowledge, field stories, research paths, institutional work, communication efforts, and projects that can help more people understand what is happening in the sector.',
@@ -75,7 +74,6 @@ const pageCopy = {
       'Nuestro equipo coordina las conversaciones, edita el material y publica cada contribución con revisión previa de quienes participan.',
     cta: 'Quiero participar',
     secondaryCta: 'Ver cómo funciona',
-    visualAlt: 'Pantallas de Pocket Genes con comunidad e información genómica',
     purposeTitle: 'La campaña y su propósito',
     purposeBody:
       'El objetivo es acercar a Pocket Genes experiencias e ideas reales del ecosistema genómico argentino: conocimiento práctico, recorridos profesionales, investigación, trabajo institucional, comunicación científica y proyectos que puedan ayudar a más personas a entender qué está pasando en el sector.',
@@ -134,72 +132,71 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
 >
   <main id="main" class="pg-page pg-100-page">
     <section class="pg-100-hero">
-      <figure class="pg-100-hero-media">
-        <img
-          src="/pocket-genes/promotional/hero-provider-phone.webp"
-          alt={copy.visualAlt}
-          width="1120"
-          height="860"
-          fetchpriority="high"
-          decoding="async"
-        />
-      </figure>
-
       <div class="pg-container pg-100-hero-inner">
-        <div class="pg-100-hero-copy">
-          <p class="pg-eyebrow">{copy.eyebrow}</p>
-          <h1>{copy.heroTitle}</h1>
-          <p class="pg-100-lead">{copy.heroBody}</p>
-          <p class="pg-100-note">{copy.heroNote}</p>
-          <div class="pg-button-row">
-            <a class="pg-button pg-button-primary" href={participateHref}>{copy.cta}</a>
-            <a class="pg-button pg-button-secondary" href="#como-funciona">{copy.secondaryCta}</a>
+        <p class="pg-eyebrow">{copy.eyebrow}</p>
+        <h1>{copy.heroTitle}</h1>
+        <p class="pg-100-lead">{copy.heroBody}</p>
+        <div class="pg-100-hero-actions">
+          <a class="pg-100-hero-cta" href={participateHref}>{copy.cta}</a>
+          <a class="pg-100-secondary-link" href="#como-funciona">{copy.secondaryCta}</a>
+        </div>
+        <div class="pg-100-hero-note">
+          <span aria-hidden="true"></span>
+          <p>{copy.heroNote}</p>
+        </div>
+      </div>
+      <span class="pg-100-hero-number" aria-hidden="true">100</span>
+    </section>
+
+    <div class="pg-100-shared-band">
+      <section class="pg-section pg-100-purpose">
+        <div class="pg-container pg-100-split">
+          <div>
+            <p class="pg-eyebrow">01</p>
+            <h2>{copy.purposeTitle}</h2>
+          </div>
+          <p>{copy.purposeBody}</p>
+        </div>
+      </section>
+
+      <section class="pg-section-tight pg-100-activities">
+        <div class="pg-container">
+          <div class="pg-section-heading">
+            <p class="pg-eyebrow">02</p>
+            <h2>{copy.activitiesTitle}</h2>
+            <p>{copy.activitiesIntro}</p>
+          </div>
+          <div class="pg-100-activity-grid">
+            {copy.activities.map((activity, index) => (
+              <article class="pg-100-activity-card">
+                <span class={`pg-100-activity-icon icon-${index + 1}`} aria-hidden="true"></span>
+                <strong>{String(index + 1).padStart(2, '0')}</strong>
+                <h3>{activity.title}</h3>
+                <p>{activity.body}</p>
+              </article>
+            ))}
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="pg-section pg-100-purpose">
-      <div class="pg-container pg-100-split">
-        <div>
-          <p class="pg-eyebrow">01</p>
-          <h2>{copy.purposeTitle}</h2>
+      <section class="pg-section pg-100-value">
+        <div class="pg-container pg-100-value-grid">
+          <div>
+            <p class="pg-eyebrow">03</p>
+            <h2>{copy.valueTitle}</h2>
+            <p>{copy.participationNote}</p>
+          </div>
+          <ul>
+            {copy.valueItems.map((item) => (
+              <li>
+                <span aria-hidden="true"></span>
+                <p>{item}</p>
+              </li>
+            ))}
+          </ul>
         </div>
-        <p>{copy.purposeBody}</p>
-      </div>
-    </section>
-
-    <section class="pg-section-tight pg-100-activities">
-      <div class="pg-container">
-        <div class="pg-section-heading">
-          <p class="pg-eyebrow">02</p>
-          <h2>{copy.activitiesTitle}</h2>
-          <p>{copy.activitiesIntro}</p>
-        </div>
-        <div class="pg-card-grid pg-100-activity-grid">
-          {copy.activities.map((activity, index) => (
-            <article class="pg-card pg-100-activity-card" style={`--activity-index: ${index + 1};`}>
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <h3>{activity.title}</h3>
-              <p>{activity.body}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <section class="pg-section pg-100-value">
-      <div class="pg-container pg-100-value-grid">
-        <div>
-          <p class="pg-eyebrow">03</p>
-          <h2>{copy.valueTitle}</h2>
-          <p>{copy.participationNote}</p>
-        </div>
-        <ul>
-          {copy.valueItems.map((item) => <li>{item}</li>)}
-        </ul>
-      </div>
-    </section>
+      </section>
+    </div>
 
     <section id="como-funciona" class="pg-section-tight pg-100-process">
       <div class="pg-container">
@@ -226,7 +223,9 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
           <h2>{copy.invitationTitle}</h2>
           <p>{copy.invitationBody}</p>
         </div>
-        <a class="pg-button pg-button-primary" href={participateHref}>{copy.cta}</a>
+        <div class="pg-100-invitation-action">
+          <a class="pg-100-hero-cta" href={participateHref}>{copy.cta}</a>
+        </div>
       </div>
     </section>
 
@@ -244,78 +243,174 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
 
 <style>
   .pg-100-page {
-    background: #fbfcfd;
+    background: #ffffff;
   }
 
   .pg-100-hero {
     position: relative;
     isolation: isolate;
-    min-height: 720px;
+    min-height: 620px;
     display: flex;
-    align-items: center;
-    padding: 124px 0 64px;
-    background: #edf8f7;
+    align-items: flex-end;
+    padding: 124px 0 34px;
+    background: #ffffff;
+    color: var(--pg-ink);
     overflow: hidden;
-  }
-
-  .pg-100-hero::before {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    background:
-      linear-gradient(90deg, rgba(251, 252, 253, 0.98) 0%, rgba(251, 252, 253, 0.93) 48%, rgba(251, 252, 253, 0.28) 100%),
-      linear-gradient(180deg, rgba(251, 252, 253, 0.72) 0%, rgba(251, 252, 253, 0.12) 58%, rgba(251, 252, 253, 0.82) 100%);
-  }
-
-  .pg-100-hero-media {
-    position: absolute;
-    z-index: -2;
-    inset: 0;
-    margin: 0;
-  }
-
-  .pg-100-hero-media img {
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: cover;
-    object-position: center right;
   }
 
   .pg-100-hero-inner {
     position: relative;
-    width: min(1120px, calc(100% - 32px));
+    z-index: 1;
+    display: flex;
+    max-width: 1040px;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
 
-  .pg-100-hero-copy h1 {
-    max-width: 760px;
+  .pg-100-hero-inner .pg-eyebrow {
+    color: var(--pg-rose);
+  }
+
+  .pg-100-hero h1 {
+    max-width: 1050px;
     margin: 0;
-    font-size: clamp(2.85rem, 6vw, 5.6rem);
-    line-height: 0.98;
+    font-size: clamp(3.35rem, 8vw, 6.45rem);
+    line-height: 0.94;
     letter-spacing: 0;
+    text-wrap: balance;
+  }
+
+  .pg-100-hero-number {
+    position: absolute;
+    right: max(18px, calc((100vw - 1120px) / 2));
+    bottom: -0.28em;
+    z-index: 0;
+    color: rgba(228, 80, 128, 0.08);
+    font-size: clamp(9rem, 25vw, 19rem);
+    font-weight: 950;
+    line-height: 1;
+    pointer-events: none;
   }
 
   .pg-100-lead {
-    max-width: 720px;
-    margin: 22px 0 0;
+    max-width: 780px;
+    margin: 24px 0 0;
     color: var(--pg-ink-soft);
-    font-size: 1.18rem;
+    font-size: clamp(1.06rem, 2vw, 1.22rem);
     line-height: 1.62;
+    text-wrap: balance;
   }
 
-  .pg-100-note {
-    max-width: 640px;
-    margin: 18px 0 0;
-    border-left: 4px solid var(--pg-teal);
-    color: #253149;
-    padding-left: 16px;
+  .pg-100-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 42px;
+  }
+
+  .pg-100-hero-cta,
+  .pg-100-secondary-link {
+    display: inline-flex;
+    min-height: 64px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0 34px;
+    font-size: 1.12rem;
+    font-weight: 850;
+    line-height: 1;
+    text-decoration: none;
+    transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease, transform 160ms ease;
+  }
+
+  .pg-100-hero-cta {
+    background: #2d7edc;
+    color: #ffffff;
+    box-shadow: 0 14px 30px rgba(33, 118, 174, 0.16), 0 5px 14px rgba(41, 49, 139, 0.08);
+  }
+
+  .pg-100-hero-cta:hover {
+    background: #3389ed;
+    box-shadow: 0 18px 34px rgba(33, 118, 174, 0.21), 0 8px 18px rgba(41, 49, 139, 0.1);
+    transform: translateY(-2px);
+  }
+
+  .pg-100-secondary-link {
+    border: 1px solid var(--pg-border-strong);
+    background: #ffffff;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-100-secondary-link:hover {
+    border-color: var(--pg-blue);
+    color: var(--pg-blue);
+    box-shadow: 0 10px 24px rgba(33, 118, 174, 0.12);
+    transform: translateY(-2px);
+  }
+
+  .pg-100-hero-note {
+    display: grid;
+    grid-template-columns: 4px minmax(0, 1fr);
+    gap: 14px;
+    max-width: 760px;
+    margin-top: 38px;
+    text-align: left;
+  }
+
+  .pg-100-hero-note span {
+    width: 4px;
+    min-height: 100%;
+    border-radius: 999px;
+    background: var(--pg-rose);
+  }
+
+  .pg-100-hero-note p {
+    margin: 0;
+    color: var(--pg-ink-soft);
     font-size: 1rem;
     line-height: 1.55;
   }
 
-  .pg-100-hero-copy .pg-button-row {
-    margin-top: 30px;
+  .pg-100-shared-band {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background:
+      linear-gradient(132deg, #141a45 0%, #172033 42%, #29318b 67%, #0d6d70 100%),
+      linear-gradient(90deg, rgba(228, 80, 128, 0.26), rgba(20, 149, 143, 0.2));
+    color: #ffffff;
+  }
+
+  .pg-100-shared-band::before {
+    content: "";
+    position: absolute;
+    top: -64px;
+    left: 50%;
+    z-index: 0;
+    width: 118%;
+    height: 128px;
+    border-radius: 0 0 50% 50% / 0 0 100% 100%;
+    background: linear-gradient(
+      180deg,
+      #ffffff 0%,
+      #ffffff 42%,
+      rgba(255, 255, 255, 0.96) 62%,
+      rgba(255, 255, 255, 0.68) 80%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .pg-100-shared-band > section {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pg-100-purpose {
+    padding-top: 168px;
   }
 
   .pg-100-split,
@@ -332,74 +427,194 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
   .pg-100-invitation h2,
   .pg-100-upcoming h2 {
     margin: 0;
-    font-size: clamp(2rem, 4vw, 3.15rem);
+    font-size: clamp(2.15rem, 4vw, 3.35rem);
     line-height: 1.08;
     letter-spacing: 0;
+    text-wrap: balance;
+  }
+
+  .pg-100-shared-band .pg-eyebrow {
+    color: #6bd0c9;
+  }
+
+  .pg-100-shared-band .pg-section-heading {
+    max-width: 840px;
+  }
+
+  .pg-100-shared-band .pg-section-heading h2 {
+    color: #ffffff;
+  }
+
+  .pg-100-shared-band .pg-section-heading p {
+    color: rgba(255, 255, 255, 0.72);
   }
 
   .pg-100-split > p,
   .pg-100-value-grid > div p,
-  .pg-100-invitation-panel p,
-  .pg-100-upcoming p {
+  .pg-100-invitation-panel p {
     margin: 0;
-    color: var(--pg-ink-soft);
+    color: rgba(255, 255, 255, 0.76);
     font-size: 1.12rem;
     line-height: 1.72;
   }
 
-  .pg-100-activities {
-    background: #ffffff;
+  .pg-100-activity-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
   }
 
   .pg-100-activity-card {
     position: relative;
     overflow: hidden;
-    min-height: 240px;
+    min-height: 280px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.07);
+    padding: 26px;
   }
 
-  .pg-100-activity-card span {
+  .pg-100-activity-card strong {
+    display: block;
+    margin-top: 22px;
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 0.82rem;
+    font-weight: 900;
+  }
+
+  .pg-100-activity-card h3 {
+    margin: 12px 0 8px;
+    color: #ffffff;
+    font-size: 1.28rem;
+    line-height: 1.22;
+  }
+
+  .pg-100-activity-card p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.72);
+    line-height: 1.55;
+  }
+
+  .pg-100-activity-icon {
+    position: relative;
     display: inline-flex;
-    min-width: 42px;
-    height: 42px;
+    width: 48px;
+    height: 48px;
     align-items: center;
     justify-content: center;
-    margin-bottom: 22px;
     border-radius: 999px;
-    background: #eef8f7;
-    color: #0f6f6a;
-    font-weight: 850;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--pg-teal);
   }
 
-  .pg-100-activity-card:nth-child(2) span {
-    background: #fff0f5;
-    color: #b83262;
+  .pg-100-activity-icon::before,
+  .pg-100-activity-icon::after {
+    content: "";
+    position: absolute;
+    background: currentColor;
   }
 
-  .pg-100-activity-card:nth-child(3) span {
-    background: #fff7df;
-    color: #9a6319;
+  .icon-1::before {
+    width: 24px;
+    height: 16px;
+    left: 12px;
+    top: 13px;
+    border-radius: 10px 10px 10px 3px;
   }
 
-  .pg-100-value {
-    background: #f6fafb;
+  .icon-1::after {
+    width: 12px;
+    height: 3px;
+    left: 18px;
+    top: 20px;
+    border-radius: 999px;
+    background: #ffffff;
+  }
+
+  .icon-2 {
+    color: var(--pg-rose);
+  }
+
+  .icon-2::before {
+    width: 22px;
+    height: 26px;
+    left: 13px;
+    top: 11px;
+    border-radius: 4px;
+  }
+
+  .icon-2::after {
+    width: 12px;
+    height: 2px;
+    left: 18px;
+    top: 19px;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 6px 0 #ffffff;
+  }
+
+  .icon-3 {
+    color: #d99232;
+  }
+
+  .icon-3::before {
+    width: 24px;
+    height: 22px;
+    left: 12px;
+    top: 14px;
+    border-radius: 5px;
+  }
+
+  .icon-3::after {
+    width: 24px;
+    height: 5px;
+    left: 12px;
+    top: 18px;
+    background: #ffffff;
   }
 
   .pg-100-value ul {
     display: grid;
-    gap: 12px;
+    gap: 0;
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
   .pg-100-value li {
-    border: 1px solid var(--pg-border);
-    border-radius: 8px;
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr);
+    gap: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    padding: 18px 0;
+  }
+
+  .pg-100-value li:last-child {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  }
+
+  .pg-100-value li span {
+    width: 10px;
+    height: 10px;
+    margin-top: 8px;
+    border-radius: 999px;
+    background: var(--pg-rose);
+  }
+
+  .pg-100-value li:nth-child(2n) span {
+    background: #6bd0c9;
+  }
+
+  .pg-100-value li p {
+    margin: 0;
+    color: #ffffff;
+    font-weight: 740;
+    line-height: 1.48;
+  }
+
+  .pg-100-process {
     background: #ffffff;
-    color: var(--pg-ink);
-    padding: 16px 18px;
-    font-weight: 720;
-    line-height: 1.4;
+    padding-top: 84px;
   }
 
   .pg-100-process-list {
@@ -412,11 +627,11 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
   }
 
   .pg-100-process-list li {
-    min-height: 150px;
+    min-height: 168px;
     border: 1px solid var(--pg-border);
     border-radius: 8px;
-    background: #ffffff;
-    padding: 18px;
+    background: #fbfcfd;
+    padding: 22px;
   }
 
   .pg-100-process-list span {
@@ -428,31 +643,34 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
 
   .pg-100-process-list strong {
     display: block;
-    margin-top: 32px;
+    margin-top: 34px;
     color: var(--pg-ink);
     font-size: 1.06rem;
     line-height: 1.32;
   }
 
   .pg-100-invitation {
-    background: #172033;
-    color: #ffffff;
+    background: #fbfcfd;
+    color: var(--pg-ink);
   }
 
   .pg-100-invitation .pg-eyebrow {
-    color: #6bd0c9;
+    color: var(--pg-rose);
   }
 
   .pg-100-invitation-panel {
     align-items: center;
+    border-top: 1px solid var(--pg-border);
+    border-bottom: 1px solid var(--pg-border);
+    padding: 44px 0;
   }
 
   .pg-100-invitation-panel p {
-    color: #d8e2ee;
+    color: var(--pg-ink-soft);
     margin-top: 16px;
   }
 
-  .pg-100-invitation-panel .pg-button {
+  .pg-100-invitation-action {
     justify-self: end;
   }
 
@@ -461,7 +679,7 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
   }
 
   .pg-100-upcoming-panel {
-    border: 1px dashed var(--pg-border-strong);
+    border: 1px solid var(--pg-border);
     border-radius: 8px;
     background: #fbfcfd;
     padding: clamp(24px, 4vw, 42px);
@@ -481,6 +699,7 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
 
   .pg-100-upcoming p {
     max-width: 820px;
+    color: var(--pg-ink-soft);
     margin-top: 14px;
   }
 
@@ -490,28 +709,25 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
       padding: 108px 0 56px;
     }
 
-    .pg-100-hero-inner,
     .pg-100-split,
     .pg-100-value-grid,
     .pg-100-invitation-panel {
       grid-template-columns: 1fr;
     }
 
-    .pg-100-hero::before {
-      background:
-        linear-gradient(180deg, rgba(251, 252, 253, 0.98) 0%, rgba(251, 252, 253, 0.94) 58%, rgba(251, 252, 253, 0.82) 100%);
+    .pg-100-activity-grid {
+      grid-template-columns: 1fr;
     }
 
-    .pg-100-hero-media img {
-      object-position: center;
-      opacity: 0.38;
+    .pg-100-activity-card {
+      min-height: auto;
     }
 
     .pg-100-process-list {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .pg-100-invitation-panel .pg-button {
+    .pg-100-invitation-action {
       justify-self: start;
     }
   }
@@ -521,8 +737,14 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
       padding-top: 104px;
     }
 
-    .pg-100-hero-copy h1 {
-      font-size: 2.55rem;
+    .pg-100-hero h1 {
+      font-size: 3rem;
+    }
+
+    .pg-100-hero-actions,
+    .pg-100-hero-cta,
+    .pg-100-secondary-link {
+      width: 100%;
     }
 
     .pg-100-lead {
