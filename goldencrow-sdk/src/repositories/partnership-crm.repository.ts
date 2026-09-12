@@ -7,7 +7,6 @@ import {
 import { adminDbFor } from "../config/firebase.js";
 import {
   PARTNERSHIP_CRM_FROM_EMAIL,
-  hasApprovedPartnershipCrmEmailClosing,
   sendPartnershipCrmEmail,
 } from "../lib/partnership-crm-email.js";
 import {
@@ -3358,12 +3357,6 @@ export async function sendPartnershipCrmOrganizationEmail(
   if (!text) {
     throw new AdminRepositoryError("Email message is required.", 400);
   }
-  if (!hasApprovedPartnershipCrmEmailClosing(text)) {
-    throw new AdminRepositoryError(
-      "CRM email must end with the approved closing and Federico signature.",
-      400,
-    );
-  }
 
   const templateId = cleanString(input.templateId);
   const templateName = await templateNameForId(templateId);
@@ -3449,12 +3442,6 @@ export async function sendPartnershipCrmProfessionalEmail(
   }
   if (!text) {
     throw new AdminRepositoryError("Email message is required.", 400);
-  }
-  if (!hasApprovedPartnershipCrmEmailClosing(text)) {
-    throw new AdminRepositoryError(
-      "CRM email must end with the approved closing and Federico signature.",
-      400,
-    );
   }
 
   const templateId = cleanString(input.templateId);

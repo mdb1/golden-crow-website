@@ -329,26 +329,6 @@ jest.mock("../config/firebase.js", () => ({
 
 jest.mock("../lib/partnership-crm-email.js", () => ({
   PARTNERSHIP_CRM_FROM_EMAIL: "partners@example.org",
-  hasApprovedPartnershipCrmEmailClosing: jest.fn((value: string) =>
-    value
-      .replace(/\r\n?/g, "\n")
-      .split("\n")
-      .map((line) => line.trimEnd())
-      .join("\n")
-      .trim()
-      .endsWith(
-        [
-          "Te comparto nuestro link para que puedas conocer la propuesta y sumarte a la red:",
-          "",
-          "https://goldencrowvs.com/pocket-genes/join-us/",
-          "",
-          "Quedamos a la espera de tu respuesta.",
-          "",
-          "Saludos,",
-          "Federico",
-        ].join("\n"),
-      ),
-  ),
   sendPartnershipCrmEmail: jest.fn(),
 }));
 
@@ -362,21 +342,6 @@ const godModeContext = {
   canAccessPGFlex: false,
   projectAccess: ["mydnamap" as const],
 };
-const approvedPartnershipCrmEmailClosing = [
-  "Te comparto nuestro link para que puedas conocer la propuesta y sumarte a la red:",
-  "",
-  "https://goldencrowvs.com/pocket-genes/join-us/",
-  "",
-  "Quedamos a la espera de tu respuesta.",
-  "",
-  "Saludos,",
-  "Federico",
-].join("\n");
-
-function withApprovedPartnershipCrmEmailClosing(body: string) {
-  return `${body}\n\n${approvedPartnershipCrmEmailClosing}`;
-}
-
 function mockIsoAt(index: number) {
   return new Date(
     Date.parse("2026-09-10T12:00:00.000Z") - index * 60_000,
@@ -501,7 +466,7 @@ describe("partnership CRM email sending", () => {
     jest.mocked(sendPartnershipCrmEmail).mockClear();
   });
 
-  it("rejects organization emails that do not end with the approved closing", async () => {
+  it("sends organization emails without requiring a fixed closing", async () => {
     const { sendPartnershipCrmOrganizationEmail } = await import(
       "../repositories/partnership-crm.repository"
     );
@@ -509,30 +474,7 @@ describe("partnership CRM email sending", () => {
       "../lib/partnership-crm-email.js"
     );
     seedOrganization("org-1", 1, "org_genomics_laboratories");
-
-    await expect(
-      sendPartnershipCrmOrganizationEmail(godModeContext, "org-1", {
-        to: "ada@example.org",
-        subject: "Pocket Genes + Ada",
-        text: "Hola Ada,\n\nTe escribo sobre Pocket Genes.\n\nSaludos,\nFederico",
-      }),
-    ).rejects.toThrow(
-      "CRM email must end with the approved closing and Federico signature.",
-    );
-    expect(sendPartnershipCrmEmail).not.toHaveBeenCalled();
-  });
-
-  it("sends organization emails when the approved closing is present", async () => {
-    const { sendPartnershipCrmOrganizationEmail } = await import(
-      "../repositories/partnership-crm.repository"
-    );
-    const { sendPartnershipCrmEmail } = await import(
-      "../lib/partnership-crm-email.js"
-    );
-    seedOrganization("org-1", 1, "org_genomics_laboratories");
-    const text = withApprovedPartnershipCrmEmailClosing(
-      "Hola Ada,\n\nTe escribo sobre Pocket Genes.",
-    );
+    const text = "Hola Ada,\n\nTe escribo sobre Pocket Genes.";
 
     await expect(
       sendPartnershipCrmOrganizationEmail(godModeContext, "org-1", {

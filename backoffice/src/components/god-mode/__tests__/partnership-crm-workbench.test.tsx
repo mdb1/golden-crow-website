@@ -1218,7 +1218,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
   });
 
-  it("blocks CRM email preview until the approved closing and signature are present", async () => {
+  it("allows CRM email preview without requiring a fixed closing", async () => {
     const user = userEvent.setup();
     renderWorkbench();
 
@@ -1236,20 +1236,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const messageEditor = within(dialog).getByLabelText("Message");
     messageEditor.innerHTML =
       "Hola Ada,\n\nQueria escribirte directamente sobre Pocket Genes.";
-    fireEvent.input(messageEditor);
-
-    expect(
-      within(dialog).getByText(
-        "The email must end with the approved closing and Federico signature before preview or send.",
-      ),
-    ).toBeTruthy();
-    expect(
-      within(dialog).getByRole("button", { name: "Preview email" }),
-    ).toHaveProperty("disabled", true);
-
-    messageEditor.innerHTML = withApprovedCrmEmailClosing(
-      "Hola Ada,\n\nQueria escribirte directamente sobre Pocket Genes.",
-    );
     fireEvent.input(messageEditor);
 
     await waitFor(() => {
