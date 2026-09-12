@@ -3176,23 +3176,19 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
     await user.click(within(dialog).getByRole("button", { name: "Skip row" }));
     await waitFor(() => {
-      expect(
-        within(dialog).getByText("Skipped during interactive review."),
-      ).toBeTruthy();
+      expect(within(dialog).getByText("Row 3 of 3")).toBeTruthy();
     });
+    expect(within(dialog).getByText("Genome Lab 3")).toBeTruthy();
     expect(crmImportCalls()).toHaveLength(1);
     expect(crmImportSession()).toEqual(
       expect.objectContaining({
         mode: "interactive",
+        activeRowIndex: 2,
         nextImportIndex: 2,
         importSummary: expect.objectContaining({ created: 1, skipped: 1 }),
       }),
     );
 
-    await user.click(within(dialog).getByRole("button", { name: "Next row" }));
-    await waitFor(() => {
-      expect(within(dialog).getByText("Row 3 of 3")).toBeTruthy();
-    });
     await user.click(within(dialog).getByRole("button", { name: "Add" }));
 
     await waitFor(() => {

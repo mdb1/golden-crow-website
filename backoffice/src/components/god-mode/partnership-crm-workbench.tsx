@@ -7947,9 +7947,7 @@ export function PartnershipCrmWorkbench() {
         completeCrmImportSession(updated);
         return;
       }
-      if (decision === "add") {
-        await advanceInteractiveImportSession(updated);
-      }
+      await advanceInteractiveImportSession(updated);
     } catch (error) {
       setInteractiveAutoImportEnabled(false);
       const rowIndex = importSession.activeRowIndex;
