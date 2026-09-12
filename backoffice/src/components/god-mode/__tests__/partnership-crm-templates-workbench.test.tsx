@@ -920,6 +920,96 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(templateMutationCalls("PUT")).toHaveLength(0);
   });
 
+  it("does not flag coded templates with different leading codes as duplicates", async () => {
+    const user = userEvent.setup();
+    const existingTemplate: PartnershipCrmTemplateRecord = {
+      ...template,
+      id: "tpl-a01",
+      name: "A01 - Clinica de fertilidad - Comunidad y visibilidad",
+      category: "org_genetic_testing_laboratories",
+      subject: "Pocket Genes + {{organization_name}}",
+      body: "Existing fertility clinic template",
+      notes: "Existing note",
+      normalizedName: "a01 clinica de fertilidad comunidad y visibilidad",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (
+        path === "/admin/partnership-crm/templates" &&
+        init?.method === "POST"
+      ) {
+        const body = JSON.parse(
+          String(init.body),
+        ) as PartnershipCrmTemplateInput;
+        return {
+          template: {
+            ...template,
+            ...body,
+            id: "created-c1",
+            updatedAt: "2026-09-10T12:00:00.000Z",
+          },
+        };
+      }
+
+      return {
+        templates: [existingTemplate],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await user.click(await screen.findByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = [
+      "name,category,subject,body,status,is_favorite,notes",
+      '"C1 - Laboratorio de pruebas geneticas - Presentacion institucional","org_genetic_testing_laboratories","Pocket Genes + {{organization_name}}","New lab template","active","true","New note"',
+    ].join("\n");
+    const file = new File([csv], "coded-subject-match.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+
+    await waitFor(() => {
+      expect(
+        within(dialog)
+          .getByRole("button", { name: "Evaluate one by one" })
+          .getAttribute("disabled"),
+      ).toBeNull();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Evaluate one by one",
+      }),
+    );
+
+    const currentRow = within(dialog).getByTestId(
+      "template-import-current-row",
+    );
+    expect(
+      within(currentRow).getByText(
+        "C1 - Laboratorio de pruebas geneticas - Presentacion institucional",
+      ),
+    ).toBeTruthy();
+    expect(within(dialog).queryByText("Possible duplicate")).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "Update existing with this row",
+      }),
+    ).toBeNull();
+
+    await user.click(within(dialog).getByRole("button", { name: "Add row" }));
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Template import finished")).toBeTruthy();
+    });
+    expect(templateMutationCalls("POST")).toHaveLength(1);
+    expect(templateMutationCalls("PUT")).toHaveLength(0);
+  });
+
   it("imports all duplicate template rows by updating existing templates", async () => {
     const user = userEvent.setup();
     const existingTemplate = duplicateTemplateFixture();

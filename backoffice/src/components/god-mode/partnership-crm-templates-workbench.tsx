@@ -813,12 +813,34 @@ function templateNameMatchTokens(value: string | undefined | null) {
     .filter((token) => token.length >= 3);
 }
 
+function templateLeadingCode(value: string | undefined | null) {
+  const normalized = normalizeTemplateMatchValue(value);
+  const match = normalized.match(
+    /^([a-z]{1,4})\s*[-_.]?\s*(\d{1,4})(?=$|[^a-z0-9])/,
+  );
+  if (!match) {
+    return null;
+  }
+  return `${match[1]}${Number(match[2])}`;
+}
+
+function templateNameWithoutLeadingCode(value: string | undefined | null) {
+  return normalizeTemplateMatchValue(value)
+    .replace(
+      /^([a-z]{1,4})\s*[-_.]?\s*(\d{1,4})(?=$|[^a-z0-9])\s*[-:–—.]?\s*/,
+      "",
+    )
+    .trim();
+}
+
 function templateNamesAreCompatible(
   existingName: string | undefined | null,
   incomingName: string | undefined | null,
 ) {
-  const existing = normalizeTemplateMatchValue(existingName);
-  const incoming = normalizeTemplateMatchValue(incomingName);
+  const existingCode = templateLeadingCode(existingName);
+  const incomingCode = templateLeadingCode(incomingName);
+  let existing = normalizeTemplateMatchValue(existingName);
+  let incoming = normalizeTemplateMatchValue(incomingName);
 
   if (!existing || !incoming) {
     return false;
@@ -826,6 +848,21 @@ function templateNamesAreCompatible(
 
   if (existing === incoming) {
     return true;
+  }
+
+  if (existingCode || incomingCode) {
+    if (existingCode !== incomingCode) {
+      return false;
+    }
+
+    existing = templateNameWithoutLeadingCode(existingName);
+    incoming = templateNameWithoutLeadingCode(incomingName);
+    if (!existing || !incoming) {
+      return false;
+    }
+    if (existing === incoming) {
+      return true;
+    }
   }
 
   const shorter = existing.length < incoming.length ? existing : incoming;
@@ -867,6 +904,7 @@ function findTemplateDuplicateCandidate(
   const incomingAudience = templateImportAudience(incoming);
   const incomingName = normalizeTemplateMatchValue(incoming.name);
   const incomingSubject = normalizeTemplateMatchValue(incoming.subject);
+  const incomingCategory = normalizeTemplateMatchValue(incoming.category);
   const sameAudienceTemplates = existingTemplates.filter(
     (template) => templateImportAudience(template) === incomingAudience,
   );
@@ -886,6 +924,7 @@ function findTemplateDuplicateCandidate(
 
   const bySubject = sameAudienceTemplates.find(
     (template) =>
+      normalizeTemplateMatchValue(template.category) === incomingCategory &&
       normalizeTemplateMatchValue(template.subject) === incomingSubject &&
       templateNamesAreCompatible(template.name, incoming.name),
   );
@@ -893,7 +932,8 @@ function findTemplateDuplicateCandidate(
   return bySubject
     ? {
         template: bySubject,
-        reason: "Same audience and subject, with compatible template name.",
+        reason:
+          "Same audience, category, and subject, with compatible template name.",
       }
     : null;
 }
