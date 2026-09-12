@@ -80,6 +80,16 @@ const CRM_FAVORITE_RULE =
   "Optional. Use true/false, 1/0, yes/no, or favorito. True rows are shown with a yellow star and sorted first in CRM lists.";
 const TEMPLATE_FAVORITE_RULE =
   "Optional. Use true/false, 1/0, yes/no, or favorito. True templates are shown with a yellow star and sorted first in plantillas lists.";
+const CRM_STRUCTURED_NOTES_RULE =
+  'Optional structured JSON object string. Maximum 2000 characters. Prefer concise keys such as reviewed, instagram, services, argentina, digital, note, sources, email_route, or linkedin_route. Store each note fragment as a JSON value, for example {"instagram":"https://www.instagram.com/adnsalta/","services":"NIPT listed as a purchasable service."}. Do not use markdown bullets, labels with bold text, or pasted scraped pages. If the JSON is placed in a CSV cell, wrap the whole cell in double quotes and escape each internal quote by doubling it.';
+const ORGANIZATION_NOTES_JSON_EXAMPLE =
+  '{"reviewed":"2026-09-12","instagram":"https://www.instagram.com/adnsalta/","services":"NIPT listed as a purchasable service; genetic tests and clinical laboratory services.","sources":"https://www.adnsalta.com.ar/productos/test-prenatal-no-invasivo-nipt/ ; https://www.adnsalta.com.ar/"}';
+const PROFESSIONAL_NOTES_JSON_EXAMPLE =
+  '{"reviewed":"2026-09-12","route":"LinkedIn response; validate recipient context before email.","sources":"Public affiliation site and LinkedIn record."}';
+
+function csvCell(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
+}
 
 const TEMPLATE_VARIABLES = [
   "contact_name",
@@ -352,9 +362,8 @@ function ruleLinesFor(
       },
       {
         label: "notes",
-        detail:
-          "Optional plain operational notes. Maximum 2000 characters. Do not paste long scraped pages or JSON blobs.",
-        example: "Responded on LinkedIn and referred coordination internally.",
+        detail: CRM_STRUCTURED_NOTES_RULE,
+        example: PROFESSIONAL_NOTES_JSON_EXAMPLE,
       },
     ];
   }
@@ -421,9 +430,8 @@ function ruleLinesFor(
       },
       {
         label: "notes",
-        detail:
-          "Optional plain operational notes. Maximum 2000 characters. Do not paste long scraped pages or JSON blobs.",
-        example: "Imported after call with lab team.",
+        detail: CRM_STRUCTURED_NOTES_RULE,
+        example: ORGANIZATION_NOTES_JSON_EXAMPLE,
       },
     ];
   }
@@ -507,7 +515,7 @@ function exampleCsvFor(
         '""',
         '"https://www.linkedin.com/in/nascentisfertility"',
         '"2026-08-25T14:29:00-03:00"',
-        '"No direct email yet; coordination referred internally."',
+        csvCell(PROFESSIONAL_NOTES_JSON_EXAMPLE),
       ].join(","),
     ].join("\n");
   }
@@ -526,7 +534,7 @@ function exampleCsvFor(
         '"ada@genomelab.example"',
         '"https://www.linkedin.com/in/adagenome"',
         '"2026-08-25T17:29:00.000Z"',
-        '"Imported after call with lab team."',
+        csvCell(ORGANIZATION_NOTES_JSON_EXAMPLE),
       ].join(","),
     ].join("\n");
   }
@@ -580,6 +588,7 @@ function commonPitfallsFor(kind: ImportRulesKind) {
   return [
     ...common,
     "Cells with multiple category or country keys must be quoted, otherwise the commas will shift later columns.",
+    "Structured JSON notes must be a single quoted CSV cell with internal quotes escaped by doubling them.",
     "Use an explicit timezone for last_contact_at. Date-only values and datetimes without timezone are rejected.",
     "GLOBAL, unknown countries, and unknown categories are ignored instead of being saved as custom free text.",
   ];

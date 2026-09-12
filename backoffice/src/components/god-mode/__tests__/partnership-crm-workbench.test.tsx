@@ -966,6 +966,48 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(sendButton.className).toContain("w-full");
   });
 
+  it("renders structured JSON notes in the CRM detail panel", async () => {
+    const user = userEvent.setup();
+    const structuredNotes = JSON.stringify({
+      instagram: "https://www.instagram.com/adnsalta/",
+      services: "NIPT listed as a purchasable service.",
+    });
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+
+      return {
+        organizations: [{ ...organization, notes: structuredNotes }],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+
+    expect(screen.getByText("instagram")).toBeTruthy();
+    expect(
+      screen.getByText("https://www.instagram.com/adnsalta/"),
+    ).toBeTruthy();
+    expect(screen.getByText("services")).toBeTruthy();
+    expect(
+      screen.getByText("NIPT listed as a purchasable service."),
+    ).toBeTruthy();
+  });
+
   it("opens a global modal with sent CRM emails and plantilla metadata", async () => {
     const user = userEvent.setup();
 
@@ -3367,6 +3409,10 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
   it("opens a duplicate compatibility resolver and saves the selected merged payload", async () => {
     const user = userEvent.setup();
+    const incomingNotes = JSON.stringify({
+      instagram: "https://www.instagram.com/adnsalta/",
+      services: "NIPT listed as a purchasable service.",
+    });
     const existingOrganization: PartnershipCrmOrganizationRecord = {
       ...organization,
       id: "org-existing",
@@ -3416,7 +3462,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
               contactEmail: row.contactEmail ?? "",
               contactLinkedIn: "",
               lastContactAt: null,
-              notes: row.notes ?? "",
+              notes: incomingNotes,
             },
             valid: true,
             errors: [],
@@ -3530,6 +3576,19 @@ describe("PartnershipCrmWorkbench import flow", () => {
     expect(
       within(unchangedNameSection as HTMLElement).getByText("Genome Lab 1"),
     ).toBeTruthy();
+    expect(within(resolver).getAllByText("instagram").length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      within(resolver).getAllByText("https://www.instagram.com/adnsalta/")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(resolver).getAllByText("previous_notes").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(resolver).getAllByText("Existing note").length,
+    ).toBeGreaterThan(0);
 
     await user.click(
       within(resolver).getByRole("button", { name: "Save compatibility" }),
@@ -3550,7 +3609,11 @@ describe("PartnershipCrmWorkbench import flow", () => {
         duplicateOrganizationId: "org-existing",
         website: "https://new.example.org",
         contactEmail: "old@example.org",
-        notes: "Existing note",
+        notes: JSON.stringify({
+          instagram: "https://www.instagram.com/adnsalta/",
+          services: "NIPT listed as a purchasable service.",
+          previous_notes: "Existing note",
+        }),
       }),
     );
   });
@@ -4134,6 +4197,10 @@ describe("PartnershipCrmWorkbench import flow", () => {
         "CRM target imports preview and commit one row at a time with a browser checkpoint.",
       ),
     ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Optional structured JSON object string/),
+    ).toBeTruthy();
+    expect(within(dialog).getAllByText(/instagram/).length).toBeGreaterThan(0);
 
     await user.click(within(dialog).getByRole("button", { name: "Copy" }));
     await waitFor(() => {
@@ -4158,6 +4225,9 @@ describe("PartnershipCrmWorkbench import flow", () => {
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Cells with multiple category or country keys must be quoted",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Structured JSON notes must be a single quoted CSV cell",
     );
   });
 
@@ -4214,6 +4284,9 @@ describe("PartnershipCrmWorkbench import flow", () => {
     expect(
       within(dialog).getByText(/email and linkedin are not template variables/),
     ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Optional structured JSON object string/),
+    ).toBeTruthy();
 
     await user.click(within(dialog).getByRole("button", { name: "Copy" }));
     await waitFor(() => {
@@ -4250,6 +4323,9 @@ describe("PartnershipCrmWorkbench import flow", () => {
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "{{website}}, {{website_sentence}}: website",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Structured JSON notes must be a single quoted CSV cell",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Rejected: 2026-08-25 and 2026-08-25T14:29:00 because they do not include timezone.",

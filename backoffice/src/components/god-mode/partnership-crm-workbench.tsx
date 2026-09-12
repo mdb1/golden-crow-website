@@ -1912,6 +1912,174 @@ function isMissingCompatibilityValue(value: unknown) {
   return typeof value === "string" && value.trim().length === 0;
 }
 
+type CrmStructuredNoteEntry = {
+  key: string;
+  value: string;
+};
+
+type CrmStructuredNotes = {
+  entries: CrmStructuredNoteEntry[];
+  record: Record<string, string>;
+};
+
+const PREVIOUS_CRM_NOTES_KEY = "previous_notes";
+const CSV_NOTES_KEY = "csv_notes";
+
+function stringifyCrmStructuredNoteValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint"
+  ) {
+    return String(value);
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function parseCrmStructuredNotes(value: unknown): CrmStructuredNotes | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+
+    const entries = Object.entries(parsed as Record<string, unknown>)
+      .map(([key, entryValue]) => ({
+        key: key.trim(),
+        value: stringifyCrmStructuredNoteValue(entryValue),
+      }))
+      .filter((entry) => entry.key.length > 0);
+
+    return {
+      entries,
+      record: Object.fromEntries(
+        entries.map((entry) => [entry.key, entry.value]),
+      ),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function serializeCrmStructuredNotes(record: Record<string, string>) {
+  const cleaned = Object.fromEntries(
+    Object.entries(record)
+      .map(([key, value]) => [key.trim(), value.trim()] as const)
+      .filter(([key, value]) => key.length > 0 && value.length > 0),
+  );
+
+  return JSON.stringify(cleaned);
+}
+
+function serializeCrmStructuredNotesForComparison(
+  record: Record<string, string>,
+) {
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(record)
+        .map(([key, value]) => [key.trim(), value.trim()] as const)
+        .filter(([key, value]) => key.length > 0 && value.length > 0)
+        .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey)),
+    ),
+  );
+}
+
+function crmStructuredNotesSame(
+  left: CrmStructuredNotes,
+  right: CrmStructuredNotes,
+) {
+  return (
+    serializeCrmStructuredNotesForComparison(left.record) ===
+    serializeCrmStructuredNotesForComparison(right.record)
+  );
+}
+
+function mergeCrmNotesValues(existing: unknown, incoming: unknown) {
+  const existingText = typeof existing === "string" ? existing.trim() : "";
+  const incomingText = typeof incoming === "string" ? incoming.trim() : "";
+  const existingJson = parseCrmStructuredNotes(existingText);
+  const incomingJson = parseCrmStructuredNotes(incomingText);
+
+  if (!existingText) {
+    return incomingText;
+  }
+  if (!incomingText) {
+    return existingText;
+  }
+  if (existingJson && incomingJson) {
+    return serializeCrmStructuredNotes({
+      ...existingJson.record,
+      ...incomingJson.record,
+    });
+  }
+  if (incomingJson) {
+    return serializeCrmStructuredNotes({
+      ...incomingJson.record,
+      [PREVIOUS_CRM_NOTES_KEY]: existingText,
+    });
+  }
+  if (existingJson) {
+    return serializeCrmStructuredNotes({
+      ...existingJson.record,
+      [CSV_NOTES_KEY]: incomingText,
+    });
+  }
+
+  return `${existingText}\n${incomingText}`.trim();
+}
+
+function preferredNotesCompatibilityChoice(
+  existing: OrganizationFormState["notes"],
+  incoming: OrganizationFormState["notes"],
+): CrmCompatibilityChoice {
+  if (
+    isMissingCompatibilityValue(existing) &&
+    !isMissingCompatibilityValue(incoming)
+  ) {
+    return "incoming";
+  }
+  if (isMissingCompatibilityValue(incoming)) {
+    return "existing";
+  }
+
+  const existingJson = parseCrmStructuredNotes(existing);
+  const incomingJson = parseCrmStructuredNotes(incoming);
+  if (
+    existingJson &&
+    incomingJson &&
+    crmStructuredNotesSame(existingJson, incomingJson)
+  ) {
+    return "existing";
+  }
+  if (existingJson || incomingJson) {
+    return "merged";
+  }
+
+  return "existing";
+}
+
 function mergeDelimitedCompatibilityValues(left: string, right: string) {
   const values = [...left.split(","), ...right.split(",")]
     .map((value) => value.trim())
@@ -1963,7 +2131,11 @@ function mergeCompatibilityValue(
 
   const existingText = String(existing).trim();
   const incomingText = String(incoming).trim();
-  if (key === "notes" || key === "researchBasis") {
+  if (key === "notes") {
+    return mergeCrmNotesValues(existingText, incomingText);
+  }
+
+  if (key === "researchBasis") {
     return `${existingText}\n${incomingText}`.trim();
   }
 
@@ -1986,9 +2158,18 @@ function compatibilityValueForChoice(
 }
 
 function compatibilityValuesMatch(
+  key: keyof OrganizationFormState,
   left: OrganizationFormState[keyof OrganizationFormState],
   right: OrganizationFormState[keyof OrganizationFormState],
 ) {
+  if (key === "notes") {
+    const leftJson = parseCrmStructuredNotes(left);
+    const rightJson = parseCrmStructuredNotes(right);
+    if (leftJson && rightJson) {
+      return crmStructuredNotesSame(leftJson, rightJson);
+    }
+  }
+
   if (typeof left === "string" && typeof right === "string") {
     return left.trim() === right.trim();
   }
@@ -2004,10 +2185,12 @@ function defaultCompatibilityChoices(
   return Object.fromEntries(
     fields.map((field) => [
       field.key,
-      isMissingCompatibilityValue(existing[field.key]) &&
-      !isMissingCompatibilityValue(incoming[field.key])
-        ? "incoming"
-        : "existing",
+      field.key === "notes"
+        ? preferredNotesCompatibilityChoice(existing.notes, incoming.notes)
+        : isMissingCompatibilityValue(existing[field.key]) &&
+            !isMissingCompatibilityValue(incoming[field.key])
+          ? "incoming"
+          : "existing",
     ]),
   ) as Partial<Record<keyof OrganizationFormState, CrmCompatibilityChoice>>;
 }
@@ -2078,6 +2261,85 @@ function formatCompatibilityValue(
   }
 
   return value;
+}
+
+function CrmStructuredNotesView({
+  notes,
+  emptyText,
+  compact = false,
+}: {
+  notes: string | null | undefined;
+  emptyText: string;
+  compact?: boolean;
+}) {
+  const text = notes?.trim() ?? "";
+  const structuredNotes = parseCrmStructuredNotes(text);
+
+  if (structuredNotes && structuredNotes.entries.length > 0) {
+    return (
+      <ol
+        className={cn(
+          "grid list-decimal gap-2 pl-5",
+          compact && "gap-1.5 text-xs",
+        )}
+      >
+        {structuredNotes.entries.map((entry) => (
+          <li key={entry.key} className="pl-1">
+            <p className="font-semibold text-foreground">{entry.key}</p>
+            <p className="mt-0.5 whitespace-pre-wrap break-words font-medium leading-5 text-foreground/82">
+              {entry.value || "—"}
+            </p>
+          </li>
+        ))}
+      </ol>
+    );
+  }
+
+  return <>{text || emptyText}</>;
+}
+
+function crmNotesSummary(notes: string | null | undefined, emptyText = "—") {
+  const text = notes?.trim() ?? "";
+  const structuredNotes = parseCrmStructuredNotes(text);
+  if (!structuredNotes || structuredNotes.entries.length === 0) {
+    return text || emptyText;
+  }
+
+  return structuredNotes.entries
+    .slice(0, 3)
+    .map((entry) => `${entry.key}: ${entry.value}`)
+    .join(" · ");
+}
+
+function CompatibilityValueDisplay({
+  field,
+  value,
+  language,
+  targetKind,
+}: {
+  field: CrmCompatibilityField;
+  value: OrganizationFormState[keyof OrganizationFormState];
+  language: AppLanguage;
+  targetKind: PartnershipCrmTargetKind;
+}) {
+  return (
+    <div
+      className={cn(
+        "mt-2 block break-words text-sm font-medium leading-5",
+        field.multiline && "whitespace-pre-wrap",
+      )}
+    >
+      {field.key === "notes" ? (
+        <CrmStructuredNotesView
+          notes={typeof value === "string" ? value : ""}
+          emptyText="—"
+          compact
+        />
+      ) : (
+        formatCompatibilityValue(field.key, value, language, targetKind)
+      )}
+    </div>
+  );
 }
 
 function statusBadgeVariant(status: PartnershipCrmStatus) {
@@ -3395,7 +3657,12 @@ function MoreInformationSection({
         ) : null}
         <MoreInformationField
           label={t("Notes")}
-          value={organization.notes || t("No notes yet.")}
+          value={
+            <CrmStructuredNotesView
+              notes={organization.notes}
+              emptyText={t("No notes yet.")}
+            />
+          }
         />
       </div>
     </section>
@@ -5667,6 +5934,7 @@ function DuplicateCompatibilityDialog({
                 const resolvedValue = resolvedForm[field.key];
                 const choice = choices[field.key] ?? "existing";
                 const changed = !compatibilityValuesMatch(
+                  field.key,
                   existingValue,
                   incomingValue,
                 );
@@ -5720,19 +5988,12 @@ function DuplicateCompatibilityDialog({
                             <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                               {option.label}
                             </span>
-                            <span
-                              className={cn(
-                                "mt-2 block break-words text-sm font-medium leading-5",
-                                field.multiline && "whitespace-pre-wrap",
-                              )}
-                            >
-                              {formatCompatibilityValue(
-                                field.key,
-                                option.value,
-                                language,
-                                targetKind,
-                              )}
-                            </span>
+                            <CompatibilityValueDisplay
+                              field={field}
+                              value={option.value}
+                              language={language}
+                              targetKind={targetKind}
+                            />
                           </button>
                         ))}
                       </div>
@@ -5741,19 +6002,12 @@ function DuplicateCompatibilityDialog({
                       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                         {t("Resolved value")}
                       </p>
-                      <p
-                        className={cn(
-                          "mt-1 break-words text-sm font-semibold",
-                          field.multiline && "whitespace-pre-wrap",
-                        )}
-                      >
-                        {formatCompatibilityValue(
-                          field.key,
-                          resolvedValue,
-                          language,
-                          targetKind,
-                        )}
-                      </p>
+                      <CompatibilityValueDisplay
+                        field={field}
+                        value={resolvedValue}
+                        language={language}
+                        targetKind={targetKind}
+                      />
                     </div>
                   </section>
                 );
@@ -5960,7 +6214,12 @@ function ImportRowReviewCard({
               label={t("Last Contact")}
               value={formatDate(target?.lastContactAt, language)}
             />
-            <ImportReviewFact label={t("Notes")} value={target?.notes} />
+            <ImportReviewFact
+              label={t("Notes")}
+              value={
+                <CrmStructuredNotesView notes={target?.notes} emptyText="—" />
+              }
+            />
           </div>
 
           {row.duplicateCandidates.length > 0 ? (
@@ -8978,7 +9237,7 @@ export function PartnershipCrmWorkbench() {
                           </TableCell>
                           <TableCell className="whitespace-normal">
                             <p className="line-clamp-2 max-w-[240px] text-xs text-muted-foreground">
-                              {organization.notes || "—"}
+                              {crmNotesSummary(organization.notes)}
                             </p>
                           </TableCell>
                         </TableRow>
