@@ -2276,6 +2276,30 @@ function CrmStructuredNotesView({
   const structuredNotes = parseCrmStructuredNotes(text);
 
   if (structuredNotes && structuredNotes.entries.length > 0) {
+    if (!compact) {
+      return (
+        <dl
+          data-testid="crm-structured-notes-document"
+          className="grid border-y border-border/80"
+        >
+          {structuredNotes.entries.map((entry) => (
+            <div
+              key={entry.key}
+              data-testid="crm-structured-notes-row"
+              className="grid gap-1 border-t border-border/70 py-3 first:border-t-0 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4"
+            >
+              <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                {formatCrmStructuredNoteTitle(entry.key)}
+              </dt>
+              <dd className="min-w-0 whitespace-pre-wrap break-words text-sm font-medium leading-6 text-foreground/88">
+                {entry.value || "—"}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      );
+    }
+
     return (
       <ol
         className={cn(
@@ -2296,6 +2320,14 @@ function CrmStructuredNotesView({
   }
 
   return <>{text || emptyText}</>;
+}
+
+function formatCrmStructuredNoteTitle(key: string) {
+  return key
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function crmNotesSummary(notes: string | null | undefined, emptyText = "—") {

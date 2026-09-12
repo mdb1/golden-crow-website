@@ -794,6 +794,57 @@ describe("partnership CRM duplicate imports", () => {
     );
   });
 
+  it("keeps structured JSON notes when automatic organization compatibility replaces variables", async () => {
+    const { importPartnershipCrmOrganizations } =
+      await import("../repositories/partnership-crm.repository");
+    seedOrganization("existing", 1, "org_genomics_laboratories");
+    const existingKey = mockDocKey("partnership_crm_organizations", "existing");
+    mockDocs.set(existingKey, {
+      ...(mockDocs.get(existingKey) ?? {}),
+      name: "Existing Genome Lab",
+      normalizedName: "existing genome lab",
+      website: "https://old.example.org/",
+      websiteDomain: "old.example.org",
+      contactName: "Old Contact",
+      notes: "Legacy plain note",
+    });
+
+    const incomingNotes = JSON.stringify({
+      instagram: "https://www.instagram.com/adnsalta/",
+      services: "NIPT listed as a purchasable service.",
+    });
+
+    const result = await importPartnershipCrmOrganizations(godModeContext, [
+      {
+        rowId: "row-1",
+        name: "Existing Genome Lab",
+        website: "https://new.example.org/",
+        contactName: "New Contact",
+        notes: incomingNotes,
+        duplicateAction: "replace_variables",
+        duplicateOrganizationId: "existing",
+      },
+    ]);
+
+    expect(result.summary).toEqual(
+      expect.objectContaining({ total: 1, created: 0, updated: 1 }),
+    );
+    const updated = mockDocs.get(existingKey);
+    expect(updated).toEqual(
+      expect.objectContaining({
+        name: "Existing Genome Lab",
+        website: "https://new.example.org/",
+        websiteDomain: "new.example.org",
+        contactName: "New Contact",
+        notes: JSON.stringify({
+          instagram: "https://www.instagram.com/adnsalta/",
+          services: "NIPT listed as a purchasable service.",
+          previous_notes: "Legacy plain note",
+        }),
+      }),
+    );
+  });
+
   it("replaces professional variable fields while preserving existing non-variable values", async () => {
     const { importPartnershipCrmProfessionals } =
       await import("../repositories/partnership-crm.repository");

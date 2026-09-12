@@ -864,11 +864,117 @@ function isMissingCrmDocumentValue(value: unknown) {
   return typeof value === "string" && value.trim().length === 0;
 }
 
+type CrmStructuredNotes = {
+  record: Record<string, string>;
+};
+
+const PREVIOUS_CRM_NOTES_KEY = "previous_notes";
+const CSV_NOTES_KEY = "csv_notes";
+
+function stringifyCrmStructuredNoteValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint"
+  ) {
+    return String(value);
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function parseCrmStructuredNotes(value: unknown): CrmStructuredNotes | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+
+    const record = Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>)
+        .map(([key, entryValue]) => [
+          key.trim(),
+          stringifyCrmStructuredNoteValue(entryValue),
+        ] as const)
+        .filter(([key, entryValue]) => key.length > 0 && entryValue.length > 0),
+    );
+
+    return { record };
+  } catch {
+    return null;
+  }
+}
+
+function serializeCrmStructuredNotes(record: Record<string, string>) {
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(record)
+        .map(([key, value]) => [key.trim(), value.trim()] as const)
+        .filter(([key, value]) => key.length > 0 && value.length > 0),
+    ),
+  );
+}
+
+function mergeCrmDocumentNotes(existing: unknown, incoming: unknown) {
+  const existingText = typeof existing === "string" ? existing.trim() : "";
+  const incomingText = typeof incoming === "string" ? incoming.trim() : "";
+  const existingJson = parseCrmStructuredNotes(existingText);
+  const incomingJson = parseCrmStructuredNotes(incomingText);
+
+  if (!existingText) {
+    return incomingText;
+  }
+  if (!incomingText) {
+    return existingText;
+  }
+  if (existingJson && incomingJson) {
+    return serializeCrmStructuredNotes({
+      ...existingJson.record,
+      ...incomingJson.record,
+    });
+  }
+  if (incomingJson) {
+    return serializeCrmStructuredNotes({
+      ...incomingJson.record,
+      [PREVIOUS_CRM_NOTES_KEY]: existingText,
+    });
+  }
+  if (existingJson) {
+    return serializeCrmStructuredNotes({
+      ...existingJson.record,
+      [CSV_NOTES_KEY]: incomingText,
+    });
+  }
+
+  return existingText;
+}
+
 function fillMissingCrmDocumentFields(
   existing: Record<string, unknown>,
   incoming: Record<string, unknown>,
 ) {
-  return Object.fromEntries(
+  const merged = Object.fromEntries(
     Object.keys({ ...existing, ...incoming }).map((key) => {
       const existingValue = existing[key];
       if (
@@ -881,6 +987,10 @@ function fillMissingCrmDocumentFields(
       return [key, existingValue];
     }),
   );
+
+  merged.notes = mergeCrmDocumentNotes(existing.notes, incoming.notes);
+
+  return merged;
 }
 
 const ORGANIZATION_VARIABLE_FIELD_KEYS = [

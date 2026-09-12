@@ -998,11 +998,15 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
     await user.click(screen.getByText("Delete Me Genomics"));
 
-    expect(screen.getByText("instagram")).toBeTruthy();
+    const notesDocument = screen.getByTestId("crm-structured-notes-document");
+    expect(notesDocument.tagName).toBe("DL");
+    expect(notesDocument.className).toContain("border-y");
+    expect(screen.getAllByTestId("crm-structured-notes-row")).toHaveLength(2);
+    expect(screen.getByText("Instagram")).toBeTruthy();
     expect(
       screen.getByText("https://www.instagram.com/adnsalta/"),
     ).toBeTruthy();
-    expect(screen.getByText("services")).toBeTruthy();
+    expect(screen.getByText("Services")).toBeTruthy();
     expect(
       screen.getByText("NIPT listed as a purchasable service."),
     ).toBeTruthy();
