@@ -39,5 +39,7 @@ export async function sendPartnershipCrmEmail(
       optionalEnv("CRM_GMAIL_REFRESH_TOKEN") ??
       optionalEnv("GMAIL_REFRESH_TOKEN"),
     boundaryPrefix: "gc-crm",
+    appendSendAsSignature: true,
+    sendAsEmail: PARTNERSHIP_CRM_FROM_EMAIL,
   });
 }

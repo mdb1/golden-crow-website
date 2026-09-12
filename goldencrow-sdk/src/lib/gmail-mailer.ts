@@ -12,12 +12,19 @@ type GmailSendOptions = {
   clientSecret?: string;
   refreshToken?: string;
   boundaryPrefix?: string;
+  appendSendAsSignature?: boolean;
+  sendAsEmail?: string;
 };
 
 type TokenResponse = {
   access_token?: string;
   error?: string;
   error_description?: string;
+};
+
+type SendAsResponse = {
+  signature?: string;
+  error?: { message?: string };
 };
 
 function requiredEnv(name: string) {
@@ -53,6 +60,104 @@ function base64Url(value: string) {
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/g, "");
+}
+
+function extractEmailAddress(value: string | undefined) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  const bracketMatch = normalized.match(/<([^<>@\s]+@[^<>@\s]+)>/);
+  if (bracketMatch?.[1]) {
+    return bracketMatch[1].trim().toLowerCase();
+  }
+
+  const directMatch = normalized.match(/[^\s<>@]+@[^\s<>@]+/);
+  return directMatch?.[0]?.trim().toLowerCase();
+}
+
+function cleanOptional(value: string | undefined) {
+  const normalized = value?.trim();
+  return normalized || undefined;
+}
+
+function senderEmailForSignature(options: GmailSendOptions) {
+  return (
+    cleanOptional(options.sendAsEmail)?.toLowerCase() ??
+    extractEmailAddress(options.from) ??
+    extractEmailAddress(process.env.MAIL_FROM) ??
+    cleanOptional(options.user)?.toLowerCase() ??
+    cleanOptional(process.env.GMAIL_USER)?.toLowerCase()
+  );
+}
+
+function appendHtmlSignature(html: string, signatureHtml: string) {
+  const signature = signatureHtml.trim();
+  if (!signature || html.includes(signature)) {
+    return html;
+  }
+  return `${html}<br><br>${signature}`;
+}
+
+async function fetchSendAsSignatureHtml(
+  accessToken: string,
+  sendAsEmail: string,
+) {
+  const response = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs/${encodeURIComponent(
+      sendAsEmail,
+    )}`,
+    {
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        accept: "application/json",
+      },
+    },
+  );
+  const payload = (await response.json().catch(() => ({}))) as SendAsResponse;
+  if (!response.ok) {
+    throw new Error(
+      payload.error?.message ??
+        `Gmail API could not load send-as signature for ${sendAsEmail}`,
+    );
+  }
+  return payload.signature?.trim() || undefined;
+}
+
+async function withGmailSendAsSignature(
+  input: GmailMessageInput,
+  options: GmailSendOptions,
+  accessToken: string,
+): Promise<GmailMessageInput> {
+  if (!options.appendSendAsSignature || !input.html?.trim()) {
+    return input;
+  }
+
+  const sendAsEmail = senderEmailForSignature(options);
+  if (!sendAsEmail) {
+    return input;
+  }
+
+  try {
+    const signatureHtml = await fetchSendAsSignatureHtml(
+      accessToken,
+      sendAsEmail,
+    );
+    if (!signatureHtml) {
+      return input;
+    }
+    return {
+      ...input,
+      html: appendHtmlSignature(input.html, signatureHtml),
+    };
+  } catch (error) {
+    console.warn(
+      `Unable to load Gmail signature for ${sendAsEmail}; sending without it.`,
+      error,
+    );
+    return input;
+  }
 }
 
 export function buildRawGmailMessage(
@@ -139,6 +244,7 @@ export async function sendGmailMessage(
   options: GmailSendOptions = {},
 ) {
   const accessToken = await refreshAccessToken(options);
+  const message = await withGmailSendAsSignature(input, options, accessToken);
   const user = encodeURIComponent(
     requiredConfigured(options.user ?? process.env.GMAIL_USER, "GMAIL_USER"),
   );
@@ -150,7 +256,7 @@ export async function sendGmailMessage(
         authorization: `Bearer ${accessToken}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({ raw: buildRawGmailMessage(input, options) }),
+      body: JSON.stringify({ raw: buildRawGmailMessage(message, options) }),
     },
   );
   if (!response.ok) {
