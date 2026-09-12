@@ -222,4 +222,57 @@ describe("Gmail mailer", () => {
     ) as { raw: string };
     expect(decodeBase64Url(sendBody.raw)).not.toContain("Golden Crow VS");
   });
+
+  it("keeps table-based fallback signatures readable in the plain-text MIME part", async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: "access-token" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ signature: "" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "message-1" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+    await sendGmailMessage(
+      {
+        to: "recipient@example.com",
+        subject: "CRM note",
+        text: "Hola.",
+        html: "<p>Hola.</p>",
+      },
+      {
+        from: "Federico Bustos Fierro <federico@goldencrowvs.com>",
+        user: "federico@goldencrowvs.com",
+        clientId: "client-id",
+        clientSecret: "client-secret",
+        refreshToken: "refresh-token",
+        appendSendAsSignature: true,
+        sendAsEmail: "federico@goldencrowvs.com",
+        fallbackSignatureHtml:
+          "<table><tr><td>Federico Bustos Fierro</td></tr><tr><td>federico@goldencrowvs.com</td></tr></table>",
+      },
+    );
+
+    const sendBody = JSON.parse(
+      String(jest.mocked(fetch).mock.calls[2]?.[1]?.body),
+    ) as { raw: string };
+    const decoded = decodeBase64Url(sendBody.raw);
+    expect(decoded).toContain("Hola.\n\nFederico Bustos Fierro");
+    expect(decoded).toContain("federico@goldencrowvs.com");
+    expect(decoded).toContain(
+      "<table><tr><td>Federico Bustos Fierro</td></tr>",
+    );
+  });
 });

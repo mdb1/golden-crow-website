@@ -77,4 +77,38 @@ describe("partnership CRM email", () => {
       }),
     );
   });
+
+  it("uses the rich Golden Crow fallback signature from the signature document", async () => {
+    const { PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML } = await import(
+      "../lib/partnership-crm-email.js"
+    );
+
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("Saludos,");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "Golden Crow Venture Studio logo",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "Federico Bustos Fierro",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("Co-founder");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "Golden Crow Venture Studio",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "federico@goldencrowvs.com",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "+54 9 3546 41-8105",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "goldencrowvs.com",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("Pocket Genes");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "Soluciones digitales para gen&oacute;mica y medicina de precisi&oacute;n.",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#92722e");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#74389b");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#ddd6c9");
+  });
 });

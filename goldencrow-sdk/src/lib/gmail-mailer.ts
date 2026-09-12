@@ -104,6 +104,8 @@ function appendHtmlSignature(html: string, signatureHtml: string) {
 function textFromHtmlSignature(signatureHtml: string) {
   return signatureHtml
     .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/td>/gi, "\t")
+    .replace(/<\/th>/gi, "\t")
     .replace(/<\/(div|p|li|tr|h[1-6])>/gi, "\n")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/gi, " ")
