@@ -139,9 +139,11 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
           ))}
           {dropdownNavItems.length > 0 && (
             <details class:list={['pg-nav-more', { active: isDropdownActive }]} data-pg-nav-more>
-              <summary class="pg-nav-link pg-nav-more-trigger" aria-current={isDropdownActive ? 'page' : undefined}>
-                <span>{layoutCopy[lang].more}</span>
-              </summary>
+              <summary
+                class="pg-nav-link pg-nav-more-trigger"
+                aria-label={layoutCopy[lang].more}
+                aria-current={isDropdownActive ? 'page' : undefined}
+              ></summary>
               <div class="pg-nav-more-menu">
                 {dropdownNavItems.map((item) => (
                   <a href={item.href} class:list={['pg-nav-link', { active: item.active }]} aria-current={item.active ? 'page' : undefined}>
@@ -465,7 +467,11 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
   .pg-nav-more > summary {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 7px;
+    width: 38px;
+    height: 38px;
+    padding: 0;
     cursor: pointer;
     list-style: none;
   }
@@ -643,12 +649,11 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
     }
 
     .pg-nav-more {
-      width: 100%;
+      width: auto;
     }
 
     .pg-nav-more > summary {
-      display: flex;
-      justify-content: space-between;
+      display: inline-flex;
     }
 
     .pg-nav-more-menu {

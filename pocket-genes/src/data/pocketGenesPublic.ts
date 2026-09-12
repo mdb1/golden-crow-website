@@ -33,7 +33,7 @@ const publicNavItemsByLocale: Record<PocketGenesPublicLocale, { label: string; h
   ],
   es: [
     { label: 'Inicio', href: '/pocket-genes/home' },
-    { label: 'Campaña 100 referentes', href: '/pocket-genes/100-publishers' },
+    { label: 'Campaña 100 personalidades', href: '/pocket-genes/100-publishers' },
     { label: 'Comunidad', href: '/pocket-genes/rarefriends' },
     { label: 'Sumate', href: '/pocket-genes/join-us' },
     { label: 'Integración', href: '/pocket-genes/website/integration' },
