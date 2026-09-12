@@ -1037,6 +1037,58 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     ).toBeTruthy();
   });
 
+  it("renders non-JSON CRM notes as plain readable text in the detail panel", async () => {
+    const user = userEvent.setup();
+    const plainNotes = [
+      "Reviewed: 2026-09-12.",
+      "Instagram: https://www.instagram.com/genosargentina/",
+      "Services: NIPT/fetal DNA screening; carrier screening.",
+    ].join("\n");
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+
+      return {
+        organizations: [{ ...organization, notes: plainNotes }],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+
+    expect(
+      screen.queryByTestId("crm-structured-notes-document"),
+    ).toBeNull();
+    const plainNotesDocument = screen.getByTestId("crm-plain-notes-document");
+    expect(plainNotesDocument.textContent).toContain(
+      "Reviewed: 2026-09-12.",
+    );
+    expect(plainNotesDocument.textContent).toContain(
+      "Services: NIPT/fetal DNA screening; carrier screening.",
+    );
+    const instagramLink = within(plainNotesDocument).getByRole("link", {
+      name: "https://www.instagram.com/genosargentina/",
+    });
+    expect(instagramLink.getAttribute("href")).toBe(
+      "https://www.instagram.com/genosargentina/",
+    );
+    expect(instagramLink.getAttribute("target")).toBe("_blank");
+  });
+
   it("opens a global modal with sent CRM emails and plantilla metadata", async () => {
     const user = userEvent.setup();
 

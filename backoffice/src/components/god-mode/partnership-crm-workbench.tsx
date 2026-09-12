@@ -2013,6 +2013,19 @@ function parseCrmStructuredNotes(value: unknown): CrmStructuredNotes | null {
     return parseCrmColonStructuredNotes(trimmed);
   }
 
+  return parseCrmJsonStructuredNotes(trimmed);
+}
+
+function parseCrmJsonStructuredNotes(value: unknown): CrmStructuredNotes | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return null;
+  }
+
   try {
     const parsed = JSON.parse(trimmed) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -2359,7 +2372,7 @@ function CrmStructuredNotesView({
   compact?: boolean;
 }) {
   const text = notes?.trim() ?? "";
-  const structuredNotes = parseCrmStructuredNotes(text);
+  const structuredNotes = parseCrmJsonStructuredNotes(text);
 
   if (structuredNotes && structuredNotes.entries.length > 0) {
     if (!compact) {
@@ -2405,7 +2418,21 @@ function CrmStructuredNotesView({
     );
   }
 
-  return <>{text || emptyText}</>;
+  if (!text) {
+    return <>{emptyText}</>;
+  }
+
+  return (
+    <p
+      data-testid="crm-plain-notes-document"
+      className={cn(
+        "whitespace-pre-wrap break-words font-medium leading-6 text-foreground/88",
+        compact && "text-xs leading-5",
+      )}
+    >
+      <CrmStructuredNoteValue value={text} />
+    </p>
+  );
 }
 
 function formatCrmStructuredNoteTitle(key: string) {
