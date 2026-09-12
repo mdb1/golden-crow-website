@@ -970,6 +970,8 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const user = userEvent.setup();
     const structuredNotes = JSON.stringify({
       instagram: "https://www.instagram.com/adnsalta/",
+      sources:
+        "https://alkemy.com.ar/ ; https://alkemy.com.ar/resultados-online/ ; https://www.instagram.com/p/DHD1lbruq6M/ ; https://www.instagram.com/p/DaVOddFiD2Z/",
       services: "NIPT listed as a purchasable service.",
     });
 
@@ -1001,10 +1003,33 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const notesDocument = screen.getByTestId("crm-structured-notes-document");
     expect(notesDocument.tagName).toBe("DL");
     expect(notesDocument.className).toContain("border-y");
-    expect(screen.getAllByTestId("crm-structured-notes-row")).toHaveLength(2);
+    expect(screen.getAllByTestId("crm-structured-notes-row")).toHaveLength(3);
     expect(screen.getByText("Instagram")).toBeTruthy();
+    const instagramLink = screen.getByRole("link", {
+      name: "https://www.instagram.com/adnsalta/",
+    });
+    expect(instagramLink.getAttribute("href")).toBe(
+      "https://www.instagram.com/adnsalta/",
+    );
+    expect(instagramLink.getAttribute("target")).toBe("_blank");
+    expect(screen.getByText("Sources")).toBeTruthy();
     expect(
-      screen.getByText("https://www.instagram.com/adnsalta/"),
+      screen.getByRole("link", { name: "https://alkemy.com.ar/" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", {
+        name: "https://alkemy.com.ar/resultados-online/",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", {
+        name: "https://www.instagram.com/p/DHD1lbruq6M/",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", {
+        name: "https://www.instagram.com/p/DaVOddFiD2Z/",
+      }),
     ).toBeTruthy();
     expect(screen.getByText("Services")).toBeTruthy();
     expect(

@@ -2317,6 +2317,38 @@ function formatCompatibilityValue(
   return value;
 }
 
+function CrmStructuredNoteValue({ value }: { value: string }) {
+  const urlPattern = /https?:\/\/[^\s;,)]+/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = urlPattern.exec(value)) !== null) {
+    const url = match[0];
+    if (match.index > lastIndex) {
+      parts.push(value.slice(lastIndex, match.index));
+    }
+    parts.push(
+      <a
+        key={`${url}-${match.index}`}
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="font-semibold text-blue-700 underline underline-offset-2 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+      >
+        {url}
+      </a>,
+    );
+    lastIndex = match.index + url.length;
+  }
+
+  if (lastIndex < value.length) {
+    parts.push(value.slice(lastIndex));
+  }
+
+  return <>{parts.length > 0 ? parts : value || "—"}</>;
+}
+
 function CrmStructuredNotesView({
   notes,
   emptyText,
@@ -2346,7 +2378,7 @@ function CrmStructuredNotesView({
                 {formatCrmStructuredNoteTitle(entry.key)}
               </dt>
               <dd className="min-w-0 whitespace-pre-wrap break-words text-sm font-medium leading-6 text-foreground/88">
-                {entry.value || "—"}
+                <CrmStructuredNoteValue value={entry.value} />
               </dd>
             </div>
           ))}
@@ -2365,7 +2397,7 @@ function CrmStructuredNotesView({
           <li key={entry.key} className="pl-1">
             <p className="font-semibold text-foreground">{entry.key}</p>
             <p className="mt-0.5 whitespace-pre-wrap break-words font-medium leading-5 text-foreground/82">
-              {entry.value || "—"}
+              <CrmStructuredNoteValue value={entry.value} />
             </p>
           </li>
         ))}
