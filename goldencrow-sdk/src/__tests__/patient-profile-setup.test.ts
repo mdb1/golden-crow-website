@@ -13,26 +13,33 @@ jest.mock("../config/firebase.js", () => ({
 
 describe("patient profile setup", () => {
   it("builds the automatic profile username from the email by default", () => {
-    expect(buildProfileSetupUsername("Federico.Example@example.com")).toBe(
-      "federico.example",
+    expect(
+      buildProfileSetupUsername("Federico.Example@example.com", 12345),
+    ).toBe("federico.example-example-12345");
+    expect(buildProfileSetupUsername("a@example.com", 12345)).toBe(
+      "a-example-12345",
     );
-    expect(buildProfileSetupUsername("a@example.com")).toBe("member");
+    expect(buildProfileSetupUsername("info@medicgen.com", 12345)).toBe(
+      "info-medicgen-12345",
+    );
   });
 
-  it("adds a bounded numeric suffix to automatic profile usernames", () => {
+  it("adds a bounded five-digit numeric suffix to automatic profile usernames", () => {
     expect(buildProfileSetupUsername("member@example.com", 7)).toBe(
-      "member007",
+      "member-example-00007",
     );
-    expect(buildProfileSetupUsername("member@example.com", 1200)).toBe(
-      "member999",
+    expect(buildProfileSetupUsername("member@example.com", 120000)).toBe(
+      "member-example-99999",
     );
   });
 
-  it("adds an exact three-digit suffix to the existing username suggestion", () => {
+  it("adds an exact five-digit suffix to the existing username suggestion", () => {
     expect(buildPatientUsername("paciente@example.com", 123)).toBe(
-      "paciente123",
+      "paciente-example-00123",
     );
-    expect(buildPatientUsername("patient@example.com", 7)).toBe("patient007");
+    expect(buildPatientUsername("patient@example.com", 7)).toBe(
+      "patient-example-00007",
+    );
   });
 
   it("keeps generated usernames within the profile limit", () => {

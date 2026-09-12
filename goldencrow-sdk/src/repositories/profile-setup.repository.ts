@@ -153,14 +153,21 @@ function getStatsRecord(data: RecordData) {
   };
 }
 
-function buildUsernameSuggestion(email: string) {
-  const localPart = normalizeRoleEmail(email).split("@")[0] ?? "";
-  const sanitized = localPart
+function buildUsernameBase(email: string) {
+  const [localPart = "", domainPart = ""] = normalizeRoleEmail(email).split("@");
+  const domainLabels = domainPart.split(".").filter(Boolean);
+  const domainCore =
+    domainLabels.length > 1
+      ? domainLabels.slice(0, -1).join("-")
+      : domainLabels.join("-");
+  const base = [localPart, domainCore].filter(Boolean).join("-");
+  const sanitized = base
     .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/[._-]{2,}/g, "-")
     .replace(/^[._-]+|[._-]+$/g, "");
 
   if (sanitized.length >= 3) {
-    return sanitized.slice(0, 32);
+    return sanitized;
   }
 
   return "member";
@@ -168,25 +175,21 @@ function buildUsernameSuggestion(email: string) {
 
 export function buildPatientUsername(
   email: string,
-  numericSuffix = randomInt(0, 1000),
+  numericSuffix = randomInt(0, 100000),
 ) {
   return buildProfileSetupUsername(email, numericSuffix);
 }
 
 export function buildProfileSetupUsername(
   email: string,
-  numericSuffix?: number,
+  numericSuffix = randomInt(0, 100000),
 ) {
-  const base = buildUsernameSuggestion(email);
-
-  if (numericSuffix === undefined) {
-    return base;
-  }
-
-  const suffix = Math.min(Math.max(Math.trunc(numericSuffix), 0), 999)
+  const base = buildUsernameBase(email);
+  const suffix = Math.min(Math.max(Math.trunc(numericSuffix), 0), 99999)
     .toString()
-    .padStart(3, "0");
-  return `${base.slice(0, 32 - suffix.length)}${suffix}`;
+    .padStart(5, "0");
+  const suffixPart = `-${suffix}`;
+  return `${base.slice(0, 32 - suffixPart.length)}${suffixPart}`;
 }
 
 export function buildPatientProfileSetupInput(
@@ -319,7 +322,7 @@ async function buildAvailableProfileSetupUsername(
     return existingUsername;
   }
 
-  for (let suffix = 0; suffix <= 999; suffix += 1) {
+  for (let suffix = 0; suffix <= 99999; suffix += 1) {
     const candidate =
       suffix === 0
         ? buildProfileSetupUsername(email)
@@ -492,7 +495,7 @@ export async function getProfileSetupState(
   const username =
     pickFirstString(publicProfileData, ["username"]) ||
     pickFirstString(communityUserData, ["username"]) ||
-    buildUsernameSuggestion(authUser.email ?? "");
+    buildProfileSetupUsername(authUser.email ?? "");
   const iconName =
     pickFirstString(profileData, ["iconName"]) ||
     pickFirstString(publicProfileData, ["iconName", "icon_name"]) ||

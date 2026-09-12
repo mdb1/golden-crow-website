@@ -949,7 +949,7 @@ export function MyAccountWorkbench({
               }
               value={account.auth.email}
             />
-            {!isPatientPortalView ? (
+            {showDiagnostics ? (
               <StatusItem
                 ok={!account.auth.disabled}
                 label={
@@ -968,11 +968,6 @@ export function MyAccountWorkbench({
             </p>
             <p className="mt-1 break-words text-base font-semibold text-foreground">
               {account.auth.email}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {canChangeEmail
-                ? t("Changing email also moves your role assignment record.")
-                : t("Bootstrap account emails are read only here.")}
             </p>
           </div>
 

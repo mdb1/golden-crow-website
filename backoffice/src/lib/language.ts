@@ -1170,8 +1170,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "Email verified": "Email verificado",
   "Email not verified": "Email no verificado",
   "Account email": "Email de la cuenta",
-  "Changing email also moves your role assignment record.":
-    "Al cambiar el email también se actualiza tu acceso al portal.",
   "Email Verified": "Email verificado",
   "Send Verification": "Enviar verificación",
   "Validate Email": "Validar email",
