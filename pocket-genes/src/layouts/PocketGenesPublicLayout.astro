@@ -39,6 +39,7 @@ const layoutCopy = {
     openNavigation: 'Open navigation',
     navigation: 'Pocket Genes navigation',
     language: 'Language',
+    more: 'More',
     footerTagline: 'Personal genomic organization, education, and safer community participation.',
   },
   es: {
@@ -47,6 +48,7 @@ const layoutCopy = {
     openNavigation: 'Abrir navegación',
     navigation: 'Navegación de Pocket Genes',
     language: 'Idioma',
+    more: 'Más',
     footerTagline: 'Una comunidad para compartir conocimiento y conectar a quienes trabajan en genómica.',
   },
 } as const;
@@ -70,6 +72,15 @@ const navItems = publicNavItems.map((item) => ({
       ? normalizedPath.startsWith('/pocket-genes/trust-center')
       : normalizedPath === item.href,
 }));
+const dropdownNavHrefs = new Set([
+  '/pocket-genes/100-publishers',
+  '/pocket-genes/rarefriends',
+  '/pocket-genes/trust-center',
+]);
+const navBasePath = (href: string) => href.replace(/^\/en(?=\/|$)/, '');
+const primaryNavItems = navItems.filter((item) => !dropdownNavHrefs.has(navBasePath(item.href)));
+const dropdownNavItems = navItems.filter((item) => dropdownNavHrefs.has(navBasePath(item.href)));
+const isDropdownActive = dropdownNavItems.some((item) => item.active);
 const homeHref = localizePath('/pocket-genes/home');
 const pocketGenesIcon = '/pocket-genes/icon_simple.png';
 ---
@@ -121,11 +132,25 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
         </button>
 
         <nav class="pg-nav" aria-label={layoutCopy[lang].navigation} data-pg-nav>
-          {navItems.map((item) => (
+          {primaryNavItems.map((item) => (
             <a href={item.href} class:list={['pg-nav-link', { active: item.active }]} aria-current={item.active ? 'page' : undefined}>
               <span set:html={formatBrandText(item.label)} />
             </a>
           ))}
+          {dropdownNavItems.length > 0 && (
+            <details class:list={['pg-nav-more', { active: isDropdownActive }]} data-pg-nav-more>
+              <summary class="pg-nav-link pg-nav-more-trigger" aria-current={isDropdownActive ? 'page' : undefined}>
+                <span>{layoutCopy[lang].more}</span>
+              </summary>
+              <div class="pg-nav-more-menu">
+                {dropdownNavItems.map((item) => (
+                  <a href={item.href} class:list={['pg-nav-link', { active: item.active }]} aria-current={item.active ? 'page' : undefined}>
+                    <span set:html={formatBrandText(item.label)} />
+                  </a>
+                ))}
+              </div>
+            </details>
+          )}
           <div class="pg-lang-switcher" aria-label={layoutCopy[lang].language}>
             <a
               href={esSwitcherPath}
@@ -433,6 +458,60 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
     color: #0e6f6b;
   }
 
+  .pg-nav-more {
+    position: relative;
+  }
+
+  .pg-nav-more > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .pg-nav-more > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .pg-nav-more-trigger::after {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: translateY(-2px) rotate(45deg);
+    transition: transform 160ms ease;
+  }
+
+  .pg-nav-more[open] .pg-nav-more-trigger::after {
+    transform: translateY(1px) rotate(225deg);
+  }
+
+  .pg-nav-more.active > .pg-nav-more-trigger,
+  .pg-nav-more[open] > .pg-nav-more-trigger {
+    background: #eef8f5;
+    color: #0e6f6b;
+  }
+
+  .pg-nav-more-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 5;
+    min-width: 240px;
+    border: 1px solid rgba(197, 210, 223, 0.9);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 18px 48px rgba(23, 32, 51, 0.14);
+    padding: 6px;
+  }
+
+  .pg-nav-more-menu .pg-nav-link {
+    display: block;
+    padding: 10px 12px;
+  }
+
   .pg-lang-switcher {
     display: flex;
     align-items: center;
@@ -563,6 +642,23 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
       padding: 12px;
     }
 
+    .pg-nav-more {
+      width: 100%;
+    }
+
+    .pg-nav-more > summary {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .pg-nav-more-menu {
+      position: static;
+      min-width: 0;
+      margin-top: 4px;
+      border-color: var(--pg-border);
+      box-shadow: none;
+    }
+
     .pg-lang-switcher {
       align-self: flex-start;
       padding: 8px 12px;
@@ -619,6 +715,7 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
 <script>
   const menuButton = document.querySelector('[data-pg-menu]');
   const nav = document.querySelector('[data-pg-nav]');
+  const moreMenus = Array.from(document.querySelectorAll('[data-pg-nav-more]'));
   const currentSearch = window.location.search;
 
   if (currentSearch) {
@@ -639,8 +736,23 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
     nav.querySelectorAll('a').forEach((link) => {
       link.addEventListener('click', () => {
         nav.classList.remove('open');
+        moreMenus.forEach((menu) => {
+          menu.removeAttribute('open');
+        });
         menuButton.setAttribute('aria-expanded', 'false');
       });
     });
   }
+
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Node)) {
+      return;
+    }
+
+    moreMenus.forEach((menu) => {
+      if (!menu.contains(event.target)) {
+        menu.removeAttribute('open');
+      }
+    });
+  });
 </script>
