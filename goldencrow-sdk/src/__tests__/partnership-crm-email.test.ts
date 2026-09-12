@@ -78,13 +78,62 @@ describe("partnership CRM email", () => {
     );
   });
 
+  it("does not let stale signature environment variables override the CRM fallback", async () => {
+    const previousGenericSignature = process.env.GMAIL_SIGNATURE_HTML;
+    const previousCrmSignature = process.env.CRM_GMAIL_SIGNATURE_HTML;
+    process.env.GMAIL_SIGNATURE_HTML = "<div>Wrong generic signature</div>";
+    process.env.CRM_GMAIL_SIGNATURE_HTML = "<div>Wrong CRM signature</div>";
+    try {
+      const {
+        PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML,
+        sendPartnershipCrmEmail,
+      } = await import("../lib/partnership-crm-email.js");
+
+      await sendPartnershipCrmEmail({
+        to: "recipient@example.com",
+        subject: "Pocket Genes",
+        text: "Hola",
+      });
+
+      expect(sendGmailMessageMock).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          fallbackSignatureHtml: PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML,
+        }),
+      );
+      expect(sendGmailMessageMock).not.toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          fallbackSignatureHtml: "<div>Wrong generic signature</div>",
+        }),
+      );
+      expect(sendGmailMessageMock).not.toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          fallbackSignatureHtml: "<div>Wrong CRM signature</div>",
+        }),
+      );
+    } finally {
+      if (previousGenericSignature === undefined) {
+        delete process.env.GMAIL_SIGNATURE_HTML;
+      } else {
+        process.env.GMAIL_SIGNATURE_HTML = previousGenericSignature;
+      }
+      if (previousCrmSignature === undefined) {
+        delete process.env.CRM_GMAIL_SIGNATURE_HTML;
+      } else {
+        process.env.CRM_GMAIL_SIGNATURE_HTML = previousCrmSignature;
+      }
+    }
+  });
+
   it("uses the rich Golden Crow fallback signature from the signature document", async () => {
     const { PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML } = await import(
       "../lib/partnership-crm-email.js"
     );
 
-    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("Saludos,");
-    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain("Saludos,");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
       "Golden Crow Venture Studio logo",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
@@ -98,17 +147,33 @@ describe("partnership CRM email", () => {
       "federico@goldencrowvs.com",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "+54 9 11 2184-6934",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
       "+54 9 3546 41-8105",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "goldencrowvs.com",
+      "pocketgenes.com",
     );
-    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("Pocket Genes");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      ">Pocket Genes<",
+    );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "Soluciones digitales para gen&oacute;mica y medicina de precisi&oacute;n.",
+      "Soluciones digitales para gen&oacute;mica",
     );
-    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#92722e");
-    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#74389b");
-    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#ddd6c9");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "y medicina de precisi&oacute;n.",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#98712d");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#d8c8b3");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "golden-crow-signature-logo.png",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "golden-crow-signature-email.png",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain("&#9993;");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain("&#9742;");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain("&#9678;");
   });
 });
