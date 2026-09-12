@@ -3224,7 +3224,8 @@ function VisualFilterPieSection({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="start"
-                  className="max-h-72 w-72 overflow-y-auto"
+                  data-testid={`visual-filter-overflow-menu-${facet.key}`}
+                  className="max-h-72 w-[min(42rem,calc(100vw-2rem))] overflow-y-auto"
                 >
                   {overflowBuckets.map((bucket) => (
                     <DropdownMenuItem

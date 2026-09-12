@@ -2343,6 +2343,9 @@ describe("PartnershipCrmWorkbench list pager", () => {
       name: "Select visual filter from legend: Status - CRM No Response",
     });
     expect(
+      screen.getByTestId("visual-filter-overflow-menu-status").className,
+    ).toContain("w-[min(42rem,calc(100vw-2rem))]");
+    expect(
       within(noResponseOverflowItem).getByText("1 items").className,
     ).toContain("w-24");
     expect(within(noResponseOverflowItem).getByText("6%").className).toContain(
