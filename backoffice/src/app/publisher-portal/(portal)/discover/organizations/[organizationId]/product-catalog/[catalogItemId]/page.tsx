@@ -79,7 +79,6 @@ export default async function PublisherPortalOrganizationProductCatalogItemPage(
           organization={organization}
           item={catalogItem}
           routeBase={routeBase}
-          organizationHref={organizationHref}
         />
       </HeaderUnclutterScope>
     </div>

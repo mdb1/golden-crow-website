@@ -82,7 +82,6 @@ function renderWorkbench({
         organization={organization}
         item={item}
         routeBase="/publisher-portal/discover/organizations/org-1/product-catalog"
-        organizationHref="/publisher-portal/discover/organizations/org-1"
         mode={mode}
       />
     </AppLanguageProvider>,
@@ -101,7 +100,7 @@ describe("DiscoverOrganizationProductCatalogWorkbench", () => {
     jest.useRealTimers();
   });
 
-  it("keeps both back links together in the navigation block", () => {
+  it("keeps only the product catalog back link in the navigation block", () => {
     renderWorkbench();
 
     const navigation = screen.getByTestId(
@@ -115,10 +114,8 @@ describe("DiscoverOrganizationProductCatalogWorkbench", () => {
         .getAttribute("href"),
     ).toBe("/publisher-portal/discover/organizations/org-1/product-catalog");
     expect(
-      within(navigation)
-        .getByRole("link", { name: /Back to organization/i })
-        .getAttribute("href"),
-    ).toBe("/publisher-portal/discover/organizations/org-1");
+      within(navigation).queryByRole("link", { name: /Back to organization/i }),
+    ).toBeNull();
     expect(
       within(title).queryByRole("link", {
         name: /Back to product catalog|Back to organization/i,

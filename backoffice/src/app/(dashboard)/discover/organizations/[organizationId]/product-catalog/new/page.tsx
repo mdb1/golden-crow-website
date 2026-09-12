@@ -52,7 +52,6 @@ export default async function NewDiscoverOrganizationProductCatalogItemPage({
           organization={organization}
           mode="create"
           routeBase={routeBase}
-          organizationHref={organizationHref}
         />
       </HeaderUnclutterScope>
     </div>

@@ -61,7 +61,6 @@ export default async function NewPublisherPortalOrganizationProductCatalogItemPa
           organization={organization}
           mode="create"
           routeBase={routeBase}
-          organizationHref={organizationHref}
         />
       </HeaderUnclutterScope>
     </div>

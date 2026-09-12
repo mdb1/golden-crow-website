@@ -521,13 +521,11 @@ export function DiscoverOrganizationProductCatalogWorkbench({
   item,
   mode = "edit",
   routeBase,
-  organizationHref,
 }: {
   organization: DiscoverOrganizationRecord;
   item?: DiscoverOrganizationProductCatalogItem;
   mode?: "create" | "edit";
   routeBase: string;
-  organizationHref: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -844,17 +842,6 @@ export function DiscoverOrganizationProductCatalogWorkbench({
             <Link href={routeBase}>
               <ArrowLeft className="h-3.5 w-3.5" />
               {t("Back to product catalog")}
-            </Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className="h-9 justify-start rounded-xl text-violet-800 hover:bg-violet-100 hover:text-violet-950 dark:text-violet-100 dark:hover:bg-violet-500/14"
-          >
-            <Link href={organizationHref}>
-              <ArrowLeft className="h-3.5 w-3.5" />
-              {t("Back to organization")}
             </Link>
           </Button>
         </nav>

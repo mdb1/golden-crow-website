@@ -60,7 +60,6 @@ export default async function PublisherPortalOrganizationProductCatalogPage({
         <DiscoverOrganizationProductCatalogBrowser
           organization={organization}
           routeBase={routeBase}
-          organizationHref={organizationHref}
         />
       </HeaderUnclutterScope>
     </div>

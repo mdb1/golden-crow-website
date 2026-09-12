@@ -70,7 +70,6 @@ export default async function DiscoverOrganizationProductCatalogItemPage({
           organization={organization}
           item={catalogItem}
           routeBase={routeBase}
-          organizationHref={organizationHref}
         />
       </HeaderUnclutterScope>
     </div>

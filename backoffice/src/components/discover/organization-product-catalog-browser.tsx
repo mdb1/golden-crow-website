@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  ArrowLeft,
   ArrowRight,
   ExternalLink,
   ImageIcon,
@@ -103,11 +102,9 @@ const publisherRowClass =
 export function DiscoverOrganizationProductCatalogBrowser({
   organization,
   routeBase,
-  organizationHref,
 }: {
   organization: DiscoverOrganizationRecord;
   routeBase: string;
-  organizationHref: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -180,17 +177,6 @@ export function DiscoverOrganizationProductCatalogBrowser({
       <div className={`${publisherPanelClass} flex flex-col gap-4 px-5 py-4`}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="h-9 rounded-xl text-violet-800 hover:bg-violet-100 hover:text-violet-950 dark:text-violet-100 dark:hover:bg-violet-500/14"
-            >
-              <Link href={organizationHref}>
-                <ArrowLeft className="h-3.5 w-3.5" />
-                {t("Back to organization")}
-              </Link>
-            </Button>
             <span className="hidden size-11 shrink-0 items-center justify-center rounded-2xl border border-violet-200 bg-violet-100 text-violet-700 shadow-inner sm:flex dark:border-violet-400/20 dark:bg-violet-500/14 dark:text-violet-100">
               <PackageOpen className="size-5" />
             </span>

@@ -41,7 +41,6 @@ function renderCatalog(
       <DiscoverOrganizationProductCatalogBrowser
         organization={{ ...organization, productCatalog }}
         routeBase="/publisher-portal/discover/organizations/org-1/product-catalog"
-        organizationHref="/publisher-portal/discover/organizations/org-1"
       />
     </AppLanguageProvider>,
   );
@@ -52,6 +51,9 @@ describe("DiscoverOrganizationProductCatalogBrowser", () => {
     renderCatalog([]);
 
     expect(screen.getByText("No products in the catalog yet")).toBeTruthy();
+    expect(
+      screen.queryByRole("link", { name: /Back to organization/i }),
+    ).toBeNull();
     expect(
       screen.getAllByRole("link", { name: /Add product to catalog/i }),
     ).toHaveLength(1);
