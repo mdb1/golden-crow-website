@@ -1,0 +1,536 @@
+---
+import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro';
+
+const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
+const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
+
+const pageCopy = {
+  en: {
+    title: '100 voices campaign | Pocket Genes',
+    description:
+      'An invitation for genomics leaders in Argentina to join interviews, share knowledge, and participate in Pocket Genes events.',
+    eyebrow: 'Pocket Genes campaign',
+    heroTitle: '100 leading voices in genomics in Argentina.',
+    heroBody:
+      'We are inviting people whose work in companies, institutions, research, care, advocacy, education, or communication gives them something valuable to contribute to the Pocket Genes network.',
+    heroNote:
+      'Our team coordinates the conversations, edits the material, and publishes each contribution with participant review before publication.',
+    cta: 'I want to participate',
+    secondaryCta: 'See how it works',
+    visualAlt: 'Pocket Genes screens showing community and genomic information',
+    purposeTitle: 'The campaign and its purpose',
+    purposeBody:
+      'The goal is to bring real experience and ideas from the Argentine genomics ecosystem into Pocket Genes: practical knowledge, field stories, research paths, institutional work, communication efforts, and projects that can help more people understand what is happening in the sector.',
+    activitiesTitle: 'What participation looks like',
+    activitiesIntro: 'People can choose the activities that interest them. Participation can include one format or several.',
+    activities: [
+      {
+        title: 'Interviews',
+        body: 'Conversations about your work, experience, projects, and the challenges facing the genomics sector.',
+      },
+      {
+        title: 'Content',
+        body: 'Our team turns those conversations into interviews, articles, excerpts, and educational pieces for Pocket Genes.',
+      },
+      {
+        title: 'Events',
+        body: 'Participants receive invitations to talks, meetings, and discussions, with opportunities to join as guests or speakers when relevant.',
+      },
+    ],
+    valueTitle: 'Why participate',
+    valueItems: [
+      'Give visibility to your work and point of view.',
+      'Reach people interested in your expertise.',
+      'Introduce projects, initiatives, research, or educational work.',
+      'Make contacts across companies, institutions, research, care, advocacy, and communication.',
+    ],
+    participationNote:
+      'Participation is free. Pocket Genes handles coordination, editing, and publication, and participants review their contributions before anything is published.',
+    processTitle: 'How it works',
+    processSteps: [
+      'Express interest',
+      'Have an introductory conversation',
+      'Agree on a topic and format',
+      'Schedule the activity',
+    ],
+    processBody:
+      'Joining should feel manageable. We discuss the expected time commitment before scheduling anything.',
+    invitationTitle: 'The invitation',
+    invitationBody:
+      'The interest form asks for your name, email, role, organization if applicable, topics you would like to discuss, and an optional public profile link so we can understand your background.',
+    upcomingTitle: 'Published conversations and upcoming activities',
+    upcomingBody:
+      'As interviews, articles, and events become available, this page can feature the work produced together and make the campaign visible through real contributions.',
+    upcomingStatus: 'Coming soon',
+  },
+  es: {
+    title: 'Campaña 100 referentes | Pocket Genes',
+    description:
+      'Una invitación para que referentes de la genómica en Argentina participen en entrevistas, compartan conocimiento y formen parte de eventos de Pocket Genes.',
+    eyebrow: 'Campaña Pocket Genes',
+    heroTitle: '100 personalidades destacadas de la genómica en Argentina.',
+    heroBody:
+      'Estamos invitando a personas cuyo trabajo en empresas, instituciones, investigación, atención, comunicación, educación o comunidad tiene algo valioso para aportar a la red de Pocket Genes.',
+    heroNote:
+      'Nuestro equipo coordina las conversaciones, edita el material y publica cada contribución con revisión previa de quienes participan.',
+    cta: 'Quiero participar',
+    secondaryCta: 'Ver cómo funciona',
+    visualAlt: 'Pantallas de Pocket Genes con comunidad e información genómica',
+    purposeTitle: 'La campaña y su propósito',
+    purposeBody:
+      'El objetivo es acercar a Pocket Genes experiencias e ideas reales del ecosistema genómico argentino: conocimiento práctico, recorridos profesionales, investigación, trabajo institucional, comunicación científica y proyectos que puedan ayudar a más personas a entender qué está pasando en el sector.',
+    activitiesTitle: 'Cómo podés participar',
+    activitiesIntro: 'Cada persona puede elegir las actividades que le interesen. La participación puede ser en uno o varios formatos.',
+    activities: [
+      {
+        title: 'Entrevistas',
+        body: 'Conversaciones sobre tu trabajo, experiencia, proyectos y los desafíos que enfrenta el sector genómico.',
+      },
+      {
+        title: 'Contenido',
+        body: 'Nuestro equipo transforma esas conversaciones en entrevistas, artículos, fragmentos y piezas educativas para Pocket Genes.',
+      },
+      {
+        title: 'Eventos',
+        body: 'Quienes participan reciben invitaciones a charlas, encuentros y discusiones, con oportunidades de sumarse como invitados o speakers cuando corresponda.',
+      },
+    ],
+    valueTitle: 'Por qué participar',
+    valueItems: [
+      'Dar visibilidad a tu trabajo y a tu mirada.',
+      'Llegar a personas interesadas en tu experiencia.',
+      'Presentar proyectos, iniciativas, investigación o trabajo educativo.',
+      'Generar contactos entre empresas, instituciones, investigación, salud, comunidad y comunicación.',
+    ],
+    participationNote:
+      'La participación es gratuita. Pocket Genes se ocupa de la coordinación, edición y publicación, y cada participante revisa sus contribuciones antes de que se publiquen.',
+    processTitle: 'Cómo funciona',
+    processSteps: [
+      'Expresás interés',
+      'Tenemos una conversación introductoria',
+      'Acordamos tema y formato',
+      'Coordinamos la actividad',
+    ],
+    processBody:
+      'Sumarse tiene que ser manejable. Conversamos el tiempo requerido antes de agendar cualquier actividad.',
+    invitationTitle: 'La invitación',
+    invitationBody:
+      'El formulario de interés pide tu nombre, email, rol, organización si corresponde, los temas sobre los que te gustaría conversar y un enlace público opcional para entender mejor tu recorrido.',
+    upcomingTitle: 'Conversaciones publicadas y próximas actividades',
+    upcomingBody:
+      'A medida que haya entrevistas, artículos y eventos disponibles, esta página puede mostrar el trabajo producido en conjunto y darle sustancia a la campaña con contribuciones reales.',
+    upcomingStatus: 'Próximamente',
+  },
+} as const;
+
+const copy = pageCopy[isEnglish ? 'en' : 'es'];
+const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=individual&campaign=100-publishers`;
+---
+
+<PocketGenesPublicLayout
+  title={copy.title}
+  description={copy.description}
+  canonicalPath="/pocket-genes/100-publishers"
+>
+  <main id="main" class="pg-page pg-100-page">
+    <section class="pg-100-hero">
+      <figure class="pg-100-hero-media">
+        <img
+          src="/pocket-genes/promotional/hero-provider-phone.webp"
+          alt={copy.visualAlt}
+          width="1120"
+          height="860"
+          fetchpriority="high"
+          decoding="async"
+        />
+      </figure>
+
+      <div class="pg-container pg-100-hero-inner">
+        <div class="pg-100-hero-copy">
+          <p class="pg-eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.heroTitle}</h1>
+          <p class="pg-100-lead">{copy.heroBody}</p>
+          <p class="pg-100-note">{copy.heroNote}</p>
+          <div class="pg-button-row">
+            <a class="pg-button pg-button-primary" href={participateHref}>{copy.cta}</a>
+            <a class="pg-button pg-button-secondary" href="#como-funciona">{copy.secondaryCta}</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section pg-100-purpose">
+      <div class="pg-container pg-100-split">
+        <div>
+          <p class="pg-eyebrow">01</p>
+          <h2>{copy.purposeTitle}</h2>
+        </div>
+        <p>{copy.purposeBody}</p>
+      </div>
+    </section>
+
+    <section class="pg-section-tight pg-100-activities">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">02</p>
+          <h2>{copy.activitiesTitle}</h2>
+          <p>{copy.activitiesIntro}</p>
+        </div>
+        <div class="pg-card-grid pg-100-activity-grid">
+          {copy.activities.map((activity, index) => (
+            <article class="pg-card pg-100-activity-card" style={`--activity-index: ${index + 1};`}>
+              <span>{String(index + 1).padStart(2, '0')}</span>
+              <h3>{activity.title}</h3>
+              <p>{activity.body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section pg-100-value">
+      <div class="pg-container pg-100-value-grid">
+        <div>
+          <p class="pg-eyebrow">03</p>
+          <h2>{copy.valueTitle}</h2>
+          <p>{copy.participationNote}</p>
+        </div>
+        <ul>
+          {copy.valueItems.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+    </section>
+
+    <section id="como-funciona" class="pg-section-tight pg-100-process">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">04</p>
+          <h2>{copy.processTitle}</h2>
+          <p>{copy.processBody}</p>
+        </div>
+        <ol class="pg-100-process-list">
+          {copy.processSteps.map((step, index) => (
+            <li>
+              <span>{String(index + 1).padStart(2, '0')}</span>
+              <strong>{step}</strong>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+
+    <section class="pg-section pg-100-invitation">
+      <div class="pg-container pg-100-invitation-panel">
+        <div>
+          <p class="pg-eyebrow">05</p>
+          <h2>{copy.invitationTitle}</h2>
+          <p>{copy.invitationBody}</p>
+        </div>
+        <a class="pg-button pg-button-primary" href={participateHref}>{copy.cta}</a>
+      </div>
+    </section>
+
+    <section class="pg-section-tight pg-100-upcoming">
+      <div class="pg-container pg-100-upcoming-panel">
+        <div>
+          <span>{copy.upcomingStatus}</span>
+          <h2>{copy.upcomingTitle}</h2>
+          <p>{copy.upcomingBody}</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</PocketGenesPublicLayout>
+
+<style>
+  .pg-100-page {
+    background: #fbfcfd;
+  }
+
+  .pg-100-hero {
+    position: relative;
+    isolation: isolate;
+    min-height: 720px;
+    display: flex;
+    align-items: center;
+    padding: 124px 0 64px;
+    background: #edf8f7;
+    overflow: hidden;
+  }
+
+  .pg-100-hero::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background:
+      linear-gradient(90deg, rgba(251, 252, 253, 0.98) 0%, rgba(251, 252, 253, 0.93) 48%, rgba(251, 252, 253, 0.28) 100%),
+      linear-gradient(180deg, rgba(251, 252, 253, 0.72) 0%, rgba(251, 252, 253, 0.12) 58%, rgba(251, 252, 253, 0.82) 100%);
+  }
+
+  .pg-100-hero-media {
+    position: absolute;
+    z-index: -2;
+    inset: 0;
+    margin: 0;
+  }
+
+  .pg-100-hero-media img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center right;
+  }
+
+  .pg-100-hero-inner {
+    position: relative;
+    width: min(1120px, calc(100% - 32px));
+  }
+
+  .pg-100-hero-copy h1 {
+    max-width: 760px;
+    margin: 0;
+    font-size: clamp(2.85rem, 6vw, 5.6rem);
+    line-height: 0.98;
+    letter-spacing: 0;
+  }
+
+  .pg-100-lead {
+    max-width: 720px;
+    margin: 22px 0 0;
+    color: var(--pg-ink-soft);
+    font-size: 1.18rem;
+    line-height: 1.62;
+  }
+
+  .pg-100-note {
+    max-width: 640px;
+    margin: 18px 0 0;
+    border-left: 4px solid var(--pg-teal);
+    color: #253149;
+    padding-left: 16px;
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .pg-100-hero-copy .pg-button-row {
+    margin-top: 30px;
+  }
+
+  .pg-100-split,
+  .pg-100-value-grid,
+  .pg-100-invitation-panel {
+    display: grid;
+    grid-template-columns: minmax(240px, 0.75fr) minmax(0, 1.25fr);
+    gap: clamp(28px, 5vw, 72px);
+    align-items: start;
+  }
+
+  .pg-100-split h2,
+  .pg-100-value h2,
+  .pg-100-invitation h2,
+  .pg-100-upcoming h2 {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3.15rem);
+    line-height: 1.08;
+    letter-spacing: 0;
+  }
+
+  .pg-100-split > p,
+  .pg-100-value-grid > div p,
+  .pg-100-invitation-panel p,
+  .pg-100-upcoming p {
+    margin: 0;
+    color: var(--pg-ink-soft);
+    font-size: 1.12rem;
+    line-height: 1.72;
+  }
+
+  .pg-100-activities {
+    background: #ffffff;
+  }
+
+  .pg-100-activity-card {
+    position: relative;
+    overflow: hidden;
+    min-height: 240px;
+  }
+
+  .pg-100-activity-card span {
+    display: inline-flex;
+    min-width: 42px;
+    height: 42px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 22px;
+    border-radius: 999px;
+    background: #eef8f7;
+    color: #0f6f6a;
+    font-weight: 850;
+  }
+
+  .pg-100-activity-card:nth-child(2) span {
+    background: #fff0f5;
+    color: #b83262;
+  }
+
+  .pg-100-activity-card:nth-child(3) span {
+    background: #fff7df;
+    color: #9a6319;
+  }
+
+  .pg-100-value {
+    background: #f6fafb;
+  }
+
+  .pg-100-value ul {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pg-100-value li {
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--pg-ink);
+    padding: 16px 18px;
+    font-weight: 720;
+    line-height: 1.4;
+  }
+
+  .pg-100-process-list {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin: 32px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pg-100-process-list li {
+    min-height: 150px;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 18px;
+  }
+
+  .pg-100-process-list span {
+    display: block;
+    color: var(--pg-rose);
+    font-size: 0.84rem;
+    font-weight: 900;
+  }
+
+  .pg-100-process-list strong {
+    display: block;
+    margin-top: 32px;
+    color: var(--pg-ink);
+    font-size: 1.06rem;
+    line-height: 1.32;
+  }
+
+  .pg-100-invitation {
+    background: #172033;
+    color: #ffffff;
+  }
+
+  .pg-100-invitation .pg-eyebrow {
+    color: #6bd0c9;
+  }
+
+  .pg-100-invitation-panel {
+    align-items: center;
+  }
+
+  .pg-100-invitation-panel p {
+    color: #d8e2ee;
+    margin-top: 16px;
+  }
+
+  .pg-100-invitation-panel .pg-button {
+    justify-self: end;
+  }
+
+  .pg-100-upcoming {
+    background: #ffffff;
+  }
+
+  .pg-100-upcoming-panel {
+    border: 1px dashed var(--pg-border-strong);
+    border-radius: 8px;
+    background: #fbfcfd;
+    padding: clamp(24px, 4vw, 42px);
+  }
+
+  .pg-100-upcoming span {
+    display: inline-flex;
+    margin-bottom: 14px;
+    border-radius: 999px;
+    background: #edf6ff;
+    color: #155f8d;
+    padding: 7px 12px;
+    font-size: 0.82rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .pg-100-upcoming p {
+    max-width: 820px;
+    margin-top: 14px;
+  }
+
+  @media (max-width: 920px) {
+    .pg-100-hero {
+      min-height: auto;
+      padding: 108px 0 56px;
+    }
+
+    .pg-100-hero-inner,
+    .pg-100-split,
+    .pg-100-value-grid,
+    .pg-100-invitation-panel {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-100-hero::before {
+      background:
+        linear-gradient(180deg, rgba(251, 252, 253, 0.98) 0%, rgba(251, 252, 253, 0.94) 58%, rgba(251, 252, 253, 0.82) 100%);
+    }
+
+    .pg-100-hero-media img {
+      object-position: center;
+      opacity: 0.38;
+    }
+
+    .pg-100-process-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pg-100-invitation-panel .pg-button {
+      justify-self: start;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .pg-100-hero {
+      padding-top: 104px;
+    }
+
+    .pg-100-hero-copy h1 {
+      font-size: 2.55rem;
+    }
+
+    .pg-100-lead {
+      font-size: 1.04rem;
+    }
+
+    .pg-100-process-list {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
