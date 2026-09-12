@@ -1193,11 +1193,11 @@ const pageCopy = {
     bookingEventTitle: 'Solutions Call',
   },
   es: {
-    title: 'Pocket Genes - Soluciones en genómica y medicina de precisión',
+    title: 'Pocket Genes - Soluciones digitales para genómica y medicina de precisión',
     description:
       'Soluciones digitales independientes para informes genéticos, consentimientos, logística, educación, comunidad, APIs, CRM y backoffice.',
-    heroEyebrow: 'No construyas cada parte desde cero.',
-    heroTitle: 'Soluciones en genómica y medicina de precisión',
+    heroEyebrow: 'Pocket Genes',
+    heroTitle: 'Soluciones digitales\npara genómica\ny medicina de precisión.',
     heroBody:
       'Desde informes y consentimientos hasta logística, educación y comunidad. Desarrollamos soluciones digitales para procesos que laboratorios, clínicas y empresas de genética necesitan todos los días.',
     heroKey:
@@ -1564,7 +1564,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
       <div class="pg-container pg-solutions-hero-grid">
         <div class="pg-solutions-hero-copy">
           <p class="pg-eyebrow">{copy.heroEyebrow}</p>
-          <h1>{copy.heroTitle}</h1>
+          <h1 class:list={['pg-solutions-hero-title', locale === 'es' && 'is-spanish']}>{copy.heroTitle}</h1>
           <p class="pg-solutions-lead">{copy.heroBody}</p>
           <p class="pg-solutions-key">{copy.heroKey}</p>
           <div class="pg-button-row">
@@ -2344,6 +2344,13 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     font-weight: 920;
     line-height: 1.02;
     letter-spacing: 0;
+  }
+
+  .pg-solutions-hero-title.is-spanish {
+    max-width: 680px;
+    white-space: pre-line;
+    font-size: 3.42rem;
+    line-height: 1;
   }
 
   .pg-solutions-lead {
@@ -5503,6 +5510,10 @@ const audienceTiles = createAudienceTiles(copy.audiences);
       font-size: 3.02rem;
     }
 
+    .pg-solutions-hero-title.is-spanish {
+      font-size: 2.52rem;
+    }
+
     .pg-solutions-hero-visual {
       min-height: auto;
     }
@@ -5717,6 +5728,10 @@ const audienceTiles = createAudienceTiles(copy.audiences);
 
     .pg-solutions-hero-copy h1 {
       font-size: 2.36rem;
+    }
+
+    .pg-solutions-hero-title.is-spanish {
+      font-size: 1.98rem;
     }
 
     .pg-solutions-lead {
