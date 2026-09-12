@@ -2,6 +2,8 @@ import { sendGmailMessage } from "./gmail-mailer.js";
 
 export const PARTNERSHIP_CRM_FROM_EMAIL = "federico@goldencrowvs.com";
 export const PARTNERSHIP_CRM_FROM_HEADER = `Federico Bustos Fierro <${PARTNERSHIP_CRM_FROM_EMAIL}>`;
+export const PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML =
+  '<div dir="ltr">Federico Bustos Fierro<br>Golden Crow VS</div>';
 
 type PartnershipCrmEmailInput = {
   to: string;
@@ -41,5 +43,9 @@ export async function sendPartnershipCrmEmail(
     boundaryPrefix: "gc-crm",
     appendSendAsSignature: true,
     sendAsEmail: PARTNERSHIP_CRM_FROM_EMAIL,
+    fallbackSignatureHtml:
+      optionalEnv("CRM_GMAIL_SIGNATURE_HTML") ??
+      optionalEnv("GMAIL_SIGNATURE_HTML") ??
+      PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML,
   });
 }

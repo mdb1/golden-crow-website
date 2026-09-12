@@ -48,6 +48,7 @@ describe("partnership CRM email", () => {
 
   it("asks the Gmail mailer to append Federico's send-as signature", async () => {
     const {
+      PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML,
       PARTNERSHIP_CRM_FROM_EMAIL,
       PARTNERSHIP_CRM_FROM_HEADER,
       sendPartnershipCrmEmail,
@@ -72,6 +73,7 @@ describe("partnership CRM email", () => {
         user: PARTNERSHIP_CRM_FROM_EMAIL,
         appendSendAsSignature: true,
         sendAsEmail: PARTNERSHIP_CRM_FROM_EMAIL,
+        fallbackSignatureHtml: PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML,
       }),
     );
   });

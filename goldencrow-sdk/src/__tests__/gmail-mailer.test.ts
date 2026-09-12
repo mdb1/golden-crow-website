@@ -101,9 +101,73 @@ describe("Gmail mailer", () => {
     expect(decoded).toContain("<p>Hola,</p><p>Mensaje directo.</p>");
     expect(decoded).toContain("<br><br>");
     expect(decoded).toContain("Federico Bustos Fierro<br>Golden Crow VS");
+    expect(decoded).toContain("Hola,\n\nMensaje directo.");
+    expect(decoded).toContain("Federico Bustos Fierro\nGolden Crow VS");
   });
 
-  it("sends the message without blocking when Gmail settings cannot read the signature", async () => {
+  it("uses a fallback signature when Gmail settings cannot read the send-as signature", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: "access-token" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: { message: "Request had insufficient authentication scopes." },
+          }),
+          {
+            status: 403,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "message-1" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+    await sendGmailMessage(
+      {
+        to: "recipient@example.com",
+        subject: "CRM note",
+        text: "Hola,\n\nMensaje directo.",
+        html: "<p>Hola,</p><p>Mensaje directo.</p>",
+      },
+      {
+        from: "Federico Bustos Fierro <federico@goldencrowvs.com>",
+        user: "federico@goldencrowvs.com",
+        clientId: "client-id",
+        clientSecret: "client-secret",
+        refreshToken: "refresh-token",
+        appendSendAsSignature: true,
+        sendAsEmail: "federico@goldencrowvs.com",
+        fallbackSignatureHtml:
+          '<div dir="ltr">Federico Bustos Fierro<br>Golden Crow VS</div>',
+      },
+    );
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Unable to load Gmail signature for federico@goldencrowvs.com; using fallback signature.",
+      expect.any(Error),
+    );
+    expect(fetch).toHaveBeenCalledTimes(3);
+    const sendBody = JSON.parse(
+      String(jest.mocked(fetch).mock.calls[2]?.[1]?.body),
+    ) as { raw: string };
+    const decoded = decodeBase64Url(sendBody.raw);
+    expect(decoded).toContain("<p>Hola,</p><p>Mensaje directo.</p>");
+    expect(decoded).toContain("Federico Bustos Fierro<br>Golden Crow VS");
+    expect(decoded).toContain("Federico Bustos Fierro\nGolden Crow VS");
+  });
+
+  it("keeps sending without a signature when Gmail settings fails and no fallback is configured", async () => {
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
     jest
       .mocked(fetch)
@@ -153,12 +217,9 @@ describe("Gmail mailer", () => {
       "Unable to load Gmail signature for federico@goldencrowvs.com; sending without it.",
       expect.any(Error),
     );
-    expect(fetch).toHaveBeenCalledTimes(3);
     const sendBody = JSON.parse(
       String(jest.mocked(fetch).mock.calls[2]?.[1]?.body),
     ) as { raw: string };
-    expect(decodeBase64Url(sendBody.raw)).toContain(
-      "<p>Hola,</p><p>Mensaje directo.</p>",
-    );
+    expect(decodeBase64Url(sendBody.raw)).not.toContain("Golden Crow VS");
   });
 });

@@ -14,6 +14,7 @@ type GmailSendOptions = {
   boundaryPrefix?: string;
   appendSendAsSignature?: boolean;
   sendAsEmail?: string;
+  fallbackSignatureHtml?: string;
 };
 
 type TokenResponse = {
@@ -100,6 +101,50 @@ function appendHtmlSignature(html: string, signatureHtml: string) {
   return `${html}<br><br>${signature}`;
 }
 
+function textFromHtmlSignature(signatureHtml: string) {
+  return signatureHtml
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(div|p|li|tr|h[1-6])>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+function appendTextSignature(text: string, signatureHtml: string) {
+  const signature = textFromHtmlSignature(signatureHtml);
+  if (!signature || text.includes(signature)) {
+    return text;
+  }
+  return `${text}\n\n${signature}`;
+}
+
+function appendMessageSignature(
+  input: GmailMessageInput,
+  signatureHtml: string,
+): GmailMessageInput {
+  const signature = signatureHtml.trim();
+  if (!signature) {
+    return input;
+  }
+
+  return {
+    ...input,
+    text: appendTextSignature(input.text, signature),
+    ...(input.html?.trim()
+      ? { html: appendHtmlSignature(input.html, signature) }
+      : {}),
+  };
+}
+
 async function fetchSendAsSignatureHtml(
   accessToken: string,
   sendAsEmail: string,
@@ -130,13 +175,16 @@ async function withGmailSendAsSignature(
   options: GmailSendOptions,
   accessToken: string,
 ): Promise<GmailMessageInput> {
-  if (!options.appendSendAsSignature || !input.html?.trim()) {
+  if (!options.appendSendAsSignature) {
     return input;
   }
 
+  const fallbackSignatureHtml = cleanOptional(options.fallbackSignatureHtml);
   const sendAsEmail = senderEmailForSignature(options);
   if (!sendAsEmail) {
-    return input;
+    return fallbackSignatureHtml
+      ? appendMessageSignature(input, fallbackSignatureHtml)
+      : input;
   }
 
   try {
@@ -145,13 +193,20 @@ async function withGmailSendAsSignature(
       sendAsEmail,
     );
     if (!signatureHtml) {
-      return input;
+      return fallbackSignatureHtml
+        ? appendMessageSignature(input, fallbackSignatureHtml)
+        : input;
     }
-    return {
-      ...input,
-      html: appendHtmlSignature(input.html, signatureHtml),
-    };
+    return appendMessageSignature(input, signatureHtml);
   } catch (error) {
+    if (fallbackSignatureHtml) {
+      console.warn(
+        `Unable to load Gmail signature for ${sendAsEmail}; using fallback signature.`,
+        error,
+      );
+      return appendMessageSignature(input, fallbackSignatureHtml);
+    }
+
     console.warn(
       `Unable to load Gmail signature for ${sendAsEmail}; sending without it.`,
       error,
