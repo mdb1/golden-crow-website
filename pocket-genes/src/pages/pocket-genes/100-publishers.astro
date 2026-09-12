@@ -9,7 +9,6 @@ const pageCopy = {
     title: '100 voices campaign | Pocket Genes',
     description:
       'An invitation for genomics leaders in Argentina to join interviews, share knowledge, and participate in Pocket Genes events.',
-    eyebrow: 'Pocket Genes campaign',
     heroTitle: '100 leading voices in genomics in Argentina.',
     heroBody:
       'We are inviting people whose work in companies, institutions, research, care, advocacy, education, or communication gives them something valuable to contribute to the Pocket Genes network.',
@@ -66,7 +65,6 @@ const pageCopy = {
     title: 'Campaña 100 personalidades | Pocket Genes',
     description:
       'Una invitación para que referentes de la genómica en Argentina participen en entrevistas, compartan conocimiento y formen parte de eventos de Pocket Genes.',
-    eyebrow: 'Campaña Pocket Genes',
     heroTitle: '100 personalidades destacadas de la genómica en Argentina.',
     heroBody:
       'Estamos invitando a personas cuyo trabajo en empresas, instituciones, investigación, atención, comunicación, educación o comunidad tiene algo valioso para aportar a la red de Pocket Genes.',
@@ -133,7 +131,6 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
   <main id="main" class="pg-page pg-100-page">
     <section class="pg-100-hero">
       <div class="pg-container pg-100-hero-inner">
-        <p class="pg-eyebrow">{copy.eyebrow}</p>
         <h1>{copy.heroTitle}</h1>
         <p class="pg-100-lead">{copy.heroBody}</p>
         <div class="pg-100-hero-actions">
@@ -262,21 +259,18 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
     position: relative;
     z-index: 1;
     display: flex;
-    max-width: 1040px;
+    width: min(1240px, calc(100% - 32px));
+    max-width: none;
     flex-direction: column;
     align-items: center;
     text-align: center;
   }
 
-  .pg-100-hero-inner .pg-eyebrow {
-    color: var(--pg-rose);
-  }
-
   .pg-100-hero h1 {
-    max-width: 1050px;
+    max-width: 1180px;
     margin: 0;
-    font-size: clamp(3.35rem, 8vw, 6.45rem);
-    line-height: 0.94;
+    font-size: clamp(2.65rem, 4.8vw, 4.35rem);
+    line-height: 1.02;
     letter-spacing: 0;
     text-wrap: balance;
   }
@@ -738,7 +732,7 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
     }
 
     .pg-100-hero h1 {
-      font-size: 3rem;
+      font-size: 2.35rem;
     }
 
     .pg-100-hero-actions,
