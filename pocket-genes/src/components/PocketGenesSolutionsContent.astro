@@ -1198,8 +1198,7 @@ const pageCopy = {
       'Soluciones digitales independientes para informes genéticos, consentimientos, logística, educación, comunidad, APIs, CRM y backoffice.',
     heroEyebrow: 'Pocket Genes',
     heroTitle: 'Soluciones digitales\npara genómica\ny medicina de precisión.',
-    heroBody:
-      'Desde informes y consentimientos hasta logística, educación y comunidad. Desarrollamos soluciones digitales para procesos que laboratorios, clínicas y empresas de genética necesitan todos los días.',
+    heroBody: '',
     heroKey:
       'Integrá alguna de nuestras soluciones a tu sistema, escribinos para que construyamos una a medida para vos o sumá integrantes capacitados a tu equipo para que te ayuden codo a codo.',
     heroPrimary: 'Contanos qué necesitás',
@@ -1565,7 +1564,7 @@ const audienceTiles = createAudienceTiles(copy.audiences);
         <div class="pg-solutions-hero-copy">
           <p class="pg-eyebrow">{copy.heroEyebrow}</p>
           <h1 class:list={['pg-solutions-hero-title', locale === 'es' && 'is-spanish']}>{copy.heroTitle}</h1>
-          <p class="pg-solutions-lead">{copy.heroBody}</p>
+          {copy.heroBody ? <p class="pg-solutions-lead">{copy.heroBody}</p> : null}
           <p class="pg-solutions-key">{copy.heroKey}</p>
           <div class="pg-button-row">
             <a class="pg-button pg-button-primary" href="#solutions-call">{copy.heroPrimary}</a>
