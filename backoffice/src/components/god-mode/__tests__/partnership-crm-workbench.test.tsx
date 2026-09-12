@@ -1457,7 +1457,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(dialog.textContent).toContain("Body two for Ada");
   });
 
-  it("recommends matching templates while allowing any active template selection", async () => {
+  it("recommends matching templates while allowing any same-audience template selection", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       const stringPath = String(path);
@@ -1507,7 +1507,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       ).toBe("Recommended Delete Me Genomics");
     });
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/templates?status=active&limit=50",
+      "/admin/partnership-crm/templates?status=active&audience=organizations&limit=50",
     );
 
     await user.click(
@@ -1523,18 +1523,19 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     expect(await screen.findByText("Recommended templates")).toBeTruthy();
     expect(screen.getByText("Other templates")).toBeTruthy();
+    expect(screen.queryByText("Universal professional")).toBeNull();
 
     await user.click(
-      await screen.findByRole("option", { name: "Universal professional" }),
+      await screen.findByRole("option", { name: "Other category" }),
     );
 
     await waitFor(() => {
       expect(
         (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
-      ).toBe("Universal Delete Me Genomics");
+      ).toBe("Other category Delete Me Genomics");
     });
     expect(within(dialog).getByLabelText("Message").textContent).toBe(
-      "Universal body for Ada",
+      "Other category body for Ada",
     );
   });
 
@@ -1584,7 +1585,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         return { professionals: [professional], nextCursor: undefined };
       }
       if (stringPath.startsWith("/admin/partnership-crm/templates")) {
-        return { templates: [fitTemplate], nextCursor: undefined };
+        return stringPath.includes("audience=professionals")
+          ? { templates: [fitTemplate], nextCursor: undefined }
+          : { templates: [recommendedEmailTemplate], nextCursor: undefined };
       }
       if (stringPath.includes("/activities")) {
         return { activities: [] };

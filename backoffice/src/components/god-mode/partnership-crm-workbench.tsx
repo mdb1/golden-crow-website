@@ -2733,7 +2733,10 @@ function crmTemplateGroupsForTarget(
   target: PartnershipCrmTargetRecord | null,
   targetKind: PartnershipCrmTargetKind,
 ) {
-  const rankedTemplates = templates
+  const targetAudienceTemplates = templates.filter(
+    (template) => (template.audience ?? "organizations") === targetKind,
+  );
+  const rankedTemplates = targetAudienceTemplates
     .map((template, index) => ({
       template,
       index,
@@ -6940,10 +6943,14 @@ export function PartnershipCrmWorkbench() {
     "of",
   )} ${knownListPages}${hasNextListPage ? "+" : ""}`;
   const templatesQuery = useInfiniteQuery({
-    queryKey: [TEMPLATES_QUERY_KEY, "active"],
+    queryKey: [TEMPLATES_QUERY_KEY, "active", targetKind],
     queryFn: ({ pageParam }) => {
       const cursor = typeof pageParam === "string" ? pageParam : "";
-      const params = new URLSearchParams({ status: "active", limit: "50" });
+      const params = new URLSearchParams({
+        status: "active",
+        audience: targetKind,
+        limit: "50",
+      });
       if (cursor) {
         params.set("cursor", cursor);
       }
