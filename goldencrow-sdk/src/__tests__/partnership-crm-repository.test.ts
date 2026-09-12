@@ -2,8 +2,14 @@ export {};
 
 type MockDocData = Record<string, unknown>;
 type MockStoredDoc = { id: string; data: MockDocData };
+type MockWhereOperator = "==" | ">=" | ">" | "<=" | "<";
 type MockQueryOperation =
-  | { type: "where"; fieldPath: string; operator: string; value: unknown }
+  | {
+      type: "where";
+      fieldPath: string;
+      operator: MockWhereOperator;
+      value: unknown;
+    }
   | { type: "orderBy"; fieldPath: string; direction: "asc" | "desc" }
   | { type: "startAfter"; values: unknown[] }
   | { type: "limit"; count: number };
@@ -138,6 +144,20 @@ function mockApplyQueryOperations(
         return value === operation.value;
       }
 
+      const comparison = mockCompareValues(value, operation.value, "asc");
+      if (operation.operator === ">=") {
+        return comparison >= 0;
+      }
+      if (operation.operator === ">") {
+        return comparison > 0;
+      }
+      if (operation.operator === "<=") {
+        return comparison <= 0;
+      }
+      if (operation.operator === "<") {
+        return comparison < 0;
+      }
+
       throw new Error(`Unsupported mock where operator: ${operation.operator}`);
     });
   }
@@ -231,15 +251,17 @@ function mockMakeQuery(
       }),
       ...mockDocumentRef(collectionName, id),
     }),
-    where: jest.fn((fieldPath: unknown, operator: string, value: unknown) => {
-      const operation: MockQueryOperation = {
-        type: "where",
-        fieldPath: mockFieldPathName(fieldPath),
-        operator,
-        value,
-      };
-      return mockMakeQuery(collectionName, [...operations, operation]);
-    }),
+    where: jest.fn(
+      (fieldPath: unknown, operator: MockWhereOperator, value: unknown) => {
+        const operation: MockQueryOperation = {
+          type: "where",
+          fieldPath: mockFieldPathName(fieldPath),
+          operator,
+          value,
+        };
+        return mockMakeQuery(collectionName, [...operations, operation]);
+      },
+    ),
     orderBy: jest.fn(
       (fieldPath: unknown, direction: "asc" | "desc" = "asc") => {
         const operation: MockQueryOperation = {
@@ -618,6 +640,68 @@ describe("partnership CRM duplicate imports", () => {
 
     expect(preview.rows[0]?.duplicateCandidates).toEqual([
       expect.objectContaining({ id: "existing", name: "Dra. Ada Genome" }),
+    ]);
+    expect(preview.summary.duplicates).toBe(1);
+  });
+
+  it("flags organization duplicates when one name is a prefix of the other", async () => {
+    const { previewPartnershipCrmImport } =
+      await import("../repositories/partnership-crm.repository");
+    seedOrganization("genesia", 1, "org_genomics_laboratories");
+    mockDocs.set(mockDocKey("partnership_crm_organizations", "genesia"), {
+      ...(mockDocs.get(
+        mockDocKey("partnership_crm_organizations", "genesia"),
+      ) ?? {}),
+      name: "Genesia - Medicina Personalizada",
+      normalizedName: "genesia medicina personalizada",
+      website: "",
+      websiteDomain: "",
+    });
+
+    const preview = await previewPartnershipCrmImport(godModeContext, [
+      {
+        rowId: "row-1",
+        name: "Genesia",
+        website: "",
+      },
+    ]);
+
+    expect(preview.rows[0]?.duplicateCandidates).toEqual([
+      expect.objectContaining({
+        id: "genesia",
+        name: "Genesia - Medicina Personalizada",
+      }),
+    ]);
+    expect(preview.summary.duplicates).toBe(1);
+  });
+
+  it("flags organization duplicates when the imported name extends an existing name", async () => {
+    const { previewPartnershipCrmImport } =
+      await import("../repositories/partnership-crm.repository");
+    seedOrganization("genesia", 1, "org_genomics_laboratories");
+    mockDocs.set(mockDocKey("partnership_crm_organizations", "genesia"), {
+      ...(mockDocs.get(
+        mockDocKey("partnership_crm_organizations", "genesia"),
+      ) ?? {}),
+      name: "Genesia",
+      normalizedName: "genesia",
+      website: "",
+      websiteDomain: "",
+    });
+
+    const preview = await previewPartnershipCrmImport(godModeContext, [
+      {
+        rowId: "row-1",
+        name: "Genesia - Medicina Personalizada",
+        website: "",
+      },
+    ]);
+
+    expect(preview.rows[0]?.duplicateCandidates).toEqual([
+      expect.objectContaining({
+        id: "genesia",
+        name: "Genesia",
+      }),
     ]);
     expect(preview.summary.duplicates).toBe(1);
   });

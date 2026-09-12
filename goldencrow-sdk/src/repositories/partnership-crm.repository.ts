@@ -472,6 +472,30 @@ function professionalNamesCanReferToSamePerson(left: string, right: string) {
   return sharedTokens.length >= 2;
 }
 
+function organizationNamesCanReferToSameEntity(left: string, right: string) {
+  const normalizedLeft = normalizeName(cleanString(left));
+  const normalizedRight = normalizeName(cleanString(right));
+  if (!normalizedLeft || !normalizedRight) {
+    return false;
+  }
+
+  if (normalizedLeft === normalizedRight) {
+    return true;
+  }
+
+  const [shorter, longer] =
+    normalizedLeft.length <= normalizedRight.length
+      ? [normalizedLeft, normalizedRight]
+      : [normalizedRight, normalizedLeft];
+
+  return shorter.length >= 4 && longer.startsWith(`${shorter} `);
+}
+
+function organizationNameLookupPrefix(normalizedName: string) {
+  const firstToken = normalizedName.split(" ")[0] ?? "";
+  return firstToken.length >= 3 ? firstToken : "";
+}
+
 function normalizeKey(value: string) {
   return value
     .normalize("NFD")
@@ -1881,15 +1905,25 @@ async function findDuplicateOrganizations(
   input: PartnershipCrmOrganizationInput,
 ) {
   const byId = new Map<string, PartnershipCrmDuplicateCandidate>();
+  const name = cleanString(input.name);
   const normalizedName = normalizeName(cleanString(input.name));
+  const lookupPrefix = organizationNameLookupPrefix(normalizedName);
   const domain = websiteDomain(input.website);
   const collection = adminDb.collection(ORGANIZATIONS_COLLECTION);
 
   async function addSnapshotDocs(
     snapshotDocs: QueryDocumentSnapshot<Record<string, unknown>>[],
+    options: { requireCompatibleName?: boolean } = {},
   ) {
     snapshotDocs.forEach((doc) => {
       const record = toOrganizationRecord(doc.id, doc.data());
+      if (
+        options.requireCompatibleName &&
+        !organizationNamesCanReferToSameEntity(name, record.name)
+      ) {
+        return;
+      }
+
       byId.set(record.id, duplicateCandidateFromRecord(record));
     });
   }
@@ -1900,6 +1934,16 @@ async function findDuplicateOrganizations(
       .limit(5)
       .get();
     await addSnapshotDocs(snapshot.docs);
+  }
+
+  if (lookupPrefix) {
+    const snapshot = await collection
+      .where("normalizedName", ">=", lookupPrefix)
+      .where("normalizedName", "<", `${lookupPrefix}\uf8ff`)
+      .orderBy("normalizedName", "asc")
+      .limit(25)
+      .get();
+    await addSnapshotDocs(snapshot.docs, { requireCompatibleName: true });
   }
 
   if (domain) {
