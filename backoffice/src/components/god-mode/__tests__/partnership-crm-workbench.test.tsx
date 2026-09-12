@@ -3511,6 +3511,25 @@ describe("PartnershipCrmWorkbench import flow", () => {
     expect(within(resolver).getAllByText("Merge both").length).toBeGreaterThan(
       0,
     );
+    const unchangedNameSection = within(resolver)
+      .getByRole("heading", { name: "Organization" })
+      .closest("section");
+    expect(unchangedNameSection).toBeTruthy();
+    expect(
+      within(unchangedNameSection as HTMLElement).queryByText("CRM existing"),
+    ).toBeNull();
+    expect(
+      within(unchangedNameSection as HTMLElement).queryByText("CSV new"),
+    ).toBeNull();
+    expect(
+      within(unchangedNameSection as HTMLElement).queryByText("Merge both"),
+    ).toBeNull();
+    expect(
+      within(unchangedNameSection as HTMLElement).getByText("Resolved value"),
+    ).toBeTruthy();
+    expect(
+      within(unchangedNameSection as HTMLElement).getByText("Genome Lab 1"),
+    ).toBeTruthy();
 
     await user.click(
       within(resolver).getByRole("button", { name: "Save compatibility" }),

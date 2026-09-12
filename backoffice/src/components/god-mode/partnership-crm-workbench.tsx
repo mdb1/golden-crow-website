@@ -1985,6 +1985,17 @@ function compatibilityValueForChoice(
   return existing[key];
 }
 
+function compatibilityValuesMatch(
+  left: OrganizationFormState[keyof OrganizationFormState],
+  right: OrganizationFormState[keyof OrganizationFormState],
+) {
+  if (typeof left === "string" && typeof right === "string") {
+    return left.trim() === right.trim();
+  }
+
+  return left === right;
+}
+
 function defaultCompatibilityChoices(
   fields: readonly CrmCompatibilityField[],
   existing: OrganizationFormState,
@@ -5655,7 +5666,10 @@ function DuplicateCompatibilityDialog({
                 );
                 const resolvedValue = resolvedForm[field.key];
                 const choice = choices[field.key] ?? "existing";
-                const changed = existingValue !== incomingValue;
+                const changed = !compatibilityValuesMatch(
+                  existingValue,
+                  incomingValue,
+                );
 
                 return (
                   <section
@@ -5669,58 +5683,60 @@ function DuplicateCompatibilityDialog({
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h4 className="font-semibold">{t(field.label)}</h4>
-                      <Badge variant={changed ? "brand" : "outline"}>
-                        {choiceLabel(choice)}
-                      </Badge>
+                      {changed ? (
+                        <Badge variant="brand">{choiceLabel(choice)}</Badge>
+                      ) : null}
                     </div>
-                    <div className="mt-3 grid gap-2 lg:grid-cols-3">
-                      {[
-                        {
-                          label: t("CRM existing"),
-                          value: existingValue,
-                          choice: "existing" as const,
-                        },
-                        {
-                          label: t("CSV new"),
-                          value: incomingValue,
-                          choice: "incoming" as const,
-                        },
-                        {
-                          label: t("Merge both"),
-                          value: mergedValue,
-                          choice: "merged" as const,
-                        },
-                      ].map((option) => (
-                        <button
-                          key={option.choice}
-                          type="button"
-                          onClick={() => setChoice(field.key, option.choice)}
-                          className={cn(
-                            "min-h-24 rounded-lg border px-3 py-2 text-left transition",
-                            choice === option.choice
-                              ? "border-blue-500 bg-blue-100 text-blue-950 shadow-sm dark:border-blue-300 dark:bg-blue-400/18 dark:text-blue-50"
-                              : "border-border/80 bg-background text-foreground hover:border-blue-300 hover:bg-blue-50/60 dark:hover:bg-blue-500/10",
-                          )}
-                        >
-                          <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                            {option.label}
-                          </span>
-                          <span
+                    {changed ? (
+                      <div className="mt-3 grid gap-2 lg:grid-cols-3">
+                        {[
+                          {
+                            label: t("CRM existing"),
+                            value: existingValue,
+                            choice: "existing" as const,
+                          },
+                          {
+                            label: t("CSV new"),
+                            value: incomingValue,
+                            choice: "incoming" as const,
+                          },
+                          {
+                            label: t("Merge both"),
+                            value: mergedValue,
+                            choice: "merged" as const,
+                          },
+                        ].map((option) => (
+                          <button
+                            key={option.choice}
+                            type="button"
+                            onClick={() => setChoice(field.key, option.choice)}
                             className={cn(
-                              "mt-2 block break-words text-sm font-medium leading-5",
-                              field.multiline && "whitespace-pre-wrap",
+                              "min-h-24 rounded-lg border px-3 py-2 text-left transition",
+                              choice === option.choice
+                                ? "border-blue-500 bg-blue-100 text-blue-950 shadow-sm dark:border-blue-300 dark:bg-blue-400/18 dark:text-blue-50"
+                                : "border-border/80 bg-background text-foreground hover:border-blue-300 hover:bg-blue-50/60 dark:hover:bg-blue-500/10",
                             )}
                           >
-                            {formatCompatibilityValue(
-                              field.key,
-                              option.value,
-                              language,
-                              targetKind,
-                            )}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
+                            <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                              {option.label}
+                            </span>
+                            <span
+                              className={cn(
+                                "mt-2 block break-words text-sm font-medium leading-5",
+                                field.multiline && "whitespace-pre-wrap",
+                              )}
+                            >
+                              {formatCompatibilityValue(
+                                field.key,
+                                option.value,
+                                language,
+                                targetKind,
+                              )}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                     <div className="mt-3 rounded-lg border border-border/70 bg-background/85 px-3 py-2">
                       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                         {t("Resolved value")}
