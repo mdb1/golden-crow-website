@@ -139,7 +139,6 @@ const pageCopy = {
       },
     ],
     processTitle: 'Cómo participar',
-    processIntro: 'El primer paso es completar el formulario para crear tu perfil.',
     organizerLine: 'Una campaña de Pocket Genes',
     organizerName: 'Federico Bustos Fierro',
     processSteps: [
@@ -170,8 +169,7 @@ const pageCopy = {
       },
       {
         question: '¿Tengo que participar en una entrevista?',
-        answer:
-          'No. También podés sumarte para publicar artículos, compartir recursos o difundir eventos.',
+        answer: 'No. Podés sumarte a la campaña sin participar en una entrevista.',
       },
       {
         question: '¿Cuánto tiempo lleva participar?',
@@ -290,7 +288,7 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
         <div class="pg100-split-grid">
           <div class="pg100-section-head">
             <h2>{copy.processTitle}</h2>
-            <p>{copy.processIntro}</p>
+            {isEnglish && <p>{pageCopy.en.processIntro}</p>}
             <div class="pg100-organizer">
               <img
                 src="/team/federico-bustos-gray.webp"
