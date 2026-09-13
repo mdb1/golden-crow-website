@@ -6,12 +6,13 @@ const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 
 const pageCopy = {
   en: {
-    title: '100 genomics voices in Argentina | Pocket Genes',
+    title: '100 genomics personalities in Argentina | Pocket Genes',
     description:
       'Join the Pocket Genes campaign to introduce genomics work in Argentina, share useful resources, and participate in interviews and community gatherings.',
-    eyebrow: 'A Pocket Genes campaign · Argentina',
-    titleAccent: '100 voices',
-    titleConnector: 'in',
+    eyebrowStart: 'A Pocket Genes campaign',
+    eyebrowEnd: 'Argentina',
+    titleAccent: '100 personalities',
+    titleMiddle: 'recognized in',
     titlePhrase: 'genomics in Argentina.',
     heroBody:
       'We want to learn about your work and share it with people who research, teach, communicate, and work in genomics in Argentina.',
@@ -34,23 +35,31 @@ const pageCopy = {
     optionsTitle: 'What would you like to share?',
     optionsIntro:
       'Choose the format that best fits your work. You can start with one option and add more later from your Pocket Genes profile.',
+    productCaption:
+      'Discover is where Pocket Genes can surface interviews, articles, events, and resources for people following genomics topics.',
+    productAlt: 'Pocket Genes Discover screen with genomics content and updates',
     options: [
       {
+        icon: 'interviews',
         title: 'Interviews',
         body: 'A conversation about your work, a project, or a topic you want to explain to the community.',
       },
       {
+        icon: 'resources',
         title: 'Articles and resources',
         body: 'Texts, references, news, or educational material that can help other people in the field.',
       },
       {
+        icon: 'community',
         title: 'Community gatherings',
         body: 'Invitations to meetings, talks, and shared activities connected to genomics in Argentina.',
       },
     ],
-    processTitle: 'What happens after you express interest?',
+    processTitle: 'How joining works',
     processIntro:
       'The form creates an individual profile request and tells us how you want to participate.',
+    interviewReview:
+      'For interviews, we coordinate the topic, date, and format with you before preparing anything for publication.',
     processSteps: [
       {
         title: 'Create your profile',
@@ -62,10 +71,12 @@ const pageCopy = {
       },
       {
         title: 'We coordinate the format',
-        body: 'For interviews, we coordinate the topic, date, and format with you before preparing anything for publication.',
+        body: 'We agree on the best way to publish, share, or present what you want to contribute.',
       },
     ],
     faqTitle: 'Frequently asked questions',
+    faqIntro:
+      'These are the practical details people usually want to clarify before joining the campaign.',
     faqs: [
       {
         question: 'Who can join?',
@@ -94,7 +105,7 @@ const pageCopy = {
       {
         question: 'Why 100?',
         answer:
-          'It is a first campaign goal: to bring together 100 voices from different areas of genomics in Argentina and make their work easier to find.',
+          'It is a first campaign goal: to bring together 100 people from different areas of genomics in Argentina and make their work easier to find.',
       },
     ],
     finalTitle: 'Join the campaign',
@@ -102,12 +113,13 @@ const pageCopy = {
       'Create your profile at no cost and tell us what you would like to share with the Pocket Genes community.',
   },
   es: {
-    title: '100 voces de la genómica en Argentina | Pocket Genes',
+    title: '100 personalidades de la genómica en Argentina | Pocket Genes',
     description:
       'Sumate a la campaña de Pocket Genes para dar a conocer trabajos en genómica en Argentina, compartir recursos y participar en entrevistas y encuentros.',
-    eyebrow: 'Una campaña de Pocket Genes · Argentina',
-    titleAccent: '100 voces',
-    titleConnector: 'de la',
+    eyebrowStart: 'Una campaña de Pocket Genes',
+    eyebrowEnd: 'Argentina',
+    titleAccent: '100 personalidades',
+    titleMiddle: 'destacadas de la',
     titlePhrase: 'genómica en Argentina.',
     heroBody:
       'Queremos conocer tu trabajo y compartirlo con quienes investigan, enseñan, comunican y trabajan en genómica en Argentina.',
@@ -130,23 +142,31 @@ const pageCopy = {
     optionsTitle: '¿Qué te gustaría compartir?',
     optionsIntro:
       'Elegí el formato que mejor se adapte a tu trabajo. Podés empezar por una opción y sumar otras más adelante desde tu perfil de Pocket Genes.',
+    productCaption:
+      'Discover es el espacio donde Pocket Genes puede mostrar entrevistas, artículos, eventos y recursos a quienes siguen temas de genómica.',
+    productAlt: 'Pantalla Discover de Pocket Genes con contenidos y novedades sobre genómica',
     options: [
       {
+        icon: 'interviews',
         title: 'Entrevistas',
         body: 'Una conversación sobre tu trabajo, un proyecto o un tema que quieras explicar a la comunidad.',
       },
       {
+        icon: 'resources',
         title: 'Artículos y recursos',
         body: 'Textos, referencias, novedades o material educativo que pueda servirle a otras personas del sector.',
       },
       {
+        icon: 'community',
         title: 'Encuentros con la comunidad',
         body: 'Invitaciones a reuniones, charlas y actividades compartidas sobre genómica en Argentina.',
       },
     ],
-    processTitle: 'Qué pasa después de expresar interés',
+    processTitle: 'Cómo sumarte',
     processIntro:
       'El formulario crea una solicitud de perfil individual y nos cuenta cómo querés participar.',
+    interviewReview:
+      'Para entrevistas, coordinamos con vos el tema, la fecha y el formato antes de preparar cualquier publicación.',
     processSteps: [
       {
         title: 'Creás tu perfil',
@@ -160,10 +180,12 @@ const pageCopy = {
       {
         title: 'Coordinamos el formato',
         body:
-          'Para entrevistas, coordinamos con vos el tema, la fecha y el formato antes de preparar cualquier publicación.',
+          'Acordamos la mejor forma de publicar, compartir o presentar aquello que quieras aportar.',
       },
     ],
     faqTitle: 'Preguntas frecuentes',
+    faqIntro:
+      'Estos son los puntos prácticos que suelen aparecer antes de sumarse a la campaña.',
     faqs: [
       {
         question: '¿Quiénes pueden sumarse?',
@@ -192,7 +214,7 @@ const pageCopy = {
       {
         question: '¿Por qué 100?',
         answer:
-          'Es una primera meta de campaña: reunir 100 voces de distintas áreas de la genómica en Argentina y hacer que su trabajo sea más fácil de encontrar.',
+          'Es una primera meta de campaña: reunir 100 personas de distintas áreas de la genómica en Argentina y hacer que su trabajo sea más fácil de encontrar.',
       },
     ],
     finalTitle: 'Sumate a la campaña',
@@ -218,10 +240,15 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
       <div class="pg-container">
         <div class="pg100-hero-grid">
           <div class="pg100-hero-copy">
-            <p class="pg100-eyebrow">{copy.eyebrow}</p>
+            <p class="pg100-eyebrow">
+              <span>{copy.eyebrowStart}</span>
+              <span class="pg100-eyebrow-dot" aria-hidden="true"></span>
+              <span>{copy.eyebrowEnd}</span>
+            </p>
             <h1 class="pg100-title">
-              <span class="pg100-title-accent">{copy.titleAccent}</span> {copy.titleConnector}
-              <span class="pg100-title-phrase">{copy.titlePhrase}</span>
+              <span class="pg100-title-accent">{copy.titleAccent}</span>
+              {copy.titleMiddle}
+              <span>{copy.titlePhrase}</span>
             </h1>
             <p class="pg100-lead">{copy.heroBody}</p>
             <div class="pg100-actions">
@@ -276,61 +303,91 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
 
     <section id="opciones" class="pg100-section pg100-options">
       <div class="pg-container">
-        <div class="pg100-section-head">
-          <h2>{copy.optionsTitle}</h2>
-          <p>{copy.optionsIntro}</p>
-        </div>
-        <div class="pg100-option-grid">
-          {copy.options.map((option, index) => (
-            <article class={`pg100-option-card item-${index + 1}`}>
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <h3>{option.title}</h3>
-              <p>{option.body}</p>
-            </article>
-          ))}
+        <div class="pg100-options-grid">
+          <div class="pg100-options-copy">
+            <div class="pg100-section-head">
+              <h2>{copy.optionsTitle}</h2>
+              <p>{copy.optionsIntro}</p>
+            </div>
+            <div class="pg100-option-list">
+              {copy.options.map((option) => (
+                <article class="pg100-option-item">
+                  <span class={`pg100-option-icon icon-${option.icon}`} aria-hidden="true"></span>
+                  <div>
+                    <h3>{option.title}</h3>
+                    <p>{option.body}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+          <figure class="pg100-product-demo">
+            <div class="pg100-product-frame">
+              <img
+                src="/pocket-genes/screenshots/discover-simulator-light.webp"
+                alt={copy.productAlt}
+                width="560"
+                height="1217"
+                loading="lazy"
+              />
+            </div>
+            <figcaption>{copy.productCaption}</figcaption>
+          </figure>
         </div>
       </div>
     </section>
 
     <section id="como-funciona" class="pg100-section pg100-process">
       <div class="pg-container">
-        <div class="pg100-section-head">
-          <h2>{copy.processTitle}</h2>
-          <p>{copy.processIntro}</p>
+        <div class="pg100-split-grid">
+          <div class="pg100-section-head">
+            <h2>{copy.processTitle}</h2>
+            <p>{copy.processIntro}</p>
+          </div>
+          <ol class="pg100-process-list">
+            {copy.processSteps.map((step, index) => (
+              <li>
+                <span class="pg100-step-number">{String(index + 1).padStart(2, '0')}</span>
+                <div>
+                  <h3>{step.title}</h3>
+                  <p>{step.body}</p>
+                  {index === 2 && <p class="pg100-step-note">{copy.interviewReview}</p>}
+                </div>
+              </li>
+            ))}
+          </ol>
         </div>
-        <ol class="pg100-process-list">
-          {copy.processSteps.map((step, index) => (
-            <li>
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <div>
-                <h3>{step.title}</h3>
-                <p>{step.body}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
       </div>
     </section>
 
     <section id="preguntas" class="pg100-section pg100-faq">
-      <div class="pg100-faq-inner">
-        <h2>{copy.faqTitle}</h2>
-        <div class="pg100-faq-list">
-          {copy.faqs.map((faq) => (
-            <details>
-              <summary>{faq.question}</summary>
-              <p>{faq.answer}</p>
-            </details>
-          ))}
+      <div class="pg-container">
+        <div class="pg100-split-grid">
+          <div class="pg100-section-head">
+            <h2>{copy.faqTitle}</h2>
+            <p>{copy.faqIntro}</p>
+          </div>
+          <div class="pg100-faq-list">
+            {copy.faqs.map((faq) => (
+              <details>
+                <summary>{faq.question}</summary>
+                <p>{faq.answer}</p>
+              </details>
+            ))}
+          </div>
         </div>
       </div>
     </section>
 
     <section class="pg100-final">
-      <div class="pg100-final-inner">
-        <h2>{copy.finalTitle}</h2>
-        <p>{copy.finalBody}</p>
-        <a class="pg100-button pg100-button-primary" href={participateHref}>{copy.cta}</a>
+      <div class="pg-container">
+        <div class="pg100-final-panel">
+          <div>
+            <h2>{copy.finalTitle}</h2>
+            <p>{copy.finalBody}</p>
+          </div>
+          <a class="pg100-button pg100-button-final" href={participateHref}>{copy.cta}</a>
+        </div>
       </div>
     </section>
   </main>
@@ -341,11 +398,9 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
     --pg100-ink: #172033;
     --pg100-muted: #526075;
     --pg100-action: #c22f65;
-    --pg100-action-hover: #a82657;
-    --pg100-blush: #fff4f8;
-    --pg100-hero-bg: #fff8fb;
-    --pg100-border: #e5dfe7;
-    --pg100-final: #171d3c;
+    --pg100-action-hover: #a92556;
+    --pg100-blush: #fff8fb;
+    --pg100-border: #e7e0e8;
     background: #ffffff;
     color: var(--pg100-ink);
   }
@@ -357,13 +412,13 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
   }
 
   .pg100-hero {
-    background: var(--pg100-hero-bg);
-    padding: 148px 0 76px;
+    background: var(--pg100-blush);
+    padding: 148px 0 96px;
   }
 
   .pg100-hero-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.18fr) minmax(392px, 0.82fr);
+    grid-template-columns: minmax(0, 608px) minmax(0, 456px);
     gap: 56px;
     align-items: center;
   }
@@ -371,41 +426,53 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
   .pg100-hero-copy,
   .pg100-art,
   .pg100-feature-copy,
-  .pg100-feature-media {
+  .pg100-feature-media,
+  .pg100-product-demo,
+  .pg100-product-frame {
     min-width: 0;
   }
 
   .pg100-eyebrow {
-    margin: 0 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 20px;
     color: #8a2851;
     font-size: 12px;
     font-weight: 600;
-    line-height: 1.5;
+    line-height: 1.4;
     letter-spacing: 0;
     text-transform: uppercase;
   }
 
+  .pg100-eyebrow-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: #c9a4b7;
+  }
+
   .pg100-title {
-    max-width: 690px;
-    margin: 0 0 26px;
+    max-width: 608px;
+    margin: 0 0 24px;
     color: var(--pg100-ink);
     font-size: 56px;
     font-weight: 800;
     line-height: 1.05;
-    letter-spacing: 0;
+    letter-spacing: -0.035em;
+  }
+
+  .pg100-title span {
+    display: inline;
   }
 
   .pg100-title-accent {
     color: var(--pg100-action);
   }
 
-  .pg100-title-phrase {
-    white-space: nowrap;
-  }
-
   .pg100-lead {
-    max-width: 640px;
-    margin: 0 0 28px;
+    max-width: 520px;
+    margin: 0 0 32px;
     color: var(--pg100-muted);
     font-size: 18px;
     font-weight: 400;
@@ -415,22 +482,29 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
   .pg100-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 16px;
   }
 
   .pg100-button {
     display: inline-flex;
-    min-height: 50px;
+    min-height: 52px;
     align-items: center;
     justify-content: center;
     border: 1px solid transparent;
-    border-radius: 8px;
-    padding: 13px 20px;
+    border-radius: 12px;
+    padding: 14px 24px;
     font-size: 16px;
-    font-weight: 780;
-    line-height: 22px;
+    font-weight: 600;
+    line-height: 1.25;
     text-decoration: none;
-    transition: background-color 180ms ease, border-color 180ms ease;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  }
+
+  .pg100-button:focus-visible,
+  .pg100-faq summary:focus-visible,
+  .pg100-page a:focus-visible {
+    outline: 3px solid #6e3dd9;
+    outline-offset: 3px;
   }
 
   .pg100-button-primary {
@@ -446,31 +520,31 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
 
   .pg100-button-secondary {
     border-color: #d7d4dc;
-    background: #ffffff;
+    background: transparent;
     color: var(--pg100-ink);
   }
 
   .pg100-button-secondary:hover {
-    border-color: #c22f65;
+    border-color: var(--pg100-action);
     background: #fff0f5;
   }
 
   .pg100-reassurance {
-    margin: 16px 0 0;
+    margin: 12px 0 0;
     color: var(--pg100-muted);
     font-size: 14px;
     font-weight: 400;
-    line-height: 1.6;
+    line-height: 1.5;
   }
 
   .pg100-art {
     position: relative;
     width: 100%;
-    min-height: 496px;
+    aspect-ratio: 1;
     overflow: hidden;
-    border-radius: 22px;
+    border-radius: 24px;
     background: linear-gradient(145deg, #a53371 0%, #6f3a91 49%, #302656 100%);
-    box-shadow: 0 22px 48px #49204820;
+    box-shadow: 0 20px 48px rgba(48, 38, 86, 0.14);
     padding: 32px;
     display: flex;
     flex-direction: column;
@@ -484,11 +558,11 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
     height: 410px;
     right: -202px;
     bottom: -130px;
-    border: 1px solid #ffffff26;
+    border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 50%;
     box-shadow:
-      0 0 0 46px #ffffff06,
-      0 0 0 94px #ffffff04;
+      0 0 0 46px rgba(255, 255, 255, 0.04),
+      0 0 0 94px rgba(255, 255, 255, 0.025);
     pointer-events: none;
   }
 
@@ -502,11 +576,12 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
     gap: 14px;
   }
 
-  .pg100-art-top span {
-    color: #ffe3ef;
+  .pg100-art-top span,
+  .pg100-art-footer span {
+    color: rgba(255, 255, 255, 0.8);
     font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0;
+    line-height: 1.4;
     text-transform: uppercase;
   }
 
@@ -516,47 +591,38 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
   }
 
   .pg100-art-number {
-    margin: 18px 0 12px;
-    color: #ffd1e2;
-    font-size: 192px;
+    margin: 16px 0 12px;
+    color: #ffd4e5;
+    font-size: 184px;
     font-weight: 800;
-    line-height: 0.95;
-    letter-spacing: 0;
+    line-height: 0.9;
+    letter-spacing: -0.035em;
   }
 
   .pg100-art-title {
     max-width: 280px;
-    margin: 0 0 22px;
+    margin: 0;
     color: #ffffff;
     font-size: 32px;
     font-weight: 700;
     line-height: 1.08;
-    letter-spacing: 0;
+    letter-spacing: -0.025em;
   }
 
   .pg100-art-footer {
-    border-top: 1px solid #ffffff40;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
     padding-top: 18px;
   }
 
-  .pg100-art-footer span {
-    color: #ffe3ef;
-    font-size: 12px;
-    font-weight: 600;
-  }
-
   .pg100-section {
-    padding: 84px 0;
-  }
-
-  .pg100-feature {
+    padding: 96px 0;
     background: #ffffff;
   }
 
   .pg100-feature-grid {
     display: grid;
-    grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
-    gap: 64px;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: 40px;
     align-items: center;
   }
 
@@ -567,9 +633,10 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
   .pg100-feature-media img {
     display: block;
     width: 100%;
-    aspect-ratio: 1;
-    border-radius: 8px;
+    aspect-ratio: 4 / 3;
+    border-radius: 20px;
     object-fit: cover;
+    object-position: center 38%;
     filter: grayscale(1);
   }
 
@@ -590,136 +657,251 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
     line-height: 1.35;
   }
 
-  .pg100-feature-media span {
+  .pg100-feature-media span,
+  .pg100-product-demo figcaption {
     color: var(--pg100-muted);
     font-size: 14px;
     line-height: 1.5;
   }
 
-  .pg100-feature-copy {
-    max-width: 680px;
-  }
-
   .pg100-feature-copy h2,
   .pg100-section-head h2,
-  .pg100-faq-inner h2,
   .pg100-final h2 {
     margin: 0 0 18px;
     color: var(--pg100-ink);
     font-size: 36px;
     font-weight: 700;
     line-height: 1.15;
-    letter-spacing: 0;
+    letter-spacing: -0.025em;
   }
 
   .pg100-feature-copy p,
   .pg100-section-head p {
     margin: 0;
     color: var(--pg100-muted);
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 400;
     line-height: 1.6;
   }
 
   .pg100-feature-copy blockquote {
     margin: 30px 0 0;
-    border-top: 1px solid #eadfe7;
-    border-bottom: 1px solid #eadfe7;
+    border-top: 1px solid var(--pg100-border);
+    border-bottom: 1px solid var(--pg100-border);
     padding: 22px 0;
     color: var(--pg100-ink);
     font-size: 20px;
-    font-weight: 650;
+    font-weight: 600;
     line-height: 1.45;
   }
 
   .pg100-options {
-    background: #fbfcfd;
+    background: #ffffff;
+    border-top: 1px solid var(--pg100-border);
+  }
+
+  .pg100-options-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 40px;
+    align-items: center;
   }
 
   .pg100-section-head {
-    max-width: 760px;
-    margin-bottom: 36px;
+    margin-bottom: 32px;
   }
 
-  .pg100-option-grid {
+  .pg100-option-list {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px;
+    gap: 0;
   }
 
-  .pg100-option-card {
-    min-height: 100%;
-    border-top: 3px solid var(--pg100-action);
-    background: #ffffff;
-    padding: 24px 22px 26px;
+  .pg100-option-item {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 16px;
+    border-top: 1px solid var(--pg100-border);
+    padding: 24px 0;
   }
 
-  .pg100-option-card.item-2 {
-    border-top-color: #6e3dd9;
+  .pg100-option-item:last-child {
+    border-bottom: 1px solid var(--pg100-border);
   }
 
-  .pg100-option-card.item-3 {
-    border-top-color: #14958f;
-  }
-
-  .pg100-option-card span {
-    display: block;
-    margin-bottom: 18px;
+  .pg100-option-icon {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    margin-top: 3px;
     color: var(--pg100-action);
-    font-size: 13px;
-    font-weight: 800;
   }
 
-  .pg100-option-card h3 {
-    margin: 0 0 12px;
+  .pg100-option-icon::before,
+  .pg100-option-icon::after {
+    content: "";
+    position: absolute;
+    box-sizing: border-box;
+  }
+
+  .icon-interviews::before {
+    left: 7px;
+    top: 1px;
+    width: 7px;
+    height: 12px;
+    border: 1.75px solid currentColor;
+    border-radius: 6px;
+  }
+
+  .icon-interviews::after {
+    left: 4px;
+    top: 10px;
+    width: 13px;
+    height: 8px;
+    border-bottom: 1.75px solid currentColor;
+    border-left: 1.75px solid transparent;
+    border-right: 1.75px solid transparent;
+    border-radius: 0 0 8px 8px;
+  }
+
+  .icon-resources::before {
+    inset: 1px 3px;
+    border: 1.75px solid currentColor;
+    border-radius: 2px;
+  }
+
+  .icon-resources::after {
+    left: 7px;
+    top: 7px;
+    width: 7px;
+    height: 1.75px;
+    background: currentColor;
+    box-shadow: 0 5px 0 currentColor;
+  }
+
+  .icon-community::before {
+    left: 1px;
+    top: 4px;
+    width: 7px;
+    height: 7px;
+    border: 1.75px solid currentColor;
+    border-radius: 999px;
+    box-shadow: 10px 0 0 -1.75px #ffffff, 10px 0 0 0 currentColor;
+  }
+
+  .icon-community::after {
+    left: 3px;
+    bottom: 2px;
+    width: 15px;
+    height: 6px;
+    border: 1.75px solid currentColor;
+    border-top: 0;
+    border-radius: 0 0 10px 10px;
+  }
+
+  .pg100-option-item h3 {
+    margin: 0 0 7px;
     color: var(--pg100-ink);
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
     line-height: 1.25;
-    letter-spacing: 0;
+    letter-spacing: -0.025em;
   }
 
-  .pg100-option-card p {
+  .pg100-option-item p {
     margin: 0;
     color: var(--pg100-muted);
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 400;
     line-height: 1.6;
   }
 
-  .pg100-process {
-    background: #ffffff;
+  .pg100-product-demo {
+    margin: 0;
+  }
+
+  .pg100-product-frame {
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 24px;
+    background: #fff4f8;
+    padding: 32px;
+  }
+
+  .pg100-product-frame img {
+    display: block;
+    width: min(100%, 360px);
+    max-height: 680px;
+    border-radius: 26px;
+    object-fit: contain;
+    box-shadow: 0 24px 54px rgba(23, 32, 51, 0.18);
+  }
+
+  .pg100-product-demo figcaption {
+    margin-top: 14px;
+  }
+
+  .pg100-process,
+  .pg100-faq {
+    border-top: 1px solid var(--pg100-border);
+  }
+
+  .pg100-split-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: 40px;
+    align-items: start;
   }
 
   .pg100-process-list {
+    position: relative;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 28px;
+    gap: 32px;
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
-  .pg100-process-list li {
-    border-top: 2px solid #e7c8d7;
-    padding-top: 18px;
+  .pg100-process-list::before {
+    content: "";
+    position: absolute;
+    left: 17px;
+    top: 38px;
+    bottom: 38px;
+    width: 1px;
+    background: var(--pg100-border);
   }
 
-  .pg100-process-list span {
-    display: block;
-    margin-bottom: 14px;
+  .pg100-process-list li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .pg100-step-number {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e7c8d7;
+    border-radius: 999px;
+    background: #ffffff;
     color: var(--pg100-action);
-    font-size: 14px;
-    font-weight: 800;
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .pg100-process-list h3 {
-    margin: 0 0 10px;
+    margin: 4px 0 8px;
     color: var(--pg100-ink);
     font-size: 20px;
     font-weight: 700;
-    line-height: 1.35;
-    letter-spacing: 0;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
   }
 
   .pg100-process-list p {
@@ -730,14 +912,9 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
     line-height: 1.6;
   }
 
-  .pg100-faq {
-    background: #fbfcfd;
-  }
-
-  .pg100-faq-inner {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 0 16px;
+  .pg100-step-note {
+    margin-top: 12px !important;
+    max-width: 560px;
   }
 
   .pg100-faq-list {
@@ -749,16 +926,17 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
   }
 
   .pg100-faq summary {
-    display: flex;
-    width: 100%;
-    cursor: pointer;
-    align-items: center;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20px;
     gap: 18px;
-    padding: 22px 0;
+    min-height: 72px;
+    cursor: pointer;
+    align-items: start;
+    padding: 24px 0;
     color: var(--pg100-ink);
     font-size: 17px;
-    font-weight: 650;
+    font-weight: 600;
+    line-height: 1.35;
     list-style: none;
   }
 
@@ -768,57 +946,93 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
 
   .pg100-faq summary::after {
     content: "+";
-    flex: 0 0 auto;
+    width: 20px;
     color: var(--pg100-action);
-    font-size: 18px;
-    font-weight: 700;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
   }
 
   .pg100-faq details[open] summary::after {
     content: "-";
   }
 
-  .pg100-faq summary:focus-visible {
-    outline: 2px solid var(--pg100-action);
-    outline-offset: 4px;
-  }
-
   .pg100-faq details p {
-    margin: 0;
-    padding: 0 0 22px;
+    margin: -12px 0 0;
+    padding: 0 38px 24px 0;
     color: var(--pg100-muted);
     font-size: 16px;
-    font-weight: 400;
-    line-height: 1.65;
-  }
-
-  .pg100-final {
-    background: var(--pg100-final);
-    padding: 72px 0;
-  }
-
-  .pg100-final-inner {
-    max-width: 680px;
-    margin: 0 auto;
-    padding: 0 16px;
-    text-align: center;
-  }
-
-  .pg100-final h2 {
-    color: #ffffff;
-  }
-
-  .pg100-final p {
-    margin: 0 0 28px;
-    color: #c8cbda;
-    font-size: 18px;
     font-weight: 400;
     line-height: 1.6;
   }
 
-  @media (max-width: 980px) {
+  .pg100-final {
+    background: #ffffff;
+    padding: 0 0 96px;
+  }
+
+  .pg100-final-panel {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 32px;
+    align-items: center;
+    overflow: hidden;
+    border-radius: 28px;
+    background: linear-gradient(120deg, #302656 0%, #171d3c 100%);
+    padding: 56px;
+  }
+
+  .pg100-final-panel::after {
+    content: "";
+    position: absolute;
+    width: 360px;
+    height: 360px;
+    right: -140px;
+    bottom: -210px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .pg100-final h2 {
+    position: relative;
+    z-index: 1;
+    color: #ffffff;
+  }
+
+  .pg100-final p {
+    position: relative;
+    z-index: 1;
+    max-width: 520px;
+    margin: 0;
+    color: #e0ddea;
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .pg100-button-final {
+    position: relative;
+    z-index: 1;
+    background: #ffffff;
+    color: #302656;
+  }
+
+  .pg100-button-final:hover {
+    background: #f5edf6;
+  }
+
+  @media (max-width: 1023px) {
+    .pg100-hero {
+      padding: 128px 0 72px;
+    }
+
     .pg100-hero-grid,
-    .pg100-feature-grid {
+    .pg100-feature-grid,
+    .pg100-options-grid,
+    .pg100-split-grid {
       grid-template-columns: 1fr;
     }
 
@@ -826,110 +1040,129 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
       gap: 44px;
     }
 
-    .pg100-art {
-      min-height: 430px;
+    .pg100-title {
+      font-size: 48px;
+      line-height: 1.08;
     }
 
-    .pg100-feature-grid {
-      gap: 38px;
+    .pg100-section {
+      padding: 72px 0;
+    }
+
+    .pg100-feature-copy h2,
+    .pg100-section-head h2,
+    .pg100-final h2 {
+      font-size: 32px;
+      line-height: 1.15;
     }
 
     .pg100-feature-media {
-      max-width: 420px;
+      max-width: none;
     }
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 767px) {
     .pg100-hero {
-      padding: 118px 0 54px;
+      padding: 116px 0 56px;
+    }
+
+    .pg100-hero-grid {
+      gap: 32px;
     }
 
     .pg100-title {
-      font-size: 44px;
-      line-height: 1.06;
+      font-size: 36px;
+      line-height: 1.08;
     }
 
-    .pg100-title-phrase {
-      white-space: normal;
-    }
-
-    .pg100-lead,
-    .pg100-feature-copy p,
-    .pg100-section-head p,
-    .pg100-final p {
+    .pg100-lead {
       font-size: 17px;
     }
 
-    .pg100-art {
-      min-height: 380px;
-      padding: 26px;
+    .pg100-actions {
+      display: grid;
+      gap: 12px;
     }
 
-    .pg100-art-top,
-    .pg100-art-footer {
-      flex-wrap: wrap;
+    .pg100-button {
+      width: 100%;
+    }
+
+    .pg100-art {
+      aspect-ratio: 4 / 3;
+      padding: 24px;
     }
 
     .pg100-art-number {
-      font-size: 150px;
+      font-size: 112px;
     }
 
     .pg100-art-title {
-      font-size: 28px;
+      font-size: 26px;
+    }
+
+    .pg100-art-footer {
+      display: none;
     }
 
     .pg100-section {
       padding: 56px 0;
     }
 
+    .pg100-feature-media img {
+      aspect-ratio: 4 / 3;
+    }
+
     .pg100-feature-copy h2,
     .pg100-section-head h2,
-    .pg100-faq-inner h2,
     .pg100-final h2 {
-      font-size: 31px;
-      line-height: 1.18;
+      font-size: 28px;
+      line-height: 1.2;
     }
 
-    .pg100-option-grid,
-    .pg100-process-list {
+    .pg100-feature-copy p,
+    .pg100-section-head p,
+    .pg100-option-item p,
+    .pg100-final p {
+      font-size: 16px;
+    }
+
+    .pg100-option-item h3 {
+      font-size: 21px;
+    }
+
+    .pg100-product-frame {
+      padding: 18px;
+    }
+
+    .pg100-product-frame img {
+      width: min(100%, 300px);
+      max-height: 620px;
+    }
+
+    .pg100-process-list::before {
+      bottom: 58px;
+    }
+
+    .pg100-final {
+      padding-bottom: 56px;
+    }
+
+    .pg100-final-panel {
       grid-template-columns: 1fr;
-    }
-
-    .pg100-option-grid {
-      gap: 14px;
-    }
-
-    .pg100-process-list {
-      gap: 24px;
-    }
-
-    .pg100-final .pg100-button {
-      width: 100%;
+      padding: 28px;
     }
   }
 
-  @media (max-width: 420px) {
+  @media (max-width: 359px) {
     .pg100-title {
-      font-size: 38px;
+      font-size: 32px;
     }
+  }
 
-    .pg100-actions,
+  @media (prefers-reduced-motion: reduce) {
     .pg100-button {
-      width: 100%;
-    }
-
-    .pg100-art {
-      min-height: 350px;
-      padding: 22px;
-    }
-
-    .pg100-art-top span,
-    .pg100-art-footer span {
-      font-size: 11px;
-    }
-
-    .pg100-art-number {
-      font-size: 124px;
+      transition: none;
     }
   }
 </style>
