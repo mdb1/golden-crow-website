@@ -165,28 +165,41 @@ describe("partnership CRM email", () => {
       "y medicina de precisi&oacute;n.",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#98712d");
-    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#d8c8b3");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#dcd6cb");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain("#d8c8b3");
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("width: 280px");
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "width: 205px",
+      "width: 219px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "font-size: 15px",
-    );
-    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "font-size: 13px",
+      "font-size: 16px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
       "font-size: 12px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-size: 11px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "width: 32px; height: 32px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "width: 14px; height: 14px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
       "width: 38px; height: 38px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "width: 10px; height: 10px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
       "width: 335px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
       "font-size: 17px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "font-size: 15px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
       "width: 520px",
