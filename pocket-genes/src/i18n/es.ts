@@ -428,7 +428,7 @@ export const es: Translations = {
   // Layout components - Integration Revamp
   integrationRevamp: {
     outcome: {
-      eyebrow: 'POR QUÉ INTEGRAR AHORA',
+      eyebrow: 'POR QUÉ INTEGRARTE AHORA',
       title1: 'DEL PDF',
       title2: 'AL ECOSISTEMA MOBILE',
       description: 'Recibir un informe genético suele traer nuevas preguntas: qué significan algunos términos, dónde buscar información y con quién hablar. Pocket Genes reúne informes, contenidos educativos y recursos de apoyo para acompañar a tus pacientes después de la entrega.',
