@@ -1059,7 +1059,7 @@ export function mergeCrmTemplateInputWithExisting(
       normalizeCrmPrimaryCategory(existing.category, audience) ||
       normalizeCrmPrimaryCategory(incoming.category ?? "", audience),
     subject: incoming.subject.trim() || existing.subject.trim(),
-    body: existing.body.trim() || incoming.body.trim(),
+    body: incoming.body.trim() || existing.body.trim(),
     status: existing.status || incoming.status || "active",
     notes: mergeCrmTemplateNotes(existing.notes, incoming.notes ?? ""),
     is_favorite: Boolean(existing.is_favorite || incoming.is_favorite),

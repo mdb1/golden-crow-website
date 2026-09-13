@@ -1907,8 +1907,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "La compatibilidad usa el asunto de esta fila cuando existe, mantiene el mensaje existente salvo que esté vacío, completa campos faltantes desde esta fila, suma notas nuevas y mantiene favorito activo si cualquiera de los dos lados lo tiene activo.",
   "Update existing with this row uses the same compatibility method as automatic import.":
     "Actualizar existente con esta fila usa el mismo método de compatibilización que la importación automática.",
-  "Subject comes from the CSV row when present; body stays from the existing template unless empty; missing fields are filled; new notes are appended; favorite stays active if either side is active.":
-    "El asunto sale de la fila del CSV cuando existe; el cuerpo queda como el de la plantilla existente salvo que esté vacío; se completan campos faltantes; se suman notas nuevas; favorito queda activo si cualquiera de los dos lados lo tiene activo.",
+  "Subject and body come from the CSV row when present; missing fields are filled; new notes are appended; favorite stays active if either side is active.":
+    "El asunto y el cuerpo salen de la fila del CSV cuando existen; se completan campos faltantes; se suman notas nuevas; favorito queda activo si cualquiera de los dos lados lo tiene activo.",
   "Existing template": "Plantilla existente",
   "No field differences detected.": "No se detectaron diferencias de campos.",
   "Merge rules preserve existing subject and body unless they are blank, merge notes, and keep favorite enabled if either side is favorite.":

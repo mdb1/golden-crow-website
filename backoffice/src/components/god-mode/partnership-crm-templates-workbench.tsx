@@ -1854,7 +1854,7 @@ function TemplateImportReviewCard({
               "Update existing with this row uses the same compatibility method as automatic import.",
             )}{" "}
             {t(
-              "Subject comes from the CSV row when present; body stays from the existing template unless empty; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
+              "Subject and body come from the CSV row when present; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
             )}
           </p>
         </div>
@@ -2861,7 +2861,7 @@ function TemplateImportDialog({
                       </p>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
                         {t(
-                          "Subject comes from the CSV row when present; body stays from the existing template unless empty; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
+                          "Subject and body come from the CSV row when present; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
                         )}
                       </p>
                     </div>

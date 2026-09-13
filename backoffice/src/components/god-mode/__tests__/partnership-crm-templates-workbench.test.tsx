@@ -829,7 +829,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
       expect.objectContaining({
         name: "Duplicate intro",
         subject: "New subject",
-        body: "Old body",
+        body: "New body",
         notes: "Old note\n\n--- CSV import ---\nNew note",
         is_favorite: true,
       }),

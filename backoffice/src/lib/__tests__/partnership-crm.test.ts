@@ -297,7 +297,7 @@ describe("partnership CRM helpers", () => {
     ]);
   });
 
-  it("prefers the incoming CSV subject when merging duplicate template imports", () => {
+  it("prefers incoming CSV subject and body when merging duplicate template imports", () => {
     const merged = mergeCrmTemplateInputWithExisting(laboratoryTemplate, {
       name: "Laboratory outreach",
       audience: "organizations",
@@ -310,7 +310,7 @@ describe("partnership CRM helpers", () => {
     });
 
     expect(merged.subject).toBe("Nuevo asunto desde CSV");
-    expect(merged.body).toBe(laboratoryTemplate.body);
+    expect(merged.body).toBe("Nuevo cuerpo desde CSV");
     expect(merged.notes).toBe("New import notes");
     expect(merged.is_favorite).toBe(true);
   });
