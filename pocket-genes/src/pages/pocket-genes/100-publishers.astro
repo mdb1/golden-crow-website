@@ -28,6 +28,20 @@ const pageCopy = {
       'You can share your own content, participate in an interview, or join the gatherings we organize.',
     productCaption: 'Discover brings together articles, news, and events in Pocket Genes.',
     productAlt: 'Pocket Genes Discover screen with genomics content and updates',
+    productScreenshots: [
+      {
+        src: '/pocket-genes/screenshots/sample-02.webp',
+        alt: 'Pocket Genes saved report screen',
+      },
+      {
+        src: '/pocket-genes/screenshots/discover-simulator-light.webp',
+        alt: 'Pocket Genes Discover screen with genomics content and updates',
+      },
+      {
+        src: '/pocket-genes/screenshots/sample-rare-friends-light.webp',
+        alt: 'Pocket Genes community screen',
+      },
+    ],
     options: [
       {
         icon: 'interviews',
@@ -121,6 +135,20 @@ const pageCopy = {
       'Podés compartir contenido propio, participar en una entrevista o sumarte a los encuentros que organicemos.',
     productCaption: 'Discover reúne artículos, noticias y eventos en Pocket Genes.',
     productAlt: 'Pantalla Discover de Pocket Genes con contenidos y novedades sobre genómica',
+    productScreenshots: [
+      {
+        src: '/pocket-genes/screenshots/sample-02.webp',
+        alt: 'Pantalla de informes guardados en Pocket Genes',
+      },
+      {
+        src: '/pocket-genes/screenshots/discover-simulator-light.webp',
+        alt: 'Pantalla Discover de Pocket Genes con contenidos y novedades sobre genómica',
+      },
+      {
+        src: '/pocket-genes/screenshots/sample-rare-friends-light.webp',
+        alt: 'Pantalla de comunidad en Pocket Genes',
+      },
+    ],
     options: [
       {
         icon: 'interviews',
@@ -268,14 +296,20 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
             </div>
           </div>
           <figure class="pg100-product-demo">
-            <div class="pg100-product-frame">
-              <img
-                src="/pocket-genes/screenshots/discover-simulator-light.webp"
-                alt={copy.productAlt}
-                width="560"
-                height="1217"
-                loading="lazy"
-              />
+            <div class="pg100-product-frame" aria-label={copy.productAlt}>
+              <div class="pg100-product-phone-stack">
+                {copy.productScreenshots.map((screenshot, index) => (
+                  <img
+                    class={`pg100-product-phone phone-${index + 1}`}
+                    src={screenshot.src}
+                    alt={screenshot.alt}
+                    width="560"
+                    height="1218"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ))}
+              </div>
             </div>
             <figcaption>{copy.productCaption}</figcaption>
           </figure>
@@ -749,18 +783,48 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
   .pg100-product-frame {
     display: grid;
     place-items: center;
+    overflow: hidden;
     border-radius: 24px;
     background: #fff4f8;
     padding: 24px;
   }
 
-  .pg100-product-frame img {
+  .pg100-product-phone-stack {
+    position: relative;
+    width: min(100%, 360px);
+    height: 522px;
+  }
+
+  .pg100-product-phone {
+    position: absolute;
     display: block;
-    width: min(100%, 240px);
+    width: 168px;
+    aspect-ratio: 560 / 1218;
     height: auto;
+    border: 6px solid #101522;
     border-radius: 22px;
-    object-fit: contain;
+    background: #101522;
+    object-fit: cover;
     box-shadow: 0 24px 54px rgba(23, 32, 51, 0.18);
+  }
+
+  .pg100-product-phone.phone-1 {
+    top: 80px;
+    left: 0;
+    transform: rotate(-5deg);
+  }
+
+  .pg100-product-phone.phone-2 {
+    top: 0;
+    left: 50%;
+    z-index: 2;
+    transform: translateX(-50%);
+  }
+
+  .pg100-product-phone.phone-3 {
+    right: 0;
+    bottom: 34px;
+    transform: rotate(5deg);
   }
 
   .pg100-product-demo figcaption {
@@ -1129,8 +1193,15 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
       padding: 24px;
     }
 
-    .pg100-product-frame img {
-      width: min(100%, 220px);
+    .pg100-product-phone-stack {
+      width: min(100%, 320px);
+      height: 478px;
+    }
+
+    .pg100-product-phone {
+      width: 148px;
+      border-width: 5px;
+      border-radius: 19px;
     }
 
     .pg100-process-list::before {
