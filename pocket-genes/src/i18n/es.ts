@@ -379,7 +379,7 @@ export const es: Translations = {
   panels: {
     title1: 'PARA LO QUE VIENE DESPUÉS DEL INFORME',
     title2: 'UN RECORRIDO MÁS SIMPLE',
-    description: 'Después de recibir un informe, tus pacientes pueden volver a consultarlo, repasar conceptos de genética y preparar sus preguntas para el médico. La información y los recursos de apoyo quedan a mano en la app.',
+    description: 'Después de recibir un informe, tus pacientes pueden volver a consultar los paneles interactivos, investigar por su cuenta, repasar conceptos de genética y preparar sus próximas preguntas para el médico. La información complementaria y los recursos de ayuda están siempre a mano en la app.',
     healthTitle: 'Acceso a informes',
     healthDesc: 'Los informes, las fechas y las notas quedan reunidos en la app, junto con material educativo para acompañar la lectura de los resultados.',
     nutritionTitle: 'Educación genética',
