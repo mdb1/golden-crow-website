@@ -138,7 +138,7 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
             </a>
           ))}
           {dropdownNavItems.length > 0 && (
-            <details class:list={['pg-nav-more', { active: isDropdownActive }]} data-pg-nav-more>
+            <details class:list={['pg-nav-more', 'pg-nav-desktop-more', { active: isDropdownActive }]} data-pg-nav-more>
               <summary
                 class="pg-nav-link pg-nav-more-trigger"
                 aria-label={layoutCopy[lang].more}
@@ -153,6 +153,11 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
               </div>
             </details>
           )}
+          {dropdownNavItems.map((item) => (
+            <a href={item.href} class:list={['pg-nav-link', 'pg-nav-mobile-extra', { active: item.active }]} aria-current={item.active ? 'page' : undefined}>
+              <span set:html={formatBrandText(item.label)} />
+            </a>
+          ))}
           <div class="pg-lang-switcher" aria-label={layoutCopy[lang].language}>
             <a
               href={esSwitcherPath}
@@ -513,9 +518,17 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
     padding: 6px;
   }
 
+  .pg-nav-more:not([open]) .pg-nav-more-menu {
+    display: none;
+  }
+
   .pg-nav-more-menu .pg-nav-link {
     display: block;
     padding: 10px 12px;
+  }
+
+  .pg-nav-mobile-extra {
+    display: none;
   }
 
   .pg-lang-switcher {
@@ -648,20 +661,12 @@ const pocketGenesIcon = '/pocket-genes/icon_simple.png';
       padding: 12px;
     }
 
-    .pg-nav-more {
-      width: auto;
+    .pg-nav-desktop-more {
+      display: none;
     }
 
-    .pg-nav-more > summary {
-      display: inline-flex;
-    }
-
-    .pg-nav-more-menu {
-      position: static;
-      min-width: 0;
-      margin-top: 4px;
-      border-color: var(--pg-border);
-      box-shadow: none;
+    .pg-nav-mobile-extra {
+      display: block;
     }
 
     .pg-lang-switcher {
