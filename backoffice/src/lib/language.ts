@@ -1903,6 +1903,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Same audience and subject.": "Mismo público y asunto.",
   "This row matches an existing template. Accept creates a separate template; skip leaves the existing template unchanged; combine updates the existing template using the merge rules.":
     "Esta fila coincide con una plantilla existente. Aceptar crea una plantilla separada; omitir deja la plantilla existente sin cambios; combinar actualiza la plantilla existente usando las reglas de fusión.",
+  "Compatibility uses this row's subject when present, keeps the existing message unless it is blank, fills missing fields from this row, appends new notes, and keeps favorite enabled if either side is favorite.":
+    "La compatibilidad usa el asunto de esta fila cuando existe, mantiene el mensaje existente salvo que esté vacío, completa campos faltantes desde esta fila, suma notas nuevas y mantiene favorito activo si cualquiera de los dos lados lo tiene activo.",
   "Existing template": "Plantilla existente",
   "No field differences detected.": "No se detectaron diferencias de campos.",
   "Merge rules preserve existing subject and body unless they are blank, merge notes, and keep favorite enabled if either side is favorite.":

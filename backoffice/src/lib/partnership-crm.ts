@@ -1016,6 +1016,56 @@ export function parseCrmTemplateCsv(
   return { rows, errors };
 }
 
+function normalizeTemplateMergeValue(value: string | undefined | null) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function mergeCrmTemplateNotes(
+  existingNotes: string,
+  incomingNotes: string,
+) {
+  const existing = existingNotes.trim();
+  const incoming = incomingNotes.trim();
+
+  if (!existing) {
+    return incoming;
+  }
+  if (
+    !incoming ||
+    normalizeTemplateMergeValue(existing) ===
+      normalizeTemplateMergeValue(incoming)
+  ) {
+    return existing;
+  }
+
+  return `${existing}\n\n--- CSV import ---\n${incoming}`;
+}
+
+export function mergeCrmTemplateInputWithExisting(
+  existing: PartnershipCrmTemplateRecord,
+  incoming: PartnershipCrmTemplateInput,
+): PartnershipCrmTemplateInput {
+  const audience = existing.audience ?? incoming.audience ?? "organizations";
+
+  return {
+    name: existing.name.trim() || incoming.name.trim(),
+    audience,
+    category:
+      normalizeCrmPrimaryCategory(existing.category, audience) ||
+      normalizeCrmPrimaryCategory(incoming.category ?? "", audience),
+    subject: incoming.subject.trim() || existing.subject.trim(),
+    body: existing.body.trim() || incoming.body.trim(),
+    status: existing.status || incoming.status || "active",
+    notes: mergeCrmTemplateNotes(existing.notes, incoming.notes ?? ""),
+    is_favorite: Boolean(existing.is_favorite || incoming.is_favorite),
+  };
+}
+
 function websiteSentence(target: { websiteDomain: string }) {
   if (!target.websiteDomain) {
     return "";

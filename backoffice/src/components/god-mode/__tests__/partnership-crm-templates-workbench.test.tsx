@@ -822,7 +822,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(JSON.parse(String(putCall?.[1]?.body))).toEqual(
       expect.objectContaining({
         name: "Duplicate intro",
-        subject: "Old subject",
+        subject: "New subject",
         body: "Old body",
         notes: "Old note\n\n--- CSV import ---\nNew note",
         is_favorite: true,

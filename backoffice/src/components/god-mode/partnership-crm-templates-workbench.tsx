@@ -85,6 +85,7 @@ import {
   DEFAULT_CRM_CATEGORY,
   DEFAULT_CRM_PROFESSIONAL_CATEGORY,
   PARTNERSHIP_CRM_FROM_EMAIL,
+  mergeCrmTemplateInputWithExisting,
   normalizeCrmPrimaryCategory,
   parseCrmTemplateCsv,
   templateStatusLabel,
@@ -1048,44 +1049,6 @@ function formatTemplateImportValue(
   return text || "-";
 }
 
-function mergeTemplateNotes(existingNotes: string, incomingNotes: string) {
-  const existing = existingNotes.trim();
-  const incoming = incomingNotes.trim();
-
-  if (!existing) {
-    return incoming;
-  }
-  if (
-    !incoming ||
-    normalizeTemplateMatchValue(existing) ===
-      normalizeTemplateMatchValue(incoming)
-  ) {
-    return existing;
-  }
-
-  return `${existing}\n\n--- CSV import ---\n${incoming}`;
-}
-
-function mergeTemplateInputWithExisting(
-  existing: PartnershipCrmTemplateRecord,
-  incoming: PartnershipCrmTemplateInput,
-): PartnershipCrmTemplateInput {
-  const audience = templateImportAudience(existing);
-
-  return {
-    name: existing.name.trim() || incoming.name.trim(),
-    audience,
-    category:
-      normalizeCrmPrimaryCategory(existing.category, audience) ||
-      normalizeCrmPrimaryCategory(incoming.category ?? "", audience),
-    subject: existing.subject.trim() || incoming.subject.trim(),
-    body: existing.body.trim() || incoming.body.trim(),
-    status: existing.status || incoming.status || "active",
-    notes: mergeTemplateNotes(existing.notes, incoming.notes ?? ""),
-    is_favorite: Boolean(existing.is_favorite || incoming.is_favorite),
-  };
-}
-
 function TemplateStatusBadge({
   status,
   language,
@@ -1853,7 +1816,7 @@ function TemplateImportReviewCard({
 
           <p className="mt-2 text-xs leading-5 text-amber-950/70 dark:text-amber-50/70">
             {t(
-              "Compatibility keeps the existing subject and message unless they are blank, fills missing fields from this row, appends new notes, and keeps favorite enabled if either side is favorite.",
+              "Compatibility uses this row's subject when present, keeps the existing message unless it is blank, fills missing fields from this row, appends new notes, and keeps favorite enabled if either side is favorite.",
             )}
           </p>
         </div>
@@ -2344,7 +2307,10 @@ function TemplateImportDialog({
         {
           method: "PUT",
           body: JSON.stringify(
-            mergeTemplateInputWithExisting(row.duplicateTemplate, row.template),
+            mergeCrmTemplateInputWithExisting(
+              row.duplicateTemplate,
+              row.template,
+            ),
           ),
         },
       );

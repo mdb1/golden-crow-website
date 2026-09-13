@@ -3,6 +3,7 @@ import {
   bestCrmTemplateForTarget,
   CRM_CATEGORY_OPTIONS,
   CRM_PROFESSIONAL_CATEGORY_OPTIONS,
+  mergeCrmTemplateInputWithExisting,
   normalizeCrmCategory,
   normalizeCrmCountry,
   parseCrmCsv,
@@ -294,6 +295,24 @@ describe("partnership CRM helpers", () => {
       { row: 2, message: "Template name is required." },
       { row: 2, message: "Template subject is required." },
     ]);
+  });
+
+  it("prefers the incoming CSV subject when merging duplicate template imports", () => {
+    const merged = mergeCrmTemplateInputWithExisting(laboratoryTemplate, {
+      name: "Laboratory outreach",
+      audience: "organizations",
+      category: "org_genetic_testing_laboratories",
+      subject: "Nuevo asunto desde CSV",
+      body: "Nuevo cuerpo desde CSV",
+      status: "active",
+      notes: "New import notes",
+      is_favorite: true,
+    });
+
+    expect(merged.subject).toBe("Nuevo asunto desde CSV");
+    expect(merged.body).toBe(laboratoryTemplate.body);
+    expect(merged.notes).toBe("New import notes");
+    expect(merged.is_favorite).toBe(true);
   });
 
   it("renders Firebase-backed templates with organization variables", () => {
