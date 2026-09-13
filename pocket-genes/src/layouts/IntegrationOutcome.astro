@@ -193,7 +193,86 @@ const t = useTranslations(Astro.currentLocale);
   }
 
   .provider-card {
+    --provider-accent: var(--brand-color);
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     padding: 1.25rem;
+    transition:
+      transform 220ms ease,
+      border-color 220ms ease,
+      box-shadow 220ms ease,
+      background 220ms ease;
+  }
+
+  .provider-card::before,
+  .provider-card::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    transition:
+      opacity 220ms ease,
+      transform 220ms ease;
+  }
+
+  .provider-card::before {
+    inset: 0 auto 0 0;
+    z-index: -1;
+    width: 0.32rem;
+    background: linear-gradient(180deg, var(--provider-accent), color-mix(in srgb, var(--provider-accent) 35%, transparent));
+    opacity: 0.62;
+    transform: scaleY(0.34);
+    transform-origin: top;
+  }
+
+  .provider-card::after {
+    inset: auto -22% -45% auto;
+    z-index: -2;
+    width: 9rem;
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--provider-accent) 18%, transparent);
+    filter: blur(14px);
+    opacity: 0;
+    transform: translate3d(18px, 18px, 0) scale(0.72);
+  }
+
+  .provider-card:nth-child(2) {
+    --provider-accent: #7c5cff;
+  }
+
+  .provider-card:nth-child(3) {
+    --provider-accent: #d75f99;
+  }
+
+  .provider-card:nth-child(4) {
+    --provider-accent: #3bb28a;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .provider-card:hover {
+      transform: translateY(-0.38rem);
+      border-color: color-mix(in srgb, var(--provider-accent) 48%, var(--card-border));
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--provider-accent) 10%, transparent), transparent 58%),
+        var(--card-bg);
+      box-shadow: 0 1.25rem 2.75rem color-mix(in srgb, var(--provider-accent) 18%, transparent), var(--card-shadow);
+    }
+
+    .provider-card:hover::before {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+
+    .provider-card:hover::after {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    .provider-card:hover h4 {
+      color: var(--provider-accent);
+      transform: translateX(0.24rem);
+    }
   }
 
   .provider-card h4 {
@@ -201,6 +280,22 @@ const t = useTranslations(Astro.currentLocale);
     color: var(--text-primary);
     font-size: 1.05rem;
     line-height: 1.25;
+    transition:
+      color 220ms ease,
+      transform 220ms ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .provider-card,
+    .provider-card::before,
+    .provider-card::after,
+    .provider-card h4 {
+      transition: none;
+    }
+
+    .provider-card:hover {
+      transform: none;
+    }
   }
 
   @media (max-width: 900px) {
