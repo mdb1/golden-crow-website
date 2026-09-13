@@ -623,7 +623,7 @@ export const es: Translations = {
   // Layout components - SecondSection
   secondSection: {
     title1: 'TUS INFORMES',
-    title2: 'EN UNA EXPERIENCIA MÓVIL',
+    title2: 'EN UNA EXPERIENCIA INTERACTIVA',
     description: 'Presentá tus informes en una app fácil de consultar, con resultados organizados por secciones y explicaciones a mano. Nosotros nos encargamos del desarrollo y el mantenimiento.',
     interactiveReports: 'Informes interactivos',
     beautifulUI: 'Sin app desde cero',
