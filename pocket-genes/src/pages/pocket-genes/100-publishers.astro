@@ -12,8 +12,9 @@ const pageCopy = {
     eyebrowStart: 'A Pocket Genes campaign',
     eyebrowEnd: 'Argentina',
     titleAccent: '100 professionals',
-    titleMiddle: 'in genomics',
-    titlePhrase: 'in Argentina.',
+    titleMiddle: 'recognized in',
+    titlePhrase: 'genomics in',
+    titleEnd: 'Argentina.',
     heroBody:
       'We invite you to introduce your work, publish your own content, and participate in interviews about the topics you care about.',
     cta: 'I want to participate',
@@ -98,14 +99,15 @@ const pageCopy = {
     finalReassurance: 'Participation is free.',
   },
   es: {
-    title: '100 profesionales de la genómica en Argentina | Pocket Genes',
+    title: '100 personalidades destacadas de la genómica en Argentina | Pocket Genes',
     description:
       'Sumate a la campaña de Pocket Genes para dar a conocer tu trabajo, publicar contenido propio y participar en entrevistas sobre los temas que te interesan.',
     eyebrowStart: 'Una campaña de Pocket Genes',
     eyebrowEnd: 'Argentina',
-    titleAccent: '100 profesionales',
-    titleMiddle: 'de la genómica',
-    titlePhrase: 'en Argentina.',
+    titleAccent: '100 personalidades',
+    titleMiddle: 'destacadas de la',
+    titlePhrase: 'genómica en',
+    titleEnd: 'Argentina.',
     heroBody:
       'Te invitamos a dar a conocer tu trabajo, publicar contenido propio y participar en entrevistas sobre los temas que te interesan.',
     cta: 'Quiero participar',
@@ -215,9 +217,10 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
               <span>{copy.eyebrowEnd}</span>
             </p>
             <h1 class="pg100-title">
-              <span class="pg100-title-line pg100-title-accent">{copy.titleAccent}</span>
-              <span class="pg100-title-line">{copy.titleMiddle}</span>
-              <span class="pg100-title-line">{copy.titlePhrase}</span>
+              <span class="pg100-title-line pg100-title-accent">{copy.titleAccent}</span>{" "}
+              <span class="pg100-title-line">{copy.titleMiddle}</span>{" "}
+              <span class="pg100-title-line">{copy.titlePhrase}</span>{" "}
+              <span class="pg100-title-line">{copy.titleEnd}</span>
             </h1>
             <p class="pg100-lead">{copy.heroBody}</p>
             <div class="pg100-actions">
@@ -421,8 +424,9 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
     letter-spacing: -0.03em;
   }
 
-  .pg100-title-line {
+  .pg100-title > .pg100-title-line {
     display: block;
+    max-width: 100%;
     white-space: normal;
   }
 
