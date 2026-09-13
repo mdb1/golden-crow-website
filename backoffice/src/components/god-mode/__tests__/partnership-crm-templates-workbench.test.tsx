@@ -624,12 +624,12 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ).toBeNull();
     expect(
       within(dialog).getByRole("button", {
-        name: "Import all - update duplicates",
+        name: "Import all - overwrite duplicate subject/body",
       }),
     ).toBeTruthy();
     expect(
       within(dialog).queryByRole("button", {
-        name: "Import pending rows - update existing with each row",
+        name: "Import pending rows - overwrite duplicate subject/body",
       }),
     ).toBeNull();
     await user.click(
@@ -653,7 +653,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ).toBeNull();
     expect(
       within(currentRow).getByRole("button", {
-        name: "Import pending rows - update existing with each row",
+        name: "Import pending rows - overwrite duplicate subject/body",
       }),
     ).toBeTruthy();
     await waitFor(() => {
@@ -684,7 +684,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Import pending rows - update existing with each row",
+        name: "Import pending rows - overwrite duplicate subject/body",
       }),
     );
 
@@ -764,14 +764,14 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(
         within(dialog)
-          .getByRole("button", { name: "Import all - update duplicates" })
+          .getByRole("button", { name: "Import all - overwrite duplicate subject/body" })
           .getAttribute("disabled"),
       ).toBeNull();
     });
     expect(within(dialog).queryByText("Possible duplicate")).toBeNull();
     expect(
       within(dialog).queryByRole("button", {
-        name: "Import pending rows - update existing with each row",
+        name: "Import pending rows - overwrite duplicate subject/body",
       }),
     ).toBeNull();
 
@@ -798,7 +798,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ).toBeTruthy();
     expect(
       within(dialog).getByRole("button", {
-        name: "Update existing with this row",
+        name: "Overwrite subject and body",
       }),
     ).toBeTruthy();
     expect(
@@ -815,7 +815,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Update existing with this row",
+        name: "Overwrite subject and body",
       }),
     );
 
@@ -910,7 +910,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(within(dialog).queryByText("Possible duplicate")).toBeNull();
     expect(
       within(dialog).queryByRole("button", {
-        name: "Update existing with this row",
+        name: "Overwrite subject and body",
       }),
     ).toBeNull();
     expect(
@@ -1003,7 +1003,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(within(dialog).queryByText("Possible duplicate")).toBeNull();
     expect(
       within(dialog).queryByRole("button", {
-        name: "Update existing with this row",
+        name: "Overwrite subject and body",
       }),
     ).toBeNull();
 
@@ -1036,14 +1036,14 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(
         within(dialog)
-          .getByRole("button", { name: "Import all - update duplicates" })
+          .getByRole("button", { name: "Import all - overwrite duplicate subject/body" })
           .getAttribute("disabled"),
       ).toBeNull();
     });
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Import all - update duplicates",
+        name: "Import all - overwrite duplicate subject/body",
       }),
     );
 
@@ -1088,14 +1088,14 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(
         within(dialog).getByRole("button", {
-          name: "Import pending rows - update existing with each row",
+          name: "Import pending rows - overwrite duplicate subject/body",
         }),
       ).toBeTruthy();
     });
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Import pending rows - update existing with each row",
+        name: "Import pending rows - overwrite duplicate subject/body",
       }),
     );
 

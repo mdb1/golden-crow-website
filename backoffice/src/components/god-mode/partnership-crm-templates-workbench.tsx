@@ -1851,10 +1851,10 @@ function TemplateImportReviewCard({
 
           <p className="mt-2 text-xs leading-5 text-amber-950/70 dark:text-amber-50/70">
             {t(
-              "Update existing with this row uses the same compatibility method as automatic import.",
+              "Overwrite subject and body uses the same compatibility method as automatic import.",
             )}{" "}
             {t(
-              "Subject and body come from the CSV row when present; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
+              "CSV subject and body overwrite existing values when present; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
             )}
           </p>
         </div>
@@ -1966,7 +1966,7 @@ function TemplateImportReviewCard({
             ? t("Checking...")
             : importing
               ? t("Importing...")
-              : t(hasDuplicate ? "Update existing with this row" : "Add row")}
+              : t(hasDuplicate ? "Overwrite subject and body" : "Add row")}
         </Button>
         <Button
           type="button"
@@ -1975,7 +1975,7 @@ function TemplateImportReviewCard({
           disabled={importing || checkingDuplicates || Boolean(result)}
         >
           <FileUp className="h-4 w-4" />
-          {t("Import pending rows - update existing with each row")}
+          {t("Import pending rows - overwrite duplicate subject/body")}
         </Button>
       </div>
     </section>
@@ -2856,17 +2856,17 @@ function TemplateImportDialog({
                               "Automatic import paused. Review the current row, then continue with pending rows when ready.",
                             )
                           : t(
-                              "When a CSV row matches an existing template, automatic import updates the existing template with that row instead of creating a duplicate.",
+                              "When a CSV row matches an existing template, automatic import overwrites that template's subject and body from the CSV instead of creating a duplicate.",
                             )}
                       </p>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
                         {t(
-                          "Subject and body come from the CSV row when present; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
+                          "CSV subject and body overwrite existing values when present; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
                         )}
                       </p>
                     </div>
                     <Badge variant={autoImportPaused ? "default" : "outline"}>
-                      {t("Update existing with this row")}
+                      {t("Overwrite subject and body")}
                     </Badge>
                   </div>
                 </div>
@@ -3055,7 +3055,7 @@ function TemplateImportDialog({
                   <FileUp className="h-4 w-4" />
                   {importing
                     ? t("Importing...")
-                    : t("Import all - update duplicates")}
+                    : t("Import all - overwrite duplicate subject/body")}
                 </Button>
               ) : null}
             </>
