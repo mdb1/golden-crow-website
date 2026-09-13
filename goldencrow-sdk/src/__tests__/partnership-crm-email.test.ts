@@ -166,6 +166,23 @@ describe("partnership CRM email", () => {
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#98712d");
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#d8c8b3");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("width: 335px");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-size: 17px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-size: 14px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "width: 38px; height: 38px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "width: 520px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "font-size: 18pt",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain("pt;");
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
       "golden-crow-signature-logo.png",
     );
