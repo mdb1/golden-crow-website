@@ -32,6 +32,7 @@ const pageCopy = {
     campaignSidebarTitle: 'Join the Pocket Genes campaign',
     campaignSidebarBody:
       'Create your profile to share your work with the community and participate in campaign proposals.',
+    campaignFinish: 'Create my profile and participate',
     sidebarHint: 'Your request starts as pending approval. Once approved, credentials arrive by email.',
     languageLabel: 'Mostrar en español',
     languageAria: 'Mostrar este flujo en español',
@@ -41,8 +42,8 @@ const pageCopy = {
     organizationBody: 'Clinics, laboratories, foundations, companies, education providers, or support groups.',
     individualLabel: 'Individual profile',
     individualBody: 'Professionals, researchers, advocates, creators, specialists, or independent experts.',
-    countryTitle: 'Where is your work connected?',
-    countryBody: 'Select every country or region connected to your work, audience, projects, or participation.',
+    countryTitle: 'Which country or countries are connected to your work?',
+    countryBody: 'Select where you work or where your professional activity is based.',
     countryButtonLabel: 'Countries',
     countryPlaceholder: 'Choose countries',
     countrySearch: 'Search countries',
@@ -190,6 +191,7 @@ const pageCopy = {
     campaignSidebarTitle: 'Sumate a la campaña de Pocket Genes',
     campaignSidebarBody:
       'Creá tu perfil para compartir tu trabajo con la comunidad y participar en las propuestas de la campaña.',
+    campaignFinish: 'Crear mi perfil y participar',
     sidebarHint: 'Revisaremos tu solicitud. Una vez aprobada, te enviaremos por email los datos para acceder a tu cuenta.',
     languageLabel: 'Switch to English',
     languageAria: 'Switch to English',
@@ -199,8 +201,8 @@ const pageCopy = {
     organizationBody: 'Clínicas, laboratorios, fundaciones, empresas, educación o grupos de apoyo.',
     individualLabel: 'Perfil individual',
     individualBody: 'Profesionales, investigadores, referentes, creadores, especialistas o expertos independientes.',
-    countryTitle: '¿Con qué país o región se vincula tu trabajo?',
-    countryBody: 'Seleccioná cada país o región relacionado con tu experiencia, audiencia, proyectos o participación.',
+    countryTitle: '¿En qué país o países trabajás?',
+    countryBody: 'Seleccioná dónde trabajás o dónde se desarrolla tu actividad profesional.',
     countryButtonLabel: 'Países',
     countryPlaceholder: 'Elegir países',
     countrySearch: 'Buscar países',
@@ -412,6 +414,7 @@ const wizardClientCopy = {
   socialOpenPicker: copy.socialOpenPicker,
   campaignSidebarTitle: copy.campaignSidebarTitle,
   campaignSidebarBody: copy.campaignSidebarBody,
+  campaignFinish: copy.campaignFinish,
 };
 ---
 
@@ -441,7 +444,7 @@ const wizardClientCopy = {
       </div>
     </aside>
 
-    <section class="pg-wizard-panel" aria-labelledby="wizard-current-title">
+    <section class="pg-wizard-panel" data-wizard-panel aria-label={copy.typeTitle}>
       <div class="pg-wizard-topbar" data-language-switch>
         <a href={otherLanguageHref} data-language-base={otherLanguageHref} aria-label={copy.languageAria}>{copy.languageLabel}</a>
       </div>
@@ -468,7 +471,7 @@ const wizardClientCopy = {
 
         <div class="pg-wizard-step" data-step-panel="type">
           <div class="pg-step-heading">
-            <h2 id="wizard-current-title">{copy.typeTitle}</h2>
+            <h2>{copy.typeTitle}</h2>
             <p>{copy.typeBody}</p>
           </div>
           <div class="pg-choice-grid pg-kind-grid">
@@ -1132,6 +1135,7 @@ const wizardClientCopy = {
     };
 
     const form = wizardRoot.querySelector('[data-wizard-form]');
+    const wizardPanel = wizardRoot.querySelector('[data-wizard-panel]');
     const sidebarTitle = wizardRoot.querySelector('[data-sidebar-title]');
     const sidebarBody = wizardRoot.querySelector('[data-sidebar-body]');
     const panels = Array.from(wizardRoot.querySelectorAll('[data-step-panel]'));
@@ -1228,10 +1232,11 @@ const wizardClientCopy = {
     let submitLoadingHideTimer;
 
     function visibleSteps() {
-      const steps = ['type', 'country', 'category', 'name', 'description', 'email', 'website', 'image', 'social'];
       if (isCampaignMode) {
-        steps.shift();
+        return ['country', 'category', 'name', 'description', 'email'];
       }
+
+      const steps = ['type', 'country', 'category', 'name', 'description', 'email', 'website', 'image', 'social'];
 
       if (state.kind === 'organization') {
         steps.push('provider');
@@ -2312,6 +2317,14 @@ const wizardClientCopy = {
         panel.hidden = panel.getAttribute('data-step-panel') !== step;
       });
 
+      if (wizardPanel) {
+        const activeTitle = wizardRoot.querySelector(`[data-step-panel="${step}"] .pg-step-heading h2`);
+        const label = activeTitle?.textContent?.trim();
+        if (label) {
+          wizardPanel.setAttribute('aria-label', label);
+        }
+      }
+
       if (stepChanged && form) {
         form.scrollTo({ top: 0, left: 0, behavior: 'auto' });
       }
@@ -2344,6 +2357,8 @@ const wizardClientCopy = {
           nextLabel = copy.imageUploadCompressing;
         } else if (isEmptySkippableStep(step)) {
           nextLabel = copy.skip;
+        } else if (last && isCampaignMode && copy.campaignFinish) {
+          nextLabel = copy.campaignFinish;
         } else if (last) {
           nextLabel = copy.finish;
         }
