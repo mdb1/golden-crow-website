@@ -166,15 +166,27 @@ describe("partnership CRM email", () => {
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#98712d");
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#d8c8b3");
-    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("width: 335px");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("width: 280px");
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "font-size: 17px",
+      "width: 205px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "font-size: 14px",
+      "font-size: 15px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-size: 13px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-size: 12px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
       "width: 38px; height: 38px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "width: 335px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "font-size: 17px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
       "width: 520px",
