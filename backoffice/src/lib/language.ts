@@ -1905,6 +1905,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Esta fila coincide con una plantilla existente. Aceptar crea una plantilla separada; omitir deja la plantilla existente sin cambios; combinar actualiza la plantilla existente usando las reglas de fusión.",
   "Compatibility uses this row's subject when present, keeps the existing message unless it is blank, fills missing fields from this row, appends new notes, and keeps favorite enabled if either side is favorite.":
     "La compatibilidad usa el asunto de esta fila cuando existe, mantiene el mensaje existente salvo que esté vacío, completa campos faltantes desde esta fila, suma notas nuevas y mantiene favorito activo si cualquiera de los dos lados lo tiene activo.",
+  "Update existing with this row uses the same compatibility method as automatic import.":
+    "Actualizar existente con esta fila usa el mismo método de compatibilización que la importación automática.",
+  "Subject comes from the CSV row when present; body stays from the existing template unless empty; missing fields are filled; new notes are appended; favorite stays active if either side is active.":
+    "El asunto sale de la fila del CSV cuando existe; el cuerpo queda como el de la plantilla existente salvo que esté vacío; se completan campos faltantes; se suman notas nuevas; favorito queda activo si cualquiera de los dos lados lo tiene activo.",
   "Existing template": "Plantilla existente",
   "No field differences detected.": "No se detectaron diferencias de campos.",
   "Merge rules preserve existing subject and body unless they are blank, merge notes, and keep favorite enabled if either side is favorite.":
@@ -1912,7 +1916,20 @@ const SPANISH_TEXT: Record<string, string> = {
   "Combine with existing": "Combinar con existente",
   "Accept row": "Aceptar fila",
   "Evaluate one by one": "Evaluar una por una",
-  "Import all remaining": "Importar todos los restantes",
+  "Import all - update duplicates":
+    "Importar todo - actualizar duplicados existentes",
+  "Import pending rows - update existing with each row":
+    "Importar pendientes - actualizar existentes con cada fila",
+  "Automatic duplicate handling": "Gestión automática de duplicados",
+  "When a CSV row matches an existing template, automatic import updates the existing template with that row instead of creating a duplicate.":
+    "Cuando una fila del CSV coincide con una plantilla existente, la importación automática actualiza esa plantilla existente con esa fila en vez de crear un duplicado.",
+  "Pause after current row": "Pausar después de la fila actual",
+  "Pausing after current row": "Pausando después de la fila actual",
+  "Automatic import paused. Review the current row, then continue with pending rows when ready.":
+    "La importación automática quedó pausada. Revisá la fila actual y continuá con las pendientes cuando estés listo.",
+  "Previous row": "Fila anterior",
+  "Next pending row": "Siguiente pendiente",
+  "Keep existing unchanged": "Mantener existente sin cambios",
   "Checking existing templates": "Revisando plantillas existentes",
   "Unable to check existing templates for duplicates.":
     "No se pudieron revisar duplicados contra las plantillas existentes.",

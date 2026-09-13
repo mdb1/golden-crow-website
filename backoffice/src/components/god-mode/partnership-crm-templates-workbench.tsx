@@ -32,6 +32,7 @@ import {
   GripVertical,
   ListChecks,
   Pencil,
+  Pause,
   Plus,
   RefreshCw,
   Search,
@@ -1621,10 +1622,16 @@ function TemplateImportReviewCard({
   totalRows,
   result,
   importing,
+  pauseRequested,
   checkingDuplicates,
   onAdd,
   onSkip,
   onImportAllRemaining,
+  onPauseImport,
+  onPreviousRow,
+  onNextPendingRow,
+  hasPreviousRow,
+  hasNextPendingRow,
   language,
 }: {
   row: TemplateImportPreviewRow;
@@ -1632,10 +1639,16 @@ function TemplateImportReviewCard({
   totalRows: number;
   result?: TemplateImportResult;
   importing: boolean;
+  pauseRequested: boolean;
   checkingDuplicates: boolean;
   onAdd: () => void;
   onSkip: () => void;
   onImportAllRemaining: () => void;
+  onPauseImport: () => void;
+  onPreviousRow: () => void;
+  onNextPendingRow: () => void;
+  hasPreviousRow: boolean;
+  hasNextPendingRow: boolean;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
@@ -1692,6 +1705,28 @@ function TemplateImportReviewCard({
               {row.template.notes}
             </p>
           ) : null}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onPreviousRow}
+            disabled={importing || !hasPreviousRow}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            {t("Previous row")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onNextPendingRow}
+            disabled={importing || !hasNextPendingRow}
+          >
+            <ChevronRight className="h-4 w-4" />
+            {t("Next pending row")}
+          </Button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">
@@ -1816,7 +1851,10 @@ function TemplateImportReviewCard({
 
           <p className="mt-2 text-xs leading-5 text-amber-950/70 dark:text-amber-50/70">
             {t(
-              "Compatibility uses this row's subject when present, keeps the existing message unless it is blank, fills missing fields from this row, appends new notes, and keeps favorite enabled if either side is favorite.",
+              "Update existing with this row uses the same compatibility method as automatic import.",
+            )}{" "}
+            {t(
+              "Subject comes from the CSV row when present; body stays from the existing template unless empty; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
             )}
           </p>
         </div>
@@ -1890,6 +1928,19 @@ function TemplateImportReviewCard({
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        {importing ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onPauseImport}
+            disabled={pauseRequested}
+          >
+            <Pause className="h-4 w-4" />
+            {pauseRequested
+              ? t("Pausing after current row")
+              : t("Pause after current row")}
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="outline"
@@ -1924,7 +1975,7 @@ function TemplateImportReviewCard({
           disabled={importing || checkingDuplicates || Boolean(result)}
         >
           <FileUp className="h-4 w-4" />
-          {importing ? t("Importing...") : t("Import all remaining")}
+          {t("Import pending rows - update existing with each row")}
         </Button>
       </div>
     </section>
@@ -1956,6 +2007,9 @@ function TemplateImportDialog({
   const [reviewPanelOpen, setReviewPanelOpen] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
   const [results, setResults] = useState<TemplateImportResult[]>([]);
+  const importPauseRequestedRef = useRef(false);
+  const [pauseRequested, setPauseRequested] = useState(false);
+  const [autoImportPaused, setAutoImportPaused] = useState(false);
   const [existingTemplates, setExistingTemplates] = useState<
     PartnershipCrmTemplateRecord[]
   >([]);
@@ -1983,6 +2037,9 @@ function TemplateImportDialog({
     setReviewPanelOpen(false);
     setProcessedCount(0);
     setResults([]);
+    importPauseRequestedRef.current = false;
+    setPauseRequested(false);
+    setAutoImportPaused(false);
     setExistingTemplates([]);
     setDuplicateScanLoading(false);
     setDuplicateScanError("");
@@ -2126,6 +2183,9 @@ function TemplateImportDialog({
     setReviewPanelOpen(false);
     setProcessedCount(0);
     setResults([]);
+    importPauseRequestedRef.current = false;
+    setPauseRequested(false);
+    setAutoImportPaused(false);
     setExistingTemplates([]);
     setDuplicateScanLoading(false);
     setDuplicateScanError("");
@@ -2144,6 +2204,9 @@ function TemplateImportDialog({
     setReviewPanelOpen(false);
     setProcessedCount(0);
     setResults([]);
+    importPauseRequestedRef.current = false;
+    setPauseRequested(false);
+    setAutoImportPaused(false);
     setExistingTemplates([]);
     setDuplicateScanError("");
   }
@@ -2170,6 +2233,9 @@ function TemplateImportDialog({
       setReviewPanelOpen(false);
       setProcessedCount(0);
       setResults([]);
+      importPauseRequestedRef.current = false;
+      setPauseRequested(false);
+      setAutoImportPaused(false);
       setExistingTemplates([]);
       setDuplicateScanError("");
     } catch (error) {
@@ -2184,6 +2250,9 @@ function TemplateImportDialog({
       setReviewPanelOpen(false);
       setProcessedCount(0);
       setResults([]);
+      importPauseRequestedRef.current = false;
+      setPauseRequested(false);
+      setAutoImportPaused(false);
       setExistingTemplates([]);
       setDuplicateScanError("");
     } finally {
@@ -2342,6 +2411,7 @@ function TemplateImportDialog({
     }
 
     setCompleted(false);
+    setAutoImportPaused(false);
     setImporting(true);
     const result = await importTemplateFromRow(currentRow);
     const nextResults = mergeResult(results, result);
@@ -2371,6 +2441,7 @@ function TemplateImportDialog({
           error: currentRow.errors.join(" "),
         };
 
+    setAutoImportPaused(false);
     commitImportProgress(activeRowIndex, mergeResult(results, result));
   }
 
@@ -2383,6 +2454,7 @@ function TemplateImportDialog({
       currentRow && !resultByRow.has(currentRow.rowNumber);
     if (currentIsPending) {
       setCompleted(false);
+      setAutoImportPaused(false);
       setReviewPanelOpen(true);
       return;
     }
@@ -2390,17 +2462,56 @@ function TemplateImportDialog({
     const nextRowIndex = nextUnprocessedRowIndex(-1, results);
     if (nextRowIndex >= 0) {
       setCompleted(false);
+      setAutoImportPaused(false);
       setReviewPanelOpen(true);
       setActiveRowIndex(nextRowIndex);
     }
   }
 
+  function handlePauseImport() {
+    if (!importing) {
+      return;
+    }
+
+    importPauseRequestedRef.current = true;
+    setPauseRequested(true);
+  }
+
+  function handlePreviousRow() {
+    if (importing || activeRowIndex <= 0) {
+      return;
+    }
+
+    setActiveRowIndex(activeRowIndex - 1);
+    setReviewPanelOpen(true);
+    setAutoImportPaused(false);
+  }
+
+  function handleNextPendingRow() {
+    if (importing) {
+      return;
+    }
+
+    const nextAfterCurrent = nextUnprocessedRowIndex(activeRowIndex, results);
+    const firstPending = nextUnprocessedRowIndex(-1, results);
+    const nextRowIndex =
+      nextAfterCurrent >= 0
+        ? nextAfterCurrent
+        : firstPending !== activeRowIndex
+          ? firstPending
+          : -1;
+
+    if (nextRowIndex >= 0) {
+      setActiveRowIndex(nextRowIndex);
+      setReviewPanelOpen(true);
+      setAutoImportPaused(false);
+    }
+  }
+
   async function importRowsInSequence({
     startIndex,
-    keepReviewPanelOpen,
   }: {
     startIndex: number;
-    keepReviewPanelOpen: boolean;
   }) {
     if (!canImportRemaining) {
       return;
@@ -2408,9 +2519,13 @@ function TemplateImportDialog({
 
     let workingResults = results;
     let changedAny = false;
+    let paused = false;
 
+    importPauseRequestedRef.current = false;
+    setPauseRequested(false);
+    setAutoImportPaused(false);
     setCompleted(false);
-    setReviewPanelOpen(keepReviewPanelOpen);
+    setReviewPanelOpen(true);
     setImporting(true);
 
     for (
@@ -2426,6 +2541,11 @@ function TemplateImportDialog({
         continue;
       }
 
+      if (importPauseRequestedRef.current) {
+        paused = true;
+        break;
+      }
+
       setActiveRowIndex(rowIndex);
       const result = await importTemplateFromRow(row);
       workingResults = mergeResult(workingResults, result);
@@ -2436,12 +2556,31 @@ function TemplateImportDialog({
         result.action === "updated";
       setResults(workingResults);
       setProcessedCount(workingResults.length);
+
+      if (importPauseRequestedRef.current) {
+        paused = true;
+        break;
+      }
     }
 
+    importPauseRequestedRef.current = false;
     setImporting(false);
-    setActiveRowIndex(Math.max(0, previewRows.length - 1));
-    setReviewPanelOpen(false);
-    setCompleted(previewRows.length > 0);
+    setPauseRequested(false);
+
+    if (paused) {
+      const nextRowIndex = nextUnprocessedRowIndex(-1, workingResults);
+      if (nextRowIndex >= 0) {
+        setActiveRowIndex(nextRowIndex);
+      }
+      setReviewPanelOpen(true);
+      setCompleted(false);
+      setAutoImportPaused(true);
+    } else {
+      setActiveRowIndex(Math.max(0, previewRows.length - 1));
+      setReviewPanelOpen(false);
+      setCompleted(previewRows.length > 0);
+      setAutoImportPaused(false);
+    }
 
     if (changedAny) {
       onImported();
@@ -2449,13 +2588,12 @@ function TemplateImportDialog({
   }
 
   async function handleImportAll() {
-    await importRowsInSequence({ startIndex: 0, keepReviewPanelOpen: false });
+    await importRowsInSequence({ startIndex: 0 });
   }
 
   async function handleImportAllRemaining() {
     await importRowsInSequence({
       startIndex: activeRowIndex,
-      keepReviewPanelOpen: true,
     });
   }
 
@@ -2674,8 +2812,63 @@ function TemplateImportDialog({
                     <p className="text-xs text-muted-foreground">
                       {processedCount} / {previewRows.length} {t("templates")}
                     </p>
+                    {importing ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePauseImport}
+                        disabled={pauseRequested}
+                      >
+                        <Pause className="h-4 w-4" />
+                        {pauseRequested
+                          ? t("Pausing after current row")
+                          : t("Pause after current row")}
+                      </Button>
+                    ) : null}
                   </div>
                   <Progress value={progressValue} className="mt-3 h-2" />
+                </div>
+              ) : null}
+
+              {parsed && previewRows.length > 0 ? (
+                <div
+                  className={cn(
+                    "rounded-xl border p-3",
+                    autoImportPaused
+                      ? "border-blue-200 bg-blue-50/85 text-blue-950 dark:border-blue-300/25 dark:bg-blue-400/12 dark:text-blue-50"
+                      : "border-border/80 bg-muted/20",
+                  )}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ListChecks className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-semibold">
+                          {autoImportPaused
+                            ? t("Automatic import paused.")
+                            : t("Automatic duplicate handling")}
+                        </p>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {autoImportPaused
+                          ? t(
+                              "Automatic import paused. Review the current row, then continue with pending rows when ready.",
+                            )
+                          : t(
+                              "When a CSV row matches an existing template, automatic import updates the existing template with that row instead of creating a duplicate.",
+                            )}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {t(
+                          "Subject comes from the CSV row when present; body stays from the existing template unless empty; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
+                        )}
+                      </p>
+                    </div>
+                    <Badge variant={autoImportPaused ? "default" : "outline"}>
+                      {t("Update existing with this row")}
+                    </Badge>
+                  </div>
                 </div>
               ) : null}
 
@@ -2704,6 +2897,16 @@ function TemplateImportDialog({
                     onAdd={handleAddCurrentRow}
                     onSkip={handleSkipCurrentRow}
                     onImportAllRemaining={handleImportAllRemaining}
+                    onPauseImport={handlePauseImport}
+                    onPreviousRow={handlePreviousRow}
+                    onNextPendingRow={handleNextPendingRow}
+                    hasPreviousRow={activeRowIndex > 0}
+                    hasNextPendingRow={previewRows.some(
+                      (row, index) =>
+                        index !== activeRowIndex &&
+                        !resultByRow.has(row.rowNumber),
+                    )}
+                    pauseRequested={pauseRequested}
                     language={language}
                   />
                 ) : (
@@ -2850,7 +3053,9 @@ function TemplateImportDialog({
                   className={TEMPLATE_IMPORT_CTA_CLASS}
                 >
                   <FileUp className="h-4 w-4" />
-                  {importing ? t("Importing...") : t("Import all")}
+                  {importing
+                    ? t("Importing...")
+                    : t("Import all - update duplicates")}
                 </Button>
               ) : null}
             </>

@@ -623,10 +623,14 @@ describe("PartnershipCrmTemplateBrowser", () => {
       within(dialog).queryByRole("button", { name: "Add row" }),
     ).toBeNull();
     expect(
-      within(dialog).getByRole("button", { name: "Import all" }),
+      within(dialog).getByRole("button", {
+        name: "Import all - update duplicates",
+      }),
     ).toBeTruthy();
     expect(
-      within(dialog).queryByRole("button", { name: "Import all remaining" }),
+      within(dialog).queryByRole("button", {
+        name: "Import pending rows - update existing with each row",
+      }),
     ).toBeNull();
     await user.click(
       within(dialog).getByRole("button", {
@@ -649,7 +653,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ).toBeNull();
     expect(
       within(currentRow).getByRole("button", {
-        name: "Import all remaining",
+        name: "Import pending rows - update existing with each row",
       }),
     ).toBeTruthy();
     await waitFor(() => {
@@ -680,7 +684,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Import all remaining",
+        name: "Import pending rows - update existing with each row",
       }),
     );
 
@@ -760,13 +764,15 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(
         within(dialog)
-          .getByRole("button", { name: "Import all" })
+          .getByRole("button", { name: "Import all - update duplicates" })
           .getAttribute("disabled"),
       ).toBeNull();
     });
     expect(within(dialog).queryByText("Possible duplicate")).toBeNull();
     expect(
-      within(dialog).queryByRole("button", { name: "Import all remaining" }),
+      within(dialog).queryByRole("button", {
+        name: "Import pending rows - update existing with each row",
+      }),
     ).toBeNull();
 
     await user.click(
@@ -1030,13 +1036,15 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(
         within(dialog)
-          .getByRole("button", { name: "Import all" })
+          .getByRole("button", { name: "Import all - update duplicates" })
           .getAttribute("disabled"),
       ).toBeNull();
     });
 
     await user.click(
-      within(dialog).getByRole("button", { name: "Import all" }),
+      within(dialog).getByRole("button", {
+        name: "Import all - update duplicates",
+      }),
     );
 
     await waitFor(() => {
@@ -1080,14 +1088,14 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(
         within(dialog).getByRole("button", {
-          name: "Import all remaining",
+          name: "Import pending rows - update existing with each row",
         }),
       ).toBeTruthy();
     });
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Import all remaining",
+        name: "Import pending rows - update existing with each row",
       }),
     );
 
