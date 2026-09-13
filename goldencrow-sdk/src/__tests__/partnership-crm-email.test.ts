@@ -172,13 +172,28 @@ describe("partnership CRM email", () => {
       "width: 219px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "font-size: 16px",
+      "font-family: Verdana, Geneva, Tahoma, sans-serif",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "font-size: 12px",
+      "font-stretch: normal",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "font-size: 11px",
+      "letter-spacing: normal",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "Arial, Helvetica",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-size: 13.2px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-size: 10.5px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "line-height: 12.5px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      'href="tel:+5491121846934" style="font-family: Verdana, Geneva, Tahoma, sans-serif',
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
       "width: 32px; height: 32px",
@@ -199,7 +214,16 @@ describe("partnership CRM email", () => {
       "font-size: 17px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "font-size: 16px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
       "font-size: 15px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "font-size: 12px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "font-size: 11px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
       "width: 520px",
