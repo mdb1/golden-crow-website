@@ -362,7 +362,7 @@ export const es: Translations = {
     brand: 'Golden Crow Venture Studio',
     product: 'Pocket Genes',
     tagline: 'INTEGRACIÓN GENÓMICA PARA PROVEEDORES',
-    description: 'Entregá tus informes a través de Pocket Genes, sin desarrollar una app propia. Tus pacientes pueden consultarlos desde el celular y encontrar información y apoyo en PockeAmigos™. Además, tu organización puede dar a conocer sus servicios en nuestro directorio.',
+    description: 'Entregá tus informes a través de Pocket Genes, sin desarrollar una app propia. Tus pacientes pueden consultarlos desde el celular, buscar información confiable y utilizarla para conectar con otros usuarios y profesionales de confianza de la comunidad.',
     highlight: '',
     primaryCta: 'SOLICITAR REUNIÓN DE INTEGRACIÓN',
     secondaryCta: 'Ver mi informe en Pocket Genes',
