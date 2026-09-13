@@ -202,19 +202,22 @@ describe("partnership CRM email", () => {
       'href="tel:+5491121846934" style="font-family: Verdana, Geneva, Tahoma, sans-serif',
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "width: 34px; height: 34px",
+      "width: 33px; height: 33px; margin-left: -7px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
       "width: 14px; height: 14px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "width: 13px; height: 13px",
+      "width: 15px; height: 15px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "width: 17px; padding: 0 3px",
+      "margin-left: -5px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
-      "border-top: 0.5px solid #dcd6cb; padding-top: 4px",
+      "padding: 4px 0 0 15px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "border-top: 0.5px solid #dcd6cb; padding-top: 5px",
     );
     expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
       "width: 38px; height: 38px",

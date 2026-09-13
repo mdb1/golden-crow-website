@@ -12,27 +12,27 @@ export const PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML = `
   <table cellpadding="0" cellspacing="0" role="presentation" style="width: 280px; border-collapse: collapse; table-layout: fixed; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET}">
     <tbody>
       <tr>
-        <td valign="top" align="left" style="width: 42px; padding: 3px 8px 0 0; border-right: 1px solid #dcd6cb;">
+        <td valign="top" align="left" style="width: 39px; padding: 1px 8px 0 0; border-right: 1px solid #dcd6cb;">
           <a href="https://goldencrowvs.com/" style="border: 0; text-decoration: none;">
-            <img src="https://goldencrowvs.com/golden-crow-signature-logo.png" width="34" height="34" alt="" style="display: block; width: 34px; height: 34px; border: 0;">
+            <img src="https://goldencrowvs.com/golden-crow-signature-logo.png" width="33" height="33" alt="" style="display: block; width: 33px; height: 33px; margin-left: -7px; border: 0;">
           </a>
         </td>
-        <td valign="top" style="width: 219px; padding: 0 0 0 12px;">
+        <td valign="top" style="width: 219px; padding: 0 0 0 15px;">
           <div style="margin: 0; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET} font-size: 13.35px; line-height: 15.4px; font-weight: 700; color: #252630;">Federico Bustos Fierro</div>
           <div style="margin: 1px 0 6px 0; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET} font-size: 10px; line-height: 12.5px; color: #98712d;">Co-founder</div>
-          <div style="margin: 0 0 2px 0; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET} font-size: 10.65px; line-height: 12.8px; color: #252630;">Golden Crow Venture Studio</div>
-          <table cellpadding="0" cellspacing="0" role="presentation" style="margin-left: -1px; border-collapse: collapse; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET} font-size: 10.65px; line-height: 12.6px; color: #252630;">
+          <div style="margin: 0 0 4px 0; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET} font-size: 10.65px; line-height: 12.8px; color: #252630;">Golden Crow Venture Studio</div>
+          <table cellpadding="0" cellspacing="0" role="presentation" style="margin-left: -5px; border-collapse: collapse; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET} font-size: 10.65px; line-height: 12.6px; color: #252630;">
             <tbody>
               <tr>
-                <td valign="middle" style="width: 17px; padding: 0 3px 1px 0;"><img src="https://goldencrowvs.com/golden-crow-signature-email.png" width="14" height="14" alt="" style="display: block; width: 14px; height: 14px; border: 0;"></td>
-                <td style="padding: 0 0 2px 0; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET}"><a href="mailto:federico@goldencrowvs.com" style="${PARTNERSHIP_CRM_SIGNATURE_CONTACT_STYLE}">federico@goldencrowvs.com</a></td>
+                <td valign="top" style="width: 17px; padding: 0 3px 0 0;"><img src="https://goldencrowvs.com/golden-crow-signature-email.png" width="14" height="14" alt="" style="display: block; width: 14px; height: 14px; border: 0;"></td>
+                <td style="padding: 0 0 1px 0; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET}"><a href="mailto:federico@goldencrowvs.com" style="${PARTNERSHIP_CRM_SIGNATURE_CONTACT_STYLE}">federico@goldencrowvs.com</a></td>
               </tr>
               <tr>
-                <td valign="middle" style="width: 17px; padding: 0 3px 1px 0;"><img src="https://goldencrowvs.com/golden-crow-signature-phone.png" width="13" height="13" alt="" style="display: block; width: 13px; height: 13px; border: 0;"></td>
-                <td style="padding: 0 0 2px 0; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET}"><a href="tel:+5491121846934" style="${PARTNERSHIP_CRM_SIGNATURE_CONTACT_STYLE}">+54 9 11 2184-6934</a></td>
+                <td valign="top" style="width: 17px; padding: 0 3px 0 0;"><img src="https://goldencrowvs.com/golden-crow-signature-phone.png" width="15" height="15" alt="" style="display: block; width: 15px; height: 15px; margin-top: -2px; border: 0;"></td>
+                <td style="padding: 0 0 1px 0; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET}"><a href="tel:+5491121846934" style="${PARTNERSHIP_CRM_SIGNATURE_CONTACT_STYLE}">+54 9 11 2184-6934</a></td>
               </tr>
               <tr>
-                <td valign="middle" style="width: 17px; padding: 0 3px 0 0;"><img src="https://goldencrowvs.com/golden-crow-signature-website.png" width="13" height="13" alt="" style="display: block; width: 13px; height: 13px; border: 0;"></td>
+                <td valign="top" style="width: 17px; padding: 0 3px 0 0;"><img src="https://goldencrowvs.com/golden-crow-signature-website.png" width="15" height="15" alt="" style="display: block; width: 15px; height: 15px; margin-top: -1px; border: 0;"></td>
                 <td style="padding: 0; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET}"><a href="https://pocketgenes.com/" style="${PARTNERSHIP_CRM_SIGNATURE_CONTACT_STYLE}">pocketgenes.com</a></td>
               </tr>
             </tbody>
@@ -40,9 +40,9 @@ export const PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML = `
         </td>
       </tr>
       <tr>
-        <td valign="top" style="width: 42px; padding: 0 8px 0 0;"></td>
-        <td valign="top" style="width: 219px; padding: 0 0 0 12px;">
-          <div style="border-top: 0.5px solid #dcd6cb; padding-top: 4px; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET} font-size: 10px; line-height: 13px; color: #656570;">Soluciones digitales para gen&oacute;mica<br>y medicina de precisi&oacute;n.</div>
+        <td valign="top" style="width: 39px; padding: 0 8px 0 0;"></td>
+        <td valign="top" style="width: 219px; padding: 4px 0 0 15px;">
+          <div style="border-top: 0.5px solid #dcd6cb; padding-top: 5px; ${PARTNERSHIP_CRM_SIGNATURE_FONT_RESET} font-size: 10px; line-height: 13px; color: #656570;">Soluciones digitales para gen&oacute;mica<br>y medicina de precisi&oacute;n.</div>
         </td>
       </tr>
     </tbody>
