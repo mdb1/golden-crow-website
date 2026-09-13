@@ -219,7 +219,7 @@ export const es: Translations = {
     title: 'Pocket Genes - Información genética más clara para familias',
     integrationTitle: 'Pocket Genes - Integración genómica para proveedores',
     integrationCtaTitle: 'INTEGRÁ TUS INFORMES A POCKET GENES',
-    integrationCtaDesc: 'En la reunión revisamos un ejemplo de tus informes y vemos cómo presentarlo en la app. También conversamos sobre cómo dar a conocer tus servicios e invitar a tus pacientes a participar en PockeAmigos™.',
+    integrationCtaDesc: 'En la reunión revisamos un ejemplo de tus informes actuales y vemos cómo podrían visualizarse en la app. También evaluamos qué otras herramientas te pueden ayudar a cumplir tus objetivos, cómo potenciar tus servicios y sobre las posibilidades que tendrán tus usuarios al utilizar la plataforma.',
     integrationCtaButton: 'Coordinar revisión de integración',
   },
 
