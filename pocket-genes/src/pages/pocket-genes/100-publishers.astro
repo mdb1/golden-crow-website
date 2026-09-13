@@ -1008,8 +1008,22 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
     align-items: center;
     overflow: hidden;
     border-radius: 28px;
-    background: linear-gradient(120deg, #302656 0%, #171d3c 100%);
+    background:
+      radial-gradient(circle at 18% 18%, rgba(139, 92, 246, 0.78) 0%, rgba(139, 92, 246, 0) 36%),
+      radial-gradient(circle at 84% 14%, rgba(79, 70, 229, 0.72) 0%, rgba(79, 70, 229, 0) 40%),
+      linear-gradient(135deg, #4c1d95 0%, #3730a3 48%, #1e1b4b 100%);
+    box-shadow: 0 22px 58px rgba(49, 46, 129, 0.2);
     padding: 48px;
+  }
+
+  .pg100-final-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(110deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 34%),
+      radial-gradient(circle at 72% 92%, rgba(129, 140, 248, 0.34) 0%, rgba(129, 140, 248, 0) 42%);
+    pointer-events: none;
   }
 
   .pg100-final-panel::after {
@@ -1019,8 +1033,11 @@ const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=indi
     height: 360px;
     right: -140px;
     bottom: -210px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 50%;
+    box-shadow:
+      0 0 0 48px rgba(255, 255, 255, 0.055),
+      0 0 0 96px rgba(255, 255, 255, 0.035);
     pointer-events: none;
   }
 
