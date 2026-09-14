@@ -909,6 +909,11 @@ const SPANISH_TEXT: Record<string, string> = {
   Timezone: "Zona horaria",
   "Daily start time": "Hora diaria de inicio",
   "Daily end time": "Hora diaria de fin",
+  Hour: "Hora",
+  Minutes: "Minutos",
+  "Clear time": "Limpiar hora",
+  "Selected time": "Hora seleccionada",
+  "No time selected": "Sin hora seleccionada",
   "Multi-day length": "Duración en días",
   "Country start times": "Horarios de inicio por país",
   "Country end times": "Horarios de fin por país",
@@ -1024,7 +1029,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Start time is required.": "La hora de inicio es obligatoria.",
   "End time is required.": "La hora de fin es obligatoria.",
   "Timezone is required.": "La zona horaria es obligatoria.",
-  "Use HH:mm.": "Usá HH:mm.",
+  "Choose a valid time.": "Elegí una hora válida.",
   "Use an IANA timezone.": "Usá una zona horaria IANA.",
   "Add region": "Agregar región",
   "Save region": "Guardar región",
@@ -1125,10 +1130,9 @@ const SPANISH_TEXT: Record<string, string> = {
     "Las URLs de acciones del evento deben usar HTTPS. Contactar al organizador puede usar mailto.",
   "Use each event action type only once.":
     "Usá cada tipo de acción del evento una sola vez.",
-  "Daily start time must use HH:mm.":
-    "La hora diaria de inicio debe usar HH:mm.",
-  "Daily end time must use HH:mm.":
-    "La hora diaria de fin debe usar HH:mm.",
+  "Choose a valid daily start time.":
+    "Elegí una hora diaria de inicio válida.",
+  "Choose a valid daily end time.": "Elegí una hora diaria de fin válida.",
   "Timezone must be a valid IANA timezone.":
     "La zona horaria debe ser una zona horaria IANA válida.",
   "Multi-day length must be between 1 and 365.":
@@ -1141,10 +1145,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "La aclaración del publicador puede tener hasta 140 caracteres.",
   "Regional time rows need two-letter ISO country codes.":
     "Las filas de horarios regionales necesitan códigos ISO de país de dos letras.",
-  "Regional start times must use HH:mm.":
-    "Los horarios regionales de inicio deben usar HH:mm.",
-  "Regional end times must use HH:mm.":
-    "Los horarios regionales de fin deben usar HH:mm.",
+  "Choose valid regional start times.":
+    "Elegí horarios regionales de inicio válidos.",
+  "Choose valid regional end times.":
+    "Elegí horarios regionales de fin válidos.",
   "Regional timezones must be valid IANA timezones.":
     "Las zonas horarias regionales deben ser zonas horarias IANA válidas.",
   "Opportunity type": "Tipo de oportunidad",

@@ -704,24 +704,35 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       target: { value: "timed" },
     });
     expect(screen.getByLabelText("Timezone")).toBeTruthy();
-    const dailyStartTimeInput = screen.getByLabelText(
+    const dailyStartHourSelect = screen.getByLabelText(
       "Daily start time",
-    ) as HTMLInputElement;
-    const dailyEndTimeInput = screen.getByLabelText(
+    ) as HTMLSelectElement;
+    const dailyStartMinuteSelect = screen.getByLabelText(
+      "Daily start time minutes",
+    ) as HTMLSelectElement;
+    const dailyEndHourSelect = screen.getByLabelText(
       "Daily end time",
-    ) as HTMLInputElement;
-    expect(dailyStartTimeInput.type).toBe("text");
-    expect(dailyStartTimeInput.placeholder).toBe("HH:mm");
-    expect(dailyEndTimeInput.type).toBe("text");
-    expect(dailyEndTimeInput.placeholder).toBe("HH:mm");
-    fireEvent.change(dailyStartTimeInput, {
-      target: { value: "0930" },
+    ) as HTMLSelectElement;
+    const dailyEndMinuteSelect = screen.getByLabelText(
+      "Daily end time minutes",
+    ) as HTMLSelectElement;
+    expect(dailyStartHourSelect.tagName).toBe("SELECT");
+    expect(dailyStartMinuteSelect.tagName).toBe("SELECT");
+    expect(screen.queryByText("HH:mm")).toBeNull();
+    fireEvent.change(dailyStartHourSelect, {
+      target: { value: "09" },
     });
-    fireEvent.change(dailyEndTimeInput, {
-      target: { value: "1745" },
+    fireEvent.change(dailyStartMinuteSelect, {
+      target: { value: "30" },
     });
-    expect(dailyStartTimeInput.value).toBe("09:30");
-    expect(dailyEndTimeInput.value).toBe("17:45");
+    fireEvent.change(dailyEndHourSelect, {
+      target: { value: "17" },
+    });
+    fireEvent.change(dailyEndMinuteSelect, {
+      target: { value: "45" },
+    });
+    expect(screen.getByText("Selected time: 09:30")).toBeTruthy();
+    expect(screen.getByText("Selected time: 17:45")).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "Configure regional times" }),
     ).toBeNull();
@@ -814,21 +825,32 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(within(dialog).getByLabelText("Country"), {
       target: { value: "AR" },
     });
-    const regionalStartInput = within(dialog).getByLabelText(
+    const regionalStartHourSelect = within(dialog).getByLabelText(
       "Start time",
-    ) as HTMLInputElement;
-    const regionalEndInput = within(dialog).getByLabelText(
+    ) as HTMLSelectElement;
+    const regionalStartMinuteSelect = within(dialog).getByLabelText(
+      "Start time minutes",
+    ) as HTMLSelectElement;
+    const regionalEndHourSelect = within(dialog).getByLabelText(
       "End time",
-    ) as HTMLInputElement;
-    expect(regionalStartInput.type).toBe("text");
-    expect(regionalStartInput.placeholder).toBe("HH:mm");
-    expect(regionalEndInput.type).toBe("text");
-    expect(regionalEndInput.placeholder).toBe("HH:mm");
-    fireEvent.change(regionalStartInput, {
-      target: { value: "930" },
+    ) as HTMLSelectElement;
+    const regionalEndMinuteSelect = within(dialog).getByLabelText(
+      "End time minutes",
+    ) as HTMLSelectElement;
+    expect(regionalStartHourSelect.tagName).toBe("SELECT");
+    expect(regionalStartMinuteSelect.tagName).toBe("SELECT");
+    expect(within(dialog).queryByText("HH:mm")).toBeNull();
+    fireEvent.change(regionalStartHourSelect, {
+      target: { value: "09" },
     });
-    fireEvent.change(regionalEndInput, {
-      target: { value: "1100" },
+    fireEvent.change(regionalStartMinuteSelect, {
+      target: { value: "30" },
+    });
+    fireEvent.change(regionalEndHourSelect, {
+      target: { value: "11" },
+    });
+    fireEvent.change(regionalEndMinuteSelect, {
+      target: { value: "00" },
     });
     fireEvent.change(within(dialog).getByLabelText("Timezone"), {
       target: { value: "America/Argentina/Buenos_Aires" },
@@ -1022,19 +1044,22 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       target: { value: "AR" },
     });
     fireEvent.change(within(dialog).getByLabelText("Start time"), {
-      target: { value: "930" },
+      target: { value: "09" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Start time minutes"), {
+      target: { value: "30" },
     });
     expect(saveRegionButton.disabled).toBe(true);
     expect(within(dialog).getByText("End time is required.")).toBeTruthy();
 
     fireEvent.change(within(dialog).getByLabelText("End time"), {
-      target: { value: "25:00" },
+      target: { value: "11" },
     });
     expect(saveRegionButton.disabled).toBe(true);
-    expect(within(dialog).getByText("Use HH:mm.")).toBeTruthy();
+    expect(within(dialog).getByText("Choose a valid time.")).toBeTruthy();
 
-    fireEvent.change(within(dialog).getByLabelText("End time"), {
-      target: { value: "1100" },
+    fireEvent.change(within(dialog).getByLabelText("End time minutes"), {
+      target: { value: "00" },
     });
     fireEvent.change(within(dialog).getByLabelText("Timezone"), {
       target: { value: "" },
@@ -1051,7 +1076,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(within(dialog).getByRole("button", { name: /Edit region: AR/i })).toBeTruthy();
   });
 
-  it("saves daily event times as 24-hour HH:mm values", async () => {
+  it("saves daily event times as normalized 24-hour values", async () => {
     render(
       <AppLanguageProvider initialLanguage="en">
         <DiscoverFeedEntryWorkbench
@@ -1079,22 +1104,34 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       target: { value: "timed" },
     });
 
-    const dailyStartTimeInput = screen.getByLabelText(
+    const dailyStartHourSelect = screen.getByLabelText(
       "Daily start time",
-    ) as HTMLInputElement;
-    const dailyEndTimeInput = screen.getByLabelText(
+    ) as HTMLSelectElement;
+    const dailyStartMinuteSelect = screen.getByLabelText(
+      "Daily start time minutes",
+    ) as HTMLSelectElement;
+    const dailyEndHourSelect = screen.getByLabelText(
       "Daily end time",
-    ) as HTMLInputElement;
+    ) as HTMLSelectElement;
+    const dailyEndMinuteSelect = screen.getByLabelText(
+      "Daily end time minutes",
+    ) as HTMLSelectElement;
 
-    fireEvent.change(dailyStartTimeInput, {
-      target: { value: "930" },
+    fireEvent.change(dailyStartHourSelect, {
+      target: { value: "09" },
     });
-    fireEvent.change(dailyEndTimeInput, {
-      target: { value: "1745" },
+    fireEvent.change(dailyStartMinuteSelect, {
+      target: { value: "30" },
+    });
+    fireEvent.change(dailyEndHourSelect, {
+      target: { value: "17" },
+    });
+    fireEvent.change(dailyEndMinuteSelect, {
+      target: { value: "45" },
     });
 
-    expect(dailyStartTimeInput.value).toBe("09:30");
-    expect(dailyEndTimeInput.value).toBe("17:45");
+    expect(screen.getByText("Selected time: 09:30")).toBeTruthy();
+    expect(screen.getByText("Selected time: 17:45")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
 

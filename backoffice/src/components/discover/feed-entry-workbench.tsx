@@ -359,6 +359,12 @@ const EVENT_TIMEZONE_OPTIONS = [
   "America/Lima",
 ] as const;
 const EVENT_DEFAULT_MULTI_DAY_LENGTH = "1";
+const EVENT_TIME_PICKER_HOURS = Array.from({ length: 24 }, (_, hour) =>
+  String(hour).padStart(2, "0"),
+);
+const EVENT_TIME_PICKER_MINUTES = Array.from({ length: 60 }, (_, minute) =>
+  String(minute).padStart(2, "0"),
+);
 
 const DISCOVER_LOCATION_SUGGESTIONS = [
   "Online",
@@ -694,25 +700,6 @@ function isValidTimeOfDay(value: string) {
   return Boolean(normalizeTimeOfDayValue(value));
 }
 
-function timeInputDraftValue(value: string) {
-  const allowed = value.replace(/[^\d:]/g, "");
-  if (allowed.includes(":")) {
-    const [rawHour, ...rawMinuteParts] = allowed.split(":");
-    const hour = rawHour.slice(0, 2);
-    const minute = rawMinuteParts.join("").slice(0, 2);
-    return `${hour}:${minute}`;
-  }
-
-  const digits = allowed.replace(/\D/g, "").slice(0, 4);
-  if (digits.length <= 2) {
-    return digits;
-  }
-  if (digits.length === 3) {
-    return `0${digits.slice(0, 1)}:${digits.slice(1)}`;
-  }
-  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
-}
-
 function normalizeTimeOfDayValue(value: string) {
   const text = value.trim();
   if (!text) {
@@ -742,6 +729,25 @@ function normalizeTimeOfDayValue(value: string) {
   }
 
   return "";
+}
+
+function timePickerParts(value: string) {
+  const normalized = normalizeTimeOfDayValue(value);
+  if (normalized) {
+    const [hour, minute] = normalized.split(":");
+    return { hour, minute, normalized };
+  }
+
+  const partialMatch = /^(\d{0,2}):(\d{0,2})$/.exec(value.trim());
+  if (partialMatch) {
+    const rawHour = partialMatch[1] ?? "";
+    const rawMinute = partialMatch[2] ?? "";
+    const hour = EVENT_TIME_PICKER_HOURS.includes(rawHour) ? rawHour : "";
+    const minute = EVENT_TIME_PICKER_MINUTES.includes(rawMinute) ? rawMinute : "";
+    return { hour, minute, normalized: "" };
+  }
+
+  return { hour: "", minute: "", normalized: "" };
 }
 
 function eventTimeValue(payload: FeedEntryPayloadState, key: string) {
@@ -996,10 +1002,10 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
   }
 
   if (usesTimedSchedule && dailyStartTime && !isValidTimeOfDay(dailyStartTime)) {
-    return "Daily start time must use HH:mm.";
+    return "Choose a valid daily start time.";
   }
   if (usesTimedSchedule && dailyEndTime && !isValidTimeOfDay(dailyEndTime)) {
-    return "Daily end time must use HH:mm.";
+    return "Choose a valid daily end time.";
   }
   if (usesTimedSchedule && timezone && !isValidIanaTimezone(timezone)) {
     return "Timezone must be a valid IANA timezone.";
@@ -1033,10 +1039,10 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
         return "Regional time rows need two-letter ISO country codes.";
       }
       if (row.startTime && !isValidTimeOfDay(row.startTime)) {
-        return "Regional start times must use HH:mm.";
+        return "Choose valid regional start times.";
       }
       if (row.endTime && !isValidTimeOfDay(row.endTime)) {
-        return "Regional end times must use HH:mm.";
+        return "Choose valid regional end times.";
       }
       if (row.timezone && !isValidIanaTimezone(row.timezone)) {
         return "Regional timezones must be valid IANA timezones.";
@@ -1469,6 +1475,105 @@ function FieldShell({
           {error}
         </p>
       ) : null}
+    </div>
+  );
+}
+
+function EventTimePicker({
+  id,
+  label,
+  value,
+  onChange,
+  t,
+  invalid = false,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  t: (text: string) => string;
+  invalid?: boolean;
+}) {
+  const { hour, minute, normalized } = timePickerParts(value);
+  const hasSelection = Boolean(hour || minute);
+  const selectClass = cn(
+    publisherSelectClass,
+    "pr-10 pl-4",
+    invalid ? "border-destructive focus:border-destructive focus:ring-destructive/25" : "",
+  );
+
+  function updateTimePart(nextHour: string, nextMinute: string) {
+    if (!nextHour && !nextMinute) {
+      onChange("");
+      return;
+    }
+
+    onChange(`${nextHour}:${nextMinute}`);
+  }
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-violet-100/80 bg-white/72 p-3 shadow-sm dark:border-violet-400/12 dark:bg-slate-950/28",
+        invalid ? "border-destructive/70" : "",
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-100 bg-violet-50 text-violet-700 dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-100">
+          <Clock className="h-4 w-4" />
+        </div>
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+          <div className="relative min-w-0">
+            <select
+              id={id}
+              value={hour}
+              onChange={(event) => updateTimePart(event.target.value, minute)}
+              className={selectClass}
+              aria-invalid={invalid}
+            >
+              <option value="">{t("Hour")}</option>
+              {EVENT_TIME_PICKER_HOURS.map((timeHour) => (
+                <option key={timeHour} value={timeHour}>
+                  {timeHour}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-white/55" />
+          </div>
+          <div className="relative min-w-0">
+            <select
+              id={`${id}-minutes`}
+              value={minute}
+              onChange={(event) => updateTimePart(hour, event.target.value)}
+              className={selectClass}
+              aria-label={`${label} ${t("Minutes").toLowerCase()}`}
+              aria-invalid={invalid}
+            >
+              <option value="">{t("Minutes")}</option>
+              {EVENT_TIME_PICKER_MINUTES.map((timeMinute) => (
+                <option key={timeMinute} value={timeMinute}>
+                  {timeMinute}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-white/55" />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          disabled={!hasSelection}
+          aria-label={t("Clear time")}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-100 bg-white text-slate-500 shadow-sm transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-violet-400/14 dark:bg-slate-950/55 dark:text-white/55 dark:hover:bg-violet-500/10 dark:hover:text-violet-100"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <p className="mt-2 text-xs font-medium text-muted-foreground">
+        {normalized
+          ? `${t("Selected time")}: ${normalized}`
+          : t("No time selected")}
+      </p>
     </div>
   );
 }
@@ -3189,12 +3294,12 @@ export function DiscoverFeedEntryWorkbench({
     const draftStartError = !draftStartTime
       ? t("Start time is required.")
       : draftInvalidStart
-        ? t("Use HH:mm.")
+        ? t("Choose a valid time.")
         : null;
     const draftEndError = !draftEndTime
       ? t("End time is required.")
       : draftInvalidEnd
-        ? t("Use HH:mm.")
+        ? t("Choose a valid time.")
         : null;
     const eventCountryGroups = getDiscoverOrganizationCountryGroups(language)
       .map((group) => ({
@@ -3298,33 +3403,15 @@ export function DiscoverFeedEntryWorkbench({
                     htmlFor="event-region-draft-start"
                     error={draftStartError}
                   >
-                    <Input
+                    <EventTimePicker
                       id="event-region-draft-start"
-                      type="text"
-                      inputMode="numeric"
-                      pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
-                      placeholder="HH:mm"
-                      maxLength={5}
-                      autoComplete="off"
+                      label={t("Start time")}
                       value={eventRegionalDraft.startTime}
-                      onChange={(event) =>
-                        updateEventRegionalDraft({
-                          startTime: timeInputDraftValue(event.target.value),
-                        })
+                      onChange={(startTime) =>
+                        updateEventRegionalDraft({ startTime })
                       }
-                      onBlur={(event) => {
-                        const normalized = normalizeTimeOfDayValue(
-                          event.target.value,
-                        );
-                        if (normalized) {
-                          updateEventRegionalDraft({ startTime: normalized });
-                        }
-                      }}
-                      className={`${publisherInputClass} ${
-                        draftStartError
-                          ? "border-destructive focus-visible:ring-destructive"
-                          : ""
-                      }`}
+                      t={t}
+                      invalid={Boolean(draftStartError)}
                     />
                   </FieldShell>
                   <FieldShell
@@ -3332,33 +3419,15 @@ export function DiscoverFeedEntryWorkbench({
                     htmlFor="event-region-draft-end"
                     error={draftEndError}
                   >
-                    <Input
+                    <EventTimePicker
                       id="event-region-draft-end"
-                      type="text"
-                      inputMode="numeric"
-                      pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
-                      placeholder="HH:mm"
-                      maxLength={5}
-                      autoComplete="off"
+                      label={t("End time")}
                       value={eventRegionalDraft.endTime}
-                      onChange={(event) =>
-                        updateEventRegionalDraft({
-                          endTime: timeInputDraftValue(event.target.value),
-                        })
+                      onChange={(endTime) =>
+                        updateEventRegionalDraft({ endTime })
                       }
-                      onBlur={(event) => {
-                        const normalized = normalizeTimeOfDayValue(
-                          event.target.value,
-                        );
-                        if (normalized) {
-                          updateEventRegionalDraft({ endTime: normalized });
-                        }
-                      }}
-                      className={`${publisherInputClass} ${
-                        draftEndError
-                          ? "border-destructive focus-visible:ring-destructive"
-                          : ""
-                      }`}
+                      t={t}
+                      invalid={Boolean(draftEndError)}
                     />
                   </FieldShell>
                 </div>
@@ -3739,66 +3808,34 @@ export function DiscoverFeedEntryWorkbench({
                           label={t("Daily start time")}
                           htmlFor="discover-upcoming-event-daily-start"
                         >
-                          <Input
+                          <EventTimePicker
                             id="discover-upcoming-event-daily-start"
-                            type="text"
-                            inputMode="numeric"
-                            pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
-                            placeholder="HH:mm"
-                            maxLength={5}
-                            autoComplete="off"
+                            label={t("Daily start time")}
                             value={upcomingEventPayload.dailyStartTime ?? ""}
-                            onChange={(event) =>
+                            onChange={(dailyStartTime) =>
                               updateUpcomingEventField(
                                 "dailyStartTime",
-                                timeInputDraftValue(event.target.value),
+                                dailyStartTime,
                               )
                             }
-                            onBlur={(event) => {
-                              const normalized = normalizeTimeOfDayValue(
-                                event.target.value,
-                              );
-                              if (normalized) {
-                                updateUpcomingEventField(
-                                  "dailyStartTime",
-                                  normalized,
-                                );
-                              }
-                            }}
-                            className={publisherInputClass}
+                            t={t}
                           />
                         </FieldShell>
                         <FieldShell
                           label={t("Daily end time")}
                           htmlFor="discover-upcoming-event-daily-end"
                         >
-                          <Input
+                          <EventTimePicker
                             id="discover-upcoming-event-daily-end"
-                            type="text"
-                            inputMode="numeric"
-                            pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
-                            placeholder="HH:mm"
-                            maxLength={5}
-                            autoComplete="off"
+                            label={t("Daily end time")}
                             value={upcomingEventPayload.dailyEndTime ?? ""}
-                            onChange={(event) =>
+                            onChange={(dailyEndTime) =>
                               updateUpcomingEventField(
                                 "dailyEndTime",
-                                timeInputDraftValue(event.target.value),
+                                dailyEndTime,
                               )
                             }
-                            onBlur={(event) => {
-                              const normalized = normalizeTimeOfDayValue(
-                                event.target.value,
-                              );
-                              if (normalized) {
-                                updateUpcomingEventField(
-                                  "dailyEndTime",
-                                  normalized,
-                                );
-                              }
-                            }}
-                            className={publisherInputClass}
+                            t={t}
                           />
                         </FieldShell>
                       </>
