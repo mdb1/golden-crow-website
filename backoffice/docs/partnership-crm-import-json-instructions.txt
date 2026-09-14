@@ -67,7 +67,7 @@ Example:
       "contactEmail": "marcelo@genomelab.example",
       "contactLinkedIn": "https://linkedin.com/in/marcelo-perez",
       "lastContactAt": null,
-      "notes": "Imported from partnership prospecting list."
+      "notes": "{\"reviewed\":\"2026-09-12\",\"instagram\":\"https://www.instagram.com/adnsalta/\",\"services\":\"NIPT listed as a purchasable service; genetic tests and clinical laboratory services.\",\"sources\":\"https://www.adnsalta.com.ar/productos/test-prenatal-no-invasivo-nipt/ ; https://www.adnsalta.com.ar/\"}"
     }
   ]
 }
@@ -106,7 +106,7 @@ Professional example:
       "email": "ada@genomelab.example",
       "linkedIn": "https://linkedin.com/in/ada-genome",
       "lastContactAt": null,
-      "notes": "Imported from professional partnership prospecting list."
+      "notes": "{\"reviewed\":\"2026-09-12\",\"route\":\"LinkedIn response; validate recipient context before email.\",\"sources\":\"Public affiliation site and LinkedIn record.\"}"
     }
   ]
 }
@@ -621,9 +621,14 @@ lastContactAt
 notes
 - Optional string.
 - Maximum length: 2000 characters.
-- Use plain operational notes for the CRM user.
-- Do not store large biographies, scraped pages, HTML, markdown tables, or JSON
-  blobs inside notes.
+- Prefer a compact JSON object encoded as a string. Example:
+  {"reviewed":"2026-09-12","instagram":"https://www.instagram.com/adnsalta/","services":"NIPT listed as a purchasable service.","sources":"https://www.adnsalta.com.ar/"}
+- Use concise lowercase snake_case keys such as reviewed, instagram, services,
+  argentina, digital, note, sources, email_route, linkedin_route, or
+  previous_notes.
+- Do not use markdown bullets, bold labels, HTML, tables, or long scraped pages.
+- If legacy plain text exists, keep it only as a fallback or under
+  previous_notes during compatibility merges.
 - Notes are also used as activity body text for import activity rows.
 
 duplicateAction
@@ -675,7 +680,7 @@ Content-Type: application/json
       "contactEmail": "marcelo@genomelab.example",
       "contactLinkedIn": "https://linkedin.com/in/marcelo-perez",
       "lastContactAt": null,
-      "notes": "Imported from partnership prospecting list."
+      "notes": "{\"reviewed\":\"2026-09-12\",\"services\":\"Genetic testing and clinical laboratory services.\",\"sources\":\"https://genomelab.example\"}"
     }
   ]
 }
@@ -696,7 +701,7 @@ Preview response shape:
         "contactEmail": "marcelo@genomelab.example",
         "contactLinkedIn": "https://linkedin.com/in/marcelo-perez",
         "lastContactAt": null,
-        "notes": "Imported from partnership prospecting list."
+        "notes": "{\"reviewed\":\"2026-09-12\",\"services\":\"Genetic testing and clinical laboratory services.\",\"sources\":\"https://genomelab.example\"}"
       },
       "valid": true,
       "errors": [],
@@ -750,7 +755,7 @@ Content-Type: application/json
       "contactEmail": "marcelo@genomelab.example",
       "contactLinkedIn": "https://linkedin.com/in/marcelo-perez",
       "lastContactAt": "2026-08-27T15:30:00.000Z",
-      "notes": "Confirmed outreach target.",
+      "notes": "{\"reviewed\":\"2026-09-12\",\"note\":\"Confirmed outreach target.\"}",
       "duplicateAction": "update",
       "duplicateOrganizationId": "existing-crm-organization-id"
     }

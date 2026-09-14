@@ -1,0 +1,1253 @@
+---
+import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro';
+
+const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
+const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
+
+const pageCopy = {
+  en: {
+    title: '100 genomics professionals in Argentina | Pocket Genes',
+    description:
+      'Join the Pocket Genes campaign to introduce your work, publish your own content, and participate in interviews about the topics you care about.',
+    eyebrowStart: 'A Pocket Genes campaign',
+    eyebrowEnd: 'Argentina',
+    titleAccent: '100 professionals',
+    titleMiddle: 'recognized in',
+    titlePhrase: 'genomics in',
+    titleEnd: 'Argentina.',
+    heroBody:
+      'We invite you to introduce your work, publish your own content, and participate in interviews about the topics you care about.',
+    cta: 'I want to participate',
+    secondaryCta: 'How to participate',
+    reassurance: 'Creating your profile and participating in the campaign is free.',
+    artLabel: 'Pocket Genes',
+    artTitle: 'Genomics in Argentina',
+    artFooter: 'Interviews · Articles · Gatherings',
+    optionsTitle: 'Choose how to participate',
+    optionsIntro:
+      'You can share your own content, participate in an interview, or join the gatherings we organize.',
+    productCaption: 'Discover brings together articles, news, and events in Pocket Genes.',
+    productAlt: 'Pocket Genes Discover screen with genomics content and updates',
+    productScreenshots: [
+      {
+        src: '/pocket-genes/screenshots/damp1.jpeg',
+        alt: 'Pocket Genes saved report screen',
+      },
+      {
+        src: '/pocket-genes/screenshots/damp2.jpeg',
+        alt: 'Pocket Genes Discover screen with genomics content and updates',
+      },
+      {
+        src: '/pocket-genes/screenshots/damp3.jpeg',
+        alt: 'Pocket Genes community screen',
+      },
+    ],
+    options: [
+      {
+        icon: 'interviews',
+        title: 'Interviews',
+        body: 'Let’s talk about your work, your projects, or a topic you would like to share.',
+      },
+      {
+        icon: 'resources',
+        title: 'Articles and resources',
+        body: 'Publish articles, share materials, and spread news from your specialty.',
+      },
+      {
+        icon: 'community',
+        title: 'Talks and gatherings',
+        body: 'Receive invitations to Pocket Genes talks and gatherings and meet other people in the field.',
+      },
+    ],
+    processTitle: 'How to participate',
+    processIntro: 'The first step is to complete the form to create your profile.',
+    organizerLine: 'A Pocket Genes campaign',
+    organizerName: 'Federico Bustos Fierro',
+    processSteps: [
+      {
+        title: 'Complete your details',
+        body: 'Tell us what you do and leave your contact details.',
+      },
+      {
+        title: 'We review the request',
+        body: 'Once approved, we email you the details to enter Pocket Genes.',
+      },
+      {
+        title: 'Publish from your profile',
+        body: 'You can then share articles, news, and events. If you want to participate in an interview, we coordinate the topic and date with you.',
+      },
+    ],
+    faqTitle: 'Frequently asked questions',
+    faqs: [
+      {
+        question: 'Who can join?',
+        answer:
+          'Health professionals, researchers, educators, communicators, and people who work in organizations connected to genomics in Argentina.',
+      },
+      {
+        question: 'Does participation cost anything?',
+        answer: 'No. Creating your profile and participating in the campaign is free.',
+      },
+      {
+        question: 'Do I have to participate in an interview?',
+        answer:
+          'No. You can also join to publish articles, share resources, or promote events.',
+      },
+      {
+        question: 'How much time does it require?',
+        answer:
+          'It depends on the activity. Before confirming an interview or gathering, we tell you how much time it requires.',
+      },
+      {
+        question: 'Can I review the interview before it is published?',
+        answer: 'Yes. We send you the material so you can review it before publication.',
+      },
+      {
+        question: 'Why 100?',
+        answer:
+          'We set out to bring together 100 professionals from different areas of genomics in Argentina to introduce their work and share knowledge.',
+      },
+    ],
+    finalTitle: 'Join the campaign',
+    finalBody: 'Create your profile and start sharing your work in Pocket Genes.',
+    finalReassurance: 'Participation is free.',
+  },
+  es: {
+    title: '100 personalidades destacadas de la genómica en Argentina | Pocket Genes',
+    description:
+      'Sumate a la campaña de Pocket Genes para dar a conocer tu trabajo, publicar contenido propio y participar en entrevistas sobre los temas que te interesan.',
+    eyebrowStart: 'Una campaña de Pocket Genes',
+    eyebrowEnd: 'Argentina',
+    titleAccent: '100 personalidades',
+    titleMiddle: 'destacadas de la',
+    titlePhrase: 'genómica en',
+    titleEnd: 'Argentina.',
+    heroBody:
+      'Te invitamos a dar a conocer tu trabajo, publicar contenido propio y participar en entrevistas sobre los temas que te interesan.',
+    cta: 'Quiero participar',
+    secondaryCta: 'Cómo participar',
+    reassurance: 'Crear tu perfil y participar en la campaña es gratis.',
+    artLabel: 'Pocket Genes',
+    artTitle: 'Genómica en Argentina',
+    artFooter: 'Entrevistas · Artículos · Encuentros',
+    optionsTitle: 'Vos elegís cómo participar',
+    optionsIntro:
+      'Podés compartir contenido propio, participar en una entrevista o sumarte a los encuentros que organicemos.',
+    productCaption: 'Explora nuestros artículos, noticias y eventos a través de la app de Pocket Genes.',
+    productAlt: 'Pantalla Discover de Pocket Genes con contenidos y novedades sobre genómica',
+    productScreenshots: [
+      {
+        src: '/pocket-genes/screenshots/damp1.jpeg',
+        alt: 'Pantalla de informes guardados en Pocket Genes',
+      },
+      {
+        src: '/pocket-genes/screenshots/damp2.jpeg',
+        alt: 'Pantalla Discover de Pocket Genes con contenidos y novedades sobre genómica',
+      },
+      {
+        src: '/pocket-genes/screenshots/damp3.jpeg',
+        alt: 'Pantalla de comunidad en Pocket Genes',
+      },
+    ],
+    options: [
+      {
+        icon: 'interviews',
+        title: 'Entrevistas',
+        body: 'Conversemos sobre tu trabajo, tus proyectos o algún tema que te gustaría compartir.',
+      },
+      {
+        icon: 'resources',
+        title: 'Artículos y recursos',
+        body: 'Publicá artículos, compartí materiales y difundí novedades de tu especialidad.',
+      },
+      {
+        icon: 'community',
+        title: 'Charlas y encuentros',
+        body: 'Recibí invitaciones a charlas y encuentros de Pocket Genes y conocé a otras personas del sector.',
+      },
+    ],
+    processTitle: '¿Cómo arranco?',
+    organizerLine: 'Una campaña de Pocket Genes',
+    organizerName: 'Federico Bustos Fierro',
+    processSteps: [
+      {
+        title: 'Completás tus datos',
+        body: 'Nos contás a qué te dedicás y dejás tus datos de contacto.',
+      },
+      {
+        title: 'Revisamos la solicitud',
+        body: 'Una vez aprobada, te enviamos por email la clave de acceso para ingresar a la plataforma. Revisa también la carpeta de SPAM, por si el correo llega allí.',
+      },
+      {
+        title: 'Publicás desde tu perfil',
+        body:
+          'Ya podés compartir artículos, novedades y eventos. Si te interesa participar en una entrevista, coordinamos con vos el tema y la fecha.',
+      },
+    ],
+    faqTitle: 'Preguntas frecuentes',
+    faqs: [
+      {
+        question: '¿Quiénes pueden sumarse?',
+        answer:
+          'Profesionales de la salud, investigadores, docentes, comunicadores y personas que trabajan en organizaciones vinculadas con la genómica en Argentina.',
+      },
+      {
+        question: '¿Participar tiene algún costo?',
+        answer: 'No. Crear tu perfil y participar en la campaña es gratis.',
+      },
+      {
+        question: '¿Tengo que participar en una entrevista?',
+        answer: 'No. Podés sumarte a la campaña sin participar en una entrevista.',
+      },
+      {
+        question: '¿Cuánto tiempo lleva participar?',
+        answer:
+          'Depende de la actividad. Antes de confirmar una entrevista o un encuentro, te contamos cuánto tiempo requiere.',
+      },
+      {
+        question: '¿Voy a poder revisar la entrevista antes de que se publique?',
+        answer: 'Sí. Te enviamos el material para que lo revises antes de publicarlo.',
+      },
+      {
+        question: '¿Por qué 100?',
+        answer:
+          'Nos propusimos reunir a 100 profesionales de distintas áreas de la genómica en Argentina para dar a conocer su trabajo y compartir conocimientos.',
+      },
+    ],
+    finalTitle: 'Sumate a la campaña',
+    finalBody: 'Creá tu perfil y empezá a compartir tu trabajo en Pocket Genes.',
+    finalReassurance: 'La participación es gratuita.',
+  },
+} as const;
+
+const copy = pageCopy[isEnglish ? 'en' : 'es'];
+const participateHref = `${localizePath('/pocket-genes/join-us/new/')}?type=individual&campaign=100-publishers`;
+---
+
+<PocketGenesPublicLayout
+  title={copy.title}
+  description={copy.description}
+  canonicalPath="/pocket-genes/100-publishers"
+  image="/pocket-genes/100-publishers-og.png"
+  imageWidth={1200}
+  imageHeight={630}
+>
+  <main id="main" class="pg-page pg100-page">
+    <section class="pg100-hero">
+      <div class="pg-container">
+        <div class="pg100-hero-grid">
+          <div class="pg100-hero-copy">
+            <p class="pg100-eyebrow">
+              <span>{copy.eyebrowStart}</span>
+              <span class="pg100-eyebrow-dot" aria-hidden="true"></span>
+              <span>{copy.eyebrowEnd}</span>
+            </p>
+            <h1 class="pg100-title">
+              <span class="pg100-title-line pg100-title-accent">{copy.titleAccent}</span>{" "}
+              <span class="pg100-title-line">{copy.titleMiddle}</span>{" "}
+              <span class="pg100-title-line">{copy.titlePhrase}</span>{" "}
+              <span class="pg100-title-line">{copy.titleEnd}</span>
+            </h1>
+            <p class="pg100-lead">{copy.heroBody}</p>
+            <div class="pg100-actions">
+              <a class="pg100-button pg100-button-primary" href={participateHref}>{copy.cta}</a>
+              <a class="pg100-link-action" href="#como-participar">
+                <span>{copy.secondaryCta}</span>
+                <span aria-hidden="true">↓</span>
+              </a>
+            </div>
+            <p class="pg100-reassurance">{copy.reassurance}</p>
+          </div>
+
+          <aside class="pg100-art" aria-label="Pocket Genes 100">
+            <div class="pg100-art-top">
+              <span>{copy.artLabel}</span>
+            </div>
+            <div class="pg100-art-body">
+              <div class="pg100-art-number">100</div>
+              <p class="pg100-art-title">{copy.artTitle}</p>
+            </div>
+            <div class="pg100-art-footer">
+              <span>{copy.artFooter}</span>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="opciones" class="pg100-section pg100-options">
+      <div class="pg-container">
+        <div class="pg100-options-grid">
+          <div class="pg100-options-copy">
+            <div class="pg100-section-head">
+              <h2>{copy.optionsTitle}</h2>
+              <p>{copy.optionsIntro}</p>
+            </div>
+            <div class="pg100-option-list">
+              {copy.options.map((option) => (
+                <article class="pg100-option-item">
+                  <span class={`pg100-option-icon icon-${option.icon}`} aria-hidden="true"></span>
+                  <div>
+                    <h3>{option.title}</h3>
+                    <p>{option.body}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+          <figure class="pg100-product-demo">
+            <div class="pg100-product-frame" aria-label={copy.productAlt}>
+              <div class="pg100-product-phone-stack">
+                {copy.productScreenshots.map((screenshot, index) => (
+                  <img
+                    class={`pg100-product-phone phone-${index + 1}`}
+                    src={screenshot.src}
+                    alt={screenshot.alt}
+                    width="589"
+                    height="1280"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ))}
+              </div>
+            </div>
+            <figcaption>{copy.productCaption}</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="como-participar" class="pg100-section pg100-process">
+      <div class="pg-container">
+        <div class="pg100-split-grid">
+          <div class="pg100-section-head">
+            <h2>{copy.processTitle}</h2>
+            {isEnglish && <p>{pageCopy.en.processIntro}</p>}
+            <div class="pg100-organizer">
+              <img
+                src="/team/federico-bustos-gray.webp"
+                alt=""
+                width="48"
+                height="48"
+                loading="lazy"
+              />
+              <div>
+                <span>{copy.organizerLine}</span>
+                <strong>{copy.organizerName}</strong>
+              </div>
+            </div>
+          </div>
+          <ol class="pg100-process-list">
+            {copy.processSteps.map((step, index) => (
+              <li>
+                <span class="pg100-step-number">{String(index + 1).padStart(2, '0')}</span>
+                <div>
+                  <h3>{step.title}</h3>
+                  <p>{step.body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section id="preguntas" class="pg100-section pg100-faq">
+      <div class="pg-container">
+        <div class="pg100-split-grid">
+          <div class="pg100-section-head">
+            <h2>{copy.faqTitle}</h2>
+          </div>
+          <div class="pg100-faq-list">
+            {copy.faqs.map((faq) => (
+              <details>
+                <summary>{faq.question}</summary>
+                <p>{faq.answer}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pg100-final">
+      <div class="pg-container">
+        <div class="pg100-final-panel">
+          <div>
+            <h2>{copy.finalTitle}</h2>
+            <p>{copy.finalBody}</p>
+            <small>{copy.finalReassurance}</small>
+          </div>
+          <a class="pg100-button pg100-button-final" href={participateHref}>{copy.cta}</a>
+        </div>
+      </div>
+    </section>
+  </main>
+</PocketGenesPublicLayout>
+
+<style>
+  .pg100-page {
+    --pg100-ink: #172033;
+    --pg100-muted: #526075;
+    --pg100-action: #c22f65;
+    --pg100-action-hover: #a92556;
+    --pg100-blush: #fff8fb;
+    --pg100-border: #e7e0e8;
+    background: #ffffff;
+    color: var(--pg100-ink);
+  }
+
+  .pg100-page .pg-container {
+    max-width: 1120px;
+  }
+
+  .pg100-hero,
+  .pg100-section,
+  .pg100-final {
+    scroll-margin-top: 112px;
+  }
+
+  .pg100-hero {
+    background: var(--pg100-blush);
+    padding: 136px 0 72px;
+  }
+
+  .pg100-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 608px) minmax(0, 456px);
+    gap: 56px;
+    align-items: center;
+  }
+
+  .pg100-hero-copy,
+  .pg100-art,
+  .pg100-product-demo,
+  .pg100-product-frame {
+    min-width: 0;
+  }
+
+  .pg100-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 20px;
+    color: #8a2851;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  .pg100-eyebrow-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: #c9a4b7;
+  }
+
+  .pg100-title {
+    max-width: 608px;
+    margin: 0 0 24px;
+    color: var(--pg100-ink);
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+
+  .pg100-title > .pg100-title-line {
+    display: block;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .pg100-title-accent {
+    color: var(--pg100-action);
+  }
+
+  .pg100-lead {
+    max-width: 500px;
+    margin: 0 0 28px;
+    color: var(--pg100-muted);
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .pg100-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: center;
+  }
+
+  .pg100-button {
+    display: inline-flex;
+    min-height: 52px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 14px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+    text-decoration: none;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  }
+
+  .pg100-button:focus-visible,
+  .pg100-faq summary:focus-visible,
+  .pg100-page a:focus-visible {
+    outline: 3px solid #6e3dd9;
+    outline-offset: 3px;
+  }
+
+  .pg100-button-primary {
+    border-color: var(--pg100-action);
+    background: var(--pg100-action);
+    color: #ffffff;
+  }
+
+  .pg100-button-primary:hover {
+    background: var(--pg100-action-hover);
+    border-color: var(--pg100-action-hover);
+  }
+
+  .pg100-button-secondary {
+    border-color: #d7d4dc;
+    background: transparent;
+    color: var(--pg100-ink);
+  }
+
+  .pg100-button-secondary:hover {
+    border-color: var(--pg100-action);
+    background: #fff0f5;
+  }
+
+  .pg100-link-action {
+    display: inline-flex;
+    min-height: 48px;
+    align-items: center;
+    gap: 8px;
+    color: var(--pg100-ink);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+    text-decoration: none;
+  }
+
+  .pg100-link-action:hover {
+    color: var(--pg100-action);
+  }
+
+  .pg100-reassurance {
+    margin: 12px 0 0;
+    color: var(--pg100-muted);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .pg100-art {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 24px;
+    background: linear-gradient(145deg, #a53371 0%, #6f3a91 49%, #302656 100%);
+    box-shadow: 0 20px 48px rgba(48, 38, 86, 0.14);
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .pg100-art::after {
+    content: "";
+    position: absolute;
+    width: 410px;
+    height: 410px;
+    right: -202px;
+    bottom: -130px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 50%;
+    box-shadow:
+      0 0 0 46px rgba(255, 255, 255, 0.04),
+      0 0 0 94px rgba(255, 255, 255, 0.025);
+    pointer-events: none;
+  }
+
+  .pg100-art-top,
+  .pg100-art-footer {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 14px;
+  }
+
+  .pg100-art-top span,
+  .pg100-art-footer span {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .pg100-art-body {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pg100-art-number {
+    margin: 16px 0 12px;
+    color: #ffd4e5;
+    font-size: 184px;
+    font-weight: 800;
+    line-height: 0.9;
+    letter-spacing: -0.035em;
+  }
+
+  .pg100-art-title {
+    max-width: 280px;
+    margin: 0;
+    color: #ffffff;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+  }
+
+  .pg100-art-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    padding-top: 18px;
+  }
+
+  .pg100-section {
+    padding: 64px 0;
+    background: #ffffff;
+  }
+
+  .pg100-product-demo figcaption {
+    color: var(--pg100-muted);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .pg100-section-head h2,
+  .pg100-final h2 {
+    margin: 0 0 18px;
+    color: var(--pg100-ink);
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+  }
+
+  .pg100-section-head p {
+    margin: 0;
+    color: var(--pg100-muted);
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .pg100-options {
+    background: #ffffff;
+    padding: 80px 0;
+  }
+
+  .pg100-options-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 56px;
+    align-items: center;
+  }
+
+  .pg100-section-head {
+    margin-bottom: 32px;
+  }
+
+  .pg100-option-list {
+    display: grid;
+    gap: 0;
+  }
+
+  .pg100-option-item {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 12px;
+    border-top: 1px solid var(--pg100-border);
+    padding: 24px 0;
+  }
+
+  .pg100-option-item:last-child {
+    border-bottom: 1px solid var(--pg100-border);
+  }
+
+  .pg100-option-icon {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    margin-top: 3px;
+    color: var(--pg100-action);
+  }
+
+  .pg100-option-icon::before,
+  .pg100-option-icon::after {
+    content: "";
+    position: absolute;
+    box-sizing: border-box;
+  }
+
+  .icon-interviews::before {
+    left: 7px;
+    top: 1px;
+    width: 7px;
+    height: 12px;
+    border: 1.75px solid currentColor;
+    border-radius: 6px;
+  }
+
+  .icon-interviews::after {
+    left: 4px;
+    top: 10px;
+    width: 13px;
+    height: 8px;
+    border-bottom: 1.75px solid currentColor;
+    border-left: 1.75px solid transparent;
+    border-right: 1.75px solid transparent;
+    border-radius: 0 0 8px 8px;
+  }
+
+  .icon-resources::before {
+    inset: 1px 3px;
+    border: 1.75px solid currentColor;
+    border-radius: 2px;
+  }
+
+  .icon-resources::after {
+    left: 7px;
+    top: 7px;
+    width: 7px;
+    height: 1.75px;
+    background: currentColor;
+    box-shadow: 0 5px 0 currentColor;
+  }
+
+  .icon-community::before {
+    left: 1px;
+    top: 4px;
+    width: 7px;
+    height: 7px;
+    border: 1.75px solid currentColor;
+    border-radius: 999px;
+    box-shadow: 10px 0 0 -1.75px #ffffff, 10px 0 0 0 currentColor;
+  }
+
+  .icon-community::after {
+    left: 3px;
+    bottom: 2px;
+    width: 15px;
+    height: 6px;
+    border: 1.75px solid currentColor;
+    border-top: 0;
+    border-radius: 0 0 10px 10px;
+  }
+
+  .pg100-option-item h3 {
+    margin: 0 0 7px;
+    color: var(--pg100-ink);
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0;
+  }
+
+  .pg100-option-item p {
+    margin: 0;
+    color: var(--pg100-muted);
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .pg100-product-demo {
+    margin: 0;
+  }
+
+  .pg100-product-frame {
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 24px;
+    background: #fff4f8;
+    padding: 24px;
+  }
+
+  .pg100-product-phone-stack {
+    position: relative;
+    width: min(100%, 360px);
+    height: 522px;
+  }
+
+  .pg100-product-phone {
+    position: absolute;
+    display: block;
+    width: 168px;
+    aspect-ratio: 589 / 1280;
+    height: auto;
+    border: 6px solid #101522;
+    border-radius: 22px;
+    background: #101522;
+    object-fit: cover;
+    box-shadow: 0 24px 54px rgba(23, 32, 51, 0.18);
+  }
+
+  .pg100-product-phone.phone-1 {
+    top: 80px;
+    left: 0;
+    transform: rotate(-5deg);
+  }
+
+  .pg100-product-phone.phone-2 {
+    top: 0;
+    left: 50%;
+    z-index: 2;
+    transform: translateX(-50%);
+  }
+
+  .pg100-product-phone.phone-3 {
+    right: 0;
+    bottom: 34px;
+    transform: rotate(5deg);
+  }
+
+  .pg100-product-demo figcaption {
+    margin-top: 14px;
+  }
+
+  .pg100-process,
+  .pg100-faq {
+    padding: 64px 0;
+  }
+
+  .pg100-process {
+    padding-bottom: 48px;
+  }
+
+  .pg100-faq {
+    padding-top: 48px;
+  }
+
+  .pg100-split-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    gap: 64px;
+    align-items: start;
+  }
+
+  .pg100-organizer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 32px;
+  }
+
+  .pg100-organizer img {
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    object-fit: cover;
+    object-position: center 38%;
+    filter: grayscale(1);
+  }
+
+  .pg100-organizer span,
+  .pg100-organizer strong {
+    display: block;
+  }
+
+  .pg100-organizer span {
+    color: var(--pg100-muted);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .pg100-organizer strong {
+    color: var(--pg100-ink);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+
+  .pg100-process-list {
+    position: relative;
+    display: grid;
+    gap: 28px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pg100-process-list::before {
+    content: "";
+    position: absolute;
+    left: 17px;
+    top: 38px;
+    bottom: 38px;
+    width: 1px;
+    background: var(--pg100-border);
+  }
+
+  .pg100-process-list li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .pg100-step-number {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d8ccff;
+    border-radius: 999px;
+    background: #f4f0ff;
+    color: #6436c8;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .pg100-process-list h3 {
+    margin: 4px 0 8px;
+    color: var(--pg100-ink);
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: 0;
+  }
+
+  .pg100-process-list p {
+    margin: 0;
+    color: var(--pg100-muted);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .pg100-faq-list {
+    border-top: 1px solid var(--pg100-border);
+  }
+
+  .pg100-faq details {
+    border-bottom: 1px solid var(--pg100-border);
+  }
+
+  .pg100-faq summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20px;
+    gap: 18px;
+    min-height: 72px;
+    cursor: pointer;
+    align-items: start;
+    padding: 20px 0;
+    color: var(--pg100-ink);
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.35;
+    list-style: none;
+  }
+
+  .pg100-faq summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .pg100-faq summary::after {
+    content: "+";
+    width: 20px;
+    color: var(--pg100-action);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+  }
+
+  .pg100-faq details[open] summary::after {
+    content: "-";
+  }
+
+  .pg100-faq details p {
+    margin: -12px 0 0;
+    padding: 0 38px 20px 0;
+    color: var(--pg100-muted);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .pg100-final {
+    background: #ffffff;
+    padding: 64px 0;
+  }
+
+  .pg100-final-panel {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 32px;
+    align-items: center;
+    overflow: hidden;
+    border-radius: 28px;
+    background:
+      radial-gradient(circle at 18% 18%, rgba(67, 56, 202, 0.64) 0%, rgba(67, 56, 202, 0) 36%),
+      radial-gradient(circle at 84% 14%, rgba(30, 64, 175, 0.56) 0%, rgba(30, 64, 175, 0) 40%),
+      linear-gradient(135deg, #1e1b4b 0%, #312e81 46%, #0f172a 100%);
+    box-shadow: 0 24px 62px rgba(15, 23, 42, 0.26);
+    padding: 48px;
+  }
+
+  .pg100-final-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(110deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 34%),
+      radial-gradient(circle at 72% 92%, rgba(55, 48, 163, 0.38) 0%, rgba(55, 48, 163, 0) 42%);
+    pointer-events: none;
+  }
+
+  .pg100-final-panel::after {
+    content: "";
+    position: absolute;
+    width: 360px;
+    height: 360px;
+    right: -140px;
+    bottom: -210px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    box-shadow:
+      0 0 0 48px rgba(255, 255, 255, 0.055),
+      0 0 0 96px rgba(255, 255, 255, 0.035);
+    pointer-events: none;
+  }
+
+  .pg100-final h2 {
+    position: relative;
+    z-index: 1;
+    color: #ffffff;
+  }
+
+  .pg100-final p {
+    position: relative;
+    z-index: 1;
+    max-width: 520px;
+    margin: 0;
+    color: #e0ddea;
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .pg100-final small {
+    position: relative;
+    z-index: 1;
+    display: block;
+    margin-top: 12px;
+    color: #e0ddea;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .pg100-button-final {
+    position: relative;
+    z-index: 1;
+    background: #ffffff;
+    color: #302656;
+  }
+
+  .pg100-button-final:hover {
+    background: #f5edf6;
+  }
+
+  @media (min-width: 1024px) and (max-width: 1199px) {
+    .pg100-hero-grid {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      gap: 40px;
+    }
+
+    .pg100-title {
+      font-size: 48px;
+      line-height: 1.1;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    .pg100-hero {
+      padding: 128px 0 72px;
+    }
+
+    .pg100-hero-grid,
+    .pg100-options-grid,
+    .pg100-split-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pg100-hero-grid {
+      gap: 32px;
+    }
+
+    .pg100-title {
+      font-size: 48px;
+      line-height: 1.08;
+    }
+
+    .pg100-art {
+      max-width: 456px;
+      margin: 0 auto;
+    }
+
+    .pg100-options,
+    .pg100-process,
+    .pg100-faq {
+      padding: 56px 0;
+    }
+
+    .pg100-section-head h2,
+    .pg100-final h2 {
+      font-size: 32px;
+      line-height: 1.15;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .pg100-page .pg-container {
+      padding-inline: 20px;
+    }
+
+    .pg100-hero {
+      padding: 116px 0 56px;
+    }
+
+    .pg100-hero-grid {
+      gap: 32px;
+    }
+
+    .pg100-title {
+      font-size: 36px;
+      line-height: 1.08;
+    }
+
+    .pg100-lead {
+      font-size: 17px;
+    }
+
+    .pg100-actions {
+      display: grid;
+      gap: 12px;
+    }
+
+    .pg100-button-primary,
+    .pg100-button-final {
+      width: 100%;
+    }
+
+    .pg100-link-action {
+      justify-self: center;
+    }
+
+    .pg100-art {
+      max-width: 360px;
+      aspect-ratio: 1;
+      padding: 24px;
+    }
+
+    .pg100-art-number {
+      font-size: 128px;
+    }
+
+    .pg100-art-title {
+      font-size: 26px;
+    }
+
+    .pg100-art-footer {
+      display: none;
+    }
+
+    .pg100-options,
+    .pg100-process,
+    .pg100-faq {
+      padding: 48px 0;
+    }
+
+    .pg100-section-head h2,
+    .pg100-final h2 {
+      font-size: 28px;
+      line-height: 1.2;
+    }
+
+    .pg100-section-head p,
+    .pg100-option-item p,
+    .pg100-final p {
+      font-size: 16px;
+    }
+
+    .pg100-option-item h3 {
+      font-size: 20px;
+    }
+
+    .pg100-product-frame {
+      padding: 24px;
+    }
+
+    .pg100-product-phone-stack {
+      width: min(100%, 320px);
+      height: 478px;
+    }
+
+    .pg100-product-phone {
+      width: 148px;
+      border-width: 5px;
+      border-radius: 19px;
+    }
+
+    .pg100-process-list::before {
+      bottom: 58px;
+    }
+
+    .pg100-final {
+      padding: 48px 0;
+    }
+
+    .pg100-final-panel {
+      grid-template-columns: 1fr;
+      padding: 28px;
+    }
+  }
+
+  @media (max-width: 359px) {
+    .pg100-title {
+      font-size: 32px;
+    }
+
+    .pg100-art-number {
+      font-size: 112px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pg100-button {
+      transition: none;
+    }
+  }
+</style>

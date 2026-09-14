@@ -5,14 +5,23 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ChangeEvent,
   type FormEvent,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Braces,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -20,12 +29,16 @@ import {
   FileText,
   FileUp,
   Filter,
+  GripVertical,
   ListChecks,
+  Pencil,
+  Pause,
   Plus,
   RefreshCw,
   Search,
   Star,
   Trash2,
+  X,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
@@ -73,9 +86,9 @@ import {
   DEFAULT_CRM_CATEGORY,
   DEFAULT_CRM_PROFESSIONAL_CATEGORY,
   PARTNERSHIP_CRM_FROM_EMAIL,
+  mergeCrmTemplateInputWithExisting,
   normalizeCrmPrimaryCategory,
   parseCrmTemplateCsv,
-  renderCrmTemplate,
   templateStatusLabel,
   type ParsedCrmTemplateCsv,
   type PartnershipCrmOrganizationRecord,
@@ -95,66 +108,165 @@ const TEMPLATE_IMPORT_CTA_CLASS =
   "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
 const ORGANIZATION_TEMPLATE_VARIABLES = [
   {
+    key: "contact_name",
     token: "{{contact_name}}",
     label: "Contact name",
+    className:
+      "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-300/35 dark:bg-sky-400/15 dark:text-sky-100",
+    dotClassName: "bg-sky-500",
+    recommended: true,
   },
   {
+    key: "organization_name",
     token: "{{organization_name}}",
     label: "Organization name",
+    className:
+      "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-300/35 dark:bg-blue-400/15 dark:text-blue-100",
+    dotClassName: "bg-blue-500",
+    recommended: true,
   },
   {
+    key: "website",
     token: "{{website}}",
     label: "Website",
+    className:
+      "border-orange-200 bg-orange-50 text-orange-950 dark:border-orange-300/35 dark:bg-orange-400/15 dark:text-orange-100",
+    dotClassName: "bg-orange-500",
+    recommended: false,
   },
   {
+    key: "website_sentence",
     token: "{{website_sentence}}",
     label: "Website sentence",
+    className:
+      "border-lime-200 bg-lime-50 text-lime-950 dark:border-lime-300/35 dark:bg-lime-400/15 dark:text-lime-100",
+    dotClassName: "bg-lime-500",
+    recommended: true,
   },
 ] as const;
 const PROFESSIONAL_TEMPLATE_VARIABLES = [
   {
+    key: "professional_name",
     token: "{{professional_name}}",
     label: "Professional name",
+    className:
+      "border-violet-200 bg-violet-50 text-violet-900 dark:border-violet-300/35 dark:bg-violet-400/15 dark:text-violet-100",
+    dotClassName: "bg-violet-500",
+    recommended: true,
   },
   {
+    key: "first_name",
     token: "{{first_name}}",
     label: "First name",
+    className:
+      "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-900 dark:border-fuchsia-300/35 dark:bg-fuchsia-400/15 dark:text-fuchsia-100",
+    dotClassName: "bg-fuchsia-500",
+    recommended: true,
   },
   {
+    key: "primary_affiliation",
     token: "{{primary_affiliation}}",
     label: "Primary affiliation",
+    className:
+      "border-indigo-200 bg-indigo-50 text-indigo-900 dark:border-indigo-300/35 dark:bg-indigo-400/15 dark:text-indigo-100",
+    dotClassName: "bg-indigo-500",
+    recommended: true,
   },
   {
+    key: "potential_pocket_genes_editor_fit",
     token: "{{potential_pocket_genes_editor_fit}}",
     label: "Potential Pocket Genes editor fit",
+    className:
+      "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-300/35 dark:bg-emerald-400/15 dark:text-emerald-100",
+    dotClassName: "bg-emerald-500",
+    recommended: true,
   },
   {
+    key: "email_route",
     token: "{{email_route}}",
     label: "Email route",
+    className:
+      "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-300/35 dark:bg-amber-400/15 dark:text-amber-100",
+    dotClassName: "bg-amber-500",
+    recommended: false,
   },
   {
+    key: "linkedin_route",
     token: "{{linkedin_route}}",
     label: "LinkedIn route",
+    className:
+      "border-cyan-200 bg-cyan-50 text-cyan-900 dark:border-cyan-300/35 dark:bg-cyan-400/15 dark:text-cyan-100",
+    dotClassName: "bg-cyan-500",
+    recommended: false,
   },
   {
+    key: "research_basis",
     token: "{{research_basis}}",
     label: "Research basis",
+    className:
+      "border-teal-200 bg-teal-50 text-teal-900 dark:border-teal-300/35 dark:bg-teal-400/15 dark:text-teal-100",
+    dotClassName: "bg-teal-500",
+    recommended: false,
   },
   {
+    key: "title",
     token: "{{title}}",
     label: "Role / specialty",
+    className:
+      "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-300/35 dark:bg-rose-400/15 dark:text-rose-100",
+    dotClassName: "bg-rose-500",
+    recommended: true,
   },
   {
+    key: "website",
     token: "{{website}}",
     label: "Website",
+    className:
+      "border-orange-200 bg-orange-50 text-orange-950 dark:border-orange-300/35 dark:bg-orange-400/15 dark:text-orange-100",
+    dotClassName: "bg-orange-500",
+    recommended: false,
   },
   {
+    key: "website_sentence",
     token: "{{website_sentence}}",
     label: "Website sentence",
+    className:
+      "border-lime-200 bg-lime-50 text-lime-950 dark:border-lime-300/35 dark:bg-lime-400/15 dark:text-lime-100",
+    dotClassName: "bg-lime-500",
+    recommended: false,
   },
 ] as const;
 
+type TemplateVariableDefinition = {
+  key: string;
+  token: string;
+  label: string;
+  className: string;
+  dotClassName: string;
+  recommended: boolean;
+};
+
+type TemplateQuickPatch = Partial<
+  Pick<
+    PartnershipCrmTemplateInput,
+    "category" | "status" | "notes" | "is_favorite"
+  >
+>;
+
+const TEMPLATE_VARIABLE_PATTERN = /\{\{([a-z_]+)\}\}/g;
+
 const TEMPLATE_IMPORT_PREVIEW_LIMIT = 50;
+const TEMPLATE_DETAIL_PANEL_MIN_WIDTH_PERCENT = 100 / 3;
+const TEMPLATE_DETAIL_PANEL_MAX_WIDTH_PERCENT = 200 / 3;
+const TEMPLATE_DETAIL_PANEL_DEFAULT_WIDTH_PERCENT = 50;
+const TEMPLATE_DETAIL_PANEL_KEYBOARD_STEP_PERCENT = 4;
+
+function clampTemplateDetailPanelWidthPercent(value: number) {
+  return Math.min(
+    TEMPLATE_DETAIL_PANEL_MAX_WIDTH_PERCENT,
+    Math.max(TEMPLATE_DETAIL_PANEL_MIN_WIDTH_PERCENT, value),
+  );
+}
 
 const ORGANIZATION_TEMPLATE_IMPORT_SAMPLE_CSV = [
   "name,audience,category,subject,body,status,is_favorite,notes",
@@ -206,12 +318,23 @@ type TemplateImportPreviewRow = {
   template: PartnershipCrmTemplateInput;
   errors: string[];
   valid: boolean;
+  duplicateTemplate?: PartnershipCrmTemplateRecord;
+  duplicateReason?: string;
+  conflicts: TemplateImportConflict[];
+};
+
+type TemplateImportConflict = {
+  key: keyof PartnershipCrmTemplateInput;
+  label: string;
+  existingValue: unknown;
+  incomingValue: unknown;
 };
 
 type TemplateImportResult = {
   rowNumber: number;
-  action: "created" | "invalid" | "failed";
+  action: "created" | "updated" | "skipped" | "invalid" | "failed";
   templateId?: string;
+  template?: PartnershipCrmTemplateRecord;
   error?: string;
 };
 
@@ -258,7 +381,7 @@ const SAMPLE_PROFESSIONAL: PartnershipCrmProfessionalRecord = {
   title: "Genetista clinica",
   primaryAffiliation: "Hospital Genomico",
   potentialPocketGenesEditorFit:
-    "Clinical genetics, genetic testing, result interpretation and patient education.",
+    "Clinical genetics, genetic testing, result interpretation and patient education",
   emailRoute:
     "Publicly listed professional or official institutional contact address.",
   linkedInRoute: "Official LinkedIn page of the affiliated organization.",
@@ -282,6 +405,199 @@ function sampleTargetForAudience(
   return audience === "professionals"
     ? SAMPLE_PROFESSIONAL
     : SAMPLE_ORGANIZATION;
+}
+
+function templateVariablesForAudience(
+  audience: PartnershipCrmTemplateAudience,
+): readonly TemplateVariableDefinition[] {
+  return audience === "professionals"
+    ? PROFESSIONAL_TEMPLATE_VARIABLES
+    : ORGANIZATION_TEMPLATE_VARIABLES;
+}
+
+function sampleVariableValue(
+  key: string,
+  target: PartnershipCrmTargetRecord,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  const organization = target as PartnershipCrmOrganizationRecord;
+  const professional = target as PartnershipCrmProfessionalRecord;
+  const website =
+    audience === "professionals"
+      ? professional.website || professional.websiteDomain
+      : organization.website || organization.websiteDomain;
+
+  switch (key) {
+    case "contact_name":
+      return audience === "professionals"
+        ? professional.name || "equipo"
+        : organization.contactName || "equipo";
+    case "organization_name":
+      return audience === "professionals"
+        ? professional.primaryAffiliation || professional.name
+        : organization.name;
+    case "professional_name":
+      return audience === "professionals"
+        ? professional.name
+        : organization.contactName || organization.name;
+    case "first_name": {
+      const name =
+        audience === "professionals"
+          ? professional.name
+          : organization.contactName || organization.name;
+      return name.trim().split(/\s+/)[0] ?? "";
+    }
+    case "primary_affiliation":
+      return audience === "professionals"
+        ? professional.primaryAffiliation
+        : "";
+    case "potential_pocket_genes_editor_fit":
+      return audience === "professionals"
+        ? professional.potentialPocketGenesEditorFit
+        : "";
+    case "email_route":
+      return audience === "professionals" ? professional.emailRoute : "";
+    case "linkedin_route":
+      return audience === "professionals" ? professional.linkedInRoute : "";
+    case "research_basis":
+      return audience === "professionals" ? professional.researchBasis : "";
+    case "title":
+      return audience === "professionals" ? professional.title : "";
+    case "website":
+      return website;
+    case "website_sentence":
+      return target.websiteDomain ? ` (${target.websiteDomain})` : "";
+    default:
+      return "";
+  }
+}
+
+function renderTemplatePreviewText(
+  value: string,
+  target: PartnershipCrmTargetRecord,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return value.replace(TEMPLATE_VARIABLE_PATTERN, (_, key: string) => {
+    const rawValue = sampleVariableValue(key, target, audience);
+    return key === "potential_pocket_genes_editor_fit" && rawValue
+      ? `"${rawValue}"`
+      : rawValue;
+  });
+}
+
+function renderTemplatePreviewNodes(
+  value: string,
+  target: PartnershipCrmTargetRecord,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+
+  for (const match of value.matchAll(TEMPLATE_VARIABLE_PATTERN)) {
+    const [token, key] = match;
+    const index = match.index ?? 0;
+    if (index > cursor) {
+      nodes.push(value.slice(cursor, index));
+    }
+
+    const rawValue = sampleVariableValue(key, target, audience);
+    nodes.push(
+      key === "potential_pocket_genes_editor_fit" && rawValue ? (
+        <em key={`${key}-${index}`}>{`"${rawValue}"`}</em>
+      ) : (
+        rawValue
+      ),
+    );
+    cursor = index + token.length;
+  }
+
+  if (cursor < value.length) {
+    nodes.push(value.slice(cursor));
+  }
+
+  return nodes.length > 0 ? nodes : null;
+}
+
+function uniqueTemplateTokens(value: string) {
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+
+  for (const match of value.matchAll(TEMPLATE_VARIABLE_PATTERN)) {
+    const token = match[0];
+    if (!seen.has(token)) {
+      seen.add(token);
+      tokens.push(token);
+    }
+  }
+
+  return tokens;
+}
+
+function templateUsageFor(template: PartnershipCrmTemplateRecord) {
+  const subjectTokens = uniqueTemplateTokens(template.subject);
+  const bodyTokens = uniqueTemplateTokens(template.body);
+  const allTokens = Array.from(new Set([...subjectTokens, ...bodyTokens]));
+  const definitions = templateVariablesForAudience(template.audience);
+  const definitionByToken = new Map(
+    definitions.map((variable) => [variable.token, variable]),
+  );
+  const knownTokens = allTokens.filter((token) => definitionByToken.has(token));
+  const unknownTokens = allTokens.filter(
+    (token) => !definitionByToken.has(token),
+  );
+
+  return {
+    subjectTokens,
+    bodyTokens,
+    allTokens,
+    knownTokens,
+    unknownTokens,
+    definitions,
+    recommendedMissing: definitions.filter(
+      (variable) =>
+        variable.recommended && !knownTokens.includes(variable.token),
+    ),
+  };
+}
+
+function templateFitAnalysis(template: PartnershipCrmTemplateRecord) {
+  const usage = templateUsageFor(template);
+  const subjectUsesVariable = usage.subjectTokens.some((token) =>
+    usage.knownTokens.includes(token),
+  );
+  const bodyVariableCount = usage.bodyTokens.filter((token) =>
+    usage.knownTokens.includes(token),
+  ).length;
+  const recommendedUsed = usage.definitions.filter(
+    (variable) =>
+      variable.recommended && usage.knownTokens.includes(variable.token),
+  ).length;
+  const recommendedTotal = Math.max(
+    usage.definitions.filter((variable) => variable.recommended).length,
+    1,
+  );
+  const score = Math.min(
+    100,
+    (subjectUsesVariable ? 20 : 0) +
+      (bodyVariableCount >= 2 ? 35 : bodyVariableCount === 1 ? 22 : 0) +
+      Math.round((recommendedUsed / recommendedTotal) * 30) +
+      (template.category ? 10 : 0) +
+      (template.is_favorite ? 5 : 0),
+  );
+  const label =
+    score >= 80
+      ? "Strong template fit"
+      : score >= 55
+        ? "Good template fit"
+        : "Needs more dynamic variables";
+
+  return {
+    ...usage,
+    score,
+    label,
+    recommendedUsed,
+    recommendedTotal,
+  };
 }
 
 function buildTemplateListPath(filters: TemplateFilters, cursor?: string) {
@@ -372,6 +688,34 @@ function favoriteFirstRecords<T extends { is_favorite?: boolean }>(
     .map(({ record }) => record);
 }
 
+function isPartnershipCrmTemplatesPage(
+  value: unknown,
+): value is PartnershipCrmTemplatesPage {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    Array.isArray((value as { templates?: unknown }).templates)
+  );
+}
+
+function updateCachedTemplateListPages(
+  queryClient: QueryClient,
+  updater: (
+    templates: PartnershipCrmTemplateRecord[],
+  ) => PartnershipCrmTemplateRecord[],
+) {
+  queryClient.setQueriesData<unknown>(
+    { queryKey: [TEMPLATES_QUERY_KEY] },
+    (current: unknown) =>
+      isPartnershipCrmTemplatesPage(current)
+        ? {
+            ...current,
+            templates: updater(current.templates),
+          }
+        : current,
+  );
+}
+
 function templatePayload(
   state: TemplateFormState,
 ): PartnershipCrmTemplateInput {
@@ -384,6 +728,25 @@ function templatePayload(
     status: state.status,
     notes: state.notes.trim(),
     is_favorite: state.is_favorite,
+  };
+}
+
+function templateInputFromRecord(
+  template: PartnershipCrmTemplateRecord,
+  patch: TemplateQuickPatch = {},
+): PartnershipCrmTemplateInput {
+  const audience = template.audience ?? "organizations";
+
+  return {
+    name: template.name,
+    audience,
+    category: normalizeCrmPrimaryCategory(template.category, audience),
+    subject: template.subject,
+    body: template.body,
+    status: template.status,
+    notes: template.notes,
+    is_favorite: template.is_favorite,
+    ...patch,
   };
 }
 
@@ -410,24 +773,6 @@ function toFormState(
   };
 }
 
-function templateRecordFromState(
-  state: TemplateFormState,
-): PartnershipCrmTemplateRecord {
-  return {
-    id: "preview",
-    schemaVersion: 1,
-    name: state.name,
-    audience: state.audience,
-    category: normalizeCrmPrimaryCategory(state.category, state.audience),
-    subject: state.subject,
-    body: state.body,
-    status: state.status,
-    notes: state.notes,
-    is_favorite: state.is_favorite,
-    normalizedName: state.name.trim().toLowerCase(),
-  };
-}
-
 function statusBadgeVariant(status: PartnershipCrmTemplateStatus) {
   if (status === "active") {
     return "success" as const;
@@ -438,8 +783,198 @@ function statusBadgeVariant(status: PartnershipCrmTemplateStatus) {
   return "secondary" as const;
 }
 
+const TEMPLATE_IMPORT_DUPLICATE_SCAN_PAGE_LIMIT = 50;
+const TEMPLATE_IMPORT_DUPLICATE_SCAN_PAGE_CAP = 10;
+
+const TEMPLATE_IMPORT_CONFLICT_FIELDS: Array<{
+  key: keyof PartnershipCrmTemplateInput;
+  label: string;
+}> = [
+  { key: "name", label: "Template name" },
+  { key: "audience", label: "Applies to" },
+  { key: "category", label: "Category" },
+  { key: "subject", label: "Subject" },
+  { key: "body", label: "Message" },
+  { key: "status", label: "Status" },
+  { key: "notes", label: "Notes" },
+  { key: "is_favorite", label: "Favorite" },
+];
+
+function normalizeTemplateMatchValue(value: string | undefined | null) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function templateNameMatchTokens(value: string | undefined | null) {
+  return normalizeTemplateMatchValue(value)
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3);
+}
+
+function templateLeadingCode(value: string | undefined | null) {
+  const normalized = normalizeTemplateMatchValue(value);
+  const match = normalized.match(
+    /^([a-z]{1,4})\s*[-_.]?\s*(\d{1,4})(?=$|[^a-z0-9])/,
+  );
+  if (!match) {
+    return null;
+  }
+  return `${match[1]}${Number(match[2])}`;
+}
+
+function templateNameWithoutLeadingCode(value: string | undefined | null) {
+  return normalizeTemplateMatchValue(value)
+    .replace(
+      /^([a-z]{1,4})\s*[-_.]?\s*(\d{1,4})(?=$|[^a-z0-9])\s*[-:–—.]?\s*/,
+      "",
+    )
+    .trim();
+}
+
+function templateNamesAreCompatible(
+  existingName: string | undefined | null,
+  incomingName: string | undefined | null,
+) {
+  const existingCode = templateLeadingCode(existingName);
+  const incomingCode = templateLeadingCode(incomingName);
+  let existing = normalizeTemplateMatchValue(existingName);
+  let incoming = normalizeTemplateMatchValue(incomingName);
+
+  if (!existing || !incoming) {
+    return false;
+  }
+
+  if (existing === incoming) {
+    return true;
+  }
+
+  if (existingCode || incomingCode) {
+    if (existingCode !== incomingCode) {
+      return false;
+    }
+
+    existing = templateNameWithoutLeadingCode(existingName);
+    incoming = templateNameWithoutLeadingCode(incomingName);
+    if (!existing || !incoming) {
+      return false;
+    }
+    if (existing === incoming) {
+      return true;
+    }
+  }
+
+  const shorter = existing.length < incoming.length ? existing : incoming;
+  const longer = existing.length < incoming.length ? incoming : existing;
+
+  if (shorter.length >= 12 && longer.includes(shorter)) {
+    return true;
+  }
+
+  const existingTokens = new Set(templateNameMatchTokens(existing));
+  const incomingTokens = templateNameMatchTokens(incoming);
+
+  if (existingTokens.size === 0 || incomingTokens.length === 0) {
+    return false;
+  }
+
+  const sharedCount = incomingTokens.filter((token) =>
+    existingTokens.has(token),
+  ).length;
+  const smallerTokenCount = Math.min(
+    existingTokens.size,
+    incomingTokens.length,
+  );
+
+  return sharedCount >= 2 && sharedCount / smallerTokenCount >= 0.6;
+}
+
+function templateImportAudience(
+  template:
+    PartnershipCrmTemplateInput | PartnershipCrmTemplateRecord | undefined,
+): PartnershipCrmTemplateAudience {
+  return template?.audience ?? "organizations";
+}
+
+function findTemplateDuplicateCandidate(
+  incoming: PartnershipCrmTemplateInput,
+  existingTemplates: PartnershipCrmTemplateRecord[],
+) {
+  const incomingAudience = templateImportAudience(incoming);
+  const incomingName = normalizeTemplateMatchValue(incoming.name);
+  const incomingSubject = normalizeTemplateMatchValue(incoming.subject);
+  const incomingCategory = normalizeTemplateMatchValue(incoming.category);
+  const sameAudienceTemplates = existingTemplates.filter(
+    (template) => templateImportAudience(template) === incomingAudience,
+  );
+  const byName = sameAudienceTemplates.find(
+    (template) => normalizeTemplateMatchValue(template.name) === incomingName,
+  );
+  if (byName) {
+    return {
+      template: byName,
+      reason: "Same audience and template name.",
+    };
+  }
+
+  if (!incomingSubject) {
+    return null;
+  }
+
+  const bySubject = sameAudienceTemplates.find(
+    (template) =>
+      normalizeTemplateMatchValue(template.category) === incomingCategory &&
+      normalizeTemplateMatchValue(template.subject) === incomingSubject &&
+      templateNamesAreCompatible(template.name, incoming.name),
+  );
+
+  return bySubject
+    ? {
+        template: bySubject,
+        reason:
+          "Same audience, category, and subject, with compatible template name.",
+      }
+    : null;
+}
+
+function comparableTemplateImportValue(
+  value: unknown,
+  key: keyof PartnershipCrmTemplateInput,
+) {
+  if (key === "is_favorite") {
+    return Boolean(value);
+  }
+
+  return typeof value === "string" ? value.trim() : (value ?? "");
+}
+
+function templateImportConflicts(
+  existing: PartnershipCrmTemplateRecord,
+  incoming: PartnershipCrmTemplateInput,
+): TemplateImportConflict[] {
+  return TEMPLATE_IMPORT_CONFLICT_FIELDS.flatMap(({ key, label }) => {
+    const existingValue = comparableTemplateImportValue(existing[key], key);
+    const incomingValue = comparableTemplateImportValue(incoming[key], key);
+
+    return existingValue === incomingValue
+      ? []
+      : [
+          {
+            key,
+            label,
+            existingValue,
+            incomingValue,
+          },
+        ];
+  });
+}
+
 function templatePreviewRows(
   parsed: ParsedCrmTemplateCsv,
+  existingTemplates: PartnershipCrmTemplateRecord[] = [],
 ): TemplateImportPreviewRow[] {
   const errorsByRow = parsed.errors.reduce((map, error) => {
     const errors = map.get(error.row) ?? [];
@@ -451,19 +986,31 @@ function templatePreviewRows(
   return parsed.rows.map((template, index) => {
     const rowNumber = index + 2;
     const errors = errorsByRow.get(rowNumber) ?? [];
+    const duplicate = findTemplateDuplicateCandidate(
+      template,
+      existingTemplates,
+    );
 
     return {
       rowNumber,
       template,
       errors,
       valid: errors.length === 0,
+      duplicateTemplate: duplicate?.template,
+      duplicateReason: duplicate?.reason,
+      conflicts: duplicate
+        ? templateImportConflicts(duplicate.template, template)
+        : [],
     };
   });
 }
 
 function templateImportResultTone(result: TemplateImportResult) {
-  if (result.action === "created") {
+  if (result.action === "created" || result.action === "updated") {
     return "success" as const;
+  }
+  if (result.action === "skipped") {
+    return "secondary" as const;
   }
   if (result.action === "invalid") {
     return "warning" as const;
@@ -473,6 +1020,34 @@ function templateImportResultTone(result: TemplateImportResult) {
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error.";
+}
+
+function formatTemplateImportValue(
+  key: keyof PartnershipCrmTemplateInput,
+  value: unknown,
+  audience: PartnershipCrmTemplateAudience,
+  language: AppLanguage,
+) {
+  const t = (text: string) => appText(language, text);
+
+  if (key === "is_favorite") {
+    return value ? t("Favorite") : t("Not favorite");
+  }
+
+  if (key === "audience") {
+    return value === "professionals" ? t("Professionals") : t("Organizations");
+  }
+
+  if (key === "category") {
+    return formatCrmCategory(String(value ?? ""), language, audience) || "-";
+  }
+
+  if (key === "status") {
+    return t(templateStatusLabel(value as PartnershipCrmTemplateStatus));
+  }
+
+  const text = String(value ?? "").trim();
+  return text || "-";
 }
 
 function TemplateStatusBadge({
@@ -514,8 +1089,13 @@ function TemplatePreview({
 }) {
   const t = (text: string) => appText(language, text);
   const sampleTarget = sampleTargetForAudience(form.audience);
-  const rendered = renderCrmTemplate(
-    templateRecordFromState(form),
+  const renderedSubject = renderTemplatePreviewText(
+    form.subject,
+    sampleTarget,
+    form.audience,
+  );
+  const renderedBody = renderTemplatePreviewNodes(
+    form.body,
     sampleTarget,
     form.audience,
   );
@@ -528,7 +1108,7 @@ function TemplatePreview({
             {t("Preview")}
           </p>
           <h3 className="mt-1 truncate font-heading text-lg font-semibold">
-            {rendered.subject || t("No subject")}
+            {renderedSubject || t("No subject")}
           </h3>
         </div>
         <Badge variant="outline">{t("Preview sample")}</Badge>
@@ -550,9 +1130,855 @@ function TemplatePreview({
         </p>
       </div>
       <div className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:border dark:border-white/40 dark:bg-black dark:text-white">
-        {rendered.body || t("No message yet.")}
+        {renderedBody || t("No message yet.")}
       </div>
     </aside>
+  );
+}
+
+function TemplateVariablePill({
+  variable,
+  muted = false,
+  title,
+  children,
+}: {
+  variable: TemplateVariableDefinition;
+  muted?: boolean;
+  title?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <span
+      title={title ?? variable.token}
+      className={cn(
+        "inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 font-mono text-[0.72rem] font-semibold leading-5",
+        variable.className,
+        muted && "opacity-45",
+      )}
+    >
+      {children ?? variable.token}
+    </span>
+  );
+}
+
+function UnknownTemplateVariablePill({ token }: { token: string }) {
+  return (
+    <span
+      title={token}
+      className="inline-flex max-w-full items-center rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 font-mono text-[0.72rem] font-semibold leading-5 text-destructive"
+    >
+      {token}
+    </span>
+  );
+}
+
+function templateVariableDefinitionByToken(
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return new Map(
+    templateVariablesForAudience(audience).map(
+      (variable) => [variable.token, variable] as const,
+    ),
+  );
+}
+
+function templateVariableUsageForText(
+  subject: string,
+  body: string,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  const subjectTokens = uniqueTemplateTokens(subject);
+  const bodyTokens = uniqueTemplateTokens(body);
+  const allTokens = Array.from(new Set([...subjectTokens, ...bodyTokens]));
+  const definitions = templateVariablesForAudience(audience);
+  const definitionByToken = templateVariableDefinitionByToken(audience);
+  const knownTokens = allTokens.filter((token) => definitionByToken.has(token));
+  const unknownTokens = allTokens.filter(
+    (token) => !definitionByToken.has(token),
+  );
+  const variables = allTokens.map((token) => ({
+    token,
+    variable: definitionByToken.get(token),
+    usedInSubject: subjectTokens.includes(token),
+    usedInBody: bodyTokens.includes(token),
+  }));
+
+  return {
+    subjectTokens,
+    bodyTokens,
+    allTokens,
+    knownTokens,
+    unknownTokens,
+    definitions,
+    variables,
+  };
+}
+
+function renderTemplateVariablePillNodes(
+  value: string,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  const nodes: React.ReactNode[] = [];
+  const target = sampleTargetForAudience(audience);
+  const definitionByToken = templateVariableDefinitionByToken(audience);
+  let cursor = 0;
+
+  for (const match of value.matchAll(TEMPLATE_VARIABLE_PATTERN)) {
+    const [token, key] = match;
+    const index = match.index ?? 0;
+
+    if (index > cursor) {
+      nodes.push(value.slice(cursor, index));
+    }
+
+    const variable = definitionByToken.get(token);
+    if (variable) {
+      const rawValue = sampleVariableValue(key, target, audience);
+      const displayedValue =
+        key === "potential_pocket_genes_editor_fit" && rawValue
+          ? `"${rawValue}"`
+          : rawValue;
+      nodes.push(
+        <TemplateVariablePill
+          key={`${token}-${index}`}
+          variable={variable}
+          title={`${variable.token} - ${variable.label}`}
+        >
+          {displayedValue || variable.token}
+        </TemplateVariablePill>,
+      );
+    } else {
+      nodes.push(
+        <UnknownTemplateVariablePill key={`${token}-${index}`} token={token} />,
+      );
+    }
+
+    cursor = index + token.length;
+  }
+
+  if (cursor < value.length) {
+    nodes.push(value.slice(cursor));
+  }
+
+  return nodes.length > 0 ? nodes : null;
+}
+
+function TemplatePreviewSidePanel({
+  template,
+  notesDraft,
+  onNotesDraftChange,
+  onQuickUpdate,
+  onDelete,
+  onClose,
+  pending,
+  deletePending,
+  language,
+}: {
+  template: PartnershipCrmTemplateRecord;
+  notesDraft: string;
+  onNotesDraftChange: (value: string) => void;
+  onQuickUpdate: (patch: TemplateQuickPatch) => void;
+  onDelete: () => void;
+  onClose: () => void;
+  pending: boolean;
+  deletePending: boolean;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const analysis = templateFitAnalysis(template);
+  const target = sampleTargetForAudience(template.audience);
+  const renderedSubject = renderTemplatePreviewText(
+    template.subject,
+    target,
+    template.audience,
+  );
+  const renderedBody = renderTemplatePreviewNodes(
+    template.body,
+    target,
+    template.audience,
+  );
+  const usedVariableDefinitions = analysis.definitions.filter((variable) =>
+    analysis.knownTokens.includes(variable.token),
+  );
+  const notesChanged = notesDraft !== template.notes;
+
+  return (
+    <aside
+      data-testid="template-preview-panel"
+      className="grid gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-auto xl:pl-2"
+    >
+      <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 p-4">
+        <div className="flex items-start gap-3 border-b border-border/70 pb-3">
+          <div className="min-w-0 flex-1">
+            <h3
+              data-testid="template-preview-panel-title"
+              className="line-clamp-2 break-words font-heading text-xl font-semibold text-foreground"
+            >
+              {template.name}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {formatCrmCategory(
+                template.category,
+                language,
+                template.audience,
+              ) || t("No category")}
+            </p>
+          </div>
+          <div
+            data-testid="template-preview-panel-actions"
+            className="ml-auto flex min-w-max shrink-0 flex-col items-end self-stretch"
+          >
+            <div
+              data-testid="template-preview-panel-action-row"
+              className="flex shrink-0 flex-nowrap items-center gap-2 whitespace-nowrap"
+            >
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="shrink-0"
+                aria-label={
+                  template.is_favorite
+                    ? t("Unmark as favorite")
+                    : t("Mark as favorite")
+                }
+                title={
+                  template.is_favorite
+                    ? t("Unmark as favorite")
+                    : t("Mark as favorite")
+                }
+                onClick={() =>
+                  onQuickUpdate({ is_favorite: !template.is_favorite })
+                }
+                disabled={pending}
+              >
+                <Star
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    template.is_favorite
+                      ? "fill-amber-400 text-amber-500"
+                      : "text-muted-foreground/60",
+                  )}
+                />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="shrink-0"
+                asChild
+              >
+                <Link
+                  href={`/god-mode/plantillas/${encodeURIComponent(template.id)}`}
+                  aria-label={t("Edit")}
+                  title={t("Edit")}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  <span className="sr-only">{t("Edit")}</span>
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon-sm"
+                className="shrink-0"
+                aria-label={t("Delete")}
+                title={t("Delete")}
+                onClick={onDelete}
+                disabled={deletePending}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="shrink-0"
+                aria-label={t("Hide details")}
+                title={t("Hide details")}
+                onClick={onClose}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <div className="flex-1" aria-hidden="true" />
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3">
+          <div
+            data-testid="template-preview-panel-tags"
+            className="flex flex-wrap items-center gap-2"
+          >
+            <TemplateStatusBadge status={template.status} language={language} />
+            <Badge variant="outline">
+              {template.audience === "professionals"
+                ? t("Professionals")
+                : t("Organizations")}
+            </Badge>
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t("Status")}</Label>
+            <Select
+              value={template.status}
+              onValueChange={(value) =>
+                onQuickUpdate({
+                  status: value as PartnershipCrmTemplateStatus,
+                })
+              }
+              disabled={pending}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="crm-control-dropdown">
+                {CRM_TEMPLATE_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {t(option.label)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="template-panel-category">{t("Category")}</Label>
+            <CrmCategorySelect
+              id="template-panel-category"
+              value={template.category}
+              onChange={(category) => onQuickUpdate({ category })}
+              language={language}
+              mode="form"
+              audience={template.audience}
+            />
+          </div>
+        </div>
+      </div>
+
+      <Button
+        type="button"
+        size="lg"
+        className="h-12 w-full bg-blue-600 text-base font-semibold text-white shadow-[0_12px_28px_rgba(37,99,235,0.28)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
+        asChild
+      >
+        <Link href={`/god-mode/plantillas/${encodeURIComponent(template.id)}`}>
+          <Pencil className="h-4 w-4" />
+          {t("Edit text")}
+        </Link>
+      </Button>
+
+      <div className="min-w-0 rounded-xl border border-border/80 bg-white p-4 text-slate-950 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:border-white/70 dark:bg-black dark:text-white">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              {t("Preview")}
+            </p>
+            <h4
+              data-testid="template-preview-panel-subject"
+              className="mt-1 line-clamp-2 break-words font-heading text-lg font-semibold"
+            >
+              {renderedSubject || t("No subject")}
+            </h4>
+          </div>
+          <Badge variant="outline" className="shrink-0">
+            {t("Read only")}
+          </Badge>
+        </div>
+        <div className="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-300">
+          <p className="truncate">
+            <span className="font-semibold text-slate-900 dark:text-slate-50">
+              {t("From")}:
+            </span>{" "}
+            {PARTNERSHIP_CRM_FROM_EMAIL}
+          </p>
+          <p className="truncate">
+            <span className="font-semibold text-slate-900 dark:text-slate-50">
+              {t("Recipient")}:
+            </span>{" "}
+            {template.audience === "professionals"
+              ? SAMPLE_PROFESSIONAL.email
+              : SAMPLE_ORGANIZATION.contactEmail}
+          </p>
+        </div>
+        <div className="mt-4 max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800 dark:border dark:border-white/40 dark:bg-black dark:text-white">
+          {renderedBody || t("No message yet.")}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/80 bg-background/70 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {t("Template fit")}
+            </p>
+            <h4 className="mt-1 font-heading text-lg font-semibold">
+              {t(analysis.label)}
+            </h4>
+          </div>
+          <div className="rounded-full border border-border/80 bg-muted/30 px-3 py-1 text-sm font-semibold">
+            {analysis.score}%
+          </div>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-blue-600 dark:bg-blue-400"
+            style={{ width: `${analysis.score}%` }}
+          />
+        </div>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          {analysis.recommendedMissing.length > 0
+            ? `${t("Recommended variables missing")}: ${analysis.recommendedMissing
+                .map((variable) => variable.token)
+                .join(", ")}`
+            : t("Uses the recommended dynamic variables for this audience.")}
+        </p>
+      </div>
+
+      <div
+        data-testid="template-preview-variables"
+        className="rounded-xl border border-border/80 bg-background/70 p-4"
+      >
+        <div className="flex items-center gap-2">
+          <Braces className="h-4 w-4 text-muted-foreground" />
+          <h4 className="font-heading text-sm font-semibold">
+            {t("Variables")}
+          </h4>
+        </div>
+        {usedVariableDefinitions.length > 0 ? (
+          <div className="mt-3 overflow-hidden rounded-lg border border-border/80">
+            <table className="w-full text-left text-xs">
+              <tbody>
+                {usedVariableDefinitions.map((variable) => {
+                  const usedInSubject = analysis.subjectTokens.includes(
+                    variable.token,
+                  );
+                  const usedInBody = analysis.bodyTokens.includes(
+                    variable.token,
+                  );
+
+                  return (
+                    <tr
+                      key={variable.token}
+                      className="border-b border-border/60 last:border-b-0"
+                    >
+                      <th className="bg-muted/30 px-2 py-2 align-top">
+                        <TemplateVariablePill variable={variable} />
+                      </th>
+                      <td className="px-2 py-2 align-top text-muted-foreground">
+                        <div className="flex flex-wrap gap-1">
+                          {usedInSubject ? (
+                            <Badge variant="outline">{t("Subject")}</Badge>
+                          ) : null}
+                          {usedInBody ? (
+                            <Badge variant="outline">{t("Message")}</Badge>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <EmptyState>{t("No variables used in this message.")}</EmptyState>
+          </div>
+        )}
+        {analysis.unknownTokens.length > 0 ? (
+          <p className="mt-3 text-sm text-destructive">
+            {t("Unknown variables render blank")}:{" "}
+            {analysis.unknownTokens.join(", ")}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="rounded-xl border border-border/80 bg-background/70 p-4">
+        <Label htmlFor="template-panel-notes">{t("Notes")}</Label>
+        <Textarea
+          id="template-panel-notes"
+          value={notesDraft}
+          onChange={(event) => onNotesDraftChange(event.target.value)}
+          className="mt-2 min-h-24"
+        />
+        <Button
+          type="button"
+          size="sm"
+          className="mt-3"
+          onClick={() => onQuickUpdate({ notes: notesDraft })}
+          disabled={pending || !notesChanged}
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          {pending ? t("Saving...") : t("Save notes")}
+        </Button>
+      </div>
+    </aside>
+  );
+}
+
+function TemplateImportReviewCard({
+  row,
+  rowIndex,
+  totalRows,
+  result,
+  importing,
+  pauseRequested,
+  checkingDuplicates,
+  onAdd,
+  onSkip,
+  onImportAllRemaining,
+  onPauseImport,
+  onPreviousRow,
+  onNextPendingRow,
+  hasPreviousRow,
+  hasNextPendingRow,
+  language,
+}: {
+  row: TemplateImportPreviewRow;
+  rowIndex: number;
+  totalRows: number;
+  result?: TemplateImportResult;
+  importing: boolean;
+  pauseRequested: boolean;
+  checkingDuplicates: boolean;
+  onAdd: () => void;
+  onSkip: () => void;
+  onImportAllRemaining: () => void;
+  onPauseImport: () => void;
+  onPreviousRow: () => void;
+  onNextPendingRow: () => void;
+  hasPreviousRow: boolean;
+  hasNextPendingRow: boolean;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const audience = row.template.audience ?? "organizations";
+  const usage = templateVariableUsageForText(
+    row.template.subject,
+    row.template.body,
+    audience,
+  );
+  const resultLabel = result
+    ? result.action === "created"
+      ? "Row imported"
+      : result.action === "updated"
+        ? "Row updated"
+        : result.action === "skipped"
+          ? "Row skipped"
+          : result.action === "invalid"
+            ? "Row invalid"
+            : "Failed"
+    : row.valid
+      ? "Ready"
+      : "Row invalid";
+  const hasDuplicate = Boolean(row.duplicateTemplate);
+
+  return (
+    <section
+      data-testid="template-import-current-row"
+      className="grid gap-4 rounded-[1.15rem] border border-border/80 bg-background/75 p-4 shadow-sm"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">{t("Current row")}</Badge>
+            <span className="text-sm text-muted-foreground">
+              {t("Row")} {rowIndex + 1} {t("of")} {totalRows}
+            </span>
+            <Badge
+              variant={
+                result
+                  ? templateImportResultTone(result)
+                  : row.valid
+                    ? "success"
+                    : "destructive"
+              }
+            >
+              {t(resultLabel)}
+            </Badge>
+          </div>
+          <h3 className="mt-2 font-heading text-xl font-semibold text-foreground">
+            {row.template.name || t("Untitled template")}
+          </h3>
+          {row.template.notes ? (
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {row.template.notes}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onPreviousRow}
+            disabled={importing || !hasPreviousRow}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            {t("Previous row")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onNextPendingRow}
+            disabled={importing || !hasNextPendingRow}
+          >
+            <ChevronRight className="h-4 w-4" />
+            {t("Next pending row")}
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">
+            {audience === "professionals"
+              ? t("Professionals")
+              : t("Organizations")}
+          </Badge>
+          <TemplateStatusBadge
+            status={row.template.status ?? "active"}
+            language={language}
+          />
+          {row.template.is_favorite ? (
+            <Badge variant="warning">
+              <Star className="h-3.5 w-3.5 fill-amber-400" />
+              {t("Favorite")}
+            </Badge>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {t("Category")}
+          </p>
+          <p className="mt-1 text-sm font-medium">
+            {formatCrmCategory(
+              row.template.category ?? "",
+              language,
+              audience,
+            ) || t("No category")}
+          </p>
+        </div>
+        <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {t("CSV row")}
+          </p>
+          <p className="mt-1 font-mono text-sm font-medium">{row.rowNumber}</p>
+        </div>
+      </div>
+
+      {row.errors.length > 0 ? (
+        <ErrorBanner>
+          {row.errors.map((error) => t(error)).join(" ")}
+        </ErrorBanner>
+      ) : null}
+      {result?.action === "failed" && result.error ? (
+        <ErrorBanner>{result.error}</ErrorBanner>
+      ) : null}
+
+      {row.duplicateTemplate ? (
+        <div
+          data-testid="template-import-duplicate"
+          className="rounded-xl border border-amber-200 bg-amber-50/85 p-3 text-amber-950 dark:border-amber-300/25 dark:bg-amber-400/12 dark:text-amber-50"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">{t("Possible duplicate")}</p>
+              <p className="mt-1 text-sm leading-6 text-amber-950/75 dark:text-amber-50/75">
+                {t(
+                  "This row matches an existing template. Duplicate rows never create a second template. Updating applies this row to the existing template using the compatibility rules below; keeping existing leaves the database unchanged.",
+                )}
+              </p>
+              {row.duplicateReason ? (
+                <p className="mt-1 text-xs text-amber-950/65 dark:text-amber-50/65">
+                  {t(row.duplicateReason)}
+                </p>
+              ) : null}
+            </div>
+            <Badge variant="warning" className="max-w-full truncate">
+              {row.duplicateTemplate.name}
+            </Badge>
+          </div>
+
+          <div className="mt-3 rounded-lg border border-amber-200/80 bg-white/70 dark:border-amber-300/20 dark:bg-black/20">
+            {row.conflicts.length > 0 ? (
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-amber-200/80 dark:border-amber-300/20">
+                  <tr>
+                    <th className="px-2 py-2 font-semibold">{t("Field")}</th>
+                    <th className="px-2 py-2 font-semibold">
+                      {t("Existing template")}
+                    </th>
+                    <th className="px-2 py-2 font-semibold">{t("CSV new")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {row.conflicts.map((conflict) => (
+                    <tr
+                      key={conflict.key}
+                      className="border-b border-amber-200/70 last:border-b-0 dark:border-amber-300/20"
+                    >
+                      <th className="w-36 px-2 py-2 align-top font-medium">
+                        {t(conflict.label)}
+                      </th>
+                      <td className="max-w-[16rem] whitespace-pre-wrap px-2 py-2 align-top">
+                        {formatTemplateImportValue(
+                          conflict.key,
+                          conflict.existingValue,
+                          audience,
+                          language,
+                        )}
+                      </td>
+                      <td className="max-w-[16rem] whitespace-pre-wrap px-2 py-2 align-top">
+                        {formatTemplateImportValue(
+                          conflict.key,
+                          conflict.incomingValue,
+                          audience,
+                          language,
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="px-3 py-2 text-sm text-amber-950/75 dark:text-amber-50/75">
+                {t("No field differences detected.")}
+              </p>
+            )}
+          </div>
+
+          <p className="mt-2 text-xs leading-5 text-amber-950/70 dark:text-amber-50/70">
+            {t(
+              "Overwrite subject and body uses the same compatibility method as automatic import.",
+            )}{" "}
+            {t(
+              "CSV subject and body overwrite existing values when present; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
+            )}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="grid gap-3">
+        <div className="space-y-1.5">
+          <Label>{t("Subject")}</Label>
+          <div className="min-h-11 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm leading-7">
+            {renderTemplateVariablePillNodes(row.template.subject, audience) ??
+              "-"}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>{t("Message")}</Label>
+          <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border/70 bg-background px-3 py-2 text-sm leading-7">
+            {renderTemplateVariablePillNodes(row.template.body, audience) ??
+              "-"}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+        <div className="flex items-center gap-2">
+          <Braces className="h-4 w-4 text-muted-foreground" />
+          <h4 className="font-heading text-sm font-semibold">
+            {t("Variables used")}
+          </h4>
+        </div>
+        {usage.variables.length > 0 ? (
+          <div className="mt-3 overflow-hidden rounded-lg border border-border/70 bg-background/70">
+            <table className="w-full text-left text-xs">
+              <tbody>
+                {usage.variables.map((entry) => (
+                  <tr
+                    key={entry.token}
+                    className="border-b border-border/60 last:border-b-0"
+                  >
+                    <th className="w-[15rem] bg-muted/30 px-2 py-2 align-top">
+                      {entry.variable ? (
+                        <TemplateVariablePill variable={entry.variable} />
+                      ) : (
+                        <UnknownTemplateVariablePill token={entry.token} />
+                      )}
+                    </th>
+                    <td className="px-2 py-2 align-top text-muted-foreground">
+                      <div className="flex flex-wrap gap-1">
+                        {entry.usedInSubject ? (
+                          <Badge variant="outline">{t("Subject")}</Badge>
+                        ) : null}
+                        {entry.usedInBody ? (
+                          <Badge variant="outline">{t("Message")}</Badge>
+                        ) : null}
+                        {entry.variable ? null : (
+                          <Badge variant="destructive">
+                            {t("Unknown variables render blank")}
+                          </Badge>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {t("No variables used in this message.")}
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        {importing ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onPauseImport}
+            disabled={pauseRequested}
+          >
+            <Pause className="h-4 w-4" />
+            {pauseRequested
+              ? t("Pausing after current row")
+              : t("Pause after current row")}
+          </Button>
+        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onSkip}
+          disabled={importing || Boolean(result)}
+        >
+          <X className="h-4 w-4" />
+          {t(hasDuplicate ? "Keep existing unchanged" : "Skip row")}
+        </Button>
+        <Button
+          type="button"
+          onClick={onAdd}
+          disabled={
+            importing || checkingDuplicates || Boolean(result) || !row.valid
+          }
+        >
+          {hasDuplicate ? (
+            <RefreshCw className="h-4 w-4" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
+          {checkingDuplicates
+            ? t("Checking...")
+            : importing
+              ? t("Importing...")
+              : t(hasDuplicate ? "Overwrite subject and body" : "Add row")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onImportAllRemaining}
+          disabled={importing || checkingDuplicates || Boolean(result)}
+        >
+          <FileUp className="h-4 w-4" />
+          {t("Import pending rows - overwrite duplicate subject/body")}
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -577,8 +2003,18 @@ function TemplateImportDialog({
   const [parsed, setParsed] = useState<ParsedCrmTemplateCsv | null>(null);
   const [importing, setImporting] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [activeRowIndex, setActiveRowIndex] = useState(0);
+  const [reviewPanelOpen, setReviewPanelOpen] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
   const [results, setResults] = useState<TemplateImportResult[]>([]);
+  const importPauseRequestedRef = useRef(false);
+  const [pauseRequested, setPauseRequested] = useState(false);
+  const [autoImportPaused, setAutoImportPaused] = useState(false);
+  const [existingTemplates, setExistingTemplates] = useState<
+    PartnershipCrmTemplateRecord[]
+  >([]);
+  const [duplicateScanLoading, setDuplicateScanLoading] = useState(false);
+  const [duplicateScanError, setDuplicateScanError] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -597,20 +2033,105 @@ function TemplateImportDialog({
     setParsed(null);
     setImporting(false);
     setCompleted(false);
+    setActiveRowIndex(0);
+    setReviewPanelOpen(false);
     setProcessedCount(0);
     setResults([]);
+    importPauseRequestedRef.current = false;
+    setPauseRequested(false);
+    setAutoImportPaused(false);
+    setExistingTemplates([]);
+    setDuplicateScanLoading(false);
+    setDuplicateScanError("");
   }, [initialAudience, open]);
 
+  useEffect(() => {
+    const parsedForScan = parsed;
+
+    if (!open || !parsedForScan) {
+      setExistingTemplates([]);
+      setDuplicateScanError("");
+      setDuplicateScanLoading(false);
+      return;
+    }
+
+    const rowsForDuplicateScan = parsedForScan.rows;
+    let cancelled = false;
+
+    async function loadExistingTemplatesForDuplicateScan() {
+      setDuplicateScanLoading(true);
+      setDuplicateScanError("");
+
+      try {
+        const loaded: PartnershipCrmTemplateRecord[] = [];
+        const audiencesToScan = Array.from(
+          new Set(
+            rowsForDuplicateScan.length > 0
+              ? rowsForDuplicateScan.map((row) => templateImportAudience(row))
+              : [audience],
+          ),
+        );
+
+        for (const scanAudience of audiencesToScan) {
+          let cursor: string | undefined;
+
+          for (
+            let pageIndex = 0;
+            pageIndex < TEMPLATE_IMPORT_DUPLICATE_SCAN_PAGE_CAP;
+            pageIndex += 1
+          ) {
+            const params = new URLSearchParams({
+              limit: String(TEMPLATE_IMPORT_DUPLICATE_SCAN_PAGE_LIMIT),
+              audience: scanAudience,
+            });
+            if (cursor) {
+              params.set("cursor", cursor);
+            }
+
+            const page = await sdkFetch<PartnershipCrmTemplatesPage>(
+              `/admin/partnership-crm/templates?${params.toString()}`,
+            );
+            loaded.push(...page.templates);
+
+            if (!page.nextCursor) {
+              break;
+            }
+            cursor = page.nextCursor;
+          }
+        }
+
+        if (!cancelled) {
+          setExistingTemplates(loaded);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setExistingTemplates([]);
+          setDuplicateScanError(errorMessage(error));
+        }
+      } finally {
+        if (!cancelled) {
+          setDuplicateScanLoading(false);
+        }
+      }
+    }
+
+    void loadExistingTemplatesForDuplicateScan();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [audience, open, parsed]);
+
   const previewRows = useMemo(
-    () => (parsed ? templatePreviewRows(parsed) : []),
-    [parsed],
-  );
-  const visiblePreviewRows = useMemo(
-    () => previewRows.slice(0, TEMPLATE_IMPORT_PREVIEW_LIMIT),
-    [previewRows],
+    () => (parsed ? templatePreviewRows(parsed, existingTemplates) : []),
+    [existingTemplates, parsed],
   );
   const validRows = useMemo(
     () => previewRows.filter((row) => row.valid),
+    [previewRows],
+  );
+  const visiblePreviewRows = useMemo(
+    () => previewRows.slice(0, TEMPLATE_IMPORT_PREVIEW_LIMIT),
     [previewRows],
   );
   const headerErrors = useMemo(
@@ -625,14 +2146,32 @@ function TemplateImportDialog({
   const createdCount = results.filter(
     (result) => result.action === "created",
   ).length;
+  const updatedCount = results.filter(
+    (result) => result.action === "updated",
+  ).length;
   const failedCount = results.filter(
     (result) => result.action === "failed",
   ).length;
+  const skippedCount = results.filter(
+    (result) => result.action === "skipped",
+  ).length;
+  const currentRow = previewRows[activeRowIndex] ?? null;
+  const currentRowResult = currentRow
+    ? resultByRow.get(currentRow.rowNumber)
+    : undefined;
+  const hasPendingRows = previewRows.some(
+    (row) => !resultByRow.has(row.rowNumber),
+  );
   const progressValue =
-    validRows.length > 0
-      ? Math.round((processedCount / validRows.length) * 100)
+    previewRows.length > 0
+      ? Math.round((processedCount / previewRows.length) * 100)
       : 0;
-  const canImport = validRows.length > 0 && !importing && !completed;
+  const canImportRemaining =
+    previewRows.length > 0 &&
+    hasPendingRows &&
+    !importing &&
+    !completed &&
+    !duplicateScanLoading;
 
   function resetImportState() {
     csvTextRef.current = "";
@@ -640,8 +2179,16 @@ function TemplateImportDialog({
     setParsed(null);
     setImporting(false);
     setCompleted(false);
+    setActiveRowIndex(0);
+    setReviewPanelOpen(false);
     setProcessedCount(0);
     setResults([]);
+    importPauseRequestedRef.current = false;
+    setPauseRequested(false);
+    setAutoImportPaused(false);
+    setExistingTemplates([]);
+    setDuplicateScanLoading(false);
+    setDuplicateScanError("");
   }
 
   function parseCsv(
@@ -653,8 +2200,15 @@ function TemplateImportDialog({
     setFileName(nextFileName);
     setParsed(text.trim() ? parseCrmTemplateCsv(text, nextAudience) : null);
     setCompleted(false);
+    setActiveRowIndex(0);
+    setReviewPanelOpen(false);
     setProcessedCount(0);
     setResults([]);
+    importPauseRequestedRef.current = false;
+    setPauseRequested(false);
+    setAutoImportPaused(false);
+    setExistingTemplates([]);
+    setDuplicateScanError("");
   }
 
   function handleAudienceChange(nextAudience: PartnershipCrmTemplateAudience) {
@@ -675,8 +2229,15 @@ function TemplateImportDialog({
       setFileName(file.name);
       setParsed(parseCrmTemplateCsv(text, audience));
       setCompleted(false);
+      setActiveRowIndex(0);
+      setReviewPanelOpen(false);
       setProcessedCount(0);
       setResults([]);
+      importPauseRequestedRef.current = false;
+      setPauseRequested(false);
+      setAutoImportPaused(false);
+      setExistingTemplates([]);
+      setDuplicateScanError("");
     } catch (error) {
       csvTextRef.current = "";
       setFileName(file.name);
@@ -685,70 +2246,355 @@ function TemplateImportDialog({
         errors: [{ row: 0, message: errorMessage(error) }],
       });
       setCompleted(false);
+      setActiveRowIndex(0);
+      setReviewPanelOpen(false);
       setProcessedCount(0);
       setResults([]);
+      importPauseRequestedRef.current = false;
+      setPauseRequested(false);
+      setAutoImportPaused(false);
+      setExistingTemplates([]);
+      setDuplicateScanError("");
     } finally {
       input.value = "";
     }
   }
 
-  async function handleImport() {
-    if (!canImport) {
+  function mergeResult(
+    currentResults: TemplateImportResult[],
+    nextResult: TemplateImportResult,
+  ) {
+    return [
+      ...currentResults.filter(
+        (result) => result.rowNumber !== nextResult.rowNumber,
+      ),
+      nextResult,
+    ].sort((left, right) => left.rowNumber - right.rowNumber);
+  }
+
+  function nextUnprocessedRowIndex(
+    startIndex: number,
+    nextResults: TemplateImportResult[],
+  ) {
+    const processedRows = new Set(
+      nextResults.map((result) => result.rowNumber),
+    );
+
+    return previewRows.findIndex(
+      (row, index) => index > startIndex && !processedRows.has(row.rowNumber),
+    );
+  }
+
+  function commitImportProgress(
+    rowIndex: number,
+    nextResults: TemplateImportResult[],
+  ) {
+    const nextRowIndex = nextUnprocessedRowIndex(rowIndex, nextResults);
+
+    setResults(nextResults);
+    setProcessedCount(nextResults.length);
+
+    if (nextRowIndex >= 0) {
+      setActiveRowIndex(nextRowIndex);
       return;
     }
 
-    const skippedRows = previewRows
-      .filter((row) => !row.valid)
-      .map<TemplateImportResult>((row) => ({
+    setActiveRowIndex(Math.max(0, previewRows.length - 1));
+    setReviewPanelOpen(false);
+    setCompleted(previewRows.length > 0);
+  }
+
+  function absorbImportedTemplate(result: TemplateImportResult) {
+    if (!result.template) {
+      return;
+    }
+
+    setExistingTemplates((current) => {
+      const withoutCurrent = current.filter(
+        (template) => template.id !== result.template!.id,
+      );
+      return [...withoutCurrent, result.template!];
+    });
+  }
+
+  async function createTemplateFromRow(row: TemplateImportPreviewRow) {
+    if (!row.valid) {
+      return {
         rowNumber: row.rowNumber,
-        action: "invalid",
+        action: "invalid" as const,
         error: row.errors.join(" "),
-      }));
-    let nextResults = skippedRows;
-    let createdAny = false;
+      };
+    }
+
+    try {
+      const response = await sdkFetch<{
+        template: PartnershipCrmTemplateRecord;
+      }>("/admin/partnership-crm/templates", {
+        method: "POST",
+        body: JSON.stringify(row.template),
+      });
+
+      return {
+        rowNumber: row.rowNumber,
+        action: "created" as const,
+        templateId: response.template.id,
+        template: response.template,
+      };
+    } catch (error) {
+      return {
+        rowNumber: row.rowNumber,
+        action: "failed" as const,
+        error: errorMessage(error),
+      };
+    }
+  }
+
+  async function mergeTemplateFromRow(row: TemplateImportPreviewRow) {
+    if (!row.valid) {
+      return {
+        rowNumber: row.rowNumber,
+        action: "invalid" as const,
+        error: row.errors.join(" "),
+      };
+    }
+
+    if (!row.duplicateTemplate) {
+      return {
+        rowNumber: row.rowNumber,
+        action: "failed" as const,
+        error: "No duplicate template was found for this row.",
+      };
+    }
+
+    try {
+      const response = await sdkFetch<{
+        template: PartnershipCrmTemplateRecord;
+      }>(
+        `/admin/partnership-crm/templates/${encodeURIComponent(
+          row.duplicateTemplate.id,
+        )}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(
+            mergeCrmTemplateInputWithExisting(
+              row.duplicateTemplate,
+              row.template,
+            ),
+          ),
+        },
+      );
+
+      return {
+        rowNumber: row.rowNumber,
+        action: "updated" as const,
+        templateId: response.template.id,
+        template: response.template,
+      };
+    } catch (error) {
+      return {
+        rowNumber: row.rowNumber,
+        action: "failed" as const,
+        error: errorMessage(error),
+      };
+    }
+  }
+
+  async function importTemplateFromRow(row: TemplateImportPreviewRow) {
+    return row.duplicateTemplate
+      ? mergeTemplateFromRow(row)
+      : createTemplateFromRow(row);
+  }
+
+  async function handleAddCurrentRow() {
+    if (!currentRow || currentRowResult || importing) {
+      return;
+    }
 
     setCompleted(false);
+    setAutoImportPaused(false);
     setImporting(true);
-    setProcessedCount(0);
-    setResults(nextResults);
-
-    for (const [index, row] of validRows.entries()) {
-      try {
-        const response = await sdkFetch<{
-          template: PartnershipCrmTemplateRecord;
-        }>("/admin/partnership-crm/templates", {
-          method: "POST",
-          body: JSON.stringify(row.template),
-        });
-        nextResults = [
-          ...nextResults,
-          {
-            rowNumber: row.rowNumber,
-            action: "created",
-            templateId: response.template.id,
-          },
-        ];
-        createdAny = true;
-      } catch (error) {
-        nextResults = [
-          ...nextResults,
-          {
-            rowNumber: row.rowNumber,
-            action: "failed",
-            error: errorMessage(error),
-          },
-        ];
-      }
-
-      setResults(nextResults);
-      setProcessedCount(index + 1);
-    }
-
+    const result = await importTemplateFromRow(currentRow);
+    const nextResults = mergeResult(results, result);
+    absorbImportedTemplate(result);
     setImporting(false);
-    setCompleted(true);
-    if (createdAny) {
+    commitImportProgress(activeRowIndex, nextResults);
+
+    if (result.action === "created" || result.action === "updated") {
       onImported();
     }
+  }
+
+  function handleSkipCurrentRow() {
+    if (!currentRow || currentRowResult || importing) {
+      return;
+    }
+
+    const result: TemplateImportResult = currentRow.valid
+      ? {
+          rowNumber: currentRow.rowNumber,
+          action: "skipped",
+          error: "Skipped during interactive review.",
+        }
+      : {
+          rowNumber: currentRow.rowNumber,
+          action: "invalid",
+          error: currentRow.errors.join(" "),
+        };
+
+    setAutoImportPaused(false);
+    commitImportProgress(activeRowIndex, mergeResult(results, result));
+  }
+
+  function handleReviewRemainingOneByOne() {
+    if (!canImportRemaining) {
+      return;
+    }
+
+    const currentIsPending =
+      currentRow && !resultByRow.has(currentRow.rowNumber);
+    if (currentIsPending) {
+      setCompleted(false);
+      setAutoImportPaused(false);
+      setReviewPanelOpen(true);
+      return;
+    }
+
+    const nextRowIndex = nextUnprocessedRowIndex(-1, results);
+    if (nextRowIndex >= 0) {
+      setCompleted(false);
+      setAutoImportPaused(false);
+      setReviewPanelOpen(true);
+      setActiveRowIndex(nextRowIndex);
+    }
+  }
+
+  function handlePauseImport() {
+    if (!importing) {
+      return;
+    }
+
+    importPauseRequestedRef.current = true;
+    setPauseRequested(true);
+  }
+
+  function handlePreviousRow() {
+    if (importing || activeRowIndex <= 0) {
+      return;
+    }
+
+    setActiveRowIndex(activeRowIndex - 1);
+    setReviewPanelOpen(true);
+    setAutoImportPaused(false);
+  }
+
+  function handleNextPendingRow() {
+    if (importing) {
+      return;
+    }
+
+    const nextAfterCurrent = nextUnprocessedRowIndex(activeRowIndex, results);
+    const firstPending = nextUnprocessedRowIndex(-1, results);
+    const nextRowIndex =
+      nextAfterCurrent >= 0
+        ? nextAfterCurrent
+        : firstPending !== activeRowIndex
+          ? firstPending
+          : -1;
+
+    if (nextRowIndex >= 0) {
+      setActiveRowIndex(nextRowIndex);
+      setReviewPanelOpen(true);
+      setAutoImportPaused(false);
+    }
+  }
+
+  async function importRowsInSequence({
+    startIndex,
+  }: {
+    startIndex: number;
+  }) {
+    if (!canImportRemaining) {
+      return;
+    }
+
+    let workingResults = results;
+    let changedAny = false;
+    let paused = false;
+
+    importPauseRequestedRef.current = false;
+    setPauseRequested(false);
+    setAutoImportPaused(false);
+    setCompleted(false);
+    setReviewPanelOpen(true);
+    setImporting(true);
+
+    for (
+      let rowIndex = startIndex;
+      rowIndex < previewRows.length;
+      rowIndex += 1
+    ) {
+      const row = previewRows[rowIndex];
+      if (
+        !row ||
+        workingResults.some((result) => result.rowNumber === row.rowNumber)
+      ) {
+        continue;
+      }
+
+      if (importPauseRequestedRef.current) {
+        paused = true;
+        break;
+      }
+
+      setActiveRowIndex(rowIndex);
+      const result = await importTemplateFromRow(row);
+      workingResults = mergeResult(workingResults, result);
+      absorbImportedTemplate(result);
+      changedAny =
+        changedAny ||
+        result.action === "created" ||
+        result.action === "updated";
+      setResults(workingResults);
+      setProcessedCount(workingResults.length);
+
+      if (importPauseRequestedRef.current) {
+        paused = true;
+        break;
+      }
+    }
+
+    importPauseRequestedRef.current = false;
+    setImporting(false);
+    setPauseRequested(false);
+
+    if (paused) {
+      const nextRowIndex = nextUnprocessedRowIndex(-1, workingResults);
+      if (nextRowIndex >= 0) {
+        setActiveRowIndex(nextRowIndex);
+      }
+      setReviewPanelOpen(true);
+      setCompleted(false);
+      setAutoImportPaused(true);
+    } else {
+      setActiveRowIndex(Math.max(0, previewRows.length - 1));
+      setReviewPanelOpen(false);
+      setCompleted(previewRows.length > 0);
+      setAutoImportPaused(false);
+    }
+
+    if (changedAny) {
+      onImported();
+    }
+  }
+
+  async function handleImportAll() {
+    await importRowsInSequence({ startIndex: 0 });
+  }
+
+  async function handleImportAllRemaining() {
+    await importRowsInSequence({
+      startIndex: activeRowIndex,
+    });
   }
 
   return (
@@ -815,13 +2661,21 @@ function TemplateImportDialog({
                   <div className="h-full rounded-full bg-emerald-600" />
                 </div>
 
-                <div className="mt-5 grid gap-3 text-sm sm:grid-cols-4">
+                <div className="mt-5 grid gap-3 text-sm sm:grid-cols-6">
                   <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
                       {t("Created templates")}
                     </p>
                     <p className="mt-2 text-2xl font-semibold">
                       {createdCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
+                      {t("Updated")}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {updatedCount}
                     </p>
                   </div>
                   <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
@@ -838,6 +2692,14 @@ function TemplateImportDialog({
                     </p>
                     <p className="mt-2 text-2xl font-semibold">
                       {invalidCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900/58 dark:text-emerald-50/58">
+                      {t("Skipped rows")}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {skippedCount}
                     </p>
                   </div>
                   <div className="rounded-xl border border-emerald-200/80 bg-white/76 px-4 py-3 dark:border-emerald-300/16 dark:bg-emerald-950/24">
@@ -915,12 +2777,14 @@ function TemplateImportDialog({
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-5">
+              <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
                 {[
                   { label: "Found", value: previewRows.length },
                   { label: "Valid", value: validRows.length },
                   { label: "Invalid", value: invalidCount },
                   { label: "Created templates", value: createdCount },
+                  { label: "Updated", value: updatedCount },
+                  { label: "Skipped rows", value: skippedCount },
                   { label: "Failed rows", value: failedCount },
                 ].map((item) => (
                   <div
@@ -935,18 +2799,84 @@ function TemplateImportDialog({
                 ))}
               </div>
 
-              {parsed && (importing || completed) ? (
+              {parsed && previewRows.length > 0 ? (
                 <div className="rounded-xl border border-border/80 bg-background/70 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-medium">
-                      {completed ? t("Import completed") : t("Importing CSV")}
+                      {duplicateScanLoading
+                        ? t("Checking existing templates")
+                        : importing
+                          ? t("Importing one row at a time")
+                          : t("Ready for review")}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {processedCount} / {validRows.length} {t("templates")}
+                      {processedCount} / {previewRows.length} {t("templates")}
                     </p>
+                    {importing ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePauseImport}
+                        disabled={pauseRequested}
+                      >
+                        <Pause className="h-4 w-4" />
+                        {pauseRequested
+                          ? t("Pausing after current row")
+                          : t("Pause after current row")}
+                      </Button>
+                    ) : null}
                   </div>
                   <Progress value={progressValue} className="mt-3 h-2" />
                 </div>
+              ) : null}
+
+              {parsed && previewRows.length > 0 ? (
+                <div
+                  className={cn(
+                    "rounded-xl border p-3",
+                    autoImportPaused
+                      ? "border-blue-200 bg-blue-50/85 text-blue-950 dark:border-blue-300/25 dark:bg-blue-400/12 dark:text-blue-50"
+                      : "border-border/80 bg-muted/20",
+                  )}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ListChecks className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-semibold">
+                          {autoImportPaused
+                            ? t("Automatic import paused.")
+                            : t("Automatic duplicate handling")}
+                        </p>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {autoImportPaused
+                          ? t(
+                              "Automatic import paused. Review the current row, then continue with pending rows when ready.",
+                            )
+                          : t(
+                              "When a CSV row matches an existing template, automatic import overwrites that template's subject and body from the CSV instead of creating a duplicate.",
+                            )}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {t(
+                          "CSV subject and body overwrite existing values when present; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
+                        )}
+                      </p>
+                    </div>
+                    <Badge variant={autoImportPaused ? "default" : "outline"}>
+                      {t("Overwrite subject and body")}
+                    </Badge>
+                  </div>
+                </div>
+              ) : null}
+
+              {duplicateScanError ? (
+                <ErrorBanner>
+                  {t("Unable to check existing templates for duplicates.")}{" "}
+                  {duplicateScanError}
+                </ErrorBanner>
               ) : null}
 
               {headerErrors.length > 0 ? (
@@ -955,116 +2885,110 @@ function TemplateImportDialog({
                 </ErrorBanner>
               ) : null}
 
-              <div className="max-h-[360px] overflow-auto rounded-xl border border-border/80 bg-background/64">
-                {previewRows.length === 0 ? (
+              {reviewPanelOpen ? (
+                currentRow ? (
+                  <TemplateImportReviewCard
+                    row={currentRow}
+                    rowIndex={activeRowIndex}
+                    totalRows={previewRows.length}
+                    result={currentRowResult}
+                    importing={importing}
+                    checkingDuplicates={duplicateScanLoading}
+                    onAdd={handleAddCurrentRow}
+                    onSkip={handleSkipCurrentRow}
+                    onImportAllRemaining={handleImportAllRemaining}
+                    onPauseImport={handlePauseImport}
+                    onPreviousRow={handlePreviousRow}
+                    onNextPendingRow={handleNextPendingRow}
+                    hasPreviousRow={activeRowIndex > 0}
+                    hasNextPendingRow={previewRows.some(
+                      (row, index) =>
+                        index !== activeRowIndex &&
+                        !resultByRow.has(row.rowNumber),
+                    )}
+                    pauseRequested={pauseRequested}
+                    language={language}
+                  />
+                ) : (
+                  <EmptyState>{t("No import rows found.")}</EmptyState>
+                )
+              ) : parsed && previewRows.length === 0 ? (
+                <EmptyState>{t("No import rows found.")}</EmptyState>
+              ) : null}
+
+              <div className="rounded-xl border border-border/80 bg-background/64 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="font-heading text-sm font-semibold">
+                    {t("Import queue")}
+                  </h3>
+                  <span className="text-xs text-muted-foreground">
+                    {visiblePreviewRows.length} / {previewRows.length}{" "}
+                    {t("rows")}
+                  </span>
+                </div>
+                {visiblePreviewRows.length === 0 ? (
                   <EmptyState>{t("No import rows found.")}</EmptyState>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("Row")}</TableHead>
-                        <TableHead>{t("Template")}</TableHead>
-                        <TableHead className="w-10">
-                          <span className="sr-only">{t("Favorite")}</span>
-                        </TableHead>
-                        <TableHead>{t("Applies to")}</TableHead>
-                        <TableHead>{t("Category")}</TableHead>
-                        <TableHead>{t("Subject")}</TableHead>
-                        <TableHead>{t("Message")}</TableHead>
-                        <TableHead>{t("Status")}</TableHead>
-                        <TableHead>{t("Import")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {visiblePreviewRows.map((row) => {
-                        const result = resultByRow.get(row.rowNumber);
-                        const resultLabel = result
-                          ? result.action === "created"
-                            ? "Created"
-                            : result.action === "invalid"
-                              ? "Invalid"
-                              : "Failed"
-                          : row.valid
-                            ? "Ready"
-                            : "Invalid";
+                  <div className="mt-3 grid max-h-56 gap-2 overflow-auto pr-1">
+                    {visiblePreviewRows.map((row, index) => {
+                      const result = resultByRow.get(row.rowNumber);
+                      const resultLabel = result
+                        ? result.action === "created"
+                          ? "Row imported"
+                          : result.action === "updated"
+                            ? "Row updated"
+                            : result.action === "skipped"
+                              ? "Row skipped"
+                              : result.action === "invalid"
+                                ? "Row invalid"
+                                : "Failed"
+                        : row.valid
+                          ? "Ready"
+                          : "Row invalid";
 
-                        return (
-                          <TableRow key={row.rowNumber}>
-                            <TableCell className="font-mono text-xs">
-                              {row.rowNumber}
-                            </TableCell>
-                            <TableCell className="min-w-48 whitespace-normal">
-                              <p className="font-medium">{row.template.name}</p>
-                              {row.template.notes ? (
-                                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                                  {row.template.notes}
-                                </p>
-                              ) : null}
-                            </TableCell>
-                            <TableCell>
-                              <FavoriteCell
-                                isFavorite={Boolean(row.template.is_favorite)}
-                                language={language}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {row.template.audience === "professionals"
-                                  ? t("Professionals")
-                                  : t("Organizations")}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="min-w-44 whitespace-normal text-sm text-muted-foreground">
-                              {formatCrmCategory(
-                                row.template.category ?? "",
-                                language,
-                                row.template.audience ?? "organizations",
-                              ) || t("No category")}
-                            </TableCell>
-                            <TableCell className="min-w-56 whitespace-normal text-sm">
-                              {row.template.subject || "-"}
-                            </TableCell>
-                            <TableCell className="min-w-72 whitespace-normal">
-                              <p className="max-h-16 overflow-hidden whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
-                                {row.template.body || "-"}
-                              </p>
-                            </TableCell>
-                            <TableCell>
-                              <TemplateStatusBadge
-                                status={row.template.status ?? "active"}
-                                language={language}
-                              />
-                            </TableCell>
-                            <TableCell className="min-w-36 whitespace-normal">
-                              <Badge
-                                variant={
-                                  result
-                                    ? templateImportResultTone(result)
-                                    : row.valid
-                                      ? "success"
-                                      : "destructive"
-                                }
-                              >
-                                {t(resultLabel)}
-                              </Badge>
-                              {row.errors.length > 0 ? (
-                                <p className="mt-1 text-xs text-destructive">
-                                  {row.errors
-                                    .map((error) => t(error))
-                                    .join(" ")}
-                                </p>
-                              ) : null}
-                              {result?.action === "failed" && result.error ? (
-                                <p className="mt-1 text-xs text-destructive">
-                                  {result.error}
-                                </p>
-                              ) : null}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                      return (
+                        <button
+                          key={row.rowNumber}
+                          type="button"
+                          className={cn(
+                            "grid grid-cols-[4rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
+                            index === activeRowIndex
+                              ? "border-blue-300 bg-blue-50 text-blue-950 dark:border-blue-300/35 dark:bg-blue-400/12 dark:text-blue-50"
+                              : "border-border/70 bg-background/60 hover:bg-muted/45",
+                          )}
+                          onClick={() => {
+                            setActiveRowIndex(index);
+                            setReviewPanelOpen(true);
+                            setCompleted(false);
+                          }}
+                          disabled={importing}
+                        >
+                          <span className="font-mono text-xs">
+                            {t("Row")} {row.rowNumber}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-medium">
+                              {row.template.name || t("Untitled template")}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                              {row.template.subject || t("No subject")}
+                            </span>
+                          </span>
+                          <Badge
+                            variant={
+                              result
+                                ? templateImportResultTone(result)
+                                : row.valid
+                                  ? "success"
+                                  : "destructive"
+                            }
+                          >
+                            {t(resultLabel)}
+                          </Badge>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
               {previewRows.length > visiblePreviewRows.length ? (
@@ -1109,18 +3033,31 @@ function TemplateImportDialog({
               >
                 {t("Cancel")}
               </Button>
-              <Button
-                type="button"
-                size="lg"
-                onClick={handleImport}
-                disabled={!canImport}
-                className={TEMPLATE_IMPORT_CTA_CLASS}
-              >
-                <FileUp className="h-4 w-4" />
-                {importing
-                  ? t("Importing...")
-                  : `${t("Import")} ${validRows.length} ${t("templates")}`}
-              </Button>
+              {!reviewPanelOpen ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleReviewRemainingOneByOne}
+                  disabled={!canImportRemaining}
+                >
+                  <FileText className="h-4 w-4" />
+                  {t("Evaluate one by one")}
+                </Button>
+              ) : null}
+              {!reviewPanelOpen ? (
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={handleImportAll}
+                  disabled={!canImportRemaining}
+                  className={TEMPLATE_IMPORT_CTA_CLASS}
+                >
+                  <FileUp className="h-4 w-4" />
+                  {importing
+                    ? t("Importing...")
+                    : t("Import all - overwrite duplicate subject/body")}
+                </Button>
+              ) : null}
             </>
           )}
         </DialogFooter>
@@ -1133,6 +3070,23 @@ export function PartnershipCrmTemplateBrowser() {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const queryClient = useQueryClient();
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    null,
+  );
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [previewPanelOpen, setPreviewPanelOpen] = useState(false);
+  const templateSplitPaneRef = useRef<HTMLDivElement | null>(null);
+  const [templatePanelWidthPercent, setTemplatePanelWidthPercent] = useState(
+    TEMPLATE_DETAIL_PANEL_DEFAULT_WIDTH_PERCENT,
+  );
+  const [templatePanelResizing, setTemplatePanelResizing] = useState(false);
+  const [deleteTarget, setDeleteTarget] =
+    useState<PartnershipCrmTemplateRecord | null>(null);
+  const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [toast, setToast] = useState<ActionToastState | null>(null);
   const [filters, setFilters] = useState<TemplateFilters>({
     query: "",
     audience: "organizations",
@@ -1155,6 +3109,32 @@ export function PartnershipCrmTemplateBrowser() {
     () => favoriteFirstRecords(templatesQuery.data?.templates ?? []),
     [templatesQuery.data?.templates],
   );
+  const selectedTemplate = selectedTemplateId
+    ? (templates.find((template) => template.id === selectedTemplateId) ?? null)
+    : null;
+  const selectedTemplates = useMemo(
+    () => templates.filter((template) => selectedTemplateIds.has(template.id)),
+    [selectedTemplateIds, templates],
+  );
+  const selectedTemplateIdList = useMemo(
+    () => Array.from(selectedTemplateIds),
+    [selectedTemplateIds],
+  );
+  const selectedVisibleTemplateCount = selectedTemplates.length;
+  const allVisibleTemplatesSelected =
+    templates.length > 0 && selectedVisibleTemplateCount === templates.length;
+  const someVisibleTemplatesSelected =
+    selectedVisibleTemplateCount > 0 &&
+    selectedVisibleTemplateCount < templates.length;
+  const showPreviewPanel = Boolean(previewPanelOpen && selectedTemplate);
+  const templateSplitPaneStyle = showPreviewPanel
+    ? ({
+        "--crm-template-list-panel-width": `${
+          100 - templatePanelWidthPercent
+        }fr`,
+        "--crm-template-detail-panel-width": `${templatePanelWidthPercent}fr`,
+      } as CSSProperties)
+    : undefined;
   const statusCounts = useMemo(
     () =>
       Object.fromEntries(
@@ -1167,13 +3147,357 @@ export function PartnershipCrmTemplateBrowser() {
     [templates],
   );
 
+  const quickUpdateMutation = useMutation({
+    mutationFn: ({
+      template,
+      patch,
+    }: {
+      template: PartnershipCrmTemplateRecord;
+      patch: TemplateQuickPatch;
+    }) =>
+      sdkFetch<{ template: PartnershipCrmTemplateRecord }>(
+        `/admin/partnership-crm/templates/${encodeURIComponent(template.id)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(templateInputFromRecord(template, patch)),
+        },
+      ),
+    onSuccess: (result) => {
+      updateCachedTemplateListPages(queryClient, (templates) =>
+        templates.map((template) =>
+          template.id === result.template.id ? result.template : template,
+        ),
+      );
+      setSelectedTemplateId(result.template.id);
+      setNotesDraft(result.template.notes);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("Template saved."),
+      });
+    },
+    onError: (error) => {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to save template."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (template: PartnershipCrmTemplateRecord) =>
+      sdkFetch<{ deleted: boolean; templateId: string }>(
+        `/admin/partnership-crm/templates/${encodeURIComponent(template.id)}`,
+        { method: "DELETE" },
+      ),
+    onSuccess: (_result, template) => {
+      setDeleteTarget(null);
+      setSelectedTemplateId((current) =>
+        current === template.id ? null : current,
+      );
+      setPreviewPanelOpen(false);
+      queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("Template deleted."),
+      });
+    },
+    onError: (error) => {
+      setDeleteTarget(null);
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to delete template."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
+  const deleteSelectedTemplatesMutation = useMutation({
+    mutationFn: (templateIds: string[]) =>
+      Promise.all(
+        templateIds.map((templateId) =>
+          sdkFetch<{ deleted: boolean; templateId: string }>(
+            `/admin/partnership-crm/templates/${encodeURIComponent(
+              templateId,
+            )}`,
+            { method: "DELETE" },
+          ),
+        ),
+      ),
+    onSuccess: (_result, templateIds) => {
+      const deletedIds = new Set(templateIds);
+      setDeleteSelectedOpen(false);
+      setSelectedTemplateIds(new Set());
+      setDeleteTarget((current) =>
+        current && deletedIds.has(current.id) ? null : current,
+      );
+
+      if (selectedTemplateId && deletedIds.has(selectedTemplateId)) {
+        setSelectedTemplateId(null);
+        setPreviewPanelOpen(false);
+      }
+
+      updateCachedTemplateListPages(queryClient, (templates) =>
+        templates.filter((template) => !deletedIds.has(template.id)),
+      );
+      queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: `${templateIds.length} ${
+          templateIds.length === 1
+            ? t("template deleted.")
+            : t("templates deleted.")
+        }`,
+      });
+    },
+    onError: (error) => {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to delete selected templates."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
+  const updateSelectedTemplatesFavoriteMutation = useMutation({
+    mutationFn: ({
+      templates,
+      isFavorite,
+    }: {
+      templates: PartnershipCrmTemplateRecord[];
+      isFavorite: boolean;
+    }) =>
+      Promise.all(
+        templates.map((template) =>
+          sdkFetch<{ template: PartnershipCrmTemplateRecord }>(
+            `/admin/partnership-crm/templates/${encodeURIComponent(
+              template.id,
+            )}`,
+            {
+              method: "PUT",
+              body: JSON.stringify(
+                templateInputFromRecord(template, {
+                  is_favorite: isFavorite,
+                }),
+              ),
+            },
+          ),
+        ),
+      ),
+    onSuccess: (results, { isFavorite }) => {
+      const updatedTemplates = new Map(
+        results.map((result) => [result.template.id, result.template]),
+      );
+
+      updateCachedTemplateListPages(queryClient, (templates) =>
+        templates.map(
+          (template) => updatedTemplates.get(template.id) ?? template,
+        ),
+      );
+      queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: isFavorite
+          ? t("Selected templates marked as favorite.")
+          : t("Selected templates marked as not favorite."),
+      });
+    },
+    onError: (error) => {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to update selected templates."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
+  const selectedTemplateActionPending =
+    deleteSelectedTemplatesMutation.isPending ||
+    updateSelectedTemplatesFavoriteMutation.isPending;
+
+  useEffect(() => {
+    if (!selectedTemplateId) {
+      return;
+    }
+    if (!templates.some((template) => template.id === selectedTemplateId)) {
+      setSelectedTemplateId(null);
+      setPreviewPanelOpen(false);
+    }
+  }, [selectedTemplateId, templates]);
+
+  useEffect(() => {
+    setNotesDraft(selectedTemplate?.notes ?? "");
+  }, [selectedTemplate?.id, selectedTemplate?.notes]);
+
+  useEffect(() => {
+    if (selectedTemplateIds.size === 0) {
+      return;
+    }
+
+    const visibleIds = new Set(templates.map((template) => template.id));
+    setSelectedTemplateIds((current) => {
+      const next = new Set(
+        Array.from(current).filter((templateId) => visibleIds.has(templateId)),
+      );
+
+      return next.size === current.size ? current : next;
+    });
+  }, [selectedTemplateIds.size, templates]);
+
+  useEffect(() => {
+    if (!templatePanelResizing) {
+      return;
+    }
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    function handlePointerMove(event: PointerEvent) {
+      event.preventDefault();
+      setTemplatePanelWidthFromClientX(event.clientX);
+    }
+
+    function stopResizing() {
+      setTemplatePanelResizing(false);
+    }
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResizing);
+    window.addEventListener("pointercancel", stopResizing);
+
+    return () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResizing);
+      window.removeEventListener("pointercancel", stopResizing);
+    };
+  }, [templatePanelResizing]);
+
+  function setTemplatePanelWidthFromClientX(clientX: number) {
+    const bounds = templateSplitPaneRef.current?.getBoundingClientRect();
+    if (!bounds || bounds.width <= 0) {
+      return;
+    }
+
+    const nextWidth = ((bounds.right - clientX) / bounds.width) * 100;
+    setTemplatePanelWidthPercent(
+      clampTemplateDetailPanelWidthPercent(Math.round(nextWidth * 10) / 10),
+    );
+  }
+
+  function handleTemplatePanelResizePointerDown(
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    setTemplatePanelWidthFromClientX(event.clientX);
+    setTemplatePanelResizing(true);
+  }
+
+  function adjustTemplatePanelWidth(delta: number) {
+    setTemplatePanelWidthPercent((current) =>
+      clampTemplateDetailPanelWidthPercent(current + delta),
+    );
+  }
+
+  function handleTemplatePanelResizeKeyDown(
+    event: KeyboardEvent<HTMLDivElement>,
+  ) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      adjustTemplatePanelWidth(TEMPLATE_DETAIL_PANEL_KEYBOARD_STEP_PERCENT);
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      adjustTemplatePanelWidth(-TEMPLATE_DETAIL_PANEL_KEYBOARD_STEP_PERCENT);
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      setTemplatePanelWidthPercent(TEMPLATE_DETAIL_PANEL_MIN_WIDTH_PERCENT);
+      return;
+    }
+
+    if (event.key === "End") {
+      event.preventDefault();
+      setTemplatePanelWidthPercent(TEMPLATE_DETAIL_PANEL_MAX_WIDTH_PERCENT);
+    }
+  }
+
   function resetCursorsForFilterChange(patch: Partial<TemplateFilters>) {
     setCursorStack([]);
+    setSelectedTemplateIds(new Set());
+    setDeleteSelectedOpen(false);
     setFilters((current) => ({ ...current, ...patch }));
   }
 
   function handleAudienceChange(audience: PartnershipCrmTemplateAudience) {
+    setSelectedTemplateId(null);
+    setPreviewPanelOpen(false);
+    setSelectedTemplateIds(new Set());
+    setDeleteSelectedOpen(false);
     resetCursorsForFilterChange({ audience, category: "" });
+  }
+
+  function handleTemplateSelect(templateId: string) {
+    setSelectedTemplateId(templateId);
+    setPreviewPanelOpen(true);
+  }
+
+  function handleQuickUpdate(patch: TemplateQuickPatch) {
+    if (!selectedTemplate) {
+      return;
+    }
+
+    quickUpdateMutation.mutate({ template: selectedTemplate, patch });
+  }
+
+  function toggleTemplateSelection(templateId: string) {
+    setSelectedTemplateIds((current) => {
+      const next = new Set(current);
+      if (next.has(templateId)) {
+        next.delete(templateId);
+      } else {
+        next.add(templateId);
+      }
+      return next;
+    });
+  }
+
+  function setVisibleTemplatesSelected(selected: boolean) {
+    setSelectedTemplateIds((current) => {
+      const next = new Set(current);
+      for (const template of templates) {
+        if (selected) {
+          next.add(template.id);
+        } else {
+          next.delete(template.id);
+        }
+      }
+      return next;
+    });
+  }
+
+  function clearSelectedTemplates() {
+    setSelectedTemplateIds(new Set());
+    setDeleteSelectedOpen(false);
   }
 
   return (
@@ -1277,156 +3601,371 @@ export function PartnershipCrmTemplateBrowser() {
         />
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        {CRM_TEMPLATE_STATUS_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() =>
-              resetCursorsForFilterChange({ status: option.value })
-            }
-            className={cn(
-              "rounded-xl border px-3 py-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/40",
-              filters.status === option.value
-                ? "border-foreground/35 bg-muted"
-                : "border-border/80 bg-background/60",
-            )}
-          >
-            <p className="text-xs text-muted-foreground">{t(option.label)}</p>
-            <p className="mt-1 text-lg font-semibold">
-              {statusCounts[option.value]}
-            </p>
-          </button>
-        ))}
-      </div>
-
-      {templatesQuery.error ? (
-        <ErrorBanner>{t("Failed to load templates.")}</ErrorBanner>
-      ) : null}
-
-      <div className="overflow-hidden rounded-xl border border-border/80 bg-background/64">
-        {templatesQuery.isFetching && templates.length === 0 ? (
-          <div className="grid gap-2 p-3">
-            {Array.from({ length: 7 }).map((_, index) => (
-              <Skeleton key={index} className="h-12 rounded-lg" />
+      <div
+        ref={templateSplitPaneRef}
+        data-testid="crm-template-split-pane"
+        className={cn(
+          "grid gap-4",
+          showPreviewPanel &&
+            "xl:h-[calc(100vh_-_var(--app-header-height)_-_2rem)] xl:min-h-0 xl:grid-cols-[minmax(0,var(--crm-template-list-panel-width))_1rem_minmax(0,var(--crm-template-detail-panel-width))] xl:items-stretch xl:gap-0 xl:overflow-hidden",
+        )}
+        style={templateSplitPaneStyle}
+      >
+        <div
+          className={cn(
+            "grid content-start gap-4",
+            showPreviewPanel &&
+              "xl:flex xl:min-h-0 xl:flex-col xl:overflow-visible xl:pr-2",
+          )}
+        >
+          <div className="grid gap-2 sm:grid-cols-3">
+            {CRM_TEMPLATE_STATUS_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() =>
+                  resetCursorsForFilterChange({ status: option.value })
+                }
+                className={cn(
+                  "rounded-xl border px-3 py-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/40",
+                  filters.status === option.value
+                    ? "border-foreground/35 bg-muted"
+                    : "border-border/80 bg-background/60",
+                )}
+              >
+                <p className="text-xs text-muted-foreground">
+                  {t(option.label)}
+                </p>
+                <p className="mt-1 text-lg font-semibold">
+                  {statusCounts[option.value]}
+                </p>
+              </button>
             ))}
           </div>
-        ) : templates.length === 0 ? (
-          <EmptyState>
-            <span className="block">{t("No templates found.")}</span>
-            <Button type="button" size="sm" asChild className="mt-3">
-              <Link href="/god-mode/plantillas/new">
-                <Plus className="h-3.5 w-3.5" />
-                {t("Alta de plantilla")}
-              </Link>
-            </Button>
-          </EmptyState>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("Template")}</TableHead>
-                <TableHead className="w-10">
-                  <span className="sr-only">{t("Favorite")}</span>
-                </TableHead>
-                <TableHead>{t("Applies to")}</TableHead>
-                <TableHead>{t("Status")}</TableHead>
-                <TableHead>{t("Category")}</TableHead>
-                <TableHead>{t("Updated")}</TableHead>
-                <TableHead>{t("Notes")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {templates.map((template) => (
-                <TableRow key={template.id}>
-                  <TableCell className="whitespace-normal">
-                    <Link
-                      href={`/god-mode/plantillas/${encodeURIComponent(
-                        template.id,
-                      )}`}
-                      className="block max-w-[320px] text-left"
-                    >
-                      <span className="block truncate font-medium text-foreground">
-                        {template.name}
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                        {template.subject || t("No subject")}
-                      </span>
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <FavoriteCell
-                      isFavorite={template.is_favorite}
-                      language={language}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {template.audience === "professionals"
-                        ? t("Professionals")
-                        : t("Organizations")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <TemplateStatusBadge
-                      status={template.status}
-                      language={language}
-                    />
-                  </TableCell>
-                  <TableCell className="whitespace-normal text-sm text-muted-foreground">
-                    {formatCrmCategory(
-                      template.category,
-                      language,
-                      template.audience ?? "organizations",
-                    ) || t("No category")}
-                  </TableCell>
-                  <TableCell className="whitespace-normal text-sm text-muted-foreground">
-                    {formatDateTime(template.updatedAt, language)}
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    <p className="line-clamp-2 max-w-[280px] text-xs text-muted-foreground">
-                      {template.notes || "-"}
-                    </p>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setCursorStack((current) => current.slice(0, -1))}
-          disabled={cursorStack.length === 0 || templatesQuery.isFetching}
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          {t("Previous")}
-        </Button>
-        <span className="text-xs text-muted-foreground">
-          {templates.length} {t("visible")}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            templatesQuery.data?.nextCursor &&
-            setCursorStack((current) => [
-              ...current,
-              templatesQuery.data!.nextCursor!,
-            ])
-          }
-          disabled={
-            !templatesQuery.data?.nextCursor || templatesQuery.isFetching
-          }
-        >
-          {t("Load more")}
-          <ChevronRight className="h-3.5 w-3.5" />
-        </Button>
+          {templatesQuery.error ? (
+            <ErrorBanner>{t("Failed to load templates.")}</ErrorBanner>
+          ) : null}
+
+          <div
+            className={cn(
+              "overflow-hidden rounded-xl border border-border/80 bg-background/64",
+              showPreviewPanel &&
+                "xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-auto",
+            )}
+          >
+            {templatesQuery.isFetching && templates.length === 0 ? (
+              <div className="grid gap-2 p-3">
+                {Array.from({ length: 7 }).map((_, index) => (
+                  <Skeleton key={index} className="h-12 rounded-lg" />
+                ))}
+              </div>
+            ) : templates.length === 0 ? (
+              <EmptyState>
+                <span className="block">{t("No templates found.")}</span>
+                <Button type="button" size="sm" asChild className="mt-3">
+                  <Link href="/god-mode/plantillas/new">
+                    <Plus className="h-3.5 w-3.5" />
+                    {t("Alta de plantilla")}
+                  </Link>
+                </Button>
+              </EmptyState>
+            ) : (
+              <>
+                {selectedTemplateIds.size > 0 ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/80 bg-muted/35 px-3 py-2">
+                    <p className="text-sm font-medium text-foreground">
+                      {selectedTemplateIds.size}{" "}
+                      {t(
+                        selectedTemplateIds.size === 1
+                          ? "template selected"
+                          : "templates selected",
+                      )}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearSelectedTemplates}
+                        disabled={selectedTemplateActionPending}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        {t("Clear selected")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateSelectedTemplatesFavoriteMutation.mutate({
+                            templates: selectedTemplates,
+                            isFavorite: true,
+                          })
+                        }
+                        disabled={
+                          selectedTemplateActionPending ||
+                          selectedTemplates.length === 0
+                        }
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                        {updateSelectedTemplatesFavoriteMutation.isPending
+                          ? t("Updating...")
+                          : t("Mark selected as favorite")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateSelectedTemplatesFavoriteMutation.mutate({
+                            templates: selectedTemplates,
+                            isFavorite: false,
+                          })
+                        }
+                        disabled={
+                          selectedTemplateActionPending ||
+                          selectedTemplates.length === 0
+                        }
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                        {updateSelectedTemplatesFavoriteMutation.isPending
+                          ? t("Updating...")
+                          : t("Mark selected as not favorite")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setDeleteSelectedOpen(true)}
+                        disabled={selectedTemplateActionPending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {t("Delete selected")}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          aria-label={t("Select all visible templates")}
+                          checked={
+                            allVisibleTemplatesSelected
+                              ? true
+                              : someVisibleTemplatesSelected
+                                ? "indeterminate"
+                                : false
+                          }
+                          disabled={selectedTemplateActionPending}
+                          onCheckedChange={(checked) =>
+                            setVisibleTemplatesSelected(checked === true)
+                          }
+                        />
+                      </TableHead>
+                      <TableHead>{t("Template")}</TableHead>
+                      <TableHead className="w-10">
+                        <span className="sr-only">{t("Favorite")}</span>
+                      </TableHead>
+                      <TableHead>{t("Applies to")}</TableHead>
+                      <TableHead>{t("Status")}</TableHead>
+                      <TableHead>{t("Category")}</TableHead>
+                      <TableHead>{t("Updated")}</TableHead>
+                      <TableHead>{t("Notes")}</TableHead>
+                      <TableHead className="w-28">
+                        <span className="sr-only">{t("Actions")}</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {templates.map((template) => {
+                      const isSelected =
+                        showPreviewPanel &&
+                        selectedTemplate?.id === template.id;
+                      const isBatchSelected = selectedTemplateIds.has(
+                        template.id,
+                      );
+
+                      return (
+                        <TableRow
+                          key={template.id}
+                          data-state={
+                            isSelected || isBatchSelected
+                              ? "selected"
+                              : undefined
+                          }
+                          className={cn(
+                            "cursor-pointer",
+                            isSelected &&
+                              "bg-sky-50/80 hover:bg-sky-50 dark:bg-sky-400/10 dark:hover:bg-sky-400/12",
+                          )}
+                          onClick={() => handleTemplateSelect(template.id)}
+                        >
+                          <TableCell>
+                            <Checkbox
+                              aria-label={`${t("Select template")}: ${
+                                template.name
+                              }`}
+                              checked={isBatchSelected}
+                              disabled={selectedTemplateActionPending}
+                              onClick={(event) => event.stopPropagation()}
+                              onCheckedChange={() =>
+                                toggleTemplateSelection(template.id)
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            <button
+                              type="button"
+                              className="block max-w-[320px] text-left"
+                              onClick={() => handleTemplateSelect(template.id)}
+                            >
+                              <span className="block truncate font-medium text-foreground">
+                                {template.name}
+                              </span>
+                              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                                {template.subject || t("No subject")}
+                              </span>
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            <FavoriteCell
+                              isFavorite={template.is_favorite}
+                              language={language}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {template.audience === "professionals"
+                                ? t("Professionals")
+                                : t("Organizations")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <TemplateStatusBadge
+                              status={template.status}
+                              language={language}
+                            />
+                          </TableCell>
+                          <TableCell className="whitespace-normal text-sm text-muted-foreground">
+                            {formatCrmCategory(
+                              template.category,
+                              language,
+                              template.audience ?? "organizations",
+                            ) || t("No category")}
+                          </TableCell>
+                          <TableCell className="whitespace-normal text-sm text-muted-foreground">
+                            {formatDateTime(template.updatedAt, language)}
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            <p className="line-clamp-2 max-w-[280px] text-xs text-muted-foreground">
+                              {template.notes || "-"}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="xs"
+                              asChild
+                            >
+                              <Link
+                                href={`/god-mode/plantillas/${encodeURIComponent(
+                                  template.id,
+                                )}`}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                {t("Edit")}
+                              </Link>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCursorStack((current) => current.slice(0, -1))}
+              disabled={cursorStack.length === 0 || templatesQuery.isFetching}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              {t("Previous")}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {templates.length} {t("visible")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                templatesQuery.data?.nextCursor &&
+                setCursorStack((current) => [
+                  ...current,
+                  templatesQuery.data!.nextCursor!,
+                ])
+              }
+              disabled={
+                !templatesQuery.data?.nextCursor || templatesQuery.isFetching
+              }
+            >
+              {t("Load more")}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+
+        {showPreviewPanel ? (
+          <div
+            role="separator"
+            tabIndex={0}
+            aria-label={t("Resize template preview panel")}
+            aria-orientation="vertical"
+            aria-valuemin={Math.round(TEMPLATE_DETAIL_PANEL_MIN_WIDTH_PERCENT)}
+            aria-valuemax={Math.round(TEMPLATE_DETAIL_PANEL_MAX_WIDTH_PERCENT)}
+            aria-valuenow={Math.round(templatePanelWidthPercent)}
+            className={cn(
+              "group hidden cursor-col-resize touch-none select-none items-center justify-center self-stretch rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/45 xl:flex",
+              templatePanelResizing && "bg-primary/8",
+            )}
+            onPointerDown={handleTemplatePanelResizePointerDown}
+            onKeyDown={handleTemplatePanelResizeKeyDown}
+          >
+            <div
+              className={cn(
+                "flex h-16 w-4 items-center justify-center rounded-full border border-border/80 bg-background/90 text-muted-foreground shadow-sm transition-colors group-hover:border-primary/45 group-hover:text-foreground group-focus-visible:border-primary/60",
+                templatePanelResizing && "border-primary/60 text-foreground",
+              )}
+            >
+              <GripVertical className="h-4 w-4" />
+            </div>
+          </div>
+        ) : null}
+
+        {showPreviewPanel && selectedTemplate ? (
+          <TemplatePreviewSidePanel
+            template={selectedTemplate}
+            notesDraft={notesDraft}
+            onNotesDraftChange={setNotesDraft}
+            onQuickUpdate={handleQuickUpdate}
+            onDelete={() => setDeleteTarget(selectedTemplate)}
+            onClose={() => setPreviewPanelOpen(false)}
+            pending={quickUpdateMutation.isPending}
+            deletePending={deleteMutation.isPending}
+            language={language}
+          />
+        ) : null}
       </div>
 
       <TemplateImportDialog
@@ -1445,6 +3984,120 @@ export function PartnershipCrmTemplateBrowser() {
         language={language}
         kind="templates"
         audience={filters.audience}
+      />
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="crm-control-surface">
+          <DialogHeader>
+            <DialogTitle>{t("Delete template")}</DialogTitle>
+            <DialogDescription>
+              {t("This removes the template from the CRM send flow.")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleteMutation.isPending}
+            >
+              {t("Cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() =>
+                deleteTarget && deleteMutation.mutate(deleteTarget)
+              }
+              disabled={!deleteTarget || deleteMutation.isPending}
+            >
+              <Trash2 className="h-4 w-4" />
+              {deleteMutation.isPending ? t("Deleting...") : t("Delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={deleteSelectedOpen}
+        onOpenChange={(open) => {
+          if (!open && !deleteSelectedTemplatesMutation.isPending) {
+            setDeleteSelectedOpen(false);
+          }
+        }}
+      >
+        <DialogContent className="crm-control-surface">
+          <DialogHeader>
+            <DialogTitle>{t("Delete selected templates")}</DialogTitle>
+            <DialogDescription>
+              {t(
+                "This removes every selected template from the CRM send flow.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-border/80 bg-background/70 p-3">
+            <p className="text-sm font-semibold text-foreground">
+              {selectedTemplateIds.size}{" "}
+              {t(
+                selectedTemplateIds.size === 1
+                  ? "template selected"
+                  : "templates selected",
+              )}
+            </p>
+            <div className="mt-3 grid gap-2">
+              {selectedTemplates.map((template) => (
+                <div
+                  key={template.id}
+                  className="rounded-lg border border-border/70 bg-background px-3 py-2"
+                >
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {template.name}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {template.subject || t("No subject")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteSelectedOpen(false)}
+              disabled={deleteSelectedTemplatesMutation.isPending}
+            >
+              <X className="h-4 w-4" />
+              {t("Cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() =>
+                deleteSelectedTemplatesMutation.mutate(selectedTemplateIdList)
+              }
+              disabled={
+                deleteSelectedTemplatesMutation.isPending ||
+                selectedTemplateIdList.length === 0
+              }
+            >
+              <Trash2 className="h-4 w-4" />
+              {deleteSelectedTemplatesMutation.isPending
+                ? t("Deleting...")
+                : t("Delete selected")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <ActionToast
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        language={language}
       />
     </section>
   );

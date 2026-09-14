@@ -37,8 +37,11 @@ export const CRM_TARGET_OPTIONS = [
   { value: "organizations", label: "Organizations" },
   { value: "professionals", label: "Professionals" },
 ] as const;
+export const CRM_MISSING_CATEGORY_FILTER_VALUE = "__no_category__";
+export const CRM_MISSING_COUNTRY_FILTER_VALUE = "__no_country__";
 
 export type PartnershipCrmStatus = (typeof CRM_STATUS_OPTIONS)[number]["value"];
+export type PartnershipCrmStatusCounts = Record<PartnershipCrmStatus, number>;
 export type PartnershipCrmTemplateStatus =
   (typeof CRM_TEMPLATE_STATUS_OPTIONS)[number]["value"];
 export type PartnershipCrmTargetKind =
@@ -46,7 +49,10 @@ export type PartnershipCrmTargetKind =
 export type PartnershipCrmTemplateAudience = PartnershipCrmTargetKind;
 export type PartnershipCrmCategory = DiscoverOrganizationCategoryKey;
 export type PartnershipCrmProfessionalCategory = DiscoverIndividualCategoryKey;
-export type CrmDuplicateAction = "skip" | "update" | "import";
+export type CrmDuplicateAction =
+  "skip" | "update" | "import" | "fill_missing" | "replace_variables";
+export type PartnershipCrmVisualFilterFacetKey =
+  "status" | "category" | "country" | "linkedInState";
 
 export interface PartnershipCrmOrganizationRecord {
   id: string;
@@ -111,11 +117,13 @@ export interface PartnershipCrmActivityRecord {
 export interface PartnershipCrmOrganizationsPage {
   organizations: PartnershipCrmOrganizationRecord[];
   nextCursor?: string;
+  statusCounts?: Partial<PartnershipCrmStatusCounts>;
 }
 
 export interface PartnershipCrmProfessionalsPage {
   professionals: PartnershipCrmProfessionalRecord[];
   nextCursor?: string;
+  statusCounts?: Partial<PartnershipCrmStatusCounts>;
 }
 
 export interface PartnershipCrmActivitiesPage {
@@ -165,6 +173,25 @@ export interface PartnershipCrmSentEmailLogRecord {
 export interface PartnershipCrmSentEmailLogsPage {
   emails: PartnershipCrmSentEmailLogRecord[];
   nextCursor?: string;
+}
+
+export interface PartnershipCrmVisualFilterBucket {
+  value: string;
+  count: number;
+}
+
+export interface PartnershipCrmVisualFilterFacet {
+  key: PartnershipCrmVisualFilterFacetKey;
+  total: number;
+  buckets: PartnershipCrmVisualFilterBucket[];
+}
+
+export interface PartnershipCrmVisualFilters {
+  targetKind: PartnershipCrmTargetKind;
+  facets: Record<
+    PartnershipCrmVisualFilterFacetKey,
+    PartnershipCrmVisualFilterFacet
+  >;
 }
 
 export interface PartnershipCrmTemplateInput {
@@ -538,6 +565,26 @@ function normalizeCsvBoolean(value: string | undefined) {
   return BOOLEAN_TRUE_ALIASES.has(normalizeKey(value ?? ""));
 }
 
+export function normalizePotentialPocketGenesEditorFit(value: string) {
+  return value
+    .trim()
+    .replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g, "")
+    .replace(
+      /^(?:propuesta\s+editorial|editorial\s+proposal|hook\s+editorial|fit\s+editorial)\s*[:：-]\s*/i,
+      "",
+    )
+    .replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g, "")
+    .replace(/[\s,.;:]+$/g, "")
+    .trim();
+}
+
+function renderPotentialPocketGenesEditorFit(value: string) {
+  return normalizePotentialPocketGenesEditorFit(value)
+    .replace(/["'“”‘’]/g, "")
+    .trim()
+    .toLocaleLowerCase("es-AR");
+}
+
 export function normalizeCrmAudience(
   value: string,
 ): PartnershipCrmTemplateAudience {
@@ -829,8 +876,9 @@ export function parseCrmCsv(
         category: normalizeCrmCategory(row.category ?? "", "professionals"),
         title: row.title?.trim() ?? "",
         primaryAffiliation: row.primaryAffiliation?.trim() ?? "",
-        potentialPocketGenesEditorFit:
-          row.potentialPocketGenesEditorFit?.trim() ?? "",
+        potentialPocketGenesEditorFit: normalizePotentialPocketGenesEditorFit(
+          row.potentialPocketGenesEditorFit ?? "",
+        ),
         emailRoute: row.emailRoute?.trim() ?? "",
         linkedInRoute: row.linkedInRoute?.trim() ?? "",
         researchBasis: row.researchBasis?.trim() ?? "",
@@ -968,6 +1016,56 @@ export function parseCrmTemplateCsv(
   return { rows, errors };
 }
 
+function normalizeTemplateMergeValue(value: string | undefined | null) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function mergeCrmTemplateNotes(
+  existingNotes: string,
+  incomingNotes: string,
+) {
+  const existing = existingNotes.trim();
+  const incoming = incomingNotes.trim();
+
+  if (!existing) {
+    return incoming;
+  }
+  if (
+    !incoming ||
+    normalizeTemplateMergeValue(existing) ===
+      normalizeTemplateMergeValue(incoming)
+  ) {
+    return existing;
+  }
+
+  return `${existing}\n\n--- CSV import ---\n${incoming}`;
+}
+
+export function mergeCrmTemplateInputWithExisting(
+  existing: PartnershipCrmTemplateRecord,
+  incoming: PartnershipCrmTemplateInput,
+): PartnershipCrmTemplateInput {
+  const audience = existing.audience ?? incoming.audience ?? "organizations";
+
+  return {
+    name: existing.name.trim() || incoming.name.trim(),
+    audience,
+    category:
+      normalizeCrmPrimaryCategory(existing.category, audience) ||
+      normalizeCrmPrimaryCategory(incoming.category ?? "", audience),
+    subject: incoming.subject.trim() || existing.subject.trim(),
+    body: incoming.body.trim() || existing.body.trim(),
+    status: existing.status || incoming.status || "active",
+    notes: mergeCrmTemplateNotes(existing.notes, incoming.notes ?? ""),
+    is_favorite: Boolean(existing.is_favorite || incoming.is_favorite),
+  };
+}
+
 function websiteSentence(target: { websiteDomain: string }) {
   if (!target.websiteDomain) {
     return "";
@@ -1024,7 +1122,9 @@ export function renderCrmTemplate(
       targetKind === "professionals" ? professional.primaryAffiliation : "",
     potential_pocket_genes_editor_fit:
       targetKind === "professionals"
-        ? professional.potentialPocketGenesEditorFit
+        ? renderPotentialPocketGenesEditorFit(
+            professional.potentialPocketGenesEditorFit,
+          )
         : "",
     email_route: targetKind === "professionals" ? professional.emailRoute : "",
     linkedin_route:

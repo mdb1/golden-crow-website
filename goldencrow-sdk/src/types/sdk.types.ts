@@ -684,6 +684,22 @@ export type DiscoverPublisherSocialLinks = Partial<
   Record<DiscoverPublisherSocialKey, string>
 >;
 
+export interface DiscoverOrganizationProductCatalogItem {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string | null;
+  imageUploadDataUrl?: string;
+  imageUploadName?: string;
+  imageUploadMimeType?: string;
+  productUrl: string | null;
+  callToActionLabel: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdByUserId?: string;
+  updatedByUserId?: string;
+}
+
 export interface DiscoverOrganizationRecord {
   id: string;
   name: string;
@@ -691,6 +707,10 @@ export interface DiscoverOrganizationRecord {
   imageUploadDataUrl?: string;
   imageUploadName?: string;
   imageUploadMimeType?: string;
+  bannerImageUrl?: string | null;
+  bannerImageUploadDataUrl?: string;
+  bannerImageUploadName?: string;
+  bannerImageUploadMimeType?: string;
   status: DiscoverOrganizationStatus;
   slug?: string;
   websiteUrl?: string;
@@ -703,8 +723,10 @@ export interface DiscoverOrganizationRecord {
   verified: boolean;
   isGeneticReportProvider: boolean;
   geneticReportCategory: string | null;
+  isGrcHighlighted: boolean;
   contactEmail?: string;
   internalNotes?: string;
+  productCatalog?: DiscoverOrganizationProductCatalogItem[];
   createdAt: string;
   updatedAt: string;
   createdByUserId?: string;

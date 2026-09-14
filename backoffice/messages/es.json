@@ -893,6 +893,7 @@
       "draftBadgeTooltip": "Borrador incompleto — no se puede asignar hasta completarse",
       "draftResumeCta": "Continuar borrador",
       "draftPendingLabel": "Borrador",
+      "pendingDraftBadge": "Borrador sin guardar",
       "assignmentCount": "{count, plural, one {# asignación} other {# asignaciones}}"
     },
     "viewPage": {
@@ -1067,10 +1068,13 @@
       "saveFailed": "No se pudo guardar.",
       "submitErrorsHeadline": "Falta completar antes de guardar:",
       "submitErrorExercisePrefix": "Ejercicio #{index}",
-      "discardDialogTitle": "¿Descartar cambios?",
-      "discardDialogBody": "Si cancelás, se perderán los cambios no guardados de esta rutina.",
+      "discardDialogTitle": "¿Salir de la rutina?",
+      "discardDialogBody": "Podés salir y seguir más tarde: el borrador queda guardado en este navegador. Si descartás, los cambios se borran.",
       "discardDialogConfirm": "Descartar cambios",
-      "discardDialogKeepEditing": "Seguir editando"
+      "discardDialogKeepEditing": "Seguir editando",
+      "discardDialogKeepDraft": "Salir y guardar borrador",
+      "draftRestoredBanner": "Recuperamos tu borrador sin guardar. Seguí donde lo dejaste.",
+      "draftRestoredDiscard": "Descartar borrador"
     }
   },
   "habits": {
@@ -2028,6 +2032,8 @@
     "filterLevel": "Nivel",
     "filterMechanic": "Mecánica",
     "filterClearAll": "Limpiar filtros",
+    "filtersToggle": "Filtros",
+    "filtersToggleActive": "Filtros ({count})",
     "levelBeginner": "Principiante",
     "levelIntermediate": "Intermedio",
     "levelExpert": "Experto",

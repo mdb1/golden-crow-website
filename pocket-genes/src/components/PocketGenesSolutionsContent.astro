@@ -1193,13 +1193,13 @@ const pageCopy = {
     bookingEventTitle: 'Solutions Call',
   },
   es: {
-    title: 'Pocket Genes - Soluciones para genética y salud',
+    title: 'Pocket Genes - Soluciones digitales para genómica y medicina de precisión',
     description:
       'Soluciones digitales independientes para informes genéticos, consentimientos, logística, educación, comunidad, APIs, CRM y backoffice.',
-    heroEyebrow: 'No construyas cada parte desde cero.',
-    heroTitle: 'Soluciones para genética y salud',
+    heroEyebrow: 'Pocket Genes',
+    heroTitle: 'Soluciones digitales\npara genómica\ny medicina de precisión.',
     heroBody:
-      'Desde informes y consentimientos hasta logística, educación y comunidad. Desarrollamos soluciones digitales para procesos que laboratorios, clínicas y empresas de genética necesitan todos los días.',
+      'Desarrollamos soluciones digitales para los procesos que los laboratorios, clínicas y empresas de genómica necesitan todos los días. Desde la gestión de tus informes y consentimientos informados hasta contenidos educativos y redes.',
     heroKey:
       'Integrá alguna de nuestras soluciones a tu sistema, escribinos para que construyamos una a medida para vos o sumá integrantes capacitados a tu equipo para que te ayuden codo a codo.',
     heroPrimary: 'Contanos qué necesitás',
@@ -1222,7 +1222,7 @@ const pageCopy = {
     hubEyebrow: 'Plataforma conectada, soluciones independientes',
     hubTitle: 'Construimos tu capa operativa para informes, proveedores y procesos.',
     hubBody:
-      'No es solo una app: diseñamos dashboards útiles y herramientas de gestión para coordinar informes, proveedores, muestras, integraciones y procesos operativos.',
+      'No es solo una app: construimos pipelines integrados y desarrollamos herramientas de gestión para integrar informes, proveedores, muestras y procesos operativos.',
     hubCenterTitle: 'Plataforma conectada',
     hubCenterBody: 'App + Dashboards',
     hubNodes: [
@@ -1240,13 +1240,13 @@ const pageCopy = {
     catalogEyebrow: 'Catálogo de soluciones',
     catalogTitle: '¿Qué parte necesitás resolver?',
     catalogBody:
-      'Cada pieza individual es una solución digital para problemas concretos de la operación genética.',
+      'Cada pieza individual es una solución digital que resuelve un problema concreto en la operación de tu empresa.',
     catalogItems: [
       {
         key: 'reports',
         title: 'Informes interactivos',
         summary: 'De un hallazgo a una experiencia digital.',
-        example: 'El laboratorio genera un informe, el usuario recibe un código, accede desde app o web y vuelve a consultarlo cuando lo necesita.',
+        example: 'Informe, código de acceso, app o web y consulta posterior en un mismo flujo.',
       },
       {
         key: 'consents',
@@ -1270,7 +1270,7 @@ const pageCopy = {
         key: 'education',
         title: 'Contenidos educativos',
         summary: 'Convertí información compleja en una experiencia que se pueda entender.',
-        example: 'La experiencia posterior al informe puede convertirse en un producto educativo independiente para una audiencia específica.',
+        example: 'Convertí el post-informe en una experiencia educativa para tu audiencia.',
       },
       {
         key: 'discover',
@@ -1281,7 +1281,7 @@ const pageCopy = {
       {
         key: 'community',
         title: 'Comunidad',
-        summary: 'Creá un espacio propio para conectar personas.',
+        summary: 'Creá una comunidad propia para conectar con tus pacientes.',
         example: 'Personas, cuidadores, grupos y eventos pasan a ser parte del producto en vez de vivir afuera.',
       },
       {
@@ -1310,9 +1310,9 @@ const pageCopy = {
       },
     ],
     journeyEyebrow: 'ECOSISTEMA CONECTADO',
-    journeyTitle: 'Unificamos todo en\nun mismo flujo operativo',
+    journeyTitle: 'Unificamos todo en\nun mismo flujo operativo.',
     journeyBody:
-      'Conectamos consentimientos, muestras, proveedores, informes, dashboards y seguimiento en un flujo claro.',
+      'Conectamos consentimientos, muestras, proveedores, informes, dashboards y seguimiento en un flujo operativo claro y unificado.',
     journeyCoreKicker: 'ECOSISTEMA',
     journeyCoreTitle: 'ECOSISTEMA',
     journeyCoreBody: 'Un recorrido completo, de punta a punta.',
@@ -1378,7 +1378,7 @@ const pageCopy = {
         detail: 'Avisos, gestión y soporte sostienen el recorrido después del informe.',
       },
     ],
-    proofEyebrow: 'Ya construimos mucho de esto',
+    proofEyebrow: 'SABEMOS DE LO QUE HABLAMOS',
     proofTitle: 'Un ejemplo concreto de este enfoque.',
     proofBody:
       'Pocket Genes es nuestra plataforma para el ecosistema genético. Combina una experiencia mobile y un backoffice operativo que ya podés utilizar, adaptar o expandir.',
@@ -1452,7 +1452,7 @@ const pageCopy = {
       {
         title: 'Staff augmentation',
         body:
-          'Sumamos un equipo de Golden Crow VS a tu operación para trabajo diario, prioridades claras y roadmap continuo.',
+          'Sumamos profesionales de Golden Crow a tu operación para apuntalar tus proyectos.',
         points: ['Equipo dedicado', 'Tus prioridades', 'Trabajo diario', 'Roadmap continuo'],
         cta: 'Sumar desarrolladores',
         href: '#solutions-call',
@@ -1471,7 +1471,7 @@ const pageCopy = {
       'Profesionales y redes de salud',
       'Empresas de logística de muestras',
     ],
-    whyEyebrow: 'Por qué Golden Crow VS',
+    whyEyebrow: 'Por qué Golden Crow',
     whyTitle: 'Tecnología, producto y genética.',
     whyBody:
       'Nuestro equipo combina experiencia en desarrollo de productos digitales con una mirada biotecnológica para trabajar sobre problemas reales del ecosistema genético.',
@@ -1564,8 +1564,8 @@ const audienceTiles = createAudienceTiles(copy.audiences);
       <div class="pg-container pg-solutions-hero-grid">
         <div class="pg-solutions-hero-copy">
           <p class="pg-eyebrow">{copy.heroEyebrow}</p>
-          <h1>{copy.heroTitle}</h1>
-          <p class="pg-solutions-lead">{copy.heroBody}</p>
+          <h1 class:list={['pg-solutions-hero-title', locale === 'es' && 'is-spanish']}>{copy.heroTitle}</h1>
+          {copy.heroBody ? <p class="pg-solutions-lead">{copy.heroBody}</p> : null}
           <p class="pg-solutions-key">{copy.heroKey}</p>
           <div class="pg-button-row">
             <a class="pg-button pg-button-primary" href="#solutions-call">{copy.heroPrimary}</a>
@@ -2340,10 +2340,17 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     max-width: 760px;
     margin: 0;
     color: var(--solution-navy);
-    font-size: 4.8rem;
+    font-size: 4.08rem;
     font-weight: 920;
-    line-height: 0.98;
+    line-height: 1.02;
     letter-spacing: 0;
+  }
+
+  .pg-solutions-hero-title.is-spanish {
+    max-width: 680px;
+    white-space: pre-line;
+    font-size: 3.42rem;
+    line-height: 1;
   }
 
   .pg-solutions-lead {
@@ -2357,8 +2364,8 @@ const audienceTiles = createAudienceTiles(copy.audiences);
   .pg-solutions-key {
     max-width: 680px;
     margin: 18px 0 0;
-    border-left: 4px solid var(--solution-teal);
-    color: var(--solution-navy);
+    border-left: 4px solid var(--pg-rose, var(--solution-rose));
+    color: var(--pg-rose, var(--solution-rose));
     font-size: 1.08rem;
     font-weight: 820;
     line-height: 1.55;
@@ -5353,10 +5360,13 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     position: relative;
     z-index: 1;
     align-self: end;
-    color: var(--solution-navy);
+    color: #7b8190;
+    font-family: "Arial Narrow", Arial, sans-serif;
     font-size: 1.02rem;
-    font-weight: 840;
+    font-style: italic;
+    font-weight: 700;
     line-height: 1.2;
+    text-transform: uppercase;
   }
 
   .pg-proof-point-detail {
@@ -5497,7 +5507,11 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     }
 
     .pg-solutions-hero-copy h1 {
-      font-size: 3.4rem;
+      font-size: 3.02rem;
+    }
+
+    .pg-solutions-hero-title.is-spanish {
+      font-size: 2.52rem;
     }
 
     .pg-solutions-hero-visual {
@@ -5713,7 +5727,11 @@ const audienceTiles = createAudienceTiles(copy.audiences);
     }
 
     .pg-solutions-hero-copy h1 {
-      font-size: 2.72rem;
+      font-size: 2.36rem;
+    }
+
+    .pg-solutions-hero-title.is-spanish {
+      font-size: 1.98rem;
     }
 
     .pg-solutions-lead {

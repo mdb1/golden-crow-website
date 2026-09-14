@@ -2,26 +2,49 @@
 
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { useMemo, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type CSSProperties,
+  type DragEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
+  BadgeCheck,
   ChevronDown,
+  ChevronRight,
   Check,
   CheckCircle2,
+  ExternalLink,
+  Globe2,
+  ImageIcon,
+  Loader2,
+  MapPin,
+  Link2,
   Palette,
   PencilLine,
   RotateCcw,
   Save,
+  ShieldCheck,
+  ShoppingBag,
+  Sparkles,
   Trash2,
+  UploadCloud,
   XCircle,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { PublisherCategoryMultiSelect } from "@/components/discover/publisher-category-multi-select";
 import { PublisherCountryMultiSelect } from "@/components/discover/publisher-country-multi-select";
-import { PublisherSocialLinksEditor } from "@/components/discover/publisher-social-links-editor";
+import {
+  PublisherSocialLinksEditor,
+  SocialAssetIcon,
+  SOCIAL_OPTIONS,
+} from "@/components/discover/publisher-social-links-editor";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,10 +70,12 @@ import {
   DISCOVER_ORGANIZATION_STATUS_OPTIONS,
   discoverGeneticReportCategoryLabels,
   discoverGeneticReportCategoryProvider,
+  discoverOrganizationStatusLabel,
   type DiscoverIndividualRecord,
   type DiscoverIndividualStatus,
   type DiscoverOrganizationRecord,
   type DiscoverOrganizationStatus,
+  type DiscoverPublisherSocialKey,
   type DiscoverPublisherSocialLinks,
 } from "@/lib/discover";
 import {
@@ -58,7 +83,8 @@ import {
   discoverOrganizationCategoryProvider,
 } from "@/lib/discover-publisher-categories";
 import {
-  formatDiscoverOrganizationCountries,
+  formatDiscoverOrganizationCountry,
+  parseDiscoverOrganizationCountryCodes,
   serializeDiscoverOrganizationCountryCodes,
   slugifyDiscoverOrganizationName,
 } from "@/lib/discover-organization-fields";
@@ -66,6 +92,42 @@ import {
 type PublisherKind = "organization" | "individual";
 type PublisherRecord = DiscoverOrganizationRecord | DiscoverIndividualRecord;
 type DeleteSuccessAction = "list" | "publisher-login";
+type ImageUploadStatusTone = "loading" | "success" | "warning" | "error";
+type ImageUploadStatus = {
+  tone: ImageUploadStatusTone;
+  message: string;
+  href?: string;
+  linkLabel?: string;
+};
+
+const PUBLISHER_IMAGE_UPLOAD_MAX_BYTES = 600 * 1024;
+const PUBLISHER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH = 900000;
+const PUBLISHER_IMAGE_UPLOAD_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+const PUBLISHER_IMAGE_COMPRESSION_MIME_TYPES = [
+  "image/webp",
+  "image/jpeg",
+] as const;
+const PUBLISHER_IMAGE_COMPRESSION_DIMENSION_STEPS = [
+  1600, 1200, 960, 720, 560, 420, 320,
+] as const;
+const PUBLISHER_IMAGE_COMPRESSION_QUALITY_STEPS = [
+  0.86, 0.76, 0.66, 0.56, 0.46, 0.36,
+] as const;
+const PUBLISHER_BANNER_IMAGE_WIDTH = 1024;
+const PUBLISHER_BANNER_IMAGE_HEIGHT = 500;
+const IMAGE_REDUCER_URL = "https://squoosh.app/";
+const DEFAULT_PREVIEW_ACCENT_COLOR = "#6D28D9";
+
+type ProcessedPublisherImageUpload = {
+  dataUrl: string;
+  name: string;
+  mimeType: string;
+  compressed: boolean;
+};
 
 type OrganizationFormState = {
   name: string;
@@ -73,6 +135,10 @@ type OrganizationFormState = {
   imageUploadDataUrl: string;
   imageUploadName: string;
   imageUploadMimeType: string;
+  bannerImageUrl: string;
+  bannerImageUploadDataUrl: string;
+  bannerImageUploadName: string;
+  bannerImageUploadMimeType: string;
   status: DiscoverOrganizationStatus | DiscoverIndividualStatus;
   websiteUrl: string;
   description: string;
@@ -85,6 +151,7 @@ type OrganizationFormState = {
   verified: boolean;
   isGeneticReportProvider: boolean;
   geneticReportCategory: string;
+  isGrcHighlighted: boolean;
   contactEmail: string;
   internalNotes: string;
 };
@@ -104,6 +171,10 @@ function toFormState(
     imageUploadDataUrl: publisher?.imageUploadDataUrl ?? "",
     imageUploadName: publisher?.imageUploadName ?? "",
     imageUploadMimeType: publisher?.imageUploadMimeType ?? "",
+    bannerImageUrl: organization?.bannerImageUrl ?? "",
+    bannerImageUploadDataUrl: organization?.bannerImageUploadDataUrl ?? "",
+    bannerImageUploadName: organization?.bannerImageUploadName ?? "",
+    bannerImageUploadMimeType: organization?.bannerImageUploadMimeType ?? "",
     status: publisher?.status ?? "active",
     websiteUrl: publisher?.websiteUrl ?? "",
     description: publisher?.description ?? "",
@@ -124,6 +195,7 @@ function toFormState(
     geneticReportCategory: isGeneticReportProvider
       ? (organization?.geneticReportCategory ?? "")
       : "",
+    isGrcHighlighted: organization?.isGrcHighlighted ?? false,
     contactEmail: publisher?.contactEmail ?? "",
     internalNotes: publisher?.internalNotes ?? "",
   };
@@ -140,14 +212,37 @@ function payloadFromState(
     state.individualType,
   );
   const social = cleanPublisherSocialLinks(state.social);
+  const isHighlightedOrganization =
+    publisherKind === "organization" && state.isGrcHighlighted;
 
   return {
     ...state,
     slug: slugifyDiscoverOrganizationName(state.name),
     imageUrl: state.imageUrl || null,
-    imageUploadDataUrl: state.imageUploadDataUrl || undefined,
+    imageUploadDataUrl:
+      state.imageUploadDataUrl || (state.imageUrl.trim() ? null : undefined),
     imageUploadName: state.imageUploadName || undefined,
     imageUploadMimeType: state.imageUploadMimeType || undefined,
+    bannerImageUrl:
+      publisherKind === "organization"
+        ? isHighlightedOrganization
+          ? state.bannerImageUrl || null
+          : null
+        : undefined,
+    bannerImageUploadDataUrl:
+      publisherKind === "organization"
+        ? isHighlightedOrganization
+          ? state.bannerImageUploadDataUrl || null
+          : null
+        : undefined,
+    bannerImageUploadName:
+      publisherKind === "organization" && isHighlightedOrganization
+        ? state.bannerImageUploadName || undefined
+        : undefined,
+    bannerImageUploadMimeType:
+      publisherKind === "organization" && isHighlightedOrganization
+        ? state.bannerImageUploadMimeType || undefined
+        : undefined,
     websiteUrl: state.websiteUrl || null,
     social: Object.keys(social).length ? social : undefined,
     countryCode:
@@ -170,6 +265,8 @@ function payloadFromState(
           ? state.geneticReportCategory || null
           : null
         : undefined,
+    isGrcHighlighted:
+      publisherKind === "organization" ? state.isGrcHighlighted : undefined,
   };
 }
 
@@ -177,6 +274,72 @@ function cleanPublisherSocialLinks(social: DiscoverPublisherSocialLinks) {
   return Object.fromEntries(
     Object.entries(social).filter(([, value]) => value.trim()),
   ) as DiscoverPublisherSocialLinks;
+}
+
+function previewInitials(name: string, fallback: string) {
+  const source = (name || fallback).trim();
+  const initials = source
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  return initials || "PG";
+}
+
+function previewDescriptionForLanguage(
+  language: "en" | "es",
+  description: string,
+  descriptionEn: string,
+) {
+  const baseDescription = description.trim();
+  const englishDescription = descriptionEn.trim();
+
+  if (language === "en") {
+    return englishDescription || baseDescription;
+  }
+
+  return baseDescription || englishDescription;
+}
+
+function ensureExternalHref(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (/^(https?:|mailto:|tel:)/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+}
+
+function previewSocialHref(key: DiscoverPublisherSocialKey, value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (key === "email" && !/^(mailto:|https?:)/i.test(trimmed)) {
+    return `mailto:${trimmed}`;
+  }
+
+  return ensureExternalHref(trimmed);
+}
+
+function compactPreviewUrlLabel(value: string) {
+  const withoutProtocol = value
+    .trim()
+    .replace(/^(https?:\/\/|mailto:)/i, "")
+    .replace(/\/$/, "");
+
+  return withoutProtocol.length > 34
+    ? `${withoutProtocol.slice(0, 31)}...`
+    : withoutProtocol;
 }
 
 function normalizedColorHex(value: string) {
@@ -193,6 +356,321 @@ function colorTextValue(value: string) {
   return normalizedColorHex(value) || value.trim();
 }
 
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  const kilobytes = bytes / 1024;
+  if (kilobytes < 1024) {
+    return `${Math.round(kilobytes)} KB`;
+  }
+
+  return `${(kilobytes / 1024).toFixed(1)} MB`;
+}
+
+function publisherImageCompressionFileName(file: File, mimeType: string) {
+  const extension = mimeType === "image/webp" ? "webp" : "jpg";
+  const rawName = file.name || `profile-image.${extension}`;
+  const baseName = rawName.replace(/\.[^.]+$/, "") || "profile-image";
+
+  return `${baseName}-compressed.${extension}`;
+}
+
+function publisherBannerImageFileName(file: File, mimeType: string) {
+  const extension = mimeType === "image/webp" ? "webp" : "jpg";
+  const rawName = file.name || `highlight-banner.${extension}`;
+  const baseName = rawName.replace(/\.[^.]+$/, "") || "highlight-banner";
+
+  return `${baseName}-1024x500.${extension}`;
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      if (!result) {
+        reject(new Error("IMAGE_READ_FAILED"));
+        return;
+      }
+      resolve(result);
+    };
+    reader.onerror = () => reject(new Error("IMAGE_READ_FAILED"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageElementFromFile(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("IMAGE_LOAD_FAILED"));
+    };
+    image.src = objectUrl;
+  });
+}
+
+function imageCompressionDimensions(image: HTMLImageElement) {
+  const sourceMax = Math.max(
+    image.naturalWidth || image.width || 0,
+    image.naturalHeight || image.height || 0,
+  );
+
+  if (!sourceMax) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      [sourceMax, ...PUBLISHER_IMAGE_COMPRESSION_DIMENSION_STEPS]
+        .map((dimension) => Math.min(sourceMax, dimension))
+        .filter((dimension) => Number.isFinite(dimension) && dimension > 0),
+    ),
+  ).sort((a, b) => b - a);
+}
+
+function drawCompressedImage(
+  image: HTMLImageElement,
+  maxDimension: number,
+  mimeType: string,
+) {
+  const sourceWidth = image.naturalWidth || image.width || 0;
+  const sourceHeight = image.naturalHeight || image.height || 0;
+
+  if (!sourceWidth || !sourceHeight) {
+    throw new Error("IMAGE_DIMENSIONS_UNAVAILABLE");
+  }
+
+  const sourceMax = Math.max(sourceWidth, sourceHeight);
+  const scale = Math.min(1, maxDimension / sourceMax);
+  const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+  const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("CANVAS_UNAVAILABLE");
+  }
+
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+
+  if (mimeType === "image/jpeg") {
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, targetWidth, targetHeight);
+  }
+
+  context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+  return canvas;
+}
+
+function canResizeImagesInBrowser() {
+  return (
+    typeof document !== "undefined" &&
+    typeof URL !== "undefined" &&
+    typeof URL.createObjectURL === "function" &&
+    typeof HTMLCanvasElement !== "undefined" &&
+    typeof HTMLCanvasElement.prototype.toBlob === "function"
+  );
+}
+
+function drawBannerImage(image: HTMLImageElement, mimeType: string) {
+  const sourceWidth = image.naturalWidth || image.width || 0;
+  const sourceHeight = image.naturalHeight || image.height || 0;
+
+  if (!sourceWidth || !sourceHeight) {
+    throw new Error("IMAGE_DIMENSIONS_UNAVAILABLE");
+  }
+
+  const targetAspect =
+    PUBLISHER_BANNER_IMAGE_WIDTH / PUBLISHER_BANNER_IMAGE_HEIGHT;
+  const sourceAspect = sourceWidth / sourceHeight;
+  const cropWidth =
+    sourceAspect > targetAspect
+      ? Math.round(sourceHeight * targetAspect)
+      : sourceWidth;
+  const cropHeight =
+    sourceAspect > targetAspect
+      ? sourceHeight
+      : Math.round(sourceWidth / targetAspect);
+  const sourceX = Math.max(0, Math.round((sourceWidth - cropWidth) / 2));
+  const sourceY = Math.max(0, Math.round((sourceHeight - cropHeight) / 2));
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("CANVAS_UNAVAILABLE");
+  }
+
+  canvas.width = PUBLISHER_BANNER_IMAGE_WIDTH;
+  canvas.height = PUBLISHER_BANNER_IMAGE_HEIGHT;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+
+  if (mimeType === "image/jpeg") {
+    context.fillStyle = "#ffffff";
+    context.fillRect(
+      0,
+      0,
+      PUBLISHER_BANNER_IMAGE_WIDTH,
+      PUBLISHER_BANNER_IMAGE_HEIGHT,
+    );
+  }
+
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    PUBLISHER_BANNER_IMAGE_WIDTH,
+    PUBLISHER_BANNER_IMAGE_HEIGHT,
+  );
+
+  return canvas;
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  mimeType: string,
+  quality: number,
+) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, mimeType, quality);
+  });
+}
+
+async function compressPublisherImageFile(file: File) {
+  const image = await loadImageElementFromFile(file);
+  const dimensions = imageCompressionDimensions(image);
+
+  for (const mimeType of PUBLISHER_IMAGE_COMPRESSION_MIME_TYPES) {
+    for (const maxDimension of dimensions) {
+      const canvas = drawCompressedImage(image, maxDimension, mimeType);
+
+      for (const quality of PUBLISHER_IMAGE_COMPRESSION_QUALITY_STEPS) {
+        const blob = await canvasToBlob(canvas, mimeType, quality);
+
+        if (!blob || blob.size === 0) {
+          continue;
+        }
+
+        if (blob.size <= PUBLISHER_IMAGE_UPLOAD_MAX_BYTES) {
+          return new File(
+            [blob],
+            publisherImageCompressionFileName(file, mimeType),
+            {
+              type: mimeType,
+              lastModified: Date.now(),
+            },
+          );
+        }
+      }
+    }
+  }
+
+  throw new Error("IMAGE_COMPRESSION_FAILED");
+}
+
+async function processPublisherImageFile(
+  file: File,
+): Promise<ProcessedPublisherImageUpload> {
+  if (!PUBLISHER_IMAGE_UPLOAD_TYPES.has(file.type)) {
+    throw new Error("IMAGE_TYPE_UNSUPPORTED");
+  }
+
+  const acceptedFile =
+    file.size > PUBLISHER_IMAGE_UPLOAD_MAX_BYTES
+      ? await compressPublisherImageFile(file)
+      : file;
+  let dataUrl = await readFileAsDataUrl(acceptedFile);
+  let finalFile = acceptedFile;
+
+  if (
+    dataUrl.length > PUBLISHER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH &&
+    acceptedFile === file
+  ) {
+    finalFile = await compressPublisherImageFile(file);
+    dataUrl = await readFileAsDataUrl(finalFile);
+  }
+
+  if (dataUrl.length > PUBLISHER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH) {
+    throw new Error("IMAGE_COMPRESSION_FAILED");
+  }
+
+  return {
+    dataUrl,
+    name: finalFile.name,
+    mimeType: finalFile.type,
+    compressed: finalFile !== file,
+  };
+}
+
+async function resizePublisherBannerImageFile(file: File) {
+  const image = await loadImageElementFromFile(file);
+
+  for (const mimeType of PUBLISHER_IMAGE_COMPRESSION_MIME_TYPES) {
+    const canvas = drawBannerImage(image, mimeType);
+
+    for (const quality of PUBLISHER_IMAGE_COMPRESSION_QUALITY_STEPS) {
+      const blob = await canvasToBlob(canvas, mimeType, quality);
+
+      if (!blob || blob.size === 0) {
+        continue;
+      }
+
+      if (blob.size <= PUBLISHER_IMAGE_UPLOAD_MAX_BYTES) {
+        return new File([blob], publisherBannerImageFileName(file, mimeType), {
+          type: mimeType,
+          lastModified: Date.now(),
+        });
+      }
+    }
+  }
+
+  throw new Error("IMAGE_COMPRESSION_FAILED");
+}
+
+async function processPublisherBannerImageFile(
+  file: File,
+): Promise<ProcessedPublisherImageUpload> {
+  if (!PUBLISHER_IMAGE_UPLOAD_TYPES.has(file.type)) {
+    throw new Error("IMAGE_TYPE_UNSUPPORTED");
+  }
+
+  if (!canResizeImagesInBrowser()) {
+    return processPublisherImageFile(file);
+  }
+
+  const resizedFile = await resizePublisherBannerImageFile(file);
+  const dataUrl = await readFileAsDataUrl(resizedFile);
+
+  if (dataUrl.length > PUBLISHER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH) {
+    throw new Error("IMAGE_COMPRESSION_FAILED");
+  }
+
+  return {
+    dataUrl,
+    name: resizedFile.name,
+    mimeType: resizedFile.type,
+    compressed: true,
+  };
+}
+
 const DESCRIPTION_LANGUAGE_OPTIONS = [
   { value: "es", label: "Spanish" },
   { value: "en", label: "English" },
@@ -206,6 +684,7 @@ function DiscoverPublisherWorkbench({
   publisherKind,
   mode = "edit",
   canManageSystemFields = true,
+  canManageGrcHighlight = false,
   canDeletePublisher = false,
   deleteSuccessAction = "list",
   routeBase,
@@ -215,6 +694,7 @@ function DiscoverPublisherWorkbench({
   publisherKind: PublisherKind;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
+  canManageGrcHighlight?: boolean;
   canDeletePublisher?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
@@ -231,7 +711,21 @@ function DiscoverPublisherWorkbench({
     colorTextValue(toFormState(publisher).colorHex),
   );
   const colorPickerRef = useRef<HTMLInputElement>(null);
+  const imageUploadInputRef = useRef<HTMLInputElement>(null);
+  const bannerImageUploadInputRef = useRef<HTMLInputElement>(null);
+  const imageUploadTokenRef = useRef(0);
+  const bannerImageUploadTokenRef = useRef(0);
   const [manualColorError, setManualColorError] = useState<string | null>(null);
+  const [imageUploadStatus, setImageUploadStatus] =
+    useState<ImageUploadStatus | null>(null);
+  const [imageUploadPending, setImageUploadPending] = useState(false);
+  const [imageUploadDragging, setImageUploadDragging] = useState(false);
+  const [bannerImageUploadStatus, setBannerImageUploadStatus] =
+    useState<ImageUploadStatus | null>(null);
+  const [bannerImageUploadPending, setBannerImageUploadPending] =
+    useState(false);
+  const [bannerImageUploadDragging, setBannerImageUploadDragging] =
+    useState(false);
   const [pending, setPending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [isDangerZoneOpen, setIsDangerZoneOpen] = useState(false);
@@ -243,10 +737,12 @@ function DiscoverPublisherWorkbench({
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const sourceState = useMemo(() => toFormState(publisher), [publisher]);
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
-  const countryLabel = formatDiscoverOrganizationCountries(
-    state.countryCode,
-    language,
-  );
+  const statusOptions =
+    mode === "edit" && sourceState.status === "pending_approval"
+      ? DISCOVER_ORGANIZATION_STATUS_OPTIONS.filter(
+          (option) => option.value !== "active",
+        )
+      : DISCOVER_ORGANIZATION_STATUS_OPTIONS;
   const isIndividual = publisherKind === "individual";
   const publisherRouteBase =
     routeBase ??
@@ -293,12 +789,76 @@ function DiscoverPublisherWorkbench({
     discoverGeneticReportCategoryLabels(
       state.geneticReportCategory || null,
     ).map((label) => t(label));
-  const geneticReportCategoryLabel = selectedGeneticReportCategoryLabels.length
-    ? selectedGeneticReportCategoryLabels.join(", ")
-    : t("No genetic report category");
   const imagePreviewSource = state.imageUrl.trim() || state.imageUploadDataUrl;
+  const hasImageUrl = Boolean(state.imageUrl.trim());
+  const hasUploadedImage = Boolean(state.imageUploadDataUrl);
+  const hasChosenProfileImagePath = hasImageUrl || hasUploadedImage;
+  const canEditBannerImage = !isIndividual && state.isGrcHighlighted;
+  const bannerImagePreviewSource =
+    state.bannerImageUrl.trim() || state.bannerImageUploadDataUrl;
+  const hasBannerImageUrl = Boolean(state.bannerImageUrl.trim());
+  const hasUploadedBannerImage = Boolean(state.bannerImageUploadDataUrl);
+  const hasChosenBannerImagePath = hasBannerImageUrl || hasUploadedBannerImage;
+  const previewAccentColor = colorHex || DEFAULT_PREVIEW_ACCENT_COLOR;
+  const previewDescription = previewDescriptionForLanguage(
+    language,
+    state.description,
+    state.descriptionEn,
+  );
+  const previewStatusLabel = t(
+    discoverOrganizationStatusLabel(state.status as DiscoverOrganizationStatus),
+  );
+  const previewCountryPills = parseDiscoverOrganizationCountryCodes(
+    state.countryCode,
+  ).map((code) => ({
+    code,
+    label: formatDiscoverOrganizationCountry(code, language) ?? code,
+  }));
+  const previewWebsiteHref = ensureExternalHref(state.websiteUrl);
+  const previewWebsiteLabel = state.websiteUrl.trim()
+    ? compactPreviewUrlLabel(state.websiteUrl)
+    : t("No website URL");
+  const previewSocialEntries = SOCIAL_OPTIONS.flatMap((option) => {
+    const value = state.social[option.key]?.trim();
+    const href = value ? previewSocialHref(option.key, value) : "";
+
+    return value && href
+      ? [
+          {
+            ...option,
+            value,
+            href,
+          },
+        ]
+      : [];
+  });
+  const showPreviewGeneticReports =
+    !isIndividual &&
+    state.isGeneticReportProvider &&
+    selectedGeneticReportCategoryLabels.length > 0;
+  const previewStyle = {
+    "--discover-preview-accent": previewAccentColor,
+  } as CSSProperties;
+  const imageUploadLimitLabel = formatFileSize(
+    PUBLISHER_IMAGE_UPLOAD_MAX_BYTES,
+  );
+  const bannerImageAspectLabel = `${PUBLISHER_BANNER_IMAGE_WIDTH} × ${PUBLISHER_BANNER_IMAGE_HEIGHT}`;
+  const uploadedImageSummary = state.imageUploadName
+    ? `${state.imageUploadName}${
+        state.imageUploadMimeType ? ` · ${state.imageUploadMimeType}` : ""
+      }`
+    : t("Using uploaded image");
+  const uploadedBannerImageSummary = state.bannerImageUploadName
+    ? `${state.bannerImageUploadName}${
+        state.bannerImageUploadMimeType
+          ? ` · ${state.bannerImageUploadMimeType}`
+          : ""
+      }`
+    : t("Using uploaded banner image");
   const showDangerZone =
     mode === "edit" && Boolean(publisher) && canDeletePublisher;
+  const showProductCatalogShortcut =
+    !isIndividual && mode === "edit" && Boolean(publisher);
   const showSubmissionEvaluation =
     mode === "edit" && Boolean(publisher) && canManageSystemFields;
   const publisherDeletionTitle = isIndividual
@@ -338,6 +898,333 @@ function DiscoverPublisherWorkbench({
     setState((current) => ({ ...current, ...patch }));
   }
 
+  function resetImageUploadInput() {
+    if (imageUploadInputRef.current) {
+      imageUploadInputRef.current.value = "";
+    }
+  }
+
+  function resetBannerImageUploadInput() {
+    if (bannerImageUploadInputRef.current) {
+      bannerImageUploadInputRef.current.value = "";
+    }
+  }
+
+  function clearUploadedImageSelection() {
+    imageUploadTokenRef.current += 1;
+    setImageUploadPending(false);
+    setImageUploadDragging(false);
+    setImageUploadStatus(null);
+    resetImageUploadInput();
+    updateState({
+      imageUploadDataUrl: "",
+      imageUploadName: "",
+      imageUploadMimeType: "",
+    });
+  }
+
+  function clearImageUrlSelection() {
+    updateState({ imageUrl: "" });
+  }
+
+  function clearUploadedBannerImageSelection() {
+    bannerImageUploadTokenRef.current += 1;
+    setBannerImageUploadPending(false);
+    setBannerImageUploadDragging(false);
+    setBannerImageUploadStatus(null);
+    resetBannerImageUploadInput();
+    updateState({
+      bannerImageUploadDataUrl: "",
+      bannerImageUploadName: "",
+      bannerImageUploadMimeType: "",
+    });
+  }
+
+  function clearBannerImageUrlSelection() {
+    updateState({ bannerImageUrl: "" });
+  }
+
+  function handleImageUrlChange(event: ChangeEvent<HTMLInputElement>) {
+    const imageUrl = event.target.value;
+    const clearsUploadedImage = Boolean(imageUrl.trim());
+
+    if (clearsUploadedImage) {
+      imageUploadTokenRef.current += 1;
+      setImageUploadPending(false);
+      setImageUploadDragging(false);
+      setImageUploadStatus(null);
+      resetImageUploadInput();
+    }
+
+    updateState({
+      imageUrl,
+      ...(clearsUploadedImage
+        ? {
+            imageUploadDataUrl: "",
+            imageUploadName: "",
+            imageUploadMimeType: "",
+          }
+        : {}),
+    });
+  }
+
+  function handleBannerImageUrlChange(event: ChangeEvent<HTMLInputElement>) {
+    const bannerImageUrl = event.target.value;
+    const clearsUploadedBannerImage = Boolean(bannerImageUrl.trim());
+
+    if (clearsUploadedBannerImage) {
+      bannerImageUploadTokenRef.current += 1;
+      setBannerImageUploadPending(false);
+      setBannerImageUploadDragging(false);
+      setBannerImageUploadStatus(null);
+      resetBannerImageUploadInput();
+    }
+
+    updateState({
+      bannerImageUrl,
+      ...(clearsUploadedBannerImage
+        ? {
+            bannerImageUploadDataUrl: "",
+            bannerImageUploadName: "",
+            bannerImageUploadMimeType: "",
+          }
+        : {}),
+    });
+  }
+
+  async function handleImageUploadFile(file: File | undefined | null) {
+    if (!file) {
+      return;
+    }
+
+    imageUploadTokenRef.current += 1;
+    const token = imageUploadTokenRef.current;
+    setImageUploadPending(true);
+    setImageUploadDragging(false);
+    setImageUploadStatus({
+      tone: "loading",
+      message:
+        file.size > PUBLISHER_IMAGE_UPLOAD_MAX_BYTES
+          ? t("Compressing image...")
+          : t("Loading image..."),
+    });
+
+    try {
+      const processed = await processPublisherImageFile(file);
+      if (imageUploadTokenRef.current !== token) {
+        return;
+      }
+
+      updateState({
+        imageUrl: "",
+        imageUploadDataUrl: processed.dataUrl,
+        imageUploadName: processed.name,
+        imageUploadMimeType: processed.mimeType,
+      });
+      setImageUploadStatus({
+        tone: "success",
+        message: processed.compressed
+          ? t("Image compressed and ready.")
+          : t("Uploaded image ready."),
+      });
+    } catch (error) {
+      if (imageUploadTokenRef.current !== token) {
+        return;
+      }
+
+      const unsupported =
+        error instanceof Error && error.message === "IMAGE_TYPE_UNSUPPORTED";
+      setImageUploadStatus(
+        unsupported
+          ? {
+              tone: "error",
+              message: t("Only PNG, JPG, or WebP images can be uploaded here."),
+            }
+          : {
+              tone: "warning",
+              message: t(
+                "We could not compress this image under 600 KB. Reduce it and upload a smaller version.",
+              ),
+              href: IMAGE_REDUCER_URL,
+              linkLabel: t("Compress it for free"),
+            },
+      );
+    } finally {
+      if (imageUploadTokenRef.current === token) {
+        setImageUploadPending(false);
+        resetImageUploadInput();
+      }
+    }
+  }
+
+  async function handleBannerImageUploadFile(file: File | undefined | null) {
+    if (!file) {
+      return;
+    }
+
+    bannerImageUploadTokenRef.current += 1;
+    const token = bannerImageUploadTokenRef.current;
+    setBannerImageUploadPending(true);
+    setBannerImageUploadDragging(false);
+    setBannerImageUploadStatus({
+      tone: "loading",
+      message:
+        file.size > PUBLISHER_IMAGE_UPLOAD_MAX_BYTES ||
+        canResizeImagesInBrowser()
+          ? t("Processing banner image...")
+          : t("Loading image..."),
+    });
+
+    try {
+      const processed = await processPublisherBannerImageFile(file);
+      if (bannerImageUploadTokenRef.current !== token) {
+        return;
+      }
+
+      updateState({
+        bannerImageUrl: "",
+        bannerImageUploadDataUrl: processed.dataUrl,
+        bannerImageUploadName: processed.name,
+        bannerImageUploadMimeType: processed.mimeType,
+      });
+      setBannerImageUploadStatus({
+        tone: "success",
+        message: processed.compressed
+          ? t("Banner image processed and ready.")
+          : t("Uploaded image ready."),
+      });
+    } catch (error) {
+      if (bannerImageUploadTokenRef.current !== token) {
+        return;
+      }
+
+      const unsupported =
+        error instanceof Error && error.message === "IMAGE_TYPE_UNSUPPORTED";
+      setBannerImageUploadStatus(
+        unsupported
+          ? {
+              tone: "error",
+              message: t("Only PNG, JPG, or WebP images can be uploaded here."),
+            }
+          : {
+              tone: "warning",
+              message: t(
+                "We could not compress this image under 600 KB. Reduce it and upload a smaller version.",
+              ),
+              href: IMAGE_REDUCER_URL,
+              linkLabel: t("Compress it for free"),
+            },
+      );
+    } finally {
+      if (bannerImageUploadTokenRef.current === token) {
+        setBannerImageUploadPending(false);
+        resetBannerImageUploadInput();
+      }
+    }
+  }
+
+  function handleImageUploadChange(event: ChangeEvent<HTMLInputElement>) {
+    void handleImageUploadFile(event.target.files?.[0]);
+  }
+
+  function handleBannerImageUploadChange(event: ChangeEvent<HTMLInputElement>) {
+    void handleBannerImageUploadFile(event.target.files?.[0]);
+  }
+
+  function imageFileFromDataTransfer(dataTransfer: DataTransfer) {
+    const files = [
+      ...Array.from(dataTransfer.items || [])
+        .filter((item) => item.kind === "file")
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => Boolean(file)),
+      ...Array.from(dataTransfer.files || []),
+    ];
+
+    return (
+      files.find((file) => file.type.startsWith("image/")) ?? files[0] ?? null
+    );
+  }
+
+  function handleImageUploadDragEnter(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    if (!imageUploadPending) {
+      setImageUploadDragging(true);
+    }
+  }
+
+  function handleImageUploadDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    if (!imageUploadPending) {
+      event.dataTransfer.dropEffect = "copy";
+      setImageUploadDragging(true);
+    }
+  }
+
+  function handleImageUploadDragLeave(event: DragEvent<HTMLLabelElement>) {
+    const nextTarget =
+      event.relatedTarget instanceof Node ? event.relatedTarget : null;
+    if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+      setImageUploadDragging(false);
+    }
+  }
+
+  function handleImageUploadDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    const file = imageFileFromDataTransfer(event.dataTransfer);
+    setImageUploadDragging(false);
+    void handleImageUploadFile(file);
+  }
+
+  function handleBannerImageUploadDragEnter(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    if (!bannerImageUploadPending) {
+      setBannerImageUploadDragging(true);
+    }
+  }
+
+  function handleBannerImageUploadDragOver(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    if (!bannerImageUploadPending) {
+      event.dataTransfer.dropEffect = "copy";
+      setBannerImageUploadDragging(true);
+    }
+  }
+
+  function handleBannerImageUploadDragLeave(event: DragEvent<HTMLElement>) {
+    const nextTarget =
+      event.relatedTarget instanceof Node ? event.relatedTarget : null;
+    if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+      setBannerImageUploadDragging(false);
+    }
+  }
+
+  function handleBannerImageUploadDrop(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    const file = imageFileFromDataTransfer(event.dataTransfer);
+    setBannerImageUploadDragging(false);
+    void handleBannerImageUploadFile(file);
+  }
+
+  function handleGrcHighlightChange(checked: boolean) {
+    if (!checked) {
+      bannerImageUploadTokenRef.current += 1;
+      setBannerImageUploadPending(false);
+      setBannerImageUploadDragging(false);
+      setBannerImageUploadStatus(null);
+      resetBannerImageUploadInput();
+      updateState({
+        isGrcHighlighted: false,
+        bannerImageUrl: "",
+        bannerImageUploadDataUrl: "",
+        bannerImageUploadName: "",
+        bannerImageUploadMimeType: "",
+      });
+      return;
+    }
+
+    updateState({ isGrcHighlighted: true });
+  }
+
   function closeManualColorEditor(nextColor: string) {
     setManualColorMode(false);
     setManualColorDraft(colorTextValue(nextColor));
@@ -345,6 +1232,16 @@ function DiscoverPublisherWorkbench({
   }
 
   function handleReset() {
+    imageUploadTokenRef.current += 1;
+    bannerImageUploadTokenRef.current += 1;
+    setImageUploadPending(false);
+    setImageUploadDragging(false);
+    setImageUploadStatus(null);
+    setBannerImageUploadPending(false);
+    setBannerImageUploadDragging(false);
+    setBannerImageUploadStatus(null);
+    resetImageUploadInput();
+    resetBannerImageUploadInput();
     setState(sourceState);
     closeManualColorEditor(sourceState.colorHex);
   }
@@ -398,6 +1295,15 @@ function DiscoverPublisherWorkbench({
   }
 
   async function handleSave() {
+    if (imageUploadPending || bannerImageUploadPending) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Wait until the image finishes processing."),
+      });
+      return;
+    }
+
     if (!state.name.trim()) {
       setToast({
         id: Date.now(),
@@ -422,7 +1328,7 @@ function DiscoverPublisherWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Image URL is required."),
+        message: t("Profile image is required."),
       });
       return;
     }
@@ -625,6 +1531,14 @@ function DiscoverPublisherWorkbench({
             </h2>
             <HeaderUnclutterButton />
           </div>
+          {!isIndividual && mode === "edit" && publisher ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`${publisherDetailHref(publisher.id)}/product-catalog`}>
+                <ShoppingBag className="h-3.5 w-3.5" />
+                {t("Product catalog")}
+              </Link>
+            </Button>
+          ) : null}
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -650,7 +1564,7 @@ function DiscoverPublisherWorkbench({
                 className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 disabled={!canManageSystemFields}
               >
-                {DISCOVER_ORGANIZATION_STATUS_OPTIONS.map((option) => (
+                {statusOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {t(option.label)}
                   </option>
@@ -854,18 +1768,415 @@ function DiscoverPublisherWorkbench({
                 placeholder="https://"
               />
             </div>
-            <div className="flex flex-col gap-2 md:col-span-2">
-              <Label htmlFor="discover-org-image">{t("Image URL")}</Label>
-              <Input
-                id="discover-org-image"
-                type="url"
-                value={state.imageUrl}
-                onChange={(event) =>
-                  updateState({ imageUrl: event.target.value })
-                }
-                placeholder="https://"
-              />
+            <div
+              className="flex flex-col gap-3 rounded-xl border border-border/80 bg-background/70 p-4 shadow-sm md:col-span-2"
+              data-testid="discover-org-profile-image-section"
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+                    <ImageIcon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-foreground">
+                      {t("Profile image")}
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "Use an image URL or upload a PNG, JPG, or WebP file. Large files are compressed before saving.",
+                      )}
+                    </p>
+                  </div>
+                </div>
+                {hasUploadedImage ? (
+                  <span className="inline-flex w-fit items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200">
+                    {t("Using uploaded image")}
+                  </span>
+                ) : null}
+              </div>
+
+              <div
+                className={cn(
+                  "grid gap-3",
+                  hasChosenProfileImagePath
+                    ? "lg:grid-cols-1"
+                    : "lg:grid-cols-[minmax(0,1fr)_minmax(17rem,0.8fr)]",
+                )}
+              >
+                {!hasUploadedImage ? (
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="discover-org-image" className="text-xs">
+                      {t("Image URL")}
+                    </Label>
+                    <div className="relative">
+                      <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="discover-org-image"
+                        type="url"
+                        value={state.imageUrl}
+                        onChange={handleImageUrlChange}
+                        placeholder="https://"
+                        disabled={imageUploadPending}
+                        className={cn("pl-9", hasImageUrl && "pr-24")}
+                      />
+                      {hasImageUrl ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearImageUrlSelection}
+                          disabled={pending || imageUploadPending}
+                          aria-label={t("Clear image URL")}
+                          className="absolute right-1 top-1/2 h-8 -translate-y-1/2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          {t("Clear")}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                {!hasImageUrl ? (
+                  <label
+                    htmlFor="discover-org-image-upload"
+                    onDragEnter={handleImageUploadDragEnter}
+                    onDragOver={handleImageUploadDragOver}
+                    onDragLeave={handleImageUploadDragLeave}
+                    onDrop={handleImageUploadDrop}
+                    className={cn(
+                      "relative flex min-h-24 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition duration-200",
+                      imageUploadDragging
+                        ? "border-violet-500 bg-violet-50 shadow-[0_16px_34px_rgba(109,40,217,0.16)] dark:bg-violet-500/12"
+                        : "border-violet-300/80 bg-violet-50/45 hover:-translate-y-0.5 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/35 dark:bg-violet-500/8",
+                      imageUploadPending && "cursor-progress opacity-80",
+                    )}
+                  >
+                    <input
+                      ref={imageUploadInputRef}
+                      id="discover-org-image-upload"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleImageUploadChange}
+                      disabled={imageUploadPending}
+                      aria-label={t("Upload image file")}
+                      className="sr-only"
+                    />
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-background text-violet-700 shadow-sm dark:bg-background/80 dark:text-violet-200">
+                      {imageUploadPending ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <UploadCloud className="h-5 w-5" />
+                      )}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-foreground">
+                        {hasUploadedImage
+                          ? t("Replace uploaded image")
+                          : t("Upload image file")}
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                        {imageUploadDragging
+                          ? t("Drop image to upload")
+                          : t(
+                              "PNG, JPG, or WebP up to 600 KB. Drop it here or choose a file.",
+                            ).replace("600 KB", imageUploadLimitLabel)}
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
+              </div>
+
+              {hasUploadedImage ? (
+                <div className="flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50/55 px-3 py-2 text-sm text-emerald-950 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-100">
+                  <span className="min-w-0 truncate">
+                    {uploadedImageSummary}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearUploadedImageSelection}
+                    disabled={pending || imageUploadPending}
+                    className="w-fit text-emerald-900 hover:bg-emerald-100 hover:text-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-500/15"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    {t("Remove uploaded image")}
+                  </Button>
+                </div>
+              ) : null}
+
+              {imageUploadStatus ? (
+                <p
+                  className={cn(
+                    "rounded-lg px-3 py-2 text-xs font-medium leading-5",
+                    imageUploadStatus.tone === "success" &&
+                      "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200",
+                    imageUploadStatus.tone === "loading" &&
+                      "bg-violet-50 text-violet-800 dark:bg-violet-500/10 dark:text-violet-200",
+                    imageUploadStatus.tone === "warning" &&
+                      "bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-100",
+                    imageUploadStatus.tone === "error" &&
+                      "bg-destructive/10 text-destructive",
+                  )}
+                >
+                  {imageUploadStatus.message}
+                  {imageUploadStatus.href && imageUploadStatus.linkLabel ? (
+                    <>
+                      {" "}
+                      <a
+                        href={imageUploadStatus.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold underline underline-offset-4"
+                      >
+                        {imageUploadStatus.linkLabel}
+                      </a>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
             </div>
+            {canEditBannerImage ? (
+              <div
+                className="flex flex-col gap-3 rounded-xl border border-violet-200/80 bg-violet-50/35 p-4 shadow-sm md:col-span-2 dark:border-violet-400/25 dark:bg-violet-500/8"
+                data-testid="discover-org-banner-image-section"
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+                      <ImageIcon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-foreground">
+                        {t("GRC highlight banner")}
+                      </div>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {t(
+                          "Shown in the highlighted GRC card. Use a wide 1024 x 500 image URL or upload a PNG, JPG, or WebP file.",
+                        ).replace("1024 x 500", bannerImageAspectLabel)}
+                      </p>
+                    </div>
+                  </div>
+                  {hasUploadedBannerImage ? (
+                    <span className="inline-flex w-fit items-center rounded-full bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-500/15 dark:text-violet-100">
+                      {t("Using uploaded banner image")}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div
+                  className={cn(
+                    "overflow-hidden rounded-xl border bg-background shadow-sm transition duration-200",
+                    bannerImageUploadDragging
+                      ? "border-violet-500 bg-violet-50 shadow-[0_18px_42px_rgba(109,40,217,0.18)] dark:bg-violet-500/12"
+                      : "border-border",
+                    !bannerImagePreviewSource &&
+                      "cursor-copy hover:border-violet-300 hover:bg-violet-50/40 dark:hover:border-violet-400/40 dark:hover:bg-violet-500/8",
+                    bannerImageUploadPending && "cursor-progress opacity-80",
+                  )}
+                  onDragEnter={
+                    !bannerImagePreviewSource
+                      ? handleBannerImageUploadDragEnter
+                      : undefined
+                  }
+                  onDragOver={
+                    !bannerImagePreviewSource
+                      ? handleBannerImageUploadDragOver
+                      : undefined
+                  }
+                  onDragLeave={
+                    !bannerImagePreviewSource
+                      ? handleBannerImageUploadDragLeave
+                      : undefined
+                  }
+                  onDrop={
+                    !bannerImagePreviewSource
+                      ? handleBannerImageUploadDrop
+                      : undefined
+                  }
+                  data-testid="discover-org-banner-preview-dropzone"
+                >
+                  {bannerImagePreviewSource ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={bannerImagePreviewSource}
+                      alt=""
+                      className="aspect-[1024/500] w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex aspect-[1024/500] flex-col items-center justify-center gap-3 px-4 text-center text-sm text-muted-foreground">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+                        {bannerImageUploadPending ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <UploadCloud className="h-5 w-5" />
+                        )}
+                      </span>
+                      <span className="font-medium">
+                        {bannerImageUploadDragging
+                          ? t("Drop image to upload")
+                          : t("No GRC banner image")}
+                      </span>
+                      <span className="max-w-md text-xs leading-5">
+                        {t(
+                          "Drag a banner image here or use the upload button below.",
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  className={cn(
+                    "grid gap-3",
+                    hasChosenBannerImagePath
+                      ? "lg:grid-cols-1"
+                      : "lg:grid-cols-[minmax(0,1fr)_minmax(17rem,0.8fr)]",
+                  )}
+                >
+                  {!hasUploadedBannerImage ? (
+                    <div className="flex flex-col gap-2">
+                      <Label
+                        htmlFor="discover-org-banner-image"
+                        className="text-xs"
+                      >
+                        {t("Banner image URL")}
+                      </Label>
+                      <div className="relative">
+                        <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          id="discover-org-banner-image"
+                          type="url"
+                          value={state.bannerImageUrl}
+                          onChange={handleBannerImageUrlChange}
+                          placeholder="https://"
+                          disabled={bannerImageUploadPending}
+                          className={cn("pl-9", hasBannerImageUrl && "pr-24")}
+                        />
+                        {hasBannerImageUrl ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearBannerImageUrlSelection}
+                            disabled={pending || bannerImageUploadPending}
+                            aria-label={t("Clear banner image URL")}
+                            className="absolute right-1 top-1/2 h-8 -translate-y-1/2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            {t("Clear")}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {!hasBannerImageUrl ? (
+                    <label
+                      htmlFor="discover-org-banner-image-upload"
+                      onDragEnter={handleBannerImageUploadDragEnter}
+                      onDragOver={handleBannerImageUploadDragOver}
+                      onDragLeave={handleBannerImageUploadDragLeave}
+                      onDrop={handleBannerImageUploadDrop}
+                      className={cn(
+                        "relative flex min-h-24 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition duration-200",
+                        bannerImageUploadDragging
+                          ? "border-violet-500 bg-violet-50 shadow-[0_16px_34px_rgba(109,40,217,0.16)] dark:bg-violet-500/12"
+                          : "border-violet-300/80 bg-background/70 hover:-translate-y-0.5 hover:border-violet-400 hover:bg-background dark:border-violet-400/35 dark:bg-background/60",
+                        bannerImageUploadPending &&
+                          "cursor-progress opacity-80",
+                      )}
+                    >
+                      <input
+                        ref={bannerImageUploadInputRef}
+                        id="discover-org-banner-image-upload"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={handleBannerImageUploadChange}
+                        disabled={bannerImageUploadPending}
+                        aria-label={t("Upload banner file")}
+                        className="sr-only"
+                      />
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 shadow-sm dark:bg-violet-500/15 dark:text-violet-200">
+                        {bannerImageUploadPending ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <UploadCloud className="h-5 w-5" />
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-foreground">
+                          {hasUploadedBannerImage
+                            ? t("Replace uploaded banner image")
+                            : t("Upload banner file")}
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                          {bannerImageUploadDragging
+                            ? t("Drop image to upload")
+                            : t(
+                                "PNG, JPG, or WebP up to 600 KB. It will be cropped to 1024 x 500.",
+                              )
+                                .replace("600 KB", imageUploadLimitLabel)
+                                .replace("1024 x 500", bannerImageAspectLabel)}
+                        </span>
+                      </span>
+                    </label>
+                  ) : null}
+                </div>
+
+                {hasUploadedBannerImage ? (
+                  <div className="flex flex-col gap-2 rounded-lg border border-violet-200 bg-violet-50/65 px-3 py-2 text-sm text-violet-950 sm:flex-row sm:items-center sm:justify-between dark:border-violet-400/25 dark:bg-violet-500/10 dark:text-violet-100">
+                    <span className="min-w-0 truncate">
+                      {uploadedBannerImageSummary}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearUploadedBannerImageSelection}
+                      disabled={pending || bannerImageUploadPending}
+                      className="w-fit text-violet-900 hover:bg-violet-100 hover:text-violet-950 dark:text-violet-100 dark:hover:bg-violet-500/15"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      {t("Remove uploaded banner image")}
+                    </Button>
+                  </div>
+                ) : null}
+
+                {bannerImageUploadStatus ? (
+                  <p
+                    className={cn(
+                      "rounded-lg px-3 py-2 text-xs font-medium leading-5",
+                      bannerImageUploadStatus.tone === "success" &&
+                        "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200",
+                      bannerImageUploadStatus.tone === "loading" &&
+                        "bg-violet-50 text-violet-800 dark:bg-violet-500/10 dark:text-violet-200",
+                      bannerImageUploadStatus.tone === "warning" &&
+                        "bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-100",
+                      bannerImageUploadStatus.tone === "error" &&
+                        "bg-destructive/10 text-destructive",
+                    )}
+                  >
+                    {bannerImageUploadStatus.message}
+                    {bannerImageUploadStatus.href &&
+                    bannerImageUploadStatus.linkLabel ? (
+                      <>
+                        {" "}
+                        <a
+                          href={bannerImageUploadStatus.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold underline underline-offset-4"
+                        >
+                          {bannerImageUploadStatus.linkLabel}
+                        </a>
+                      </>
+                    ) : null}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <PublisherSocialLinksEditor
               value={state.social}
               onChange={(social) => updateState({ social })}
@@ -945,55 +2256,252 @@ function DiscoverPublisherWorkbench({
               />
               {t("Verified publisher")}
             </label>
+            {!isIndividual && canManageGrcHighlight ? (
+              <label className="flex items-center gap-2 self-end rounded-md border border-violet-200 bg-violet-50/60 px-3 py-2 text-sm text-violet-950 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-100">
+                <input
+                  type="checkbox"
+                  checked={state.isGrcHighlighted}
+                  onChange={(event) =>
+                    handleGrcHighlightChange(event.target.checked)
+                  }
+                  disabled={pending}
+                  className="h-4 w-4"
+                />
+                {t("GRC highlighted")}
+              </label>
+            ) : null}
+            {showProductCatalogShortcut && publisher ? (
+              <Link
+                href={`${publisherDetailHref(publisher.id)}/product-catalog`}
+                data-testid="discover-org-product-catalog-shortcut"
+                className="group flex w-full items-center justify-between gap-3 rounded-xl border border-foreground/15 bg-background px-4 py-4 text-left text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-foreground/25 hover:bg-muted/35 hover:shadow-[0_18px_42px_rgba(15,23,42,0.10)] md:col-span-2"
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/50 text-foreground">
+                    <ShoppingBag className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                    {t("Configure my product catalog")}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+              </Link>
+            ) : null}
           </div>
 
-          <div className="flex flex-col gap-3">
-            <div className="overflow-hidden rounded-md border border-border bg-muted/30">
-              {imagePreviewSource ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imagePreviewSource}
-                  alt=""
-                  className="aspect-square w-full object-cover"
-                />
-              ) : (
-                <div className="flex aspect-square items-center justify-center px-4 text-center text-sm text-muted-foreground">
-                  {t("No image URL")}
+          <aside
+            data-testid="discover-publisher-public-preview"
+            className="overflow-hidden rounded-2xl border border-border bg-background shadow-sm lg:sticky lg:top-24"
+            style={previewStyle}
+          >
+            <div className="relative">
+              <div className="h-32 overflow-hidden bg-[linear-gradient(135deg,var(--discover-preview-accent)_0%,rgba(124,58,237,0.34)_48%,rgba(255,255,255,0.92)_100%)]">
+                {canEditBannerImage && bannerImagePreviewSource ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={bannerImagePreviewSource}
+                    alt={`${t("GRC highlight banner")} ${state.name || publisherNameLabel}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="h-full w-full bg-[radial-gradient(circle_at_24%_18%,rgba(255,255,255,0.72),transparent_32%),linear-gradient(135deg,var(--discover-preview-accent),rgba(124,58,237,0.36),rgba(236,253,245,0.5))]" />
+                )}
+              </div>
+
+              <div className="absolute left-4 top-20 flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border-4 border-background bg-background shadow-lg">
+                {imagePreviewSource ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imagePreviewSource}
+                    alt={`${t("Profile image")} ${state.name || publisherNameLabel}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span
+                    className="flex h-full w-full items-center justify-center text-2xl font-bold text-white"
+                    style={{ backgroundColor: previewAccentColor }}
+                  >
+                    {previewInitials(state.name, publisherNameLabel)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="px-4 pb-4 pt-16">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    {t("Public preview")}
+                  </p>
+                  <h3 className="mt-1 truncate font-heading text-2xl font-semibold text-foreground">
+                    {state.name || publisherNameLabel}
+                  </h3>
                 </div>
-              )}
-            </div>
-            <div className="rounded-md border border-border px-3 py-3 text-sm text-muted-foreground">
-              <div className="font-medium text-foreground">
-                {state.name || publisherNameLabel}
+                <span className="shrink-0 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                  {previewStatusLabel}
+                </span>
               </div>
-              <div>{state.websiteUrl || t("No website URL")}</div>
-              <div>{countryLabel || t("No country")}</div>
-              <div>
-                {selectedCategoryDisplayLabels.length
-                  ? selectedCategoryDisplayLabels.join(", ")
-                  : t("No categories selected")}
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {state.verified ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    {t("Verified publisher")}
+                  </span>
+                ) : null}
+                {!isIndividual && state.isGeneticReportProvider ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-100">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    {t("Genetic report provider")}
+                  </span>
+                ) : null}
+                {!isIndividual && state.isGrcHighlighted ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {t("GRC highlighted")}
+                  </span>
+                ) : null}
               </div>
-              {!isIndividual ? (
-                <>
-                  <div>
-                    {state.isGeneticReportProvider
-                      ? t("Genetic report provider")
-                      : t("Not a genetic report provider")}
+
+              <p className="mt-4 whitespace-pre-line text-sm leading-6 text-muted-foreground">
+                {previewDescription || t("No public description yet.")}
+              </p>
+
+              <div className="mt-4 grid gap-3">
+                <div>
+                  <p
+                    className="flex items-center gap-1.5 text-xs font-semibold uppercase"
+                    style={{ color: previewAccentColor }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {t("Profile categories")}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedCategoryDisplayLabels.length ? (
+                      selectedCategoryDisplayLabels.map((label) => (
+                        <span
+                          key={label}
+                          className="rounded-full border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground"
+                        >
+                          {label}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {t("No categories selected")}
+                      </span>
+                    )}
                   </div>
-                  {state.isGeneticReportProvider ? (
-                    <div>{geneticReportCategoryLabel}</div>
-                  ) : null}
-                </>
-              ) : null}
-              <div className="mt-2 flex items-center gap-2">
-                <span
-                  className="h-3.5 w-3.5 rounded-full border border-border"
-                  style={{ backgroundColor: colorHex || "transparent" }}
-                />
-                <span>{colorHex || t("No accent color")}</span>
+                </div>
+
+                <div>
+                  <p
+                    className="flex items-center gap-1.5 text-xs font-semibold uppercase"
+                    style={{ color: previewAccentColor }}
+                  >
+                    <MapPin className="h-3.5 w-3.5" />
+                    {t("Countries")}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {previewCountryPills.length ? (
+                      previewCountryPills.map((country) => (
+                        <span
+                          key={country.code}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground shadow-sm"
+                        >
+                          <Globe2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          {country.label}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {t("No country")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {showPreviewGeneticReports ? (
+                  <div>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: previewAccentColor }}
+                    >
+                      {t("Genetic reports")}
+                    </p>
+                    <ul className="mt-2 grid gap-1.5 text-sm text-muted-foreground">
+                      {selectedGeneticReportCategoryLabels.map((label) => (
+                        <li key={label} className="flex items-start gap-2">
+                          <span
+                            className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: previewAccentColor }}
+                          />
+                          <span>{label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-5 border-t border-border pt-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  {previewWebsiteHref ? (
+                    <a
+                      href={previewWebsiteHref}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-10 min-w-0 items-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-primary/5"
+                    >
+                      <ExternalLink className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{previewWebsiteLabel}</span>
+                    </a>
+                  ) : (
+                    <span className="inline-flex min-h-10 items-center rounded-full border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">
+                      {previewWebsiteLabel}
+                    </span>
+                  )}
+                </div>
+
+                {previewSocialEntries.length ? (
+                  <div
+                    data-testid="discover-publisher-preview-socials"
+                    className="mt-3 flex flex-wrap gap-2"
+                  >
+                    {previewSocialEntries.map((option) => (
+                      <a
+                        key={option.key}
+                        href={option.href}
+                        target={
+                          option.href.startsWith("mailto:")
+                            ? undefined
+                            : "_blank"
+                        }
+                        rel={
+                          option.href.startsWith("mailto:")
+                            ? undefined
+                            : "noreferrer"
+                        }
+                        aria-label={`${t(option.label)}: ${option.value}`}
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background shadow-sm transition-transform hover:-translate-y-0.5 hover:border-primary/50"
+                      >
+                        <SocialAssetIcon
+                          option={option}
+                          size={32}
+                          className="rounded-full border-0 bg-transparent shadow-none ring-0"
+                          imageClassName="rounded-full"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    {t("No social links added")}
+                  </p>
+                )}
               </div>
             </div>
-          </div>
+          </aside>
         </div>
 
         {showDangerZone ? (
@@ -1179,7 +2687,9 @@ function DiscoverPublisherWorkbench({
                   onClick={handleReset}
                   disabled={
                     (!changed && !manualColorMode && !manualColorError) ||
-                    pending
+                    pending ||
+                    imageUploadPending ||
+                    bannerImageUploadPending
                   }
                   className="h-14 justify-center text-base font-semibold sm:min-w-36"
                 >
@@ -1189,7 +2699,12 @@ function DiscoverPublisherWorkbench({
                 <Button
                   size="lg"
                   onClick={() => void handleSave()}
-                  disabled={pending || (!changed && mode === "edit")}
+                  disabled={
+                    pending ||
+                    imageUploadPending ||
+                    bannerImageUploadPending ||
+                    (!changed && mode === "edit")
+                  }
                   className="h-14 min-w-[min(100%,22rem)] justify-center text-base font-semibold"
                 >
                   <Save className="h-5 w-5" />
@@ -1214,6 +2729,7 @@ export function DiscoverOrganizationWorkbench({
   organization,
   mode = "edit",
   canManageSystemFields = true,
+  canManageGrcHighlight = false,
   canDeletePublisher = false,
   deleteSuccessAction = "list",
   routeBase,
@@ -1222,6 +2738,7 @@ export function DiscoverOrganizationWorkbench({
   organization?: DiscoverOrganizationRecord;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
+  canManageGrcHighlight?: boolean;
   canDeletePublisher?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
@@ -1233,6 +2750,7 @@ export function DiscoverOrganizationWorkbench({
       publisherKind="organization"
       mode={mode}
       canManageSystemFields={canManageSystemFields}
+      canManageGrcHighlight={canManageGrcHighlight}
       canDeletePublisher={canDeletePublisher}
       deleteSuccessAction={deleteSuccessAction}
       routeBase={routeBase}
@@ -1245,6 +2763,7 @@ export function DiscoverIndividualWorkbench({
   individual,
   mode = "edit",
   canManageSystemFields = true,
+  canManageGrcHighlight = false,
   canDeletePublisher = false,
   deleteSuccessAction = "list",
   routeBase,
@@ -1253,6 +2772,7 @@ export function DiscoverIndividualWorkbench({
   individual?: DiscoverIndividualRecord;
   mode?: "create" | "edit";
   canManageSystemFields?: boolean;
+  canManageGrcHighlight?: boolean;
   canDeletePublisher?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
@@ -1264,6 +2784,7 @@ export function DiscoverIndividualWorkbench({
       publisherKind="individual"
       mode={mode}
       canManageSystemFields={canManageSystemFields}
+      canManageGrcHighlight={canManageGrcHighlight}
       canDeletePublisher={canDeletePublisher}
       deleteSuccessAction={deleteSuccessAction}
       routeBase={routeBase}

@@ -15,23 +15,28 @@ import {
   createDiscoverFeedItem,
   createDiscoverIndividual,
   createDiscoverOrganization,
+  createDiscoverOrganizationProductCatalogItem,
   createDiscoverPublisherApprovalRequest,
   deleteDiscoverFeedItem,
   deleteDiscoverIndividual,
   deleteDiscoverOrganization,
+  deleteDiscoverOrganizationProductCatalogItem,
   duplicateDiscoverFeedItem,
   evaluateDiscoverIndividualSubmission,
   evaluateDiscoverOrganizationSubmission,
   getDiscoverFeedItem,
   getDiscoverIndividual,
   getDiscoverOrganization,
+  getDiscoverOrganizationProductCatalogItem,
   listDiscoverFeedItems,
   listDiscoverIndividuals,
   listDiscoverOrganizations,
+  listDiscoverOrganizationProductCatalog,
   syncDiscoverPublisherSnapshot,
   updateDiscoverFeedItem,
   updateDiscoverIndividual,
   updateDiscoverOrganization,
+  updateDiscoverOrganizationProductCatalogItem,
 } from "../repositories/discover.repository.js";
 
 const OrganizationStatusSchema = z.enum([
@@ -83,6 +88,9 @@ const QuerySchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
+const FeedItemsQuerySchema = QuerySchema.extend({
+  status: FeedStatusSchema.optional(),
+});
 
 const OptionalPublisherUrlSchema = z.preprocess(
   (value) => (typeof value === "string" && !value.trim() ? undefined : value),
@@ -101,6 +109,7 @@ const PublicImageUploadDataUrlSchema = z.preprocess(
     .regex(
       /^data:image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/]+={0,2}$/,
     )
+    .nullable()
     .optional(),
 );
 const PublicImageUploadNameSchema = z.preprocess(
@@ -230,6 +239,10 @@ const OrganizationBodySchema = z.object({
   imageUploadDataUrl: PublicImageUploadDataUrlSchema,
   imageUploadName: PublicImageUploadNameSchema,
   imageUploadMimeType: PublicImageUploadMimeTypeSchema,
+  bannerImageUrl: z.string().nullable().optional(),
+  bannerImageUploadDataUrl: PublicImageUploadDataUrlSchema,
+  bannerImageUploadName: PublicImageUploadNameSchema,
+  bannerImageUploadMimeType: PublicImageUploadMimeTypeSchema,
   status: OrganizationStatusSchema.optional(),
   websiteUrl: z.string().nullable().optional(),
   description: z.string().optional(),
@@ -242,8 +255,20 @@ const OrganizationBodySchema = z.object({
   isGeneticReportProvider: z.boolean().optional(),
   geneticReportCategory:
     GeneticReportCategorySelectionSchema.nullable().optional(),
+  isGrcHighlighted: z.boolean().optional(),
   contactEmail: z.string().optional(),
   internalNotes: z.string().optional(),
+});
+
+const ProductCatalogItemBodySchema = z.object({
+  title: z.string().trim().max(180).optional(),
+  description: z.string().trim().max(5000).optional(),
+  imageUrl: z.string().nullable().optional(),
+  imageUploadDataUrl: PublicImageUploadDataUrlSchema,
+  imageUploadName: PublicImageUploadNameSchema,
+  imageUploadMimeType: PublicImageUploadMimeTypeSchema,
+  productUrl: z.string().trim().max(1000).nullable().optional(),
+  callToActionLabel: z.string().trim().max(80).nullable().optional(),
 });
 
 const IndividualBodySchema = z.object({
@@ -539,20 +564,20 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
         const result = await createDiscoverPublisherApprovalRequest(
           request.body,
         );
-        if (result.kind === "organization") {
-          try {
-            await sendDiscoverPublisherRequestNotificationEmail(
-              result.publisher,
-            );
-          } catch (error) {
-            request.log.error(
-              {
-                err: error,
-                publisherId: result.publisher.id,
-              },
-              "Failed to send publisher request notification email.",
-            );
-          }
+        try {
+          await sendDiscoverPublisherRequestNotificationEmail(
+            result.kind,
+            result.publisher,
+          );
+        } catch (error) {
+          request.log.error(
+            {
+              err: error,
+              publisherId: result.publisher.id,
+              publisherKind: result.kind,
+            },
+            "Failed to send publisher request notification email.",
+          );
         }
 
         return reply.status(201).send({
@@ -693,6 +718,124 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
         const result = await deleteDiscoverOrganization(
           request.adminContext!,
           request.params.organizationId,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/discover/organizations/:organizationId/product-catalog",
+    {
+      schema: {
+        params: z.object({ organizationId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await listDiscoverOrganizationProductCatalog(
+          request.adminContext!,
+          request.params.organizationId,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/discover/organizations/:organizationId/product-catalog",
+    {
+      schema: {
+        params: z.object({ organizationId: z.string().min(1) }),
+        body: ProductCatalogItemBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const catalogItem =
+          await createDiscoverOrganizationProductCatalogItem(
+            request.adminContext!,
+            request.params.organizationId,
+            request.body,
+          );
+        return reply.status(201).send({ catalogItem });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/discover/organizations/:organizationId/product-catalog/:catalogItemId",
+    {
+      schema: {
+        params: z.object({
+          organizationId: z.string().min(1),
+          catalogItemId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const catalogItem = await getDiscoverOrganizationProductCatalogItem(
+          request.adminContext!,
+          request.params.organizationId,
+          request.params.catalogItemId,
+        );
+        return reply.send({ catalogItem });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.put(
+    "/discover/organizations/:organizationId/product-catalog/:catalogItemId",
+    {
+      schema: {
+        params: z.object({
+          organizationId: z.string().min(1),
+          catalogItemId: z.string().min(1),
+        }),
+        body: ProductCatalogItemBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const catalogItem =
+          await updateDiscoverOrganizationProductCatalogItem(
+            request.adminContext!,
+            request.params.organizationId,
+            request.params.catalogItemId,
+            request.body,
+          );
+        return reply.send({ catalogItem });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.delete(
+    "/discover/organizations/:organizationId/product-catalog/:catalogItemId",
+    {
+      schema: {
+        params: z.object({
+          organizationId: z.string().min(1),
+          catalogItemId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await deleteDiscoverOrganizationProductCatalogItem(
+          request.adminContext!,
+          request.params.organizationId,
+          request.params.catalogItemId,
         );
         return reply.send(result);
       } catch (error) {
@@ -866,7 +1009,7 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
   f.get(
     "/discover/feed-items",
     {
-      schema: { querystring: QuerySchema },
+      schema: { querystring: FeedItemsQuerySchema },
     },
     async (request, reply) => {
       try {

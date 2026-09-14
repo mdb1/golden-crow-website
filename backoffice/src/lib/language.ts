@@ -28,6 +28,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Pocket Genes Admin": "Administración Pocket Genes",
   "Full admin": "Administrador total",
   "Institution admin": "Administrador de institución",
+  "Organization publisher": "Publicador de organización",
   "Individual publisher": "Editor",
   "Transport dispatcher": "Transportista",
   "Transport dispatchers": "Transportistas",
@@ -101,7 +102,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Route: "Recorrido",
   Pickup: "Retiro",
   "No PGFlex logistics items match the current filter.":
-    "No hay envíos PGFlex activos en este momento.",
+    "No hay envíos PGFlex para este filtro.",
   "Unable to load more PGFlex logistics items.":
     "No se pudieron cargar más envíos PGFlex.",
   "Unable to refresh PGFlex logistics items.":
@@ -123,6 +124,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Dispatcher ID": "ID de transportista",
   "Transport dispatcher email": "Email del transportista",
   Origin: "Origen",
+  "Withdrawal pickup address": "Dirección de retiro",
   "Neighborhood / Locality": "Barrio / Localidad",
   "Province / District": "Provincia / Distrito",
   "Buenos Aires Province": "Provincia de Buenos Aires",
@@ -325,6 +327,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Genetic report category": "Categoría de reporte genético",
   "Genetic report categories": "Categorías de reporte genético",
   "No genetic report category": "Sin categoría de reporte genético",
+  "GRC highlighted": "Destacado GRC",
+  "Not GRC highlighted": "No destacado GRC",
   "Genetic reports": "Reportes genéticos",
   "All report providers": "Todos los proveedores de reportes",
   "Report providers only": "Solo proveedores de reportes",
@@ -452,8 +456,138 @@ const SPANISH_TEXT: Record<string, string> = {
   "No accent color": "Sin color principal",
   "No image URL": "Sin URL de imagen",
   "No website URL": "Sin URL de sitio web",
+  "Public preview": "Vista previa pública",
+  "No public description yet.": "Sin descripción pública todavía.",
+  "Profile categories": "Categorías",
   "Image URL": "URL de imagen",
+  Clear: "Limpiar",
+  "Clear image URL": "Limpiar URL de imagen",
   "Image URL is required.": "La URL de imagen es obligatoria.",
+  "Profile image": "Imagen del perfil",
+  "Profile image is required.": "La imagen del perfil es obligatoria.",
+  "Use an image URL or upload a PNG, JPG, or WebP file. Large files are compressed before saving.":
+    "Usá una URL de imagen o subí un archivo PNG, JPG o WebP. Los archivos grandes se comprimen antes de guardar.",
+  "Upload image file": "Subir imagen",
+  "Replace uploaded image": "Reemplazar imagen subida",
+  "Using uploaded image": "Usando imagen subida",
+  "Remove uploaded image": "Quitar imagen subida",
+  "Drop image to upload": "Soltá la imagen para subirla",
+  "PNG, JPG, or WebP up to 600 KB. Drop it here or choose a file.":
+    "PNG, JPG o WebP de hasta 600 KB. Soltala acá o elegí un archivo.",
+  "Loading image...": "Cargando imagen...",
+  "Compressing image...": "Comprimiendo imagen...",
+  "Uploaded image ready.": "Imagen subida lista.",
+  "Image compressed and ready.": "Imagen comprimida y lista.",
+  "Only PNG, JPG, or WebP images can be uploaded here.":
+    "Solo se pueden subir imágenes PNG, JPG o WebP acá.",
+  "We could not compress this image under 600 KB. Reduce it and upload a smaller version.":
+    "No pudimos comprimir esta imagen por debajo de 600 KB. Reducila y subí una versión más liviana.",
+  "Compress it for free": "Comprimirla gratis",
+  "Wait until the image finishes processing.":
+    "Esperá a que la imagen termine de procesarse.",
+  "GRC highlight banner": "Banner destacado GRC",
+  "Shown in the highlighted GRC card. Use a wide 1024 x 500 image URL or upload a PNG, JPG, or WebP file.":
+    "Se muestra en la celda destacada GRC. Usá una imagen horizontal de 1024 x 500 por URL o subí un archivo PNG, JPG o WebP.",
+  "Banner image URL": "URL de imagen del banner",
+  "Clear banner image URL": "Limpiar URL de banner",
+  "Upload banner file": "Subir banner",
+  "Replace uploaded banner image": "Reemplazar banner subido",
+  "Using uploaded banner image": "Usando banner subido",
+  "Remove uploaded banner image": "Quitar banner subido",
+  "No GRC banner image": "Sin imagen de banner GRC",
+  "Drag a banner image here or use the upload button below.":
+    "Arrastrá una imagen de banner acá o usá el botón de carga de abajo.",
+  "GRC banner ready": "Banner GRC listo",
+  "Processing banner image...": "Procesando banner...",
+  "Banner image processed and ready.": "Banner procesado y listo.",
+  "PNG, JPG, or WebP up to 600 KB. It will be cropped to 1024 x 500.":
+    "PNG, JPG o WebP de hasta 600 KB. Se recorta a 1024 x 500.",
+  "Product catalog": "Catálogo de productos",
+  "Configure my product catalog": "Configurar mi catalogo de productos",
+  "Manage this organization's products.":
+    "Administrá los productos que se muestran en el catálogo de esta organización.",
+  "Add a product to this organization's catalog.":
+    "Agregá un producto al catálogo de esta organización.",
+  "Edit a product in this organization's catalog.":
+    "Editá un producto del catálogo de esta organización.",
+  "Product catalog refreshed.": "Catálogo actualizado.",
+  "Unable to refresh product catalog.": "No se pudo actualizar el catálogo.",
+  "Add product to catalog": "Nueva entrada de catálogo",
+  "Back to organization": "Volver a la organización",
+  "Search product title, description, or URL":
+    "Buscar por título, descripción o URL del producto",
+  Product: "Producto",
+  "No products in the catalog yet":
+    "¡No subiste ningún producto al catálogo aún!",
+  "No products match the loaded rows.":
+    "Ningún producto coincide con las filas cargadas.",
+  "Create your first product in under 5 minutes.":
+    "Creá tu primer producto en menos de 5 minutos.",
+  "Try a different search or refresh the catalog.":
+    "Probá otra búsqueda o actualizá el catálogo.",
+  "Has image": "Tiene imagen",
+  "No image": "Sin imagen",
+  "No product URL": "Sin URL de producto",
+  "Product deleted.": "Producto eliminado.",
+  "Unable to delete the product.": "No se pudo eliminar el producto.",
+  "Delete product": "Eliminar producto",
+  "Delete product?": "¿Eliminar producto?",
+  "This removes the product from the organization catalog. This action cannot be undone.":
+    "Esto elimina el producto del catálogo de la organización. No se puede deshacer.",
+  "Back to product catalog": "Volver al catálogo de productos",
+  "Product item": "Producto",
+  Catalog: "Catálogo",
+  "Product title": "Título del producto",
+  "Example: Full genome report": "Ejemplo: Reporte de genoma completo",
+  "Use the public-facing product name.": "Usá el nombre público del producto.",
+  "Product URL": "URL del producto",
+  "Button label": "Texto del botón",
+  "View product": "Ver producto",
+  "Optional. Used as the product link label.":
+    "Opcional. Se usa como texto del enlace del producto.",
+  "Add a product URL to enable this label.":
+    "Agregá una URL de producto para activar este texto.",
+  "Product image": "Imagen del producto",
+  "Use a URL or upload a small PNG, JPG, or WebP file.":
+    "Usá una URL o subí un archivo PNG, JPG o WebP liviano.",
+  "Choose another image": "Elegir otra imagen",
+  "Remove image": "Quitar imagen",
+  "Uploaded image selected.": "Imagen subida seleccionada.",
+  "Upload product image": "Subir imagen del producto",
+  "Drop it here or choose a file up to 600 KB.":
+    "Soltala acá o elegí un archivo de hasta 600 KB.",
+  "Compressing uploaded product image...":
+    "Comprimiendo imagen del producto...",
+  "Preparing uploaded product image...": "Preparando imagen del producto...",
+  "Use a PNG, JPG, or WebP image.": "Usá una imagen PNG, JPG o WebP.",
+  "The image is still too large after compression.":
+    "La imagen sigue siendo demasiado grande después de comprimirla.",
+  "Image ready": "Imagen lista",
+  "Image ready.": "Imagen lista.",
+  "Product description": "Descripción del producto",
+  "Explain what the product is, who it helps, and what happens after opening it.":
+    "Explicá qué es el producto, a quién ayuda y qué pasa después de abrirlo.",
+  "Describe this product for people browsing Pocket Genes.":
+    "Describí este producto para las personas que exploran Pocket Genes.",
+  "Product descriptions appear in small cards alongside other products. We suggest keeping this under 100 characters so the content displays clearly.":
+    "Las descripciones de producto se muestran en tarjetas chicas junto a otros productos. Te sugerimos mantenerla por debajo de 100 caracteres para asegurar una buena visualización del contenido.",
+  "Delete this product from the organization profile.":
+    "Eliminá este producto del perfil de la organización.",
+  "Create product": "Crear producto",
+  "Add a product title to continue.":
+    "Agregá un título de producto para continuar.",
+  "Write at least 30 characters in the description.":
+    "Escribí al menos 30 caracteres en la descripción.",
+  "Use a valid image URL.": "Usá una URL de imagen válida.",
+  "Use a valid product URL.": "Usá una URL de producto válida.",
+  "Ready to save.": "Listo para guardar.",
+  "No unsaved changes.": "Sin cambios sin guardar.",
+  "Product added.": "Producto agregado.",
+  "Product saved.": "Producto guardado.",
+  "Unable to save product.": "No se pudo guardar el producto.",
+  "Catalog preview": "Vista previa del catálogo",
+  "The product description will appear here.":
+    "La descripción del producto va a aparecer acá.",
   "Website URL": "URL del sitio web",
   "Internal notes": "Notas internas",
   "Verified publisher": "Publicador verificado",
@@ -650,6 +784,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No countries match": "No hay países que coincidan",
   "No countries selected": "Sin países seleccionados",
   "countries selected": "países seleccionados",
+  "Clear selection": "Limpiar selección",
   "Clear selected": "Limpiar selección",
   "Clear all": "Limpiar todo",
   Done: "Listo",
@@ -1035,12 +1170,22 @@ const SPANISH_TEXT: Record<string, string> = {
   "Email verified": "Email verificado",
   "Email not verified": "Email no verificado",
   "Account email": "Email de la cuenta",
-  "Changing email also moves your role assignment record.":
-    "Al cambiar el email también se actualiza tu acceso al portal.",
   "Email Verified": "Email verificado",
   "Send Verification": "Enviar verificación",
   "Validate Email": "Validar email",
+  "Validate email": "Validar email",
   "Change Email": "Cambiar email",
+  "Change email": "Cambiar email",
+  "Current email": "Email actual",
+  "New email": "Nuevo email",
+  "Send verification email": "Enviar email de verificación",
+  "Verification email sent": "Email de verificación enviado",
+  "We will send a verification link to the current account email.":
+    "Vamos a enviar un link de verificación al email actual de la cuenta.",
+  "Enter the new email for this account. The role assignment will move to that email, and verification will be required again.":
+    "Ingresá el nuevo email para esta cuenta. El perfil se moverá a ese email y la verificación será requerida nuevamente.",
+  "Email changed": "Email modificado",
+  Next: "Siguiente",
   "Changing...": "Cambiando...",
   "Bootstrap account emails are read only here.":
     "El email de esta cuenta es de solo lectura.",
@@ -1092,7 +1237,10 @@ const SPANISH_TEXT: Record<string, string> = {
   Saved: "Guardado",
   "Action failed": "La acción falló",
   Dismiss: "Cerrar",
-  "View log": "Ver registro",
+  "View log": "Ver log",
+  "Action error log": "Log de error de acción",
+  "Full error details for this failed action.":
+    "Detalle completo del error para esta acción fallida.",
   "No role assignment record is linked to this session.":
     "No hay un perfil asociado a esta sesión.",
   "Use 100 characters or fewer.": "Usá 100 caracteres o menos.",
@@ -1136,6 +1284,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Overwrite template": "Sobreescribir plantilla",
   "Mark as favorite": "Marcar como favorita",
   "Unmark as favorite": "Desmarcar como favorita",
+  "Mark selected as favorite": "Marcar seleccionadas como favoritas",
+  "Mark selected as not favorite": "Marcar seleccionadas como no favoritas",
   "Template overwritten.": "Plantilla sobreescrita.",
   "Unable to overwrite template.": "No se pudo sobreescribir la plantilla.",
   "Template marked as favorite.": "Plantilla marcada como favorita.",
@@ -1150,9 +1300,49 @@ const SPANISH_TEXT: Record<string, string> = {
   "Delete template": "Borrar plantilla",
   "Template deleted.": "Plantilla borrada.",
   "Unable to delete template.": "No se pudo eliminar la plantilla.",
+  "Selected templates marked as favorite.":
+    "Plantillas seleccionadas marcadas como favoritas.",
+  "Selected templates marked as not favorite.":
+    "Plantillas seleccionadas marcadas como no favoritas.",
+  "Unable to update selected templates.":
+    "No se pudieron actualizar las plantillas seleccionadas.",
+  "Unable to delete selected templates.":
+    "No se pudieron eliminar las plantillas seleccionadas.",
+  "template selected": "plantilla seleccionada",
+  "templates selected": "plantillas seleccionadas",
+  "template deleted.": "plantilla eliminada.",
+  "templates deleted.": "plantillas eliminadas.",
+  "Select all visible templates": "Seleccionar todas las plantillas visibles",
+  "Select template": "Seleccionar plantilla",
+  "Delete selected templates": "Eliminar plantillas seleccionadas",
+  "This removes every selected template from the CRM send flow.":
+    "Esto elimina todas las plantillas seleccionadas del flujo de envío del CRM.",
   "This removes the template from the CRM send flow.":
     "Esto elimina la plantilla del flujo de envío del CRM.",
   "Template variables": "Variables de plantilla",
+  "Professional template body rules":
+    "Reglas del cuerpo para plantillas profesionales",
+  "Organization template body rules":
+    "Reglas del cuerpo para plantillas de organizaciones",
+  "Approved mandatory closing": "Cierre obligatorio aprobado",
+  "Professional template writing style":
+    "Estilo de escritura para plantillas profesionales",
+  "Organization template writing style":
+    "Estilo de escritura para plantillas de organizaciones",
+  "Professional template review rules":
+    "Reglas de revisión para plantillas profesionales",
+  "Organization template review rules":
+    "Reglas de revisión para plantillas de organizaciones",
+  Purpose: "Propósito",
+  Personalization: "Personalización",
+  "Mandatory closing": "Cierre obligatorio",
+  Variables: "Variables",
+  "Add variable": "Agregar variable",
+  "Line break": "Salto de línea",
+  "Variable key": "Variable",
+  Value: "Valor",
+  "No variables used in this message.":
+    "No hay variables usadas en este mensaje.",
   "Applies to": "Aplica a",
   "Website sentence": "Frase del sitio web",
   "Template Active": "Activa",
@@ -1171,6 +1361,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "No CSV selected": "No hay CSV seleccionado",
   "Raw CSV contents are not rendered. The preview below is capped to protect the UI.":
     "El contenido crudo del CSV no se renderiza. La vista previa de abajo está limitada para proteger la UI.",
+  "CSV row": "Fila CSV",
+  "Import queue": "Cola de importación",
+  "Variables used": "Variables usadas",
+  "Add row": "Agregar fila",
+  "Untitled template": "Plantilla sin título",
   "Showing first": "Mostrando primeras",
   "parsed rows": "filas parseadas",
   "Template import finished": "Importación de plantillas finalizada",
@@ -1179,6 +1374,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Use sample": "Usar ejemplo",
   "No import rows found.": "No se encontraron filas para importar.",
   "Created templates": "Creadas",
+  "Skipped rows": "Omitidas",
   "Failed rows": "Fallidas",
   templates: "plantillas",
   "CSV needs name, subject, and body columns.":
@@ -1213,6 +1409,12 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to delete CRM organization.":
     "No se pudo eliminar la organización del CRM.",
   "CRM organizations deleted.": "organizaciones del CRM eliminadas.",
+  "Selected CRM organizations marked as favorite.":
+    "Organizaciones seleccionadas del CRM marcadas como favoritas.",
+  "Selected CRM organizations marked as not favorite.":
+    "Organizaciones seleccionadas del CRM marcadas como no favoritas.",
+  "Unable to update selected CRM organizations.":
+    "No se pudieron actualizar las organizaciones seleccionadas del CRM.",
   "Unable to delete selected CRM organizations.":
     "No se pudieron eliminar las organizaciones seleccionadas del CRM.",
   "One professional, one direct email, and the next action.":
@@ -1226,6 +1428,12 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to delete CRM professional.":
     "No se pudo eliminar el profesional del CRM.",
   "CRM professionals deleted.": "profesionales del CRM eliminados.",
+  "Selected CRM professionals marked as favorite.":
+    "Profesionales seleccionados del CRM marcados como favoritos.",
+  "Selected CRM professionals marked as not favorite.":
+    "Profesionales seleccionados del CRM marcados como no favoritos.",
+  "Unable to update selected CRM professionals.":
+    "No se pudieron actualizar los profesionales seleccionados del CRM.",
   "Unable to delete selected CRM professionals.":
     "No se pudieron eliminar los profesionales seleccionados del CRM.",
   "No CRM organizations found.": "No se encontraron organizaciones en el CRM.",
@@ -1283,6 +1491,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Accepted statuses": "Estados aceptados",
   "Accepted categories": "Categorías aceptadas",
   "Accepted countries": "Países aceptados",
+  "Professional variable quality": "Calidad de variables profesionales",
+  "Best effort is required for professional imports: whenever source data allows it, fill name, title, primary_affiliation, potential_pocket_genes_editor_fit, email_route, linkedin_route, research_basis, and website so professional plantillas that use variables do not render blank or generic.":
+    "La importación de profesionales requiere best effort: siempre que la fuente lo permita, completá name, title, primary_affiliation, potential_pocket_genes_editor_fit, email_route, linkedin_route, research_basis y website para que las plantillas profesionales que usan variables no se rendericen vacías o genéricas.",
+  "Professional template variable coverage":
+    "Cobertura de variables de plantillas profesionales",
+  "email and linkedin are not template variables, but they should still be filled when available because they make outreach actionable and easier to verify.":
+    "email y linkedin no son variables de plantilla, pero igual deben completarse cuando estén disponibles porque vuelven accionable el outreach y facilitan la verificación.",
   "Use variables in subject or body as {{variable_name}}.":
     "Usá variables en el asunto o cuerpo como {{variable_name}}.",
   "Unknown variables render blank.":
@@ -1309,6 +1524,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Revisá las filas parseadas antes de crear plantillas.",
   "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.":
     "La importación de plantillas crea filas válidas una por una; las filas inválidas se omiten y las completadas no se revierten.",
+  "Use Evaluate one by one to decide Add / Skip / Combine for each row. Possible duplicates are surfaced on the row card before anything is saved.":
+    "Usá Evaluar una por una para decidir Agregar / Omitir / Combinar en cada fila. Los posibles duplicados se muestran en la tarjeta antes de guardar nada.",
   "Literal \\n is converted to a line break in template body and notes.":
     "El texto literal \\n se convierte en salto de línea en el cuerpo y las notas de la plantilla.",
   "Use active templates for the CRM send flow; archived templates are kept out of normal sending.":
@@ -1359,18 +1576,20 @@ const SPANISH_TEXT: Record<string, string> = {
     "Opcional. Usá una fecha-hora ISO completa con zona horaria explícita. Aceptado: 2026-08-25T17:29:00.000Z o 2026-08-25T14:29:00-03:00. Rechazado: 2026-08-25 y 2026-08-25T14:29:00 porque no incluyen zona horaria.",
   "Optional plain operational notes. Maximum 2000 characters. Do not paste long scraped pages or JSON blobs.":
     "Notas operativas opcionales. Máximo 2000 caracteres. No pegues páginas scrapeadas largas ni blobs JSON.",
-  "Optional. Maximum 180 characters. Store only the professional role, title, specialty, or credential.":
-    "Opcional. Máximo 180 caracteres. Guardá solo el rol, cargo, especialidad o credencial profesional.",
-  "Optional. Maximum 180 characters. Store the main institution, company, lab, hospital, or professional affiliation as a plain name.":
-    "Opcional. Máximo 180 caracteres. Guardá la institución, empresa, laboratorio, hospital o afiliación profesional principal como nombre plano.",
-  "Optional. Maximum 2000 characters. Store why this professional could fit Pocket Genes editor work, such as clinical genetics, genetic testing, result interpretation, or patient education.":
-    "Opcional. Máximo 2000 caracteres. Guardá por qué este profesional podría encajar como editor de Pocket Genes, por ejemplo genética clínica, pruebas genéticas, interpretación de resultados o educación de pacientes.",
-  "Optional. Maximum 2000 characters. Store how the recipient email was found and what context should be verified before outreach. This is not the direct email field.":
-    "Opcional. Máximo 2000 caracteres. Guardá cómo se encontró el email destinatario y qué contexto debe verificarse antes del outreach. Este no es el campo de email directo.",
-  "Optional. Maximum 2000 characters. Store the LinkedIn route, such as the professional profile or official affiliated organization page. This is not the direct LinkedIn URL field.":
-    "Opcional. Máximo 2000 caracteres. Guardá la ruta de LinkedIn, como el perfil profesional o la página oficial de la organización afiliada. Este no es el campo de URL directa de LinkedIn.",
-  "Optional. Maximum 2000 characters. Store the source basis used to validate the lead, such as datasets, affiliation websites, LinkedIn records, or other verified references.":
-    "Opcional. Máximo 2000 caracteres. Guardá la base de fuentes usada para validar el lead, como datasets, sitios de afiliación, registros de LinkedIn u otras referencias verificadas.",
+  "Optional but best effort for professional templates. Maximum 180 characters. Store only the professional role, title, specialty, or credential. Powers {{title}}.":
+    "Opcional, pero best effort para plantillas profesionales. Máximo 180 caracteres. Guardá solo el rol, cargo, especialidad o credencial profesional. Alimenta {{title}}.",
+  "Optional but best effort for professional templates. Maximum 180 characters. Store the main institution, company, lab, hospital, or professional affiliation as a plain name. Powers {{primary_affiliation}}.":
+    "Opcional, pero best effort para plantillas profesionales. Máximo 180 caracteres. Guardá la institución, empresa, laboratorio, hospital o afiliación profesional principal como nombre plano. Alimenta {{primary_affiliation}}.",
+  "Optional but best effort and high value for professional templates. Maximum 2000 characters. Store the exact title, work, topic, or editorial hook only. Do not add wrapping quotes, commas, periods, or explanatory punctuation at the end; the send flow will show it between quotes and in italics. Powers {{potential_pocket_genes_editor_fit}}.":
+    "Opcional, pero best effort y de alto valor para plantillas profesionales. Máximo 2000 caracteres. Guardá solo el título, obra, tema o gancho editorial exacto. No agregues comillas envolventes, comas, puntos ni puntuación explicativa al final; el flujo de envío lo muestra entre comillas y en itálica. Alimenta {{potential_pocket_genes_editor_fit}}.",
+  "Optional but best effort for professional templates. Maximum 2000 characters. Store how the recipient email was found and what context should be verified before outreach. This is not the direct email field. Powers {{email_route}}.":
+    "Opcional, pero best effort para plantillas profesionales. Máximo 2000 caracteres. Guardá cómo se encontró el email destinatario y qué contexto debe verificarse antes del outreach. Este no es el campo de email directo. Alimenta {{email_route}}.",
+  "Optional but best effort for professional templates. Maximum 2000 characters. Store the LinkedIn route, such as the professional profile or official affiliated organization page. This is not the direct LinkedIn URL field. Powers {{linkedin_route}}.":
+    "Opcional, pero best effort para plantillas profesionales. Máximo 2000 caracteres. Guardá la ruta de LinkedIn, como el perfil profesional o la página oficial de la organización afiliada. Este no es el campo de URL directa de LinkedIn. Alimenta {{linkedin_route}}.",
+  "Optional but best effort for professional templates. Maximum 2000 characters. Store the source basis used to validate the lead, such as datasets, affiliation websites, LinkedIn records, or other verified references. Powers {{research_basis}}.":
+    "Opcional, pero best effort para plantillas profesionales. Máximo 2000 caracteres. Guardá la base de fuentes usada para validar el lead, como datasets, sitios de afiliación, registros de LinkedIn u otras referencias verificadas. Alimenta {{research_basis}}.",
+  "Optional but best effort for professional templates. Maximum 500 characters. Use a public website URL. Values without protocol are accepted and normalized with https:// when possible. Powers {{website}} and {{website_sentence}}.":
+    "Opcional, pero best effort para plantillas profesionales. Máximo 500 caracteres. Usá una URL pública. Los valores sin protocolo se aceptan y se normalizan con https:// cuando es posible. Alimenta {{website}} y {{website_sentence}}.",
   "Required. Trimmed before save. Maximum 180 characters. This is the internal template name shown in the template list.":
     "Obligatorio. Se recorta antes de guardar. Máximo 180 caracteres. Es el nombre interno que se muestra en la lista de plantillas.",
   "Required. Trimmed before save. Maximum 180 characters. Template variables such as {{organization_name}} or {{first_name}} are allowed. Unknown variables render blank.":
@@ -1442,6 +1661,30 @@ const SPANISH_TEXT: Record<string, string> = {
   "All emails": "Todos los emails",
   "Has Email": "Con email",
   "Missing Email": "Sin email",
+  "All LinkedIn": "Todos los LinkedIn",
+  "Has LinkedIn": "Con LinkedIn",
+  "Missing LinkedIn": "Sin LinkedIn",
+  "Resize CRM detail panel": "Redimensionar panel de detalle del CRM",
+  "Resize template preview panel":
+    "Redimensionar panel de vista previa de plantilla",
+  "Visual filters": "Filtros visuales",
+  "Clear all filters": "Limpiar todos los filtros",
+  "Select visual filter segments before applying.":
+    "Seleccioná segmentos de filtros visuales antes de aplicarlos.",
+  "Failed to load visual filters.":
+    "No se pudieron cargar los filtros visuales.",
+  "No visual filters available.": "No hay filtros visuales disponibles.",
+  "No data for this filter.": "Sin datos para este filtro.",
+  "Email availability": "Disponibilidad de email",
+  "LinkedIn availability": "Disponibilidad de LinkedIn",
+  "See more": "Ver más",
+  "Select visual filter from pie": "Seleccionar filtro visual desde el gráfico",
+  "Select visual filter from legend":
+    "Seleccionar filtro visual desde la leyenda",
+  "Selected segment": "Segmento seleccionado",
+  "No segment selected": "Sin segmento seleccionado",
+  "pie chart": "gráfico circular",
+  items: "ítems",
   "Primary contact": "Contacto principal",
   Professional: "Profesional",
   "Professional name": "Nombre del profesional",
@@ -1461,6 +1704,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No owner recorded": "Sin responsable registrado",
   "Open profile": "Abrir perfil",
   "No notes yet.": "Sin notas todavía.",
+  "More information": "Más información",
   "No category": "Sin categoría",
   Pipeline: "Pipeline",
   "Send Email": "Enviar email",
@@ -1474,6 +1718,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Sending updates last contact and records email activity.":
     "El envío actualiza el último contacto y registra la actividad de email.",
   "Preview email": "Vista previa del email",
+  "Keep editing": "Seguir modificando",
   "Previous template": "Plantilla anterior",
   "Next template": "Plantilla siguiente",
   "Ready to send": "Listo para enviar",
@@ -1614,6 +1859,31 @@ const SPANISH_TEXT: Record<string, string> = {
   Pause: "Pausar",
   "Add imports this row anyway. Skip leaves the existing CRM untouched.":
     "Agregar importa esta fila igual. Omitir deja el CRM existente sin cambios.",
+  Compatibilizar: "Compatibilizar",
+  "Compatibilizar sumando campos faltantes":
+    "Compatibilizar sumando campos faltantes",
+  "Compatibilizar reemplazando variables":
+    "Compatibilizar reemplazando variables",
+  "Compare the existing CRM record with the CSV row and choose the resolved value for each field.":
+    "Compará el registro existente del CRM con la fila del CSV y elegí el valor resuelto para cada campo.",
+  "Unable to load duplicate CRM record.":
+    "No se pudo cargar el registro duplicado del CRM.",
+  "Duplicate target was not found.":
+    "No se encontró el registro duplicado de destino.",
+  "Duplicate resolver": "Resolución de duplicado",
+  "CRM existing": "CRM existente",
+  "CSV new": "CSV nuevo",
+  "Resolved value": "Valor resuelto",
+  CRM: "CRM",
+  CSV: "CSV",
+  Merged: "Fusionado",
+  "Merge both": "Fusionar ambos",
+  "Save compatibility": "Guardar compatibilización",
+  "Merged duplicate row saved.": "Fila duplicada compatibilizada guardada.",
+  "Unable to compatibilize duplicate.":
+    "No se pudo compatibilizar el duplicado.",
+  "No duplicate target found for this row.":
+    "No se encontró un duplicado de destino para esta fila.",
   "CRM import finished": "Importación del CRM finalizada",
   "The imported rows were committed one by one and the CRM list has been refreshed.":
     "Las filas importadas se confirmaron una por una y la lista del CRM fue actualizada.",
@@ -1629,6 +1899,43 @@ const SPANISH_TEXT: Record<string, string> = {
   "Possible duplicates": "Posibles duplicados",
   "Duplicate handling": "Gestión de duplicados",
   "Possible duplicate": "Posible duplicado",
+  "Same audience and template name.": "Mismo público y nombre de plantilla.",
+  "Same audience and subject.": "Mismo público y asunto.",
+  "This row matches an existing template. Accept creates a separate template; skip leaves the existing template unchanged; combine updates the existing template using the merge rules.":
+    "Esta fila coincide con una plantilla existente. Aceptar crea una plantilla separada; omitir deja la plantilla existente sin cambios; combinar actualiza la plantilla existente usando las reglas de fusión.",
+  "Compatibility uses this row's subject when present, keeps the existing message unless it is blank, fills missing fields from this row, appends new notes, and keeps favorite enabled if either side is favorite.":
+    "La compatibilidad usa el asunto de esta fila cuando existe, mantiene el mensaje existente salvo que esté vacío, completa campos faltantes desde esta fila, suma notas nuevas y mantiene favorito activo si cualquiera de los dos lados lo tiene activo.",
+  "Overwrite subject and body uses the same compatibility method as automatic import.":
+    "Sobreescribir asunto y cuerpo usa el mismo método de compatibilización que la importación automática.",
+  "CSV subject and body overwrite existing values when present; missing fields are filled; new notes are appended; favorite stays active if either side is active.":
+    "El asunto y el cuerpo del CSV sobreescriben los valores existentes cuando vienen informados; se completan campos faltantes; se suman notas nuevas; favorito queda activo si cualquiera de los dos lados lo tiene activo.",
+  "Existing template": "Plantilla existente",
+  "No field differences detected.": "No se detectaron diferencias de campos.",
+  "Merge rules preserve existing subject and body unless they are blank, merge notes, and keep favorite enabled if either side is favorite.":
+    "Las reglas de fusión preservan asunto y cuerpo existentes salvo que estén vacíos, fusionan notas y mantienen favorito activo si cualquiera de los dos lados lo tiene activo.",
+  "Combine with existing": "Combinar con existente",
+  "Accept row": "Aceptar fila",
+  "Evaluate one by one": "Evaluar una por una",
+  "Import all - overwrite duplicate subject/body":
+    "Importar todo - sobrescribir asunto/cuerpo en duplicados",
+  "Import pending rows - overwrite duplicate subject/body":
+    "Importar pendientes - sobrescribir asunto/cuerpo en duplicados",
+  "Overwrite subject and body": "Sobreescribir asunto y cuerpo",
+  "Automatic duplicate handling": "Gestión automática de duplicados",
+  "When a CSV row matches an existing template, automatic import overwrites that template's subject and body from the CSV instead of creating a duplicate.":
+    "Cuando una fila del CSV coincide con una plantilla existente, la importación automática sobreescribe el asunto y el cuerpo de esa plantilla desde el CSV en vez de crear un duplicado.",
+  "Pause after current row": "Pausar después de la fila actual",
+  "Pausing after current row": "Pausando después de la fila actual",
+  "Automatic import paused. Review the current row, then continue with pending rows when ready.":
+    "La importación automática quedó pausada. Revisá la fila actual y continuá con las pendientes cuando estés listo.",
+  "Previous row": "Fila anterior",
+  "Next pending row": "Siguiente pendiente",
+  "Keep existing unchanged": "Mantener existente sin cambios",
+  "Checking existing templates": "Revisando plantillas existentes",
+  "Unable to check existing templates for duplicates.":
+    "No se pudieron revisar duplicados contra las plantillas existentes.",
+  "No duplicate template was found for this row.":
+    "No se encontró una plantilla duplicada para esta fila.",
   Skip: "Omitir",
   "Update existing": "Actualizar existente",
   "Import anyway": "Importar igual",

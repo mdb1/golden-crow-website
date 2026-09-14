@@ -1609,6 +1609,14 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
     };
   }
 
+  if (/^\/discover\/organizations\/[^/]+\/product-catalog(?:\/.*)?$/.test(pathname)) {
+    return {
+      eyebrow: "Discover",
+      title: "Product catalog",
+      description: "Organization-owned productCatalog entries.",
+    };
+  }
+
   if (pathname.startsWith("/discover/organizations/")) {
     return {
       eyebrow: "Discover",

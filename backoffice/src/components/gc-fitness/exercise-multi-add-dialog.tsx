@@ -185,12 +185,17 @@ export function ExerciseMultiAddDialog({
           {t("multiAddTrigger")}
         </Button>
       </DialogTrigger>
-      <DialogContent className="flex max-h-[80vh] flex-col gap-3 sm:max-w-2xl">
-        <DialogHeader>
+      {/* #1089 — on a phone this dialog had the same shape of defect as the
+          single-add picker: an outer cap (80vh) plus a SECOND one on the list
+          (50vh), so with the header, the search box and two wrapped chip rows
+          above it the results showed through a ~200px slot. It now takes the
+          full height available and the list is the only thing that grows. */}
+      <DialogContent className="flex h-[90dvh] max-h-[90dvh] flex-col gap-3 overflow-hidden sm:h-auto sm:max-h-[85vh] sm:max-w-2xl">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{t("multiAddTitle")}</DialogTitle>
           <DialogDescription>{t("multiAddDescription")}</DialogDescription>
         </DialogHeader>
-        <div className="flex items-center gap-2 rounded-md border px-3">
+        <div className="flex shrink-0 items-center gap-2 rounded-md border px-3">
           <Search className="h-4 w-4 shrink-0 opacity-50" />
           <input
             value={search}
@@ -199,8 +204,10 @@ export function ExerciseMultiAddDialog({
             className="h-10 flex-1 bg-transparent text-sm outline-none"
           />
         </div>
-        {/* Muscle-group + equipment filters — mirror the single-add picker. */}
-        <div className="rounded-md border p-2">
+        {/* Muscle-group + equipment filters — mirror the single-add picker.
+            Capped + scrollable so the wrapped chips can never starve the
+            results list on a narrow screen (#1089). */}
+        <div className="min-h-0 overflow-y-auto rounded-md border p-2 sm:max-h-[35%]">
           <ChipRow
             testId="exercise-multi-add-chip-group-muscles"
             label={t("filterMuscles")}
@@ -245,7 +252,10 @@ export function ExerciseMultiAddDialog({
             </div>
           ) : null}
         </div>
-        <ul className="flex max-h-[50vh] flex-col gap-1 overflow-y-auto rounded-md border p-2">
+        {/* `min-h-32` (not `min-h-0`): the dialog is `overflow-hidden` now, so
+            a floor is what keeps the chip block from squeezing the results to
+            nothing on a short viewport. The chips scroll instead. */}
+        <ul className="flex min-h-32 flex-1 flex-col gap-1 overflow-y-auto rounded-md border p-2">
           {isLoading || !hasSnapshot ? (
             <li className="py-4 text-center text-sm text-muted-foreground">
               {t("loadingExercises")}
@@ -357,7 +367,7 @@ export function ExerciseMultiAddDialog({
             }}
           />
         ) : null}
-        <DialogFooter className="flex flex-row items-center justify-between gap-2 sm:justify-between">
+        <DialogFooter className="flex shrink-0 flex-row items-center justify-between gap-2 sm:justify-between">
           <span className="text-xs text-muted-foreground">
             {t("multiAddSelectedCount", { count: picked.size })}
           </span>

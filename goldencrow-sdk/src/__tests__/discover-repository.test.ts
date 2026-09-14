@@ -396,6 +396,86 @@ describe("discover repository", () => {
     ]);
   });
 
+  it("filters publisher-scoped feed entries by status", async () => {
+    mockFeedDocs.push(
+      {
+        id: "feed-published",
+        data: {
+          publisherOrganizationId: "org-1",
+          publisherSnapshot: { name: "Publisher One", imageUrl: null },
+          type: "news",
+          status: "published",
+          title: "Published item",
+          subtitle: "Summary",
+          body: "Body",
+          language: "en",
+          publishedAt: "2026-08-05T10:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          updatedAt: "2026-08-05T10:00:00.000Z",
+        },
+      },
+      {
+        id: "feed-other-publisher",
+        data: {
+          publisherOrganizationId: "org-2",
+          publisherSnapshot: { name: "Other Publisher", imageUrl: null },
+          type: "news",
+          status: "published",
+          title: "Other published item",
+          subtitle: "Summary",
+          body: "Body",
+          language: "en",
+          publishedAt: "2026-08-05T10:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          updatedAt: "2026-08-05T10:00:00.000Z",
+        },
+      },
+    );
+    const { listDiscoverFeedItems } =
+      await import("../repositories/discover.repository");
+
+    const result = await listDiscoverFeedItems(
+      {
+        email: "publisher@example.com",
+        uid: "uid-1",
+        role: "organization_publisher",
+        organizationId: "org-1",
+        isBootstrap: false,
+        canAccessBackoffice: true,
+        canAccessPatientPortal: false,
+        canAccessPGFlex: false,
+        canAccessPublisherPortal: false,
+        projectAccess: ["mydnamap"],
+      },
+      { status: "published", limit: 1 },
+    );
+
+    expect(result.feedItems).toHaveLength(1);
+    expect(result.feedItems[0]?.id).toBe("feed-published");
+    expect(mockQueryStubs[0]?.operations).toEqual([
+      {
+        type: "where",
+        field: "publisherOrganizationId",
+        operator: "==",
+        value: "org-1",
+      },
+      { type: "where", field: "status", operator: "==", value: "published" },
+      { type: "orderBy", field: "updatedAt", direction: "desc" },
+      { type: "orderBy", field: "__name__", direction: "desc" },
+      { type: "limit", value: 2 },
+    ]);
+    expect(mockQueryStubs[1]?.operations).toEqual([
+      {
+        type: "where",
+        field: "publisherOrganizationId",
+        operator: "==",
+        value: "org-1",
+      },
+      { type: "where", field: "status", operator: "==", value: "published" },
+      { type: "limit", value: 2 },
+    ]);
+  });
+
   it("returns Discover organization accent colors and localized descriptions", async () => {
     const { listDiscoverOrganizations } =
       await import("../repositories/discover.repository");
@@ -409,6 +489,7 @@ describe("discover repository", () => {
     );
     expect(result.organizations[0]?.isGeneticReportProvider).toBe(false);
     expect(result.organizations[0]?.geneticReportCategory).toBeNull();
+    expect(result.organizations[0]?.isGrcHighlighted).toBe(false);
     expect(result.organizations[0]?.social).toEqual({
       facebook: "https://facebook.com/publisher-one",
       github: "https://github.com/publisher-one",
@@ -624,9 +705,7 @@ describe("discover repository", () => {
       deletedRoleCount: 1,
       deletedAuthUserCount: 1,
     });
-    expect(mockIndividualDocs.some((doc) => doc.id === "person-1")).toBe(
-      false,
-    );
+    expect(mockIndividualDocs.some((doc) => doc.id === "person-1")).toBe(false);
   });
 
   it("approves an organization submission by activating it and provisioning portal access", async () => {
@@ -655,6 +734,84 @@ describe("discover repository", () => {
     expect(result.organization.status).toBe("active");
     expect(nextStored?.data.status).toBe("active");
     expect(nextStored?.data.updatedByUserId).toBe("admin-1");
+  });
+
+  it("keeps regular organization updates from approving pending submissions", async () => {
+    const { updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+    const stored = mockOrganizationDocs.find((doc) => doc.id === "org-1");
+    stored!.data.status = "pending_approval";
+    stored!.data.contactEmail = "approval@example.org";
+
+    const edited = await updateDiscoverOrganization(fullAdminContext, "org-1", {
+      name: "Publisher One Edited",
+      imageUrl: "https://example.org/publisher.png",
+      organizationType:
+        "org_patient_advocacy_organizations,org_genetics_research_institutes",
+    } as Record<string, unknown>);
+    const editedStored = mockOrganizationDocs.find((doc) => doc.id === "org-1");
+
+    expect(edited.status).toBe("pending_approval");
+    expect(editedStored?.data.status).toBe("pending_approval");
+    expect(mockProvisionPublisherPortalRoleForContext).not.toHaveBeenCalled();
+
+    await expect(
+      updateDiscoverOrganization(fullAdminContext, "org-1", {
+        name: "Publisher One Activated",
+        imageUrl: "https://example.org/publisher.png",
+        organizationType:
+          "org_patient_advocacy_organizations,org_genetics_research_institutes",
+        status: "active",
+      } as Record<string, unknown>),
+    ).rejects.toThrow(
+      "Use submission evaluation to approve this organization.",
+    );
+    const rejectedStored = mockOrganizationDocs.find(
+      (doc) => doc.id === "org-1",
+    );
+    expect(rejectedStored?.data.status).toBe("pending_approval");
+    expect(mockProvisionPublisherPortalRoleForContext).not.toHaveBeenCalled();
+  });
+
+  it("keeps regular individual updates from approving pending submissions", async () => {
+    const { updateDiscoverIndividual } =
+      await import("../repositories/discover.repository");
+    const stored = mockIndividualDocs.find((doc) => doc.id === "person-1");
+    stored!.data.status = "pending_approval";
+    stored!.data.contactEmail = "individual@example.org";
+
+    const edited = await updateDiscoverIndividual(
+      fullAdminContext,
+      "person-1",
+      {
+        name: "Dr. Publisher One Edited",
+        imageUrl: "https://example.org/individual.png",
+        individualType: "pro_clinical_geneticists",
+      } as Record<string, unknown>,
+    );
+    const editedStored = mockIndividualDocs.find(
+      (doc) => doc.id === "person-1",
+    );
+
+    expect(edited.status).toBe("pending_approval");
+    expect(editedStored?.data.status).toBe("pending_approval");
+    expect(mockProvisionPublisherPortalRoleForContext).not.toHaveBeenCalled();
+
+    await expect(
+      updateDiscoverIndividual(fullAdminContext, "person-1", {
+        name: "Dr. Publisher One Activated",
+        imageUrl: "https://example.org/individual.png",
+        individualType: "pro_clinical_geneticists",
+        status: "active",
+      } as Record<string, unknown>),
+    ).rejects.toThrow(
+      "Use submission evaluation to approve this individual publisher.",
+    );
+    const rejectedStored = mockIndividualDocs.find(
+      (doc) => doc.id === "person-1",
+    );
+    expect(rejectedStored?.data.status).toBe("pending_approval");
+    expect(mockProvisionPublisherPortalRoleForContext).not.toHaveBeenCalled();
   });
 
   it("rejects an individual submission by archiving it without provisioning portal access", async () => {
@@ -752,6 +909,7 @@ describe("discover repository", () => {
     expect(organization.geneticReportCategory).toBe(
       "grc_reproductive,grc_full_genome",
     );
+    expect(organization.isGrcHighlighted).toBe(false);
     expect(stored?.data.slug).toBe("fundacion-medica-nandu");
     expect(stored?.data.description).toBe("Descripción en español");
     expect(stored?.data.descriptionEn).toBe("English description");
@@ -766,6 +924,203 @@ describe("discover repository", () => {
     expect(stored?.data.geneticReportCategory).toBe(
       "grc_reproductive,grc_full_genome",
     );
+    expect(stored?.data.isGrcHighlighted).toBe(false);
+  });
+
+  it("allows only god mode to set the organization GRC highlight flag", async () => {
+    const { createDiscoverOrganization, updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+
+    const nonGodCreated = await createDiscoverOrganization(fullAdminContext, {
+      name: "Non-god highlight attempt",
+      imageUrl: "https://example.org/non-god-highlight.png",
+      organizationType: "org_genetic_testing_laboratories",
+      isGrcHighlighted: true,
+    } as Record<string, unknown>);
+    const godCreated = await createDiscoverOrganization(godModeContext, {
+      name: "God mode highlighted lab",
+      imageUrl: "https://example.org/god-highlight.png",
+      organizationType: "org_genetic_testing_laboratories",
+      isGrcHighlighted: true,
+    } as Record<string, unknown>);
+
+    expect(nonGodCreated.isGrcHighlighted).toBe(false);
+    expect(godCreated.isGrcHighlighted).toBe(true);
+
+    const fullAdminUpdate = await updateDiscoverOrganization(
+      fullAdminContext,
+      godCreated.id,
+      {
+        name: "Full admin cannot unset highlight",
+        imageUrl: "https://example.org/god-highlight.png",
+        organizationType: "org_genetic_testing_laboratories",
+        isGrcHighlighted: false,
+      } as Record<string, unknown>,
+    );
+
+    expect(fullAdminUpdate.isGrcHighlighted).toBe(true);
+
+    const publisherUpdate = await updateDiscoverOrganization(
+      {
+        ...fullAdminContext,
+        role: "organization_publisher",
+        organizationId: godCreated.id,
+      },
+      godCreated.id,
+      {
+        name: "Publisher cannot unset highlight",
+        imageUrl: "https://example.org/god-highlight.png",
+        organizationType: "org_genetic_testing_laboratories",
+        isGrcHighlighted: false,
+      } as Record<string, unknown>,
+    );
+
+    expect(publisherUpdate.isGrcHighlighted).toBe(true);
+
+    const godUpdate = await updateDiscoverOrganization(
+      godModeContext,
+      godCreated.id,
+      {
+        name: "God mode can unset highlight",
+        imageUrl: "https://example.org/god-highlight.png",
+        organizationType: "org_genetic_testing_laboratories",
+        isGrcHighlighted: false,
+      } as Record<string, unknown>,
+    );
+    const stored = mockOrganizationDocs.find((doc) => doc.id === godCreated.id);
+
+    expect(godUpdate.isGrcHighlighted).toBe(false);
+    expect(stored?.data.isGrcHighlighted).toBe(false);
+  });
+
+  it("keeps GRC banner fields available only while organizations are highlighted", async () => {
+    const { createDiscoverOrganization, updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+
+    const ignoredBanner = await createDiscoverOrganization(godModeContext, {
+      name: "Regular lab",
+      imageUrl: "https://example.org/regular-logo.png",
+      organizationType: "org_genetic_testing_laboratories",
+      isGrcHighlighted: false,
+      bannerImageUrl: "https://example.org/ignored-banner.png",
+    } as Record<string, unknown>);
+
+    expect(ignoredBanner.isGrcHighlighted).toBe(false);
+    expect(ignoredBanner.bannerImageUrl).toBeNull();
+
+    const highlighted = await createDiscoverOrganization(godModeContext, {
+      name: "Highlighted lab",
+      imageUrl: "https://example.org/highlighted-logo.png",
+      organizationType: "org_genetic_testing_laboratories",
+      isGrcHighlighted: true,
+      bannerImageUrl: "https://example.org/highlighted-banner.png",
+    } as Record<string, unknown>);
+
+    expect(highlighted.isGrcHighlighted).toBe(true);
+    expect(highlighted.bannerImageUrl).toBe(
+      "https://example.org/highlighted-banner.png",
+    );
+
+    const publisherUpdate = await updateDiscoverOrganization(
+      {
+        ...fullAdminContext,
+        role: "organization_publisher",
+        organizationId: highlighted.id,
+      },
+      highlighted.id,
+      {
+        name: "Publisher updated highlighted lab",
+        imageUrl: "https://example.org/highlighted-logo.png",
+        organizationType: "org_genetic_testing_laboratories",
+        isGrcHighlighted: false,
+        bannerImageUrl: "https://example.org/publisher-banner.png",
+      } as Record<string, unknown>,
+    );
+
+    expect(publisherUpdate.isGrcHighlighted).toBe(true);
+    expect(publisherUpdate.bannerImageUrl).toBe(
+      "https://example.org/publisher-banner.png",
+    );
+
+    const godUpdate = await updateDiscoverOrganization(
+      godModeContext,
+      highlighted.id,
+      {
+        name: "Unhighlighted lab",
+        imageUrl: "https://example.org/highlighted-logo.png",
+        organizationType: "org_genetic_testing_laboratories",
+        isGrcHighlighted: false,
+      } as Record<string, unknown>,
+    );
+    const stored = mockOrganizationDocs.find(
+      (doc) => doc.id === highlighted.id,
+    );
+
+    expect(godUpdate.isGrcHighlighted).toBe(false);
+    expect(godUpdate.bannerImageUrl).toBeNull();
+    expect(stored?.data.bannerImageUrl).toBeNull();
+    expect(stored?.data.bannerImageUploadDataUrl).toBeUndefined();
+  });
+
+  it("preserves and clears uploaded GRC banner image fields", async () => {
+    const { createDiscoverOrganization, updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+
+    const highlighted = await createDiscoverOrganization(godModeContext, {
+      name: "Uploaded banner lab",
+      imageUrl: "https://example.org/logo.png",
+      organizationType: "org_genetic_testing_laboratories",
+      isGrcHighlighted: true,
+      bannerImageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+      bannerImageUploadName: "banner.png",
+      bannerImageUploadMimeType: "image/png",
+    } as Record<string, unknown>);
+
+    expect(highlighted.bannerImageUrl).toBeNull();
+    expect(highlighted.bannerImageUploadDataUrl).toBe(
+      "data:image/png;base64,iVBORw0KGgo=",
+    );
+    expect(highlighted.bannerImageUploadName).toBe("banner.png");
+    expect(highlighted.bannerImageUploadMimeType).toBe("image/png");
+
+    const preserved = await updateDiscoverOrganization(
+      fullAdminContext,
+      highlighted.id,
+      {
+        name: "Uploaded banner lab updated",
+        imageUrl: "https://example.org/logo.png",
+        organizationType: "org_genetic_testing_laboratories",
+      } as Record<string, unknown>,
+    );
+
+    expect(preserved.bannerImageUploadDataUrl).toBe(
+      "data:image/png;base64,iVBORw0KGgo=",
+    );
+
+    const urlReplacement = await updateDiscoverOrganization(
+      fullAdminContext,
+      highlighted.id,
+      {
+        name: "Uploaded banner lab URL",
+        imageUrl: "https://example.org/logo.png",
+        organizationType: "org_genetic_testing_laboratories",
+        bannerImageUrl: "https://example.org/banner-replacement.png",
+        bannerImageUploadDataUrl: null,
+      } as Record<string, unknown>,
+    );
+    const stored = mockOrganizationDocs.find(
+      (doc) => doc.id === highlighted.id,
+    );
+
+    expect(urlReplacement.bannerImageUrl).toBe(
+      "https://example.org/banner-replacement.png",
+    );
+    expect(urlReplacement.bannerImageUploadDataUrl).toBeUndefined();
+    expect(urlReplacement.bannerImageUploadName).toBeUndefined();
+    expect(urlReplacement.bannerImageUploadMimeType).toBeUndefined();
+    expect(stored?.data.bannerImageUploadDataUrl).toBeUndefined();
+    expect(stored?.data.bannerImageUploadName).toBeUndefined();
+    expect(stored?.data.bannerImageUploadMimeType).toBeUndefined();
   });
 
   it("requires image URLs when creating publishers", async () => {
@@ -836,6 +1191,102 @@ describe("discover repository", () => {
     );
   });
 
+  it("clears uploaded organization logo fields when a replacement image URL is saved", async () => {
+    const { updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+    mockOrganizationDocs.push({
+      id: "uploaded-org-url-replacement",
+      data: {
+        name: "Uploaded Logo Lab",
+        imageUrl: null,
+        imageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+        imageUploadName: "wizard-logo.png",
+        imageUploadMimeType: "image/png",
+        status: "pending_approval",
+        countryCode: "AR",
+        organizationType: "org_genetic_testing_laboratories",
+        verified: false,
+        isGeneticReportProvider: false,
+        geneticReportCategory: null,
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-02T00:00:00.000Z",
+      },
+    });
+
+    const result = await updateDiscoverOrganization(
+      fullAdminContext,
+      "uploaded-org-url-replacement",
+      {
+        name: "Uploaded Logo Lab URL",
+        imageUrl: "https://example.org/replacement.png",
+        imageUploadDataUrl: null,
+        status: "pending_approval",
+        countryCode: "AR",
+        organizationType: "org_genetic_testing_laboratories",
+        verified: false,
+        isGeneticReportProvider: false,
+        geneticReportCategory: null,
+      } as Record<string, unknown>,
+    );
+    const stored = mockOrganizationDocs.find(
+      (doc) => doc.id === "uploaded-org-url-replacement",
+    );
+
+    expect(result.imageUrl).toBe("https://example.org/replacement.png");
+    expect(result.imageUploadDataUrl).toBeUndefined();
+    expect(result.imageUploadName).toBeUndefined();
+    expect(result.imageUploadMimeType).toBeUndefined();
+    expect(stored?.data.imageUploadDataUrl).toBeUndefined();
+    expect(stored?.data.imageUploadName).toBeUndefined();
+    expect(stored?.data.imageUploadMimeType).toBeUndefined();
+  });
+
+  it("clears uploaded individual portrait fields when a replacement image URL is saved", async () => {
+    const { updateDiscoverIndividual } =
+      await import("../repositories/discover.repository");
+    mockIndividualDocs.push({
+      id: "uploaded-individual-url-replacement",
+      data: {
+        name: "Uploaded Portrait Pro",
+        imageUrl: null,
+        imageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+        imageUploadName: "portrait.png",
+        imageUploadMimeType: "image/png",
+        status: "pending_approval",
+        countryCode: "AR",
+        individualType: "pro_clinical_geneticists",
+        verified: false,
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-02T00:00:00.000Z",
+      },
+    });
+
+    const result = await updateDiscoverIndividual(
+      fullAdminContext,
+      "uploaded-individual-url-replacement",
+      {
+        name: "Uploaded Portrait URL",
+        imageUrl: "https://example.org/portrait.png",
+        imageUploadDataUrl: null,
+        status: "pending_approval",
+        countryCode: "AR",
+        individualType: "pro_clinical_geneticists",
+        verified: false,
+      } as Record<string, unknown>,
+    );
+    const stored = mockIndividualDocs.find(
+      (doc) => doc.id === "uploaded-individual-url-replacement",
+    );
+
+    expect(result.imageUrl).toBe("https://example.org/portrait.png");
+    expect(result.imageUploadDataUrl).toBeUndefined();
+    expect(result.imageUploadName).toBeUndefined();
+    expect(result.imageUploadMimeType).toBeUndefined();
+    expect(stored?.data.imageUploadDataUrl).toBeUndefined();
+    expect(stored?.data.imageUploadName).toBeUndefined();
+    expect(stored?.data.imageUploadMimeType).toBeUndefined();
+  });
+
   it("creates public organization approval requests with pending defaults", async () => {
     const { createDiscoverPublisherApprovalRequest } =
       await import("../repositories/discover.repository");
@@ -878,6 +1329,7 @@ describe("discover repository", () => {
     expect(stored?.data.geneticReportCategory).toBe(
       "grc_full_genome,grc_rare_diseases",
     );
+    expect(stored?.data.isGrcHighlighted).toBe(false);
     expect(stored?.data.isRequestedThroughWebWizard).toBe(true);
     expect(stored?.data).toHaveProperty("approvalRequestDate");
     expect(stored?.data.createdByUserId).toBe("public-web-wizard");

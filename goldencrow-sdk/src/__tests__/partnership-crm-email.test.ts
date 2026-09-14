@@ -1,10 +1,17 @@
-import {
-  PARTNERSHIP_CRM_FROM_EMAIL,
-  buildPartnershipCrmEmailMessage,
-} from "../lib/partnership-crm-email.js";
+const sendGmailMessageMock = jest.fn();
+
+jest.mock("../lib/gmail-mailer.js", () => ({
+  sendGmailMessage: sendGmailMessageMock,
+}));
 
 describe("partnership CRM email", () => {
-  it("builds a plain-text individual outreach message for the Federico sender", () => {
+  beforeEach(() => {
+    sendGmailMessageMock.mockReset();
+  });
+
+  it("builds a plain-text individual outreach message for the Federico sender", async () => {
+    const { PARTNERSHIP_CRM_FROM_EMAIL, buildPartnershipCrmEmailMessage } =
+      await import("../lib/partnership-crm-email.js");
     const message = buildPartnershipCrmEmailMessage({
       to: "marcelo@medicgen.com",
       subject: "Pocket Genes + MedicGen",
@@ -21,5 +28,236 @@ describe("partnership CRM email", () => {
     );
     expect(message).not.toHaveProperty("html");
     expect(JSON.stringify(message)).not.toContain("noreply");
+  });
+
+  it("keeps optional CRM email HTML for formatted outreach", async () => {
+    const { buildPartnershipCrmEmailMessage } = await import(
+      "../lib/partnership-crm-email.js"
+    );
+    const message = buildPartnershipCrmEmailMessage({
+      to: "ada@example.org",
+      subject: "Pocket Genes + Ada",
+      text: 'Por tu experiencia en "Clinical genetics"',
+      html: 'Por tu experiencia en <em>&quot;Clinical genetics&quot;</em>',
+    });
+
+    expect(message.html).toBe(
+      'Por tu experiencia en <em>&quot;Clinical genetics&quot;</em>',
+    );
+  });
+
+  it("asks the Gmail mailer to append Federico's send-as signature", async () => {
+    const {
+      PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML,
+      PARTNERSHIP_CRM_FROM_EMAIL,
+      PARTNERSHIP_CRM_FROM_HEADER,
+      sendPartnershipCrmEmail,
+    } = await import("../lib/partnership-crm-email.js");
+
+    await sendPartnershipCrmEmail({
+      to: "recipient@example.com",
+      subject: "Pocket Genes",
+      text: "Hola",
+      html: "<p>Hola</p>",
+    });
+
+    expect(sendGmailMessageMock).toHaveBeenCalledWith(
+      {
+        to: "recipient@example.com",
+        subject: "Pocket Genes",
+        text: "Hola",
+        html: "<p>Hola</p>",
+      },
+      expect.objectContaining({
+        from: PARTNERSHIP_CRM_FROM_HEADER,
+        user: PARTNERSHIP_CRM_FROM_EMAIL,
+        appendSendAsSignature: true,
+        sendAsEmail: PARTNERSHIP_CRM_FROM_EMAIL,
+        fallbackSignatureHtml: PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML,
+      }),
+    );
+  });
+
+  it("does not let stale signature environment variables override the CRM fallback", async () => {
+    const previousGenericSignature = process.env.GMAIL_SIGNATURE_HTML;
+    const previousCrmSignature = process.env.CRM_GMAIL_SIGNATURE_HTML;
+    process.env.GMAIL_SIGNATURE_HTML = "<div>Wrong generic signature</div>";
+    process.env.CRM_GMAIL_SIGNATURE_HTML = "<div>Wrong CRM signature</div>";
+    try {
+      const {
+        PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML,
+        sendPartnershipCrmEmail,
+      } = await import("../lib/partnership-crm-email.js");
+
+      await sendPartnershipCrmEmail({
+        to: "recipient@example.com",
+        subject: "Pocket Genes",
+        text: "Hola",
+      });
+
+      expect(sendGmailMessageMock).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          fallbackSignatureHtml: PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML,
+        }),
+      );
+      expect(sendGmailMessageMock).not.toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          fallbackSignatureHtml: "<div>Wrong generic signature</div>",
+        }),
+      );
+      expect(sendGmailMessageMock).not.toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          fallbackSignatureHtml: "<div>Wrong CRM signature</div>",
+        }),
+      );
+    } finally {
+      if (previousGenericSignature === undefined) {
+        delete process.env.GMAIL_SIGNATURE_HTML;
+      } else {
+        process.env.GMAIL_SIGNATURE_HTML = previousGenericSignature;
+      }
+      if (previousCrmSignature === undefined) {
+        delete process.env.CRM_GMAIL_SIGNATURE_HTML;
+      } else {
+        process.env.CRM_GMAIL_SIGNATURE_HTML = previousCrmSignature;
+      }
+    }
+  });
+
+  it("uses the rich Golden Crow fallback signature from the signature document", async () => {
+    const { PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML } = await import(
+      "../lib/partnership-crm-email.js"
+    );
+
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain("Saludos,");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "Golden Crow Venture Studio logo",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "Federico Bustos Fierro",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("Co-founder");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "Golden Crow Venture Studio",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "federico@goldencrowvs.com",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "+54 9 11 2184-6934",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "+54 9 3546 41-8105",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "pocketgenes.com",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      ">Pocket Genes<",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "Soluciones digitales para gen&oacute;mica",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "y medicina de precisi&oacute;n.",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#98712d");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("#dcd6cb");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain("#d8c8b3");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain("width: 280px");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "width: 219px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-family: Verdana, Geneva, Tahoma, sans-serif",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-stretch: normal",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "letter-spacing: normal",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "Arial, Helvetica",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-size: 13.35px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-size: 10.65px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-size: 10px; line-height: 12.5px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "font-size: 10px; line-height: 13px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "line-height: 12.6px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      'href="tel:+5491121846934" style="font-family: Verdana, Geneva, Tahoma, sans-serif',
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "width: 33px; height: 33px; margin-left: -7px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "width: 14px; height: 14px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "width: 15px; height: 15px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "margin-left: -5px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "padding: 4px 0 0 15px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "border-top: 0.5px solid #dcd6cb; padding-top: 5px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "width: 38px; height: 38px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "width: 10px; height: 10px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "width: 335px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "font-size: 17px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "font-size: 16px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "font-size: 15px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "font-size: 12px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "font-size: 11px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "width: 520px",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain(
+      "font-size: 18pt",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain("pt;");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "golden-crow-signature-logo.png",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).toContain(
+      "golden-crow-signature-email.png",
+    );
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain("&#9993;");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain("&#9742;");
+    expect(PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML).not.toContain("&#9678;");
   });
 });

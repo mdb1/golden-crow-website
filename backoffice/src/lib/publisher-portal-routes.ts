@@ -13,8 +13,18 @@ export function publisherPortalOrganizationDetailRoute(organizationId: string) {
   return `${PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE}/${encodeURIComponent(organizationId)}`;
 }
 
+export function publisherPortalOrganizationProductCatalogRoute(
+  organizationId: string,
+) {
+  return `${publisherPortalOrganizationDetailRoute(organizationId)}/product-catalog`;
+}
+
 export function publisherPortalIndividualDetailRoute(individualId: string) {
   return `${PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE}/${encodeURIComponent(individualId)}`;
+}
+
+export function publisherPortalFeedEntryCreateRoute() {
+  return `${PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE}/new`;
 }
 
 export function normalizePublisherPortalCallbackUrl(

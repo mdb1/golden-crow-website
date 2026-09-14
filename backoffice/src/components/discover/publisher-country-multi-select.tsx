@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import type { AppLanguage } from "@/lib/language";
 import {
   formatDiscoverOrganizationCountries,
+  formatDiscoverOrganizationCountry,
   getDiscoverOrganizationCountryGroups,
   parseDiscoverOrganizationCountryCodes,
   serializeDiscoverOrganizationCountryCodes,
@@ -79,8 +80,21 @@ export function PublisherCountryMultiSelect({
     selectedValue,
     language,
   );
-  const selectedOptions = countryGroups.flatMap((group) =>
-    group.options.filter((option) => selectedSet.has(option.code)),
+  const countryOptionsByCode = useMemo(
+    () =>
+      new Map(
+        countryGroups.flatMap((group) =>
+          group.options.map((option) => [option.code, option] as const),
+        ),
+      ),
+    [countryGroups],
+  );
+  const selectedOptions = selectedCodes.map(
+    (code) =>
+      countryOptionsByCode.get(code) ?? {
+        code,
+        label: formatDiscoverOrganizationCountry(code, language) ?? code,
+      },
   );
 
   function updateSelected(nextCodes: readonly string[]) {

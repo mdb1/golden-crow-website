@@ -5,9 +5,11 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,6 +24,8 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  Bold,
+  Braces,
   Building2,
   CheckCircle2,
   ChevronDown,
@@ -32,6 +36,8 @@ import {
   ExternalLink,
   FileUp,
   Filter,
+  GripVertical,
+  Italic,
   ListChecks,
   Mail,
   Pause,
@@ -61,6 +67,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -103,10 +115,13 @@ import {
   CRM_STATUS_OPTIONS,
   DEFAULT_CRM_CATEGORY,
   DEFAULT_CRM_PROFESSIONAL_CATEGORY,
+  CRM_MISSING_CATEGORY_FILTER_VALUE,
+  CRM_MISSING_COUNTRY_FILTER_VALUE,
   crmTargetEmail,
   normalizeCrmCategoryKeys,
   normalizeCrmCategory,
   normalizeCrmCountry,
+  normalizePotentialPocketGenesEditorFit,
   PARTNERSHIP_CRM_FROM_EMAIL,
   parseCrmCsv,
   renderCrmTemplate,
@@ -126,11 +141,15 @@ import {
   type PartnershipCrmSentEmailLogRecord,
   type PartnershipCrmSentEmailLogsPage,
   type PartnershipCrmStatus,
+  type PartnershipCrmStatusCounts,
   type PartnershipCrmTargetKind,
   type PartnershipCrmTargetRecord,
   type PartnershipCrmTemplateRecord,
   type PartnershipCrmTemplateInput,
   type PartnershipCrmTemplatesPage,
+  type PartnershipCrmVisualFilterFacet,
+  type PartnershipCrmVisualFilterFacetKey,
+  type PartnershipCrmVisualFilters,
 } from "@/lib/partnership-crm";
 import { cn } from "@/lib/utils";
 
@@ -146,7 +165,26 @@ const CRM_IMPORT_SESSION_STORAGE_KEYS = {
   professionals: "golden-crow:partnership-crm-professional-import-session:v1",
 } as const;
 const CRM_ALL_COUNTRIES_VALUE = "__all_countries__";
-const CRM_NO_COUNTRY_VALUE = "__no_country__";
+const CRM_NO_COUNTRY_VALUE = CRM_MISSING_COUNTRY_FILTER_VALUE;
+const VISUAL_FILTER_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+] as const;
+const MAX_VISUAL_FILTER_BUCKETS = 5;
+const CRM_DETAIL_PANEL_MIN_WIDTH_PERCENT = 100 / 3;
+const CRM_DETAIL_PANEL_MAX_WIDTH_PERCENT = 200 / 3;
+const CRM_DETAIL_PANEL_DEFAULT_WIDTH_PERCENT = 50;
+const CRM_DETAIL_PANEL_KEYBOARD_STEP_PERCENT = 4;
+
+function clampCrmDetailPanelWidthPercent(value: number) {
+  return Math.min(
+    CRM_DETAIL_PANEL_MAX_WIDTH_PERCENT,
+    Math.max(CRM_DETAIL_PANEL_MIN_WIDTH_PERCENT, value),
+  );
+}
 
 type CrmTargetInput =
   PartnershipCrmOrganizationInput | PartnershipCrmProfessionalInput;
@@ -156,6 +194,7 @@ type EmailState = {
   templateId: string;
   subject: string;
   text: string;
+  html?: string;
   step: "compose" | "preview";
 };
 
@@ -186,13 +225,38 @@ type OrganizationFormState = {
   is_favorite: boolean;
 };
 
+type CrmCompatibilityChoice = "existing" | "incoming" | "merged";
+
+type CrmCompatibilityField = {
+  key: keyof OrganizationFormState;
+  label: string;
+  multiline?: boolean;
+};
+
+type CrmDuplicateCompatibilityDialogState = {
+  targetKind: PartnershipCrmTargetKind;
+  rowIndex: number;
+  row: PartnershipCrmImportPreviewRow;
+  duplicateId: string;
+} | null;
+
 type ListFilters = {
   query: string;
   status: "all" | PartnershipCrmStatus;
   category: string;
   country: string;
-  emailState: "all" | "has_email" | "missing_email";
+  linkedInState: "all" | "has_linkedin" | "missing_linkedin";
 };
+
+function emptyListFilters(): ListFilters {
+  return {
+    query: "",
+    status: "all",
+    category: "",
+    country: "",
+    linkedInState: "all",
+  };
+}
 
 type CrmImportSessionStatus =
   "previewing" | "ready" | "importing" | "paused" | "completed";
@@ -279,6 +343,49 @@ function emptyFormState(
   };
 }
 
+const ORGANIZATION_COMPATIBILITY_FIELDS = [
+  { key: "name", label: "Organization" },
+  { key: "category", label: "Category" },
+  { key: "website", label: "Website" },
+  { key: "country", label: "Country" },
+  { key: "status", label: "Status" },
+  { key: "contactName", label: "Primary contact" },
+  { key: "contactEmail", label: "Mail" },
+  { key: "contactLinkedIn", label: "LinkedIn" },
+  { key: "lastContactAt", label: "Last Contact" },
+  { key: "notes", label: "Notes", multiline: true },
+  { key: "is_favorite", label: "Favorite" },
+] satisfies CrmCompatibilityField[];
+
+const PROFESSIONAL_COMPATIBILITY_FIELDS = [
+  { key: "name", label: "Professional" },
+  { key: "category", label: "Category" },
+  { key: "title", label: "Title" },
+  { key: "primaryAffiliation", label: "Primary affiliation" },
+  {
+    key: "potentialPocketGenesEditorFit",
+    label: "Potential Pocket Genes editor fit",
+    multiline: true,
+  },
+  { key: "emailRoute", label: "Email route", multiline: true },
+  { key: "linkedInRoute", label: "LinkedIn route", multiline: true },
+  { key: "researchBasis", label: "Research basis", multiline: true },
+  { key: "website", label: "Website" },
+  { key: "country", label: "Country" },
+  { key: "status", label: "Status" },
+  { key: "email", label: "Mail" },
+  { key: "linkedIn", label: "LinkedIn" },
+  { key: "lastContactAt", label: "Last Contact" },
+  { key: "notes", label: "Notes", multiline: true },
+  { key: "is_favorite", label: "Favorite" },
+] satisfies CrmCompatibilityField[];
+
+function compatibilityFieldsForTarget(targetKind: PartnershipCrmTargetKind) {
+  return targetKind === "professionals"
+    ? PROFESSIONAL_COMPATIBILITY_FIELDS
+    : ORGANIZATION_COMPATIBILITY_FIELDS;
+}
+
 const PIPELINE_STATUSES: PartnershipCrmStatus[] = [
   "new",
   "contacted",
@@ -291,6 +398,25 @@ const OUTCOME_STATUSES: PartnershipCrmStatus[] = [
   "not_interested",
   "not_a_fit",
 ];
+
+function funnelStatusCounts(
+  rawCounts: PartnershipCrmStatusCounts,
+): PartnershipCrmStatusCounts {
+  const partner = rawCounts.partner;
+  const meeting = rawCounts.meeting + partner;
+  const replied = rawCounts.replied + meeting;
+  const contacted = rawCounts.contacted + replied;
+  const totalPipeline = rawCounts.new + contacted;
+
+  return {
+    ...rawCounts,
+    new: totalPipeline,
+    contacted,
+    replied,
+    meeting,
+    partner,
+  };
+}
 
 function emptyImportSummary(): PartnershipCrmImportResult["summary"] {
   return {
@@ -349,18 +475,35 @@ function safeImportLogValue(value: unknown) {
 function importRequestPayloadForRow(
   row: PartnershipCrmImportPreviewRow,
   targetKind: PartnershipCrmTargetKind,
+  options: {
+    duplicateAction?: CrmDuplicateAction;
+    targetOverride?: CrmTargetInput;
+  } = {},
 ) {
   return {
-    [targetKind]: [rowForImportDecision(row, targetKind, "import")],
+    [targetKind]: [
+      rowForImportDecision(
+        row,
+        targetKind,
+        options.duplicateAction ?? "import",
+        options.targetOverride,
+      ),
+    ],
   };
 }
 
 function importRequestPayloadForSessionRow(
   session: CrmImportSession,
   rowIndex: number,
+  options: {
+    duplicateAction?: CrmDuplicateAction;
+    targetOverride?: CrmTargetInput;
+  } = {},
 ) {
   const row = session.previewRows[rowIndex];
-  return row ? importRequestPayloadForRow(row, session.targetKind) : undefined;
+  return row
+    ? importRequestPayloadForRow(row, session.targetKind, options)
+    : undefined;
 }
 
 function previewRequestPayloadForRow(
@@ -625,8 +768,9 @@ function rowForImportDecision(
   row: PartnershipCrmImportPreviewRow,
   targetKind: PartnershipCrmTargetKind,
   duplicateAction: CrmDuplicateAction,
+  targetOverride?: CrmTargetInput,
 ) {
-  const target = importRowTarget(row, targetKind);
+  const target = targetOverride ?? importRowTarget(row, targetKind);
   return {
     ...(target ?? {}),
     rowId: row.rowId,
@@ -906,8 +1050,37 @@ function buildTargetListPath(
   const params = new URLSearchParams({
     limit: String(CRM_TARGET_PAGE_SIZE),
   });
-  const category = normalizeCrmCategory(filters.category, targetKind);
-  const country = normalizeCrmCountry(filters.country);
+  appendTargetFilterParams(params, targetKind, filters);
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+
+  return `${crmTargetBasePath(targetKind)}?${params.toString()}`;
+}
+
+function normalizedCategoryFilter(
+  value: string,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  return value === CRM_MISSING_CATEGORY_FILTER_VALUE
+    ? CRM_MISSING_CATEGORY_FILTER_VALUE
+    : normalizeCrmCategory(value, targetKind);
+}
+
+function normalizedCountryFilter(value: string) {
+  return value === CRM_MISSING_COUNTRY_FILTER_VALUE
+    ? CRM_MISSING_COUNTRY_FILTER_VALUE
+    : normalizeCrmCountry(value);
+}
+
+function appendTargetFilterParams(
+  params: URLSearchParams,
+  targetKind: PartnershipCrmTargetKind,
+  filters: ListFilters,
+) {
+  const category = normalizedCategoryFilter(filters.category, targetKind);
+  const country = normalizedCountryFilter(filters.country);
+
   if (filters.query.trim()) {
     params.set("query", filters.query.trim());
   }
@@ -920,14 +1093,39 @@ function buildTargetListPath(
   if (country) {
     params.set("country", country);
   }
-  if (filters.emailState !== "all") {
-    params.set("emailState", filters.emailState);
+  if (filters.linkedInState !== "all") {
+    params.set("linkedInState", filters.linkedInState);
   }
-  if (cursor) {
-    params.set("cursor", cursor);
+}
+
+function buildVisualFiltersPath(targetKind: PartnershipCrmTargetKind) {
+  return `${crmTargetBasePath(targetKind)}/visual-filters`;
+}
+
+function visualSelectedSegmentsForFilters(
+  filters: ListFilters,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const selectedSegments: Partial<
+    Record<PartnershipCrmVisualFilterFacetKey, string>
+  > = {};
+  const category = normalizedCategoryFilter(filters.category, targetKind);
+  const country = normalizedCountryFilter(filters.country);
+
+  if (filters.status !== "all") {
+    selectedSegments.status = filters.status;
+  }
+  if (category) {
+    selectedSegments.category = category;
+  }
+  if (country) {
+    selectedSegments.country = country;
+  }
+  if (filters.linkedInState !== "all") {
+    selectedSegments.linkedInState = filters.linkedInState;
   }
 
-  return `${crmTargetBasePath(targetKind)}?${params.toString()}`;
+  return selectedSegments;
 }
 
 function targetPayload(
@@ -956,7 +1154,9 @@ function targetPayload(
       ...base,
       title: state.title.trim(),
       primaryAffiliation: state.primaryAffiliation.trim(),
-      potentialPocketGenesEditorFit: state.potentialPocketGenesEditorFit.trim(),
+      potentialPocketGenesEditorFit: normalizePotentialPocketGenesEditorFit(
+        state.potentialPocketGenesEditorFit,
+      ),
       emailRoute: state.emailRoute.trim(),
       linkedInRoute: state.linkedInRoute.trim(),
       researchBasis: state.researchBasis.trim(),
@@ -986,6 +1186,566 @@ function templatePayload(
     status: template.status,
     notes: template.notes,
     is_favorite: patch.is_favorite ?? template.is_favorite,
+  };
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceMaterializedCrmVariable(
+  value: string,
+  materializedValue: string,
+  variableToken: string,
+) {
+  const parts = materializedValue.trim().split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) {
+    return value;
+  }
+
+  const pattern = parts.map(escapeRegExp).join("\\s+");
+  const boundary = "A-Za-z0-9_";
+  const regex = new RegExp(
+    `(^|[^${boundary}])(${pattern})(?=$|[^${boundary}])`,
+    "g",
+  );
+
+  return value.replace(regex, `$1${variableToken}`);
+}
+
+function restoreCrmTemplateTargetVariables(
+  value: string,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const replacements = crmTemplateVariablesForTarget(targetKind)
+    .map((variable) => ({
+      token: variable.token,
+      value: crmTemplateVariableRawValue(variable.key, target, targetKind),
+    }))
+    .filter((entry) => entry.value)
+    .sort((left, right) => right.value.length - left.value.length);
+
+  const restored = replacements.reduce(
+    (nextValue, replacement) =>
+      replaceMaterializedCrmVariable(
+        nextValue,
+        replacement.value,
+        replacement.token,
+      ),
+    value,
+  );
+
+  return restored.replace(
+    /["'“”‘’]\s*(\{\{potential_pocket_genes_editor_fit\}\})\s*["'“”‘’]/g,
+    "$1",
+  );
+}
+
+type CrmTemplateVariableKey =
+  | "contact_name"
+  | "organization_name"
+  | "professional_name"
+  | "first_name"
+  | "primary_affiliation"
+  | "potential_pocket_genes_editor_fit"
+  | "email_route"
+  | "linkedin_route"
+  | "research_basis"
+  | "title"
+  | "website"
+  | "website_sentence";
+
+type CrmTemplateVariableDefinition = {
+  key: CrmTemplateVariableKey;
+  token: `{{${CrmTemplateVariableKey}}}`;
+  label: string;
+  targets: PartnershipCrmTargetKind[];
+  className: string;
+  dotClassName: string;
+};
+
+const CRM_TEMPLATE_VARIABLES: CrmTemplateVariableDefinition[] = [
+  {
+    key: "contact_name",
+    token: "{{contact_name}}",
+    label: "Contact name",
+    targets: ["organizations"],
+    className:
+      "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-300/35 dark:bg-sky-400/15 dark:text-sky-100",
+    dotClassName: "bg-sky-500",
+  },
+  {
+    key: "organization_name",
+    token: "{{organization_name}}",
+    label: "Organization name",
+    targets: ["organizations", "professionals"],
+    className:
+      "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-300/35 dark:bg-blue-400/15 dark:text-blue-100",
+    dotClassName: "bg-blue-500",
+  },
+  {
+    key: "professional_name",
+    token: "{{professional_name}}",
+    label: "Professional name",
+    targets: ["professionals"],
+    className:
+      "border-violet-200 bg-violet-50 text-violet-900 dark:border-violet-300/35 dark:bg-violet-400/15 dark:text-violet-100",
+    dotClassName: "bg-violet-500",
+  },
+  {
+    key: "first_name",
+    token: "{{first_name}}",
+    label: "First name",
+    targets: ["professionals"],
+    className:
+      "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-900 dark:border-fuchsia-300/35 dark:bg-fuchsia-400/15 dark:text-fuchsia-100",
+    dotClassName: "bg-fuchsia-500",
+  },
+  {
+    key: "primary_affiliation",
+    token: "{{primary_affiliation}}",
+    label: "Primary affiliation",
+    targets: ["professionals"],
+    className:
+      "border-indigo-200 bg-indigo-50 text-indigo-900 dark:border-indigo-300/35 dark:bg-indigo-400/15 dark:text-indigo-100",
+    dotClassName: "bg-indigo-500",
+  },
+  {
+    key: "potential_pocket_genes_editor_fit",
+    token: "{{potential_pocket_genes_editor_fit}}",
+    label: "Potential Pocket Genes editor fit",
+    targets: ["professionals"],
+    className:
+      "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-300/35 dark:bg-emerald-400/15 dark:text-emerald-100",
+    dotClassName: "bg-emerald-500",
+  },
+  {
+    key: "email_route",
+    token: "{{email_route}}",
+    label: "Email route",
+    targets: ["professionals"],
+    className:
+      "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-300/35 dark:bg-amber-400/15 dark:text-amber-100",
+    dotClassName: "bg-amber-500",
+  },
+  {
+    key: "linkedin_route",
+    token: "{{linkedin_route}}",
+    label: "LinkedIn route",
+    targets: ["professionals"],
+    className:
+      "border-cyan-200 bg-cyan-50 text-cyan-900 dark:border-cyan-300/35 dark:bg-cyan-400/15 dark:text-cyan-100",
+    dotClassName: "bg-cyan-500",
+  },
+  {
+    key: "research_basis",
+    token: "{{research_basis}}",
+    label: "Research basis",
+    targets: ["professionals"],
+    className:
+      "border-teal-200 bg-teal-50 text-teal-900 dark:border-teal-300/35 dark:bg-teal-400/15 dark:text-teal-100",
+    dotClassName: "bg-teal-500",
+  },
+  {
+    key: "title",
+    token: "{{title}}",
+    label: "Role / specialty",
+    targets: ["professionals"],
+    className:
+      "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-300/35 dark:bg-rose-400/15 dark:text-rose-100",
+    dotClassName: "bg-rose-500",
+  },
+  {
+    key: "website",
+    token: "{{website}}",
+    label: "Website",
+    targets: ["organizations", "professionals"],
+    className:
+      "border-orange-200 bg-orange-50 text-orange-950 dark:border-orange-300/35 dark:bg-orange-400/15 dark:text-orange-100",
+    dotClassName: "bg-orange-500",
+  },
+  {
+    key: "website_sentence",
+    token: "{{website_sentence}}",
+    label: "Website sentence",
+    targets: ["organizations", "professionals"],
+    className:
+      "border-lime-200 bg-lime-50 text-lime-950 dark:border-lime-300/35 dark:bg-lime-400/15 dark:text-lime-100",
+    dotClassName: "bg-lime-500",
+  },
+];
+
+const CRM_TEMPLATE_VARIABLES_BY_KEY = new Map(
+  CRM_TEMPLATE_VARIABLES.map((variable) => [variable.key, variable]),
+);
+const CRM_TEMPLATE_VARIABLE_PATTERN = /\{\{([a-z_]+)\}\}/g;
+const CRM_TEMPLATE_INLINE_TOKEN_PATTERN =
+  /\{\{([a-z_]+)\}\}|<\/?(?:strong|b|em|i)>/gi;
+
+function normalizeCrmInlineFormatTag(token: string) {
+  const normalized = token.toLowerCase();
+  const closing = normalized.startsWith("</");
+  const tag = normalized.replace(/[</>]/g, "");
+
+  if (tag === "strong" || tag === "b") {
+    return { tag: "strong" as const, closing };
+  }
+  if (tag === "em" || tag === "i") {
+    return { tag: "em" as const, closing };
+  }
+
+  return null;
+}
+
+function crmTemplateVariablesForTarget(targetKind: PartnershipCrmTargetKind) {
+  return CRM_TEMPLATE_VARIABLES.filter((variable) =>
+    variable.targets.includes(targetKind),
+  );
+}
+
+function crmFirstName(value: string) {
+  return value.trim().split(/\s+/)[0] || value.trim();
+}
+
+function crmWebsiteSentence(target: { websiteDomain: string }) {
+  return target.websiteDomain ? ` (${target.websiteDomain})` : "";
+}
+
+function crmPotentialEditorFitEmailValue(value: string) {
+  return normalizePotentialPocketGenesEditorFit(value)
+    .replace(/["'“”‘’]/g, "")
+    .trim()
+    .toLocaleLowerCase("es-AR");
+}
+
+function crmTemplateVariableRawValue(
+  key: CrmTemplateVariableKey,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const organization = target as PartnershipCrmOrganizationRecord;
+  const professional = target as PartnershipCrmProfessionalRecord;
+  const website =
+    targetKind === "professionals"
+      ? professional.website || professional.websiteDomain
+      : organization.website || organization.websiteDomain;
+
+  switch (key) {
+    case "contact_name":
+      return targetKind === "professionals"
+        ? professional.name || "equipo"
+        : organization.contactName || "equipo";
+    case "organization_name":
+      return targetKind === "professionals"
+        ? professional.primaryAffiliation || professional.name
+        : organization.name;
+    case "professional_name":
+      return targetKind === "professionals"
+        ? professional.name
+        : organization.contactName || organization.name;
+    case "first_name":
+      return targetKind === "professionals"
+        ? crmFirstName(professional.name)
+        : crmFirstName(organization.contactName || organization.name);
+    case "primary_affiliation":
+      return targetKind === "professionals"
+        ? professional.primaryAffiliation
+        : "";
+    case "potential_pocket_genes_editor_fit":
+      return targetKind === "professionals"
+        ? normalizePotentialPocketGenesEditorFit(
+            professional.potentialPocketGenesEditorFit,
+          )
+        : "";
+    case "email_route":
+      return targetKind === "professionals" ? professional.emailRoute : "";
+    case "linkedin_route":
+      return targetKind === "professionals" ? professional.linkedInRoute : "";
+    case "research_basis":
+      return targetKind === "professionals" ? professional.researchBasis : "";
+    case "title":
+      return targetKind === "professionals" ? professional.title : "";
+    case "website":
+      return website;
+    case "website_sentence":
+      return crmWebsiteSentence(target);
+    default:
+      return "";
+  }
+}
+
+function crmTemplateVariableRenderedValue(
+  key: CrmTemplateVariableKey,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const value = crmTemplateVariableRawValue(key, target, targetKind);
+
+  if (!value) {
+    return "";
+  }
+
+  return key === "potential_pocket_genes_editor_fit"
+    ? crmPotentialEditorFitEmailValue(value)
+    : value;
+}
+
+function crmTemplateVariablePlainValue(
+  key: CrmTemplateVariableKey,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  return crmTemplateVariableRenderedValue(key, target, targetKind);
+}
+
+function crmTemplateVariableDisplayNode(
+  key: CrmTemplateVariableKey,
+  value: string,
+  _index: number,
+) {
+  if (key === "potential_pocket_genes_editor_fit") {
+    return crmPotentialEditorFitEmailValue(value);
+  }
+
+  return value;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderCrmTemplateText(
+  value: string,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  let rendered = "";
+  let cursor = 0;
+
+  for (const match of value.matchAll(CRM_TEMPLATE_INLINE_TOKEN_PATTERN)) {
+    const [token, key] = match;
+    const index = match.index ?? 0;
+    rendered += value.slice(cursor, index);
+
+    if (token.startsWith("{{")) {
+      const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
+        key as CrmTemplateVariableKey,
+      );
+      rendered += variable
+        ? crmTemplateVariablePlainValue(variable.key, target, targetKind)
+        : "";
+    }
+
+    cursor = index + token.length;
+  }
+
+  rendered += value.slice(cursor);
+  return rendered;
+}
+
+function renderCrmTemplateHtml(
+  value: string,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  let rendered = "";
+  let cursor = 0;
+  const formatStack: Array<"strong" | "em"> = [];
+
+  for (const match of value.matchAll(CRM_TEMPLATE_INLINE_TOKEN_PATTERN)) {
+    const [token, key] = match;
+    const index = match.index ?? 0;
+    rendered += escapeHtml(value.slice(cursor, index));
+
+    if (token.startsWith("{{")) {
+      const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
+        key as CrmTemplateVariableKey,
+      );
+      if (variable) {
+        const renderedValue = crmTemplateVariableRenderedValue(
+          variable.key,
+          target,
+          targetKind,
+        );
+        rendered += escapeHtml(renderedValue);
+      }
+    } else {
+      const formatTag = normalizeCrmInlineFormatTag(token);
+      if (formatTag && !formatTag.closing) {
+        rendered += `<${formatTag.tag}>`;
+        formatStack.push(formatTag.tag);
+      } else if (
+        formatTag &&
+        formatTag.closing &&
+        formatStack.at(-1) === formatTag.tag
+      ) {
+        rendered += `</${formatTag.tag}>`;
+        formatStack.pop();
+      }
+    }
+
+    cursor = index + token.length;
+  }
+
+  rendered += escapeHtml(value.slice(cursor));
+  while (formatStack.length > 0) {
+    rendered += `</${formatStack.pop()}>`;
+  }
+  return rendered.replace(/\n/g, "<br>");
+}
+
+function createCrmTemplateFormatNode(
+  tag: "strong" | "em",
+  children: React.ReactNode[],
+  key: number,
+) {
+  return tag === "strong" ? (
+    <strong key={key}>{children}</strong>
+  ) : (
+    <em key={key}>{children}</em>
+  );
+}
+
+function appendCrmTemplateNode(
+  stack: Array<{ tag: "root" | "strong" | "em"; children: React.ReactNode[] }>,
+  node: React.ReactNode,
+) {
+  stack[stack.length - 1]?.children.push(node);
+}
+
+function renderCrmTemplateNodes(
+  value: string,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const root = { tag: "root" as const, children: [] as React.ReactNode[] };
+  const stack: Array<{
+    tag: "root" | "strong" | "em";
+    children: React.ReactNode[];
+  }> = [root];
+  let cursor = 0;
+  let nodeIndex = 0;
+
+  for (const match of value.matchAll(CRM_TEMPLATE_INLINE_TOKEN_PATTERN)) {
+    const [token, key] = match;
+    const index = match.index ?? 0;
+
+    if (index > cursor) {
+      appendCrmTemplateNode(stack, value.slice(cursor, index));
+    }
+
+    if (token.startsWith("{{")) {
+      const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
+        key as CrmTemplateVariableKey,
+      );
+      if (variable) {
+        const rawValue = crmTemplateVariableRawValue(
+          variable.key,
+          target,
+          targetKind,
+        );
+        appendCrmTemplateNode(
+          stack,
+          crmTemplateVariableDisplayNode(variable.key, rawValue, nodeIndex),
+        );
+        nodeIndex += 1;
+      }
+    } else {
+      const formatTag = normalizeCrmInlineFormatTag(token);
+      if (formatTag && !formatTag.closing) {
+        stack.push({ tag: formatTag.tag, children: [] });
+      } else if (
+        formatTag &&
+        formatTag.closing &&
+        stack.length > 1 &&
+        stack.at(-1)?.tag === formatTag.tag
+      ) {
+        const entry = stack.pop();
+        if (entry && entry.tag !== "root") {
+          appendCrmTemplateNode(
+            stack,
+            createCrmTemplateFormatNode(entry.tag, entry.children, nodeIndex),
+          );
+          nodeIndex += 1;
+        }
+      }
+    }
+
+    cursor = index + token.length;
+  }
+
+  if (cursor < value.length) {
+    appendCrmTemplateNode(stack, value.slice(cursor));
+  }
+
+  while (stack.length > 1) {
+    const entry = stack.pop();
+    if (entry && entry.tag !== "root") {
+      appendCrmTemplateNode(
+        stack,
+        createCrmTemplateFormatNode(entry.tag, entry.children, nodeIndex),
+      );
+      nodeIndex += 1;
+    }
+  }
+
+  return root.children.length > 0 ? root.children : null;
+}
+
+function usedCrmTemplateVariables(value: string) {
+  const used = new Set<CrmTemplateVariableKey>();
+
+  for (const match of value.matchAll(CRM_TEMPLATE_VARIABLE_PATTERN)) {
+    const variable = CRM_TEMPLATE_VARIABLES_BY_KEY.get(
+      match[1] as CrmTemplateVariableKey,
+    );
+    if (variable) {
+      used.add(variable.key);
+    }
+  }
+
+  return Array.from(used);
+}
+
+function missingCrmTemplateVariables(
+  email: EmailState,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const used = new Set([
+    ...usedCrmTemplateVariables(email.subject),
+    ...usedCrmTemplateVariables(email.text),
+  ]);
+
+  return Array.from(used)
+    .map((key) => CRM_TEMPLATE_VARIABLES_BY_KEY.get(key))
+    .filter((variable): variable is CrmTemplateVariableDefinition =>
+      Boolean(variable),
+    )
+    .filter(
+      (variable) =>
+        variable.targets.includes(targetKind) &&
+        !crmTemplateVariableRawValue(variable.key, target, targetKind),
+    );
+}
+
+function renderedCrmEmailState(
+  email: EmailState,
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+): EmailState {
+  return {
+    ...email,
+    subject: renderCrmTemplateText(email.subject, target, targetKind),
+    text: renderCrmTemplateText(email.text, target, targetKind),
+    html: renderCrmTemplateHtml(email.text, target, targetKind),
   };
 }
 
@@ -1057,6 +1817,426 @@ function toFormState(
   };
 }
 
+function inputToFormState(
+  target: CrmTargetInput | undefined,
+  targetKind: PartnershipCrmTargetKind,
+): OrganizationFormState {
+  const state = emptyFormState(targetKind);
+  if (!target) {
+    return {
+      ...state,
+      category: "",
+    };
+  }
+
+  const base = {
+    ...state,
+    name: target.name ?? "",
+    category: normalizeCrmCategory(target.category ?? "", targetKind),
+    website: target.website ?? "",
+    country: normalizeCrmCountry(target.country ?? ""),
+    status: target.status ?? "new",
+    lastContactAt: localDateTimeValue(target.lastContactAt),
+    notes: target.notes ?? "",
+    is_favorite: Boolean(target.is_favorite),
+  };
+
+  if (targetKind === "professionals") {
+    const professional = target as PartnershipCrmProfessionalInput;
+    return {
+      ...base,
+      title: professional.title ?? "",
+      primaryAffiliation: professional.primaryAffiliation ?? "",
+      potentialPocketGenesEditorFit:
+        professional.potentialPocketGenesEditorFit ?? "",
+      emailRoute: professional.emailRoute ?? "",
+      linkedInRoute: professional.linkedInRoute ?? "",
+      researchBasis: professional.researchBasis ?? "",
+      email: professional.email ?? "",
+      linkedIn: professional.linkedIn ?? "",
+    };
+  }
+
+  const organization = target as PartnershipCrmOrganizationInput;
+  return {
+    ...base,
+    contactName: organization.contactName ?? "",
+    contactEmail: organization.contactEmail ?? "",
+    contactLinkedIn: organization.contactLinkedIn ?? "",
+  };
+}
+
+function duplicateIdForImportRow(
+  row: PartnershipCrmImportPreviewRow | null,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  if (!row) {
+    return undefined;
+  }
+
+  return targetKind === "professionals"
+    ? (row.duplicateProfessionalId ?? row.duplicateCandidates[0]?.id)
+    : (row.duplicateOrganizationId ?? row.duplicateCandidates[0]?.id);
+}
+
+function isMissingCompatibilityValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return true;
+  }
+
+  return typeof value === "string" && value.trim().length === 0;
+}
+
+type CrmStructuredNoteEntry = {
+  key: string;
+  value: string;
+};
+
+type CrmStructuredNotes = {
+  entries: CrmStructuredNoteEntry[];
+  record: Record<string, string>;
+};
+
+const PREVIOUS_CRM_NOTES_KEY = "previous_notes";
+const CSV_NOTES_KEY = "csv_notes";
+
+function stringifyCrmStructuredNoteValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint"
+  ) {
+    return String(value);
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function normalizeCrmStructuredNoteKey(key: string) {
+  return key
+    .trim()
+    .replace(/[*`]+/g, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function cleanCrmStructuredNoteLine(value: string) {
+  return value
+    .trim()
+    .replace(/^[-*•]\s+/, "")
+    .replace(/^["']+|["']+$/g, "")
+    .replace(/^\*+|\*+$/g, "")
+    .trim();
+}
+
+function parseCrmColonStructuredNotes(value: string): CrmStructuredNotes | null {
+  const cleanedLines = value
+    .split(/\r?\n/)
+    .map(cleanCrmStructuredNoteLine)
+    .filter(Boolean);
+
+  if (cleanedLines.length === 0) {
+    return null;
+  }
+
+  const entries: CrmStructuredNoteEntry[] = [];
+  for (const line of cleanedLines) {
+    const colonIndex = line.indexOf(":");
+    if (colonIndex <= 0) {
+      return null;
+    }
+
+    const key = normalizeCrmStructuredNoteKey(line.slice(0, colonIndex));
+    const entryValue = cleanCrmStructuredNoteLine(line.slice(colonIndex + 1));
+    if (!key || !entryValue) {
+      return null;
+    }
+
+    entries.push({ key, value: entryValue });
+  }
+
+  return {
+    entries,
+    record: Object.fromEntries(
+      entries.map((entry) => [entry.key, entry.value]),
+    ),
+  };
+}
+
+function parseCrmStructuredNotes(value: unknown): CrmStructuredNotes | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return parseCrmColonStructuredNotes(trimmed);
+  }
+
+  return parseCrmJsonStructuredNotes(trimmed);
+}
+
+function parseCrmJsonStructuredNotes(value: unknown): CrmStructuredNotes | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+
+    const entries = Object.entries(parsed as Record<string, unknown>)
+      .map(([key, entryValue]) => ({
+        key: key.trim(),
+        value: stringifyCrmStructuredNoteValue(entryValue),
+      }))
+      .filter((entry) => entry.key.length > 0);
+
+    return {
+      entries,
+      record: Object.fromEntries(
+        entries.map((entry) => [entry.key, entry.value]),
+      ),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function serializeCrmStructuredNotes(record: Record<string, string>) {
+  const cleaned = Object.fromEntries(
+    Object.entries(record)
+      .map(([key, value]) => [key.trim(), value.trim()] as const)
+      .filter(([key, value]) => key.length > 0 && value.length > 0),
+  );
+
+  return JSON.stringify(cleaned);
+}
+
+function serializeCrmStructuredNotesForComparison(
+  record: Record<string, string>,
+) {
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(record)
+        .map(([key, value]) => [key.trim(), value.trim()] as const)
+        .filter(([key, value]) => key.length > 0 && value.length > 0)
+        .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey)),
+    ),
+  );
+}
+
+function crmStructuredNotesSame(
+  left: CrmStructuredNotes,
+  right: CrmStructuredNotes,
+) {
+  return (
+    serializeCrmStructuredNotesForComparison(left.record) ===
+    serializeCrmStructuredNotesForComparison(right.record)
+  );
+}
+
+function mergeCrmNotesValues(existing: unknown, incoming: unknown) {
+  const existingText = typeof existing === "string" ? existing.trim() : "";
+  const incomingText = typeof incoming === "string" ? incoming.trim() : "";
+  const existingJson = parseCrmStructuredNotes(existingText);
+  const incomingJson = parseCrmStructuredNotes(incomingText);
+
+  if (!existingText) {
+    return incomingText;
+  }
+  if (!incomingText) {
+    return existingText;
+  }
+  if (existingJson && incomingJson) {
+    return serializeCrmStructuredNotes({
+      ...existingJson.record,
+      ...incomingJson.record,
+    });
+  }
+  if (incomingJson) {
+    return serializeCrmStructuredNotes({
+      ...incomingJson.record,
+      [PREVIOUS_CRM_NOTES_KEY]: existingText,
+    });
+  }
+  if (existingJson) {
+    return serializeCrmStructuredNotes({
+      ...existingJson.record,
+      [CSV_NOTES_KEY]: incomingText,
+    });
+  }
+
+  return `${existingText}\n${incomingText}`.trim();
+}
+
+function preferredNotesCompatibilityChoice(
+  existing: OrganizationFormState["notes"],
+  incoming: OrganizationFormState["notes"],
+): CrmCompatibilityChoice {
+  if (
+    isMissingCompatibilityValue(existing) &&
+    !isMissingCompatibilityValue(incoming)
+  ) {
+    return "incoming";
+  }
+  if (isMissingCompatibilityValue(incoming)) {
+    return "existing";
+  }
+
+  const existingJson = parseCrmStructuredNotes(existing);
+  const incomingJson = parseCrmStructuredNotes(incoming);
+  if (
+    existingJson &&
+    incomingJson &&
+    crmStructuredNotesSame(existingJson, incomingJson)
+  ) {
+    return "existing";
+  }
+  if (existingJson || incomingJson) {
+    return "merged";
+  }
+
+  return "existing";
+}
+
+function mergeDelimitedCompatibilityValues(left: string, right: string) {
+  const values = [...left.split(","), ...right.split(",")]
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return Array.from(new Set(values)).join(",");
+}
+
+function mergeCompatibilityValue(
+  key: keyof OrganizationFormState,
+  existing: OrganizationFormState[keyof OrganizationFormState],
+  incoming: OrganizationFormState[keyof OrganizationFormState],
+) {
+  if (isMissingCompatibilityValue(existing)) {
+    return incoming;
+  }
+  if (isMissingCompatibilityValue(incoming)) {
+    return existing;
+  }
+  if (existing === incoming) {
+    return existing;
+  }
+
+  if (key === "is_favorite") {
+    return Boolean(existing) || Boolean(incoming);
+  }
+
+  if (key === "category" || key === "country") {
+    return mergeDelimitedCompatibilityValues(
+      String(existing),
+      String(incoming),
+    );
+  }
+
+  if (key === "status") {
+    return existing === "new" ? incoming : existing;
+  }
+
+  if (key === "lastContactAt") {
+    const existingTime = Date.parse(String(existing));
+    const incomingTime = Date.parse(String(incoming));
+    if (Number.isNaN(existingTime)) {
+      return incoming;
+    }
+    if (Number.isNaN(incomingTime)) {
+      return existing;
+    }
+    return incomingTime > existingTime ? incoming : existing;
+  }
+
+  const existingText = String(existing).trim();
+  const incomingText = String(incoming).trim();
+  if (key === "notes") {
+    return mergeCrmNotesValues(existingText, incomingText);
+  }
+
+  if (key === "researchBasis") {
+    return `${existingText}\n${incomingText}`.trim();
+  }
+
+  return `${existingText} / ${incomingText}`.trim();
+}
+
+function compatibilityValueForChoice(
+  key: keyof OrganizationFormState,
+  choice: CrmCompatibilityChoice,
+  existing: OrganizationFormState,
+  incoming: OrganizationFormState,
+) {
+  if (choice === "incoming") {
+    return incoming[key];
+  }
+  if (choice === "merged") {
+    return mergeCompatibilityValue(key, existing[key], incoming[key]);
+  }
+  return existing[key];
+}
+
+function compatibilityValuesMatch(
+  key: keyof OrganizationFormState,
+  left: OrganizationFormState[keyof OrganizationFormState],
+  right: OrganizationFormState[keyof OrganizationFormState],
+) {
+  if (key === "notes") {
+    const leftJson = parseCrmStructuredNotes(left);
+    const rightJson = parseCrmStructuredNotes(right);
+    if (leftJson && rightJson) {
+      return crmStructuredNotesSame(leftJson, rightJson);
+    }
+  }
+
+  if (typeof left === "string" && typeof right === "string") {
+    return left.trim() === right.trim();
+  }
+
+  return left === right;
+}
+
+function defaultCompatibilityChoices(
+  fields: readonly CrmCompatibilityField[],
+  existing: OrganizationFormState,
+  incoming: OrganizationFormState,
+) {
+  return Object.fromEntries(
+    fields.map((field) => [
+      field.key,
+      field.key === "notes"
+        ? preferredNotesCompatibilityChoice(existing.notes, incoming.notes)
+        : isMissingCompatibilityValue(existing[field.key]) &&
+            !isMissingCompatibilityValue(incoming[field.key])
+          ? "incoming"
+          : "existing",
+    ]),
+  ) as Partial<Record<keyof OrganizationFormState, CrmCompatibilityChoice>>;
+}
+
 function formatDateTime(
   value: string | null | undefined,
   language: AppLanguage,
@@ -1089,6 +2269,197 @@ function formatDate(value: string | null | undefined, language: AppLanguage) {
   return new Intl.DateTimeFormat(language === "es" ? "es-AR" : "en-US", {
     dateStyle: "medium",
   }).format(parsed);
+}
+
+function formatCompatibilityValue(
+  key: keyof OrganizationFormState,
+  value: OrganizationFormState[keyof OrganizationFormState],
+  language: AppLanguage,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const t = (text: string) => appText(language, text);
+  if (key === "is_favorite") {
+    return value ? t("Yes") : t("No");
+  }
+
+  if (typeof value !== "string" || !value.trim()) {
+    return "—";
+  }
+
+  if (key === "category") {
+    return formatCrmCategory(value, language, targetKind) || t("No category");
+  }
+
+  if (key === "country") {
+    return formatCrmCountry(value, language) || "—";
+  }
+
+  if (key === "status") {
+    return t(statusLabel(value as PartnershipCrmStatus));
+  }
+
+  if (key === "lastContactAt") {
+    return formatDate(value, language);
+  }
+
+  return value;
+}
+
+function CrmStructuredNoteValue({ value }: { value: string }) {
+  const urlPattern = /https?:\/\/[^\s;,)]+/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = urlPattern.exec(value)) !== null) {
+    const url = match[0];
+    if (match.index > lastIndex) {
+      parts.push(value.slice(lastIndex, match.index));
+    }
+    parts.push(
+      <a
+        key={`${url}-${match.index}`}
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="font-semibold text-blue-700 underline underline-offset-2 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+      >
+        {url}
+      </a>,
+    );
+    lastIndex = match.index + url.length;
+  }
+
+  if (lastIndex < value.length) {
+    parts.push(value.slice(lastIndex));
+  }
+
+  return <>{parts.length > 0 ? parts : value || "—"}</>;
+}
+
+function CrmStructuredNotesView({
+  notes,
+  emptyText,
+  compact = false,
+}: {
+  notes: string | null | undefined;
+  emptyText: string;
+  compact?: boolean;
+}) {
+  const text = notes?.trim() ?? "";
+  const structuredNotes = parseCrmJsonStructuredNotes(text);
+
+  if (structuredNotes && structuredNotes.entries.length > 0) {
+    if (!compact) {
+      return (
+        <dl
+          data-testid="crm-structured-notes-document"
+          className="grid border-y border-border/80"
+        >
+          {structuredNotes.entries.map((entry) => (
+            <div
+              key={entry.key}
+              data-testid="crm-structured-notes-row"
+              className="grid gap-1 border-t border-border/70 py-3 first:border-t-0 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4"
+            >
+              <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                {formatCrmStructuredNoteTitle(entry.key)}
+              </dt>
+              <dd className="min-w-0 whitespace-pre-wrap break-words text-sm font-medium leading-6 text-foreground/88">
+                <CrmStructuredNoteValue value={entry.value} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      );
+    }
+
+    return (
+      <ol
+        className={cn(
+          "grid list-decimal gap-2 pl-5",
+          compact && "gap-1.5 text-xs",
+        )}
+      >
+        {structuredNotes.entries.map((entry) => (
+          <li key={entry.key} className="pl-1">
+            <p className="font-semibold text-foreground">{entry.key}</p>
+            <p className="mt-0.5 whitespace-pre-wrap break-words font-medium leading-5 text-foreground/82">
+              <CrmStructuredNoteValue value={entry.value} />
+            </p>
+          </li>
+        ))}
+      </ol>
+    );
+  }
+
+  if (!text) {
+    return <>{emptyText}</>;
+  }
+
+  return (
+    <p
+      data-testid="crm-plain-notes-document"
+      className={cn(
+        "whitespace-pre-wrap break-words font-medium leading-6 text-foreground/88",
+        compact && "text-xs leading-5",
+      )}
+    >
+      <CrmStructuredNoteValue value={text} />
+    </p>
+  );
+}
+
+function formatCrmStructuredNoteTitle(key: string) {
+  return key
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function crmNotesSummary(notes: string | null | undefined, emptyText = "—") {
+  const text = notes?.trim() ?? "";
+  const structuredNotes = parseCrmStructuredNotes(text);
+  if (!structuredNotes || structuredNotes.entries.length === 0) {
+    return text || emptyText;
+  }
+
+  return structuredNotes.entries
+    .slice(0, 3)
+    .map((entry) => `${entry.key}: ${entry.value}`)
+    .join(" · ");
+}
+
+function CompatibilityValueDisplay({
+  field,
+  value,
+  language,
+  targetKind,
+}: {
+  field: CrmCompatibilityField;
+  value: OrganizationFormState[keyof OrganizationFormState];
+  language: AppLanguage;
+  targetKind: PartnershipCrmTargetKind;
+}) {
+  return (
+    <div
+      className={cn(
+        "mt-2 block break-words text-sm font-medium leading-5",
+        field.multiline && "whitespace-pre-wrap",
+      )}
+    >
+      {field.key === "notes" ? (
+        <CrmStructuredNotesView
+          notes={typeof value === "string" ? value : ""}
+          emptyText="—"
+          compact
+        />
+      ) : (
+        formatCompatibilityValue(field.key, value, language, targetKind)
+      )}
+    </div>
+  );
 }
 
 function statusBadgeVariant(status: PartnershipCrmStatus) {
@@ -1151,6 +2522,27 @@ const PIPELINE_STATUS_TONES: Partial<
       "border-teal-300 bg-teal-100/90 shadow-sm dark:border-teal-300/45 dark:bg-teal-400/20",
     label: "text-teal-700 dark:text-teal-200/90",
     count: "text-teal-950 dark:text-teal-50",
+  },
+  no_response: {
+    card: "border-amber-200/80 bg-amber-50/75 hover:border-amber-300/80 hover:bg-amber-100/70 dark:border-amber-300/20 dark:bg-amber-400/10 dark:hover:bg-amber-400/15",
+    activeCard:
+      "border-amber-300 bg-amber-100/90 shadow-sm dark:border-amber-300/45 dark:bg-amber-400/20",
+    label: "text-amber-700 dark:text-amber-200/90",
+    count: "text-amber-950 dark:text-amber-50",
+  },
+  not_interested: {
+    card: "border-rose-200/80 bg-rose-50/75 hover:border-rose-300/80 hover:bg-rose-100/70 dark:border-rose-300/20 dark:bg-rose-400/10 dark:hover:bg-rose-400/15",
+    activeCard:
+      "border-rose-300 bg-rose-100/90 shadow-sm dark:border-rose-300/45 dark:bg-rose-400/20",
+    label: "text-rose-700 dark:text-rose-200/90",
+    count: "text-rose-950 dark:text-rose-50",
+  },
+  not_a_fit: {
+    card: "border-red-200/80 bg-red-50/75 hover:border-red-300/80 hover:bg-red-100/70 dark:border-red-300/20 dark:bg-red-400/10 dark:hover:bg-red-400/15",
+    activeCard:
+      "border-red-300 bg-red-100/90 shadow-sm dark:border-red-300/45 dark:bg-red-400/20",
+    label: "text-red-700 dark:text-red-200/90",
+    count: "text-red-950 dark:text-red-50",
   },
 };
 
@@ -1292,7 +2684,10 @@ function crmTemplateRecommendationRank(
     return 2;
   }
 
-  const targetCategories = normalizeCrmCategoryKeys(target.category, targetKind);
+  const targetCategories = normalizeCrmCategoryKeys(
+    target.category,
+    targetKind,
+  );
   const templateCategories = normalizeCrmCategoryKeys(
     template.category,
     targetKind,
@@ -1313,7 +2708,10 @@ function crmTemplateGroupsForTarget(
   target: PartnershipCrmTargetRecord | null,
   targetKind: PartnershipCrmTargetKind,
 ) {
-  const rankedTemplates = templates
+  const targetAudienceTemplates = templates.filter(
+    (template) => (template.audience ?? "organizations") === targetKind,
+  );
+  const rankedTemplates = targetAudienceTemplates
     .map((template, index) => ({
       template,
       index,
@@ -1402,6 +2800,28 @@ function shouldIgnoreTemplateShortcut(target: EventTarget | null) {
   );
 }
 
+function shouldIgnoreTemplatePreviewShortcut(
+  target: EventTarget | null,
+  container: HTMLElement,
+) {
+  const element =
+    target instanceof HTMLElement ? target : (document.activeElement ?? null);
+
+  if (!(element instanceof HTMLElement) || element === container) {
+    return false;
+  }
+
+  if (shouldIgnoreTemplateShortcut(element)) {
+    return true;
+  }
+
+  return Boolean(
+    element.closest(
+      "a, button, [role='button'], [role='checkbox'], [role='switch'], [role='menuitem']",
+    ),
+  );
+}
+
 function CategoryBadgeGroup({
   value,
   language,
@@ -1455,13 +2875,23 @@ function CrmCountrySelect({
   );
   const emptyValue =
     mode === "filter" ? CRM_ALL_COUNTRIES_VALUE : CRM_NO_COUNTRY_VALUE;
-  const selectedCountry = normalizeCrmCountry(value).split(",")[0] ?? "";
+  const isMissingFilter =
+    mode === "filter" && value === CRM_MISSING_COUNTRY_FILTER_VALUE;
+  const selectedCountry = isMissingFilter
+    ? CRM_MISSING_COUNTRY_FILTER_VALUE
+    : (normalizeCrmCountry(value).split(",")[0] ?? "");
 
   return (
     <Select
       value={selectedCountry || emptyValue}
       onValueChange={(nextValue) =>
-        onChange(nextValue === emptyValue ? "" : nextValue)
+        onChange(
+          nextValue === emptyValue
+            ? ""
+            : nextValue === CRM_MISSING_COUNTRY_FILTER_VALUE
+              ? CRM_MISSING_COUNTRY_FILTER_VALUE
+              : nextValue,
+        )
       }
     >
       <SelectTrigger id={id} className="w-full">
@@ -1471,6 +2901,11 @@ function CrmCountrySelect({
         <SelectItem value={emptyValue}>
           {mode === "filter" ? t("All countries") : t("No country")}
         </SelectItem>
+        {mode === "filter" ? (
+          <SelectItem value={CRM_MISSING_COUNTRY_FILTER_VALUE}>
+            {t("No country")}
+          </SelectItem>
+        ) : null}
         {countryGroups.map((group) => (
           <SelectGroup key={group.key}>
             <SelectLabel>{t(group.label)}</SelectLabel>
@@ -1483,6 +2918,673 @@ function CrmCountrySelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+type VisualFilterApplyTarget = {
+  facetKey: PartnershipCrmVisualFilterFacetKey;
+  value: string;
+};
+
+type VisualFilterBucketView = {
+  value: string;
+  count: number;
+  label: string;
+  percent: number;
+  color: string;
+};
+
+function VisualFilterBucketStats({
+  count,
+  percent,
+  language,
+}: {
+  count: number;
+  percent: number;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <>
+      <span className="w-24 justify-self-end text-center text-sm tabular-nums text-muted-foreground">
+        {count} {t("items")}
+      </span>
+      <span className="w-14 justify-self-end text-center text-sm tabular-nums text-muted-foreground">
+        {percent}%
+      </span>
+    </>
+  );
+}
+
+function piePoint(cx: number, cy: number, radius: number, angle: number) {
+  const radians = ((angle - 90) * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(radians),
+    y: cy + radius * Math.sin(radians),
+  };
+}
+
+function pieSlicePath(
+  cx: number,
+  cy: number,
+  radius: number,
+  startAngle: number,
+  endAngle: number,
+) {
+  const start = piePoint(cx, cy, radius, startAngle);
+  const end = piePoint(cx, cy, radius, endAngle);
+  const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
+
+  return [
+    `M ${cx} ${cy}`,
+    `L ${start.x} ${start.y}`,
+    `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`,
+    "Z",
+  ].join(" ");
+}
+
+function visualFilterFacetTitle(
+  facetKey: PartnershipCrmVisualFilterFacetKey,
+  language: AppLanguage,
+) {
+  const t = (text: string) => appText(language, text);
+
+  if (facetKey === "linkedInState") {
+    return t("LinkedIn availability");
+  }
+
+  return t(
+    facetKey === "status"
+      ? "Status"
+      : facetKey === "category"
+        ? "Category"
+        : "Country",
+  );
+}
+
+function visualFilterBucketLabel(
+  facetKey: PartnershipCrmVisualFilterFacetKey,
+  value: string,
+  language: AppLanguage,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const t = (text: string) => appText(language, text);
+
+  if (facetKey === "status") {
+    const option = CRM_STATUS_OPTIONS.find((entry) => entry.value === value);
+    return option ? t(option.label) : value;
+  }
+
+  if (facetKey === "category") {
+    if (value === CRM_MISSING_CATEGORY_FILTER_VALUE) {
+      return t("No category");
+    }
+
+    return formatCrmCategory(value, language, targetKind) || value;
+  }
+
+  if (facetKey === "country") {
+    if (value === CRM_MISSING_COUNTRY_FILTER_VALUE) {
+      return t("No country");
+    }
+
+    return formatCrmCountry(value, language) || value;
+  }
+
+  return value === "has_linkedin" ? t("Has LinkedIn") : t("Missing LinkedIn");
+}
+
+function shouldIgnoreCrmListKeyboardTarget(target: EventTarget | null) {
+  const element =
+    target instanceof Element ? target : (document.activeElement ?? null);
+
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (element.closest('[role="dialog"]')) {
+    return true;
+  }
+
+  if (element.isContentEditable) {
+    return true;
+  }
+
+  const tagName = element.tagName.toLowerCase();
+  return tagName === "input" || tagName === "select" || tagName === "textarea";
+}
+
+function shouldIgnoreCrmOpenEmailKeyboardTarget(
+  target: EventTarget | null,
+  selectedTargetId: string,
+) {
+  const element =
+    target instanceof Element ? target : (document.activeElement ?? null);
+
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (document.querySelector('[role="dialog"]')) {
+    return true;
+  }
+
+  if (shouldIgnoreCrmListKeyboardTarget(element)) {
+    return true;
+  }
+
+  const rowSelector = element.closest<HTMLElement>("[data-crm-row-selector]");
+  if (rowSelector) {
+    return rowSelector.dataset.crmRowSelector !== selectedTargetId;
+  }
+
+  return Boolean(
+    element.closest(
+      "a, button, [role='button'], [role='checkbox'], [role='switch'], [role='menuitem'], [role='separator'], [data-slot='select-trigger'], [data-slot='select-content']",
+    ),
+  );
+}
+
+function visualFilterBuckets(
+  facet: PartnershipCrmVisualFilterFacet,
+  language: AppLanguage,
+  targetKind: PartnershipCrmTargetKind,
+): VisualFilterBucketView[] {
+  if (facet.total <= 0) {
+    return [];
+  }
+
+  return facet.buckets
+    .filter((bucket) => bucket.count > 0)
+    .map((bucket, sourceIndex) => ({
+      ...bucket,
+      sourceIndex,
+      label: visualFilterBucketLabel(
+        facet.key,
+        bucket.value,
+        language,
+        targetKind,
+      ),
+      percent: Math.round((bucket.count / facet.total) * 100),
+    }))
+    .sort(
+      (left, right) =>
+        right.count - left.count || left.sourceIndex - right.sourceIndex,
+    )
+    .map(({ sourceIndex, ...bucket }, index) => ({
+      ...bucket,
+      color: visualFilterBucketColor(index),
+    }));
+}
+
+function visualFilterBucketColor(index: number) {
+  const baseColor = VISUAL_FILTER_COLORS[index % VISUAL_FILTER_COLORS.length];
+  const cycle = Math.floor(index / VISUAL_FILTER_COLORS.length);
+
+  if (cycle === 0) {
+    return baseColor;
+  }
+
+  const mixTarget = cycle % 2 === 1 ? "var(--foreground)" : "var(--background)";
+  const baseWeight = Math.max(52, 86 - cycle * 12);
+
+  return `color-mix(in srgb, ${baseColor} ${baseWeight}%, ${mixTarget})`;
+}
+
+function VisualFilterPieSection({
+  facet,
+  language,
+  targetKind,
+  selectedValue,
+  onSelect,
+  onClearSelection,
+}: {
+  facet: PartnershipCrmVisualFilterFacet;
+  language: AppLanguage;
+  targetKind: PartnershipCrmTargetKind;
+  selectedValue?: string;
+  onSelect: (target: VisualFilterApplyTarget) => void;
+  onClearSelection: (facetKey: PartnershipCrmVisualFilterFacetKey) => void;
+}) {
+  const t = (text: string) => appText(language, text);
+  const title = visualFilterFacetTitle(facet.key, language);
+  const buckets = visualFilterBuckets(facet, language, targetKind);
+  const selectedBucket = buckets.find(
+    (bucket) => bucket.value === selectedValue,
+  );
+  const hasSelection = Boolean(selectedBucket);
+  const visibleBuckets = buckets.slice(0, MAX_VISUAL_FILTER_BUCKETS);
+  const overflowBuckets = buckets.slice(MAX_VISUAL_FILTER_BUCKETS);
+  const pieTotal = buckets.reduce((total, bucket) => total + bucket.count, 0);
+  const centerCount = selectedBucket?.count ?? facet.total;
+  let runningAngle = 0;
+  const pieSegments = buckets.map((bucket) => {
+    const startAngle = runningAngle;
+    const sweep = (bucket.count / pieTotal) * 360;
+    const endAngle = startAngle + sweep;
+    runningAngle = endAngle;
+
+    return {
+      bucket,
+      startAngle,
+      endAngle,
+      isSelected: bucket.value === selectedBucket?.value,
+    };
+  });
+
+  function selectBucket(bucket: VisualFilterBucketView) {
+    if (bucket.value === selectedBucket?.value) {
+      onClearSelection(facet.key);
+      return;
+    }
+
+    onSelect({ facetKey: facet.key, value: bucket.value });
+  }
+
+  return (
+    <section className="rounded-xl border border-border/80 bg-background/70 p-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="font-heading text-base font-semibold text-foreground">
+          {title}
+        </h3>
+        <span className="text-sm text-muted-foreground">
+          {facet.total} {t("items")}
+        </span>
+      </div>
+
+      {buckets.length === 0 ? (
+        <EmptyState>{t("No data for this filter.")}</EmptyState>
+      ) : (
+        <div className="mt-4 grid gap-4 md:grid-cols-[180px_minmax(0,1fr)] md:items-center">
+          <svg
+            viewBox="0 0 120 120"
+            role="group"
+            aria-label={`${title} ${t("pie chart")}`}
+            className="mx-auto h-44 w-44 overflow-visible"
+          >
+            <circle cx="60" cy="60" r="52" fill="var(--muted)" />
+            {pieSegments.map(({ bucket, startAngle, endAngle, isSelected }) => {
+              const label = `${bucket.label}: ${bucket.percent}%`;
+              const segmentClassName = cn(
+                "cursor-pointer outline-none transition-[filter,opacity] hover:brightness-105 focus-visible:drop-shadow-[0_0_0.35rem_var(--ring)]",
+                hasSelection &&
+                  !isSelected &&
+                  "opacity-55 saturate-[0.72] dark:opacity-45",
+              );
+              const segmentStroke = isSelected
+                ? "var(--foreground)"
+                : "var(--background)";
+              const segmentStrokeWidth = isSelected ? 3 : 1.35;
+              const segmentStrokeProps = {
+                stroke: segmentStroke,
+                strokeWidth: segmentStrokeWidth,
+                vectorEffect: "non-scaling-stroke" as const,
+              };
+
+              if (bucket.count === facet.total) {
+                return (
+                  <circle
+                    key={bucket.value}
+                    cx="60"
+                    cy="60"
+                    r="52"
+                    fill={bucket.color}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    aria-label={`${t(
+                      "Select visual filter from pie",
+                    )}: ${title} - ${bucket.label}`}
+                    className={segmentClassName}
+                    onClick={() => selectBucket(bucket)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        selectBucket(bucket);
+                      }
+                    }}
+                    {...segmentStrokeProps}
+                  >
+                    <title>{label}</title>
+                  </circle>
+                );
+              }
+
+              return (
+                <path
+                  key={bucket.value}
+                  d={pieSlicePath(60, 60, 52, startAngle, endAngle)}
+                  fill={bucket.color}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  aria-label={`${t(
+                    "Select visual filter from pie",
+                  )}: ${title} - ${bucket.label}`}
+                  className={segmentClassName}
+                  onClick={() => selectBucket(bucket)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectBucket(bucket);
+                    }
+                  }}
+                  {...segmentStrokeProps}
+                >
+                  <title>{label}</title>
+                </path>
+              );
+            })}
+            <circle
+              cx="60"
+              cy="60"
+              r="26"
+              fill="var(--background)"
+              stroke="var(--border)"
+              strokeWidth="1"
+            />
+            <text
+              x="60"
+              y="57"
+              textAnchor="middle"
+              data-testid={`visual-filter-center-count-${facet.key}`}
+              className="fill-foreground text-sm font-semibold"
+            >
+              {centerCount}
+            </text>
+            <text
+              x="60"
+              y="72"
+              textAnchor="middle"
+              className="fill-muted-foreground text-[10px]"
+            >
+              {t("items")}
+            </text>
+          </svg>
+
+          <div className="grid gap-2">
+            {visibleBuckets.map((bucket) => (
+              <button
+                key={bucket.value}
+                type="button"
+                className={cn(
+                  "grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  bucket.value === selectedBucket?.value &&
+                    "bg-muted text-foreground ring-1 ring-border",
+                )}
+                aria-pressed={bucket.value === selectedBucket?.value}
+                aria-label={`${t("Select visual filter from legend")}: ${title} - ${bucket.label}`}
+                onClick={() => selectBucket(bucket)}
+              >
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: bucket.color }}
+                />
+                <span className="min-w-0 truncate text-sm font-medium text-foreground">
+                  {bucket.label}
+                </span>
+                <VisualFilterBucketStats
+                  count={bucket.count}
+                  percent={bucket.percent}
+                  language={language}
+                />
+              </button>
+            ))}
+
+            {overflowBuckets.length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-between"
+                  >
+                    {t("See more")}
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  data-testid={`visual-filter-overflow-menu-${facet.key}`}
+                  className="max-h-72 w-[min(42rem,calc(100vw-2rem))] overflow-y-auto"
+                >
+                  {overflowBuckets.map((bucket) => (
+                    <DropdownMenuItem
+                      key={bucket.value}
+                      aria-label={`${t("Select visual filter from legend")}: ${title} - ${bucket.label}`}
+                      className={cn(
+                        "grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2",
+                        bucket.value === selectedBucket?.value &&
+                          "bg-muted text-foreground",
+                      )}
+                      onSelect={() => selectBucket(bucket)}
+                    >
+                      <span
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: bucket.color }}
+                      />
+                      <span className="min-w-0 truncate text-sm font-medium">
+                        {bucket.label}
+                      </span>
+                      <VisualFilterBucketStats
+                        count={bucket.count}
+                        percent={bucket.percent}
+                        language={language}
+                      />
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+
+            <div
+              role="group"
+              aria-label={`${t("Selected segment")}: ${title}`}
+              className="mt-2 rounded-lg border border-border/80 bg-muted/30 p-3"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("Selected segment")}
+                </p>
+                {selectedBucket ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="-mt-1 h-7 px-2 text-xs"
+                    onClick={() => onClearSelection(facet.key)}
+                  >
+                    {t("Clear selection")}
+                  </Button>
+                ) : null}
+              </div>
+              {selectedBucket ? (
+                <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2">
+                  <span
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: selectedBucket.color }}
+                  />
+                  <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                    {selectedBucket.label}
+                  </span>
+                  <VisualFilterBucketStats
+                    count={selectedBucket.count}
+                    percent={selectedBucket.percent}
+                    language={language}
+                  />
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {t("No segment selected")}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function VisualFiltersDialog({
+  open,
+  onOpenChange,
+  filters,
+  activeListFilters,
+  loading,
+  error,
+  language,
+  targetKind,
+  onClearAll,
+  onApply,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  filters?: PartnershipCrmVisualFilters;
+  activeListFilters: ListFilters;
+  loading: boolean;
+  error: unknown;
+  language: AppLanguage;
+  targetKind: PartnershipCrmTargetKind;
+  onClearAll: () => void;
+  onApply: (targets: VisualFilterApplyTarget[]) => void;
+}) {
+  const t = (text: string) => appText(language, text);
+  const [selectedSegments, setSelectedSegments] = useState<
+    Partial<Record<PartnershipCrmVisualFilterFacetKey, string>>
+  >({});
+  const [allowEmptyApply, setAllowEmptyApply] = useState(false);
+  const wasOpenRef = useRef(false);
+  const activeSelectedSegments = useMemo(
+    () => visualSelectedSegmentsForFilters(activeListFilters, targetKind),
+    [activeListFilters, targetKind],
+  );
+  const facets = filters
+    ? [
+        filters.facets.status,
+        filters.facets.category,
+        filters.facets.country,
+        filters.facets.linkedInState,
+      ]
+    : [];
+  const selectedCount = Object.keys(selectedSegments).length;
+  const activeSelectedCount = Object.keys(activeSelectedSegments).length;
+  const canApplySelectedSegments =
+    selectedCount > 0 || activeSelectedCount > 0 || allowEmptyApply;
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      setSelectedSegments(activeSelectedSegments);
+      setAllowEmptyApply(false);
+    }
+
+    if (!open && wasOpenRef.current) {
+      setSelectedSegments({});
+      setAllowEmptyApply(false);
+    }
+
+    wasOpenRef.current = open;
+  }, [activeSelectedSegments, open]);
+
+  function selectSegment(target: VisualFilterApplyTarget) {
+    setAllowEmptyApply(false);
+    setSelectedSegments((current) => ({
+      ...current,
+      [target.facetKey]: target.value,
+    }));
+  }
+
+  function clearSegment(facetKey: PartnershipCrmVisualFilterFacetKey) {
+    setSelectedSegments((current) => {
+      const next = { ...current };
+      delete next[facetKey];
+      return next;
+    });
+  }
+
+  function applySelectedSegments() {
+    const targets = facets.flatMap((facet) => {
+      const value = selectedSegments[facet.key];
+
+      return value ? [{ facetKey: facet.key, value }] : [];
+    });
+
+    if (!canApplySelectedSegments) {
+      return;
+    }
+
+    onApply(targets);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="crm-control-surface flex max-h-[92vh] flex-col overflow-hidden sm:max-w-5xl">
+        <DialogHeader className="shrink-0 gap-3 pr-10 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <DialogTitle>{t("Visual filters")}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {t("Select visual filter segments before applying.")}
+            </DialogDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="self-start"
+            onClick={() => {
+              setSelectedSegments({});
+              setAllowEmptyApply(true);
+              onClearAll();
+            }}
+          >
+            {t("Clear all filters")}
+          </Button>
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          {error ? (
+            <ErrorBanner>{t("Failed to load visual filters.")}</ErrorBanner>
+          ) : null}
+
+          {loading && facets.length === 0 ? (
+            <div className="grid gap-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-64 rounded-xl" />
+              ))}
+            </div>
+          ) : facets.length === 0 ? (
+            <EmptyState>{t("No visual filters available.")}</EmptyState>
+          ) : (
+            <div className="grid gap-4">
+              {facets.map((facet) => (
+                <VisualFilterPieSection
+                  key={facet.key}
+                  facet={facet}
+                  language={language}
+                  targetKind={targetKind}
+                  selectedValue={selectedSegments[facet.key]}
+                  onSelect={selectSegment}
+                  onClearSelection={clearSegment}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="shrink-0 border-t border-border/80 pt-4">
+          <Button
+            type="button"
+            className="w-full sm:w-auto"
+            disabled={!canApplySelectedSegments}
+            onClick={applySelectedSegments}
+          >
+            {t("Apply")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1519,135 +3621,175 @@ function OrganizationFacts({
   const linkedIn = targetLinkedIn(organization, targetKind);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <UserRound className="h-3.5 w-3.5" />
-          {targetKind === "professionals"
-            ? t("Professional")
-            : t("Primary contact")}
+    <div className="@container">
+      <div
+        data-testid="crm-organization-facts"
+        className="grid gap-3 @md:grid-cols-2"
+      >
+        <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <UserRound className="h-3.5 w-3.5" />
+            {targetKind === "professionals"
+              ? t("Professional")
+              : t("Primary contact")}
+          </div>
+          <p className="mt-2 break-words font-medium text-foreground">
+            {targetContactName(organization, targetKind) || "—"}
+          </p>
         </div>
-        <p className="mt-2 font-medium text-foreground">
-          {targetContactName(organization, targetKind) || "—"}
-        </p>
-      </div>
-      <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <Mail className="h-3.5 w-3.5" />
-          {t("Mail")}
+        <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <Mail className="h-3.5 w-3.5" />
+            {t("Mail")}
+          </div>
+          <p className="mt-2 break-all font-medium text-foreground">
+            {directEmail || t("No email")}
+          </p>
         </div>
-        <p className="mt-2 break-all font-medium text-foreground">
-          {directEmail || t("No email")}
-        </p>
-      </div>
-      {targetKind === "professionals" ? (
-        <>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <Building2 className="h-3.5 w-3.5" />
-              {t("Primary affiliation")}
+        {targetKind === "professionals" ? (
+          <>
+            <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                <Building2 className="h-3.5 w-3.5" />
+                {t("Primary affiliation")}
+              </div>
+              <p className="mt-2 break-words font-medium text-foreground">
+                {professional.primaryAffiliation || "—"}
+              </p>
             </div>
-            <p className="mt-2 font-medium text-foreground">
-              {professional.primaryAffiliation || "—"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <UserRound className="h-3.5 w-3.5" />
-              {t("Role / specialty")}
+            <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                <UserRound className="h-3.5 w-3.5" />
+                {t("Role / specialty")}
+              </div>
+              <p className="mt-2 break-words font-medium text-foreground">
+                {professional.title || "—"}
+              </p>
             </div>
-            <p className="mt-2 font-medium text-foreground">
-              {professional.title || "—"}
-            </p>
+          </>
+        ) : null}
+        <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <Clock3 className="h-3.5 w-3.5" />
+            {t("Last Contact")}
           </div>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <UserRound className="h-3.5 w-3.5" />
-              {t("Potential Pocket Genes editor fit")}
-            </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-foreground">
-              {professional.potentialPocketGenesEditorFit || "—"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <Mail className="h-3.5 w-3.5" />
-              {t("Email route")}
-            </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-foreground">
-              {professional.emailRoute || "—"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <ExternalLink className="h-3.5 w-3.5" />
-              {t("LinkedIn route")}
-            </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-foreground">
-              {professional.linkedInRoute || "—"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3 sm:col-span-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <ListChecks className="h-3.5 w-3.5" />
-              {t("Research basis")}
-            </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-foreground">
-              {professional.researchBasis || "—"}
-            </p>
-          </div>
-        </>
-      ) : null}
-      <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <Clock3 className="h-3.5 w-3.5" />
-          {t("Last Contact")}
+          <p className="mt-2 break-words font-medium text-foreground">
+            {formatDate(organization.lastContactAt, language)}
+          </p>
         </div>
-        <p className="mt-2 font-medium text-foreground">
-          {formatDate(organization.lastContactAt, language)}
-        </p>
-      </div>
-      <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <Building2 className="h-3.5 w-3.5" />
-          {t("Website")}
+        <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <Building2 className="h-3.5 w-3.5" />
+            {t("Website")}
+          </div>
+          {organization.website ? (
+            <a
+              href={organization.website}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:underline"
+            >
+              <span className="truncate">
+                {organization.websiteDomain || organization.website}
+              </span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            </a>
+          ) : (
+            <p className="mt-2 font-medium text-muted-foreground">—</p>
+          )}
         </div>
-        {organization.website ? (
-          <a
-            href={organization.website}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:underline"
-          >
-            <span className="truncate">
-              {organization.websiteDomain || organization.website}
-            </span>
-            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-          </a>
-        ) : (
-          <p className="mt-2 font-medium text-muted-foreground">—</p>
-        )}
-      </div>
-      <div className="rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <ExternalLink className="h-3.5 w-3.5" />
-          {t("LinkedIn")}
+        <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <ExternalLink className="h-3.5 w-3.5" />
+            {t("LinkedIn")}
+          </div>
+          {linkedIn ? (
+            <a
+              href={linkedIn}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:underline"
+            >
+              <span className="truncate">{t("Open profile")}</span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            </a>
+          ) : (
+            <p className="mt-2 font-medium text-muted-foreground">—</p>
+          )}
         </div>
-        {linkedIn ? (
-          <a
-            href={linkedIn}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:underline"
-          >
-            <span className="truncate">{t("Open profile")}</span>
-            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-          </a>
-        ) : (
-          <p className="mt-2 font-medium text-muted-foreground">—</p>
-        )}
       </div>
     </div>
+  );
+}
+
+function MoreInformationField({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </p>
+      <div className="min-w-0 whitespace-pre-wrap break-words text-sm font-medium leading-6 text-foreground/88">
+        {value || "—"}
+      </div>
+    </div>
+  );
+}
+
+function MoreInformationSection({
+  organization,
+  targetKind,
+  language,
+}: {
+  organization: PartnershipCrmTargetRecord;
+  targetKind: PartnershipCrmTargetKind;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const professional = organization as PartnershipCrmProfessionalRecord;
+
+  return (
+    <section className="mt-5 border-t border-border/80 pt-5">
+      <h3 className="font-heading text-base font-semibold text-foreground">
+        {t("More information")}
+      </h3>
+      <div className="mt-4 grid gap-4">
+        {targetKind === "professionals" ? (
+          <>
+            <MoreInformationField
+              label={t("Potential Pocket Genes editor fit")}
+              value={professional.potentialPocketGenesEditorFit || "—"}
+            />
+            <MoreInformationField
+              label={t("Email route")}
+              value={professional.emailRoute || "—"}
+            />
+            <MoreInformationField
+              label={t("LinkedIn route")}
+              value={professional.linkedInRoute || "—"}
+            />
+            <MoreInformationField
+              label={t("Research basis")}
+              value={professional.researchBasis || "—"}
+            />
+          </>
+        ) : null}
+        <MoreInformationField
+          label={t("Notes")}
+          value={
+            <CrmStructuredNotesView
+              notes={organization.notes}
+              emptyText={t("No notes yet.")}
+            />
+          }
+        />
+      </div>
+    </section>
   );
 }
 
@@ -2044,6 +4186,601 @@ function OrganizationDialog({
   );
 }
 
+function crmVariablePillClassName(variable: CrmTemplateVariableDefinition) {
+  return cn(
+    "mx-0.5 inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 align-baseline font-mono text-[0.74rem] font-semibold leading-5 shadow-sm whitespace-normal break-words",
+    variable.className,
+  );
+}
+
+function crmVariableEditorSegmentClassName(
+  variable: CrmTemplateVariableDefinition,
+) {
+  return cn(
+    "inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 align-baseline font-mono text-[0.74rem] font-semibold leading-5 shadow-sm whitespace-normal break-words",
+    variable.className,
+  );
+}
+
+function normalizeCrmVariableDisplayText(value: string) {
+  return value.replace(/\s+/g, " ").trim() || "—";
+}
+
+function crmEditorTextMeasure(editor: HTMLElement) {
+  const style = window.getComputedStyle(editor);
+  const font =
+    style.font ||
+    `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`.trim();
+  const canvas = document.createElement("canvas");
+  let context: CanvasRenderingContext2D | null = null;
+  const isJsdom =
+    typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent);
+  if (!isJsdom) {
+    try {
+      context = canvas.getContext("2d");
+    } catch {
+      context = null;
+    }
+  }
+  if (context && font) {
+    context.font = font;
+  }
+  const fallbackAverageWidth =
+    Number.parseFloat(style.fontSize || "14") * 0.58 || 8;
+
+  return (text: string) =>
+    context
+      ? context.measureText(text).width
+      : text.length * fallbackAverageWidth;
+}
+
+function editorContentWidth(editor: HTMLElement) {
+  const rectWidth = editor.getBoundingClientRect().width;
+  const width = editor.clientWidth || rectWidth;
+  return width > 0 ? width : 680;
+}
+
+function lineTextAfterAppending(currentLine: string, text: string) {
+  const parts = text.split(/\n/);
+  return parts.length > 1 ? (parts.at(-1) ?? "") : currentLine + text;
+}
+
+function splitCrmVariableDisplayLines({
+  displayValue,
+  maxLineWidth,
+  firstLineWidth,
+  measureText,
+}: {
+  displayValue: string;
+  maxLineWidth: number;
+  firstLineWidth: number;
+  measureText: (text: string) => number;
+}) {
+  const text = normalizeCrmVariableDisplayText(displayValue);
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  let currentMaxWidth = Math.max(140, firstLineWidth);
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+
+    if (!current || measureText(candidate) <= currentMaxWidth) {
+      current = candidate;
+      continue;
+    }
+
+    lines.push(current);
+    current = word;
+    currentMaxWidth = maxLineWidth;
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines.length > 0 ? lines : ["—"];
+}
+
+function createCrmVariablePillElement(
+  variable: CrmTemplateVariableDefinition,
+  displayValue: string,
+  options: {
+    editor?: HTMLElement;
+    lineTextBeforeVariable?: string;
+  } = {},
+) {
+  const element = document.createElement("span");
+  element.contentEditable = "false";
+  element.dataset.crmVariable = variable.key;
+  element.dataset.crmVariableToken = variable.token;
+  element.dataset.crmVariableDisplayText =
+    normalizeCrmVariableDisplayText(displayValue);
+  element.className = "mx-0.5 inline align-baseline";
+  element.title = `${variable.token}: ${displayValue || "—"}`;
+  element.setAttribute("role", "img");
+  element.setAttribute("aria-label", variable.label);
+
+  const editor = options.editor;
+  const measureText = editor
+    ? crmEditorTextMeasure(editor)
+    : (text: string) => text.length * 8;
+  const maxLineWidth = Math.max(
+    180,
+    (editor ? editorContentWidth(editor) : 680) - 24,
+  );
+  const usedWidth = options.lineTextBeforeVariable
+    ? measureText(options.lineTextBeforeVariable) % maxLineWidth
+    : 0;
+  const remainingWidth = maxLineWidth - usedWidth - 12;
+  const firstLineWidth = remainingWidth < 180 ? maxLineWidth : remainingWidth;
+  const lines = splitCrmVariableDisplayLines({
+    displayValue,
+    maxLineWidth,
+    firstLineWidth,
+    measureText,
+  });
+
+  lines.forEach((line, index) => {
+    const segment = document.createElement("span");
+    segment.dataset.crmVariableSegment = String(index + 1);
+    segment.className = crmVariableEditorSegmentClassName(variable);
+    segment.textContent = index < lines.length - 1 ? `${line} ` : line;
+    element.append(segment);
+
+    if (index < lines.length - 1) {
+      element.append(document.createElement("br"));
+    }
+  });
+
+  return element;
+}
+
+function renderCrmVariableEditorValue(
+  editor: HTMLElement,
+  value: string,
+  variables: readonly CrmTemplateVariableDefinition[],
+  variableDisplayTextByKey: ReadonlyMap<CrmTemplateVariableKey, string>,
+) {
+  const fragment = document.createDocumentFragment();
+  const stack: Array<DocumentFragment | HTMLElement> = [fragment];
+  const variableByToken = new Map(
+    variables.map((variable) => [variable.token, variable]),
+  );
+  let cursor = 0;
+  let lineTextForMeasure = "";
+
+  function append(node: Node) {
+    stack[stack.length - 1]?.append(node);
+  }
+
+  function appendPlainText(text: string) {
+    append(document.createTextNode(text));
+    lineTextForMeasure = lineTextAfterAppending(lineTextForMeasure, text);
+  }
+
+  for (const match of value.matchAll(CRM_TEMPLATE_INLINE_TOKEN_PATTERN)) {
+    const [token] = match;
+    const index = match.index ?? 0;
+
+    if (index > cursor) {
+      appendPlainText(value.slice(cursor, index));
+    }
+
+    if (token.startsWith("{{")) {
+      const variable = variableByToken.get(
+        token as `{{${CrmTemplateVariableKey}}}`,
+      );
+      if (variable) {
+        const displayText = variableDisplayTextByKey.get(variable.key) ?? "—";
+        const pill = createCrmVariablePillElement(variable, displayText, {
+          editor,
+          lineTextBeforeVariable: lineTextForMeasure,
+        });
+        append(pill);
+        const segments = Array.from(
+          pill.querySelectorAll<HTMLElement>("[data-crm-variable-segment]"),
+        ).map((segment) => segment.textContent ?? "");
+        lineTextForMeasure =
+          segments.length > 1
+            ? (segments.at(-1) ?? "")
+            : lineTextForMeasure + normalizeCrmVariableDisplayText(displayText);
+      } else {
+        appendPlainText(token);
+      }
+    } else {
+      const formatTag = normalizeCrmInlineFormatTag(token);
+      if (formatTag && !formatTag.closing) {
+        const element = document.createElement(formatTag.tag);
+        append(element);
+        stack.push(element);
+      } else if (
+        formatTag &&
+        formatTag.closing &&
+        stack.length > 1 &&
+        (stack.at(-1) as HTMLElement).tagName?.toLowerCase() === formatTag.tag
+      ) {
+        stack.pop();
+      } else {
+        append(document.createTextNode(token));
+      }
+    }
+    cursor = index + token.length;
+  }
+
+  if (cursor < value.length) {
+    appendPlainText(value.slice(cursor));
+  }
+
+  editor.replaceChildren(fragment);
+}
+
+function extractCrmVariableEditorValue(root: Node) {
+  let value = "";
+
+  function appendNewline() {
+    if (value && !value.endsWith("\n")) {
+      value += "\n";
+    }
+  }
+
+  function walk(node: Node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      value += node.textContent?.replace(/\u00a0/g, " ") ?? "";
+      return;
+    }
+
+    if (!(node instanceof HTMLElement)) {
+      node.childNodes.forEach(walk);
+      return;
+    }
+
+    if (node.dataset.crmVariableToken) {
+      value += node.dataset.crmVariableToken;
+      return;
+    }
+
+    if (node.tagName === "BR") {
+      value += "\n";
+      return;
+    }
+
+    if (node.tagName === "STRONG" || node.tagName === "B") {
+      value += "<strong>";
+      node.childNodes.forEach(walk);
+      value += "</strong>";
+      return;
+    }
+
+    if (node.tagName === "EM" || node.tagName === "I") {
+      value += "<em>";
+      node.childNodes.forEach(walk);
+      value += "</em>";
+      return;
+    }
+
+    const isBlock = ["DIV", "P"].includes(node.tagName);
+    if (isBlock && value) {
+      appendNewline();
+    }
+    node.childNodes.forEach(walk);
+    if (isBlock && node.nextSibling) {
+      appendNewline();
+    }
+  }
+
+  root.childNodes.forEach(walk);
+  return value.replace(/\n{3,}/g, "\n\n");
+}
+
+function placeCaretAfter(node: Node) {
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+
+  const range = document.createRange();
+  range.setStartAfter(node);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function insertCrmVariableIntoEditor(
+  editor: HTMLElement,
+  variable: CrmTemplateVariableDefinition,
+  displayValue: string,
+) {
+  editor.focus();
+  const selection = window.getSelection();
+  const pill = createCrmVariablePillElement(variable, displayValue, { editor });
+  const spacer = document.createTextNode(" ");
+
+  if (!selection || selection.rangeCount === 0) {
+    editor.append(pill, spacer);
+    placeCaretAfter(spacer);
+    return;
+  }
+
+  const range = selection.getRangeAt(0);
+  if (!editor.contains(range.commonAncestorContainer)) {
+    editor.append(pill, spacer);
+    placeCaretAfter(spacer);
+    return;
+  }
+
+  range.deleteContents();
+  range.insertNode(spacer);
+  range.insertNode(pill);
+  placeCaretAfter(spacer);
+}
+
+function CrmVariableEditor({
+  value,
+  variables,
+  target,
+  targetKind,
+  onChange,
+  language,
+}: {
+  value: string;
+  variables: readonly CrmTemplateVariableDefinition[];
+  target: PartnershipCrmTargetRecord;
+  targetKind: PartnershipCrmTargetKind;
+  onChange: (value: string) => void;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const lastRenderedSignatureRef = useRef<string>("");
+  const [editorWidthSignature, setEditorWidthSignature] = useState(0);
+  const variableDisplayTextByKey = useMemo(
+    () =>
+      new Map(
+        variables.map((variable) => [
+          variable.key,
+          crmTemplateVariablePlainValue(variable.key, target, targetKind) ||
+            "—",
+        ]),
+      ),
+    [target, targetKind, variables],
+  );
+  const variableDisplaySignature = useMemo(
+    () =>
+      variables
+        .map(
+          (variable) =>
+            `${variable.key}:${variableDisplayTextByKey.get(variable.key)}`,
+        )
+        .join("\u0001"),
+    [variableDisplayTextByKey, variables],
+  );
+  const usedVariables = useMemo(() => {
+    const variableByKey = new Map(
+      variables.map((variable) => [variable.key, variable]),
+    );
+    return usedCrmTemplateVariables(value)
+      .map((key) => variableByKey.get(key))
+      .filter((variable): variable is CrmTemplateVariableDefinition =>
+        Boolean(variable),
+      );
+  }, [value, variables]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    function updateWidthSignature(width: number) {
+      setEditorWidthSignature(Math.max(0, Math.round(width)));
+    }
+
+    updateWidthSignature(editorContentWidth(editor));
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (typeof width === "number") {
+        updateWidthSignature(width);
+      }
+    });
+    observer.observe(editor);
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    const currentValue = extractCrmVariableEditorValue(editor);
+    const nextRenderSignature = `${value}\u0002${variableDisplaySignature}\u0002${editorWidthSignature}`;
+    if (
+      currentValue === value &&
+      lastRenderedSignatureRef.current === nextRenderSignature
+    ) {
+      return;
+    }
+
+    renderCrmVariableEditorValue(
+      editor,
+      value,
+      variables,
+      variableDisplayTextByKey,
+    );
+    lastRenderedSignatureRef.current = nextRenderSignature;
+  }, [
+    value,
+    variables,
+    variableDisplayTextByKey,
+    variableDisplaySignature,
+    editorWidthSignature,
+  ]);
+
+  function syncFromEditor() {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    const nextValue = extractCrmVariableEditorValue(editor);
+    lastRenderedSignatureRef.current = `${nextValue}\u0002${variableDisplaySignature}\u0002${editorWidthSignature}`;
+    onChange(nextValue);
+  }
+
+  function addVariable(variable: CrmTemplateVariableDefinition) {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    insertCrmVariableIntoEditor(
+      editor,
+      variable,
+      variableDisplayTextByKey.get(variable.key) ?? "—",
+    );
+    syncFromEditor();
+  }
+
+  function applyInlineFormat(command: "bold" | "italic") {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    editor.focus();
+    document.execCommand(command);
+    syncFromEditor();
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-foreground/20 bg-background shadow-[0_1px_0_rgba(255,255,255,0.4),0_12px_24px_rgba(9,12,18,0.08)] dark:border-white/60 dark:bg-black">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/80 bg-muted/35 px-2 py-2">
+        <div className="flex flex-wrap items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              editorRef.current?.focus();
+              document.execCommand("insertLineBreak");
+              syncFromEditor();
+            }}
+          >
+            {t("Line break")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label={t("Bold")}
+            title={t("Bold")}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyInlineFormat("bold")}
+          >
+            <Bold className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label={t("Italic")}
+            title={t("Italic")}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyInlineFormat("italic")}
+          >
+            <Italic className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="outline" size="sm">
+              <Braces className="h-3.5 w-3.5" />
+              {t("Add variable")}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="crm-control-dropdown">
+            {variables.map((variable) => (
+              <DropdownMenuItem
+                key={variable.key}
+                onSelect={() => addVariable(variable)}
+              >
+                <span
+                  className={cn(
+                    "h-2.5 w-2.5 rounded-full",
+                    variable.dotClassName,
+                  )}
+                />
+                <span>{variable.label}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <div
+        id="crm-email-message"
+        ref={editorRef}
+        role="textbox"
+        aria-label={t("Message")}
+        contentEditable
+        suppressContentEditableWarning
+        className="min-h-80 overflow-y-auto whitespace-pre-wrap px-3 py-2.5 font-mono text-sm leading-6 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+        onInput={syncFromEditor}
+        onBlur={syncFromEditor}
+        onPaste={(event) => {
+          event.preventDefault();
+          const text = event.clipboardData.getData("text/plain");
+          document.execCommand("insertText", false, text);
+          syncFromEditor();
+        }}
+      />
+      <div className="border-t border-border/80 bg-muted/20 px-3 py-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          {t("Variables")}
+        </p>
+        {usedVariables.length > 0 ? (
+          <div className="mt-2 overflow-x-auto rounded-lg border border-border/80 bg-background">
+            <table className="w-full min-w-[28rem] text-left text-xs">
+              <thead className="bg-muted/45 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">
+                    {t("Variable key")}
+                  </th>
+                  <th className="px-3 py-2 font-semibold">{t("Value")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/70">
+                {usedVariables.map((variable) => (
+                  <tr key={variable.key}>
+                    <td className="w-64 px-3 py-2 align-top">
+                      <span className={crmVariablePillClassName(variable)}>
+                        {variable.token}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 align-top font-medium text-foreground">
+                      {variableDisplayTextByKey.get(variable.key) ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t("No variables used in this message.")}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function EmailComposerDialog({
   organization,
   targetKind,
@@ -2087,14 +4824,19 @@ function EmailComposerDialog({
 }) {
   const t = (text: string) => appText(language, text);
   const [email, setEmail] = useState<EmailState | null>(null);
-  const [templateToast, setTemplateToast] =
-    useState<ActionToastState | null>(null);
+  const [templateToast, setTemplateToast] = useState<ActionToastState | null>(
+    null,
+  );
   const emailTargetKeyRef = useRef<string | null>(null);
   const templateGroups = useMemo(
     () => crmTemplateGroupsForTarget(templates, organization, targetKind),
     [organization, targetKind, templates],
   );
   const orderedTemplates = templateGroups.all;
+  const editorVariables = useMemo(
+    () => crmTemplateVariablesForTarget(targetKind),
+    [targetKind],
+  );
 
   useEffect(() => {
     if (!organization || !open) {
@@ -2119,11 +4861,11 @@ function EmailComposerDialog({
     setEmail((current) => {
       const hasUserDraft = Boolean(
         current &&
-          previousTargetKey === targetKey &&
-          (current.templateId ||
-            current.subject ||
-            current.text ||
-            current.to !== targetEmail),
+        previousTargetKey === targetKey &&
+        (current.templateId ||
+          current.subject ||
+          current.text ||
+          current.to !== targetEmail),
       );
 
       if (hasUserDraft) {
@@ -2134,7 +4876,7 @@ function EmailComposerDialog({
         to: targetEmail,
         templateId: template?.id ?? "",
         subject: rendered.subject,
-        text: rendered.body,
+        text: template?.body ?? "",
         step: "compose",
       };
     });
@@ -2147,7 +4889,8 @@ function EmailComposerDialog({
 
     const timeout = window.setTimeout(
       () => setTemplateToast(null),
-      templateToast.durationMs ?? (templateToast.tone === "error" ? 5000 : 2600),
+      templateToast.durationMs ??
+        (templateToast.tone === "error" ? 5000 : 2600),
     );
 
     return () => window.clearTimeout(timeout);
@@ -2171,13 +4914,24 @@ function EmailComposerDialog({
     update({
       templateId,
       subject: rendered.subject,
-      text: rendered.body,
+      text: template.body,
       step: "compose",
     });
   }
 
+  const missingVariables =
+    email && organization
+      ? missingCrmTemplateVariables(email, organization, targetKind)
+      : [];
+  const renderedEmail =
+    email && organization
+      ? renderedCrmEmailState(email, organization, targetKind)
+      : null;
   const canPreview = Boolean(
-    email?.to.trim() && email.subject.trim() && email.text.trim(),
+    email?.to.trim() &&
+    email.subject.trim() &&
+    email.text.trim() &&
+    missingVariables.length === 0,
   );
   const hasTemplates = orderedTemplates.length > 0;
   const isPreviewStep = email?.step === "preview";
@@ -2188,34 +4942,36 @@ function EmailComposerDialog({
     selectedTemplateIndex >= 0 ? orderedTemplates[selectedTemplateIndex] : null;
   const canChangeTemplate = Boolean(
     email &&
-      email.step === "compose" &&
-      hasTemplates &&
-      !templatesLoading &&
-      organization,
+    email.step === "compose" &&
+    hasTemplates &&
+    !templatesLoading &&
+    organization,
   );
   const canOverwriteTemplate = Boolean(
     email &&
-      selectedTemplate &&
-      email.step === "compose" &&
-      email.text.trim() &&
-      !templateActionPending,
+    selectedTemplate &&
+    organization &&
+    email.step === "compose" &&
+    email.text.trim() &&
+    !templateActionPending,
   );
   const canToggleTemplateFavorite = Boolean(
-    selectedTemplate &&
-      email?.step === "compose" &&
-      !templateActionPending,
+    selectedTemplate && email?.step === "compose" && !templateActionPending,
   );
   const canDeleteTemplate = Boolean(
     selectedTemplate && email?.step === "compose" && !templateActionPending,
   );
 
   async function handleOverwriteTemplate() {
-    if (!selectedTemplate || !email || !canOverwriteTemplate) {
+    if (!selectedTemplate || !email || !organization || !canOverwriteTemplate) {
       return;
     }
 
     try {
-      await onOverwriteTemplate(selectedTemplate, email.text);
+      await onOverwriteTemplate(
+        selectedTemplate,
+        restoreCrmTemplateTargetVariables(email.text, organization, targetKind),
+      );
       setTemplateToast({
         id: Date.now(),
         tone: "success",
@@ -2317,7 +5073,26 @@ function EmailComposerDialog({
     applyTemplate(orderedTemplates[nextIndex].id);
   }
 
+  function goToPreview() {
+    if (!canPreview) {
+      return;
+    }
+
+    update({ step: "preview" });
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (
+      event.key === "Enter" &&
+      email?.step === "compose" &&
+      canPreview &&
+      !shouldIgnoreTemplatePreviewShortcut(event.target, event.currentTarget)
+    ) {
+      event.preventDefault();
+      goToPreview();
+      return;
+    }
+
     if (!canChangeTemplate || shouldIgnoreTemplateShortcut(event.target)) {
       return;
     }
@@ -2336,7 +5111,15 @@ function EmailComposerDialog({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent
+        data-crm-email-composer-dialog
+        tabIndex={-1}
         className="crm-control-surface sm:max-w-5xl"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          document
+            .querySelector<HTMLElement>("[data-crm-email-composer-dialog]")
+            ?.focus();
+        }}
         onKeyDown={handleKeyDown}
       >
         <DialogHeader>
@@ -2376,7 +5159,10 @@ function EmailComposerDialog({
         {organization && email ? (
           isPreviewStep ? (
             <EmailPreviewPanel
-              email={email}
+              email={renderedEmail ?? email}
+              rawText={email.text}
+              target={organization}
+              targetKind={targetKind}
               language={language}
               locked
               className="w-full"
@@ -2482,14 +5268,24 @@ function EmailComposerDialog({
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="crm-email-message">{t("Message")}</Label>
-                  <Textarea
-                    id="crm-email-message"
+                  <CrmVariableEditor
                     value={email.text}
-                    onChange={(event) =>
-                      update({ text: event.target.value, step: "compose" })
+                    variables={editorVariables}
+                    target={organization}
+                    targetKind={targetKind}
+                    language={language}
+                    onChange={(value) =>
+                      update({ text: value, step: "compose" })
                     }
-                    className="min-h-80 font-mono text-sm leading-6"
                   />
+                  {missingVariables.length > 0 ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      {t("Missing value for")}{" "}
+                      {missingVariables
+                        .map((variable) => variable.token)
+                        .join(", ")}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -2586,7 +5382,7 @@ function EmailComposerDialog({
                   <Button
                     type="button"
                     size="lg"
-                    onClick={() => update({ step: "preview" })}
+                    onClick={goToPreview}
                     disabled={!canPreview}
                     className={EMAIL_CTA_CLASS}
                   >
@@ -2596,16 +5392,27 @@ function EmailComposerDialog({
                 </div>
               </>
             ) : (
-              <Button
-                type="button"
-                size="lg"
-                onClick={() => onSend(email)}
-                disabled={pending || !canPreview}
-                className={EMAIL_CTA_CLASS}
-              >
-                <Send className="h-4 w-4" />
-                {pending ? t("Sending...") : t("Send email")}
-              </Button>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => update({ step: "compose" })}
+                  disabled={pending}
+                >
+                  {t("Keep editing")}
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={() => renderedEmail && onSend(renderedEmail)}
+                  disabled={pending || !canPreview}
+                  className={EMAIL_CTA_CLASS}
+                >
+                  <Send className="h-4 w-4" />
+                  {pending ? t("Sending...") : t("Send email")}
+                </Button>
+              </div>
             )}
           </DialogFooter>
         ) : null}
@@ -2616,16 +5423,26 @@ function EmailComposerDialog({
 
 function EmailPreviewPanel({
   email,
+  rawText,
+  target,
+  targetKind,
   language,
   locked = false,
   className,
 }: {
   email: EmailState;
+  rawText?: string;
+  target?: PartnershipCrmTargetRecord;
+  targetKind?: PartnershipCrmTargetKind;
   language: AppLanguage;
   locked?: boolean;
   className?: string;
 }) {
   const t = (text: string) => appText(language, text);
+  const body =
+    rawText && target && targetKind
+      ? renderCrmTemplateNodes(rawText, target, targetKind)
+      : email.text;
 
   return (
     <aside
@@ -2675,7 +5492,7 @@ function EmailPreviewPanel({
           locked && "max-h-[58vh] min-h-96 overflow-y-auto text-base leading-7",
         )}
       >
-        {email.text || t("No message yet.")}
+        {body || t("No message yet.")}
       </div>
     </aside>
   );
@@ -3101,6 +5918,236 @@ function resultLabel(
   return t("Row invalid");
 }
 
+function DuplicateCompatibilityDialog({
+  state,
+  existingTarget,
+  loading,
+  error,
+  pending,
+  onClose,
+  onSave,
+  language,
+}: {
+  state: CrmDuplicateCompatibilityDialogState;
+  existingTarget: PartnershipCrmTargetRecord | null;
+  loading: boolean;
+  error: unknown;
+  pending: boolean;
+  onClose: () => void;
+  onSave: (payload: CrmTargetInput) => void;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const targetKind = state?.targetKind ?? "organizations";
+  const fields = useMemo(
+    () => compatibilityFieldsForTarget(targetKind),
+    [targetKind],
+  );
+  const incomingTarget = state
+    ? importRowTarget(state.row, state.targetKind)
+    : undefined;
+  const existingForm = useMemo(
+    () => toFormState(existingTarget ?? undefined, targetKind),
+    [existingTarget, targetKind],
+  );
+  const incomingForm = useMemo(
+    () => inputToFormState(incomingTarget, targetKind),
+    [incomingTarget, targetKind],
+  );
+  const [choices, setChoices] = useState<
+    Partial<Record<keyof OrganizationFormState, CrmCompatibilityChoice>>
+  >({});
+
+  useEffect(() => {
+    setChoices(defaultCompatibilityChoices(fields, existingForm, incomingForm));
+  }, [existingForm, fields, incomingForm, state?.duplicateId]);
+
+  const resolvedForm = useMemo(() => {
+    const next = { ...existingForm };
+    for (const field of fields) {
+      next[field.key] = compatibilityValueForChoice(
+        field.key,
+        choices[field.key] ?? "existing",
+        existingForm,
+        incomingForm,
+      ) as never;
+    }
+    return next;
+  }, [choices, existingForm, fields, incomingForm]);
+  const resolvedPayload = useMemo(
+    () => targetPayload(resolvedForm, targetKind),
+    [resolvedForm, targetKind],
+  );
+  const canSave = Boolean(state && existingTarget && resolvedForm.name.trim());
+
+  function choiceLabel(choice: CrmCompatibilityChoice) {
+    if (choice === "incoming") {
+      return t("CSV");
+    }
+    if (choice === "merged") {
+      return t("Merged");
+    }
+    return t("CRM");
+  }
+
+  function setChoice(
+    key: keyof OrganizationFormState,
+    choice: CrmCompatibilityChoice,
+  ) {
+    setChoices((current) => ({ ...current, [key]: choice }));
+  }
+
+  return (
+    <Dialog open={Boolean(state)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="crm-control-surface max-h-[88vh] overflow-y-auto sm:max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>{t("Compatibilizar")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              "Compare the existing CRM record with the CSV row and choose the resolved value for each field.",
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="grid gap-3">
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+          </div>
+        ) : error ? (
+          <ErrorBanner>{t("Unable to load duplicate CRM record.")}</ErrorBanner>
+        ) : !existingTarget ? (
+          <ErrorBanner>{t("Duplicate target was not found.")}</ErrorBanner>
+        ) : (
+          <div className="grid gap-3">
+            <div className="rounded-xl border border-border/80 bg-muted/25 p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    {t("Duplicate resolver")}
+                  </p>
+                  <h3 className="mt-1 font-heading text-lg font-semibold">
+                    {existingTarget.name}
+                  </h3>
+                </div>
+                <Badge variant="warning">{t("Possible duplicate")}</Badge>
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              {fields.map((field) => {
+                const existingValue = existingForm[field.key];
+                const incomingValue = incomingForm[field.key];
+                const mergedValue = mergeCompatibilityValue(
+                  field.key,
+                  existingValue,
+                  incomingValue,
+                );
+                const resolvedValue = resolvedForm[field.key];
+                const choice = choices[field.key] ?? "existing";
+                const changed = !compatibilityValuesMatch(
+                  field.key,
+                  existingValue,
+                  incomingValue,
+                );
+
+                return (
+                  <section
+                    key={field.key}
+                    className={cn(
+                      "rounded-xl border p-3",
+                      changed
+                        ? "border-blue-300 bg-blue-50/55 dark:border-blue-300/30 dark:bg-blue-500/10"
+                        : "border-border/80 bg-background/70",
+                    )}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h4 className="font-semibold">{t(field.label)}</h4>
+                      {changed ? (
+                        <Badge variant="brand">{choiceLabel(choice)}</Badge>
+                      ) : null}
+                    </div>
+                    {changed ? (
+                      <div className="mt-3 grid gap-2 lg:grid-cols-3">
+                        {[
+                          {
+                            label: t("CRM existing"),
+                            value: existingValue,
+                            choice: "existing" as const,
+                          },
+                          {
+                            label: t("CSV new"),
+                            value: incomingValue,
+                            choice: "incoming" as const,
+                          },
+                          {
+                            label: t("Merge both"),
+                            value: mergedValue,
+                            choice: "merged" as const,
+                          },
+                        ].map((option) => (
+                          <button
+                            key={option.choice}
+                            type="button"
+                            onClick={() => setChoice(field.key, option.choice)}
+                            className={cn(
+                              "min-h-24 rounded-lg border px-3 py-2 text-left transition",
+                              choice === option.choice
+                                ? "border-blue-500 bg-blue-100 text-blue-950 shadow-sm dark:border-blue-300 dark:bg-blue-400/18 dark:text-blue-50"
+                                : "border-border/80 bg-background text-foreground hover:border-blue-300 hover:bg-blue-50/60 dark:hover:bg-blue-500/10",
+                            )}
+                          >
+                            <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                              {option.label}
+                            </span>
+                            <CompatibilityValueDisplay
+                              field={field}
+                              value={option.value}
+                              language={language}
+                              targetKind={targetKind}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="mt-3 rounded-lg border border-border/70 bg-background/85 px-3 py-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                        {t("Resolved value")}
+                      </p>
+                      <CompatibilityValueDisplay
+                        field={field}
+                        value={resolvedValue}
+                        language={language}
+                        targetKind={targetKind}
+                      />
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            {t("Cancel")}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => onSave(resolvedPayload)}
+            disabled={!canSave || pending || loading}
+            className={EMAIL_CTA_CLASS}
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {pending ? t("Saving...") : t("Save compatibility")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ImportRowReviewCard({
   session,
   row,
@@ -3110,6 +6157,9 @@ function ImportRowReviewCard({
   onAdd,
   onSkip,
   onNext,
+  onCompatibilize,
+  onFillMissing,
+  onReplaceVariables,
   onImportRemainingInSequence,
   onPauseAutomaticImport,
   language,
@@ -3122,6 +6172,9 @@ function ImportRowReviewCard({
   onAdd: () => void;
   onSkip: () => void;
   onNext: () => void;
+  onCompatibilize: () => void;
+  onFillMissing: () => void;
+  onReplaceVariables: () => void;
   onImportRemainingInSequence: () => void;
   onPauseAutomaticImport: () => void;
   language: AppLanguage;
@@ -3274,7 +6327,12 @@ function ImportRowReviewCard({
               label={t("Last Contact")}
               value={formatDate(target?.lastContactAt, language)}
             />
-            <ImportReviewFact label={t("Notes")} value={target?.notes} />
+            <ImportReviewFact
+              label={t("Notes")}
+              value={
+                <CrmStructuredNotesView notes={target?.notes} emptyText="—" />
+              }
+            />
           </div>
 
           {row.duplicateCandidates.length > 0 ? (
@@ -3292,6 +6350,43 @@ function ImportRowReviewCard({
                   "Add imports this row anyway. Skip leaves the existing CRM untouched.",
                 )}
               </p>
+              {!processed ? (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onCompatibilize}
+                    disabled={!canAdd}
+                    className="h-auto min-h-9 justify-start whitespace-normal border-amber-500/55 bg-background/70 text-left text-amber-950 hover:bg-amber-100 dark:border-amber-300/35 dark:text-amber-50 dark:hover:bg-amber-400/15"
+                  >
+                    <ListChecks className="h-3.5 w-3.5" />
+                    {t("Compatibilizar")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onFillMissing}
+                    disabled={!canAdd}
+                    className="h-auto min-h-9 justify-start whitespace-normal border-emerald-500/55 bg-background/70 text-left text-emerald-800 hover:bg-emerald-50 dark:border-emerald-300/35 dark:text-emerald-50 dark:hover:bg-emerald-400/15"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    {t("Compatibilizar sumando campos faltantes")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onReplaceVariables}
+                    disabled={!canAdd}
+                    className="h-auto min-h-9 justify-start whitespace-normal border-blue-500/55 bg-background/70 text-left text-blue-800 hover:bg-blue-50 dark:border-blue-300/35 dark:text-blue-50 dark:hover:bg-blue-400/15"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {t("Compatibilizar reemplazando variables")}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -3416,6 +6511,9 @@ function ImportDialog({
   onInteractiveAdd,
   onInteractiveSkip,
   onInteractiveNext,
+  onInteractiveCompatibilize,
+  onInteractiveFillMissing,
+  onInteractiveReplaceVariables,
   onImportRemainingInSequence,
   onPauseAutomaticImport,
   onImportAll,
@@ -3437,6 +6535,9 @@ function ImportDialog({
   onInteractiveAdd: () => void;
   onInteractiveSkip: () => void;
   onInteractiveNext: () => void;
+  onInteractiveCompatibilize: () => void;
+  onInteractiveFillMissing: () => void;
+  onInteractiveReplaceVariables: () => void;
   onImportRemainingInSequence: () => void;
   onPauseAutomaticImport: () => void;
   onImportAll: () => void;
@@ -3601,6 +6702,9 @@ function ImportDialog({
               onAdd={onInteractiveAdd}
               onSkip={onInteractiveSkip}
               onNext={onInteractiveNext}
+              onCompatibilize={onInteractiveCompatibilize}
+              onFillMissing={onInteractiveFillMissing}
+              onReplaceVariables={onInteractiveReplaceVariables}
               onImportRemainingInSequence={onImportRemainingInSequence}
               onPauseAutomaticImport={onPauseAutomaticImport}
               language={language}
@@ -3740,19 +6844,20 @@ export function PartnershipCrmWorkbench() {
   const router = useRouter();
   const [targetKind, setTargetKind] =
     useState<PartnershipCrmTargetKind>("organizations");
-  const [filters, setFilters] = useState<ListFilters>({
-    query: "",
-    status: "all",
-    category: "",
-    country: "",
-    emailState: "all",
-  });
+  const [filters, setFilters] = useState<ListFilters>(() => emptyListFilters());
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedTargetIds, setSelectedTargetIds] = useState<Set<string>>(
     () => new Set(),
   );
   const [detailPanelOpen, setDetailPanelOpen] = useState(false);
+  const splitPaneRef = useRef<HTMLDivElement | null>(null);
+  const targetRowRefs = useRef(new Map<string, HTMLTableRowElement>());
+  const centerSplitPaneOnSelectionRef = useRef(false);
+  const [detailPanelWidthPercent, setDetailPanelWidthPercent] = useState(
+    CRM_DETAIL_PANEL_DEFAULT_WIDTH_PERCENT,
+  );
+  const [detailPanelResizing, setDetailPanelResizing] = useState(false);
   const [organizationDialog, setOrganizationDialog] =
     useState<OrganizationDialogState>(null);
   const [deleteTarget, setDeleteTarget] =
@@ -3760,6 +6865,7 @@ export function PartnershipCrmWorkbench() {
   const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [sentEmailLogOpen, setSentEmailLogOpen] = useState(false);
+  const [visualFiltersOpen, setVisualFiltersOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importRulesOpen, setImportRulesOpen] = useState(false);
   const [importPreview, setImportPreview] =
@@ -3770,6 +6876,8 @@ export function PartnershipCrmWorkbench() {
   const [importSession, setImportSession] = useState<CrmImportSession | null>(
     null,
   );
+  const [compatibilityDialog, setCompatibilityDialog] =
+    useState<CrmDuplicateCompatibilityDialogState>(null);
   const [interactiveAutoImport, setInteractiveAutoImport] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [activityLogOpen, setActivityLogOpen] = useState(false);
@@ -3799,10 +6907,14 @@ export function PartnershipCrmWorkbench() {
     "of",
   )} ${knownListPages}${hasNextListPage ? "+" : ""}`;
   const templatesQuery = useInfiniteQuery({
-    queryKey: [TEMPLATES_QUERY_KEY, "active"],
+    queryKey: [TEMPLATES_QUERY_KEY, "active", targetKind],
     queryFn: ({ pageParam }) => {
       const cursor = typeof pageParam === "string" ? pageParam : "";
-      const params = new URLSearchParams({ status: "active", limit: "50" });
+      const params = new URLSearchParams({
+        status: "active",
+        audience: targetKind,
+        limit: "50",
+      });
       if (cursor) {
         params.set("cursor", cursor);
       }
@@ -3818,9 +6930,7 @@ export function PartnershipCrmWorkbench() {
     const templatesById = new Map<string, PartnershipCrmTemplateRecord>();
 
     for (const page of templatesQuery.data?.pages ?? []) {
-      const pageTemplates = Array.isArray(page.templates)
-        ? page.templates
-        : [];
+      const pageTemplates = Array.isArray(page.templates) ? page.templates : [];
       for (const template of pageTemplates) {
         if (!templatesById.has(template.id)) {
           templatesById.set(template.id, template);
@@ -3853,6 +6963,70 @@ export function PartnershipCrmWorkbench() {
     selectedVisibleTargetCount > 0 &&
     selectedVisibleTargetCount < organizations.length;
   const showDetailPanel = Boolean(detailPanelOpen && selectedOrganization);
+  const splitPaneStyle = showDetailPanel
+    ? ({
+        "--crm-list-panel-width": `${100 - detailPanelWidthPercent}fr`,
+        "--crm-detail-panel-width": `${detailPanelWidthPercent}fr`,
+      } as CSSProperties)
+    : undefined;
+
+  function setDetailPanelWidthFromClientX(clientX: number) {
+    const bounds = splitPaneRef.current?.getBoundingClientRect();
+    if (!bounds || bounds.width <= 0) {
+      return;
+    }
+
+    const nextWidth = ((bounds.right - clientX) / bounds.width) * 100;
+    setDetailPanelWidthPercent(
+      clampCrmDetailPanelWidthPercent(Math.round(nextWidth * 10) / 10),
+    );
+  }
+
+  function handleDetailPanelResizePointerDown(
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    setDetailPanelWidthFromClientX(event.clientX);
+    setDetailPanelResizing(true);
+  }
+
+  function adjustDetailPanelWidth(delta: number) {
+    setDetailPanelWidthPercent((current) =>
+      clampCrmDetailPanelWidthPercent(current + delta),
+    );
+  }
+
+  function handleDetailPanelResizeKeyDown(
+    event: KeyboardEvent<HTMLDivElement>,
+  ) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      adjustDetailPanelWidth(CRM_DETAIL_PANEL_KEYBOARD_STEP_PERCENT);
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      adjustDetailPanelWidth(-CRM_DETAIL_PANEL_KEYBOARD_STEP_PERCENT);
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      setDetailPanelWidthPercent(CRM_DETAIL_PANEL_MIN_WIDTH_PERCENT);
+      return;
+    }
+
+    if (event.key === "End") {
+      event.preventDefault();
+      setDetailPanelWidthPercent(CRM_DETAIL_PANEL_MAX_WIDTH_PERCENT);
+    }
+  }
+
   const activitiesQuery = useInfiniteQuery({
     queryKey: [ACTIVITIES_QUERY_KEY, targetKind, selectedOrganization?.id],
     queryFn: ({ pageParam }) => {
@@ -3897,47 +7071,82 @@ export function PartnershipCrmWorkbench() {
     () => sentEmailLogQuery.data?.pages.flatMap((page) => page.emails) ?? [],
     [sentEmailLogQuery.data?.pages],
   );
+  const visualFiltersQuery = useQuery({
+    queryKey: [ORGANIZATIONS_QUERY_KEY, "visual-filters", targetKind],
+    queryFn: () =>
+      sdkFetch<PartnershipCrmVisualFilters>(buildVisualFiltersPath(targetKind)),
+    enabled: visualFiltersOpen,
+  });
+  const compatibilityTargetQuery = useQuery({
+    queryKey: [
+      ORGANIZATIONS_QUERY_KEY,
+      "duplicate-compatibility",
+      compatibilityDialog?.targetKind,
+      compatibilityDialog?.duplicateId,
+    ],
+    queryFn: async () => {
+      if (!compatibilityDialog) {
+        throw new Error("Missing duplicate resolver state.");
+      }
+
+      return sdkFetch<{
+        organization?: PartnershipCrmOrganizationRecord;
+        professional?: PartnershipCrmProfessionalRecord;
+      }>(
+        `${crmTargetBasePath(
+          compatibilityDialog.targetKind,
+        )}/${encodeURIComponent(compatibilityDialog.duplicateId)}`,
+      );
+    },
+    enabled: Boolean(compatibilityDialog),
+  });
+  const compatibilityExistingTarget =
+    compatibilityTargetQuery.data?.professional ??
+    compatibilityTargetQuery.data?.organization ??
+    null;
 
   function replaceTemplateInCachedPages(
     updatedTemplate: PartnershipCrmTemplateRecord,
   ) {
-    queryClient.setQueryData<
-      InfiniteData<PartnershipCrmTemplatesPage, string>
-    >([TEMPLATES_QUERY_KEY, "active"], (current) => {
-      if (!current) {
-        return current;
-      }
+    queryClient.setQueryData<InfiniteData<PartnershipCrmTemplatesPage, string>>(
+      [TEMPLATES_QUERY_KEY, "active"],
+      (current) => {
+        if (!current) {
+          return current;
+        }
 
-      return {
-        ...current,
-        pages: current.pages.map((page) => ({
-          ...page,
-          templates: page.templates.map((template) =>
-            template.id === updatedTemplate.id ? updatedTemplate : template,
-          ),
-        })),
-      };
-    });
+        return {
+          ...current,
+          pages: current.pages.map((page) => ({
+            ...page,
+            templates: page.templates.map((template) =>
+              template.id === updatedTemplate.id ? updatedTemplate : template,
+            ),
+          })),
+        };
+      },
+    );
   }
 
   function removeTemplateFromCachedPages(templateId: string) {
-    queryClient.setQueryData<
-      InfiniteData<PartnershipCrmTemplatesPage, string>
-    >([TEMPLATES_QUERY_KEY, "active"], (current) => {
-      if (!current) {
-        return current;
-      }
+    queryClient.setQueryData<InfiniteData<PartnershipCrmTemplatesPage, string>>(
+      [TEMPLATES_QUERY_KEY, "active"],
+      (current) => {
+        if (!current) {
+          return current;
+        }
 
-      return {
-        ...current,
-        pages: current.pages.map((page) => ({
-          ...page,
-          templates: page.templates.filter(
-            (template) => template.id !== templateId,
-          ),
-        })),
-      };
-    });
+        return {
+          ...current,
+          pages: current.pages.map((page) => ({
+            ...page,
+            templates: page.templates.filter(
+              (template) => template.id !== templateId,
+            ),
+          })),
+        };
+      },
+    );
   }
 
   useEffect(() => {
@@ -3955,6 +7164,38 @@ export function PartnershipCrmWorkbench() {
   }, [targetKind]);
 
   useEffect(() => {
+    if (!detailPanelResizing) {
+      return;
+    }
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    function handlePointerMove(event: PointerEvent) {
+      event.preventDefault();
+      setDetailPanelWidthFromClientX(event.clientX);
+    }
+
+    function stopResizing() {
+      setDetailPanelResizing(false);
+    }
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResizing);
+    window.addEventListener("pointercancel", stopResizing);
+
+    return () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResizing);
+      window.removeEventListener("pointercancel", stopResizing);
+    };
+  }, [detailPanelResizing]);
+
+  useEffect(() => {
     if (!organizations.length) {
       setSelectedId(null);
       setDetailPanelOpen(false);
@@ -3970,6 +7211,105 @@ export function PartnershipCrmWorkbench() {
       setActivityLogOpen(false);
     }
   }, [organizations, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId || organizations.length === 0) {
+      return;
+    }
+
+    function handleCrmListKeyDown(event: globalThis.KeyboardEvent) {
+      const isNavigationKey =
+        event.key === "ArrowDown" || event.key === "ArrowUp";
+      const isOpenEmailKey = event.key === "Enter";
+
+      if (
+        event.defaultPrevented ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.shiftKey ||
+        (!isNavigationKey && !isOpenEmailKey)
+      ) {
+        return;
+      }
+
+      const currentIndex = organizations.findIndex(
+        (entry) => entry.id === selectedId,
+      );
+      if (currentIndex === -1) {
+        return;
+      }
+
+      if (isOpenEmailKey) {
+        const selectedTarget = organizations[currentIndex];
+
+        if (
+          !detailPanelOpen ||
+          emailOpen ||
+          !selectedTarget ||
+          !crmTargetEmail(selectedTarget, targetKind) ||
+          shouldIgnoreCrmOpenEmailKeyboardTarget(
+            event.target,
+            selectedTarget.id,
+          )
+        ) {
+          return;
+        }
+
+        event.preventDefault();
+        setEmailOpen(true);
+        return;
+      }
+
+      if (shouldIgnoreCrmListKeyboardTarget(event.target)) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const nextIndex =
+        event.key === "ArrowDown"
+          ? Math.min(currentIndex + 1, organizations.length - 1)
+          : Math.max(currentIndex - 1, 0);
+      const nextSelection = organizations[nextIndex];
+      if (!nextSelection || nextSelection.id === selectedId) {
+        return;
+      }
+
+      centerSplitPaneOnSelectionRef.current = true;
+      setSelectedId(nextSelection.id);
+      setDetailPanelOpen(true);
+    }
+
+    window.addEventListener("keydown", handleCrmListKeyDown);
+    return () => window.removeEventListener("keydown", handleCrmListKeyDown);
+  }, [detailPanelOpen, emailOpen, organizations, selectedId, targetKind]);
+
+  useEffect(() => {
+    if (!selectedId || !showDetailPanel) {
+      return;
+    }
+
+    const selectedRow = targetRowRefs.current.get(selectedId);
+    if (!selectedRow || typeof selectedRow.scrollIntoView !== "function") {
+      centerSplitPaneOnSelectionRef.current = false;
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      selectedRow.scrollIntoView({ block: "nearest", inline: "nearest" });
+
+      if (centerSplitPaneOnSelectionRef.current) {
+        centerSplitPaneOnSelectionRef.current = false;
+        splitPaneRef.current?.scrollIntoView({
+          block: "center",
+          inline: "nearest",
+        });
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedId, showDetailPanel]);
 
   useEffect(() => {
     if (selectedTargetIds.size === 0) {
@@ -4018,6 +7358,46 @@ export function PartnershipCrmWorkbench() {
               ...current,
               organizations: current.organizations.filter(
                 (organization) => !deletedIds.has(organization.id),
+              ),
+            }
+          : current,
+    );
+  }
+
+  function replaceTargetsInCachedPages(
+    updatedTargets: PartnershipCrmTargetRecord[],
+  ) {
+    const targetsById = new Map(
+      updatedTargets.map((target) => [target.id, target]),
+    );
+
+    if (targetsById.size === 0) {
+      return;
+    }
+
+    queryClient.setQueriesData<
+      PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage
+    >({ queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind] }, (current) =>
+      targetKind === "professionals"
+        ? current && "professionals" in current
+          ? {
+              ...current,
+              professionals: current.professionals.map(
+                (professional) =>
+                  (targetsById.get(professional.id) as
+                    PartnershipCrmProfessionalRecord | undefined) ??
+                  professional,
+              ),
+            }
+          : current
+        : current && "organizations" in current
+          ? {
+              ...current,
+              organizations: current.organizations.map(
+                (organization) =>
+                  (targetsById.get(organization.id) as
+                    PartnershipCrmOrganizationRecord | undefined) ??
+                  organization,
               ),
             }
           : current,
@@ -4246,6 +7626,72 @@ export function PartnershipCrmWorkbench() {
     },
   });
 
+  const updateSelectedTargetsFavoriteMutation = useMutation({
+    mutationFn: ({
+      targets,
+      isFavorite,
+    }: {
+      targets: PartnershipCrmTargetRecord[];
+      isFavorite: boolean;
+    }) =>
+      Promise.all(
+        targets.map((target) =>
+          sdkFetch<{
+            organization?: PartnershipCrmOrganizationRecord;
+            professional?: PartnershipCrmProfessionalRecord;
+          }>(
+            `${crmTargetBasePath(targetKind)}/${encodeURIComponent(target.id)}`,
+            {
+              method: "PUT",
+              body: JSON.stringify(
+                targetPayload(
+                  {
+                    ...toFormState(target, targetKind),
+                    is_favorite: isFavorite,
+                  },
+                  targetKind,
+                ),
+              ),
+            },
+          ),
+        ),
+      ),
+    onSuccess: (results, { isFavorite }) => {
+      const updatedTargets = results
+        .map((result) => result.professional ?? result.organization ?? null)
+        .filter((target): target is PartnershipCrmTargetRecord =>
+          Boolean(target),
+        );
+
+      replaceTargetsInCachedPages(updatedTargets);
+      invalidateOrganizations();
+      void organizationQuery.refetch();
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message:
+          targetKind === "professionals"
+            ? isFavorite
+              ? t("Selected CRM professionals marked as favorite.")
+              : t("Selected CRM professionals marked as not favorite.")
+            : isFavorite
+              ? t("Selected CRM organizations marked as favorite.")
+              : t("Selected CRM organizations marked as not favorite."),
+      });
+    },
+    onError: (error) => {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message:
+          targetKind === "professionals"
+            ? t("Unable to update selected CRM professionals.")
+            : t("Unable to update selected CRM organizations."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
   const addActivityMutation = useMutation({
     mutationFn: ({
       organizationId,
@@ -4301,6 +7747,7 @@ export function PartnershipCrmWorkbench() {
             to: email.to,
             subject: email.subject,
             text: email.text,
+            html: email.html,
             templateId: email.templateId,
           }),
         },
@@ -4508,6 +7955,10 @@ export function PartnershipCrmWorkbench() {
     session: CrmImportSession,
     rowIndex: number,
     decision: "add" | "skip",
+    options: {
+      duplicateAction?: CrmDuplicateAction;
+      targetOverride?: CrmTargetInput;
+    } = {},
   ) {
     const previewed =
       rowIndex < session.previewedRows
@@ -4569,9 +8020,15 @@ export function PartnershipCrmWorkbench() {
     });
 
     const importEndpoint = importEndpointForTarget(importing.targetKind);
+    const effectiveDuplicateAction =
+      options.duplicateAction &&
+      duplicateIdForImportRow(row, importing.targetKind)
+        ? options.duplicateAction
+        : "import";
     const requestPayload = importRequestPayloadForRow(
       row,
       importing.targetKind,
+      { ...options, duplicateAction: effectiveDuplicateAction },
     );
     const result = await sdkFetch<PartnershipCrmImportResult>(importEndpoint, {
       method: "POST",
@@ -4801,7 +8258,12 @@ export function PartnershipCrmWorkbench() {
           updatedAt: new Date().toISOString(),
         });
 
-        const imported = await importSinglePreviewRow(working, rowIndex, "add");
+        const imported = await importSinglePreviewRow(
+          working,
+          rowIndex,
+          "add",
+          { duplicateAction: "replace_variables" },
+        );
         if (!imported) {
           setInteractiveAutoImportEnabled(false);
           return;
@@ -4828,6 +8290,7 @@ export function PartnershipCrmWorkbench() {
         requestPayload: importRequestPayloadForSessionRow(
           working,
           failedImportIndex,
+          { duplicateAction: "replace_variables" },
         ),
       });
       saveImportSession({
@@ -4876,9 +8339,7 @@ export function PartnershipCrmWorkbench() {
         completeCrmImportSession(updated);
         return;
       }
-      if (decision === "add") {
-        await advanceInteractiveImportSession(updated);
-      }
+      await advanceInteractiveImportSession(updated);
     } catch (error) {
       setInteractiveAutoImportEnabled(false);
       const rowIndex = importSession.activeRowIndex;
@@ -4915,16 +8376,246 @@ export function PartnershipCrmWorkbench() {
     }
   }
 
-  const pageStatusCounts = useMemo(
-    () =>
-      Object.fromEntries(
-        CRM_STATUS_OPTIONS.map((option) => [
+  function openInteractiveDuplicateCompatibility() {
+    if (!importSession || importSession.status === "completed") {
+      return;
+    }
+
+    const rowIndex = importSession.activeRowIndex;
+    const row = importSession.previewRows[rowIndex] ?? null;
+    const duplicateId = duplicateIdForImportRow(row, importSession.targetKind);
+    if (!row || !duplicateId) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("No duplicate target found for this row."),
+      });
+      return;
+    }
+
+    setCompatibilityDialog({
+      targetKind: importSession.targetKind,
+      rowIndex,
+      row,
+      duplicateId,
+    });
+  }
+
+  async function fillMissingInteractiveDuplicate() {
+    if (!importSession || importSession.status === "completed") {
+      return;
+    }
+
+    try {
+      const rowIndex = importSession.activeRowIndex;
+      const updated = await importSinglePreviewRow(
+        {
+          ...importSession,
+          mode: "interactive",
+          stage: "import",
+        },
+        rowIndex,
+        "add",
+        { duplicateAction: "fill_missing" },
+      );
+      if (!updated) {
+        return;
+      }
+      if (updated.nextImportIndex >= updated.totalRows) {
+        completeCrmImportSession(updated);
+        return;
+      }
+      await advanceInteractiveImportSession(updated);
+    } catch (error) {
+      setInteractiveAutoImportEnabled(false);
+      const rowIndex = importSession.activeRowIndex;
+      const lastErrorDetail = buildCrmImportErrorDetail({
+        error,
+        session: importSession,
+        stage: "import",
+        rowIndex,
+        endpoint: importEndpointForTarget(importSession.targetKind),
+        requestPayload: importRequestPayloadForSessionRow(
+          importSession,
+          rowIndex,
+          { duplicateAction: "fill_missing" },
+        ),
+      });
+      saveImportSession({
+        ...importSession,
+        status: "paused",
+        stage: "import",
+        mode: "interactive",
+        lastError: errorMessage(error),
+        lastErrorDetail,
+        updatedAt: new Date().toISOString(),
+      });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("CRM import paused."),
+        details: importErrorDescription(
+          { ...importSession, lastError: errorMessage(error), lastErrorDetail },
+          language,
+        ),
+        durationMs: 18000,
+      });
+    }
+  }
+
+  async function replaceVariablesInteractiveDuplicate() {
+    if (!importSession || importSession.status === "completed") {
+      return;
+    }
+
+    try {
+      const rowIndex = importSession.activeRowIndex;
+      const updated = await importSinglePreviewRow(
+        {
+          ...importSession,
+          mode: "interactive",
+          stage: "import",
+        },
+        rowIndex,
+        "add",
+        { duplicateAction: "replace_variables" },
+      );
+      if (!updated) {
+        return;
+      }
+      if (updated.nextImportIndex >= updated.totalRows) {
+        completeCrmImportSession(updated);
+        return;
+      }
+      await advanceInteractiveImportSession(updated);
+    } catch (error) {
+      setInteractiveAutoImportEnabled(false);
+      const rowIndex = importSession.activeRowIndex;
+      const lastErrorDetail = buildCrmImportErrorDetail({
+        error,
+        session: importSession,
+        stage: "import",
+        rowIndex,
+        endpoint: importEndpointForTarget(importSession.targetKind),
+        requestPayload: importRequestPayloadForSessionRow(
+          importSession,
+          rowIndex,
+          { duplicateAction: "replace_variables" },
+        ),
+      });
+      saveImportSession({
+        ...importSession,
+        status: "paused",
+        stage: "import",
+        mode: "interactive",
+        lastError: errorMessage(error),
+        lastErrorDetail,
+        updatedAt: new Date().toISOString(),
+      });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to compatibilize duplicate."),
+        details: importErrorDescription(
+          { ...importSession, lastError: errorMessage(error), lastErrorDetail },
+          language,
+        ),
+        durationMs: 18000,
+      });
+    }
+  }
+
+  async function saveCompatibilityResolution(payload: CrmTargetInput) {
+    if (
+      !importSession ||
+      !compatibilityDialog ||
+      importSession.status === "completed"
+    ) {
+      return;
+    }
+
+    try {
+      const rowIndex = compatibilityDialog.rowIndex;
+      const updated = await importSinglePreviewRow(
+        {
+          ...importSession,
+          mode: "interactive",
+          stage: "import",
+        },
+        rowIndex,
+        "add",
+        { duplicateAction: "update", targetOverride: payload },
+      );
+      if (!updated) {
+        return;
+      }
+
+      setCompatibilityDialog(null);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("Merged duplicate row saved."),
+      });
+      if (updated.nextImportIndex >= updated.totalRows) {
+        completeCrmImportSession(updated);
+        return;
+      }
+      await advanceInteractiveImportSession(updated);
+    } catch (error) {
+      setInteractiveAutoImportEnabled(false);
+      const rowIndex = compatibilityDialog.rowIndex;
+      const lastErrorDetail = buildCrmImportErrorDetail({
+        error,
+        session: importSession,
+        stage: "import",
+        rowIndex,
+        endpoint: importEndpointForTarget(importSession.targetKind),
+        requestPayload: importRequestPayloadForSessionRow(
+          importSession,
+          rowIndex,
+          { duplicateAction: "update", targetOverride: payload },
+        ),
+      });
+      saveImportSession({
+        ...importSession,
+        status: "paused",
+        stage: "import",
+        mode: "interactive",
+        activeRowIndex: rowIndex,
+        lastError: errorMessage(error),
+        lastErrorDetail,
+        updatedAt: new Date().toISOString(),
+      });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to compatibilize duplicate."),
+        details: importErrorDescription(
+          { ...importSession, lastError: errorMessage(error), lastErrorDetail },
+          language,
+        ),
+        durationMs: 18000,
+      });
+    }
+  }
+
+  const statusCounts = useMemo(() => {
+    const aggregateCounts = organizationQuery.data?.statusCounts;
+
+    const rawCounts = Object.fromEntries(
+      CRM_STATUS_OPTIONS.map((option) => {
+        const aggregateCount = aggregateCounts?.[option.value];
+        return [
           option.value,
-          metricCount(organizations, option.value),
-        ]),
-      ) as Record<PartnershipCrmStatus, number>,
-    [organizations],
-  );
+          typeof aggregateCount === "number"
+            ? aggregateCount
+            : metricCount(organizations, option.value),
+        ];
+      }),
+    ) as PartnershipCrmStatusCounts;
+
+    return funnelStatusCounts(rawCounts);
+  }, [organizationQuery.data?.statusCounts, organizations]);
   const activityLogBadge = !selectedOrganization
     ? targetKind === "professionals"
       ? t("No professional selected")
@@ -4935,6 +8626,9 @@ export function PartnershipCrmWorkbench() {
   const importPending =
     importSession?.status === "previewing" ||
     importSession?.status === "importing";
+  const selectedTargetActionPending =
+    deleteSelectedTargetsMutation.isPending ||
+    updateSelectedTargetsFavoriteMutation.isPending;
 
   function setInteractiveAutoImportEnabled(enabled: boolean) {
     interactiveAutoImportRef.current = enabled;
@@ -4951,6 +8645,42 @@ export function PartnershipCrmWorkbench() {
     setDeleteSelectedOpen(false);
     setCursorStack([]);
     setFilters((current) => ({ ...current, ...patch }));
+  }
+
+  function clearAllFilters() {
+    resetCursorsForFilterChange(emptyListFilters());
+  }
+
+  function applyVisualFilter(targets: VisualFilterApplyTarget[]) {
+    setVisualFiltersOpen(false);
+
+    const patch: Partial<ListFilters> = {
+      status: "all",
+      category: "",
+      country: "",
+      linkedInState: "all",
+    };
+
+    for (const target of targets) {
+      if (target.facetKey === "status") {
+        patch.status = target.value as ListFilters["status"];
+        continue;
+      }
+
+      if (target.facetKey === "category") {
+        patch.category = target.value;
+        continue;
+      }
+
+      if (target.facetKey === "country") {
+        patch.country = target.value;
+        continue;
+      }
+
+      patch.linkedInState = target.value as ListFilters["linkedInState"];
+    }
+
+    resetCursorsForFilterChange(patch);
   }
 
   function handleTargetKindChange(nextTargetKind: PartnershipCrmTargetKind) {
@@ -4970,13 +8700,8 @@ export function PartnershipCrmWorkbench() {
     setDeleteTarget(null);
     setDeleteSelectedOpen(false);
     setEmailOpen(false);
-    setFilters({
-      query: "",
-      status: "all",
-      category: "",
-      country: "",
-      emailState: "all",
-    });
+    setVisualFiltersOpen(false);
+    setFilters(emptyListFilters());
   }
 
   function handleTargetSelect(targetId: string) {
@@ -5116,6 +8841,24 @@ export function PartnershipCrmWorkbench() {
     });
   }
 
+  function updateSelectedFavorite(isFavorite: boolean) {
+    if (!selectedOrganization) {
+      return;
+    }
+
+    saveOrganizationMutation.mutate({
+      mode: "edit",
+      organizationId: selectedOrganization.id,
+      payload: targetPayload(
+        {
+          ...toFormState(selectedOrganization, targetKind),
+          is_favorite: isFavorite,
+        },
+        targetKind,
+      ),
+    });
+  }
+
   function submitNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedOrganization || !noteDraft.trim()) {
@@ -5163,6 +8906,15 @@ export function PartnershipCrmWorkbench() {
               )}
             />
             {t("Refresh")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setVisualFiltersOpen(true)}
+          >
+            <Filter className="h-3.5 w-3.5" />
+            {t("Visual filters")}
           </Button>
           <Button
             type="button"
@@ -5266,10 +9018,10 @@ export function PartnershipCrmWorkbench() {
           mode="filter"
         />
         <Select
-          value={filters.emailState}
+          value={filters.linkedInState}
           onValueChange={(value) =>
             resetCursorsForFilterChange({
-              emailState: value as ListFilters["emailState"],
+              linkedInState: value as ListFilters["linkedInState"],
             })
           }
         >
@@ -5277,21 +9029,33 @@ export function PartnershipCrmWorkbench() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="crm-control-dropdown">
-            <SelectItem value="all">{t("All emails")}</SelectItem>
-            <SelectItem value="has_email">{t("Has Email")}</SelectItem>
-            <SelectItem value="missing_email">{t("Missing Email")}</SelectItem>
+            <SelectItem value="all">{t("All LinkedIn")}</SelectItem>
+            <SelectItem value="has_linkedin">{t("Has LinkedIn")}</SelectItem>
+            <SelectItem value="missing_linkedin">
+              {t("Missing LinkedIn")}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div
+        ref={splitPaneRef}
+        data-testid="crm-split-pane"
         className={cn(
           "grid gap-4",
           showDetailPanel &&
-            "xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.72fr)]",
+            "xl:h-[calc(100vh_-_var(--app-header-height)_-_2rem)] xl:min-h-0 xl:grid-cols-[minmax(0,var(--crm-list-panel-width))_1rem_minmax(0,var(--crm-detail-panel-width))] xl:items-stretch xl:gap-0 xl:overflow-hidden",
         )}
+        style={splitPaneStyle}
       >
-        <div className="grid content-start gap-4">
+        <div
+          data-testid="crm-list-panel"
+          className={cn(
+            "grid content-start gap-4",
+            showDetailPanel &&
+              "xl:flex xl:min-h-0 xl:flex-col xl:overflow-visible xl:pr-2",
+          )}
+        >
           <div className="grid items-start gap-2 sm:grid-cols-5">
             {PIPELINE_STATUSES.map((status) => {
               const tone = pipelineStatusTone(
@@ -5313,7 +9077,7 @@ export function PartnershipCrmWorkbench() {
                     {t(statusLabel(status))}
                   </p>
                   <p className={cn("mt-1 text-lg font-semibold", tone.count)}>
-                    {pageStatusCounts[status]}
+                    {statusCounts[status]}
                   </p>
                 </button>
               );
@@ -5328,7 +9092,14 @@ export function PartnershipCrmWorkbench() {
             </ErrorBanner>
           ) : null}
 
-          <div className="overflow-hidden rounded-xl border border-border/80 bg-background/64">
+          <div
+            data-testid="crm-target-table-scroll"
+            className={cn(
+              "overflow-hidden rounded-xl border border-border/80 bg-background/64",
+              showDetailPanel &&
+                "xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-auto",
+            )}
+          >
             {organizationQuery.isFetching && organizations.length === 0 ? (
               <div className="grid gap-2 p-3">
                 {Array.from({ length: 7 }).map((_, index) => (
@@ -5365,17 +9136,57 @@ export function PartnershipCrmWorkbench() {
                         variant="ghost"
                         size="sm"
                         onClick={clearSelectedTargets}
-                        disabled={deleteSelectedTargetsMutation.isPending}
+                        disabled={selectedTargetActionPending}
                       >
                         <X className="h-3.5 w-3.5" />
                         {t("Clear selected")}
                       </Button>
                       <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateSelectedTargetsFavoriteMutation.mutate({
+                            targets: selectedTargets,
+                            isFavorite: true,
+                          })
+                        }
+                        disabled={
+                          selectedTargetActionPending ||
+                          selectedTargets.length === 0
+                        }
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                        {updateSelectedTargetsFavoriteMutation.isPending
+                          ? t("Updating...")
+                          : t("Mark selected as favorite")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateSelectedTargetsFavoriteMutation.mutate({
+                            targets: selectedTargets,
+                            isFavorite: false,
+                          })
+                        }
+                        disabled={
+                          selectedTargetActionPending ||
+                          selectedTargets.length === 0
+                        }
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                        {updateSelectedTargetsFavoriteMutation.isPending
+                          ? t("Updating...")
+                          : t("Mark selected as not favorite")}
+                      </Button>
+                      <Button
+                        type="button"
                         variant="destructive"
                         size="sm"
                         onClick={() => setDeleteSelectedOpen(true)}
-                        disabled={deleteSelectedTargetsMutation.isPending}
+                        disabled={selectedTargetActionPending}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         {t("Delete selected")}
@@ -5400,7 +9211,7 @@ export function PartnershipCrmWorkbench() {
                                 ? "indeterminate"
                                 : false
                           }
-                          disabled={deleteSelectedTargetsMutation.isPending}
+                          disabled={selectedTargetActionPending}
                           onCheckedChange={(checked) =>
                             setVisibleTargetsSelected(checked === true)
                           }
@@ -5436,13 +9247,24 @@ export function PartnershipCrmWorkbench() {
                       return (
                         <TableRow
                           key={organization.id}
+                          ref={(element) => {
+                            if (element) {
+                              targetRowRefs.current.set(
+                                organization.id,
+                                element,
+                              );
+                            } else {
+                              targetRowRefs.current.delete(organization.id);
+                            }
+                          }}
+                          data-crm-target-row={organization.id}
                           data-state={
                             isSelected || isBatchSelected
                               ? "selected"
                               : undefined
                           }
                           className={cn(
-                            "cursor-pointer",
+                            "cursor-pointer scroll-mb-3 scroll-mt-3",
                             isSelected &&
                               "bg-sky-50/80 hover:bg-sky-50 dark:bg-sky-400/10 dark:hover:bg-sky-400/12",
                           )}
@@ -5452,7 +9274,7 @@ export function PartnershipCrmWorkbench() {
                             <Checkbox
                               aria-label={`${t("Select")} ${organization.name}`}
                               checked={isBatchSelected}
-                              disabled={deleteSelectedTargetsMutation.isPending}
+                              disabled={selectedTargetActionPending}
                               onClick={(event) => event.stopPropagation()}
                               onCheckedChange={(checked) =>
                                 setTargetSelected(
@@ -5477,6 +9299,7 @@ export function PartnershipCrmWorkbench() {
                           <TableCell className="whitespace-normal">
                             <button
                               type="button"
+                              data-crm-row-selector={organization.id}
                               className="max-w-[260px] text-left"
                               onClick={() =>
                                 handleTargetSelect(organization.id)
@@ -5531,7 +9354,7 @@ export function PartnershipCrmWorkbench() {
                           </TableCell>
                           <TableCell className="whitespace-normal">
                             <p className="line-clamp-2 max-w-[240px] text-xs text-muted-foreground">
-                              {organization.notes || "—"}
+                              {crmNotesSummary(organization.notes)}
                             </p>
                           </TableCell>
                         </TableRow>
@@ -5594,23 +9417,42 @@ export function PartnershipCrmWorkbench() {
           </div>
         </div>
 
+        {showDetailPanel ? (
+          <div
+            role="separator"
+            tabIndex={0}
+            aria-label={t("Resize CRM detail panel")}
+            aria-orientation="vertical"
+            aria-valuemin={Math.round(CRM_DETAIL_PANEL_MIN_WIDTH_PERCENT)}
+            aria-valuemax={Math.round(CRM_DETAIL_PANEL_MAX_WIDTH_PERCENT)}
+            aria-valuenow={Math.round(detailPanelWidthPercent)}
+            className={cn(
+              "group hidden cursor-col-resize touch-none select-none items-center justify-center self-stretch rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/45 xl:flex",
+              detailPanelResizing && "bg-primary/8",
+            )}
+            onPointerDown={handleDetailPanelResizePointerDown}
+            onKeyDown={handleDetailPanelResizeKeyDown}
+          >
+            <div
+              className={cn(
+                "flex h-16 w-4 items-center justify-center rounded-full border border-border/80 bg-background/90 text-muted-foreground shadow-sm transition-colors group-hover:border-primary/45 group-hover:text-foreground group-focus-visible:border-primary/60",
+                detailPanelResizing && "border-primary/60 text-foreground",
+              )}
+            >
+              <GripVertical className="h-4 w-4" />
+            </div>
+          </div>
+        ) : null}
+
         {showDetailPanel && selectedOrganization ? (
-          <aside className="grid gap-4">
-            <div className="rounded-xl border border-border/80 bg-background/70 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge
-                      status={selectedOrganization.status}
-                      language={language}
-                    />
-                    <CategoryBadgeGroup
-                      value={selectedOrganization.category}
-                      language={language}
-                      targetKind={targetKind}
-                    />
-                  </div>
-                  <h3 className="mt-2 truncate font-heading text-xl font-semibold text-foreground">
+          <aside
+            data-testid="crm-detail-panel"
+            className="grid min-w-0 gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-auto xl:pl-2"
+          >
+            <div className="min-w-0 rounded-xl border border-border/80 bg-background/70 p-4">
+              <div className="flex items-start gap-3 border-b border-border/70 pb-3">
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate font-heading text-xl font-semibold text-foreground">
                     {selectedOrganization.name}
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
@@ -5618,11 +9460,44 @@ export function PartnershipCrmWorkbench() {
                       t("No country")}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div
+                  data-testid="crm-detail-panel-actions"
+                  className="ml-auto flex min-w-max shrink-0 flex-nowrap items-center gap-2 whitespace-nowrap"
+                >
                   <Button
                     type="button"
                     variant="outline"
                     size="icon-sm"
+                    className="shrink-0"
+                    aria-label={
+                      selectedOrganization.is_favorite
+                        ? t("Unmark as favorite")
+                        : t("Mark as favorite")
+                    }
+                    title={
+                      selectedOrganization.is_favorite
+                        ? t("Unmark as favorite")
+                        : t("Mark as favorite")
+                    }
+                    onClick={() =>
+                      updateSelectedFavorite(!selectedOrganization.is_favorite)
+                    }
+                    disabled={saveOrganizationMutation.isPending}
+                  >
+                    <Star
+                      className={cn(
+                        "h-3.5 w-3.5",
+                        selectedOrganization.is_favorite
+                          ? "fill-amber-400 text-amber-500"
+                          : "text-muted-foreground/60",
+                      )}
+                    />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="shrink-0"
                     aria-label={t("Edit")}
                     title={t("Edit")}
                     onClick={() =>
@@ -5638,6 +9513,7 @@ export function PartnershipCrmWorkbench() {
                     type="button"
                     variant="destructive"
                     size="icon-sm"
+                    className="shrink-0"
                     aria-label={t("Delete")}
                     title={t("Delete")}
                     onClick={() => setDeleteTarget(selectedOrganization)}
@@ -5648,6 +9524,7 @@ export function PartnershipCrmWorkbench() {
                     type="button"
                     variant="ghost"
                     size="icon-sm"
+                    className="shrink-0"
                     aria-label={t("Hide details")}
                     title={t("Hide details")}
                     onClick={hideDetailPanel}
@@ -5657,27 +9534,50 @@ export function PartnershipCrmWorkbench() {
                 </div>
               </div>
 
+              <div
+                data-testid="crm-detail-panel-tags"
+                className="mt-4 flex flex-wrap items-center gap-2"
+              >
+                <StatusBadge
+                  status={selectedOrganization.status}
+                  language={language}
+                />
+                <CategoryBadgeGroup
+                  value={selectedOrganization.category}
+                  language={language}
+                  targetKind={targetKind}
+                />
+              </div>
+
               <div className="mt-4 grid gap-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   {t("Pipeline")}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {[...PIPELINE_STATUSES, ...OUTCOME_STATUSES].map((status) => (
-                    <Button
-                      key={status}
-                      type="button"
-                      variant={
-                        selectedOrganization.status === status
-                          ? "secondary"
-                          : "outline"
-                      }
-                      size="xs"
-                      onClick={() => updateSelectedStatus(status)}
-                      disabled={saveOrganizationMutation.isPending}
-                    >
-                      {t(statusLabel(status))}
-                    </Button>
-                  ))}
+                  {[...PIPELINE_STATUSES, ...OUTCOME_STATUSES].map((status) => {
+                    const isSelectedStatus =
+                      selectedOrganization.status === status;
+                    const selectedTone = pipelineStatusTone(status, true);
+
+                    return (
+                      <Button
+                        key={status}
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        aria-pressed={isSelectedStatus}
+                        className={
+                          isSelectedStatus
+                            ? cn(selectedTone.card, selectedTone.count)
+                            : undefined
+                        }
+                        onClick={() => updateSelectedStatus(status)}
+                        disabled={saveOrganizationMutation.isPending}
+                      >
+                        {t(statusLabel(status))}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -5687,15 +9587,6 @@ export function PartnershipCrmWorkbench() {
                   targetKind={targetKind}
                   language={language}
                 />
-              </div>
-
-              <div className="mt-4 rounded-xl border border-border/80 bg-background/70 px-3 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  {t("Notes")}
-                </p>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground/88">
-                  {selectedOrganization.notes || t("No notes yet.")}
-                </p>
               </div>
 
               <Button
@@ -5708,6 +9599,12 @@ export function PartnershipCrmWorkbench() {
                 <Mail className="h-4 w-4" />
                 {t("Send Email")}
               </Button>
+
+              <MoreInformationSection
+                organization={selectedOrganization}
+                targetKind={targetKind}
+                language={language}
+              />
             </div>
           </aside>
         ) : null}
@@ -5907,6 +9804,19 @@ export function PartnershipCrmWorkbench() {
         language={language}
       />
 
+      <VisualFiltersDialog
+        open={visualFiltersOpen}
+        onOpenChange={setVisualFiltersOpen}
+        filters={visualFiltersQuery.data}
+        activeListFilters={filters}
+        loading={visualFiltersQuery.isFetching}
+        error={visualFiltersQuery.error}
+        language={language}
+        targetKind={targetKind}
+        onClearAll={clearAllFilters}
+        onApply={applyVisualFilter}
+      />
+
       <ImportDialog
         open={importOpen}
         pending={importPending}
@@ -5926,6 +9836,11 @@ export function PartnershipCrmWorkbench() {
         onInteractiveNext={() =>
           void advanceInteractiveImportSession(importSession)
         }
+        onInteractiveCompatibilize={openInteractiveDuplicateCompatibility}
+        onInteractiveFillMissing={() => void fillMissingInteractiveDuplicate()}
+        onInteractiveReplaceVariables={() =>
+          void replaceVariablesInteractiveDuplicate()
+        }
         onImportRemainingInSequence={() =>
           void runInteractiveRemainingInSequence(importSession)
         }
@@ -5933,6 +9848,17 @@ export function PartnershipCrmWorkbench() {
         onImportAll={() => void runCrmImportSession(importSession)}
         onClearSession={discardImportCheckpoint}
         onResetSession={resetImportSession}
+        language={language}
+      />
+
+      <DuplicateCompatibilityDialog
+        state={compatibilityDialog}
+        existingTarget={compatibilityExistingTarget}
+        loading={compatibilityTargetQuery.isFetching}
+        error={compatibilityTargetQuery.error}
+        pending={importPending}
+        onClose={() => setCompatibilityDialog(null)}
+        onSave={(payload) => void saveCompatibilityResolution(payload)}
         language={language}
       />
 

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   FieldPath,
   FieldValue,
@@ -24,6 +25,7 @@ import type {
   DiscoverIndividualRecord,
   DiscoverIndividualStatus,
   DiscoverListPage,
+  DiscoverOrganizationProductCatalogItem,
   DiscoverOrganizationRecord,
   DiscoverOrganizationStatus,
   DiscoverPublisherSocialLinks,
@@ -37,6 +39,7 @@ const FEED_ITEMS_COLLECTION = "feed_items";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 const PUBLISHER_DELETE_BATCH_SIZE = 450;
+const MAX_PRODUCT_CATALOG_ITEMS = 200;
 
 const FEED_TYPE_VALUES = [
   "news",
@@ -423,23 +426,39 @@ type PublisherImageUploadRecord = {
   imageUploadMimeType?: string;
 };
 
-type OrganizationInput = PublisherImageUploadInput & {
-  name?: unknown;
-  imageUrl?: unknown;
-  status?: unknown;
-  websiteUrl?: unknown;
-  description?: unknown;
-  descriptionEn?: unknown;
-  social?: unknown;
-  countryCode?: unknown;
-  organizationType?: unknown;
-  colorHex?: unknown;
-  verified?: unknown;
-  isGeneticReportProvider?: unknown;
-  geneticReportCategory?: unknown;
-  contactEmail?: unknown;
-  internalNotes?: unknown;
+type OrganizationBannerImageUploadInput = {
+  bannerImageUrl?: unknown;
+  bannerImageUploadDataUrl?: unknown;
+  bannerImageUploadName?: unknown;
+  bannerImageUploadMimeType?: unknown;
 };
+
+type OrganizationBannerImageUploadRecord = {
+  bannerImageUrl?: string | null;
+  bannerImageUploadDataUrl?: string;
+  bannerImageUploadName?: string;
+  bannerImageUploadMimeType?: string;
+};
+
+type OrganizationInput = PublisherImageUploadInput &
+  OrganizationBannerImageUploadInput & {
+    name?: unknown;
+    imageUrl?: unknown;
+    status?: unknown;
+    websiteUrl?: unknown;
+    description?: unknown;
+    descriptionEn?: unknown;
+    social?: unknown;
+    countryCode?: unknown;
+    organizationType?: unknown;
+    colorHex?: unknown;
+    verified?: unknown;
+    isGeneticReportProvider?: unknown;
+    geneticReportCategory?: unknown;
+    isGrcHighlighted?: unknown;
+    contactEmail?: unknown;
+    internalNotes?: unknown;
+  };
 
 type IndividualInput = PublisherImageUploadInput & {
   name?: unknown;
@@ -455,6 +474,14 @@ type IndividualInput = PublisherImageUploadInput & {
   verified?: unknown;
   contactEmail?: unknown;
   internalNotes?: unknown;
+};
+
+type ProductCatalogItemInput = PublisherImageUploadInput & {
+  title?: unknown;
+  description?: unknown;
+  imageUrl?: unknown;
+  productUrl?: unknown;
+  callToActionLabel?: unknown;
 };
 
 type PublicPublisherRequestInput = PublisherImageUploadInput & {
@@ -491,11 +518,16 @@ type FeedItemInput = {
 } & Partial<Record<DiscoverFeedType, unknown>>;
 
 type SubmissionEvaluationDecision = "approve" | "reject";
+type DiscoverEqualityFilter = { field: string; value: unknown };
 
 function requireFullAdmin(context: AdminContext) {
   if (context.role !== "full_admin") {
     throw new AdminRepositoryError("Full admin access required.", 403);
   }
+}
+
+function canManageGrcHighlight(context: AdminContext) {
+  return context.role === "full_admin" && context.isBootstrap;
 }
 
 function requireDiscoverAccess(context: AdminContext) {
@@ -719,6 +751,14 @@ function normalizePublicImageUploadMimeType(
 }
 
 function publicImageUploadDocumentFields(input: PublisherImageUploadInput) {
+  if (input.imageUploadDataUrl === null) {
+    return {
+      imageUploadDataUrl: undefined,
+      imageUploadName: undefined,
+      imageUploadMimeType: undefined,
+    };
+  }
+
   const imageUploadDataUrl = normalizePublicImageUploadDataUrl(
     input.imageUploadDataUrl,
   );
@@ -752,6 +792,50 @@ function publicImageUploadDocumentFields(input: PublisherImageUploadInput) {
   };
 }
 
+function publicBannerImageUploadDocumentFields(
+  input: OrganizationBannerImageUploadInput,
+) {
+  if (input.bannerImageUploadDataUrl === null) {
+    return {
+      bannerImageUploadDataUrl: undefined,
+      bannerImageUploadName: undefined,
+      bannerImageUploadMimeType: undefined,
+    };
+  }
+
+  const bannerImageUploadDataUrl = normalizePublicImageUploadDataUrl(
+    input.bannerImageUploadDataUrl,
+  );
+  if (!bannerImageUploadDataUrl) {
+    return {};
+  }
+
+  const inferredMimeType = bannerImageUploadDataUrl.match(
+    /^data:(image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon));base64,/,
+  )?.[1];
+  const bannerImageUploadMimeType = normalizePublicImageUploadMimeType(
+    input.bannerImageUploadMimeType,
+  );
+  const normalizedMimeType = inferredMimeType;
+
+  if (
+    bannerImageUploadMimeType &&
+    normalizedMimeType &&
+    bannerImageUploadMimeType !== normalizedMimeType
+  ) {
+    throw new AdminRepositoryError(
+      "Uploaded image type does not match the image data.",
+      400,
+    );
+  }
+
+  return {
+    bannerImageUploadDataUrl,
+    bannerImageUploadName: normalizeOptionalString(input.bannerImageUploadName),
+    bannerImageUploadMimeType: bannerImageUploadMimeType ?? normalizedMimeType,
+  };
+}
+
 function publisherImageDocumentFields(
   input: PublisherImageUploadInput & { imageUrl?: unknown },
   label: string,
@@ -769,10 +853,36 @@ function publisherImageDocumentFields(
   };
 }
 
+function organizationBannerImageDocumentFields(
+  input: OrganizationBannerImageUploadInput,
+  isGrcHighlighted: boolean,
+) {
+  if (!isGrcHighlighted) {
+    return {
+      bannerImageUrl: null,
+      bannerImageUploadDataUrl: undefined,
+      bannerImageUploadName: undefined,
+      bannerImageUploadMimeType: undefined,
+    };
+  }
+
+  return {
+    bannerImageUrl: normalizeHttpsUrl(
+      input.bannerImageUrl,
+      "GRC highlight banner image URL",
+    ),
+    ...publicBannerImageUploadDocumentFields(input),
+  };
+}
+
 function preserveExistingImageUpload<T extends PublisherImageUploadInput>(
   input: T,
   existingRecord: PublisherImageUploadRecord,
 ): T {
+  if (input.imageUploadDataUrl === null) {
+    return input;
+  }
+
   if (normalizeOptionalString(input.imageUploadDataUrl)) {
     return input;
   }
@@ -782,6 +892,31 @@ function preserveExistingImageUpload<T extends PublisherImageUploadInput>(
     imageUploadDataUrl: existingRecord.imageUploadDataUrl,
     imageUploadName: existingRecord.imageUploadName,
     imageUploadMimeType: existingRecord.imageUploadMimeType,
+  } as T;
+}
+
+function preserveExistingOrganizationBannerImage<
+  T extends OrganizationBannerImageUploadInput,
+>(input: T, existingRecord: OrganizationBannerImageUploadRecord): T {
+  const hasBannerImageUrl = Object.prototype.hasOwnProperty.call(
+    input,
+    "bannerImageUrl",
+  );
+
+  if (
+    hasBannerImageUrl ||
+    input.bannerImageUploadDataUrl === null ||
+    normalizeOptionalString(input.bannerImageUploadDataUrl)
+  ) {
+    return input;
+  }
+
+  return {
+    ...input,
+    bannerImageUrl: existingRecord.bannerImageUrl ?? undefined,
+    bannerImageUploadDataUrl: existingRecord.bannerImageUploadDataUrl,
+    bannerImageUploadName: existingRecord.bannerImageUploadName,
+    bannerImageUploadMimeType: existingRecord.bannerImageUploadMimeType,
   } as T;
 }
 
@@ -1145,6 +1280,50 @@ function timestampToIso(value: unknown): string | null {
   return null;
 }
 
+function readProductCatalogItem(
+  value: unknown,
+): DiscoverOrganizationProductCatalogItem | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const source = value as Record<string, unknown>;
+  const id = normalizeOptionalString(source.id);
+  const title = normalizeOptionalString(source.title);
+  if (!id || !title) {
+    return null;
+  }
+
+  return {
+    id,
+    title,
+    description: normalizeOptionalString(source.description) ?? "",
+    imageUrl: normalizeNullableString(source.imageUrl),
+    imageUploadDataUrl: normalizeOptionalString(source.imageUploadDataUrl),
+    imageUploadName: normalizeOptionalString(source.imageUploadName),
+    imageUploadMimeType: normalizeOptionalString(source.imageUploadMimeType),
+    productUrl: normalizeNullableString(source.productUrl),
+    callToActionLabel: normalizeNullableString(source.callToActionLabel),
+    createdAt: timestampToIso(source.createdAt) ?? "",
+    updatedAt: timestampToIso(source.updatedAt) ?? "",
+    createdByUserId: normalizeOptionalString(source.createdByUserId),
+    updatedByUserId: normalizeOptionalString(source.updatedByUserId),
+  };
+}
+
+function readProductCatalog(
+  value: unknown,
+): DiscoverOrganizationProductCatalogItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    const item = readProductCatalogItem(entry);
+    return item ? [item] : [];
+  });
+}
+
 function serializePayloadValue(value: unknown): unknown {
   if (value instanceof Timestamp) {
     return value.toDate().toISOString();
@@ -1309,6 +1488,14 @@ function toOrganizationRecord(
     imageUploadDataUrl: normalizeOptionalString(data.imageUploadDataUrl),
     imageUploadName: normalizeOptionalString(data.imageUploadName),
     imageUploadMimeType: normalizeOptionalString(data.imageUploadMimeType),
+    bannerImageUrl: normalizeNullableString(data.bannerImageUrl),
+    bannerImageUploadDataUrl: normalizeOptionalString(
+      data.bannerImageUploadDataUrl,
+    ),
+    bannerImageUploadName: normalizeOptionalString(data.bannerImageUploadName),
+    bannerImageUploadMimeType: normalizeOptionalString(
+      data.bannerImageUploadMimeType,
+    ),
     status,
     slug: normalizeOptionalString(data.slug),
     websiteUrl: normalizeOptionalString(data.websiteUrl),
@@ -1321,8 +1508,10 @@ function toOrganizationRecord(
     verified: data.verified === true,
     isGeneticReportProvider: data.isGeneticReportProvider === true,
     geneticReportCategory: geneticReportCategory,
+    isGrcHighlighted: data.isGrcHighlighted === true,
     contactEmail: normalizeOptionalString(data.contactEmail),
     internalNotes: normalizeOptionalString(data.internalNotes),
+    productCatalog: readProductCatalog(data.productCatalog),
     createdAt: timestampToIso(data.createdAt) ?? "",
     updatedAt: timestampToIso(data.updatedAt) ?? "",
     createdByUserId: normalizeOptionalString(data.createdByUserId),
@@ -1494,18 +1683,18 @@ async function listCollectionPage<T>(
 
 async function listScopedCollectionPageByDocumentCursor<T>(
   collectionName: string,
-  scopeField: string,
-  scopeValue: string,
+  filters: readonly DiscoverEqualityFilter[],
   cursor: string | undefined,
   limit: unknown,
   mapper: (doc: QueryDocumentSnapshot) => T,
 ): Promise<DiscoverListPage<T>> {
   const pageSize = resolvePageSize(limit);
   const decodedCursor = decodeDocumentCursor(cursor);
-  let query: Query = adminDb
-    .collection(collectionName)
-    .where(scopeField, "==", scopeValue)
-    .limit(pageSize + 1);
+  let query: Query = adminDb.collection(collectionName);
+  for (const filter of filters) {
+    query = query.where(filter.field, "==", filter.value);
+  }
+  query = query.limit(pageSize + 1);
 
   if (decodedCursor) {
     const cursorSnapshot = await adminDb
@@ -1531,10 +1720,29 @@ async function listScopedCollectionPageByDocumentCursor<T>(
   };
 }
 
-function normalizeOrganizationStatus(value: unknown) {
+function normalizeOrganizationStatus(
+  value: unknown,
+  fallback: DiscoverOrganizationStatus = "active",
+) {
   return ORGANIZATION_STATUSES.has(value as DiscoverOrganizationStatus)
     ? (value as DiscoverOrganizationStatus)
-    : "active";
+    : fallback;
+}
+
+function normalizeEditablePublisherStatus(
+  value: unknown,
+  existingStatus: DiscoverOrganizationStatus | undefined,
+  publisherLabel: string,
+) {
+  const status = normalizeOrganizationStatus(value, existingStatus ?? "active");
+  if (existingStatus === "pending_approval" && status === "active") {
+    throw new AdminRepositoryError(
+      `Use submission evaluation to approve this ${publisherLabel}.`,
+      400,
+    );
+  }
+
+  return status;
 }
 
 function normalizeOrganizationType(value: unknown): string | undefined {
@@ -1661,13 +1869,125 @@ function normalizePublicPublisherKind(
   return normalized;
 }
 
-function organizationDocument(input: OrganizationInput, context: AdminContext) {
+function productCatalogItemImageDocumentFields(
+  input: ProductCatalogItemInput,
+  existingItem?: DiscoverOrganizationProductCatalogItem,
+) {
+  const hasImageUrl = Object.prototype.hasOwnProperty.call(input, "imageUrl");
+  const hasUploadDataUrl = Object.prototype.hasOwnProperty.call(
+    input,
+    "imageUploadDataUrl",
+  );
+  const imageUrl = hasImageUrl
+    ? normalizeHttpsUrl(input.imageUrl, "Product image URL")
+    : (existingItem?.imageUrl ?? null);
+  const uploadFields = hasUploadDataUrl
+    ? publicImageUploadDocumentFields(input)
+    : {};
+  const hasNewUpload = Boolean(uploadFields.imageUploadDataUrl);
+
+  if (imageUrl && hasNewUpload) {
+    throw new AdminRepositoryError(
+      "Choose either a product image URL or an uploaded product image, not both.",
+      400,
+    );
+  }
+
+  if (hasNewUpload) {
+    return {
+      imageUrl: null,
+      ...uploadFields,
+    };
+  }
+
+  if (hasImageUrl || input.imageUploadDataUrl === null) {
+    return {
+      imageUrl,
+      imageUploadDataUrl: undefined,
+      imageUploadName: undefined,
+      imageUploadMimeType: undefined,
+    };
+  }
+
+  return {
+    imageUrl,
+    imageUploadDataUrl: existingItem?.imageUploadDataUrl,
+    imageUploadName: existingItem?.imageUploadName,
+    imageUploadMimeType: existingItem?.imageUploadMimeType,
+  };
+}
+
+function productCatalogItemDocument(
+  input: ProductCatalogItemInput,
+  context: AdminContext,
+  existingItem?: DiscoverOrganizationProductCatalogItem,
+): DiscoverOrganizationProductCatalogItem {
+  const title = normalizeRequiredString(input.title, "Catalog item title");
+  const description = normalizeRequiredString(
+    input.description,
+    "Catalog item description",
+  );
+  if (title.length < 2) {
+    throw new AdminRepositoryError(
+      "Catalog item title must contain at least 2 characters.",
+      400,
+    );
+  }
+  if (description.length < 30) {
+    throw new AdminRepositoryError(
+      "Catalog item description must contain at least 30 characters.",
+      400,
+    );
+  }
+  const productUrl = normalizeOptionalHttpUrl(input.productUrl, "Product URL");
+  const now = Timestamp.now();
+  const createdAt = existingItem
+    ? (normalizeTimestamp(existingItem.createdAt, "Catalog item created time") ??
+      now)
+    : now;
+
+  return {
+    id: existingItem?.id ?? `cat_${randomUUID()}`,
+    title,
+    description,
+    ...productCatalogItemImageDocumentFields(input, existingItem),
+    productUrl,
+    callToActionLabel: productUrl
+      ? normalizeNullableString(input.callToActionLabel)
+      : null,
+    createdAt: createdAt.toDate().toISOString(),
+    updatedAt: now.toDate().toISOString(),
+    createdByUserId: existingItem?.createdByUserId ?? context.uid,
+    updatedByUserId: context.uid,
+  };
+}
+
+function organizationDocument(
+  input: OrganizationInput,
+  context: AdminContext,
+  options: { existingRecord?: DiscoverOrganizationRecord } = {},
+) {
   const name = normalizeRequiredString(input.name, "Organization name");
+  const status = options.existingRecord
+    ? normalizeEditablePublisherStatus(
+        input.status,
+        options.existingRecord.status,
+        "organization",
+      )
+    : normalizeOrganizationStatus(input.status);
+  const isGrcHighlighted =
+    options.existingRecord &&
+    (!canManageGrcHighlight(context) || input.isGrcHighlighted === undefined)
+      ? options.existingRecord.isGrcHighlighted
+      : canManageGrcHighlight(context)
+        ? normalizeBoolean(input.isGrcHighlighted)
+        : false;
 
   return {
     name,
     ...publisherImageDocumentFields(input, "Organization image URL"),
-    status: normalizeOrganizationStatus(input.status),
+    ...organizationBannerImageDocumentFields(input, isGrcHighlighted),
+    status,
     slug: slugifyOrganizationName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
     description: normalizeOptionalString(input.description),
@@ -1681,8 +2001,10 @@ function organizationDocument(input: OrganizationInput, context: AdminContext) {
     geneticReportCategory: normalizeGeneticReportCategory(
       input.geneticReportCategory,
     ),
+    isGrcHighlighted,
     contactEmail: normalizeOptionalEmail(input.contactEmail, "Contact email"),
     internalNotes: normalizeOptionalString(input.internalNotes),
+    productCatalog: options.existingRecord?.productCatalog ?? [],
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
   };
@@ -1698,6 +2020,7 @@ function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
     name,
     imageUrl: normalizeHttpsUrl(input.imageUrl, "Organization image URL"),
     ...publicImageUploadDocumentFields(input),
+    bannerImageUrl: null,
     status: "pending_approval" as const,
     slug: slugifyOrganizationName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
@@ -1712,8 +2035,10 @@ function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
     geneticReportCategory: isGeneticReportProvider
       ? normalizeGeneticReportCategory(input.geneticReportCategory)
       : null,
+    isGrcHighlighted: false,
     contactEmail: normalizeRequiredEmail(input.contactEmail, "Contact email"),
     internalNotes: undefined,
+    productCatalog: [],
     isRequestedThroughWebWizard: true,
     approvalRequestDate: FieldValue.serverTimestamp(),
     createdAt: FieldValue.serverTimestamp(),
@@ -1723,13 +2048,24 @@ function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
   };
 }
 
-function individualDocument(input: IndividualInput, context: AdminContext) {
+function individualDocument(
+  input: IndividualInput,
+  context: AdminContext,
+  options: { existingRecord?: DiscoverIndividualRecord } = {},
+) {
   const name = normalizeRequiredString(input.name, "Individual publisher name");
+  const status = options.existingRecord
+    ? normalizeEditablePublisherStatus(
+        input.status,
+        options.existingRecord.status,
+        "individual publisher",
+      )
+    : normalizeOrganizationStatus(input.status);
 
   return {
     name,
     ...publisherImageDocumentFields(input, "Individual publisher image URL"),
-    status: normalizeOrganizationStatus(input.status),
+    status,
     slug: slugifyIndividualName(name),
     websiteUrl: normalizeOptionalHttpUrl(input.websiteUrl, "Website URL"),
     description: normalizeOptionalString(input.description),
@@ -2217,6 +2553,7 @@ export async function updateDiscoverOrganization(
           verified: existingRecord.verified,
           isGeneticReportProvider: existingRecord.isGeneticReportProvider,
           geneticReportCategory: existingRecord.geneticReportCategory,
+          isGrcHighlighted: existingRecord.isGrcHighlighted,
           internalNotes: existingRecord.internalNotes,
         }
       : input;
@@ -2225,11 +2562,17 @@ export async function updateDiscoverOrganization(
     scopedInput,
     existingRecord,
   );
+  const inputWithBannerImage = preserveExistingOrganizationBannerImage(
+    inputWithImageUpload,
+    existingRecord,
+  );
 
   await existing.ref.set(
     withoutUndefined({
       ...existing.data(),
-      ...organizationDocument(inputWithImageUpload, context),
+      ...organizationDocument(inputWithBannerImage, context, {
+        existingRecord,
+      }),
     }),
     { merge: false },
   );
@@ -2268,6 +2611,179 @@ export async function deleteDiscoverOrganization(
     organizationId,
     deletedFeedItemCount,
     ...deletedRoles,
+  };
+}
+
+export async function listDiscoverOrganizationProductCatalog(
+  context: AdminContext,
+  organizationId: string,
+) {
+  const organization = await getDiscoverOrganization(context, organizationId);
+  return { productCatalog: organization.productCatalog ?? [] };
+}
+
+export async function getDiscoverOrganizationProductCatalogItem(
+  context: AdminContext,
+  organizationId: string,
+  catalogItemId: string,
+) {
+  const organization = await getDiscoverOrganization(context, organizationId);
+  const catalogItem = (organization.productCatalog ?? []).find(
+    (item) => item.id === catalogItemId,
+  );
+  if (!catalogItem) {
+    throw new AdminRepositoryError("Catalog item not found.", 404);
+  }
+
+  return catalogItem;
+}
+
+export async function createDiscoverOrganizationProductCatalogItem(
+  context: AdminContext,
+  organizationId: string,
+  input: ProductCatalogItemInput,
+) {
+  requireOrganizationSurfaceAccess(context);
+  assertOrganizationScope(context, organizationId);
+  const organizationRef = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId);
+  let savedItem: DiscoverOrganizationProductCatalogItem | null = null;
+
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(organizationRef);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("Organization not found.", 404);
+    }
+
+    const data = snapshot.data() ?? {};
+    const productCatalog = readProductCatalog(data.productCatalog);
+    if (productCatalog.length >= MAX_PRODUCT_CATALOG_ITEMS) {
+      throw new AdminRepositoryError(
+        `Product catalog can contain up to ${MAX_PRODUCT_CATALOG_ITEMS} items.`,
+        400,
+      );
+    }
+
+    const item = productCatalogItemDocument(input, context);
+    savedItem = item;
+    transaction.set(
+      organizationRef,
+      withoutUndefined({
+        ...data,
+        productCatalog: [...productCatalog, item],
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByUserId: context.uid,
+      }),
+      { merge: false },
+    );
+  });
+
+  if (!savedItem) {
+    throw new AdminRepositoryError("Catalog item could not be created.", 500);
+  }
+
+  return savedItem;
+}
+
+export async function updateDiscoverOrganizationProductCatalogItem(
+  context: AdminContext,
+  organizationId: string,
+  catalogItemId: string,
+  input: ProductCatalogItemInput,
+) {
+  requireOrganizationSurfaceAccess(context);
+  assertOrganizationScope(context, organizationId);
+  const organizationRef = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId);
+  let savedItem: DiscoverOrganizationProductCatalogItem | null = null;
+
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(organizationRef);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("Organization not found.", 404);
+    }
+
+    const data = snapshot.data() ?? {};
+    const productCatalog = readProductCatalog(data.productCatalog);
+    const itemIndex = productCatalog.findIndex(
+      (item) => item.id === catalogItemId,
+    );
+    if (itemIndex === -1) {
+      throw new AdminRepositoryError("Catalog item not found.", 404);
+    }
+
+    const item = productCatalogItemDocument(
+      input,
+      context,
+      productCatalog[itemIndex],
+    );
+    savedItem = item;
+    const nextCatalog = [...productCatalog];
+    nextCatalog[itemIndex] = item;
+
+    transaction.set(
+      organizationRef,
+      withoutUndefined({
+        ...data,
+        productCatalog: nextCatalog,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByUserId: context.uid,
+      }),
+      { merge: false },
+    );
+  });
+
+  if (!savedItem) {
+    throw new AdminRepositoryError("Catalog item could not be updated.", 500);
+  }
+
+  return savedItem;
+}
+
+export async function deleteDiscoverOrganizationProductCatalogItem(
+  context: AdminContext,
+  organizationId: string,
+  catalogItemId: string,
+) {
+  requireOrganizationSurfaceAccess(context);
+  assertOrganizationScope(context, organizationId);
+  const organizationRef = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId);
+
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(organizationRef);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("Organization not found.", 404);
+    }
+
+    const data = snapshot.data() ?? {};
+    const productCatalog = readProductCatalog(data.productCatalog);
+    const nextCatalog = productCatalog.filter(
+      (item) => item.id !== catalogItemId,
+    );
+    if (nextCatalog.length === productCatalog.length) {
+      throw new AdminRepositoryError("Catalog item not found.", 404);
+    }
+
+    transaction.set(
+      organizationRef,
+      withoutUndefined({
+        ...data,
+        productCatalog: nextCatalog,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByUserId: context.uid,
+      }),
+      { merge: false },
+    );
+  });
+
+  return {
+    deleted: true,
+    organizationId,
+    catalogItemId,
   };
 }
 
@@ -2457,7 +2973,7 @@ export async function updateDiscoverIndividual(
   await existing.ref.set(
     withoutUndefined({
       ...existing.data(),
-      ...individualDocument(inputWithImageUpload, context),
+      ...individualDocument(inputWithImageUpload, context, { existingRecord }),
     }),
     { merge: false },
   );
@@ -2560,7 +3076,7 @@ export async function evaluateDiscoverIndividualSubmission(
 
 export async function listDiscoverFeedItems(
   context: AdminContext,
-  options: { cursor?: string; limit?: unknown } = {},
+  options: { cursor?: string; limit?: unknown; status?: unknown } = {},
 ) {
   requireDiscoverAccess(context);
   const ownOrganizationId = scopedOrganizationId(context);
@@ -2571,6 +3087,16 @@ export async function listDiscoverFeedItems(
       ? "publisherIndividualId"
       : undefined;
   const scopeValue = ownOrganizationId ?? ownIndividualId;
+  const statusFilter = FEED_STATUSES.has(options.status as DiscoverFeedStatus)
+    ? (options.status as DiscoverFeedStatus)
+    : undefined;
+  const equalityFilters: DiscoverEqualityFilter[] = [];
+  if (scopeField && scopeValue) {
+    equalityFilters.push({ field: scopeField, value: scopeValue });
+  }
+  if (statusFilter) {
+    equalityFilters.push({ field: "status", value: statusFilter });
+  }
 
   let page: DiscoverListPage<DiscoverFeedItemRecord>;
   try {
@@ -2579,19 +3105,23 @@ export async function listDiscoverFeedItems(
       options.cursor,
       options.limit,
       toFeedItemRecord,
-      scopeField && scopeValue
-        ? (query) => query.where(scopeField, "==", scopeValue)
+      equalityFilters.length
+        ? (query) =>
+            equalityFilters.reduce(
+              (currentQuery, filter) =>
+                currentQuery.where(filter.field, "==", filter.value),
+              query,
+            )
         : undefined,
     );
   } catch (error) {
-    if (!scopeField || !scopeValue || !isMissingFirestoreIndexError(error)) {
+    if (!equalityFilters.length || !isMissingFirestoreIndexError(error)) {
       throw error;
     }
 
     page = await listScopedCollectionPageByDocumentCursor(
       FEED_ITEMS_COLLECTION,
-      scopeField,
-      scopeValue,
+      equalityFilters,
       options.cursor,
       options.limit,
       toFeedItemRecord,

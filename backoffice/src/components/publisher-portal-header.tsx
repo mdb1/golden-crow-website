@@ -33,6 +33,10 @@ function titleForPath(pathname: string, language: "en" | "es") {
     pathname === PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE ||
     pathname.startsWith(`${PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE}/`)
   ) {
+    if (pathname.includes("/product-catalog")) {
+      return appText(language, "Product catalog");
+    }
+
     return appText(language, "Organization");
   }
 

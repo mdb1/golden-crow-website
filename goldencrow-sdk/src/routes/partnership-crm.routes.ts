@@ -18,6 +18,7 @@ import {
   getPartnershipCrmOrganization,
   getPartnershipCrmProfessional,
   getPartnershipCrmTemplate,
+  getPartnershipCrmVisualFilters,
   importPartnershipCrmOrganizations,
   importPartnershipCrmProfessionals,
   listPartnershipCrmActivities,
@@ -64,7 +65,9 @@ const OrganizationBodySchema = z.object({
 });
 const OrganizationImportRowSchema = OrganizationBodySchema.partial().extend({
   rowId: z.string().trim().max(80).optional(),
-  duplicateAction: z.enum(["skip", "update", "import"]).optional(),
+  duplicateAction: z
+    .enum(["skip", "update", "import", "fill_missing", "replace_variables"])
+    .optional(),
   duplicateOrganizationId: z.string().trim().max(160).optional(),
 });
 const ProfessionalBodySchema = z.object({
@@ -87,7 +90,9 @@ const ProfessionalBodySchema = z.object({
 });
 const ProfessionalImportRowSchema = ProfessionalBodySchema.partial().extend({
   rowId: z.string().trim().max(80).optional(),
-  duplicateAction: z.enum(["skip", "update", "import"]).optional(),
+  duplicateAction: z
+    .enum(["skip", "update", "import", "fill_missing", "replace_variables"])
+    .optional(),
   duplicateProfessionalId: z.string().trim().max(160).optional(),
 });
 const OrganizationParamsSchema = z.object({
@@ -103,7 +108,7 @@ const ListOrganizationsQuerySchema = z.object({
   status: z.string().trim().max(40).optional(),
   category: CrmCategoryStringSchema,
   country: CrmCountryStringSchema,
-  emailState: z.enum(["has_email", "missing_email"]).optional(),
+  linkedInState: z.enum(["has_linkedin", "missing_linkedin"]).optional(),
 });
 const ListActivitiesQuerySchema = z.object({
   cursor: z.string().trim().datetime().optional(),
@@ -145,6 +150,7 @@ const EmailBodySchema = z.object({
   to: z.string().trim().toLowerCase().email().max(180),
   subject: z.string().trim().min(1).max(180),
   text: z.string().trim().min(1).max(12000),
+  html: z.string().trim().max(24000).optional(),
   templateId: z.string().trim().max(160).optional(),
   templateKey: z.string().trim().max(80).optional(),
 });
@@ -312,6 +318,22 @@ export async function partnershipCrmRoutes(
   );
 
   f.get(
+    "/admin/partnership-crm/organizations/visual-filters",
+    { schema: { querystring: ListOrganizationsQuerySchema } },
+    async (request, reply) => {
+      try {
+        const result = await getPartnershipCrmVisualFilters(
+          request.adminContext!,
+          "organizations",
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
     "/admin/partnership-crm/organizations/:organizationId",
     { schema: { params: OrganizationParamsSchema } },
     async (request, reply) => {
@@ -394,6 +416,22 @@ export async function partnershipCrmRoutes(
           request.body,
         );
         return reply.status(201).send({ professional });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/partnership-crm/professionals/visual-filters",
+    { schema: { querystring: ListOrganizationsQuerySchema } },
+    async (request, reply) => {
+      try {
+        const result = await getPartnershipCrmVisualFilters(
+          request.adminContext!,
+          "professionals",
+        );
+        return reply.send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

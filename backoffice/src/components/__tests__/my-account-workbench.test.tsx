@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MyAccountWorkbench } from "@/components/my-account-workbench";
 import type { MyAccountRecord } from "@/lib/admin-areas";
 
@@ -114,8 +114,10 @@ describe("MyAccountWorkbench diagnostics", () => {
       screen.getByRole("button", { name: "Guardar perfil" }),
     ).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Validar email" }),
+      screen.getByRole("button", { name: "Email verificado" }),
     ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Cambiar email" })).toBeTruthy();
+    expect(screen.queryByLabelText("Email de la cuenta")).toBeNull();
     expect(screen.queryByText("Current project")).toBeNull();
     expect(screen.queryByText("Notes")).toBeNull();
     expect(screen.queryByText("Firebase account enabled")).toBeNull();
@@ -142,5 +144,19 @@ describe("MyAccountWorkbench diagnostics", () => {
     for (const section of diagnosticSections) {
       expect(screen.getByRole("heading", { name: section })).toBeTruthy();
     }
+  });
+
+  it("opens email changes in a modal instead of editing the account email inline", () => {
+    render(
+      <MyAccountWorkbench initialAccount={account} showDiagnostics={false} />,
+    );
+
+    expect(screen.queryByLabelText("Email de la cuenta")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar email" }));
+
+    expect(screen.getByRole("heading", { name: "Cambiar email" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Nuevo email" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Siguiente" })).toBeTruthy();
   });
 });

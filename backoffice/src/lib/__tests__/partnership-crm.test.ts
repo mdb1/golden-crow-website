@@ -3,6 +3,7 @@ import {
   bestCrmTemplateForTarget,
   CRM_CATEGORY_OPTIONS,
   CRM_PROFESSIONAL_CATEGORY_OPTIONS,
+  mergeCrmTemplateInputWithExisting,
   normalizeCrmCategory,
   normalizeCrmCountry,
   parseCrmCsv,
@@ -204,6 +205,23 @@ describe("partnership CRM helpers", () => {
     ]);
   });
 
+  it("normalizes professional editor fit without wrapping quotes or trailing punctuation", () => {
+    const parsed = parseCrmCsv(
+      [
+        "name,potential_pocket_genes_editor_fit",
+        "Dra. Ada Genome,\"Propuesta editorial: 'Rare disease handbook.,'\"",
+      ].join("\n"),
+      "professionals",
+    );
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows[0]).toEqual(
+      expect.objectContaining({
+        potentialPocketGenesEditorFit: "Rare disease handbook",
+      }),
+    );
+  });
+
   it("reports missing organization names but keeps the row visible for preview", () => {
     const parsed = parseCrmCsv(
       "name,category,email\n,Foundation,ada@example.org",
@@ -279,6 +297,24 @@ describe("partnership CRM helpers", () => {
     ]);
   });
 
+  it("prefers incoming CSV subject and body when merging duplicate template imports", () => {
+    const merged = mergeCrmTemplateInputWithExisting(laboratoryTemplate, {
+      name: "Laboratory outreach",
+      audience: "organizations",
+      category: "org_genetic_testing_laboratories",
+      subject: "Nuevo asunto desde CSV",
+      body: "Nuevo cuerpo desde CSV",
+      status: "active",
+      notes: "New import notes",
+      is_favorite: true,
+    });
+
+    expect(merged.subject).toBe("Nuevo asunto desde CSV");
+    expect(merged.body).toBe("Nuevo cuerpo desde CSV");
+    expect(merged.notes).toBe("New import notes");
+    expect(merged.is_favorite).toBe(true);
+  });
+
   it("renders Firebase-backed templates with organization variables", () => {
     expect(
       bestCrmTemplateForOrganization(organization, [
@@ -339,6 +375,22 @@ describe("partnership CRM helpers", () => {
     expect(rendered.body).toContain("Genome Lab");
     expect(rendered.body).toContain("Existing verified Pocket Genes");
     expect(rendered.body).not.toContain("{{professional_name}}");
+
+    const renderedFit = renderCrmTemplate(
+      {
+        ...professionalTemplate,
+        body: "Por tu experiencia en {{potential_pocket_genes_editor_fit}}.",
+      },
+      {
+        ...professional,
+        potentialPocketGenesEditorFit:
+          '"Clinical Genetics, Genetic Testing, Result Interpretation"',
+      },
+      "professionals",
+    );
+    expect(renderedFit.body).toBe(
+      "Por tu experiencia en clinical genetics, genetic testing, result interpretation.",
+    );
   });
 
   it("matches templates to organizations through normalized category aliases", () => {

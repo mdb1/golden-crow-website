@@ -23,6 +23,7 @@ export type PocketGenesPublicLocale = 'en' | 'es';
 const publicNavItemsByLocale: Record<PocketGenesPublicLocale, { label: string; href: string }[]> = {
   en: [
     { label: 'Home', href: '/pocket-genes/home' },
+    { label: '100 voices campaign', href: '/pocket-genes/100-publishers' },
     { label: 'Community', href: '/pocket-genes/rarefriends' },
     { label: 'Join us', href: '/pocket-genes/join-us' },
     { label: 'Integration', href: '/pocket-genes/website/integration' },
@@ -32,12 +33,13 @@ const publicNavItemsByLocale: Record<PocketGenesPublicLocale, { label: string; h
   ],
   es: [
     { label: 'Inicio', href: '/pocket-genes/home' },
+    { label: 'Campaña 100 personalidades', href: '/pocket-genes/100-publishers' },
     { label: 'Comunidad', href: '/pocket-genes/rarefriends' },
     { label: 'Sumate', href: '/pocket-genes/join-us' },
     { label: 'Integración', href: '/pocket-genes/website/integration' },
     { label: 'Soluciones', href: '/pocket-genes/solutions' },
     { label: 'Descargar la app', href: '/pocket-genes/download' },
-    { label: 'Trust Center', href: '/pocket-genes/trust-center' },
+    { label: 'Privacidad y seguridad', href: '/pocket-genes/trust-center' },
   ],
 };
 

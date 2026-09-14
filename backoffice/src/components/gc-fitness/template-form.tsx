@@ -676,6 +676,26 @@ export function TemplateForm({
     router.back();
   }
 
+  // #1089 — the NON-destructive way out, and the reason the ticket exists.
+  // Until now the confirm dialog answered "Cancel" with exactly two options:
+  // keep editing, or destroy the work. A trainer who duplicated a routine,
+  // swapped a few exercises on the phone and then had to get out had no third
+  // answer, so "puse cancelar" meant every change was gone. This one flushes
+  // the pending autosave and just navigates: the draft stays on disk and the
+  // next visit to this editor restores it.
+  //
+  // It deliberately does NOT set `cancellingRef` — the unmount flush below is
+  // welcome to write the same state again.
+  function exitKeepingDraft() {
+    if (draftTimerRef.current !== null) {
+      window.clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = null;
+    }
+    if (draftKey) writeDraft(draftKey, form.getValues());
+    setShowCancelConfirm(false);
+    router.back();
+  }
+
   function handleCancelClick() {
     if (form.formState.isDirty || draftRestored) {
       setShowCancelConfirm(true);
@@ -1233,16 +1253,17 @@ export function TemplateForm({
       >
         {draftRestored ? (
           <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-foreground dark:border-amber-400/40 dark:bg-amber-400/10">
-            <span>
-              Restored your unsaved draft. Pick up where you left off.
-            </span>
+            {/* #1089 — this banner was hardcoded English in a bilingual
+                backoffice; the trainer who lost work is the same one reading
+                it in Spanish. */}
+            <span>{t("draftRestoredBanner")}</span>
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={discardDraft}
             >
-              Discard draft
+              {t("draftRestoredDiscard")}
             </Button>
           </div>
         ) : null}
@@ -2864,11 +2885,24 @@ export function TemplateForm({
               {t("discardDialogBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="sm:flex-wrap">
             <AlertDialogCancel>{t("discardDialogKeepEditing")}</AlertDialogCancel>
+            {/* #1089 — the middle, non-destructive exit. Rendered as a plain
+                AlertDialogAction (not Cancel) so it reads as a real choice,
+                and BEFORE the red one so the destructive button is not the
+                one under the thumb on a phone, where the footer stacks
+                bottom-up (`flex-col-reverse`). */}
+            <AlertDialogAction
+              onClick={exitKeepingDraft}
+              className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              data-testid="template-cancel-keep-draft"
+            >
+              {t("discardDialogKeepDraft")}
+            </AlertDialogAction>
             <AlertDialogAction
               onClick={performCancel}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="template-cancel-discard"
             >
               {t("discardDialogConfirm")}
             </AlertDialogAction>

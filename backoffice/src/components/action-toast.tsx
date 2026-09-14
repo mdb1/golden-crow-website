@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, CircleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { appText, type AppLanguage } from "@/lib/language";
 import { cn } from "@/lib/utils";
 
@@ -26,81 +34,128 @@ export function ActionToast({
   language?: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
+  const [internalLogOpen, setInternalLogOpen] = useState(false);
+  const canViewLog = Boolean(toast?.tone === "error" && toast.details);
+  const usesInternalLog = canViewLog && !onViewLog;
+
+  useEffect(() => {
+    setInternalLogOpen(false);
+  }, [toast?.id]);
+
   useEffect(() => {
     if (!toast) {
       return;
     }
 
+    if (internalLogOpen) {
+      return;
+    }
+
     const timeout = window.setTimeout(
       onDismiss,
-      toast.durationMs ?? (toast.tone === "error" ? 15000 : 2800)
+      toast.durationMs ?? (toast.tone === "error" ? 15000 : 2800),
     );
     return () => window.clearTimeout(timeout);
-  }, [onDismiss, toast]);
+  }, [internalLogOpen, onDismiss, toast]);
 
   if (!toast) {
     return null;
   }
 
+  function handleViewLog() {
+    if (onViewLog) {
+      onViewLog();
+      return;
+    }
+
+    setInternalLogOpen(true);
+  }
+
   return (
-    <div className="pointer-events-none fixed right-4 top-[calc(var(--app-header-height)+1.5rem)] z-[80] w-[min(26rem,calc(100vw-2rem))]">
-      <div
-        className={cn(
-          "pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_48px_rgba(15,23,42,0.18)] backdrop-blur-sm",
-          toast.tone === "success"
-            ? "border-emerald-400/35 bg-emerald-50/95 text-emerald-950 dark:bg-emerald-950/90 dark:text-emerald-50"
-            : "border-destructive/35 bg-white/96 text-destructive dark:bg-slate-950/92"
-        )}
-      >
+    <>
+      <div className="pointer-events-none fixed right-4 top-[calc(var(--app-header-height)+1.5rem)] z-[80] w-[min(26rem,calc(100vw-2rem))]">
         <div
           className={cn(
-            "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+            "pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_48px_rgba(15,23,42,0.18)] backdrop-blur-sm",
             toast.tone === "success"
-              ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-200"
-              : "bg-destructive/10 text-destructive"
+              ? "border-emerald-400/35 bg-emerald-50/95 text-emerald-950 dark:bg-emerald-950/90 dark:text-emerald-50"
+              : "border-destructive/35 bg-white/96 text-destructive dark:bg-slate-950/92",
           )}
         >
-          {toast.tone === "success" ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <CircleAlert className="h-4 w-4" />
-          )}
+          <div
+            className={cn(
+              "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+              toast.tone === "success"
+                ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-200"
+                : "bg-destructive/10 text-destructive",
+            )}
+          >
+            {toast.tone === "success" ? (
+              <CheckCircle2 className="h-4 w-4" />
+            ) : (
+              <CircleAlert className="h-4 w-4" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">
+              {toast.tone === "success" ? t("Saved") : t("Action failed")}
+            </p>
+            <p className="mt-0.5 text-sm opacity-90">{toast.message}</p>
+            {canViewLog ? (
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleViewLog}
+                  className="h-8 border-destructive/25 bg-white/85 text-destructive hover:bg-destructive/5"
+                >
+                  {t("View log")}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={onDismiss}
+            className={cn(
+              "h-8 w-8 shrink-0 rounded-full",
+              toast.tone === "success"
+                ? "text-emerald-800 hover:bg-emerald-100/80"
+                : "text-destructive hover:bg-destructive/8",
+            )}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">{t("Dismiss")}</span>
+          </Button>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">
-            {toast.tone === "success" ? t("Saved") : t("Action failed")}
-          </p>
-          <p className="mt-0.5 text-sm opacity-90">{toast.message}</p>
-          {toast.tone === "error" && toast.details && onViewLog ? (
-            <div className="mt-3">
+      </div>
+      {usesInternalLog ? (
+        <Dialog open={internalLogOpen} onOpenChange={setInternalLogOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>{t("Action error log")}</DialogTitle>
+              <DialogDescription>
+                {t("Full error details for this failed action.")}
+              </DialogDescription>
+            </DialogHeader>
+            <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/80 bg-muted/30 p-3 font-mono text-xs leading-5 text-foreground">
+              {toast.details}
+            </pre>
+            <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
-                onClick={onViewLog}
-                className="h-8 border-destructive/25 bg-white/85 text-destructive hover:bg-destructive/5"
+                onClick={() => setInternalLogOpen(false)}
               >
-                {t("View log")}
+                {t("Close")}
               </Button>
-            </div>
-          ) : null}
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          onClick={onDismiss}
-          className={cn(
-            "h-8 w-8 shrink-0 rounded-full",
-            toast.tone === "success"
-              ? "text-emerald-800 hover:bg-emerald-100/80"
-              : "text-destructive hover:bg-destructive/8"
-          )}
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">{t("Dismiss")}</span>
-        </Button>
-      </div>
-    </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+    </>
   );
 }

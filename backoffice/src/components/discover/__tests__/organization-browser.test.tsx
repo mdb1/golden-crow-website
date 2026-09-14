@@ -32,6 +32,7 @@ function organization(
     verified: true,
     isGeneticReportProvider: false,
     geneticReportCategory: null,
+    isGrcHighlighted: false,
     contactEmail: "hello@example.org",
     internalNotes: "",
     createdAt: "2026-08-01T00:00:00.000Z",

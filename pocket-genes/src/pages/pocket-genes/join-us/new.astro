@@ -29,17 +29,20 @@ const pageCopy = {
     description: 'Request a Pocket Genes publisher profile for your organization or professional work.',
     sidebarTitle: 'Let’s create your\nPocket Genes profile',
     sidebarBody: 'Help people discover your work and connect with the right support.',
-    sidebarHint: 'Your request starts as pending approval. Once approved, credentials arrive by email.',
+    campaignSidebarTitle: 'Create your Pocket Genes profile',
+    campaignSidebarBody: 'Complete your details to join the campaign.',
+    campaignFinish: 'Create my profile and participate',
+    sidebarHint: 'We will review your request and, once approved, email you the details to sign in.',
     languageLabel: 'Mostrar en español',
     languageAria: 'Mostrar este flujo en español',
-    typeTitle: 'Are you an organization or an individual contributor?',
+    typeTitle: 'Are you an organization or an individual profile?',
     typeBody: 'Choose how your profile should appear in Pocket Genes.',
     organizationLabel: 'Organization',
     organizationBody: 'Clinics, laboratories, foundations, companies, education providers, or support groups.',
-    individualLabel: 'Individual contributor',
+    individualLabel: 'Individual profile',
     individualBody: 'Professionals, researchers, advocates, creators, specialists, or independent experts.',
-    countryTitle: 'Where do you provide services?',
-    countryBody: 'Select every country or region where users can access your work.',
+    countryTitle: 'Which country or countries are connected to your work?',
+    countryBody: 'Select where you work or where your professional activity is based.',
     countryButtonLabel: 'Countries',
     countryPlaceholder: 'Choose countries',
     countrySearch: 'Search countries',
@@ -55,12 +58,12 @@ const pageCopy = {
     nameLabelIndividual: 'Individual name',
     namePlaceholderOrganization: 'Example Genetics Lab',
     namePlaceholderIndividual: 'Dr. Alex Rivera',
-    descriptionTitle: 'Describe what people can find through you',
-    descriptionBody: 'Write at least 30 characters. Keep the main language clear; the alternate language is optional.',
+    descriptionTitle: 'What would you like to share or discuss?',
+    descriptionBody: 'Write at least 30 characters about your expertise, projects, experience, or the topics you would like to publish or discuss.',
     descriptionLabel: 'Description in English',
-    descriptionPlaceholder: 'Tell users what you do, who you support, and how you can help.',
-    descriptionPrompts: ['What you do', 'Who you support', 'How you can help'],
-    descriptionMinHint: 'Start with the essentials so people understand if your profile is relevant to them.',
+    descriptionPlaceholder: 'Tell us what you work on, which topics interest you, and what kind of knowledge you would like to share.',
+    descriptionPrompts: ['Your expertise', 'Topics to discuss', 'Projects or experience'],
+    descriptionMinHint: 'Start with the essentials so we understand your background and possible conversation topics.',
     descriptionReady: 'This is enough to continue. Add the alternate language only if it helps.',
     descriptionCountLabel: 'characters',
     descriptionRemainingLabel: 'more characters to continue',
@@ -150,8 +153,8 @@ const pageCopy = {
     socialLinkError: 'Use a valid URL. Contact email accepts an email address or mailto link.',
     socialAddedTitle: 'Selected links',
     socialAddedBody: 'These will appear on your public profile after approval.',
-    providerTitle: 'Do you provide genomic services capable of producing a genetic report?',
-    providerBody: 'This is only for organizations. Tell us if users in the regions you listed can receive a genomic report from your services.',
+    providerTitle: 'Can the organization produce or provide access to genetic reports?',
+    providerBody: 'This is only for organizations. Tell us if users in the regions you listed can receive a genomic report through what the organization offers.',
     providerYes: 'Yes',
     providerNo: 'No',
     reportTitle: 'What types of genetic reports do you provide?',
@@ -182,19 +185,22 @@ const pageCopy = {
   es: {
     title: 'Crear perfil en Pocket Genes | Sumate a Pocket Genes',
     description: 'Solicitá un perfil publicador de Pocket Genes para tu organización o trabajo profesional.',
-    sidebarTitle: 'Creemos tu perfil\nen Pocket Genes',
-    sidebarBody: 'Ayuda a que las personas descubran tu trabajo y conecten con el apoyo correcto.',
-    sidebarHint: 'Tu solicitud empieza pendiente de aprobación. Cuando se apruebe, las credenciales llegan por email.',
+    sidebarTitle: 'Sumate a la red\nde Pocket Genes',
+    sidebarBody: 'Dale visibilidad a tu trabajo y conectá con personas interesadas en conocimiento, información y orientación en genética.',
+    campaignSidebarTitle: 'Creá tu perfil en Pocket Genes',
+    campaignSidebarBody: 'Completá tus datos para sumarte a la campaña.',
+    campaignFinish: 'Crear mi perfil y participar',
+    sidebarHint: 'Revisaremos tu solicitud y, una vez aprobada, te enviaremos por email los datos para ingresar.',
     languageLabel: 'Switch to English',
     languageAria: 'Switch to English',
-    typeTitle: '¿Sos una organización o un contribuidor individual?',
+    typeTitle: '¿Sos una organización o un perfil individual?',
     typeBody: 'Elegí cómo debería aparecer tu perfil en Pocket Genes.',
     organizationLabel: 'Organización',
     organizationBody: 'Clínicas, laboratorios, fundaciones, empresas, educación o grupos de apoyo.',
-    individualLabel: 'Contribuidor individual',
+    individualLabel: 'Perfil individual',
     individualBody: 'Profesionales, investigadores, referentes, creadores, especialistas o expertos independientes.',
-    countryTitle: '¿Dónde ofrecés tus servicios?',
-    countryBody: 'Seleccioná cada país o región donde las personas puedan acceder a tu trabajo.',
+    countryTitle: '¿En qué país o países trabajás?',
+    countryBody: 'Seleccioná dónde trabajás o dónde se desarrolla tu actividad profesional.',
     countryButtonLabel: 'Países',
     countryPlaceholder: 'Elegir países',
     countrySearch: 'Buscar países',
@@ -207,15 +213,15 @@ const pageCopy = {
     nameTitle: '¿Cómo deberíamos llamar a este perfil?',
     nameBody: 'Usá el nombre público que las personas deberían reconocer en Pocket Genes.',
     nameLabelOrganization: 'Nombre de la organización',
-    nameLabelIndividual: 'Nombre del contribuidor',
+    nameLabelIndividual: 'Nombre del perfil individual',
     namePlaceholderOrganization: 'Laboratorio Genético Ejemplo',
     namePlaceholderIndividual: 'Dra. Alex Rivera',
-    descriptionTitle: 'Describí qué pueden encontrar las personas',
-    descriptionBody: 'Escribí al menos 30 caracteres. El idioma principal es obligatorio; el alternativo es opcional.',
+    descriptionTitle: '¿Sobre qué temas te gustaría conversar o publicar?',
+    descriptionBody: 'Escribí al menos 30 caracteres sobre tu experiencia, proyectos, mirada del sector o temas que te gustaría compartir.',
     descriptionLabel: 'Descripción en español',
-    descriptionPlaceholder: 'Contá qué hacés, a quién acompañás y cómo podés ayudar.',
-    descriptionPrompts: ['Qué hacen', 'A quién ayudan', 'Cómo acompañan'],
-    descriptionMinHint: 'Empezá por lo esencial para que las personas entiendan si tu perfil les sirve.',
+    descriptionPlaceholder: 'Contanos en qué trabajás, qué temas te interesan y qué conocimiento te gustaría compartir.',
+    descriptionPrompts: ['Tu experiencia', 'Temas de conversación', 'Proyectos o trayectoria'],
+    descriptionMinHint: 'Empezá por lo esencial para que entendamos tu recorrido y posibles temas de conversación.',
     descriptionReady: 'Listo para continuar. Sumá el idioma alternativo solo si ayuda.',
     descriptionCountLabel: 'caracteres',
     descriptionRemainingLabel: 'caracteres más para continuar',
@@ -305,8 +311,8 @@ const pageCopy = {
     socialLinkError: 'Usá una URL válida. Email de contacto acepta un email o un enlace mailto.',
     socialAddedTitle: 'Links seleccionados',
     socialAddedBody: 'Van a aparecer en el perfil público después de la aprobación.',
-    providerTitle: '¿La organización ofrece servicios genómicos capaces de producir un reporte genético?',
-    providerBody: 'Esto aplica solo a organizaciones. Contanos si los usuarios de las regiones que listaste pueden recibir un reporte genómico a partir de tus servicios.',
+    providerTitle: '¿La organización genera o facilita acceso a reportes genéticos?',
+    providerBody: 'Esto aplica solo a organizaciones. Contanos si los usuarios de las regiones que listaste pueden recibir un reporte genómico a partir de lo que ofrece tu organización.',
     providerYes: 'Sí',
     providerNo: 'No',
     reportTitle: '¿Qué categorías de reporte genético ofrecen?',
@@ -404,6 +410,9 @@ const wizardClientCopy = {
   socialLinkError: copy.socialLinkError,
   socialEmptySearch: copy.socialEmptySearch,
   socialOpenPicker: copy.socialOpenPicker,
+  campaignSidebarTitle: copy.campaignSidebarTitle,
+  campaignSidebarBody: copy.campaignSidebarBody,
+  campaignFinish: copy.campaignFinish,
 };
 ---
 
@@ -427,15 +436,15 @@ const wizardClientCopy = {
         <img src="/pocket-genes/icon_simple.png" alt="" width="52" height="52" />
       </a>
       <div class="pg-wizard-intro-copy">
-        <h1>{copy.sidebarTitle.split('\n').map((line) => <span>{line}</span>)}</h1>
-        <p>{copy.sidebarBody}</p>
+        <h1 data-sidebar-title>{copy.sidebarTitle.split('\n').map((line) => <span>{line}</span>)}</h1>
+        <p data-sidebar-body>{copy.sidebarBody}</p>
         <small>{copy.sidebarHint}</small>
       </div>
     </aside>
 
-    <section class="pg-wizard-panel" aria-labelledby="wizard-current-title">
+    <section class="pg-wizard-panel" data-wizard-panel aria-label={copy.typeTitle}>
       <div class="pg-wizard-topbar" data-language-switch>
-        <a href={otherLanguageHref} aria-label={copy.languageAria}>{copy.languageLabel}</a>
+        <a href={otherLanguageHref} data-language-base={otherLanguageHref} aria-label={copy.languageAria}>{copy.languageLabel}</a>
       </div>
 
       <form class="pg-wizard-form" data-wizard-form novalidate>
@@ -460,7 +469,7 @@ const wizardClientCopy = {
 
         <div class="pg-wizard-step" data-step-panel="type">
           <div class="pg-step-heading">
-            <h2 id="wizard-current-title">{copy.typeTitle}</h2>
+            <h2>{copy.typeTitle}</h2>
             <p>{copy.typeBody}</p>
           </div>
           <div class="pg-choice-grid pg-kind-grid">
@@ -1039,6 +1048,9 @@ const wizardClientCopy = {
     const copy = JSON.parse(wizardRoot.getAttribute('data-copy') || '{}');
     const locale = wizardRoot.getAttribute('data-locale') || 'es';
     const sdkUrl = wizardRoot.getAttribute('data-sdk-url') || 'https://golden-crow-sdk.vercel.app';
+    const urlParams = new URLSearchParams(window.location.search);
+    const campaignId = urlParams.get('campaign') || '';
+    const isCampaignMode = campaignId === '100-publishers';
     const DESCRIPTION_MIN_LENGTH = 30;
     const IMAGE_UPLOAD_MAX_BYTES = 600 * 1024;
     const IMAGE_REDUCER_URL = 'https://squoosh.app/';
@@ -1121,6 +1133,9 @@ const wizardClientCopy = {
     };
 
     const form = wizardRoot.querySelector('[data-wizard-form]');
+    const wizardPanel = wizardRoot.querySelector('[data-wizard-panel]');
+    const sidebarTitle = wizardRoot.querySelector('[data-sidebar-title]');
+    const sidebarBody = wizardRoot.querySelector('[data-sidebar-body]');
     const panels = Array.from(wizardRoot.querySelectorAll('[data-step-panel]'));
     const stepCount = wizardRoot.querySelector('[data-step-count]');
     const dots = Array.from(wizardRoot.querySelectorAll('[data-step-dot]'));
@@ -1215,6 +1230,10 @@ const wizardClientCopy = {
     let submitLoadingHideTimer;
 
     function visibleSteps() {
+      if (isCampaignMode) {
+        return ['country', 'category', 'name', 'description', 'email'];
+      }
+
       const steps = ['type', 'country', 'category', 'name', 'description', 'email', 'website', 'image', 'social'];
 
       if (state.kind === 'organization') {
@@ -1229,6 +1248,57 @@ const wizardClientCopy = {
 
     function activeStepKey() {
       return visibleSteps()[state.currentStep] || 'type';
+    }
+
+    function normalizeInitialKind(value) {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (['individual', 'individual-contributor', 'contribuidor-individual', 'person'].includes(normalized)) {
+        return 'individual';
+      }
+      if (['organization', 'organisation', 'organizacion', 'organización'].includes(normalized)) {
+        return 'organization';
+      }
+      return '';
+    }
+
+    function syncKindButtons() {
+      wizardRoot.querySelectorAll('[data-kind-option]').forEach((item) => {
+        const active = item.getAttribute('data-kind-option') === state.kind;
+        item.classList.toggle('is-selected', active);
+        item.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    }
+
+    function applyInitialKindFromUrl() {
+      const initialKind = normalizeInitialKind(
+        urlParams.get('type') || urlParams.get('kind') || urlParams.get('profile'),
+      );
+
+      if (!initialKind && !isCampaignMode) return;
+
+      state.kind = isCampaignMode ? 'individual' : initialKind;
+      state.currentStep = Math.min(state.currentStep, visibleSteps().length - 1);
+      syncKindButtons();
+    }
+
+    function applyCampaignMode() {
+      if (!isCampaignMode) return;
+
+      wizardRoot.dataset.campaign = campaignId;
+      if (sidebarTitle && copy.campaignSidebarTitle) {
+        sidebarTitle.innerHTML = String(copy.campaignSidebarTitle)
+          .split('\n')
+          .map((line) => `<span>${line}</span>`)
+          .join('');
+      }
+      if (sidebarBody && copy.campaignSidebarBody) {
+        sidebarBody.textContent = copy.campaignSidebarBody;
+      }
+      const languageLink = languageSwitch?.querySelector('a[data-language-base]');
+      const languageBase = languageLink?.getAttribute('data-language-base');
+      if (languageLink && languageBase) {
+        languageLink.setAttribute('href', `${languageBase}${window.location.search}`);
+      }
     }
 
     const contentScrollSteps = new Set(['category', 'description', 'image', 'social', 'report']);
@@ -2245,6 +2315,14 @@ const wizardClientCopy = {
         panel.hidden = panel.getAttribute('data-step-panel') !== step;
       });
 
+      if (wizardPanel) {
+        const activeTitle = wizardRoot.querySelector(`[data-step-panel="${step}"] .pg-step-heading h2`);
+        const label = activeTitle?.textContent?.trim();
+        if (label) {
+          wizardPanel.setAttribute('aria-label', label);
+        }
+      }
+
       if (stepChanged && form) {
         form.scrollTo({ top: 0, left: 0, behavior: 'auto' });
       }
@@ -2277,6 +2355,8 @@ const wizardClientCopy = {
           nextLabel = copy.imageUploadCompressing;
         } else if (isEmptySkippableStep(step)) {
           nextLabel = copy.skip;
+        } else if (last && isCampaignMode && copy.campaignFinish) {
+          nextLabel = copy.campaignFinish;
         } else if (last) {
           nextLabel = copy.finish;
         }
@@ -3182,11 +3262,7 @@ const wizardClientCopy = {
       button.addEventListener('click', () => {
         state.kind = button.getAttribute('data-kind-option') || 'organization';
         state.currentStep = Math.min(state.currentStep, visibleSteps().length - 1);
-        wizardRoot.querySelectorAll('[data-kind-option]').forEach((item) => {
-          const active = item === button;
-          item.classList.toggle('is-selected', active);
-          item.setAttribute('aria-pressed', active ? 'true' : 'false');
-        });
+        syncKindButtons();
         setError('');
         renderStep();
       });
@@ -3409,6 +3485,8 @@ const wizardClientCopy = {
       successBooking.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
+    applyCampaignMode();
+    applyInitialKindFromUrl();
     renderStep();
     updateImagePreview();
   }

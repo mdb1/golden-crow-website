@@ -7,12 +7,25 @@ import { appText } from "@/lib/language";
 import {
   PGFLEX_LOGISTICS_PAGE_SIZE,
   canAccessPGFlexLogistics,
+  type PGFlexLogisticsListScope,
   type PGFlexLogisticsPage as PGFlexLogisticsPagePayload,
 } from "@/lib/pgflex-logistics";
 import { getServerAppLanguage } from "@/lib/server-language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
-export default async function PGFlexLogisticsPage() {
+function normalizePGFlexLogisticsScope(
+  value: string | string[] | undefined,
+): PGFlexLogisticsListScope {
+  return value === "finished" ? "finished" : "active";
+}
+
+export default async function PGFlexLogisticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ scope?: string | string[] }>;
+}) {
+  const { scope } = await searchParams;
+  const initialScope = normalizePGFlexLogisticsScope(scope);
   const adminContext = await getAdminContextServer();
   if (!canAccessPGFlexLogistics(adminContext)) {
     redirect("/2pq-dashboard");
@@ -21,7 +34,7 @@ export default async function PGFlexLogisticsPage() {
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
   const initialPage = await sdkFetchServer<PGFlexLogisticsPagePayload>(
-    `/pgflex/logistics?limit=${PGFLEX_LOGISTICS_PAGE_SIZE}&scope=active`,
+    `/pgflex/logistics?limit=${PGFLEX_LOGISTICS_PAGE_SIZE}&scope=${initialScope}`,
   );
 
   return (

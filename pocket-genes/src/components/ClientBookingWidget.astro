@@ -21,13 +21,14 @@ const {
 const sdkUrl =
   import.meta.env.PUBLIC_GOLDENCROW_SDK_URL || 'https://golden-crow-sdk.vercel.app';
 
-const copy = isEnglish
+const baseCopy = isEnglish
   ? {
       locale: 'en',
       localeTag: 'en-US',
       brandName,
       eventTitle,
       duration: '30 min',
+      logoAlt: `${brandName} logo`,
       calendarTitle: 'Select Date & Time',
       detailsTitle: 'Enter details',
       successTitle: 'Meeting requested',
@@ -51,6 +52,7 @@ const copy = isEnglish
       whatsappPlaceholder: 'We will send meeting information here',
       companyLabel: 'Company name *',
       companyPlaceholder: 'Company name',
+      companyRequired: true,
     }
   : {
       locale: 'es',
@@ -58,6 +60,7 @@ const copy = isEnglish
       brandName,
       eventTitle,
       duration: '30 min',
+      logoAlt: `${brandName} logo`,
       calendarTitle: 'Seleccioná fecha y hora',
       detailsTitle: 'Ingresá tus datos',
       successTitle: 'Reunión solicitada',
@@ -81,7 +84,37 @@ const copy = isEnglish
       whatsappPlaceholder: 'Vamos a enviarte la información por acá',
       companyLabel: 'Nombre de la empresa *',
       companyPlaceholder: 'Nombre de la empresa',
+      companyRequired: true,
     };
+
+const isPocketGenesJoinUs = context === 'pocket-genes-join-us';
+const copy =
+  !isEnglish && isPocketGenesJoinUs
+    ? {
+        ...baseCopy,
+        duration: '30 minutos',
+        logoAlt: 'Logo de Pocket Genes',
+        calendarTitle: 'Seleccioná fecha y hora',
+        detailsTitle: 'Dejanos tus datos',
+        successTitle: 'Recibimos tu solicitud',
+        successBody:
+          'Gracias por tu interés en sumarte a Pocket Genes. Te vamos a contactar para confirmar el horario y los detalles de la reunión.',
+        timeZoneTitle: 'Zona horaria',
+        selectedDateFallback: 'Seleccioná una fecha',
+        submitLabel: 'Solicitar reunión',
+        submittingLabel: 'Enviando solicitud...',
+        errorMessage: 'No pudimos enviar tu solicitud. Intentá nuevamente.',
+        fullNameLabel: 'Nombre completo',
+        fullNamePlaceholder: 'Tu nombre y apellido',
+        emailLabel: 'Correo electrónico',
+        emailPlaceholder: 'Tu correo electrónico',
+        whatsappLabel: 'Número de WhatsApp',
+        whatsappPlaceholder: 'Tu número con código de país',
+        companyLabel: 'Organización o institución (opcional)',
+        companyPlaceholder: 'Nombre de la organización, si corresponde',
+        companyRequired: false,
+      }
+    : baseCopy;
 
 const weekdayLabels = isEnglish
   ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -99,7 +132,7 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
 >
   <article class="booking-shell">
     <aside class="booking-summary">
-      <img class="booking-logo" src="/logo1024.webp" alt={`${copy.brandName} logo`} />
+      <img class="booking-logo" src="/logo1024.webp" alt={copy.logoAlt} />
       <p class="booking-brand" set:html={renderedBrandName} />
       <h3>{copy.eventTitle}</h3>
       <div class="booking-meta">
@@ -188,7 +221,7 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
           </label>
           <label>
             <span>{copy.companyLabel}</span>
-            <input name="companyName" type="text" autocomplete="organization" maxlength="160" placeholder={copy.companyPlaceholder} required />
+            <input name="companyName" type="text" autocomplete="organization" maxlength="160" placeholder={copy.companyPlaceholder} required={copy.companyRequired} />
           </label>
           <p class="booking-error" data-booking-error role="alert" hidden>{copy.errorMessage}</p>
           <div class="booking-submit-row">

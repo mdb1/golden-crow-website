@@ -57,6 +57,7 @@ const organization: DiscoverOrganizationRecord = {
   verified: true,
   isGeneticReportProvider: true,
   geneticReportCategory: "grc_full_genome",
+  isGrcHighlighted: false,
   contactEmail: "hello@example.org",
   internalNotes: "Internal notes",
   createdAt: "2026-08-01T00:00:00.000Z",
@@ -83,6 +84,7 @@ const individual: DiscoverIndividualRecord = {
 
 type WorkbenchOverrides = {
   canDeletePublisher?: boolean;
+  canManageGrcHighlight?: boolean;
   canManageSystemFields?: boolean;
   deleteSuccessAction?: "list" | "publisher-login";
   mode?: "create" | "edit";
@@ -246,6 +248,100 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(saveDock.className).not.toContain("sticky");
   });
 
+  it("renders a rich translated public preview for an organization", () => {
+    const richOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      imageUrl: null,
+      imageUploadDataUrl: "data:image/png;base64,profile-image",
+      bannerImageUrl: null,
+      bannerImageUploadDataUrl: "data:image/png;base64,banner-image",
+      isGrcHighlighted: true,
+      description:
+        "Descripción pública extendida para revisar cómo se ve la organización.",
+      descriptionEn:
+        "Extended public description to review how the organization looks.",
+      countryCode: "ES,AR",
+      organizationType:
+        "org_biotechnology_companies,org_genetic_testing_laboratories",
+      geneticReportCategory: "grc_ophthalmics,grc_full_genome",
+      social: {
+        instagram: "instagram.com/publisher-one",
+        youtube: "https://youtube.com/@publisher-one",
+      },
+    };
+    renderWorkbench("es", {
+      organization: richOrganization,
+      canManageGrcHighlight: true,
+    });
+
+    const preview = screen.getByTestId("discover-publisher-public-preview");
+    const profileImage = within(preview).getByRole("img", {
+      name: "Imagen del perfil Publisher One",
+    });
+    const bannerImage = within(preview).getByRole("img", {
+      name: "Banner destacado GRC Publisher One",
+    });
+    const countries = within(preview)
+      .getAllByText(/España \(ES\)|Argentina \(AR\)/)
+      .map((node) => node.textContent);
+    const instagramLink = within(preview).getByRole("link", {
+      name: "Perfil de Instagram: instagram.com/publisher-one",
+    });
+    const instagramIcon = instagramLink.querySelector(
+      'img[src="/discover/social-network-assets/social_instagram.png"]',
+    ) as HTMLImageElement | null;
+
+    expect(profileImage.getAttribute("src")).toBe(
+      "data:image/png;base64,profile-image",
+    );
+    expect(bannerImage.getAttribute("src")).toBe(
+      "data:image/png;base64,banner-image",
+    );
+    expect(
+      within(preview).getByText(
+        "Descripción pública extendida para revisar cómo se ve la organización.",
+      ),
+    ).toBeTruthy();
+    expect(within(preview).getByText("Empresa de biotecnología")).toBeTruthy();
+    expect(
+      within(preview).getByText("Laboratorio de pruebas genéticas"),
+    ).toBeTruthy();
+    expect(countries).toEqual(["España (ES)", "Argentina (AR)"]);
+    expect(within(preview).getByText("Oftalmológico")).toBeTruthy();
+    expect(within(preview).getByText("Genoma completo")).toBeTruthy();
+    expect(instagramLink.getAttribute("href")).toBe(
+      "https://instagram.com/publisher-one",
+    );
+    expect(instagramIcon?.style.objectFit).toBe("contain");
+    expect(instagramIcon?.parentElement?.style.width).toBe("32px");
+    expect(
+      within(
+        screen.getByTestId("discover-publisher-preview-socials"),
+      ).getByRole("link", {
+        name: "Canal de YouTube: https://youtube.com/@publisher-one",
+      }),
+    ).toBeTruthy();
+  });
+
+  it("uses the active language description in the public preview", () => {
+    renderWorkbench("en", {
+      organization: {
+        ...organization,
+        description: "Descripción visible para español.",
+        descriptionEn: "English description visible in preview.",
+      },
+    });
+
+    const preview = screen.getByTestId("discover-publisher-public-preview");
+
+    expect(
+      within(preview).getByText("English description visible in preview."),
+    ).toBeTruthy();
+    expect(
+      within(preview).queryByText("Descripción visible para español."),
+    ).toBeNull();
+  });
+
   it("does not render the internal notes block", () => {
     renderWorkbench("es");
 
@@ -260,6 +356,29 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(
       screen.queryByRole("button", { name: "Delete organization" }),
     ).toBeNull();
+  });
+
+  it("shows the product catalog shortcut immediately before the danger zone", () => {
+    renderWorkbench("es", { canDeletePublisher: true });
+
+    const catalogLink = screen.getByRole("link", {
+      name: /Configurar mi catalogo de productos/i,
+    });
+    const dangerZone = screen.getByTestId("discover-publisher-danger-zone");
+    const contentPanel = screen.getByTestId("discover-publisher-content-panel");
+    const preview = screen.getByTestId("discover-publisher-public-preview");
+
+    expect(catalogLink.getAttribute("href")).toBe(
+      "/discover/organizations/org-1/product-catalog",
+    );
+    expect(contentPanel.contains(catalogLink)).toBe(true);
+    expect(preview.contains(catalogLink)).toBe(false);
+    expect(
+      Boolean(
+        catalogLink.compareDocumentPosition(dangerZone) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
   });
 
   it("renders organization deletion as a collapsed god mode danger zone", async () => {
@@ -339,6 +458,39 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       );
     });
     expect(routerRefresh).toHaveBeenCalled();
+  });
+
+  it("does not expose status activation as a normal save path for pending submissions", async () => {
+    const user = userEvent.setup();
+    renderWorkbench("en", {
+      organization: { ...organization, status: "pending_approval" },
+    });
+
+    const statusSelect = screen.getByLabelText("Status") as HTMLSelectElement;
+    expect(
+      Array.from(statusSelect.options).map((option) => option.value),
+    ).toEqual(["inactive", "archived", "pending_approval"]);
+
+    await user.selectOptions(statusSelect, "inactive");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const calledUrls = jest
+      .mocked(sdkFetch)
+      .mock.calls.map(([url]) => String(url));
+    expect(calledUrls).not.toContain(
+      "/discover/organizations/org-1/submission-evaluation",
+    );
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.status).toBe("inactive");
   });
 
   it("rejects an individual submission by archiving it", async () => {
@@ -564,6 +716,22 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     ).toContain("md:col-span-2");
   });
 
+  it("renders selected country chips in the saved comma-separated order", () => {
+    renderWorkbench("en", {
+      organization: {
+        ...organization,
+        countryCode: "ES,AR",
+      },
+    });
+
+    const countryField = screen.getByText("Country coverage").parentElement;
+    const countryTexts = within(countryField as HTMLElement)
+      .getAllByText(/Spain \(ES\)|Argentina \(AR\)/)
+      .map((node) => node.textContent);
+
+    expect(countryTexts).toEqual(["Spain (ES)", "Argentina (AR)"]);
+  });
+
   it("saves organization genetic report provider fields", async () => {
     const user = userEvent.setup();
     renderWorkbench();
@@ -602,11 +770,295 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(body.geneticReportCategory).toBeNull();
   });
 
+  it("hides the GRC highlight checkbox without god mode access", () => {
+    renderWorkbench();
+
+    expect(screen.queryByLabelText("GRC highlighted")).toBeNull();
+  });
+
+  it("saves the GRC highlight checkbox from god mode", async () => {
+    const user = userEvent.setup();
+    renderWorkbench("en", { canManageGrcHighlight: true });
+
+    const checkbox = screen.getByLabelText(
+      "GRC highlighted",
+    ) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+
+    await user.click(checkbox);
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.isGrcHighlighted).toBe(true);
+  });
+
+  it("hides the GRC banner editor until the organization is highlighted", () => {
+    renderWorkbench();
+
+    expect(
+      screen.queryByTestId("discover-org-banner-image-section"),
+    ).toBeNull();
+    expect(screen.queryByLabelText("Banner image URL")).toBeNull();
+  });
+
+  it("lets organization publishers edit the GRC banner after god mode highlights it", async () => {
+    const user = userEvent.setup();
+    const highlightedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      isGrcHighlighted: true,
+    };
+    renderWorkbench("en", {
+      organization: highlightedOrganization,
+      canManageSystemFields: false,
+    });
+
+    expect(screen.queryByLabelText("GRC highlighted")).toBeNull();
+    expect(
+      screen.getByTestId("discover-org-banner-image-section"),
+    ).toBeTruthy();
+
+    const bannerSection = screen.getByTestId(
+      "discover-org-banner-image-section",
+    );
+    await user.type(
+      within(bannerSection).getByLabelText("Banner image URL"),
+      "https://example.org/grc-banner.png",
+    );
+    expect(
+      within(bannerSection).queryByLabelText("Upload banner file"),
+    ).toBeNull();
+    await user.click(
+      within(bannerSection).getByRole("button", {
+        name: "Clear banner image URL",
+      }),
+    );
+    expect(
+      within(bannerSection).getByLabelText("Upload banner file"),
+    ).toBeTruthy();
+    await user.type(
+      within(bannerSection).getByLabelText("Banner image URL"),
+      "https://example.org/grc-banner.png",
+    );
+    expect(
+      within(bannerSection).queryByLabelText("Upload banner file"),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.isGrcHighlighted).toBe(true);
+    expect(body.bannerImageUrl).toBe("https://example.org/grc-banner.png");
+    expect(body.bannerImageUploadDataUrl).toBeNull();
+  });
+
+  it("uploads raw GRC banner image files", async () => {
+    const user = userEvent.setup();
+    const highlightedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      isGrcHighlighted: true,
+    };
+    renderWorkbench("en", { organization: highlightedOrganization });
+
+    await user.upload(
+      screen.getByLabelText("Upload banner file"),
+      new File(["wide-banner"], "grc-banner.png", { type: "image/png" }),
+    );
+
+    expect(await screen.findByText("Uploaded image ready.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.bannerImageUrl).toBeNull();
+    expect(body.bannerImageUploadDataUrl).toMatch(/^data:image\/png;base64,/);
+    expect(body.bannerImageUploadName).toBe("grc-banner.png");
+    expect(body.bannerImageUploadMimeType).toBe("image/png");
+  });
+
+  it("accepts dropped files on the empty GRC banner preview", async () => {
+    const user = userEvent.setup();
+    const highlightedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      isGrcHighlighted: true,
+    };
+    renderWorkbench("en", { organization: highlightedOrganization });
+
+    fireEvent.drop(screen.getByTestId("discover-org-banner-preview-dropzone"), {
+      dataTransfer: {
+        files: [
+          new File(["wide-banner"], "finder-banner.jpg", {
+            type: "image/jpeg",
+          }),
+        ],
+        items: [],
+      },
+    });
+
+    expect(await screen.findByText("Uploaded image ready.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.bannerImageUrl).toBeNull();
+    expect(body.bannerImageUploadDataUrl).toMatch(/^data:image\/jpeg;base64,/);
+    expect(body.bannerImageUploadName).toBe("finder-banner.jpg");
+    expect(body.bannerImageUploadMimeType).toBe("image/jpeg");
+  });
+
+  it("sends the banner upload delete signal after removing an uploaded GRC banner", async () => {
+    const user = userEvent.setup();
+    const highlightedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      isGrcHighlighted: true,
+      bannerImageUrl: null,
+      bannerImageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+      bannerImageUploadName: "current-banner.png",
+      bannerImageUploadMimeType: "image/png",
+    };
+    renderWorkbench("en", { organization: highlightedOrganization });
+
+    const bannerSection = screen.getByTestId(
+      "discover-org-banner-image-section",
+    );
+    expect(
+      within(bannerSection).queryByLabelText("Banner image URL"),
+    ).toBeNull();
+
+    await user.click(
+      within(bannerSection).getByRole("button", {
+        name: "Remove uploaded banner image",
+      }),
+    );
+    expect(
+      within(bannerSection).getByLabelText("Banner image URL"),
+    ).toBeTruthy();
+    expect(
+      within(bannerSection).getByLabelText("Upload banner file"),
+    ).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.bannerImageUrl).toBeNull();
+    expect(body.bannerImageUploadDataUrl).toBeNull();
+    expect(body.bannerImageUploadName).toBeUndefined();
+    expect(body.bannerImageUploadMimeType).toBeUndefined();
+  });
+
+  it("clears GRC banner fields when god mode removes the highlight", async () => {
+    const user = userEvent.setup();
+    const highlightedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      isGrcHighlighted: true,
+      bannerImageUrl: "https://example.org/current-banner.png",
+      bannerImageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+      bannerImageUploadName: "current-banner.png",
+      bannerImageUploadMimeType: "image/png",
+    };
+    renderWorkbench("en", {
+      organization: highlightedOrganization,
+      canManageGrcHighlight: true,
+    });
+
+    await user.click(screen.getByLabelText("GRC highlighted"));
+    expect(
+      screen.queryByTestId("discover-org-banner-image-section"),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.isGrcHighlighted).toBe(false);
+    expect(body.bannerImageUrl).toBeNull();
+    expect(body.bannerImageUploadDataUrl).toBeNull();
+    expect(body.bannerImageUploadName).toBeUndefined();
+    expect(body.bannerImageUploadMimeType).toBeUndefined();
+  });
+
+  it("saves genetic report categories in checkbox selection order", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Genetic report categories: 1 report category selected/i,
+      }),
+    );
+    await user.click(screen.getByRole("checkbox", { name: "Reproductive" }));
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.geneticReportCategory).toBe("grc_full_genome,grc_reproductive");
+  });
+
   it("does not render organization genetic report fields for individual publishers", () => {
-    renderIndividualWorkbench();
+    renderIndividualWorkbench("en", { canManageGrcHighlight: true });
 
     expect(screen.queryByLabelText("Genetic report provider")).toBeNull();
     expect(screen.queryByLabelText("Genetic report category")).toBeNull();
+    expect(screen.queryByLabelText("GRC highlighted")).toBeNull();
   });
 
   it("shows publisher categories translated in Spanish", async () => {
@@ -666,15 +1118,163 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(body.countryCode).toBe("US,AR");
   });
 
-  it("requires an image URL before saving", async () => {
+  it("requires a profile image before saving", async () => {
     const user = userEvent.setup();
     renderWorkbench();
 
     await user.clear(screen.getByLabelText("Image URL"));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    expect(screen.getByText("Image URL is required.")).toBeTruthy();
+    expect(screen.getByText("Profile image is required.")).toBeTruthy();
     expect(sdkFetch).not.toHaveBeenCalled();
+  });
+
+  it("uploads raw image files and saves them instead of the image URL", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    const imageSection = screen.getByTestId(
+      "discover-org-profile-image-section",
+    );
+    expect(
+      within(imageSection).queryByLabelText("Upload image file"),
+    ).toBeNull();
+    await user.click(
+      within(imageSection).getByRole("button", { name: "Clear image URL" }),
+    );
+    expect(within(imageSection).getByLabelText("Image URL")).toBeTruthy();
+    expect(
+      within(imageSection).getByLabelText("Upload image file"),
+    ).toBeTruthy();
+    await user.type(
+      within(imageSection).getByLabelText("Image URL"),
+      "https://example.org/another-logo.png",
+    );
+    expect(
+      within(imageSection).queryByLabelText("Upload image file"),
+    ).toBeNull();
+    await user.click(
+      within(imageSection).getByRole("button", { name: "Clear image URL" }),
+    );
+    expect(
+      within(imageSection).getByLabelText("Upload image file"),
+    ).toBeTruthy();
+
+    await user.upload(
+      within(imageSection).getByLabelText("Upload image file"),
+      new File(["tiny-image"], "publisher-logo.png", { type: "image/png" }),
+    );
+
+    expect(await screen.findByText("Uploaded image ready.")).toBeTruthy();
+    expect(
+      document.querySelector('img[src^="data:image/png;base64,"]'),
+    ).toBeTruthy();
+    expect(within(imageSection).queryByLabelText("Image URL")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.imageUrl).toBeNull();
+    expect(body.imageUploadDataUrl).toMatch(/^data:image\/png;base64,/);
+    expect(body.imageUploadName).toBe("publisher-logo.png");
+    expect(body.imageUploadMimeType).toBe("image/png");
+  });
+
+  it("uploads raw image files for individual publishers", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValue({ individual });
+    renderIndividualWorkbench();
+
+    const imageSection = screen.getByTestId(
+      "discover-org-profile-image-section",
+    );
+    await user.click(
+      within(imageSection).getByRole("button", { name: "Clear image URL" }),
+    );
+
+    await user.upload(
+      within(imageSection).getByLabelText("Upload image file"),
+      new File(["tiny-portrait"], "publisher-portrait.jpg", {
+        type: "image/jpeg",
+      }),
+    );
+
+    expect(await screen.findByText("Uploaded image ready.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/individuals/individual-1",
+        {
+          method: "PUT",
+          body: expect.any(String),
+        },
+      );
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.imageUrl).toBeNull();
+    expect(body.imageUploadDataUrl).toMatch(/^data:image\/jpeg;base64,/);
+    expect(body.imageUploadName).toBe("publisher-portrait.jpg");
+    expect(body.imageUploadMimeType).toBe("image/jpeg");
+  });
+
+  it("clears uploaded image data when a replacement URL is entered", async () => {
+    const user = userEvent.setup();
+    const uploadedOrganization: DiscoverOrganizationRecord = {
+      ...organization,
+      imageUrl: null,
+      imageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+      imageUploadName: "wizard-logo.png",
+      imageUploadMimeType: "image/png",
+    };
+    renderWorkbench("en", { organization: uploadedOrganization });
+
+    const imageSection = screen.getByTestId(
+      "discover-org-profile-image-section",
+    );
+    expect(within(imageSection).queryByLabelText("Image URL")).toBeNull();
+    await user.click(
+      within(imageSection).getByRole("button", {
+        name: "Remove uploaded image",
+      }),
+    );
+
+    await user.type(
+      within(imageSection).getByLabelText("Image URL"),
+      "https://example.org/replacement.png",
+    );
+    expect(
+      within(imageSection).queryByLabelText("Upload image file"),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body.imageUrl).toBe("https://example.org/replacement.png");
+    expect(body.imageUploadDataUrl).toBeNull();
+    expect(body.imageUploadName).toBeUndefined();
+    expect(body.imageUploadMimeType).toBeUndefined();
   });
 
   it("renders uploaded wizard logos and saves without an image URL", async () => {
@@ -763,6 +1363,11 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
         'img[src="/discover/social-network-assets/social_facebook.png"]',
       ),
     ).toBeTruthy();
+    const currentFacebookIcon = document.querySelector(
+      'img[src="/discover/social-network-assets/social_facebook.png"]',
+    ) as HTMLImageElement | null;
+    expect(currentFacebookIcon?.style.objectFit).toBe("contain");
+    expect(currentFacebookIcon?.parentElement?.style.width).toBe("44px");
     await user.click(screen.getByRole("button", { name: "Add social link" }));
 
     [
@@ -845,6 +1450,11 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
         ),
       ).toBeTruthy();
     });
+    const pickerTwitterIcon = document.querySelector(
+      'img[src="/discover/social-network-assets/social_twitter.png"]',
+    ) as HTMLImageElement | null;
+    expect(pickerTwitterIcon?.style.objectFit).toBe("contain");
+    expect(pickerTwitterIcon?.parentElement?.style.width).toBe("42px");
   });
 });
 

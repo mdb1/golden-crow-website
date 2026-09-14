@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, Home, Newspaper, UserRound } from "lucide-react";
+import { Building2, Home, Newspaper, PackageOpen, UserRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAppLanguage } from "@/components/app-language-provider";
 import {
@@ -24,6 +24,7 @@ import {
   PUBLISHER_PORTAL_HOME_ROUTE,
   publisherPortalIndividualDetailRoute,
   publisherPortalOrganizationDetailRoute,
+  publisherPortalOrganizationProductCatalogRoute,
 } from "@/lib/publisher-portal-routes";
 
 function publisherProfileNavItem({
@@ -55,9 +56,20 @@ function publisherPortalNav({
   organizationId,
   individualId,
 }: Pick<AdminContextRecord, "role" | "organizationId" | "individualId">) {
+  const profileItem = publisherProfileNavItem({ role, organizationId, individualId });
+  const catalogItem =
+    role === "organization_publisher" && organizationId
+      ? {
+          href: publisherPortalOrganizationProductCatalogRoute(organizationId),
+          label: "Catalog",
+          icon: PackageOpen,
+        }
+      : null;
+
   return [
     { href: PUBLISHER_PORTAL_HOME_ROUTE, label: "Home", icon: Home },
-    publisherProfileNavItem({ role, organizationId, individualId }),
+    profileItem,
+    ...(catalogItem ? [catalogItem] : []),
     {
       href: PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
       label: "Feed entries",
@@ -87,6 +99,9 @@ export function PublisherPortalSidebar({
   const pathname = usePathname();
   const { language } = useAppLanguage();
   const navItems = publisherPortalNav({ role, organizationId, individualId });
+  const activeHref = navItems
+    .filter((item) => isNavItemActive(pathname, item.href))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (
     <Sidebar
@@ -108,7 +123,7 @@ export function PublisherPortalSidebar({
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={isNavItemActive(pathname, item.href)}
+                    isActive={item.href === activeHref}
                     tooltip={appText(language, item.label)}
                   >
                     <Link href={item.href}>

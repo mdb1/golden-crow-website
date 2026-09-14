@@ -109,6 +109,20 @@ type PublishDialogState = {
 
 const DISCOVER_PUBLIC_FEED_ENTRY_BASE_URL =
   "https://goldencrowvs.com/pocket-genes/discover/feed_entries";
+const publisherPrimaryButtonClass =
+  "h-10 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700";
+const publisherSoftButtonClass =
+  "h-9 rounded-xl border-violet-200/80 bg-white/78 px-3 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18";
+const publisherFieldSectionClass =
+  "flex flex-col gap-4 rounded-2xl border border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(250,250,255,0.94)_58%,rgba(245,243,255,0.86))] px-4 py-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/16 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.86))]";
+const publisherInputClass =
+  "h-11 rounded-xl border-violet-200/75 bg-white/90 px-4 text-sm shadow-sm focus-visible:border-violet-400 focus-visible:ring-violet-300/35 dark:border-violet-400/18 dark:bg-slate-950/45";
+const publisherTextareaClass =
+  "min-h-24 rounded-xl border-violet-200/75 bg-white/90 px-4 py-3 text-sm shadow-sm focus-visible:border-violet-400 focus-visible:ring-violet-300/35 dark:border-violet-400/18 dark:bg-slate-950/45";
+const publisherSelectClass =
+  "h-11 w-full appearance-none rounded-xl border border-violet-200/75 bg-white/90 py-2 pr-16 pl-6 text-sm text-foreground shadow-sm outline-none transition focus:border-violet-400 focus:ring-3 focus:ring-violet-300/35 disabled:cursor-not-allowed disabled:opacity-60 dark:border-violet-400/18 dark:bg-slate-950/45";
+const publisherSelectCaretClass =
+  "pointer-events-none absolute right-6 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-white/55";
 
 const DISCOVER_LOCATION_SUGGESTIONS = [
   "Online",
@@ -442,7 +456,7 @@ function LocationSuggestInput({
           onChange={(event) => onChange(event.target.value)}
           onFocus={() => setFocused(true)}
           autoComplete="off"
-          className="h-10 pl-9"
+          className={`${publisherInputClass} pl-10`}
           aria-autocomplete="list"
           aria-expanded={shouldShowSuggestions}
           aria-controls={`${id}-suggestions`}
@@ -490,7 +504,7 @@ function LocationSuggestInput({
                 />
                 <span className="min-w-0 flex-1 truncate">{suggestion}</span>
                 {selected ? (
-                  <Check aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+                  <Check aria-hidden="true" className="h-3.5 w-3.5 text-violet-700 dark:text-violet-200" />
                 ) : null}
               </button>
             );
@@ -556,7 +570,7 @@ function CountryRegionPicker({
             value={displayValue}
             readOnly
             placeholder={t("Select countries")}
-            className="h-10 pl-9 font-medium uppercase tracking-[0.08em]"
+            className={`${publisherInputClass} pl-10 font-medium uppercase tracking-[0.08em]`}
           />
         </div>
         <Button
@@ -565,7 +579,7 @@ function CountryRegionPicker({
           onClick={() => setOpen(true)}
           aria-expanded={open}
           aria-controls={`${id}-country-picker`}
-          className="h-10 justify-between sm:w-44"
+          className={`${publisherSoftButtonClass} h-11 justify-between rounded-xl px-4 sm:w-52`}
         >
           {t("Choose countries")}
           <ChevronDown className="h-4 w-4" />
@@ -1207,6 +1221,7 @@ export function DiscoverFeedEntryWorkbench({
                     updatePayloadField(state.type, field.key, event.target.value)
                   }
                   placeholder={t("One per line or comma-separated")}
+                  className={publisherTextareaClass}
                   rows={3}
                 />
               </FieldShell>
@@ -1223,6 +1238,7 @@ export function DiscoverFeedEntryWorkbench({
                   onChange={(event) =>
                     updatePayloadField(state.type, field.key, event.target.value)
                   }
+                  className={publisherInputClass}
                 />
               </FieldShell>
             );
@@ -1240,6 +1256,7 @@ export function DiscoverFeedEntryWorkbench({
                   onChange={(event) =>
                     updatePayloadField(state.type, field.key, event.target.value)
                   }
+                  className={publisherInputClass}
                 />
               </FieldShell>
             );
@@ -1248,18 +1265,21 @@ export function DiscoverFeedEntryWorkbench({
           if (field.kind === "boolean") {
             return (
               <FieldShell key={field.key} label={label} htmlFor={fieldId}>
-                <select
-                  id={fieldId}
-                  value={value}
-                  onChange={(event) =>
-                    updatePayloadField(state.type, field.key, event.target.value)
-                  }
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">{t("Not specified")}</option>
-                  <option value="true">{t("Yes")}</option>
-                  <option value="false">{t("No")}</option>
-                </select>
+                <div className="relative">
+                  <select
+                    id={fieldId}
+                    value={value}
+                    onChange={(event) =>
+                      updatePayloadField(state.type, field.key, event.target.value)
+                    }
+                    className={publisherSelectClass}
+                  >
+                    <option value="">{t("Not specified")}</option>
+                    <option value="true">{t("Yes")}</option>
+                    <option value="false">{t("No")}</option>
+                  </select>
+                  <ChevronDown className={publisherSelectCaretClass} />
+                </div>
               </FieldShell>
             );
           }
@@ -1278,6 +1298,7 @@ export function DiscoverFeedEntryWorkbench({
                   onChange={(event) =>
                     updatePayloadField(state.type, field.key, event.target.value)
                   }
+                  className={publisherTextareaClass}
                   rows={3}
                 />
               ) : (
@@ -1287,6 +1308,7 @@ export function DiscoverFeedEntryWorkbench({
                   onChange={(event) =>
                     updatePayloadField(state.type, field.key, event.target.value)
                   }
+                  className={publisherInputClass}
                 />
               )}
             </FieldShell>
@@ -1301,7 +1323,12 @@ export function DiscoverFeedEntryWorkbench({
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" size="sm" asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          asChild
+          className="h-9 rounded-xl text-violet-800 hover:bg-violet-100 hover:text-violet-950 dark:text-violet-100 dark:hover:bg-violet-500/14"
+        >
           <Link href={routeBase}>
             <ArrowLeft className="h-3.5 w-3.5" />
             {t("Back to feed entries")}
@@ -1312,11 +1339,11 @@ export function DiscoverFeedEntryWorkbench({
         ) : null}
       </div>
 
-      <section className="glass-panel overflow-hidden">
-        <div className="border-b border-border/75 px-5 py-4">
+      <section className="overflow-hidden rounded-2xl border border-violet-100/80 bg-white/92 shadow-[0_22px_62px_-46px_rgba(109,40,217,0.46)] dark:border-violet-400/16 dark:bg-slate-950/50">
+        <div className="border-b border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,243,255,0.90)_54%,rgba(240,249,255,0.72))] px-5 py-4 dark:border-violet-400/14 dark:bg-[linear-gradient(145deg,rgba(30,24,57,0.94),rgba(12,35,54,0.68))]">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex min-w-0 items-center gap-2">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-sky-500/10 text-sky-700 dark:text-sky-200">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-violet-200 bg-violet-100 text-violet-700 shadow-inner dark:border-violet-400/20 dark:bg-violet-500/14 dark:text-violet-100">
                 <Newspaper className="h-5 w-5" />
               </div>
               <div>
@@ -1335,6 +1362,7 @@ export function DiscoverFeedEntryWorkbench({
                 size="sm"
                 onClick={() => setState(savedState)}
                 disabled={!changed || isWorking}
+                className={publisherSoftButtonClass}
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 {t("Reset")}
@@ -1345,6 +1373,7 @@ export function DiscoverFeedEntryWorkbench({
                   size="sm"
                   onClick={() => void saveDraft()}
                   disabled={isWorking}
+                  className={publisherSoftButtonClass}
                 >
                   <Save className="h-3.5 w-3.5" />
                   {t("Save draft")}
@@ -1353,7 +1382,12 @@ export function DiscoverFeedEntryWorkbench({
               {mode === "edit" && feedItem ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" disabled={isWorking}>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={isWorking}
+                      className="h-9 rounded-xl"
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                       {t("Delete")}
                     </Button>
@@ -1393,41 +1427,44 @@ export function DiscoverFeedEntryWorkbench({
               <div className="grid gap-4 md:grid-cols-2">
                 <FieldShell label={t("Publisher")} htmlFor="discover-feed-publisher" className="md:col-span-2">
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    <select
-                      id="discover-feed-publisher"
-                      value={publisherSelectValue}
-                      onChange={(event) =>
-                        selectPublisher(event.target.value)
-                      }
-                      className="h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-                      disabled={!canChangePublisher}
-                    >
-                      <option value="">{t("Choose publisher")}</option>
-                      {organizations.length > 0 ? (
-                        <optgroup label={t("Organizations")}>
-                          {organizations.map((organization) => (
-                            <option
-                              key={organization.id}
-                              value={`organization:${organization.id}`}
-                            >
-                              {organization.name} ({t(organization.status)})
-                            </option>
-                          ))}
-                        </optgroup>
-                      ) : null}
-                      {individuals.length > 0 ? (
-                        <optgroup label={t("Individual Publishers")}>
-                          {individuals.map((individual) => (
-                            <option
-                              key={individual.id}
-                              value={`individual:${individual.id}`}
-                            >
-                              {individual.name} ({t(individual.status)})
-                            </option>
-                          ))}
-                        </optgroup>
-                      ) : null}
-                    </select>
+                    <div className="relative min-w-0 flex-1">
+                      <select
+                        id="discover-feed-publisher"
+                        value={publisherSelectValue}
+                        onChange={(event) =>
+                          selectPublisher(event.target.value)
+                        }
+                        className={publisherSelectClass}
+                        disabled={!canChangePublisher}
+                      >
+                        <option value="">{t("Choose publisher")}</option>
+                        {organizations.length > 0 ? (
+                          <optgroup label={t("Organizations")}>
+                            {organizations.map((organization) => (
+                              <option
+                                key={organization.id}
+                                value={`organization:${organization.id}`}
+                              >
+                                {organization.name} ({t(organization.status)})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : null}
+                        {individuals.length > 0 ? (
+                          <optgroup label={t("Individual Publishers")}>
+                            {individuals.map((individual) => (
+                              <option
+                                key={individual.id}
+                                value={`individual:${individual.id}`}
+                              >
+                                {individual.name} ({t(individual.status)})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : null}
+                      </select>
+                      <ChevronDown className={publisherSelectCaretClass} />
+                    </div>
                     {hasMorePublishers ? (
                       <Button
                         type="button"
@@ -1435,6 +1472,7 @@ export function DiscoverFeedEntryWorkbench({
                         size="sm"
                         onClick={() => void loadMoreOrganizations()}
                         disabled={pending}
+                        className={publisherSoftButtonClass}
                       >
                         {t("Load more publishers")}
                       </Button>
@@ -1443,34 +1481,40 @@ export function DiscoverFeedEntryWorkbench({
                 </FieldShell>
 
                 <FieldShell label={t("Type")} htmlFor="discover-feed-type">
-                  <select
-                    id="discover-feed-type"
-                    value={state.type}
-                    onChange={(event) =>
-                      updateState({ type: event.target.value as DiscoverFeedType })
-                    }
-                    className="h-11 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    {DISCOVER_FEED_TYPE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {t(option.label)}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      id="discover-feed-type"
+                      value={state.type}
+                      onChange={(event) =>
+                        updateState({ type: event.target.value as DiscoverFeedType })
+                      }
+                      className={publisherSelectClass}
+                    >
+                      {DISCOVER_FEED_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {t(option.label)}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className={publisherSelectCaretClass} />
+                  </div>
                 </FieldShell>
 
                 <FieldShell label={t("Language")} htmlFor="discover-feed-language">
-                  <select
-                    id="discover-feed-language"
-                    value={state.language}
-                    onChange={(event) =>
-                      updateState({ language: event.target.value as "en" | "es" })
-                    }
-                    className="h-11 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="en">{t("English")}</option>
-                    <option value="es">{t("Spanish")}</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      id="discover-feed-language"
+                      value={state.language}
+                      onChange={(event) =>
+                        updateState({ language: event.target.value as "en" | "es" })
+                      }
+                      className={publisherSelectClass}
+                    >
+                      <option value="en">{t("English")}</option>
+                      <option value="es">{t("Spanish")}</option>
+                    </select>
+                    <ChevronDown className={publisherSelectCaretClass} />
+                  </div>
                 </FieldShell>
 
                 <FieldShell label={t("Title")} htmlFor="discover-feed-title" className="md:col-span-2">
@@ -1478,7 +1522,7 @@ export function DiscoverFeedEntryWorkbench({
                     id="discover-feed-title"
                     value={state.title}
                     onChange={(event) => updateState({ title: event.target.value })}
-                    className="h-12 text-base"
+                    className={`${publisherInputClass} h-12 text-base`}
                   />
                 </FieldShell>
 
@@ -1488,7 +1532,7 @@ export function DiscoverFeedEntryWorkbench({
                     value={state.subtitle}
                     onChange={(event) => updateState({ subtitle: event.target.value })}
                     rows={3}
-                    className="text-base"
+                    className={`${publisherTextareaClass} text-base`}
                   />
                 </FieldShell>
 
@@ -1512,7 +1556,7 @@ export function DiscoverFeedEntryWorkbench({
                         ? "discover-feed-image-guidance discover-feed-image-error"
                         : "discover-feed-image-guidance"
                     }
-                    className={`h-11 ${imageUrlError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    className={`${publisherInputClass} ${imageUrlError ? "border-destructive focus-visible:ring-destructive" : ""}`}
                   />
                   <p
                     id="discover-feed-image-guidance"
@@ -1523,7 +1567,7 @@ export function DiscoverFeedEntryWorkbench({
                       href="https://goldencrowvs.com/pocket-genes/banner.png"
                       target="_blank"
                       rel="noreferrer"
-                      className="font-semibold text-sky-700 underline underline-offset-2 hover:text-sky-900 dark:text-sky-300 dark:hover:text-sky-200"
+                      className="font-semibold text-violet-700 underline underline-offset-2 hover:text-violet-900 dark:text-violet-200 dark:hover:text-violet-100"
                     >
                       See example
                     </a>
@@ -1532,9 +1576,9 @@ export function DiscoverFeedEntryWorkbench({
               </div>
             </section>
 
-            <section className="flex flex-col gap-4 rounded-md border border-sky-200/70 bg-sky-50/45 px-4 py-4 dark:border-sky-300/16 dark:bg-sky-400/8">
+            <section className={publisherFieldSectionClass}>
               <SectionTitle eyebrow={t("Body")} title={t("Write the note")}>
-                <div className="inline-flex rounded-md border border-border bg-background p-1">
+                <div className="inline-flex rounded-xl border border-violet-100/80 bg-white/78 p-1 shadow-sm dark:border-violet-400/16 dark:bg-violet-500/8">
                   {(["plain", "rich"] as BodyMode[]).map((option) => (
                     <button
                       key={option}
@@ -1543,8 +1587,8 @@ export function DiscoverFeedEntryWorkbench({
                       className={[
                         "inline-flex h-9 items-center gap-2 rounded px-3 text-sm font-medium transition-colors",
                         bodyMode === option
-                          ? "bg-foreground text-background"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                          ? "bg-violet-600 text-white shadow-sm"
+                          : "text-muted-foreground hover:bg-violet-50 hover:text-foreground dark:hover:bg-violet-500/10",
                       ].join(" ")}
                     >
                       {option === "plain" ? (
@@ -1564,11 +1608,11 @@ export function DiscoverFeedEntryWorkbench({
                   value={state.body}
                   onChange={(event) => updateState({ body: event.target.value })}
                   rows={16}
-                  className="min-h-[24rem] resize-y border-sky-200/80 bg-white/90 text-base leading-7 shadow-sm dark:border-sky-300/18 dark:bg-slate-950/50"
+                  className={`${publisherTextareaClass} min-h-[24rem] resize-y text-base leading-7`}
                 />
               ) : (
-                <div className="overflow-hidden rounded-md border border-sky-200/80 bg-white shadow-sm dark:border-sky-300/18 dark:bg-slate-950/50">
-                  <div className="flex flex-wrap gap-1 border-b border-border/70 bg-muted/40 px-2 py-2">
+                <div className="overflow-hidden rounded-xl border border-violet-200/75 bg-white shadow-sm dark:border-violet-400/18 dark:bg-slate-950/45">
+                  <div className="flex flex-wrap gap-1 border-b border-violet-100/80 bg-violet-50/55 px-2 py-2 dark:border-violet-400/14 dark:bg-violet-500/8">
                     <Button type="button" variant="ghost" size="icon-sm" title={t("Heading")} aria-label={t("Heading")} onClick={() => runRichCommand("formatBlock", "h2")}>
                       <Heading2 className="h-4 w-4" />
                     </Button>
@@ -1594,7 +1638,7 @@ export function DiscoverFeedEntryWorkbench({
                     suppressContentEditableWarning
                     onInput={syncRichBody}
                     onBlur={syncRichBody}
-                    className="min-h-[24rem] px-5 py-4 text-base leading-7 outline-none prose-headings:font-heading [&_a]:text-sky-700 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-sky-300 [&_blockquote]:pl-4 [&_h2]:mb-3 [&_h2]:mt-5 [&_li]:ml-5 [&_ul]:list-disc"
+                    className="min-h-[24rem] px-5 py-4 text-base leading-7 outline-none prose-headings:font-heading [&_a]:text-violet-700 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-violet-300 [&_blockquote]:pl-4 [&_h2]:mb-3 [&_h2]:mt-5 [&_li]:ml-5 [&_ul]:list-disc"
                     dangerouslySetInnerHTML={{
                       __html: state.htmlBody || plainTextToHtml(state.body),
                     }}
@@ -1608,7 +1652,7 @@ export function DiscoverFeedEntryWorkbench({
               </div>
             </section>
 
-            <section className="flex flex-col gap-4 rounded-md border border-sky-200/70 bg-sky-50/45 px-4 py-4 dark:border-sky-300/16 dark:bg-sky-400/8">
+            <section className={publisherFieldSectionClass}>
               <SectionTitle
                 eyebrow={t("Main button")}
                 title={t("Main note button customization")}
@@ -1638,7 +1682,7 @@ export function DiscoverFeedEntryWorkbench({
                     aria-describedby={
                       sourceUrlError ? "discover-feed-source-error" : undefined
                     }
-                    className={`h-11 border-sky-200/80 bg-white/90 shadow-sm dark:border-sky-300/18 dark:bg-slate-950/50 ${sourceUrlError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    className={`${publisherInputClass} ${sourceUrlError ? "border-destructive focus-visible:ring-destructive" : ""}`}
                   />
                 </FieldShell>
 
@@ -1654,13 +1698,13 @@ export function DiscoverFeedEntryWorkbench({
                     }
                     placeholder={t("Open organizer website")}
                     disabled={!state.sourceUrl.trim()}
-                    className="h-11 border-sky-200/80 bg-white/90 shadow-sm dark:border-sky-300/18 dark:bg-slate-950/50"
+                    className={publisherInputClass}
                   />
                 </FieldShell>
               </div>
             </section>
 
-            <section className="flex flex-col gap-4 rounded-md border border-sky-200/70 bg-sky-50/45 px-4 py-4 dark:border-sky-300/16 dark:bg-sky-400/8">
+            <section className={publisherFieldSectionClass}>
               <SectionTitle
                 eyebrow={t("Specific type fields")}
                 title={t(discoverTypeLabel(state.type))}
@@ -1669,10 +1713,10 @@ export function DiscoverFeedEntryWorkbench({
             </section>
           </div>
 
-          <aside className="border-t border-border/75 bg-muted/22 px-5 py-5 xl:border-l xl:border-t-0">
+          <aside className="border-t border-violet-100/80 bg-[linear-gradient(180deg,rgba(245,243,255,0.48),rgba(255,255,255,0.74))] px-5 py-5 dark:border-violet-400/14 dark:bg-violet-500/6 xl:border-l xl:border-t-0">
             <div className="sticky top-[calc(var(--app-header-height)+1rem)] flex flex-col gap-4">
-              <div className="rounded-md border border-border bg-background/86 p-4 shadow-sm">
-                <div className="mb-4 border-b border-border/70 pb-3">
+              <div className="rounded-2xl border border-violet-100/80 bg-white/88 p-4 shadow-[0_18px_56px_-44px_rgba(109,40,217,0.45)] dark:border-violet-400/16 dark:bg-slate-950/56">
+                <div className="mb-4 border-b border-violet-100/80 pb-3 dark:border-violet-400/14">
                   <h3 className="font-heading text-base font-semibold text-foreground">
                     {t("Preview")}
                   </h3>
@@ -1683,10 +1727,10 @@ export function DiscoverFeedEntryWorkbench({
                     <img
                       src={selectedPublisher.imageUrl}
                       alt=""
-                      className="h-10 w-10 rounded-md border border-border object-cover"
+                      className="h-10 w-10 rounded-2xl border border-violet-100 object-cover shadow-sm dark:border-violet-400/14"
                     />
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-sm dark:border-violet-400/14 dark:bg-violet-500/8 dark:text-violet-100">
                       <Languages className="h-4 w-4" />
                     </div>
                   )}
@@ -1702,7 +1746,7 @@ export function DiscoverFeedEntryWorkbench({
                   </div>
                 </div>
 
-                <div className="mt-4 overflow-hidden rounded-md border border-border bg-muted/30">
+                <div className="mt-4 overflow-hidden rounded-2xl border border-violet-100 bg-violet-50/45 shadow-sm dark:border-violet-400/14 dark:bg-violet-500/8">
                   {state.imageUrl && !imageUrlError ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -1744,7 +1788,7 @@ export function DiscoverFeedEntryWorkbench({
           </aside>
         </div>
 
-        <div className="sticky bottom-0 z-20 border-t border-border bg-background/94 px-5 py-4 shadow-[0_-18px_42px_rgba(15,23,42,0.12)] backdrop-blur">
+        <div className="sticky bottom-0 z-20 border-t border-violet-100/80 bg-white/92 px-5 py-4 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur dark:border-violet-400/14 dark:bg-slate-950/88">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0 text-sm text-muted-foreground">
               {changed ? t("Unsaved changes") : t("No unsaved changes")}
@@ -1753,7 +1797,7 @@ export function DiscoverFeedEntryWorkbench({
               <Button
                 size="lg"
                 asChild
-                className="h-14 min-w-[min(100%,22rem)] justify-center text-base font-semibold"
+                className="h-14 min-w-[min(100%,22rem)] justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
               >
                 <a href={publishedAppUrl} target="_blank" rel="noreferrer">
                   <ExternalLink className="h-5 w-5" />
@@ -1765,7 +1809,7 @@ export function DiscoverFeedEntryWorkbench({
                 size="lg"
                 onClick={() => void (mode === "edit" ? saveChanges() : publish())}
                 disabled={isWorking}
-                className="h-14 min-w-[min(100%,22rem)] justify-center text-base font-semibold"
+                className="h-14 min-w-[min(100%,22rem)] justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
               >
                 {pending ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -1797,9 +1841,9 @@ export function DiscoverFeedEntryWorkbench({
       >
         <DialogContent
           showCloseButton={publishDialog?.status !== "publishing"}
-          className="max-w-xl overflow-hidden rounded-[2rem] border border-sky-100 [background:linear-gradient(155deg,rgba(249,253,255,0.98),rgba(240,249,255,0.98)_54%,rgba(207,250,254,0.94))] p-0 text-sky-950 shadow-[0_34px_120px_rgba(14,165,233,0.24)] dark:border-sky-300/22 dark:[background:linear-gradient(150deg,rgba(8,28,39,0.98),rgba(12,38,55,0.96)_48%,rgba(14,165,233,0.18))] dark:text-sky-50"
+          className="max-w-xl overflow-hidden rounded-[2rem] border border-violet-100 [background:linear-gradient(155deg,rgba(255,255,255,0.98),rgba(245,243,255,0.98)_54%,rgba(240,249,255,0.90))] p-0 text-violet-950 shadow-[0_34px_120px_rgba(109,40,217,0.22)] dark:border-violet-300/22 dark:[background:linear-gradient(150deg,rgba(30,24,57,0.98),rgba(18,23,40,0.96)_48%,rgba(76,29,149,0.20))] dark:text-violet-50"
         >
-          <DialogHeader className="border-b border-sky-100 px-6 py-5 dark:border-sky-300/16">
+          <DialogHeader className="border-b border-violet-100 px-6 py-5 dark:border-violet-300/16">
             <DialogTitle className="font-heading text-2xl font-semibold">
               {publishDialog?.status === "success"
                 ? t("Published to Discover")
@@ -1807,15 +1851,15 @@ export function DiscoverFeedEntryWorkbench({
                   ? t("Publish needs attention")
                   : t("Publishing Discover entry")}
             </DialogTitle>
-            <DialogDescription className="text-sky-950/70 dark:text-sky-50/70">
+            <DialogDescription className="text-violet-950/70 dark:text-violet-50/70">
               {publishDialog?.message ??
                 t("Saving the entry and preparing it for the mobile feed.")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="px-6 py-6">
-            <div className="flex items-start gap-4 rounded-[1.5rem] border border-sky-100 bg-white/75 px-5 py-5 dark:border-sky-300/16 dark:bg-sky-950/24">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-sky-700 shadow-sm dark:bg-sky-400/12 dark:text-sky-100">
+            <div className="flex items-start gap-4 rounded-[1.5rem] border border-violet-100 bg-white/75 px-5 py-5 shadow-sm dark:border-violet-300/16 dark:bg-violet-950/24">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-violet-700 shadow-sm dark:bg-violet-400/12 dark:text-violet-100">
                 {publishDialog?.status === "success" ? (
                   <CheckCircle2 className="h-5 w-5" />
                 ) : publishDialog?.status === "error" ? (
@@ -1832,7 +1876,7 @@ export function DiscoverFeedEntryWorkbench({
                       ? t("Nothing was published")
                       : t("Publishing in progress")}
                 </p>
-                <p className="mt-2 text-sm text-sky-950/70 dark:text-sky-50/70">
+                <p className="mt-2 text-sm text-violet-950/70 dark:text-violet-50/70">
                   {publishDialog?.status === "success"
                     ? t("The item is saved with status published and will appear wherever the app reads the published Discover feed.")
                     : publishDialog?.status === "error"
@@ -1844,13 +1888,17 @@ export function DiscoverFeedEntryWorkbench({
           </div>
 
           {publishDialog?.status === "error" ? (
-            <DialogFooter className="gap-3 border-sky-100/90 bg-white/55 px-6 py-5 dark:border-sky-300/14 dark:bg-sky-950/16">
-              <Button type="button" onClick={() => setPublishDialog(null)}>
+            <DialogFooter className="gap-3 border-violet-100/90 bg-white/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
+              <Button
+                type="button"
+                onClick={() => setPublishDialog(null)}
+                className={publisherPrimaryButtonClass}
+              >
                 {t("OK")}
               </Button>
             </DialogFooter>
           ) : publishDialog?.status === "success" ? (
-            <DialogFooter className="gap-3 border-sky-100/90 bg-white/55 px-6 py-5 dark:border-sky-300/14 dark:bg-sky-950/16">
+            <DialogFooter className="gap-3 border-violet-100/90 bg-white/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
               <Button
                 type="button"
                 variant="outline"
@@ -1858,6 +1906,7 @@ export function DiscoverFeedEntryWorkbench({
                   setPublishDialog(null);
                   router.push(routeBase);
                 }}
+                className={publisherSoftButtonClass}
               >
                 {t("Back to feed entries")}
               </Button>
@@ -1872,6 +1921,7 @@ export function DiscoverFeedEntryWorkbench({
                     setPublishDialog(null);
                     router.push(`${routeBase}/${feedItemId}`);
                   }}
+                  className={publisherPrimaryButtonClass}
                 >
                   {t("Open entry")}
                 </Button>

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,17 +15,18 @@ import type {
   DiscoverPublisherSocialKey,
   DiscoverPublisherSocialLinks,
 } from "@/lib/discover";
+import { cn } from "@/lib/utils";
 
 const SOCIAL_ASSET_BASE = "/discover/social-network-assets";
 
-type SocialOption = {
+export type SocialOption = {
   key: DiscoverPublisherSocialKey;
   label: string;
   placeholder: string;
   assetName: string;
 };
 
-const SOCIAL_OPTIONS: readonly SocialOption[] = [
+export const SOCIAL_OPTIONS: readonly SocialOption[] = [
   {
     key: "facebook",
     label: "Facebook profile",
@@ -227,22 +227,51 @@ const SOCIAL_OPTIONS: readonly SocialOption[] = [
   },
 ] as const;
 
-function socialAssetSrc(assetName: string) {
+export function socialAssetSrc(assetName: string) {
   return `${SOCIAL_ASSET_BASE}/${assetName}.png`;
 }
 
-function SocialOptionIcon({ option }: { option: SocialOption }) {
+export function SocialAssetIcon({
+  option,
+  className,
+  imageClassName,
+  size = 40,
+}: {
+  option: SocialOption;
+  className?: string;
+  imageClassName?: string;
+  size?: number;
+}) {
   return (
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-full shadow-sm ring-1 ring-black/10">
-      <Image
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-background shadow-sm ring-1 ring-black/5",
+        className,
+      )}
+      style={{
+        height: size,
+        maxHeight: size,
+        maxWidth: size,
+        minHeight: size,
+        minWidth: size,
+        width: size,
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src={socialAssetSrc(option.assetName)}
         alt=""
-        width={36}
-        height={36}
+        width={size}
+        height={size}
         aria-hidden="true"
         draggable={false}
-        unoptimized
-        className="size-9 rounded-full object-contain"
+        className={cn("block rounded-[inherit]", imageClassName)}
+        style={{
+          display: "block",
+          height: "100%",
+          objectFit: "contain",
+          width: "100%",
+        }}
       />
     </span>
   );
@@ -265,10 +294,7 @@ export function PublisherSocialLinksEditor({
   const [pickerOpen, setPickerOpen] = useState(false);
   const rows = SOCIAL_OPTIONS.filter((option) => selectedKeys.has(option.key));
 
-  function updateSocial(
-    key: DiscoverPublisherSocialKey,
-    nextValue: string,
-  ) {
+  function updateSocial(key: DiscoverPublisherSocialKey, nextValue: string) {
     onChange({ ...social, [key]: nextValue });
   }
 
@@ -309,31 +335,35 @@ export function PublisherSocialLinksEditor({
       </div>
 
       {rows.length ? (
-        <div className="grid gap-2">
+        <div className="grid gap-3">
           {rows.map((option) => {
             return (
               <div
                 key={option.key}
-                className="grid gap-2 rounded-md border border-border bg-background p-2 md:grid-cols-[11rem_minmax(0,1fr)_auto] md:items-center"
+                className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-background p-3 shadow-sm"
               >
-                <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                  <SocialOptionIcon option={option} />
-                  <span className="truncate">{t(option.label)}</span>
+                <SocialAssetIcon option={option} size={44} />
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 truncate text-sm font-semibold text-foreground">
+                    {t(option.label)}
+                  </div>
+                  <Input
+                    value={social[option.key] ?? ""}
+                    onChange={(event) =>
+                      updateSocial(option.key, event.target.value)
+                    }
+                    placeholder={option.placeholder}
+                    aria-label={t(option.label)}
+                    className="h-10 min-w-0"
+                  />
                 </div>
-                <Input
-                  value={social[option.key] ?? ""}
-                  onChange={(event) =>
-                    updateSocial(option.key, event.target.value)
-                  }
-                  placeholder={option.placeholder}
-                  aria-label={t(option.label)}
-                />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   onClick={() => removeSocial(option.key)}
                   aria-label={`${t("Remove")} ${t(option.label)}`}
+                  className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -362,9 +392,9 @@ export function PublisherSocialLinksEditor({
                   key={option.key}
                   type="button"
                   onClick={() => addSocial(option)}
-                  className="flex min-w-0 items-center gap-3 rounded-md border border-border bg-background px-3 py-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/60"
+                  className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-background px-3 py-3 text-left shadow-sm transition-colors hover:border-primary/50 hover:bg-muted/60"
                 >
-                  <SocialOptionIcon option={option} />
+                  <SocialAssetIcon option={option} size={42} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-foreground">
                       {t(option.label)}

@@ -80,6 +80,16 @@ const CRM_FAVORITE_RULE =
   "Optional. Use true/false, 1/0, yes/no, or favorito. True rows are shown with a yellow star and sorted first in CRM lists.";
 const TEMPLATE_FAVORITE_RULE =
   "Optional. Use true/false, 1/0, yes/no, or favorito. True templates are shown with a yellow star and sorted first in plantillas lists.";
+const CRM_STRUCTURED_NOTES_RULE =
+  'Optional structured JSON object string. Maximum 2000 characters. Prefer concise keys such as reviewed, instagram, services, argentina, digital, note, sources, email_route, or linkedin_route. Store each note fragment as a JSON value, for example {"instagram":"https://www.instagram.com/adnsalta/","services":"NIPT listed as a purchasable service."}. Do not use markdown bullets, labels with bold text, or pasted scraped pages. If the JSON is placed in a CSV cell, wrap the whole cell in double quotes and escape each internal quote by doubling it.';
+const ORGANIZATION_NOTES_JSON_EXAMPLE =
+  '{"reviewed":"2026-09-12","instagram":"https://www.instagram.com/adnsalta/","services":"NIPT listed as a purchasable service; genetic tests and clinical laboratory services.","sources":"https://www.adnsalta.com.ar/productos/test-prenatal-no-invasivo-nipt/ ; https://www.adnsalta.com.ar/"}';
+const PROFESSIONAL_NOTES_JSON_EXAMPLE =
+  '{"reviewed":"2026-09-12","route":"LinkedIn response; validate recipient context before email.","sources":"Public affiliation site and LinkedIn record."}';
+
+function csvCell(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
+}
 
 const TEMPLATE_VARIABLES = [
   "contact_name",
@@ -95,6 +105,95 @@ const TEMPLATE_VARIABLES = [
   "website",
   "website_sentence",
 ] as const;
+
+const PROFESSIONAL_VARIABLE_QUALITY_RULE =
+  "Best effort is required for professional imports: whenever source data allows it, fill name, title, primary_affiliation, potential_pocket_genes_editor_fit, email_route, linkedin_route, research_basis, and website so professional plantillas that use variables do not render blank or generic. The potential_pocket_genes_editor_fit value must be a short lowercase noun phrase that fits directly after “Por tu experiencia en ...”; never start it with labels such as “Propuesta editorial:”, “Editorial proposal:”, “Hook editorial:” or similar.";
+
+const PROFESSIONAL_TEMPLATE_VARIABLE_COVERAGE = [
+  {
+    variable: "{{professional_name}}, {{first_name}}, {{contact_name}}",
+    source: "name",
+  },
+  { variable: "{{title}}", source: "title" },
+  { variable: "{{primary_affiliation}}", source: "primary_affiliation" },
+  {
+    variable: "{{potential_pocket_genes_editor_fit}}",
+    source: "potential_pocket_genes_editor_fit",
+  },
+  { variable: "{{email_route}}", source: "email_route" },
+  { variable: "{{linkedin_route}}", source: "linkedin_route" },
+  { variable: "{{research_basis}}", source: "research_basis" },
+  { variable: "{{website}}, {{website_sentence}}", source: "website" },
+] as const;
+
+const PROFESSIONAL_TEMPLATE_MANDATORY_CLOSING = [
+  "Te comparto nuestro link para que puedas conocer la propuesta y sumarte a la red:",
+  "",
+  "https://goldencrowvs.com/pocket-genes/join-us/",
+  "",
+  "Quedamos a la espera de tu respuesta.",
+  "",
+  "Saludos,",
+  "Federico",
+].join("\n");
+
+const PROFESSIONAL_TEMPLATE_BODY_RULES = [
+  {
+    label: "Purpose",
+    detail:
+      "Invite the recipient to discover the proposal and join the network. Present editorial contributions as an optional opportunity.",
+  },
+  {
+    label: "Personalization",
+    detail:
+      "Use relevant variables in the subject and earlier paragraphs to explain why the invitation fits the recipient. Keep the closing unchanged.",
+  },
+  {
+    label: "Mandatory closing",
+    detail:
+      "Use the approved closing verbatim, preserving paragraph breaks, followed only by the sender's signature.",
+  },
+] as const;
+
+const PROFESSIONAL_TEMPLATE_WRITING_STYLE_RULES = [
+  "Warm, professional Argentine Spanish: Use natural voseo, complete sentences and connected paragraphs. Avoid slang, exaggerated praise and sales jargon.",
+  'Team voice: Prefer formulations such as "Con mi equipo estamos construyendo", "Nos gustaría invitarte" and "Quedamos a la espera de tu respuesta."',
+  "Explain the invitation fully: Introduce the network, explain its relevance to the recipient, describe the benefits of joining for free and mention optional ways to participate.",
+  "Keep the invitation low-pressure: Do not ask the recipient to suggest topics, explain concepts, recommend resources or commit to a contribution as the final call to action.",
+  'Preserve the approved wording: Do not shorten the closing to "Conocé más", "Te dejo el link" or "Te comparto el link para conocer Pocket Genes."',
+] as const;
+
+const PROFESSIONAL_TEMPLATE_REVIEW_RULE =
+  "A template is editorially complete only when it preserves the approved closing, contains no additional question or call to action after it, and follows the requested voice. CSV validity alone does not establish writing-style compliance.";
+
+const ORGANIZATION_TEMPLATE_BODY_RULES = [
+  {
+    label: "Purpose",
+    detail:
+      "Invite the organization contact to discover the proposal and join the network. Present collaborations, institutional visibility, and editorial contributions as optional opportunities.",
+  },
+  {
+    label: "Personalization",
+    detail:
+      "Use relevant organization variables in the subject and earlier paragraphs to explain why the invitation fits the organization. Keep the closing unchanged.",
+  },
+  {
+    label: "Mandatory closing",
+    detail:
+      "Use the approved closing verbatim, preserving paragraph breaks, followed only by the sender's signature.",
+  },
+] as const;
+
+const ORGANIZATION_TEMPLATE_WRITING_STYLE_RULES = [
+  "Warm, professional Argentine Spanish: Use natural voseo, complete sentences and connected paragraphs. Avoid slang, exaggerated praise and sales jargon.",
+  'Team voice: Prefer formulations such as "Con mi equipo estamos construyendo", "Nos gustaría invitarte" and "Quedamos a la espera de tu respuesta."',
+  "Explain the invitation fully: Introduce the network, explain its relevance to the organization, describe the benefits of joining for free and mention optional ways to participate.",
+  "Keep the invitation low-pressure: Do not ask the recipient to suggest topics, explain concepts, recommend resources or commit to a contribution as the final call to action.",
+  'Preserve the approved wording: Do not shorten the closing to "Conocé más", "Te dejo el link" or "Te comparto el link para conocer Pocket Genes."',
+] as const;
+
+const ORGANIZATION_TEMPLATE_REVIEW_RULE =
+  "An organization template is editorially complete only when it preserves the approved closing, contains no additional question or call to action after it, and follows the requested voice. CSV validity alone does not establish writing-style compliance.";
 
 function csvHeadersFor(kind: ImportRulesKind) {
   if (kind === "professionals") {
@@ -113,7 +212,62 @@ function optionalHeadersFor(kind: ImportRulesKind) {
   return csvHeadersFor(kind).filter((header) => !required.has(header));
 }
 
-function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
+function usesProfessionalTemplateRules(
+  kind: ImportRulesKind,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return kind === "templates" && audience === "professionals";
+}
+
+function usesOrganizationTemplateRules(
+  kind: ImportRulesKind,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return kind === "templates" && audience === "organizations";
+}
+
+function usesAudienceTemplateRules(
+  kind: ImportRulesKind,
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return (
+    usesProfessionalTemplateRules(kind, audience) ||
+    usesOrganizationTemplateRules(kind, audience)
+  );
+}
+
+function templateAudienceRulePrefix(audience: PartnershipCrmTemplateAudience) {
+  return audience === "professionals" ? "Professional" : "Organization";
+}
+
+function templateBodyRulesForAudience(
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return audience === "professionals"
+    ? PROFESSIONAL_TEMPLATE_BODY_RULES
+    : ORGANIZATION_TEMPLATE_BODY_RULES;
+}
+
+function templateWritingStyleRulesForAudience(
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return audience === "professionals"
+    ? PROFESSIONAL_TEMPLATE_WRITING_STYLE_RULES
+    : ORGANIZATION_TEMPLATE_WRITING_STYLE_RULES;
+}
+
+function templateReviewRuleForAudience(
+  audience: PartnershipCrmTemplateAudience,
+) {
+  return audience === "professionals"
+    ? PROFESSIONAL_TEMPLATE_REVIEW_RULE
+    : ORGANIZATION_TEMPLATE_REVIEW_RULE;
+}
+
+function ruleLinesFor(
+  kind: ImportRulesKind,
+  audience: PartnershipCrmTemplateAudience = "organizations",
+): RuleLine[] {
   if (kind === "professionals") {
     return [
       {
@@ -131,46 +285,45 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
       {
         label: "title",
         detail:
-          "Optional. Maximum 180 characters. Store only the professional role, title, specialty, or credential.",
+          "Optional but best effort for professional templates. Maximum 180 characters. Store only the professional role, title, specialty, or credential. Powers {{title}}.",
         example: "CEO and reproductive medicine specialist",
       },
       {
         label: "primary_affiliation",
         detail:
-          "Optional. Maximum 180 characters. Store the main institution, company, lab, hospital, or professional affiliation as a plain name.",
+          "Optional but best effort for professional templates. Maximum 180 characters. Store the main institution, company, lab, hospital, or professional affiliation as a plain name. Powers {{primary_affiliation}}.",
         example: "MedicGen / Nascentis",
       },
       {
         label: "potential_pocket_genes_editor_fit",
         detail:
-          "Optional. Maximum 2000 characters. Store why this professional could fit Pocket Genes editor work, such as clinical genetics, genetic testing, result interpretation, or patient education.",
-        example:
-          "Genetic testing adoption, carrier screening, and patient education.",
+          "Optional but best effort and high value for professional templates. Maximum 2000 characters. Store only the exact title, work, topic, or editorial hook as a short lowercase noun phrase that fits inside: “Por tu experiencia en {{potential_pocket_genes_editor_fit}}, pensamos que podría haber un buen match.” Never start with labels or prefixes such as “Propuesta editorial:”, “Editorial proposal:”, “Hook editorial:”, “Fit editorial:” or explanatory wording. Do not add wrapping quotes, commas, periods, or explanatory punctuation at the end. Powers {{potential_pocket_genes_editor_fit}}.",
+        example: "adopción de pruebas genéticas y educación de pacientes",
       },
       {
         label: "email_route",
         detail:
-          "Optional. Maximum 2000 characters. Store how the recipient email was found and what context should be verified before outreach. This is not the direct email field.",
+          "Optional but best effort for professional templates. Maximum 2000 characters. Store how the recipient email was found and what context should be verified before outreach. This is not the direct email field. Powers {{email_route}}.",
         example:
           "Public institutional contact; verify recipient context before outreach.",
       },
       {
         label: "linkedin_route",
         detail:
-          "Optional. Maximum 2000 characters. Store the LinkedIn route, such as the professional profile or official affiliated organization page. This is not the direct LinkedIn URL field.",
+          "Optional but best effort for professional templates. Maximum 2000 characters. Store the LinkedIn route, such as the professional profile or official affiliated organization page. This is not the direct LinkedIn URL field. Powers {{linkedin_route}}.",
         example: "Public personal LinkedIn profile used to verify affiliation.",
       },
       {
         label: "research_basis",
         detail:
-          "Optional. Maximum 2000 characters. Store the source basis used to validate the lead, such as datasets, affiliation websites, LinkedIn records, or other verified references.",
+          "Optional but best effort for professional templates. Maximum 2000 characters. Store the source basis used to validate the lead, such as datasets, affiliation websites, LinkedIn records, or other verified references. Powers {{research_basis}}.",
         example:
           "Affiliation website, LinkedIn record, and prior outreach notes.",
       },
       {
         label: "website",
         detail:
-          "Optional. Maximum 500 characters. Use a public website URL. Values without protocol are accepted and normalized with https:// when possible.",
+          "Optional but best effort for professional templates. Maximum 500 characters. Use a public website URL. Values without protocol are accepted and normalized with https:// when possible. Powers {{website}} and {{website_sentence}}.",
         example: "https://medicgen.com/",
       },
       {
@@ -209,9 +362,8 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
       },
       {
         label: "notes",
-        detail:
-          "Optional plain operational notes. Maximum 2000 characters. Do not paste long scraped pages or JSON blobs.",
-        example: "Responded on LinkedIn and referred coordination internally.",
+        detail: CRM_STRUCTURED_NOTES_RULE,
+        example: PROFESSIONAL_NOTES_JSON_EXAMPLE,
       },
     ];
   }
@@ -278,9 +430,8 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
       },
       {
         label: "notes",
-        detail:
-          "Optional plain operational notes. Maximum 2000 characters. Do not paste long scraped pages or JSON blobs.",
-        example: "Imported after call with lab team.",
+        detail: CRM_STRUCTURED_NOTES_RULE,
+        example: ORGANIZATION_NOTES_JSON_EXAMPLE,
       },
     ];
   }
@@ -295,13 +446,18 @@ function ruleLinesFor(kind: ImportRulesKind): RuleLine[] {
     {
       label: "subject",
       detail:
-        "Required. Trimmed before save. Maximum 180 characters. Template variables such as {{organization_name}} or {{first_name}} are allowed. Unknown variables render blank.",
+        "Required. Trimmed before save. Maximum 180 characters. Template variables such as {{organization_name}} or {{first_name}} are allowed. Prefer subjects that use a relevant variable when possible; unknown variables render blank.",
       example: "Pocket Genes + {{organization_name}}",
     },
     {
       label: "body",
-      detail:
-        "Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Template variables are allowed and unknown variables render blank.",
+      detail: usesAudienceTemplateRules(kind, audience)
+        ? `Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Prefer body copy that uses audience variables where they improve personalization; unknown variables render blank. ${templateAudienceRulePrefix(
+            audience,
+          )} templates must follow the ${templateAudienceRulePrefix(
+            audience,
+          ).toLowerCase()} template body rules, preserve the approved closing verbatim, and contain no additional question or call to action after it.`
+        : "Required. Maximum 12000 characters. Use quoted multiline cells or literal \\n for line breaks. Prefer body copy that uses audience variables where they improve personalization; unknown variables render blank.",
       example: "Hi {{first_name}},\\nI am reaching out about Pocket Genes.",
     },
     {
@@ -359,7 +515,7 @@ function exampleCsvFor(
         '""',
         '"https://www.linkedin.com/in/nascentisfertility"',
         '"2026-08-25T14:29:00-03:00"',
-        '"No direct email yet; coordination referred internally."',
+        csvCell(PROFESSIONAL_NOTES_JSON_EXAMPLE),
       ].join(","),
     ].join("\n");
   }
@@ -378,7 +534,7 @@ function exampleCsvFor(
         '"ada@genomelab.example"',
         '"https://www.linkedin.com/in/adagenome"',
         '"2026-08-25T17:29:00.000Z"',
-        '"Imported after call with lab team."',
+        csvCell(ORGANIZATION_NOTES_JSON_EXAMPLE),
       ].join(","),
     ].join("\n");
   }
@@ -395,8 +551,8 @@ function exampleCsvFor(
       : "Pocket Genes + {{organization_name}}";
   const body =
     audience === "professionals"
-      ? "Hi {{first_name}},\\nI am reaching out about {{potential_pocket_genes_editor_fit}}."
-      : "Hi {{contact_name}},\\nI am reaching out about {{organization_name}}.";
+      ? "Hola {{first_name}},\\n\\nCon mi equipo estamos construyendo Pocket Genes, una red para conectar profesionales, instituciones y proyectos vinculados a genetica, medicina reproductiva y salud personalizada. Nos gustaria invitarte porque tu experiencia en {{potential_pocket_genes_editor_fit}} podria aportar una mirada valiosa a la comunidad.\\n\\nSumarte a la red es gratuito y permite que mas personas conozcan tu trabajo, tu afiliacion principal y posibles oportunidades de colaboracion. Si en algun momento te interesa, tambien podrias participar con aportes editoriales o revisar contenidos vinculados a tu especialidad.\\n\\nTe comparto nuestro link para que puedas conocer la propuesta y sumarte a la red:\\n\\nhttps://goldencrowvs.com/pocket-genes/join-us/\\n\\nQuedamos a la espera de tu respuesta.\\n\\nSaludos,\\nFederico"
+      : "Hola {{contact_name}},\\n\\nCon mi equipo estamos construyendo Pocket Genes, una red para conectar organizaciones, profesionales e iniciativas vinculadas a genetica, medicina reproductiva y salud personalizada. Nos gustaria invitar a {{organization_name}} porque su trabajo{{website_sentence}} podria aportar valor a la comunidad.\\n\\nSumarse a la red es gratuito y permite que mas personas conozcan la organizacion, sus servicios y posibles oportunidades de colaboracion. Si en algun momento les interesa, tambien pueden participar con aportes editoriales o compartir novedades institucionales relevantes.\\n\\nTe comparto nuestro link para que puedas conocer la propuesta y sumarte a la red:\\n\\nhttps://goldencrowvs.com/pocket-genes/join-us/\\n\\nQuedamos a la espera de tu respuesta.\\n\\nSaludos,\\nFederico";
 
   return [
     TEMPLATE_HEADERS.join(","),
@@ -432,6 +588,7 @@ function commonPitfallsFor(kind: ImportRulesKind) {
   return [
     ...common,
     "Cells with multiple category or country keys must be quoted, otherwise the commas will shift later columns.",
+    "Structured JSON notes must be a single quoted CSV cell with internal quotes escaped by doubling them.",
     "Use an explicit timezone for last_contact_at. Date-only values and datetimes without timezone are rejected.",
     "GLOBAL, unknown countries, and unknown categories are ignored instead of being saved as custom free text.",
   ];
@@ -452,6 +609,7 @@ function importBehaviorLinesFor(kind: ImportRulesKind) {
     ? [
         "Preview the parsed template rows before creating templates.",
         "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.",
+        "Use Evaluate one by one to decide Add / Skip / Combine for each row. Possible duplicates are surfaced on the row card before anything is saved.",
         "Literal \\n is converted to a line break in template body and notes.",
         "Use active templates for the CRM send flow; archived templates are kept out of normal sending.",
       ]
@@ -508,7 +666,7 @@ function buildImportRulesText({
   const headers = csvHeadersFor(kind);
   const requiredHeaders = requiredHeadersFor(kind);
   const optionalHeaders = optionalHeadersFor(kind);
-  const lines = ruleLinesFor(kind);
+  const lines = ruleLinesFor(kind, audience);
   const exampleCsv = exampleCsvFor(kind, audience);
   const pitfalls = commonPitfallsFor(kind);
   const statusOptions =
@@ -549,12 +707,47 @@ function buildImportRulesText({
     "",
     t("Optional columns"),
     optionalHeaders.join(", "),
+    ...(kind === "professionals"
+      ? [
+          "",
+          t("Professional variable quality"),
+          t(PROFESSIONAL_VARIABLE_QUALITY_RULE),
+          "",
+          t("Professional template variable coverage"),
+          ...PROFESSIONAL_TEMPLATE_VARIABLE_COVERAGE.map(
+            (item) => `${item.variable}: ${item.source}`,
+          ),
+          t(
+            "email and linkedin are not template variables, but they should still be filled when available because they make outreach actionable and easier to verify.",
+          ),
+        ]
+      : []),
     "",
     t("Field rules"),
     ...lines.flatMap((line) => [
       `${line.label}: ${t(line.detail)}`,
       ...(line.example ? [`  ${t("Example")}: ${line.example}`] : []),
     ]),
+    ...(usesAudienceTemplateRules(kind, audience)
+      ? [
+          "",
+          t(`${templateAudienceRulePrefix(audience)} template body rules`),
+          ...templateBodyRulesForAudience(audience).map(
+            (rule) => `${t(rule.label)}: ${t(rule.detail)}`,
+          ),
+          "",
+          t("Approved mandatory closing"),
+          PROFESSIONAL_TEMPLATE_MANDATORY_CLOSING,
+          "",
+          t(`${templateAudienceRulePrefix(audience)} template writing style`),
+          ...templateWritingStyleRulesForAudience(audience).map(
+            (rule) => `- ${t(rule)}`,
+          ),
+          "",
+          t(`${templateAudienceRulePrefix(audience)} template review rules`),
+          t(templateReviewRuleForAudience(audience)),
+        ]
+      : []),
     "",
     t("Accepted statuses"),
     ...statusOptions.map((option) => `${option.value}: ${t(option.label)}`),
@@ -582,6 +775,9 @@ function buildImportRulesText({
           "",
           t("Template variables"),
           t("Use variables in subject or body as {{variable_name}}."),
+          t(
+            "Prefer templates that use the accepted variables for their audience. Variables are not mandatory, but they make CRM outreach safer to reuse and score better in plantillas.",
+          ),
           t("Unknown variables render blank."),
           ...TEMPLATE_VARIABLES.map((variable) => `{{${variable}}}`),
         ]
@@ -612,7 +808,7 @@ export function CrmImportRulesDialog({
   const headers = csvHeadersFor(kind);
   const requiredHeaders = requiredHeadersFor(kind);
   const optionalHeaders = optionalHeadersFor(kind);
-  const lines = ruleLinesFor(kind);
+  const lines = ruleLinesFor(kind, audience);
   const exampleCsv = exampleCsvFor(kind, audience);
   const pitfalls = commonPitfallsFor(kind);
   const statusOptions =
@@ -655,6 +851,42 @@ export function CrmImportRulesDialog({
         </DialogHeader>
 
         <div className="grid gap-4">
+          {kind === "professionals" ? (
+            <section className="rounded-xl border border-emerald-200/70 bg-emerald-50/75 p-4 text-emerald-950 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
+              <h3 className="font-heading text-sm font-semibold">
+                {t("Professional variable quality")}
+              </h3>
+              <p className="mt-1 text-sm leading-6">
+                {t(PROFESSIONAL_VARIABLE_QUALITY_RULE)}
+              </p>
+              <div className="mt-3 grid gap-2 rounded-lg border border-emerald-200/70 bg-white/55 p-3 text-xs dark:border-emerald-300/20 dark:bg-black/10">
+                <p className="font-semibold">
+                  {t("Professional template variable coverage")}
+                </p>
+                <div className="grid gap-1.5">
+                  {PROFESSIONAL_TEMPLATE_VARIABLE_COVERAGE.map((item) => (
+                    <div
+                      key={item.variable}
+                      className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_minmax(130px,0.35fr)] sm:items-center"
+                    >
+                      <code className="break-words font-mono">
+                        {item.variable}
+                      </code>
+                      <span className="font-mono text-emerald-800 dark:text-emerald-200">
+                        {item.source}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="leading-5">
+                  {t(
+                    "email and linkedin are not template variables, but they should still be filled when available because they make outreach actionable and easier to verify.",
+                  )}
+                </p>
+              </div>
+            </section>
+          ) : null}
+
           <section className="rounded-xl border border-border/80 bg-background/70 p-4">
             <div className="flex items-center gap-2">
               <FileCheck2 className="h-4 w-4 text-blue-600 dark:text-blue-300" />
@@ -749,6 +981,66 @@ export function CrmImportRulesDialog({
             </section>
           </div>
 
+          {usesAudienceTemplateRules(kind, audience) ? (
+            <section className="rounded-xl border border-emerald-200/70 bg-emerald-50/75 p-4 text-emerald-950 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
+              <h3 className="font-heading text-sm font-semibold">
+                {t(
+                  `${templateAudienceRulePrefix(audience)} template body rules`,
+                )}
+              </h3>
+              <div className="mt-3 grid gap-2 text-xs leading-5">
+                {templateBodyRulesForAudience(audience).map((rule) => (
+                  <div
+                    key={rule.label}
+                    className="rounded-lg border border-emerald-200/70 bg-white/55 px-3 py-2 dark:border-emerald-300/20 dark:bg-black/10"
+                  >
+                    <p className="font-semibold">{t(rule.label)}</p>
+                    <p className="mt-1">{t(rule.detail)}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 rounded-lg border border-emerald-200/70 bg-white/70 p-3 dark:border-emerald-300/20 dark:bg-black/15">
+                <p className="text-xs font-semibold">
+                  {t("Approved mandatory closing")}
+                </p>
+                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-6">
+                  {PROFESSIONAL_TEMPLATE_MANDATORY_CLOSING}
+                </pre>
+              </div>
+            </section>
+          ) : null}
+
+          {usesAudienceTemplateRules(kind, audience) ? (
+            <section className="rounded-xl border border-blue-200/70 bg-blue-50/75 p-4 text-blue-950 dark:border-blue-300/20 dark:bg-blue-400/10 dark:text-blue-100">
+              <h3 className="font-heading text-sm font-semibold">
+                {t(
+                  `${templateAudienceRulePrefix(audience)} template writing style`,
+                )}
+              </h3>
+              <ul className="mt-3 grid gap-2 text-xs leading-5">
+                {templateWritingStyleRulesForAudience(audience).map((rule) => (
+                  <li key={rule} className="flex gap-2">
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                    <span>{t(rule)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {usesAudienceTemplateRules(kind, audience) ? (
+            <section className="rounded-xl border border-violet-200/70 bg-violet-50/75 p-4 text-violet-950 dark:border-violet-300/20 dark:bg-violet-400/10 dark:text-violet-100">
+              <h3 className="font-heading text-sm font-semibold">
+                {t(
+                  `${templateAudienceRulePrefix(audience)} template review rules`,
+                )}
+              </h3>
+              <p className="mt-2 text-sm leading-6">
+                {t(templateReviewRuleForAudience(audience))}
+              </p>
+            </section>
+          ) : null}
+
           <section className="rounded-xl border border-border/80 bg-background/70 p-4">
             <div className="flex items-center gap-2">
               <ListChecks className="h-4 w-4 text-blue-600 dark:text-blue-300" />
@@ -832,6 +1124,11 @@ export function CrmImportRulesDialog({
               </h3>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t("Use variables in subject or body as {{variable_name}}.")}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t(
+                  "Prefer templates that use the accepted variables for their audience. Variables are not mandatory, but they make CRM outreach safer to reuse and score better in plantillas.",
+                )}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t("Unknown variables render blank.")}

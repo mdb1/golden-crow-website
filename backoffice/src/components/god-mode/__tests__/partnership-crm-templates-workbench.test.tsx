@@ -52,14 +52,19 @@ const template: PartnershipCrmTemplateRecord = {
   updatedAt: "2026-08-01T12:00:00.000Z",
 };
 
-function renderWithProviders(children: ReactNode) {
-  const client = new QueryClient({
+function createTestQueryClient() {
+  return new QueryClient({
     defaultOptions: {
       queries: { retry: false },
       mutations: { retry: false },
     },
   });
+}
 
+function renderWithProviders(
+  children: ReactNode,
+  client = createTestQueryClient(),
+) {
   return render(
     <QueryClientProvider client={client}>
       <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
@@ -67,6 +72,65 @@ function renderWithProviders(children: ReactNode) {
       </AppLanguageProvider>
     </QueryClientProvider>,
   );
+}
+
+function duplicateTemplateFixture(): PartnershipCrmTemplateRecord {
+  return {
+    ...template,
+    id: "tpl-existing",
+    name: "Duplicate intro",
+    category: "org_genetic_testing_laboratories",
+    subject: "Old subject",
+    body: "Old body",
+    notes: "Old note",
+    is_favorite: false,
+    normalizedName: "duplicate intro",
+  };
+}
+
+function mockDuplicateTemplateImport(
+  existingTemplate: PartnershipCrmTemplateRecord,
+) {
+  jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    const stringPath = String(path);
+    if (
+      stringPath ===
+        `/admin/partnership-crm/templates/${encodeURIComponent(existingTemplate.id)}` &&
+      init?.method === "PUT"
+    ) {
+      const body = JSON.parse(String(init.body)) as PartnershipCrmTemplateInput;
+
+      return {
+        template: {
+          ...existingTemplate,
+          ...body,
+          id: existingTemplate.id,
+        },
+      };
+    }
+
+    return {
+      templates: [existingTemplate],
+      nextCursor: undefined,
+    };
+  });
+}
+
+function duplicateTemplateCsv() {
+  return [
+    "name,category,subject,body,status,is_favorite,notes",
+    '"Duplicate intro","org_genetic_testing_laboratories","New subject","New body","active","true","New note"',
+  ].join("\n");
+}
+
+function templateMutationCalls(method: "POST" | "PUT") {
+  return jest
+    .mocked(sdkFetch)
+    .mock.calls.filter(
+      ([path, init]) =>
+        String(path).startsWith("/admin/partnership-crm/templates") &&
+        init?.method === method,
+    );
 }
 
 describe("PartnershipCrmTemplateBrowser", () => {
@@ -121,6 +185,383 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(within(rows[0]).getByRole("img", { name: "Favorite" })).toBeTruthy();
   });
 
+  it("selects and deletes multiple templates from the list", async () => {
+    const user = userEvent.setup();
+    const secondTemplate: PartnershipCrmTemplateRecord = {
+      ...template,
+      id: "tpl-2",
+      name: "Foundation outreach",
+      subject: "Pocket Genes para {{organization_name}}",
+      normalizedName: "foundation outreach",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (
+        stringPath.startsWith("/admin/partnership-crm/templates/") &&
+        init?.method === "DELETE"
+      ) {
+        return {
+          deleted: true,
+          templateId: stringPath.split("/").at(-1),
+        };
+      }
+
+      return {
+        templates: [template, secondTemplate],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Foundation outreach")).toBeTruthy();
+    });
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select all visible templates" }),
+    );
+    expect(screen.getByText("2 templates selected")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Delete selected" }));
+    const deleteDialog = await screen.findByRole("dialog", {
+      name: "Delete selected templates",
+    });
+    expect(within(deleteDialog).getByText("Lab outreach")).toBeTruthy();
+    expect(within(deleteDialog).getByText("Foundation outreach")).toBeTruthy();
+
+    await user.click(
+      within(deleteDialog).getByRole("button", { name: "Delete selected" }),
+    );
+
+    await waitFor(() => {
+      const deleteCalls = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(([, init]) => init?.method === "DELETE");
+      expect(deleteCalls).toHaveLength(2);
+    });
+
+    expect(jest.mocked(sdkFetch)).toHaveBeenCalledWith(
+      "/admin/partnership-crm/templates/tpl-1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+    expect(jest.mocked(sdkFetch)).toHaveBeenCalledWith(
+      "/admin/partnership-crm/templates/tpl-2",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
+  it("marks multiple selected templates as favorite and not favorite", async () => {
+    const user = userEvent.setup();
+    const client = createTestQueryClient();
+    const crmEmailTemplateCache = {
+      pages: [{ templates: [template], nextCursor: undefined }],
+      pageParams: [undefined],
+    };
+    let templates: PartnershipCrmTemplateRecord[] = [
+      template,
+      {
+        ...template,
+        id: "tpl-2",
+        name: "Foundation outreach",
+        subject: "Pocket Genes para {{organization_name}}",
+        normalizedName: "foundation outreach",
+      },
+    ];
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (
+        stringPath.startsWith("/admin/partnership-crm/templates/") &&
+        init?.method === "PUT"
+      ) {
+        const templateId = decodeURIComponent(
+          stringPath.split("/").pop() ?? "",
+        );
+        const body = JSON.parse(
+          String(init.body),
+        ) as PartnershipCrmTemplateInput;
+        const currentTemplate = templates.find(
+          (entry) => entry.id === templateId,
+        );
+
+        if (!currentTemplate) {
+          throw new Error("Missing test template");
+        }
+
+        const updatedTemplate = {
+          ...currentTemplate,
+          ...body,
+          id: currentTemplate.id,
+          is_favorite: Boolean(body.is_favorite),
+        };
+        templates = templates.map((entry) =>
+          entry.id === templateId ? updatedTemplate : entry,
+        );
+
+        return { template: updatedTemplate };
+      }
+
+      return {
+        templates,
+        nextCursor: undefined,
+      };
+    });
+
+    client.setQueryData(
+      ["god-mode-partnership-crm-templates", "active"],
+      crmEmailTemplateCache,
+    );
+    renderWithProviders(<PartnershipCrmTemplateBrowser />, client);
+
+    await waitFor(() => {
+      expect(screen.getByText("Foundation outreach")).toBeTruthy();
+    });
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select all visible templates" }),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Mark selected as favorite" }),
+    );
+
+    await waitFor(() => {
+      const putCalls = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(([, init]) => init?.method === "PUT");
+      expect(putCalls).toHaveLength(2);
+      for (const [, init] of putCalls) {
+        expect(JSON.parse(String(init?.body))).toEqual(
+          expect.objectContaining({ is_favorite: true }),
+        );
+      }
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "Mark selected as not favorite" }),
+    );
+
+    await waitFor(() => {
+      const putCalls = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(([, init]) => init?.method === "PUT");
+      expect(putCalls).toHaveLength(4);
+      for (const [, init] of putCalls.slice(-2)) {
+        expect(JSON.parse(String(init?.body))).toEqual(
+          expect.objectContaining({ is_favorite: false }),
+        );
+      }
+    });
+
+    expect(
+      client.getQueryData(["god-mode-partnership-crm-templates", "active"]),
+    ).toBe(crmEmailTemplateCache);
+    expect(
+      screen.queryByText("Unable to update selected templates."),
+    ).toBeNull();
+  });
+
+  it("opens a right preview panel, orders preview content, and supports panel actions", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (
+        stringPath === "/admin/partnership-crm/templates/tpl-1" &&
+        init?.method === "PUT"
+      ) {
+        const body = JSON.parse(
+          String(init.body),
+        ) as PartnershipCrmTemplateInput;
+
+        return {
+          template: {
+            ...template,
+            ...body,
+            id: template.id,
+            is_favorite: Boolean(body.is_favorite),
+          },
+        };
+      }
+
+      return {
+        templates: [template],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Lab outreach")).toBeTruthy();
+    });
+
+    await user.click(screen.getByText("Lab outreach"));
+
+    const panel = await screen.findByTestId("template-preview-panel");
+    const separator = await screen.findByRole("separator", {
+      name: "Resize template preview panel",
+    });
+    expect(screen.getByTestId("crm-template-split-pane").className).toContain(
+      "overflow-hidden",
+    );
+    expect(separator.className).toContain("self-stretch");
+    expect(separator.getAttribute("aria-valuenow")).toBe("50");
+
+    fireEvent.keyDown(separator, { key: "ArrowLeft" });
+    expect(separator.getAttribute("aria-valuenow")).toBe("54");
+
+    fireEvent.keyDown(separator, { key: "End" });
+    expect(separator.getAttribute("aria-valuenow")).toBe("67");
+
+    fireEvent.keyDown(separator, { key: "Home" });
+    expect(separator.getAttribute("aria-valuenow")).toBe("33");
+
+    const panelText = panel.textContent ?? "";
+    expect(panelText.indexOf("Preview")).toBeLessThan(
+      panelText.indexOf("Template fit"),
+    );
+    expect(panelText.indexOf("Variables")).toBeGreaterThan(
+      panelText.indexOf("Template fit"),
+    );
+    expect(within(panel).getByText("Template fit")).toBeTruthy();
+    expect(within(panel).getByText("Variables")).toBeTruthy();
+    expect(within(panel).getByText("Hola Contacto")).toBeTruthy();
+    const variablesBlock = within(panel).getByTestId(
+      "template-preview-variables",
+    );
+    expect(
+      within(variablesBlock).getByText("{{organization_name}}"),
+    ).toBeTruthy();
+    expect(within(variablesBlock).getByText("{{contact_name}}")).toBeTruthy();
+    expect(within(variablesBlock).queryByText("{{website}}")).toBeNull();
+    expect(
+      within(variablesBlock).queryByText("{{website_sentence}}"),
+    ).toBeNull();
+    expect(within(variablesBlock).queryByText("Not used")).toBeNull();
+    const panelTitle = within(panel).getByTestId(
+      "template-preview-panel-title",
+    );
+    expect(panelTitle.className).toContain("line-clamp-2");
+    expect(panelTitle.className).toContain("break-words");
+    const previewSubject = within(panel).getByTestId(
+      "template-preview-panel-subject",
+    );
+    expect(previewSubject.className).toContain("line-clamp-2");
+    expect(previewSubject.className).toContain("break-words");
+    const actionGroup = within(panel).getByTestId(
+      "template-preview-panel-actions",
+    );
+    expect(actionGroup.className).toContain("min-w-max");
+    expect(actionGroup.className).toContain("shrink-0");
+    expect(actionGroup.className).toContain("flex-col");
+    expect(actionGroup.className).toContain("self-stretch");
+    const actionRow = within(panel).getByTestId(
+      "template-preview-panel-action-row",
+    );
+    expect(actionRow.className).toContain("flex-nowrap");
+    expect(actionRow.className).toContain("whitespace-nowrap");
+    expect(
+      within(actionRow).getByRole("button", { name: "Mark as favorite" }),
+    ).toBeTruthy();
+    expect(within(actionRow).getByRole("link", { name: "Edit" })).toBeTruthy();
+    expect(
+      within(actionRow).getByRole("button", { name: "Delete" }),
+    ).toBeTruthy();
+    expect(
+      within(actionRow).getByRole("button", { name: "Hide details" }),
+    ).toBeTruthy();
+    expect(within(actionGroup).queryByText("Template Active")).toBeNull();
+    const tagsBlock = within(panel).getByTestId("template-preview-panel-tags");
+    expect(within(tagsBlock).getByText("Template Active")).toBeTruthy();
+    expect(within(tagsBlock).getByText("Organizations")).toBeTruthy();
+    expect(within(tagsBlock).queryByText("Favorite")).toBeNull();
+    expect(within(panel).queryByLabelText("Favorite")).toBeNull();
+    expect(
+      within(panel)
+        .getByRole("link", { name: "Edit text" })
+        .getAttribute("href"),
+    ).toBe("/god-mode/plantillas/tpl-1");
+
+    await user.click(
+      within(panel).getByRole("button", { name: "Mark as favorite" }),
+    );
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/templates/tpl-1",
+        expect.objectContaining({ method: "PUT" }),
+      );
+    });
+
+    const [, init] = jest
+      .mocked(sdkFetch)
+      .mock.calls.find(
+        ([path, requestInit]) =>
+          path === "/admin/partnership-crm/templates/tpl-1" &&
+          requestInit?.method === "PUT",
+      )!;
+    expect(JSON.parse(String(init?.body))).toEqual(
+      expect.objectContaining({
+        subject: template.subject,
+        body: template.body,
+        is_favorite: true,
+      }),
+    );
+
+    await user.click(within(panel).getByRole("button", { name: "Delete" }));
+    const deleteDialog = await screen.findByRole("dialog", {
+      name: "Delete template",
+    });
+    await user.click(
+      within(deleteDialog).getByRole("button", { name: "Delete" }),
+    );
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/templates/tpl-1",
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  it("shows an empty state when the selected template does not use variables", async () => {
+    const user = userEvent.setup();
+    const staticTemplate: PartnershipCrmTemplateRecord = {
+      ...template,
+      subject: "Pocket Genes invitation",
+      body: "Hola, queremos compartirte una invitacion.",
+    };
+
+    jest.mocked(sdkFetch).mockResolvedValue({
+      templates: [staticTemplate],
+      nextCursor: undefined,
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Lab outreach")).toBeTruthy();
+    });
+
+    await user.click(screen.getByText("Lab outreach"));
+
+    const panel = await screen.findByTestId("template-preview-panel");
+    const variablesBlock = within(panel).getByTestId(
+      "template-preview-variables",
+    );
+
+    expect(
+      within(variablesBlock).getByText("No variables used in this message."),
+    ).toBeTruthy();
+    expect(within(variablesBlock).queryByRole("table")).toBeNull();
+    expect(within(variablesBlock).queryByText("Not used")).toBeNull();
+    expect(
+      within(variablesBlock).queryByText("{{organization_name}}"),
+    ).toBeNull();
+  });
+
   it("previews and imports templates from CSV", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
@@ -169,13 +610,81 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(within(dialog).queryByLabelText("CSV contents")).toBeNull();
       expect(within(dialog).getByText("CSV parsed")).toBeTruthy();
-      expect(within(dialog).getByText("Lab intro")).toBeTruthy();
+      expect(within(dialog).getAllByText("Lab intro").length).toBeGreaterThan(
+        0,
+      );
       expect(within(dialog).getByText("Foundation intro")).toBeTruthy();
+    });
+
+    expect(
+      within(dialog).queryByTestId("template-import-current-row"),
+    ).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", { name: "Add row" }),
+    ).toBeNull();
+    expect(
+      within(dialog).getByRole("button", {
+        name: "Import all - overwrite duplicate subject/body",
+      }),
+    ).toBeTruthy();
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "Import pending rows - overwrite duplicate subject/body",
+      }),
+    ).toBeNull();
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Evaluate one by one",
+      }),
+    );
+
+    const currentRow = within(dialog).getByTestId(
+      "template-import-current-row",
+    );
+    expect(within(currentRow).getByText("Lab intro")).toBeTruthy();
+    expect(within(currentRow).getByText("Organizacion Ejemplo")).toBeTruthy();
+    expect(within(currentRow).getByText("Contacto")).toBeTruthy();
+    expect(within(currentRow).getByText("{{organization_name}}")).toBeTruthy();
+    expect(within(currentRow).getByText("{{contact_name}}")).toBeTruthy();
+    expect(
+      within(currentRow).queryByRole("button", {
+        name: "Evaluate one by one",
+      }),
+    ).toBeNull();
+    expect(
+      within(currentRow).getByRole("button", {
+        name: "Import pending rows - overwrite duplicate subject/body",
+      }),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        within(dialog)
+          .getByRole("button", { name: "Add row" })
+          .getAttribute("disabled"),
+      ).toBeNull();
     });
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Import 2 templates",
+        name: "Add row",
+      }),
+    );
+
+    await waitFor(() => {
+      const postCalls = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path, init]) =>
+            path === "/admin/partnership-crm/templates" &&
+            init?.method === "POST",
+        );
+      expect(postCalls).toHaveLength(1);
+      expect(within(dialog).getByText("Row 2 of 2")).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Import pending rows - overwrite duplicate subject/body",
       }),
     );
 
@@ -225,7 +734,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
       expect(within(dialog).getByText("Template import finished")).toBeTruthy();
     });
     expect(
-      within(dialog).queryByRole("button", { name: "Import 2 templates" }),
+      within(dialog).queryByRole("button", { name: "Add row" }),
     ).toBeNull();
     expect(within(dialog).getByRole("button", { name: "Done" })).toBeTruthy();
 
@@ -233,6 +742,368 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
+  });
+
+  it("surfaces duplicate template rows and combines them into the existing template", async () => {
+    const user = userEvent.setup();
+    const existingTemplate = duplicateTemplateFixture();
+    mockDuplicateTemplateImport(existingTemplate);
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await user.click(await screen.findByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = duplicateTemplateCsv();
+    const file = new File([csv], "duplicate-plantillas.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+
+    await waitFor(() => {
+      expect(
+        within(dialog)
+          .getByRole("button", { name: "Import all - overwrite duplicate subject/body" })
+          .getAttribute("disabled"),
+      ).toBeNull();
+    });
+    expect(within(dialog).queryByText("Possible duplicate")).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "Import pending rows - overwrite duplicate subject/body",
+      }),
+    ).toBeNull();
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Evaluate one by one",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Possible duplicate")).toBeTruthy();
+    });
+
+    const duplicateBlock = within(dialog).getByTestId(
+      "template-import-duplicate",
+    );
+    expect(within(duplicateBlock).getByText("Duplicate intro")).toBeTruthy();
+    expect(within(duplicateBlock).getByText("Old subject")).toBeTruthy();
+    expect(within(duplicateBlock).getByText("New subject")).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", {
+        name: "Keep existing unchanged",
+      }),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", {
+        name: "Overwrite subject and body",
+      }),
+    ).toBeTruthy();
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "Merge CSV into existing",
+      }),
+    ).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", { name: "Accept row" }),
+    ).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", { name: "Combine with existing" }),
+    ).toBeNull();
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Overwrite subject and body",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Template import finished")).toBeTruthy();
+    });
+
+    const putCall = templateMutationCalls("PUT")[0];
+    expect(putCall).toBeTruthy();
+    expect(JSON.parse(String(putCall?.[1]?.body))).toEqual(
+      expect.objectContaining({
+        name: "Duplicate intro",
+        subject: "New subject",
+        body: "New body",
+        notes: "Old note\n\n--- CSV import ---\nNew note",
+        is_favorite: true,
+      }),
+    );
+    expect(templateMutationCalls("POST")).toHaveLength(0);
+  });
+
+  it("does not flag a duplicate when only the subject matches and the template name is unrelated", async () => {
+    const user = userEvent.setup();
+    const existingTemplate: PartnershipCrmTemplateRecord = {
+      ...template,
+      id: "tpl-fertility-community",
+      name: "Fertility clinic - Community visibility",
+      category: "org_fertility_clinics",
+      subject: "Pocket Genes + {{organization_name}}",
+      body: "Existing fertility clinic template",
+      notes: "Existing note",
+      normalizedName: "fertility clinic community visibility",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (
+        path === "/admin/partnership-crm/templates" &&
+        init?.method === "POST"
+      ) {
+        const body = JSON.parse(
+          String(init.body),
+        ) as PartnershipCrmTemplateInput;
+        return {
+          template: {
+            ...template,
+            ...body,
+            id: "created-b1",
+            updatedAt: "2026-09-10T12:00:00.000Z",
+          },
+        };
+      }
+
+      return {
+        templates: [existingTemplate],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await user.click(await screen.findByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = [
+      "name,category,subject,body,status,is_favorite,notes",
+      '"B1","org_genetic_testing_laboratories","Pocket Genes + {{organization_name}}","New lab template","active","true","New note"',
+    ].join("\n");
+    const file = new File([csv], "subject-only-match.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+
+    await waitFor(() => {
+      expect(
+        within(dialog)
+          .getByRole("button", { name: "Evaluate one by one" })
+          .getAttribute("disabled"),
+      ).toBeNull();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Evaluate one by one",
+      }),
+    );
+
+    const currentRow = within(dialog).getByTestId(
+      "template-import-current-row",
+    );
+    expect(within(currentRow).getByText("B1")).toBeTruthy();
+    expect(within(dialog).queryByText("Possible duplicate")).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "Overwrite subject and body",
+      }),
+    ).toBeNull();
+    expect(
+      within(dialog).getByRole("button", { name: "Add row" }),
+    ).toBeTruthy();
+
+    await user.click(within(dialog).getByRole("button", { name: "Add row" }));
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Template import finished")).toBeTruthy();
+    });
+    expect(templateMutationCalls("POST")).toHaveLength(1);
+    expect(templateMutationCalls("PUT")).toHaveLength(0);
+  });
+
+  it("does not flag coded templates with different leading codes as duplicates", async () => {
+    const user = userEvent.setup();
+    const existingTemplate: PartnershipCrmTemplateRecord = {
+      ...template,
+      id: "tpl-a01",
+      name: "A01 - Clinica de fertilidad - Comunidad y visibilidad",
+      category: "org_genetic_testing_laboratories",
+      subject: "Pocket Genes + {{organization_name}}",
+      body: "Existing fertility clinic template",
+      notes: "Existing note",
+      normalizedName: "a01 clinica de fertilidad comunidad y visibilidad",
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (
+        path === "/admin/partnership-crm/templates" &&
+        init?.method === "POST"
+      ) {
+        const body = JSON.parse(
+          String(init.body),
+        ) as PartnershipCrmTemplateInput;
+        return {
+          template: {
+            ...template,
+            ...body,
+            id: "created-c1",
+            updatedAt: "2026-09-10T12:00:00.000Z",
+          },
+        };
+      }
+
+      return {
+        templates: [existingTemplate],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await user.click(await screen.findByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = [
+      "name,category,subject,body,status,is_favorite,notes",
+      '"C1 - Laboratorio de pruebas geneticas - Presentacion institucional","org_genetic_testing_laboratories","Pocket Genes + {{organization_name}}","New lab template","active","true","New note"',
+    ].join("\n");
+    const file = new File([csv], "coded-subject-match.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+
+    await waitFor(() => {
+      expect(
+        within(dialog)
+          .getByRole("button", { name: "Evaluate one by one" })
+          .getAttribute("disabled"),
+      ).toBeNull();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Evaluate one by one",
+      }),
+    );
+
+    const currentRow = within(dialog).getByTestId(
+      "template-import-current-row",
+    );
+    expect(
+      within(currentRow).getByText(
+        "C1 - Laboratorio de pruebas geneticas - Presentacion institucional",
+      ),
+    ).toBeTruthy();
+    expect(within(dialog).queryByText("Possible duplicate")).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "Overwrite subject and body",
+      }),
+    ).toBeNull();
+
+    await user.click(within(dialog).getByRole("button", { name: "Add row" }));
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Template import finished")).toBeTruthy();
+    });
+    expect(templateMutationCalls("POST")).toHaveLength(1);
+    expect(templateMutationCalls("PUT")).toHaveLength(0);
+  });
+
+  it("imports all duplicate template rows by updating existing templates", async () => {
+    const user = userEvent.setup();
+    const existingTemplate = duplicateTemplateFixture();
+    mockDuplicateTemplateImport(existingTemplate);
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await user.click(await screen.findByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = duplicateTemplateCsv();
+    const file = new File([csv], "duplicate-plantillas.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+
+    await waitFor(() => {
+      expect(
+        within(dialog)
+          .getByRole("button", { name: "Import all - overwrite duplicate subject/body" })
+          .getAttribute("disabled"),
+      ).toBeNull();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Import all - overwrite duplicate subject/body",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Template import finished")).toBeTruthy();
+    });
+    expect(templateMutationCalls("PUT")).toHaveLength(1);
+    expect(templateMutationCalls("POST")).toHaveLength(0);
+  });
+
+  it("imports all remaining duplicate template rows by updating existing templates", async () => {
+    const user = userEvent.setup();
+    const existingTemplate = duplicateTemplateFixture();
+    mockDuplicateTemplateImport(existingTemplate);
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await user.click(await screen.findByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = duplicateTemplateCsv();
+    const file = new File([csv], "duplicate-plantillas.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+
+    await waitFor(() => {
+      expect(
+        within(dialog)
+          .getByRole("button", { name: "Evaluate one by one" })
+          .getAttribute("disabled"),
+      ).toBeNull();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Evaluate one by one",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", {
+          name: "Import pending rows - overwrite duplicate subject/body",
+        }),
+      ).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Import pending rows - overwrite duplicate subject/body",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("Template import finished")).toBeTruthy();
+    });
+    expect(templateMutationCalls("PUT")).toHaveLength(1);
+    expect(templateMutationCalls("POST")).toHaveLength(0);
   });
 
   it("does not render raw template CSV contents and caps visible preview rows", async () => {
@@ -313,6 +1184,31 @@ describe("PartnershipCrmTemplateBrowser", () => {
         "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.",
       ),
     ).toBeTruthy();
+    expect(
+      within(dialog).getByText("Organization template body rules"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Invite the organization contact/),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getAllByText(
+        /Te comparto nuestro link para que puedas conocer la propuesta/,
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(dialog).getByText("Organization template writing style"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Explain the invitation fully/),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText("Organization template review rules"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        /An organization template is editorially complete/,
+      ),
+    ).toBeTruthy();
 
     await user.click(within(dialog).getByRole("button", { name: "Copy" }));
     await waitFor(() => {
@@ -333,10 +1229,83 @@ describe("PartnershipCrmTemplateBrowser", () => {
       "Template variables",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Variables are not mandatory, but they make CRM outreach safer to reuse and score better in plantillas.",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
       "Template category accepts one value only. Multiple categories are not saved as a list.",
     );
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Template body and notes can use literal \\n for line breaks.",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Organization template body rules",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "An organization template is editorially complete only when it preserves the approved closing",
+    );
+  });
+
+  it("shows professional template import rules with the approved closing and review standards", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValue({
+      templates: [],
+      nextCursor: undefined,
+    });
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/templates?limit=20&audience=organizations",
+      );
+    });
+
+    await user.click(screen.getByRole("tab", { name: "Professionals" }));
+    await user.click(screen.getByRole("button", { name: "Import rules" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Import rules",
+    });
+
+    expect(
+      within(dialog).getByText("Professional template body rules"),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("Purpose")).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Invite the recipient to discover the proposal/),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("Approved mandatory closing")).toBeTruthy();
+    expect(
+      within(dialog).getAllByText(
+        /Te comparto nuestro link para que puedas conocer la propuesta/,
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(dialog).getByText("Professional template writing style"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Warm, professional Argentine Spanish/),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText("Professional template review rules"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/CSV validity alone does not establish/),
+    ).toBeTruthy();
+
+    await user.click(within(dialog).getByRole("button", { name: "Copy" }));
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: "Copied" }),
+      ).toBeTruthy();
+    });
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Professional template body rules",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "Te comparto nuestro link para que puedas conocer la propuesta y sumarte a la red:",
+    );
+    await expect(navigator.clipboard.readText()).resolves.toContain(
+      "A template is editorially complete only when it preserves the approved closing",
     );
   });
 });
