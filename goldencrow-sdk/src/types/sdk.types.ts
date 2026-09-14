@@ -840,7 +840,7 @@ export type DiscoverFeedItemRecord = {
   type: DiscoverFeedType;
   publishedAt: string | null;
   showInDiscoverFeed?: boolean;
-  language: "en" | "es";
+  language?: "en" | "es";
   title: string;
   subtitle: string;
   body: string;

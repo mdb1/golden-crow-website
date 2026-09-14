@@ -373,6 +373,7 @@ describe("discover repository", () => {
 
     expect(result.feedItems).toHaveLength(1);
     expect(result.feedItems[0]?.id).toBe("feed-a");
+    expect(result.feedItems[0]?.language).toBe("en");
     expect(result.feedItems[0]?.showInDiscoverFeed).toBe(false);
     expect(mockQueryStubs).toHaveLength(2);
     expect(mockQueryStubs[0]?.operations).toEqual([
@@ -395,6 +396,32 @@ describe("discover repository", () => {
       },
       { type: "limit", value: 21 },
     ]);
+  });
+
+  it("does not synthesize English for feed items without a stored language", async () => {
+    mockFeedDocs.push({
+      id: "feed-no-language",
+      data: {
+        publisherOrganizationId: "org-1",
+        publisherSnapshot: { name: "Publisher One", imageUrl: null },
+        type: "news",
+        status: "draft",
+        title: "Draft item without language",
+        subtitle: "Summary",
+        body: "Body",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-02T00:00:00.000Z",
+      },
+    });
+    const { getDiscoverFeedItem } =
+      await import("../repositories/discover.repository");
+
+    const feedItem = await getDiscoverFeedItem(
+      fullAdminContext,
+      "feed-no-language",
+    );
+
+    expect(feedItem.language).toBeUndefined();
   });
 
   it("filters publisher-scoped feed entries by status", async () => {

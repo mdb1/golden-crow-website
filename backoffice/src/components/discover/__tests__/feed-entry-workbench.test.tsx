@@ -350,6 +350,62 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(body.imageUploadMimeType).toBe("image/png");
   });
 
+  it("defaults the entry language to Spanish when the page language is Spanish and the item has no language", async () => {
+    const feedItem = {
+      id: "feed-no-language",
+      publisherOrganizationId: "org-1",
+      publisherIndividualId: null,
+      publisherSnapshot: { name: "Publisher One", imageUrl: null },
+      type: "news",
+      publishedAt: null,
+      showInDiscoverFeed: false,
+      title: "Sin idioma",
+      subtitle: "Resumen",
+      body: "Cuerpo",
+      htmlBody: null,
+      imageUrl: null,
+      sourceUrl: null,
+      sourceButtonText: null,
+      status: "draft",
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+      news: { category: "", region: "" },
+    } satisfies DiscoverFeedItemRecord;
+
+    render(
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <DiscoverFeedEntryWorkbench
+          mode="edit"
+          feedItem={feedItem}
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    expect((screen.getByLabelText("Idioma") as HTMLSelectElement).value).toBe(
+      "es",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/feed-items/feed-no-language",
+        {
+          method: "PUT",
+          body: expect.any(String),
+        },
+      );
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.language).toBe("es");
+  });
+
   it("loads legacy upcoming_event payloads and saves them as upcomingEvent", async () => {
     const feedItem = {
       id: "feed-legacy-event",

@@ -2090,7 +2090,8 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
       : {};
   const activePayload = payloadForSerializedItem(data, type);
   const languageValue = data.language ?? data.locale;
-  const language = languageValue === "es" ? "es" : "en";
+  const language =
+    languageValue === "en" || languageValue === "es" ? languageValue : undefined;
   const record: DiscoverFeedItemRecord = {
     id: doc.id,
     publisherOrganizationId: normalizeNullableString(

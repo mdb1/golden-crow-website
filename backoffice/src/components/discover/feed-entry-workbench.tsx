@@ -1086,12 +1086,15 @@ function htmlToPlainText(value: string) {
   return element.textContent?.replace(/\s+\n/g, "\n").trim() ?? "";
 }
 
-function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
+function toFormState(
+  item?: DiscoverFeedItemRecord,
+  defaultLanguage: "en" | "es" = "en",
+): FeedEntryFormState {
   return {
     publisherOrganizationId: item?.publisherOrganizationId ?? "",
     publisherIndividualId: item?.publisherIndividualId ?? "",
     type: item?.type ?? "news",
-    language: item?.language ?? "en",
+    language: item?.language ?? defaultLanguage,
     showInDiscoverFeed: item?.showInDiscoverFeed === true,
     title: item?.title ?? "",
     subtitle: item?.subtitle ?? "",
@@ -1670,7 +1673,7 @@ export function DiscoverFeedEntryWorkbench({
   const coverImageUploadInputRef = useRef<HTMLInputElement | null>(null);
   const coverImageUploadTokenRef = useRef(0);
   const [state, setState] = useState(() => {
-    const initialState = toFormState(feedItem);
+    const initialState = toFormState(feedItem, language);
     if (mode === "create" && scopedOrganizationId) {
       return {
         ...initialState,
@@ -1713,7 +1716,7 @@ export function DiscoverFeedEntryWorkbench({
     feedItem?.status === "published" ? feedItem.id : null,
   );
   const sourceState = useMemo(() => {
-    const initialState = toFormState(feedItem);
+    const initialState = toFormState(feedItem, language);
     if (mode === "create" && scopedOrganizationId) {
       return {
         ...initialState,
@@ -1729,7 +1732,7 @@ export function DiscoverFeedEntryWorkbench({
       };
     }
     return initialState;
-  }, [feedItem, mode, scopedIndividualId, scopedOrganizationId]);
+  }, [feedItem, language, mode, scopedIndividualId, scopedOrganizationId]);
   const savedState = persistedState ?? sourceState;
   const selectedOrganization = organizations.find(
     (organization) => organization.id === state.publisherOrganizationId,
