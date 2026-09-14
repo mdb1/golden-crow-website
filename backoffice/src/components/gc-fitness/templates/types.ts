@@ -14,4 +14,15 @@ import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actio
 // virtual rows backed by the `gc-fitness:template-draft:new` localStorage
 // entry. Drafts are not assignable / duplicatable / deletable — only "resume"
 // is offered. Real Firestore rows never set `__isDraft`.
-export type TemplateListRow = WorkoutTemplateRow & { __isDraft?: boolean };
+export type TemplateListRow = WorkoutTemplateRow & {
+  __isDraft?: boolean;
+  /**
+   * #1089 — set on a REAL Firestore row that has an unsaved edit draft parked
+   * in `gc-fitness:template-draft:edit:<id>`. Different from `__isDraft`: the
+   * template exists and is perfectly assignable, there is just newer,
+   * unsaved work waiting in this browser. Until this flag existed, an edit
+   * draft was invisible from the list — the trainer had to remember which
+   * routine they had been editing and reopen it to find out.
+   */
+  __hasPendingDraft?: boolean;
+};

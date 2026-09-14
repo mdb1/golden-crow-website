@@ -105,8 +105,14 @@ function tagBadgeVariant(
 }
 
 // localStorage prefix used by template-form.tsx for autosaved drafts.
-// We only surface the "new" key here — edit drafts mutate an existing row.
-const DRAFT_STORAGE_KEY_NEW = "gc-fitness:template-draft:new";
+const DRAFT_STORAGE_PREFIX = "gc-fitness:template-draft:";
+const DRAFT_STORAGE_KEY_NEW = `${DRAFT_STORAGE_PREFIX}new`;
+// #1089 — edit drafts (`…:edit:<templateId>`) used to be surfaced NOWHERE.
+// They are written on every change and restored when you reopen that exact
+// editor, but nothing told the trainer they existed, so "volví a entrar y no
+// estaban los cambios" was indistinguishable from "the draft was lost". The
+// list now marks the row that has one.
+const DRAFT_STORAGE_PREFIX_EDIT = `${DRAFT_STORAGE_PREFIX}edit:`;
 
 interface NewTemplateDraft {
   name?: { en?: string; es?: string };
@@ -126,6 +132,27 @@ function readNewDraft(): NewTemplateDraft | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Template ids that have an unsaved edit draft parked in this browser.
+ * One pass over localStorage keys — a trainer surface holds a handful of
+ * entries, so there is nothing to index.
+ */
+export function readPendingEditDraftIds(): Set<string> {
+  const ids = new Set<string>();
+  if (typeof window === "undefined") return ids;
+  try {
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (!key || !key.startsWith(DRAFT_STORAGE_PREFIX_EDIT)) continue;
+      const id = key.slice(DRAFT_STORAGE_PREFIX_EDIT.length);
+      if (id) ids.add(id);
+    }
+  } catch {
+    /* private mode / disabled storage — no badges, no crash */
+  }
+  return ids;
 }
 
 export interface TemplatesLibraryClientProps {
@@ -172,13 +199,23 @@ export function TemplatesLibraryClient({
   // a virtual row at the top of the list. Re-read on the `storage` event so a
   // change in another tab is reflected here without a manual refresh.
   const [newDraft, setNewDraft] = useState<NewTemplateDraft | null>(null);
+  const [pendingDraftIds, setPendingDraftIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   useEffect(() => {
     setNewDraft(readNewDraft());
+    setPendingDraftIds(readPendingEditDraftIds());
     function onStorage(e: StorageEvent) {
       if (e.key === DRAFT_STORAGE_KEY_NEW) setNewDraft(readNewDraft());
+      if (e.key === null || e.key.startsWith(DRAFT_STORAGE_PREFIX_EDIT)) {
+        setPendingDraftIds(readPendingEditDraftIds());
+      }
     }
     function onFocus() {
       setNewDraft(readNewDraft());
+      // The editor lives on another route, so coming BACK to the list is the
+      // moment a freshly written (or just-discarded) edit draft shows up.
+      setPendingDraftIds(readPendingEditDraftIds());
     }
     window.addEventListener("storage", onStorage);
     window.addEventListener("focus", onFocus);
@@ -267,6 +304,12 @@ export function TemplatesLibraryClient({
           (assignmentCounts?.[b.id] ?? 0) - (assignmentCounts?.[a.id] ?? 0),
       );
     }
+    // #1089 — tag the rows whose editor has unsaved work waiting.
+    if (pendingDraftIds.size > 0) {
+      list = list.map((row) =>
+        pendingDraftIds.has(row.id) ? { ...row, __hasPendingDraft: true } : row,
+      );
+    }
     return draftRow ? [draftRow, ...list] : list;
   }, [
     data,
@@ -278,6 +321,7 @@ export function TemplatesLibraryClient({
     favoritesOnly,
     sortByAssignments,
     assignmentCounts,
+    pendingDraftIds,
   ]);
 
   const handlers = useMemo(
@@ -561,7 +605,7 @@ export function TemplatesLibraryClient({
                     }}
                     className={cn(
                       "flex cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors first:rounded-t-[1.25rem] last:rounded-b-[1.25rem] hover:bg-muted/50 sm:px-5",
-                      row.__isDraft &&
+                      (row.__isDraft || row.__hasPendingDraft) &&
                         "bg-amber-500/[0.06] hover:bg-amber-500/[0.1] dark:bg-amber-400/[0.06] dark:hover:bg-amber-400/[0.1]",
                     )}
                   >
@@ -594,6 +638,19 @@ export function TemplatesLibraryClient({
                           {title}
                         </h3>
                         <div className="flex flex-wrap gap-1.5">
+                          {/* #1089 — unsaved edit work waiting in this
+                              browser for a template that already exists.
+                              Clicking the row reopens the editor, which
+                              restores it. */}
+                          {row.__hasPendingDraft ? (
+                            <Badge
+                              variant="warning"
+                              className="font-normal"
+                              data-testid={`template-pending-draft-${row.id}`}
+                            >
+                              {columnsT("pendingDraftBadge")}
+                            </Badge>
+                          ) : null}
                           {row.isStandard ? (
                             <Badge variant="outline" className="capitalize">
                               Standard
