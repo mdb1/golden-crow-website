@@ -1004,15 +1004,27 @@ const SPANISH_TEXT: Record<string, string> = {
   "Regional event times": "Horarios regionales del evento",
   "Use two-letter country codes with local daily times when the same event is shown differently by region.":
     "Usá códigos de país de dos letras con horarios locales cuando el mismo evento se muestra diferente por región.",
+  "New region": "Nueva región",
+  "Edit region": "Editar región",
+  "Complete one regional time at a time. Save it to return to the list.":
+    "Completá un horario regional por vez. Guardalo para volver a la lista.",
+  "Complete the fields for this region only.":
+    "Completá solo los campos de esta región.",
   "Use regional rows when the event time changes by country or timezone.":
     "Usá filas regionales cuando el horario del evento cambie por país o zona horaria.",
   "No regional times configured.": "No hay horarios regionales configurados.",
+  Actions: "Acciones",
+  "Country is required.": "El país es obligatorio.",
+  "Invalid country": "País inválido",
+  "Invalid time": "Horario inválido",
+  "Invalid timezone": "Zona horaria inválida",
   "Use two letters.": "Usá dos letras.",
   "Start time": "Hora de inicio",
   "End time": "Hora de fin",
   "Use HH:mm.": "Usá HH:mm.",
   "Use an IANA timezone.": "Usá una zona horaria IANA.",
   "Add region": "Agregar región",
+  "Save region": "Guardar región",
   "Organizer and disclosure": "Organizador y aclaración",
   "Clarify who organizes the event and how the publisher is involved.":
     "Aclarar quién organiza el evento y cómo participa el publicador.",

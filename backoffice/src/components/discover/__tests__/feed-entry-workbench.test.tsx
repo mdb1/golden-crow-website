@@ -736,6 +736,9 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     );
     let dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Add region" }));
+    expect(
+      within(dialog).getByRole("heading", { name: "New region" }),
+    ).toBeTruthy();
     fireEvent.change(within(dialog).getByLabelText("Country"), {
       target: { value: "AR" },
     });
@@ -748,6 +751,11 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(within(dialog).getByLabelText("Timezone"), {
       target: { value: "America/Argentina/Buenos_Aires" },
     });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save region" }));
+    expect(within(dialog).getAllByText("AR").length).toBeGreaterThan(0);
+    expect(
+      within(dialog).getByRole("button", { name: /Edit region: AR/i }),
+    ).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
 
     await waitFor(() => {
@@ -854,6 +862,17 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(screen.getByLabelText("Event date *"), {
       target: { value: "2026-10-12" },
     });
+    fireEvent.click(screen.getByText("Schedule display"));
+    fireEvent.change(screen.getByLabelText("Time display"), {
+      target: { value: "regionalTimes" },
+    });
+    fireEvent.change(screen.getByLabelText("Multi-day length"), {
+      target: { value: "4" },
+    });
+    fireEvent.change(screen.getByLabelText("Time display"), {
+      target: { value: "dateOnly" },
+    });
+    expect(screen.queryByLabelText("Multi-day length")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Publish to Discover" }));
 
@@ -871,7 +890,9 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(body.type).toBe("upcoming_event");
     expect(body.upcomingEvent).toMatchObject({
       date: "2026-10-12T00:00:00.000Z",
+      timeKind: "dateOnly",
     });
+    expect(body.upcomingEvent).not.toHaveProperty("multiDayLength");
     expect(body.upcoming_event).toBeUndefined();
   });
 

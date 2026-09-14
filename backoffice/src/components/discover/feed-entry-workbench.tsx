@@ -901,6 +901,7 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
   const timeKind = eventStringValue(payload, "timeKind");
   const usesTimedSchedule = timeKind === "timed";
   const usesRegionalTimes = timeKind === "regionalTimes";
+  const usesMultiDayLength = Boolean(timeKind && timeKind !== "dateOnly");
   const dailyStartTime = eventStringValue(payload, "dailyStartTime");
   const dailyEndTime = eventStringValue(payload, "dailyEndTime");
   const multiDayLength = eventStringValue(payload, "multiDayLength");
@@ -931,6 +932,7 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
     return "Timezone must be a valid IANA timezone.";
   }
   if (
+    usesMultiDayLength &&
     multiDayLength &&
     (!Number.isInteger(Number(multiDayLength)) ||
       Number(multiDayLength) < 1 ||
@@ -1143,6 +1145,7 @@ function payloadForType(state: FeedEntryFormState) {
     const timeKind = eventStringValue(values, "timeKind");
     const usesTimedSchedule = timeKind === "timed";
     const usesRegionalTimes = timeKind === "regionalTimes";
+    const usesMultiDayLength = Boolean(timeKind && timeKind !== "dateOnly");
     const actionButtons = parseEventActionButtons(values.actionButtons ?? "")
       .filter((button) => button.type.trim() && button.url.trim())
       .map((button) => ({
@@ -1176,7 +1179,7 @@ function payloadForType(state: FeedEntryFormState) {
       ...(usesTimedSchedule && eventStringValue(values, "dailyEndTime")
         ? { dailyEndTime: eventStringValue(values, "dailyEndTime") }
         : {}),
-      ...(eventStringValue(values, "multiDayLength")
+      ...(usesMultiDayLength && eventStringValue(values, "multiDayLength")
         ? { multiDayLength: eventOptionalIntegerValue(values, "multiDayLength") }
         : {}),
       ...(usesRegionalTimes && countryDailyStartTimes
@@ -1749,6 +1752,17 @@ export function DiscoverFeedEntryWorkbench({
     url: "",
   });
   const [eventRegionalTimesOpen, setEventRegionalTimesOpen] = useState(false);
+  const [eventRegionalEditor, setEventRegionalEditor] = useState<{
+    mode: "create" | "edit";
+    index?: number;
+  } | null>(null);
+  const [eventRegionalDraft, setEventRegionalDraft] =
+    useState<EventRegionalTimeRow>({
+      countryCode: "AR",
+      startTime: "",
+      endTime: "",
+      timezone: "America/Argentina/Buenos_Aires",
+    });
   const [persistedState, setPersistedState] = useState<FeedEntryFormState | null>(null);
   const [publishedFeedItemId, setPublishedFeedItemId] = useState<string | null>(
     feedItem?.status === "published" ? feedItem.id : null,
@@ -1838,6 +1852,18 @@ export function DiscoverFeedEntryWorkbench({
       setEventActionDraft({ type: "register", title: "Register", url: "" });
     }
   }, [eventActionButtonsOpen]);
+
+  useEffect(() => {
+    if (!eventRegionalTimesOpen) {
+      setEventRegionalEditor(null);
+      setEventRegionalDraft({
+        countryCode: "AR",
+        startTime: "",
+        endTime: "",
+        timezone: "America/Argentina/Buenos_Aires",
+      });
+    }
+  }, [eventRegionalTimesOpen]);
 
   useEffect(() => {
     setPersistedState(null);
@@ -2107,6 +2133,54 @@ export function DiscoverFeedEntryWorkbench({
         },
       },
     }));
+  }
+
+  function defaultEventRegionalDraft(): EventRegionalTimeRow {
+    return {
+      countryCode: "AR",
+      startTime: "",
+      endTime: "",
+      timezone: upcomingEventPayload.timezone || "America/Argentina/Buenos_Aires",
+    };
+  }
+
+  function openNewEventRegionalEditor() {
+    setEventRegionalDraft(defaultEventRegionalDraft());
+    setEventRegionalEditor({ mode: "create" });
+  }
+
+  function openEditEventRegionalEditor(index: number) {
+    setEventRegionalDraft({
+      ...(eventRegionalRows[index] ?? defaultEventRegionalDraft()),
+    });
+    setEventRegionalEditor({ mode: "edit", index });
+  }
+
+  function updateEventRegionalDraft(patch: Partial<EventRegionalTimeRow>) {
+    setEventRegionalDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function saveEventRegionalDraft() {
+    const nextRow: EventRegionalTimeRow = {
+      countryCode: normalizeEventCountryCode(eventRegionalDraft.countryCode),
+      startTime: eventRegionalDraft.startTime.trim(),
+      endTime: eventRegionalDraft.endTime.trim(),
+      timezone: eventRegionalDraft.timezone.trim(),
+    };
+
+    if (
+      eventRegionalEditor?.mode === "edit" &&
+      eventRegionalEditor.index !== undefined
+    ) {
+      const nextRows = [...eventRegionalRows];
+      nextRows[eventRegionalEditor.index] = nextRow;
+      updateEventRegionalRows(nextRows);
+    } else {
+      updateEventRegionalRows([...eventRegionalRows, nextRow]);
+    }
+
+    setEventRegionalEditor(null);
+    setEventRegionalDraft(defaultEventRegionalDraft());
   }
 
   function toggleEventValues(
@@ -2905,172 +2979,327 @@ export function DiscoverFeedEntryWorkbench({
   }
 
   function renderEventRegionalTimesModal() {
-    function replaceRow(index: number, patch: Partial<EventRegionalTimeRow>) {
-      const nextRows = [...eventRegionalRows];
-      nextRows[index] = {
-        ...(nextRows[index] ?? {
-          countryCode: "",
-          startTime: "",
-          endTime: "",
-          timezone: "",
-        }),
-        ...patch,
-      };
-      updateEventRegionalRows(nextRows);
-    }
+    const draftCountryCode = normalizeEventCountryCode(
+      eventRegionalDraft.countryCode,
+    );
+    const draftStartTime = eventRegionalDraft.startTime.trim();
+    const draftEndTime = eventRegionalDraft.endTime.trim();
+    const draftTimezone = eventRegionalDraft.timezone.trim();
+    const draftInvalidCountry = Boolean(
+      draftCountryCode && !isValidIsoCountryCode(draftCountryCode),
+    );
+    const draftInvalidStart = Boolean(
+      draftStartTime && !isValidTimeOfDay(draftStartTime),
+    );
+    const draftInvalidEnd = Boolean(
+      draftEndTime && !isValidTimeOfDay(draftEndTime),
+    );
+    const draftInvalidTimezone = Boolean(
+      draftTimezone && !isValidIanaTimezone(draftTimezone),
+    );
+    const canSaveRegionalDraft = Boolean(
+      draftCountryCode &&
+        (draftStartTime || draftEndTime || draftTimezone) &&
+        !draftInvalidCountry &&
+        !draftInvalidStart &&
+        !draftInvalidEnd &&
+        !draftInvalidTimezone,
+    );
 
     return (
       <Dialog open={eventRegionalTimesOpen} onOpenChange={setEventRegionalTimesOpen}>
         <DialogContent className="overflow-hidden p-0 sm:max-w-3xl">
           <DialogHeader className="border-b border-border px-5 py-4">
             <DialogTitle className="font-heading text-xl font-semibold">
-              {t("Regional event times")}
+              {eventRegionalEditor
+                ? eventRegionalEditor.mode === "edit"
+                  ? t("Edit region")
+                  : t("New region")
+                : t("Regional event times")}
             </DialogTitle>
             <DialogDescription>
-              {t("Use two-letter country codes with local daily times when the same event is shown differently by region.")}
+              {eventRegionalEditor
+                ? t("Complete one regional time at a time. Save it to return to the list.")
+                : t("Use two-letter country codes with local daily times when the same event is shown differently by region.")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="max-h-[62vh] overflow-y-auto px-5 py-4">
-            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-5 text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100">
-              {t("Use regional rows when the event time changes by country or timezone.")}
-            </div>
-
-            <div className="flex flex-col gap-3">
-              {eventRegionalRows.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-violet-200 px-4 py-8 text-center text-sm text-muted-foreground dark:border-violet-400/20">
-                  {t("No regional times configured.")}
+            {eventRegionalEditor ? (
+              <div className="flex flex-col gap-4">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-5 text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100">
+                  {t("Complete the fields for this region only.")}
                 </div>
-              ) : (
-                eventRegionalRows.map((row, index) => {
-                  const invalidCountry =
-                    row.countryCode.trim() && !isValidIsoCountryCode(row.countryCode);
-                  const invalidStart =
-                    row.startTime.trim() && !isValidTimeOfDay(row.startTime);
-                  const invalidEnd = row.endTime.trim() && !isValidTimeOfDay(row.endTime);
-                  const invalidTimezone =
-                    row.timezone.trim() && !isValidIanaTimezone(row.timezone);
 
-                  return (
-                    <div
-                      key={`${row.countryCode}-${index}`}
-                      className="rounded-xl border border-violet-100/80 bg-white/82 p-3 dark:border-violet-400/14 dark:bg-slate-950/38"
-                    >
-                      <div className="grid gap-3 md:grid-cols-[7rem_1fr_1fr_minmax(12rem,1.2fr)]">
-                        <FieldShell
-                          label={t("Country")}
-                          htmlFor={`event-region-country-${index}`}
-                          error={invalidCountry ? t("Use two letters.") : null}
-                        >
-                          <Input
-                            id={`event-region-country-${index}`}
-                            value={row.countryCode}
-                            maxLength={2}
-                            onChange={(event) =>
-                              replaceRow(index, {
-                                countryCode: normalizeEventCountryCode(
-                                  event.target.value,
-                                ),
-                              })
-                            }
-                            placeholder="AR"
-                            className={`${publisherInputClass} uppercase ${invalidCountry ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                          />
-                        </FieldShell>
-                        <FieldShell
-                          label={t("Start time")}
-                          htmlFor={`event-region-start-${index}`}
-                          error={invalidStart ? t("Use HH:mm.") : null}
-                        >
-                          <Input
-                            id={`event-region-start-${index}`}
-                            type="time"
-                            value={row.startTime}
-                            onChange={(event) =>
-                              replaceRow(index, { startTime: event.target.value })
-                            }
-                            className={`${publisherInputClass} ${invalidStart ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                          />
-                        </FieldShell>
-                        <FieldShell
-                          label={t("End time")}
-                          htmlFor={`event-region-end-${index}`}
-                          error={invalidEnd ? t("Use HH:mm.") : null}
-                        >
-                          <Input
-                            id={`event-region-end-${index}`}
-                            type="time"
-                            value={row.endTime}
-                            onChange={(event) =>
-                              replaceRow(index, { endTime: event.target.value })
-                            }
-                            className={`${publisherInputClass} ${invalidEnd ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                          />
-                        </FieldShell>
-                        <FieldShell
-                          label={t("Timezone")}
-                          htmlFor={`event-region-timezone-${index}`}
-                          error={invalidTimezone ? t("Use an IANA timezone.") : null}
-                        >
-                          <Input
-                            id={`event-region-timezone-${index}`}
-                            list="discover-event-timezone-options"
-                            value={row.timezone}
-                            onChange={(event) =>
-                              replaceRow(index, { timezone: event.target.value })
-                            }
-                            placeholder="America/Argentina/Buenos_Aires"
-                            className={`${publisherInputClass} ${invalidTimezone ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                          />
-                        </FieldShell>
-                      </div>
-                      <div className="mt-3 flex justify-end">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            updateEventRegionalRows(
-                              eventRegionalRows.filter((_, itemIndex) => itemIndex !== index),
-                            )
-                          }
-                          className={publisherSoftButtonClass}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          {t("Remove")}
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FieldShell
+                    label={t("Country")}
+                    htmlFor="event-region-draft-country"
+                    error={
+                      !draftCountryCode
+                        ? t("Country is required.")
+                        : draftInvalidCountry
+                          ? t("Use two letters.")
+                          : null
+                    }
+                  >
+                    <Input
+                      id="event-region-draft-country"
+                      value={eventRegionalDraft.countryCode}
+                      maxLength={2}
+                      onChange={(event) =>
+                        updateEventRegionalDraft({
+                          countryCode: normalizeEventCountryCode(
+                            event.target.value,
+                          ),
+                        })
+                      }
+                      placeholder="AR"
+                      className={`${publisherInputClass} uppercase ${
+                        draftInvalidCountry
+                          ? "border-destructive focus-visible:ring-destructive"
+                          : ""
+                      }`}
+                    />
+                  </FieldShell>
+                  <FieldShell
+                    label={t("Timezone")}
+                    htmlFor="event-region-draft-timezone"
+                    error={
+                      draftInvalidTimezone ? t("Use an IANA timezone.") : null
+                    }
+                  >
+                    <Input
+                      id="event-region-draft-timezone"
+                      list="discover-event-timezone-options"
+                      value={eventRegionalDraft.timezone}
+                      onChange={(event) =>
+                        updateEventRegionalDraft({ timezone: event.target.value })
+                      }
+                      placeholder="America/Argentina/Buenos_Aires"
+                      className={`${publisherInputClass} ${
+                        draftInvalidTimezone
+                          ? "border-destructive focus-visible:ring-destructive"
+                          : ""
+                      }`}
+                    />
+                  </FieldShell>
+                  <FieldShell
+                    label={t("Start time")}
+                    htmlFor="event-region-draft-start"
+                    error={draftInvalidStart ? t("Use HH:mm.") : null}
+                  >
+                    <Input
+                      id="event-region-draft-start"
+                      type="time"
+                      value={eventRegionalDraft.startTime}
+                      onChange={(event) =>
+                        updateEventRegionalDraft({ startTime: event.target.value })
+                      }
+                      className={`${publisherInputClass} ${
+                        draftInvalidStart
+                          ? "border-destructive focus-visible:ring-destructive"
+                          : ""
+                      }`}
+                    />
+                  </FieldShell>
+                  <FieldShell
+                    label={t("End time")}
+                    htmlFor="event-region-draft-end"
+                    error={draftInvalidEnd ? t("Use HH:mm.") : null}
+                  >
+                    <Input
+                      id="event-region-draft-end"
+                      type="time"
+                      value={eventRegionalDraft.endTime}
+                      onChange={(event) =>
+                        updateEventRegionalDraft({ endTime: event.target.value })
+                      }
+                      className={`${publisherInputClass} ${
+                        draftInvalidEnd
+                          ? "border-destructive focus-visible:ring-destructive"
+                          : ""
+                      }`}
+                    />
+                  </FieldShell>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-5 text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100">
+                  {t("Use regional rows when the event time changes by country or timezone.")}
+                </div>
+
+                {eventRegionalRows.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-violet-200 px-4 py-8 text-center text-sm text-muted-foreground dark:border-violet-400/20">
+                    {t("No regional times configured.")}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-violet-100/80 bg-white/82 dark:border-violet-400/14 dark:bg-slate-950/38">
+                    <table className="min-w-full divide-y divide-violet-100 text-sm dark:divide-violet-400/12">
+                      <thead className="bg-violet-50/60 text-xs uppercase text-muted-foreground dark:bg-violet-500/8">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold">
+                            {t("Country")}
+                          </th>
+                          <th className="px-3 py-2 text-left font-semibold">
+                            {t("Start time")}
+                          </th>
+                          <th className="px-3 py-2 text-left font-semibold">
+                            {t("End time")}
+                          </th>
+                          <th className="px-3 py-2 text-left font-semibold">
+                            {t("Timezone")}
+                          </th>
+                          <th className="px-3 py-2 text-right font-semibold">
+                            {t("Actions")}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-violet-100/70 dark:divide-violet-400/12">
+                        {eventRegionalRows.map((row, index) => {
+                          const invalidCountry = Boolean(
+                            row.countryCode.trim() &&
+                              !isValidIsoCountryCode(row.countryCode),
+                          );
+                          const invalidStart = Boolean(
+                            row.startTime.trim() &&
+                              !isValidTimeOfDay(row.startTime),
+                          );
+                          const invalidEnd = Boolean(
+                            row.endTime.trim() && !isValidTimeOfDay(row.endTime),
+                          );
+                          const invalidTimezone = Boolean(
+                            row.timezone.trim() &&
+                              !isValidIanaTimezone(row.timezone),
+                          );
+
+                          return (
+                            <tr key={`${row.countryCode}-${index}`}>
+                              <td className="px-3 py-3 font-semibold text-foreground">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span>{row.countryCode || "-"}</span>
+                                  {invalidCountry ? (
+                                    <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+                                      {t("Invalid country")}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 text-muted-foreground">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span>{row.startTime || "-"}</span>
+                                  {invalidStart ? (
+                                    <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+                                      {t("Invalid time")}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 text-muted-foreground">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span>{row.endTime || "-"}</span>
+                                  {invalidEnd ? (
+                                    <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+                                      {t("Invalid time")}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 font-mono text-xs text-muted-foreground">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span>{row.timezone || "-"}</span>
+                                  {invalidTimezone ? (
+                                    <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+                                      {t("Invalid timezone")}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </td>
+                              <td className="px-3 py-3">
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon-sm"
+                                    onClick={() =>
+                                      openEditEventRegionalEditor(index)
+                                    }
+                                    title={t("Edit region")}
+                                    aria-label={`${t("Edit region")}: ${
+                                      row.countryCode || index + 1
+                                    }`}
+                                    className={publisherSoftButtonClass}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon-sm"
+                                    onClick={() =>
+                                      updateEventRegionalRows(
+                                        eventRegionalRows.filter(
+                                          (_, itemIndex) => itemIndex !== index,
+                                        ),
+                                      )
+                                    }
+                                    title={t("Remove")}
+                                    aria-label={`${t("Remove")}: ${
+                                      row.countryCode || index + 1
+                                    }`}
+                                    className={publisherSoftButtonClass}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <DialogFooter className="border-t border-border px-5 py-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                updateEventRegionalRows([
-                  ...eventRegionalRows,
-                  {
-                    countryCode: "AR",
-                    startTime: "",
-                    endTime: "",
-                    timezone:
-                      upcomingEventPayload.timezone ||
-                      "America/Argentina/Buenos_Aires",
-                  },
-                ])
-              }
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {t("Add region")}
-            </Button>
-            <Button type="button" onClick={() => setEventRegionalTimesOpen(false)}>
-              {t("Done")}
-            </Button>
+            {eventRegionalEditor ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEventRegionalEditor(null)}
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {t("Back to list")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={saveEventRegionalDraft}
+                  disabled={!canSaveRegionalDraft}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  {t("Save region")}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={openNewEventRegionalEditor}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("Add region")}
+                </Button>
+                <Button type="button" onClick={() => setEventRegionalTimesOpen(false)}>
+                  {t("Done")}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -3081,7 +3310,7 @@ export function DiscoverFeedEntryWorkbench({
     const timeKind = eventStringValue(upcomingEventPayload, "timeKind");
     const showTimedScheduleFields = timeKind === "timed";
     const showRegionalScheduleFields = timeKind === "regionalTimes";
-    const showMultiDayLengthField = Boolean(timeKind);
+    const showMultiDayLengthField = Boolean(timeKind && timeKind !== "dateOnly");
     const costType = eventStringValue(upcomingEventPayload, "costType");
     const selectedAudience = selectedEventValues(upcomingEventPayload, "audience");
     const selectedLanguages = selectedEventValues(upcomingEventPayload, "languages");
