@@ -91,6 +91,7 @@ import {
 } from "@/lib/discover";
 import {
   DISCOVER_ORGANIZATION_COUNTRY_CODES,
+  formatDiscoverOrganizationCountry,
   formatDiscoverRegionCodes,
   getDiscoverOrganizationCountryGroups,
   getDiscoverRegionCountryGroups,
@@ -683,6 +684,19 @@ function normalizeEventCountryCode(value: string) {
 function isValidIsoCountryCode(value: string) {
   return (DISCOVER_ORGANIZATION_COUNTRY_CODES as readonly string[]).includes(
     normalizeEventCountryCode(value),
+  );
+}
+
+function flagEmojiForCountryCode(countryCode: string) {
+  const normalizedCode = normalizeEventCountryCode(countryCode);
+  if (!isValidIsoCountryCode(normalizedCode)) {
+    return "";
+  }
+
+  return String.fromCodePoint(
+    ...normalizedCode
+      .split("")
+      .map((letter) => 0x1f1e6 + letter.charCodeAt(0) - 65),
   );
 }
 
@@ -2982,6 +2996,63 @@ export function DiscoverFeedEntryWorkbench({
     );
   }
 
+  function renderEventRegionalRowsSummary() {
+    return (
+      <div className="overflow-x-auto rounded-xl border border-violet-100/80 bg-white/82 dark:border-violet-400/14 dark:bg-slate-950/38">
+        <table className="min-w-full divide-y divide-violet-100 text-sm dark:divide-violet-400/12">
+          <thead className="bg-violet-50/60 text-xs uppercase text-muted-foreground dark:bg-violet-500/8">
+            <tr>
+              <th className="px-3 py-2 text-left font-semibold">
+                {t("Country")}
+              </th>
+              <th className="px-3 py-2 text-left font-semibold">
+                {t("Start time")}
+              </th>
+              <th className="px-3 py-2 text-left font-semibold">
+                {t("End time")}
+              </th>
+              <th className="px-3 py-2 text-left font-semibold">
+                {t("Timezone")}
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-violet-100/70 dark:divide-violet-400/12">
+            {eventRegionalRows.map((row, index) => {
+              const countryLabel =
+                formatDiscoverOrganizationCountry(row.countryCode, language) ??
+                (row.countryCode || t("No country"));
+              const flagEmoji = flagEmojiForCountryCode(row.countryCode);
+
+              return (
+                <tr key={`${row.countryCode}-${index}`}>
+                  <td className="px-3 py-3 font-medium text-foreground">
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      {flagEmoji ? (
+                        <span aria-hidden="true" className="text-base leading-none">
+                          {flagEmoji}
+                        </span>
+                      ) : null}
+                      <span className="truncate">{countryLabel}</span>
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-muted-foreground">
+                    {row.startTime || "-"}
+                  </td>
+                  <td className="px-3 py-3 text-muted-foreground">
+                    {row.endTime || "-"}
+                  </td>
+                  <td className="px-3 py-3 font-mono text-xs text-muted-foreground">
+                    {row.timezone || "-"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   function renderEventRegionalTimesModal() {
     const draftCountryCode = normalizeEventCountryCode(
       eventRegionalDraft.countryCode,
@@ -3563,11 +3634,13 @@ export function DiscoverFeedEntryWorkbench({
                           <Settings2 className="h-4 w-4" />
                           {t("Configure regional times")}
                         </Button>
-                        <p className="text-xs leading-5 text-muted-foreground">
-                          {eventRegionalRows.length
-                            ? `${eventRegionalRows.length} ${t("regional rows configured")}`
-                            : t("No regional times configured.")}
-                        </p>
+                        {eventRegionalRows.length ? (
+                          renderEventRegionalRowsSummary()
+                        ) : (
+                          <p className="text-xs leading-5 text-muted-foreground">
+                            {t("No regional times configured.")}
+                          </p>
+                        )}
                       </div>
                     ) : null}
                   </div>

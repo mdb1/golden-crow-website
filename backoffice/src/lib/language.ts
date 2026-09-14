@@ -924,7 +924,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "Add optional schedule details when the event needs times, timezone, duration, or country-specific hours.":
     "Agregá detalles opcionales de agenda cuando el evento necesite horarios, zona horaria, duración o franjas por país.",
   "Configure regional times": "Configurar horarios regionales",
-  "regional rows configured": "filas regionales configuradas",
   "Classification": "Clasificación",
   "Add optional labels that help readers understand the event format, type, and status.":
     "Agregá etiquetas opcionales para que los lectores entiendan el formato, tipo y estado del evento.",

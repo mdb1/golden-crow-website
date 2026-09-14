@@ -46,6 +46,13 @@ jest.mock("@/lib/discover-organization-fields", () => {
 
   return {
     ...actual,
+    getDiscoverOrganizationCountryGroups: () => [
+      {
+        key: "recommended",
+        label: "Recommended countries",
+        options: [{ code: "AR", label: "Argentina (AR)" }],
+      },
+    ],
     getDiscoverRegionCountryGroups: () => [
       {
         key: "recommended",
@@ -762,6 +769,9 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
+    expect(screen.getByText("Argentina (AR)")).toBeTruthy();
+    expect(screen.getAllByText("09:30").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/regional rows configured/i)).toBeNull();
 
     fireEvent.click(screen.getByText("Event actions"));
     fireEvent.click(screen.getByRole("button", { name: "Configure actions" }));
