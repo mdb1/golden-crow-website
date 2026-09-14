@@ -893,6 +893,9 @@ function validateEventActionButtons(buttons: EventActionButton[]) {
 }
 
 function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
+  const timeKind = eventStringValue(payload, "timeKind");
+  const usesTimedSchedule = timeKind === "timed";
+  const usesRegionalTimes = timeKind === "regionalTimes";
   const dailyStartTime = eventStringValue(payload, "dailyStartTime");
   const dailyEndTime = eventStringValue(payload, "dailyEndTime");
   const multiDayLength = eventStringValue(payload, "multiDayLength");
@@ -913,13 +916,13 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
     return actionButtonError;
   }
 
-  if (dailyStartTime && !isValidTimeOfDay(dailyStartTime)) {
+  if (usesTimedSchedule && dailyStartTime && !isValidTimeOfDay(dailyStartTime)) {
     return "Daily start time must use HH:mm.";
   }
-  if (dailyEndTime && !isValidTimeOfDay(dailyEndTime)) {
+  if (usesTimedSchedule && dailyEndTime && !isValidTimeOfDay(dailyEndTime)) {
     return "Daily end time must use HH:mm.";
   }
-  if (timezone && !isValidIanaTimezone(timezone)) {
+  if (usesTimedSchedule && timezone && !isValidIanaTimezone(timezone)) {
     return "Timezone must be a valid IANA timezone.";
   }
   if (
@@ -943,18 +946,20 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
     return "Publisher disclosure can be up to 140 characters.";
   }
 
-  for (const row of regionalRows) {
-    if (!isValidIsoCountryCode(row.countryCode)) {
-      return "Regional time rows need two-letter ISO country codes.";
-    }
-    if (row.startTime && !isValidTimeOfDay(row.startTime)) {
-      return "Regional start times must use HH:mm.";
-    }
-    if (row.endTime && !isValidTimeOfDay(row.endTime)) {
-      return "Regional end times must use HH:mm.";
-    }
-    if (row.timezone && !isValidIanaTimezone(row.timezone)) {
-      return "Regional timezones must be valid IANA timezones.";
+  if (usesRegionalTimes) {
+    for (const row of regionalRows) {
+      if (!isValidIsoCountryCode(row.countryCode)) {
+        return "Regional time rows need two-letter ISO country codes.";
+      }
+      if (row.startTime && !isValidTimeOfDay(row.startTime)) {
+        return "Regional start times must use HH:mm.";
+      }
+      if (row.endTime && !isValidTimeOfDay(row.endTime)) {
+        return "Regional end times must use HH:mm.";
+      }
+      if (row.timezone && !isValidIanaTimezone(row.timezone)) {
+        return "Regional timezones must be valid IANA timezones.";
+      }
     }
   }
 
@@ -1130,6 +1135,9 @@ function payloadForType(state: FeedEntryFormState) {
   const values = state.payloads[state.type] ?? {};
 
   if (state.type === "upcoming_event") {
+    const timeKind = eventStringValue(values, "timeKind");
+    const usesTimedSchedule = timeKind === "timed";
+    const usesRegionalTimes = timeKind === "regionalTimes";
     const actionButtons = parseEventActionButtons(values.actionButtons ?? "")
       .filter((button) => button.type.trim() && button.url.trim())
       .map((button) => ({
@@ -1153,24 +1161,24 @@ function payloadForType(state: FeedEntryFormState) {
       date: fromDateInput(values.date ?? ""),
       location: eventStringValue(values, "location"),
       maxAttendance: eventIntegerValue(values, "maxAttendance"),
-      ...(eventStringValue(values, "timeKind")
-        ? { timeKind: eventStringValue(values, "timeKind") }
-        : {}),
-      ...(eventStringValue(values, "timezone")
+      ...(timeKind ? { timeKind } : {}),
+      ...(usesTimedSchedule && eventStringValue(values, "timezone")
         ? { timezone: eventStringValue(values, "timezone") }
         : {}),
-      ...(eventStringValue(values, "dailyStartTime")
+      ...(usesTimedSchedule && eventStringValue(values, "dailyStartTime")
         ? { dailyStartTime: eventStringValue(values, "dailyStartTime") }
         : {}),
-      ...(eventStringValue(values, "dailyEndTime")
+      ...(usesTimedSchedule && eventStringValue(values, "dailyEndTime")
         ? { dailyEndTime: eventStringValue(values, "dailyEndTime") }
         : {}),
       ...(eventStringValue(values, "multiDayLength")
         ? { multiDayLength: eventOptionalIntegerValue(values, "multiDayLength") }
         : {}),
-      ...(countryDailyStartTimes ? { countryDailyStartTimes } : {}),
-      ...(countryDailyEndTimes ? { countryDailyEndTimes } : {}),
-      ...(countryTimezones ? { countryTimezones } : {}),
+      ...(usesRegionalTimes && countryDailyStartTimes
+        ? { countryDailyStartTimes }
+        : {}),
+      ...(usesRegionalTimes && countryDailyEndTimes ? { countryDailyEndTimes } : {}),
+      ...(usesRegionalTimes && countryTimezones ? { countryTimezones } : {}),
       ...(eventStringValue(values, "eventKind")
         ? { eventKind: eventStringValue(values, "eventKind") }
         : {}),
@@ -3066,10 +3074,10 @@ export function DiscoverFeedEntryWorkbench({
 
   function renderUpcomingEventFields() {
     const timeKind = eventStringValue(upcomingEventPayload, "timeKind");
+    const showTimedScheduleFields = timeKind === "timed";
+    const showRegionalScheduleFields = timeKind === "regionalTimes";
+    const showMultiDayLengthField = Boolean(timeKind);
     const costType = eventStringValue(upcomingEventPayload, "costType");
-    const hasDailyTimes = Boolean(
-      upcomingEventPayload.dailyStartTime || upcomingEventPayload.dailyEndTime,
-    );
     const selectedAudience = selectedEventValues(upcomingEventPayload, "audience");
     const selectedLanguages = selectedEventValues(upcomingEventPayload, "languages");
     const selectedAccessibility = selectedEventValues(
@@ -3087,20 +3095,6 @@ export function DiscoverFeedEntryWorkbench({
             "info",
             "Main event link",
             "The main button can stay as the primary event link. Optional actions can add more specific next steps.",
-          )
-        : null,
-      timeKind === "allDay" && hasDailyTimes
-        ? renderEventNotice(
-            "warning",
-            "All-day event",
-            "For all-day events, readers see the date without daily start or end times.",
-          )
-        : null,
-      timeKind === "dateOnly" && hasDailyTimes
-        ? renderEventNotice(
-            "warning",
-            "Date-only event",
-            "Date-only events should be published without a time row, even if daily times are filled.",
           )
         : null,
       timeKind === "timeTba"
@@ -3226,79 +3220,102 @@ export function DiscoverFeedEntryWorkbench({
                       label: "Time display",
                       options: EVENT_TIME_KIND_OPTIONS,
                     })}
-                    <FieldShell label={t("Timezone")} htmlFor="discover-upcoming-event-timezone">
-                      <Input
-                        id="discover-upcoming-event-timezone"
-                        list="discover-event-timezone-options"
-                        value={upcomingEventPayload.timezone ?? ""}
-                        onChange={(event) =>
-                          updateUpcomingEventField("timezone", event.target.value)
-                        }
-                        placeholder="America/Argentina/Buenos_Aires"
-                        className={publisherInputClass}
-                      />
-                    </FieldShell>
-                    <FieldShell
-                      label={t("Daily start time")}
-                      htmlFor="discover-upcoming-event-daily-start"
-                    >
-                      <Input
-                        id="discover-upcoming-event-daily-start"
-                        type="time"
-                        value={upcomingEventPayload.dailyStartTime ?? ""}
-                        onChange={(event) =>
-                          updateUpcomingEventField("dailyStartTime", event.target.value)
-                        }
-                        className={publisherInputClass}
-                      />
-                    </FieldShell>
-                    <FieldShell
-                      label={t("Daily end time")}
-                      htmlFor="discover-upcoming-event-daily-end"
-                    >
-                      <Input
-                        id="discover-upcoming-event-daily-end"
-                        type="time"
-                        value={upcomingEventPayload.dailyEndTime ?? ""}
-                        onChange={(event) =>
-                          updateUpcomingEventField("dailyEndTime", event.target.value)
-                        }
-                        className={publisherInputClass}
-                      />
-                    </FieldShell>
-                    <FieldShell
-                      label={t("Multi-day length")}
-                      htmlFor="discover-upcoming-event-multi-day-length"
-                    >
-                      <Input
-                        id="discover-upcoming-event-multi-day-length"
-                        type="number"
-                        min={1}
-                        max={365}
-                        step={1}
-                        value={upcomingEventPayload.multiDayLength ?? ""}
-                        onChange={(event) =>
-                          updateUpcomingEventField("multiDayLength", event.target.value)
-                        }
-                        className={publisherInputClass}
-                      />
-                    </FieldShell>
-                    <div className="flex flex-col justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setEventRegionalTimesOpen(true)}
-                        className={`${publisherSoftButtonClass} h-11 justify-center`}
+                    {showTimedScheduleFields ? (
+                      <>
+                        <FieldShell
+                          label={t("Timezone")}
+                          htmlFor="discover-upcoming-event-timezone"
+                        >
+                          <Input
+                            id="discover-upcoming-event-timezone"
+                            list="discover-event-timezone-options"
+                            value={upcomingEventPayload.timezone ?? ""}
+                            onChange={(event) =>
+                              updateUpcomingEventField(
+                                "timezone",
+                                event.target.value,
+                              )
+                            }
+                            placeholder="America/Argentina/Buenos_Aires"
+                            className={publisherInputClass}
+                          />
+                        </FieldShell>
+                        <FieldShell
+                          label={t("Daily start time")}
+                          htmlFor="discover-upcoming-event-daily-start"
+                        >
+                          <Input
+                            id="discover-upcoming-event-daily-start"
+                            type="time"
+                            value={upcomingEventPayload.dailyStartTime ?? ""}
+                            onChange={(event) =>
+                              updateUpcomingEventField(
+                                "dailyStartTime",
+                                event.target.value,
+                              )
+                            }
+                            className={publisherInputClass}
+                          />
+                        </FieldShell>
+                        <FieldShell
+                          label={t("Daily end time")}
+                          htmlFor="discover-upcoming-event-daily-end"
+                        >
+                          <Input
+                            id="discover-upcoming-event-daily-end"
+                            type="time"
+                            value={upcomingEventPayload.dailyEndTime ?? ""}
+                            onChange={(event) =>
+                              updateUpcomingEventField(
+                                "dailyEndTime",
+                                event.target.value,
+                              )
+                            }
+                            className={publisherInputClass}
+                          />
+                        </FieldShell>
+                      </>
+                    ) : null}
+                    {showMultiDayLengthField ? (
+                      <FieldShell
+                        label={t("Multi-day length")}
+                        htmlFor="discover-upcoming-event-multi-day-length"
                       >
-                        <Settings2 className="h-4 w-4" />
-                        {t("Configure regional times")}
-                      </Button>
-                      <p className="text-xs leading-5 text-muted-foreground">
-                        {eventRegionalRows.length
-                          ? `${eventRegionalRows.length} ${t("regional rows configured")}`
-                          : t("No regional times configured.")}
-                      </p>
-                    </div>
+                        <Input
+                          id="discover-upcoming-event-multi-day-length"
+                          type="number"
+                          min={1}
+                          max={365}
+                          step={1}
+                          value={upcomingEventPayload.multiDayLength ?? ""}
+                          onChange={(event) =>
+                            updateUpcomingEventField(
+                              "multiDayLength",
+                              event.target.value,
+                            )
+                          }
+                          className={publisherInputClass}
+                        />
+                      </FieldShell>
+                    ) : null}
+                    {showRegionalScheduleFields ? (
+                      <div className="flex flex-col justify-end gap-2 md:col-span-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setEventRegionalTimesOpen(true)}
+                          className={`${publisherSoftButtonClass} h-11 justify-center`}
+                        >
+                          <Settings2 className="h-4 w-4" />
+                          {t("Configure regional times")}
+                        </Button>
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          {eventRegionalRows.length
+                            ? `${eventRegionalRows.length} ${t("regional rows configured")}`
+                            : t("No regional times configured.")}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ),

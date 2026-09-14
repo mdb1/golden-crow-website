@@ -671,17 +671,20 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     });
     fireEvent.click(screen.getByText("Schedule display"));
     fireEvent.change(screen.getByLabelText("Time display"), {
+      target: { value: "timed" },
+    });
+    expect(screen.getByLabelText("Timezone")).toBeTruthy();
+    expect(screen.getByLabelText("Daily start time")).toBeTruthy();
+    expect(screen.getByLabelText("Daily end time")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Configure regional times" }),
+    ).toBeNull();
+    fireEvent.change(screen.getByLabelText("Time display"), {
       target: { value: "regionalTimes" },
     });
-    fireEvent.change(screen.getByLabelText("Timezone"), {
-      target: { value: "America/Argentina/Buenos_Aires" },
-    });
-    fireEvent.change(screen.getByLabelText("Daily start time"), {
-      target: { value: "09:30" },
-    });
-    fireEvent.change(screen.getByLabelText("Daily end time"), {
-      target: { value: "11:00" },
-    });
+    expect(screen.queryByLabelText("Timezone")).toBeNull();
+    expect(screen.queryByLabelText("Daily start time")).toBeNull();
+    expect(screen.queryByLabelText("Daily end time")).toBeNull();
     fireEvent.change(screen.getByLabelText("Multi-day length"), {
       target: { value: "2" },
     });
@@ -780,9 +783,6 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       location: "Online",
       maxAttendance: 250,
       timeKind: "regionalTimes",
-      timezone: "America/Argentina/Buenos_Aires",
-      dailyStartTime: "09:30",
-      dailyEndTime: "11:00",
       multiDayLength: 2,
       countryDailyStartTimes: { AR: "09:30" },
       countryDailyEndTimes: { AR: "11:00" },
@@ -805,6 +805,9 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
         },
       ],
     });
+    expect(payload).not.toHaveProperty("timezone");
+    expect(payload).not.toHaveProperty("dailyStartTime");
+    expect(payload).not.toHaveProperty("dailyEndTime");
     expect(payload.date).toBe("2026-10-12T00:00:00.000Z");
   }, 15000);
 
