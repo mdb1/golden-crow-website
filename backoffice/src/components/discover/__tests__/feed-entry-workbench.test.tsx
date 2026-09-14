@@ -711,6 +711,9 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(screen.getByLabelText("Cost type"), {
       target: { value: "free" },
     });
+    expect(screen.getByLabelText("Currency").tagName).toBe("SELECT");
+    expect(screen.getByLabelText("Price")).toBeTruthy();
+    expect(screen.queryByLabelText("Price in minor units")).toBeNull();
     fireEvent.click(screen.getByLabelText("Spanish"));
     fireEvent.click(screen.getByLabelText("Captions"));
 

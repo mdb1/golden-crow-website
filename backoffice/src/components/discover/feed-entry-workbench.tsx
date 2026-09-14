@@ -311,6 +311,21 @@ const EVENT_COST_TYPE_OPTIONS: readonly EventSelectOption[] = [
   { value: "unknown", label: "Unknown" },
 ];
 
+const EVENT_CURRENCY_OPTIONS: readonly EventSelectOption[] = [
+  { value: "ARS", label: "Argentine peso (ARS)" },
+  { value: "USD", label: "US dollar (USD)" },
+  { value: "EUR", label: "Euro (EUR)" },
+  { value: "BRL", label: "Brazilian real (BRL)" },
+  { value: "CLP", label: "Chilean peso (CLP)" },
+  { value: "COP", label: "Colombian peso (COP)" },
+  { value: "MXN", label: "Mexican peso (MXN)" },
+  { value: "UYU", label: "Uruguayan peso (UYU)" },
+  { value: "PYG", label: "Paraguayan guarani (PYG)" },
+  { value: "PEN", label: "Peruvian sol (PEN)" },
+  { value: "CAD", label: "Canadian dollar (CAD)" },
+  { value: "GBP", label: "British pound (GBP)" },
+];
+
 const EVENT_LANGUAGE_OPTIONS: readonly EventSelectOption[] = [
   { value: "es", label: "Spanish" },
   { value: "en", label: "English" },
@@ -919,7 +934,7 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
     priceMinorUnits &&
     (!Number.isInteger(Number(priceMinorUnits)) || Number(priceMinorUnits) < 0)
   ) {
-    return "Price in minor units must be zero or a positive integer.";
+    return "Price must be zero or a positive integer.";
   }
   if (organizerName.length > 80) {
     return "Organizer name can be up to 80 characters.";
@@ -3433,22 +3448,36 @@ export function DiscoverFeedEntryWorkbench({
                       options: EVENT_COST_TYPE_OPTIONS,
                     })}
                     <FieldShell label={t("Currency")} htmlFor="discover-upcoming-event-currency">
-                      <Input
-                        id="discover-upcoming-event-currency"
-                        value={upcomingEventPayload.currency ?? ""}
-                        maxLength={3}
-                        onChange={(event) =>
-                          updateUpcomingEventField(
-                            "currency",
-                            event.target.value.toUpperCase(),
-                          )
-                        }
-                        placeholder="ARS"
-                        className={`${publisherInputClass} uppercase`}
-                      />
+                      <div className="relative">
+                        <select
+                          id="discover-upcoming-event-currency"
+                          value={upcomingEventPayload.currency ?? ""}
+                          onChange={(event) =>
+                            updateUpcomingEventField("currency", event.target.value)
+                          }
+                          className={publisherSelectClass}
+                        >
+                          <option value="">{t("Choose currency")}</option>
+                          {EVENT_CURRENCY_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {t(option.label)}
+                            </option>
+                          ))}
+                          {upcomingEventPayload.currency &&
+                          !EVENT_CURRENCY_OPTIONS.some(
+                            (option) =>
+                              option.value === upcomingEventPayload.currency,
+                          ) ? (
+                            <option value={upcomingEventPayload.currency}>
+                              {upcomingEventPayload.currency}
+                            </option>
+                          ) : null}
+                        </select>
+                        <ChevronDown className={publisherSelectCaretClass} />
+                      </div>
                     </FieldShell>
                     <FieldShell
-                      label={t("Price in minor units")}
+                      label={t("Price")}
                       htmlFor="discover-upcoming-event-price-minor-units"
                     >
                       <Input

@@ -1047,7 +1047,20 @@ const SPANISH_TEXT: Record<string, string> = {
   Donation: "Donación",
   Varies: "Variable",
   Currency: "Moneda",
-  "Price in minor units": "Precio en unidades menores",
+  "Choose currency": "Elegir moneda",
+  Price: "Precio",
+  "Argentine peso (ARS)": "Peso argentino (ARS)",
+  "US dollar (USD)": "Dólar estadounidense (USD)",
+  "Euro (EUR)": "Euro europeo (EUR)",
+  "Brazilian real (BRL)": "Real brasileño (BRL)",
+  "Chilean peso (CLP)": "Peso chileno (CLP)",
+  "Colombian peso (COP)": "Peso colombiano (COP)",
+  "Mexican peso (MXN)": "Peso mexicano (MXN)",
+  "Uruguayan peso (UYU)": "Peso uruguayo (UYU)",
+  "Paraguayan guarani (PYG)": "Guaraní paraguayo (PYG)",
+  "Peruvian sol (PEN)": "Sol peruano (PEN)",
+  "Canadian dollar (CAD)": "Dólar canadiense (CAD)",
+  "British pound (GBP)": "Libra esterlina (GBP)",
   "Portuguese (Brazil)": "Portugués (Brasil)",
   Portuguese: "Portugués",
   French: "Francés",
@@ -1108,8 +1121,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "La zona horaria debe ser una zona horaria IANA válida.",
   "Multi-day length must be between 1 and 365.":
     "La duración en días debe estar entre 1 y 365.",
-  "Price in minor units must be zero or a positive integer.":
-    "El precio en unidades menores debe ser cero o un entero positivo.",
+  "Price must be zero or a positive integer.":
+    "El precio debe ser cero o un entero positivo.",
   "Organizer name can be up to 80 characters.":
     "El nombre del organizador puede tener hasta 80 caracteres.",
   "Publisher disclosure can be up to 140 characters.":
