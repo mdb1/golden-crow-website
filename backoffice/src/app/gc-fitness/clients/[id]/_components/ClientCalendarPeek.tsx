@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { HabitChip } from "@/components/gc-fitness/schedule/habit-chip";
 import { MoveAssignmentDialog } from "@/components/gc-fitness/schedule/move-assignment-dialog";
+import { ClientWeekMuscleMap } from "./ClientWeekMuscleMap";
 import { WorkoutDetailDialog } from "@/components/gc-fitness/schedule/workout-detail-dialog";
 
 const DAY_MS = 86_400_000;
@@ -328,6 +329,13 @@ export function ClientCalendarPeek({
           })}
         </div>
       </div>
+
+      {/* #1074 (M6, `S9`) — el heatmap de la semana del cliente.
+          ⚠️ El ancla se pasa tal cual y el server resuelve su LUNES: esta agenda es una
+          ventana rodante de ±3 días, y la vista de músculos tiene que cortar la semana igual
+          que las dos apps (lunes→domingo) o le mostraría al coach un total distinto del que ve
+          el cliente para "la misma semana" — el error que #534 ya corrigió en mobile. */}
+      <ClientWeekMuscleMap clientId={clientId} anchorCivil={peek.anchorCivil} />
     </section>
 
     {/* Issue #461 — recurrence-scope prompt on series move, same dialog the
