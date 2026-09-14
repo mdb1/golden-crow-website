@@ -14,6 +14,14 @@
 // localStorage draft and navigates back, and the navigation does not re-write
 // the draft.
 //
+// #1089 added the THIRD exit that dialog was missing. The pendulum had swung
+// all the way: because Cancel's only non-abort answer was "discard", a trainer
+// who duplicated a routine on the phone, swapped a few exercises and then hit
+// Cancel lost every change. "Leave and keep draft" navigates away and LEAVES
+// the draft on disk — which is what the accidental-exit paths (back button,
+// tab close) already did. The discard test above must stay green alongside it:
+// the point is that destroying the work is now an explicit, separate choice.
+//
 // First three lines MUST stay the jsdom docblock (backoffice jest defaults to
 // testEnvironment: node).
 
@@ -142,5 +150,51 @@ describe("TemplateForm cancel discards the autosaved draft", () => {
 
     expect(mockBack).not.toHaveBeenCalled();
     expect(window.localStorage.getItem(STORAGE_KEY)).not.toBeNull();
+  });
+});
+
+describe("TemplateForm cancel can leave WITHOUT destroying the draft (#1089)", () => {
+  it("navigates back and leaves the restored draft on disk", async () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(DRAFT_VALUE));
+    renderForm();
+
+    fireEvent.click(screen.getByRole("button", { name: "cancel" }));
+    fireEvent.click(await screen.findByText("discardDialogKeepDraft"));
+
+    await waitFor(() => {
+      expect(mockBack).toHaveBeenCalledTimes(1);
+    });
+
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    expect(stored).not.toBeNull();
+    // And it is the EDITED state, not the server defaults — the exit flushes
+    // the form before navigating, so a change made inside the last debounce
+    // window is not the one thing the trainer loses.
+    expect(JSON.parse(stored as string).exercises[0].exerciseId).toBe(
+      "9999-swapped",
+    );
+  });
+
+  it("flushes an edit made after the restore instead of writing stale values", async () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(DRAFT_VALUE));
+    renderForm();
+
+    // Type a new name, then leave IMMEDIATELY — inside the 500ms autosave
+    // debounce, so only the explicit flush can save it.
+    const nameInput = screen.getByLabelText("nameEn");
+    fireEvent.change(nameInput, { target: { value: "Push Day v2" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "cancel" }));
+    fireEvent.click(await screen.findByText("discardDialogKeepDraft"));
+
+    await waitFor(() => {
+      expect(mockBack).toHaveBeenCalledTimes(1);
+    });
+    const stored = JSON.parse(
+      window.localStorage.getItem(STORAGE_KEY) as string,
+    );
+    expect(stored.name.en === "Push Day v2" || stored.name.es === "Push Day v2").toBe(
+      true,
+    );
   });
 });
