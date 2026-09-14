@@ -73,6 +73,14 @@ jest.mock("@/lib/gc-fitness/schedule-month-actions", () => ({
 // comes back. Their own contracts are pinned in move-assignment-dialog.test.tsx
 // and workout-detail-dialog.test.tsx.
 const mockMoveDialogProps = jest.fn();
+// #1074 (M6) — el peek monta ahora `ClientWeekMuscleMap`, que importa un módulo `"use server"`
+// (y con él `firebase-admin`). Sin este mock, jest no puede parsear la cadena de imports y la
+// SUITE ENTERA no corre — no falla un assert: "Test suite failed to run", que se lee como un
+// problema de configuración y no como el import nuevo que lo causó.
+jest.mock("@/lib/gc-fitness/client-week-muscle-actions", () => ({
+  getClientWeekMuscleMap: jest.fn(),
+}));
+
 jest.mock("@/components/gc-fitness/schedule/move-assignment-dialog", () => ({
   MoveAssignmentDialog: (props: {
     chip: { id: string };
