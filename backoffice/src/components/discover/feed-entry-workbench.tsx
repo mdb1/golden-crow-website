@@ -920,6 +920,8 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
   const usesTimedSchedule = timeKind === "timed";
   const usesRegionalTimes = timeKind === "regionalTimes";
   const usesMultiDayLength = Boolean(timeKind && timeKind !== "dateOnly");
+  const costType = eventStringValue(payload, "costType");
+  const usesPaidCost = costType === "paid";
   const dailyStartTime = eventStringValue(payload, "dailyStartTime");
   const dailyEndTime = eventStringValue(payload, "dailyEndTime");
   const multiDayLength = eventStringValue(payload, "multiDayLength");
@@ -959,6 +961,7 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
     return "Multi-day length must be between 1 and 365.";
   }
   if (
+    usesPaidCost &&
     priceMinorUnits &&
     (!Number.isInteger(Number(priceMinorUnits)) || Number(priceMinorUnits) < 0)
   ) {
@@ -1164,6 +1167,8 @@ function payloadForType(state: FeedEntryFormState) {
     const usesTimedSchedule = timeKind === "timed";
     const usesRegionalTimes = timeKind === "regionalTimes";
     const usesMultiDayLength = Boolean(timeKind && timeKind !== "dateOnly");
+    const costType = eventStringValue(values, "costType");
+    const usesPaidCost = costType === "paid";
     const actionButtons = parseEventActionButtons(values.actionButtons ?? "")
       .filter((button) => button.type.trim() && button.url.trim())
       .map((button) => ({
@@ -1235,13 +1240,11 @@ function payloadForType(state: FeedEntryFormState) {
           }
         : {}),
       ...(audience.length > 0 ? { audience } : {}),
-      ...(eventStringValue(values, "costType")
-        ? { costType: eventStringValue(values, "costType") }
-        : {}),
-      ...(eventStringValue(values, "currency")
+      ...(costType ? { costType } : {}),
+      ...(usesPaidCost && eventStringValue(values, "currency")
         ? { currency: eventStringValue(values, "currency").toUpperCase() }
         : {}),
-      ...(eventStringValue(values, "priceMinorUnits")
+      ...(usesPaidCost && eventStringValue(values, "priceMinorUnits")
         ? { priceMinorUnits: eventOptionalIntegerValue(values, "priceMinorUnits") }
         : {}),
       ...(languages.length > 0 ? { languages } : {}),
@@ -3403,6 +3406,7 @@ export function DiscoverFeedEntryWorkbench({
     const showRegionalScheduleFields = timeKind === "regionalTimes";
     const showMultiDayLengthField = Boolean(timeKind && timeKind !== "dateOnly");
     const costType = eventStringValue(upcomingEventPayload, "costType");
+    const showPaidCostFields = costType === "paid";
     const selectedAudience = selectedEventValues(upcomingEventPayload, "audience");
     const selectedLanguages = selectedEventValues(upcomingEventPayload, "languages");
     const selectedAccessibility = selectedEventValues(
@@ -3434,14 +3438,6 @@ export function DiscoverFeedEntryWorkbench({
             "warning",
             "Regional rows missing",
             "Regional times is selected, but no country-specific rows have been configured yet.",
-          )
-        : null,
-      costType === "free" &&
-      (upcomingEventPayload.currency || upcomingEventPayload.priceMinorUnits)
-        ? renderEventNotice(
-            "warning",
-            "Free event with price fields",
-            "Currency and price are not shown when cost type is Free.",
           )
         : null,
       costType === "paid" && !upcomingEventPayload.priceMinorUnits
@@ -3791,54 +3787,64 @@ export function DiscoverFeedEntryWorkbench({
                       label: "Cost type",
                       options: EVENT_COST_TYPE_OPTIONS,
                     })}
-                    <FieldShell label={t("Currency")} htmlFor="discover-upcoming-event-currency">
-                      <div className="relative">
-                        <select
-                          id="discover-upcoming-event-currency"
-                          value={upcomingEventPayload.currency ?? ""}
-                          onChange={(event) =>
-                            updateUpcomingEventField("currency", event.target.value)
-                          }
-                          className={publisherSelectClass}
+                    {showPaidCostFields ? (
+                      <>
+                        <FieldShell
+                          label={t("Currency")}
+                          htmlFor="discover-upcoming-event-currency"
                         >
-                          <option value="">{t("Choose currency")}</option>
-                          {EVENT_CURRENCY_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {t(option.label)}
-                            </option>
-                          ))}
-                          {upcomingEventPayload.currency &&
-                          !EVENT_CURRENCY_OPTIONS.some(
-                            (option) =>
-                              option.value === upcomingEventPayload.currency,
-                          ) ? (
-                            <option value={upcomingEventPayload.currency}>
-                              {upcomingEventPayload.currency}
-                            </option>
-                          ) : null}
-                        </select>
-                        <ChevronDown className={publisherSelectCaretClass} />
-                      </div>
-                    </FieldShell>
-                    <FieldShell
-                      label={t("Price")}
-                      htmlFor="discover-upcoming-event-price-minor-units"
-                    >
-                      <Input
-                        id="discover-upcoming-event-price-minor-units"
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={upcomingEventPayload.priceMinorUnits ?? ""}
-                        onChange={(event) =>
-                          updateUpcomingEventField(
-                            "priceMinorUnits",
-                            event.target.value,
-                          )
-                        }
-                        className={publisherInputClass}
-                      />
-                    </FieldShell>
+                          <div className="relative">
+                            <select
+                              id="discover-upcoming-event-currency"
+                              value={upcomingEventPayload.currency ?? ""}
+                              onChange={(event) =>
+                                updateUpcomingEventField(
+                                  "currency",
+                                  event.target.value,
+                                )
+                              }
+                              className={publisherSelectClass}
+                            >
+                              <option value="">{t("Choose currency")}</option>
+                              {EVENT_CURRENCY_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {t(option.label)}
+                                </option>
+                              ))}
+                              {upcomingEventPayload.currency &&
+                              !EVENT_CURRENCY_OPTIONS.some(
+                                (option) =>
+                                  option.value === upcomingEventPayload.currency,
+                              ) ? (
+                                <option value={upcomingEventPayload.currency}>
+                                  {upcomingEventPayload.currency}
+                                </option>
+                              ) : null}
+                            </select>
+                            <ChevronDown className={publisherSelectCaretClass} />
+                          </div>
+                        </FieldShell>
+                        <FieldShell
+                          label={t("Price")}
+                          htmlFor="discover-upcoming-event-price-minor-units"
+                        >
+                          <Input
+                            id="discover-upcoming-event-price-minor-units"
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={upcomingEventPayload.priceMinorUnits ?? ""}
+                            onChange={(event) =>
+                              updateUpcomingEventField(
+                                "priceMinorUnits",
+                                event.target.value,
+                              )
+                            }
+                            className={publisherInputClass}
+                          />
+                        </FieldShell>
+                      </>
+                    ) : null}
                   </div>
 
                   <div className="grid gap-5 md:grid-cols-2">

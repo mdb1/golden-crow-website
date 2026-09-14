@@ -1110,9 +1110,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "Regional rows missing": "Faltan filas regionales",
   "Regional times is selected, but no country-specific rows have been configured yet.":
     "Horarios por región está seleccionado, pero todavía no se configuraron filas por país.",
-  "Free event with price fields": "Evento gratis con campos de precio",
-  "Currency and price are not shown when cost type is Free.":
-    "Moneda y precio no se muestran cuando el tipo de costo es Gratis.",
   "Paid event": "Evento pago",
   "Add price and currency when the public cost is known.":
     "Agregá precio y moneda cuando el costo público sea conocido.",

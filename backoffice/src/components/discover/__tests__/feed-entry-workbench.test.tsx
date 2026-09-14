@@ -732,9 +732,30 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(screen.getByLabelText("Cost type"), {
       target: { value: "free" },
     });
+    expect(screen.queryByLabelText("Currency")).toBeNull();
+    expect(screen.queryByLabelText("Price")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Cost type"), {
+      target: { value: "donation" },
+    });
+    expect(screen.queryByLabelText("Currency")).toBeNull();
+    expect(screen.queryByLabelText("Price")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Cost type"), {
+      target: { value: "paid" },
+    });
     expect(screen.getByLabelText("Currency").tagName).toBe("SELECT");
     expect(screen.getByLabelText("Price")).toBeTruthy();
     expect(screen.queryByLabelText("Price in minor units")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Currency"), {
+      target: { value: "ARS" },
+    });
+    fireEvent.change(screen.getByLabelText("Price"), {
+      target: { value: "4000" },
+    });
+    fireEvent.change(screen.getByLabelText("Cost type"), {
+      target: { value: "free" },
+    });
+    expect(screen.queryByLabelText("Currency")).toBeNull();
+    expect(screen.queryByLabelText("Price")).toBeNull();
     fireEvent.click(screen.getByLabelText("Spanish"));
     fireEvent.click(screen.getByLabelText("Captions"));
 
@@ -835,6 +856,8 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
         },
       ],
     });
+    expect(payload).not.toHaveProperty("currency");
+    expect(payload).not.toHaveProperty("priceMinorUnits");
     expect(payload).not.toHaveProperty("timezone");
     expect(payload).not.toHaveProperty("dailyStartTime");
     expect(payload).not.toHaveProperty("dailyEndTime");
