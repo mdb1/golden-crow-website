@@ -1482,6 +1482,52 @@ describe("discover repository", () => {
     ).toBeUndefined();
   });
 
+  it("serializes any legacy snake_case payload node as its camelCase node", async () => {
+    const { getDiscoverFeedItem } =
+      await import("../repositories/discover.repository");
+    mockFeedDocs.push({
+      id: "feed-legacy-trial",
+      data: {
+        publisherOrganizationId: "org-1",
+        publisherSnapshot: { name: "Publisher One", imageUrl: null },
+        type: "clinical_trial",
+        status: "draft",
+        title: "Legacy trial",
+        subtitle: "Trial summary",
+        body: "Trial body",
+        language: "en",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-02T00:00:00.000Z",
+        clinical_trial: {
+          trialIdentifier: "NCT00000000",
+          phase: "Phase 2",
+          recruitmentStatus: "Recruiting",
+          conditions: ["Pompe disease"],
+          countries: ["AR"],
+          sponsor: "Legacy sponsor",
+        },
+      },
+    });
+
+    const feedItem = await getDiscoverFeedItem(
+      fullAdminContext,
+      "feed-legacy-trial",
+    );
+
+    expect(feedItem.type).toBe("clinical_trial");
+    expect(feedItem.clinicalTrial).toMatchObject({
+      trialIdentifier: "NCT00000000",
+      phase: "Phase 2",
+      recruitmentStatus: "Recruiting",
+      conditions: ["Pompe disease"],
+      countries: ["AR"],
+      sponsor: "Legacy sponsor",
+    });
+    expect(
+      (feedItem as unknown as Record<string, unknown>).clinical_trial,
+    ).toBeUndefined();
+  });
+
   it("creates upcoming events with the compact event payload", async () => {
     const { createDiscoverFeedItem } =
       await import("../repositories/discover.repository");

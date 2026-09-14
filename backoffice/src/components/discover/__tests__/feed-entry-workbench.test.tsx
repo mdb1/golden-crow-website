@@ -384,6 +384,81 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(body.upcoming_event).toBeUndefined();
   });
 
+  it("loads legacy non-event payload nodes and saves them with camelCase keys", async () => {
+    const feedItem = {
+      id: "feed-legacy-trial",
+      publisherOrganizationId: "org-1",
+      publisherIndividualId: null,
+      publisherSnapshot: { name: "Publisher One", imageUrl: null },
+      type: "clinical_trial",
+      publishedAt: null,
+      language: "en",
+      title: "Legacy trial",
+      subtitle: "Trial summary",
+      body: "Trial body",
+      htmlBody: null,
+      imageUrl: null,
+      sourceUrl: "https://example.org/trial",
+      sourceButtonText: "Review trial",
+      status: "draft",
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+      clinical_trial: {
+        trialIdentifier: "NCT00000000",
+        phase: "Phase 2",
+        recruitmentStatus: "Recruiting",
+        conditions: ["Pompe disease"],
+        countries: ["AR"],
+        sponsor: "Legacy sponsor",
+      },
+    } as unknown as DiscoverFeedItemRecord;
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="edit"
+          feedItem={feedItem}
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    expect((screen.getByLabelText("Trial identifier") as HTMLInputElement).value).toBe(
+      "NCT00000000",
+    );
+    fireEvent.change(screen.getByLabelText("Sponsor"), {
+      target: { value: "Updated sponsor" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/feed-items/feed-legacy-trial",
+        {
+          method: "PUT",
+          body: expect.any(String),
+        },
+      );
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.type).toBe("clinical_trial");
+    expect(body.clinicalTrial).toMatchObject({
+      trialIdentifier: "NCT00000000",
+      phase: "Phase 2",
+      recruitmentStatus: "Recruiting",
+      conditions: ["Pompe disease"],
+      countries: ["AR"],
+      sponsor: "Updated sponsor",
+    });
+    expect(body.clinical_trial).toBeUndefined();
+  });
+
   it("offers every Discover feed type in the type picker", () => {
     render(
       <AppLanguageProvider initialLanguage="en">
