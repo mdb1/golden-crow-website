@@ -986,8 +986,16 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
   const multiDayLength = eventStringValue(payload, "multiDayLength");
   const priceMinorUnits = eventStringValue(payload, "priceMinorUnits");
   const timezone = eventStringValue(payload, "timezone");
-  const organizerName = eventStringValue(payload, "organizerName");
-  const publisherDisclosure = eventStringValue(payload, "publisherDisclosure");
+  const publisherRelationshipToEvent = eventStringValue(
+    payload,
+    "publisherRelationshipToEvent",
+  );
+  const organizerName = publisherRelationshipToEvent
+    ? eventStringValue(payload, "organizerName")
+    : "";
+  const publisherDisclosure = publisherRelationshipToEvent
+    ? eventStringValue(payload, "publisherDisclosure")
+    : "";
   const regionalRows = parseEventRegionalRows(
     payload.regionalStartTimes ?? "",
     payload.regionalEndTimes ?? "",
@@ -1228,6 +1236,10 @@ function payloadForType(state: FeedEntryFormState) {
     const usesMultiDayLength = Boolean(timeKind && timeKind !== "dateOnly");
     const costType = eventStringValue(values, "costType");
     const usesPaidCost = costType === "paid";
+    const publisherRelationshipToEvent = eventStringValue(
+      values,
+      "publisherRelationshipToEvent",
+    );
     const actionButtons = parseEventActionButtons(values.actionButtons ?? "")
       .filter((button) => button.type.trim() && button.url.trim())
       .map((button) => ({
@@ -1283,25 +1295,26 @@ function payloadForType(state: FeedEntryFormState) {
         ? { eventStatus: eventStringValue(values, "eventStatus") }
         : {}),
       ...(actionButtons.length > 0 ? { actionButtons } : {}),
-      ...(eventStringValue(values, "publisherRelationshipToEvent")
+      ...(publisherRelationshipToEvent
         ? {
-            publisherRelationshipToEvent: eventStringValue(
-              values,
-              "publisherRelationshipToEvent",
-            ),
+            publisherRelationshipToEvent,
           }
         : {}),
-      ...(eventStringValue(values, "organizerName")
-        ? { organizerName: eventStringValue(values, "organizerName") }
-        : {}),
-      ...(eventStringValue(values, "publisherDisclosure")
-        ? {
-            publisherDisclosure: eventStringValue(
-              values,
-              "publisherDisclosure",
-            ),
-          }
-        : {}),
+      ...(publisherRelationshipToEvent
+        ? eventStringValue(values, "organizerName")
+          ? { organizerName: eventStringValue(values, "organizerName") }
+          : {}
+        : { organizerName: null }),
+      ...(publisherRelationshipToEvent
+        ? eventStringValue(values, "publisherDisclosure")
+          ? {
+              publisherDisclosure: eventStringValue(
+                values,
+                "publisherDisclosure",
+              ),
+            }
+          : {}
+        : { publisherDisclosure: null }),
       ...(audience.length > 0 ? { audience } : {}),
       ...(costType ? { costType } : {}),
       ...(usesPaidCost && eventStringValue(values, "currency")
@@ -2268,6 +2281,28 @@ export function DiscoverFeedEntryWorkbench({
 
   function updateUpcomingEventField(fieldKey: string, value: string) {
     updatePayloadField("upcoming_event", fieldKey, value);
+  }
+
+  function updateEventPublisherRelationship(value: string) {
+    setState((current) => {
+      const upcomingEventPayload: FeedEntryPayloadState = {
+        ...current.payloads.upcoming_event,
+        publisherRelationshipToEvent: value,
+      };
+
+      if (!value) {
+        upcomingEventPayload.organizerName = "";
+        upcomingEventPayload.publisherDisclosure = "";
+      }
+
+      return {
+        ...current,
+        payloads: {
+          ...current.payloads,
+          upcoming_event: upcomingEventPayload,
+        },
+      };
+    });
   }
 
   function updateEventActionButtons(buttons: EventActionButton[]) {
@@ -3624,6 +3659,11 @@ export function DiscoverFeedEntryWorkbench({
       EVENT_DEFAULT_MULTI_DAY_LENGTH;
     const costType = eventStringValue(upcomingEventPayload, "costType");
     const showPaidCostFields = costType === "paid";
+    const publisherRelationshipToEvent = eventStringValue(
+      upcomingEventPayload,
+      "publisherRelationshipToEvent",
+    );
+    const showPublisherRelationshipDetails = Boolean(publisherRelationshipToEvent);
     const selectedAudience = selectedEventValues(upcomingEventPayload, "audience");
     const selectedAccessibility = selectedEventValues(
       upcomingEventPayload,
@@ -3969,47 +4009,77 @@ export function DiscoverFeedEntryWorkbench({
                 "Clarify who organizes the event and how the publisher is involved.",
               children: (
                 <div className="grid gap-4 md:grid-cols-2">
-                  {renderEventSelectField({
-                    fieldKey: "publisherRelationshipToEvent",
-                    label: "Publisher relationship",
-                    options: EVENT_RELATIONSHIP_OPTIONS,
-                  })}
                   <FieldShell
-                    label={t("Organizer name")}
-                    htmlFor="discover-upcoming-event-organizer-name"
+                    label={t("Publisher relationship")}
+                    htmlFor="discover-upcoming-event-publisherRelationshipToEvent"
+                    className={
+                      showPublisherRelationshipDetails ? "" : "md:col-span-2"
+                    }
                   >
-                    <Input
-                      id="discover-upcoming-event-organizer-name"
-                      value={upcomingEventPayload.organizerName ?? ""}
-                      maxLength={80}
-                      onChange={(event) =>
-                        updateUpcomingEventField("organizerName", event.target.value)
-                      }
-                      className={publisherInputClass}
-                    />
+                    <div className="relative">
+                      <select
+                        id="discover-upcoming-event-publisherRelationshipToEvent"
+                        value={publisherRelationshipToEvent}
+                        onChange={(event) =>
+                          updateEventPublisherRelationship(event.target.value)
+                        }
+                        className={publisherSelectClass}
+                      >
+                        <option value="">{t("Not specified")}</option>
+                        {EVENT_RELATIONSHIP_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {t(option.label)}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className={publisherSelectCaretClass} />
+                    </div>
                   </FieldShell>
-                  <FieldShell
-                    label={t("Publisher disclosure")}
-                    htmlFor="discover-upcoming-event-publisher-disclosure"
-                    className="md:col-span-2"
-                  >
-                    <Textarea
-                      id="discover-upcoming-event-publisher-disclosure"
-                      value={upcomingEventPayload.publisherDisclosure ?? ""}
-                      maxLength={140}
-                      onChange={(event) =>
-                        updateUpcomingEventField(
-                          "publisherDisclosure",
-                          event.target.value,
-                        )
-                      }
-                      className={publisherTextareaClass}
-                      rows={2}
-                    />
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      {t("Use this note for transparent sponsorship, partnership, speaker, or participation context.")}
-                    </p>
-                  </FieldShell>
+                  {showPublisherRelationshipDetails ? (
+                    <>
+                      <FieldShell
+                        label={t("Organizer name")}
+                        htmlFor="discover-upcoming-event-organizer-name"
+                      >
+                        <Input
+                          id="discover-upcoming-event-organizer-name"
+                          value={upcomingEventPayload.organizerName ?? ""}
+                          maxLength={80}
+                          onChange={(event) =>
+                            updateUpcomingEventField(
+                              "organizerName",
+                              event.target.value,
+                            )
+                          }
+                          className={publisherInputClass}
+                        />
+                      </FieldShell>
+                      <FieldShell
+                        label={t("Publisher disclosure")}
+                        htmlFor="discover-upcoming-event-publisher-disclosure"
+                        className="md:col-span-2"
+                      >
+                        <Textarea
+                          id="discover-upcoming-event-publisher-disclosure"
+                          value={upcomingEventPayload.publisherDisclosure ?? ""}
+                          maxLength={140}
+                          onChange={(event) =>
+                            updateUpcomingEventField(
+                              "publisherDisclosure",
+                              event.target.value,
+                            )
+                          }
+                          className={publisherTextareaClass}
+                          rows={2}
+                        />
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          {t(
+                            "Use this note for transparent sponsorship, partnership, speaker, or participation context.",
+                          )}
+                        </p>
+                      </FieldShell>
+                    </>
+                  ) : null}
                 </div>
               ),
             })}

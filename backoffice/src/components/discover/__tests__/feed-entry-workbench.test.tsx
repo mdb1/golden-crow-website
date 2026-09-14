@@ -948,6 +948,74 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(payload.date).toBe("2026-10-12T00:00:00.000Z");
   }, 15000);
 
+  it("hides organizer fields and saves them as null when publisher relationship is not specified", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publisher"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "upcoming_event" },
+    });
+    fireEvent.change(screen.getByLabelText("Event date *"), {
+      target: { value: "2026-10-12" },
+    });
+    fireEvent.change(screen.getByLabelText("Location *"), {
+      target: { value: "Online" },
+    });
+
+    fireEvent.click(screen.getByText("Organizer and disclosure"));
+    const publisherRelationshipSelect = screen.getByLabelText(
+      "Publisher relationship",
+    );
+
+    expect(screen.queryByLabelText("Organizer name")).toBeNull();
+    expect(screen.queryByLabelText("Publisher disclosure")).toBeNull();
+
+    fireEvent.change(publisherRelationshipSelect, {
+      target: { value: "organizer" },
+    });
+    fireEvent.change(screen.getByLabelText("Organizer name"), {
+      target: { value: "Golden Crow" },
+    });
+    fireEvent.change(screen.getByLabelText("Publisher disclosure"), {
+      target: { value: "Organized by the publisher team." },
+    });
+
+    fireEvent.change(publisherRelationshipSelect, {
+      target: { value: "" },
+    });
+
+    expect(screen.queryByLabelText("Organizer name")).toBeNull();
+    expect(screen.queryByLabelText("Publisher disclosure")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items", {
+        method: "POST",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, Record<string, unknown> | string>;
+    const payload = body.upcomingEvent as Record<string, unknown>;
+
+    expect(payload.publisherRelationshipToEvent).toBeUndefined();
+    expect(payload.organizerName).toBeNull();
+    expect(payload.publisherDisclosure).toBeNull();
+  });
+
   it("saves null max attendance and previews it as no limit", async () => {
     render(
       <AppLanguageProvider initialLanguage="en">
