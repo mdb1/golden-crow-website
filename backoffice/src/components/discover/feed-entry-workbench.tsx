@@ -2262,11 +2262,27 @@ export function DiscoverFeedEntryWorkbench({
   }
 
   function saveEventRegionalDraft() {
+    const countryCode = normalizeEventCountryCode(eventRegionalDraft.countryCode);
+    const startTime = normalizeTimeOfDayValue(eventRegionalDraft.startTime);
+    const endTime = normalizeTimeOfDayValue(eventRegionalDraft.endTime);
+    const timezone = eventRegionalDraft.timezone.trim();
+
+    if (
+      !countryCode ||
+      !startTime ||
+      !endTime ||
+      !timezone ||
+      !isValidIsoCountryCode(countryCode) ||
+      !isValidIanaTimezone(timezone)
+    ) {
+      return;
+    }
+
     const nextRow: EventRegionalTimeRow = {
-      countryCode: normalizeEventCountryCode(eventRegionalDraft.countryCode),
-      startTime: eventRegionalDraft.startTime.trim(),
-      endTime: eventRegionalDraft.endTime.trim(),
-      timezone: eventRegionalDraft.timezone.trim(),
+      countryCode,
+      startTime,
+      endTime,
+      timezone,
     };
 
     if (
@@ -3160,6 +3176,26 @@ export function DiscoverFeedEntryWorkbench({
     const draftInvalidTimezone = Boolean(
       draftTimezone && !isValidIanaTimezone(draftTimezone),
     );
+    const draftCountryError = !draftCountryCode
+      ? t("Country is required.")
+      : draftInvalidCountry
+        ? t("Use two letters.")
+        : null;
+    const draftTimezoneError = !draftTimezone
+      ? t("Timezone is required.")
+      : draftInvalidTimezone
+        ? t("Use an IANA timezone.")
+        : null;
+    const draftStartError = !draftStartTime
+      ? t("Start time is required.")
+      : draftInvalidStart
+        ? t("Use HH:mm.")
+        : null;
+    const draftEndError = !draftEndTime
+      ? t("End time is required.")
+      : draftInvalidEnd
+        ? t("Use HH:mm.")
+        : null;
     const eventCountryGroups = getDiscoverOrganizationCountryGroups(language)
       .map((group) => ({
         ...group,
@@ -3168,7 +3204,9 @@ export function DiscoverFeedEntryWorkbench({
       .filter((group) => group.options.length > 0);
     const canSaveRegionalDraft = Boolean(
       draftCountryCode &&
-        (draftStartTime || draftEndTime || draftTimezone) &&
+        draftStartTime &&
+        draftEndTime &&
+        draftTimezone &&
         !draftInvalidCountry &&
         !draftInvalidStart &&
         !draftInvalidEnd &&
@@ -3204,13 +3242,7 @@ export function DiscoverFeedEntryWorkbench({
                   <FieldShell
                     label={t("Country")}
                     htmlFor="event-region-draft-country"
-                    error={
-                      !draftCountryCode
-                        ? t("Country is required.")
-                        : draftInvalidCountry
-                          ? t("Use two letters.")
-                          : null
-                    }
+                    error={draftCountryError}
                   >
                     <div className="relative">
                       <select
@@ -3222,7 +3254,7 @@ export function DiscoverFeedEntryWorkbench({
                           })
                         }
                         className={`${publisherSelectClass} ${
-                          draftInvalidCountry
+                          draftCountryError
                             ? "border-destructive focus-visible:ring-destructive"
                             : ""
                         }`}
@@ -3244,9 +3276,7 @@ export function DiscoverFeedEntryWorkbench({
                   <FieldShell
                     label={t("Timezone")}
                     htmlFor="event-region-draft-timezone"
-                    error={
-                      draftInvalidTimezone ? t("Use an IANA timezone.") : null
-                    }
+                    error={draftTimezoneError}
                   >
                     <Input
                       id="event-region-draft-timezone"
@@ -3257,7 +3287,7 @@ export function DiscoverFeedEntryWorkbench({
                       }
                       placeholder="America/Argentina/Buenos_Aires"
                       className={`${publisherInputClass} ${
-                        draftInvalidTimezone
+                        draftTimezoneError
                           ? "border-destructive focus-visible:ring-destructive"
                           : ""
                       }`}
@@ -3266,7 +3296,7 @@ export function DiscoverFeedEntryWorkbench({
                   <FieldShell
                     label={t("Start time")}
                     htmlFor="event-region-draft-start"
-                    error={draftInvalidStart ? t("Use HH:mm.") : null}
+                    error={draftStartError}
                   >
                     <Input
                       id="event-region-draft-start"
@@ -3291,7 +3321,7 @@ export function DiscoverFeedEntryWorkbench({
                         }
                       }}
                       className={`${publisherInputClass} ${
-                        draftInvalidStart
+                        draftStartError
                           ? "border-destructive focus-visible:ring-destructive"
                           : ""
                       }`}
@@ -3300,7 +3330,7 @@ export function DiscoverFeedEntryWorkbench({
                   <FieldShell
                     label={t("End time")}
                     htmlFor="event-region-draft-end"
-                    error={draftInvalidEnd ? t("Use HH:mm.") : null}
+                    error={draftEndError}
                   >
                     <Input
                       id="event-region-draft-end"
@@ -3325,7 +3355,7 @@ export function DiscoverFeedEntryWorkbench({
                         }
                       }}
                       className={`${publisherInputClass} ${
-                        draftInvalidEnd
+                        draftEndError
                           ? "border-destructive focus-visible:ring-destructive"
                           : ""
                       }`}

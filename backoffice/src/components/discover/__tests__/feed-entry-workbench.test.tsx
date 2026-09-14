@@ -972,6 +972,73 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(payload.maxAttendance).toBeNull();
   });
 
+  it("requires complete valid fields before saving a regional event time row", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publisher"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "upcoming_event" },
+    });
+    fireEvent.click(screen.getByText("Schedule display"));
+    fireEvent.change(screen.getByLabelText("Time display"), {
+      target: { value: "regionalTimes" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Configure regional times" }));
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add region" }));
+
+    const saveRegionButton = within(dialog).getByRole("button", {
+      name: "Save region",
+    }) as HTMLButtonElement;
+    expect(saveRegionButton.disabled).toBe(true);
+    expect(within(dialog).getByText("Country is required.")).toBeTruthy();
+    expect(within(dialog).getByText("Start time is required.")).toBeTruthy();
+    expect(within(dialog).getByText("End time is required.")).toBeTruthy();
+
+    fireEvent.change(within(dialog).getByLabelText("Country"), {
+      target: { value: "AR" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Start time"), {
+      target: { value: "930" },
+    });
+    expect(saveRegionButton.disabled).toBe(true);
+    expect(within(dialog).getByText("End time is required.")).toBeTruthy();
+
+    fireEvent.change(within(dialog).getByLabelText("End time"), {
+      target: { value: "25:00" },
+    });
+    expect(saveRegionButton.disabled).toBe(true);
+    expect(within(dialog).getByText("Use HH:mm.")).toBeTruthy();
+
+    fireEvent.change(within(dialog).getByLabelText("End time"), {
+      target: { value: "1100" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Timezone"), {
+      target: { value: "" },
+    });
+    expect(saveRegionButton.disabled).toBe(true);
+    expect(within(dialog).getByText("Timezone is required.")).toBeTruthy();
+
+    fireEvent.change(within(dialog).getByLabelText("Timezone"), {
+      target: { value: "America/Argentina/Buenos_Aires" },
+    });
+    expect(saveRegionButton.disabled).toBe(false);
+
+    fireEvent.click(saveRegionButton);
+    expect(within(dialog).getByRole("button", { name: /Edit region: AR/i })).toBeTruthy();
+  });
+
   it("saves daily event times as 24-hour HH:mm values", async () => {
     render(
       <AppLanguageProvider initialLanguage="en">
