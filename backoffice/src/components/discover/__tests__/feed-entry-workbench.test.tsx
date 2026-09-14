@@ -741,9 +741,17 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.click(screen.getByRole("button", { name: "Configure actions" }));
     dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Add action" }));
+    expect(
+      within(dialog).getByRole("heading", { name: "New action" }),
+    ).toBeTruthy();
     fireEvent.change(within(dialog).getByLabelText("Button URL"), {
       target: { value: "https://example.org/register" },
     });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save action" }));
+    expect(within(dialog).getAllByText("Register").length).toBeGreaterThan(0);
+    expect(
+      within(dialog).getByRole("button", { name: /Edit action: Register/i }),
+    ).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
 
     await waitFor(() => {

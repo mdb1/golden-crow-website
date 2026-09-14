@@ -26,6 +26,7 @@ import {
   Loader2,
   MapPin,
   Newspaper,
+  Pencil,
   Plus,
   Quote,
   RotateCcw,
@@ -1710,6 +1711,15 @@ export function DiscoverFeedEntryWorkbench({
   const [publishDialog, setPublishDialog] = useState<PublishDialogState | null>(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [eventActionButtonsOpen, setEventActionButtonsOpen] = useState(false);
+  const [eventActionEditor, setEventActionEditor] = useState<{
+    mode: "create" | "edit";
+    index?: number;
+  } | null>(null);
+  const [eventActionDraft, setEventActionDraft] = useState<EventActionButton>({
+    type: "register",
+    title: "Register",
+    url: "",
+  });
   const [eventRegionalTimesOpen, setEventRegionalTimesOpen] = useState(false);
   const [persistedState, setPersistedState] = useState<FeedEntryFormState | null>(null);
   const [publishedFeedItemId, setPublishedFeedItemId] = useState<string | null>(
@@ -1793,6 +1803,13 @@ export function DiscoverFeedEntryWorkbench({
       upcomingEventPayload.countryTimezones,
     ],
   );
+
+  useEffect(() => {
+    if (!eventActionButtonsOpen) {
+      setEventActionEditor(null);
+      setEventActionDraft({ type: "register", title: "Register", url: "" });
+    }
+  }, [eventActionButtonsOpen]);
 
   useEffect(() => {
     setPersistedState(null);
@@ -1998,6 +2015,55 @@ export function DiscoverFeedEntryWorkbench({
       "actionButtons",
       serializeEventActionButtons(buttons),
     );
+  }
+
+  function eventActionTypeLabel(type: string) {
+    return (
+      EVENT_ACTION_BUTTON_TYPE_OPTIONS.find((option) => option.value === type)
+        ?.label ?? type
+    );
+  }
+
+  function openNewEventActionEditor() {
+    setEventActionDraft({ type: "register", title: "Register", url: "" });
+    setEventActionEditor({ mode: "create" });
+  }
+
+  function openEditEventActionEditor(index: number) {
+    const button = eventActionButtons[index] ?? {
+      type: "register",
+      title: "Register",
+      url: "",
+    };
+    setEventActionDraft({ ...button });
+    setEventActionEditor({ mode: "edit", index });
+  }
+
+  function updateEventActionDraft(patch: Partial<EventActionButton>) {
+    setEventActionDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function saveEventActionDraft() {
+    const type = eventActionDraft.type.trim();
+    const nextButton: EventActionButton = {
+      type,
+      title:
+        eventActionDraft.title.trim() ||
+        EVENT_ACTION_BUTTON_DEFAULT_TITLES[type] ||
+        "",
+      url: eventActionDraft.url.trim(),
+    };
+
+    if (eventActionEditor?.mode === "edit" && eventActionEditor.index !== undefined) {
+      const nextButtons = [...eventActionButtons];
+      nextButtons[eventActionEditor.index] = nextButton;
+      updateEventActionButtons(nextButtons);
+    } else {
+      updateEventActionButtons([...eventActionButtons, nextButton]);
+    }
+
+    setEventActionEditor(null);
+    setEventActionDraft({ type: "register", title: "Register", url: "" });
   }
 
   function updateEventRegionalRows(rows: EventRegionalTimeRow[]) {
@@ -2546,168 +2612,264 @@ export function DiscoverFeedEntryWorkbench({
       }),
       {},
     );
-
-    function replaceButton(index: number, patch: Partial<EventActionButton>) {
-      const nextButtons = [...eventActionButtons];
-      nextButtons[index] = {
-        ...(nextButtons[index] ?? { type: "", title: "", url: "" }),
-        ...patch,
-      };
-      updateEventActionButtons(nextButtons);
-    }
+    const editingIndex =
+      eventActionEditor?.mode === "edit" ? eventActionEditor.index : undefined;
+    const draftType = eventActionDraft.type.trim();
+    const draftUrl = eventActionDraft.url.trim();
+    const draftDuplicate = Boolean(
+      draftType &&
+        eventActionButtons.some(
+          (button, index) => index !== editingIndex && button.type === draftType,
+        ),
+    );
+    const draftInvalidUrl = Boolean(
+      draftUrl && !eventActionButtonUrlIsValid(eventActionDraft),
+    );
+    const canSaveDraft = Boolean(
+      draftType && draftUrl && !draftInvalidUrl && !draftDuplicate,
+    );
 
     return (
       <Dialog open={eventActionButtonsOpen} onOpenChange={setEventActionButtonsOpen}>
         <DialogContent className="overflow-hidden p-0 sm:max-w-3xl">
           <DialogHeader className="border-b border-border px-5 py-4">
             <DialogTitle className="font-heading text-xl font-semibold">
-              {t("Event action buttons")}
+              {eventActionEditor
+                ? eventActionEditor.mode === "edit"
+                  ? t("Edit action")
+                  : t("New action")
+                : t("Event action buttons")}
             </DialogTitle>
             <DialogDescription>
-              {t("Add event buttons for registration, live access, agendas, recordings, materials, or organizer contact.")}
+              {eventActionEditor
+                ? t("Complete one event action at a time. Save it to return to the list.")
+                : t("Add event buttons for registration, live access, agendas, recordings, materials, or organizer contact.")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="max-h-[62vh] overflow-y-auto px-5 py-4">
-            <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-sm leading-5 text-sky-950 dark:border-sky-400/24 dark:bg-sky-500/10 dark:text-sky-100">
-              {t("Use these buttons when the event needs more than one clear next step, such as registration, agenda, materials, or contact.")}
-            </div>
-
-            <div className="flex flex-col gap-3">
-              {eventActionButtons.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-violet-200 px-4 py-8 text-center text-sm text-muted-foreground dark:border-violet-400/20">
-                  {t("No event action buttons configured.")}
+            {eventActionEditor ? (
+              <div className="flex flex-col gap-4">
+                <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-sm leading-5 text-sky-950 dark:border-sky-400/24 dark:bg-sky-500/10 dark:text-sky-100">
+                  {t("Complete the fields for this action only.")}
                 </div>
-              ) : (
-                eventActionButtons.map((button, index) => {
-                  const duplicate = Boolean(
-                    button.type && buttonTypeCounts[button.type] > 1,
-                  );
-                  const invalidUrl = !eventActionButtonUrlIsValid(button);
 
-                  return (
-                    <div
-                      key={`${button.type}-${index}`}
-                      className="rounded-xl border border-violet-100/80 bg-white/82 p-3 dark:border-violet-400/14 dark:bg-slate-950/38"
-                    >
-                      <div className="grid gap-3 md:grid-cols-[minmax(10rem,0.8fr)_minmax(0,1fr)]">
-                        <FieldShell
-                          label={t("Action type")}
-                          htmlFor={`event-action-type-${index}`}
-                        >
-                          <div className="relative">
-                            <select
-                              id={`event-action-type-${index}`}
-                              value={button.type}
-                              onChange={(event) => {
-                                const type = event.target.value;
-                                replaceButton(index, {
-                                  type,
-                                  title:
-                                    button.title ||
-                                    EVENT_ACTION_BUTTON_DEFAULT_TITLES[type] ||
-                                    "",
-                                });
-                              }}
-                              className={publisherSelectClass}
-                            >
-                              <option value="">{t("Choose type")}</option>
-                              {EVENT_ACTION_BUTTON_TYPE_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {t(option.label)}
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronDown className={publisherSelectCaretClass} />
-                          </div>
-                        </FieldShell>
-                        <FieldShell
-                          label={t("Button title")}
-                          htmlFor={`event-action-title-${index}`}
-                        >
-                          <Input
-                            id={`event-action-title-${index}`}
-                            value={button.title}
-                            maxLength={56}
-                            onChange={(event) =>
-                              replaceButton(index, { title: event.target.value })
-                            }
-                            className={publisherInputClass}
-                          />
-                        </FieldShell>
-                        <FieldShell
-                          label={t("Button URL")}
-                          htmlFor={`event-action-url-${index}`}
-                          error={invalidUrl ? t("Use HTTPS, or mailto for contact organizer.") : null}
-                          className="md:col-span-2"
-                        >
-                          <Input
-                            id={`event-action-url-${index}`}
-                            type="url"
-                            value={button.url}
-                            onChange={(event) =>
-                              replaceButton(index, { url: event.target.value })
-                            }
-                            placeholder={
-                              button.type === "contactOrganizer"
-                                ? "mailto:organizer@example.org"
-                                : "https://"
-                            }
-                            className={`${publisherInputClass} ${invalidUrl ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                          />
-                        </FieldShell>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                        {duplicate ? (
-                          <p className="text-xs font-medium text-amber-700 dark:text-amber-200">
-                            {t("Use each action type only once.")}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            {button.type === "join"
-                              ? t("Use Join live only when the access link is ready to share with readers.")
-                              : t("Keep each action focused so readers know exactly what to do next.")}
-                          </p>
-                        )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            updateEventActionButtons(
-                              eventActionButtons.filter((_, itemIndex) => itemIndex !== index),
-                            )
-                          }
-                          className={publisherSoftButtonClass}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          {t("Remove")}
-                        </Button>
-                      </div>
+                <div className="grid gap-4">
+                  <FieldShell
+                    label={t("Action type")}
+                    htmlFor="event-action-draft-type"
+                  >
+                    <div className="relative">
+                      <select
+                        id="event-action-draft-type"
+                        value={eventActionDraft.type}
+                        onChange={(event) => {
+                          const type = event.target.value;
+                          const currentDefault =
+                            EVENT_ACTION_BUTTON_DEFAULT_TITLES[
+                              eventActionDraft.type
+                            ] || "";
+                          const nextDefault =
+                            EVENT_ACTION_BUTTON_DEFAULT_TITLES[type] || "";
+                          updateEventActionDraft({
+                            type,
+                            title:
+                              !eventActionDraft.title.trim() ||
+                              eventActionDraft.title === currentDefault
+                                ? nextDefault
+                                : eventActionDraft.title,
+                          });
+                        }}
+                        className={publisherSelectClass}
+                      >
+                        <option value="">{t("Choose type")}</option>
+                        {EVENT_ACTION_BUTTON_TYPE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {t(option.label)}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className={publisherSelectCaretClass} />
                     </div>
-                  );
-                })
-              )}
-            </div>
+                    {draftDuplicate ? (
+                      <p className="text-xs font-medium text-amber-700 dark:text-amber-200">
+                        {t("Use each action type only once.")}
+                      </p>
+                    ) : null}
+                  </FieldShell>
+
+                  <FieldShell
+                    label={t("Button title")}
+                    htmlFor="event-action-draft-title"
+                  >
+                    <Input
+                      id="event-action-draft-title"
+                      value={eventActionDraft.title}
+                      maxLength={56}
+                      onChange={(event) =>
+                        updateEventActionDraft({ title: event.target.value })
+                      }
+                      className={publisherInputClass}
+                    />
+                  </FieldShell>
+
+                  <FieldShell
+                    label={t("Button URL")}
+                    htmlFor="event-action-draft-url"
+                    error={
+                      draftInvalidUrl
+                        ? t("Use HTTPS, or mailto for contact organizer.")
+                        : draftUrl
+                          ? null
+                          : t("Button URL is required.")
+                    }
+                  >
+                    <Input
+                      id="event-action-draft-url"
+                      type="url"
+                      value={eventActionDraft.url}
+                      onChange={(event) =>
+                        updateEventActionDraft({ url: event.target.value })
+                      }
+                      placeholder={
+                        eventActionDraft.type === "contactOrganizer"
+                          ? "mailto:organizer@example.org"
+                          : "https://"
+                      }
+                      className={`${publisherInputClass} ${
+                        draftInvalidUrl ? "border-destructive focus-visible:ring-destructive" : ""
+                      }`}
+                    />
+                  </FieldShell>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-sm leading-5 text-sky-950 dark:border-sky-400/24 dark:bg-sky-500/10 dark:text-sky-100">
+                  {t("Use these buttons when the event needs more than one clear next step, such as registration, agenda, materials, or contact.")}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {eventActionButtons.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-violet-200 px-4 py-8 text-center text-sm text-muted-foreground dark:border-violet-400/20">
+                      {t("No event action buttons configured.")}
+                    </div>
+                  ) : (
+                    eventActionButtons.map((button, index) => {
+                      const duplicate = Boolean(
+                        button.type && buttonTypeCounts[button.type] > 1,
+                      );
+                      const invalidUrl = !eventActionButtonUrlIsValid(button);
+                      const typeLabel = eventActionTypeLabel(button.type);
+                      const displayTitle =
+                        button.title ||
+                        EVENT_ACTION_BUTTON_DEFAULT_TITLES[button.type] ||
+                        t(typeLabel);
+
+                      return (
+                        <div
+                          key={`${button.type}-${index}`}
+                          className="rounded-xl border border-violet-100/80 bg-white/82 p-3 dark:border-violet-400/14 dark:bg-slate-950/38"
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-semibold text-foreground">
+                                  {t(typeLabel)}
+                                </span>
+                                {duplicate ? (
+                                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/12 dark:text-amber-200">
+                                    {t("Repeated type")}
+                                  </span>
+                                ) : null}
+                                {invalidUrl ? (
+                                  <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+                                    {t("Invalid URL")}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="mt-1 truncate text-sm text-muted-foreground">
+                                {displayTitle}
+                              </p>
+                              <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                                {button.url || t("No URL")}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon-sm"
+                                onClick={() => openEditEventActionEditor(index)}
+                                title={t("Edit action")}
+                                aria-label={`${t("Edit action")}: ${t(typeLabel)}`}
+                                className={publisherSoftButtonClass}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon-sm"
+                                onClick={() =>
+                                  updateEventActionButtons(
+                                    eventActionButtons.filter(
+                                      (_, itemIndex) => itemIndex !== index,
+                                    ),
+                                  )
+                                }
+                                title={t("Remove")}
+                                aria-label={`${t("Remove")}: ${t(typeLabel)}`}
+                                className={publisherSoftButtonClass}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <DialogFooter className="border-t border-border px-5 py-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                updateEventActionButtons([
-                  ...eventActionButtons,
-                  { type: "register", title: "Register", url: "" },
-                ])
-              }
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {t("Add action")}
-            </Button>
-            <Button type="button" onClick={() => setEventActionButtonsOpen(false)}>
-              {t("Done")}
-            </Button>
+            {eventActionEditor ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEventActionEditor(null)}
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {t("Back to list")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={saveEventActionDraft}
+                  disabled={!canSaveDraft}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  {t("Save action")}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={openNewEventActionEditor}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("Add action")}
+                </Button>
+                <Button type="button" onClick={() => setEventActionButtonsOpen(false)}>
+                  {t("Done")}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

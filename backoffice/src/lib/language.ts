@@ -959,6 +959,12 @@ const SPANISH_TEXT: Record<string, string> = {
   "Event action buttons": "Botones de acción del evento",
   "Add event buttons for registration, live access, agendas, recordings, materials, or organizer contact.":
     "Agregá botones del evento para registro, acceso en vivo, agenda, grabaciones, materiales o contacto con el organizador.",
+  "New action": "Nueva acción",
+  "Edit action": "Editar acción",
+  "Complete one event action at a time. Save it to return to the list.":
+    "Completá una acción del evento por vez. Guardala para volver a la lista.",
+  "Complete the fields for this action only.":
+    "Completá solo los campos de esta acción.",
   "Use these buttons when the event needs more than one clear next step, such as registration, agenda, materials, or contact.":
     "Usá estos botones cuando el evento necesite más de un próximo paso claro, como registro, agenda, materiales o contacto.",
   "No event action buttons configured.":
@@ -975,13 +981,19 @@ const SPANISH_TEXT: Record<string, string> = {
   "Button URL": "URL del botón",
   "Use HTTPS, or mailto for contact organizer.":
     "Usá HTTPS, o mailto para contacto con el organizador.",
+  "Button URL is required.": "La URL del botón es obligatoria.",
   "Use each action type only once.":
     "Usá cada tipo de acción una sola vez.",
+  "Repeated type": "Tipo repetido",
+  "Invalid URL": "URL inválida",
+  "No URL": "Sin URL",
   "Use Join live only when the access link is ready to share with readers.":
     "Usá Entrar en vivo solo cuando el enlace de acceso esté listo para compartir con los lectores.",
   "Keep each action focused so readers know exactly what to do next.":
     "Mantené cada acción enfocada para que los lectores sepan exactamente qué hacer.",
   "Add action": "Agregar acción",
+  "Back to list": "Volver a la lista",
+  "Save action": "Guardar acción",
   "actions configured": "acciones configuradas",
   "Add specific event actions when the event has more than one next step.":
     "Agregá acciones específicas cuando el evento tenga más de un próximo paso.",
