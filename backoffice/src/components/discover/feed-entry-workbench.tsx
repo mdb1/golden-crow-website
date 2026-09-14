@@ -3517,8 +3517,11 @@ export function DiscoverFeedEntryWorkbench({
 
         <section className="rounded-2xl border border-violet-100/80 bg-violet-50/36 p-4 dark:border-violet-400/14 dark:bg-violet-500/6">
           <div className="mb-4 flex flex-col gap-1">
-            <h4 className="font-heading text-base font-semibold text-foreground">
-              {t("Advanced event configuration (optional)")}
+            <h4 className="flex flex-wrap items-center gap-2 font-heading text-base font-semibold text-foreground">
+              <span>{t("Advanced event configuration")}</span>
+              <Badge variant="outline" className="font-sans text-[0.7rem]">
+                {t("Optional")}
+              </Badge>
             </h4>
             <p className="text-sm leading-5 text-muted-foreground">
               {t("The following event blocks are optional. They start collapsed and can be expanded when you need to add more detail.")}

@@ -916,8 +916,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "These are the essential fields for creating the event and setting its basic configuration.":
     "Estos son los campos esenciales para crear el evento y definir su configuración básica.",
   "*: required field": "*: campo obligatorio",
-  "Advanced event configuration (optional)":
-    "Configuración avanzada del evento (opcional)",
+  "Advanced event configuration": "Configuración avanzada del evento",
+  Optional: "Opcional",
   "The following event blocks are optional. They start collapsed and can be expanded when you need to add more detail.":
     "Los siguientes bloques del evento son opcionales. Empiezan comprimidos y podés expandirlos cuando necesites agregar más detalle.",
   "Schedule display": "Visualización de agenda",

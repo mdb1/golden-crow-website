@@ -673,7 +673,11 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       ),
     ).toBeTruthy();
     expect(screen.getByText("*: required field")).toBeTruthy();
-    expect(screen.getByText("Advanced event configuration (optional)")).toBeTruthy();
+    expect(screen.getByText("Advanced event configuration")).toBeTruthy();
+    expect(screen.getByText("Optional")).toBeTruthy();
+    expect(
+      screen.queryByText("Advanced event configuration (optional)"),
+    ).toBeNull();
 
     const eventDateInput = screen.getByLabelText("Event date *");
     expect(eventDateInput.getAttribute("type")).toBe("date");
