@@ -593,6 +593,45 @@ function fromDateTimeInput(value: string) {
   return value ? new Date(value).toISOString() : null;
 }
 
+function toDateInput(value?: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const dateOnlyMatch = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (dateOnlyMatch) {
+    const dateText = dateOnlyMatch[1];
+    if (fromDateInput(dateText)) {
+      return dateText;
+    }
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function fromDateInput(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return null;
+  }
+
+  const isoDate = `${trimmed}T00:00:00.000Z`;
+  const date = new Date(isoDate);
+
+  return Number.isNaN(date.getTime()) || !date.toISOString().startsWith(trimmed)
+    ? null
+    : isoDate;
+}
+
 function publicDiscoverFeedEntryUrl(feedItemId: string) {
   return `${DISCOVER_PUBLIC_FEED_ENTRY_BASE_URL}?id=${encodeURIComponent(feedItemId)}`;
 }
@@ -929,6 +968,14 @@ function payloadDateText(value: unknown) {
   return "";
 }
 
+function payloadDateOnlyText(value: unknown) {
+  if (typeof value === "string" || value instanceof Date) {
+    return toDateInput(value instanceof Date ? value.toISOString() : value);
+  }
+
+  return "";
+}
+
 function payloadFieldText(
   payload: Record<string, unknown>,
   field: DiscoverFeedPayloadFieldDefinition,
@@ -945,6 +992,10 @@ function payloadFieldText(
     field.key === "countryTimezones"
   ) {
     return serializeEventMap(value);
+  }
+
+  if (field.key === "date") {
+    return payloadDateOnlyText(value);
   }
 
   if (field.kind === "array") {
@@ -1073,7 +1124,7 @@ function payloadForType(state: FeedEntryFormState) {
     const countryTimezones = eventMapObject(values.countryTimezones ?? "");
 
     return {
-      date: fromDateTimeInput(values.date ?? ""),
+      date: fromDateInput(values.date ?? ""),
       location: eventStringValue(values, "location"),
       maxAttendance: eventIntegerValue(values, "maxAttendance"),
       ...(eventStringValue(values, "timeKind")
@@ -2811,7 +2862,7 @@ export function DiscoverFeedEntryWorkbench({
               >
                 <Input
                   id="discover-upcoming-event-date"
-                  type="datetime-local"
+                  type="date"
                   value={upcomingEventPayload.date ?? ""}
                   onChange={(event) =>
                     updateUpcomingEventField("date", event.target.value)

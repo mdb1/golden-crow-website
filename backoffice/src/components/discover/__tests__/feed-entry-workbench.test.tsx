@@ -410,8 +410,10 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(screen.getByText("Required block")).toBeTruthy();
     expect(screen.getByText("Advanced event configuration (optional)")).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText("Event date *"), {
-      target: { value: "2026-10-12T09:30" },
+    const eventDateInput = screen.getByLabelText("Event date *");
+    expect(eventDateInput.getAttribute("type")).toBe("date");
+    fireEvent.change(eventDateInput, {
+      target: { value: "2026-10-12" },
     });
     fireEvent.change(screen.getByLabelText("Location"), {
       target: { value: "Online" },
@@ -544,7 +546,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
         },
       ],
     });
-    expect(payload.date).toBe(new Date("2026-10-12T09:30").toISOString());
+    expect(payload.date).toBe("2026-10-12T00:00:00.000Z");
   }, 15000);
 
   it("shows the public app link after a successful publish with no unsaved changes", async () => {
