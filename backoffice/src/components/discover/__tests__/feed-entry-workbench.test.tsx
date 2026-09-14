@@ -458,7 +458,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect((screen.getByLabelText("Event date *") as HTMLInputElement).value).toBe(
       "2026-10-12",
     );
-    fireEvent.change(screen.getByLabelText("Location"), {
+    fireEvent.change(screen.getByLabelText("Location *"), {
       target: { value: "Online event" },
     });
 
@@ -665,13 +665,14 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
         "The event date is required and sets the starting day for multi-day events.",
       ),
     ).toBeTruthy();
-    expect(screen.getByText("Required block")).toBeTruthy();
-    expect(screen.getByText("Optional block")).toBeTruthy();
+    expect(screen.queryByText("Required block")).toBeNull();
+    expect(screen.queryByText("Optional block")).toBeNull();
     expect(
       screen.getByText(
         "These are the essential fields for creating the event and setting its basic configuration.",
       ),
     ).toBeTruthy();
+    expect(screen.getByText("*: required field")).toBeTruthy();
     expect(screen.getByText("Advanced event configuration (optional)")).toBeTruthy();
 
     const eventDateInput = screen.getByLabelText("Event date *");
@@ -679,7 +680,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(eventDateInput, {
       target: { value: "2026-10-12" },
     });
-    fireEvent.change(screen.getByLabelText("Location"), {
+    fireEvent.change(screen.getByLabelText("Location *"), {
       target: { value: "Online" },
     });
     fireEvent.change(screen.getByLabelText("Max attendance"), {
@@ -904,6 +905,9 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     );
     fireEvent.change(screen.getByLabelText("Event date *"), {
       target: { value: "2026-10-12" },
+    });
+    fireEvent.change(screen.getByLabelText("Location *"), {
+      target: { value: "Online" },
     });
     fireEvent.click(screen.getByText("Schedule display"));
     fireEvent.change(screen.getByLabelText("Time display"), {

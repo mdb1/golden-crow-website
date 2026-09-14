@@ -2362,6 +2362,8 @@ export function DiscoverFeedEntryWorkbench({
       }
       if (nextState.type === "upcoming_event") {
         const rawEventDate = nextState.payloads.upcoming_event?.date?.trim() ?? "";
+        const rawEventLocation =
+          nextState.payloads.upcoming_event?.location?.trim() ?? "";
         const normalizedEventPayload = payloadForType(nextState) as Record<
           string,
           unknown
@@ -2370,6 +2372,9 @@ export function DiscoverFeedEntryWorkbench({
           return rawEventDate
             ? t("Event date must be a valid date. Use YYYY-MM-DD.")
             : t("Event date is required before publishing.");
+        }
+        if (!rawEventLocation) {
+          return t("Event location is required before publishing.");
         }
       }
     }
@@ -3459,62 +3464,53 @@ export function DiscoverFeedEntryWorkbench({
           description:
             "These are the essential fields for creating the event and setting its basic configuration.",
           children: (
-            <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
-              <div className="grid gap-4 rounded-xl border border-violet-100/70 bg-white/70 p-3 dark:border-violet-400/12 dark:bg-slate-950/28 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    {t("Required block")}
-                  </span>
-                </div>
-                <FieldShell
-                  label={`${t("Event date")} *`}
-                  htmlFor="discover-upcoming-event-date"
-                >
-                  <Input
-                    id="discover-upcoming-event-date"
-                    type="date"
-                    value={upcomingEventPayload.date ?? ""}
-                    onChange={(event) =>
-                      updateUpcomingEventField("date", event.target.value)
-                    }
-                    className={publisherInputClass}
-                  />
-                </FieldShell>
-                <FieldShell
-                  label={t("Location")}
-                  htmlFor="discover-upcoming-event-location"
-                >
-                  <LocationSuggestInput
-                    id="discover-upcoming-event-location"
-                    value={upcomingEventPayload.location ?? ""}
-                    onChange={(nextValue) =>
-                      updateUpcomingEventField("location", nextValue)
-                    }
-                    t={t}
-                  />
-                </FieldShell>
-              </div>
-              <div className="grid gap-4 rounded-xl border border-violet-100/70 bg-white/70 p-3 dark:border-violet-400/12 dark:bg-slate-950/28">
-                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                  {t("Optional block")}
-                </span>
-                <FieldShell
-                  label={t("Max attendance")}
-                  htmlFor="discover-upcoming-event-max-attendance"
-                >
-                  <Input
-                    id="discover-upcoming-event-max-attendance"
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={upcomingEventPayload.maxAttendance ?? ""}
-                    onChange={(event) =>
-                      updateUpcomingEventField("maxAttendance", event.target.value)
-                    }
-                    className={publisherInputClass}
-                  />
-                </FieldShell>
-              </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <FieldShell
+                label={`${t("Event date")} *`}
+                htmlFor="discover-upcoming-event-date"
+              >
+                <Input
+                  id="discover-upcoming-event-date"
+                  type="date"
+                  value={upcomingEventPayload.date ?? ""}
+                  onChange={(event) =>
+                    updateUpcomingEventField("date", event.target.value)
+                  }
+                  className={publisherInputClass}
+                />
+              </FieldShell>
+              <FieldShell
+                label={`${t("Location")} *`}
+                htmlFor="discover-upcoming-event-location"
+              >
+                <LocationSuggestInput
+                  id="discover-upcoming-event-location"
+                  value={upcomingEventPayload.location ?? ""}
+                  onChange={(nextValue) =>
+                    updateUpcomingEventField("location", nextValue)
+                  }
+                  t={t}
+                />
+              </FieldShell>
+              <FieldShell
+                label={t("Max attendance")}
+                htmlFor="discover-upcoming-event-max-attendance"
+              >
+                <Input
+                  id="discover-upcoming-event-max-attendance"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={upcomingEventPayload.maxAttendance ?? ""}
+                  onChange={(event) =>
+                    updateUpcomingEventField("maxAttendance", event.target.value)
+                  }
+                  className={publisherInputClass}
+                />
+              </FieldShell>
+              <p className="text-xs text-muted-foreground md:col-span-3">
+                {t("*: required field")}
+              </p>
             </div>
           ),
         })}
