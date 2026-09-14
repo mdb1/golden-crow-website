@@ -655,6 +655,9 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(screen.getByLabelText("Type"), {
       target: { value: "upcoming_event" },
     });
+    fireEvent.change(screen.getByLabelText("Language"), {
+      target: { value: "es" },
+    });
 
     expect(screen.getByText("Schedule display")).toBeTruthy();
     expect(
@@ -663,6 +666,12 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       ),
     ).toBeTruthy();
     expect(screen.getByText("Required block")).toBeTruthy();
+    expect(screen.getByText("Optional block")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "These are the essential fields for creating the event and setting its basic configuration.",
+      ),
+    ).toBeTruthy();
     expect(screen.getByText("Advanced event configuration (optional)")).toBeTruthy();
 
     const eventDateInput = screen.getByLabelText("Event date *");
@@ -714,7 +723,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       }),
     ).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Event status"), {
-      target: { value: "registrationOpenSpotsAvailable" },
+      target: { value: "available_slots" },
     });
     fireEvent.click(screen.getByText("Organizer and disclosure"));
     fireEvent.change(screen.getByLabelText("Publisher relationship"), {
@@ -727,7 +736,8 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       target: { value: "Organized by the publisher team." },
     });
 
-    fireEvent.click(screen.getByText("Audience, cost, language, accessibility"));
+    fireEvent.click(screen.getByText("Audience, cost, accessibility"));
+    expect(screen.queryByText("Languages")).toBeNull();
     fireEvent.click(screen.getByLabelText("Patients"));
     fireEvent.change(screen.getByLabelText("Cost type"), {
       target: { value: "free" },
@@ -756,7 +766,6 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     });
     expect(screen.queryByLabelText("Currency")).toBeNull();
     expect(screen.queryByLabelText("Price")).toBeNull();
-    fireEvent.click(screen.getByLabelText("Spanish"));
     fireEvent.click(screen.getByLabelText("Captions"));
 
     fireEvent.click(
@@ -840,7 +849,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       countryTimezones: { AR: "America/Argentina/Buenos_Aires" },
       eventKind: "conference",
       attendanceMode: "online",
-      eventStatus: "registrationOpenSpotsAvailable",
+      eventStatus: "available_slots",
       publisherRelationshipToEvent: "organizer",
       organizerName: "Golden Crow",
       publisherDisclosure: "Organized by the publisher team.",

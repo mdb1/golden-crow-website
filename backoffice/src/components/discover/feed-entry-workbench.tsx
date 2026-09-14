@@ -255,7 +255,7 @@ const EVENT_STATUS_OPTIONS: readonly EventSelectOption[] = [
   { value: "normal", label: "Normal" },
   { value: "scheduled", label: "Scheduled" },
   {
-    value: "registrationOpenSpotsAvailable",
+    value: "available_slots",
     label: "Registration open - spots available",
   },
   { value: "tentative", label: "Tentative" },
@@ -332,17 +332,6 @@ const EVENT_CURRENCY_OPTIONS: readonly EventSelectOption[] = [
   { value: "PEN", label: "Peruvian sol (PEN)" },
   { value: "CAD", label: "Canadian dollar (CAD)" },
   { value: "GBP", label: "British pound (GBP)" },
-];
-
-const EVENT_LANGUAGE_OPTIONS: readonly EventSelectOption[] = [
-  { value: "es", label: "Spanish" },
-  { value: "en", label: "English" },
-  { value: "pt-BR", label: "Portuguese (Brazil)" },
-  { value: "pt", label: "Portuguese" },
-  { value: "fr", label: "French" },
-  { value: "de", label: "German" },
-  { value: "it", label: "Italian" },
-  { value: "ca", label: "Catalan" },
 ];
 
 const EVENT_ACCESSIBILITY_OPTIONS: readonly EventSelectOption[] = [
@@ -1177,7 +1166,7 @@ function payloadForType(state: FeedEntryFormState) {
         url: button.url.trim(),
       }));
     const audience = selectedEventValues(values, "audience");
-    const languages = selectedEventValues(values, "languages");
+    const languages = [state.language];
     const accessibilityFeatures = selectedEventValues(
       values,
       "accessibilityFeatures",
@@ -2205,7 +2194,7 @@ export function DiscoverFeedEntryWorkbench({
   }
 
   function toggleEventValues(
-    fieldKey: "audience" | "languages" | "accessibilityFeatures",
+    fieldKey: "audience" | "accessibilityFeatures",
     value: string,
     checked: boolean,
   ) {
@@ -2696,7 +2685,7 @@ export function DiscoverFeedEntryWorkbench({
   }
 
   function renderEventCheckboxGrid(
-    fieldKey: "audience" | "languages" | "accessibilityFeatures",
+    fieldKey: "audience" | "accessibilityFeatures",
     options: readonly EventSelectOption[],
   ) {
     const selectedValues = selectedEventValues(upcomingEventPayload, fieldKey);
@@ -3408,7 +3397,6 @@ export function DiscoverFeedEntryWorkbench({
     const costType = eventStringValue(upcomingEventPayload, "costType");
     const showPaidCostFields = costType === "paid";
     const selectedAudience = selectedEventValues(upcomingEventPayload, "audience");
-    const selectedLanguages = selectedEventValues(upcomingEventPayload, "languages");
     const selectedAccessibility = selectedEventValues(
       upcomingEventPayload,
       "accessibilityFeatures",
@@ -3469,50 +3457,64 @@ export function DiscoverFeedEntryWorkbench({
           icon: <CalendarDays className="h-4 w-4" />,
           title: "Core event details",
           description:
-            "Only this block contains the required event field. Event date is required; location and max attendance remain optional.",
-          badge: "Required block",
+            "These are the essential fields for creating the event and setting its basic configuration.",
           children: (
-            <div className="grid gap-4 md:grid-cols-3">
-              <FieldShell
-                label={`${t("Event date")} *`}
-                htmlFor="discover-upcoming-event-date"
-              >
-                <Input
-                  id="discover-upcoming-event-date"
-                  type="date"
-                  value={upcomingEventPayload.date ?? ""}
-                  onChange={(event) =>
-                    updateUpcomingEventField("date", event.target.value)
-                  }
-                  className={publisherInputClass}
-                />
-              </FieldShell>
-              <FieldShell label={t("Location")} htmlFor="discover-upcoming-event-location">
-                <LocationSuggestInput
-                  id="discover-upcoming-event-location"
-                  value={upcomingEventPayload.location ?? ""}
-                  onChange={(nextValue) =>
-                    updateUpcomingEventField("location", nextValue)
-                  }
-                  t={t}
-                />
-              </FieldShell>
-              <FieldShell
-                label={t("Max attendance")}
-                htmlFor="discover-upcoming-event-max-attendance"
-              >
-                <Input
-                  id="discover-upcoming-event-max-attendance"
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={upcomingEventPayload.maxAttendance ?? ""}
-                  onChange={(event) =>
-                    updateUpcomingEventField("maxAttendance", event.target.value)
-                  }
-                  className={publisherInputClass}
-                />
-              </FieldShell>
+            <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
+              <div className="grid gap-4 rounded-xl border border-violet-100/70 bg-white/70 p-3 dark:border-violet-400/12 dark:bg-slate-950/28 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    {t("Required block")}
+                  </span>
+                </div>
+                <FieldShell
+                  label={`${t("Event date")} *`}
+                  htmlFor="discover-upcoming-event-date"
+                >
+                  <Input
+                    id="discover-upcoming-event-date"
+                    type="date"
+                    value={upcomingEventPayload.date ?? ""}
+                    onChange={(event) =>
+                      updateUpcomingEventField("date", event.target.value)
+                    }
+                    className={publisherInputClass}
+                  />
+                </FieldShell>
+                <FieldShell
+                  label={t("Location")}
+                  htmlFor="discover-upcoming-event-location"
+                >
+                  <LocationSuggestInput
+                    id="discover-upcoming-event-location"
+                    value={upcomingEventPayload.location ?? ""}
+                    onChange={(nextValue) =>
+                      updateUpcomingEventField("location", nextValue)
+                    }
+                    t={t}
+                  />
+                </FieldShell>
+              </div>
+              <div className="grid gap-4 rounded-xl border border-violet-100/70 bg-white/70 p-3 dark:border-violet-400/12 dark:bg-slate-950/28">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  {t("Optional block")}
+                </span>
+                <FieldShell
+                  label={t("Max attendance")}
+                  htmlFor="discover-upcoming-event-max-attendance"
+                >
+                  <Input
+                    id="discover-upcoming-event-max-attendance"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={upcomingEventPayload.maxAttendance ?? ""}
+                    onChange={(event) =>
+                      updateUpcomingEventField("maxAttendance", event.target.value)
+                    }
+                    className={publisherInputClass}
+                  />
+                </FieldShell>
+              </div>
             </div>
           ),
         })}
@@ -3766,7 +3768,7 @@ export function DiscoverFeedEntryWorkbench({
 
             {renderCollapsibleEventSubsection({
               icon: <DollarSign className="h-4 w-4" />,
-              title: "Audience, cost, language, accessibility",
+              title: "Audience, cost, accessibility",
               description:
                 "Use optional metadata to clarify who the event is for and what support is available.",
               children: (
@@ -3847,30 +3849,19 @@ export function DiscoverFeedEntryWorkbench({
                     ) : null}
                   </div>
 
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <div>
-                      <Label className="mb-2 block">{t("Languages")}</Label>
-                      {renderEventCheckboxGrid("languages", EVENT_LANGUAGE_OPTIONS)}
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {selectedLanguages.length
-                          ? `${selectedLanguages.length} ${t("languages selected")}`
-                          : t("No languages selected.")}
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="mb-2 block">
-                        {t("Accessibility features")}
-                      </Label>
-                      {renderEventCheckboxGrid(
-                        "accessibilityFeatures",
-                        EVENT_ACCESSIBILITY_OPTIONS,
-                      )}
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {selectedAccessibility.length
-                          ? `${selectedAccessibility.length} ${t("accessibility features selected")}`
-                          : t("No accessibility features selected.")}
-                      </p>
-                    </div>
+                  <div>
+                    <Label className="mb-2 block">
+                      {t("Accessibility features")}
+                    </Label>
+                    {renderEventCheckboxGrid(
+                      "accessibilityFeatures",
+                      EVENT_ACCESSIBILITY_OPTIONS,
+                    )}
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {selectedAccessibility.length
+                        ? `${selectedAccessibility.length} ${t("accessibility features selected")}`
+                        : t("No accessibility features selected.")}
+                    </p>
                   </div>
                 </div>
               ),

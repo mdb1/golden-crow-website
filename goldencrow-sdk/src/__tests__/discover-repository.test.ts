@@ -1703,7 +1703,7 @@ describe("discover repository", () => {
         },
         eventKind: "conference",
         attendanceMode: "online",
-        eventStatus: "scheduled",
+        eventStatus: "available_slots",
         actionButtons: [
           {
             type: "register",
@@ -1746,7 +1746,7 @@ describe("discover repository", () => {
       },
       eventKind: "conference",
       attendanceMode: "online",
-      eventStatus: "scheduled",
+      eventStatus: "available_slots",
       actionButtons: [
         {
           type: "register",

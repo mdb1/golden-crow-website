@@ -913,9 +913,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Country end times": "Horarios de fin por país",
   "Country timezones": "Zonas horarias por país",
   "Core event details": "Datos principales del evento",
-  "Only this block contains the required event field. Event date is required; location and max attendance remain optional.":
-    "Solo este bloque contiene el campo obligatorio del evento. La fecha del evento es obligatoria; ubicación y asistencia máxima siguen siendo opcionales.",
+  "These are the essential fields for creating the event and setting its basic configuration.":
+    "Estos son los campos esenciales para crear el evento y definir su configuración básica.",
   "Required block": "Bloque obligatorio",
+  "Optional block": "Bloque opcional",
   "Advanced event configuration (optional)":
     "Configuración avanzada del evento (opcional)",
   "The following event blocks are optional. They start collapsed and can be expanded when you need to add more detail.":
@@ -1039,8 +1040,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Publisher disclosure": "Aclaración del publicador",
   "Use this note for transparent sponsorship, partnership, speaker, or participation context.":
     "Usá esta nota para aclarar contexto de auspicio, alianza, charla o participación.",
-  "Audience, cost, language, accessibility":
-    "Audiencia, costo, idioma y accesibilidad",
+  "Audience, cost, accessibility": "Audiencia, costo y accesibilidad",
   "Use optional metadata to clarify who the event is for and what support is available.":
     "Usá metadatos opcionales para aclarar para quién es el evento y qué apoyos están disponibles.",
   Audience: "Audiencia",
@@ -1081,8 +1081,6 @@ const SPANISH_TEXT: Record<string, string> = {
   German: "Alemán",
   Italian: "Italiano",
   Catalan: "Catalán",
-  "languages selected": "idiomas seleccionados",
-  "No languages selected.": "No hay idiomas seleccionados.",
   "Accessibility features": "Funciones de accesibilidad",
   Captions: "Subtítulos",
   "Live transcript": "Transcripción en vivo",

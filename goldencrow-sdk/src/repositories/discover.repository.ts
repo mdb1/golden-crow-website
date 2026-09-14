@@ -142,7 +142,9 @@ const EVENT_ATTENDANCE_MODE_VALUES = new Set([
   "toBeAnnounced",
 ]);
 const EVENT_STATUS_VALUES = new Set([
+  "normal",
   "scheduled",
+  "available_slots",
   "tentative",
   "postponed",
   "rescheduled",
