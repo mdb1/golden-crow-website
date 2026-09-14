@@ -691,7 +691,62 @@ function flagEmojiForCountryCode(countryCode: string) {
 }
 
 function isValidTimeOfDay(value: string) {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value.trim());
+  return Boolean(normalizeTimeOfDayValue(value));
+}
+
+function timeInputDraftValue(value: string) {
+  const allowed = value.replace(/[^\d:]/g, "");
+  if (allowed.includes(":")) {
+    const [rawHour, ...rawMinuteParts] = allowed.split(":");
+    const hour = rawHour.slice(0, 2);
+    const minute = rawMinuteParts.join("").slice(0, 2);
+    return `${hour}:${minute}`;
+  }
+
+  const digits = allowed.replace(/\D/g, "").slice(0, 4);
+  if (digits.length <= 2) {
+    return digits;
+  }
+  if (digits.length === 3) {
+    return `0${digits.slice(0, 1)}:${digits.slice(1)}`;
+  }
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+function normalizeTimeOfDayValue(value: string) {
+  const text = value.trim();
+  if (!text) {
+    return "";
+  }
+
+  const colonMatch = /^(\d{1,2}):(\d{2})$/.exec(text);
+  if (colonMatch) {
+    const hour = Number(colonMatch[1]);
+    const minute = Number(colonMatch[2]);
+    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      return `${String(hour).padStart(2, "0")}:${colonMatch[2]}`;
+    }
+    return "";
+  }
+
+  const compactMatch = /^(\d{3,4})$/.exec(text);
+  if (compactMatch) {
+    const digits = compactMatch[1];
+    const hourText = digits.slice(0, -2);
+    const minuteText = digits.slice(-2);
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      return `${String(hour).padStart(2, "0")}:${minuteText}`;
+    }
+  }
+
+  return "";
+}
+
+function eventTimeValue(payload: FeedEntryPayloadState, key: string) {
+  const value = eventStringValue(payload, key);
+  return normalizeTimeOfDayValue(value) || value;
 }
 
 function isValidIanaTimezone(value: string) {
@@ -749,6 +804,14 @@ function parseEventMapText(value: string) {
 
 function eventMapObject(value: string) {
   const entries = [...parseEventMapText(value).entries()];
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function eventTimeMapObject(value: string) {
+  const entries = [...parseEventMapText(value).entries()].map(([key, entry]) => [
+    key,
+    normalizeTimeOfDayValue(entry) || entry,
+  ]);
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }
 
@@ -829,8 +892,8 @@ function serializeEventRegionalRows(rows: EventRegionalTimeRow[]) {
   const cleanRows = rows
     .map((row) => ({
       countryCode: normalizeEventCountryCode(row.countryCode),
-      startTime: row.startTime.trim(),
-      endTime: row.endTime.trim(),
+      startTime: normalizeTimeOfDayValue(row.startTime) || row.startTime.trim(),
+      endTime: normalizeTimeOfDayValue(row.endTime) || row.endTime.trim(),
       timezone: row.timezone.trim(),
     }))
     .filter((row) => row.countryCode && (row.startTime || row.endTime || row.timezone));
@@ -912,8 +975,8 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
   const usesMultiDayLength = Boolean(timeKind && timeKind !== "dateOnly");
   const costType = eventStringValue(payload, "costType");
   const usesPaidCost = costType === "paid";
-  const dailyStartTime = eventStringValue(payload, "dailyStartTime");
-  const dailyEndTime = eventStringValue(payload, "dailyEndTime");
+  const dailyStartTime = eventTimeValue(payload, "dailyStartTime");
+  const dailyEndTime = eventTimeValue(payload, "dailyEndTime");
   const multiDayLength = eventStringValue(payload, "multiDayLength");
   const priceMinorUnits = eventStringValue(payload, "priceMinorUnits");
   const timezone = eventStringValue(payload, "timezone");
@@ -1172,10 +1235,10 @@ function payloadForType(state: FeedEntryFormState) {
       values,
       "accessibilityFeatures",
     );
-    const countryDailyStartTimes = eventMapObject(
+    const countryDailyStartTimes = eventTimeMapObject(
       values.countryDailyStartTimes ?? "",
     );
-    const countryDailyEndTimes = eventMapObject(values.countryDailyEndTimes ?? "");
+    const countryDailyEndTimes = eventTimeMapObject(values.countryDailyEndTimes ?? "");
     const countryTimezones = eventMapObject(values.countryTimezones ?? "");
     const multiDayLength = usesMultiDayLength
       ? eventOptionalIntegerValue(values, "multiDayLength") ??
@@ -1190,11 +1253,11 @@ function payloadForType(state: FeedEntryFormState) {
       ...(usesTimedSchedule && eventStringValue(values, "timezone")
         ? { timezone: eventStringValue(values, "timezone") }
         : {}),
-      ...(usesTimedSchedule && eventStringValue(values, "dailyStartTime")
-        ? { dailyStartTime: eventStringValue(values, "dailyStartTime") }
+      ...(usesTimedSchedule && eventTimeValue(values, "dailyStartTime")
+        ? { dailyStartTime: eventTimeValue(values, "dailyStartTime") }
         : {}),
-      ...(usesTimedSchedule && eventStringValue(values, "dailyEndTime")
-        ? { dailyEndTime: eventStringValue(values, "dailyEndTime") }
+      ...(usesTimedSchedule && eventTimeValue(values, "dailyEndTime")
+        ? { dailyEndTime: eventTimeValue(values, "dailyEndTime") }
         : {}),
       ...(usesMultiDayLength
         ? { multiDayLength }
@@ -3207,11 +3270,26 @@ export function DiscoverFeedEntryWorkbench({
                   >
                     <Input
                       id="event-region-draft-start"
-                      type="time"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                      placeholder="HH:mm"
+                      maxLength={5}
+                      autoComplete="off"
                       value={eventRegionalDraft.startTime}
                       onChange={(event) =>
-                        updateEventRegionalDraft({ startTime: event.target.value })
+                        updateEventRegionalDraft({
+                          startTime: timeInputDraftValue(event.target.value),
+                        })
                       }
+                      onBlur={(event) => {
+                        const normalized = normalizeTimeOfDayValue(
+                          event.target.value,
+                        );
+                        if (normalized) {
+                          updateEventRegionalDraft({ startTime: normalized });
+                        }
+                      }}
                       className={`${publisherInputClass} ${
                         draftInvalidStart
                           ? "border-destructive focus-visible:ring-destructive"
@@ -3226,11 +3304,26 @@ export function DiscoverFeedEntryWorkbench({
                   >
                     <Input
                       id="event-region-draft-end"
-                      type="time"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                      placeholder="HH:mm"
+                      maxLength={5}
+                      autoComplete="off"
                       value={eventRegionalDraft.endTime}
                       onChange={(event) =>
-                        updateEventRegionalDraft({ endTime: event.target.value })
+                        updateEventRegionalDraft({
+                          endTime: timeInputDraftValue(event.target.value),
+                        })
                       }
+                      onBlur={(event) => {
+                        const normalized = normalizeTimeOfDayValue(
+                          event.target.value,
+                        );
+                        if (normalized) {
+                          updateEventRegionalDraft({ endTime: normalized });
+                        }
+                      }}
                       className={`${publisherInputClass} ${
                         draftInvalidEnd
                           ? "border-destructive focus-visible:ring-destructive"
@@ -3625,14 +3718,30 @@ export function DiscoverFeedEntryWorkbench({
                         >
                           <Input
                             id="discover-upcoming-event-daily-start"
-                            type="time"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                            placeholder="HH:mm"
+                            maxLength={5}
+                            autoComplete="off"
                             value={upcomingEventPayload.dailyStartTime ?? ""}
                             onChange={(event) =>
                               updateUpcomingEventField(
                                 "dailyStartTime",
-                                event.target.value,
+                                timeInputDraftValue(event.target.value),
                               )
                             }
+                            onBlur={(event) => {
+                              const normalized = normalizeTimeOfDayValue(
+                                event.target.value,
+                              );
+                              if (normalized) {
+                                updateUpcomingEventField(
+                                  "dailyStartTime",
+                                  normalized,
+                                );
+                              }
+                            }}
                             className={publisherInputClass}
                           />
                         </FieldShell>
@@ -3642,14 +3751,30 @@ export function DiscoverFeedEntryWorkbench({
                         >
                           <Input
                             id="discover-upcoming-event-daily-end"
-                            type="time"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                            placeholder="HH:mm"
+                            maxLength={5}
+                            autoComplete="off"
                             value={upcomingEventPayload.dailyEndTime ?? ""}
                             onChange={(event) =>
                               updateUpcomingEventField(
                                 "dailyEndTime",
-                                event.target.value,
+                                timeInputDraftValue(event.target.value),
                               )
                             }
+                            onBlur={(event) => {
+                              const normalized = normalizeTimeOfDayValue(
+                                event.target.value,
+                              );
+                              if (normalized) {
+                                updateUpcomingEventField(
+                                  "dailyEndTime",
+                                  normalized,
+                                );
+                              }
+                            }}
                             className={publisherInputClass}
                           />
                         </FieldShell>

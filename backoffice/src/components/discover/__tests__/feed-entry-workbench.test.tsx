@@ -701,8 +701,24 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       target: { value: "timed" },
     });
     expect(screen.getByLabelText("Timezone")).toBeTruthy();
-    expect(screen.getByLabelText("Daily start time")).toBeTruthy();
-    expect(screen.getByLabelText("Daily end time")).toBeTruthy();
+    const dailyStartTimeInput = screen.getByLabelText(
+      "Daily start time",
+    ) as HTMLInputElement;
+    const dailyEndTimeInput = screen.getByLabelText(
+      "Daily end time",
+    ) as HTMLInputElement;
+    expect(dailyStartTimeInput.type).toBe("text");
+    expect(dailyStartTimeInput.placeholder).toBe("HH:mm");
+    expect(dailyEndTimeInput.type).toBe("text");
+    expect(dailyEndTimeInput.placeholder).toBe("HH:mm");
+    fireEvent.change(dailyStartTimeInput, {
+      target: { value: "0930" },
+    });
+    fireEvent.change(dailyEndTimeInput, {
+      target: { value: "1745" },
+    });
+    expect(dailyStartTimeInput.value).toBe("09:30");
+    expect(dailyEndTimeInput.value).toBe("17:45");
     expect(
       screen.queryByRole("button", { name: "Configure regional times" }),
     ).toBeNull();
@@ -795,11 +811,21 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(within(dialog).getByLabelText("Country"), {
       target: { value: "AR" },
     });
-    fireEvent.change(within(dialog).getByLabelText("Start time"), {
-      target: { value: "09:30" },
+    const regionalStartInput = within(dialog).getByLabelText(
+      "Start time",
+    ) as HTMLInputElement;
+    const regionalEndInput = within(dialog).getByLabelText(
+      "End time",
+    ) as HTMLInputElement;
+    expect(regionalStartInput.type).toBe("text");
+    expect(regionalStartInput.placeholder).toBe("HH:mm");
+    expect(regionalEndInput.type).toBe("text");
+    expect(regionalEndInput.placeholder).toBe("HH:mm");
+    fireEvent.change(regionalStartInput, {
+      target: { value: "930" },
     });
-    fireEvent.change(within(dialog).getByLabelText("End time"), {
-      target: { value: "11:00" },
+    fireEvent.change(regionalEndInput, {
+      target: { value: "1100" },
     });
     fireEvent.change(within(dialog).getByLabelText("Timezone"), {
       target: { value: "America/Argentina/Buenos_Aires" },
@@ -944,6 +970,69 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     const payload = body.upcomingEvent as Record<string, unknown>;
 
     expect(payload.maxAttendance).toBeNull();
+  });
+
+  it("saves daily event times as 24-hour HH:mm values", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publisher"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "upcoming_event" },
+    });
+    fireEvent.change(screen.getByLabelText("Event date *"), {
+      target: { value: "2026-10-12" },
+    });
+    fireEvent.change(screen.getByLabelText("Location *"), {
+      target: { value: "Online" },
+    });
+    fireEvent.click(screen.getByText("Schedule display"));
+    fireEvent.change(screen.getByLabelText("Time display"), {
+      target: { value: "timed" },
+    });
+
+    const dailyStartTimeInput = screen.getByLabelText(
+      "Daily start time",
+    ) as HTMLInputElement;
+    const dailyEndTimeInput = screen.getByLabelText(
+      "Daily end time",
+    ) as HTMLInputElement;
+
+    fireEvent.change(dailyStartTimeInput, {
+      target: { value: "930" },
+    });
+    fireEvent.change(dailyEndTimeInput, {
+      target: { value: "1745" },
+    });
+
+    expect(dailyStartTimeInput.value).toBe("09:30");
+    expect(dailyEndTimeInput.value).toBe("17:45");
+
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items", {
+        method: "POST",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, Record<string, unknown> | string>;
+    const payload = body.upcomingEvent as Record<string, unknown>;
+
+    expect(payload.dailyStartTime).toBe("09:30");
+    expect(payload.dailyEndTime).toBe("17:45");
   });
 
   it("defaults event multi-day length to one when schedule duration is shown", async () => {
