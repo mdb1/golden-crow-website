@@ -1441,6 +1441,47 @@ describe("discover repository", () => {
     ).rejects.toThrow("Use valid genetic report categories.");
   });
 
+  it("serializes legacy upcoming_event documents as upcomingEvent", async () => {
+    const { getDiscoverFeedItem } =
+      await import("../repositories/discover.repository");
+    mockFeedDocs.push({
+      id: "feed-legacy-event",
+      data: {
+        publisherOrganizationId: "org-1",
+        publisherSnapshot: { name: "Publisher One", imageUrl: null },
+        type: "upcoming_event",
+        status: "published",
+        title: "Legacy event",
+        subtitle: "Event summary",
+        body: "Event body",
+        language: "en",
+        publishedAt: "2026-09-01T00:00:00.000Z",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-02T00:00:00.000Z",
+        upcoming_event: {
+          date: "2026-10-12T00:00:00.000Z",
+          location: "Online",
+          maxAttendance: 100,
+        },
+      },
+    });
+
+    const feedItem = await getDiscoverFeedItem(
+      fullAdminContext,
+      "feed-legacy-event",
+    );
+
+    expect(feedItem.type).toBe("upcoming_event");
+    expect(feedItem.upcomingEvent).toMatchObject({
+      date: "2026-10-12T00:00:00.000Z",
+      location: "Online",
+      maxAttendance: 100,
+    });
+    expect(
+      (feedItem as unknown as Record<string, unknown>).upcoming_event,
+    ).toBeUndefined();
+  });
+
   it("creates upcoming events with the compact event payload", async () => {
     const { createDiscoverFeedItem } =
       await import("../repositories/discover.repository");

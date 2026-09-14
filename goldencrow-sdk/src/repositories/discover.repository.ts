@@ -2013,11 +2013,18 @@ function getFeedTitle(item: DiscoverFeedItemRecord) {
   return normalizeOptionalString(item.title) ?? "Untitled";
 }
 
+function payloadNodeFromData(
+  data: Record<string, unknown>,
+  type: DiscoverFeedType,
+): unknown {
+  return data[getPayloadKey(type)] ?? data[type];
+}
+
 function payloadForSerializedItem(
   data: Record<string, unknown>,
   type: DiscoverFeedType,
 ): Record<string, unknown> {
-  const payload = data[getPayloadKey(type)];
+  const payload = payloadNodeFromData(data, type);
   return payload && typeof payload === "object" && !Array.isArray(payload)
     ? (payload as Record<string, unknown>)
     : {};
@@ -2083,7 +2090,7 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
 
   for (const payloadType of FEED_TYPES) {
     const payloadKey = getPayloadKey(payloadType);
-    const payload = data[payloadKey];
+    const payload = payloadNodeFromData(data, payloadType);
     if (payload && typeof payload === "object" && !Array.isArray(payload)) {
       record[payloadKey] = serializePayloadValue(payload) as Record<
         string,

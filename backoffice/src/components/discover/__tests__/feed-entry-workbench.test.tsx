@@ -315,6 +315,75 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(body.imageUploadMimeType).toBe("image/png");
   });
 
+  it("loads legacy upcoming_event payloads and saves them as upcomingEvent", async () => {
+    const feedItem = {
+      id: "feed-legacy-event",
+      publisherOrganizationId: "org-1",
+      publisherIndividualId: null,
+      publisherSnapshot: { name: "Publisher One", imageUrl: null },
+      type: "upcoming_event",
+      publishedAt: "2026-09-01T00:00:00.000Z",
+      language: "en",
+      title: "Legacy event",
+      subtitle: "Event summary",
+      body: "Event body",
+      htmlBody: null,
+      imageUrl: null,
+      sourceUrl: "https://example.org/event",
+      sourceButtonText: "Register now",
+      status: "published",
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+      upcoming_event: {
+        date: "2026-10-12T00:00:00.000Z",
+        location: "Online",
+        maxAttendance: 100,
+      },
+    } as unknown as DiscoverFeedItemRecord;
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="edit"
+          feedItem={feedItem}
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    expect((screen.getByLabelText("Event date *") as HTMLInputElement).value).toBe(
+      "2026-10-12",
+    );
+    fireEvent.change(screen.getByLabelText("Location"), {
+      target: { value: "Online event" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/feed-items/feed-legacy-event",
+        {
+          method: "PUT",
+          body: expect.any(String),
+        },
+      );
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.type).toBe("upcoming_event");
+    expect(body.upcomingEvent).toMatchObject({
+      date: "2026-10-12T00:00:00.000Z",
+      location: "Online event",
+      maxAttendance: 100,
+    });
+    expect(body.upcoming_event).toBeUndefined();
+  });
+
   it("offers every Discover feed type in the type picker", () => {
     render(
       <AppLanguageProvider initialLanguage="en">

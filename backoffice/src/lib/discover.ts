@@ -868,7 +868,17 @@ export function getDiscoverPayloadForType(
   item: DiscoverFeedPayloadNodes,
   type: DiscoverFeedType,
 ) {
-  return item[discoverFeedPayloadKey(type)] as Record<string, unknown> | undefined;
+  const camelPayload = item[discoverFeedPayloadKey(type)];
+  if (camelPayload) {
+    return camelPayload;
+  }
+
+  const legacyPayload = (item as Record<string, unknown>)[type];
+  return legacyPayload &&
+    typeof legacyPayload === "object" &&
+    !Array.isArray(legacyPayload)
+    ? (legacyPayload as Record<string, unknown>)
+    : undefined;
 }
 
 export function getDiscoverFeedTitle(item: DiscoverFeedItemRecord) {
