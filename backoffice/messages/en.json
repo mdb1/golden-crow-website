@@ -893,6 +893,7 @@
       "draftBadgeTooltip": "Incomplete draft — cannot be assigned until completed",
       "draftResumeCta": "Continue draft",
       "draftPendingLabel": "Draft",
+      "pendingDraftBadge": "Unsaved draft",
       "assignmentCount": "{count, plural, one {# assignment} other {# assignments}}"
     },
     "viewPage": {
@@ -1067,10 +1068,13 @@
       "saveFailed": "Couldn't save.",
       "submitErrorsHeadline": "Fix these before saving:",
       "submitErrorExercisePrefix": "Exercise #{index}",
-      "discardDialogTitle": "Discard changes?",
-      "discardDialogBody": "If you cancel, your unsaved changes to this template will be lost.",
+      "discardDialogTitle": "Leave this template?",
+      "discardDialogBody": "You can leave and come back later — the draft stays saved in this browser. Discarding deletes the changes.",
       "discardDialogConfirm": "Discard changes",
-      "discardDialogKeepEditing": "Keep editing"
+      "discardDialogKeepEditing": "Keep editing",
+      "discardDialogKeepDraft": "Leave and keep draft",
+      "draftRestoredBanner": "Restored your unsaved draft. Pick up where you left off.",
+      "draftRestoredDiscard": "Discard draft"
     }
   },
   "habits": {
@@ -2028,6 +2032,8 @@
     "filterLevel": "Level",
     "filterMechanic": "Mechanic",
     "filterClearAll": "Clear filters",
+    "filtersToggle": "Filters",
+    "filtersToggleActive": "Filters ({count})",
     "levelBeginner": "Beginner",
     "levelIntermediate": "Intermediate",
     "levelExpert": "Expert",

@@ -56,7 +56,7 @@
 // a redundant duplicate line).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronsUpDown, Copy, Plus, X } from "lucide-react";
+import { ChevronsUpDown, Copy, Plus, SlidersHorizontal, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -73,6 +73,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -217,7 +224,14 @@ export function ExercisePickerPopover({
   // the English title-caser for any legacy value outside the catalog.
   const tVocab = useTranslations("exercises.vocabulary");
   const effectivePlaceholder = placeholder ?? t("triggerPlaceholder");
+  // #1089 — under `md` the panel renders as a full-height bottom sheet instead
+  // of a popover (see the comment above the return). SSR/first paint report
+  // false, so the desktop branch is the one that renders on the server.
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
+  // Mobile only: the chip block starts folded so the search input and the
+  // first results are on screen when the sheet opens.
+  const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState("");
   const [seed, setSeed] = useState<QuickCreateSeed | null>(null);
   // #1032 — the coach asked for the quick-create panel explicitly, from the
@@ -246,6 +260,14 @@ export function ExercisePickerPopover({
   // chip click below goes through setFilters() with `new Set(...)`.
   const { filters, setFilters, isEmpty: filtersEmpty, clear: clearFilters } =
     useExerciseFilters(initialFilters);
+
+  // #1089 — badge count for the mobile "Filters" toggle, so a folded chip
+  // block can never hide the fact that the list is already narrowed.
+  const activeFilterCount =
+    filters.muscles.size +
+    filters.equipment.size +
+    (filters.level ? 1 : 0) +
+    (filters.mechanic ? 1 : 0);
 
   // Filter soft-deleted out + apply the chip filters. The trainer's
   // previously-selected exercise (if it has since been deleted) still
@@ -326,6 +348,7 @@ export function ExercisePickerPopover({
       setSearch("");
       setSeed(null);
       setForceQuickCreate(false);
+      setShowFilters(false);
     }
   }
 
@@ -384,223 +407,340 @@ export function ExercisePickerPopover({
     }));
   }
 
+  // #1089 — the picker on a phone. A Popover was the wrong container there:
+  // its height is capped by `--radix-popover-content-available-height`, which
+  // collapses the moment the on-screen keyboard opens, and the filter chips
+  // wrap to four-plus rows ABOVE the search input — so the trainer typed into
+  // a field that had already scrolled past the fold and read results through a
+  // ~288px slot (CommandList ships its own `max-h-72`, which quietly won over
+  // the container's max-height) with two nested scrollbars. That is the
+  // "desplegable cortado" of the ticket.
+  //
+  // Under the `md` breakpoint the same panel now opens as a FULL-HEIGHT bottom
+  // sheet. Full height, not half: a half-height bottom sheet ends up under the
+  // iOS Safari keyboard, which does not shrink `dvh`. Search stays pinned at
+  // the top, the filters fold behind a "Filters (n)" toggle, and the list
+  // takes everything that is left.
+  //
+  // Desktop keeps the popover, minus the double cap: the panel is
+  // `overflow-hidden` and the list `flex-1`, which is what the container's
+  // `max-h-[…720px]` meant all along.
+  const trigger = (
+    <Button
+      type="button"
+      variant="outline"
+      role="combobox"
+      aria-expanded={open}
+      aria-label={ariaLabel ?? effectivePlaceholder}
+      disabled={disabled}
+      className={cn(
+        "h-auto min-h-9 w-full justify-between gap-2 px-3 py-1.5 text-left",
+        className,
+      )}
+    >
+      {selected ? (
+        <span className="flex items-center gap-2">
+          {/* 260527-fot — replaced the inline Image with the shared
+              ExercisePreviewThumb so the trainer gets the same 1s
+              hover preview affordance as everywhere else in the
+              backoffice. The preview popover uses PopoverAnchor
+              (not Trigger) so the parent picker trigger's click
+              still opens the picker. */}
+          <ExercisePreviewThumb
+            src={previewSrc(selected)}
+            alt={exerciseDisplayName(selected)}
+            width={40}
+            height={24}
+          />
+          <span className="flex flex-col">
+            <span className="font-medium">
+              {exerciseDisplayName(selected)}
+            </span>
+            {displayEs(selected) && (
+              <span
+                className="text-xs italic text-muted-foreground"
+                data-testid="exercise-picker-trigger-es"
+              >
+                {displayEs(selected)}
+              </span>
+            )}
+          </span>
+        </span>
+      ) : (
+        <span className="text-sm text-muted-foreground">{effectivePlaceholder}</span>
+      )}
+      <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+    </Button>
+  );
+
+  // The chip block (muscle / equipment / level / mechanic) that narrows the
+  // list before the trainer scans it. Desktop pins it above the search input;
+  // mobile folds it behind the "Filters" toggle inside the sheet.
+  const filtersNode = (
+    <ExercisePickerFilters
+      filters={filters}
+      toggleMuscle={toggleMuscle}
+      setMuscleSelection={setMuscleSelection}
+      toggleEquipment={toggleEquipment}
+      toggleLevel={toggleLevel}
+      toggleMechanic={toggleMechanic}
+      isEmpty={filtersEmpty}
+      onClear={clearFilters}
+    />
+  );
+
+  const panel = (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {!isMobile ? (
+        // Desktop keeps the chips permanently visible above the search input.
+        // It scrolls on its own and is allowed to SHRINK (no `shrink-0`): the
+        // panel is `overflow-hidden` now, so a chip block taller than the
+        // popover would otherwise push the results list out of a container
+        // that no longer scrolls. Paired with the list's `min-h-32` floor, the
+        // two split the available height instead of one clipping the other.
+        // (A percentage max-height buys nothing here — the popover's height is
+        // indefinite, so `max-h-[45%]` would resolve to `none`.)
+        <div className="min-h-0 overflow-y-auto">{filtersNode}</div>
+      ) : null}
+      <Command
+        className="flex min-h-0 flex-1 flex-col"
+        // 260612-r8l (issue #291) — filtering + ranking now happen
+        // EXTERNALLY (searchExercises, applied before the render cap in the
+        // `visible` memo). cmdk must NOT re-filter the rows we pass, or it
+        // would (a) re-apply its own character-subsequence matcher and (b)
+        // only ever see the capped 100 rows. `shouldFilter={false}` makes
+        // cmdk render exactly `visible`.
+        shouldFilter={false}
+      >
+        <CommandInput
+          value={search}
+          onValueChange={setSearch}
+          placeholder={t("searchPlaceholder")}
+        />
+        {isMobile ? (
+          <>
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b px-2 py-1.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2 text-xs"
+                aria-expanded={showFilters}
+                onClick={() => setShowFilters((prev) => !prev)}
+                data-testid="exercise-picker-filters-toggle"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                {activeFilterCount > 0
+                  ? t("filtersToggleActive", { count: activeFilterCount })
+                  : t("filtersToggle")}
+              </Button>
+              {activeFilterCount > 0 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="h-8 gap-1 px-2 text-xs"
+                  data-testid="exercise-picker-clear-filters-mobile"
+                >
+                  <X className="h-3 w-3" />
+                  {t("filterClearAll")}
+                </Button>
+              ) : null}
+            </div>
+            {showFilters ? (
+              // The sheet HAS a definite height, so this percentage cap does
+              // resolve: the chips never take more than 45% of the screen.
+              <div className="max-h-[45%] min-h-0 overflow-y-auto">
+                {filtersNode}
+              </div>
+            ) : null}
+          </>
+        ) : null}
+        <CommandList
+          ref={listRef}
+          // #1089 — the primitive ships `max-h-72`, which used to win over the
+          // container's max-height and pin the list at ~4 rows no matter how
+          // much room the panel had. Let it take whatever is left instead.
+          //
+          // ⚠️ `max-h-[none]`, NOT `max-h-none`: tailwind-merge v3 does not know
+          // `none` belongs to the `max-h` scale, so `max-h-none` gets appended
+          // WITHOUT dropping the primitive's `max-h-72` — both classes ship and
+          // which one wins is stylesheet order. The arbitrary-value form merges
+          // correctly and leaves exactly one max-height on the element.
+          className="max-h-[none] min-h-32 flex-1"
+        >
+          {isLoading || !hasSnapshot ? (
+            <CommandEmpty>{t("loadingExercises")}</CommandEmpty>
+          ) : error ? (
+            <CommandEmpty>{t("loadError")}</CommandEmpty>
+          ) : liveCount === 0 ? (
+            <CommandEmpty>{t("noExercises")}</CommandEmpty>
+          ) : (
+            <>
+              <CommandEmpty>{t("noMatches")}</CommandEmpty>
+              <CommandGroup>
+                {visible.map((ex) => {
+                  const esLine = displayEs(ex);
+                  return (
+                    <CommandItem
+                      key={ex.id}
+                      // `value` is what Command's fuzzy search filters on
+                      // — include both EN + ES names + muscle groups so
+                      // the trainer can search by Spanish name too. We
+                      // normalize (lowercase + strip diacritics) so
+                      // "sentadilla" matches "Sentadílla" / "Sentadilla".
+                      value={normalizeSearchText(
+                        [
+                          ex.name.en,
+                          ex.name.es,
+                          ex.muscleGroups.join(" "),
+                        ].join(" "),
+                      )}
+                      onSelect={() => handleSelect(ex.id)}
+                      className="flex items-center gap-3"
+                      data-testid={`exercise-picker-row-${ex.id}`}
+                    >
+                      <ExercisePreviewThumb src={previewSrc(ex)} />
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate font-medium">
+                          {exerciseDisplayName(ex)}
+                        </span>
+                        {esLine && (
+                          <span
+                            className="truncate text-xs italic text-muted-foreground"
+                            data-testid={`exercise-picker-es-${ex.id}`}
+                          >
+                            {esLine}
+                          </span>
+                        )}
+                        {ex.muscleGroups.length > 0 && (
+                          <span className="truncate text-xs text-muted-foreground">
+                            {ex.muscleGroups
+                              .map((m) =>
+                                isMuscleGroup(m)
+                                  ? tVocab(`muscle.${m}`)
+                                  : formatLabel(m),
+                              )
+                              .join(", ")}
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        onPointerDown={(event) => event.stopPropagation()}
+                      >
+                        <FavoriteStarButton kind="exercise" id={ex.id} />
+                      </span>
+                      <button
+                        type="button"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setSeed(seedFromRow(ex));
+                        }}
+                        title="Create a similar exercise from this one"
+                        className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/60 bg-background px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+                      >
+                        <Copy className="h-3 w-3" />
+                        Create similar
+                      </button>
+                    </CommandItem>
+                  );
+                })}
+                {overflow > 0 && (
+                  // Phase 24-06 Codex MEDIUM render-window cap — when
+                  // applyFilters returns more than RENDER_CAP rows we
+                  // render the first 100 + this disabled indicator so
+                  // the trainer knows to add filters. The full
+                  // filtered set is still available via the hook;
+                  // the cap is presentation-only.
+                  <CommandItem
+                    disabled
+                    value="__overflow__"
+                    className="justify-center text-xs italic text-muted-foreground"
+                    data-testid="exercise-picker-overflow-indicator"
+                  >
+                    {t("overflowMore", { count: overflow })}
+                  </CommandItem>
+                )}
+                {search.trim() !== "" && !showQuickCreate && (
+                  // #1032 — always the LAST row while there is a needle, so
+                  // "the exercise I want isn't here" is one click away even
+                  // when the fuzzy ranker returned unrelated matches. It is
+                  // hidden once the panel is already open (`showQuickCreate`)
+                  // so the two never stack.
+                  <CommandItem
+                    value="__quick-create__"
+                    onSelect={() => setForceQuickCreate(true)}
+                    className="gap-2 text-xs text-muted-foreground"
+                    data-testid="exercise-picker-create-new"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    {t("createNew", { term: search.trim() })}
+                  </CommandItem>
+                )}
+              </CommandGroup>
+            </>
+          )}
+        </CommandList>
+      </Command>
+      {showQuickCreate ? (
+        // #1089 — its own scroll, so on a phone the inline create panel can be
+        // read past the keyboard instead of being clipped by the now
+        // `overflow-hidden` container.
+        <div className="max-h-[60%] min-h-0 overflow-y-auto border-t p-2">
+          <QuickCreateExercise
+            searchTerm={search}
+            seed={seed}
+            onSeedCleared={() => setSeed(null)}
+            onCreated={(created) => {
+              // 260529 — one-shot feed: invalidate so the new exercise is
+              // refetched into the picker list (the live listener used to
+              // surface it automatically). Auto-pick + close right away —
+              // the trigger label resolves once the refetch lands.
+              void queryClient.invalidateQueries({
+                queryKey: EXERCISES_QUERY_KEY,
+              });
+              handleSelect(created.id);
+            }}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={handleOpenChange}>
+        <SheetTrigger asChild>{trigger}</SheetTrigger>
+        <SheetContent
+          side="bottom"
+          // The height override has to carry the SAME variant as the base
+          // class it replaces (`data-[side=bottom]:h-auto`) — a plain
+          // `h-[100dvh]` loses to it on specificity and the sheet collapses
+          // back to content height.
+          className="gap-0 p-0 data-[side=bottom]:h-[100dvh] data-[side=bottom]:max-h-[100dvh]"
+          data-testid="exercise-picker-sheet"
+        >
+          <SheetTitle className="shrink-0 border-b px-4 py-3 pr-12 text-base font-semibold">
+            {effectivePlaceholder}
+          </SheetTitle>
+          {panel}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          aria-label={ariaLabel ?? effectivePlaceholder}
-          disabled={disabled}
-          className={cn(
-            "h-auto min-h-9 w-full justify-between gap-2 px-3 py-1.5 text-left",
-            className,
-          )}
-        >
-          {selected ? (
-            <span className="flex items-center gap-2">
-              {/* 260527-fot — replaced the inline Image with the shared
-                  ExercisePreviewThumb so the trainer gets the same 1s
-                  hover preview affordance as everywhere else in the
-                  backoffice. The preview popover uses PopoverAnchor
-                  (not Trigger) so the parent picker trigger's click
-                  still opens the picker. */}
-              <ExercisePreviewThumb
-                src={previewSrc(selected)}
-                alt={exerciseDisplayName(selected)}
-                width={40}
-                height={24}
-              />
-              <span className="flex flex-col">
-                <span className="font-medium">
-                  {exerciseDisplayName(selected)}
-                </span>
-                {displayEs(selected) && (
-                  <span
-                    className="text-xs italic text-muted-foreground"
-                    data-testid="exercise-picker-trigger-es"
-                  >
-                    {displayEs(selected)}
-                  </span>
-                )}
-              </span>
-            </span>
-          ) : (
-            <span className="text-sm text-muted-foreground">{effectivePlaceholder}</span>
-          )}
-          <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
-        className="flex max-h-[min(var(--radix-popover-content-available-height),720px)] w-[--radix-popover-trigger-width] flex-col overflow-y-auto p-0"
+        className="flex max-h-[min(var(--radix-popover-content-available-height),720px)] w-[--radix-popover-trigger-width] flex-col overflow-hidden p-0"
         align="start"
         collisionPadding={8}
       >
-        {/* Phase 24-06 Task 3 — filter chip row. Renders ABOVE the
-            search input so the trainer narrows by FEXD enrichment
-            metadata (muscle / equipment / level / mechanic) before
-            scanning a long list. */}
-        <ExercisePickerFilters
-          filters={filters}
-          toggleMuscle={toggleMuscle}
-          setMuscleSelection={setMuscleSelection}
-          toggleEquipment={toggleEquipment}
-          toggleLevel={toggleLevel}
-          toggleMechanic={toggleMechanic}
-          isEmpty={filtersEmpty}
-          onClear={clearFilters}
-        />
-        <Command
-          // 260612-r8l (issue #291) — filtering + ranking now happen
-          // EXTERNALLY (searchExercises, applied before the render cap in the
-          // `visible` memo). cmdk must NOT re-filter the rows we pass, or it
-          // would (a) re-apply its own character-subsequence matcher and (b)
-          // only ever see the capped 100 rows. `shouldFilter={false}` makes
-          // cmdk render exactly `visible`.
-          shouldFilter={false}
-        >
-          <CommandInput
-            value={search}
-            onValueChange={setSearch}
-            placeholder={t("searchPlaceholder")}
-          />
-          <CommandList ref={listRef}>
-            {isLoading || !hasSnapshot ? (
-              <CommandEmpty>{t("loadingExercises")}</CommandEmpty>
-            ) : error ? (
-              <CommandEmpty>{t("loadError")}</CommandEmpty>
-            ) : liveCount === 0 ? (
-              <CommandEmpty>{t("noExercises")}</CommandEmpty>
-            ) : (
-              <>
-                <CommandEmpty>{t("noMatches")}</CommandEmpty>
-                <CommandGroup>
-                  {visible.map((ex) => {
-                    const esLine = displayEs(ex);
-                    return (
-                      <CommandItem
-                        key={ex.id}
-                        // `value` is what Command's fuzzy search filters on
-                        // — include both EN + ES names + muscle groups so
-                        // the trainer can search by Spanish name too. We
-                        // normalize (lowercase + strip diacritics) so
-                        // "sentadilla" matches "Sentadílla" / "Sentadilla".
-                        value={normalizeSearchText(
-                          [
-                            ex.name.en,
-                            ex.name.es,
-                            ex.muscleGroups.join(" "),
-                          ].join(" "),
-                        )}
-                        onSelect={() => handleSelect(ex.id)}
-                        className="flex items-center gap-3"
-                        data-testid={`exercise-picker-row-${ex.id}`}
-                      >
-                        <ExercisePreviewThumb src={previewSrc(ex)} />
-                        <span className="flex min-w-0 flex-1 flex-col">
-                          <span className="truncate font-medium">
-                            {exerciseDisplayName(ex)}
-                          </span>
-                          {esLine && (
-                            <span
-                              className="truncate text-xs italic text-muted-foreground"
-                              data-testid={`exercise-picker-es-${ex.id}`}
-                            >
-                              {esLine}
-                            </span>
-                          )}
-                          {ex.muscleGroups.length > 0 && (
-                            <span className="truncate text-xs text-muted-foreground">
-                              {ex.muscleGroups
-                                .map((m) =>
-                                  isMuscleGroup(m)
-                                    ? tVocab(`muscle.${m}`)
-                                    : formatLabel(m),
-                                )
-                                .join(", ")}
-                            </span>
-                          )}
-                        </span>
-                        <span
-                          onPointerDown={(event) => event.stopPropagation()}
-                        >
-                          <FavoriteStarButton kind="exercise" id={ex.id} />
-                        </span>
-                        <button
-                          type="button"
-                          onPointerDown={(event) => event.stopPropagation()}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            setSeed(seedFromRow(ex));
-                          }}
-                          title="Create a similar exercise from this one"
-                          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/60 bg-background px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-                        >
-                          <Copy className="h-3 w-3" />
-                          Create similar
-                        </button>
-                      </CommandItem>
-                    );
-                  })}
-                  {overflow > 0 && (
-                    // Phase 24-06 Codex MEDIUM render-window cap — when
-                    // applyFilters returns more than RENDER_CAP rows we
-                    // render the first 100 + this disabled indicator so
-                    // the trainer knows to add filters. The full
-                    // filtered set is still available via the hook;
-                    // the cap is presentation-only.
-                    <CommandItem
-                      disabled
-                      value="__overflow__"
-                      className="justify-center text-xs italic text-muted-foreground"
-                      data-testid="exercise-picker-overflow-indicator"
-                    >
-                      {t("overflowMore", { count: overflow })}
-                    </CommandItem>
-                  )}
-                  {search.trim() !== "" && !showQuickCreate && (
-                    // #1032 — always the LAST row while there is a needle, so
-                    // "the exercise I want isn't here" is one click away even
-                    // when the fuzzy ranker returned unrelated matches. It is
-                    // hidden once the panel is already open (`showQuickCreate`)
-                    // so the two never stack.
-                    <CommandItem
-                      value="__quick-create__"
-                      onSelect={() => setForceQuickCreate(true)}
-                      className="gap-2 text-xs text-muted-foreground"
-                      data-testid="exercise-picker-create-new"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      {t("createNew", { term: search.trim() })}
-                    </CommandItem>
-                  )}
-                </CommandGroup>
-              </>
-            )}
-          </CommandList>
-        </Command>
-        {showQuickCreate ? (
-          <div className="border-t p-2">
-            <QuickCreateExercise
-              searchTerm={search}
-              seed={seed}
-              onSeedCleared={() => setSeed(null)}
-              onCreated={(created) => {
-                // 260529 — one-shot feed: invalidate so the new exercise is
-                // refetched into the picker list (the live listener used to
-                // surface it automatically). Auto-pick + close right away —
-                // the trigger label resolves once the refetch lands.
-                void queryClient.invalidateQueries({
-                  queryKey: EXERCISES_QUERY_KEY,
-                });
-                handleSelect(created.id);
-              }}
-            />
-          </div>
-        ) : null}
+        {panel}
       </PopoverContent>
     </Popover>
   );
