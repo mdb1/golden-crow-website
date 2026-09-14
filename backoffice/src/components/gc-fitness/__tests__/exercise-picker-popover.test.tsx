@@ -630,3 +630,108 @@ describe("ExercisePickerPopover quick-create affordance (#1032)", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// #1089 — the picker on a phone.
+//
+// The report was "cuando busco un ejercicio el desplegable se ve cortado". Two
+// causes, both structural rather than cosmetic:
+//
+//   a) `CommandList` ships shadcn's `max-h-72` (288px), which won over the
+//      popover container's own max-height — so the list was pinned at ~4 rows
+//      no matter how much room there was, with a second scrollbar around it.
+//   b) The filter chips wrap to four-plus rows ABOVE the search input on a
+//      narrow screen, pushing the input and the first results past the fold —
+//      and the popover's available height collapses further once the on-screen
+//      keyboard opens.
+//
+// So under `md` the panel is a full-height Sheet with the chips folded away.
+// ---------------------------------------------------------------------------
+
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, "innerWidth", {
+    writable: true,
+    configurable: true,
+    value: width,
+  });
+}
+
+describe("ExercisePickerPopover on a phone (#1089)", () => {
+  const originalWidth = window.innerWidth;
+
+  afterEach(() => {
+    setViewportWidth(originalWidth);
+  });
+
+  it("opens as a full-height sheet with the filter chips folded away", () => {
+    setViewportWidth(390); // iPhone-ish, under the 768px breakpoint
+    mockUseExercisesQuery.mockReturnValue({
+      data: [makeRow()],
+      isLoading: false,
+      error: null,
+      hasSnapshot: true,
+    });
+
+    render(<ExercisePickerPopover value="" onChange={() => {}} />);
+    openPicker();
+
+    const sheet = screen.getByTestId("exercise-picker-sheet");
+    expect(sheet).toBeInTheDocument();
+    // Full height — a half-height bottom sheet sits under the iOS keyboard.
+    // The variant prefix matters: the primitive's own
+    // `data-[side=bottom]:h-auto` outranks a bare `h-[100dvh]` on specificity,
+    // so the override has to carry the same variant.
+    expect(sheet.className).toContain("data-[side=bottom]:h-[100dvh]");
+    expect(sheet.className).not.toContain("data-[side=bottom]:h-auto");
+
+    // The chips are behind the toggle, not stacked above the search input.
+    expect(
+      screen.queryByTestId("exercise-picker-chip-group-muscles"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("exercise-picker-filters-toggle"));
+    expect(
+      screen.getByTestId("exercise-picker-chip-group-muscles"),
+    ).toBeInTheDocument();
+  });
+
+  it("still reaches the exercise rows from inside the sheet", () => {
+    setViewportWidth(390);
+    const picked: string[] = [];
+    mockUseExercisesQuery.mockReturnValue({
+      data: [makeRow({ id: "bench", name: { en: "Bench Press", es: "" } })],
+      isLoading: false,
+      error: null,
+      hasSnapshot: true,
+    });
+
+    render(
+      <ExercisePickerPopover value="" onChange={(id) => picked.push(id)} />,
+    );
+    openPicker();
+
+    fireEvent.click(screen.getByTestId("exercise-picker-row-bench"));
+    expect(picked).toEqual(["bench"]);
+  });
+});
+
+describe("ExercisePickerPopover results list is not double-capped (#1089)", () => {
+  it("drops the primitive's max-h-72 so the list fills the panel", () => {
+    mockUseExercisesQuery.mockReturnValue({
+      data: [makeRow()],
+      isLoading: false,
+      error: null,
+      hasSnapshot: true,
+    });
+
+    render(<ExercisePickerPopover value="" onChange={() => {}} />);
+    openPicker();
+
+    const list = document.querySelector("[cmdk-list]") as HTMLElement | null;
+    expect(list).not.toBeNull();
+    // `max-h-72` is what pinned the list at ~4 rows regardless of the
+    // container's height; `flex-1` is what lets it take the room instead.
+    expect(list?.className).not.toContain("max-h-72");
+    expect(list?.className).toContain("flex-1");
+  });
+});
