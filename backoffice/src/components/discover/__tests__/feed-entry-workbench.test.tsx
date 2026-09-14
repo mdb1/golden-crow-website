@@ -739,6 +739,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(
       within(dialog).getByRole("heading", { name: "New region" }),
     ).toBeTruthy();
+    expect(within(dialog).getByLabelText("Country").tagName).toBe("SELECT");
     fireEvent.change(within(dialog).getByLabelText("Country"), {
       target: { value: "AR" },
     });

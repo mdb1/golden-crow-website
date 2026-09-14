@@ -90,7 +90,9 @@ import {
   type DiscoverOrganizationsPage,
 } from "@/lib/discover";
 import {
+  DISCOVER_ORGANIZATION_COUNTRY_CODES,
   formatDiscoverRegionCodes,
+  getDiscoverOrganizationCountryGroups,
   getDiscoverRegionCountryGroups,
   parseDiscoverRegionCodes,
 } from "@/lib/discover-organization-fields";
@@ -679,7 +681,9 @@ function normalizeEventCountryCode(value: string) {
 }
 
 function isValidIsoCountryCode(value: string) {
-  return /^[A-Z]{2}$/.test(value.trim().toUpperCase());
+  return (DISCOVER_ORGANIZATION_COUNTRY_CODES as readonly string[]).includes(
+    normalizeEventCountryCode(value),
+  );
 }
 
 function isValidTimeOfDay(value: string) {
@@ -1758,7 +1762,7 @@ export function DiscoverFeedEntryWorkbench({
   } | null>(null);
   const [eventRegionalDraft, setEventRegionalDraft] =
     useState<EventRegionalTimeRow>({
-      countryCode: "AR",
+      countryCode: "",
       startTime: "",
       endTime: "",
       timezone: "America/Argentina/Buenos_Aires",
@@ -1857,7 +1861,7 @@ export function DiscoverFeedEntryWorkbench({
     if (!eventRegionalTimesOpen) {
       setEventRegionalEditor(null);
       setEventRegionalDraft({
-        countryCode: "AR",
+        countryCode: "",
         startTime: "",
         endTime: "",
         timezone: "America/Argentina/Buenos_Aires",
@@ -2137,7 +2141,7 @@ export function DiscoverFeedEntryWorkbench({
 
   function defaultEventRegionalDraft(): EventRegionalTimeRow {
     return {
-      countryCode: "AR",
+      countryCode: "",
       startTime: "",
       endTime: "",
       timezone: upcomingEventPayload.timezone || "America/Argentina/Buenos_Aires",
@@ -2997,6 +3001,12 @@ export function DiscoverFeedEntryWorkbench({
     const draftInvalidTimezone = Boolean(
       draftTimezone && !isValidIanaTimezone(draftTimezone),
     );
+    const eventCountryGroups = getDiscoverOrganizationCountryGroups(language)
+      .map((group) => ({
+        ...group,
+        options: group.options.filter((option) => option.code !== "GLOBAL"),
+      }))
+      .filter((group) => group.options.length > 0);
     const canSaveRegionalDraft = Boolean(
       draftCountryCode &&
         (draftStartTime || draftEndTime || draftTimezone) &&
@@ -3043,24 +3053,34 @@ export function DiscoverFeedEntryWorkbench({
                           : null
                     }
                   >
-                    <Input
-                      id="event-region-draft-country"
-                      value={eventRegionalDraft.countryCode}
-                      maxLength={2}
-                      onChange={(event) =>
-                        updateEventRegionalDraft({
-                          countryCode: normalizeEventCountryCode(
-                            event.target.value,
-                          ),
-                        })
-                      }
-                      placeholder="AR"
-                      className={`${publisherInputClass} uppercase ${
-                        draftInvalidCountry
-                          ? "border-destructive focus-visible:ring-destructive"
-                          : ""
-                      }`}
-                    />
+                    <div className="relative">
+                      <select
+                        id="event-region-draft-country"
+                        value={draftCountryCode}
+                        onChange={(event) =>
+                          updateEventRegionalDraft({
+                            countryCode: event.target.value,
+                          })
+                        }
+                        className={`${publisherSelectClass} ${
+                          draftInvalidCountry
+                            ? "border-destructive focus-visible:ring-destructive"
+                            : ""
+                        }`}
+                      >
+                        <option value="">{t("Select country")}</option>
+                        {eventCountryGroups.map((group) => (
+                          <optgroup key={group.key} label={t(group.label)}>
+                            {group.options.map((option) => (
+                              <option key={option.code} value={option.code}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                      <ChevronDown className={publisherSelectCaretClass} />
+                    </div>
                   </FieldShell>
                   <FieldShell
                     label={t("Timezone")}
