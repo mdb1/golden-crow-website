@@ -373,7 +373,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     ) as Record<string, unknown>;
 
     expect(body.type).toBe("clinical_trial");
-    expect(body.clinical_trial).toEqual({
+    expect(body.clinicalTrial).toEqual({
       trialIdentifier: "NCT00000000",
       phase: "",
       recruitmentStatus: "",
@@ -514,7 +514,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     const body = JSON.parse(
       jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
     ) as Record<string, Record<string, unknown> | string>;
-    const payload = body.upcoming_event as Record<string, unknown>;
+    const payload = body.upcomingEvent as Record<string, unknown>;
 
     expect(body.type).toBe("upcoming_event");
     expect(payload).toMatchObject({

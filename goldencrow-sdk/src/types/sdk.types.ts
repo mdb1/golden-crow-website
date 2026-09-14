@@ -791,13 +791,45 @@ export type DiscoverFeedType =
   | "advocacy_campaign";
 export type DiscoverFeedStatus = "draft" | "published" | "archived";
 
+export type DiscoverFeedPayloadKey =
+  | "news"
+  | "researchUpdate"
+  | "upcomingEvent"
+  | "opportunity"
+  | "video"
+  | "externalArticle"
+  | "podcastEpisode"
+  | "survey"
+  | "organizationSpotlight"
+  | "professionalSpotlight"
+  | "communityInvitation"
+  | "bioinformaticsTool"
+  | "genomicDatabase"
+  | "healthGuidance"
+  | "educationalExplainer"
+  | "geneSpotlight"
+  | "conditionSpotlight"
+  | "geneticTestGuide"
+  | "reportExplainer"
+  | "clinicalGuideline"
+  | "clinicalTrial"
+  | "patientRegistry"
+  | "researchParticipation"
+  | "screeningProgram"
+  | "supportService"
+  | "course"
+  | "downloadableResource"
+  | "livedExperienceStory"
+  | "expertQa"
+  | "advocacyCampaign";
+
 export interface DiscoverPublisherSnapshot {
   name: string;
   imageUrl: string | null;
 }
 
 export type DiscoverFeedPayloadNodes = {
-  [Type in DiscoverFeedType]?: Record<string, unknown>;
+  [Key in DiscoverFeedPayloadKey]?: Record<string, unknown>;
 };
 
 export type DiscoverFeedItemRecord = {

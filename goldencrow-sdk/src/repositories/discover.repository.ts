@@ -19,6 +19,7 @@ import {
 import type {
   AdminContext,
   DiscoverFeedItemRecord,
+  DiscoverFeedPayloadKey,
   DiscoverFeedStatus,
   DiscoverFeedType,
   DiscoverGeneticReportCategory,
@@ -73,6 +74,39 @@ const FEED_TYPE_VALUES = [
   "expert_qa",
   "advocacy_campaign",
 ] as const satisfies readonly DiscoverFeedType[];
+
+const FEED_PAYLOAD_KEYS = {
+  news: "news",
+  research_update: "researchUpdate",
+  upcoming_event: "upcomingEvent",
+  opportunity: "opportunity",
+  video: "video",
+  external_article: "externalArticle",
+  podcast_episode: "podcastEpisode",
+  survey: "survey",
+  organization_spotlight: "organizationSpotlight",
+  professional_spotlight: "professionalSpotlight",
+  community_invitation: "communityInvitation",
+  bioinformatics_tool: "bioinformaticsTool",
+  genomic_database: "genomicDatabase",
+  health_guidance: "healthGuidance",
+  educational_explainer: "educationalExplainer",
+  gene_spotlight: "geneSpotlight",
+  condition_spotlight: "conditionSpotlight",
+  genetic_test_guide: "geneticTestGuide",
+  report_explainer: "reportExplainer",
+  clinical_guideline: "clinicalGuideline",
+  clinical_trial: "clinicalTrial",
+  patient_registry: "patientRegistry",
+  research_participation: "researchParticipation",
+  screening_program: "screeningProgram",
+  support_service: "supportService",
+  course: "course",
+  downloadable_resource: "downloadableResource",
+  lived_experience_story: "livedExperienceStory",
+  expert_qa: "expertQa",
+  advocacy_campaign: "advocacyCampaign",
+} as const satisfies Record<DiscoverFeedType, DiscoverFeedPayloadKey>;
 
 const EVENT_TIME_KIND_VALUES = new Set([
   "timed",
@@ -606,7 +640,7 @@ type FeedItemInput = PublisherImageUploadInput & {
   imageUrl?: unknown;
   sourceUrl?: unknown;
   sourceButtonText?: unknown;
-} & Partial<Record<DiscoverFeedType, unknown>>;
+} & Partial<Record<DiscoverFeedPayloadKey, unknown>>;
 
 type SubmissionEvaluationDecision = "approve" | "reject";
 type DiscoverEqualityFilter = { field: string; value: unknown };
@@ -1972,7 +2006,7 @@ function toIndividualRecord(
 }
 
 function getPayloadKey(type: DiscoverFeedType) {
-  return type;
+  return FEED_PAYLOAD_KEYS[type];
 }
 
 function getFeedTitle(item: DiscoverFeedItemRecord) {
@@ -1983,7 +2017,7 @@ function payloadForSerializedItem(
   data: Record<string, unknown>,
   type: DiscoverFeedType,
 ): Record<string, unknown> {
-  const payload = data[type];
+  const payload = data[getPayloadKey(type)];
   return payload && typeof payload === "object" && !Array.isArray(payload)
     ? (payload as Record<string, unknown>)
     : {};
@@ -2047,7 +2081,8 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
     archivedAt: timestampToIso(data.archivedAt),
   };
 
-  for (const payloadKey of FEED_TYPES) {
+  for (const payloadType of FEED_TYPES) {
+    const payloadKey = getPayloadKey(payloadType);
     const payload = data[payloadKey];
     if (payload && typeof payload === "object" && !Array.isArray(payload)) {
       record[payloadKey] = serializePayloadValue(payload) as Record<
@@ -3875,8 +3910,9 @@ export async function duplicateDiscoverFeedItem(
 ) {
   requireDiscoverAccess(context);
   const source = await getDiscoverFeedItem(context, feedItemId);
-  const sourcePayload = source[source.type] as
-    Record<string, unknown> | undefined;
+  const sourcePayload = source[getPayloadKey(source.type)] as
+    | Record<string, unknown>
+    | undefined;
   const duplicateInput: FeedItemInput = {
     publisherOrganizationId: source.publisherOrganizationId ?? undefined,
     publisherIndividualId: source.publisherIndividualId ?? undefined,
@@ -3891,7 +3927,7 @@ export async function duplicateDiscoverFeedItem(
     imageUrl: source.imageUrl,
     sourceUrl: source.sourceUrl,
     sourceButtonText: source.sourceButtonText,
-    [source.type]: {
+    [getPayloadKey(source.type)]: {
       ...sourcePayload,
     },
   };

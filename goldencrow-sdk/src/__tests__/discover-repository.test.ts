@@ -1456,14 +1456,14 @@ describe("discover repository", () => {
       body: "Plain text event details.",
       sourceUrl: "https://example.org/events/register",
       sourceButtonText: "Register now",
-      upcoming_event: {
+      upcomingEvent: {
         date: "2026-09-04T18:00:00.000Z",
         maxAttendance: 250,
       },
     });
 
     const stored = mockFeedDocs.find((doc) => doc.id === feedItem.id)?.data;
-    const payload = stored?.upcoming_event as Record<string, unknown>;
+    const payload = stored?.upcomingEvent as Record<string, unknown>;
 
     expect(payload.date).toBeDefined();
     expect(payload.startsAt).toBeDefined();
@@ -1555,7 +1555,7 @@ describe("discover repository", () => {
       body: "Plain text event details.",
       sourceUrl: "https://example.org/events",
       sourceButtonText: "Event site",
-      upcoming_event: {
+      upcomingEvent: {
         date: "2026-09-04T18:00:00.000Z",
         location: "Online",
         maxAttendance: 250,
@@ -1597,7 +1597,7 @@ describe("discover repository", () => {
     });
 
     const stored = mockFeedDocs.find((doc) => doc.id === feedItem.id)?.data;
-    const payload = stored?.upcoming_event as Record<string, unknown>;
+    const payload = stored?.upcomingEvent as Record<string, unknown>;
 
     expect(payload).toMatchObject({
       location: "Online",
@@ -1659,7 +1659,7 @@ describe("discover repository", () => {
       subtitle: "Families can review eligibility on the sponsor site.",
       body: "Plain text details for the trial.",
       sourceUrl: "https://example.org/trials/abc",
-      clinical_trial: {
+      clinicalTrial: {
         trialIdentifier: "NCT00000000",
         phase: "Phase 2",
         recruitmentStatus: "Recruiting",
@@ -1670,7 +1670,7 @@ describe("discover repository", () => {
     });
 
     const stored = mockFeedDocs.find((doc) => doc.id === feedItem.id)?.data;
-    const payload = stored?.clinical_trial as Record<string, unknown>;
+    const payload = stored?.clinicalTrial as Record<string, unknown>;
 
     expect(feedItem.type).toBe("clinical_trial");
     expect(payload.trialIdentifier).toBe("NCT00000000");

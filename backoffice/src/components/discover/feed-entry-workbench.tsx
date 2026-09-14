@@ -74,9 +74,10 @@ import { cn } from "@/lib/utils";
 import {
   DISCOVER_FEED_TYPES,
   DISCOVER_FEED_TYPE_OPTIONS,
+  discoverFeedPayloadKey,
   discoverFeedTypeDefinition,
   discoverTypeLabel,
-  getDiscoverPayload,
+  getDiscoverPayloadForType,
   stringFromPayload,
   type DiscoverFeedPayloadFieldDefinition,
   type DiscoverFeedItemRecord,
@@ -1038,7 +1039,7 @@ function payloadsFromItem(item?: DiscoverFeedItemRecord): FeedEntryPayloadsState
   }
 
   for (const type of DISCOVER_FEED_TYPES) {
-    const payload = item[type] ?? {};
+    const payload = getDiscoverPayloadForType(item, type) ?? {};
 
     for (const field of discoverFeedTypeDefinition(type).fields) {
       payloads[type][field.key] = payloadFieldText(payload, field);
@@ -1237,7 +1238,7 @@ function payloadFromState(
     imageUploadMimeType: state.imageUploadMimeType || undefined,
     sourceUrl: state.sourceUrl || null,
     sourceButtonText: state.sourceUrl ? state.sourceButtonText || null : null,
-    [state.type]: payloadForType(state),
+    [discoverFeedPayloadKey(state.type)]: payloadForType(state),
   };
 }
 

@@ -178,13 +178,78 @@ export type DiscoverFeedStatus =
   | "published"
   | "archived";
 
+export type DiscoverFeedPayloadKey =
+  | "news"
+  | "researchUpdate"
+  | "upcomingEvent"
+  | "opportunity"
+  | "video"
+  | "externalArticle"
+  | "podcastEpisode"
+  | "survey"
+  | "organizationSpotlight"
+  | "professionalSpotlight"
+  | "communityInvitation"
+  | "bioinformaticsTool"
+  | "genomicDatabase"
+  | "healthGuidance"
+  | "educationalExplainer"
+  | "geneSpotlight"
+  | "conditionSpotlight"
+  | "geneticTestGuide"
+  | "reportExplainer"
+  | "clinicalGuideline"
+  | "clinicalTrial"
+  | "patientRegistry"
+  | "researchParticipation"
+  | "screeningProgram"
+  | "supportService"
+  | "course"
+  | "downloadableResource"
+  | "livedExperienceStory"
+  | "expertQa"
+  | "advocacyCampaign";
+
+export const DISCOVER_FEED_PAYLOAD_KEYS = {
+  news: "news",
+  research_update: "researchUpdate",
+  upcoming_event: "upcomingEvent",
+  opportunity: "opportunity",
+  video: "video",
+  external_article: "externalArticle",
+  podcast_episode: "podcastEpisode",
+  survey: "survey",
+  organization_spotlight: "organizationSpotlight",
+  professional_spotlight: "professionalSpotlight",
+  community_invitation: "communityInvitation",
+  bioinformatics_tool: "bioinformaticsTool",
+  genomic_database: "genomicDatabase",
+  health_guidance: "healthGuidance",
+  educational_explainer: "educationalExplainer",
+  gene_spotlight: "geneSpotlight",
+  condition_spotlight: "conditionSpotlight",
+  genetic_test_guide: "geneticTestGuide",
+  report_explainer: "reportExplainer",
+  clinical_guideline: "clinicalGuideline",
+  clinical_trial: "clinicalTrial",
+  patient_registry: "patientRegistry",
+  research_participation: "researchParticipation",
+  screening_program: "screeningProgram",
+  support_service: "supportService",
+  course: "course",
+  downloadable_resource: "downloadableResource",
+  lived_experience_story: "livedExperienceStory",
+  expert_qa: "expertQa",
+  advocacy_campaign: "advocacyCampaign",
+} as const satisfies Record<DiscoverFeedType, DiscoverFeedPayloadKey>;
+
 export interface DiscoverPublisherSnapshot {
   name: string;
   imageUrl: string | null;
 }
 
 export type DiscoverFeedPayloadNodes = {
-  [Type in DiscoverFeedType]?: Record<string, unknown>;
+  [Key in DiscoverFeedPayloadKey]?: Record<string, unknown>;
 };
 
 export type DiscoverFeedItemRecord = {
@@ -710,6 +775,10 @@ export function discoverFeedTypeDefinition(type: DiscoverFeedType) {
   );
 }
 
+export function discoverFeedPayloadKey(type: DiscoverFeedType) {
+  return DISCOVER_FEED_PAYLOAD_KEYS[type];
+}
+
 export function discoverStatusLabel(status: DiscoverFeedStatus) {
   return (
     DISCOVER_FEED_STATUS_OPTIONS.find((option) => option.value === status)
@@ -790,10 +859,16 @@ export function discoverIndividualTypeLabel(
 }
 
 export function getDiscoverPayload(
-  item: Pick<DiscoverFeedItemRecord, "type"> &
-    Partial<Pick<DiscoverFeedItemRecord, DiscoverFeedType>>,
+  item: Pick<DiscoverFeedItemRecord, "type"> & DiscoverFeedPayloadNodes,
 ) {
-  return item[item.type] as Record<string, unknown> | undefined;
+  return getDiscoverPayloadForType(item, item.type);
+}
+
+export function getDiscoverPayloadForType(
+  item: DiscoverFeedPayloadNodes,
+  type: DiscoverFeedType,
+) {
+  return item[discoverFeedPayloadKey(type)] as Record<string, unknown> | undefined;
 }
 
 export function getDiscoverFeedTitle(item: DiscoverFeedItemRecord) {
