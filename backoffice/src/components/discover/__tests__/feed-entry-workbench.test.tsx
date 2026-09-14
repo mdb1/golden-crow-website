@@ -402,7 +402,11 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     });
 
     expect(screen.getByText("Schedule display")).toBeTruthy();
-    expect(screen.getByText("Date anchor")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "The event date is required and sets the starting day for multi-day events.",
+      ),
+    ).toBeTruthy();
     expect(screen.getByText("Required block")).toBeTruthy();
     expect(screen.getByText("Advanced event configuration (optional)")).toBeTruthy();
 

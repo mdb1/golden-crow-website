@@ -2388,13 +2388,13 @@ export function DiscoverFeedEntryWorkbench({
               {t("Event action buttons")}
             </DialogTitle>
             <DialogDescription>
-              {t("Add typed event buttons for registration, live access, agendas, recordings, materials, or organizer contact.")}
+              {t("Add event buttons for registration, live access, agendas, recordings, materials, or organizer contact.")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="max-h-[62vh] overflow-y-auto px-5 py-4">
             <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-sm leading-5 text-sky-950 dark:border-sky-400/24 dark:bg-sky-500/10 dark:text-sky-100">
-              {t("The main button link remains the app fallback. Typed action buttons add richer event actions when clients support them.")}
+              {t("Use these buttons when the event needs more than one clear next step, such as registration, agenda, materials, or contact.")}
             </div>
 
             <div className="flex flex-col gap-3">
@@ -2484,13 +2484,13 @@ export function DiscoverFeedEntryWorkbench({
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                         {duplicate ? (
                           <p className="text-xs font-medium text-amber-700 dark:text-amber-200">
-                            {t("This action type is duplicated. Keep one row per type.")}
+                            {t("Use each action type only once.")}
                           </p>
                         ) : (
                           <p className="text-xs text-muted-foreground">
                             {button.type === "join"
-                              ? t("Join live replaces any legacy virtual meeting button in clients that support typed actions.")
-                              : t("One event action per type keeps mobile rendering predictable.")}
+                              ? t("Use Join live only when the access link is ready to share with readers.")
+                              : t("Keep each action focused so readers know exactly what to do next.")}
                           </p>
                         )}
                         <Button
@@ -2567,7 +2567,7 @@ export function DiscoverFeedEntryWorkbench({
 
           <div className="max-h-[62vh] overflow-y-auto px-5 py-4">
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-5 text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100">
-              {t("Regional rows are only used when time display is Regional times. Until a row is added, clients can fall back to the daily time fields.")}
+              {t("Use regional rows when the event time changes by country or timezone.")}
             </div>
 
             <div className="flex flex-col gap-3">
@@ -2726,35 +2726,35 @@ export function DiscoverFeedEntryWorkbench({
     const eventNotices: ReactNode[] = [
       renderEventNotice(
         "info",
-        "Date anchor",
-        "Event date remains the required start anchor. Multi-day events derive day one from this field.",
+        "Event date",
+        "The event date is required and sets the starting day for multi-day events.",
       ),
       state.sourceUrl.trim()
         ? renderEventNotice(
             "info",
-            "Main button fallback",
-            "The main button link remains the fallback. Typed action buttons are additive event-specific actions.",
+            "Main event link",
+            "The main button can stay as the primary event link. Optional actions can add more specific next steps.",
           )
         : null,
       timeKind === "allDay" && hasDailyTimes
         ? renderEventNotice(
             "warning",
-            "All-day ignores times",
-            "Daily start and end times are stored but clients should ignore them for all-day events.",
+            "All-day event",
+            "For all-day events, readers see the date without daily start or end times.",
           )
         : null,
       timeKind === "dateOnly" && hasDailyTimes
         ? renderEventNotice(
             "warning",
-            "Date-only hides times",
-            "Date-only events should not show a time row, even if daily times are filled.",
+            "Date-only event",
+            "Date-only events should be published without a time row, even if daily times are filled.",
           )
         : null,
       timeKind === "timeTba"
         ? renderEventNotice(
             "info",
             "Time pending",
-            "Clients should show Time TBA while keeping the event date visible.",
+            "Use this when the date is known but the time is not ready to publish.",
           )
         : null,
       timeKind === "regionalTimes" && eventRegionalRows.length === 0
@@ -2769,7 +2769,7 @@ export function DiscoverFeedEntryWorkbench({
         ? renderEventNotice(
             "warning",
             "Free event with price fields",
-            "Currency and price are ignored when cost type is Free.",
+            "Currency and price are not shown when cost type is Free.",
           )
         : null,
       costType === "paid" && !upcomingEventPayload.priceMinorUnits
@@ -2783,7 +2783,7 @@ export function DiscoverFeedEntryWorkbench({
         ? renderEventNotice(
             "info",
             "Join live action",
-            "Join live suppresses any legacy virtual meeting button in clients that support typed actions.",
+            "Use Join live only when the access link is ready to share with readers.",
           )
         : null,
     ].filter(Boolean);
@@ -2864,7 +2864,7 @@ export function DiscoverFeedEntryWorkbench({
               icon: <Clock className="h-4 w-4" />,
               title: "Schedule display",
               description:
-                "Choose how clients should explain the event date, time, timezone, and regional variants.",
+                "Add optional schedule details when the event needs times, timezone, duration, or country-specific hours.",
               children: (
                 <div className="flex flex-col gap-4">
                   <div className="grid gap-4 md:grid-cols-2">
@@ -2955,7 +2955,7 @@ export function DiscoverFeedEntryWorkbench({
               icon: <Newspaper className="h-4 w-4" />,
               title: "Classification",
               description:
-                "These fixed values help mobile clients group events and display clear status badges.",
+                "Add optional labels that help readers understand the event format, type, and status.",
               children: (
                 <div className="grid gap-4 md:grid-cols-3">
                   {renderEventSelectField({
@@ -2981,7 +2981,7 @@ export function DiscoverFeedEntryWorkbench({
               icon: <LinkIcon className="h-4 w-4" />,
               title: "Event actions",
               description:
-                "Typed buttons can direct readers to register, join, review an agenda, watch a recording, download materials, or contact the organizer.",
+                "Add optional buttons for registration, live access, agenda, recordings, materials, or organizer contact.",
               children: (
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-100/70 bg-white/70 px-4 py-3 dark:border-violet-400/12 dark:bg-slate-950/28">
@@ -3002,7 +3002,7 @@ export function DiscoverFeedEntryWorkbench({
                                 ),
                               )
                               .join(", ")
-                          : t("Use the modal to add row-based event actions.")}
+                          : t("Add specific event actions when the event has more than one next step.")}
                       </p>
                     </div>
                     <Button
@@ -3023,7 +3023,7 @@ export function DiscoverFeedEntryWorkbench({
               icon: <Users className="h-4 w-4" />,
               title: "Organizer and disclosure",
               description:
-                "Explain the publisher relationship without adding organizer ID fields to the event payload.",
+                "Clarify who organizes the event and how the publisher is involved.",
               children: (
                 <div className="grid gap-4 md:grid-cols-2">
                   {renderEventSelectField({
@@ -3064,7 +3064,7 @@ export function DiscoverFeedEntryWorkbench({
                       rows={2}
                     />
                     <p className="text-xs leading-5 text-muted-foreground">
-                      {t("Only organizerName is stored as organizer identity in the event payload. Do not add organization or individual ID fields here.")}
+                      {t("Use this note for transparent sponsorship, partnership, speaker, or participation context.")}
                     </p>
                   </FieldShell>
                 </div>
