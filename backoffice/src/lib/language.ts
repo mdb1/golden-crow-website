@@ -844,10 +844,10 @@ const SPANISH_TEXT: Record<string, string> = {
   Type: "Tipo",
   Language: "Idioma",
   "Show in Discover feed": "Mostrar en el feed de Discover",
-  "Root field: showInDiscoverFeed. If checked, the app can show this published item in the main Discover feed as any other item. If unchecked, it should stay out of the main feed and appear only in the events calendar subsection when it is an event, or in the corresponding category tab for other content.":
-    "Campo raíz: showInDiscoverFeed. Si está activo, la app puede mostrar este ítem publicado en el feed principal de Discover como cualquier otra entrada. Si está desactivado, debe quedar fuera del feed principal y verse solo en la subsección de eventos dentro del calendario cuando sea un evento, o en la pestaña de categoría correspondiente para otros contenidos.",
-  "Recommended workflow: publish first with this option off, verify the publication in its detail or category surface, then come back and turn it on for the full Discover feed.":
-    "Recomendación: publicá primero con esta opción desactivada, verificá que la publicación se vea como querés en su detalle o categoría, y después volvé para activarla en el feed completo de Discover.",
+  "When enabled, this publication appears in the main Discover feed like any other item. When disabled, readers can still find it in the right place: events in the calendar, or other content in its category.":
+    "Si está activo, la publicación aparece en el feed principal de Discover como cualquier otra entrada. Si está desactivado, las personas pueden encontrarla en su lugar correspondiente: eventos en el calendario, u otros contenidos en su categoría.",
+  "Recommendation: publish first with this option off, verify that the publication looks right, then turn it on for the main Discover feed.":
+    "Recomendación: publicá primero con esta opción desactivada, verificá que la publicación se vea como querés y después activala para el feed principal de Discover.",
   Title: "Título",
   Subtitle: "Subtítulo",
   Body: "Cuerpo",

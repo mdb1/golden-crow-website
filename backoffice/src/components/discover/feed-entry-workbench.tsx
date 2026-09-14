@@ -3711,35 +3711,6 @@ export function DiscoverFeedEntryWorkbench({
                   </div>
                 </FieldShell>
 
-                <div className="md:col-span-2">
-                  <div className="rounded-2xl border border-sky-200 bg-sky-50/72 p-4 text-sky-950 dark:border-sky-400/24 dark:bg-sky-500/10 dark:text-sky-100">
-                    <label
-                      htmlFor="discover-feed-show-in-feed"
-                      className="flex cursor-pointer items-start gap-3"
-                    >
-                      <Checkbox
-                        id="discover-feed-show-in-feed"
-                        checked={state.showInDiscoverFeed}
-                        onCheckedChange={(checked) =>
-                          updateState({ showInDiscoverFeed: checked === true })
-                        }
-                        className="mt-0.5"
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold">
-                          {t("Show in Discover feed")}
-                        </span>
-                        <span className="mt-1 block text-xs leading-5">
-                          {t("Root field: showInDiscoverFeed. If checked, the app can show this published item in the main Discover feed as any other item. If unchecked, it should stay out of the main feed and appear only in the events calendar subsection when it is an event, or in the corresponding category tab for other content.")}
-                        </span>
-                        <span className="mt-2 block text-xs font-semibold leading-5">
-                          {t("Recommended workflow: publish first with this option off, verify the publication in its detail or category surface, then come back and turn it on for the full Discover feed.")}
-                        </span>
-                      </span>
-                    </label>
-                  </div>
-                </div>
-
                 <FieldShell label={t("Title")} htmlFor="discover-feed-title" className="md:col-span-2">
                   <Input
                     id="discover-feed-title"
@@ -4163,6 +4134,35 @@ export function DiscoverFeedEntryWorkbench({
               </div>
             </div>
           </aside>
+        </div>
+
+        <div className="border-t border-violet-100/80 bg-white/70 px-5 py-5 dark:border-violet-400/14 dark:bg-slate-950/36">
+          <div className="rounded-2xl border border-sky-200 bg-sky-50/72 p-4 text-sky-950 shadow-sm dark:border-sky-400/24 dark:bg-sky-500/10 dark:text-sky-100">
+            <label
+              htmlFor="discover-feed-show-in-feed"
+              className="flex cursor-pointer items-start gap-3"
+            >
+              <Checkbox
+                id="discover-feed-show-in-feed"
+                checked={state.showInDiscoverFeed}
+                onCheckedChange={(checked) =>
+                  updateState({ showInDiscoverFeed: checked === true })
+                }
+                className="mt-0.5"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold">
+                  {t("Show in Discover feed")}
+                </span>
+                <span className="mt-1 block text-xs leading-5">
+                  {t("When enabled, this publication appears in the main Discover feed like any other item. When disabled, readers can still find it in the right place: events in the calendar, or other content in its category.")}
+                </span>
+                <span className="mt-2 block text-xs font-semibold leading-5">
+                  {t("Recommendation: publish first with this option off, verify that the publication looks right, then turn it on for the main Discover feed.")}
+                </span>
+              </span>
+            </label>
+          </div>
         </div>
 
         <div className="sticky bottom-0 z-20 border-t border-violet-100/80 bg-white/92 px-5 py-4 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur dark:border-violet-400/14 dark:bg-slate-950/88">
