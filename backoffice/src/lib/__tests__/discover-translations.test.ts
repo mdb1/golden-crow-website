@@ -72,6 +72,7 @@ describe("Discover Spanish translations", () => {
       "Discover",
       "Genes",
       "No",
+      "Normal",
       "OK",
       "ORCID",
       "Telegram",

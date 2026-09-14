@@ -249,7 +249,12 @@ const EVENT_ATTENDANCE_MODE_OPTIONS: readonly EventSelectOption[] = [
 ];
 
 const EVENT_STATUS_OPTIONS: readonly EventSelectOption[] = [
+  { value: "normal", label: "Normal" },
   { value: "scheduled", label: "Scheduled" },
+  {
+    value: "registrationOpenSpotsAvailable",
+    label: "Registration open - spots available",
+  },
   { value: "tentative", label: "Tentative" },
   { value: "postponed", label: "Postponed" },
   { value: "rescheduled", label: "Rescheduled" },

@@ -948,6 +948,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "On demand": "Bajo demanda",
   "To be announced": "A confirmar",
   "Event status": "Estado del evento",
+  Normal: "Normal",
+  "Registration open - spots available":
+    "Inscripción abierta - Cupos disponibles",
   Tentative: "Tentativo",
   Postponed: "Pospuesto",
   Rescheduled: "Reprogramado",

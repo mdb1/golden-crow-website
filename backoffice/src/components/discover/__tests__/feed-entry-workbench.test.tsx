@@ -695,8 +695,19 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(screen.getByLabelText("Attendance mode"), {
       target: { value: "online" },
     });
+    const eventStatusSelect = screen.getByLabelText(
+      "Event status",
+    ) as HTMLSelectElement;
+    expect(
+      within(eventStatusSelect).getByRole("option", { name: "Normal" }),
+    ).toBeTruthy();
+    expect(
+      within(eventStatusSelect).getByRole("option", {
+        name: "Registration open - spots available",
+      }),
+    ).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Event status"), {
-      target: { value: "scheduled" },
+      target: { value: "registrationOpenSpotsAvailable" },
     });
     fireEvent.click(screen.getByText("Organizer and disclosure"));
     fireEvent.change(screen.getByLabelText("Publisher relationship"), {
@@ -789,7 +800,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       countryTimezones: { AR: "America/Argentina/Buenos_Aires" },
       eventKind: "conference",
       attendanceMode: "online",
-      eventStatus: "scheduled",
+      eventStatus: "registrationOpenSpotsAvailable",
       publisherRelationshipToEvent: "organizer",
       organizerName: "Golden Crow",
       publisherDisclosure: "Organized by the publisher team.",
