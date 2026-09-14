@@ -853,7 +853,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Main button link": "Enlace del botón principal",
   "Main button text": "Texto del botón principal",
   "Open organizer website": "Abrir sitio web del organizador",
+  "Cover image": "Imagen de portada",
   "Cover image URL": "URL de imagen de portada",
+  "Recommended size: 1024 x 500 px, high quality, with no important text or faces close to the edges.":
+    "Tamaño recomendado: 1024 x 500 px, calidad alta, sin texto importante ni caras cerca de los bordes.",
   "Use a public HTTPS image in PNG, JPG, JPEG, or WebP. Recommended size: 1024 x 500 px, up to 1 MB, high quality, with no important text or faces close to the edges.":
     "Usá una imagen pública HTTPS en PNG, JPG, JPEG o WebP. Tamaño recomendado: 1024 x 500 px, hasta 1 MB, calidad alta, sin texto importante ni caras cerca de los bordes.",
   "Write the note": "Escribir la nota",
@@ -916,7 +919,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "These fixed values help mobile clients group events and display clear status badges.":
     "Estos valores fijos ayudan a las apps móviles a agrupar eventos y mostrar estados claros.",
   "Event kind": "Tipo de evento",
-  Webinar: "Webinar",
+  Webinar: "Seminario web",
   Conference: "Conferencia",
   Workshop: "Taller",
   Seminar: "Seminario",
@@ -926,7 +929,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Fundraiser: "Recaudación de fondos",
   "Clinical session": "Sesión clínica",
   "Research session": "Sesión de investigación",
-  Networking: "Networking",
+  Networking: "Encuentro profesional",
   Livestream: "Transmisión en vivo",
   "Recorded session": "Sesión grabada",
   "Attendance mode": "Modalidad de asistencia",

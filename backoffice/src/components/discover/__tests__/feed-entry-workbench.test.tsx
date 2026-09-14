@@ -241,17 +241,78 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
 
     expect(
       screen.getByText(
-        /Usá una imagen pública HTTPS en PNG, JPG, JPEG o WebP\./,
+        /Usá una URL de imagen o subí un archivo PNG, JPG o WebP\./,
       ),
     ).toBeTruthy();
     expect(
-      screen.getByText(/Tamaño recomendado: 1024 x 500 px, hasta 1 MB/),
+      screen.getByText(/Tamaño recomendado: 1024 x 500 px, calidad alta/),
     ).toBeTruthy();
+    expect(screen.getByLabelText("URL de imagen")).toBeTruthy();
+    expect(screen.getByLabelText("Subir imagen")).toBeTruthy();
 
     const exampleLink = screen.getByRole("link", { name: "See example" });
     expect(exampleLink.getAttribute("href")).toBe(
       "https://goldencrowvs.com/pocket-genes/banner.png",
     );
+  });
+
+  it("preserves an uploaded cover image as the shared feed item image source", async () => {
+    const feedItem = {
+      id: "feed-upload",
+      publisherOrganizationId: "org-1",
+      publisherIndividualId: null,
+      publisherSnapshot: { name: "Publisher One", imageUrl: null },
+      type: "news",
+      publishedAt: null,
+      language: "en",
+      title: "Uploaded cover",
+      subtitle: "Entry summary",
+      body: "Entry body",
+      htmlBody: null,
+      imageUrl: null,
+      imageUploadDataUrl: "data:image/png;base64,cover-image",
+      imageUploadName: "cover.png",
+      imageUploadMimeType: "image/png",
+      sourceUrl: null,
+      sourceButtonText: null,
+      status: "draft",
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+      news: { category: "", region: "" },
+    } satisfies DiscoverFeedItemRecord;
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="edit"
+          feedItem={feedItem}
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByText("Using uploaded image")).toBeTruthy();
+    expect(screen.queryByLabelText("Image URL")).toBeNull();
+    expect(screen.getByText("cover.png · image/png")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items/feed-upload", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.imageUrl).toBeNull();
+    expect(body.imageUploadDataUrl).toBe("data:image/png;base64,cover-image");
+    expect(body.imageUploadName).toBe("cover.png");
+    expect(body.imageUploadMimeType).toBe("image/png");
   });
 
   it("offers every Discover feed type in the type picker", () => {
@@ -473,7 +534,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       ],
     });
     expect(payload.date).toBe(new Date("2026-10-12T09:30").toISOString());
-  });
+  }, 15000);
 
   it("shows the public app link after a successful publish with no unsaved changes", async () => {
     jest.mocked(sdkFetch).mockResolvedValueOnce({

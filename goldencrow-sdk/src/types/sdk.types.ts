@@ -813,6 +813,9 @@ export type DiscoverFeedItemRecord = {
   body: string;
   htmlBody: string | null;
   imageUrl: string | null;
+  imageUploadDataUrl?: string;
+  imageUploadName?: string;
+  imageUploadMimeType?: string;
   sourceUrl: string | null;
   sourceButtonText: string | null;
   status: DiscoverFeedStatus;

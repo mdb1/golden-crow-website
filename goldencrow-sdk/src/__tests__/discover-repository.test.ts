@@ -1478,6 +1478,68 @@ describe("discover repository", () => {
     expect(stored?.sourceButtonText).toBe("Register now");
   });
 
+  it("stores direct uploaded cover image data on feed items", async () => {
+    const { createDiscoverFeedItem, updateDiscoverFeedItem } = await import(
+      "../repositories/discover.repository"
+    );
+
+    const feedItem = await createDiscoverFeedItem(fullAdminContext, {
+      publisherOrganizationId: "org-1",
+      type: "news",
+      status: "draft",
+      language: "en",
+      title: "Uploaded cover item",
+      subtitle: "Summary",
+      body: "Body",
+      imageUrl: null,
+      imageUploadDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+      imageUploadName: "cover.png",
+      imageUploadMimeType: "image/png",
+      news: {
+        category: "Research",
+        region: "AR",
+      },
+    });
+
+    let stored = mockFeedDocs.find((doc) => doc.id === feedItem.id)?.data;
+
+    expect(feedItem.imageUrl).toBeNull();
+    expect(feedItem.imageUploadDataUrl).toBe(
+      "data:image/png;base64,iVBORw0KGgo=",
+    );
+    expect(feedItem.imageUploadName).toBe("cover.png");
+    expect(feedItem.imageUploadMimeType).toBe("image/png");
+    expect(stored?.imageUrl).toBeNull();
+    expect(stored?.imageUploadDataUrl).toBe(
+      "data:image/png;base64,iVBORw0KGgo=",
+    );
+
+    const updated = await updateDiscoverFeedItem(fullAdminContext, feedItem.id, {
+      publisherOrganizationId: "org-1",
+      type: "news",
+      status: "draft",
+      language: "en",
+      title: "Uploaded cover item",
+      subtitle: "Summary",
+      body: "Body",
+      imageUrl: "https://example.org/cover.png",
+      imageUploadDataUrl: null,
+      news: {
+        category: "Research",
+        region: "AR",
+      },
+    });
+    stored = mockFeedDocs.find((doc) => doc.id === feedItem.id)?.data;
+
+    expect(updated.imageUrl).toBe("https://example.org/cover.png");
+    expect(updated.imageUploadDataUrl).toBeUndefined();
+    expect(updated.imageUploadName).toBeUndefined();
+    expect(updated.imageUploadMimeType).toBeUndefined();
+    expect(stored?.imageUploadDataUrl).toBeUndefined();
+    expect(stored?.imageUploadName).toBeUndefined();
+    expect(stored?.imageUploadMimeType).toBeUndefined();
+  });
+
   it("normalizes extended optional event payload fields", async () => {
     const { createDiscoverFeedItem } =
       await import("../repositories/discover.repository");

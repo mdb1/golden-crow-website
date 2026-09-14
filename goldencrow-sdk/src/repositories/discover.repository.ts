@@ -592,7 +592,7 @@ type PublicPublisherRequestInput = PublisherImageUploadInput & {
   contactEmail?: unknown;
 };
 
-type FeedItemInput = {
+type FeedItemInput = PublisherImageUploadInput & {
   publisherOrganizationId?: unknown;
   publisherIndividualId?: unknown;
   type?: unknown;
@@ -2034,6 +2034,9 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
     imageUrl:
       normalizeNullableString(data.imageUrl) ??
       normalizeNullableString(activePayload.imageUrl),
+    imageUploadDataUrl: normalizeOptionalString(data.imageUploadDataUrl),
+    imageUploadName: normalizeOptionalString(data.imageUploadName),
+    imageUploadMimeType: normalizeOptionalString(data.imageUploadMimeType),
     sourceUrl: normalizeNullableString(data.sourceUrl),
     sourceButtonText: normalizeNullableString(data.sourceButtonText),
     status,
@@ -2587,11 +2590,47 @@ function payloadInputForType(type: DiscoverFeedType, input: FeedItemInput) {
 function normalizeRootContent(
   input: FeedItemInput,
   status: DiscoverFeedStatus,
+  existing?: Record<string, unknown>,
 ) {
   const title = normalizeOptionalString(input.title);
   const subtitle = normalizeOptionalString(input.subtitle);
   const body = normalizeOptionalString(input.body);
   const htmlBody = sanitizeHtmlBody(input.htmlBody);
+  const hasImageUrl = Object.prototype.hasOwnProperty.call(input, "imageUrl");
+  const imageUploadFields = publicImageUploadDocumentFields(input);
+  const hasNewImageUpload = Boolean(imageUploadFields.imageUploadDataUrl);
+  const imageUrl = hasImageUrl
+    ? normalizeHttpsUrl(input.imageUrl, "Image URL")
+    : (normalizeNullableString(existing?.imageUrl) ?? null);
+
+  if (imageUrl && hasNewImageUpload) {
+    throw new AdminRepositoryError(
+      "Use either an image URL or an uploaded image, not both.",
+      400,
+    );
+  }
+
+  const imageUploadDocumentFields = hasNewImageUpload
+    ? {
+        imageUploadDataUrl: imageUploadFields.imageUploadDataUrl,
+        imageUploadName: imageUploadFields.imageUploadName,
+        imageUploadMimeType: imageUploadFields.imageUploadMimeType,
+      }
+    : hasImageUrl || input.imageUploadDataUrl === null
+      ? {
+          imageUploadDataUrl: undefined,
+          imageUploadName: undefined,
+          imageUploadMimeType: undefined,
+        }
+      : {
+          imageUploadDataUrl: normalizeOptionalString(
+            existing?.imageUploadDataUrl,
+          ),
+          imageUploadName: normalizeOptionalString(existing?.imageUploadName),
+          imageUploadMimeType: normalizeOptionalString(
+            existing?.imageUploadMimeType,
+          ),
+        };
 
   if (VALIDATED_STATUSES.has(status)) {
     if (!title) {
@@ -2619,7 +2658,8 @@ function normalizeRootContent(
     subtitle: subtitle ?? "",
     body: body ?? "",
     htmlBody: htmlBody,
-    imageUrl: normalizeHttpsUrl(input.imageUrl, "Image URL"),
+    imageUrl: hasNewImageUpload ? null : imageUrl,
+    ...imageUploadDocumentFields,
     sourceUrl: normalizeHttpsUrl(input.sourceUrl, "Source URL"),
     sourceButtonText: normalizeNullableString(input.sourceButtonText),
     language: normalizeLanguage(input.language),
@@ -3001,7 +3041,7 @@ async function feedItemDocument(
       ? (normalizeTimestamp(existing?.archivedAt, "Archived time") ??
         FieldValue.serverTimestamp())
       : null;
-  const root = normalizeRootContent(input, status);
+  const root = normalizeRootContent(input, status, existing);
   const payload = normalizeTypePayload(type, input, status, root);
 
   return {
@@ -3021,6 +3061,9 @@ async function feedItemDocument(
     body: root.body,
     htmlBody: root.htmlBody,
     imageUrl: root.imageUrl,
+    imageUploadDataUrl: root.imageUploadDataUrl,
+    imageUploadName: root.imageUploadName,
+    imageUploadMimeType: root.imageUploadMimeType,
     sourceUrl: root.sourceUrl,
     sourceButtonText: root.sourceUrl ? root.sourceButtonText : null,
     archivedAt,

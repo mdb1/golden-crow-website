@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -20,6 +20,7 @@ import {
   Info,
   Italic,
   Languages,
+  Link2,
   LinkIcon,
   List,
   Loader2,
@@ -37,6 +38,7 @@ import {
   UploadCloud,
   Users,
   X,
+  XCircle,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
@@ -68,6 +70,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
+import { cn } from "@/lib/utils";
 import {
   DISCOVER_FEED_TYPES,
   DISCOVER_FEED_TYPE_OPTIONS,
@@ -104,6 +107,9 @@ type FeedEntryFormState = {
   body: string;
   htmlBody: string;
   imageUrl: string;
+  imageUploadDataUrl: string;
+  imageUploadName: string;
+  imageUploadMimeType: string;
   sourceUrl: string;
   sourceButtonText: string;
   payloads: FeedEntryPayloadsState;
@@ -115,8 +121,40 @@ type PublishDialogState = {
   message?: string;
 };
 
+type ImageUploadStatusTone = "loading" | "success" | "warning" | "error";
+type ImageUploadStatus = {
+  tone: ImageUploadStatusTone;
+  message: string;
+  href?: string;
+  linkLabel?: string;
+};
+
+type ProcessedFeedCoverImageUpload = {
+  dataUrl: string;
+  name: string;
+  mimeType: string;
+  compressed: boolean;
+};
+
 const DISCOVER_PUBLIC_FEED_ENTRY_BASE_URL =
   "https://goldencrowvs.com/pocket-genes/discover/feed_entries";
+const FEED_COVER_IMAGE_UPLOAD_MAX_BYTES = 600 * 1024;
+const FEED_COVER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH = 900000;
+const FEED_COVER_IMAGE_UPLOAD_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+const FEED_COVER_IMAGE_COMPRESSION_MIME_TYPES = [
+  "image/webp",
+  "image/jpeg",
+] as const;
+const FEED_COVER_IMAGE_COMPRESSION_QUALITY_STEPS = [
+  0.86, 0.76, 0.66, 0.56, 0.46, 0.36,
+] as const;
+const FEED_COVER_IMAGE_WIDTH = 1024;
+const FEED_COVER_IMAGE_HEIGHT = 500;
+const IMAGE_REDUCER_URL = "https://squoosh.app/";
 const publisherPrimaryButtonClass =
   "h-10 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700";
 const publisherSoftButtonClass =
@@ -359,6 +397,182 @@ function isValidHttpsUrl(value: string) {
   } catch {
     return false;
   }
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  const kilobytes = bytes / 1024;
+  if (kilobytes < 1024) {
+    return `${Math.round(kilobytes)} KB`;
+  }
+
+  return `${(kilobytes / 1024).toFixed(1)} MB`;
+}
+
+function feedCoverImageFileName(file: File, mimeType: string) {
+  const extension = mimeType === "image/webp" ? "webp" : "jpg";
+  const rawName = file.name || `feed-cover.${extension}`;
+  const baseName = rawName.replace(/\.[^.]+$/, "") || "feed-cover";
+
+  return `${baseName}-1024x500.${extension}`;
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      if (!result) {
+        reject(new Error("IMAGE_READ_FAILED"));
+        return;
+      }
+      resolve(result);
+    };
+    reader.onerror = () => reject(new Error("IMAGE_READ_FAILED"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageElementFromFile(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("IMAGE_LOAD_FAILED"));
+    };
+    image.src = objectUrl;
+  });
+}
+
+function canResizeImagesInBrowser() {
+  return (
+    typeof document !== "undefined" &&
+    typeof URL !== "undefined" &&
+    typeof URL.createObjectURL === "function" &&
+    typeof HTMLCanvasElement !== "undefined" &&
+    typeof HTMLCanvasElement.prototype.toBlob === "function"
+  );
+}
+
+function drawFeedCoverImage(image: HTMLImageElement, mimeType: string) {
+  const sourceWidth = image.naturalWidth || image.width || 0;
+  const sourceHeight = image.naturalHeight || image.height || 0;
+
+  if (!sourceWidth || !sourceHeight) {
+    throw new Error("IMAGE_DIMENSIONS_UNAVAILABLE");
+  }
+
+  const targetAspect = FEED_COVER_IMAGE_WIDTH / FEED_COVER_IMAGE_HEIGHT;
+  const sourceAspect = sourceWidth / sourceHeight;
+  const cropWidth =
+    sourceAspect > targetAspect
+      ? Math.round(sourceHeight * targetAspect)
+      : sourceWidth;
+  const cropHeight =
+    sourceAspect > targetAspect
+      ? sourceHeight
+      : Math.round(sourceWidth / targetAspect);
+  const sourceX = Math.max(0, Math.round((sourceWidth - cropWidth) / 2));
+  const sourceY = Math.max(0, Math.round((sourceHeight - cropHeight) / 2));
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("CANVAS_UNAVAILABLE");
+  }
+
+  canvas.width = FEED_COVER_IMAGE_WIDTH;
+  canvas.height = FEED_COVER_IMAGE_HEIGHT;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+
+  if (mimeType === "image/jpeg") {
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, FEED_COVER_IMAGE_WIDTH, FEED_COVER_IMAGE_HEIGHT);
+  }
+
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    FEED_COVER_IMAGE_WIDTH,
+    FEED_COVER_IMAGE_HEIGHT,
+  );
+
+  return canvas;
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  mimeType: string,
+  quality: number,
+) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, mimeType, quality);
+  });
+}
+
+async function resizeFeedCoverImageFile(file: File) {
+  const image = await loadImageElementFromFile(file);
+
+  for (const mimeType of FEED_COVER_IMAGE_COMPRESSION_MIME_TYPES) {
+    const canvas = drawFeedCoverImage(image, mimeType);
+
+    for (const quality of FEED_COVER_IMAGE_COMPRESSION_QUALITY_STEPS) {
+      const blob = await canvasToBlob(canvas, mimeType, quality);
+
+      if (!blob || blob.size === 0) {
+        continue;
+      }
+
+      if (blob.size <= FEED_COVER_IMAGE_UPLOAD_MAX_BYTES) {
+        return new File([blob], feedCoverImageFileName(file, mimeType), {
+          type: mimeType,
+          lastModified: Date.now(),
+        });
+      }
+    }
+  }
+
+  throw new Error("IMAGE_COMPRESSION_FAILED");
+}
+
+async function processFeedCoverImageFile(
+  file: File,
+): Promise<ProcessedFeedCoverImageUpload> {
+  if (!FEED_COVER_IMAGE_UPLOAD_TYPES.has(file.type)) {
+    throw new Error("IMAGE_TYPE_UNSUPPORTED");
+  }
+
+  const finalFile = canResizeImagesInBrowser()
+    ? await resizeFeedCoverImageFile(file)
+    : file;
+  const dataUrl = await readFileAsDataUrl(finalFile);
+
+  if (dataUrl.length > FEED_COVER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH) {
+    throw new Error("IMAGE_COMPRESSION_FAILED");
+  }
+
+  return {
+    dataUrl,
+    name: finalFile.name,
+    mimeType: finalFile.type,
+    compressed: finalFile !== file,
+  };
 }
 
 function toDateTimeInput(value?: string | null) {
@@ -826,6 +1040,9 @@ function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
     body: item?.body ?? "",
     htmlBody: item?.htmlBody ?? "",
     imageUrl: item?.imageUrl ?? "",
+    imageUploadDataUrl: item?.imageUploadDataUrl ?? "",
+    imageUploadName: item?.imageUploadName ?? "",
+    imageUploadMimeType: item?.imageUploadMimeType ?? "",
     sourceUrl: item?.sourceUrl ?? "",
     sourceButtonText: item?.sourceButtonText ?? "",
     payloads: payloadsFromItem(item),
@@ -963,6 +1180,10 @@ function payloadFromState(
     body: state.body,
     htmlBody: state.htmlBody || null,
     imageUrl: state.imageUrl || null,
+    imageUploadDataUrl:
+      state.imageUploadDataUrl || (state.imageUrl.trim() ? null : undefined),
+    imageUploadName: state.imageUploadName || undefined,
+    imageUploadMimeType: state.imageUploadMimeType || undefined,
     sourceUrl: state.sourceUrl || null,
     sourceButtonText: state.sourceUrl ? state.sourceButtonText || null : null,
     [state.type]: payloadForType(state),
@@ -1302,6 +1523,8 @@ export function DiscoverFeedEntryWorkbench({
   const t = (text: string) => appText(language, text);
   const router = useRouter();
   const richEditorRef = useRef<HTMLDivElement | null>(null);
+  const coverImageUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const coverImageUploadTokenRef = useRef(0);
   const [state, setState] = useState(() => {
     const initialState = toFormState(feedItem);
     if (mode === "create" && scopedOrganizationId) {
@@ -1333,6 +1556,10 @@ export function DiscoverFeedEntryWorkbench({
   );
   const [pending, setPending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
+  const [coverImageUploadPending, setCoverImageUploadPending] = useState(false);
+  const [coverImageUploadDragging, setCoverImageUploadDragging] = useState(false);
+  const [coverImageUploadStatus, setCoverImageUploadStatus] =
+    useState<ImageUploadStatus | null>(null);
   const [publishDialog, setPublishDialog] = useState<PublishDialogState | null>(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [eventActionButtonsOpen, setEventActionButtonsOpen] = useState(false);
@@ -1375,7 +1602,7 @@ export function DiscoverFeedEntryWorkbench({
   const imageUrlError = imageUrlErrorFor(state.imageUrl);
   const editStatus = feedItem?.status ?? "draft";
   const editPublishedAt = feedItem?.publishedAt ?? null;
-  const isWorking = pending || deletePending;
+  const isWorking = pending || deletePending || coverImageUploadPending;
   const canChangePublisher = !scopedOrganizationId && !scopedIndividualId;
   const hasMorePublishers = Boolean(
     (organizationsNextCursor || individualsNextCursor) && canChangePublisher,
@@ -1389,6 +1616,18 @@ export function DiscoverFeedEntryWorkbench({
     !changed && publishedFeedItemId
       ? publicDiscoverFeedEntryUrl(publishedFeedItemId)
       : null;
+  const coverImagePreviewSource = state.imageUrl.trim() || state.imageUploadDataUrl;
+  const hasCoverImageUrl = Boolean(state.imageUrl.trim());
+  const hasUploadedCoverImage = Boolean(state.imageUploadDataUrl);
+  const hasChosenCoverImagePath = hasCoverImageUrl || hasUploadedCoverImage;
+  const coverImageUploadLimitLabel = formatFileSize(
+    FEED_COVER_IMAGE_UPLOAD_MAX_BYTES,
+  );
+  const uploadedCoverImageSummary = state.imageUploadName
+    ? `${state.imageUploadName}${
+        state.imageUploadMimeType ? ` · ${state.imageUploadMimeType}` : ""
+      }`
+    : t("Using uploaded image");
   const upcomingEventPayload = state.payloads.upcoming_event ?? {};
   const eventActionButtons = useMemo(
     () => parseEventActionButtons(upcomingEventPayload.actionButtons ?? ""),
@@ -1415,6 +1654,153 @@ export function DiscoverFeedEntryWorkbench({
 
   function updateState(patch: Partial<FeedEntryFormState>) {
     setState((current) => ({ ...current, ...patch }));
+  }
+
+  function resetCoverImageUploadInput() {
+    if (coverImageUploadInputRef.current) {
+      coverImageUploadInputRef.current.value = "";
+    }
+  }
+
+  function clearUploadedCoverImageSelection() {
+    coverImageUploadTokenRef.current += 1;
+    setCoverImageUploadPending(false);
+    setCoverImageUploadDragging(false);
+    setCoverImageUploadStatus(null);
+    resetCoverImageUploadInput();
+    updateState({
+      imageUploadDataUrl: "",
+      imageUploadName: "",
+      imageUploadMimeType: "",
+    });
+  }
+
+  function clearCoverImageUrlSelection() {
+    updateState({ imageUrl: "" });
+  }
+
+  function handleCoverImageUrlChange(event: ChangeEvent<HTMLInputElement>) {
+    const imageUrl = event.target.value;
+    const clearsUploadedImage = Boolean(imageUrl.trim());
+
+    if (clearsUploadedImage) {
+      coverImageUploadTokenRef.current += 1;
+      setCoverImageUploadPending(false);
+      setCoverImageUploadDragging(false);
+      setCoverImageUploadStatus(null);
+      resetCoverImageUploadInput();
+    }
+
+    updateState({
+      imageUrl,
+      ...(clearsUploadedImage
+        ? {
+            imageUploadDataUrl: "",
+            imageUploadName: "",
+            imageUploadMimeType: "",
+          }
+        : {}),
+    });
+  }
+
+  async function handleCoverImageUploadFile(file: File | undefined | null) {
+    if (!file) {
+      return;
+    }
+
+    coverImageUploadTokenRef.current += 1;
+    const token = coverImageUploadTokenRef.current;
+    setCoverImageUploadPending(true);
+    setCoverImageUploadDragging(false);
+    setCoverImageUploadStatus({
+      tone: "loading",
+      message:
+        file.size > FEED_COVER_IMAGE_UPLOAD_MAX_BYTES ||
+        canResizeImagesInBrowser()
+          ? t("Processing banner image...")
+          : t("Loading image..."),
+    });
+
+    try {
+      const processed = await processFeedCoverImageFile(file);
+      if (coverImageUploadTokenRef.current !== token) {
+        return;
+      }
+
+      updateState({
+        imageUrl: "",
+        imageUploadDataUrl: processed.dataUrl,
+        imageUploadName: processed.name,
+        imageUploadMimeType: processed.mimeType,
+      });
+      setCoverImageUploadStatus({
+        tone: "success",
+        message: processed.compressed
+          ? t("Banner image processed and ready.")
+          : t("Uploaded image ready."),
+      });
+    } catch (error) {
+      if (coverImageUploadTokenRef.current !== token) {
+        return;
+      }
+
+      const unsupported =
+        error instanceof Error && error.message === "IMAGE_TYPE_UNSUPPORTED";
+      setCoverImageUploadStatus(
+        unsupported
+          ? {
+              tone: "error",
+              message: t("Only PNG, JPG, or WebP images can be uploaded here."),
+            }
+          : {
+              tone: "warning",
+              message: t(
+                "We could not compress this image under 600 KB. Reduce it and upload a smaller version.",
+              ),
+              href: IMAGE_REDUCER_URL,
+              linkLabel: t("Compress it for free"),
+            },
+      );
+    } finally {
+      if (coverImageUploadTokenRef.current === token) {
+        setCoverImageUploadPending(false);
+        resetCoverImageUploadInput();
+      }
+    }
+  }
+
+  function handleCoverImageUploadChange(event: ChangeEvent<HTMLInputElement>) {
+    void handleCoverImageUploadFile(event.target.files?.[0]);
+  }
+
+  function handleCoverImageUploadDragEnter(
+    event: DragEvent<HTMLLabelElement>,
+  ) {
+    event.preventDefault();
+    if (!coverImageUploadPending && !hasCoverImageUrl) {
+      setCoverImageUploadDragging(true);
+    }
+  }
+
+  function handleCoverImageUploadDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    if (!coverImageUploadPending && !hasCoverImageUrl) {
+      setCoverImageUploadDragging(true);
+    }
+  }
+
+  function handleCoverImageUploadDragLeave(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setCoverImageUploadDragging(false);
+  }
+
+  function handleCoverImageUploadDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setCoverImageUploadDragging(false);
+    if (coverImageUploadPending || hasCoverImageUrl) {
+      return;
+    }
+    void handleCoverImageUploadFile(event.dataTransfer.files?.[0]);
   }
 
   function selectPublisher(value: string) {
@@ -3114,43 +3500,197 @@ export function DiscoverFeedEntryWorkbench({
                   />
                 </FieldShell>
 
-                <FieldShell
-                  label={t("Cover image URL")}
-                  htmlFor="discover-feed-image"
-                  error={imageUrlError}
-                  className="md:col-span-2"
-                >
-                  <Input
-                    id="discover-feed-image"
-                    type="url"
-                    value={state.imageUrl}
-                    onChange={(event) =>
-                      updateState({ imageUrl: event.target.value })
-                    }
-                    placeholder="https://"
-                    aria-invalid={Boolean(imageUrlError)}
-                    aria-describedby={
-                      imageUrlError
-                        ? "discover-feed-image-guidance discover-feed-image-error"
-                        : "discover-feed-image-guidance"
-                    }
-                    className={`${publisherInputClass} ${imageUrlError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                  />
-                  <p
-                    id="discover-feed-image-guidance"
-                    className="text-xs leading-5 text-muted-foreground"
-                  >
-                    {t("Use a public HTTPS image in PNG, JPG, JPEG, or WebP. Recommended size: 1024 x 500 px, up to 1 MB, high quality, with no important text or faces close to the edges.")}{" "}
-                    <a
-                      href="https://goldencrowvs.com/pocket-genes/banner.png"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-semibold text-violet-700 underline underline-offset-2 hover:text-violet-900 dark:text-violet-200 dark:hover:text-violet-100"
+                <div className="md:col-span-2">
+                  <div className="rounded-2xl border border-violet-100/80 bg-white/74 p-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/30">
+                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-100 bg-violet-50 text-violet-700 dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-100">
+                          <ImageIcon className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-foreground">
+                            {t("Cover image")}
+                          </div>
+                          <p
+                            id="discover-feed-image-guidance"
+                            className="mt-1 text-xs leading-5 text-muted-foreground"
+                          >
+                            {t("Use an image URL or upload a PNG, JPG, or WebP file. Large files are compressed before saving.")}{" "}
+                            {t("Recommended size: 1024 x 500 px, high quality, with no important text or faces close to the edges.")}{" "}
+                            <a
+                              href="https://goldencrowvs.com/pocket-genes/banner.png"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-semibold text-violet-700 underline underline-offset-2 hover:text-violet-900 dark:text-violet-200 dark:hover:text-violet-100"
+                            >
+                              See example
+                            </a>
+                          </p>
+                        </div>
+                      </div>
+                      {hasUploadedCoverImage ? (
+                        <span className="inline-flex w-fit items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200">
+                          {t("Using uploaded image")}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div
+                      className={cn(
+                        "grid gap-3",
+                        hasChosenCoverImagePath
+                          ? "lg:grid-cols-1"
+                          : "lg:grid-cols-[minmax(0,1fr)_minmax(17rem,0.8fr)]",
+                      )}
                     >
-                      See example
-                    </a>
-                  </p>
-                </FieldShell>
+                      {!hasUploadedCoverImage ? (
+                        <FieldShell
+                          label={t("Image URL")}
+                          htmlFor="discover-feed-image"
+                          error={imageUrlError}
+                        >
+                          <div className="relative">
+                            <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              id="discover-feed-image"
+                              type="url"
+                              value={state.imageUrl}
+                              onChange={handleCoverImageUrlChange}
+                              placeholder="https://"
+                              disabled={coverImageUploadPending}
+                              aria-invalid={Boolean(imageUrlError)}
+                              aria-describedby={
+                                imageUrlError
+                                  ? "discover-feed-image-guidance discover-feed-image-error"
+                                  : "discover-feed-image-guidance"
+                              }
+                              className={cn(
+                                publisherInputClass,
+                                "pl-10",
+                                hasCoverImageUrl && "pr-24",
+                                imageUrlError &&
+                                  "border-destructive focus-visible:ring-destructive",
+                              )}
+                            />
+                            {hasCoverImageUrl ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={clearCoverImageUrlSelection}
+                                disabled={pending || coverImageUploadPending}
+                                aria-label={t("Clear image URL")}
+                                className="absolute right-1 top-1/2 h-8 -translate-y-1/2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                                {t("Clear")}
+                              </Button>
+                            ) : null}
+                          </div>
+                        </FieldShell>
+                      ) : null}
+
+                      {!hasCoverImageUrl ? (
+                        <label
+                          htmlFor="discover-feed-image-upload"
+                          onDragEnter={handleCoverImageUploadDragEnter}
+                          onDragOver={handleCoverImageUploadDragOver}
+                          onDragLeave={handleCoverImageUploadDragLeave}
+                          onDrop={handleCoverImageUploadDrop}
+                          className={cn(
+                            "relative flex min-h-24 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition duration-200",
+                            coverImageUploadDragging
+                              ? "border-violet-500 bg-violet-50 shadow-[0_16px_34px_rgba(109,40,217,0.16)] dark:bg-violet-500/12"
+                              : "border-violet-300/80 bg-violet-50/45 hover:-translate-y-0.5 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/35 dark:bg-violet-500/8",
+                            coverImageUploadPending && "cursor-progress opacity-80",
+                          )}
+                        >
+                          <input
+                            ref={coverImageUploadInputRef}
+                            id="discover-feed-image-upload"
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            onChange={handleCoverImageUploadChange}
+                            disabled={coverImageUploadPending}
+                            aria-label={t("Upload image file")}
+                            className="sr-only"
+                          />
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-background text-violet-700 shadow-sm dark:bg-background/80 dark:text-violet-200">
+                            {coverImageUploadPending ? (
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                              <UploadCloud className="h-5 w-5" />
+                            )}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold text-foreground">
+                              {hasUploadedCoverImage
+                                ? t("Replace uploaded image")
+                                : t("Upload image file")}
+                            </span>
+                            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                              {coverImageUploadDragging
+                                ? t("Drop image to upload")
+                                : t(
+                                    "PNG, JPG, or WebP up to 600 KB. Drop it here or choose a file.",
+                                  ).replace("600 KB", coverImageUploadLimitLabel)}
+                            </span>
+                          </span>
+                        </label>
+                      ) : null}
+                    </div>
+
+                    {hasUploadedCoverImage ? (
+                      <div className="mt-3 flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50/55 px-3 py-2 text-sm text-emerald-950 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-100">
+                        <span className="min-w-0 truncate">
+                          {uploadedCoverImageSummary}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearUploadedCoverImageSelection}
+                          disabled={pending || coverImageUploadPending}
+                          className="w-fit text-emerald-900 hover:bg-emerald-100 hover:text-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-500/15"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          {t("Remove uploaded image")}
+                        </Button>
+                      </div>
+                    ) : null}
+
+                    {coverImageUploadStatus ? (
+                      <div
+                        className={cn(
+                          "mt-3 rounded-lg border px-3 py-2 text-sm",
+                          coverImageUploadStatus.tone === "success" &&
+                            "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-100",
+                          coverImageUploadStatus.tone === "loading" &&
+                            "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-400/25 dark:bg-sky-500/10 dark:text-sky-100",
+                          coverImageUploadStatus.tone === "warning" &&
+                            "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/25 dark:bg-amber-500/10 dark:text-amber-100",
+                          coverImageUploadStatus.tone === "error" &&
+                            "border-destructive/30 bg-destructive/10 text-destructive",
+                        )}
+                      >
+                        {coverImageUploadStatus.message}
+                        {coverImageUploadStatus.href ? (
+                          <>
+                            {" "}
+                            <a
+                              href={coverImageUploadStatus.href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-semibold underline underline-offset-2"
+                            >
+                              {coverImageUploadStatus.linkLabel}
+                            </a>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -3325,10 +3865,10 @@ export function DiscoverFeedEntryWorkbench({
                 </div>
 
                 <div className="mt-4 overflow-hidden rounded-2xl border border-violet-100 bg-violet-50/45 shadow-sm dark:border-violet-400/14 dark:bg-violet-500/8">
-                  {state.imageUrl && !imageUrlError ? (
+                  {coverImagePreviewSource && !imageUrlError ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={state.imageUrl}
+                      src={coverImagePreviewSource}
                       alt=""
                       className="aspect-[1024/500] w-full object-cover"
                     />

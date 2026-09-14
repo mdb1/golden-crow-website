@@ -635,7 +635,10 @@ const initialCopy = isEnglishPage
         imageSource(fields.publisherSnapshot?.imageUploadDataUrl) ||
         '/pocket-genes/icon_simple.png',
       bannerUrl: '',
-      mediaUrl: imageSource(fields.imageUrl) || imageSource(payload.imageUrl),
+      mediaUrl:
+        imageSource(fields.imageUrl) ||
+        imageSource(fields.imageUploadDataUrl) ||
+        imageSource(payload.imageUrl),
       websiteUrl: externalUrl(fields.sourceUrl),
       websiteLabel: copy.website,
       badges: [typeLabel(type)],
