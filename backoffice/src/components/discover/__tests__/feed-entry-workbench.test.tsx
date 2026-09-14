@@ -658,6 +658,9 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(screen.getByLabelText("Language"), {
       target: { value: "es" },
     });
+    fireEvent.change(screen.getByLabelText("Main button link"), {
+      target: { value: "https://example.org/main-event" },
+    });
 
     expect(screen.getByText("Schedule display")).toBeTruthy();
     expect(
@@ -843,8 +846,17 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(screen.getByText("Argentina (AR)")).toBeTruthy();
     expect(screen.getAllByText("09:30").length).toBeGreaterThan(0);
     expect(screen.queryByText(/regional rows configured/i)).toBeNull();
+    const mainEventLinkNotice = screen.getByText("Main event link");
+    const mainEventLinkDetails = mainEventLinkNotice.closest("details");
+    expect(mainEventLinkDetails?.open).toBe(false);
 
     fireEvent.click(screen.getByText("Event actions"));
+    expect(mainEventLinkDetails?.open).toBe(true);
+    expect(
+      screen.getByText(
+        "The main button can stay as the primary event link. Optional actions can add more specific next steps.",
+      ),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Configure actions" }));
     dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Add action" }));

@@ -3566,13 +3566,6 @@ export function DiscoverFeedEntryWorkbench({
         "Event date",
         "The event date is required and sets the starting day for multi-day events.",
       ),
-      state.sourceUrl.trim()
-        ? renderEventNotice(
-            "info",
-            "Main event link",
-            "The main button can stay as the primary event link. Optional actions can add more specific next steps.",
-          )
-        : null,
       timeKind === "timeTba"
         ? renderEventNotice(
             "info",
@@ -3890,6 +3883,13 @@ export function DiscoverFeedEntryWorkbench({
                 "Add optional buttons for registration, live access, agenda, recordings, materials, or organizer contact.",
               children: (
                 <div className="flex flex-col gap-3">
+                  {state.sourceUrl.trim()
+                    ? renderEventNotice(
+                        "info",
+                        "Main event link",
+                        "The main button can stay as the primary event link. Optional actions can add more specific next steps.",
+                      )
+                    : null}
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-100/70 bg-white/70 px-4 py-3 dark:border-violet-400/12 dark:bg-slate-950/28">
                     <div>
                       <p className="text-sm font-semibold text-foreground">
