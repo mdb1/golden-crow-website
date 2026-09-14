@@ -1045,7 +1045,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Mentioning the event": "Menciona el evento",
   Unknown: "Desconocido",
   "Organizer name": "Nombre del organizador",
-  "Publisher disclosure": "Aclaración del publicador",
+  "Organizer notes": "Notas sobre el organizador",
   "Use this note for transparent sponsorship, partnership, speaker, or participation context.":
     "Usá esta nota para aclarar contexto de auspicio, alianza, charla o participación.",
   "Audience, cost, accessibility": "Audiencia, costo y accesibilidad",
@@ -1141,8 +1141,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "El precio debe ser cero o un entero positivo.",
   "Organizer name can be up to 80 characters.":
     "El nombre del organizador puede tener hasta 80 caracteres.",
-  "Publisher disclosure can be up to 140 characters.":
-    "La aclaración del publicador puede tener hasta 140 caracteres.",
+  "Organizer notes can be up to 140 characters.":
+    "Las notas sobre el organizador pueden tener hasta 140 caracteres.",
   "Regional time rows need two-letter ISO country codes.":
     "Las filas de horarios regionales necesitan códigos ISO de país de dos letras.",
   "Choose valid regional start times.":

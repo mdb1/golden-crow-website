@@ -777,7 +777,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(screen.getByLabelText("Organizer name"), {
       target: { value: "Golden Crow" },
     });
-    fireEvent.change(screen.getByLabelText("Publisher disclosure"), {
+    fireEvent.change(screen.getByLabelText("Organizer notes"), {
       target: { value: "Organized by the publisher team." },
     });
 
@@ -978,7 +978,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     );
 
     expect(screen.queryByLabelText("Organizer name")).toBeNull();
-    expect(screen.queryByLabelText("Publisher disclosure")).toBeNull();
+    expect(screen.queryByLabelText("Organizer notes")).toBeNull();
 
     fireEvent.change(publisherRelationshipSelect, {
       target: { value: "organizer" },
@@ -986,7 +986,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(screen.getByLabelText("Organizer name"), {
       target: { value: "Golden Crow" },
     });
-    fireEvent.change(screen.getByLabelText("Publisher disclosure"), {
+    fireEvent.change(screen.getByLabelText("Organizer notes"), {
       target: { value: "Organized by the publisher team." },
     });
 
@@ -995,7 +995,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     });
 
     expect(screen.queryByLabelText("Organizer name")).toBeNull();
-    expect(screen.queryByLabelText("Publisher disclosure")).toBeNull();
+    expect(screen.queryByLabelText("Organizer notes")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
 

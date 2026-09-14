@@ -418,7 +418,7 @@ export const DISCOVER_FEED_TYPE_DEFINITIONS: readonly DiscoverFeedTypeDefinition
       { key: "actionButtons", label: "Action buttons", kind: "string" },
       { key: "publisherRelationshipToEvent", label: "Publisher relationship", kind: "string" },
       { key: "organizerName", label: "Organizer name", kind: "string" },
-      { key: "publisherDisclosure", label: "Publisher disclosure", kind: "string" },
+      { key: "publisherDisclosure", label: "Organizer notes", kind: "string" },
       { key: "audience", label: "Audience", kind: "array" },
       { key: "costType", label: "Cost type", kind: "string" },
       { key: "currency", label: "Currency", kind: "string" },

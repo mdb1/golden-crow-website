@@ -1038,7 +1038,7 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
     return "Organizer name can be up to 80 characters.";
   }
   if (publisherDisclosure.length > 140) {
-    return "Publisher disclosure can be up to 140 characters.";
+    return "Organizer notes can be up to 140 characters.";
   }
 
   if (usesRegionalTimes) {
@@ -4055,7 +4055,7 @@ export function DiscoverFeedEntryWorkbench({
                         />
                       </FieldShell>
                       <FieldShell
-                        label={t("Publisher disclosure")}
+                        label={t("Organizer notes")}
                         htmlFor="discover-upcoming-event-publisher-disclosure"
                         className="md:col-span-2"
                       >
