@@ -1778,6 +1778,15 @@ export function DiscoverFeedEntryWorkbench({
       endTime: "",
       timezone: "America/Argentina/Buenos_Aires",
     });
+  const [maxAttendanceLimitEnabled, setMaxAttendanceLimitEnabled] = useState(
+    () =>
+      Boolean(
+        eventStringValue(
+          toFormState(feedItem, language).payloads.upcoming_event,
+          "maxAttendance",
+        ),
+      ),
+  );
   const [persistedState, setPersistedState] = useState<FeedEntryFormState | null>(null);
   const [publishedFeedItemId, setPublishedFeedItemId] = useState<string | null>(
     feedItem?.status === "published" ? feedItem.id : null,
@@ -1843,6 +1852,12 @@ export function DiscoverFeedEntryWorkbench({
       }`
     : t("Using uploaded image");
   const upcomingEventPayload = state.payloads.upcoming_event ?? {};
+  const maxAttendanceText = eventStringValue(
+    upcomingEventPayload,
+    "maxAttendance",
+  );
+  const maxAttendancePreview = maxAttendanceText || t("No limit");
+  const maxAttendanceUnlimited = !maxAttendanceLimitEnabled;
   const eventActionButtons = useMemo(
     () => parseEventActionButtons(upcomingEventPayload.actionButtons ?? ""),
     [upcomingEventPayload.actionButtons],
@@ -1883,7 +1898,15 @@ export function DiscoverFeedEntryWorkbench({
   useEffect(() => {
     setPersistedState(null);
     setPublishedFeedItemId(feedItem?.status === "published" ? feedItem.id : null);
-  }, [feedItem?.id, feedItem?.status]);
+    setMaxAttendanceLimitEnabled(
+      Boolean(
+        eventStringValue(
+          toFormState(feedItem, language).payloads.upcoming_event,
+          "maxAttendance",
+        ),
+      ),
+    );
+  }, [feedItem, language]);
 
   function updateState(patch: Partial<FeedEntryFormState>) {
     setState((current) => ({ ...current, ...patch }));
@@ -3504,17 +3527,43 @@ export function DiscoverFeedEntryWorkbench({
                 label={t("Max attendance")}
                 htmlFor="discover-upcoming-event-max-attendance"
               >
-                <Input
-                  id="discover-upcoming-event-max-attendance"
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={upcomingEventPayload.maxAttendance ?? ""}
-                  onChange={(event) =>
-                    updateUpcomingEventField("maxAttendance", event.target.value)
-                  }
-                  className={publisherInputClass}
-                />
+                <div className="flex flex-col gap-2">
+                  <Input
+                    id="discover-upcoming-event-max-attendance"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={upcomingEventPayload.maxAttendance ?? ""}
+                    onChange={(event) => {
+                      updateUpcomingEventField(
+                        "maxAttendance",
+                        event.target.value,
+                      );
+                      if (event.target.value.trim()) {
+                        setMaxAttendanceLimitEnabled(true);
+                      }
+                    }}
+                    disabled={maxAttendanceUnlimited}
+                    className={publisherInputClass}
+                  />
+                  <label
+                    htmlFor="discover-upcoming-event-max-attendance-unlimited"
+                    className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-violet-100/70 bg-white/72 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-violet-50 dark:border-violet-400/12 dark:bg-slate-950/28 dark:hover:bg-violet-500/10"
+                  >
+                    <Checkbox
+                      id="discover-upcoming-event-max-attendance-unlimited"
+                      checked={maxAttendanceUnlimited}
+                      onCheckedChange={(checked) => {
+                        const isUnlimited = checked === true;
+                        setMaxAttendanceLimitEnabled(!isUnlimited);
+                        if (isUnlimited) {
+                          updateUpcomingEventField("maxAttendance", "");
+                        }
+                      }}
+                    />
+                    <span>{t("No limit")}</span>
+                  </label>
+                </div>
               </FieldShell>
               <p className="text-xs text-muted-foreground md:col-span-3">
                 {t("*: required field")}
@@ -4673,6 +4722,18 @@ export function DiscoverFeedEntryWorkbench({
                 <p className="mt-2 text-sm leading-5 text-muted-foreground">
                   {state.subtitle || t("No subtitle")}
                 </p>
+                {state.type === "upcoming_event" ? (
+                  <dl className="mt-4 grid gap-2 rounded-xl border border-violet-100/80 bg-white/64 p-3 text-sm dark:border-violet-400/14 dark:bg-slate-950/28">
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-xs font-medium text-muted-foreground">
+                        {t("Max attendance")}
+                      </dt>
+                      <dd className="text-right font-semibold text-foreground">
+                        {maxAttendancePreview}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : null}
               </div>
             </div>
           </aside>

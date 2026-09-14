@@ -283,6 +283,7 @@ const initialCopy = isEnglishPage
           donation: 'Donation',
           varies: 'Price varies',
           costUnknown: 'Cost not specified',
+          noLimit: 'No limit',
           upToPeople: (count) => `Up to ${count} people`,
           status: {
             tentative: 'Tentative',
@@ -476,6 +477,7 @@ const initialCopy = isEnglishPage
           donation: 'Donación',
           varies: 'Precio variable',
           costUnknown: 'Costo no especificado',
+          noLimit: 'Sin límite',
           upToPeople: (count) => `Hasta ${count} personas`,
           status: {
             tentative: 'Tentativo',
@@ -1174,12 +1176,15 @@ const initialCopy = isEnglishPage
   function eventFactData(payload) {
     const facts = [];
     const admission = admissionLabel(payload);
+    const hasCapacityField = Object.prototype.hasOwnProperty.call(payload, 'maxAttendance');
     const capacity = positiveInteger(payload.maxAttendance);
     if (admission) {
       facts.push({ label: copy.event.admission, value: admission });
     }
     if (capacity) {
       facts.push({ label: copy.event.capacity, value: copy.event.upToPeople(capacity) });
+    } else if (hasCapacityField && payload.maxAttendance === null) {
+      facts.push({ label: copy.event.capacity, value: copy.event.noLimit });
     }
     return facts;
   }

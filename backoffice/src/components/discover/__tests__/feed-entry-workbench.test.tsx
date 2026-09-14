@@ -687,7 +687,13 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(screen.getByLabelText("Location *"), {
       target: { value: "Online" },
     });
-    fireEvent.change(screen.getByLabelText("Max attendance"), {
+    const maxAttendanceInput = screen.getByLabelText(
+      "Max attendance",
+    ) as HTMLInputElement;
+    expect(maxAttendanceInput.disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText("No limit"));
+    expect(maxAttendanceInput.disabled).toBe(false);
+    fireEvent.change(maxAttendanceInput, {
       target: { value: "250" },
     });
     fireEvent.click(screen.getByText("Schedule display"));
@@ -881,6 +887,64 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(payload).not.toHaveProperty("dailyEndTime");
     expect(payload.date).toBe("2026-10-12T00:00:00.000Z");
   }, 15000);
+
+  it("saves null max attendance and previews it as no limit", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publisher"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "upcoming_event" },
+    });
+    fireEvent.change(screen.getByLabelText("Event date *"), {
+      target: { value: "2026-10-12" },
+    });
+    fireEvent.change(screen.getByLabelText("Location *"), {
+      target: { value: "Online" },
+    });
+
+    const maxAttendanceInput = screen.getByLabelText(
+      "Max attendance",
+    ) as HTMLInputElement;
+    expect(maxAttendanceInput.disabled).toBe(true);
+
+    fireEvent.click(screen.getByLabelText("No limit"));
+    expect(maxAttendanceInput.disabled).toBe(false);
+    fireEvent.change(maxAttendanceInput, {
+      target: { value: "75" },
+    });
+    expect(maxAttendanceInput.value).toBe("75");
+
+    fireEvent.click(screen.getByLabelText("No limit"));
+    expect(maxAttendanceInput.value).toBe("");
+    expect(maxAttendanceInput.disabled).toBe(true);
+    expect(screen.getAllByText("No limit").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items", {
+        method: "POST",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, Record<string, unknown> | string>;
+    const payload = body.upcomingEvent as Record<string, unknown>;
+
+    expect(payload.maxAttendance).toBeNull();
+  });
 
   it("defaults event multi-day length to one when schedule duration is shown", async () => {
     render(

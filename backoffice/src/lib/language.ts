@@ -888,6 +888,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Event date": "Fecha del evento",
   Location: "Ubicación",
   "Max attendance": "Asistencia máxima",
+  "No limit": "Sin límite",
   "Virtual meeting link": "Link de reunión virtual",
   "Time display": "Visualización de horario",
   "Timed event": "Evento con horario",
