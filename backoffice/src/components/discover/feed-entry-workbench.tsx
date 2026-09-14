@@ -358,6 +358,7 @@ const EVENT_TIMEZONE_OPTIONS = [
   "America/Bogota",
   "America/Lima",
 ] as const;
+const EVENT_DEFAULT_MULTI_DAY_LENGTH = "1";
 
 const DISCOVER_LOCATION_SUGGESTIONS = [
   "Online",
@@ -1176,6 +1177,10 @@ function payloadForType(state: FeedEntryFormState) {
     );
     const countryDailyEndTimes = eventMapObject(values.countryDailyEndTimes ?? "");
     const countryTimezones = eventMapObject(values.countryTimezones ?? "");
+    const multiDayLength = usesMultiDayLength
+      ? eventOptionalIntegerValue(values, "multiDayLength") ??
+        Number(EVENT_DEFAULT_MULTI_DAY_LENGTH)
+      : undefined;
 
     return {
       date: fromDateInput(values.date ?? ""),
@@ -1191,8 +1196,8 @@ function payloadForType(state: FeedEntryFormState) {
       ...(usesTimedSchedule && eventStringValue(values, "dailyEndTime")
         ? { dailyEndTime: eventStringValue(values, "dailyEndTime") }
         : {}),
-      ...(usesMultiDayLength && eventStringValue(values, "multiDayLength")
-        ? { multiDayLength: eventOptionalIntegerValue(values, "multiDayLength") }
+      ...(usesMultiDayLength
+        ? { multiDayLength }
         : {}),
       ...(usesRegionalTimes && countryDailyStartTimes
         ? { countryDailyStartTimes }
@@ -3399,6 +3404,9 @@ export function DiscoverFeedEntryWorkbench({
     const showTimedScheduleFields = timeKind === "timed";
     const showRegionalScheduleFields = timeKind === "regionalTimes";
     const showMultiDayLengthField = Boolean(timeKind && timeKind !== "dateOnly");
+    const multiDayLengthValue =
+      eventStringValue(upcomingEventPayload, "multiDayLength") ||
+      EVENT_DEFAULT_MULTI_DAY_LENGTH;
     const costType = eventStringValue(upcomingEventPayload, "costType");
     const showPaidCostFields = costType === "paid";
     const selectedAudience = selectedEventValues(upcomingEventPayload, "audience");
@@ -3609,7 +3617,7 @@ export function DiscoverFeedEntryWorkbench({
                           min={1}
                           max={365}
                           step={1}
-                          value={upcomingEventPayload.multiDayLength ?? ""}
+                          value={multiDayLengthValue}
                           onChange={(event) =>
                             updateUpcomingEventField(
                               "multiDayLength",

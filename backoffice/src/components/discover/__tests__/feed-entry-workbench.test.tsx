@@ -706,7 +706,11 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(screen.queryByLabelText("Timezone")).toBeNull();
     expect(screen.queryByLabelText("Daily start time")).toBeNull();
     expect(screen.queryByLabelText("Daily end time")).toBeNull();
-    fireEvent.change(screen.getByLabelText("Multi-day length"), {
+    const multiDayLengthInput = screen.getByLabelText(
+      "Multi-day length",
+    ) as HTMLInputElement;
+    expect(multiDayLengthInput.value).toBe("1");
+    fireEvent.change(multiDayLengthInput, {
       target: { value: "2" },
     });
     fireEvent.click(screen.getByText("Classification"));
@@ -877,6 +881,51 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(payload).not.toHaveProperty("dailyEndTime");
     expect(payload.date).toBe("2026-10-12T00:00:00.000Z");
   }, 15000);
+
+  it("defaults event multi-day length to one when schedule duration is shown", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publisher"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "upcoming_event" },
+    });
+    fireEvent.click(screen.getByText("Schedule display"));
+    fireEvent.change(screen.getByLabelText("Time display"), {
+      target: { value: "timed" },
+    });
+
+    expect((screen.getByLabelText("Multi-day length") as HTMLInputElement).value).toBe(
+      "1",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items", {
+        method: "POST",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, Record<string, unknown> | string>;
+
+    expect(body.upcomingEvent).toMatchObject({
+      timeKind: "timed",
+      multiDayLength: 1,
+    });
+  });
 
   it("publishes an upcoming event when the visible date field is filled", async () => {
     render(
