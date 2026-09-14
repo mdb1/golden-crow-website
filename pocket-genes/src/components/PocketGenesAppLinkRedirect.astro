@@ -1121,9 +1121,9 @@ const initialCopy = isEnglishPage
   }
 
   function regionalTimeRows(payload, startDate, endDate, duration) {
-    const starts = eventMap(payload.countryDailyStartTimes);
-    const ends = eventMap(payload.countryDailyEndTimes);
-    const zones = eventMap(payload.countryTimezones);
+    const starts = eventMap(payload.regionalStartTimes);
+    const ends = eventMap(payload.regionalEndTimes);
+    const zones = eventMap(payload.regionalTimezones);
     const codes = [...new Set([...Object.keys(starts), ...Object.keys(ends), ...Object.keys(zones)])];
     return codes
       .map((code) => ({

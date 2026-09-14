@@ -899,15 +899,15 @@ function serializeEventRegionalRows(rows: EventRegionalTimeRow[]) {
     .filter((row) => row.countryCode && (row.startTime || row.endTime || row.timezone));
 
   return {
-    countryDailyStartTimes: cleanRows
+    regionalStartTimes: cleanRows
       .filter((row) => row.startTime)
       .map((row) => `${row.countryCode}=${row.startTime}`)
       .join("\n"),
-    countryDailyEndTimes: cleanRows
+    regionalEndTimes: cleanRows
       .filter((row) => row.endTime)
       .map((row) => `${row.countryCode}=${row.endTime}`)
       .join("\n"),
-    countryTimezones: cleanRows
+    regionalTimezones: cleanRows
       .filter((row) => row.timezone)
       .map((row) => `${row.countryCode}=${row.timezone}`)
       .join("\n"),
@@ -983,9 +983,9 @@ function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
   const organizerName = eventStringValue(payload, "organizerName");
   const publisherDisclosure = eventStringValue(payload, "publisherDisclosure");
   const regionalRows = parseEventRegionalRows(
-    payload.countryDailyStartTimes ?? "",
-    payload.countryDailyEndTimes ?? "",
-    payload.countryTimezones ?? "",
+    payload.regionalStartTimes ?? "",
+    payload.regionalEndTimes ?? "",
+    payload.regionalTimezones ?? "",
   );
   const actionButtonError = validateEventActionButtons(
     parseEventActionButtons(payload.actionButtons ?? ""),
@@ -1095,9 +1095,9 @@ function payloadFieldText(
   }
 
   if (
-    field.key === "countryDailyStartTimes" ||
-    field.key === "countryDailyEndTimes" ||
-    field.key === "countryTimezones"
+    field.key === "regionalStartTimes" ||
+    field.key === "regionalEndTimes" ||
+    field.key === "regionalTimezones"
   ) {
     return serializeEventMap(value);
   }
@@ -1235,11 +1235,11 @@ function payloadForType(state: FeedEntryFormState) {
       values,
       "accessibilityFeatures",
     );
-    const countryDailyStartTimes = eventTimeMapObject(
-      values.countryDailyStartTimes ?? "",
+    const regionalStartTimes = eventTimeMapObject(
+      values.regionalStartTimes ?? "",
     );
-    const countryDailyEndTimes = eventTimeMapObject(values.countryDailyEndTimes ?? "");
-    const countryTimezones = eventMapObject(values.countryTimezones ?? "");
+    const regionalEndTimes = eventTimeMapObject(values.regionalEndTimes ?? "");
+    const regionalTimezones = eventMapObject(values.regionalTimezones ?? "");
     const multiDayLength = usesMultiDayLength
       ? eventOptionalIntegerValue(values, "multiDayLength") ??
         Number(EVENT_DEFAULT_MULTI_DAY_LENGTH)
@@ -1262,11 +1262,11 @@ function payloadForType(state: FeedEntryFormState) {
       ...(usesMultiDayLength
         ? { multiDayLength }
         : {}),
-      ...(usesRegionalTimes && countryDailyStartTimes
-        ? { countryDailyStartTimes }
+      ...(usesRegionalTimes && regionalStartTimes
+        ? { regionalStartTimes }
         : {}),
-      ...(usesRegionalTimes && countryDailyEndTimes ? { countryDailyEndTimes } : {}),
-      ...(usesRegionalTimes && countryTimezones ? { countryTimezones } : {}),
+      ...(usesRegionalTimes && regionalEndTimes ? { regionalEndTimes } : {}),
+      ...(usesRegionalTimes && regionalTimezones ? { regionalTimezones } : {}),
       ...(eventStringValue(values, "eventKind")
         ? { eventKind: eventStringValue(values, "eventKind") }
         : {}),
@@ -1928,14 +1928,14 @@ export function DiscoverFeedEntryWorkbench({
   const eventRegionalRows = useMemo(
     () =>
       parseEventRegionalRows(
-        upcomingEventPayload.countryDailyStartTimes ?? "",
-        upcomingEventPayload.countryDailyEndTimes ?? "",
-        upcomingEventPayload.countryTimezones ?? "",
+        upcomingEventPayload.regionalStartTimes ?? "",
+        upcomingEventPayload.regionalEndTimes ?? "",
+        upcomingEventPayload.regionalTimezones ?? "",
       ),
     [
-      upcomingEventPayload.countryDailyEndTimes,
-      upcomingEventPayload.countryDailyStartTimes,
-      upcomingEventPayload.countryTimezones,
+      upcomingEventPayload.regionalEndTimes,
+      upcomingEventPayload.regionalStartTimes,
+      upcomingEventPayload.regionalTimezones,
     ],
   );
 

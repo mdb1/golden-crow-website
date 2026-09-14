@@ -1695,9 +1695,9 @@ describe("discover repository", () => {
         dailyStartTime: "09:30",
         dailyEndTime: "11:00",
         multiDayLength: 2,
-        countryDailyStartTimes: { AR: "09:30", US: "08:30" },
-        countryDailyEndTimes: { AR: "11:00", US: "10:00" },
-        countryTimezones: {
+        regionalStartTimes: { AR: "09:30", US: "08:30" },
+        regionalEndTimes: { AR: "11:00", US: "10:00" },
+        regionalTimezones: {
           AR: "America/Argentina/Buenos_Aires",
           US: "America/New_York",
         },
@@ -1738,9 +1738,9 @@ describe("discover repository", () => {
       dailyStartTime: "09:30",
       dailyEndTime: "11:00",
       multiDayLength: 2,
-      countryDailyStartTimes: { AR: "09:30", US: "08:30" },
-      countryDailyEndTimes: { AR: "11:00", US: "10:00" },
-      countryTimezones: {
+      regionalStartTimes: { AR: "09:30", US: "08:30" },
+      regionalEndTimes: { AR: "11:00", US: "10:00" },
+      regionalTimezones: {
         AR: "America/Argentina/Buenos_Aires",
         US: "America/New_York",
       },

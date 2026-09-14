@@ -2909,28 +2909,28 @@ function normalizeUpcomingEventPayload(
   );
   assignOptionalPayloadField(
     eventPayload,
-    "countryDailyStartTimes",
+    "regionalStartTimes",
     normalizeEventCountryMap(
-      payload.countryDailyStartTimes,
-      "Country start times",
+      payload.regionalStartTimes,
+      "Regional start times",
       normalizeOptionalTimeOfDay,
     ),
   );
   assignOptionalPayloadField(
     eventPayload,
-    "countryDailyEndTimes",
+    "regionalEndTimes",
     normalizeEventCountryMap(
-      payload.countryDailyEndTimes,
-      "Country end times",
+      payload.regionalEndTimes,
+      "Regional end times",
       normalizeOptionalTimeOfDay,
     ),
   );
   assignOptionalPayloadField(
     eventPayload,
-    "countryTimezones",
+    "regionalTimezones",
     normalizeEventCountryMap(
-      payload.countryTimezones,
-      "Country timezones",
+      payload.regionalTimezones,
+      "Regional timezones",
       normalizeOptionalTimezone,
     ),
   );
