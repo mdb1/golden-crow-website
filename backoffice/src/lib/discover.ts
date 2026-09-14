@@ -864,21 +864,59 @@ export function getDiscoverPayload(
   return getDiscoverPayloadForType(item, item.type);
 }
 
+function payloadNodeRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function hasPayloadValue(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  return true;
+}
+
+function mergePayloadNodeFallback(
+  camelPayload: unknown,
+  legacyPayload: unknown,
+) {
+  const camelRecord = payloadNodeRecord(camelPayload);
+  const legacyRecord = payloadNodeRecord(legacyPayload);
+
+  if (!legacyRecord) {
+    return camelRecord;
+  }
+
+  if (!camelRecord) {
+    return legacyRecord;
+  }
+
+  const merged = { ...legacyRecord };
+  for (const [key, value] of Object.entries(camelRecord)) {
+    if (hasPayloadValue(value)) {
+      merged[key] = value;
+    } else if (!(key in merged)) {
+      merged[key] = value;
+    }
+  }
+
+  return merged;
+}
+
 export function getDiscoverPayloadForType(
   item: DiscoverFeedPayloadNodes,
   type: DiscoverFeedType,
 ) {
-  const camelPayload = item[discoverFeedPayloadKey(type)];
-  if (camelPayload) {
-    return camelPayload;
-  }
-
-  const legacyPayload = (item as Record<string, unknown>)[type];
-  return legacyPayload &&
-    typeof legacyPayload === "object" &&
-    !Array.isArray(legacyPayload)
-    ? (legacyPayload as Record<string, unknown>)
-    : undefined;
+  return mergePayloadNodeFallback(
+    item[discoverFeedPayloadKey(type)],
+    (item as Record<string, unknown>)[type],
+  );
 }
 
 export function getDiscoverFeedTitle(item: DiscoverFeedItemRecord) {

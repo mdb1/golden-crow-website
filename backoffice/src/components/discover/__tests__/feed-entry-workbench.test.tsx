@@ -334,6 +334,11 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       status: "published",
       createdAt: "2026-09-01T00:00:00.000Z",
       updatedAt: "2026-09-01T00:00:00.000Z",
+      upcomingEvent: {
+        date: null,
+        location: "",
+        maxAttendance: null,
+      },
       upcoming_event: {
         date: "2026-10-12T00:00:00.000Z",
         location: "Online",
@@ -403,6 +408,14 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       status: "draft",
       createdAt: "2026-09-01T00:00:00.000Z",
       updatedAt: "2026-09-01T00:00:00.000Z",
+      clinicalTrial: {
+        trialIdentifier: "",
+        phase: "",
+        recruitmentStatus: "",
+        conditions: [],
+        countries: [],
+        sponsor: "",
+      },
       clinical_trial: {
         trialIdentifier: "NCT00000000",
         phase: "Phase 2",
@@ -692,6 +705,59 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     });
     expect(payload.date).toBe("2026-10-12T00:00:00.000Z");
   }, 15000);
+
+  it("publishes an upcoming event when the visible date field is filled", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publisher"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "upcoming_event" },
+    });
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Published event" },
+    });
+    fireEvent.change(screen.getByLabelText("Subtitle"), {
+      target: { value: "A complete event summary." },
+    });
+    fireEvent.change(
+      document.querySelector("#discover-feed-body") as HTMLTextAreaElement,
+      {
+        target: { value: "Complete event body." },
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Event date *"), {
+      target: { value: "2026-10-12" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Publish to Discover" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items", {
+        method: "POST",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, Record<string, unknown> | string>;
+
+    expect(body.type).toBe("upcoming_event");
+    expect(body.upcomingEvent).toMatchObject({
+      date: "2026-10-12T00:00:00.000Z",
+    });
+    expect(body.upcoming_event).toBeUndefined();
+  });
 
   it("shows the public app link after a successful publish with no unsaved changes", async () => {
     jest.mocked(sdkFetch).mockResolvedValueOnce({

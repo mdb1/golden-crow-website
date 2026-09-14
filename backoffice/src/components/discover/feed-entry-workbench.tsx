@@ -621,14 +621,18 @@ function fromDateInput(value: string) {
     return null;
   }
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+  const dateText = /^\d{4}-\d{2}-\d{2}$/.test(trimmed)
+    ? trimmed
+    : toDateInput(trimmed);
+
+  if (!dateText) {
     return null;
   }
 
-  const isoDate = `${trimmed}T00:00:00.000Z`;
+  const isoDate = `${dateText}T00:00:00.000Z`;
   const date = new Date(isoDate);
 
-  return Number.isNaN(date.getTime()) || !date.toISOString().startsWith(trimmed)
+  return Number.isNaN(date.getTime()) || !date.toISOString().startsWith(dateText)
     ? null
     : isoDate;
 }
@@ -2088,7 +2092,11 @@ export function DiscoverFeedEntryWorkbench({
         return t("Body is required before publishing.");
       }
       if (nextState.type === "upcoming_event") {
-        if (!nextState.payloads.upcoming_event.date) {
+        const normalizedEventPayload = payloadForType(nextState) as Record<
+          string,
+          unknown
+        >;
+        if (!normalizedEventPayload.date) {
           return t("Event date is required before publishing.");
         }
       }

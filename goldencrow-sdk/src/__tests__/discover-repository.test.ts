@@ -1458,6 +1458,11 @@ describe("discover repository", () => {
         publishedAt: "2026-09-01T00:00:00.000Z",
         createdAt: "2026-08-01T00:00:00.000Z",
         updatedAt: "2026-08-02T00:00:00.000Z",
+        upcomingEvent: {
+          date: null,
+          location: "",
+          maxAttendance: null,
+        },
         upcoming_event: {
           date: "2026-10-12T00:00:00.000Z",
           location: "Online",
@@ -1498,6 +1503,14 @@ describe("discover repository", () => {
         language: "en",
         createdAt: "2026-08-01T00:00:00.000Z",
         updatedAt: "2026-08-02T00:00:00.000Z",
+        clinicalTrial: {
+          trialIdentifier: "",
+          phase: "",
+          recruitmentStatus: "",
+          conditions: [],
+          countries: [],
+          sponsor: "",
+        },
         clinical_trial: {
           trialIdentifier: "NCT00000000",
           phase: "Phase 2",
