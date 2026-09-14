@@ -2214,6 +2214,46 @@ export function DiscoverFeedEntryWorkbench({
     title,
     description,
     children,
+    badge,
+  }: {
+    icon: ReactNode;
+    title: string;
+    description: string;
+    children: ReactNode;
+    badge?: string;
+  }) {
+    return (
+      <div className="rounded-xl border border-violet-100/80 bg-white/78 p-4 shadow-sm dark:border-violet-400/14 dark:bg-slate-950/32">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-violet-100 bg-violet-50 text-violet-700 dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-100">
+              {icon}
+            </div>
+            <div className="min-w-0">
+              <h4 className="font-heading text-base font-semibold text-foreground">
+                {t(title)}
+              </h4>
+              <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                {t(description)}
+              </p>
+            </div>
+          </div>
+          {badge ? (
+            <span className="inline-flex w-fit items-center rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-500/12 dark:text-violet-100">
+              {t(badge)}
+            </span>
+          ) : null}
+        </div>
+        {children}
+      </div>
+    );
+  }
+
+  function renderCollapsibleEventSubsection({
+    icon,
+    title,
+    description,
+    children,
   }: {
     icon: ReactNode;
     title: string;
@@ -2221,12 +2261,12 @@ export function DiscoverFeedEntryWorkbench({
     children: ReactNode;
   }) {
     return (
-      <div className="rounded-xl border border-violet-100/80 bg-white/78 p-4 shadow-sm dark:border-violet-400/14 dark:bg-slate-950/32">
-        <div className="mb-4 flex gap-3">
+      <details className="group rounded-xl border border-violet-100/80 bg-white/78 p-4 shadow-sm dark:border-violet-400/14 dark:bg-slate-950/32">
+        <summary className="flex cursor-pointer list-none items-start gap-3 outline-none transition-colors marker:hidden [&::-webkit-details-marker]:hidden">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-violet-100 bg-violet-50 text-violet-700 dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-100">
             {icon}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h4 className="font-heading text-base font-semibold text-foreground">
               {t(title)}
             </h4>
@@ -2234,9 +2274,12 @@ export function DiscoverFeedEntryWorkbench({
               {t(description)}
             </p>
           </div>
+          <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="mt-4 border-t border-violet-100/70 pt-4 dark:border-violet-400/12">
+          {children}
         </div>
-        {children}
-      </div>
+      </details>
     );
   }
 
@@ -2758,7 +2801,8 @@ export function DiscoverFeedEntryWorkbench({
           icon: <CalendarDays className="h-4 w-4" />,
           title: "Core event details",
           description:
-            "Keep the existing required event anchor and the two legacy optional event properties.",
+            "Only this block contains the required event field. Event date is required; location and max attendance remain optional.",
+          badge: "Required block",
           children: (
             <div className="grid gap-4 md:grid-cols-3">
               <FieldShell
@@ -2805,304 +2849,317 @@ export function DiscoverFeedEntryWorkbench({
           ),
         })}
 
-        {renderEventSubsection({
-          icon: <Clock className="h-4 w-4" />,
-          title: "Schedule display",
-          description:
-            "Choose how clients should explain the event date, time, timezone, and regional variants.",
-          children: (
-            <div className="flex flex-col gap-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                {renderEventSelectField({
-                  fieldKey: "timeKind",
-                  label: "Time display",
-                  options: EVENT_TIME_KIND_OPTIONS,
-                })}
-                <FieldShell label={t("Timezone")} htmlFor="discover-upcoming-event-timezone">
-                  <Input
-                    id="discover-upcoming-event-timezone"
-                    list="discover-event-timezone-options"
-                    value={upcomingEventPayload.timezone ?? ""}
-                    onChange={(event) =>
-                      updateUpcomingEventField("timezone", event.target.value)
-                    }
-                    placeholder="America/Argentina/Buenos_Aires"
-                    className={publisherInputClass}
-                  />
-                </FieldShell>
-                <FieldShell
-                  label={t("Daily start time")}
-                  htmlFor="discover-upcoming-event-daily-start"
-                >
-                  <Input
-                    id="discover-upcoming-event-daily-start"
-                    type="time"
-                    value={upcomingEventPayload.dailyStartTime ?? ""}
-                    onChange={(event) =>
-                      updateUpcomingEventField("dailyStartTime", event.target.value)
-                    }
-                    className={publisherInputClass}
-                  />
-                </FieldShell>
-                <FieldShell
-                  label={t("Daily end time")}
-                  htmlFor="discover-upcoming-event-daily-end"
-                >
-                  <Input
-                    id="discover-upcoming-event-daily-end"
-                    type="time"
-                    value={upcomingEventPayload.dailyEndTime ?? ""}
-                    onChange={(event) =>
-                      updateUpcomingEventField("dailyEndTime", event.target.value)
-                    }
-                    className={publisherInputClass}
-                  />
-                </FieldShell>
-                <FieldShell
-                  label={t("Multi-day length")}
-                  htmlFor="discover-upcoming-event-multi-day-length"
-                >
-                  <Input
-                    id="discover-upcoming-event-multi-day-length"
-                    type="number"
-                    min={1}
-                    max={365}
-                    step={1}
-                    value={upcomingEventPayload.multiDayLength ?? ""}
-                    onChange={(event) =>
-                      updateUpcomingEventField("multiDayLength", event.target.value)
-                    }
-                    className={publisherInputClass}
-                  />
-                </FieldShell>
-                <div className="flex flex-col justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setEventRegionalTimesOpen(true)}
-                    className={`${publisherSoftButtonClass} h-11 justify-center`}
+        <section className="rounded-2xl border border-violet-100/80 bg-violet-50/36 p-4 dark:border-violet-400/14 dark:bg-violet-500/6">
+          <div className="mb-4 flex flex-col gap-1">
+            <h4 className="font-heading text-base font-semibold text-foreground">
+              {t("Advanced event configuration (optional)")}
+            </h4>
+            <p className="text-sm leading-5 text-muted-foreground">
+              {t("The following event blocks are optional. They start collapsed and can be expanded when you need to add more detail.")}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {renderCollapsibleEventSubsection({
+              icon: <Clock className="h-4 w-4" />,
+              title: "Schedule display",
+              description:
+                "Choose how clients should explain the event date, time, timezone, and regional variants.",
+              children: (
+                <div className="flex flex-col gap-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {renderEventSelectField({
+                      fieldKey: "timeKind",
+                      label: "Time display",
+                      options: EVENT_TIME_KIND_OPTIONS,
+                    })}
+                    <FieldShell label={t("Timezone")} htmlFor="discover-upcoming-event-timezone">
+                      <Input
+                        id="discover-upcoming-event-timezone"
+                        list="discover-event-timezone-options"
+                        value={upcomingEventPayload.timezone ?? ""}
+                        onChange={(event) =>
+                          updateUpcomingEventField("timezone", event.target.value)
+                        }
+                        placeholder="America/Argentina/Buenos_Aires"
+                        className={publisherInputClass}
+                      />
+                    </FieldShell>
+                    <FieldShell
+                      label={t("Daily start time")}
+                      htmlFor="discover-upcoming-event-daily-start"
+                    >
+                      <Input
+                        id="discover-upcoming-event-daily-start"
+                        type="time"
+                        value={upcomingEventPayload.dailyStartTime ?? ""}
+                        onChange={(event) =>
+                          updateUpcomingEventField("dailyStartTime", event.target.value)
+                        }
+                        className={publisherInputClass}
+                      />
+                    </FieldShell>
+                    <FieldShell
+                      label={t("Daily end time")}
+                      htmlFor="discover-upcoming-event-daily-end"
+                    >
+                      <Input
+                        id="discover-upcoming-event-daily-end"
+                        type="time"
+                        value={upcomingEventPayload.dailyEndTime ?? ""}
+                        onChange={(event) =>
+                          updateUpcomingEventField("dailyEndTime", event.target.value)
+                        }
+                        className={publisherInputClass}
+                      />
+                    </FieldShell>
+                    <FieldShell
+                      label={t("Multi-day length")}
+                      htmlFor="discover-upcoming-event-multi-day-length"
+                    >
+                      <Input
+                        id="discover-upcoming-event-multi-day-length"
+                        type="number"
+                        min={1}
+                        max={365}
+                        step={1}
+                        value={upcomingEventPayload.multiDayLength ?? ""}
+                        onChange={(event) =>
+                          updateUpcomingEventField("multiDayLength", event.target.value)
+                        }
+                        className={publisherInputClass}
+                      />
+                    </FieldShell>
+                    <div className="flex flex-col justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setEventRegionalTimesOpen(true)}
+                        className={`${publisherSoftButtonClass} h-11 justify-center`}
+                      >
+                        <Settings2 className="h-4 w-4" />
+                        {t("Configure regional times")}
+                      </Button>
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        {eventRegionalRows.length
+                          ? `${eventRegionalRows.length} ${t("regional rows configured")}`
+                          : t("No regional times configured.")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ),
+            })}
+
+            {renderCollapsibleEventSubsection({
+              icon: <Newspaper className="h-4 w-4" />,
+              title: "Classification",
+              description:
+                "These fixed values help mobile clients group events and display clear status badges.",
+              children: (
+                <div className="grid gap-4 md:grid-cols-3">
+                  {renderEventSelectField({
+                    fieldKey: "eventKind",
+                    label: "Event kind",
+                    options: EVENT_KIND_OPTIONS,
+                  })}
+                  {renderEventSelectField({
+                    fieldKey: "attendanceMode",
+                    label: "Attendance mode",
+                    options: EVENT_ATTENDANCE_MODE_OPTIONS,
+                  })}
+                  {renderEventSelectField({
+                    fieldKey: "eventStatus",
+                    label: "Event status",
+                    options: EVENT_STATUS_OPTIONS,
+                  })}
+                </div>
+              ),
+            })}
+
+            {renderCollapsibleEventSubsection({
+              icon: <LinkIcon className="h-4 w-4" />,
+              title: "Event actions",
+              description:
+                "Typed buttons can direct readers to register, join, review an agenda, watch a recording, download materials, or contact the organizer.",
+              children: (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-100/70 bg-white/70 px-4 py-3 dark:border-violet-400/12 dark:bg-slate-950/28">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {eventActionButtons.length
+                          ? `${eventActionButtons.length} ${t("actions configured")}`
+                          : t("No event action buttons configured.")}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {eventActionButtons.length
+                          ? eventActionButtons
+                              .map((button) =>
+                                t(
+                                  EVENT_ACTION_BUTTON_TYPE_OPTIONS.find(
+                                    (option) => option.value === button.type,
+                                  )?.label ?? button.type,
+                                ),
+                              )
+                              .join(", ")
+                          : t("Use the modal to add row-based event actions.")}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setEventActionButtonsOpen(true)}
+                      className={publisherSoftButtonClass}
+                    >
+                      <Settings2 className="h-4 w-4" />
+                      {t("Configure actions")}
+                    </Button>
+                  </div>
+                </div>
+              ),
+            })}
+
+            {renderCollapsibleEventSubsection({
+              icon: <Users className="h-4 w-4" />,
+              title: "Organizer and disclosure",
+              description:
+                "Explain the publisher relationship without adding organizer ID fields to the event payload.",
+              children: (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {renderEventSelectField({
+                    fieldKey: "publisherRelationshipToEvent",
+                    label: "Publisher relationship",
+                    options: EVENT_RELATIONSHIP_OPTIONS,
+                  })}
+                  <FieldShell
+                    label={t("Organizer name")}
+                    htmlFor="discover-upcoming-event-organizer-name"
                   >
-                    <Settings2 className="h-4 w-4" />
-                    {t("Configure regional times")}
-                  </Button>
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    {eventRegionalRows.length
-                      ? `${eventRegionalRows.length} ${t("regional rows configured")}`
-                      : t("No regional times configured.")}
-                  </p>
+                    <Input
+                      id="discover-upcoming-event-organizer-name"
+                      value={upcomingEventPayload.organizerName ?? ""}
+                      maxLength={80}
+                      onChange={(event) =>
+                        updateUpcomingEventField("organizerName", event.target.value)
+                      }
+                      className={publisherInputClass}
+                    />
+                  </FieldShell>
+                  <FieldShell
+                    label={t("Publisher disclosure")}
+                    htmlFor="discover-upcoming-event-publisher-disclosure"
+                    className="md:col-span-2"
+                  >
+                    <Textarea
+                      id="discover-upcoming-event-publisher-disclosure"
+                      value={upcomingEventPayload.publisherDisclosure ?? ""}
+                      maxLength={140}
+                      onChange={(event) =>
+                        updateUpcomingEventField(
+                          "publisherDisclosure",
+                          event.target.value,
+                        )
+                      }
+                      className={publisherTextareaClass}
+                      rows={2}
+                    />
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {t("Only organizerName is stored as organizer identity in the event payload. Do not add organization or individual ID fields here.")}
+                    </p>
+                  </FieldShell>
                 </div>
-              </div>
-            </div>
-          ),
-        })}
+              ),
+            })}
 
-        {renderEventSubsection({
-          icon: <Newspaper className="h-4 w-4" />,
-          title: "Classification",
-          description:
-            "These fixed values help mobile clients group events and display clear status badges.",
-          children: (
-            <div className="grid gap-4 md:grid-cols-3">
-              {renderEventSelectField({
-                fieldKey: "eventKind",
-                label: "Event kind",
-                options: EVENT_KIND_OPTIONS,
-              })}
-              {renderEventSelectField({
-                fieldKey: "attendanceMode",
-                label: "Attendance mode",
-                options: EVENT_ATTENDANCE_MODE_OPTIONS,
-              })}
-              {renderEventSelectField({
-                fieldKey: "eventStatus",
-                label: "Event status",
-                options: EVENT_STATUS_OPTIONS,
-              })}
-            </div>
-          ),
-        })}
+            {renderCollapsibleEventSubsection({
+              icon: <DollarSign className="h-4 w-4" />,
+              title: "Audience, cost, language, accessibility",
+              description:
+                "Use optional metadata to clarify who the event is for and what support is available.",
+              children: (
+                <div className="flex flex-col gap-5">
+                  <div>
+                    <Label className="mb-2 block">{t("Audience")}</Label>
+                    {renderEventCheckboxGrid("audience", EVENT_AUDIENCE_OPTIONS)}
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {selectedAudience.length
+                        ? `${selectedAudience.length} ${t("audience groups selected")}`
+                        : t("No audience groups selected.")}
+                    </p>
+                  </div>
 
-        {renderEventSubsection({
-          icon: <LinkIcon className="h-4 w-4" />,
-          title: "Event actions",
-          description:
-            "Typed buttons can direct readers to register, join, review an agenda, watch a recording, download materials, or contact the organizer.",
-          children: (
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-100/70 bg-white/70 px-4 py-3 dark:border-violet-400/12 dark:bg-slate-950/28">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {eventActionButtons.length
-                      ? `${eventActionButtons.length} ${t("actions configured")}`
-                      : t("No event action buttons configured.")}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {eventActionButtons.length
-                      ? eventActionButtons
-                          .map((button) =>
-                            t(
-                              EVENT_ACTION_BUTTON_TYPE_OPTIONS.find(
-                                (option) => option.value === button.type,
-                              )?.label ?? button.type,
-                            ),
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {renderEventSelectField({
+                      fieldKey: "costType",
+                      label: "Cost type",
+                      options: EVENT_COST_TYPE_OPTIONS,
+                    })}
+                    <FieldShell label={t("Currency")} htmlFor="discover-upcoming-event-currency">
+                      <Input
+                        id="discover-upcoming-event-currency"
+                        value={upcomingEventPayload.currency ?? ""}
+                        maxLength={3}
+                        onChange={(event) =>
+                          updateUpcomingEventField(
+                            "currency",
+                            event.target.value.toUpperCase(),
                           )
-                          .join(", ")
-                      : t("Use the modal to add row-based event actions.")}
-                  </p>
+                        }
+                        placeholder="ARS"
+                        className={`${publisherInputClass} uppercase`}
+                      />
+                    </FieldShell>
+                    <FieldShell
+                      label={t("Price in minor units")}
+                      htmlFor="discover-upcoming-event-price-minor-units"
+                    >
+                      <Input
+                        id="discover-upcoming-event-price-minor-units"
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={upcomingEventPayload.priceMinorUnits ?? ""}
+                        onChange={(event) =>
+                          updateUpcomingEventField(
+                            "priceMinorUnits",
+                            event.target.value,
+                          )
+                        }
+                        className={publisherInputClass}
+                      />
+                    </FieldShell>
+                  </div>
+
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div>
+                      <Label className="mb-2 block">{t("Languages")}</Label>
+                      {renderEventCheckboxGrid("languages", EVENT_LANGUAGE_OPTIONS)}
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {selectedLanguages.length
+                          ? `${selectedLanguages.length} ${t("languages selected")}`
+                          : t("No languages selected.")}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="mb-2 block">
+                        {t("Accessibility features")}
+                      </Label>
+                      {renderEventCheckboxGrid(
+                        "accessibilityFeatures",
+                        EVENT_ACCESSIBILITY_OPTIONS,
+                      )}
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {selectedAccessibility.length
+                          ? `${selectedAccessibility.length} ${t("accessibility features selected")}`
+                          : t("No accessibility features selected.")}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEventActionButtonsOpen(true)}
-                  className={publisherSoftButtonClass}
-                >
-                  <Settings2 className="h-4 w-4" />
-                  {t("Configure actions")}
-                </Button>
-              </div>
-            </div>
-          ),
-        })}
-
-        {renderEventSubsection({
-          icon: <Users className="h-4 w-4" />,
-          title: "Organizer and disclosure",
-          description:
-            "Explain the publisher relationship without adding organizer ID fields to the event payload.",
-          children: (
-            <div className="grid gap-4 md:grid-cols-2">
-              {renderEventSelectField({
-                fieldKey: "publisherRelationshipToEvent",
-                label: "Publisher relationship",
-                options: EVENT_RELATIONSHIP_OPTIONS,
-              })}
-              <FieldShell
-                label={t("Organizer name")}
-                htmlFor="discover-upcoming-event-organizer-name"
-              >
-                <Input
-                  id="discover-upcoming-event-organizer-name"
-                  value={upcomingEventPayload.organizerName ?? ""}
-                  maxLength={80}
-                  onChange={(event) =>
-                    updateUpcomingEventField("organizerName", event.target.value)
-                  }
-                  className={publisherInputClass}
-                />
-              </FieldShell>
-              <FieldShell
-                label={t("Publisher disclosure")}
-                htmlFor="discover-upcoming-event-publisher-disclosure"
-                className="md:col-span-2"
-              >
-                <Textarea
-                  id="discover-upcoming-event-publisher-disclosure"
-                  value={upcomingEventPayload.publisherDisclosure ?? ""}
-                  maxLength={140}
-                  onChange={(event) =>
-                    updateUpcomingEventField(
-                      "publisherDisclosure",
-                      event.target.value,
-                    )
-                  }
-                  className={publisherTextareaClass}
-                  rows={2}
-                />
-                <p className="text-xs leading-5 text-muted-foreground">
-                  {t("Only organizerName is stored as organizer identity in the event payload. Do not add organization or individual ID fields here.")}
-                </p>
-              </FieldShell>
-            </div>
-          ),
-        })}
-
-        {renderEventSubsection({
-          icon: <DollarSign className="h-4 w-4" />,
-          title: "Audience, cost, language, accessibility",
-          description:
-            "Use optional metadata to clarify who the event is for and what support is available.",
-          children: (
-            <div className="flex flex-col gap-5">
-              <div>
-                <Label className="mb-2 block">{t("Audience")}</Label>
-                {renderEventCheckboxGrid("audience", EVENT_AUDIENCE_OPTIONS)}
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {selectedAudience.length
-                    ? `${selectedAudience.length} ${t("audience groups selected")}`
-                    : t("No audience groups selected.")}
-                </p>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                {renderEventSelectField({
-                  fieldKey: "costType",
-                  label: "Cost type",
-                  options: EVENT_COST_TYPE_OPTIONS,
-                })}
-                <FieldShell label={t("Currency")} htmlFor="discover-upcoming-event-currency">
-                  <Input
-                    id="discover-upcoming-event-currency"
-                    value={upcomingEventPayload.currency ?? ""}
-                    maxLength={3}
-                    onChange={(event) =>
-                      updateUpcomingEventField(
-                        "currency",
-                        event.target.value.toUpperCase(),
-                      )
-                    }
-                    placeholder="ARS"
-                    className={`${publisherInputClass} uppercase`}
-                  />
-                </FieldShell>
-                <FieldShell
-                  label={t("Price in minor units")}
-                  htmlFor="discover-upcoming-event-price-minor-units"
-                >
-                  <Input
-                    id="discover-upcoming-event-price-minor-units"
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={upcomingEventPayload.priceMinorUnits ?? ""}
-                    onChange={(event) =>
-                      updateUpcomingEventField(
-                        "priceMinorUnits",
-                        event.target.value,
-                      )
-                    }
-                    className={publisherInputClass}
-                  />
-                </FieldShell>
-              </div>
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <Label className="mb-2 block">{t("Languages")}</Label>
-                  {renderEventCheckboxGrid("languages", EVENT_LANGUAGE_OPTIONS)}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {selectedLanguages.length
-                      ? `${selectedLanguages.length} ${t("languages selected")}`
-                      : t("No languages selected.")}
-                  </p>
-                </div>
-                <div>
-                  <Label className="mb-2 block">
-                    {t("Accessibility features")}
-                  </Label>
-                  {renderEventCheckboxGrid(
-                    "accessibilityFeatures",
-                    EVENT_ACCESSIBILITY_OPTIONS,
-                  )}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {selectedAccessibility.length
-                      ? `${selectedAccessibility.length} ${t("accessibility features selected")}`
-                      : t("No accessibility features selected.")}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ),
-        })}
+              ),
+            })}
+          </div>
+        </section>
 
         {renderEventActionButtonsModal()}
         {renderEventRegionalTimesModal()}

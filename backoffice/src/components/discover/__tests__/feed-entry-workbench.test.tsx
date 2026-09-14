@@ -403,6 +403,8 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
 
     expect(screen.getByText("Schedule display")).toBeTruthy();
     expect(screen.getByText("Date anchor")).toBeTruthy();
+    expect(screen.getByText("Required block")).toBeTruthy();
+    expect(screen.getByText("Advanced event configuration (optional)")).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText("Event date *"), {
       target: { value: "2026-10-12T09:30" },
@@ -413,6 +415,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(screen.getByLabelText("Max attendance"), {
       target: { value: "250" },
     });
+    fireEvent.click(screen.getByText("Schedule display"));
     fireEvent.change(screen.getByLabelText("Time display"), {
       target: { value: "regionalTimes" },
     });
@@ -428,6 +431,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(screen.getByLabelText("Multi-day length"), {
       target: { value: "2" },
     });
+    fireEvent.click(screen.getByText("Classification"));
     fireEvent.change(screen.getByLabelText("Event kind"), {
       target: { value: "conference" },
     });
@@ -437,6 +441,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     fireEvent.change(screen.getByLabelText("Event status"), {
       target: { value: "scheduled" },
     });
+    fireEvent.click(screen.getByText("Organizer and disclosure"));
     fireEvent.change(screen.getByLabelText("Publisher relationship"), {
       target: { value: "organizer" },
     });
@@ -447,6 +452,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       target: { value: "Organized by the publisher team." },
     });
 
+    fireEvent.click(screen.getByText("Audience, cost, language, accessibility"));
     fireEvent.click(screen.getByLabelText("Patients"));
     fireEvent.change(screen.getByLabelText("Cost type"), {
       target: { value: "free" },
@@ -477,6 +483,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 
+    fireEvent.click(screen.getByText("Event actions"));
     fireEvent.click(screen.getByRole("button", { name: "Configure actions" }));
     dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Add action" }));

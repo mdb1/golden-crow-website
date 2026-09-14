@@ -910,6 +910,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Core event details": "Datos principales del evento",
   "Keep the existing required event anchor and the two legacy optional event properties.":
     "Mantené la fecha obligatoria del evento y las dos propiedades opcionales existentes.",
+  "Only this block contains the required event field. Event date is required; location and max attendance remain optional.":
+    "Solo este bloque contiene el campo obligatorio del evento. La fecha del evento es obligatoria; ubicación y asistencia máxima siguen siendo opcionales.",
+  "Required block": "Bloque obligatorio",
+  "Advanced event configuration (optional)":
+    "Configuración avanzada del evento (opcional)",
+  "The following event blocks are optional. They start collapsed and can be expanded when you need to add more detail.":
+    "Los siguientes bloques del evento son opcionales. Empiezan comprimidos y podés expandirlos cuando necesites agregar más detalle.",
   "Schedule display": "Visualización de agenda",
   "Choose how clients should explain the event date, time, timezone, and regional variants.":
     "Elegí cómo los clientes deben explicar la fecha, el horario, la zona horaria y las variantes regionales.",
