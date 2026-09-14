@@ -881,6 +881,226 @@ const SPANISH_TEXT: Record<string, string> = {
   Location: "Ubicación",
   "Max attendance": "Asistencia máxima",
   "Virtual meeting link": "Link de reunión virtual",
+  "Time display": "Visualización de horario",
+  "Timed event": "Evento con horario",
+  "All-day event": "Evento de día completo",
+  "Date only": "Solo fecha",
+  "Time to be announced": "Horario a confirmar",
+  "Regional times": "Horarios por región",
+  "Use the start and end time fields for a standard scheduled activity.":
+    "Usá los campos de inicio y fin para una actividad programada estándar.",
+  "Use the date anchor, but do not show daily start or end times.":
+    "Usá la fecha de referencia, pero no muestres horarios diarios de inicio o fin.",
+  "Show only the event date with no time row.":
+    "Mostrá solo la fecha del evento, sin fila de horario.",
+  "Tell readers the date is known but the time is still pending.":
+    "Indicá que la fecha ya está definida, pero el horario sigue pendiente.",
+  "Use country-specific rows when times vary by region.":
+    "Usá filas por país cuando los horarios varían por región.",
+  Timezone: "Zona horaria",
+  "Daily start time": "Hora diaria de inicio",
+  "Daily end time": "Hora diaria de fin",
+  "Multi-day length": "Duración en días",
+  "Country start times": "Horarios de inicio por país",
+  "Country end times": "Horarios de fin por país",
+  "Country timezones": "Zonas horarias por país",
+  "Core event details": "Datos principales del evento",
+  "Keep the existing required event anchor and the two legacy optional event properties.":
+    "Mantené la fecha obligatoria del evento y las dos propiedades opcionales existentes.",
+  "Schedule display": "Visualización de agenda",
+  "Choose how clients should explain the event date, time, timezone, and regional variants.":
+    "Elegí cómo los clientes deben explicar la fecha, el horario, la zona horaria y las variantes regionales.",
+  "Configure regional times": "Configurar horarios regionales",
+  "regional rows configured": "filas regionales configuradas",
+  "Classification": "Clasificación",
+  "These fixed values help mobile clients group events and display clear status badges.":
+    "Estos valores fijos ayudan a las apps móviles a agrupar eventos y mostrar estados claros.",
+  "Event kind": "Tipo de evento",
+  Webinar: "Webinar",
+  Conference: "Conferencia",
+  Workshop: "Taller",
+  Seminar: "Seminario",
+  "Support group": "Grupo de apoyo",
+  "Community meetup": "Encuentro comunitario",
+  "Awareness day": "Día de concientización",
+  Fundraiser: "Recaudación de fondos",
+  "Clinical session": "Sesión clínica",
+  "Research session": "Sesión de investigación",
+  Networking: "Networking",
+  Livestream: "Transmisión en vivo",
+  "Recorded session": "Sesión grabada",
+  "Attendance mode": "Modalidad de asistencia",
+  "In person": "Presencial",
+  Phone: "Teléfono",
+  "On demand": "Bajo demanda",
+  "To be announced": "A confirmar",
+  "Event status": "Estado del evento",
+  Tentative: "Tentativo",
+  Postponed: "Pospuesto",
+  Rescheduled: "Reprogramado",
+  Cancelled: "Cancelado",
+  "Sold out": "Cupos agotados",
+  "Event actions": "Acciones del evento",
+  "Typed buttons can direct readers to register, join, review an agenda, watch a recording, download materials, or contact the organizer.":
+    "Los botones tipados pueden llevar a registrarse, entrar en vivo, ver la agenda, mirar una grabación, descargar materiales o contactar al organizador.",
+  "Event action buttons": "Botones de acción del evento",
+  "Add typed event buttons for registration, live access, agendas, recordings, materials, or organizer contact.":
+    "Agregá botones tipados para registro, acceso en vivo, agenda, grabaciones, materiales o contacto con el organizador.",
+  "The main button link remains the app fallback. Typed action buttons add richer event actions when clients support them.":
+    "El enlace del botón principal sigue siendo el fallback de la app. Los botones tipados suman acciones más ricas cuando el cliente las soporta.",
+  "No event action buttons configured.":
+    "No hay botones de acción configurados.",
+  "Action type": "Tipo de acción",
+  Register: "Registrarse",
+  "Join live": "Entrar en vivo",
+  "Learn more": "Ver más",
+  "View agenda": "Ver agenda",
+  "Watch recording": "Ver grabación",
+  "Download materials": "Descargar materiales",
+  "Contact organizer": "Contactar al organizador",
+  "Button title": "Texto del botón",
+  "Button URL": "URL del botón",
+  "Use HTTPS, or mailto for contact organizer.":
+    "Usá HTTPS, o mailto para contacto con el organizador.",
+  "This action type is duplicated. Keep one row per type.":
+    "Este tipo de acción está duplicado. Conservá una sola fila por tipo.",
+  "Join live replaces any legacy virtual meeting button in clients that support typed actions.":
+    "Entrar en vivo reemplaza cualquier botón heredado de reunión virtual en clientes que soportan acciones tipadas.",
+  "One event action per type keeps mobile rendering predictable.":
+    "Una acción por tipo mantiene predecible la visualización móvil.",
+  "Add action": "Agregar acción",
+  "actions configured": "acciones configuradas",
+  "Use the modal to add row-based event actions.":
+    "Usá el modal para agregar acciones por fila.",
+  "Configure actions": "Configurar acciones",
+  "Regional event times": "Horarios regionales del evento",
+  "Use two-letter country codes with local daily times when the same event is shown differently by region.":
+    "Usá códigos de país de dos letras con horarios locales cuando el mismo evento se muestra diferente por región.",
+  "Regional rows are only used when time display is Regional times. Until a row is added, clients can fall back to the daily time fields.":
+    "Las filas regionales se usan solo cuando la visualización de horario es Horarios por región. Hasta que agregues una fila, los clientes pueden usar los horarios diarios.",
+  "No regional times configured.": "No hay horarios regionales configurados.",
+  "Use two letters.": "Usá dos letras.",
+  "Start time": "Hora de inicio",
+  "End time": "Hora de fin",
+  "Use HH:mm.": "Usá HH:mm.",
+  "Use an IANA timezone.": "Usá una zona horaria IANA.",
+  "Add region": "Agregar región",
+  "Organizer and disclosure": "Organizador y aclaración",
+  "Explain the publisher relationship without adding organizer ID fields to the event payload.":
+    "Explicá la relación del publicador sin agregar campos de ID de organizador al payload del evento.",
+  "Publisher relationship": "Relación del publicador",
+  "Co-organizer": "Coorganizador",
+  Speaker: "Orador",
+  "Event partner": "Aliado del evento",
+  Participant: "Participante",
+  Attendee: "Asistente",
+  "Mentioning the event": "Menciona el evento",
+  Unknown: "Desconocido",
+  "Organizer name": "Nombre del organizador",
+  "Publisher disclosure": "Aclaración del publicador",
+  "Only organizerName is stored as organizer identity in the event payload. Do not add organization or individual ID fields here.":
+    "Solo organizerName se guarda como identidad del organizador en el payload del evento. No agregues campos de ID de organización o individuo acá.",
+  "Audience, cost, language, accessibility":
+    "Audiencia, costo, idioma y accesibilidad",
+  "Use optional metadata to clarify who the event is for and what support is available.":
+    "Usá metadatos opcionales para aclarar para quién es el evento y qué apoyos están disponibles.",
+  Audience: "Audiencia",
+  Families: "Familias",
+  Caregivers: "Cuidadores",
+  Students: "Estudiantes",
+  Clinicians: "Clínicos",
+  Researchers: "Investigadores",
+  "Genetic counselors": "Asesores genéticos",
+  Advocates: "Activistas",
+  Industry: "Industria",
+  "General public": "Público general",
+  "audience groups selected": "grupos de audiencia seleccionados",
+  "No audience groups selected.": "No hay grupos de audiencia seleccionados.",
+  "Cost type": "Tipo de costo",
+  Free: "Gratis",
+  Paid: "Pago",
+  Donation: "Donación",
+  Varies: "Variable",
+  Currency: "Moneda",
+  "Price in minor units": "Precio en unidades menores",
+  "Portuguese (Brazil)": "Portugués (Brasil)",
+  Portuguese: "Portugués",
+  French: "Francés",
+  German: "Alemán",
+  Italian: "Italiano",
+  Catalan: "Catalán",
+  "languages selected": "idiomas seleccionados",
+  "No languages selected.": "No hay idiomas seleccionados.",
+  "Accessibility features": "Funciones de accesibilidad",
+  Captions: "Subtítulos",
+  "Live transcript": "Transcripción en vivo",
+  "Sign language": "Lengua de señas",
+  "Wheelchair accessible": "Accesible para silla de ruedas",
+  "Recording available": "Grabación disponible",
+  "Quiet room": "Sala tranquila",
+  "Translated materials": "Materiales traducidos",
+  "accessibility features selected": "funciones de accesibilidad seleccionadas",
+  "No accessibility features selected.":
+    "No hay funciones de accesibilidad seleccionadas.",
+  "Date anchor": "Fecha de referencia",
+  "Event date remains the required start anchor. Multi-day events derive day one from this field.":
+    "La fecha del evento sigue siendo la referencia obligatoria de inicio. Los eventos de varios días derivan el día uno desde este campo.",
+  "Main button fallback": "Fallback del botón principal",
+  "The main button link remains the fallback. Typed action buttons are additive event-specific actions.":
+    "El enlace del botón principal sigue siendo el fallback. Los botones tipados agregan acciones específicas del evento.",
+  "All-day ignores times": "Día completo ignora horarios",
+  "Daily start and end times are stored but clients should ignore them for all-day events.":
+    "Los horarios diarios de inicio y fin se guardan, pero los clientes deberían ignorarlos en eventos de día completo.",
+  "Date-only hides times": "Solo fecha oculta horarios",
+  "Date-only events should not show a time row, even if daily times are filled.":
+    "Los eventos de solo fecha no deberían mostrar una fila de horario, aunque los horarios diarios estén completos.",
+  "Time pending": "Horario pendiente",
+  "Clients should show Time TBA while keeping the event date visible.":
+    "Los clientes deberían mostrar Horario a confirmar manteniendo visible la fecha del evento.",
+  "Regional rows missing": "Faltan filas regionales",
+  "Regional times is selected, but no country-specific rows have been configured yet.":
+    "Horarios por región está seleccionado, pero todavía no se configuraron filas por país.",
+  "Free event with price fields": "Evento gratis con campos de precio",
+  "Currency and price are ignored when cost type is Free.":
+    "Moneda y precio se ignoran cuando el tipo de costo es Gratis.",
+  "Paid event": "Evento pago",
+  "Add price and currency when the public cost is known.":
+    "Agregá precio y moneda cuando el costo público sea conocido.",
+  "Join live action": "Acción para entrar en vivo",
+  "Join live suppresses any legacy virtual meeting button in clients that support typed actions.":
+    "Entrar en vivo suprime cualquier botón heredado de reunión virtual en clientes que soportan acciones tipadas.",
+  "Choose an action type for every event button.":
+    "Elegí un tipo de acción para cada botón del evento.",
+  "Add a URL for every event button.":
+    "Agregá una URL para cada botón del evento.",
+  "Event button titles can be up to 56 characters.":
+    "Los textos de botones del evento pueden tener hasta 56 caracteres.",
+  "Event action URLs must use HTTPS. Contact organizer may use mailto.":
+    "Las URLs de acciones del evento deben usar HTTPS. Contactar al organizador puede usar mailto.",
+  "Use each event action type only once.":
+    "Usá cada tipo de acción del evento una sola vez.",
+  "Daily start time must use HH:mm.":
+    "La hora diaria de inicio debe usar HH:mm.",
+  "Daily end time must use HH:mm.":
+    "La hora diaria de fin debe usar HH:mm.",
+  "Timezone must be a valid IANA timezone.":
+    "La zona horaria debe ser una zona horaria IANA válida.",
+  "Multi-day length must be between 1 and 365.":
+    "La duración en días debe estar entre 1 y 365.",
+  "Price in minor units must be zero or a positive integer.":
+    "El precio en unidades menores debe ser cero o un entero positivo.",
+  "Organizer name can be up to 80 characters.":
+    "El nombre del organizador puede tener hasta 80 caracteres.",
+  "Publisher disclosure can be up to 140 characters.":
+    "La aclaración del publicador puede tener hasta 140 caracteres.",
+  "Regional time rows need two-letter ISO country codes.":
+    "Las filas de horarios regionales necesitan códigos ISO de país de dos letras.",
+  "Regional start times must use HH:mm.":
+    "Los horarios regionales de inicio deben usar HH:mm.",
+  "Regional end times must use HH:mm.":
+    "Los horarios regionales de fin deben usar HH:mm.",
+  "Regional timezones must be valid IANA timezones.":
+    "Las zonas horarias regionales deben ser zonas horarias IANA válidas.",
   "Opportunity type": "Tipo de oportunidad",
   "Choose type": "Elegir tipo",
   Requirements: "Requisitos",

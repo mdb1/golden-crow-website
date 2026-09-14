@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { DiscoverFeedEntryWorkbench } from "@/components/discover/feed-entry-workbench";
@@ -320,6 +320,159 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       countries: ["US", "AR"],
       sponsor: "",
     });
+  });
+
+  it("stores extended event-only fields from the rich event editor", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publisher"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "upcoming_event" },
+    });
+
+    expect(screen.getByText("Schedule display")).toBeTruthy();
+    expect(screen.getByText("Date anchor")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Event date *"), {
+      target: { value: "2026-10-12T09:30" },
+    });
+    fireEvent.change(screen.getByLabelText("Location"), {
+      target: { value: "Online" },
+    });
+    fireEvent.change(screen.getByLabelText("Max attendance"), {
+      target: { value: "250" },
+    });
+    fireEvent.change(screen.getByLabelText("Time display"), {
+      target: { value: "regionalTimes" },
+    });
+    fireEvent.change(screen.getByLabelText("Timezone"), {
+      target: { value: "America/Argentina/Buenos_Aires" },
+    });
+    fireEvent.change(screen.getByLabelText("Daily start time"), {
+      target: { value: "09:30" },
+    });
+    fireEvent.change(screen.getByLabelText("Daily end time"), {
+      target: { value: "11:00" },
+    });
+    fireEvent.change(screen.getByLabelText("Multi-day length"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByLabelText("Event kind"), {
+      target: { value: "conference" },
+    });
+    fireEvent.change(screen.getByLabelText("Attendance mode"), {
+      target: { value: "online" },
+    });
+    fireEvent.change(screen.getByLabelText("Event status"), {
+      target: { value: "scheduled" },
+    });
+    fireEvent.change(screen.getByLabelText("Publisher relationship"), {
+      target: { value: "organizer" },
+    });
+    fireEvent.change(screen.getByLabelText("Organizer name"), {
+      target: { value: "Golden Crow" },
+    });
+    fireEvent.change(screen.getByLabelText("Publisher disclosure"), {
+      target: { value: "Organized by the publisher team." },
+    });
+
+    fireEvent.click(screen.getByLabelText("Patients"));
+    fireEvent.change(screen.getByLabelText("Cost type"), {
+      target: { value: "free" },
+    });
+    fireEvent.click(screen.getByLabelText("Spanish"));
+    fireEvent.click(screen.getByLabelText("Captions"));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Configure regional times" }),
+    );
+    let dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add region" }));
+    fireEvent.change(within(dialog).getByLabelText("Country"), {
+      target: { value: "AR" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Start time"), {
+      target: { value: "09:30" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("End time"), {
+      target: { value: "11:00" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Timezone"), {
+      target: { value: "America/Argentina/Buenos_Aires" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Configure actions" }));
+    dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add action" }));
+    fireEvent.change(within(dialog).getByLabelText("Button URL"), {
+      target: { value: "https://example.org/register" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items", {
+        method: "POST",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, Record<string, unknown> | string>;
+    const payload = body.upcoming_event as Record<string, unknown>;
+
+    expect(body.type).toBe("upcoming_event");
+    expect(payload).toMatchObject({
+      location: "Online",
+      maxAttendance: 250,
+      timeKind: "regionalTimes",
+      timezone: "America/Argentina/Buenos_Aires",
+      dailyStartTime: "09:30",
+      dailyEndTime: "11:00",
+      multiDayLength: 2,
+      countryDailyStartTimes: { AR: "09:30" },
+      countryDailyEndTimes: { AR: "11:00" },
+      countryTimezones: { AR: "America/Argentina/Buenos_Aires" },
+      eventKind: "conference",
+      attendanceMode: "online",
+      eventStatus: "scheduled",
+      publisherRelationshipToEvent: "organizer",
+      organizerName: "Golden Crow",
+      publisherDisclosure: "Organized by the publisher team.",
+      audience: ["patients"],
+      costType: "free",
+      languages: ["es"],
+      accessibilityFeatures: ["captions"],
+      actionButtons: [
+        {
+          type: "register",
+          title: "Register",
+          url: "https://example.org/register",
+        },
+      ],
+    });
+    expect(payload.date).toBe(new Date("2026-10-12T09:30").toISOString());
   });
 
   it("shows the public app link after a successful publish with no unsaved changes", async () => {

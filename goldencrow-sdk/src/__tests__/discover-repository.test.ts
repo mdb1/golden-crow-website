@@ -1478,6 +1478,111 @@ describe("discover repository", () => {
     expect(stored?.sourceButtonText).toBe("Register now");
   });
 
+  it("normalizes extended optional event payload fields", async () => {
+    const { createDiscoverFeedItem } =
+      await import("../repositories/discover.repository");
+
+    const feedItem = await createDiscoverFeedItem(fullAdminContext, {
+      publisherOrganizationId: "org-1",
+      type: "upcoming_event",
+      status: "published",
+      publishedAt: "2026-08-05T10:00:00.000Z",
+      language: "en",
+      title: "Genomics conference",
+      subtitle: "A regional event for patients, clinicians, and researchers.",
+      body: "Plain text event details.",
+      sourceUrl: "https://example.org/events",
+      sourceButtonText: "Event site",
+      upcoming_event: {
+        date: "2026-09-04T18:00:00.000Z",
+        location: "Online",
+        maxAttendance: 250,
+        timeKind: "regionalTimes",
+        timezone: "America/Argentina/Buenos_Aires",
+        dailyStartTime: "09:30",
+        dailyEndTime: "11:00",
+        multiDayLength: 2,
+        countryDailyStartTimes: { AR: "09:30", US: "08:30" },
+        countryDailyEndTimes: { AR: "11:00", US: "10:00" },
+        countryTimezones: {
+          AR: "America/Argentina/Buenos_Aires",
+          US: "America/New_York",
+        },
+        eventKind: "conference",
+        attendanceMode: "online",
+        eventStatus: "scheduled",
+        actionButtons: [
+          {
+            type: "register",
+            title: "Register here",
+            url: "https://example.org/events/register",
+          },
+          {
+            type: "contactOrganizer",
+            url: "mailto:events@example.org",
+          },
+        ],
+        publisherRelationshipToEvent: "organizer",
+        organizerName: "Golden Crow",
+        publisherDisclosure: "Organized by the publisher team.",
+        audience: ["patients", "clinicians", "patients"],
+        costType: "paid",
+        currency: "ars",
+        priceMinorUnits: 120000,
+        languages: ["es", "en", "es"],
+        accessibilityFeatures: ["captions", "recordingAvailable"],
+      },
+    });
+
+    const stored = mockFeedDocs.find((doc) => doc.id === feedItem.id)?.data;
+    const payload = stored?.upcoming_event as Record<string, unknown>;
+
+    expect(payload).toMatchObject({
+      location: "Online",
+      maxAttendance: 250,
+      timeKind: "regionalTimes",
+      timezone: "America/Argentina/Buenos_Aires",
+      dailyStartTime: "09:30",
+      dailyEndTime: "11:00",
+      multiDayLength: 2,
+      countryDailyStartTimes: { AR: "09:30", US: "08:30" },
+      countryDailyEndTimes: { AR: "11:00", US: "10:00" },
+      countryTimezones: {
+        AR: "America/Argentina/Buenos_Aires",
+        US: "America/New_York",
+      },
+      eventKind: "conference",
+      attendanceMode: "online",
+      eventStatus: "scheduled",
+      actionButtons: [
+        {
+          type: "register",
+          title: "Register here",
+          url: "https://example.org/events/register",
+        },
+        {
+          type: "contactOrganizer",
+          url: "mailto:events@example.org",
+        },
+      ],
+      publisherRelationshipToEvent: "organizer",
+      organizerName: "Golden Crow",
+      publisherDisclosure: "Organized by the publisher team.",
+      audience: ["patients", "clinicians"],
+      costType: "paid",
+      currency: "ARS",
+      priceMinorUnits: 120000,
+      languages: ["es", "en"],
+      accessibilityFeatures: ["captions", "recordingAvailable"],
+    });
+    expect(payload.date).toBeDefined();
+    expect(payload.startsAt).toBeDefined();
+    expect(payload.sourceUrl).toBeUndefined();
+    expect(payload.sourceButtonText).toBeUndefined();
+    expect(payload.organizerOrganizationId).toBeUndefined();
+    expect(payload.organizerIndividualId).toBeUndefined();
+  });
+
   it("creates feed entries for every supported Discover type", async () => {
     const { createDiscoverFeedItem } =
       await import("../repositories/discover.repository");

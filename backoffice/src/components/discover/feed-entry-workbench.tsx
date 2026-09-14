@@ -5,14 +5,19 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   ArrowLeft,
   Bold,
+  CalendarDays,
   ChevronDown,
   Check,
   CheckCircle2,
+  Clock,
+  DollarSign,
   ExternalLink,
   Heading2,
   ImageIcon,
+  Info,
   Italic,
   Languages,
   LinkIcon,
@@ -20,14 +25,17 @@ import {
   Loader2,
   MapPin,
   Newspaper,
+  Plus,
   Quote,
   RotateCcw,
   Save,
   Search,
   Send,
+  Settings2,
   Trash2,
   Type,
   UploadCloud,
+  Users,
   X,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -124,6 +132,180 @@ const publisherSelectClass =
 const publisherSelectCaretClass =
   "pointer-events-none absolute right-6 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-white/55";
 
+type EventSelectOption = {
+  value: string;
+  label: string;
+  description?: string;
+};
+
+type EventActionButton = {
+  type: string;
+  title: string;
+  url: string;
+};
+
+type EventRegionalTimeRow = {
+  countryCode: string;
+  startTime: string;
+  endTime: string;
+  timezone: string;
+};
+
+const EVENT_TIME_KIND_OPTIONS: readonly EventSelectOption[] = [
+  {
+    value: "timed",
+    label: "Timed event",
+    description: "Use the start and end time fields for a standard scheduled activity.",
+  },
+  {
+    value: "allDay",
+    label: "All-day event",
+    description: "Use the date anchor, but do not show daily start or end times.",
+  },
+  {
+    value: "dateOnly",
+    label: "Date only",
+    description: "Show only the event date with no time row.",
+  },
+  {
+    value: "timeTba",
+    label: "Time to be announced",
+    description: "Tell readers the date is known but the time is still pending.",
+  },
+  {
+    value: "regionalTimes",
+    label: "Regional times",
+    description: "Use country-specific rows when times vary by region.",
+  },
+];
+
+const EVENT_KIND_OPTIONS: readonly EventSelectOption[] = [
+  { value: "webinar", label: "Webinar" },
+  { value: "conference", label: "Conference" },
+  { value: "workshop", label: "Workshop" },
+  { value: "seminar", label: "Seminar" },
+  { value: "supportGroup", label: "Support group" },
+  { value: "communityMeetup", label: "Community meetup" },
+  { value: "awarenessDay", label: "Awareness day" },
+  { value: "course", label: "Course" },
+  { value: "training", label: "Training" },
+  { value: "fundraiser", label: "Fundraiser" },
+  { value: "clinicalSession", label: "Clinical session" },
+  { value: "researchSession", label: "Research session" },
+  { value: "networking", label: "Networking" },
+  { value: "livestream", label: "Livestream" },
+  { value: "recordedSession", label: "Recorded session" },
+  { value: "other", label: "Other" },
+];
+
+const EVENT_ATTENDANCE_MODE_OPTIONS: readonly EventSelectOption[] = [
+  { value: "online", label: "Online" },
+  { value: "inPerson", label: "In person" },
+  { value: "hybrid", label: "Hybrid" },
+  { value: "phone", label: "Phone" },
+  { value: "onDemand", label: "On demand" },
+  { value: "toBeAnnounced", label: "To be announced" },
+];
+
+const EVENT_STATUS_OPTIONS: readonly EventSelectOption[] = [
+  { value: "scheduled", label: "Scheduled" },
+  { value: "tentative", label: "Tentative" },
+  { value: "postponed", label: "Postponed" },
+  { value: "rescheduled", label: "Rescheduled" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "completed", label: "Completed" },
+  { value: "soldOut", label: "Sold out" },
+];
+
+const EVENT_ACTION_BUTTON_TYPE_OPTIONS: readonly EventSelectOption[] = [
+  { value: "register", label: "Register" },
+  { value: "join", label: "Join live" },
+  { value: "learnMore", label: "Learn more" },
+  { value: "viewAgenda", label: "View agenda" },
+  { value: "watchRecording", label: "Watch recording" },
+  { value: "downloadMaterials", label: "Download materials" },
+  { value: "contactOrganizer", label: "Contact organizer" },
+];
+
+const EVENT_ACTION_BUTTON_DEFAULT_TITLES: Record<string, string> = {
+  register: "Register",
+  join: "Join live",
+  learnMore: "Learn more",
+  viewAgenda: "View agenda",
+  watchRecording: "Watch recording",
+  downloadMaterials: "Download materials",
+  contactOrganizer: "Contact organizer",
+};
+
+const EVENT_RELATIONSHIP_OPTIONS: readonly EventSelectOption[] = [
+  { value: "organizer", label: "Organizer" },
+  { value: "coOrganizer", label: "Co-organizer" },
+  { value: "speaker", label: "Speaker" },
+  { value: "sponsor", label: "Sponsor" },
+  { value: "partner", label: "Event partner" },
+  { value: "participant", label: "Participant" },
+  { value: "attendee", label: "Attendee" },
+  { value: "mentioning", label: "Mentioning the event" },
+  { value: "unknown", label: "Unknown" },
+];
+
+const EVENT_AUDIENCE_OPTIONS: readonly EventSelectOption[] = [
+  { value: "patients", label: "Patients" },
+  { value: "families", label: "Families" },
+  { value: "caregivers", label: "Caregivers" },
+  { value: "students", label: "Students" },
+  { value: "clinicians", label: "Clinicians" },
+  { value: "researchers", label: "Researchers" },
+  { value: "geneticCounselors", label: "Genetic counselors" },
+  { value: "advocates", label: "Advocates" },
+  { value: "industry", label: "Industry" },
+  { value: "generalPublic", label: "General public" },
+];
+
+const EVENT_COST_TYPE_OPTIONS: readonly EventSelectOption[] = [
+  { value: "free", label: "Free" },
+  { value: "paid", label: "Paid" },
+  { value: "donation", label: "Donation" },
+  { value: "varies", label: "Varies" },
+  { value: "unknown", label: "Unknown" },
+];
+
+const EVENT_LANGUAGE_OPTIONS: readonly EventSelectOption[] = [
+  { value: "es", label: "Spanish" },
+  { value: "en", label: "English" },
+  { value: "pt-BR", label: "Portuguese (Brazil)" },
+  { value: "pt", label: "Portuguese" },
+  { value: "fr", label: "French" },
+  { value: "de", label: "German" },
+  { value: "it", label: "Italian" },
+  { value: "ca", label: "Catalan" },
+];
+
+const EVENT_ACCESSIBILITY_OPTIONS: readonly EventSelectOption[] = [
+  { value: "captions", label: "Captions" },
+  { value: "liveTranscript", label: "Live transcript" },
+  { value: "signLanguage", label: "Sign language" },
+  { value: "wheelchairAccessible", label: "Wheelchair accessible" },
+  { value: "recordingAvailable", label: "Recording available" },
+  { value: "quietRoom", label: "Quiet room" },
+  { value: "translatedMaterials", label: "Translated materials" },
+];
+
+const EVENT_TIMEZONE_OPTIONS = [
+  "UTC",
+  "America/Argentina/Buenos_Aires",
+  "America/Sao_Paulo",
+  "America/Santiago",
+  "America/Mexico_City",
+  "America/New_York",
+  "America/Los_Angeles",
+  "Europe/Madrid",
+  "Europe/London",
+  "Europe/Paris",
+  "America/Bogota",
+  "America/Lima",
+] as const;
+
 const DISCOVER_LOCATION_SUGGESTIONS = [
   "Online",
   "Remote",
@@ -208,6 +390,302 @@ function lines(value: string) {
     .filter(Boolean);
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeEventCountryCode(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2);
+}
+
+function isValidIsoCountryCode(value: string) {
+  return /^[A-Z]{2}$/.test(value.trim().toUpperCase());
+}
+
+function isValidTimeOfDay(value: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value.trim());
+}
+
+function isValidIanaTimezone(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return true;
+  }
+
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: trimmed }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function serializeEventMap(value: unknown) {
+  if (!isPlainObject(value)) {
+    return "";
+  }
+
+  return Object.entries(value)
+    .map(([countryCode, mapValue]) => {
+      const text = typeof mapValue === "string" ? mapValue.trim() : "";
+      return text ? `${countryCode.trim().toUpperCase()}=${text}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function parseEventMapText(value: string) {
+  const map = new Map<string, string>();
+
+  for (const line of value.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    const separatorIndex = trimmed.indexOf("=");
+    const rawCountryCode =
+      separatorIndex >= 0 ? trimmed.slice(0, separatorIndex) : trimmed.slice(0, 2);
+    const rawValue =
+      separatorIndex >= 0 ? trimmed.slice(separatorIndex + 1) : trimmed.slice(2);
+    const countryCode = normalizeEventCountryCode(rawCountryCode);
+    const mapValue = rawValue.trim();
+
+    if (countryCode && mapValue) {
+      map.set(countryCode, mapValue);
+    }
+  }
+
+  return map;
+}
+
+function eventMapObject(value: string) {
+  const entries = [...parseEventMapText(value).entries()];
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function parseEventActionButtons(value: string): EventActionButton[] {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter(isPlainObject)
+      .map((button) => ({
+        type: stringFromPayload(button.type),
+        title: stringFromPayload(button.title),
+        url: stringFromPayload(button.url),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function serializeEventActionButtons(buttons: EventActionButton[]) {
+  const activeButtons = buttons
+    .map((button) => ({
+      type: button.type.trim(),
+      title: button.title.trim(),
+      url: button.url.trim(),
+    }))
+    .filter((button) => button.type || button.title || button.url);
+
+  return activeButtons.length > 0 ? JSON.stringify(activeButtons, null, 2) : "";
+}
+
+function eventActionButtonUrlIsValid(button: EventActionButton) {
+  const url = button.url.trim();
+  if (!url) {
+    return true;
+  }
+
+  if (button.type === "contactOrganizer" && url.startsWith("mailto:")) {
+    return /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/.test(url);
+  }
+
+  return isValidHttpsUrl(url);
+}
+
+function parseEventRegionalRows(
+  startTimesText: string,
+  endTimesText: string,
+  timezonesText: string,
+): EventRegionalTimeRow[] {
+  const startTimes = parseEventMapText(startTimesText);
+  const endTimes = parseEventMapText(endTimesText);
+  const timezones = parseEventMapText(timezonesText);
+  const countryCodes = Array.from(
+    new Set([
+      ...startTimes.keys(),
+      ...endTimes.keys(),
+      ...timezones.keys(),
+    ]),
+  ).sort();
+
+  return countryCodes.map((countryCode) => ({
+    countryCode,
+    startTime: startTimes.get(countryCode) ?? "",
+    endTime: endTimes.get(countryCode) ?? "",
+    timezone: timezones.get(countryCode) ?? "",
+  }));
+}
+
+function serializeEventRegionalRows(rows: EventRegionalTimeRow[]) {
+  const cleanRows = rows
+    .map((row) => ({
+      countryCode: normalizeEventCountryCode(row.countryCode),
+      startTime: row.startTime.trim(),
+      endTime: row.endTime.trim(),
+      timezone: row.timezone.trim(),
+    }))
+    .filter((row) => row.countryCode && (row.startTime || row.endTime || row.timezone));
+
+  return {
+    countryDailyStartTimes: cleanRows
+      .filter((row) => row.startTime)
+      .map((row) => `${row.countryCode}=${row.startTime}`)
+      .join("\n"),
+    countryDailyEndTimes: cleanRows
+      .filter((row) => row.endTime)
+      .map((row) => `${row.countryCode}=${row.endTime}`)
+      .join("\n"),
+    countryTimezones: cleanRows
+      .filter((row) => row.timezone)
+      .map((row) => `${row.countryCode}=${row.timezone}`)
+      .join("\n"),
+  };
+}
+
+function eventStringValue(payload: FeedEntryPayloadState, key: string) {
+  return (payload[key] ?? "").trim();
+}
+
+function eventIntegerValue(payload: FeedEntryPayloadState, key: string) {
+  const value = eventStringValue(payload, key);
+  return value ? Number(value) : null;
+}
+
+function eventOptionalIntegerValue(payload: FeedEntryPayloadState, key: string) {
+  const value = eventStringValue(payload, key);
+  return value ? Number(value) : undefined;
+}
+
+function selectedEventValues(payload: FeedEntryPayloadState, key: string) {
+  return lines(payload[key] ?? "");
+}
+
+function serializeSelectedEventValues(values: readonly string[]) {
+  return values.join("\n");
+}
+
+function validateEventActionButtons(buttons: EventActionButton[]) {
+  const seen = new Set<string>();
+
+  for (const button of buttons) {
+    const hasAnyValue = Boolean(
+      button.type.trim() || button.title.trim() || button.url.trim(),
+    );
+    if (!hasAnyValue) {
+      continue;
+    }
+
+    if (!button.type.trim()) {
+      return "Choose an action type for every event button.";
+    }
+    if (!button.url.trim()) {
+      return "Add a URL for every event button.";
+    }
+    if (button.title.trim().length > 56) {
+      return "Event button titles can be up to 56 characters.";
+    }
+    if (!eventActionButtonUrlIsValid(button)) {
+      return "Event action URLs must use HTTPS. Contact organizer may use mailto.";
+    }
+    if (seen.has(button.type)) {
+      return "Use each event action type only once.";
+    }
+    seen.add(button.type);
+  }
+
+  return null;
+}
+
+function validateUpcomingEventPayload(payload: FeedEntryPayloadState) {
+  const dailyStartTime = eventStringValue(payload, "dailyStartTime");
+  const dailyEndTime = eventStringValue(payload, "dailyEndTime");
+  const multiDayLength = eventStringValue(payload, "multiDayLength");
+  const priceMinorUnits = eventStringValue(payload, "priceMinorUnits");
+  const timezone = eventStringValue(payload, "timezone");
+  const organizerName = eventStringValue(payload, "organizerName");
+  const publisherDisclosure = eventStringValue(payload, "publisherDisclosure");
+  const regionalRows = parseEventRegionalRows(
+    payload.countryDailyStartTimes ?? "",
+    payload.countryDailyEndTimes ?? "",
+    payload.countryTimezones ?? "",
+  );
+  const actionButtonError = validateEventActionButtons(
+    parseEventActionButtons(payload.actionButtons ?? ""),
+  );
+
+  if (actionButtonError) {
+    return actionButtonError;
+  }
+
+  if (dailyStartTime && !isValidTimeOfDay(dailyStartTime)) {
+    return "Daily start time must use HH:mm.";
+  }
+  if (dailyEndTime && !isValidTimeOfDay(dailyEndTime)) {
+    return "Daily end time must use HH:mm.";
+  }
+  if (timezone && !isValidIanaTimezone(timezone)) {
+    return "Timezone must be a valid IANA timezone.";
+  }
+  if (
+    multiDayLength &&
+    (!Number.isInteger(Number(multiDayLength)) ||
+      Number(multiDayLength) < 1 ||
+      Number(multiDayLength) > 365)
+  ) {
+    return "Multi-day length must be between 1 and 365.";
+  }
+  if (
+    priceMinorUnits &&
+    (!Number.isInteger(Number(priceMinorUnits)) || Number(priceMinorUnits) < 0)
+  ) {
+    return "Price in minor units must be zero or a positive integer.";
+  }
+  if (organizerName.length > 80) {
+    return "Organizer name can be up to 80 characters.";
+  }
+  if (publisherDisclosure.length > 140) {
+    return "Publisher disclosure can be up to 140 characters.";
+  }
+
+  for (const row of regionalRows) {
+    if (!isValidIsoCountryCode(row.countryCode)) {
+      return "Regional time rows need two-letter ISO country codes.";
+    }
+    if (row.startTime && !isValidTimeOfDay(row.startTime)) {
+      return "Regional start times must use HH:mm.";
+    }
+    if (row.endTime && !isValidTimeOfDay(row.endTime)) {
+      return "Regional end times must use HH:mm.";
+    }
+    if (row.timezone && !isValidIanaTimezone(row.timezone)) {
+      return "Regional timezones must be valid IANA timezones.";
+    }
+  }
+
+  return null;
+}
+
 function payloadText(value: unknown) {
   return Array.isArray(value)
     ? value.map((entry) => (typeof entry === "string" ? entry : "")).filter(Boolean).join("\n")
@@ -242,6 +720,18 @@ function payloadFieldText(
   field: DiscoverFeedPayloadFieldDefinition,
 ) {
   const value = payloadSourceValue(payload, field);
+
+  if (field.key === "actionButtons" && Array.isArray(value)) {
+    return JSON.stringify(value, null, 2);
+  }
+
+  if (
+    field.key === "countryDailyStartTimes" ||
+    field.key === "countryDailyEndTimes" ||
+    field.key === "countryTimezones"
+  ) {
+    return serializeEventMap(value);
+  }
 
   if (field.kind === "array") {
     return payloadText(value);
@@ -344,6 +834,92 @@ function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
 
 function payloadForType(state: FeedEntryFormState) {
   const values = state.payloads[state.type] ?? {};
+
+  if (state.type === "upcoming_event") {
+    const actionButtons = parseEventActionButtons(values.actionButtons ?? "")
+      .filter((button) => button.type.trim() && button.url.trim())
+      .map((button) => ({
+        type: button.type.trim(),
+        ...(button.title.trim() ? { title: button.title.trim() } : {}),
+        url: button.url.trim(),
+      }));
+    const audience = selectedEventValues(values, "audience");
+    const languages = selectedEventValues(values, "languages");
+    const accessibilityFeatures = selectedEventValues(
+      values,
+      "accessibilityFeatures",
+    );
+    const countryDailyStartTimes = eventMapObject(
+      values.countryDailyStartTimes ?? "",
+    );
+    const countryDailyEndTimes = eventMapObject(values.countryDailyEndTimes ?? "");
+    const countryTimezones = eventMapObject(values.countryTimezones ?? "");
+
+    return {
+      date: fromDateTimeInput(values.date ?? ""),
+      location: eventStringValue(values, "location"),
+      maxAttendance: eventIntegerValue(values, "maxAttendance"),
+      ...(eventStringValue(values, "timeKind")
+        ? { timeKind: eventStringValue(values, "timeKind") }
+        : {}),
+      ...(eventStringValue(values, "timezone")
+        ? { timezone: eventStringValue(values, "timezone") }
+        : {}),
+      ...(eventStringValue(values, "dailyStartTime")
+        ? { dailyStartTime: eventStringValue(values, "dailyStartTime") }
+        : {}),
+      ...(eventStringValue(values, "dailyEndTime")
+        ? { dailyEndTime: eventStringValue(values, "dailyEndTime") }
+        : {}),
+      ...(eventStringValue(values, "multiDayLength")
+        ? { multiDayLength: eventOptionalIntegerValue(values, "multiDayLength") }
+        : {}),
+      ...(countryDailyStartTimes ? { countryDailyStartTimes } : {}),
+      ...(countryDailyEndTimes ? { countryDailyEndTimes } : {}),
+      ...(countryTimezones ? { countryTimezones } : {}),
+      ...(eventStringValue(values, "eventKind")
+        ? { eventKind: eventStringValue(values, "eventKind") }
+        : {}),
+      ...(eventStringValue(values, "attendanceMode")
+        ? { attendanceMode: eventStringValue(values, "attendanceMode") }
+        : {}),
+      ...(eventStringValue(values, "eventStatus")
+        ? { eventStatus: eventStringValue(values, "eventStatus") }
+        : {}),
+      ...(actionButtons.length > 0 ? { actionButtons } : {}),
+      ...(eventStringValue(values, "publisherRelationshipToEvent")
+        ? {
+            publisherRelationshipToEvent: eventStringValue(
+              values,
+              "publisherRelationshipToEvent",
+            ),
+          }
+        : {}),
+      ...(eventStringValue(values, "organizerName")
+        ? { organizerName: eventStringValue(values, "organizerName") }
+        : {}),
+      ...(eventStringValue(values, "publisherDisclosure")
+        ? {
+            publisherDisclosure: eventStringValue(
+              values,
+              "publisherDisclosure",
+            ),
+          }
+        : {}),
+      ...(audience.length > 0 ? { audience } : {}),
+      ...(eventStringValue(values, "costType")
+        ? { costType: eventStringValue(values, "costType") }
+        : {}),
+      ...(eventStringValue(values, "currency")
+        ? { currency: eventStringValue(values, "currency").toUpperCase() }
+        : {}),
+      ...(eventStringValue(values, "priceMinorUnits")
+        ? { priceMinorUnits: eventOptionalIntegerValue(values, "priceMinorUnits") }
+        : {}),
+      ...(languages.length > 0 ? { languages } : {}),
+      ...(accessibilityFeatures.length > 0 ? { accessibilityFeatures } : {}),
+    };
+  }
 
   return Object.fromEntries(
     discoverFeedTypeDefinition(state.type).fields.map((field) => {
@@ -759,6 +1335,8 @@ export function DiscoverFeedEntryWorkbench({
   const [deletePending, setDeletePending] = useState(false);
   const [publishDialog, setPublishDialog] = useState<PublishDialogState | null>(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [eventActionButtonsOpen, setEventActionButtonsOpen] = useState(false);
+  const [eventRegionalTimesOpen, setEventRegionalTimesOpen] = useState(false);
   const [persistedState, setPersistedState] = useState<FeedEntryFormState | null>(null);
   const [publishedFeedItemId, setPublishedFeedItemId] = useState<string | null>(
     feedItem?.status === "published" ? feedItem.id : null,
@@ -811,6 +1389,24 @@ export function DiscoverFeedEntryWorkbench({
     !changed && publishedFeedItemId
       ? publicDiscoverFeedEntryUrl(publishedFeedItemId)
       : null;
+  const upcomingEventPayload = state.payloads.upcoming_event ?? {};
+  const eventActionButtons = useMemo(
+    () => parseEventActionButtons(upcomingEventPayload.actionButtons ?? ""),
+    [upcomingEventPayload.actionButtons],
+  );
+  const eventRegionalRows = useMemo(
+    () =>
+      parseEventRegionalRows(
+        upcomingEventPayload.countryDailyStartTimes ?? "",
+        upcomingEventPayload.countryDailyEndTimes ?? "",
+        upcomingEventPayload.countryTimezones ?? "",
+      ),
+    [
+      upcomingEventPayload.countryDailyEndTimes,
+      upcomingEventPayload.countryDailyStartTimes,
+      upcomingEventPayload.countryTimezones,
+    ],
+  );
 
   useEffect(() => {
     setPersistedState(null);
@@ -858,6 +1454,44 @@ export function DiscoverFeedEntryWorkbench({
         },
       },
     }));
+  }
+
+  function updateUpcomingEventField(fieldKey: string, value: string) {
+    updatePayloadField("upcoming_event", fieldKey, value);
+  }
+
+  function updateEventActionButtons(buttons: EventActionButton[]) {
+    updateUpcomingEventField(
+      "actionButtons",
+      serializeEventActionButtons(buttons),
+    );
+  }
+
+  function updateEventRegionalRows(rows: EventRegionalTimeRow[]) {
+    const serialized = serializeEventRegionalRows(rows);
+
+    setState((current) => ({
+      ...current,
+      payloads: {
+        ...current.payloads,
+        upcoming_event: {
+          ...current.payloads.upcoming_event,
+          ...serialized,
+        },
+      },
+    }));
+  }
+
+  function toggleEventValues(
+    fieldKey: "audience" | "languages" | "accessibilityFeatures",
+    value: string,
+    checked: boolean,
+  ) {
+    const currentValues = selectedEventValues(upcomingEventPayload, fieldKey);
+    const nextValues = checked
+      ? Array.from(new Set([...currentValues, value]))
+      : currentValues.filter((entry) => entry !== value);
+    updateUpcomingEventField(fieldKey, serializeSelectedEventValues(nextValues));
   }
 
   function switchBodyMode(nextMode: BodyMode) {
@@ -990,6 +1624,15 @@ export function DiscoverFeedEntryWorkbench({
     const nextImageUrlError = imageUrlErrorFor(nextState.imageUrl);
     if (nextImageUrlError) {
       return nextImageUrlError;
+    }
+
+    if (nextState.type === "upcoming_event") {
+      const eventPayloadError = validateUpcomingEventPayload(
+        nextState.payloads.upcoming_event ?? {},
+      );
+      if (eventPayloadError) {
+        return t(eventPayloadError);
+      }
     }
 
     if (status === "published" && selectedPublisher?.status !== "active") {
@@ -1150,7 +1793,942 @@ export function DiscoverFeedEntryWorkbench({
     }
   }
 
+  function renderEventNotice(
+    tone: "info" | "warning",
+    title: string,
+    message: string,
+  ) {
+    const isWarning = tone === "warning";
+
+    return (
+      <div
+        key={`${tone}-${title}`}
+        className={[
+          "flex gap-3 rounded-xl border px-3 py-3 text-sm leading-5",
+          isWarning
+            ? "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100"
+            : "border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-400/24 dark:bg-sky-500/10 dark:text-sky-100",
+        ].join(" ")}
+      >
+        {isWarning ? (
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        ) : (
+          <Info className="mt-0.5 h-4 w-4 shrink-0" />
+        )}
+        <div>
+          <p className="font-semibold">{t(title)}</p>
+          <p className="mt-0.5">{t(message)}</p>
+        </div>
+      </div>
+    );
+  }
+
+  function renderEventSubsection({
+    icon,
+    title,
+    description,
+    children,
+  }: {
+    icon: ReactNode;
+    title: string;
+    description: string;
+    children: ReactNode;
+  }) {
+    return (
+      <div className="rounded-xl border border-violet-100/80 bg-white/78 p-4 shadow-sm dark:border-violet-400/14 dark:bg-slate-950/32">
+        <div className="mb-4 flex gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-violet-100 bg-violet-50 text-violet-700 dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-100">
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <h4 className="font-heading text-base font-semibold text-foreground">
+              {t(title)}
+            </h4>
+            <p className="mt-1 text-sm leading-5 text-muted-foreground">
+              {t(description)}
+            </p>
+          </div>
+        </div>
+        {children}
+      </div>
+    );
+  }
+
+  function renderEventSelectField({
+    fieldKey,
+    label,
+    options,
+    placeholder = "Not specified",
+  }: {
+    fieldKey: string;
+    label: string;
+    options: readonly EventSelectOption[];
+    placeholder?: string;
+  }) {
+    const fieldId = `discover-upcoming-event-${fieldKey}`;
+
+    return (
+      <FieldShell label={t(label)} htmlFor={fieldId}>
+        <div className="relative">
+          <select
+            id={fieldId}
+            value={upcomingEventPayload[fieldKey] ?? ""}
+            onChange={(event) =>
+              updateUpcomingEventField(fieldKey, event.target.value)
+            }
+            className={publisherSelectClass}
+          >
+            <option value="">{t(placeholder)}</option>
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {t(option.label)}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className={publisherSelectCaretClass} />
+        </div>
+        {options.find((option) => option.value === upcomingEventPayload[fieldKey])
+          ?.description ? (
+          <p className="text-xs leading-5 text-muted-foreground">
+            {t(
+              options.find(
+                (option) => option.value === upcomingEventPayload[fieldKey],
+              )?.description ?? "",
+            )}
+          </p>
+        ) : null}
+      </FieldShell>
+    );
+  }
+
+  function renderEventCheckboxGrid(
+    fieldKey: "audience" | "languages" | "accessibilityFeatures",
+    options: readonly EventSelectOption[],
+  ) {
+    const selectedValues = selectedEventValues(upcomingEventPayload, fieldKey);
+
+    return (
+      <div className="grid gap-2 sm:grid-cols-2">
+        {options.map((option) => {
+          const checkboxId = `discover-upcoming-event-${fieldKey}-${option.value}`;
+
+          return (
+            <label
+              key={option.value}
+              htmlFor={checkboxId}
+              className="flex min-w-0 cursor-pointer items-center gap-2 rounded-lg border border-violet-100/70 bg-white/72 px-3 py-2 text-sm hover:bg-violet-50 dark:border-violet-400/12 dark:bg-slate-950/28 dark:hover:bg-violet-500/10"
+            >
+              <Checkbox
+                id={checkboxId}
+                checked={selectedValues.includes(option.value)}
+                onCheckedChange={(checked) =>
+                  toggleEventValues(fieldKey, option.value, checked === true)
+                }
+              />
+              <span className="min-w-0 flex-1 truncate">{t(option.label)}</span>
+            </label>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function renderEventActionButtonsModal() {
+    const buttonTypeCounts = eventActionButtons.reduce<Record<string, number>>(
+      (counts, button) => ({
+        ...counts,
+        [button.type]: (counts[button.type] ?? 0) + 1,
+      }),
+      {},
+    );
+
+    function replaceButton(index: number, patch: Partial<EventActionButton>) {
+      const nextButtons = [...eventActionButtons];
+      nextButtons[index] = {
+        ...(nextButtons[index] ?? { type: "", title: "", url: "" }),
+        ...patch,
+      };
+      updateEventActionButtons(nextButtons);
+    }
+
+    return (
+      <Dialog open={eventActionButtonsOpen} onOpenChange={setEventActionButtonsOpen}>
+        <DialogContent className="overflow-hidden p-0 sm:max-w-3xl">
+          <DialogHeader className="border-b border-border px-5 py-4">
+            <DialogTitle className="font-heading text-xl font-semibold">
+              {t("Event action buttons")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("Add typed event buttons for registration, live access, agendas, recordings, materials, or organizer contact.")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[62vh] overflow-y-auto px-5 py-4">
+            <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-sm leading-5 text-sky-950 dark:border-sky-400/24 dark:bg-sky-500/10 dark:text-sky-100">
+              {t("The main button link remains the app fallback. Typed action buttons add richer event actions when clients support them.")}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {eventActionButtons.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-violet-200 px-4 py-8 text-center text-sm text-muted-foreground dark:border-violet-400/20">
+                  {t("No event action buttons configured.")}
+                </div>
+              ) : (
+                eventActionButtons.map((button, index) => {
+                  const duplicate = Boolean(
+                    button.type && buttonTypeCounts[button.type] > 1,
+                  );
+                  const invalidUrl = !eventActionButtonUrlIsValid(button);
+
+                  return (
+                    <div
+                      key={`${button.type}-${index}`}
+                      className="rounded-xl border border-violet-100/80 bg-white/82 p-3 dark:border-violet-400/14 dark:bg-slate-950/38"
+                    >
+                      <div className="grid gap-3 md:grid-cols-[minmax(10rem,0.8fr)_minmax(0,1fr)]">
+                        <FieldShell
+                          label={t("Action type")}
+                          htmlFor={`event-action-type-${index}`}
+                        >
+                          <div className="relative">
+                            <select
+                              id={`event-action-type-${index}`}
+                              value={button.type}
+                              onChange={(event) => {
+                                const type = event.target.value;
+                                replaceButton(index, {
+                                  type,
+                                  title:
+                                    button.title ||
+                                    EVENT_ACTION_BUTTON_DEFAULT_TITLES[type] ||
+                                    "",
+                                });
+                              }}
+                              className={publisherSelectClass}
+                            >
+                              <option value="">{t("Choose type")}</option>
+                              {EVENT_ACTION_BUTTON_TYPE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {t(option.label)}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className={publisherSelectCaretClass} />
+                          </div>
+                        </FieldShell>
+                        <FieldShell
+                          label={t("Button title")}
+                          htmlFor={`event-action-title-${index}`}
+                        >
+                          <Input
+                            id={`event-action-title-${index}`}
+                            value={button.title}
+                            maxLength={56}
+                            onChange={(event) =>
+                              replaceButton(index, { title: event.target.value })
+                            }
+                            className={publisherInputClass}
+                          />
+                        </FieldShell>
+                        <FieldShell
+                          label={t("Button URL")}
+                          htmlFor={`event-action-url-${index}`}
+                          error={invalidUrl ? t("Use HTTPS, or mailto for contact organizer.") : null}
+                          className="md:col-span-2"
+                        >
+                          <Input
+                            id={`event-action-url-${index}`}
+                            type="url"
+                            value={button.url}
+                            onChange={(event) =>
+                              replaceButton(index, { url: event.target.value })
+                            }
+                            placeholder={
+                              button.type === "contactOrganizer"
+                                ? "mailto:organizer@example.org"
+                                : "https://"
+                            }
+                            className={`${publisherInputClass} ${invalidUrl ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                          />
+                        </FieldShell>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                        {duplicate ? (
+                          <p className="text-xs font-medium text-amber-700 dark:text-amber-200">
+                            {t("This action type is duplicated. Keep one row per type.")}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            {button.type === "join"
+                              ? t("Join live replaces any legacy virtual meeting button in clients that support typed actions.")
+                              : t("One event action per type keeps mobile rendering predictable.")}
+                          </p>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            updateEventActionButtons(
+                              eventActionButtons.filter((_, itemIndex) => itemIndex !== index),
+                            )
+                          }
+                          className={publisherSoftButtonClass}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {t("Remove")}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="border-t border-border px-5 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                updateEventActionButtons([
+                  ...eventActionButtons,
+                  { type: "register", title: "Register", url: "" },
+                ])
+              }
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("Add action")}
+            </Button>
+            <Button type="button" onClick={() => setEventActionButtonsOpen(false)}>
+              {t("Done")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  function renderEventRegionalTimesModal() {
+    function replaceRow(index: number, patch: Partial<EventRegionalTimeRow>) {
+      const nextRows = [...eventRegionalRows];
+      nextRows[index] = {
+        ...(nextRows[index] ?? {
+          countryCode: "",
+          startTime: "",
+          endTime: "",
+          timezone: "",
+        }),
+        ...patch,
+      };
+      updateEventRegionalRows(nextRows);
+    }
+
+    return (
+      <Dialog open={eventRegionalTimesOpen} onOpenChange={setEventRegionalTimesOpen}>
+        <DialogContent className="overflow-hidden p-0 sm:max-w-3xl">
+          <DialogHeader className="border-b border-border px-5 py-4">
+            <DialogTitle className="font-heading text-xl font-semibold">
+              {t("Regional event times")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("Use two-letter country codes with local daily times when the same event is shown differently by region.")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[62vh] overflow-y-auto px-5 py-4">
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-5 text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100">
+              {t("Regional rows are only used when time display is Regional times. Until a row is added, clients can fall back to the daily time fields.")}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {eventRegionalRows.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-violet-200 px-4 py-8 text-center text-sm text-muted-foreground dark:border-violet-400/20">
+                  {t("No regional times configured.")}
+                </div>
+              ) : (
+                eventRegionalRows.map((row, index) => {
+                  const invalidCountry =
+                    row.countryCode.trim() && !isValidIsoCountryCode(row.countryCode);
+                  const invalidStart =
+                    row.startTime.trim() && !isValidTimeOfDay(row.startTime);
+                  const invalidEnd = row.endTime.trim() && !isValidTimeOfDay(row.endTime);
+                  const invalidTimezone =
+                    row.timezone.trim() && !isValidIanaTimezone(row.timezone);
+
+                  return (
+                    <div
+                      key={`${row.countryCode}-${index}`}
+                      className="rounded-xl border border-violet-100/80 bg-white/82 p-3 dark:border-violet-400/14 dark:bg-slate-950/38"
+                    >
+                      <div className="grid gap-3 md:grid-cols-[7rem_1fr_1fr_minmax(12rem,1.2fr)]">
+                        <FieldShell
+                          label={t("Country")}
+                          htmlFor={`event-region-country-${index}`}
+                          error={invalidCountry ? t("Use two letters.") : null}
+                        >
+                          <Input
+                            id={`event-region-country-${index}`}
+                            value={row.countryCode}
+                            maxLength={2}
+                            onChange={(event) =>
+                              replaceRow(index, {
+                                countryCode: normalizeEventCountryCode(
+                                  event.target.value,
+                                ),
+                              })
+                            }
+                            placeholder="AR"
+                            className={`${publisherInputClass} uppercase ${invalidCountry ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                          />
+                        </FieldShell>
+                        <FieldShell
+                          label={t("Start time")}
+                          htmlFor={`event-region-start-${index}`}
+                          error={invalidStart ? t("Use HH:mm.") : null}
+                        >
+                          <Input
+                            id={`event-region-start-${index}`}
+                            type="time"
+                            value={row.startTime}
+                            onChange={(event) =>
+                              replaceRow(index, { startTime: event.target.value })
+                            }
+                            className={`${publisherInputClass} ${invalidStart ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                          />
+                        </FieldShell>
+                        <FieldShell
+                          label={t("End time")}
+                          htmlFor={`event-region-end-${index}`}
+                          error={invalidEnd ? t("Use HH:mm.") : null}
+                        >
+                          <Input
+                            id={`event-region-end-${index}`}
+                            type="time"
+                            value={row.endTime}
+                            onChange={(event) =>
+                              replaceRow(index, { endTime: event.target.value })
+                            }
+                            className={`${publisherInputClass} ${invalidEnd ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                          />
+                        </FieldShell>
+                        <FieldShell
+                          label={t("Timezone")}
+                          htmlFor={`event-region-timezone-${index}`}
+                          error={invalidTimezone ? t("Use an IANA timezone.") : null}
+                        >
+                          <Input
+                            id={`event-region-timezone-${index}`}
+                            list="discover-event-timezone-options"
+                            value={row.timezone}
+                            onChange={(event) =>
+                              replaceRow(index, { timezone: event.target.value })
+                            }
+                            placeholder="America/Argentina/Buenos_Aires"
+                            className={`${publisherInputClass} ${invalidTimezone ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                          />
+                        </FieldShell>
+                      </div>
+                      <div className="mt-3 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            updateEventRegionalRows(
+                              eventRegionalRows.filter((_, itemIndex) => itemIndex !== index),
+                            )
+                          }
+                          className={publisherSoftButtonClass}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {t("Remove")}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="border-t border-border px-5 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                updateEventRegionalRows([
+                  ...eventRegionalRows,
+                  {
+                    countryCode: "AR",
+                    startTime: "",
+                    endTime: "",
+                    timezone:
+                      upcomingEventPayload.timezone ||
+                      "America/Argentina/Buenos_Aires",
+                  },
+                ])
+              }
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("Add region")}
+            </Button>
+            <Button type="button" onClick={() => setEventRegionalTimesOpen(false)}>
+              {t("Done")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  function renderUpcomingEventFields() {
+    const timeKind = eventStringValue(upcomingEventPayload, "timeKind");
+    const costType = eventStringValue(upcomingEventPayload, "costType");
+    const hasDailyTimes = Boolean(
+      upcomingEventPayload.dailyStartTime || upcomingEventPayload.dailyEndTime,
+    );
+    const selectedAudience = selectedEventValues(upcomingEventPayload, "audience");
+    const selectedLanguages = selectedEventValues(upcomingEventPayload, "languages");
+    const selectedAccessibility = selectedEventValues(
+      upcomingEventPayload,
+      "accessibilityFeatures",
+    );
+    const eventNotices: ReactNode[] = [
+      renderEventNotice(
+        "info",
+        "Date anchor",
+        "Event date remains the required start anchor. Multi-day events derive day one from this field.",
+      ),
+      state.sourceUrl.trim()
+        ? renderEventNotice(
+            "info",
+            "Main button fallback",
+            "The main button link remains the fallback. Typed action buttons are additive event-specific actions.",
+          )
+        : null,
+      timeKind === "allDay" && hasDailyTimes
+        ? renderEventNotice(
+            "warning",
+            "All-day ignores times",
+            "Daily start and end times are stored but clients should ignore them for all-day events.",
+          )
+        : null,
+      timeKind === "dateOnly" && hasDailyTimes
+        ? renderEventNotice(
+            "warning",
+            "Date-only hides times",
+            "Date-only events should not show a time row, even if daily times are filled.",
+          )
+        : null,
+      timeKind === "timeTba"
+        ? renderEventNotice(
+            "info",
+            "Time pending",
+            "Clients should show Time TBA while keeping the event date visible.",
+          )
+        : null,
+      timeKind === "regionalTimes" && eventRegionalRows.length === 0
+        ? renderEventNotice(
+            "warning",
+            "Regional rows missing",
+            "Regional times is selected, but no country-specific rows have been configured yet.",
+          )
+        : null,
+      costType === "free" &&
+      (upcomingEventPayload.currency || upcomingEventPayload.priceMinorUnits)
+        ? renderEventNotice(
+            "warning",
+            "Free event with price fields",
+            "Currency and price are ignored when cost type is Free.",
+          )
+        : null,
+      costType === "paid" && !upcomingEventPayload.priceMinorUnits
+        ? renderEventNotice(
+            "info",
+            "Paid event",
+            "Add price and currency when the public cost is known.",
+          )
+        : null,
+      eventActionButtons.some((button) => button.type === "join")
+        ? renderEventNotice(
+            "info",
+            "Join live action",
+            "Join live suppresses any legacy virtual meeting button in clients that support typed actions.",
+          )
+        : null,
+    ].filter(Boolean);
+
+    return (
+      <div className="flex flex-col gap-4">
+        <datalist id="discover-event-timezone-options">
+          {EVENT_TIMEZONE_OPTIONS.map((timezone) => (
+            <option key={timezone} value={timezone} />
+          ))}
+        </datalist>
+        <div className="grid gap-3">{eventNotices}</div>
+
+        {renderEventSubsection({
+          icon: <CalendarDays className="h-4 w-4" />,
+          title: "Core event details",
+          description:
+            "Keep the existing required event anchor and the two legacy optional event properties.",
+          children: (
+            <div className="grid gap-4 md:grid-cols-3">
+              <FieldShell
+                label={`${t("Event date")} *`}
+                htmlFor="discover-upcoming-event-date"
+              >
+                <Input
+                  id="discover-upcoming-event-date"
+                  type="datetime-local"
+                  value={upcomingEventPayload.date ?? ""}
+                  onChange={(event) =>
+                    updateUpcomingEventField("date", event.target.value)
+                  }
+                  className={publisherInputClass}
+                />
+              </FieldShell>
+              <FieldShell label={t("Location")} htmlFor="discover-upcoming-event-location">
+                <LocationSuggestInput
+                  id="discover-upcoming-event-location"
+                  value={upcomingEventPayload.location ?? ""}
+                  onChange={(nextValue) =>
+                    updateUpcomingEventField("location", nextValue)
+                  }
+                  t={t}
+                />
+              </FieldShell>
+              <FieldShell
+                label={t("Max attendance")}
+                htmlFor="discover-upcoming-event-max-attendance"
+              >
+                <Input
+                  id="discover-upcoming-event-max-attendance"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={upcomingEventPayload.maxAttendance ?? ""}
+                  onChange={(event) =>
+                    updateUpcomingEventField("maxAttendance", event.target.value)
+                  }
+                  className={publisherInputClass}
+                />
+              </FieldShell>
+            </div>
+          ),
+        })}
+
+        {renderEventSubsection({
+          icon: <Clock className="h-4 w-4" />,
+          title: "Schedule display",
+          description:
+            "Choose how clients should explain the event date, time, timezone, and regional variants.",
+          children: (
+            <div className="flex flex-col gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                {renderEventSelectField({
+                  fieldKey: "timeKind",
+                  label: "Time display",
+                  options: EVENT_TIME_KIND_OPTIONS,
+                })}
+                <FieldShell label={t("Timezone")} htmlFor="discover-upcoming-event-timezone">
+                  <Input
+                    id="discover-upcoming-event-timezone"
+                    list="discover-event-timezone-options"
+                    value={upcomingEventPayload.timezone ?? ""}
+                    onChange={(event) =>
+                      updateUpcomingEventField("timezone", event.target.value)
+                    }
+                    placeholder="America/Argentina/Buenos_Aires"
+                    className={publisherInputClass}
+                  />
+                </FieldShell>
+                <FieldShell
+                  label={t("Daily start time")}
+                  htmlFor="discover-upcoming-event-daily-start"
+                >
+                  <Input
+                    id="discover-upcoming-event-daily-start"
+                    type="time"
+                    value={upcomingEventPayload.dailyStartTime ?? ""}
+                    onChange={(event) =>
+                      updateUpcomingEventField("dailyStartTime", event.target.value)
+                    }
+                    className={publisherInputClass}
+                  />
+                </FieldShell>
+                <FieldShell
+                  label={t("Daily end time")}
+                  htmlFor="discover-upcoming-event-daily-end"
+                >
+                  <Input
+                    id="discover-upcoming-event-daily-end"
+                    type="time"
+                    value={upcomingEventPayload.dailyEndTime ?? ""}
+                    onChange={(event) =>
+                      updateUpcomingEventField("dailyEndTime", event.target.value)
+                    }
+                    className={publisherInputClass}
+                  />
+                </FieldShell>
+                <FieldShell
+                  label={t("Multi-day length")}
+                  htmlFor="discover-upcoming-event-multi-day-length"
+                >
+                  <Input
+                    id="discover-upcoming-event-multi-day-length"
+                    type="number"
+                    min={1}
+                    max={365}
+                    step={1}
+                    value={upcomingEventPayload.multiDayLength ?? ""}
+                    onChange={(event) =>
+                      updateUpcomingEventField("multiDayLength", event.target.value)
+                    }
+                    className={publisherInputClass}
+                  />
+                </FieldShell>
+                <div className="flex flex-col justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEventRegionalTimesOpen(true)}
+                    className={`${publisherSoftButtonClass} h-11 justify-center`}
+                  >
+                    <Settings2 className="h-4 w-4" />
+                    {t("Configure regional times")}
+                  </Button>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {eventRegionalRows.length
+                      ? `${eventRegionalRows.length} ${t("regional rows configured")}`
+                      : t("No regional times configured.")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ),
+        })}
+
+        {renderEventSubsection({
+          icon: <Newspaper className="h-4 w-4" />,
+          title: "Classification",
+          description:
+            "These fixed values help mobile clients group events and display clear status badges.",
+          children: (
+            <div className="grid gap-4 md:grid-cols-3">
+              {renderEventSelectField({
+                fieldKey: "eventKind",
+                label: "Event kind",
+                options: EVENT_KIND_OPTIONS,
+              })}
+              {renderEventSelectField({
+                fieldKey: "attendanceMode",
+                label: "Attendance mode",
+                options: EVENT_ATTENDANCE_MODE_OPTIONS,
+              })}
+              {renderEventSelectField({
+                fieldKey: "eventStatus",
+                label: "Event status",
+                options: EVENT_STATUS_OPTIONS,
+              })}
+            </div>
+          ),
+        })}
+
+        {renderEventSubsection({
+          icon: <LinkIcon className="h-4 w-4" />,
+          title: "Event actions",
+          description:
+            "Typed buttons can direct readers to register, join, review an agenda, watch a recording, download materials, or contact the organizer.",
+          children: (
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-100/70 bg-white/70 px-4 py-3 dark:border-violet-400/12 dark:bg-slate-950/28">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {eventActionButtons.length
+                      ? `${eventActionButtons.length} ${t("actions configured")}`
+                      : t("No event action buttons configured.")}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {eventActionButtons.length
+                      ? eventActionButtons
+                          .map((button) =>
+                            t(
+                              EVENT_ACTION_BUTTON_TYPE_OPTIONS.find(
+                                (option) => option.value === button.type,
+                              )?.label ?? button.type,
+                            ),
+                          )
+                          .join(", ")
+                      : t("Use the modal to add row-based event actions.")}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEventActionButtonsOpen(true)}
+                  className={publisherSoftButtonClass}
+                >
+                  <Settings2 className="h-4 w-4" />
+                  {t("Configure actions")}
+                </Button>
+              </div>
+            </div>
+          ),
+        })}
+
+        {renderEventSubsection({
+          icon: <Users className="h-4 w-4" />,
+          title: "Organizer and disclosure",
+          description:
+            "Explain the publisher relationship without adding organizer ID fields to the event payload.",
+          children: (
+            <div className="grid gap-4 md:grid-cols-2">
+              {renderEventSelectField({
+                fieldKey: "publisherRelationshipToEvent",
+                label: "Publisher relationship",
+                options: EVENT_RELATIONSHIP_OPTIONS,
+              })}
+              <FieldShell
+                label={t("Organizer name")}
+                htmlFor="discover-upcoming-event-organizer-name"
+              >
+                <Input
+                  id="discover-upcoming-event-organizer-name"
+                  value={upcomingEventPayload.organizerName ?? ""}
+                  maxLength={80}
+                  onChange={(event) =>
+                    updateUpcomingEventField("organizerName", event.target.value)
+                  }
+                  className={publisherInputClass}
+                />
+              </FieldShell>
+              <FieldShell
+                label={t("Publisher disclosure")}
+                htmlFor="discover-upcoming-event-publisher-disclosure"
+                className="md:col-span-2"
+              >
+                <Textarea
+                  id="discover-upcoming-event-publisher-disclosure"
+                  value={upcomingEventPayload.publisherDisclosure ?? ""}
+                  maxLength={140}
+                  onChange={(event) =>
+                    updateUpcomingEventField(
+                      "publisherDisclosure",
+                      event.target.value,
+                    )
+                  }
+                  className={publisherTextareaClass}
+                  rows={2}
+                />
+                <p className="text-xs leading-5 text-muted-foreground">
+                  {t("Only organizerName is stored as organizer identity in the event payload. Do not add organization or individual ID fields here.")}
+                </p>
+              </FieldShell>
+            </div>
+          ),
+        })}
+
+        {renderEventSubsection({
+          icon: <DollarSign className="h-4 w-4" />,
+          title: "Audience, cost, language, accessibility",
+          description:
+            "Use optional metadata to clarify who the event is for and what support is available.",
+          children: (
+            <div className="flex flex-col gap-5">
+              <div>
+                <Label className="mb-2 block">{t("Audience")}</Label>
+                {renderEventCheckboxGrid("audience", EVENT_AUDIENCE_OPTIONS)}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {selectedAudience.length
+                    ? `${selectedAudience.length} ${t("audience groups selected")}`
+                    : t("No audience groups selected.")}
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                {renderEventSelectField({
+                  fieldKey: "costType",
+                  label: "Cost type",
+                  options: EVENT_COST_TYPE_OPTIONS,
+                })}
+                <FieldShell label={t("Currency")} htmlFor="discover-upcoming-event-currency">
+                  <Input
+                    id="discover-upcoming-event-currency"
+                    value={upcomingEventPayload.currency ?? ""}
+                    maxLength={3}
+                    onChange={(event) =>
+                      updateUpcomingEventField(
+                        "currency",
+                        event.target.value.toUpperCase(),
+                      )
+                    }
+                    placeholder="ARS"
+                    className={`${publisherInputClass} uppercase`}
+                  />
+                </FieldShell>
+                <FieldShell
+                  label={t("Price in minor units")}
+                  htmlFor="discover-upcoming-event-price-minor-units"
+                >
+                  <Input
+                    id="discover-upcoming-event-price-minor-units"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={upcomingEventPayload.priceMinorUnits ?? ""}
+                    onChange={(event) =>
+                      updateUpcomingEventField(
+                        "priceMinorUnits",
+                        event.target.value,
+                      )
+                    }
+                    className={publisherInputClass}
+                  />
+                </FieldShell>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <Label className="mb-2 block">{t("Languages")}</Label>
+                  {renderEventCheckboxGrid("languages", EVENT_LANGUAGE_OPTIONS)}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {selectedLanguages.length
+                      ? `${selectedLanguages.length} ${t("languages selected")}`
+                      : t("No languages selected.")}
+                  </p>
+                </div>
+                <div>
+                  <Label className="mb-2 block">
+                    {t("Accessibility features")}
+                  </Label>
+                  {renderEventCheckboxGrid(
+                    "accessibilityFeatures",
+                    EVENT_ACCESSIBILITY_OPTIONS,
+                  )}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {selectedAccessibility.length
+                      ? `${selectedAccessibility.length} ${t("accessibility features selected")}`
+                      : t("No accessibility features selected.")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ),
+        })}
+
+        {renderEventActionButtonsModal()}
+        {renderEventRegionalTimesModal()}
+      </div>
+    );
+  }
+
   function renderSpecificFields() {
+    if (state.type === "upcoming_event") {
+      return renderUpcomingEventFields();
+    }
+
     const definition = discoverFeedTypeDefinition(state.type);
     const payload = state.payloads[state.type] ?? {};
 

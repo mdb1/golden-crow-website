@@ -74,6 +74,97 @@ const FEED_TYPE_VALUES = [
   "advocacy_campaign",
 ] as const satisfies readonly DiscoverFeedType[];
 
+const EVENT_TIME_KIND_VALUES = new Set([
+  "timed",
+  "allDay",
+  "dateOnly",
+  "timeTba",
+  "regionalTimes",
+]);
+const EVENT_KIND_VALUES = new Set([
+  "webinar",
+  "conference",
+  "workshop",
+  "seminar",
+  "supportGroup",
+  "communityMeetup",
+  "awarenessDay",
+  "course",
+  "training",
+  "fundraiser",
+  "clinicalSession",
+  "researchSession",
+  "networking",
+  "livestream",
+  "recordedSession",
+  "other",
+]);
+const EVENT_ATTENDANCE_MODE_VALUES = new Set([
+  "online",
+  "inPerson",
+  "hybrid",
+  "phone",
+  "onDemand",
+  "toBeAnnounced",
+]);
+const EVENT_STATUS_VALUES = new Set([
+  "scheduled",
+  "tentative",
+  "postponed",
+  "rescheduled",
+  "cancelled",
+  "completed",
+  "soldOut",
+]);
+const EVENT_ACTION_BUTTON_TYPE_VALUES = new Set([
+  "register",
+  "join",
+  "learnMore",
+  "viewAgenda",
+  "watchRecording",
+  "downloadMaterials",
+  "contactOrganizer",
+]);
+const EVENT_PUBLISHER_RELATIONSHIP_VALUES = new Set([
+  "organizer",
+  "coOrganizer",
+  "speaker",
+  "sponsor",
+  "partner",
+  "participant",
+  "attendee",
+  "mentioning",
+  "unknown",
+]);
+const EVENT_AUDIENCE_VALUES = new Set([
+  "patients",
+  "families",
+  "caregivers",
+  "students",
+  "clinicians",
+  "researchers",
+  "geneticCounselors",
+  "advocates",
+  "industry",
+  "generalPublic",
+]);
+const EVENT_COST_TYPE_VALUES = new Set([
+  "free",
+  "paid",
+  "donation",
+  "varies",
+  "unknown",
+]);
+const EVENT_ACCESSIBILITY_FEATURE_VALUES = new Set([
+  "captions",
+  "liveTranscript",
+  "signLanguage",
+  "wheelchairAccessible",
+  "recordingAvailable",
+  "quietRoom",
+  "translatedMaterials",
+]);
+
 type FeedPayloadFieldKind =
   "string" | "array" | "timestamp" | "integer" | "boolean";
 
@@ -1210,6 +1301,328 @@ function normalizeStringArray(value: unknown): string[] {
   return [];
 }
 
+function normalizeOptionalStringArray(value: unknown): string[] | undefined {
+  const normalized = normalizeStringArray(value);
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeOptionalEnumValue(
+  value: unknown,
+  allowedValues: ReadonlySet<string>,
+  label: string,
+): string | undefined {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (!allowedValues.has(normalized)) {
+    throw new AdminRepositoryError(`${label} has an unsupported value.`, 400);
+  }
+
+  return normalized;
+}
+
+function normalizeOptionalEnumArray(
+  value: unknown,
+  allowedValues: ReadonlySet<string>,
+  label: string,
+): string[] | undefined {
+  const normalized = normalizeStringArray(value);
+  for (const entry of normalized) {
+    if (!allowedValues.has(entry)) {
+      throw new AdminRepositoryError(`${label} has an unsupported value.`, 400);
+    }
+  }
+
+  return normalized.length > 0 ? Array.from(new Set(normalized)) : undefined;
+}
+
+function normalizeOptionalIntegerInRange(
+  value: unknown,
+  label: string,
+  min: number,
+  max: number,
+): number | undefined {
+  if (value == null || value === "") {
+    return undefined;
+  }
+
+  const parsed = normalizeNumber(value, Number.NaN);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+    throw new AdminRepositoryError(
+      `${label} must be an integer between ${min} and ${max}.`,
+      400,
+    );
+  }
+
+  return parsed;
+}
+
+function normalizeOptionalNonNegativeInteger(
+  value: unknown,
+  label: string,
+): number | undefined {
+  if (value == null || value === "") {
+    return undefined;
+  }
+
+  const parsed = normalizeNumber(value, Number.NaN);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new AdminRepositoryError(
+      `${label} must be zero or a positive integer.`,
+      400,
+    );
+  }
+
+  return parsed;
+}
+
+function normalizeOptionalLimitedString(
+  value: unknown,
+  label: string,
+  maxLength: number,
+): string | undefined {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (normalized.length > maxLength) {
+    throw new AdminRepositoryError(
+      `${label} can be up to ${maxLength} characters.`,
+      400,
+    );
+  }
+
+  return normalized;
+}
+
+function normalizeOptionalTimeOfDay(
+  value: unknown,
+  label: string,
+): string | undefined {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(normalized)) {
+    throw new AdminRepositoryError(`${label} must use HH:mm.`, 400);
+  }
+
+  return normalized;
+}
+
+function normalizeOptionalTimezone(
+  value: unknown,
+  label: string,
+): string | undefined {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: normalized }).format(new Date());
+  } catch {
+    throw new AdminRepositoryError(
+      `${label} must be a valid IANA timezone.`,
+      400,
+    );
+  }
+
+  return normalized;
+}
+
+function normalizeOptionalCurrency(value: unknown): string | undefined {
+  const normalized = normalizeOptionalString(value)?.toUpperCase();
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (!/^[A-Z]{3}$/.test(normalized)) {
+    throw new AdminRepositoryError("Currency must be an ISO 4217 code.", 400);
+  }
+
+  return normalized;
+}
+
+function normalizeOptionalLanguageCodes(value: unknown): string[] | undefined {
+  const normalized = normalizeStringArray(value);
+  for (const languageCode of normalized) {
+    if (!/^[a-z]{2,3}(-[A-Z]{2})?$/.test(languageCode)) {
+      throw new AdminRepositoryError(
+        "Event languages must use language codes such as en, es, or pt-BR.",
+        400,
+      );
+    }
+  }
+
+  return normalized.length > 0 ? Array.from(new Set(normalized)) : undefined;
+}
+
+function eventMapInputToObject(
+  value: unknown,
+  label: string,
+): Record<string, unknown> | undefined {
+  if (value == null || value === "") {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    const entries = value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const separatorIndex = line.indexOf("=");
+        if (separatorIndex < 0) {
+          throw new AdminRepositoryError(
+            `${label} rows must use COUNTRY=value.`,
+            400,
+          );
+        }
+
+        return [
+          line.slice(0, separatorIndex).trim(),
+          line.slice(separatorIndex + 1).trim(),
+        ] as const;
+      });
+
+    return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+  }
+
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new AdminRepositoryError(`${label} must be an object.`, 400);
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function normalizeEventCountryMap(
+  value: unknown,
+  label: string,
+  valueNormalizer: (value: unknown, label: string) => string | undefined,
+): Record<string, string> | undefined {
+  const source = eventMapInputToObject(value, label);
+  if (!source) {
+    return undefined;
+  }
+
+  const normalizedEntries = Object.entries(source).flatMap(
+    ([rawCountryCode, rawValue]) => {
+      const countryCode = rawCountryCode.trim().toUpperCase();
+      if (!/^[A-Z]{2}$/.test(countryCode)) {
+        throw new AdminRepositoryError(
+          `${label} keys must be ISO alpha-2 country codes.`,
+          400,
+        );
+      }
+
+      const normalizedValue = valueNormalizer(rawValue, `${label} for ${countryCode}`);
+      return normalizedValue ? ([[countryCode, normalizedValue]] as const) : [];
+    },
+  );
+
+  return normalizedEntries.length > 0
+    ? Object.fromEntries(normalizedEntries)
+    : undefined;
+}
+
+function normalizeEventActionButtonUrl(type: string, value: unknown): string {
+  const normalized = normalizeRequiredString(value, "Event action URL");
+  if (type === "contactOrganizer" && normalized.startsWith("mailto:")) {
+    const email = normalized.slice("mailto:".length);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new AdminRepositoryError(
+        "Contact organizer mailto URL must contain a valid email.",
+        400,
+      );
+    }
+
+    return `mailto:${email}`;
+  }
+
+  return normalizeHttpsUrl(normalized, "Event action URL")!;
+}
+
+function normalizeEventActionButtons(
+  value: unknown,
+): Array<{ type: string; title?: string; url: string }> | undefined {
+  if (value == null || value === "") {
+    return undefined;
+  }
+
+  const parsed =
+    typeof value === "string"
+      ? (() => {
+          try {
+            return JSON.parse(value);
+          } catch {
+            throw new AdminRepositoryError(
+              "Event action buttons must be valid JSON.",
+              400,
+            );
+          }
+        })()
+      : value;
+
+  if (!Array.isArray(parsed)) {
+    throw new AdminRepositoryError(
+      "Event action buttons must be an array.",
+      400,
+    );
+  }
+
+  const seenTypes = new Set<string>();
+  const buttons: Array<{ type: string; title?: string; url: string }> = [];
+
+  for (const entry of parsed) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new AdminRepositoryError(
+        "Each event action button must be an object.",
+        400,
+      );
+    }
+
+    const source = entry as Record<string, unknown>;
+    const type = normalizeOptionalEnumValue(
+      source.type,
+      EVENT_ACTION_BUTTON_TYPE_VALUES,
+      "Event action type",
+    );
+    const title = normalizeOptionalLimitedString(
+      source.title,
+      "Event action title",
+      56,
+    );
+    const hasUrl = Boolean(normalizeOptionalString(source.url));
+
+    if (!type && !title && !hasUrl) {
+      continue;
+    }
+    if (!type) {
+      throw new AdminRepositoryError(
+        "Event action type is required for every action button.",
+        400,
+      );
+    }
+    if (seenTypes.has(type)) {
+      continue;
+    }
+
+    buttons.push({
+      type,
+      ...(title ? { title } : {}),
+      url: normalizeEventActionButtonUrl(type, source.url),
+    });
+    seenTypes.add(type);
+  }
+
+  return buttons.length > 0 ? buttons : undefined;
+}
+
 function normalizeLanguage(value: unknown): "en" | "es" {
   if (value == null || value === "") {
     return "en";
@@ -2299,6 +2712,199 @@ function compatibilityPayloadAliases(
   return {};
 }
 
+function assignOptionalPayloadField(
+  payload: Record<string, unknown>,
+  key: string,
+  value: unknown,
+) {
+  if (value !== undefined) {
+    payload[key] = value;
+  }
+}
+
+function normalizeUpcomingEventPayload(
+  payload: Record<string, unknown>,
+  status: DiscoverFeedStatus,
+  root: ReturnType<typeof normalizeRootContent>,
+) {
+  const aliases = compatibilityAliases(root);
+  const normalizedPayload = Object.fromEntries(
+    FEED_PAYLOAD_FIELDS.upcoming_event.map((field) => [
+      field.key,
+      normalizePayloadField(field, payload, status),
+    ]),
+  );
+  const eventPayload: Record<string, unknown> = {
+    ...aliases,
+    ...normalizedPayload,
+    ...compatibilityPayloadAliases("upcoming_event", normalizedPayload),
+  };
+
+  assignOptionalPayloadField(
+    eventPayload,
+    "timeKind",
+    normalizeOptionalEnumValue(
+      payload.timeKind,
+      EVENT_TIME_KIND_VALUES,
+      "Event time display",
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "timezone",
+    normalizeOptionalTimezone(payload.timezone, "Event timezone"),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "dailyStartTime",
+    normalizeOptionalTimeOfDay(payload.dailyStartTime, "Daily start time"),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "dailyEndTime",
+    normalizeOptionalTimeOfDay(payload.dailyEndTime, "Daily end time"),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "multiDayLength",
+    normalizeOptionalIntegerInRange(
+      payload.multiDayLength,
+      "Multi-day length",
+      1,
+      365,
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "countryDailyStartTimes",
+    normalizeEventCountryMap(
+      payload.countryDailyStartTimes,
+      "Country start times",
+      normalizeOptionalTimeOfDay,
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "countryDailyEndTimes",
+    normalizeEventCountryMap(
+      payload.countryDailyEndTimes,
+      "Country end times",
+      normalizeOptionalTimeOfDay,
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "countryTimezones",
+    normalizeEventCountryMap(
+      payload.countryTimezones,
+      "Country timezones",
+      normalizeOptionalTimezone,
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "eventKind",
+    normalizeOptionalEnumValue(
+      payload.eventKind,
+      EVENT_KIND_VALUES,
+      "Event kind",
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "attendanceMode",
+    normalizeOptionalEnumValue(
+      payload.attendanceMode,
+      EVENT_ATTENDANCE_MODE_VALUES,
+      "Attendance mode",
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "eventStatus",
+    normalizeOptionalEnumValue(
+      payload.eventStatus,
+      EVENT_STATUS_VALUES,
+      "Event status",
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "actionButtons",
+    normalizeEventActionButtons(payload.actionButtons),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "publisherRelationshipToEvent",
+    normalizeOptionalEnumValue(
+      payload.publisherRelationshipToEvent,
+      EVENT_PUBLISHER_RELATIONSHIP_VALUES,
+      "Publisher relationship to event",
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "organizerName",
+    normalizeOptionalLimitedString(payload.organizerName, "Organizer name", 80),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "publisherDisclosure",
+    normalizeOptionalLimitedString(
+      payload.publisherDisclosure,
+      "Publisher disclosure",
+      140,
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "audience",
+    normalizeOptionalEnumArray(
+      payload.audience,
+      EVENT_AUDIENCE_VALUES,
+      "Event audience",
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "costType",
+    normalizeOptionalEnumValue(
+      payload.costType,
+      EVENT_COST_TYPE_VALUES,
+      "Event cost type",
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "currency",
+    normalizeOptionalCurrency(payload.currency),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "priceMinorUnits",
+    normalizeOptionalNonNegativeInteger(
+      payload.priceMinorUnits,
+      "Price in minor units",
+    ),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "languages",
+    normalizeOptionalLanguageCodes(payload.languages),
+  );
+  assignOptionalPayloadField(
+    eventPayload,
+    "accessibilityFeatures",
+    normalizeOptionalEnumArray(
+      payload.accessibilityFeatures,
+      EVENT_ACCESSIBILITY_FEATURE_VALUES,
+      "Accessibility features",
+    ),
+  );
+
+  return eventPayload;
+}
+
 function normalizeTypePayload(
   type: DiscoverFeedType,
   input: FeedItemInput,
@@ -2306,6 +2912,11 @@ function normalizeTypePayload(
   root: ReturnType<typeof normalizeRootContent>,
 ) {
   const payload = payloadInputForType(type, input);
+
+  if (type === "upcoming_event") {
+    return normalizeUpcomingEventPayload(payload, status, root);
+  }
+
   const aliases = compatibilityAliases(root);
   const normalizedPayload = Object.fromEntries(
     FEED_PAYLOAD_FIELDS[type].map((field) => [
