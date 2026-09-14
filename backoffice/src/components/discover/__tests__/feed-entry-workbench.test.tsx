@@ -154,6 +154,40 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       category: "",
       region: "ARG, ESP, ENG",
     });
+    expect(body.showInDiscoverFeed).toBe(false);
+  });
+
+  it("saves the shared Discover feed visibility checkbox at the root", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publisher"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /show in discover feed/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items", {
+        method: "POST",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.showInDiscoverFeed).toBe(true);
   });
 
   it("keeps draft navigation inside the publisher portal route base", async () => {
@@ -264,6 +298,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       publisherSnapshot: { name: "Publisher One", imageUrl: null },
       type: "news",
       publishedAt: null,
+      showInDiscoverFeed: false,
       language: "en",
       title: "Uploaded cover",
       subtitle: "Entry summary",

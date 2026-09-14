@@ -5,10 +5,11 @@ import {
 } from "fastify-type-provider-zod";
 
 const mockCreateDiscoverPublisherApprovalRequest = jest.fn();
+const mockCreateDiscoverFeedItem = jest.fn();
 const mockSendDiscoverPublisherRequestNotificationEmail = jest.fn();
 
 jest.mock("../repositories/discover.repository.js", () => ({
-  createDiscoverFeedItem: jest.fn(),
+  createDiscoverFeedItem: mockCreateDiscoverFeedItem,
   createDiscoverIndividual: jest.fn(),
   createDiscoverOrganization: jest.fn(),
   createDiscoverPublisherApprovalRequest:
@@ -45,6 +46,19 @@ async function buildTestServer() {
   const fastify = Fastify();
   fastify.setValidatorCompiler(validatorCompiler);
   fastify.setSerializerCompiler(serializerCompiler);
+  fastify.addHook("onRequest", async (request) => {
+    request.adminContext = {
+      email: "admin@example.org",
+      uid: "uid-1",
+      role: "full_admin",
+      isBootstrap: true,
+      canAccessBackoffice: true,
+      canAccessPatientPortal: false,
+      canAccessPGFlex: false,
+      canAccessPublisherPortal: false,
+      projectAccess: ["mydnamap"],
+    };
+  });
   await fastify.register(discoverRoutes);
   return fastify;
 }
@@ -87,6 +101,14 @@ describe("Discover public routes", () => {
     mockSendDiscoverPublisherRequestNotificationEmail.mockResolvedValue(
       undefined,
     );
+    mockCreateDiscoverFeedItem.mockResolvedValue({
+      id: "feed-1",
+      type: "upcoming_event",
+      status: "published",
+      upcomingEvent: {
+        date: "2026-10-12T00:00:00.000Z",
+      },
+    });
   });
 
   it("sends Federico a notification after a public organization request is saved", async () => {
@@ -192,5 +214,44 @@ describe("Discover public routes", () => {
         contactEmail: "dr@example.org",
       }),
     );
+  });
+
+  it("keeps camelCase feed item payload nodes when validating route bodies", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/discover/feed-items",
+      payload: {
+        publisherOrganizationId: "org-1",
+        type: "upcoming_event",
+        status: "published",
+        publishedAt: "2026-10-12T12:00:00.000Z",
+        language: "en",
+        title: "Event title",
+        subtitle: "Event subtitle",
+        body: "Event body",
+        upcomingEvent: {
+          date: "2026-10-12T00:00:00.000Z",
+        },
+        upcoming_event: {
+          date: null,
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockCreateDiscoverFeedItem).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "uid-1" }),
+      expect.objectContaining({
+        type: "upcoming_event",
+        upcomingEvent: {
+          date: "2026-10-12T00:00:00.000Z",
+        },
+      }),
+    );
+    expect(
+      mockCreateDiscoverFeedItem.mock.calls[0]?.[1],
+    ).not.toHaveProperty("upcoming_event");
   });
 });

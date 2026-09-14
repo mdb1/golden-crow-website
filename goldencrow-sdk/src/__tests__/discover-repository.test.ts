@@ -373,6 +373,7 @@ describe("discover repository", () => {
 
     expect(result.feedItems).toHaveLength(1);
     expect(result.feedItems[0]?.id).toBe("feed-a");
+    expect(result.feedItems[0]?.showInDiscoverFeed).toBe(false);
     expect(mockQueryStubs).toHaveLength(2);
     expect(mockQueryStubs[0]?.operations).toEqual([
       {
@@ -1550,6 +1551,7 @@ describe("discover repository", () => {
       type: "upcoming_event",
       status: "published",
       publishedAt: "2026-08-05T10:00:00.000Z",
+      showInDiscoverFeed: true,
       language: "en",
       title: "Rare disease genomics webinar",
       subtitle: "A practical session for families and clinicians.",
@@ -1572,6 +1574,8 @@ describe("discover repository", () => {
     expect(payload.sourceUrl).toBeUndefined();
     expect(payload.sourceButtonText).toBeUndefined();
     expect(feedItem.sourceButtonText).toBe("Register now");
+    expect(feedItem.showInDiscoverFeed).toBe(true);
+    expect(stored?.showInDiscoverFeed).toBe(true);
     expect(stored?.sourceUrl).toBe("https://example.org/events/register");
     expect(stored?.sourceUrl).toBe("https://example.org/events/register");
     expect(stored?.sourceButtonText).toBe("Register now");

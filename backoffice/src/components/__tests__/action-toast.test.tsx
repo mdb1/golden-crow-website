@@ -31,7 +31,7 @@ describe("ActionToast", () => {
       ),
     ).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Ver log" }));
+    await user.click(screen.getByRole("button", { name: "Ver log completo" }));
 
     const dialog = await screen.findByRole("dialog", {
       name: "Log de error de acción",
@@ -70,7 +70,7 @@ describe("ActionToast", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "View log" }));
+    await user.click(screen.getByRole("button", { name: "See full log" }));
 
     expect(onViewLog).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).toBeNull();

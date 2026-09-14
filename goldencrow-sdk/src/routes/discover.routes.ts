@@ -78,6 +78,38 @@ const DISCOVER_FEED_TYPES = [
   "expert_qa",
   "advocacy_campaign",
 ] as const;
+const DISCOVER_FEED_PAYLOAD_KEYS = {
+  news: "news",
+  research_update: "researchUpdate",
+  upcoming_event: "upcomingEvent",
+  opportunity: "opportunity",
+  video: "video",
+  external_article: "externalArticle",
+  podcast_episode: "podcastEpisode",
+  survey: "survey",
+  organization_spotlight: "organizationSpotlight",
+  professional_spotlight: "professionalSpotlight",
+  community_invitation: "communityInvitation",
+  bioinformatics_tool: "bioinformaticsTool",
+  genomic_database: "genomicDatabase",
+  health_guidance: "healthGuidance",
+  educational_explainer: "educationalExplainer",
+  gene_spotlight: "geneSpotlight",
+  condition_spotlight: "conditionSpotlight",
+  genetic_test_guide: "geneticTestGuide",
+  report_explainer: "reportExplainer",
+  clinical_guideline: "clinicalGuideline",
+  clinical_trial: "clinicalTrial",
+  patient_registry: "patientRegistry",
+  research_participation: "researchParticipation",
+  screening_program: "screeningProgram",
+  support_service: "supportService",
+  course: "course",
+  downloadable_resource: "downloadableResource",
+  lived_experience_story: "livedExperienceStory",
+  expert_qa: "expertQa",
+  advocacy_campaign: "advocacyCampaign",
+} as const satisfies Record<(typeof DISCOVER_FEED_TYPES)[number], string>;
 const FeedTypeSchema = z.enum(DISCOVER_FEED_TYPES);
 const FeedStatusSchema = z.enum(["draft", "published", "archived"]);
 const SubmissionEvaluationBodySchema = z.object({
@@ -292,8 +324,14 @@ const IndividualBodySchema = z.object({
 
 const FeedPayloadSchema = z.record(z.string(), z.unknown()).optional();
 const FeedPayloadBodySchemas = Object.fromEntries(
-  DISCOVER_FEED_TYPES.map((type) => [type, FeedPayloadSchema]),
-) as Record<(typeof DISCOVER_FEED_TYPES)[number], typeof FeedPayloadSchema>;
+  DISCOVER_FEED_TYPES.map((type) => [
+    DISCOVER_FEED_PAYLOAD_KEYS[type],
+    FeedPayloadSchema,
+  ]),
+) as Record<
+  (typeof DISCOVER_FEED_PAYLOAD_KEYS)[(typeof DISCOVER_FEED_TYPES)[number]],
+  typeof FeedPayloadSchema
+>;
 
 const FeedItemBodySchema = z.object({
   publisherOrganizationId: z.string().optional(),
@@ -301,6 +339,7 @@ const FeedItemBodySchema = z.object({
   type: FeedTypeSchema.optional(),
   status: FeedStatusSchema.optional(),
   publishedAt: z.string().nullable().optional(),
+  showInDiscoverFeed: z.boolean().optional(),
   language: z.enum(["en", "es"]).optional(),
   title: z.string().optional(),
   subtitle: z.string().optional(),

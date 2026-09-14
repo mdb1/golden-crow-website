@@ -110,7 +110,7 @@ export function ActionToast({
                   onClick={handleViewLog}
                   className="h-8 border-destructive/25 bg-white/85 text-destructive hover:bg-destructive/5"
                 >
-                  {t("View log")}
+                  {t("See full log")}
                 </Button>
               </div>
             ) : null}

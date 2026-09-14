@@ -839,6 +839,7 @@ export type DiscoverFeedItemRecord = {
   publisherSnapshot: DiscoverPublisherSnapshot;
   type: DiscoverFeedType;
   publishedAt: string | null;
+  showInDiscoverFeed?: boolean;
   language: "en" | "es";
   title: string;
   subtitle: string;

@@ -632,6 +632,7 @@ type FeedItemInput = PublisherImageUploadInput & {
   type?: unknown;
   status?: unknown;
   publishedAt?: unknown;
+  showInDiscoverFeed?: unknown;
   language?: unknown;
   title?: unknown;
   subtitle?: unknown;
@@ -2103,6 +2104,7 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
     },
     type,
     publishedAt: timestampToIso(data.publishedAt),
+    showInDiscoverFeed: data.showInDiscoverFeed === true,
     language,
     title:
       normalizeOptionalString(data.title) ??
@@ -2749,6 +2751,7 @@ function normalizeRootContent(
     ...imageUploadDocumentFields,
     sourceUrl: normalizeHttpsUrl(input.sourceUrl, "Source URL"),
     sourceButtonText: normalizeNullableString(input.sourceButtonText),
+    showInDiscoverFeed: normalizeBoolean(input.showInDiscoverFeed),
     language: normalizeLanguage(input.language),
   };
 }
@@ -3142,6 +3145,7 @@ async function feedItemDocument(
     type,
     status,
     publishedAt,
+    showInDiscoverFeed: root.showInDiscoverFeed,
     language: root.language,
     title: root.title,
     subtitle: root.subtitle,
@@ -3977,6 +3981,7 @@ export async function duplicateDiscoverFeedItem(
     body: source.body,
     htmlBody: source.htmlBody,
     imageUrl: source.imageUrl,
+    showInDiscoverFeed: false,
     sourceUrl: source.sourceUrl,
     sourceButtonText: source.sourceButtonText,
     [getPayloadKey(source.type)]: {

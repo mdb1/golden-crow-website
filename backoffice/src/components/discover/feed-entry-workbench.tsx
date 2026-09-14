@@ -103,6 +103,7 @@ type FeedEntryFormState = {
   publisherIndividualId: string;
   type: DiscoverFeedType;
   language: "en" | "es";
+  showInDiscoverFeed: boolean;
   title: string;
   subtitle: string;
   body: string;
@@ -1091,6 +1092,7 @@ function toFormState(item?: DiscoverFeedItemRecord): FeedEntryFormState {
     publisherIndividualId: item?.publisherIndividualId ?? "",
     type: item?.type ?? "news",
     language: item?.language ?? "en",
+    showInDiscoverFeed: item?.showInDiscoverFeed === true,
     title: item?.title ?? "",
     subtitle: item?.subtitle ?? "",
     body: item?.body ?? "",
@@ -1230,6 +1232,7 @@ function payloadFromState(
     type: state.type,
     status,
     publishedAt,
+    showInDiscoverFeed: state.showInDiscoverFeed,
     language: state.language,
     title: state.title,
     subtitle: state.subtitle,
@@ -1244,6 +1247,91 @@ function payloadFromState(
     sourceButtonText: state.sourceUrl ? state.sourceButtonText || null : null,
     [discoverFeedPayloadKey(state.type)]: payloadForType(state),
   };
+}
+
+function actionLogValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    if (value.startsWith("data:image/")) {
+      return `[image data URL omitted, ${value.length} characters]`;
+    }
+
+    return value.length > 700 ? `${value.slice(0, 700)}...` : value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(actionLogValue);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+        key,
+        actionLogValue(item),
+      ]),
+    );
+  }
+
+  return value;
+}
+
+function feedEntryActionLogDetails({
+  action,
+  mode,
+  feedItemId,
+  status,
+  publishedAt,
+  state,
+  message,
+  error,
+}: {
+  action: string;
+  mode: "create" | "edit";
+  feedItemId?: string;
+  status: DiscoverFeedStatus;
+  publishedAt: string | null;
+  state: FeedEntryFormState;
+  message?: string;
+  error?: unknown;
+}) {
+  const payloadKey = discoverFeedPayloadKey(state.type);
+  const normalizedPayload = payloadForType(state) as Record<string, unknown>;
+  const requestPayload = payloadFromState(state, status, publishedAt);
+  const eventDateField = state.payloads.upcoming_event?.date ?? "";
+
+  return JSON.stringify(
+    actionLogValue({
+      action,
+      mode,
+      feedItemId: feedItemId ?? null,
+      requestedStatus: status,
+      publishedAt,
+      type: state.type,
+      payloadKey,
+      message: message ?? null,
+      error:
+        error instanceof Error
+          ? {
+              name: error.name,
+              message: error.message,
+              stack: error.stack,
+            }
+          : error
+            ? String(error)
+            : null,
+      eventDate:
+        state.type === "upcoming_event"
+          ? {
+              rawInputValue: eventDateField,
+              normalizedPayloadValue: normalizedPayload.date ?? null,
+              normalizedValueType: typeof normalizedPayload.date,
+            }
+          : null,
+      normalizedPayload,
+      requestPayload,
+    }),
+    null,
+    2,
+  );
 }
 
 function FieldShell({
@@ -2092,12 +2180,15 @@ export function DiscoverFeedEntryWorkbench({
         return t("Body is required before publishing.");
       }
       if (nextState.type === "upcoming_event") {
+        const rawEventDate = nextState.payloads.upcoming_event?.date?.trim() ?? "";
         const normalizedEventPayload = payloadForType(nextState) as Record<
           string,
           unknown
         >;
         if (!normalizedEventPayload.date) {
-          return t("Event date is required before publishing.");
+          return rawEventDate
+            ? t("Event date must be a valid date. Use YYYY-MM-DD.")
+            : t("Event date is required before publishing.");
         }
       }
     }
@@ -2106,12 +2197,23 @@ export function DiscoverFeedEntryWorkbench({
   }
 
   async function persist(status: DiscoverFeedStatus, publishedAt: string | null = null) {
+    const action = mode === "create" ? "create discover feed item" : "update discover feed item";
     const validationError = validate(state, status);
     if (validationError) {
       setToast({
         id: Date.now(),
         tone: "error",
         message: validationError,
+        details: feedEntryActionLogDetails({
+          action,
+          mode,
+          feedItemId: feedItem?.id,
+          status,
+          publishedAt,
+          state,
+          message: validationError,
+        }),
+        durationMs: 30000,
       });
       return null;
     }
@@ -2154,6 +2256,17 @@ export function DiscoverFeedEntryWorkbench({
         id: Date.now(),
         tone: "error",
         message,
+        details: feedEntryActionLogDetails({
+          action,
+          mode,
+          feedItemId: feedItem?.id,
+          status,
+          publishedAt,
+          state,
+          message,
+          error,
+        }),
+        durationMs: 30000,
       });
       return null;
     } finally {
@@ -3597,6 +3710,35 @@ export function DiscoverFeedEntryWorkbench({
                     <ChevronDown className={publisherSelectCaretClass} />
                   </div>
                 </FieldShell>
+
+                <div className="md:col-span-2">
+                  <div className="rounded-2xl border border-sky-200 bg-sky-50/72 p-4 text-sky-950 dark:border-sky-400/24 dark:bg-sky-500/10 dark:text-sky-100">
+                    <label
+                      htmlFor="discover-feed-show-in-feed"
+                      className="flex cursor-pointer items-start gap-3"
+                    >
+                      <Checkbox
+                        id="discover-feed-show-in-feed"
+                        checked={state.showInDiscoverFeed}
+                        onCheckedChange={(checked) =>
+                          updateState({ showInDiscoverFeed: checked === true })
+                        }
+                        className="mt-0.5"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold">
+                          {t("Show in Discover feed")}
+                        </span>
+                        <span className="mt-1 block text-xs leading-5">
+                          {t("Root field: showInDiscoverFeed. If checked, the app can show this published item in the main Discover feed as any other item. If unchecked, it should stay out of the main feed and appear only in the events calendar subsection when it is an event, or in the corresponding category tab for other content.")}
+                        </span>
+                        <span className="mt-2 block text-xs font-semibold leading-5">
+                          {t("Recommended workflow: publish first with this option off, verify the publication in its detail or category surface, then come back and turn it on for the full Discover feed.")}
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
 
                 <FieldShell label={t("Title")} htmlFor="discover-feed-title" className="md:col-span-2">
                   <Input
