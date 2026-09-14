@@ -132,6 +132,7 @@ const initialCopy = isEnglishPage
         <p class="shared-preview-summary" data-preview-summary hidden></p>
         <p class="shared-preview-body" data-preview-body hidden></p>
         <img class="shared-preview-media" data-preview-media alt="" hidden />
+        <section class="shared-preview-event" data-preview-event hidden></section>
         <div class="shared-preview-sections" data-preview-sections hidden>
           <section class="shared-preview-section" data-preview-categories-section hidden>
             <h3 data-preview-categories-title></h3>
@@ -255,6 +256,121 @@ const initialCopy = isEnglishPage
           expert_qa: 'Expert Q&A',
           advocacy_campaign: 'Advocacy campaign',
         },
+        event: {
+          day: 'day',
+          days: 'days',
+          eachDay: 'each day',
+          starts: 'Starts',
+          ends: 'Ends',
+          allDay: 'All day',
+          timeTba: 'Time TBA',
+          timesVary: 'Times vary by country',
+          timesByCountry: 'Times by country',
+          listedSchedule: 'Listed schedule',
+          admission: 'Admission',
+          capacity: 'Capacity',
+          takingPart: 'Taking part',
+          organizer: 'Organizer',
+          eventActions: 'Event actions',
+          whoFor: "Who it’s for",
+          eventLanguages: 'Event languages',
+          accessibility: 'Accessibility',
+          organizedBy: 'Organized by',
+          publisherRole: "Publisher’s role",
+          fromPublisher: 'From the publisher',
+          free: 'Free',
+          paid: 'Paid',
+          donation: 'Donation',
+          varies: 'Price varies',
+          costUnknown: 'Cost not specified',
+          upToPeople: (count) => `Up to ${count} people`,
+          status: {
+            tentative: 'Tentative',
+            postponed: 'Postponed',
+            rescheduled: 'Rescheduled',
+            cancelled: 'Cancelled',
+            completed: 'Completed',
+            soldOut: 'Sold out',
+            available_slots: 'Registration open · spots available',
+          },
+          kinds: {
+            webinar: 'Webinar',
+            conference: 'Conference',
+            workshop: 'Workshop',
+            seminar: 'Seminar',
+            supportGroup: 'Support group',
+            communityMeetup: 'Community meetup',
+            awarenessDay: 'Awareness day',
+            course: 'Course',
+            training: 'Training',
+            fundraiser: 'Fundraiser',
+            clinicalSession: 'Clinical session',
+            researchSession: 'Research session',
+            networking: 'Networking',
+            livestream: 'Livestream',
+            recordedSession: 'Recorded session',
+            other: 'Event',
+          },
+          attendance: {
+            online: 'Online',
+            inPerson: 'In person',
+            hybrid: 'Hybrid',
+            phone: 'Phone',
+            onDemand: 'On demand',
+            toBeAnnounced: 'To be announced',
+          },
+          audience: {
+            patients: 'Patients',
+            families: 'Families',
+            caregivers: 'Caregivers',
+            students: 'Students',
+            clinicians: 'Clinicians',
+            researchers: 'Researchers',
+            geneticCounselors: 'Genetic counselors',
+            advocates: 'Advocates',
+            industry: 'Industry',
+            generalPublic: 'General public',
+          },
+          languages: {
+            es: 'Spanish',
+            en: 'English',
+            'pt-BR': 'Portuguese (Brazil)',
+            pt: 'Portuguese',
+            fr: 'French',
+            de: 'German',
+            it: 'Italian',
+            ca: 'Catalan',
+          },
+          accessibilityValues: {
+            captions: 'Captions',
+            liveTranscript: 'Live transcript',
+            signLanguage: 'Sign language',
+            wheelchairAccessible: 'Wheelchair accessible',
+            recordingAvailable: 'Recording available',
+            quietRoom: 'Quiet room',
+            translatedMaterials: 'Translated materials',
+          },
+          relationships: {
+            organizer: 'Organizer',
+            coOrganizer: 'Co-organizer',
+            speaker: 'Speaker',
+            sponsor: 'Sponsor',
+            partner: 'Event partner',
+            participant: 'Participant',
+            attendee: 'Attendee',
+            mentioning: 'Mentioning the event',
+            unknown: 'Unknown',
+          },
+          actions: {
+            register: 'Register',
+            join: 'Join event',
+            learnMore: 'Learn more',
+            viewAgenda: 'View agenda',
+            watchRecording: 'Watch recording',
+            downloadMaterials: 'Download materials',
+            contactOrganizer: 'Contact organizer',
+          },
+        },
       }
     : {
         titleOptions: [
@@ -333,6 +449,121 @@ const initialCopy = isEnglishPage
           expert_qa: 'Preguntas y respuestas con experto',
           advocacy_campaign: 'Campaña de acción comunitaria',
         },
+        event: {
+          day: 'día',
+          days: 'días',
+          eachDay: 'cada día',
+          starts: 'Empieza',
+          ends: 'Termina',
+          allDay: 'Todo el día',
+          timeTba: 'Horario a confirmar',
+          timesVary: 'Los horarios varían por país',
+          timesByCountry: 'Horarios por país',
+          listedSchedule: 'Agenda publicada',
+          admission: 'Entrada',
+          capacity: 'Capacidad',
+          takingPart: 'Participación',
+          organizer: 'Organizador',
+          eventActions: 'Acciones del evento',
+          whoFor: 'Para quién es',
+          eventLanguages: 'Idiomas del evento',
+          accessibility: 'Accesibilidad',
+          organizedBy: 'Organiza',
+          publisherRole: 'Rol del publicador',
+          fromPublisher: 'Del publicador',
+          free: 'Gratis',
+          paid: 'Pago',
+          donation: 'Donación',
+          varies: 'Precio variable',
+          costUnknown: 'Costo no especificado',
+          upToPeople: (count) => `Hasta ${count} personas`,
+          status: {
+            tentative: 'Tentativo',
+            postponed: 'Pospuesto',
+            rescheduled: 'Reprogramado',
+            cancelled: 'Cancelado',
+            completed: 'Completado',
+            soldOut: 'Cupos agotados',
+            available_slots: 'Inscripción abierta · cupos disponibles',
+          },
+          kinds: {
+            webinar: 'Webinar',
+            conference: 'Conferencia',
+            workshop: 'Workshop',
+            seminar: 'Seminario',
+            supportGroup: 'Grupo de apoyo',
+            communityMeetup: 'Encuentro comunitario',
+            awarenessDay: 'Jornada de concientización',
+            course: 'Curso',
+            training: 'Capacitación',
+            fundraiser: 'Recaudación',
+            clinicalSession: 'Sesión clínica',
+            researchSession: 'Sesión de investigación',
+            networking: 'Networking',
+            livestream: 'Transmisión en vivo',
+            recordedSession: 'Sesión grabada',
+            other: 'Evento',
+          },
+          attendance: {
+            online: 'Online',
+            inPerson: 'Presencial',
+            hybrid: 'Híbrido',
+            phone: 'Por teléfono',
+            onDemand: 'A demanda',
+            toBeAnnounced: 'A confirmar',
+          },
+          audience: {
+            patients: 'Pacientes',
+            families: 'Familias',
+            caregivers: 'Cuidadores',
+            students: 'Estudiantes',
+            clinicians: 'Clínicos',
+            researchers: 'Investigadores',
+            geneticCounselors: 'Asesores genéticos',
+            advocates: 'Referentes',
+            industry: 'Industria',
+            generalPublic: 'Público general',
+          },
+          languages: {
+            es: 'Español',
+            en: 'Inglés',
+            'pt-BR': 'Portugués (Brasil)',
+            pt: 'Portugués',
+            fr: 'Francés',
+            de: 'Alemán',
+            it: 'Italiano',
+            ca: 'Catalán',
+          },
+          accessibilityValues: {
+            captions: 'Subtítulos',
+            liveTranscript: 'Transcripción en vivo',
+            signLanguage: 'Lengua de señas',
+            wheelchairAccessible: 'Accesible para silla de ruedas',
+            recordingAvailable: 'Grabación disponible',
+            quietRoom: 'Sala tranquila',
+            translatedMaterials: 'Materiales traducidos',
+          },
+          relationships: {
+            organizer: 'Organizador',
+            coOrganizer: 'Coorganizador',
+            speaker: 'Disertante',
+            sponsor: 'Auspicia',
+            partner: 'Aliado del evento',
+            participant: 'Participante',
+            attendee: 'Asistente',
+            mentioning: 'Difunde el evento',
+            unknown: 'No especificado',
+          },
+          actions: {
+            register: 'Registrarse',
+            join: 'Entrar al evento',
+            learnMore: 'Ver más',
+            viewAgenda: 'Ver agenda',
+            watchRecording: 'Ver grabación',
+            downloadMaterials: 'Descargar materiales',
+            contactOrganizer: 'Contactar organizador',
+          },
+        },
       };
 
   const organizationCategoryLabelByKey = new Map(
@@ -341,6 +572,38 @@ const initialCopy = isEnglishPage
   const geneticReportCategoryLabelByKey = new Map(
     geneticReportCategoryOptions.map((option) => [option.value, option.label])
   );
+  const discoverFeedPayloadKeys = {
+    news: 'news',
+    research_update: 'researchUpdate',
+    upcoming_event: 'upcomingEvent',
+    opportunity: 'opportunity',
+    video: 'video',
+    external_article: 'externalArticle',
+    podcast_episode: 'podcastEpisode',
+    survey: 'survey',
+    organization_spotlight: 'organizationSpotlight',
+    professional_spotlight: 'professionalSpotlight',
+    community_invitation: 'communityInvitation',
+    bioinformatics_tool: 'bioinformaticsTool',
+    genomic_database: 'genomicDatabase',
+    health_guidance: 'healthGuidance',
+    educational_explainer: 'educationalExplainer',
+    gene_spotlight: 'geneSpotlight',
+    condition_spotlight: 'conditionSpotlight',
+    genetic_test_guide: 'geneticTestGuide',
+    report_explainer: 'reportExplainer',
+    clinical_guideline: 'clinicalGuideline',
+    clinical_trial: 'clinicalTrial',
+    patient_registry: 'patientRegistry',
+    research_participation: 'researchParticipation',
+    screening_program: 'screeningProgram',
+    support_service: 'supportService',
+    course: 'course',
+    downloadable_resource: 'downloadableResource',
+    lived_experience_story: 'livedExperienceStory',
+    expert_qa: 'expertQa',
+    advocacy_campaign: 'advocacyCampaign',
+  };
 
   title.textContent = randomTitle(copy.titleOptions);
   description.textContent = copy.description;
@@ -604,7 +867,8 @@ const initialCopy = isEnglishPage
     }
 
     const type = cleanText(fields.type) || 'news';
-    const payload = fields[type] && typeof fields[type] === 'object' ? fields[type] : {};
+    const payloadKey = discoverFeedPayloadKeys[type] ?? type;
+    const payload = fields[payloadKey] && typeof fields[payloadKey] === 'object' ? fields[payloadKey] : {};
     const title = cleanText(fields.title) || cleanText(payload.title);
     const summary = cleanText(fields.subtitle) || cleanText(fields.summary) || cleanText(payload.summary);
     const body = cleanText(fields.body) || cleanText(payload.detailBody);
@@ -613,10 +877,11 @@ const initialCopy = isEnglishPage
       return null;
     }
 
-    const eventDate = formatDate(payload.date || payload.startsAt);
+    const eventPreview = type === 'upcoming_event' ? eventPreviewData(payload) : null;
+    const eventDate = eventPreview ? '' : formatDate(payload.date || payload.startsAt);
     const meta = [
       eventDate,
-      cleanText(payload.location),
+      eventPreview ? '' : cleanText(payload.location),
       Array.isArray(payload.genes) ? payload.genes.slice(0, 3).join(', ') : '',
       Array.isArray(payload.conditions) ? payload.conditions.slice(0, 2).join(', ') : '',
       cleanText(payload.journal),
@@ -647,8 +912,413 @@ const initialCopy = isEnglishPage
       reports: [],
       socials: [],
       meta,
+      event: eventPreview,
       accent: '',
     };
+  }
+
+  function eventPreviewData(payload) {
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+
+    const startDate = datePartsFromValue(payload.date || payload.startsAt);
+    if (!startDate) {
+      return null;
+    }
+
+    const duration = positiveInteger(payload.multiDayLength) || 1;
+    const endDate = addCalendarDays(startDate, duration - 1);
+    const kind = enumLabel(payload.eventKind, copy.event.kinds);
+    const status = eventStatusLabel(payload.eventStatus);
+    const schedule = eventScheduleData(payload, startDate, endDate, duration);
+    const facts = eventFactData(payload);
+    const takingPart = eventTakingPartData(payload);
+    const organizer = eventOrganizerData(payload);
+    const actions = eventActionData(payload.actionButtons);
+
+    return {
+      classification: kind,
+      duration: duration > 1 ? `${duration} ${duration === 1 ? copy.event.day : copy.event.days}` : '',
+      status,
+      listedSchedule: ['cancelled', 'postponed'].includes(cleanText(payload.eventStatus)),
+      date: formatEventDateRange(startDate, endDate),
+      year: sameDateYear(startDate, endDate) ? String(startDate.year) : '',
+      schedule,
+      facts,
+      takingPart,
+      organizer,
+      actions,
+    };
+  }
+
+  function positiveInteger(value) {
+    const number = Number(value);
+    return Number.isInteger(number) && number > 0 ? number : null;
+  }
+
+  function uniqueCleanArray(value) {
+    if (!Array.isArray(value)) return [];
+    const seen = new Set();
+    return value
+      .map((entry) => cleanText(entry))
+      .filter((entry) => {
+        if (!entry || seen.has(entry)) return false;
+        seen.add(entry);
+        return true;
+      });
+  }
+
+  function enumLabel(value, labels) {
+    const key = cleanText(value);
+    return key && labels[key] ? labels[key] : '';
+  }
+
+  function datePartsFromValue(value) {
+    const text = cleanText(value);
+    if (!text) return null;
+    const date = new Date(text);
+    if (Number.isNaN(date.getTime())) return null;
+    return {
+      year: date.getUTCFullYear(),
+      month: date.getUTCMonth() + 1,
+      day: date.getUTCDate(),
+    };
+  }
+
+  function dateFromParts(parts) {
+    return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  }
+
+  function addCalendarDays(parts, days) {
+    const date = dateFromParts(parts);
+    date.setUTCDate(date.getUTCDate() + days);
+    return {
+      year: date.getUTCFullYear(),
+      month: date.getUTCMonth() + 1,
+      day: date.getUTCDate(),
+    };
+  }
+
+  function sameDateYear(start, end) {
+    return start.year === end.year;
+  }
+
+  function sameCalendarDay(start, end) {
+    return start.year === end.year && start.month === end.month && start.day === end.day;
+  }
+
+  function monthName(parts, width = 'long') {
+    return new Intl.DateTimeFormat(isEnglish ? 'en' : 'es', {
+      month: width,
+      timeZone: 'UTC',
+    }).format(dateFromParts(parts));
+  }
+
+  function dayMonth(parts, width = 'long') {
+    const month = monthName(parts, width);
+    return isEnglish ? `${parts.day} ${month}` : `${parts.day} de ${month}`;
+  }
+
+  function dayMonthYear(parts, width = 'short') {
+    return `${dayMonth(parts, width)} ${parts.year}`;
+  }
+
+  function formatEventDateRange(start, end) {
+    if (sameCalendarDay(start, end)) {
+      return dayMonth(start, 'long');
+    }
+    if (start.year === end.year && start.month === end.month) {
+      const month = monthName(start, 'long');
+      return isEnglish
+        ? `${start.day}\u2013${end.day} ${month}`
+        : `${start.day}\u2013${end.day} de ${month}`;
+    }
+    if (start.year === end.year) {
+      return `${dayMonth(start, 'short')}\u2013${dayMonth(end, 'short')}`;
+    }
+    return `${dayMonthYear(start)}\u2013${dayMonthYear(end)}`;
+  }
+
+  function eventStatusLabel(value) {
+    const status = cleanText(value);
+    if (!status || status === 'scheduled' || status === 'normal') return '';
+    return copy.event.status[status] ?? '';
+  }
+
+  function validClock(value) {
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(cleanText(value));
+  }
+
+  function clockValue(value) {
+    const text = cleanText(value);
+    return validClock(text) ? text : '';
+  }
+
+  function clockStatement(startValue, endValue, duration) {
+    const start = clockValue(startValue);
+    const end = clockValue(endValue);
+    let value = '';
+    if (start && end) value = `${start}\u2013${end}`;
+    else if (start) value = `${copy.event.starts} ${start}`;
+    else if (end) value = `${copy.event.ends} ${end}`;
+    if (value && duration > 1) value = `${value} ${copy.event.eachDay}`;
+    return value;
+  }
+
+  function timezoneLabel(timezone, startDate, endDate) {
+    const zone = cleanText(timezone);
+    if (!zone) return '';
+    try {
+      new Intl.DateTimeFormat('en', { timeZone: zone }).format(new Date());
+    } catch {
+      return '';
+    }
+
+    const city = zone.split('/').pop()?.replace(/_/g, ' ') || zone;
+    const startOffset = timezoneOffsetLabel(zone, startDate);
+    const endOffset = timezoneOffsetLabel(zone, endDate);
+    return startOffset && startOffset === endOffset ? `${city} · ${startOffset}` : city;
+  }
+
+  function timezoneOffsetLabel(timezone, parts) {
+    try {
+      const formatter = new Intl.DateTimeFormat('en', {
+        timeZone: timezone,
+        timeZoneName: 'shortOffset',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const label = formatter
+        .formatToParts(dateFromParts(parts))
+        .find((part) => part.type === 'timeZoneName')?.value;
+      if (!label) return '';
+      return label
+        .replace(/^GMT$/, 'UTC')
+        .replace(/^GMT([+-])/, (_, sign) => `UTC${sign === '-' ? '\u2212' : '+'}`);
+    } catch {
+      return '';
+    }
+  }
+
+  function eventMap(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return Object.fromEntries(
+      Object.entries(value)
+        .map(([key, entry]) => [cleanText(key).toUpperCase(), cleanText(entry)])
+        .filter(([key, entry]) => /^[A-Z]{2}$/.test(key) && entry)
+    );
+  }
+
+  function countryName(code) {
+    const countryDisplayNames =
+      typeof Intl.DisplayNames === 'function'
+        ? new Intl.DisplayNames([isEnglish ? 'en' : 'es'], { type: 'region' })
+        : null;
+    return countryDisplayNames?.of(code) ?? code;
+  }
+
+  function regionalTimeRows(payload, startDate, endDate, duration) {
+    const starts = eventMap(payload.countryDailyStartTimes);
+    const ends = eventMap(payload.countryDailyEndTimes);
+    const zones = eventMap(payload.countryTimezones);
+    const codes = [...new Set([...Object.keys(starts), ...Object.keys(ends), ...Object.keys(zones)])];
+    return codes
+      .map((code) => ({
+        code,
+        country: countryName(code),
+        time: clockStatement(starts[code], ends[code], duration),
+        timezone: timezoneLabel(zones[code], startDate, endDate),
+      }))
+      .filter((row) => row.time || row.timezone)
+      .sort((a, b) => a.country.localeCompare(b.country));
+  }
+
+  function eventScheduleData(payload, startDate, endDate, duration) {
+    const timeKind = cleanText(payload.timeKind);
+    if (timeKind === 'dateOnly') {
+      return null;
+    }
+
+    const regionalRows =
+      timeKind === 'regionalTimes'
+        ? regionalTimeRows(payload, startDate, endDate, duration)
+        : [];
+    let primary = '';
+    if (timeKind === 'allDay') primary = copy.event.allDay;
+    else if (timeKind === 'timeTba') primary = copy.event.timeTba;
+    else primary = clockStatement(payload.dailyStartTime, payload.dailyEndTime, duration);
+    if (!primary && timeKind === 'regionalTimes') {
+      primary = copy.event.timesVary;
+    }
+
+    const timezone =
+      timeKind === 'timed' || primary
+        ? timezoneLabel(payload.timezone, startDate, endDate)
+      : '';
+    const location = cleanText(payload.location);
+    const attendance = enumLabel(payload.attendanceMode, copy.event.attendance);
+    const locationPrimary = location || attendance;
+    const locationSecondary =
+      location && attendance && location.toLowerCase() !== attendance.toLowerCase()
+        ? attendance
+        : '';
+
+    return {
+      time: primary ? { value: primary, detail: timezone } : null,
+      location: locationPrimary ? { value: locationPrimary, detail: locationSecondary } : null,
+      regionalRows,
+    };
+  }
+
+  function eventFactData(payload) {
+    const facts = [];
+    const admission = admissionLabel(payload);
+    const capacity = positiveInteger(payload.maxAttendance);
+    if (admission) {
+      facts.push({ label: copy.event.admission, value: admission });
+    }
+    if (capacity) {
+      facts.push({ label: copy.event.capacity, value: copy.event.upToPeople(capacity) });
+    }
+    return facts;
+  }
+
+  function admissionLabel(payload) {
+    const costType = cleanText(payload.costType);
+    if (!costType) return '';
+    if (costType === 'free') return copy.event.free;
+    if (costType === 'donation') return copy.event.donation;
+    if (costType === 'varies') return copy.event.varies;
+    if (costType === 'unknown') return copy.event.costUnknown;
+    if (costType !== 'paid') return '';
+    const currency = cleanText(payload.currency).toUpperCase();
+    const price = Number(payload.priceMinorUnits);
+    if (!/^[A-Z]{3}$/.test(currency) || !Number.isFinite(price) || price < 0) {
+      return copy.event.paid;
+    }
+    try {
+      return new Intl.NumberFormat(isEnglish ? 'en' : 'es-AR', {
+        style: 'currency',
+        currency,
+        currencyDisplay: 'code',
+        maximumFractionDigits: Number.isInteger(price) ? 0 : 2,
+      }).format(price);
+    } catch {
+      return copy.event.paid;
+    }
+  }
+
+  function eventTakingPartData(payload) {
+    const audience = labelList(uniqueCleanArray(payload.audience), copy.event.audience);
+    const languages = labelList(uniqueCleanArray(payload.languages), copy.event.languages);
+    const accessibility = labelList(
+      uniqueCleanArray(payload.accessibilityFeatures),
+      copy.event.accessibilityValues
+    );
+    const groups = [];
+    if (audience.length) {
+      groups.push({
+        kind: 'tags',
+        label: copy.event.whoFor,
+        values: audience,
+        preview: valuePreview(audience),
+      });
+    }
+    if (languages.length) {
+      groups.push({
+        kind: 'text',
+        label: copy.event.eventLanguages,
+        values: [languages.join(', ')],
+        preview: valuePreview(languages),
+      });
+    }
+    if (accessibility.length) {
+      groups.push({
+        kind: 'checks',
+        label: copy.event.accessibility,
+        values: accessibility,
+        preview: valuePreview(accessibility),
+      });
+    }
+    return groups.length
+      ? {
+          title: copy.event.takingPart,
+          preview: groups[0].preview,
+          groups,
+          collapsible: groups.length > 1,
+        }
+      : null;
+  }
+
+  function eventOrganizerData(payload) {
+    const groups = [];
+    const organizerName = cleanText(payload.organizerName);
+    const relationship = enumLabel(payload.publisherRelationshipToEvent, copy.event.relationships);
+    const disclosure = cleanText(payload.publisherDisclosure);
+    if (organizerName) {
+      groups.push({
+        kind: 'text',
+        label: copy.event.organizedBy,
+        values: [organizerName],
+        preview: `${copy.event.organizedBy} ${organizerName}`,
+      });
+    }
+    if (relationship) {
+      groups.push({
+        kind: 'text',
+        label: copy.event.publisherRole,
+        values: [relationship],
+        preview: relationship,
+      });
+    }
+    if (disclosure) {
+      groups.push({
+        kind: 'text',
+        label: copy.event.fromPublisher,
+        values: [disclosure],
+        preview: disclosure,
+      });
+    }
+    return groups.length
+      ? {
+          title: copy.event.organizer,
+          preview: groups[0].preview,
+          groups,
+          collapsible: groups.length > 1,
+        }
+      : null;
+  }
+
+  function labelList(values, labels) {
+    return values.map((value) => labels[value] ?? humanize(value)).filter(Boolean);
+  }
+
+  function valuePreview(values) {
+    if (values.length <= 2) return values.join(' · ');
+    return `${values.slice(0, 2).join(' · ')} +${values.length - 2}`;
+  }
+
+  function eventActionData(value) {
+    if (!Array.isArray(value)) return [];
+    const seen = new Set();
+    const supportedTypes = new Set(Object.keys(copy.event.actions));
+    return value
+      .map((entry) => {
+        if (!entry || typeof entry !== 'object') return null;
+        const type = cleanText(entry.type);
+        const url = externalUrl(entry.url);
+        if (!supportedTypes.has(type) || !url || seen.has(type)) return null;
+        seen.add(type);
+        const title = cleanText(entry.title);
+        return {
+          type,
+          title: title && title.length <= 56 ? title : copy.event.actions[type],
+          url,
+          external: /^https?:\/\//i.test(url),
+        };
+      })
+      .filter(Boolean);
   }
 
   function localizedDescription(fields) {
@@ -761,6 +1431,7 @@ const initialCopy = isEnglishPage
     renderBadges(data.badges);
     renderPreviewSections(data);
     renderMeta(data.meta);
+    renderEventPreview(data.event);
     renderWebsite(data.websiteUrl, data.websiteLabel);
 
     const fallback = preview.querySelector('[data-preview-fallback]');
@@ -829,6 +1500,287 @@ const initialCopy = isEnglishPage
         return element;
       })
     );
+  }
+
+  function renderEventPreview(event) {
+    const container = preview.querySelector('[data-preview-event]');
+    if (!container) return;
+    container.replaceChildren();
+    container.hidden = !event;
+    if (!event) return;
+
+    const nodes = [];
+    if (event.classification || event.duration) {
+      const row = document.createElement('div');
+      row.className = 'shared-event-classification';
+      if (event.classification) {
+        const kind = document.createElement('span');
+        kind.className = 'shared-event-category';
+        kind.textContent = event.classification;
+        row.append(kind);
+      }
+      if (event.duration) {
+        const duration = document.createElement('span');
+        duration.className = 'shared-event-duration';
+        duration.textContent = event.duration;
+        row.append(duration);
+      }
+      nodes.push(row);
+    }
+
+    if (event.status) {
+      const status = document.createElement('p');
+      status.className = 'shared-event-status';
+      status.textContent = event.status;
+      nodes.push(status);
+    }
+
+    if (event.listedSchedule) {
+      const listed = document.createElement('p');
+      listed.className = 'shared-event-listed-schedule';
+      listed.textContent = copy.event.listedSchedule;
+      nodes.push(listed);
+    }
+
+    const date = document.createElement('div');
+    date.className = 'shared-event-date';
+    const mainDate = document.createElement('p');
+    mainDate.className = 'shared-event-date-main';
+    mainDate.textContent = event.date;
+    date.append(mainDate);
+    if (event.year) {
+      const year = document.createElement('p');
+      year.className = 'shared-event-date-year';
+      year.textContent = event.year;
+      date.append(year);
+    }
+    nodes.push(date);
+
+    const schedule = renderEventSchedule(event.schedule);
+    if (schedule) nodes.push(schedule);
+
+    const facts = renderEventFacts(event.facts);
+    if (facts) nodes.push(facts);
+
+    const takingPart = renderEventDisclosure(event.takingPart);
+    if (takingPart) nodes.push(takingPart);
+
+    const organizer = renderEventDisclosure(event.organizer);
+    if (organizer) nodes.push(organizer);
+
+    const actions = renderEventActions(event.actions);
+    if (actions) nodes.push(actions);
+
+    container.append(...nodes);
+  }
+
+  function renderEventSchedule(schedule) {
+    if (!schedule || (!schedule.time && !schedule.location && !schedule.regionalRows.length)) {
+      return null;
+    }
+    const section = document.createElement('section');
+    section.className = 'shared-event-schedule';
+    if (schedule.time) {
+      section.append(renderEventInfoRow('◷', schedule.time.value, schedule.time.detail));
+    }
+    if (schedule.regionalRows.length) {
+      const regional = document.createElement('div');
+      regional.className = 'shared-event-regional';
+      const title = document.createElement('h4');
+      title.textContent = copy.event.timesByCountry;
+      regional.append(title);
+      schedule.regionalRows.forEach((row) => {
+        const item = document.createElement('div');
+        item.className = 'shared-event-regional-row';
+        const country = document.createElement('p');
+        country.className = 'shared-event-regional-country';
+        country.textContent = row.country;
+        item.append(country);
+        if (row.time) {
+          const time = document.createElement('p');
+          time.className = 'shared-event-regional-detail';
+          time.textContent = row.time;
+          item.append(time);
+        }
+        if (row.timezone) {
+          const zone = document.createElement('p');
+          zone.className = 'shared-event-regional-detail';
+          zone.textContent = row.timezone;
+          item.append(zone);
+        }
+        regional.append(item);
+      });
+      section.append(regional);
+    }
+    if (schedule.location) {
+      section.append(renderEventInfoRow('⌖', schedule.location.value, schedule.location.detail));
+    }
+    return section;
+  }
+
+  function renderEventInfoRow(icon, value, detail) {
+    const row = document.createElement('div');
+    row.className = 'shared-event-info-row';
+    const symbol = document.createElement('span');
+    symbol.className = 'shared-event-info-icon';
+    symbol.setAttribute('aria-hidden', 'true');
+    symbol.textContent = icon;
+    const text = document.createElement('div');
+    const main = document.createElement('p');
+    main.className = 'shared-event-info-value';
+    main.textContent = value;
+    text.append(main);
+    if (detail) {
+      const secondary = document.createElement('p');
+      secondary.className = 'shared-event-info-detail';
+      secondary.textContent = detail;
+      text.append(secondary);
+    }
+    row.append(symbol, text);
+    return row;
+  }
+
+  function renderEventFacts(facts) {
+    if (!facts?.length) return null;
+    const section = document.createElement('section');
+    section.className = 'shared-event-facts';
+    facts.forEach((fact) => {
+      const item = document.createElement('div');
+      item.className = 'shared-event-fact';
+      const label = document.createElement('p');
+      label.className = 'shared-event-field-label';
+      label.textContent = fact.label;
+      const value = document.createElement('p');
+      value.className = 'shared-event-fact-value';
+      value.textContent = fact.value;
+      item.append(label, value);
+      section.append(item);
+    });
+    return section;
+  }
+
+  function renderEventDisclosure(sectionData) {
+    if (!sectionData?.groups?.length) return null;
+    if (!sectionData.collapsible) {
+      const section = document.createElement('section');
+      section.className = 'shared-event-disclosure shared-event-disclosure-static';
+      const heading = document.createElement('h3');
+      heading.textContent = sectionData.title;
+      const content = document.createElement('div');
+      content.className = 'shared-event-disclosure-content';
+      appendEventGroups(content, sectionData.groups);
+      section.append(heading, content);
+      return section;
+    }
+
+    const details = document.createElement('details');
+    details.className = 'shared-event-disclosure';
+    details.open = true;
+    const summary = document.createElement('summary');
+    const title = document.createElement('span');
+    title.className = 'shared-event-disclosure-title';
+    title.textContent = sectionData.title;
+    const previewText = document.createElement('span');
+    previewText.className = 'shared-event-disclosure-preview';
+    previewText.textContent = sectionData.preview;
+    const chevron = document.createElement('span');
+    chevron.className = 'shared-event-disclosure-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    chevron.textContent = '⌄';
+    summary.append(title, previewText, chevron);
+    const content = document.createElement('div');
+    content.className = 'shared-event-disclosure-content';
+    appendEventGroups(content, sectionData.groups);
+    details.append(summary, content);
+    return details;
+  }
+
+  function appendEventGroups(container, groups) {
+    groups.forEach((group) => {
+      const block = document.createElement('div');
+      block.className = 'shared-event-detail-group';
+      const label = document.createElement('p');
+      label.className = 'shared-event-field-label';
+      label.textContent = group.label;
+      block.append(label);
+
+      if (group.kind === 'tags') {
+        const tags = document.createElement('div');
+        tags.className = 'shared-event-tag-list';
+        group.values.forEach((value) => {
+          const tag = document.createElement('span');
+          tag.className = 'shared-event-tag';
+          tag.textContent = value;
+          tags.append(tag);
+        });
+        block.append(tags);
+      } else if (group.kind === 'checks') {
+        const list = document.createElement('ul');
+        list.className = 'shared-event-check-list';
+        group.values.forEach((value) => {
+          const item = document.createElement('li');
+          const check = document.createElement('span');
+          check.setAttribute('aria-hidden', 'true');
+          check.textContent = '✓';
+          item.append(check, document.createTextNode(value));
+          list.append(item);
+        });
+        block.append(list);
+      } else {
+        group.values.forEach((value) => {
+          const paragraph = document.createElement('p');
+          paragraph.className = 'shared-event-detail-value';
+          paragraph.textContent = value;
+          block.append(paragraph);
+        });
+      }
+
+      container.append(block);
+    });
+  }
+
+  function renderEventActions(actions) {
+    if (!actions?.length) return null;
+    const section = document.createElement('section');
+    section.className = 'shared-event-actions';
+    const heading = document.createElement('h3');
+    heading.textContent = copy.event.eventActions;
+    section.append(heading);
+    actions.forEach((action) => {
+      const link = document.createElement('a');
+      link.className = 'shared-event-action-row';
+      link.href = action.url;
+      link.rel = action.external ? 'noopener noreferrer' : '';
+      link.target = action.external ? '_blank' : '';
+      const icon = document.createElement('span');
+      icon.className = 'shared-event-action-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = eventActionIcon(action.type);
+      const label = document.createElement('span');
+      label.textContent = action.title;
+      link.append(icon, label);
+      if (action.external) {
+        const external = document.createElement('span');
+        external.className = 'shared-event-action-external';
+        external.setAttribute('aria-hidden', 'true');
+        external.textContent = '↗';
+        link.append(external);
+      }
+      section.append(link);
+    });
+    return section;
+  }
+
+  function eventActionIcon(type) {
+    return {
+      register: '→',
+      join: '▶',
+      learnMore: 'i',
+      viewAgenda: '≡',
+      watchRecording: '▶',
+      downloadMaterials: '↓',
+      contactOrganizer: '@',
+    }[type] ?? '→';
   }
 
   function renderPreviewSections(data) {
@@ -1313,16 +2265,327 @@ const initialCopy = isEnglishPage
     -webkit-line-clamp: unset;
   }
 
-  .shared-preview-media {
-    width: 100%;
-    aspect-ratio: 16 / 9;
+    .shared-preview-media {
+      width: 100%;
+      aspect-ratio: 16 / 9;
     margin-top: 1rem;
     border-radius: 8px;
     object-fit: cover;
-    box-shadow: inset 0 0 0 1px rgba(23, 32, 51, 0.08);
-  }
+      box-shadow: inset 0 0 0 1px rgba(23, 32, 51, 0.08);
+    }
 
-  .shared-preview-sections {
+    .shared-preview-event {
+      --event-surface: #ffffff;
+      --event-primary: #202127;
+      --event-secondary: #666872;
+      --event-separator: #e9e9f0;
+      --event-accent: #6550c6;
+      --event-tag-bg: #f3f3f6;
+      box-sizing: border-box;
+      width: 100%;
+      margin-top: 1.15rem;
+      border: 0.5px solid var(--event-separator);
+      border-radius: 22px;
+      background: var(--event-surface);
+      padding: 24px;
+      color: var(--event-primary);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .shared-preview-event[hidden] {
+      display: none;
+    }
+
+    .shared-preview-event :global(.shared-event-classification) {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px 18px;
+    }
+
+    .shared-preview-event :global(.shared-event-category) {
+      color: var(--event-accent);
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+
+    .shared-preview-event :global(.shared-event-duration),
+    .shared-preview-event :global(.shared-event-date-year),
+    .shared-preview-event :global(.shared-event-disclosure-preview) {
+      color: var(--event-secondary);
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.35;
+    }
+
+    .shared-preview-event :global(.shared-event-status),
+    .shared-preview-event :global(.shared-event-listed-schedule) {
+      margin: 12px 0 0;
+      color: var(--event-primary);
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .shared-preview-event :global(.shared-event-listed-schedule) {
+      color: var(--event-secondary);
+    }
+
+    .shared-preview-event :global(.shared-event-date) {
+      margin-top: 14px;
+    }
+
+    .shared-preview-event :global(.shared-event-date-main) {
+      margin: 0;
+      color: var(--event-primary);
+      font-size: 29px;
+      font-weight: 600;
+      line-height: 1.08;
+    }
+
+    .shared-preview-event :global(.shared-event-date-year) {
+      margin: 5px 0 0;
+    }
+
+    .shared-preview-event :global(.shared-event-schedule) {
+      display: grid;
+      gap: 20px;
+      margin-top: 24px;
+    }
+
+    .shared-preview-event :global(.shared-event-info-row) {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+
+    .shared-preview-event :global(.shared-event-info-icon) {
+      width: 18px;
+      color: var(--event-secondary);
+      font-size: 17px;
+      line-height: 1.4;
+      text-align: center;
+    }
+
+    .shared-preview-event :global(.shared-event-info-value),
+    .shared-preview-event :global(.shared-event-fact-value),
+    .shared-preview-event :global(.shared-event-detail-value) {
+      margin: 0;
+      color: var(--event-primary);
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.35;
+    }
+
+    .shared-preview-event :global(.shared-event-info-value) {
+      font-size: 17px;
+    }
+
+    .shared-preview-event :global(.shared-event-info-detail),
+    .shared-preview-event :global(.shared-event-regional-detail) {
+      margin: 4px 0 0;
+      color: var(--event-secondary);
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.35;
+    }
+
+    .shared-preview-event :global(.shared-event-regional) {
+      margin-left: 28px;
+    }
+
+    .shared-preview-event :global(.shared-event-regional h4),
+    .shared-preview-event :global(.shared-event-actions h3),
+    .shared-preview-event :global(.shared-event-disclosure h3),
+    .shared-preview-event :global(.shared-event-disclosure-title) {
+      margin: 0;
+      color: var(--event-primary);
+      font-size: 17px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .shared-preview-event :global(.shared-event-regional-row) {
+      margin-top: 16px;
+    }
+
+    .shared-preview-event :global(.shared-event-regional-country) {
+      margin: 0;
+      color: var(--event-primary);
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.35;
+    }
+
+    .shared-preview-event :global(.shared-event-facts),
+    .shared-preview-event :global(.shared-event-disclosure),
+    .shared-preview-event :global(.shared-event-actions) {
+      margin-top: 24px;
+      border-top: 0.5px solid var(--event-separator);
+      padding-top: 20px;
+    }
+
+    .shared-preview-event :global(.shared-event-facts) {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px 24px;
+    }
+
+    .shared-preview-event :global(.shared-event-field-label) {
+      margin: 0 0 5px;
+      color: var(--event-secondary);
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.3;
+    }
+
+    .shared-preview-event :global(.shared-event-disclosure) {
+      display: block;
+    }
+
+    .shared-preview-event :global(.shared-event-disclosure summary) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 4px 12px;
+      align-items: center;
+      min-height: 44px;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .shared-preview-event :global(.shared-event-disclosure summary::-webkit-details-marker) {
+      display: none;
+    }
+
+    .shared-preview-event :global(.shared-event-disclosure-preview) {
+      grid-column: 1 / -1;
+      max-width: 100%;
+    }
+
+    .shared-preview-event :global(.shared-event-disclosure[open] .shared-event-disclosure-preview) {
+      display: none;
+    }
+
+    .shared-preview-event :global(.shared-event-disclosure-chevron) {
+      color: var(--event-secondary);
+      font-size: 14px;
+      line-height: 1;
+      transition: transform 0.2s ease;
+    }
+
+    .shared-preview-event :global(.shared-event-disclosure[open] .shared-event-disclosure-chevron) {
+      transform: rotate(180deg);
+    }
+
+    .shared-preview-event :global(.shared-event-disclosure-content) {
+      display: grid;
+      gap: 20px;
+      margin-top: 20px;
+      padding-bottom: 4px;
+    }
+
+    .shared-preview-event :global(.shared-event-disclosure-static .shared-event-disclosure-content) {
+      margin-top: 20px;
+    }
+
+    .shared-preview-event :global(.shared-event-tag-list) {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .shared-preview-event :global(.shared-event-tag) {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 7px;
+      background: var(--event-tag-bg);
+      color: var(--event-primary);
+      padding: 6px 9px;
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.2;
+    }
+
+    .shared-preview-event :global(.shared-event-check-list) {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .shared-preview-event :global(.shared-event-check-list li) {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      color: var(--event-primary);
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.35;
+    }
+
+    .shared-preview-event :global(.shared-event-check-list span) {
+      color: var(--event-accent);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .shared-preview-event :global(.shared-event-actions) {
+      display: grid;
+      gap: 4px;
+    }
+
+    .shared-preview-event :global(.shared-event-action-row) {
+      display: grid;
+      grid-template-columns: 16px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 44px;
+      color: var(--event-accent);
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.25;
+      text-decoration: none;
+    }
+
+    .shared-preview-event :global(.shared-event-action-row:hover),
+    .shared-preview-event :global(.shared-event-action-row:focus-visible) {
+      background: color-mix(in srgb, var(--event-accent) 7%, transparent);
+      outline: none;
+    }
+
+    .shared-preview-event :global(.shared-event-action-icon),
+    .shared-preview-event :global(.shared-event-action-external) {
+      color: var(--event-accent);
+      font-size: 15px;
+      line-height: 1;
+    }
+
+    @media (max-width: 520px) {
+      .shared-preview-event {
+        padding: 20px;
+      }
+
+      .shared-preview-event :global(.shared-event-facts) {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .shared-preview-event {
+        --event-surface: #202024;
+        --event-primary: #f4f3f8;
+        --event-secondary: #b7b5c1;
+        --event-separator: #39383f;
+        --event-accent: #b5a4ff;
+        --event-tag-bg: #2d2d34;
+      }
+    }
+
+    .shared-preview-sections {
     display: grid;
     gap: 0.95rem;
     margin-top: 1.15rem;
