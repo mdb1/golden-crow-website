@@ -49,6 +49,7 @@ import {
   normalizeExternalUrl,
   thumbnailUrlIssue,
 } from "@/lib/gc-fitness/exercise-media-url";
+import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 
 export interface QuickCreateSeed {
   name: string;
@@ -257,7 +258,12 @@ export function QuickCreateExercise({
       onSeedCleared?.();
     } catch (err) {
       console.error("[exercise-quick-create] failed", err);
-      setError("Could not create the exercise. Try again.");
+      // #382 — a redeploy rotated the Server Action IDs out from under this
+      // tab. "Try again" is the wrong advice: every retry from here fails the
+      // same way. The layout banner explains it and offers the reload.
+      if (!noteIfStaleDeployment(err)) {
+        setError("Could not create the exercise. Try again.");
+      }
     } finally {
       setCreating(false);
     }

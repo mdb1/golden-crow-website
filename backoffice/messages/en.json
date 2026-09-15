@@ -2395,5 +2395,11 @@
       "calves": "Calves",
       "adductors": "Adductors"
     }
+  },
+  "staleDeployment": {
+    "title": "A new version of the backoffice was published",
+    "body": "This tab is still running the previous version, so saving won't work until you reload. Copy anything unsaved, then reload.",
+    "reload": "Reload",
+    "dismiss": "Not now"
   }
 }

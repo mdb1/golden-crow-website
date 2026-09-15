@@ -41,6 +41,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+
+import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 import {
   flexRender,
   getCoreRowModel,
@@ -207,7 +209,8 @@ export function ExerciseLibraryClient({
         router.push(`/gc-fitness/exercises/${result.id}/edit`);
       } catch (err) {
         console.error("[exercises] duplicate failed", err);
-        toast.error(t("duplicateFailedToast"));
+        // #382 — stale tab after a redeploy; the layout banner owns the copy.
+        if (!noteIfStaleDeployment(err)) toast.error(t("duplicateFailedToast"));
       }
     },
     [router, queryClient, t],
@@ -267,7 +270,7 @@ export function ExerciseLibraryClient({
       setConfirmDelete(null);
     } catch (err) {
       console.error("[exercises] delete failed", err);
-      toast.error(t("deleteFailedToast"));
+      if (!noteIfStaleDeployment(err)) toast.error(t("deleteFailedToast"));
     } finally {
       setDeletePending(false);
     }
