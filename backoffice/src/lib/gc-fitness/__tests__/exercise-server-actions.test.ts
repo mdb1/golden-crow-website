@@ -33,9 +33,28 @@ const mockDoc = jest.fn(() => ({
   update: mockUpdate,
   get: mockGet,
 }));
+// #1078 — `softDeleteExercise` now SCANS `workout_templates` before writing, so
+// the collection handle needs a `.get()`. Default: no routines at all, which is
+// the "nothing blocks the delete" state every pre-existing case assumes.
+type FakeDoc = { id: string; data: () => Record<string, unknown> };
+const mockCollectionGet = jest.fn<Promise<{ docs: FakeDoc[] }>, []>(async () => ({
+  docs: [],
+}));
 const mockCollection = jest.fn(() => ({
   doc: mockDoc,
+  get: mockCollectionGet,
 }));
+
+/** Shapes a `workout_templates` doc the way the guard reads it. */
+function templateDoc(id: string, exerciseIds: string[], name: string) {
+  return {
+    id,
+    data: () => ({
+      name: { es: name, en: name },
+      exercises: exerciseIds.map((exerciseId) => ({ exerciseId })),
+    }),
+  };
+}
 const mockGetSignedUrl = jest.fn();
 const mockFile = jest.fn(() => ({
   getSignedUrl: mockGetSignedUrl,
@@ -140,6 +159,7 @@ const VALID_EXERCISE_INPUT = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCollectionGet.mockResolvedValue({ docs: [] });
   process.env.GC_FITNESS_TEAM_ALLOWLIST = ALLOWED_EMAIL;
   process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY = "fake-api-key";
   process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY = "fake-cookie-sig";
@@ -586,5 +606,108 @@ describe("#1104 — coach-facing exercise actions RETURN failures", () => {
       /the image itself, not a link/i,
     );
     expect(mockSet).not.toHaveBeenCalled();
+  });
+});
+
+// ── gc-fitness#1078 — no se borra un ejercicio que una rutina viva usa ───────
+//
+// `firestore.rules` prohíbe el HARD delete de un ejercicio desde P03-03, y la
+// razón está escrita en la propia regla: "workout templates reference exercises
+// by id". El borrado lógico era el camino previsto y dejó el mismo agujero
+// abierto: la curación 260522-mo2 borró 12 ejercicios que rutinas vivas estaban
+// usando, y esas filas siguieron renderizando "Ejercicio 3" —sin nombre, sin
+// media, sin error— adentro de programas de coaches reales con clientes
+// entrenándolos. Nadie se enteró en cuatro meses.
+
+describe("#1078 — softDeleteExercise blocks while a live routine uses it", () => {
+  function ownedExercise() {
+    return fakeSnapshot({
+      exists: true,
+      source: "trainer",
+      ownerId: ALLOWED_UID,
+    });
+  }
+
+  it("refuses the delete and NAMES the routines", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(ownedExercise());
+    const id = `custom-${ALLOWED_UID}-abc`;
+    mockCollectionGet.mockResolvedValue({
+      docs: [
+        templateDoc("t1", [id], "Empuje"),
+        templateDoc("t2", ["otro"], "Pierna"),
+        templateDoc("t3", [id], "Full body"),
+      ],
+    });
+
+    const result = await softDeleteExercise(id);
+
+    expect(result.ok).toBe(false);
+    // The count alone would leave the coach hunting: the only way past the
+    // block is to open those routines and swap the exercise out.
+    expect(result.ok === false && result.error).toMatch(/2 routines/i);
+    expect(result.ok === false && result.error).toMatch(/Empuje/);
+    expect(result.ok === false && result.error).toMatch(/Full body/);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("allows the delete when no live routine uses it", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(ownedExercise());
+    mockUpdate.mockResolvedValue(undefined);
+    const id = `custom-${ALLOWED_UID}-abc`;
+    mockCollectionGet.mockResolvedValue({
+      docs: [templateDoc("t1", ["otro-ejercicio"], "Empuje")],
+    });
+
+    const result = await softDeleteExercise(id);
+
+    // The guard must not turn "delete an exercise" into "you can never delete
+    // an exercise".
+    expect(result.ok).toBe(true);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUpdate.mock.calls[0][0].deleted).toBe(true);
+  });
+
+  it("does not count a DELETED routine as a blocker", async () => {
+    // Blocking on a routine the coach already threw away is a dead end: there
+    // is no UI to edit a deleted routine, so the exercise could never be
+    // deleted again.
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(ownedExercise());
+    mockUpdate.mockResolvedValue(undefined);
+    const id = `custom-${ALLOWED_UID}-abc`;
+    mockCollectionGet.mockResolvedValue({
+      docs: [
+        {
+          id: "gone",
+          data: () => ({
+            name: { es: "Vieja" },
+            deleted: true,
+            exercises: [{ exerciseId: id }],
+          }),
+        },
+      ],
+    });
+
+    const result = await softDeleteExercise(id);
+
+    expect(result.ok).toBe(true);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("checks ownership BEFORE scanning the routines", async () => {
+    // Order matters for cost and for disclosure: a caller who doesn't own the
+    // exercise must not trigger a full-collection scan, nor learn the names of
+    // routines that use it.
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeSnapshot({ exists: true, source: "trainer", ownerId: "someone-else" }),
+    );
+
+    const result = await softDeleteExercise("custom-someone-else-abc");
+
+    expect(result.ok).toBe(false);
+    expect(mockCollectionGet).not.toHaveBeenCalled();
   });
 });
