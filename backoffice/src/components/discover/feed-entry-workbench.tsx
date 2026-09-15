@@ -1072,15 +1072,7 @@ function payloadSourceValue(
   payload: Record<string, unknown>,
   field: DiscoverFeedPayloadFieldDefinition,
 ) {
-  const keys = [field.key, ...(field.aliases ?? [])];
-
-  for (const key of keys) {
-    if (payload[key] !== undefined && payload[key] !== null) {
-      return payload[key];
-    }
-  }
-
-  return undefined;
+  return payload[field.key];
 }
 
 function payloadDateText(value: unknown) {

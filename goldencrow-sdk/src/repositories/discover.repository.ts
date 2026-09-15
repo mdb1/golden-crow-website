@@ -209,7 +209,6 @@ type FeedPayloadField = {
   label: string;
   kind: FeedPayloadFieldKind;
   requiredForPublished?: boolean;
-  aliases?: readonly string[];
 };
 
 const FEED_PAYLOAD_FIELDS: Record<
@@ -225,7 +224,6 @@ const FEED_PAYLOAD_FIELDS: Record<
       key: "researchTopic",
       label: "Research topic",
       kind: "string",
-      aliases: ["topic"],
     },
     { key: "genes", label: "Genes", kind: "array" },
     { key: "conditions", label: "Conditions", kind: "array" },
@@ -233,7 +231,6 @@ const FEED_PAYLOAD_FIELDS: Record<
       key: "journal",
       label: "Journal",
       kind: "string",
-      aliases: ["journalName"],
     },
   ],
   upcoming_event: [
@@ -242,13 +239,11 @@ const FEED_PAYLOAD_FIELDS: Record<
       label: "Event date",
       kind: "timestamp",
       requiredForPublished: true,
-      aliases: ["startsAt"],
     },
     {
       key: "location",
       label: "Location",
       kind: "string",
-      aliases: ["locationName"],
     },
     { key: "maxAttendance", label: "Max attendance", kind: "integer" },
   ],
@@ -264,7 +259,6 @@ const FEED_PAYLOAD_FIELDS: Record<
       key: "location",
       label: "Location",
       kind: "string",
-      aliases: ["locationName"],
     },
   ],
   video: [
@@ -1795,6 +1789,47 @@ function serializePayloadValue(value: unknown): unknown {
   return value;
 }
 
+const DISALLOWED_DISCOVER_PAYLOAD_ALIAS_KEYS = new Set([
+  "title",
+  "summary",
+  "body",
+  "detailBody",
+  "htmlBody",
+  "imageUrl",
+  "sourceUrl",
+  "sourceButtonText",
+]);
+
+function disallowedDiscoverPayloadAliasKeys(type: DiscoverFeedType) {
+  const keys = new Set(DISALLOWED_DISCOVER_PAYLOAD_ALIAS_KEYS);
+
+  if (type === "research_update") {
+    keys.add("topic");
+    keys.add("journalName");
+  }
+  if (type === "upcoming_event" || type === "opportunity") {
+    keys.add("locationName");
+  }
+  if (type === "upcoming_event") {
+    keys.add("startsAt");
+  }
+
+  return keys;
+}
+
+function serializePayloadNode(
+  payload: Record<string, unknown>,
+  type: DiscoverFeedType,
+) {
+  const disallowedKeys = disallowedDiscoverPayloadAliasKeys(type);
+
+  return Object.fromEntries(
+    Object.entries(payload)
+      .filter(([key]) => !disallowedKeys.has(key))
+      .map(([key, entry]) => [key, serializePayloadValue(entry)]),
+  );
+}
+
 function withoutUndefined<T>(value: T): T {
   if (value instanceof Timestamp || value instanceof FieldValue) {
     return value;
@@ -2068,16 +2103,6 @@ function payloadNodeFromData(
   return mergePayloadNodeFallback(data[getPayloadKey(type)], data[type]);
 }
 
-function payloadForSerializedItem(
-  data: Record<string, unknown>,
-  type: DiscoverFeedType,
-): Record<string, unknown> {
-  const payload = payloadNodeFromData(data, type);
-  return payload && typeof payload === "object" && !Array.isArray(payload)
-    ? (payload as Record<string, unknown>)
-    : {};
-}
-
 function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
   const data = doc.data() as Record<string, unknown>;
   const type = FEED_TYPES.has(data.type as DiscoverFeedType)
@@ -2090,7 +2115,6 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
     data.publisherSnapshot && typeof data.publisherSnapshot === "object"
       ? (data.publisherSnapshot as Record<string, unknown>)
       : {};
-  const activePayload = payloadForSerializedItem(data, type);
   const languageValue = data.language ?? data.locale;
   const language =
     languageValue === "en" || languageValue === "es" ? languageValue : undefined;
@@ -2109,22 +2133,11 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
     publishedAt: timestampToIso(data.publishedAt),
     showInDiscoverFeed: data.showInDiscoverFeed === true,
     language,
-    title:
-      normalizeOptionalString(data.title) ??
-      normalizeOptionalString(activePayload.title) ??
-      "",
-    subtitle:
-      normalizeOptionalString(data.subtitle) ??
-      normalizeOptionalString(activePayload.summary) ??
-      "",
-    body:
-      normalizeOptionalString(data.body) ??
-      normalizeOptionalString(activePayload.detailBody) ??
-      "",
+    title: normalizeOptionalString(data.title) ?? "",
+    subtitle: normalizeOptionalString(data.subtitle) ?? "",
+    body: normalizeOptionalString(data.body) ?? "",
     htmlBody: normalizeNullableString(data.htmlBody),
-    imageUrl:
-      normalizeNullableString(data.imageUrl) ??
-      normalizeNullableString(activePayload.imageUrl),
+    imageUrl: normalizeNullableString(data.imageUrl),
     imageUploadDataUrl: normalizeOptionalString(data.imageUploadDataUrl),
     imageUploadName: normalizeOptionalString(data.imageUploadName),
     imageUploadMimeType: normalizeOptionalString(data.imageUploadMimeType),
@@ -2142,10 +2155,10 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
     const payloadKey = getPayloadKey(payloadType);
     const payload = payloadNodeFromData(data, payloadType);
     if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-      record[payloadKey] = serializePayloadValue(payload) as Record<
-        string,
-        unknown
-      >;
+      record[payloadKey] = serializePayloadNode(
+        payload as Record<string, unknown>,
+        payloadType,
+      ) as Record<string, unknown>;
     }
   }
 
@@ -2759,36 +2772,12 @@ function normalizeRootContent(
   };
 }
 
-function compatibilityAliases(root: ReturnType<typeof normalizeRootContent>) {
-  return {
-    title: root.title,
-    summary: root.subtitle,
-    detailBody: root.body,
-    imageUrl: root.imageUrl,
-  };
-}
-
-function payloadValue(
-  payload: Record<string, unknown>,
-  field: FeedPayloadField,
-): unknown {
-  const keys = [field.key, ...(field.aliases ?? [])];
-
-  for (const key of keys) {
-    if (payload[key] !== undefined && payload[key] !== null) {
-      return payload[key];
-    }
-  }
-
-  return undefined;
-}
-
 function normalizePayloadField(
   field: FeedPayloadField,
   payload: Record<string, unknown>,
   status: DiscoverFeedStatus,
 ) {
-  const value = payloadValue(payload, field);
+  const value = payload[field.key];
 
   if (
     status === "published" &&
@@ -2820,31 +2809,6 @@ function normalizePayloadField(
   return normalizeNullableString(value);
 }
 
-function compatibilityPayloadAliases(
-  type: DiscoverFeedType,
-  payload: Record<string, unknown>,
-) {
-  if (type === "research_update") {
-    return {
-      journalName: payload.journal,
-    };
-  }
-
-  if (type === "upcoming_event") {
-    return {
-      startsAt: payload.date,
-    };
-  }
-
-  if (type === "opportunity") {
-    return {
-      opportunityType: payload.opportunityType,
-    };
-  }
-
-  return {};
-}
-
 function assignOptionalPayloadField(
   payload: Record<string, unknown>,
   key: string,
@@ -2858,9 +2822,7 @@ function assignOptionalPayloadField(
 function normalizeUpcomingEventPayload(
   payload: Record<string, unknown>,
   status: DiscoverFeedStatus,
-  root: ReturnType<typeof normalizeRootContent>,
 ) {
-  const aliases = compatibilityAliases(root);
   const normalizedPayload = Object.fromEntries(
     FEED_PAYLOAD_FIELDS.upcoming_event.map((field) => [
       field.key,
@@ -2868,9 +2830,7 @@ function normalizeUpcomingEventPayload(
     ]),
   );
   const eventPayload: Record<string, unknown> = {
-    ...aliases,
     ...normalizedPayload,
-    ...compatibilityPayloadAliases("upcoming_event", normalizedPayload),
   };
 
   assignOptionalPayloadField(
@@ -3042,15 +3002,13 @@ function normalizeTypePayload(
   type: DiscoverFeedType,
   input: FeedItemInput,
   status: DiscoverFeedStatus,
-  root: ReturnType<typeof normalizeRootContent>,
 ) {
   const payload = payloadInputForType(type, input);
 
   if (type === "upcoming_event") {
-    return normalizeUpcomingEventPayload(payload, status, root);
+    return normalizeUpcomingEventPayload(payload, status);
   }
 
-  const aliases = compatibilityAliases(root);
   const normalizedPayload = Object.fromEntries(
     FEED_PAYLOAD_FIELDS[type].map((field) => [
       field.key,
@@ -3058,11 +3016,7 @@ function normalizeTypePayload(
     ]),
   );
 
-  return {
-    ...aliases,
-    ...normalizedPayload,
-    ...compatibilityPayloadAliases(type, normalizedPayload),
-  };
+  return normalizedPayload;
 }
 
 async function feedItemDocument(
@@ -3135,7 +3089,7 @@ async function feedItemDocument(
         FieldValue.serverTimestamp())
       : null;
   const root = normalizeRootContent(input, status, existing);
-  const payload = normalizeTypePayload(type, input, status, root);
+  const payload = normalizeTypePayload(type, input, status);
 
   return {
     id: feedItemId,

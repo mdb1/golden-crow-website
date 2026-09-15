@@ -94,6 +94,35 @@ const mockDeletePublisherPortalRolesForPublisher = jest.fn();
 let mockGeneratedId = 0;
 let failNextFeedItemsQuery = true;
 
+const forbiddenFeedPayloadAliasKeys = [
+  "title",
+  "summary",
+  "body",
+  "detailBody",
+  "htmlBody",
+  "imageUrl",
+  "sourceUrl",
+  "sourceButtonText",
+];
+
+const forbiddenFeedPayloadAliasKeysByType = {
+  research_update: ["topic", "journalName"],
+  upcoming_event: ["startsAt", "locationName"],
+  opportunity: ["locationName"],
+} as const;
+
+function expectNoFeedPayloadAliases(
+  payload: Record<string, unknown>,
+  type?: keyof typeof forbiddenFeedPayloadAliasKeysByType,
+) {
+  for (const key of [
+    ...forbiddenFeedPayloadAliasKeys,
+    ...(type ? forbiddenFeedPayloadAliasKeysByType[type] : []),
+  ]) {
+    expect(payload[key]).toBeUndefined();
+  }
+}
+
 const initialFeedDocs: MockDoc[] = [
   {
     id: "feed-a",
@@ -1595,11 +1624,9 @@ describe("discover repository", () => {
     const payload = stored?.upcomingEvent as Record<string, unknown>;
 
     expect(payload.date).toBeDefined();
-    expect(payload.startsAt).toBeDefined();
     expect(payload.location).toBeNull();
     expect(payload.maxAttendance).toBe(250);
-    expect(payload.sourceUrl).toBeUndefined();
-    expect(payload.sourceButtonText).toBeUndefined();
+    expectNoFeedPayloadAliases(payload, "upcoming_event");
     expect(feedItem.sourceButtonText).toBe("Register now");
     expect(feedItem.showInDiscoverFeed).toBe(true);
     expect(stored?.showInDiscoverFeed).toBe(true);
@@ -1607,6 +1634,126 @@ describe("discover repository", () => {
     expect(stored?.sourceUrl).toBe("https://example.org/events/register");
     expect(stored?.sourceButtonText).toBe("Register now");
     expect(stored?.sourceButtonText).toBe("Register now");
+  });
+
+  it("does not read, write, or preserve shared content duplicates inside type payloads", async () => {
+    const {
+      createDiscoverFeedItem,
+      getDiscoverFeedItem,
+      updateDiscoverFeedItem,
+    } = await import("../repositories/discover.repository");
+
+    const feedItem = await createDiscoverFeedItem(fullAdminContext, {
+      publisherOrganizationId: "org-1",
+      type: "news",
+      status: "published",
+      publishedAt: "2026-08-05T10:00:00.000Z",
+      language: "en",
+      title: "Root title",
+      subtitle: "Root subtitle",
+      body: "Root body",
+      htmlBody: "<p><strong>Root body</strong></p>",
+      imageUrl: "https://example.org/root-cover.png",
+      sourceUrl: "https://example.org/read",
+      sourceButtonText: "Read more",
+      news: {
+        category: "Research",
+        region: "AR",
+        title: "Nested title",
+        summary: "Nested summary",
+        body: "Nested body",
+        detailBody: "Nested body detail",
+        htmlBody: "<p>Nested HTML</p>",
+        imageUrl: "https://example.org/nested-cover.png",
+        sourceUrl: "https://example.org/nested-read",
+        sourceButtonText: "Nested read",
+      },
+    });
+
+    const stored = mockFeedDocs.find((doc) => doc.id === feedItem.id)?.data;
+    const storedNews = stored?.news as Record<string, unknown>;
+    const returnedNews = feedItem.news as Record<string, unknown>;
+
+    expect(stored).toMatchObject({
+      title: "Root title",
+      subtitle: "Root subtitle",
+      body: "Root body",
+      htmlBody: "<p><strong>Root body</strong></p>",
+      imageUrl: "https://example.org/root-cover.png",
+      sourceUrl: "https://example.org/read",
+      sourceButtonText: "Read more",
+    });
+    expect(storedNews).toEqual({
+      category: "Research",
+      region: "AR",
+    });
+    expectNoFeedPayloadAliases(storedNews);
+    expectNoFeedPayloadAliases(returnedNews);
+
+    mockFeedDocs.push({
+      id: "feed-legacy-shared-payload",
+      data: {
+        publisherOrganizationId: "org-1",
+        publisherSnapshot: { name: "Publisher One", imageUrl: null },
+        type: "news",
+        status: "draft",
+        title: "",
+        subtitle: "",
+        body: "",
+        imageUrl: null,
+        language: "en",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-02T00:00:00.000Z",
+        news: {
+          category: "Legacy",
+          region: "US",
+          title: "Nested title",
+          summary: "Nested summary",
+          detailBody: "Nested detail body",
+          imageUrl: "https://example.org/legacy-nested-cover.png",
+        },
+      },
+    });
+
+    const legacy = await getDiscoverFeedItem(
+      fullAdminContext,
+      "feed-legacy-shared-payload",
+    );
+    expect(legacy.title).toBe("");
+    expect(legacy.subtitle).toBe("");
+    expect(legacy.body).toBe("");
+    expect(legacy.imageUrl).toBeNull();
+    expect(legacy.news).toEqual({
+      category: "Legacy",
+      region: "US",
+    });
+    expectNoFeedPayloadAliases(legacy.news as Record<string, unknown>);
+
+    await updateDiscoverFeedItem(fullAdminContext, "feed-legacy-shared-payload", {
+      publisherOrganizationId: "org-1",
+      type: "news",
+      status: "draft",
+      language: "en",
+      title: "Clean root title",
+      subtitle: "Clean root subtitle",
+      body: "Clean root body",
+      imageUrl: "https://example.org/clean-root-cover.png",
+      news: {
+        category: "Clean",
+        region: "AR",
+        summary: "Do not store me",
+        detailBody: "Do not store me either",
+      },
+    });
+
+    const rewritten = mockFeedDocs.find(
+      (doc) => doc.id === "feed-legacy-shared-payload",
+    )?.data;
+    expect(rewritten?.news).toEqual({
+      category: "Clean",
+      region: "AR",
+    });
+    expectNoFeedPayloadAliases(rewritten?.news as Record<string, unknown>);
   });
 
   it("stores direct uploaded cover image data on feed items", async () => {
@@ -1769,9 +1916,7 @@ describe("discover repository", () => {
       accessibilityFeatures: ["captions", "recordingAvailable"],
     });
     expect(payload.date).toBeDefined();
-    expect(payload.startsAt).toBeDefined();
-    expect(payload.sourceUrl).toBeUndefined();
-    expect(payload.sourceButtonText).toBeUndefined();
+    expectNoFeedPayloadAliases(payload, "upcoming_event");
     expect(payload.organizerOrganizationId).toBeUndefined();
     expect(payload.organizerIndividualId).toBeUndefined();
   });

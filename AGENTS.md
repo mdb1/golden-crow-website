@@ -44,6 +44,8 @@
 - When a user describes a new Discover field in snake_case, treat that spelling as conversational shorthand and implement the actual key in camelCase.
 - Snake_case identifier values remain valid and must not be renamed. This includes status/type/category identifiers such as `pending_approval`, `research_update`, `raw_vcf`, and `pro_medical_geneticists`.
 - Collection names and public route slugs such as `feed_organizations`, `feed_individuals`, `feed_items`, and `/discover/feed-entries` are not field keys; do not rename them as part of field naming cleanup.
+- Discover feed item shared content belongs only at the `feed_items` root: `title`, `subtitle`, `body`, `htmlBody`, `imageUrl`, `sourceUrl`, and `sourceButtonText`. Never duplicate, read, write, preserve, or backfill these values inside typed payload nodes such as `news`, `researchUpdate`, `upcomingEvent`, or any other Discover feed type.
+- Typed Discover payload nodes must contain only type-specific fields. Do not add compatibility aliases such as `summary`, `detailBody`, nested `title`, nested `body`, nested `htmlBody`, nested `imageUrl`, `startsAt`, `journalName`, or `locationName`; normalize old records away from those aliases instead of propagating them. `topic` is valid only as the canonical field for `educationalExplainer`, never as a compatibility alias for `researchTopic`.
 
 ## Auth Surface Isolation
 

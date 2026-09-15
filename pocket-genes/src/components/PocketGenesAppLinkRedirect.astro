@@ -1055,20 +1055,15 @@ const initialCopy = isEnglishPage
     const payload = fields[payloadKey] && typeof fields[payloadKey] === 'object' ? fields[payloadKey] : {};
     const isEventType = type === 'upcoming_event';
     const eventPreview = isEventType ? eventPreviewData(payload) : null;
-    const title = cleanText(fields.title) || (!isEventType ? cleanText(payload.title) : '');
-    const summary =
-      cleanText(fields.subtitle) ||
-      (!isEventType ? cleanText(fields.summary) || cleanText(payload.summary) : '');
-    const body = contentBodyData(
-      fields.htmlBody,
-      cleanText(fields.body) || (!isEventType ? cleanText(payload.detailBody) : '')
-    );
+    const title = cleanText(fields.title);
+    const summary = cleanText(fields.subtitle);
+    const body = contentBodyData(fields.htmlBody, cleanText(fields.body));
 
     if (!title || (isEventType ? !eventPreview : !summary && !bodyHasContent(body))) {
       return null;
     }
 
-    const eventDate = eventPreview ? '' : formatDate(payload.date || payload.startsAt);
+    const eventDate = eventPreview ? '' : formatDate(payload.date);
     const meta = [
       eventDate,
       eventPreview ? '' : cleanText(payload.location),
@@ -1094,8 +1089,7 @@ const initialCopy = isEnglishPage
       bannerUrl: '',
       mediaUrl:
         imageSource(fields.imageUrl) ||
-        imageSource(fields.imageUploadDataUrl) ||
-        (!eventPreview ? imageSource(payload.imageUrl) : ''),
+        imageSource(fields.imageUploadDataUrl),
       websiteUrl: externalUrl(fields.sourceUrl),
       websiteLabel: sourceButtonText || copy.website,
       badges: [typeLabel(type)],

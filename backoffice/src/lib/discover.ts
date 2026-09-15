@@ -354,7 +354,6 @@ export interface DiscoverFeedPayloadFieldDefinition {
   kind: DiscoverFeedPayloadFieldKind;
   required?: boolean;
   control?: DiscoverFeedPayloadFieldControl;
-  aliases?: readonly string[];
 }
 
 export interface DiscoverFeedTypeDefinition {
@@ -383,11 +382,10 @@ export const DISCOVER_FEED_TYPE_DEFINITIONS: readonly DiscoverFeedTypeDefinition
         key: "researchTopic",
         label: "Research topic",
         kind: "string",
-        aliases: ["topic"],
       },
       { key: "genes", label: "Genes", kind: "array" },
       { key: "conditions", label: "Conditions", kind: "array" },
-      { key: "journal", label: "Journal", kind: "string", aliases: ["journalName"] },
+      { key: "journal", label: "Journal", kind: "string" },
     ],
   },
   {
@@ -400,9 +398,8 @@ export const DISCOVER_FEED_TYPE_DEFINITIONS: readonly DiscoverFeedTypeDefinition
         label: "Event date",
         kind: "timestamp",
         required: true,
-        aliases: ["startsAt"],
       },
-      { key: "location", label: "Location", kind: "string", control: "location", aliases: ["locationName"] },
+      { key: "location", label: "Location", kind: "string", control: "location" },
       { key: "maxAttendance", label: "Max attendance", kind: "integer" },
       { key: "timeKind", label: "Time display", kind: "string" },
       { key: "timezone", label: "Timezone", kind: "string" },
@@ -439,7 +436,7 @@ export const DISCOVER_FEED_TYPE_DEFINITIONS: readonly DiscoverFeedTypeDefinition
       },
       { key: "requirements", label: "Requirements", kind: "string", control: "textarea" },
       { key: "eligibility", label: "Eligibility", kind: "string", control: "textarea" },
-      { key: "location", label: "Location", kind: "string", control: "location", aliases: ["locationName"] },
+      { key: "location", label: "Location", kind: "string", control: "location" },
     ],
   },
   {
