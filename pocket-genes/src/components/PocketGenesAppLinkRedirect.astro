@@ -2132,21 +2132,7 @@ const initialCopy = isEnglishPage
     if (!facts?.length) return null;
     const section = document.createElement('section');
     section.className = 'shared-event-facts';
-    const capacity = facts.find((fact) => fact.key === 'capacity');
-    const languages = facts.find((fact) => fact.key === 'languages');
-    facts.forEach((fact) => {
-      if (fact.key === 'capacity' && languages) {
-        const pair = document.createElement('div');
-        pair.className = 'shared-event-fact-pair';
-        pair.append(createEventFact(capacity), createEventFact(languages));
-        section.append(pair);
-        return;
-      }
-      if (fact.key === 'languages' && capacity) {
-        return;
-      }
-      section.append(createEventFact(fact));
-    });
+    section.append(...facts.map(createEventFact));
     return section;
   }
 
@@ -2901,8 +2887,28 @@ const initialCopy = isEnglishPage
 
     .shared-preview-event :global(.shared-event-facts) {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px 24px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-auto-rows: auto auto;
+      column-gap: 12px;
+      row-gap: 6px;
+      align-items: start;
+      text-align: center;
+    }
+
+    .shared-preview-event :global(.shared-event-fact) {
+      display: grid;
+      grid-row: span 2;
+      grid-template-rows: minmax(2.8em, auto) auto;
+      row-gap: 6px;
+      align-content: start;
+      justify-items: center;
+      min-width: 0;
+    }
+
+    @supports (grid-template-rows: subgrid) {
+      .shared-preview-event :global(.shared-event-fact) {
+        grid-template-rows: subgrid;
+      }
     }
 
     .shared-preview-event :global(.shared-event-field-label) {
@@ -2911,6 +2917,7 @@ const initialCopy = isEnglishPage
       font-size: 13px;
       font-weight: 750;
       line-height: 1.3;
+      text-align: center;
     }
 
     .shared-preview-event :global(.shared-event-disclosure) {
@@ -3004,7 +3011,7 @@ const initialCopy = isEnglishPage
       }
 
       .shared-preview-event :global(.shared-event-facts) {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
     }
 
@@ -3722,23 +3729,49 @@ const initialCopy = isEnglishPage
 
   .shared-preview--event .shared-preview-event :global(.shared-event-facts) {
     display: grid;
-    gap: 14px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: auto auto;
+    column-gap: 12px;
+    row-gap: 6px;
+    align-items: start;
     padding-top: 18px;
+    text-align: center;
   }
 
-  .shared-preview--event .shared-preview-event :global(.shared-event-fact-pair) {
+  .shared-preview--event .shared-preview-event :global(.shared-event-fact) {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    grid-row: span 2;
+    grid-template-rows: minmax(3.2em, auto) auto;
+    row-gap: 6px;
+    align-content: start;
+    justify-items: center;
     min-width: 0;
   }
 
+  @supports (grid-template-rows: subgrid) {
+    .shared-preview--event .shared-preview-event :global(.shared-event-fact) {
+      grid-template-rows: subgrid;
+    }
+  }
+
   .shared-preview--event .shared-preview-event :global(.shared-event-field-label) {
-    margin: 0 0 5px;
+    display: flex;
+    align-items: end;
+    justify-content: center;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
     color: #706b79;
     font-size: 12px;
     font-weight: 400;
     line-height: 1.6;
+    text-align: center;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-fact-value) {
+    max-width: 100%;
+    text-align: center;
+    overflow-wrap: anywhere;
   }
 
   .shared-preview--event .shared-preview-event :global(.shared-event-context) {
