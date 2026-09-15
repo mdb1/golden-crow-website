@@ -76,6 +76,7 @@ describe("Discover Spanish translations", () => {
       "OK",
       "ORCID",
       "Telegram",
+      "Webinar",
       "WhatsApp",
     ]);
     const untranslated = [...discoverUiKeys()]

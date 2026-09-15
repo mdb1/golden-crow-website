@@ -934,7 +934,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Add optional labels that help readers understand the event format, type, and status.":
     "Agregá etiquetas opcionales para que los lectores entiendan el formato, tipo y estado del evento.",
   "Event kind": "Tipo de evento",
-  Webinar: "Seminario web",
+  Webinar: "Webinar",
   Conference: "Conferencia",
   Workshop: "Taller",
   Seminar: "Seminario",
