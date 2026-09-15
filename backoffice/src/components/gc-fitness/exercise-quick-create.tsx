@@ -44,6 +44,11 @@ import {
   EQUIPMENT,
   MUSCLE_GROUPS,
 } from "@/lib/gc-fitness/exercise-vocabulary";
+import {
+  isValidHttpUrl,
+  normalizeExternalUrl,
+  thumbnailUrlIssue,
+} from "@/lib/gc-fitness/exercise-media-url";
 
 export interface QuickCreateSeed {
   name: string;
@@ -95,27 +100,12 @@ const DEFAULT_EQUIPMENT = "bodyweight";
  * wire — an empty string is a real value on Firestore).
  */
 export function normalizeYoutubeUrl(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return "";
-  // Any scheme at all (http, https, or a typo like `htttp`) is left alone so
-  // isValidYoutubeUrl below can reject it instead of us silently building
-  // `https://htttp://…`.
-  return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
-    ? trimmed
-    : `https://${trimmed}`;
+  return normalizeExternalUrl(raw);
 }
 
 /** Mirrors what `z.string().url()` accepts, narrowed to http(s). */
 export function isValidYoutubeUrl(normalized: string): boolean {
-  try {
-    const url = new URL(normalized);
-    return (
-      (url.protocol === "http:" || url.protocol === "https:") &&
-      url.hostname.includes(".")
-    );
-  } catch {
-    return false;
-  }
+  return isValidHttpUrl(normalized);
 }
 
 function seedEquals(a: QuickCreateSeed, b: QuickCreateSeed): boolean {
@@ -181,6 +171,20 @@ export function QuickCreateExercise({
   const normalizedYoutube = normalizeYoutubeUrl(youtubeUrl);
   const youtubeInvalid =
     normalizedYoutube.length > 0 && !isValidYoutubeUrl(normalizedYoutube);
+  // #1104 — the thumbnail field gets the SAME treatment as the video one. A
+  // coach pasted a base64 `data:image/jpeg` blob here (the picture itself,
+  // not a link to it); the server rejected it and — because the Server Action
+  // THREW that rejection — production showed "Minified React error #441".
+  // Catching it before the round trip means the coach reads what to do, and
+  // the returned-failure fix in `action-result.ts` means they'd read it even
+  // if this check ever missed a shape.
+  //
+  // Normalize first (a link copied off a phone routinely arrives without its
+  // scheme), then validate — `normalizeExternalUrl` leaves a `data:` URI
+  // alone precisely so it reaches `thumbnailUrlIssue` recognizable instead of
+  // becoming the nonsense `https://data:image/jpeg;base64,…`.
+  const normalizedGif = normalizeExternalUrl(gifUrl);
+  const gifIssue = thumbnailUrlIssue(normalizedGif);
 
   function reset() {
     setName("");
@@ -223,7 +227,7 @@ export function QuickCreateExercise({
       const { createExercise } = await import(
         "@/lib/gc-fitness/exercise-server-actions"
       );
-      const result = await createExercise({
+      const created = await createExercise({
         name: localizedName,
         description: localizedDescription,
         muscleGroups: [muscleGroup],
@@ -231,7 +235,7 @@ export function QuickCreateExercise({
         // it weights as a full set in the coach's muscle-group progress charts.
         primaryMuscleGroup: muscleGroup,
         equipment: [equipment],
-        thumbnailURL: gifUrl.trim() || null,
+        thumbnailURL: normalizedGif || null,
         // #1032 — null, never "", for the same reason as thumbnailURL: an
         // empty string is a present value on Firestore and the clients treat
         // "has a video" as "the field is non-null".
@@ -239,16 +243,21 @@ export function QuickCreateExercise({
         source: "trainer",
         ownerId: null,
       });
-      onCreated({ id: result.id, name: trimmedName });
+      // #1104 — `createExercise` RETURNS its failure. It used to throw, and
+      // Next.js strips the message off anything thrown out of a Server Action
+      // in a production build, so this line used to print "Minified React
+      // error #441" into the panel — see `action-result.ts`.
+      if (!created.ok) {
+        console.error("[exercise-quick-create] failed", created.error);
+        setError(created.error);
+        return;
+      }
+      onCreated({ id: created.id, name: trimmedName });
       reset();
       onSeedCleared?.();
     } catch (err) {
       console.error("[exercise-quick-create] failed", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Could not create the exercise.",
-      );
+      setError("Could not create the exercise. Try again.");
     } finally {
       setCreating(false);
     }
@@ -266,7 +275,7 @@ export function QuickCreateExercise({
   // Description is optional — only the name gates Create.
   const requiredMissing = name.trim().length === 0;
   const disabled =
-    creating || requiredMissing || isDuplicate || youtubeInvalid;
+    creating || requiredMissing || isDuplicate || youtubeInvalid || !!gifIssue;
   // Keep the locale read so future copy can branch per-locale without
   // adding another import; not used today but cheap.
   void locale;
@@ -365,7 +374,11 @@ export function QuickCreateExercise({
             value={gifUrl}
             placeholder="GIF / preview URL (optional)"
             onChange={(event) => setGifUrl(event.target.value)}
+            aria-invalid={!!gifIssue || undefined}
           />
+          {gifIssue ? (
+            <p className="mt-1 text-xs text-destructive">{gifIssue}</p>
+          ) : null}
         </div>
         <div className="sm:col-span-2">
           <Label htmlFor="quick-create-youtube" className="sr-only">

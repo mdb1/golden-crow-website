@@ -37,10 +37,14 @@ jest.mock("next/navigation", () => ({
 // '@/lib/gc-fitness/exercise-server-actions'`. With `"use server"` in the
 // real file, Next.js wraps them in a `serverAction` proxy at build time;
 // under Jest we bypass that and substitute plain async mocks.
-const mockCreateExercise = jest.fn<Promise<{ id: string }>, [unknown]>();
+// #1104 — the actions RETURN their failures now (a thrown one reaches the
+// browser as "Minified React error #441" in a production build).
+const mockCreateExercise =
+  jest.fn<Promise<{ ok: true; id: string }>, [unknown]>();
 const mockUpdateExercise = jest.fn<Promise<{ ok: true }>, [string, unknown]>();
 const mockSoftDeleteExercise = jest.fn<Promise<{ ok: true }>, [string]>();
-const mockDuplicateExercise = jest.fn<Promise<{ id: string }>, [string]>();
+const mockDuplicateExercise =
+  jest.fn<Promise<{ ok: true; id: string }>, [string]>();
 const mockMintUploadUrl =
   jest.fn<
     Promise<{ url: string; gsPath: string }>,
@@ -113,10 +117,10 @@ const mockFetch = jest.fn(
 );
 beforeEach(() => {
   jest.clearAllMocks();
-  mockCreateExercise.mockResolvedValue({ id: "custom-test-1" });
+  mockCreateExercise.mockResolvedValue({ ok: true, id: "custom-test-1" });
   mockUpdateExercise.mockResolvedValue({ ok: true });
   mockSoftDeleteExercise.mockResolvedValue({ ok: true });
-  mockDuplicateExercise.mockResolvedValue({ id: "custom-dup-1" });
+  mockDuplicateExercise.mockResolvedValue({ ok: true, id: "custom-dup-1" });
   mockMintUploadUrl.mockResolvedValue({
     url: "https://storage.example.test/signed?token=abc",
     gsPath:

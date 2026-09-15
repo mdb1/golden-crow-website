@@ -289,9 +289,20 @@ export function ExerciseForm({
     startTransition(async () => {
       try {
         if (mode === "create") {
-          const { id } = await createExercise(
+          const result = await createExercise(
             draftExerciseId ? { ...values, id: draftExerciseId } : values,
           );
+          // #1104 — a THROWN server-action error arrives in production as
+          // "Minified React error #441" with the real message stripped, so
+          // every write here returns its failure instead. Surface it: the
+          // messages are the UI-SPEC validation copy from exercise-schema.ts,
+          // written for the coach.
+          if (!result.ok) {
+            console.error("[exercise-form] save failed", result.error);
+            toast.error(t("saveFailedToast"), { description: result.error });
+            return;
+          }
+          const id = result.id;
           await invalidateExercises();
           toast.success(t("savedToast"));
           // B4 — modal mode: hand control back to the Dialog parent (which
@@ -312,7 +323,12 @@ export function ExerciseForm({
           return;
         }
         if (mode === "edit" && exerciseId) {
-          await updateExercise(exerciseId, values);
+          const result = await updateExercise(exerciseId, values);
+          if (!result.ok) {
+            console.error("[exercise-form] save failed", result.error);
+            toast.error(t("saveFailedToast"), { description: result.error });
+            return;
+          }
           await invalidateExercises();
           toast.success(t("savedToast"));
           router.push("/gc-fitness/exercises");
@@ -328,10 +344,15 @@ export function ExerciseForm({
     if (!exerciseId) return;
     setDuplicating(true);
     try {
-      const { id } = await duplicateExercise(exerciseId);
+      const result = await duplicateExercise(exerciseId);
+      if (!result.ok) {
+        console.error("[exercise-form] duplicate failed", result.error);
+        toast.error(t("duplicateFailedToast"), { description: result.error });
+        return;
+      }
       await invalidateExercises();
       toast.success(t("duplicateToast"));
-      router.push(`/gc-fitness/exercises/${id}/edit`);
+      router.push(`/gc-fitness/exercises/${result.id}/edit`);
     } catch (err) {
       console.error("[exercise-form] duplicate failed", err);
       toast.error(t("duplicateFailedToast"));
@@ -344,7 +365,12 @@ export function ExerciseForm({
     if (!exerciseId) return;
     setDeleting(true);
     try {
-      await softDeleteExercise(exerciseId);
+      const result = await softDeleteExercise(exerciseId);
+      if (!result.ok) {
+        console.error("[exercise-form] delete failed", result.error);
+        toast.error(t("deleteFailedToast"), { description: result.error });
+        return;
+      }
       await invalidateExercises();
       toast.success(t("deletedToast"));
       router.push("/gc-fitness/exercises");

@@ -50,6 +50,10 @@ import {
 } from "@/lib/firebase/gc-fitness-admin";
 
 import {
+  toActionFailure,
+  type ActionResult,
+} from "./action-result";
+import {
   exerciseSchema,
   exerciseUpdateSchema,
   type ExerciseInput,
@@ -98,7 +102,7 @@ function getMediaBucketName(): string {
  *
  * Doc ID convention: `custom-${trainer.uid}-${crypto.randomUUID()}`.
  */
-export async function createExercise(
+async function createExerciseImpl(
   input: unknown,
 ): Promise<{ id: string }> {
   const trainer = await getCurrentTrainer();
@@ -182,10 +186,10 @@ export async function createExercise(
  * Strips any incoming `source` / `ownerId` keys from the patch — those
  * fields are immutable once the doc is created.
  */
-export async function updateExercise(
+async function updateExerciseImpl(
   id: string,
   input: unknown,
-): Promise<{ ok: true }> {
+): Promise<void> {
   const trainer = await getCurrentTrainer();
 
   const db = gcFitnessFirestore();
@@ -226,8 +230,6 @@ export async function updateExercise(
     updatedAt: FieldValue.serverTimestamp(),
     version: FieldValue.increment(1),
   });
-
-  return { ok: true };
 }
 
 /**
@@ -235,9 +237,9 @@ export async function updateExercise(
  * the same grounds as `updateExercise`. Hard-delete is permanently gated
  * by Firestore rules from 03-03.
  */
-export async function softDeleteExercise(
+async function softDeleteExerciseImpl(
   id: string,
-): Promise<{ ok: true }> {
+): Promise<void> {
   const trainer = await getCurrentTrainer();
 
   const db = gcFitnessFirestore();
@@ -264,8 +266,6 @@ export async function softDeleteExercise(
   });
 
   await markCoachActivityDeleted(db, `exr:${id}`);
-
-  return { ok: true };
 }
 
 /**
@@ -278,7 +278,7 @@ export async function softDeleteExercise(
  *    `gs://` path stays usable (no broken-media regression).
  *  - version → 1, deleted → false, timestamps → server-side.
  */
-export async function duplicateExercise(
+async function duplicateExerciseImpl(
   id: string,
 ): Promise<{ id: string }> {
   const trainer = await getCurrentTrainer();
@@ -309,6 +309,75 @@ export async function duplicateExercise(
 
   return { id: newId };
 }
+
+// ── The coach-facing boundary ───────────────────────────────────────────────
+//
+// Everything above throws; everything below RETURNS its failure. That is not
+// stylistic: Next.js redacts an error thrown out of a Server Action in a
+// production build, and the client receives "Minified React error #441"
+// instead of the message. A coach who pasted a base64 data-URI into the
+// thumbnail field got that React code instead of "Enter a valid image link
+// (https://…)" — the Zod copy written for exactly that mistake. See
+// `action-result.ts`.
+//
+// KEEP THE SPLIT. The `*Impl` functions stay throw-based so the policy checks
+// read as guard clauses; the exported wrappers are the only thing the browser
+// can call, and they can only return.
+
+/**
+ * Creates a NEW trainer-owned exercise. See `createExerciseImpl` for the
+ * ownership + source-immutability contract.
+ */
+export async function createExercise(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const { id } = await createExerciseImpl(input);
+    return { ok: true, id };
+  } catch (err) {
+    console.error("[exercise-server-actions] createExercise failed", err);
+    return toActionFailure(err);
+  }
+}
+
+/** Updates an existing trainer-owned exercise. */
+export async function updateExercise(
+  id: string,
+  input: unknown,
+): Promise<ActionResult> {
+  try {
+    await updateExerciseImpl(id, input);
+    return { ok: true };
+  } catch (err) {
+    console.error("[exercise-server-actions] updateExercise failed", err);
+    return toActionFailure(err);
+  }
+}
+
+/** Soft-deletes a trainer-owned exercise (`deleted: true`). */
+export async function softDeleteExercise(id: string): Promise<ActionResult> {
+  try {
+    await softDeleteExerciseImpl(id);
+    return { ok: true };
+  } catch (err) {
+    console.error("[exercise-server-actions] softDeleteExercise failed", err);
+    return toActionFailure(err);
+  }
+}
+
+/** Copies any exercise into a new trainer-owned doc. */
+export async function duplicateExercise(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const { id: newId } = await duplicateExerciseImpl(id);
+    return { ok: true, id: newId };
+  } catch (err) {
+    console.error("[exercise-server-actions] duplicateExercise failed", err);
+    return toActionFailure(err);
+  }
+}
+
 
 /**
  * Mints a 60-minute v4 signed URL pinned to `Content-Type: video/mp4` that
