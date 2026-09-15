@@ -16,6 +16,54 @@ export interface TemplateForUsage {
   id: string;
   deleted?: boolean;
   exercises?: Array<{ exerciseId?: string | null } | null> | null;
+  /** Only read by `templatesUsingExercise`, to name the blockers. */
+  name?: { en?: string | null; es?: string | null } | null;
+}
+
+/** A live routine that references a given exercise. */
+export interface TemplateReferencingExercise {
+  id: string;
+  name: string;
+}
+
+/**
+ * The LIVE routines that reference `exerciseId` — the guard behind
+ * `softDeleteExercise` (gc-fitness#1078).
+ *
+ * WHY IT BLOCKS. `firestore.rules` has forbidden hard-deleting an exercise
+ * since P03-03, with the reason written in the rule itself: "workout templates
+ * reference exercises by id". Soft-delete was supposed to be the safe path and
+ * it wasn't — a curation pass soft-deleted 12 exercises that live routines were
+ * using, and those rows rendered as "Ejercicio 3" with no media and no error,
+ * in the programs of real coaches with clients training them.
+ *
+ * Counting is not enough here even though the library already shows a usage
+ * pill: the coach needs to know WHICH routines, because the only way past the
+ * block is to open them and swap the exercise out.
+ *
+ * Deleted routines don't count — they hold no one back. Sorted by name so the
+ * message is stable across calls (Firestore returns docs in id order).
+ */
+export function templatesUsingExercise(
+  templates: TemplateForUsage[],
+  exerciseId: string,
+): TemplateReferencingExercise[] {
+  if (!exerciseId) return [];
+  const found: TemplateReferencingExercise[] = [];
+  for (const template of templates) {
+    if (!template || template.deleted === true) continue;
+    const exercises = Array.isArray(template.exercises)
+      ? template.exercises
+      : [];
+    const uses = exercises.some((ex) => ex?.exerciseId === exerciseId);
+    if (!uses) continue;
+    const name =
+      template.name?.es?.trim() ||
+      template.name?.en?.trim() ||
+      template.id;
+    found.push({ id: template.id, name });
+  }
+  return found.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**

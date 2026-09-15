@@ -54,6 +54,10 @@ import {
   type ActionResult,
 } from "./action-result";
 import {
+  templatesUsingExercise,
+  type TemplateForUsage,
+} from "./library-usage-counts";
+import {
   exerciseSchema,
   exerciseUpdateSchema,
   type ExerciseInput,
@@ -66,6 +70,7 @@ import {
 } from "./coach-activity-log";
 
 const COLLECTION = "exercises";
+const TEMPLATES_COLLECTION = "workout_templates";
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB
 const MAX_THUMBNAIL_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
 const SIGNED_URL_TTL_MS = 60 * 60 * 1000; // 60 minutes
@@ -257,6 +262,36 @@ async function softDeleteExerciseImpl(
   }
   if (existing.ownerId !== trainer.uid) {
     throw new Error("Not your exercise.");
+  }
+
+  // gc-fitness#1078 — THE GUARD. A soft-delete used to be the safe path, and
+  // it wasn't: a curation pass soft-deleted 12 exercises that live routines
+  // were using, and those rows went on rendering as "Ejercicio 3" — no name,
+  // no media, no error — inside the programs of real coaches whose clients
+  // were training them. The mobile resolver had nothing to fall back to.
+  //
+  // `firestore.rules` has forbidden HARD-deleting an exercise since P03-03 for
+  // exactly this reason ("workout templates reference exercises by id"); this
+  // closes the other half of the same hole.
+  //
+  // Reading every template costs one full-collection scan (~256 docs). Delete
+  // is a rare, deliberate action — the scan is cheaper than a dangling
+  // reference nobody notices for four months.
+  const blockers = templatesUsingExercise(
+    (await db.collection(TEMPLATES_COLLECTION).get()).docs.map(
+      (d) => ({ id: d.id, ...(d.data() as object) }) as TemplateForUsage,
+    ),
+    id,
+  );
+  if (blockers.length > 0) {
+    // Name the routines: the only way past this block is to open them and swap
+    // the exercise out, so a bare count would leave the coach hunting.
+    const named = blockers.slice(0, 5).map((t) => t.name).join(", ");
+    const rest = blockers.length > 5 ? ` and ${blockers.length - 5} more` : "";
+    throw new Error(
+      `Still used by ${blockers.length} routine${blockers.length === 1 ? "" : "s"}: ` +
+        `${named}${rest}. Remove it from them first.`,
+    );
   }
 
   await docRef.update({
