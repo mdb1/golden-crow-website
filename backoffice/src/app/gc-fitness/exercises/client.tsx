@@ -189,12 +189,22 @@ export function ExerciseLibraryClient({
   const handleDuplicate = useCallback(
     async (row: ExerciseRow) => {
       try {
-        const { id } = await duplicateExercise(row.id);
+        const result = await duplicateExercise(row.id);
+        // #1104 — the action RETURNS its failure (a thrown one would reach the
+        // browser as "Minified React error #441" in production), so the reason
+        // rides along as the toast description instead of being lost.
+        if (!result.ok) {
+          console.error("[exercises] duplicate failed", result.error);
+          toast.error(t("duplicateFailedToast"), {
+            description: result.error,
+          });
+          return;
+        }
         await queryClient.invalidateQueries({ queryKey: EXERCISES_QUERY_KEY });
         toast.success(t("duplicatedToast"));
         // Land the trainer on their new editable copy, mirroring the
         // Duplicate-to-customize flow in the view-form CTA.
-        router.push(`/gc-fitness/exercises/${id}/edit`);
+        router.push(`/gc-fitness/exercises/${result.id}/edit`);
       } catch (err) {
         console.error("[exercises] duplicate failed", err);
         toast.error(t("duplicateFailedToast"));
@@ -244,7 +254,12 @@ export function ExerciseLibraryClient({
     if (!confirmDelete) return;
     setDeletePending(true);
     try {
-      await softDeleteExercise(confirmDelete.id);
+      const result = await softDeleteExercise(confirmDelete.id);
+      if (!result.ok) {
+        console.error("[exercises] delete failed", result.error);
+        toast.error(t("deleteFailedToast"), { description: result.error });
+        return;
+      }
       // 260529 — one-shot feed: invalidate so the deleted row leaves the
       // table immediately (the live listener used to do this automatically).
       await queryClient.invalidateQueries({ queryKey: EXERCISES_QUERY_KEY });

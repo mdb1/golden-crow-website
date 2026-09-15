@@ -19,6 +19,7 @@
 
 import { z } from "zod";
 import { MUSCLE_GROUPS, EQUIPMENT } from "./exercise-vocabulary";
+import { thumbnailUrlIssue } from "./exercise-media-url";
 
 // Zod 4 `z.enum` consumes a TUPLE — `as unknown as [string, ...string[]]`
 // preserves the union type while satisfying the runtime tuple shape.
@@ -61,12 +62,16 @@ const thumbnailUrlSchema = z.preprocess(
   z
     .string()
     .trim()
-    .regex(
-      // gs:// is still accepted (the upload dropzone writes it); the message
-      // only guides the manual-paste case, which is always an https link.
-      /^(gs:\/\/|https?:\/\/)/i,
-      "Enter a valid image link (https://…).",
-    )
+    .superRefine((value, ctx) => {
+      // #1104 — the rule lives in `exercise-media-url.ts` so the quick-create
+      // panel can run it BEFORE the round trip and the editor form can run it
+      // through this resolver. gs:// is accepted (the upload dropzone writes
+      // it); a pasted `data:image/…;base64,` blob gets its own message,
+      // because "Enter a valid image link" tells someone who pasted the
+      // picture itself nothing about what went wrong.
+      const issue = thumbnailUrlIssue(value);
+      if (issue) ctx.addIssue({ code: "custom", message: issue });
+    })
     .nullable()
     .optional(),
 );

@@ -110,7 +110,9 @@ async function createdPayload(): Promise<Record<string, unknown>> {
 beforeEach(() => {
   jest.useRealTimers();
   jest.clearAllMocks();
-  mockCreateExercise.mockResolvedValue({ id: "custom-1" });
+  // #1104 — the action RETURNS `{ ok, … }` now. A thrown failure never
+  // reaches the browser intact in production ("Minified React error #441").
+  mockCreateExercise.mockResolvedValue({ ok: true, id: "custom-1" });
 });
 
 afterEach(() => {
@@ -264,7 +266,14 @@ describe("QuickCreateExercise — the payload", () => {
 
   it("surfaces a failure instead of reporting a creation", async () => {
     const user = userEvent.setup();
-    mockCreateExercise.mockRejectedValue(new Error("Name already in use."));
+    // #1104 — RETURNED, not thrown. This test used to assert the message off a
+    // `mockRejectedValue`, which is a guarantee Jest can make and production
+    // cannot: Next.js redacts anything thrown out of a Server Action, so the
+    // panel printed "Minified React error #441" while this stayed green.
+    mockCreateExercise.mockResolvedValue({
+      ok: false,
+      error: "Name already in use.",
+    });
     const { onCreated } = renderPanel();
 
     await user.type(nameField(), "Landmine Press");
@@ -273,6 +282,26 @@ describe("QuickCreateExercise — the payload", () => {
     expect(await screen.findByText("Name already in use.")).toBeInTheDocument();
     // Reporting a creation that didn't happen adds a dangling id to the
     // routine being built.
+    expect(onCreated).not.toHaveBeenCalled();
+  });
+
+  it("falls back to generic copy when the action throws outright", async () => {
+    const user = userEvent.setup();
+    // A throw now means a transport/runtime failure, not a validation result —
+    // and in production its message is redacted anyway, so showing it verbatim
+    // is how the coach ended up reading a React error code. Show copy instead.
+    mockCreateExercise.mockRejectedValue(
+      new Error("Minified React error #441"),
+    );
+    const { onCreated } = renderPanel();
+
+    await user.type(nameField(), "Landmine Press");
+    await user.click(createButton());
+
+    expect(
+      await screen.findByText("Could not create the exercise. Try again."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/minified react error/i)).not.toBeInTheDocument();
     expect(onCreated).not.toHaveBeenCalled();
   });
 });
@@ -404,5 +433,83 @@ describe("QuickCreateExercise — the name is required", () => {
     await user.type(nameField(), "X");
 
     expect(createButton()).toBeEnabled();
+  });
+});
+
+// ── #1104 ───────────────────────────────────────────────────────────────────
+// The two halves of what a coach actually hit in production, in the order they
+// hit it: a base64 image pasted into the thumbnail field, and the fact that the
+// rejection came back as a React error code instead of a sentence.
+
+function gifField() {
+  return screen.getByPlaceholderText("GIF / preview URL (optional)");
+}
+
+const DATA_URI =
+  "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAgEiIiIB0fHyQoNCwkJjQmHx8tPS0wNTc6OjojKz9EPzhDNDk6Nw==";
+
+describe("QuickCreateExercise — a pasted image is not a link (#1104)", () => {
+  it("blocks the write and says what to do instead", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.type(nameField(), "Bulgarian split squat");
+    // Pasting the picture itself is what a coach does when they have the image
+    // and not a URL for it — `fireEvent.change` because typing 100+ base64
+    // characters one keystroke at a time is 20 seconds of test time.
+    fireEvent.change(gifField(), { target: { value: DATA_URI } });
+
+    expect(
+      screen.getByText(/that's the image itself, not a link to it/i),
+    ).toBeInTheDocument();
+    // The CTA is the real guard: the server rejects this shape too, and
+    // BEFORE #1104 that rejection reached the panel as "Minified React error
+    // #441" because Next.js strips messages off thrown Server Action errors
+    // in a production build.
+    expect(createButton()).toBeDisabled();
+    expect(mockCreateExercise).not.toHaveBeenCalled();
+  });
+
+  it("re-enables Create once the field holds a real link", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.type(nameField(), "Bulgarian split squat");
+    fireEvent.change(gifField(), { target: { value: DATA_URI } });
+    expect(createButton()).toBeDisabled();
+
+    fireEvent.change(gifField(), {
+      target: { value: "i.example.com/split-squat.gif" },
+    });
+
+    expect(createButton()).toBeEnabled();
+    await user.click(createButton());
+    const payload = await createdPayload();
+    // The bare host is normalized the same way the video field is — a link
+    // copied off a phone routinely arrives without its scheme.
+    expect(payload.thumbnailURL).toBe("https://i.example.com/split-squat.gif");
+  });
+});
+
+describe("QuickCreateExercise — a returned failure is shown (#1104)", () => {
+  it("prints the server's message instead of a React error code", async () => {
+    const user = userEvent.setup();
+    mockCreateExercise.mockResolvedValue({
+      ok: false,
+      error: "Pick at least one muscle group.",
+    });
+    const { onCreated } = renderPanel();
+
+    await user.type(nameField(), "Something");
+    await user.click(createButton());
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Pick at least one muscle group."),
+      ).toBeInTheDocument(),
+    );
+    // A failed create must not report success upward — the picker would add a
+    // row for an exercise that was never written.
+    expect(onCreated).not.toHaveBeenCalled();
   });
 });

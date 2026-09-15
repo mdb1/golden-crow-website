@@ -156,9 +156,13 @@ describe("createExercise", () => {
   // T1: no session token → Forbidden
   it("throws Forbidden when no session cookie is present", async () => {
     mockedGetTokens.mockResolvedValue(null);
-    await expect(createExercise(VALID_EXERCISE_INPUT)).rejects.toThrow(
-      /forbidden/i,
-    );
+    // #1104 — RETURNED, not thrown. Next.js strips the message off anything a
+    // Server Action throws in a production build, so a coach-facing action
+    // that throws is a coach-facing action whose reason is unreadable.
+    await expect(createExercise(VALID_EXERCISE_INPUT)).resolves.toEqual({
+      ok: false,
+      error: "Forbidden",
+    });
     expect(mockSet).not.toHaveBeenCalled();
   });
 
@@ -173,7 +177,9 @@ describe("createExercise", () => {
 
     const result = await createExercise(VALID_EXERCISE_INPUT);
 
-    expect(result.id).toMatch(new RegExp(`^custom-${ALLOWED_UID}-`));
+    expect(result.ok && result.id).toMatch(
+      new RegExp(`^custom-${ALLOWED_UID}-`),
+    );
     // calls[0] is the exercise doc; a 2nd set() writes the coach_activity event.
     expect(mockSet).toHaveBeenCalled();
   });
@@ -181,9 +187,10 @@ describe("createExercise", () => {
   // T3: token + email OK but role != trainer → Forbidden
   it("throws Forbidden when role custom claim is not 'trainer'", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "client" }));
-    await expect(createExercise(VALID_EXERCISE_INPUT)).rejects.toThrow(
-      /forbidden/i,
-    );
+    await expect(createExercise(VALID_EXERCISE_INPUT)).resolves.toEqual({
+      ok: false,
+      error: "Forbidden",
+    });
     expect(mockSet).not.toHaveBeenCalled();
   });
 
@@ -194,7 +201,9 @@ describe("createExercise", () => {
 
     const result = await createExercise(VALID_EXERCISE_INPUT);
 
-    expect(result.id).toMatch(new RegExp(`^custom-${ALLOWED_UID}-`));
+    expect(result.ok && result.id).toMatch(
+      new RegExp(`^custom-${ALLOWED_UID}-`),
+    );
     expect(mockSet).toHaveBeenCalled();
     const setPayload = mockSet.mock.calls[0][0];
     expect(setPayload.source).toBe("trainer");
@@ -215,18 +224,21 @@ describe("createExercise", () => {
       id: draftId,
     });
 
-    expect(result.id).toBe(draftId);
+    expect(result.ok && result.id).toBe(draftId);
   });
 
   // T5: ownership claim attack — trainer asks for someone else's ownerId
   it("rejects when the input claims a different ownerId than the caller", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
-    await expect(
-      createExercise({
-        ...VALID_EXERCISE_INPUT,
-        ownerId: "someone-else",
-      }),
-    ).rejects.toThrow(/can only create exercises they own/i);
+    const result = await createExercise({
+      ...VALID_EXERCISE_INPUT,
+      ownerId: "someone-else",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.error).toMatch(
+      /can only create exercises they own/i,
+    );
     expect(mockSet).not.toHaveBeenCalled();
   });
 });
@@ -243,11 +255,12 @@ describe("updateExercise", () => {
       }),
     );
 
-    await expect(
-      updateExercise("custom-different-trainer-uid-abc", {
-        name: { en: "Hijack", es: "Hijack" },
-      }),
-    ).rejects.toThrow(/not your exercise/i);
+    const result = await updateExercise("custom-different-trainer-uid-abc", {
+      name: { en: "Hijack", es: "Hijack" },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.error).toMatch(/not your exercise/i);
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
@@ -258,11 +271,17 @@ describe("updateExercise", () => {
       fakeSnapshot({ exists: true, source: "wger", ownerId: null }),
     );
 
-    await expect(
-      updateExercise("wger-abc", {
-        name: { en: "Edited", es: "Edited" },
-      }),
-    ).rejects.toThrow(/library exercises are read-only/i);
+    const result = await updateExercise("wger-abc", {
+      name: { en: "Edited", es: "Edited" },
+    });
+
+    // The coach must be able to READ this sentence. Editing a library
+    // exercise is the other half of the #1104 report ("le tira errores al
+    // coach al intentar cambiar ejercicios") and it looked like a crash.
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.error).toMatch(
+      /library exercises are read-only/i,
+    );
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
@@ -276,11 +295,14 @@ describe("updateExercise", () => {
       }),
     );
 
-    await expect(
-      updateExercise("fexd-abc", {
-        name: { en: "Edited", es: "Edited" },
-      }),
-    ).rejects.toThrow(/library exercises are read-only/i);
+    const result = await updateExercise("fexd-abc", {
+      name: { en: "Edited", es: "Edited" },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.error).toMatch(
+      /library exercises are read-only/i,
+    );
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
@@ -340,7 +362,10 @@ describe("softDeleteExercise", () => {
       fakeSnapshot({ exists: true, source: "wger", ownerId: null }),
     );
 
-    await expect(softDeleteExercise("wger-abc")).rejects.toThrow(
+    const result = await softDeleteExercise("wger-abc");
+
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.error).toMatch(
       /cannot delete library exercises/i,
     );
     expect(mockUpdate).not.toHaveBeenCalled();
@@ -432,7 +457,9 @@ describe("duplicateExercise", () => {
     mockSet.mockResolvedValue(undefined);
 
     const result = await duplicateExercise("wger-abc");
-    expect(result.id).toMatch(new RegExp(`^custom-${ALLOWED_UID}-`));
+    expect(result.ok && result.id).toMatch(
+      new RegExp(`^custom-${ALLOWED_UID}-`),
+    );
     expect(mockSet).toHaveBeenCalledTimes(1);
     const payload = mockSet.mock.calls[0][0];
     expect(payload.source).toBe("trainer");
@@ -446,5 +473,118 @@ describe("duplicateExercise", () => {
     );
     expect(payload.version).toBe(1);
     expect(payload.deleted).toBe(false);
+  });
+});
+
+// ── #1104: the coach-facing boundary never throws ───────────────────────────
+//
+// THE BUG THIS LOCKS DOWN. Next.js redacts every error thrown out of a Server
+// Action in a production build: the browser receives an opaque Error whose
+// message is "Minified React error #441". So the careful-looking
+//
+//     catch (err) { setError(err.message) }
+//
+// printed a React error code at a coach who had pasted a base64 image into the
+// thumbnail field, with nothing on screen saying which field or why. Worse, it
+// was INVISIBLE to this suite and to `next dev`, because in both of those the
+// message survives — the redaction only happens in a production build.
+//
+// Hence: these four actions return their failures. This block asserts the
+// property directly, across every failure class we can trigger — auth, policy,
+// validation, and an infrastructure fault — so a future action that throws one
+// of them again fails here instead of in a coach's browser.
+
+describe("#1104 — coach-facing exercise actions RETURN failures", () => {
+  const cases: Array<{
+    name: string;
+    arrange: () => void;
+    run: () => Promise<{ ok: boolean }>;
+  }> = [
+    {
+      name: "createExercise / no session",
+      arrange: () => mockedGetTokens.mockResolvedValue(null),
+      run: () => createExercise(VALID_EXERCISE_INPUT),
+    },
+    {
+      name: "createExercise / invalid payload (the pasted data: URI)",
+      arrange: () => {
+        mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+      },
+      run: () =>
+        createExercise({
+          ...VALID_EXERCISE_INPUT,
+          thumbnailURL:
+            "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwg=",
+        }),
+    },
+    {
+      name: "createExercise / Firestore write fault",
+      arrange: () => {
+        mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+        mockSet.mockRejectedValue(new Error("UNAVAILABLE"));
+      },
+      run: () => createExercise(VALID_EXERCISE_INPUT),
+    },
+    {
+      name: "updateExercise / doc missing",
+      arrange: () => {
+        mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+        mockGet.mockResolvedValue(fakeSnapshot({ exists: false }));
+      },
+      run: () => updateExercise("custom-nope", { name: { en: "x", es: "x" } }),
+    },
+    {
+      name: "softDeleteExercise / not the owner",
+      arrange: () => {
+        mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+        mockGet.mockResolvedValue(
+          fakeSnapshot({
+            exists: true,
+            source: "trainer",
+            ownerId: "someone-else",
+          }),
+        );
+      },
+      run: () => softDeleteExercise("custom-someone-else-abc"),
+    },
+    {
+      name: "duplicateExercise / doc missing",
+      arrange: () => {
+        mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+        mockGet.mockResolvedValue(fakeSnapshot({ exists: false }));
+      },
+      run: () => duplicateExercise("wger-nope"),
+    },
+  ];
+
+  it.each(cases)("$name", async ({ arrange, run }) => {
+    arrange();
+
+    const result = (await run()) as { ok: boolean; error?: string };
+
+    expect(result.ok).toBe(false);
+    // A non-empty sentence, not a code. "#441" is the literal string a coach
+    // read on screen before this fix.
+    expect(typeof result.error).toBe("string");
+    expect(result.error).not.toMatch(/minified react error/i);
+    expect((result.error ?? "").length).toBeGreaterThan(0);
+  });
+
+  it("names the pasted-image mistake instead of asking for 'a valid link'", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+
+    const result = await createExercise({
+      ...VALID_EXERCISE_INPUT,
+      thumbnailURL:
+        "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwg=",
+    });
+
+    // "Enter a valid image link" is the right message for a typo'd URL and
+    // says nothing to somebody who pasted the picture itself.
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.error).toMatch(
+      /the image itself, not a link/i,
+    );
+    expect(mockSet).not.toHaveBeenCalled();
   });
 });

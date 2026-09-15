@@ -217,7 +217,8 @@ beforeEach(() => {
     habitTemplateIds: [],
   });
   mockUsageCounts.mockReturnValue({});
-  mockDuplicateExercise.mockResolvedValue({ id: "copy-1" });
+  // #1104 — `{ ok }`-shaped results; the actions no longer throw failures.
+  mockDuplicateExercise.mockResolvedValue({ ok: true, id: "copy-1" });
   mockSoftDeleteExercise.mockResolvedValue({ ok: true });
 });
 

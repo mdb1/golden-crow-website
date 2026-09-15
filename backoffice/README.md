@@ -75,6 +75,51 @@ are shared with the iOS and Android apps, so a change here can break them and
 vice versa. The four suites and when to run them are in the repo-root
 `CLAUDE.md` → "Test gate before push". When in doubt, run all four.
 
+### Two rules this suite cannot infer for you (#1104)
+
+Both of these shipped green and broke in a coach's hands. They are cheap to
+follow and expensive to rediscover.
+
+**1. A coach-facing Server Action RETURNS its failure. It never throws one.**
+
+Next.js redacts every error thrown out of a Server Action in a *production*
+build: the browser receives an opaque `Error` whose message is literally
+`Minified React error #441`. So this — which looks like careful handling —
+
+```ts
+try { await createExercise(values) }
+catch (err) { setError(err.message) }   // ← "Minified React error #441" in prod
+```
+
+showed a coach a React error code after they pasted an image into a URL field.
+It is invisible here and in `next dev`, because in both of those the message
+survives; only a production build strips it.
+
+Return `ActionResult` from `src/lib/gc-fitness/action-result.ts` instead, and
+branch on `result.ok` at the call site. `exercise-server-actions.ts` is the
+worked example: the policy checks stay throw-based in private `*Impl`
+functions, and the exported wrapper is the only thing the browser can call.
+The property is asserted directly in
+`__tests__/exercise-server-actions.test.ts` → "#1104 — coach-facing exercise
+actions RETURN failures".
+
+**2. Nothing on the coach portal reads Firestore with the browser SDK.**
+
+The portal has two unrelated credentials: the `GcFitnessAuthToken` cookie
+(verified server-side, what actually lets the coach in) and a Firebase-Auth
+session the browser SDK keeps in IndexedDB. Privacy browsers break the second
+and leave the first alone — Brave on mobile, Safari ITP, any private window —
+so `auth.currentUser` is `null` while the coach is, by every visible sign,
+signed in. The page renders, the nav works, every other list loads, and the one
+surface using the browser SDK returns `permission-denied` against
+`allow read: if isSignedIn()`.
+
+That is precisely how the exercise library broke: it was the last list still
+reading client-side, and it was the only one that failed. Reads go through a
+Server Action (`exercise-list-actions.ts` is the pattern).
+`__tests__/no-browser-firestore-reads.test.ts` enforces it and explains the
+escape hatch if a live listener ever earns its place.
+
 ### Writing a UI test
 
 The harness is already installed — RTL 16, `user-event` 14, `jest-dom`, jsdom —

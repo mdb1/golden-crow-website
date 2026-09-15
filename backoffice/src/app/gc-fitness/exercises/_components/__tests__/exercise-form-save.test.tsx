@@ -128,10 +128,11 @@ function metricChip(name: RegExp) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockCreateExercise.mockResolvedValue({ id: "new-1" });
+  // #1104 — `{ ok }`-shaped results; the actions no longer throw failures.
+  mockCreateExercise.mockResolvedValue({ ok: true, id: "new-1" });
   mockUpdateExercise.mockResolvedValue({ ok: true });
   mockSoftDeleteExercise.mockResolvedValue({ ok: true });
-  mockDuplicateExercise.mockResolvedValue({ id: "copy-1" });
+  mockDuplicateExercise.mockResolvedValue({ ok: true, id: "copy-1" });
 });
 
 describe("ExerciseForm — the prescription triple (#206)", () => {
