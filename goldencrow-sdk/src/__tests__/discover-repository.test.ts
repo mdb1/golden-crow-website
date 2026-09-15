@@ -1677,12 +1677,13 @@ describe("discover repository", () => {
     expect(stored).toMatchObject({
       title: "Root title",
       subtitle: "Root subtitle",
-      body: "Root body",
+      body: null,
       htmlBody: "<p><strong>Root body</strong></p>",
       imageUrl: "https://example.org/root-cover.png",
       sourceUrl: "https://example.org/read",
       sourceButtonText: "Read more",
     });
+    expect(feedItem.body).toBeNull();
     expect(storedNews).toEqual({
       category: "Research",
       region: "AR",

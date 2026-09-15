@@ -1390,8 +1390,8 @@ function payloadFromState(
     language: state.language,
     title: state.title,
     subtitle: state.subtitle,
-    body: state.body,
-    htmlBody: state.htmlBody || null,
+    body: state.htmlBody.trim() ? null : state.body,
+    htmlBody: state.htmlBody.trim() ? state.htmlBody : null,
     imageUrl: state.imageUrl || null,
     imageUploadDataUrl:
       state.imageUploadDataUrl || (state.imageUrl.trim() ? null : undefined),

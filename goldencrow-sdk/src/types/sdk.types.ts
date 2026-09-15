@@ -843,7 +843,7 @@ export type DiscoverFeedItemRecord = {
   language?: "en" | "es";
   title: string;
   subtitle: string;
-  body: string;
+  body: string | null;
   htmlBody: string | null;
   imageUrl: string | null;
   imageUploadDataUrl?: string;

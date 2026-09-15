@@ -54,7 +54,7 @@ function hasPublishBlocker(item: DiscoverFeedItemRecord) {
   return (
     !item.title.trim() ||
     !item.subtitle.trim() ||
-    (!item.body.trim() && !item.htmlBody?.trim())
+    (!(item.body ?? "").trim() && !item.htmlBody?.trim())
   );
 }
 
@@ -135,7 +135,7 @@ export function DiscoverFeedEntryBrowser({
         item.language,
         item.title,
         item.subtitle,
-        item.body,
+        item.body ?? "",
         typeof payload?.category === "string" ? payload.category : "",
         typeof payload?.region === "string" ? payload.region : "",
         typeof payload?.virtualMeetingLink === "string"

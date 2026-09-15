@@ -269,7 +269,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(body.sourceButtonText).toBe("Open organizer website");
   });
 
-  it("saves pasted raw HTML as htmlBody and derives the plain body", async () => {
+  it("saves pasted raw HTML as htmlBody and sends a null plain body", async () => {
     const rawHtml = [
       "<p>",
       "  Un espacio para profesionales de la salud que buscan fortalecer su practica",
@@ -318,9 +318,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     ) as Record<string, unknown>;
 
     expect(body.htmlBody).toBe(rawHtml);
-    expect(body.body).toContain("IA clinicamente validada");
-    expect(body.body).toContain("Reportes descargables.");
-    expect(body.body).not.toContain("<strong>");
+    expect(body.body).toBeNull();
   });
 
   it("keeps raw HTML intact when moving between raw and rich text views", () => {
@@ -409,7 +407,63 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     ) as Record<string, unknown>;
 
     expect(body.htmlBody).toBe(rawHtml);
-    expect(body.body).toBe(simpleBody);
+    expect(body.body).toBeNull();
+  });
+
+  it("saves rich text HTML with a null plain body", async () => {
+    const htmlBody = "<p><strong>Rich body</strong></p><ul><li>One</li></ul>";
+    const feedItem = {
+      id: "feed-rich-body",
+      publisherOrganizationId: "org-1",
+      publisherIndividualId: null,
+      publisherSnapshot: { name: "Publisher One", imageUrl: null },
+      type: "news",
+      publishedAt: null,
+      showInDiscoverFeed: false,
+      language: "en",
+      title: "Rich entry",
+      subtitle: "Formatted entry",
+      body: "Old plain fallback",
+      htmlBody,
+      imageUrl: null,
+      sourceUrl: null,
+      sourceButtonText: null,
+      status: "draft",
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+      news: { category: "", region: "" },
+    } satisfies DiscoverFeedItemRecord;
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="edit"
+          feedItem={feedItem}
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "Rich text" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/feed-items/feed-rich-body",
+        {
+          method: "PUT",
+          body: expect.any(String),
+        },
+      );
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.htmlBody).toBe(htmlBody);
+    expect(body.body).toBeNull();
   });
 
   it("shows cover image URL guidance and an example link", () => {

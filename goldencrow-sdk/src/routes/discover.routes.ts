@@ -343,7 +343,7 @@ const FeedItemBodySchema = z.object({
   language: z.enum(["en", "es"]).optional(),
   title: z.string().optional(),
   subtitle: z.string().optional(),
-  body: z.string().optional(),
+  body: z.string().nullable().optional(),
   htmlBody: z.string().nullable().optional(),
   imageUrl: z.string().nullable().optional(),
   imageUploadDataUrl: PublicImageUploadDataUrlSchema,

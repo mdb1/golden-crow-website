@@ -2118,6 +2118,7 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
   const languageValue = data.language ?? data.locale;
   const language =
     languageValue === "en" || languageValue === "es" ? languageValue : undefined;
+  const htmlBody = normalizeNullableString(data.htmlBody);
   const record: DiscoverFeedItemRecord = {
     id: doc.id,
     publisherOrganizationId: normalizeNullableString(
@@ -2135,8 +2136,8 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
     language,
     title: normalizeOptionalString(data.title) ?? "",
     subtitle: normalizeOptionalString(data.subtitle) ?? "",
-    body: normalizeOptionalString(data.body) ?? "",
-    htmlBody: normalizeNullableString(data.htmlBody),
+    body: htmlBody ? null : (normalizeOptionalString(data.body) ?? ""),
+    htmlBody,
     imageUrl: normalizeNullableString(data.imageUrl),
     imageUploadDataUrl: normalizeOptionalString(data.imageUploadDataUrl),
     imageUploadName: normalizeOptionalString(data.imageUploadName),
@@ -2699,8 +2700,8 @@ function normalizeRootContent(
 ) {
   const title = normalizeOptionalString(input.title);
   const subtitle = normalizeOptionalString(input.subtitle);
-  const body = normalizeOptionalString(input.body);
   const htmlBody = sanitizeHtmlBody(input.htmlBody);
+  const body = htmlBody ? null : (normalizeOptionalString(input.body) ?? "");
   const hasImageUrl = Object.prototype.hasOwnProperty.call(input, "imageUrl");
   const imageUploadFields = publicImageUploadDocumentFields(input);
   const hasNewImageUpload = Boolean(imageUploadFields.imageUploadDataUrl);
@@ -2761,7 +2762,7 @@ function normalizeRootContent(
   return {
     title: title ?? "",
     subtitle: subtitle ?? "",
-    body: body ?? "",
+    body,
     htmlBody: htmlBody,
     imageUrl: hasNewImageUpload ? null : imageUrl,
     ...imageUploadDocumentFields,
