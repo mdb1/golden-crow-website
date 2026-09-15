@@ -124,13 +124,13 @@ const primaryFilters = [
               class="discover-more-button"
               type="button"
               data-more-toggle
-              aria-haspopup="menu"
+              aria-controls="discover-extra-filters"
               aria-expanded="false"
               aria-label={pageCopy.more}
             >
               <span aria-hidden="true">+</span>
             </button>
-            <div class="discover-more-menu" data-more-menu role="menu" hidden></div>
+            <div id="discover-extra-filters" class="discover-more-menu" data-more-menu role="group" aria-label={pageCopy.more} hidden></div>
           </div>
         </div>
         <p class="discover-result-summary" data-result-summary aria-live="polite"></p>
@@ -526,8 +526,8 @@ const primaryFilters = [
       ...extraTypes.map((type) => {
         const button = document.createElement('button');
         button.type = 'button';
-        button.role = 'menuitem';
         button.dataset.moreFilter = type;
+        button.setAttribute('aria-pressed', 'false');
         button.textContent = typeLabels[type] ?? humanize(type);
         return button;
       })
@@ -561,6 +561,14 @@ const primaryFilters = [
     if (!moreMenu || !moreToggle) return;
     moreMenu.hidden = !isOpen;
     moreToggle.setAttribute('aria-expanded', String(isOpen));
+    if (isOpen) {
+      requestAnimationFrame(() => {
+        moreMenu.querySelector('[data-more-filter]')?.scrollIntoView({
+          block: 'nearest',
+          inline: 'nearest',
+        });
+      });
+    }
   }
 
   function setFilter(filter) {
@@ -926,6 +934,9 @@ const primaryFilters = [
   function updateActiveFilters() {
     filterButtons.forEach((button) => {
       button.setAttribute('aria-pressed', String(button.dataset.filter === state.activeFilter));
+    });
+    moreMenu?.querySelectorAll('[data-more-filter]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.moreFilter === state.activeFilter));
     });
 
     const isExtra = !primaryFilterValues.has(state.activeFilter);
@@ -1369,8 +1380,10 @@ const primaryFilters = [
   }
 
   .discover-more {
-    position: relative;
+    display: inline-flex;
     flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
   }
 
   .discover-more-button {
@@ -1380,20 +1393,10 @@ const primaryFilters = [
   }
 
   .discover-more-menu {
-    position: absolute;
-    top: calc(100% + 9px);
-    right: 0;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(170px, 1fr));
-    gap: 6px;
-    width: min(520px, calc(100vw - 44px));
-    max-height: 360px;
-    overflow: auto;
-    border: 1px solid #e1dce8;
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 8px;
-    box-shadow: 0 18px 48px rgba(41, 35, 51, 0.16);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
   }
 
   .discover-more-menu[hidden] {
@@ -1401,23 +1404,31 @@ const primaryFilters = [
   }
 
   .discover-more-menu button {
-    border: 0;
-    border-radius: 7px;
-    background: transparent;
+    flex: 0 0 auto;
+    min-height: 38px;
+    border: 1px solid #e1dce8;
+    border-radius: 8px;
+    background: #ffffff;
     color: #514a58;
-    padding: 10px 11px;
+    padding: 9px 13px;
     font: inherit;
     font-size: 13px;
-    font-weight: 580;
+    font-weight: 650;
     line-height: 1.35;
-    text-align: left;
+    letter-spacing: 0;
     cursor: pointer;
   }
 
   .discover-more-menu button:hover,
   .discover-more-menu button:focus-visible {
-    background: #f8f6fa;
-    color: #292333;
+    border-color: #14958f;
+    color: #0e6f6b;
+  }
+
+  .discover-more-menu button[aria-pressed="true"] {
+    border-color: color-mix(in srgb, #14958f 48%, #e1dce8);
+    background: #eef8f5;
+    color: #0e6f6b;
   }
 
   .discover-result-summary {
@@ -1936,13 +1947,6 @@ const primaryFilters = [
       top: 84px;
       margin-inline: -4px;
       padding: 10px;
-    }
-
-    .discover-more-menu {
-      left: auto;
-      right: 0;
-      grid-template-columns: 1fr;
-      width: min(300px, calc(100vw - 32px));
     }
 
     .discover-feed,
