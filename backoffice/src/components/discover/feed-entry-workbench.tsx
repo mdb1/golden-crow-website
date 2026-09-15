@@ -13,6 +13,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Code2,
   DollarSign,
   ExternalLink,
   Heading2,
@@ -98,7 +99,7 @@ import {
   parseDiscoverRegionCodes,
 } from "@/lib/discover-organization-fields";
 
-type BodyMode = "plain" | "rich";
+type BodyMode = "plain" | "rich" | "html";
 type FeedEntryPayloadState = Record<string, string>;
 type FeedEntryPayloadsState = Record<DiscoverFeedType, FeedEntryPayloadState>;
 
@@ -1999,9 +2000,9 @@ export function DiscoverFeedEntryWorkbench({
   );
   const selectedPublisher = selectedOrganization ?? selectedIndividual;
   const changed = JSON.stringify(state) !== JSON.stringify(savedState);
-  const bodyCharacterCount = bodyMode === "rich"
-    ? htmlToPlainText(state.htmlBody).length
-    : state.body.length;
+  const bodyCharacterCount = bodyMode === "plain"
+    ? state.body.length
+    : htmlToPlainText(state.htmlBody).length;
   const sourceUrlError = sourceUrlErrorFor(state.sourceUrl);
   const imageUrlError = imageUrlErrorFor(state.imageUrl);
   const editStatus = feedItem?.status ?? "draft";
@@ -2455,13 +2456,15 @@ export function DiscoverFeedEntryWorkbench({
   function switchBodyMode(nextMode: BodyMode) {
     setBodyMode(nextMode);
     setState((current) => {
-      if (nextMode === "rich") {
+      if (nextMode === "rich" || nextMode === "html") {
         const nextHtml = current.htmlBody || plainTextToHtml(current.body);
-        window.requestAnimationFrame(() => {
-          if (richEditorRef.current) {
-            richEditorRef.current.innerHTML = nextHtml;
-          }
-        });
+        if (nextMode === "rich") {
+          window.requestAnimationFrame(() => {
+            if (richEditorRef.current) {
+              richEditorRef.current.innerHTML = nextHtml;
+            }
+          });
+        }
         return {
           ...current,
           htmlBody: nextHtml,
@@ -2483,6 +2486,13 @@ export function DiscoverFeedEntryWorkbench({
     updateState({
       htmlBody: html,
       body: htmlToPlainText(html),
+    });
+  }
+
+  function updateRawHtmlBody(value: string) {
+    updateState({
+      htmlBody: value,
+      body: htmlToPlainText(value),
     });
   }
 
@@ -4780,7 +4790,7 @@ export function DiscoverFeedEntryWorkbench({
             <section className={publisherFieldSectionClass}>
               <SectionTitle eyebrow={t("Body")} title={t("Write the note")}>
                 <div className="inline-flex rounded-xl border border-violet-100/80 bg-white/78 p-1 shadow-sm dark:border-violet-400/16 dark:bg-violet-500/8">
-                  {(["plain", "rich"] as BodyMode[]).map((option) => (
+                  {(["plain", "rich", "html"] as BodyMode[]).map((option) => (
                     <button
                       key={option}
                       type="button"
@@ -4794,10 +4804,16 @@ export function DiscoverFeedEntryWorkbench({
                     >
                       {option === "plain" ? (
                         <Type className="h-3.5 w-3.5" />
-                      ) : (
+                      ) : option === "rich" ? (
                         <Heading2 className="h-3.5 w-3.5" />
+                      ) : (
+                        <Code2 className="h-3.5 w-3.5" />
                       )}
-                      {option === "plain" ? t("Simple text") : t("Rich text")}
+                      {option === "plain"
+                        ? t("Simple text")
+                        : option === "rich"
+                          ? t("Rich text")
+                          : t("HTML raw")}
                     </button>
                   ))}
                 </div>
@@ -4810,6 +4826,16 @@ export function DiscoverFeedEntryWorkbench({
                   onChange={(event) => updateState({ body: event.target.value })}
                   rows={16}
                   className={`${publisherTextareaClass} min-h-[24rem] resize-y text-base leading-7`}
+                />
+              ) : bodyMode === "html" ? (
+                <Textarea
+                  id="discover-feed-html-body"
+                  aria-label={t("HTML raw")}
+                  value={state.htmlBody}
+                  onChange={(event) => updateRawHtmlBody(event.target.value)}
+                  rows={16}
+                  spellCheck={false}
+                  className={`${publisherTextareaClass} min-h-[24rem] resize-y font-mono text-sm leading-6`}
                 />
               ) : (
                 <div className="overflow-hidden rounded-xl border border-violet-200/75 bg-white shadow-sm dark:border-violet-400/18 dark:bg-slate-950/45">
@@ -4849,7 +4875,7 @@ export function DiscoverFeedEntryWorkbench({
 
               <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
                 <span>{bodyCharacterCount.toLocaleString()} {t("characters")}</span>
-                <span>{bodyMode === "rich" ? t("HTML will be sanitized before storage.") : t("Plain body will be stored as body.")}</span>
+                <span>{bodyMode === "plain" ? t("Plain body will be stored as body.") : t("HTML will be sanitized before storage.")}</span>
               </div>
             </section>
 

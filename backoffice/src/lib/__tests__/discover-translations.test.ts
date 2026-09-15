@@ -71,6 +71,7 @@ describe("Discover Spanish translations", () => {
     const intentionallyUnchanged = new Set([
       "Discover",
       "Genes",
+      "HTML raw",
       "No",
       "Normal",
       "OK",

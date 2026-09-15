@@ -867,6 +867,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Write the note": "Escribir la nota",
   "Simple text": "Texto simple",
   "Rich text": "Texto enriquecido",
+  "HTML raw": "HTML raw",
   Heading: "Encabezado",
   Bold: "Negrita",
   Italic: "Cursiva",

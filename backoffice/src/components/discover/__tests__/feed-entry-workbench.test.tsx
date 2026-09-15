@@ -269,6 +269,60 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(body.sourceButtonText).toBe("Open organizer website");
   });
 
+  it("saves pasted raw HTML as htmlBody and derives the plain body", async () => {
+    const rawHtml = [
+      "<p>",
+      "  Un espacio para profesionales de la salud que buscan fortalecer su practica",
+      "  clinica incorporando <strong>IA clinicamente validada</strong>.",
+      "</p>",
+      "",
+      "<h2>Novedades que se presentaran</h2>",
+      "",
+      "<ul>",
+      "  <li>Carga de varios sintomas en un mismo idioma con IA via HPO/SNOMED CT.</li>",
+      "  <li>Priorizacion de patologias.</li>",
+      "  <li>Generacion de panel de genes.</li>",
+      "  <li>Reportes descargables.</li>",
+      "</ul>",
+    ].join("\n");
+
+    render(
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publicador"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "HTML raw" }));
+    fireEvent.change(screen.getByLabelText("HTML raw"), {
+      target: { value: rawHtml },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items", {
+        method: "POST",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.htmlBody).toBe(rawHtml);
+    expect(body.body).toContain("IA clinicamente validada");
+    expect(body.body).toContain("Reportes descargables.");
+    expect(body.body).not.toContain("<strong>");
+  });
+
   it("shows cover image URL guidance and an example link", () => {
     render(
       <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
