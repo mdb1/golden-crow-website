@@ -1129,6 +1129,7 @@ const initialCopy = isEnglishPage
       .map((code) => ({
         code,
         country: countryName(code),
+        flag: countryFlag(code),
         time: clockStatement(starts[code], ends[code], duration),
         timezone: timezoneLabel(zones[code], startDate, endDate),
       }))
@@ -1597,19 +1598,30 @@ const initialCopy = isEnglishPage
       schedule.regionalRows.forEach((row) => {
         const item = document.createElement('div');
         item.className = 'shared-event-regional-row';
-        const country = document.createElement('p');
-        country.className = 'shared-event-regional-country';
-        country.textContent = row.country;
-        item.append(country);
+        item.setAttribute(
+          'aria-label',
+          `${row.country}: ${[row.time, row.timezone].filter(Boolean).join(', ')}`
+        );
+        item.setAttribute('title', row.country);
+
+        const flag = document.createElement('span');
+        flag.className = 'shared-event-regional-flag';
+        flag.setAttribute('aria-hidden', 'true');
+        flag.textContent = row.flag || row.code;
+        item.append(flag);
+
         if (row.time) {
-          const time = document.createElement('p');
-          time.className = 'shared-event-regional-detail';
+          const time = document.createElement('strong');
+          time.className = 'shared-event-regional-time';
           time.textContent = row.time;
           item.append(time);
         }
         if (row.timezone) {
-          const zone = document.createElement('p');
-          zone.className = 'shared-event-regional-detail';
+          const zone = document.createElement('span');
+          zone.className = 'shared-event-regional-zone';
+          if (row.time) {
+            zone.classList.add('has-leading-separator');
+          }
           zone.textContent = row.timezone;
           item.append(zone);
         }
@@ -2390,8 +2402,7 @@ const initialCopy = isEnglishPage
       font-size: 17px;
     }
 
-    .shared-preview-event :global(.shared-event-info-detail),
-    .shared-preview-event :global(.shared-event-regional-detail) {
+    .shared-preview-event :global(.shared-event-info-detail) {
       margin: 4px 0 0;
       color: var(--event-secondary);
       font-size: 14px;
@@ -2400,6 +2411,8 @@ const initialCopy = isEnglishPage
     }
 
     .shared-preview-event :global(.shared-event-regional) {
+      display: grid;
+      gap: 8px;
       margin-left: 28px;
     }
 
@@ -2415,15 +2428,47 @@ const initialCopy = isEnglishPage
     }
 
     .shared-preview-event :global(.shared-event-regional-row) {
-      margin-top: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px 8px;
+      min-width: 0;
+      border-bottom: 0.5px solid rgba(111, 60, 195, 0.12);
+      padding: 2px 0 8px;
     }
 
-    .shared-preview-event :global(.shared-event-regional-country) {
+    .shared-preview-event :global(.shared-event-regional-row:last-child) {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .shared-preview-event :global(.shared-event-regional-flag) {
+      flex: 0 0 auto;
+      width: 22px;
+      font-size: 17px;
+      line-height: 1;
+    }
+
+    .shared-preview-event :global(.shared-event-regional-time) {
       margin: 0;
       color: var(--event-primary);
-      font-size: 16px;
-      font-weight: 500;
-      line-height: 1.35;
+      font-size: 14px;
+      font-weight: 750;
+      line-height: 1.3;
+      white-space: nowrap;
+    }
+
+    .shared-preview-event :global(.shared-event-regional-zone) {
+      min-width: 0;
+      color: var(--event-secondary);
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.3;
+    }
+
+    .shared-preview-event :global(.shared-event-regional-zone.has-leading-separator)::before {
+      content: '·';
+      margin-right: 8px;
     }
 
     .shared-preview-event :global(.shared-event-facts),
