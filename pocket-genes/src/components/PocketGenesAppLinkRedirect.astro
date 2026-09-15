@@ -1592,9 +1592,6 @@ const initialCopy = isEnglishPage
     if (schedule.regionalRows.length) {
       const regional = document.createElement('div');
       regional.className = 'shared-event-regional';
-      const title = document.createElement('h4');
-      title.textContent = copy.event.timesByCountry;
-      regional.append(title);
       schedule.regionalRows.forEach((row) => {
         const item = document.createElement('div');
         item.className = 'shared-event-regional-row';
@@ -1678,38 +1675,13 @@ const initialCopy = isEnglishPage
 
   function renderEventDisclosure(sectionData) {
     if (!sectionData?.groups?.length) return null;
-    if (!sectionData.collapsible) {
-      const section = document.createElement('section');
-      section.className = 'shared-event-disclosure shared-event-disclosure-static';
-      const heading = document.createElement('h3');
-      heading.textContent = sectionData.title;
-      const content = document.createElement('div');
-      content.className = 'shared-event-disclosure-content';
-      appendEventGroups(content, sectionData.groups);
-      section.append(heading, content);
-      return section;
-    }
-
-    const details = document.createElement('details');
-    details.className = 'shared-event-disclosure';
-    details.open = true;
-    const summary = document.createElement('summary');
-    const title = document.createElement('span');
-    title.className = 'shared-event-disclosure-title';
-    title.textContent = sectionData.title;
-    const previewText = document.createElement('span');
-    previewText.className = 'shared-event-disclosure-preview';
-    previewText.textContent = sectionData.preview;
-    const chevron = document.createElement('span');
-    chevron.className = 'shared-event-disclosure-chevron';
-    chevron.setAttribute('aria-hidden', 'true');
-    chevron.textContent = '⌄';
-    summary.append(title, previewText, chevron);
+    const section = document.createElement('section');
+    section.className = 'shared-event-disclosure shared-event-disclosure-static';
     const content = document.createElement('div');
     content.className = 'shared-event-disclosure-content';
     appendEventGroups(content, sectionData.groups);
-    details.append(summary, content);
-    return details;
+    section.append(content);
+    return section;
   }
 
   function appendEventGroups(container, groups) {
@@ -1760,9 +1732,6 @@ const initialCopy = isEnglishPage
     if (!actions?.length) return null;
     const section = document.createElement('section');
     section.className = 'shared-event-actions';
-    const heading = document.createElement('h3');
-    heading.textContent = copy.event.eventActions;
-    section.append(heading);
     actions.forEach((action) => {
       const link = document.createElement('a');
       link.className = 'shared-event-action-row';
@@ -2330,8 +2299,7 @@ const initialCopy = isEnglishPage
     }
 
     .shared-preview-event :global(.shared-event-duration),
-    .shared-preview-event :global(.shared-event-date-year),
-    .shared-preview-event :global(.shared-event-disclosure-preview) {
+    .shared-preview-event :global(.shared-event-date-year) {
       color: var(--event-secondary);
       font-size: 14px;
       font-weight: 400;
@@ -2416,17 +2384,6 @@ const initialCopy = isEnglishPage
       margin-left: 28px;
     }
 
-    .shared-preview-event :global(.shared-event-regional h4),
-    .shared-preview-event :global(.shared-event-actions h3),
-    .shared-preview-event :global(.shared-event-disclosure h3),
-    .shared-preview-event :global(.shared-event-disclosure-title) {
-      margin: 0;
-      color: var(--event-secondary);
-      font-size: 17px;
-      font-weight: 750;
-      line-height: 1.35;
-    }
-
     .shared-preview-event :global(.shared-event-regional-row) {
       display: flex;
       flex-wrap: wrap;
@@ -2497,49 +2454,11 @@ const initialCopy = isEnglishPage
       display: block;
     }
 
-    .shared-preview-event :global(.shared-event-disclosure summary) {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 4px 12px;
-      align-items: center;
-      min-height: 44px;
-      cursor: pointer;
-      list-style: none;
-    }
-
-    .shared-preview-event :global(.shared-event-disclosure summary::-webkit-details-marker) {
-      display: none;
-    }
-
-    .shared-preview-event :global(.shared-event-disclosure-preview) {
-      grid-column: 1 / -1;
-      max-width: 100%;
-    }
-
-    .shared-preview-event :global(.shared-event-disclosure[open] .shared-event-disclosure-preview) {
-      display: none;
-    }
-
-    .shared-preview-event :global(.shared-event-disclosure-chevron) {
-      color: var(--event-secondary);
-      font-size: 14px;
-      line-height: 1;
-      transition: transform 0.2s ease;
-    }
-
-    .shared-preview-event :global(.shared-event-disclosure[open] .shared-event-disclosure-chevron) {
-      transform: rotate(180deg);
-    }
-
     .shared-preview-event :global(.shared-event-disclosure-content) {
       display: grid;
       gap: 20px;
-      margin-top: 20px;
+      margin-top: 0;
       padding-bottom: 4px;
-    }
-
-    .shared-preview-event :global(.shared-event-disclosure-static .shared-event-disclosure-content) {
-      margin-top: 20px;
     }
 
     .shared-preview-event :global(.shared-event-tag-list) {
