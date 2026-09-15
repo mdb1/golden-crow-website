@@ -1,0 +1,1983 @@
+---
+import PocketGenesPublicLayout from '../layouts/PocketGenesPublicLayout.astro';
+import { APP_STORE_URL, PLAY_STORE_URL } from '../data/pocketGenesPublic';
+
+interface Props {
+  lang?: 'en' | 'es';
+}
+
+const lang = Astro.props.lang ?? (Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/') ? 'en' : 'es');
+const isEnglish = lang === 'en';
+const detailPath = isEnglish ? '/en/pocket-genes/discover/feed_entries/' : '/pocket-genes/discover/feed_entries/';
+const canonicalPath = isEnglish ? '/en/pocket-genes/discover/' : '/pocket-genes/discover/';
+
+const pageCopy = isEnglish
+  ? {
+      title: 'Discover | Pocket Genes',
+      description: 'Read real Pocket Genes Discover publications and events from trusted publishers.',
+      breadcrumbHome: 'Pocket Genes',
+      eyebrow: 'Discover',
+      heading: 'Events and notes from trusted genetics publishers.',
+      intro:
+        'Browse published Discover items from Pocket Genes: events, news, research updates, opportunities, guides, tools, stories, and community resources.',
+      all: 'All',
+      events: 'Events',
+      news: 'News',
+      research: 'Research',
+      opportunities: 'Opportunities',
+      more: 'More types',
+      loading: 'Loading Discover',
+      loadMore: 'Load more',
+      retry: 'Retry',
+      emptyTitle: 'No Discover items yet',
+      emptyBody: 'When trusted publishers add events or notes, they will appear here.',
+      errorTitle: 'Discover could not load',
+      errorBody: 'The backend did not return the feed right now.',
+      appTitle: 'Download Pocket Genes',
+      appBody: 'Available for iPhone and Android.',
+      appStoreAlt: 'Download Pocket Genes on the App Store',
+      googlePlayAlt: 'Get Pocket Genes on Google Play',
+    }
+  : {
+      title: 'Discover | Pocket Genes',
+      description: 'Leé publicaciones y eventos reales de Discover en Pocket Genes.',
+      breadcrumbHome: 'Pocket Genes',
+      eyebrow: 'Discover',
+      heading: 'Eventos y notas de publicadores confiables en genómica.',
+      intro:
+        'Explorá publicaciones reales de Discover en Pocket Genes: eventos, noticias, investigación, oportunidades, guías, herramientas, historias y recursos comunitarios.',
+      all: 'Todo',
+      events: 'Eventos',
+      news: 'Noticias',
+      research: 'Investigación',
+      opportunities: 'Oportunidades',
+      more: 'Más tipos',
+      loading: 'Cargando Discover',
+      loadMore: 'Cargar más',
+      retry: 'Reintentar',
+      emptyTitle: 'Todavía no hay publicaciones en Discover',
+      emptyBody: 'Cuando los publicadores confiables agreguen eventos o notas, van a aparecer acá.',
+      errorTitle: 'No se pudo cargar Discover',
+      errorBody: 'El backend no devolvió el feed en este momento.',
+      appTitle: 'Descargá Pocket Genes',
+      appBody: 'Disponible para iPhone y Android.',
+      appStoreAlt: 'Descargar Pocket Genes en App Store',
+      googlePlayAlt: 'Obtener Pocket Genes en Google Play',
+    };
+
+const primaryFilters = [
+  { value: 'all', label: pageCopy.all },
+  { value: 'upcoming_event', label: pageCopy.events },
+  { value: 'news', label: pageCopy.news },
+  { value: 'research_update', label: pageCopy.research },
+  { value: 'opportunity', label: pageCopy.opportunities },
+];
+---
+
+<PocketGenesPublicLayout
+  title={pageCopy.title}
+  description={pageCopy.description}
+  canonicalPath={canonicalPath}
+  showFooter={true}
+  image="/pocket-genes/banner.png"
+>
+  <main id="main" class="discover-hub" data-discover-hub data-locale={lang}>
+    <section class="discover-hero">
+      <div class="discover-shell discover-hero-grid">
+        <div class="discover-hero-copy">
+          <nav class="discover-breadcrumb" aria-label="Breadcrumb">
+            <a href={isEnglish ? '/en/pocket-genes/home' : '/pocket-genes/home'}>{pageCopy.breadcrumbHome}</a>
+            <span aria-hidden="true"></span>
+            <span aria-current="page">Discover</span>
+          </nav>
+          <p class="discover-eyebrow">{pageCopy.eyebrow}</p>
+          <h1>{pageCopy.heading}</h1>
+          <p>{pageCopy.intro}</p>
+        </div>
+        <div class="discover-live-panel" aria-hidden="true">
+          <div class="discover-phone-frame">
+            <div class="discover-phone-top"></div>
+            <div class="discover-phone-card discover-phone-card-primary"></div>
+            <div class="discover-phone-card"></div>
+            <div class="discover-phone-card discover-phone-card-compact"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="discover-shell discover-workbench" aria-label="Discover feed">
+      <div class="discover-filter-bar">
+        <div class="discover-filter-row" role="group" aria-label="Discover filters">
+          {primaryFilters.map((filter) => (
+            <button
+              class="discover-filter"
+              type="button"
+              data-filter={filter.value}
+              aria-pressed={filter.value === 'all' ? 'true' : 'false'}
+            >
+              {filter.label}
+            </button>
+          ))}
+          <button class="discover-filter discover-filter-extra" type="button" data-extra-filter hidden aria-pressed="false"></button>
+          <div class="discover-more">
+            <button
+              class="discover-more-button"
+              type="button"
+              data-more-toggle
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-label={pageCopy.more}
+            >
+              <span aria-hidden="true">+</span>
+            </button>
+            <div class="discover-more-menu" data-more-menu role="menu" hidden></div>
+          </div>
+        </div>
+        <p class="discover-result-summary" data-result-summary aria-live="polite"></p>
+      </div>
+
+      <div class="discover-status" data-status hidden>
+        <h2 data-status-title></h2>
+        <p data-status-body></p>
+        <button class="discover-status-action" type="button" data-status-retry hidden>{pageCopy.retry}</button>
+      </div>
+
+      <div class="discover-skeleton" data-skeleton aria-label={pageCopy.loading}>
+        <div class="discover-skeleton-card discover-skeleton-feature"></div>
+        <div class="discover-skeleton-card"></div>
+        <div class="discover-skeleton-card"></div>
+      </div>
+
+      <div class="discover-feed" data-feed></div>
+
+      <div class="discover-pagination" data-pagination hidden>
+        <button class="discover-load-more" type="button" data-load-more>{pageCopy.loadMore}</button>
+      </div>
+    </section>
+
+    <section class="discover-shell discover-download">
+      <div>
+        <h2>{pageCopy.appTitle}</h2>
+        <p>{pageCopy.appBody}</p>
+      </div>
+      <div class="discover-store-row">
+        <a class="discover-store-button" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" aria-label={pageCopy.appStoreAlt}>
+          <img src="/appStore.png" alt={pageCopy.appStoreAlt} />
+        </a>
+        <a class="discover-store-button" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer" aria-label={pageCopy.googlePlayAlt}>
+          <img src="/pocket-genes/google-play-badge.png" alt={pageCopy.googlePlayAlt} />
+        </a>
+      </div>
+    </section>
+  </main>
+</PocketGenesPublicLayout>
+
+<script define:vars={{ pageLang: lang, detailPath }}>
+  const FIRESTORE_PROJECT_ID = 'goldencrow-pocketgenes';
+  const FIRESTORE_API_KEY = 'AIzaSyCTiL_RwICvnngYEqE721_MwVmDqGyYZ64';
+  const PAGE_SIZE = 20;
+  const FETCH_BATCH_SIZE = 20;
+  const MAX_FETCH_ATTEMPTS = 6;
+
+  const root = document.querySelector('[data-discover-hub]');
+  const feed = document.querySelector('[data-feed]');
+  const skeleton = document.querySelector('[data-skeleton]');
+  const pagination = document.querySelector('[data-pagination]');
+  const loadMoreButton = document.querySelector('[data-load-more]');
+  const statusPanel = document.querySelector('[data-status]');
+  const statusTitle = document.querySelector('[data-status-title]');
+  const statusBody = document.querySelector('[data-status-body]');
+  const statusRetry = document.querySelector('[data-status-retry]');
+  const summary = document.querySelector('[data-result-summary]');
+  const moreToggle = document.querySelector('[data-more-toggle]');
+  const moreMenu = document.querySelector('[data-more-menu]');
+  const extraFilterButton = document.querySelector('[data-extra-filter]');
+  const filterButtons = Array.from(document.querySelectorAll('[data-filter]'));
+  const primaryFilterValues = new Set(filterButtons.map((button) => button.dataset.filter));
+
+  const isEnglish = pageLang === 'en';
+  const locale = isEnglish ? 'en' : 'es-AR';
+  const fieldLocale = isEnglish ? 'en' : 'es';
+  const copy = isEnglish
+    ? {
+        publishedBy: 'Published by',
+        recently: 'Recently',
+        open: 'Open',
+        openEvent: 'Open event',
+        openNote: 'Open note',
+        loading: 'Loading Discover',
+        loadingMore: 'Loading more',
+        count: (count, filterLabel) =>
+          `${count} ${count === 1 ? 'item' : 'items'}${filterLabel ? ` in ${filterLabel}` : ''}`,
+        loadMore: 'Load more',
+        emptyTitle: 'No Discover items yet',
+        emptyBody: 'When trusted publishers add events or notes, they will appear here.',
+        errorTitle: 'Discover could not load',
+        errorBody: 'The backend did not return the feed right now.',
+        noMore: 'You reached the end.',
+        moreTypes: 'More types',
+        day: 'Day',
+        of: 'of',
+        allDay: 'All day',
+        timeTba: 'Time TBA',
+        dateOnly: 'Date only',
+        starts: 'Starts',
+        events: 'Events',
+        notes: 'Notes',
+      }
+    : {
+        publishedBy: 'Publicado por',
+        recently: 'Reciente',
+        open: 'Abrir',
+        openEvent: 'Abrir evento',
+        openNote: 'Abrir nota',
+        loading: 'Cargando Discover',
+        loadingMore: 'Cargando más',
+        count: (count, filterLabel) =>
+          `${count} ${count === 1 ? 'publicación' : 'publicaciones'}${filterLabel ? ` en ${filterLabel}` : ''}`,
+        loadMore: 'Cargar más',
+        emptyTitle: 'Todavía no hay publicaciones en Discover',
+        emptyBody: 'Cuando los publicadores confiables agreguen eventos o notas, van a aparecer acá.',
+        errorTitle: 'No se pudo cargar Discover',
+        errorBody: 'El backend no devolvió el feed en este momento.',
+        noMore: 'Llegaste al final.',
+        moreTypes: 'Más tipos',
+        day: 'Día',
+        of: 'de',
+        allDay: 'Todo el día',
+        timeTba: 'Horario a confirmar',
+        dateOnly: 'Solo fecha',
+        starts: 'Empieza',
+        events: 'Eventos',
+        notes: 'Notas',
+      };
+
+  const typeLabels = {
+    news: isEnglish ? 'News' : 'Noticias',
+    research_update: isEnglish ? 'Research' : 'Investigación',
+    upcoming_event: isEnglish ? 'Events' : 'Eventos',
+    opportunity: isEnglish ? 'Opportunities' : 'Oportunidades',
+    video: 'Video',
+    external_article: isEnglish ? 'Article' : 'Artículo',
+    podcast_episode: 'Podcast',
+    survey: isEnglish ? 'Survey' : 'Encuesta',
+    organization_spotlight: isEnglish ? 'Organization spotlight' : 'Organización destacada',
+    professional_spotlight: isEnglish ? 'Professional spotlight' : 'Profesional destacado',
+    community_invitation: isEnglish ? 'Community invitation' : 'Invitación a comunidad',
+    bioinformatics_tool: isEnglish ? 'Bioinformatics tool' : 'Herramienta de bioinformática',
+    genomic_database: isEnglish ? 'Genomic database' : 'Base de datos genómica',
+    health_guidance: isEnglish ? 'Health guidance' : 'Guía de salud',
+    educational_explainer: isEnglish ? 'Educational explainer' : 'Explicación educativa',
+    gene_spotlight: isEnglish ? 'Gene spotlight' : 'Gen destacado',
+    condition_spotlight: isEnglish ? 'Condition spotlight' : 'Condición destacada',
+    genetic_test_guide: isEnglish ? 'Genetic test guide' : 'Guía de prueba genética',
+    report_explainer: isEnglish ? 'Report explainer' : 'Explicación de reporte',
+    clinical_guideline: isEnglish ? 'Clinical guideline' : 'Guía clínica',
+    clinical_trial: isEnglish ? 'Clinical trial' : 'Ensayo clínico',
+    patient_registry: isEnglish ? 'Patient registry' : 'Registro de pacientes',
+    research_participation: isEnglish ? 'Research participation' : 'Participación en investigación',
+    screening_program: isEnglish ? 'Screening program' : 'Programa de detección',
+    support_service: isEnglish ? 'Support service' : 'Servicio de apoyo',
+    course: isEnglish ? 'Course' : 'Curso',
+    downloadable_resource: isEnglish ? 'Downloadable resource' : 'Recurso descargable',
+    lived_experience_story: isEnglish ? 'Patient or caregiver story' : 'Historia de paciente o cuidador',
+    expert_qa: isEnglish ? 'Expert Q&A' : 'Preguntas y respuestas',
+    advocacy_campaign: isEnglish ? 'Advocacy campaign' : 'Campaña comunitaria',
+  };
+
+  const payloadKeys = {
+    news: 'news',
+    research_update: 'researchUpdate',
+    upcoming_event: 'upcomingEvent',
+    opportunity: 'opportunity',
+    video: 'video',
+    external_article: 'externalArticle',
+    podcast_episode: 'podcastEpisode',
+    survey: 'survey',
+    organization_spotlight: 'organizationSpotlight',
+    professional_spotlight: 'professionalSpotlight',
+    community_invitation: 'communityInvitation',
+    bioinformatics_tool: 'bioinformaticsTool',
+    genomic_database: 'genomicDatabase',
+    health_guidance: 'healthGuidance',
+    educational_explainer: 'educationalExplainer',
+    gene_spotlight: 'geneSpotlight',
+    condition_spotlight: 'conditionSpotlight',
+    genetic_test_guide: 'geneticTestGuide',
+    report_explainer: 'reportExplainer',
+    clinical_guideline: 'clinicalGuideline',
+    clinical_trial: 'clinicalTrial',
+    patient_registry: 'patientRegistry',
+    research_participation: 'researchParticipation',
+    screening_program: 'screeningProgram',
+    support_service: 'supportService',
+    course: 'course',
+    downloadable_resource: 'downloadableResource',
+    lived_experience_story: 'livedExperienceStory',
+    expert_qa: 'expertQa',
+    advocacy_campaign: 'advocacyCampaign',
+  };
+
+  const typeAccents = {
+    news: ['#E04A5E', '#F9737A'],
+    research_update: ['#2176AE', '#14A6A0'],
+    upcoming_event: ['#4F46E5', '#7C3AED'],
+    opportunity: ['#C52F6D', '#7C3AED'],
+    video: ['#E45080', '#F9737A'],
+    external_article: ['#5B6F85', '#2176AE'],
+    podcast_episode: ['#6B40B4', '#C52F6D'],
+    survey: ['#14958F', '#3C9B68'],
+    organization_spotlight: ['#2176AE', '#14958F'],
+    professional_spotlight: ['#C52F6D', '#E45080'],
+    community_invitation: ['#14958F', '#3C9B68'],
+    bioinformatics_tool: ['#6550C6', '#2176AE'],
+    genomic_database: ['#2176AE', '#14A6A0'],
+    health_guidance: ['#14958F', '#3C9B68'],
+    educational_explainer: ['#6B40B4', '#2176AE'],
+    gene_spotlight: ['#C52F6D', '#E45080'],
+    condition_spotlight: ['#2176AE', '#14958F'],
+    genetic_test_guide: ['#14958F', '#3C9B68'],
+    report_explainer: ['#6B40B4', '#2176AE'],
+    clinical_guideline: ['#5B6F85', '#2176AE'],
+    clinical_trial: ['#C52F6D', '#7C3AED'],
+    patient_registry: ['#2176AE', '#14958F'],
+    research_participation: ['#14958F', '#3C9B68'],
+    screening_program: ['#6B40B4', '#2176AE'],
+    support_service: ['#14958F', '#3C9B68'],
+    course: ['#2176AE', '#14A6A0'],
+    downloadable_resource: ['#5B6F85', '#2176AE'],
+    lived_experience_story: ['#E45080', '#F9737A'],
+    expert_qa: ['#6B40B4', '#C52F6D'],
+    advocacy_campaign: ['#C52F6D', '#E45080'],
+  };
+
+  const metadataDefinitions = {
+    news: [
+      { key: 'category' },
+      { key: 'region', kind: 'region' },
+      { key: 'publishedAt', source: 'root', kind: 'date' },
+    ],
+    research_update: [
+      { key: 'researchTopic' },
+      { key: 'journal' },
+      { key: 'genes', kind: 'array' },
+    ],
+    upcoming_event: [
+      { key: 'eventDate', source: 'computed' },
+      { key: 'eventTime', source: 'computed' },
+      { key: 'location' },
+    ],
+    opportunity: [
+      { key: 'opportunityType' },
+      { key: 'location' },
+    ],
+    video: [
+      { key: 'provider' },
+      { key: 'durationSeconds', kind: 'duration' },
+      { key: 'presenters', kind: 'array' },
+    ],
+    external_article: [
+      { key: 'publicationName' },
+      { key: 'articleDate', kind: 'date' },
+      { key: 'authors', kind: 'array' },
+    ],
+    podcast_episode: [
+      { key: 'podcastName' },
+      { key: 'episodeNumber' },
+      { key: 'durationSeconds', kind: 'duration' },
+    ],
+    survey: [
+      { key: 'estimatedMinutes', kind: 'minutes' },
+      { key: 'closingDate', kind: 'date' },
+      { key: 'anonymous', kind: 'boolean' },
+    ],
+    organization_spotlight: [
+      { key: 'services', kind: 'array' },
+      { key: 'focusConditions', kind: 'array' },
+      { key: 'serviceRegions', kind: 'regionArray' },
+    ],
+    professional_spotlight: [
+      { key: 'specialties', kind: 'array' },
+      { key: 'languages', kind: 'array' },
+      { key: 'serviceRegions', kind: 'regionArray' },
+    ],
+    community_invitation: [
+      { key: 'communityType' },
+      { key: 'accessType' },
+      { key: 'communityLanguages', kind: 'array' },
+    ],
+    bioinformatics_tool: [
+      { key: 'toolName' },
+      { key: 'toolCategory' },
+      { key: 'technicalLevel' },
+    ],
+    genomic_database: [
+      { key: 'resourceName' },
+      { key: 'accessModel' },
+      { key: 'updateFrequency' },
+    ],
+    health_guidance: [
+      { key: 'reviewedBy' },
+      { key: 'reviewedAt', kind: 'date' },
+      { key: 'evidenceLevel' },
+    ],
+    educational_explainer: [
+      { key: 'topic' },
+      { key: 'difficultyLevel' },
+      { key: 'estimatedMinutes', kind: 'minutes' },
+    ],
+    gene_spotlight: [
+      { key: 'geneSymbol' },
+      { key: 'geneName' },
+      { key: 'relatedConditions', kind: 'array' },
+    ],
+    condition_spotlight: [
+      { key: 'conditionName' },
+      { key: 'relatedGenes', kind: 'array' },
+      { key: 'inheritanceModes', kind: 'array' },
+    ],
+    genetic_test_guide: [
+      { key: 'testType' },
+      { key: 'sampleTypes', kind: 'array' },
+      { key: 'turnaroundTime' },
+    ],
+    report_explainer: [
+      { key: 'reportSection' },
+      { key: 'conceptsCovered', kind: 'array' },
+      { key: 'readingLevel' },
+    ],
+    clinical_guideline: [
+      { key: 'issuingBody' },
+      { key: 'releaseDate', kind: 'date' },
+      { key: 'guidelineStatus' },
+    ],
+    clinical_trial: [
+      { key: 'trialIdentifier' },
+      { key: 'recruitmentStatus' },
+      { key: 'countries', kind: 'regionArray' },
+    ],
+    patient_registry: [
+      { key: 'registryName' },
+      { key: 'enrollmentStatus' },
+      { key: 'countries', kind: 'regionArray' },
+    ],
+    research_participation: [
+      { key: 'studyIdentifier' },
+      { key: 'studyType' },
+      { key: 'endDate', kind: 'date' },
+    ],
+    screening_program: [
+      { key: 'screeningType' },
+      { key: 'startDate', kind: 'date' },
+      { key: 'locations', kind: 'array' },
+    ],
+    support_service: [
+      { key: 'serviceType' },
+      { key: 'deliveryMode' },
+      { key: 'regions', kind: 'regionArray' },
+    ],
+    course: [
+      { key: 'deliveryMode' },
+      { key: 'difficultyLevel' },
+      { key: 'duration' },
+    ],
+    downloadable_resource: [
+      { key: 'fileType' },
+      { key: 'pageCount', kind: 'pages' },
+      { key: 'resourceLanguages', kind: 'array' },
+    ],
+    lived_experience_story: [
+      { key: 'perspective' },
+      { key: 'conditions', kind: 'array' },
+      { key: 'lifeStage' },
+    ],
+    expert_qa: [
+      { key: 'expertName' },
+      { key: 'specialty' },
+      { key: 'questionsCount', kind: 'questions' },
+    ],
+    advocacy_campaign: [
+      { key: 'campaignType' },
+      { key: 'targetRegion', kind: 'region' },
+      { key: 'deadline', kind: 'date' },
+    ],
+  };
+
+  const extraTypes = Object.keys(typeLabels).filter(
+    (type) => !['news', 'research_update', 'upcoming_event', 'opportunity'].includes(type)
+  );
+
+  const state = {
+    activeFilter: 'all',
+    cursor: null,
+    items: [],
+    loading: false,
+    exhausted: false,
+    requestToken: 0,
+  };
+
+  buildMoreMenu();
+  bindFilters();
+  loadInitial();
+
+  function buildMoreMenu() {
+    if (!moreMenu) return;
+    moreMenu.replaceChildren(
+      ...extraTypes.map((type) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.role = 'menuitem';
+        button.dataset.moreFilter = type;
+        button.textContent = typeLabels[type] ?? humanize(type);
+        return button;
+      })
+    );
+  }
+
+  function bindFilters() {
+    filterButtons.forEach((button) => {
+      button.addEventListener('click', () => setFilter(button.dataset.filter || 'all'));
+    });
+    moreToggle?.addEventListener('click', () => {
+      const isOpen = moreMenu && !moreMenu.hidden;
+      setMoreMenuOpen(!isOpen);
+    });
+    moreMenu?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-more-filter]');
+      if (!button) return;
+      setFilter(button.dataset.moreFilter || 'all');
+      setMoreMenuOpen(false);
+    });
+    loadMoreButton?.addEventListener('click', () => loadNextPage());
+    statusRetry?.addEventListener('click', () => loadInitial());
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.discover-more')) {
+        setMoreMenuOpen(false);
+      }
+    });
+  }
+
+  function setMoreMenuOpen(isOpen) {
+    if (!moreMenu || !moreToggle) return;
+    moreMenu.hidden = !isOpen;
+    moreToggle.setAttribute('aria-expanded', String(isOpen));
+  }
+
+  function setFilter(filter) {
+    if (state.activeFilter === filter || state.loading) return;
+    state.activeFilter = filter;
+    updateActiveFilters();
+    loadInitial();
+  }
+
+  async function loadInitial() {
+    state.cursor = null;
+    state.items = [];
+    state.exhausted = false;
+    state.requestToken += 1;
+    const token = state.requestToken;
+    feed?.replaceChildren();
+    setStatus(null);
+    setSkeleton(true);
+    setLoading(true);
+    await loadPage(token);
+    setSkeleton(false);
+    setLoading(false);
+  }
+
+  async function loadNextPage() {
+    if (state.loading || state.exhausted) return;
+    state.requestToken += 1;
+    const token = state.requestToken;
+    setLoading(true);
+    await loadPage(token);
+    setLoading(false);
+  }
+
+  async function loadPage(token) {
+    try {
+      const nextItems = [];
+      let cursor = state.cursor;
+      let exhausted = state.exhausted;
+      let attempts = 0;
+      while (nextItems.length < PAGE_SIZE && !exhausted && attempts < MAX_FETCH_ATTEMPTS) {
+        attempts += 1;
+        const page = await fetchRawPage(state.activeFilter, cursor);
+        cursor = page.cursor;
+        exhausted = page.exhausted;
+        nextItems.push(...page.items.filter((item) => itemVisibleForFilter(item, state.activeFilter)));
+      }
+      if (token !== state.requestToken) return;
+      state.cursor = cursor;
+      state.exhausted = exhausted;
+      state.items = state.items.concat(nextItems);
+      renderItems();
+    } catch (error) {
+      if (token !== state.requestToken) return;
+      state.exhausted = true;
+      renderItems();
+      setStatus('error');
+    }
+  }
+
+  async function fetchRawPage(filter, cursor) {
+    const query = {
+      structuredQuery: {
+        from: [{ collectionId: 'feed_items' }],
+        where: {
+          compositeFilter: {
+            op: 'AND',
+            filters: queryFilters(filter),
+          },
+        },
+        orderBy: [
+          { field: { fieldPath: 'publishedAt' }, direction: 'DESCENDING' },
+          { field: { fieldPath: '__name__' }, direction: 'DESCENDING' },
+        ],
+        limit: FETCH_BATCH_SIZE,
+      },
+    };
+
+    if (cursor?.publishedAt && cursor?.name) {
+      query.structuredQuery.startAt = {
+        before: false,
+        values: [
+          { timestampValue: cursor.publishedAt },
+          { referenceValue: cursor.name },
+        ],
+      };
+    }
+
+    const url = `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}/databases/(default)/documents:runQuery?key=${FIRESTORE_API_KEY}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(query),
+    });
+    if (!response.ok) {
+      throw new Error('Discover query failed');
+    }
+
+    const rows = await response.json();
+    const documents = rows.map((row) => row.document).filter(Boolean);
+    const items = documents.map(normalizeDocument).filter(Boolean);
+    const lastDocument = documents.at(-1);
+    const lastFields = lastDocument ? parseFirestoreFields(lastDocument.fields ?? {}) : null;
+    return {
+      items,
+      cursor:
+        lastDocument && cleanText(lastFields?.publishedAt)
+          ? { name: lastDocument.name, publishedAt: cleanText(lastFields.publishedAt) }
+          : null,
+      exhausted: documents.length < FETCH_BATCH_SIZE,
+    };
+  }
+
+  function queryFilters(filter) {
+    const filters = [
+      { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'published' } } },
+      { fieldFilter: { field: { fieldPath: 'language' }, op: 'EQUAL', value: { stringValue: pageLang } } },
+    ];
+    if (filter !== 'all') {
+      filters.push({
+        fieldFilter: { field: { fieldPath: 'type' }, op: 'EQUAL', value: { stringValue: filter } },
+      });
+    }
+    return filters;
+  }
+
+  function normalizeDocument(document) {
+    const fields = parseFirestoreFields(document.fields ?? {});
+    const id = cleanText(fields.id) || document.name.split('/').pop();
+    const type = cleanText(fields.type);
+    const title = cleanText(fields.title);
+    const subtitle = cleanText(fields.subtitle);
+    const publisherSnapshot = fields.publisherSnapshot && typeof fields.publisherSnapshot === 'object'
+      ? fields.publisherSnapshot
+      : {};
+    const publisher = cleanText(publisherSnapshot.name);
+    const publisherOrganizationId = cleanText(fields.publisherOrganizationId);
+    const publisherIndividualId = cleanText(fields.publisherIndividualId);
+    const hasSinglePublisher = Boolean(publisherOrganizationId) !== Boolean(publisherIndividualId);
+    const payloadKey = payloadKeys[type] ?? type;
+    const payload = fields[payloadKey] && typeof fields[payloadKey] === 'object' ? fields[payloadKey] : null;
+    const isSupportedType = Object.prototype.hasOwnProperty.call(typeLabels, type);
+    const isEvent = type === 'upcoming_event';
+    const event = isEvent ? eventData(payload) : null;
+
+    if (
+      !id ||
+      !type ||
+      !title ||
+      !subtitle ||
+      !publisher ||
+      !hasSinglePublisher ||
+      cleanText(fields.status) !== 'published' ||
+      cleanText(fields.language) !== pageLang ||
+      (isSupportedType && !payload) ||
+      (isEvent && !event)
+    ) {
+      return null;
+    }
+
+    const mediaUrl = imageSource(fields.imageUrl) || imageSource(fields.imageUploadDataUrl);
+    const publisherImage =
+      imageSource(publisherSnapshot.imageUrl) || imageSource(publisherSnapshot.imageUploadDataUrl);
+    const accents = typeAccents[type] ?? ['#6B40B4', '#2176AE'];
+
+    return {
+      id,
+      name: document.name,
+      type,
+      typeLabel: typeLabels[type] ?? humanize(type),
+      title,
+      subtitle,
+      publisher,
+      publisherImage,
+      mediaUrl,
+      publishedAt: cleanText(fields.publishedAt),
+      showInDiscoverFeed: fields.showInDiscoverFeed,
+      payload: payload ?? {},
+      event,
+      detailUrl: `${detailPath}?id=${encodeURIComponent(id)}`,
+      accent: accents[0],
+      accentEnd: accents[1],
+      chips: metadataChips(type, payload ?? {}, fields, event),
+      footer: footerText(type, fields, event),
+    };
+  }
+
+  function itemVisibleForFilter(item, filter) {
+    if (!item) return false;
+    if (filter === 'upcoming_event') {
+      return item.type === 'upcoming_event' && Boolean(item.event);
+    }
+    return item.showInDiscoverFeed !== false;
+  }
+
+  function renderItems() {
+    const orderedItems = orderedVisibleItems();
+    feed?.replaceChildren(...orderedItems.map((item, index) => createCard(item, index === 0)));
+    root?.classList.toggle('is-events-filter', state.activeFilter === 'upcoming_event');
+    setStatus(orderedItems.length ? null : 'empty');
+    renderSummary(orderedItems.length);
+    renderPagination();
+  }
+
+  function orderedVisibleItems() {
+    if (state.activeFilter !== 'upcoming_event') return state.items;
+    const today = startOfUtcDay(new Date()).getTime();
+    return [...state.items].sort((a, b) => {
+      const aTime = a.event?.startDate?.getTime() ?? 0;
+      const bTime = b.event?.startDate?.getTime() ?? 0;
+      const aFuture = aTime >= today;
+      const bFuture = bTime >= today;
+      if (aFuture !== bFuture) return aFuture ? -1 : 1;
+      return aFuture ? aTime - bTime : bTime - aTime;
+    });
+  }
+
+  function createCard(item, isFeature) {
+    const card = document.createElement('a');
+    card.className = `discover-card${isFeature ? ' discover-card-feature' : ''}${item.event ? ' discover-event-card' : ''}`;
+    card.href = item.detailUrl;
+    card.style.setProperty('--card-accent', item.accent);
+    card.style.setProperty('--card-accent-end', item.accentEnd);
+
+    const header = document.createElement('div');
+    header.className = 'discover-card-header';
+    header.append(createPublisherAvatar(item), createPublisherBlock(item), createTypeBadge(item));
+
+    const media = item.mediaUrl ? createMedia(item) : createVisualFallback(item);
+    const text = document.createElement('div');
+    text.className = 'discover-card-text';
+    if (item.event) {
+      text.append(createEventDateTile(item.event));
+    }
+    const title = document.createElement('h2');
+    title.textContent = item.title;
+    const subtitle = document.createElement('p');
+    subtitle.textContent = item.subtitle;
+    text.append(title, subtitle);
+
+    const chips = document.createElement('div');
+    chips.className = 'discover-chip-row';
+    chips.hidden = item.chips.length === 0;
+    chips.replaceChildren(...item.chips.map(createChip));
+
+    const footer = document.createElement('div');
+    footer.className = 'discover-card-footer';
+    const date = document.createElement('span');
+    date.textContent = item.footer || copy.recently;
+    const action = document.createElement('span');
+    action.className = 'discover-open-action';
+    action.textContent = item.event ? copy.openEvent : copy.openNote;
+    footer.append(date, action);
+
+    card.append(header, media, text, chips, footer);
+    return card;
+  }
+
+  function createPublisherAvatar(item) {
+    const avatar = document.createElement('span');
+    avatar.className = 'discover-avatar';
+    if (item.publisherImage) {
+      const image = document.createElement('img');
+      image.src = item.publisherImage;
+      image.alt = '';
+      image.loading = 'lazy';
+      avatar.append(image);
+    } else {
+      avatar.textContent = initials(item.publisher);
+    }
+    return avatar;
+  }
+
+  function createPublisherBlock(item) {
+    const block = document.createElement('span');
+    block.className = 'discover-publisher';
+    const support = document.createElement('span');
+    support.textContent = copy.publishedBy;
+    const name = document.createElement('strong');
+    name.textContent = item.publisher;
+    block.append(support, name);
+    return block;
+  }
+
+  function createTypeBadge(item) {
+    const badge = document.createElement('span');
+    badge.className = 'discover-type-badge';
+    badge.textContent = item.typeLabel;
+    return badge;
+  }
+
+  function createMedia(item) {
+    const figure = document.createElement('figure');
+    figure.className = 'discover-card-media';
+    const image = document.createElement('img');
+    image.src = item.mediaUrl;
+    image.alt = '';
+    image.loading = 'lazy';
+    figure.append(image);
+    return figure;
+  }
+
+  function createVisualFallback(item) {
+    const fallback = document.createElement('div');
+    fallback.className = 'discover-card-media discover-card-fallback';
+    const label = document.createElement('span');
+    label.textContent = item.typeLabel;
+    fallback.append(label);
+    return fallback;
+  }
+
+  function createEventDateTile(event) {
+    const tile = document.createElement('div');
+    tile.className = 'discover-event-date';
+    const day = document.createElement('strong');
+    day.textContent = String(event.day);
+    const month = document.createElement('span');
+    month.textContent = event.month;
+    tile.append(day, month);
+    return tile;
+  }
+
+  function createChip(value) {
+    const chip = document.createElement('span');
+    chip.className = 'discover-chip';
+    chip.textContent = value;
+    return chip;
+  }
+
+  function renderSummary(count) {
+    if (!summary) return;
+    const filterLabel = state.activeFilter === 'all' ? '' : typeLabels[state.activeFilter] ?? humanize(state.activeFilter);
+    summary.textContent = count ? copy.count(count, filterLabel) : '';
+  }
+
+  function renderPagination() {
+    if (!pagination || !loadMoreButton) return;
+    const hasItems = state.items.length > 0;
+    pagination.hidden = !hasItems || state.exhausted;
+    loadMoreButton.disabled = state.loading;
+    loadMoreButton.textContent = state.loading ? copy.loadingMore : copy.loadMore;
+  }
+
+  function setLoading(isLoading) {
+    state.loading = isLoading;
+    root?.classList.toggle('is-loading-more', isLoading && state.items.length > 0);
+    renderPagination();
+  }
+
+  function setSkeleton(isVisible) {
+    if (skeleton) skeleton.hidden = !isVisible;
+  }
+
+  function setStatus(kind) {
+    if (!statusPanel || !statusTitle || !statusBody) return;
+    statusPanel.hidden = !kind;
+    if (!kind) return;
+    const isError = kind === 'error';
+    statusTitle.textContent = isError ? copy.errorTitle : copy.emptyTitle;
+    statusBody.textContent = isError ? copy.errorBody : copy.emptyBody;
+    if (statusRetry) statusRetry.hidden = !isError;
+  }
+
+  function updateActiveFilters() {
+    filterButtons.forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.filter === state.activeFilter));
+    });
+
+    const isExtra = !primaryFilterValues.has(state.activeFilter);
+    if (extraFilterButton) {
+      extraFilterButton.hidden = !isExtra;
+      extraFilterButton.textContent = isExtra ? typeLabels[state.activeFilter] ?? humanize(state.activeFilter) : '';
+      extraFilterButton.dataset.filter = isExtra ? state.activeFilter : '';
+      extraFilterButton.setAttribute('aria-pressed', String(isExtra));
+      extraFilterButton.onclick = isExtra ? () => setFilter(state.activeFilter) : null;
+    }
+  }
+
+  function metadataChips(type, payload, fields, event) {
+    const definitions = metadataDefinitions[type] ?? fallbackMetadataDefinitions(payload);
+    return definitions
+      .map((definition) => metadataValue(definition, payload, fields, event))
+      .filter(Boolean)
+      .slice(0, 3);
+  }
+
+  function metadataValue(definition, payload, fields, event) {
+    if (definition.source === 'root') {
+      return formatMetadataValue(fields[definition.key], definition.kind);
+    }
+    if (definition.source === 'computed') {
+      if (definition.key === 'eventDate') return event?.dateLabel || '';
+      if (definition.key === 'eventTime') return event?.timeLabel || '';
+    }
+    return formatMetadataValue(payload?.[definition.key], definition.kind);
+  }
+
+  function formatMetadataValue(value, kind) {
+    if (kind === 'date') return formatDate(value);
+    if (kind === 'duration') return durationSecondsLabel(value);
+    if (kind === 'minutes') {
+      const minutes = positiveInteger(value);
+      return minutes ? (isEnglish ? `${minutes} min` : `${minutes} min`) : '';
+    }
+    if (kind === 'pages') {
+      const pages = positiveInteger(value);
+      return pages ? (isEnglish ? `${pages} p.` : `${pages} pág.`) : '';
+    }
+    if (kind === 'questions') {
+      const questions = positiveInteger(value);
+      return questions ? (isEnglish ? `${questions} questions` : `${questions} preguntas`) : '';
+    }
+    if (kind === 'boolean') {
+      return typeof value === 'boolean' ? (value ? (isEnglish ? 'Yes' : 'Sí') : 'No') : '';
+    }
+    if (kind === 'region') return regionLabel(value);
+    if (kind === 'regionArray') return uniqueCleanArray(value).map(regionLabel).filter(Boolean).join(', ');
+    if (kind === 'array' || Array.isArray(value)) {
+      return uniqueCleanArray(value).map(presentToken).join(', ');
+    }
+    return presentToken(cleanText(value));
+  }
+
+  function fallbackMetadataDefinitions(payload) {
+    return Object.keys(payload ?? {})
+      .filter((key) => !['title', 'subtitle', 'summary', 'body', 'detailBody', 'htmlBody', 'imageUrl', 'sourceUrl', 'sourceButtonText'].includes(key))
+      .sort()
+      .slice(0, 3)
+      .map((key) => ({ key }));
+  }
+
+  function footerText(type, fields, event) {
+    if (type === 'upcoming_event' && event) return event.dateLabel;
+    return formatDate(fields.publishedAt) || copy.recently;
+  }
+
+  function eventData(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    const startDate = eventDateFromValue(payload.date);
+    if (!startDate) return null;
+    const multiDayLength = eventMultiDayLength(payload);
+    const endDate = multiDayLength > 1 ? addUtcDays(startDate, multiDayLength - 1) : startDate;
+    const dateLabel = multiDayLength > 1
+      ? `${formatDate(startDate)} - ${formatDate(endDate)}`
+      : formatDate(startDate);
+    return {
+      startDate,
+      endDate,
+      day: startDate.getUTCDate(),
+      month: monthLabel(startDate),
+      dateLabel,
+      timeLabel: eventTimeLabel(payload),
+    };
+  }
+
+  function eventDateFromValue(value) {
+    if (!value) return null;
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return startOfUtcDay(value);
+    }
+    if (typeof value === 'string') {
+      const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (dateOnly) {
+        return new Date(Date.UTC(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3])));
+      }
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : startOfUtcDay(parsed);
+    }
+    return null;
+  }
+
+  function eventMultiDayLength(payload) {
+    const timeKind = cleanText(payload.timeKind);
+    if (!['allDay', 'timeTba', 'regionalTimes'].includes(timeKind)) return 1;
+    const length = positiveInteger(payload.multiDayLength);
+    return length ? Math.min(length, 365) : 1;
+  }
+
+  function eventTimeLabel(payload) {
+    const timeKind = cleanText(payload.timeKind);
+    if (timeKind === 'allDay') return copy.allDay;
+    if (timeKind === 'dateOnly') return copy.dateOnly;
+    if (timeKind === 'timeTba') return copy.timeTba;
+    if (timeKind === 'timed') {
+      const start = cleanText(payload.dailyStartTime);
+      const end = cleanText(payload.dailyEndTime);
+      if (!/^\d{2}:\d{2}$/.test(start)) return '';
+      return /^\d{2}:\d{2}$/.test(end) ? `${start}-${end}` : `${copy.starts} ${start}`;
+    }
+    if (timeKind === 'regionalTimes') {
+      const times = payload.regionalStartTimes && typeof payload.regionalStartTimes === 'object'
+        ? Object.values(payload.regionalStartTimes).map(cleanText).filter(Boolean)
+        : [];
+      return times[0] || '';
+    }
+    return '';
+  }
+
+  function parseFirestoreFields(fields) {
+    return Object.fromEntries(
+      Object.entries(fields).map(([key, value]) => [key, parseFirestoreValue(value)])
+    );
+  }
+
+  function parseFirestoreValue(value) {
+    if (!value || typeof value !== 'object') return null;
+    if ('stringValue' in value) return value.stringValue;
+    if ('booleanValue' in value) return Boolean(value.booleanValue);
+    if ('integerValue' in value) return Number(value.integerValue);
+    if ('doubleValue' in value) return Number(value.doubleValue);
+    if ('timestampValue' in value) return value.timestampValue;
+    if ('nullValue' in value) return null;
+    if ('arrayValue' in value) return (value.arrayValue.values ?? []).map(parseFirestoreValue);
+    if ('mapValue' in value) return parseFirestoreFields(value.mapValue.fields ?? {});
+    return null;
+  }
+
+  function formatDate(value) {
+    const date = value instanceof Date ? value : typeof value === 'string' ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat(locale, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(date);
+  }
+
+  function monthLabel(date) {
+    return new Intl.DateTimeFormat(locale, {
+      month: 'short',
+      timeZone: 'UTC',
+    }).format(date);
+  }
+
+  function startOfUtcDay(date) {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  }
+
+  function addUtcDays(date, days) {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+  }
+
+  function durationSecondsLabel(value) {
+    const seconds = positiveInteger(value);
+    if (!seconds) return '';
+    const minutes = Math.max(1, Math.round(seconds / 60));
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const remaining = minutes % 60;
+    return remaining ? `${hours} h ${remaining} min` : `${hours} h`;
+  }
+
+  function positiveInteger(value) {
+    const number = typeof value === 'number' ? value : Number(value);
+    return Number.isInteger(number) && number > 0 ? number : 0;
+  }
+
+  function uniqueCleanArray(value) {
+    const values = Array.isArray(value) ? value : cleanText(value) ? [value] : [];
+    return [...new Set(values.map(cleanText).filter(Boolean))];
+  }
+
+  function regionLabel(value) {
+    const text = cleanText(value);
+    if (!text) return '';
+    const code = text.toUpperCase();
+    if (code === 'GLOBAL') return 'Global';
+    if (/^[A-Z]{2}$/.test(code)) {
+      try {
+        return new Intl.DisplayNames([fieldLocale], { type: 'region' }).of(code) || code;
+      } catch {
+        return code;
+      }
+    }
+    return presentToken(text);
+  }
+
+  function presentToken(value) {
+    const text = cleanText(value);
+    if (!text) return '';
+    if (/^[a-z][a-z0-9_]*$/i.test(text) && !/[A-Z]{2,}/.test(text)) {
+      return humanize(text);
+    }
+    return text;
+  }
+
+  function humanize(value) {
+    return cleanText(value)
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^./, (letter) => letter.toLocaleUpperCase(fieldLocale));
+  }
+
+  function imageSource(value) {
+    const text = cleanText(value);
+    if (!text) return '';
+    const lower = text.toLocaleLowerCase('en');
+    return lower.startsWith('https://') ||
+      lower.startsWith('http://') ||
+      lower.startsWith('data:image/') ||
+      text.startsWith('/')
+      ? text
+      : '';
+  }
+
+  function initials(value) {
+    const words = cleanText(value).split(/\s+/).filter(Boolean);
+    return words.slice(0, 2).map((word) => word[0]?.toLocaleUpperCase(fieldLocale)).join('') || 'PG';
+  }
+
+  function cleanText(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : '';
+  }
+</script>
+
+<style is:global>
+  .discover-hub {
+    min-height: 100vh;
+    background: #ffffff;
+    color: #292333;
+    padding-top: 96px;
+  }
+
+  .discover-shell {
+    width: min(1184px, calc(100% - 44px));
+    margin: 0 auto;
+  }
+
+  .discover-hero {
+    border-bottom: 1px solid #e9e5ed;
+    background:
+      linear-gradient(180deg, rgba(248, 246, 250, 0.7), rgba(255, 255, 255, 0)),
+      #ffffff;
+    padding: 34px 0 30px;
+  }
+
+  .discover-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    align-items: center;
+    gap: 52px;
+  }
+
+  .discover-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 28px;
+    color: #706b79;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .discover-breadcrumb a {
+    color: #6b40b4;
+    text-decoration: none;
+  }
+
+  .discover-breadcrumb a:hover,
+  .discover-breadcrumb a:focus-visible {
+    color: #c52f6d;
+  }
+
+  .discover-breadcrumb span[aria-hidden="true"] {
+    width: 7px;
+    height: 7px;
+    border-top: 1.5px solid currentColor;
+    border-right: 1.5px solid currentColor;
+    transform: rotate(45deg);
+  }
+
+  .discover-eyebrow {
+    margin: 0 0 15px;
+    color: #14958f;
+    font-size: 11px;
+    font-weight: 750;
+    line-height: 1.6;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  .discover-hero-copy h1 {
+    max-width: 820px;
+    margin: 0;
+    color: #292333;
+    font-size: 50px;
+    font-weight: 620;
+    line-height: 1.05;
+    letter-spacing: 0;
+  }
+
+  .discover-hero-copy > p:not(.discover-eyebrow) {
+    max-width: 710px;
+    margin: 20px 0 0;
+    color: #706b79;
+    font-size: 17px;
+    line-height: 1.7;
+  }
+
+  .discover-live-panel {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .discover-phone-frame {
+    width: 260px;
+    min-height: 336px;
+    border: 1px solid #e9e5ed;
+    border-radius: 28px;
+    background: #f8f6fa;
+    padding: 18px;
+    box-shadow: 0 22px 55px rgba(41, 35, 51, 0.12);
+  }
+
+  .discover-phone-top {
+    width: 76px;
+    height: 5px;
+    margin: 0 auto 18px;
+    border-radius: 999px;
+    background: #d9d2df;
+  }
+
+  .discover-phone-card {
+    height: 66px;
+    margin-top: 12px;
+    border: 1px solid #e9e5ed;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(41, 35, 51, 0.05);
+  }
+
+  .discover-phone-card-primary {
+    height: 128px;
+    background:
+      linear-gradient(135deg, rgba(228, 80, 128, 0.2), rgba(33, 118, 174, 0.16)),
+      #ffffff;
+  }
+
+  .discover-phone-card-compact {
+    height: 52px;
+  }
+
+  .discover-workbench {
+    padding: 28px 0 34px;
+  }
+
+  .discover-filter-bar {
+    position: sticky;
+    z-index: 5;
+    top: 94px;
+    display: grid;
+    gap: 12px;
+    border: 1px solid #e9e5ed;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 12px;
+    box-shadow: 0 10px 28px rgba(41, 35, 51, 0.08);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .discover-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .discover-filter-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .discover-filter,
+  .discover-more-button {
+    flex: 0 0 auto;
+    min-height: 38px;
+    border: 1px solid #e1dce8;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #514a58;
+    padding: 9px 13px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.35;
+    letter-spacing: 0;
+    cursor: pointer;
+  }
+
+  .discover-filter[aria-pressed="true"] {
+    border-color: color-mix(in srgb, #14958f 48%, #e1dce8);
+    background: #eef8f5;
+    color: #0e6f6b;
+  }
+
+  .discover-filter:hover,
+  .discover-filter:focus-visible,
+  .discover-more-button:hover,
+  .discover-more-button:focus-visible {
+    border-color: #14958f;
+    color: #0e6f6b;
+  }
+
+  .discover-more {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .discover-more-button {
+    width: 38px;
+    padding: 0;
+    font-size: 20px;
+  }
+
+  .discover-more-menu {
+    position: absolute;
+    top: calc(100% + 9px);
+    right: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(170px, 1fr));
+    gap: 6px;
+    width: min(520px, calc(100vw - 44px));
+    max-height: 360px;
+    overflow: auto;
+    border: 1px solid #e1dce8;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 8px;
+    box-shadow: 0 18px 48px rgba(41, 35, 51, 0.16);
+  }
+
+  .discover-more-menu[hidden] {
+    display: none;
+  }
+
+  .discover-more-menu button {
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #514a58;
+    padding: 10px 11px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 580;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .discover-more-menu button:hover,
+  .discover-more-menu button:focus-visible {
+    background: #f8f6fa;
+    color: #292333;
+  }
+
+  .discover-result-summary {
+    min-height: 18px;
+    margin: 0;
+    color: #706b79;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  .discover-feed {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    padding-top: 24px;
+  }
+
+  .discover-card {
+    --card-accent: #6b40b4;
+    --card-accent-end: #2176ae;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+    min-height: 100%;
+    min-width: 0;
+    border: 1px solid #e9e5ed;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #292333;
+    padding: 18px;
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(41, 35, 51, 0.04);
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  }
+
+  .discover-card:hover,
+  .discover-card:focus-visible {
+    border-color: color-mix(in srgb, var(--card-accent) 36%, #e9e5ed);
+    box-shadow: 0 16px 38px rgba(41, 35, 51, 0.1);
+    transform: translateY(-1px);
+    outline: 0;
+  }
+
+  .discover-card-feature {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 0.9fr) minmax(340px, 1.1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    gap: 0 26px;
+    padding: 22px;
+  }
+
+  .discover-card-header {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+    margin-bottom: 15px;
+  }
+
+  .discover-card-feature .discover-card-header {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .discover-avatar {
+    display: inline-flex;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--card-accent) 12%, #ffffff);
+    color: var(--card-accent);
+    font-size: 12px;
+    font-weight: 760;
+  }
+
+  .discover-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #ffffff;
+    padding: 4px;
+  }
+
+  .discover-publisher {
+    display: grid;
+    min-width: 0;
+    gap: 1px;
+  }
+
+  .discover-publisher span {
+    color: #8a8492;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  .discover-publisher strong {
+    overflow: hidden;
+    color: #292333;
+    font-size: 13px;
+    font-weight: 680;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .discover-type-badge {
+    flex: 0 0 auto;
+    max-width: 44%;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--card-accent) 28%, #e9e5ed);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--card-accent) 10%, #ffffff);
+    color: var(--card-accent);
+    padding: 6px 9px;
+    font-size: 11px;
+    font-weight: 720;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .discover-card-media {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #f8f6fa;
+    margin: 0 0 17px;
+  }
+
+  .discover-card-feature .discover-card-media {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    align-self: stretch;
+    height: 100%;
+    min-height: 278px;
+    margin: 0;
+  }
+
+  .discover-card-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .discover-card-fallback {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--card-accent) 22%, #ffffff), color-mix(in srgb, var(--card-accent-end) 18%, #ffffff)),
+      #f8f6fa;
+    padding: 17px;
+  }
+
+  .discover-card-fallback span {
+    max-width: 88%;
+    color: #292333;
+    font-size: 18px;
+    font-weight: 720;
+    line-height: 1.2;
+  }
+
+  .discover-card-text {
+    min-width: 0;
+  }
+
+  .discover-card-feature .discover-card-text {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+    padding-right: 10px;
+  }
+
+  .discover-card-text h2 {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: #292333;
+    font-size: 24px;
+    font-weight: 620;
+    line-height: 1.18;
+    letter-spacing: 0;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .discover-card-feature .discover-card-text h2 {
+    font-size: 34px;
+    line-height: 1.12;
+  }
+
+  .discover-card-text p {
+    display: -webkit-box;
+    margin: 12px 0 0;
+    overflow: hidden;
+    color: #706b79;
+    font-size: 15px;
+    line-height: 1.62;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .discover-event-date {
+    display: inline-grid;
+    min-width: 66px;
+    margin-bottom: 14px;
+    border: 1px solid color-mix(in srgb, var(--card-accent) 24%, #e9e5ed);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--card-accent) 9%, #ffffff);
+    padding: 10px 12px;
+    text-align: center;
+  }
+
+  .discover-event-date strong {
+    color: #292333;
+    font-size: 30px;
+    font-weight: 560;
+    line-height: 1;
+  }
+
+  .discover-event-date span {
+    margin-top: 5px;
+    color: var(--card-accent);
+    font-size: 11px;
+    font-weight: 760;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .discover-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .discover-chip-row[hidden] {
+    display: none;
+  }
+
+  .discover-card-feature .discover-chip-row {
+    grid-column: 1;
+    grid-row: 3;
+    align-self: end;
+  }
+
+  .discover-chip {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--card-accent) 22%, #e9e5ed);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--card-accent) 8%, #ffffff);
+    color: color-mix(in srgb, var(--card-accent) 82%, #292333);
+    padding: 6px 9px;
+    font-size: 12px;
+    font-weight: 620;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .discover-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 18px;
+    border-top: 1px solid #e9e5ed;
+    padding-top: 14px;
+    color: #8a8492;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .discover-card-feature .discover-card-footer {
+    grid-column: 1;
+    grid-row: 4;
+  }
+
+  .discover-open-action {
+    flex: 0 0 auto;
+    color: var(--card-accent);
+    font-weight: 720;
+  }
+
+  .discover-skeleton {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    padding-top: 24px;
+  }
+
+  .discover-skeleton[hidden] {
+    display: none;
+  }
+
+  .discover-skeleton-card {
+    min-height: 330px;
+    border: 1px solid #e9e5ed;
+    border-radius: 8px;
+    background:
+      linear-gradient(90deg, rgba(248, 246, 250, 0.8), rgba(255, 255, 255, 0.95), rgba(248, 246, 250, 0.8)),
+      #f8f6fa;
+    background-size: 220% 100%;
+    animation: discover-shimmer 1.4s ease-in-out infinite;
+  }
+
+  .discover-skeleton-feature {
+    grid-column: 1 / -1;
+    min-height: 380px;
+  }
+
+  .discover-status {
+    margin-top: 24px;
+    border: 1px solid #e9e5ed;
+    border-radius: 8px;
+    background: #f8f6fa;
+    padding: 28px;
+    text-align: center;
+  }
+
+  .discover-status[hidden] {
+    display: none;
+  }
+
+  .discover-status h2 {
+    margin: 0;
+    color: #292333;
+    font-size: 24px;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+
+  .discover-status p {
+    max-width: 540px;
+    margin: 11px auto 0;
+    color: #706b79;
+    line-height: 1.6;
+  }
+
+  .discover-status-action,
+  .discover-load-more {
+    min-height: 44px;
+    border: 0;
+    border-radius: 8px;
+    background: #2176ae;
+    color: #ffffff;
+    padding: 11px 16px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 680;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  .discover-status-action {
+    margin-top: 18px;
+  }
+
+  .discover-pagination {
+    display: flex;
+    justify-content: center;
+    padding-top: 28px;
+  }
+
+  .discover-pagination[hidden] {
+    display: none;
+  }
+
+  .discover-load-more:disabled {
+    opacity: 0.68;
+    cursor: wait;
+  }
+
+  .discover-download {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 42px;
+    border: 1px solid #e9e5ed;
+    border-radius: 8px;
+    background: #f8f6fa;
+    padding: 22px;
+  }
+
+  .discover-download h2 {
+    margin: 0;
+    color: #292333;
+    font-size: 24px;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+
+  .discover-download p {
+    margin: 8px 0 0;
+    color: #706b79;
+    line-height: 1.55;
+  }
+
+  .discover-store-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .discover-store-button {
+    display: inline-flex;
+    width: 154px;
+    height: 46px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid #111827;
+    border-radius: 8px;
+    background: #111827;
+    padding: 4px 8px;
+    text-decoration: none;
+  }
+
+  .discover-store-button img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  @keyframes discover-shimmer {
+    0% {
+      background-position: 120% 0;
+    }
+    100% {
+      background-position: -120% 0;
+    }
+  }
+
+  @media (max-width: 960px) {
+    .discover-hero-grid,
+    .discover-download {
+      grid-template-columns: 1fr;
+    }
+
+    .discover-live-panel {
+      display: none;
+    }
+
+    .discover-card-feature {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto;
+    }
+
+    .discover-card-feature .discover-card-header,
+    .discover-card-feature .discover-card-media,
+    .discover-card-feature .discover-card-text,
+    .discover-card-feature .discover-chip-row,
+    .discover-card-feature .discover-card-footer {
+      grid-column: auto;
+      grid-row: auto;
+    }
+
+    .discover-card-feature .discover-card-media {
+      height: auto;
+      min-height: 0;
+      margin-bottom: 17px;
+    }
+
+    .discover-card-feature .discover-card-text h2 {
+      font-size: 28px;
+      line-height: 1.16;
+    }
+
+    .discover-store-row {
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .discover-hub {
+      padding-top: 82px;
+    }
+
+    .discover-shell {
+      width: min(100% - 32px, 1184px);
+    }
+
+    .discover-hero {
+      padding: 26px 0 24px;
+    }
+
+    .discover-breadcrumb {
+      margin-bottom: 24px;
+    }
+
+    .discover-hero-copy h1 {
+      font-size: 34px;
+      line-height: 1.14;
+    }
+
+    .discover-hero-copy > p:not(.discover-eyebrow) {
+      font-size: 15px;
+    }
+
+    .discover-filter-bar {
+      top: 84px;
+      margin-inline: -4px;
+      padding: 10px;
+    }
+
+    .discover-more-menu {
+      left: auto;
+      right: 0;
+      grid-template-columns: 1fr;
+      width: min(300px, calc(100vw - 32px));
+    }
+
+    .discover-feed,
+    .discover-skeleton {
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .discover-card,
+    .discover-card-feature {
+      padding: 16px;
+    }
+
+    .discover-card-text h2,
+    .discover-card-feature .discover-card-text h2 {
+      font-size: 24px;
+      line-height: 1.18;
+    }
+
+    .discover-card-header {
+      align-items: flex-start;
+    }
+
+    .discover-type-badge {
+      max-width: 38%;
+    }
+
+    .discover-download {
+      margin-bottom: 30px;
+      padding: 18px;
+    }
+
+    .discover-store-row,
+    .discover-store-button {
+      width: 100%;
+    }
+  }
+</style>

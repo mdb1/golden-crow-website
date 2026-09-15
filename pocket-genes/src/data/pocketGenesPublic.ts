@@ -23,6 +23,7 @@ export type PocketGenesPublicLocale = 'en' | 'es';
 const publicNavItemsByLocale: Record<PocketGenesPublicLocale, { label: string; href: string }[]> = {
   en: [
     { label: 'Home', href: '/pocket-genes/home' },
+    { label: 'Discover', href: '/pocket-genes/discover' },
     { label: '100 voices campaign', href: '/pocket-genes/100-publishers' },
     { label: 'Community', href: '/pocket-genes/rarefriends' },
     { label: 'Join us', href: '/pocket-genes/join-us' },
@@ -33,6 +34,7 @@ const publicNavItemsByLocale: Record<PocketGenesPublicLocale, { label: string; h
   ],
   es: [
     { label: 'Inicio', href: '/pocket-genes/home' },
+    { label: 'Discover', href: '/pocket-genes/discover' },
     { label: 'Campaña 100 personalidades', href: '/pocket-genes/100-publishers' },
     { label: 'Comunidad', href: '/pocket-genes/rarefriends' },
     { label: 'Sumate', href: '/pocket-genes/join-us' },
