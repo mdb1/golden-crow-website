@@ -142,7 +142,9 @@ const initialCopy = isEnglishPage
       <nav class="app-link-breadcrumb" aria-label={initialCopy.breadcrumbLabel} data-preview-breadcrumb hidden>
         <a href={isEnglishPage ? '/en/pocket-genes/home' : '/pocket-genes/home'}>Pocket Genes</a>
         <span aria-hidden="true"></span>
-        <span>{initialCopy.breadcrumbDiscover}</span>
+        <a href={isEnglishPage ? '/en/pocket-genes/discover/' : '/pocket-genes/discover/'}>
+          {initialCopy.breadcrumbDiscover}
+        </a>
         <span aria-hidden="true"></span>
         <span aria-current="page">{initialCopy.breadcrumbEvent}</span>
       </nav>
