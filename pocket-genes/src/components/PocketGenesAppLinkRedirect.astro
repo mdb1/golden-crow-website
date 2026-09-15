@@ -54,8 +54,6 @@ const initialCopy = isEnglishPage
       appPromotionEyebrow: 'Get Pocket Genes',
       appPromotionTitle: 'Available for iPhone and Android.',
       appPromotionBody: 'Download Pocket Genes from the App Store or Google Play.',
-      downloadIphone: 'Download for iPhone',
-      downloadAndroid: 'Download for Android',
     }
   : {
       layoutTitle: 'Abrir en Pocket Genes',
@@ -78,8 +76,6 @@ const initialCopy = isEnglishPage
       appPromotionEyebrow: 'Descargá Pocket Genes',
       appPromotionTitle: 'Disponible para iPhone y Android.',
       appPromotionBody: 'Descargá Pocket Genes desde la App Store o Google Play.',
-      downloadIphone: 'Descargar para iPhone',
-      downloadAndroid: 'Descargar para Android',
     };
 ---
 
@@ -202,12 +198,10 @@ const initialCopy = isEnglishPage
           <p>{initialCopy.appPromotionBody}</p>
         </div>
         <div class="app-link-promotion-actions">
-          <a class="app-link-promotion-store-app" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-            <span>{initialCopy.downloadIphone}</span>
+          <a class="app-link-promotion-store-app" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" aria-label={initialCopy.appStoreAlt}>
             <img src="/appStore.png" alt={initialCopy.appStoreAlt} />
           </a>
-          <a class="app-link-promotion-store-app" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">
-            <span>{initialCopy.downloadAndroid}</span>
+          <a class="app-link-promotion-store-app" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer" aria-label={initialCopy.googlePlayAlt}>
             <img src="/pocket-genes/google-play-badge.png" alt={initialCopy.googlePlayAlt} />
           </a>
         </div>
@@ -3998,14 +3992,13 @@ const initialCopy = isEnglishPage
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    min-height: 74px;
-    min-width: 280px;
+    min-height: 72px;
+    min-width: 180px;
     overflow: hidden;
     border-radius: 8px;
     background: var(--pg-ink);
     color: #ffffff;
-    padding: 12px 14px;
+    padding: 12px 20px;
     font: inherit;
     text-decoration: none;
     box-shadow: 0 12px 26px rgba(23, 32, 51, 0.16);
@@ -4053,18 +4046,13 @@ const initialCopy = isEnglishPage
     transform: translateY(-2px) scale(0.99);
   }
 
-  .app-link-promotion-store-app span,
   .app-link-promotion-store-app img {
     position: relative;
     z-index: 1;
   }
 
-  .app-link-promotion-store-app span {
-    font-weight: 850;
-  }
-
   .app-link-promotion-store-app img {
-    width: 132px;
+    width: 142px;
     height: auto;
   }
 
@@ -4175,7 +4163,7 @@ const initialCopy = isEnglishPage
     }
 
     .app-link-promotion-store-app {
-      justify-content: space-between;
+      justify-content: center;
     }
   }
 </style>
