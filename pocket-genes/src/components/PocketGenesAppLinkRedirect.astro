@@ -48,6 +48,19 @@ const initialCopy = isEnglishPage
       retryLink: 'here',
       retrySuffix: ' to open it.',
       website: 'Website',
+      breadcrumbLabel: 'Shared content',
+      breadcrumbDiscover: 'Discover',
+      breadcrumbEvent: 'Event',
+      appPromotionTitle: 'Continue in Pocket Genes',
+      appPromotionBody: 'Open the event in the app or download Pocket Genes for your phone.',
+      compactAppStore: 'App Store',
+      compactPlayStore: 'Google Play',
+      compactOpenApp: 'Open app',
+      eventAbout: 'About the event',
+      flyerCaption: 'Event flyer',
+      flyerExpand: 'Expand',
+      flyerMobileLink: 'Open event flyer',
+      closeImageViewer: 'Close',
     }
   : {
       layoutTitle: 'Abrir en Pocket Genes',
@@ -64,6 +77,19 @@ const initialCopy = isEnglishPage
       retryLink: 'acá',
       retrySuffix: ' para abrirla.',
       website: 'Sitio web',
+      breadcrumbLabel: 'Contenido compartido',
+      breadcrumbDiscover: 'Discover',
+      breadcrumbEvent: 'Evento',
+      appPromotionTitle: 'Continuá en Pocket Genes',
+      appPromotionBody: 'Abrí el evento en la app o descargá Pocket Genes en tu teléfono.',
+      compactAppStore: 'App Store',
+      compactPlayStore: 'Google Play',
+      compactOpenApp: 'Abrir app',
+      eventAbout: 'Sobre el encuentro',
+      flyerCaption: 'Flyer del evento',
+      flyerExpand: 'Ampliar',
+      flyerMobileLink: 'Ver flyer del evento',
+      closeImageViewer: 'Cerrar',
     };
 ---
 
@@ -71,43 +97,53 @@ const initialCopy = isEnglishPage
   title={initialCopy.layoutTitle}
   description={initialCopy.layoutDescription}
   canonicalPath={Astro.url.pathname}
-  showFooter={false}
+  showFooter={true}
   image="/pocket-genes/banner.png"
 >
-  <main id="main" class="app-link-page">
-    <section class="app-link-content" aria-labelledby="app-link-title">
-      <img class="app-icon" src="/pocket-genes/icon_simple.png" alt="" width="112" height="112" />
-      <p class="app-kicker">Pocket Genes</p>
-      <h1 id="app-link-title">{initialCopy.title}</h1>
-      <p id="app-link-description" class="app-description">
-        {initialCopy.description}
-      </p>
+  <main id="main" class="app-link-page event-page">
+    <div class="event-page__shell">
+      <section class="app-link-content" aria-labelledby="app-link-title" data-app-link-hero>
+        <img class="app-icon" src="/pocket-genes/icon_simple.png" alt="" width="112" height="112" />
+        <p class="app-kicker">Pocket Genes</p>
+        <h1 id="app-link-title">{initialCopy.title}</h1>
+        <p id="app-link-description" class="app-description">
+          {initialCopy.description}
+        </p>
 
-      <div class="app-link-actions">
-        <div id="download-store-grid" class="app-link-store-grid" aria-label={initialCopy.storeGridLabel}>
-          <a id="download-app-store" class="store-card store-card-live" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-            <span class="store-card-glow" aria-hidden="true"></span>
-            <span class="store-kicker" data-store-kicker>{initialCopy.availableNow}</span>
-            <img class="store-badge app-store-badge" src="/pocket-genes/app-store-badge.svg" alt={initialCopy.appStoreAlt} width="180" height="60" />
-            <span class="store-note" data-store-note>{initialCopy.appStoreNote}</span>
-          </a>
+        <div class="app-link-actions">
+          <div id="download-store-grid" class="app-link-store-grid" aria-label={initialCopy.storeGridLabel}>
+            <a id="download-app-store" class="store-card store-card-live" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+              <span class="store-card-glow" aria-hidden="true"></span>
+              <span class="store-kicker" data-store-kicker>{initialCopy.availableNow}</span>
+              <img class="store-badge app-store-badge" src="/pocket-genes/app-store-badge.svg" alt={initialCopy.appStoreAlt} width="180" height="60" />
+              <span class="store-note" data-store-note>{initialCopy.appStoreNote}</span>
+            </a>
 
-          <a id="download-play-store" class="store-card store-card-live store-card-play" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">
-            <span class="store-card-glow" aria-hidden="true"></span>
-            <span class="store-kicker" data-store-kicker>{initialCopy.availableNow}</span>
-            <span class="play-badge-wrap">
-              <img class="store-badge google-play-badge" src="/pocket-genes/google-play-badge.png" alt={initialCopy.googlePlayAlt} width="194" height="75" />
-            </span>
-            <span class="store-note" data-store-note>{initialCopy.playStoreNote}</span>
-          </a>
+            <a id="download-play-store" class="store-card store-card-live store-card-play" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">
+              <span class="store-card-glow" aria-hidden="true"></span>
+              <span class="store-kicker" data-store-kicker>{initialCopy.availableNow}</span>
+              <span class="play-badge-wrap">
+                <img class="store-badge google-play-badge" src="/pocket-genes/google-play-badge.png" alt={initialCopy.googlePlayAlt} width="194" height="75" />
+              </span>
+              <span class="store-note" data-store-note>{initialCopy.playStoreNote}</span>
+            </a>
+          </div>
         </div>
-      </div>
 
-      <p id="app-link-status" class="app-link-status" role="status">
-        <span data-status-prefix>{initialCopy.retryPrefix}</span>
-        <a id="open-pocket-genes" class="app-link-retry" href={customSchemeBase}>{initialCopy.retryLink}</a>
-        <span data-status-suffix>{initialCopy.retrySuffix}</span>
-      </p>
+        <p id="app-link-status" class="app-link-status" role="status">
+          <span data-status-prefix>{initialCopy.retryPrefix}</span>
+          <a id="open-pocket-genes" class="app-link-retry" href={customSchemeBase}>{initialCopy.retryLink}</a>
+          <span data-status-suffix>{initialCopy.retrySuffix}</span>
+        </p>
+      </section>
+
+      <nav class="app-link-breadcrumb" aria-label={initialCopy.breadcrumbLabel} data-preview-breadcrumb hidden>
+        <a href={isEnglishPage ? '/en/pocket-genes/home' : '/pocket-genes/home'}>Pocket Genes</a>
+        <span aria-hidden="true"></span>
+        <span>{initialCopy.breadcrumbDiscover}</span>
+        <span aria-hidden="true"></span>
+        <span aria-current="page">{initialCopy.breadcrumbEvent}</span>
+      </nav>
 
       <article
         id="shared-preview"
@@ -118,21 +154,50 @@ const initialCopy = isEnglishPage
         <div class="shared-preview-banner" data-preview-banner-shell hidden>
           <img data-preview-banner alt="" hidden />
         </div>
-        <div class="shared-preview-topline">
-          <div class="shared-preview-avatar" data-preview-avatar>
-            <span data-preview-fallback>DNA</span>
-            <img data-preview-image alt="" hidden />
+        <header class="event-intro">
+          <p class="shared-preview-eyebrow" data-preview-eyebrow></p>
+          <h1 data-preview-title></h1>
+          <p class="shared-preview-summary" data-preview-summary hidden></p>
+          <div class="shared-preview-organizer">
+            <div class="shared-preview-avatar" data-preview-avatar>
+              <span data-preview-fallback>DNA</span>
+              <img data-preview-image alt="" hidden />
+            </div>
+            <div class="shared-preview-organizer-copy">
+              <p class="shared-preview-publisher" data-preview-publisher></p>
+              <p class="shared-preview-publisher-support" data-preview-publisher-support hidden></p>
+            </div>
           </div>
-          <div class="shared-preview-heading">
-            <p class="shared-preview-publisher" data-preview-publisher></p>
-            <h2 data-preview-title></h2>
-            <div class="shared-preview-badges" data-preview-badges></div>
+          <div class="shared-preview-badges" data-preview-badges></div>
+        </header>
+        <aside class="event-rail">
+          <section class="shared-preview-event event-details" data-preview-event hidden></section>
+          <div class="note-primary-action" data-preview-primary-action hidden>
+            <a class="shared-preview-website" data-preview-website href="#" target="_blank" rel="noopener noreferrer" hidden>
+              {initialCopy.website}
+            </a>
+            <p class="note-primary-action-support" data-preview-primary-action-support hidden></p>
           </div>
+          <figure class="event-flyer" data-preview-flyer hidden>
+            <div class="event-flyer-frame">
+              <img class="shared-preview-media" data-preview-media alt="" hidden />
+            </div>
+            <figcaption class="event-flyer-caption">
+              <span>{initialCopy.flyerCaption}</span>
+              <button class="event-flyer-expand" type="button" data-preview-media-open hidden>
+                <span>{initialCopy.flyerExpand}</span>
+                <span aria-hidden="true"></span>
+              </button>
+            </figcaption>
+          </figure>
+        </aside>
+        <div class="event-copy">
+          <h2 data-preview-body-title hidden>{initialCopy.eventAbout}</h2>
+          <p class="shared-preview-body" data-preview-body hidden></p>
+          <button class="event-flyer-link" type="button" data-preview-media-open-mobile hidden>
+            {initialCopy.flyerMobileLink}
+          </button>
         </div>
-        <p class="shared-preview-summary" data-preview-summary hidden></p>
-        <p class="shared-preview-body" data-preview-body hidden></p>
-        <img class="shared-preview-media" data-preview-media alt="" hidden />
-        <section class="shared-preview-event" data-preview-event hidden></section>
         <div class="shared-preview-sections" data-preview-sections hidden>
           <section class="shared-preview-section" data-preview-categories-section hidden>
             <h3 data-preview-categories-title></h3>
@@ -152,11 +217,26 @@ const initialCopy = isEnglishPage
           </section>
         </div>
         <div class="shared-preview-meta" data-preview-meta hidden></div>
-        <a class="shared-preview-website" data-preview-website href="#" target="_blank" rel="noopener noreferrer" hidden>
-          {initialCopy.website}
-        </a>
       </article>
-    </section>
+      <section class="app-link-promotion" data-app-promotion hidden>
+        <div>
+          <h2>{initialCopy.appPromotionTitle}</h2>
+          <p>{initialCopy.appPromotionBody}</p>
+        </div>
+        <div class="app-link-promotion-links">
+          <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">{initialCopy.compactAppStore}</a>
+          <a href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">{initialCopy.compactPlayStore}</a>
+          <a href={customSchemeBase} data-open-pocket-genes-compact>{initialCopy.compactOpenApp}</a>
+        </div>
+      </section>
+    </div>
+
+    <dialog class="shared-image-viewer" data-image-viewer>
+      <div class="shared-image-viewer__surface">
+        <button type="button" class="shared-image-viewer__close" data-image-viewer-close>{initialCopy.closeImageViewer}</button>
+        <img data-image-viewer-image alt={initialCopy.flyerCaption} />
+      </div>
+    </dialog>
   </main>
 </PocketGenesPublicLayout>
 
@@ -176,6 +256,18 @@ const initialCopy = isEnglishPage
   const playStoreLink = document.querySelector('#download-play-store');
   const storeGrid = document.querySelector('#download-store-grid');
   const preview = document.querySelector('#shared-preview');
+  const page = document.querySelector('.app-link-page');
+  const hero = document.querySelector('[data-app-link-hero]');
+  const breadcrumb = document.querySelector('[data-preview-breadcrumb]');
+  const appPromotion = document.querySelector('[data-app-promotion]');
+  const compactOpenLink = document.querySelector('[data-open-pocket-genes-compact]');
+  const imageViewer = document.querySelector('[data-image-viewer]');
+  const imageViewerImage = document.querySelector('[data-image-viewer-image]');
+  const imageViewerClose = document.querySelector('[data-image-viewer-close]');
+  const mediaOpenButtons = [
+    document.querySelector('[data-preview-media-open]'),
+    document.querySelector('[data-preview-media-open-mobile]'),
+  ].filter(Boolean);
   const isEnglish = pageLang === 'en';
 
   const copy = isEnglish
@@ -272,6 +364,16 @@ const initialCopy = isEnglishPage
           takingPart: 'Taking part',
           organizer: 'Organizer',
           eventActions: 'Event actions',
+          about: 'About the event',
+          live: 'Live',
+          timezoneSelector: 'Check the time in your region',
+          onlineEvent: 'Online event',
+          inPersonEvent: 'In-person event',
+          hybridEvent: 'Hybrid event',
+          phoneEvent: 'Phone event',
+          onDemandEvent: 'On-demand event',
+          formatTba: 'Format to be announced',
+          freeParticipation: 'Free participation',
           whoFor: "Who it’s for",
           eventLanguages: 'Event languages',
           accessibility: 'Accessibility',
@@ -285,6 +387,8 @@ const initialCopy = isEnglishPage
           costUnknown: 'Cost not specified',
           noLimit: 'No limit',
           upToPeople: (count) => `Up to ${count} people`,
+          minutes: (count) => `${count} ${count === 1 ? 'minute' : 'minutes'}`,
+          inLanguage: (label) => `In ${label}`,
           status: {
             tentative: 'Tentative',
             postponed: 'Postponed',
@@ -292,7 +396,7 @@ const initialCopy = isEnglishPage
             cancelled: 'Cancelled',
             completed: 'Completed',
             soldOut: 'Sold out',
-            available_slots: 'Registration open · spots available',
+            available_slots: 'Registration open',
           },
           kinds: {
             webinar: 'Webinar',
@@ -466,6 +570,16 @@ const initialCopy = isEnglishPage
           takingPart: 'Participación',
           organizer: 'Organizador',
           eventActions: 'Acciones del evento',
+          about: 'Sobre el encuentro',
+          live: 'En vivo',
+          timezoneSelector: 'Revisá el horario en tu región',
+          onlineEvent: 'Evento online',
+          inPersonEvent: 'Evento presencial',
+          hybridEvent: 'Evento híbrido',
+          phoneEvent: 'Evento telefónico',
+          onDemandEvent: 'Evento a demanda',
+          formatTba: 'Formato a confirmar',
+          freeParticipation: 'Participación gratuita',
           whoFor: 'Para quién es',
           eventLanguages: 'Idiomas del evento',
           accessibility: 'Accesibilidad',
@@ -479,6 +593,8 @@ const initialCopy = isEnglishPage
           costUnknown: 'Costo no especificado',
           noLimit: 'Sin límite',
           upToPeople: (count) => `Hasta ${count} personas`,
+          minutes: (count) => `${count} ${count === 1 ? 'minuto' : 'minutos'}`,
+          inLanguage: (label) => `En ${label}`,
           status: {
             tentative: 'Tentativo',
             postponed: 'Pospuesto',
@@ -486,7 +602,7 @@ const initialCopy = isEnglishPage
             cancelled: 'Cancelado',
             completed: 'Completado',
             soldOut: 'Cupos agotados',
-            available_slots: 'Inscripción abierta · cupos disponibles',
+            available_slots: 'Inscripción abierta',
           },
           kinds: {
             webinar: 'Webinar',
@@ -623,10 +739,19 @@ const initialCopy = isEnglishPage
     imageAlt: copy.googlePlayAlt,
     note: copy.playStoreNote,
   });
+  mediaOpenButtons.forEach((button) => {
+    button.addEventListener('click', openImageViewer);
+  });
+  imageViewerClose?.addEventListener('click', () => imageViewer?.close?.());
+  imageViewer?.addEventListener('click', (event) => {
+    if (event.target === imageViewer) {
+      imageViewer.close();
+    }
+  });
 
   if (!contentId) {
-    openLink.setAttribute('aria-disabled', 'true');
-    openLink.removeAttribute('href');
+    disableOpenAppLink(openLink);
+    disableOpenAppLink(compactOpenLink);
     setStatusMessage(copy.missing);
   } else {
     const query = `?id=${encodeURIComponent(contentId)}`;
@@ -636,7 +761,8 @@ const initialCopy = isEnglishPage
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const appURL = isAndroid ? androidIntent : customURL;
 
-    openLink.setAttribute('href', appURL);
+    enableOpenAppLink(openLink, appURL);
+    enableOpenAppLink(compactOpenLink, appURL);
 
     if (isMobile) {
       setStatusRetry(copy.openingPrefix, copy.retryLink, copy.openingSuffix);
@@ -679,7 +805,19 @@ const initialCopy = isEnglishPage
     }
   }
 
-  function loadSharedPreview(id) {
+  function enableOpenAppLink(link, href) {
+    if (!link) return;
+    link.setAttribute('href', href);
+    link.removeAttribute('aria-disabled');
+  }
+
+  function disableOpenAppLink(link) {
+    if (!link) return;
+    link.setAttribute('aria-disabled', 'true');
+    link.removeAttribute('href');
+  }
+
+  async function loadSharedPreview(id) {
     if (!preview || area !== 'discover' || !['feed_entries', 'organizations'].includes(resource)) {
       return;
     }
@@ -688,29 +826,54 @@ const initialCopy = isEnglishPage
     const encodedId = encodeURIComponent(id);
     const url = `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}/databases/(default)/documents/${collection}/${encodedId}?key=${FIRESTORE_API_KEY}`;
 
-    fetch(url)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Preview unavailable');
-        }
-        return response.json();
-      })
-      .then((document) => {
-        const fields = parseFirestoreFields(document.fields ?? {});
-        const previewData =
-          resource === 'organizations'
-            ? organizationPreviewData(fields)
-            : feedEntryPreviewData(fields);
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Preview unavailable');
+      }
+      const document = await response.json();
+      const fields = parseFirestoreFields(document.fields ?? {});
+      const previewData =
+        resource === 'organizations'
+          ? organizationPreviewData(fields)
+          : feedEntryPreviewData(fields);
 
-        if (!previewData) {
-          return;
-        }
+      if (!previewData) {
+        return;
+      }
 
-        renderPreview(previewData);
-      })
-      .catch(() => {
-        preview.hidden = true;
-      });
+      if (resource === 'feed_entries' && previewData.event && !previewData.imageUrl) {
+        previewData.imageUrl = await fetchPublisherImage(fields);
+      }
+
+      renderPreview(previewData);
+    } catch {
+      preview.hidden = true;
+    }
+  }
+
+  async function fetchPublisherImage(fields) {
+    const organizationId = cleanText(fields.publisherOrganizationId);
+    const individualId = cleanText(fields.publisherIndividualId);
+    const collection = organizationId ? 'feed_organizations' : individualId ? 'feed_individuals' : '';
+    const publisherId = organizationId || individualId;
+    if (!collection || !publisherId) {
+      return '';
+    }
+
+    const encodedId = encodeURIComponent(publisherId);
+    const url = `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}/databases/(default)/documents/${collection}/${encodedId}?key=${FIRESTORE_API_KEY}`;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        return '';
+      }
+      const document = await response.json();
+      const publisherFields = parseFirestoreFields(document.fields ?? {});
+      return imageSource(publisherFields.imageUrl) || imageSource(publisherFields.imageUploadDataUrl);
+    } catch {
+      return '';
+    }
   }
 
   function updateStoreCard(card, labels) {
@@ -774,6 +937,14 @@ const initialCopy = isEnglishPage
     }
     if (text.startsWith('/')) {
       return text;
+    }
+    try {
+      const url = new URL(text);
+      if (url.hostname === 'goldencrowvs.com') {
+        return `${url.pathname}${url.search}`;
+      }
+    } catch {
+      // Fall through to the general external URL sanitizer.
     }
     return externalUrl(text);
   }
@@ -889,25 +1060,27 @@ const initialCopy = isEnglishPage
       cleanText(payload.journal),
       cleanText(payload.opportunityType),
     ].filter(Boolean);
+    const publisherImage =
+      imageSource(fields.publisherSnapshot?.imageUrl) ||
+      imageSource(fields.publisherSnapshot?.imageUploadDataUrl);
+    const sourceButtonText = cleanText(fields.sourceButtonText);
 
     return {
       kind: 'feed',
       eyebrow: copy.feedPreview,
       publisher: cleanText(fields.publisherSnapshot?.name) || 'Pocket Genes',
+      publisherSupport: '',
       title,
       summary,
       body,
-      imageUrl:
-        imageSource(fields.publisherSnapshot?.imageUrl) ||
-        imageSource(fields.publisherSnapshot?.imageUploadDataUrl) ||
-        '/pocket-genes/icon_simple.png',
+      imageUrl: publisherImage || (eventPreview ? '' : '/pocket-genes/icon_simple.png'),
       bannerUrl: '',
       mediaUrl:
         imageSource(fields.imageUrl) ||
         imageSource(fields.imageUploadDataUrl) ||
         imageSource(payload.imageUrl),
       websiteUrl: externalUrl(fields.sourceUrl),
-      websiteLabel: copy.website,
+      websiteLabel: sourceButtonText || copy.website,
       badges: [typeLabel(type)],
       categories: [],
       countries: [],
@@ -924,7 +1097,8 @@ const initialCopy = isEnglishPage
       return null;
     }
 
-    const startDate = datePartsFromValue(payload.date || payload.startsAt);
+    const eventDateSource = payload.date || payload.startsAt;
+    const startDate = datePartsFromValue(eventDateSource);
     if (!startDate) {
       return null;
     }
@@ -933,24 +1107,30 @@ const initialCopy = isEnglishPage
     const endDate = addCalendarDays(startDate, duration - 1);
     const kind = enumLabel(payload.eventKind, copy.event.kinds);
     const status = eventStatusLabel(payload.eventStatus);
-    const schedule = eventScheduleData(payload, startDate, endDate, duration);
+    const schedule = eventScheduleData(payload, startDate, endDate, duration, eventDateSource);
     const facts = eventFactData(payload);
     const takingPart = eventTakingPartData(payload);
     const organizer = eventOrganizerData(payload);
     const actions = eventActionData(payload.actionButtons);
+    const minuteDuration = eventMinuteDuration(payload);
+    const admission = admissionLabel(payload);
 
     return {
       classification: kind,
+      eyebrow: eventEyebrow(kind, payload),
       duration: duration > 1 ? `${duration} ${duration === 1 ? copy.event.day : copy.event.days}` : '',
       status,
       listedSchedule: ['cancelled', 'postponed'].includes(cleanText(payload.eventStatus)),
+      dateParts: startDate,
       date: formatEventDateRange(startDate, endDate),
       year: sameDateYear(startDate, endDate) ? String(startDate.year) : '',
       schedule,
+      format: eventFormatData(payload, minuteDuration),
       facts,
       takingPart,
       organizer,
       actions,
+      actionSupport: admission === copy.event.free ? copy.event.freeParticipation : '',
     };
   }
 
@@ -988,6 +1168,41 @@ const initialCopy = isEnglishPage
     };
   }
 
+  function datePartsInTimezone(value, timezone) {
+    const text = cleanText(value);
+    const zone = cleanText(timezone);
+    if (!text || !isValidTimezone(zone)) return null;
+    const date = new Date(text);
+    if (Number.isNaN(date.getTime())) return null;
+    try {
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: zone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).formatToParts(date);
+      const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+      return {
+        year: Number(values.year),
+        month: Number(values.month),
+        day: Number(values.day),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function isValidTimezone(timezone) {
+    const zone = cleanText(timezone);
+    if (!zone) return false;
+    try {
+      new Intl.DateTimeFormat('en', { timeZone: zone }).format(new Date());
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function dateFromParts(parts) {
     return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
   }
@@ -1015,6 +1230,26 @@ const initialCopy = isEnglishPage
       month: width,
       timeZone: 'UTC',
     }).format(dateFromParts(parts));
+  }
+
+  function capitalize(value) {
+    const text = cleanText(value);
+    return text ? `${text.charAt(0).toLocaleUpperCase(isEnglish ? 'en' : 'es')}${text.slice(1)}` : '';
+  }
+
+  function weekdayName(parts) {
+    return new Intl.DateTimeFormat(isEnglish ? 'en' : 'es', {
+      weekday: 'long',
+      timeZone: 'UTC',
+    }).format(dateFromParts(parts));
+  }
+
+  function eventDateDisplay(parts) {
+    return {
+      day: String(parts.day),
+      month: capitalize(monthName(parts, 'long')),
+      meta: `${capitalize(weekdayName(parts))} · ${parts.year}`,
+    };
   }
 
   function dayMonth(parts, width = 'long') {
@@ -1048,6 +1283,48 @@ const initialCopy = isEnglishPage
     return copy.event.status[status] ?? '';
   }
 
+  function eventEyebrow(kind, payload) {
+    const parts = [kind || copy.types.upcoming_event];
+    const attendanceMode = cleanText(payload.attendanceMode);
+    const timeKind = cleanText(payload.timeKind);
+    if (attendanceMode !== 'onDemand' && !['dateOnly', 'timeTba'].includes(timeKind)) {
+      parts.push(copy.event.live);
+    }
+    return parts.join(' · ').toLocaleUpperCase(isEnglish ? 'en' : 'es');
+  }
+
+  function eventFormatData(payload, minuteDuration) {
+    const format = eventFormatLabel(payload.attendanceMode);
+    const languages = labelList(uniqueCleanArray(payload.languages), copy.event.languages);
+    const languageLabel = isEnglish ? languages.join(', ') : lowerFirst(languages.join(', '));
+    const details = [
+      languages.length ? copy.event.inLanguage(languageLabel) : '',
+      minuteDuration ? copy.event.minutes(minuteDuration) : '',
+    ].filter(Boolean);
+    return format || details.length
+      ? {
+          value: format || copy.event.formatTba,
+          detail: details.join(' · '),
+        }
+      : null;
+  }
+
+  function eventFormatLabel(value) {
+    return {
+      online: copy.event.onlineEvent,
+      inPerson: copy.event.inPersonEvent,
+      hybrid: copy.event.hybridEvent,
+      phone: copy.event.phoneEvent,
+      onDemand: copy.event.onDemandEvent,
+      toBeAnnounced: copy.event.formatTba,
+    }[cleanText(value)] ?? '';
+  }
+
+  function lowerFirst(value) {
+    const text = cleanText(value);
+    return text ? `${text.charAt(0).toLocaleLowerCase(isEnglish ? 'en' : 'es')}${text.slice(1)}` : '';
+  }
+
   function validClock(value) {
     return /^([01]\d|2[0-3]):[0-5]\d$/.test(cleanText(value));
   }
@@ -1068,14 +1345,34 @@ const initialCopy = isEnglishPage
     return value;
   }
 
+  function clockMinutes(value) {
+    const text = clockValue(value);
+    if (!text) return null;
+    const [hours, minutes] = text.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+
+  function clockDurationMinutes(startValue, endValue) {
+    const start = clockMinutes(startValue);
+    const end = clockMinutes(endValue);
+    if (start === null || end === null) return null;
+    const duration = end >= start ? end - start : end + 24 * 60 - start;
+    return duration > 0 ? duration : null;
+  }
+
+  function eventMinuteDuration(payload) {
+    const regionalStarts = eventMap(payload.regionalStartTimes);
+    const regionalEnds = eventMap(payload.regionalEndTimes);
+    const regionalCode = Object.keys(regionalStarts).find((code) => regionalEnds[code]);
+    if (regionalCode) {
+      return clockDurationMinutes(regionalStarts[regionalCode], regionalEnds[regionalCode]);
+    }
+    return clockDurationMinutes(payload.dailyStartTime, payload.dailyEndTime);
+  }
+
   function timezoneLabel(timezone, startDate, endDate) {
     const zone = cleanText(timezone);
-    if (!zone) return '';
-    try {
-      new Intl.DateTimeFormat('en', { timeZone: zone }).format(new Date());
-    } catch {
-      return '';
-    }
+    if (!isValidTimezone(zone)) return '';
 
     const city = zone.split('/').pop()?.replace(/_/g, ' ') || zone;
     const startOffset = timezoneOffsetLabel(zone, startDate);
@@ -1120,24 +1417,30 @@ const initialCopy = isEnglishPage
     return countryDisplayNames?.of(code) ?? code;
   }
 
-  function regionalTimeRows(payload, startDate, endDate, duration) {
+  function regionalTimeRows(payload, startDate, endDate, duration, dateSource) {
     const starts = eventMap(payload.regionalStartTimes);
     const ends = eventMap(payload.regionalEndTimes);
     const zones = eventMap(payload.regionalTimezones);
     const codes = [...new Set([...Object.keys(starts), ...Object.keys(ends), ...Object.keys(zones)])];
     return codes
-      .map((code) => ({
-        code,
-        country: countryName(code),
-        flag: countryFlag(code),
-        time: clockStatement(starts[code], ends[code], duration),
-        timezone: timezoneLabel(zones[code], startDate, endDate),
-      }))
+      .map((code) => {
+        const timezoneId = cleanText(zones[code]);
+        const dateParts = datePartsInTimezone(dateSource, timezoneId) || startDate;
+        return {
+          code,
+          country: countryName(code),
+          flag: countryFlag(code),
+          time: clockStatement(starts[code], ends[code], duration),
+          timezone: timezoneLabel(timezoneId, dateParts, dateParts),
+          timezoneId,
+          dateParts,
+        };
+      })
       .filter((row) => row.time || row.timezone)
       .sort((a, b) => a.country.localeCompare(b.country));
   }
 
-  function eventScheduleData(payload, startDate, endDate, duration) {
+  function eventScheduleData(payload, startDate, endDate, duration, dateSource) {
     const timeKind = cleanText(payload.timeKind);
     if (timeKind === 'dateOnly') {
       return null;
@@ -1145,7 +1448,7 @@ const initialCopy = isEnglishPage
 
     const regionalRows =
       timeKind === 'regionalTimes'
-        ? regionalTimeRows(payload, startDate, endDate, duration)
+        ? regionalTimeRows(payload, startDate, endDate, duration, dateSource)
         : [];
     let primary = '';
     if (timeKind === 'allDay') primary = copy.event.allDay;
@@ -1168,7 +1471,13 @@ const initialCopy = isEnglishPage
         : '';
 
     return {
-      time: primary ? { value: primary, detail: timezone } : null,
+      time: primary
+        ? {
+            value: primary,
+            detail: timezone,
+            dateParts: datePartsInTimezone(dateSource, payload.timezone) || startDate,
+          }
+        : null,
       location: locationPrimary ? { value: locationPrimary, detail: locationSecondary } : null,
       regionalRows,
     };
@@ -1177,15 +1486,12 @@ const initialCopy = isEnglishPage
   function eventFactData(payload) {
     const facts = [];
     const admission = admissionLabel(payload);
-    const hasCapacityField = Object.prototype.hasOwnProperty.call(payload, 'maxAttendance');
     const capacity = positiveInteger(payload.maxAttendance);
     if (admission) {
       facts.push({ label: copy.event.admission, value: admission });
     }
     if (capacity) {
       facts.push({ label: copy.event.capacity, value: copy.event.upToPeople(capacity) });
-    } else if (hasCapacityField && payload.maxAttendance === null) {
-      facts.push({ label: copy.event.capacity, value: copy.event.noLimit });
     }
     return facts;
   }
@@ -1229,14 +1535,6 @@ const initialCopy = isEnglishPage
         label: copy.event.whoFor,
         values: audience,
         preview: valuePreview(audience),
-      });
-    }
-    if (languages.length) {
-      groups.push({
-        kind: 'text',
-        label: copy.event.eventLanguages,
-        values: [languages.join(', ')],
-        preview: valuePreview(languages),
       });
     }
     if (accessibility.length) {
@@ -1411,39 +1709,61 @@ const initialCopy = isEnglishPage
     return /^#[0-9a-fA-F]{6}$/.test(color) ? color : '';
   }
 
+  function publisherInitials(value) {
+    const words = cleanText(value)
+      .split(/\s+/)
+      .filter(Boolean);
+    const initials = words.slice(0, 2).map((word) => word[0]?.toLocaleUpperCase(isEnglish ? 'en' : 'es')).join('');
+    return initials || 'PG';
+  }
+
   function renderPreview(data) {
+    const isEventPreview = Boolean(data.event);
     preview.dataset.kind = data.kind;
+    preview.classList.toggle('shared-preview--event', isEventPreview);
+    page?.classList.toggle('has-event-preview', isEventPreview);
+    if (hero) hero.hidden = isEventPreview;
+    if (breadcrumb) breadcrumb.hidden = !isEventPreview;
+    if (appPromotion) appPromotion.hidden = !isEventPreview;
+
     if (data.accent) {
       preview.style.setProperty('--shared-preview-accent', data.accent);
     } else {
       preview.style.removeProperty('--shared-preview-accent');
     }
 
-    if (data.pageTitle) {
+    if (!isEventPreview && data.pageTitle) {
       title.textContent = data.pageTitle;
     }
-    if (data.pageDescription) {
+    if (!isEventPreview && data.pageDescription) {
       description.textContent = data.pageDescription;
     }
 
+    setOptionalText('[data-preview-eyebrow]', isEventPreview ? data.event.eyebrow : data.eyebrow);
     setOptionalText('[data-preview-publisher]', data.publisher);
+    setOptionalText('[data-preview-publisher-support]', isEventPreview ? data.publisherSupport : '');
     setText('[data-preview-title]', data.title);
     setOptionalText('[data-preview-summary]', data.summary);
     setOptionalText('[data-preview-body]', data.body);
+    setOptionalText('[data-preview-body-title]', isEventPreview && data.body ? copy.event.about : '');
     renderImage('[data-preview-banner]', data.bannerUrl);
     renderBanner(data.bannerUrl);
     renderImage('[data-preview-image]', data.imageUrl);
-    renderImage('[data-preview-media]', data.mediaUrl);
-    renderBadges(data.badges);
+    renderMedia(data.mediaUrl);
+    renderBadges(isEventPreview ? [] : data.badges);
     renderPreviewSections(data);
     renderMeta(data.meta);
     renderEventPreview(data.event);
-    renderWebsite(data.websiteUrl, data.websiteLabel);
+    renderWebsite(data.websiteUrl, data.websiteLabel, data.event?.actionSupport);
 
     const fallback = preview.querySelector('[data-preview-fallback]');
     if (fallback) {
-      fallback.textContent = data.kind === 'organization' ? 'DNA' : 'PG';
+      fallback.textContent = publisherInitials(data.publisher || data.title);
       fallback.hidden = Boolean(data.imageUrl);
+    }
+
+    if (isEventPreview) {
+      document.title = `${data.title} | Pocket Genes`;
     }
 
     preview.hidden = false;
@@ -1476,6 +1796,47 @@ const initialCopy = isEnglishPage
     }
   }
 
+  function renderMedia(src) {
+    const image = preview.querySelector('[data-preview-media]');
+    const figure = preview.querySelector('[data-preview-flyer]');
+    const url = imageSource(src);
+    if (figure) {
+      figure.hidden = !url;
+    }
+    if (image) {
+      image.hidden = !url;
+      if (url) {
+        image.setAttribute('src', url);
+      } else {
+        image.removeAttribute('src');
+      }
+    }
+    if (imageViewerImage) {
+      if (url) {
+        imageViewerImage.setAttribute('src', url);
+      } else {
+        imageViewerImage.removeAttribute('src');
+      }
+    }
+    mediaOpenButtons.forEach((button) => {
+      button.hidden = !url;
+    });
+  }
+
+  function openImageViewer() {
+    const image = preview?.querySelector('[data-preview-media]');
+    const src = image?.getAttribute('src');
+    if (!src) return;
+    if (imageViewer && typeof imageViewer.showModal === 'function' && imageViewerImage) {
+      if (imageViewerImage.getAttribute('src') !== src) {
+        imageViewerImage.setAttribute('src', src);
+      }
+      imageViewer.showModal();
+      return;
+    }
+    window.open(src, '_blank', 'noopener,noreferrer');
+  }
+
   function renderBanner(src) {
     const shell = preview.querySelector('[data-preview-banner-shell]');
     if (!shell) return;
@@ -1485,6 +1846,7 @@ const initialCopy = isEnglishPage
   function renderBadges(badges) {
     const container = preview.querySelector('[data-preview-badges]');
     if (!container) return;
+    container.hidden = badges.length === 0;
     container.replaceChildren(
       ...badges.map((badge) => {
         const element = document.createElement('span');
@@ -1516,29 +1878,13 @@ const initialCopy = isEnglishPage
     if (!event) return;
 
     const nodes = [];
-    if (event.classification || event.duration) {
-      const row = document.createElement('div');
-      row.className = 'shared-event-classification';
-      if (event.classification) {
-        const kind = document.createElement('span');
-        kind.className = 'shared-event-category';
-        kind.textContent = event.classification;
-        row.append(kind);
-      }
-      if (event.duration) {
-        const duration = document.createElement('span');
-        duration.className = 'shared-event-duration';
-        duration.textContent = event.duration;
-        row.append(duration);
-      }
-      nodes.push(row);
-    }
-
     if (event.status) {
-      const status = document.createElement('p');
-      status.className = 'shared-event-status';
-      status.textContent = event.status;
-      nodes.push(status);
+      const statusRow = document.createElement('p');
+      statusRow.className = 'shared-event-status-row';
+      const dot = document.createElement('span');
+      dot.setAttribute('aria-hidden', 'true');
+      statusRow.append(dot, document.createTextNode(event.status));
+      nodes.push(statusRow);
     }
 
     if (event.listedSchedule) {
@@ -1548,22 +1894,19 @@ const initialCopy = isEnglishPage
       nodes.push(listed);
     }
 
-    const date = document.createElement('div');
-    date.className = 'shared-event-date';
-    const mainDate = document.createElement('p');
-    mainDate.className = 'shared-event-date-main';
-    mainDate.textContent = event.date;
-    date.append(mainDate);
-    if (event.year) {
-      const year = document.createElement('p');
-      year.className = 'shared-event-date-year';
-      year.textContent = event.year;
-      date.append(year);
-    }
+    const date = renderEventDate(event.dateParts);
     nodes.push(date);
 
-    const schedule = renderEventSchedule(event.schedule);
+    const divider = document.createElement('div');
+    divider.className = 'shared-event-divider';
+    nodes.push(divider);
+
+    const schedule = renderEventSchedule(event.schedule, event.dateParts, date);
     if (schedule) nodes.push(schedule);
+
+    if (event.format) {
+      nodes.push(renderEventInfoRow('format', event.format.value, event.format.detail));
+    }
 
     const facts = renderEventFacts(event.facts);
     if (facts) nodes.push(facts);
@@ -1580,65 +1923,126 @@ const initialCopy = isEnglishPage
     container.append(...nodes);
   }
 
-  function renderEventSchedule(schedule) {
+  function renderEventDate(parts) {
+    const date = document.createElement('div');
+    date.className = 'shared-event-date';
+    const day = document.createElement('p');
+    day.className = 'shared-event-date-day';
+    day.setAttribute('data-event-date-day', '');
+    const text = document.createElement('div');
+    text.className = 'shared-event-date-text';
+    const month = document.createElement('p');
+    month.className = 'shared-event-date-month';
+    month.setAttribute('data-event-date-month', '');
+    const meta = document.createElement('p');
+    meta.className = 'shared-event-date-meta';
+    meta.setAttribute('data-event-date-meta', '');
+    text.append(month, meta);
+    date.append(day, text);
+    updateEventDate(date, parts);
+    return date;
+  }
+
+  function updateEventDate(container, parts) {
+    const display = eventDateDisplay(parts);
+    const day = container.querySelector('[data-event-date-day]');
+    const month = container.querySelector('[data-event-date-month]');
+    const meta = container.querySelector('[data-event-date-meta]');
+    if (day) day.textContent = display.day;
+    if (month) month.textContent = display.month;
+    if (meta) meta.textContent = display.meta;
+  }
+
+  function renderEventSchedule(schedule, fallbackDateParts, dateContainer) {
     if (!schedule || (!schedule.time && !schedule.location && !schedule.regionalRows.length)) {
       return null;
     }
     const section = document.createElement('section');
     section.className = 'shared-event-schedule';
-    if (schedule.time) {
-      section.append(renderEventInfoRow('◷', schedule.time.value, schedule.time.detail));
-    }
-    if (schedule.regionalRows.length) {
-      const regional = document.createElement('div');
-      regional.className = 'shared-event-regional';
+    const selected = selectedScheduleOption(schedule, fallbackDateParts);
+    const timeRow = renderEventInfoRow('clock', selected.time || schedule.time?.value || copy.event.timeTba, selected.timezone || schedule.time?.detail || '');
+    timeRow.querySelector('.shared-event-info-value')?.setAttribute('data-event-selected-time', '');
+    timeRow.querySelector('.shared-event-info-detail')?.setAttribute('data-event-selected-timezone', '');
+    section.append(timeRow);
+
+    if (schedule.regionalRows.length > 1) {
+      const selectorWrap = document.createElement('div');
+      selectorWrap.className = 'shared-event-region-selector';
+
+      const label = document.createElement('label');
+      const selectorId = `event-region-${Math.random().toString(36).slice(2)}`;
+      label.setAttribute('for', selectorId);
+      label.textContent = copy.event.timezoneSelector;
+
+      const select = document.createElement('select');
+      select.id = selectorId;
       schedule.regionalRows.forEach((row) => {
-        const item = document.createElement('div');
-        item.className = 'shared-event-regional-row';
-        item.setAttribute(
-          'aria-label',
-          `${row.country}: ${[row.time, row.timezone].filter(Boolean).join(', ')}`
-        );
-        item.setAttribute('title', row.country);
-
-        const flag = document.createElement('span');
-        flag.className = 'shared-event-regional-flag';
-        flag.setAttribute('aria-hidden', 'true');
-        flag.textContent = row.flag || row.code;
-        item.append(flag);
-
-        if (row.time) {
-          const time = document.createElement('strong');
-          time.className = 'shared-event-regional-time';
-          time.textContent = row.time;
-          item.append(time);
-        }
-        if (row.timezone) {
-          const zone = document.createElement('span');
-          zone.className = 'shared-event-regional-zone';
-          if (row.time) {
-            zone.classList.add('has-leading-separator');
-          }
-          zone.textContent = row.timezone;
-          item.append(zone);
-        }
-        regional.append(item);
+        const option = document.createElement('option');
+        option.value = row.code;
+        option.textContent = `${row.flag ? `${row.flag} ` : ''}${row.country}`;
+        select.append(option);
       });
-      section.append(regional);
-    }
-    if (schedule.location) {
-      section.append(renderEventInfoRow('⌖', schedule.location.value, schedule.location.detail));
+      select.value = selected.code;
+      select.addEventListener('change', () => {
+        const next = schedule.regionalRows.find((row) => row.code === select.value) || selected;
+        updateEventDate(dateContainer, next.dateParts || fallbackDateParts);
+        updateSelectedSchedule(timeRow, next);
+      });
+
+      selectorWrap.append(label, select);
+      section.append(selectorWrap);
     }
     return section;
   }
 
+  function selectedScheduleOption(schedule, fallbackDateParts) {
+    if (schedule.regionalRows.length) {
+      const browserRegion = browserRegionCode();
+      const preferredCodes = [
+        isEnglish ? 'US' : 'AR',
+        browserRegion,
+        'AR',
+        'US',
+      ].filter(Boolean);
+      return (
+        preferredCodes
+          .map((code) => schedule.regionalRows.find((row) => row.code === code))
+          .find(Boolean) || schedule.regionalRows[0]
+      );
+    }
+    return {
+      code: '',
+      country: '',
+      flag: '',
+      time: schedule.time?.value || '',
+      timezone: schedule.time?.detail || '',
+      dateParts: schedule.time?.dateParts || fallbackDateParts,
+    };
+  }
+
+  function browserRegionCode() {
+    const locale = navigator.languages?.[0] || navigator.language || '';
+    const match = locale.match(/[-_]([A-Za-z]{2})\b/);
+    return match ? match[1].toUpperCase() : '';
+  }
+
+  function updateSelectedSchedule(row, option) {
+    const value = row.querySelector('[data-event-selected-time]');
+    const detail = row.querySelector('[data-event-selected-timezone]');
+    if (value) value.textContent = option.time || copy.event.timeTba;
+    if (detail) {
+      detail.textContent = option.timezone || '';
+      detail.hidden = !option.timezone;
+    }
+  }
+
   function renderEventInfoRow(icon, value, detail) {
     const row = document.createElement('div');
-    row.className = 'shared-event-info-row';
+    row.className = `shared-event-info-row shared-event-info-row--${icon}`;
     const symbol = document.createElement('span');
-    symbol.className = 'shared-event-info-icon';
+    symbol.className = `shared-event-info-icon shared-event-info-icon--${icon}`;
     symbol.setAttribute('aria-hidden', 'true');
-    symbol.textContent = icon;
+    symbol.textContent = icon === 'clock' ? '◷' : '◌';
     const text = document.createElement('div');
     const main = document.createElement('p');
     main.className = 'shared-event-info-value';
@@ -1866,15 +2270,23 @@ const initialCopy = isEnglishPage
     );
   }
 
-  function renderWebsite(url, label) {
+  function renderWebsite(url, label, supportText = '') {
     const link = preview.querySelector('[data-preview-website]');
+    const action = preview.querySelector('[data-preview-primary-action]');
+    const support = preview.querySelector('[data-preview-primary-action-support]');
     if (!link) return;
     link.hidden = !url;
+    if (action) action.hidden = !url;
     if (url) {
       link.setAttribute('href', url);
       link.textContent = label || copy.website;
     } else {
       link.removeAttribute('href');
+    }
+    if (support) {
+      const text = cleanText(supportText);
+      support.textContent = text;
+      support.hidden = !text;
     }
   }
 </script>
@@ -2080,7 +2492,7 @@ const initialCopy = isEnglishPage
 
   .app-link-retry {
     color: var(--pg-blue);
-    font-weight: 900;
+    font-weight: 600;
     text-decoration: underline;
     text-decoration-thickness: 2px;
     text-underline-offset: 0.18em;
@@ -2182,7 +2594,7 @@ const initialCopy = isEnglishPage
     margin: 0;
     color: var(--pg-muted);
     font-size: 0.82rem;
-    font-weight: 850;
+    font-weight: 600;
   }
 
   .shared-preview[data-kind="organization"] .shared-preview-publisher {
@@ -2235,7 +2647,7 @@ const initialCopy = isEnglishPage
 
   .shared-preview-summary {
     color: #3a3338;
-    font-weight: 800;
+    font-weight: 400;
   }
 
   .shared-preview-body {
@@ -2276,7 +2688,7 @@ const initialCopy = isEnglishPage
       background: var(--event-surface);
       padding: 24px;
       color: var(--event-primary);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: inherit;
     }
 
     .shared-preview-event[hidden] {
@@ -2673,7 +3085,7 @@ const initialCopy = isEnglishPage
     background: rgba(255, 255, 255, 0.78);
     color: var(--pg-ink);
     padding: 0.55rem 1rem;
-    font-weight: 900;
+    font-weight: 600;
     text-decoration: none;
     box-shadow: 0 10px 22px rgba(23, 32, 51, 0.08);
   }
@@ -2754,6 +3166,888 @@ const initialCopy = isEnglishPage
 
     .shared-preview[data-kind="organization"] .shared-preview-banner:not([hidden]) + .shared-preview-topline .shared-preview-avatar {
       margin-top: -2.8rem;
+    }
+  }
+
+  .event-page {
+    container-type: inline-size;
+  }
+
+  .event-page__shell {
+    width: min(100%, 560px);
+    min-width: 0;
+    margin: 0 auto;
+  }
+
+  .app-link-breadcrumb[hidden],
+  .app-link-promotion[hidden],
+  .note-primary-action[hidden],
+  .event-flyer[hidden],
+  .shared-preview-badges[hidden] {
+    display: none;
+  }
+
+  .shared-preview-eyebrow,
+  .shared-preview h1,
+  .shared-preview-summary,
+  .shared-preview-publisher,
+  .shared-preview-publisher-support,
+  .event-copy h2,
+  .shared-preview-body,
+  .note-primary-action-support {
+    margin: 0;
+    letter-spacing: 0;
+  }
+
+  .shared-preview-eyebrow {
+    margin-bottom: 0.5rem;
+    color: var(--shared-preview-accent);
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .shared-preview h1 {
+    color: #2c2530;
+    font-size: clamp(1.55rem, 4vw, 2.35rem);
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+  }
+
+  .shared-preview-organizer {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    margin-top: 1rem;
+    min-width: 0;
+  }
+
+  .shared-preview-organizer-copy {
+    min-width: 0;
+  }
+
+  .shared-preview-publisher {
+    color: var(--pg-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.45;
+  }
+
+  .shared-preview-publisher-support {
+    color: var(--pg-muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .event-rail {
+    margin-top: 1rem;
+  }
+
+  .event-flyer {
+    margin: 1rem 0 0;
+  }
+
+  .event-flyer-caption {
+    display: none;
+  }
+
+  .note-primary-action {
+    margin-top: 1rem;
+  }
+
+  .note-primary-action .shared-preview-website {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--pg-ink);
+    padding: 0.55rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.35;
+    text-decoration: none;
+    box-shadow: 0 10px 22px rgba(23, 32, 51, 0.08);
+  }
+
+  .app-link-page.has-event-preview {
+    display: block;
+    min-height: 100vh;
+    min-height: 100svh;
+    padding: 82px 0 0;
+    background: #ffffff;
+    color: #292333;
+    font-family: inherit;
+  }
+
+  .app-link-page.has-event-preview .event-page__shell {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 1184px;
+    margin-inline: auto;
+    padding: 30px 44px 32px;
+  }
+
+  .app-link-page.has-event-preview .app-link-content {
+    display: none;
+  }
+
+  .app-link-page.has-event-preview .app-link-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 30px;
+    color: #706b79;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .app-link-page.has-event-preview .app-link-breadcrumb a {
+    color: #6b40b4;
+    text-decoration: none;
+  }
+
+  .app-link-page.has-event-preview .app-link-breadcrumb a:hover,
+  .app-link-page.has-event-preview .app-link-breadcrumb a:focus-visible {
+    color: #c52f6d;
+  }
+
+  .app-link-page.has-event-preview .app-link-breadcrumb span[aria-hidden="true"] {
+    width: 7px;
+    height: 7px;
+    border-top: 1.5px solid currentColor;
+    border-right: 1.5px solid currentColor;
+    transform: rotate(45deg);
+  }
+
+  .app-link-page.has-event-preview .shared-preview--event {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 286px;
+    grid-template-rows: max-content 1fr;
+    column-gap: 42px;
+    row-gap: 0;
+    align-items: start;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #292333;
+    text-align: left;
+  }
+
+  .shared-preview--event .shared-preview-banner,
+  .shared-preview--event .shared-preview-badges,
+  .shared-preview--event .shared-preview-meta,
+  .shared-preview--event .shared-preview-sections {
+    display: none;
+  }
+
+  .shared-preview--event > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .shared-preview--event .event-intro {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .shared-preview--event .event-rail {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-width: 0;
+    margin: 0;
+    padding-top: 3px;
+  }
+
+  .shared-preview--event .event-copy {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    padding-top: 30px;
+  }
+
+  .shared-preview--event .event-copy::before {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 1px;
+    margin-bottom: 27px;
+    background: #e9e5ed;
+  }
+
+  .shared-preview--event .shared-preview-eyebrow {
+    margin: 0 0 15px;
+    color: #c52f6d;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.6;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  .shared-preview--event h1 {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    color: #292333;
+    font-size: clamp(30px, 3.7cqw, 43px);
+    font-weight: 600;
+    line-height: 1.16;
+    letter-spacing: 0;
+    white-space: normal;
+  }
+
+  .shared-preview--event .shared-preview-summary {
+    display: block;
+    max-width: none;
+    margin: 20px 0 0;
+    color: #706b79;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.7;
+  }
+
+  .shared-preview--event .shared-preview-organizer {
+    margin-top: 24px;
+    gap: 11px;
+  }
+
+  .shared-preview--event .shared-preview-avatar {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 10px;
+    background: #f8f6fa;
+    color: #6b40b4;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    box-shadow: none;
+  }
+
+  .shared-preview--event .shared-preview-avatar img {
+    width: 100%;
+    height: 100%;
+    background: #ffffff;
+    object-fit: contain;
+    padding: 4px;
+  }
+
+  .shared-preview--event .shared-preview-publisher {
+    color: #292333;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+  }
+
+  .shared-preview--event .shared-preview-publisher-support {
+    margin-top: 1px;
+    color: #706b79;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .shared-preview--event .shared-preview-event {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+    padding: 23px;
+    border: 1px solid #e9e5ed;
+    border-radius: 15px;
+    background: #f8f6fa;
+    color: #292333;
+    font-family: inherit;
+    box-shadow: none;
+  }
+
+  .shared-preview--event .shared-preview-event[hidden] {
+    display: none;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-status-row) {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0;
+    color: #292333;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.6;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-status-row span) {
+    width: 6px;
+    height: 6px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: #c52f6d;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-listed-schedule) {
+    margin: 12px 0 0;
+    color: #706b79;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-date) {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    margin-top: 23px;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-date-day) {
+    margin: 0;
+    color: #292333;
+    font-size: 45px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-date-month) {
+    margin: 0;
+    color: #292333;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-date-meta) {
+    margin: 0;
+    color: #706b79;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-divider) {
+    height: 1px;
+    margin: 23px 0 20px;
+    background: #e9e5ed;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-schedule) {
+    display: grid;
+    gap: 0;
+    margin: 0;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-info-row) {
+    display: grid;
+    grid-template-columns: 17px minmax(0, 1fr);
+    gap: 11px;
+    align-items: start;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-info-icon) {
+    width: 17px;
+    color: #6b40b4;
+    padding-top: 5px;
+    font-size: 17px;
+    line-height: 1;
+    text-align: center;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-info-value),
+  .shared-preview--event .shared-preview-event :global(.shared-event-fact-value),
+  .shared-preview--event .shared-preview-event :global(.shared-event-detail-value) {
+    margin: 0;
+    color: #292333;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-info-row--clock .shared-event-info-value) {
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-info-detail) {
+    margin: 4px 0 0;
+    color: #706b79;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-info-row--format) {
+    margin-top: 20px;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-info-row--format .shared-event-info-detail) {
+    margin-top: 2px;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-region-selector) {
+    display: grid;
+    margin-left: 28px;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-region-selector label) {
+    margin: 16px 0 7px;
+    color: #706b79;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-region-selector select) {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid #e9e5ed;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #292333;
+    padding: 8px 7px;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-facts),
+  .shared-preview--event .shared-preview-event :global(.shared-event-disclosure),
+  .shared-preview--event .shared-preview-event :global(.shared-event-actions) {
+    margin-top: 20px;
+    border-top: 1px solid #e9e5ed;
+    padding-top: 16px;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-facts) {
+    display: grid;
+    gap: 12px;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-field-label) {
+    margin: 0 0 5px;
+    color: #706b79;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-disclosure-content) {
+    display: grid;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-tag-list) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-tag) {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #e9e5ed;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #6b40b4;
+    padding: 6px 9px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-check-list) {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-check-list li) {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    color: #292333;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-check-list span) {
+    color: #c52f6d;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-actions) {
+    display: grid;
+    gap: 8px;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-action-row) {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    min-height: 40px;
+    border-radius: 7px;
+    color: #6b40b4;
+    padding: 6px 0;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-decoration: none;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-action-row:hover),
+  .shared-preview--event .shared-preview-event :global(.shared-event-action-row:focus-visible) {
+    color: #c52f6d;
+    outline: none;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-action-icon),
+  .shared-preview--event .shared-preview-event :global(.shared-event-action-external) {
+    color: #c52f6d;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .shared-preview--event .note-primary-action {
+    width: 100%;
+    margin-top: 14px;
+  }
+
+  .shared-preview--event .note-primary-action .shared-preview-website {
+    width: 100%;
+    min-height: 48px;
+    border: 0;
+    border-radius: 9px;
+    background: #bb2965;
+    color: #ffffff;
+    padding: 13px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.6;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: none;
+  }
+
+  .shared-preview--event .note-primary-action .shared-preview-website:hover,
+  .shared-preview--event .note-primary-action .shared-preview-website:focus-visible {
+    background: #a92559;
+  }
+
+  .shared-preview--event .note-primary-action-support {
+    margin-top: 9px;
+    color: #706b79;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .shared-preview--event .event-flyer {
+    margin: 28px 0 0;
+  }
+
+  .shared-preview--event .event-flyer-frame {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 9px;
+    background: #f8f6fa;
+  }
+
+  .shared-preview--event .event-flyer .shared-preview-media {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    margin: 0;
+    border-radius: 0;
+    object-fit: cover;
+    object-position: center top;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .shared-preview--event .event-flyer-caption {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 9px;
+    color: #706b79;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .shared-preview--event .event-flyer-expand,
+  .shared-preview--event .event-flyer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 0;
+    background: transparent;
+    color: #c52f6d;
+    padding: 0;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .shared-preview--event .event-flyer-expand span[aria-hidden="true"] {
+    width: 8px;
+    height: 8px;
+    border-top: 1.5px solid currentColor;
+    border-right: 1.5px solid currentColor;
+    transform: translateY(1px) rotate(45deg);
+  }
+
+  .shared-preview--event .event-copy h2 {
+    color: #292333;
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0;
+  }
+
+  .shared-preview--event .shared-preview-body {
+    display: block;
+    max-height: none;
+    margin-top: 12px;
+    overflow: visible;
+    color: #292333;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.75;
+    white-space: pre-line;
+    -webkit-box-orient: unset;
+    -webkit-line-clamp: unset;
+  }
+
+  .shared-preview--event .event-flyer-link {
+    display: none;
+    margin-top: 24px;
+    font-size: 12px;
+  }
+
+  .app-link-page.has-event-preview .app-link-promotion {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-top: 40px;
+    border-top: 1px solid #e9e5ed;
+    padding-top: 23px;
+    text-align: left;
+  }
+
+  .app-link-page.has-event-preview .app-link-promotion h2 {
+    margin: 0;
+    color: #292333;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0;
+  }
+
+  .app-link-page.has-event-preview .app-link-promotion p {
+    margin: 3px 0 0;
+    color: #706b79;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .app-link-promotion-links {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .app-link-promotion-links a {
+    color: #c52f6d;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.6;
+    text-decoration: none;
+  }
+
+  .app-link-promotion-links a:hover,
+  .app-link-promotion-links a:focus-visible {
+    color: #6b40b4;
+  }
+
+  .shared-image-viewer {
+    width: min(94vw, 980px);
+    max-width: 980px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    padding: 0;
+  }
+
+  .shared-image-viewer::backdrop {
+    background: rgba(18, 14, 25, 0.72);
+  }
+
+  .shared-image-viewer__surface {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+  }
+
+  .shared-image-viewer__close {
+    justify-self: end;
+  }
+
+  .shared-image-viewer__surface img {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: 86vh;
+    border-radius: 10px;
+    object-fit: contain;
+    background: #ffffff;
+  }
+
+  .shared-image-viewer__close {
+    min-height: 36px;
+    border: 1px solid #e9e5ed;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #292333;
+    padding: 7px 12px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  @container (max-width: 760px) {
+    .app-link-page.has-event-preview .event-page__shell {
+      padding: 26px 28px;
+    }
+
+    .app-link-page.has-event-preview .shared-preview--event {
+      grid-template-columns: minmax(0, 1fr) 254px;
+      column-gap: 26px;
+    }
+
+    .shared-preview--event h1 {
+      font-size: 31px;
+      line-height: 1.16;
+    }
+
+    .shared-preview--event .shared-preview-summary {
+      font-size: 16px;
+    }
+
+    .shared-preview--event .shared-preview-event {
+      padding: 19px;
+    }
+  }
+
+  @container (max-width: 620px) {
+    .app-link-page.has-event-preview {
+      padding-top: 82px;
+    }
+
+    .app-link-page.has-event-preview .event-page__shell {
+      padding: 23px 22px 27px;
+    }
+
+    .app-link-page.has-event-preview .app-link-breadcrumb {
+      margin-bottom: 25px;
+    }
+
+    .app-link-page.has-event-preview .shared-preview--event {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .shared-preview--event .event-intro,
+    .shared-preview--event .event-rail,
+    .shared-preview--event .event-copy {
+      width: 100%;
+    }
+
+    .shared-preview--event .event-rail {
+      margin-top: 27px;
+      padding-top: 0;
+    }
+
+    .shared-preview--event .event-copy {
+      padding-top: 29px;
+    }
+
+    .shared-preview--event h1 {
+      font-size: 32px;
+      line-height: 1.18;
+    }
+
+    .shared-preview--event .shared-preview-summary {
+      margin-top: 18px;
+      font-size: 15px;
+    }
+
+    .shared-preview--event .shared-preview-event {
+      padding: 21px;
+    }
+
+    .shared-preview--event .shared-preview-event :global(.shared-event-date) {
+      margin-top: 18px;
+    }
+
+    .shared-preview--event .shared-preview-event :global(.shared-event-region-selector select) {
+      min-height: 44px;
+      font-size: 16px;
+    }
+
+    .shared-preview--event .event-flyer {
+      display: none;
+    }
+
+    .shared-preview--event .event-flyer-link:not([hidden]) {
+      display: inline-flex;
+    }
+
+    .app-link-page.has-event-preview .app-link-promotion {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 13px;
+      margin-top: 30px;
+    }
+
+    .app-link-promotion-links {
+      justify-content: flex-start;
     }
   }
 </style>
